@@ -66,11 +66,13 @@
                   SelectionMode="Single"
                   IsReadOnly="False"
                   RowHeight="30"
+                  RowHeaderWidth="0"
                   GridLinesVisibility="Horizontal"
                   HeadersVisibility="Column"
                   BorderThickness="1"
                   BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                  Background="{DynamicResource ControlFillColorDefaultBrush}">
+                  Background="{DynamicResource ControlFillColorDefaultBrush}"
+                  FrozenColumnCount="1">
 
             <DataGrid.ContextMenu>
                 <ContextMenu>
