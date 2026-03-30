@@ -1,0 +1,265 @@
+<Page
+    x:Class="ApplicationPackagerUI.Views.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers">
+
+    <Page.Resources>
+        <helpers:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="SectionDivider" TargetType="Border">
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="Margin" Value="0,20,0,20" />
+        </Style>
+        <Style x:Key="SubHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </Page.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32,24,32,32" MaxWidth="760" HorizontalAlignment="Left">
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Title row: Settings + Save button -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <DockPanel Margin="0,0,0,16">
+                <ui:Button DockPanel.Dock="Right" Content="Save Settings"
+                           Appearance="Primary"
+                           Icon="{ui:SymbolIcon Save24}"
+                           Command="{Binding SaveSettingsCommand}"
+                           VerticalAlignment="Center" />
+                <TextBlock Text="Settings" FontSize="28" FontWeight="Bold"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           VerticalAlignment="Center" />
+            </DockPanel>
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Appearance (directly below title) -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <RadioButton Content="Dark" Margin="0,0,16,0"
+                             IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Dark}"
+                             Command="{Binding ChangeThemeCommand}" CommandParameter="Dark" />
+                <RadioButton Content="Light"
+                             IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Light}"
+                             Command="{Binding ChangeThemeCommand}" CommandParameter="Light" />
+            </StackPanel>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Organization -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Organization" Style="{StaticResource SectionHeader}" />
+
+            <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding CompanyName, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="Contoso, Ltd." Margin="0,0,0,8" />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- MECM Site Settings -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="MECM Site Settings" Style="{StaticResource SectionHeader}" />
+
+            <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="MCM" MaxLength="5" Width="120" HorizontalAlignment="Left"
+                        Margin="0,0,0,12" />
+
+            <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />
+
+            <TextBlock Text="Download Root (local staging)" Style="{StaticResource FieldLabel}" />
+            <DockPanel Margin="0,0,0,12">
+                <ui:Button DockPanel.Dock="Right" Content="Browse"
+                           Command="{Binding BrowseDownloadRootCommand}" Margin="8,0,0,0" />
+                <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="C:\temp\ap" />
+            </DockPanel>
+
+            <TextBlock Text="Packagers Folder (leave empty for auto-detect)" Style="{StaticResource FieldLabel}" />
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Browse"
+                           Command="{Binding BrowsePackagersRootCommand}" Margin="8,0,0,0" />
+                <ui:TextBox Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="Auto-detect" />
+            </DockPanel>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Application Deployment Type Variables -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Deployment Type Defaults" Style="{StaticResource SectionHeader}" />
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Estimated Runtime (mins)" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding EstimatedRuntimeMins, UpdateSourceTrigger=PropertyChanged}"
+                                Width="100" HorizontalAlignment="Left" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Maximum Runtime (mins)" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding MaximumRuntimeMins, UpdateSourceTrigger=PropertyChanged}"
+                                Width="100" HorizontalAlignment="Left" />
+                </StackPanel>
+            </Grid>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Application Selector (placeholder for Phase 3) -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Application Selector" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Manage which packagers appear in the Packages grid. Grouped by vendor with collapsible sections."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
+            <TextBlock Text="(Available after packager discovery is implemented)"
+                       FontStyle="Italic"
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,0,0,8" />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- M365 Channel Selector -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="M365 Apps — Channel" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Update channel for M365 Apps, Project, and Visio packagers."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
+
+            <ComboBox SelectedValue="{Binding M365Channel}"
+                      SelectedValuePath="Tag"
+                      Width="320" HorizontalAlignment="Left" Margin="0,0,0,8">
+                <ComboBoxItem Content="Monthly Enterprise Channel" Tag="MonthlyEnterprise" />
+                <ComboBoxItem Content="Current Channel" Tag="Current" />
+                <ComboBoxItem Content="Semi-Annual Enterprise Channel (kiosk)" Tag="SemiAnnual" />
+            </ComboBox>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Citrix Workspace App Install Params -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Citrix Workspace App — Install Parameters" Style="{StaticResource SectionHeader}" />
+
+            <TextBlock Text="Store" Style="{StaticResource SubHeader}" />
+
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Store Name" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding CwaStoreName, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="MyStore" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Store URL" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding CwaStoreUrl, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="https://storefront.contoso.com" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Install Options + Plugins side by side -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Install Options column -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Install Options" Style="{StaticResource SubHeader}" />
+                    <CheckBox Content="Clean Install" IsChecked="{Binding CwaClean}" Margin="0,0,0,4" />
+                    <CheckBox Content="Single Sign-On" IsChecked="{Binding CwaSingleSignOn}" Margin="0,0,0,4" />
+                    <CheckBox Content="App Protection" IsChecked="{Binding CwaAppProtection}" Margin="0,0,0,4" />
+                    <CheckBox Content="Pre-Launch" IsChecked="{Binding CwaPreLaunch}" Margin="0,0,0,4" />
+                    <CheckBox Content="Self-Service" IsChecked="{Binding CwaSelfService}" Margin="0,0,0,4" />
+                </StackPanel>
+
+                <!-- Plugins column -->
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Plugins" Style="{StaticResource SubHeader}" />
+                    <CheckBox Content="Teams" IsChecked="{Binding CwaPluginTeams}" Margin="0,0,0,4" />
+                    <CheckBox Content="Zoom" IsChecked="{Binding CwaPluginZoom}" Margin="0,0,0,4" />
+                    <CheckBox Content="WebEx" IsChecked="{Binding CwaPluginWebEx}" Margin="0,0,0,4" />
+                    <CheckBox Content="Uber" IsChecked="{Binding CwaPluginUber}" Margin="0,0,0,4" />
+                    <CheckBox Content="  Skip Uber Agent" IsChecked="{Binding CwaPluginUberSkip}" Margin="16,0,0,4" />
+                    <CheckBox Content="EPA" IsChecked="{Binding CwaPluginEpa}" Margin="0,0,0,4" />
+                    <CheckBox Content="Storage Resync" IsChecked="{Binding CwaPluginStorageResync}" Margin="0,0,0,4" />
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="Policies" Style="{StaticResource SubHeader}" />
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Auto Update" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaAutoUpdate}"
+                              SelectedValuePath="Content"
+                              HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="Auto" />
+                        <ComboBoxItem Content="Manual" />
+                        <ComboBoxItem Content="Disabled" />
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Add Store Policy" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaAddStorePolicy}"
+                              SelectedValuePath="Content"
+                              HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="None" />
+                        <ComboBoxItem Content="Admin" />
+                        <ComboBoxItem Content="User" />
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Save Password" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaSavePassword}"
+                              SelectedValuePath="Content"
+                              HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="None" />
+                        <ComboBoxItem Content="On" />
+                        <ComboBoxItem Content="Off" />
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+
+            <!-- Bottom spacer -->
+            <Border Height="32" />
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
