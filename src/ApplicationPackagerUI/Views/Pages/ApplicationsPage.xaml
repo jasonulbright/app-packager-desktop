@@ -1,0 +1,19 @@
+<Page
+    x:Class="ApplicationPackagerUI.Views.Pages.ApplicationsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <Grid Margin="24">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+            <ui:SymbolIcon Symbol="Apps24" FontSize="48"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="Applications" FontSize="24" Margin="0,16,0,8"
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock Text="Manage which packagers are visible in the Packages grid."
+                       HorizontalAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+    </Grid>
+</Page>
