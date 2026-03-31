@@ -48,10 +48,11 @@ public partial class ApplicationsViewModel : ObservableObject
                          {
                              var item = new AppVisibilityItem
                              {
+                                 Uid = a.Uid,
                                  Application = a.Application,
                                  Script = a.Script,
                                  IsJsonDefined = a.IsJsonDefined,
-                                 IsVisible = !hidden.Contains(a.Application)
+                                 IsVisible = !hidden.Contains(a.Uid)
                              };
                              item.PropertyChanged += OnAppVisibilityChanged;
                              return item;
@@ -135,7 +136,7 @@ public partial class ApplicationsViewModel : ObservableObject
         s.HiddenApplications = VendorGroups
             .SelectMany(g => g.Apps)
             .Where(a => !a.IsVisible)
-            .Select(a => a.Application)
+            .Select(a => a.Uid)
             .ToArray();
         _settingsService.Save(s);
 

@@ -2,6 +2,7 @@ namespace ApplicationPackagerUI.Models;
 
 public partial class AppVisibilityItem : ObservableObject
 {
+    public string Uid { get; init; } = "";
     public string Application { get; init; } = "";
     public string Script { get; init; } = "";
     public bool IsJsonDefined { get; init; }
