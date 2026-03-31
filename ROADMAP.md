@@ -55,13 +55,143 @@ One file per app. Community-contributable.
 Separate CM Application (not second DT) to preserve TS compatibility.
 
 ### Remaining
-- Convert remaining apps to JSON definitions
-- Remaining scraper types (CdnCab, GitHubApi, VendorApi, Winget)
+- Implement remaining scraper types, then convert apps by category
 - BareStaging, PsadtWrapper
 - "Add New App" wizard
 - Per-app settings auto-generation from JSON schema
 - App icons (base64 in JSON)
 - Migration tooling (PS1 → JSON converter)
+
+### App Conversions by Scraper Type (116 remaining)
+
+**HttpRegex (63 apps)** — scraper done, convert to JSON definitions:
+- [ ] 7-Zip
+- [ ] Adobe Acrobat Reader DC
+- [ ] Anaconda Distribution
+- [ ] AnyDesk
+- [ ] ASP.NET 8 Server Hosting Bundle
+- [ ] CCleaner
+- [ ] Citrix Workspace CR
+- [ ] Citrix Workspace LTSR
+- [ ] CPU-Z
+- [ ] CutePDF Writer
+- [ ] .NET 8 Desktop Runtime
+- [ ] .NET 9 Desktop Runtime
+- [ ] .NET 10 Desktop Runtime
+- [ ] Microsoft Edge
+- [ ] Everything
+- [ ] FileZilla Client
+- [ ] Mozilla Firefox
+- [ ] Foxit PDF Reader
+- [ ] GIMP
+- [ ] Inkscape
+- [ ] KeePass
+- [ ] LibreOffice
+- [ ] Malwarebytes
+- [ ] MSODBCSQL18
+- [ ] MSOLEDB
+- [ ] MSVC Runtimes
+- [ ] Node.js
+- [ ] Opera
+- [ ] pgAdmin 4
+- [ ] PostgreSQL 13
+- [ ] PostgreSQL 14
+- [ ] PostgreSQL 15
+- [ ] PostgreSQL 16
+- [ ] PostgreSQL 17
+- [ ] Postman
+- [ ] Power BI Desktop
+- [ ] PuTTY
+- [ ] PyCharm Community
+- [ ] Python
+- [ ] R
+- [ ] Slack
+- [ ] SoapUI
+- [ ] SSMS
+- [ ] Sysinternals
+- [ ] Tableau Desktop
+- [ ] Tableau Prep
+- [ ] Tableau Reader
+- [ ] Microsoft Teams
+- [ ] TeamViewer
+- [ ] TeamViewer Host
+- [ ] Thunderbird
+- [ ] TortoiseGit
+- [ ] TortoiseSVN
+- [ ] TreeSize Free
+- [ ] VLC
+- [ ] VMware Workstation
+- [ ] Visual Studio 2026
+- [ ] Visual Studio 2026 Community
+- [ ] VS Code
+- [ ] Webex
+- [ ] WebView2
+- [ ] WinRAR
+- [ ] WinSCP
+- [ ] Wireshark
+- [ ] WizTree
+- [ ] XenCenter
+- [ ] XenServer VM Tools
+- [ ] Zoom
+
+**GitHubApi (20 apps)** — implement `GitHubApiScraper`, then convert:
+- [ ] Audacity
+- [ ] Bitwarden Desktop
+- [ ] Brave Browser
+- [ ] DBeaver Community
+- [ ] draw.io
+- [ ] Git for Windows
+- [ ] Greenshot
+- [ ] mRemoteNG
+- [ ] Notepad++
+- [ ] Obsidian
+- [ ] paint.net
+- [ ] Positron
+- [ ] PowerShell 7
+- [ ] PowerShell 7 LTS
+- [ ] PowerToys
+- [ ] RStudio Desktop
+- [ ] ShareX
+- [ ] Vim
+- [ ] VMware Tools
+- [ ] WinDirStat
+- [ ] WinMerge
+
+**AdoptiumApi (14 apps)** — implement `AdoptiumApiScraper`, then convert:
+- [ ] Eclipse Temurin JDK 8 (x64)
+- [ ] Eclipse Temurin JDK 8 (x86)
+- [ ] Eclipse Temurin JDK 11 (x64)
+- [ ] Eclipse Temurin JDK 11 (x86)
+- [ ] Eclipse Temurin JDK 17
+- [ ] Eclipse Temurin JDK 21
+- [ ] Eclipse Temurin JDK 25
+- [ ] Eclipse Temurin JRE 8 (x64)
+- [ ] Eclipse Temurin JRE 8 (x86)
+- [ ] Eclipse Temurin JRE 11 (x64)
+- [ ] Eclipse Temurin JRE 11 (x86)
+- [ ] Eclipse Temurin JRE 17
+- [ ] Eclipse Temurin JRE 21
+- [ ] Eclipse Temurin JRE 25
+
+**GitHubApi — Amazon Corretto (10 apps)** — same scraper as GitHub, different API pattern:
+- [ ] Amazon Corretto JDK 8 (x64)
+- [ ] Amazon Corretto JDK 8 (x86)
+- [ ] Amazon Corretto JDK 11 (x64)
+- [ ] Amazon Corretto JDK 11 (x86)
+- [ ] Amazon Corretto JDK 17
+- [ ] Amazon Corretto JDK 21
+- [ ] Amazon Corretto JDK 25
+
+**CdnCab (6 apps)** — implement `CdnCabScraper` (Office CDN + ODT), then convert:
+- [ ] M365 Apps for Enterprise (x64)
+- [ ] M365 Apps for Enterprise (x86)
+- [ ] M365 Project (x64)
+- [ ] M365 Project (x86)
+- [ ] M365 Visio (x64)
+- [ ] M365 Visio (x86)
+
+**Done (1 app)**:
+- [x] Google Chrome (HttpRegex, validated end-to-end on CM01)
 
 ---
 
