@@ -133,7 +133,10 @@
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
                                       IsEnabled="{Binding IsRunnable}"
-                                      HorizontalAlignment="Center" />
+                                      HorizontalAlignment="Center"
+                                      Foreground="{DynamicResource CheckBoxForeground}"
+                                      Background="{DynamicResource CheckBoxBackground}"
+                                      BorderBrush="{DynamicResource CheckBoxBorderBrush}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
