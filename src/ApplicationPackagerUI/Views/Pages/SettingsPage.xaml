@@ -130,16 +130,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Application Selector (placeholder for Phase 3) -->
-            <!-- ═══════════════════════════════════════════════════ -->
-            <TextBlock Text="Application Selector" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="Manage which packagers appear in the Packages grid. Grouped by vendor with collapsible sections."
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
-            <TextBlock Text="(Available after packager discovery is implemented)"
-                       FontStyle="Italic"
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,0,0,8" />
-
             <Border Style="{StaticResource SectionDivider}" />
 
             <!-- ═══════════════════════════════════════════════════ -->

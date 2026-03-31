@@ -54,6 +54,8 @@ public partial class App : Application
                 // Pages
                 services.AddSingleton<PackagesPage>();
                 services.AddSingleton<PackagesViewModel>();
+                services.AddSingleton<ApplicationsPage>();
+                services.AddSingleton<ApplicationsViewModel>();
                 services.AddSingleton<SettingsPage>();
                 services.AddSingleton<SettingsViewModel>();
 

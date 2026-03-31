@@ -38,6 +38,10 @@
                     Content="Packages"
                     Icon="{ui:SymbolIcon Box24}"
                     TargetPageType="{x:Type pages:PackagesPage}" />
+                <ui:NavigationViewItem
+                    Content="Applications"
+                    Icon="{ui:SymbolIcon Apps24}"
+                    TargetPageType="{x:Type pages:ApplicationsPage}" />
             </ui:NavigationView.MenuItems>
 
             <ui:NavigationView.FooterMenuItems>

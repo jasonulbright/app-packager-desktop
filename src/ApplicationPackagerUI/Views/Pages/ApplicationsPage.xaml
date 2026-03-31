@@ -4,16 +4,67 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
-    <Grid Margin="24">
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-            <ui:SymbolIcon Symbol="Apps24" FontSize="48"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            <TextBlock Text="Applications" FontSize="24" Margin="0,16,0,8"
-                       HorizontalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-            <TextBlock Text="Manage which packagers are visible in the Packages grid."
-                       HorizontalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-        </StackPanel>
+    <Grid Margin="24,16,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header row -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <ui:Button Content="Show All" Command="{Binding ShowAllCommand}"
+                           Appearance="Transparent" Margin="0,0,4,0" />
+                <ui:Button Content="Hide All" Command="{Binding HideAllCommand}"
+                           Appearance="Transparent" Margin="0,0,12,0" />
+                <ui:Button Content="Save" Appearance="Primary"
+                           Icon="{ui:SymbolIcon Save24}"
+                           Command="{Binding SaveCommand}" />
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="Applications" FontSize="28" FontWeight="Bold"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <TextBlock FontSize="12" Margin="0,4,0,0"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                    <Run Text="{Binding VisibleCount, Mode=OneWay}" />
+                    <Run Text="of" />
+                    <Run Text="{Binding TotalCount, Mode=OneWay}" />
+                    <Run Text="packagers visible in the Packages grid." />
+                </TextBlock>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Vendor groups -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding VendorGroups}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Expander IsExpanded="{Binding IsExpanded}" Margin="0,0,0,2">
+                            <Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <CheckBox IsThreeState="True"
+                                              IsChecked="{Binding IsAllVisible}"
+                                              Command="{Binding DataContext.ToggleVendorGroupCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                              CommandParameter="{Binding}"
+                                              VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="{Binding Vendor}" FontWeight="SemiBold" FontSize="13"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </StackPanel>
+                            </Expander.Header>
+                            <ItemsControl ItemsSource="{Binding Apps}" Margin="28,4,0,4">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <CheckBox Content="{Binding Application}"
+                                                  IsChecked="{Binding IsVisible}"
+                                                  Margin="0,2,0,2" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Expander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
     </Grid>
 </Page>
