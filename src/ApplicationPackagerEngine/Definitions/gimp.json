@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "74522606c2454fb7",
+    "Vendor":  "The GIMP Team",
+    "Application":  "GIMP (x64)",
+    "CMName":  "GIMP",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.gimp.org/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://download.gimp.org/gimp/v3.0/windows/",
+                           "Pattern":  "0\\.0_LATEST-IS-(\\d+\\.\\d+\\.\\d+)"
+                       },
+    "DownloadUrl":  "https://download.gimp.org/gimp/v3.0/windows/gimp-{version}-setup.exe",
+    "InstallArgs":  "/VERYSILENT /NORESTART /ALLUSERS /SP-",
+    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GIMP-3.0_is1",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "gimp"
+                       ]
+}

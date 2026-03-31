@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "cf9e35cc10444620",
+    "Vendor":  "TortoiseSVN",
+    "Application":  "TortoiseSVN (x64)",
+    "CMName":  "TortoiseSVN",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://tortoisesvn.net/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://tortoisesvn.net/downloads.html",
+                           "Pattern":  "TortoiseSVN-([\\d.]+)-x64-svn-[\\d.]+\\.msi"
+                       },
+    "DownloadUrl":  "# DYNAMIC - SourceForge with SVN version in filename",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "TortoiseProc"
+                       ]
+}

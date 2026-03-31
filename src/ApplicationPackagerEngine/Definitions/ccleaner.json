@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "0da14e79601b4c1f",
+    "Vendor":  "Piriform Software Ltd.",
+    "Application":  "CCleaner",
+    "CMName":  "CCleaner",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.ccleaner.com/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.ccleaner.com/ccleaner/version-history",
+                           "Pattern":  "v(\\d+\\.\\d+\\.\\d+)"
+                       },
+    "DownloadUrl":  "https://bits.avcdn.net/productfamily_CCLEANER7/insttype_FREE/platform_WIN/installertype_FULL/build_RELEASE",
+    "InstallArgs":  "/S",
+    "UninstallArgs":  "/S",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CCleaner",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "CCleaner",
+                           "CCleaner64"
+                       ]
+}

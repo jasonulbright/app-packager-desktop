@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "b0b77b3f76774671",
+    "Vendor":  "pgAdmin Development Team",
+    "Application":  "pgAdmin 4",
+    "CMName":  "pgAdmin 4",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.pgadmin.org/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.pgadmin.org/download/pgadmin-4-windows/",
+                           "Pattern":  "pgadmin4/v(\\d+\\.\\d+)/windows/"
+                       },
+    "DownloadUrl":  "https://ftp.postgresql.org/pub/pgadmin/pgadmin4/v{version}/windows/pgadmin4-{version}-x64.exe",
+    "InstallArgs":  "/VERYSILENT /NORESTART",
+    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "# DYNAMIC - pgAdmin 4v{MAJOR}_is1",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "pgAdmin4"
+                       ]
+}

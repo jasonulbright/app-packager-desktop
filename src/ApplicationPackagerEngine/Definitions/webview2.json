@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "993a7f81913c480f",
+    "Vendor":  "Microsoft",
+    "Application":  "Microsoft Edge WebView2 Runtime (x64)",
+    "CMName":  "Microsoft Edge WebView2 Runtime",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://developer.microsoft.com/microsoft-edge/webview2/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://edgeupdates.microsoft.com/api/products?view=enterprise",
+                           "Pattern":  "# JSON_QUERY - Stable channel x64 ProductVersion"
+                       },
+    "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2124701",
+    "InstallArgs":  "/silent /install",
+    "UninstallArgs":  "/silent /uninstall",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Microsoft\\EdgeWebView\\Application",
+                      "FileName":  "msedgewebview2.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

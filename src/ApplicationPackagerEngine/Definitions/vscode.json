@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "2383b1ac5eaa4200",
+    "Vendor":  "Microsoft",
+    "Application":  "Visual Studio Code (x64)",
+    "CMName":  "VS Code",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://code.visualstudio.com/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://update.code.visualstudio.com/api/releases/stable",
+                           "Pattern":  "\"(\\d+\\.\\d+\\.\\d+)\""
+                       },
+    "DownloadUrl":  "https://update.code.visualstudio.com/latest/win32-x64/stable",
+    "InstallArgs":  "/VERYSILENT /NORESTART /FORCECLOSEAPPLICATIONS /MERGETASKS=!runcode",
+    "UninstallArgs":  "/SILENT",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Microsoft VS Code",
+                      "FileName":  "Code.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Code"
+                       ]
+}

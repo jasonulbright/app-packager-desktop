@@ -1,0 +1,31 @@
+{
+    "Schema":  1,
+    "Id":  "562e5eb1a64c4669",
+    "Vendor":  "Zoom Video Communications",
+    "Application":  "Zoom Workplace (x64)",
+    "CMName":  "Zoom Workplace",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://zoom.us/download",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://zoom.us/client/latest/ZoomInstaller.exe",
+                           "Pattern":  "# REDIRECT - /client/(\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)/ from redirect URL"
+                       },
+    "DownloadUrl":  "https://zoom.us/client/latest/ZoomInstaller.exe",
+    "InstallArgs":  "/silent /install",
+    "UninstallArgs":  "/silent",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "%APPDATA%\\Zoom\\bin",
+                      "FileName":  "Zoom.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Zoom"
+                       ]
+}

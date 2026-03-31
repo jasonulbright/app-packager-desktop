@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "5bd9a18b853e49c1",
+    "Vendor":  "Martin Prikryl",
+    "Application":  "WinSCP (x64)",
+    "CMName":  "WinSCP",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://winscp.net/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://winscp.net/eng/downloads.php",
+                           "Pattern":  "WinSCP-([0-9]+\\.[0-9]+\\.[0-9]+)-Setup\\.exe"
+                       },
+    "DownloadUrl":  "https://sourceforge.net/projects/winscp/files/WinSCP/{version}/WinSCP-{version}-Setup.exe/download",
+    "InstallArgs":  "/VERYSILENT /NORESTART /ALLUSERS",
+    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "# DYNAMIC - from ARP after install",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "WinSCP"
+                       ]
+}

@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "e8bbf41ed14341fd",
+    "Vendor":  "AnyDesk Software GmbH",
+    "Application":  "AnyDesk",
+    "CMName":  "AnyDesk",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://anydesk.com/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://download.anydesk.com/AnyDesk.exe",
+                           "Pattern":  "# FILE_VERSION - needs custom scraper"
+                       },
+    "DownloadUrl":  "https://download.anydesk.com/AnyDesk.exe",
+    "InstallArgs":  "--install --silent",
+    "UninstallArgs":  "--remove --silent",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files (x86)\\AnyDesk",
+                      "FileName":  "AnyDesk.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  false
+                  },
+    "RunningProcess":  [
+                           "AnyDesk"
+                       ]
+}

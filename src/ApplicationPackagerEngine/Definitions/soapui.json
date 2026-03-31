@@ -1,0 +1,31 @@
+{
+    "Schema":  1,
+    "Id":  "a42f2d06232f424c",
+    "Vendor":  "SmartBear Software",
+    "Application":  "SoapUI Open Source",
+    "CMName":  "SoapUI",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.soapui.org/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.soapui.org/downloads/latest-release/",
+                           "Pattern":  "SoapUI-x64-(\\d+\\.\\d+\\.\\d+)\\.exe"
+                       },
+    "DownloadUrl":  "https://dl.eviware.com/soapuios/{version}/SoapUI-x64-{version}.exe",
+    "InstallArgs":  "-q",
+    "UninstallArgs":  "-q",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\SmartBear\\SoapUI",
+                      "FileName":  "SoapUI.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "SoapUI"
+                       ]
+}

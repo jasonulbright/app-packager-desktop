@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "ab888c50f0dd4b12",
+    "Vendor":  "Slack Technologies",
+    "Application":  "Slack (x64)",
+    "CMName":  "Slack",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://slack.com/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://slack.com/ssb/download-win64-msi",
+                           "Pattern":  "/(\\d+\\.\\d+\\.\\d+)/slack-standalone"
+                       },
+    "DownloadUrl":  "https://slack.com/ssb/download-win64-msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "slack"
+                       ]
+}

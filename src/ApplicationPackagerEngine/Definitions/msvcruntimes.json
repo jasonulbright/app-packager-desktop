@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "27a4aa3700f24f11",
+    "Vendor":  "Microsoft",
+    "Application":  "Microsoft Visual C++ 2015-2022 Redistributable (x86+x64)",
+    "CMName":  "Microsoft Visual C++ 2015-2022 Redistributable",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://aka.ms/vc14/vc_redist.x64.exe",
+                           "Pattern":  "# FILE_VERSION - needs download+inspect"
+                       },
+    "DownloadUrl":  "https://aka.ms/vc14/vc_redist.x64.exe",
+    "InstallArgs":  "/install /quiet /norestart",
+    "UninstallArgs":  "/uninstall /quiet /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\WOW6432Node\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\X64",
+                      "ValueName":  "Version",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}
