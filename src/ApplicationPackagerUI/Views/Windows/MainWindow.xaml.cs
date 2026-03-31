@@ -25,29 +25,9 @@ public partial class MainWindow
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
         RootNavigation.SetServiceProvider(serviceProvider);
 
-        // WPF-UI NavigationView swallows scroll events — tunnel to nearest ScrollViewer
-        PreviewMouseWheel += (_, e) =>
-        {
-            if (e.Handled) return;
-            var element = e.OriginalSource as DependencyObject;
-            while (element != null)
-            {
-                if (element is System.Windows.Controls.ScrollViewer sv
-                    && sv.ComputedVerticalScrollBarVisibility == Visibility.Visible)
-                {
-                    sv.ScrollToVerticalOffset(sv.VerticalOffset - e.Delta);
-                    e.Handled = true;
-                    return;
-                }
-                try
-                {
-                    element = element is System.Windows.Media.Visual
-                        ? System.Windows.Media.VisualTreeHelper.GetParent(element)
-                        : LogicalTreeHelper.GetParent(element);
-                }
-                catch { break; }
-            }
-        };
+        // Note: With CanContentScroll="False" on pages, the NavigationView's
+        // DynamicScrollViewer is disabled. DataGrid and ScrollViewer controls
+        // handle their own mouse wheel scrolling natively.
     }
 
     public Wpf.Ui.Controls.NavigationView GetNavigation() => RootNavigation;
