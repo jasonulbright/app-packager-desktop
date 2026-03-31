@@ -21,6 +21,9 @@ public sealed class AppSettings
     // Per-app version check state (Script name → last checked + latest version)
     public Dictionary<string, AppCheckState> AppStates { get; set; } = [];
 
+    // Acquisition preference
+    public string AcquisitionMethod { get; set; } = "StaticUrl"; // "StaticUrl" or "Winget"
+
     // Auto-check on launch
     public bool AutoCheckLatestOnLaunch { get; set; } = true;
 

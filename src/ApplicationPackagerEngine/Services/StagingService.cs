@@ -31,9 +31,25 @@ public sealed class StagingService
 
     /// <summary>
     /// Gets the latest version for a JSON-defined app without downloading.
+    /// Routes through winget or static URL based on preference and availability.
     /// </summary>
-    public async Task<string?> GetLatestVersionAsync(AppDefinition def, CancellationToken ct = default)
+    public async Task<string?> GetLatestVersionAsync(
+        AppDefinition def, string acquisitionMethod = "StaticUrl", CancellationToken ct = default)
     {
+        // If user prefers winget and this app has a WingetId, try winget first
+        if (acquisitionMethod == "Winget" && def.Acquisition.HasWinget)
+        {
+            var wingetConfig = new Models.VersionScraperConfig
+            {
+                Type = "Winget",
+                Url = def.Acquisition.WingetId ?? ""
+            };
+            var wingetVersion = await _scrapers.GetLatestVersionAsync(wingetConfig, ct);
+            if (wingetVersion is not null)
+                return wingetVersion;
+            // Fall back to static URL if winget fails
+        }
+
         return await _scrapers.GetLatestVersionAsync(def.VersionScraper, ct);
     }
 

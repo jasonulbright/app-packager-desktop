@@ -130,6 +130,22 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Acquisition Method -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Acquisition Method" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="How the engine downloads installers and checks versions for JSON-defined apps. PS1 scripts always use their built-in logic."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <RadioButton Content="Static URL (scrape vendor pages)" Margin="0,0,24,0"
+                             IsChecked="{Binding AcquisitionMethod, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=StaticUrl}" />
+                <RadioButton Content="Winget (requires winget + repository access)"
+                             IsChecked="{Binding AcquisitionMethod, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Winget}" />
+            </StackPanel>
+            <TextBlock Text="When Winget is selected, apps with a WingetId in their definition use winget for version checks and downloads. Apps without a WingetId automatically fall back to static URL."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+
             <Border Style="{StaticResource SectionDivider}" />
 
             <!-- ═══════════════════════════════════════════════════ -->
