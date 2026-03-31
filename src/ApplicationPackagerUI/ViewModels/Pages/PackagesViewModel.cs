@@ -543,7 +543,8 @@ public partial class PackagesViewModel : ObservableObject
                     if (result.ExitCode == 0)
                     {
                         p.Status = "Packaged";
-                        AddLogLine($"Packaged. Log: {System.IO.Path.GetFileName(result.OutLogPath)}");
+                        var pkgRef = string.IsNullOrEmpty(result.OutLogPath) ? result.StdOut : $"Log: {System.IO.Path.GetFileName(result.OutLogPath)}";
+                        AddLogLine($"Packaged. {pkgRef}");
                     }
                     else
                     {

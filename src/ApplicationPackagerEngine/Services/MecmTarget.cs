@@ -143,7 +143,7 @@ public sealed class MecmTarget
         sb.Append($" -EstimatedRuntimeMins {estRuntime} -MaximumRuntimeMins {maxRuntime}");
         sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
         sb.Append(" -AddDetectionClause $clause");
-        sb.AppendLine();
+        sb.AppendLine(" | Out-Null");
 
         // Clean up revision history (keep only latest)
         sb.AppendLine("try {");
