@@ -49,7 +49,7 @@ public sealed class HttpRegexScraper : IVersionScraper
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(15), ct));
+        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(30), ct));
 
         if (completed != exitTask)
         {
