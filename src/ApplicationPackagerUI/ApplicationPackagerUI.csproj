@@ -22,4 +22,8 @@
     <PackageReference Include="WPF-UI.DependencyInjection" Version="4.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ApplicationPackagerEngine\ApplicationPackagerEngine.csproj" />
+  </ItemGroup>
+
 </Project>
