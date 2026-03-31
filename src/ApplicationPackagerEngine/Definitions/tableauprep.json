@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "677049e44fea446a",
+    "Vendor":  "Salesforce (Tableau)",
+    "Application":  "Tableau Prep Builder (x64)",
+    "CMName":  "Tableau Prep Builder",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.tableau.com/products/prep",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.tableau.com/support/releases",
+                           "Pattern":  "\\b(20\\d{2})[.-](\\d+)(?:[.-](\\d+))?\\b"
+                       },
+    "DownloadUrl":  "https://downloads.tableau.com/tssoftware/TableauPrep-{version}.exe",
+    "InstallArgs":  "/install /quiet /norestart ACCEPTEULA=1 SENDTELEMETRY=0",
+    "UninstallArgs":  "/uninstall /quiet /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "tabprep"
+                       ]
+}

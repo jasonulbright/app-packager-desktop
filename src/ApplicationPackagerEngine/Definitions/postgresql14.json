@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "56054cd7b5464f2f",
+    "Vendor":  "PostgreSQL Global Development Group",
+    "Application":  "PostgreSQL 14 (x64)",
+    "CMName":  "PostgreSQL 14",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.postgresql.org/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://endoflife.date/api/postgresql.json",
+                           "Pattern":  "# JSON_QUERY - filter cycle==14, extract latest"
+                       },
+    "DownloadUrl":  "https://get.enterprisedb.com/postgresql/postgresql-{version}-1-windows-x64.exe",
+    "InstallArgs":  "--mode unattended --unattendedmodeui none --superpassword P0stgres!MECM --serverport 5432 --install_runtimes 0 --disable-components stackbuilder",
+    "UninstallArgs":  "--mode unattended",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\PostgreSQL\\14\\bin",
+                      "FileName":  "postgres.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "postgres",
+                           "pgAdmin4"
+                       ]
+}

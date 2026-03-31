@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "b6652e48ffe64fba",
+    "Vendor":  "OpenJS Foundation",
+    "Application":  "Node.js LTS (x64)",
+    "CMName":  "Node.js LTS",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://nodejs.org/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://nodejs.org/dist/index.json",
+                           "Pattern":  "# JSON_QUERY - first entry where lts is not false, extract version"
+                       },
+    "DownloadUrl":  "https://nodejs.org/dist/v{version}/node-v{version}-x64.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "node"
+                       ]
+}

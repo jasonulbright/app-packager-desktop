@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "ec72851816834219",
+    "Vendor":  "Python Software Foundation",
+    "Application":  "Python (x64)",
+    "CMName":  "Python",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.python.org/downloads/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://endoflife.date/api/python.json",
+                           "Pattern":  "# JSON_QUERY - first entry latest field"
+                       },
+    "DownloadUrl":  "https://www.python.org/ftp/python/{version}/python-{version}-amd64.exe",
+    "InstallArgs":  "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0",
+    "UninstallArgs":  "/uninstall /quiet",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Python",
+                      "FileName":  "python.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "python",
+                           "pythonw"
+                       ]
+}

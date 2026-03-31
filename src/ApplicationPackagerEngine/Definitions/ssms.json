@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "82911cf1fedc4642",
+    "Vendor":  "Microsoft",
+    "Application":  "SQL Server Management Studio",
+    "CMName":  "SQL Server Management Studio",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://learn.microsoft.com/sql/ssms/download-sql-server-management-studio-ssms",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://aka.ms/ssms/22/release/vs_SSMS.exe",
+                           "Pattern":  "# FILE_VERSION - bootstrapper ProductVersion"
+                       },
+    "DownloadUrl":  "https://aka.ms/ssms/22/release/vs_SSMS.exe",
+    "InstallArgs":  "--quiet --norestart",
+    "UninstallArgs":  "uninstall --quiet --norestart",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Microsoft SQL Server Management Studio",
+                      "FileName":  "Ssms.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Ssms"
+                       ]
+}

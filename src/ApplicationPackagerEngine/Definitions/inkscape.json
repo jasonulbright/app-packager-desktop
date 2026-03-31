@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "fe6e50610a5d4285",
+    "Vendor":  "Inkscape Project",
+    "Application":  "Inkscape",
+    "CMName":  "Inkscape",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://inkscape.org/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://inkscape.org/",
+                           "Pattern":  "inkscape-(\\d+\\.\\d+(?:\\.\\d+)?)\\.msi"
+                       },
+    "DownloadUrl":  "https://media.inkscape.org/dl/resources/file/inkscape-{version}.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "inkscape"
+                       ]
+}

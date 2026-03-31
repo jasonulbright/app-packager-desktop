@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "98a3ecd988d144c2",
+    "Vendor":  "TortoiseGit",
+    "Application":  "TortoiseGit (x64)",
+    "CMName":  "TortoiseGit",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://tortoisegit.org/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://tortoisegit.org/download/",
+                           "Pattern":  "TortoiseGit-([\\d.]+)-64bit\\.msi"
+                       },
+    "DownloadUrl":  "https://download.tortoisegit.org/tgit/{version}/TortoiseGit-{version}-64bit.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "TortoiseGitProc"
+                       ]
+}

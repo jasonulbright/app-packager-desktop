@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "33e576d718874e73",
+    "Vendor":  "Wireshark Foundation",
+    "Application":  "Wireshark (x64)",
+    "CMName":  "Wireshark",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.wireshark.org/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.wireshark.org/download.html",
+                           "Pattern":  "Stable Release:\\s*([0-9]+\\.[0-9]+\\.[0-9]+)"
+                       },
+    "DownloadUrl":  "https://www.wireshark.org/download/win64/Wireshark-{version}-x64.exe",
+    "InstallArgs":  "/S /desktopicon=no /quicklaunchicon=no",
+    "UninstallArgs":  "/S",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "# DYNAMIC - from ARP",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Wireshark"
+                       ]
+}

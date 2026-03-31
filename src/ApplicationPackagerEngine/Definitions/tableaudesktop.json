@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "8ae78bda60994263",
+    "Vendor":  "Salesforce (Tableau)",
+    "Application":  "Tableau Desktop (x64)",
+    "CMName":  "Tableau Desktop",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.tableau.com/products/desktop",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.tableau.com/support/releases",
+                           "Pattern":  "\\b(20\\d{2})[.-](\\d+)(?:[.-](\\d+))?\\b"
+                       },
+    "DownloadUrl":  "https://downloads.tableau.com/tssoftwareregistered/TableauDesktop-64bit-{version}.exe",
+    "InstallArgs":  "/install /quiet /norestart ACCEPTEULA=1 REMOVEINSTALLEDAPP=1 SENDTELEMETRY=0",
+    "UninstallArgs":  "/uninstall /quiet /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "tableau"
+                       ]
+}

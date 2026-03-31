@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "fa505d1415214f14",
+    "Vendor":  "7-Zip",
+    "Application":  "7-Zip (x64)",
+    "CMName":  "7-Zip",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.7-zip.org/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.7-zip.org/download.html",
+                           "Pattern":  "href\\s*=\\s*\"(?:[^\"]*?7z(\\d{4})-x64\\.msi)\""
+                       },
+    "DownloadUrl":  "https://www.7-zip.org/a/7z{version}-x64.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "7zFM",
+                           "7zG"
+                       ]
+}

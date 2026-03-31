@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "7eba2ba51ed64d13",
+    "Vendor":  "Foxit Software",
+    "Application":  "Foxit PDF Reader (x64)",
+    "CMName":  "Foxit PDF Reader",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.foxit.com/pdf-reader.html",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.foxit.com/downloads/latest/?product=Foxit-Reader&platform=Windows&operating_type=64&package_type=exe&language=ML",
+                           "Pattern":  "# REDIRECT - version from Location header /win/([\\d.]+)/"
+                       },
+    "DownloadUrl":  "# DYNAMIC - CDN URL from redirect",
+    "InstallArgs":  "/VERYSILENT /NORESTART /MERGETASKS=\"!desktopicon\"",
+    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Foxit Software\\Foxit PDF Reader",
+                      "FileName":  "FoxitPDFReader.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "FoxitPDFReader"
+                       ]
+}

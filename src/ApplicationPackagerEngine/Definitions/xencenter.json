@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "9eca70bfecc040af",
+    "Vendor":  "Cloud Software Group",
+    "Application":  "XenCenter",
+    "CMName":  "XenCenter",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.xenserver.com/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.xenserver.com/downloads",
+                           "Pattern":  "# DYNAMIC - MSI ProductVersion from download"
+                       },
+    "DownloadUrl":  "# DYNAMIC - extracted from downloads page",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "XenCenter"
+                       ]
+}

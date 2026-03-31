@@ -1,0 +1,31 @@
+{
+    "Schema":  1,
+    "Id":  "4d8f903d6f9640ac",
+    "Vendor":  "Microsoft",
+    "Application":  "Sysinternals Suite",
+    "CMName":  "Sysinternals Suite",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://learn.microsoft.com/en-us/sysinternals/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://download.sysinternals.com/files/SysinternalsSuite.zip",
+                           "Pattern":  "# LAST_MODIFIED - version from HTTP header date"
+                       },
+    "DownloadUrl":  "https://download.sysinternals.com/files/SysinternalsSuite.zip",
+    "InstallArgs":  "",
+    "UninstallArgs":  "",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Sysinternals",
+                      "FileName":  "procmon.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}
