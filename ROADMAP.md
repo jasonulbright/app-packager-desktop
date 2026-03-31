@@ -276,6 +276,49 @@ The version history database may be better suited for the product website rather
 
 ---
 
+## Service Architecture & Deployment Model (v3.0+)
+
+### Problem
+The UI currently runs as the interactive user. Writing to network shares, creating MECM applications, and syncing config to protected paths requires elevated permissions or prompts for credentials. This doesn't scale to unattended automation.
+
+### Architecture: UI + Service Split
+
+| Component | Identity | Responsibility | Data Location |
+|-----------|----------|---------------|---------------|
+| **UI** (admin console) | Interactive user | Configuration, monitoring, manual operations | `%LOCALAPPDATA%\AppPackager\` (UI state: window, theme, column widths) |
+| **Service/Agent** | SYSTEM or service account | Auto-check, auto-stage, auto-package, auto-import, network writes | `%PROGRAMDATA%\AppPackager\` (shared config, definitions, version history) |
+| **Engine DLL** | Called by both | Core logic (scrape, download, stage, detect, manifest) | No state of its own |
+
+### Shared Config (`%PROGRAMDATA%\AppPackager\`)
+- `config.json` — SiteCode, FileShareRoot, DownloadRoot, CompanyName, M365Channel, CWA settings
+- `definitions/` — JSON app definitions
+- `history/` — version history database (SQLite or JSON append log)
+- `icons/` — cached app icons
+
+### UI State (`%LOCALAPPDATA%\AppPackager\`)
+- `ui-settings.json` — window position, theme, column widths, pane state
+- `apppackager.log` — session log (append)
+
+### Agent/Service Capabilities
+- **Auto-check**: periodic version scraping on a schedule (configurable interval)
+- **Auto-stage**: when a new version is detected, stage it automatically
+- **Auto-package**: when staged, create the MECM/Intune application automatically
+- **Auto-import**: distribute content, deploy to target collections
+- **Notifications**: email, Teams webhook, or dashboard alert when new versions are available or packages are ready
+- **Runs headless**: no UI required, operates on schedule or trigger
+
+### Installation Model
+- **Per-machine install** (Program Files) — not per-user
+- Service registered as Windows Service (delayed auto-start)
+- UI is a separate executable launched by admin on demand
+- Both share the engine DLL and `%PROGRAMDATA%` config
+- No UAC prompts for routine operations — service has the credentials
+
+### PS1 Sync Files Deprecation
+`packager-preferences.json` and `citrix-workspace-switches.json` in the Packagers folder are backward-compat sync files for PS1 scripts. Once all apps are converted to JSON definitions, these files and the sync logic are removed. The service reads shared config from `%PROGRAMDATA%` directly.
+
+---
+
 ## Testing Strategy
 
 ### v2.0
