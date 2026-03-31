@@ -77,13 +77,14 @@ public sealed class StagingService
             var contentPath = Path.Combine(baseRoot, version);
             Directory.CreateDirectory(contentPath);
 
-            // 3. Download installer
-            var installerFileName = Path.GetFileName(new Uri(def.DownloadUrl).AbsolutePath);
+            // 3. Download installer — substitute {version} in URL
+            var downloadUrl = def.DownloadUrl.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
+            var installerFileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
             var installerPath = Path.Combine(contentPath, installerFileName);
 
             if (!File.Exists(installerPath))
             {
-                await _downloadService.DownloadAsync(def.DownloadUrl, installerPath,
+                await _downloadService.DownloadAsync(downloadUrl, installerPath,
                     onProgress: onProgress, ct: ct);
             }
             else
