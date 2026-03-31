@@ -22,7 +22,8 @@ public class PackagerExecutionService(SettingsService settingsService, StagingSe
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
-            return await stagingService.GetLatestVersionAsync(def, ct);
+            var acqMethod = settingsService.Load().AcquisitionMethod;
+            return await stagingService.GetLatestVersionAsync(def, acqMethod, ct);
         }
 
         var settings = settingsService.Load();

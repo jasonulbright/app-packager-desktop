@@ -23,6 +23,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _estimatedRuntimeMins = 15;
     [ObservableProperty] private int _maximumRuntimeMins = 30;
 
+    // Acquisition
+    [ObservableProperty] private string _acquisitionMethod = "StaticUrl";
+
     // Per-app: M365
     [ObservableProperty] private string _m365Channel = "MonthlyEnterprise";
 
@@ -70,6 +73,7 @@ public partial class SettingsViewModel : ObservableObject
         PackagersRoot = s.PackagersRoot;
         EstimatedRuntimeMins = s.EstimatedRuntimeMins;
         MaximumRuntimeMins = s.MaximumRuntimeMins;
+        AcquisitionMethod = s.AcquisitionMethod;
         M365Channel = s.M365Channel;
 
         CwaStoreName = s.Cwa.StoreName;
@@ -107,6 +111,7 @@ public partial class SettingsViewModel : ObservableObject
         s.EstimatedRuntimeMins = EstimatedRuntimeMins;
         s.MaximumRuntimeMins = MaximumRuntimeMins;
         s.M365Channel = M365Channel;
+        s.AcquisitionMethod = AcquisitionMethod;
         s.Theme = CurrentTheme.ToString();
 
         s.Cwa = new CwaInstallSettings
