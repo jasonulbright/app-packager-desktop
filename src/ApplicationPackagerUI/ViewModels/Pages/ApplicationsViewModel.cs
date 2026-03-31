@@ -9,16 +9,18 @@ public partial class ApplicationsViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly PackagerDiscoveryService _discoveryService;
     private readonly ISnackbarService _snackbarService;
+    private readonly PackagesViewModel _packagesViewModel;
 
     [ObservableProperty] private ObservableCollection<VendorGroup> _vendorGroups = [];
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private int _visibleCount;
 
-    public ApplicationsViewModel(SettingsService settingsService, PackagerDiscoveryService discoveryService, ISnackbarService snackbarService)
+    public ApplicationsViewModel(SettingsService settingsService, PackagerDiscoveryService discoveryService, ISnackbarService snackbarService, PackagesViewModel packagesViewModel)
     {
         _settingsService = settingsService;
         _discoveryService = discoveryService;
         _snackbarService = snackbarService;
+        _packagesViewModel = packagesViewModel;
         _ = LoadAsync();
     }
 
@@ -81,6 +83,8 @@ public partial class ApplicationsViewModel : ObservableObject
         UpdateCounts();
     }
 
+    public void UpdateCountsPublic() => UpdateCounts();
+
     private void UpdateCounts()
     {
         var all = VendorGroups.SelectMany(g => g.Apps).ToList();
@@ -124,7 +128,7 @@ public partial class ApplicationsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Save()
+    private async Task Save()
     {
         var s = _settingsService.Load();
         s.HiddenApplications = VendorGroups
@@ -133,6 +137,10 @@ public partial class ApplicationsViewModel : ObservableObject
             .Select(a => a.Application)
             .ToArray();
         _settingsService.Save(s);
+
+        // Refresh the Packages grid to reflect visibility changes
+        await _packagesViewModel.LoadPackagersCommand.ExecuteAsync(null);
+
         _snackbarService.Show("Applications", $"Saved. {VisibleCount} of {TotalCount} visible.",
             Wpf.Ui.Controls.ControlAppearance.Success,
             new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));
