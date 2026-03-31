@@ -18,6 +18,11 @@ public partial class PackagerInfo : ObservableObject
     public string VendorUrl { get; init; } = "";
     public string Description { get; init; } = "";
 
+    /// <summary>True if backed by a JSON definition (engine DLL). False if PS1 script.</summary>
+    public bool IsJsonDefined { get; init; }
+    /// <summary>Path to the .json definition file (null for PS1 scripts).</summary>
+    public string? DefinitionPath { get; init; }
+
     public bool IsRunnable => true;
 
     /// <summary>

@@ -1,11 +1,14 @@
 using System.IO;
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
 
 public partial class PackagerDiscoveryService(SettingsService settingsService)
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private static readonly Regex FilePattern = new(@"^package-.*\.ps1$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // Header tag patterns — match "Vendor: value" or "# Vendor: value"
@@ -113,8 +116,56 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                 }
             }
 
+            // Also discover JSON-defined apps
+            var defResults = DiscoverJsonDefinitions(hidden);
+            results.AddRange(defResults);
+
+            // Sort combined list
+            results.Sort((a, b) => string.Compare(a.Application, b.Application, StringComparison.OrdinalIgnoreCase));
+
             return results;
         }, ct);
+    }
+
+    /// <summary>
+    /// Discovers JSON app definitions from the Definitions folder (engine DLL output).
+    /// </summary>
+    private static List<PackagerInfo> DiscoverJsonDefinitions(HashSet<string>? hidden = null)
+    {
+        var results = new List<PackagerInfo>();
+
+        // Check Definitions folder alongside the exe
+        var defsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
+        if (!Directory.Exists(defsDir)) return results;
+
+        foreach (var jsonPath in Directory.GetFiles(defsDir, "*.json"))
+        {
+            try
+            {
+                var json = File.ReadAllText(jsonPath);
+                var def = JsonSerializer.Deserialize<AppDefinition>(json, JsonOptions);
+                if (def is null) continue;
+
+                if (hidden is not null && hidden.Contains(def.Application)) continue;
+
+                results.Add(new PackagerInfo
+                {
+                    Vendor = def.Vendor,
+                    Application = def.Application,
+                    CMName = def.CMName,
+                    Script = Path.GetFileName(jsonPath),
+                    FullPath = jsonPath,
+                    VendorUrl = def.VendorUrl,
+                    Description = $"{def.InstallerType} ({def.Architecture})",
+                    IsJsonDefined = true,
+                    DefinitionPath = jsonPath,
+                    Status = "Ready"
+                });
+            }
+            catch { }
+        }
+
+        return results;
     }
 
     /// <summary>
@@ -155,6 +206,9 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                 }
                 catch { }
             }
+
+            results.AddRange(DiscoverJsonDefinitions());
+            results.Sort((a, b) => string.Compare(a.Application, b.Application, StringComparison.OrdinalIgnoreCase));
 
             return results;
         }, ct);

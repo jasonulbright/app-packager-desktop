@@ -48,6 +48,14 @@ public partial class App : Application
                 services.AddSingleton<MecmQueryService>();
                 services.AddSingleton<PackagerPreferencesService>();
 
+                // Engine services (v2.1)
+                services.AddSingleton<ApplicationPackagerEngine.Scrapers.ScraperRegistry>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.DownloadService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.MsiInspectionService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.WrapperGeneratorService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.ManifestService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.StagingService>();
+
                 // Windows
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainWindowViewModel>();

@@ -1,0 +1,26 @@
+{
+  "Schema": 1,
+  "Vendor": "Google",
+  "Application": "Google Chrome",
+  "CMName": "Google Chrome",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.google.com/chrome/",
+  "InstallerType": "MSI",
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://chromiumdash.appspot.com/fetch/releases?channel=Stable&platform=Windows&num=1",
+    "Pattern": "\"version\":\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\""
+  },
+  "DownloadUrl": "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["chrome"]
+}

@@ -1,19 +1,30 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
+using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
 
-public class PackagerExecutionService(SettingsService settingsService)
+public class PackagerExecutionService(SettingsService settingsService, StagingService stagingService)
 {
     private static readonly TimeSpan GetLatestTimeout = TimeSpan.FromSeconds(30);
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
-    /// Runs a packager with -GetLatestVersionOnly. Returns the version string or null.
+    /// Runs a packager with -GetLatestVersionOnly. Routes JSON apps to engine DLL.
     /// </summary>
     public async Task<string?> GetLatestVersionAsync(
         PackagerInfo packager, CancellationToken ct = default)
     {
+        // Route JSON-defined apps through the engine DLL
+        if (packager.IsJsonDefined && packager.DefinitionPath is not null)
+        {
+            var def = LoadDefinition(packager.DefinitionPath);
+            return await stagingService.GetLatestVersionAsync(def, ct);
+        }
+
         var settings = settingsService.Load();
         var args = BuildGetLatestArgs(packager, settings);
 
@@ -52,6 +63,20 @@ public class PackagerExecutionService(SettingsService settingsService)
     public async Task<PackagerExecutionResult> StageAsync(
         PackagerInfo packager, Action<string>? onOutputLine = null, CancellationToken ct = default)
     {
+        // Route JSON-defined apps through the engine DLL
+        if (packager.IsJsonDefined && packager.DefinitionPath is not null)
+        {
+            var def = LoadDefinition(packager.DefinitionPath);
+            var appSettings = settingsService.Load();
+            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct);
+            return new PackagerExecutionResult
+            {
+                ExitCode = result.Success ? 0 : 1,
+                StdOut = result.Success ? $"Staged to: {result.ContentPath}" : "",
+                StdErr = result.ErrorMessage ?? ""
+            };
+        }
+
         var settings = settingsService.Load();
         var (args, logPaths) = BuildStageArgs(packager, settings);
         return await RunStreamingAsync(args, logPaths, onOutputLine, ct);
@@ -221,5 +246,12 @@ public class PackagerExecutionService(SettingsService settingsService)
             ErrLog: Path.Combine(logDir, $"{baseName}-{phase}-{stamp}.err.log"),
             StructuredLog: Path.Combine(logDir, $"{baseName}-{phase}-{stamp}.structured.log")
         );
+    }
+
+    private static AppDefinition LoadDefinition(string path)
+    {
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<AppDefinition>(json, JsonOptions)
+            ?? throw new InvalidOperationException($"Failed to load definition: {path}");
     }
 }
