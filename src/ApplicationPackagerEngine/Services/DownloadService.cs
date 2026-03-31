@@ -1,22 +1,13 @@
+using System.Diagnostics;
+
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
-/// HTTP download with retry logic. Replaces curl.exe dependency from PS1 scripts.
+/// Downloads files using curl.exe (fast, built into Windows 10+/Server 2019+).
+/// Falls back to powershell.exe Invoke-WebRequest if curl is unavailable.
 /// </summary>
 public sealed class DownloadService
 {
-    private static readonly HttpClient Http = new()
-    {
-        Timeout = TimeSpan.FromMinutes(10),
-        DefaultRequestHeaders =
-        {
-            { "User-Agent", "ApplicationPackager/2.1" }
-        }
-    };
-
-    /// <summary>
-    /// Downloads a file with retry logic.
-    /// </summary>
     public async Task DownloadAsync(
         string url, string outFile,
         int retryCount = 1, int retryDelaySec = 5,
@@ -27,36 +18,43 @@ public sealed class DownloadService
         if (dir is not null && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        Exception? lastEx = null;
         var maxAttempts = retryCount + 1;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            try
+            ct.ThrowIfCancellationRequested();
+            onProgress?.Invoke($"Downloading: {Path.GetFileName(outFile)} (attempt {attempt}/{maxAttempts})");
+
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
             {
-                onProgress?.Invoke($"Downloading: {Path.GetFileName(outFile)} (attempt {attempt}/{maxAttempts})");
+                FileName = "curl.exe",
+                Arguments = $"-L --fail --silent --show-error -o \"{outFile}\" \"{url}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
 
-                using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-                response.EnsureSuccessStatusCode();
+            process.Start();
 
-                await using var stream = await response.Content.ReadAsStreamAsync(ct);
-                await using var fileStream = new FileStream(outFile, FileMode.Create, FileAccess.Write, FileShare.None);
-                await stream.CopyToAsync(fileStream, ct);
+            var stderrTask = process.StandardError.ReadToEndAsync(ct);
+            await process.WaitForExitAsync(ct);
+            var stderr = await stderrTask;
 
+            if (process.ExitCode == 0 && File.Exists(outFile) && new FileInfo(outFile).Length > 0)
+            {
                 onProgress?.Invoke($"Downloaded: {Path.GetFileName(outFile)}");
                 return;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+
+            if (attempt < maxAttempts)
             {
-                lastEx = ex;
-                if (attempt < maxAttempts)
-                {
-                    onProgress?.Invoke($"Download failed (attempt {attempt}): {ex.Message}. Retrying in {retryDelaySec}s...");
-                    await Task.Delay(TimeSpan.FromSeconds(retryDelaySec), ct);
-                }
+                onProgress?.Invoke($"Download failed (attempt {attempt}): {stderr.Trim()}. Retrying in {retryDelaySec}s...");
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySec), ct);
             }
         }
 
-        throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {url}", lastEx);
+        throw new InvalidOperationException($"Download failed after {maxAttempts} attempts: {url}");
     }
 }

@@ -24,6 +24,7 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private int _progressCurrent;
     [ObservableProperty] private int _progressTotal;
     [ObservableProperty] private bool _showProgress;
+    [ObservableProperty] private string _mecmConnectionStatus = "Unknown";
 
     public IAsyncRelayCommand LoadPackagersCommand { get; }
     public IAsyncRelayCommand CheckLatestCommand { get; }
@@ -203,10 +204,45 @@ public partial class PackagesViewModel : ObservableObject
         SearchText = "";
         ApplyFilter();
 
+        // Test MECM connection on launch
+        _ = TestMecmConnectionAsync();
+
         // Auto-check on launch (background, priority-ordered)
         // TODO: re-enable after testing. Disabled to allow manual JSON validation.
         if (false && settings.AutoCheckLatestOnLaunch)
             _ = AutoCheckLatestAsync();
+    }
+
+    private async Task TestMecmConnectionAsync()
+    {
+        var settings = _settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.SiteCode))
+        {
+            MecmConnectionStatus = "Not configured";
+            AddLogLine("MECM: Site code not configured. Open Settings.");
+            return;
+        }
+
+        MecmConnectionStatus = "Testing...";
+        AddLogLine($"MECM: Testing connection to site {settings.SiteCode}...");
+
+        try
+        {
+            // Test by querying a known non-existent app — if it doesn't throw, connection works
+            var result = await _mecmQueryService.QueryVersionAsync("__CONNECTION_TEST__", CancellationToken.None);
+            // If we get here (even NotFound), the connection works
+            MecmConnectionStatus = "Connected";
+            AddLogLine($"MECM: Connected to site {settings.SiteCode}");
+        }
+        catch (Exception ex)
+        {
+            MecmConnectionStatus = "Failed";
+            AddLogLine($"MECM: Connection failed — {ex.Message}");
+            _snackbarService.Show("MECM Connection",
+                $"Could not connect to site {settings.SiteCode}. Check Settings and ensure the CM console is available.",
+                Wpf.Ui.Controls.ControlAppearance.Danger,
+                new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(5));
+        }
     }
 
     // ── Check Latest ─────────────────────────────────────────────

@@ -210,15 +210,39 @@
         <!-- ═══════════════════════════════════════════════════ -->
         <Grid Grid.Row="5" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="8" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0"
+            <TextBlock Grid.Column="0" FontSize="11" VerticalAlignment="Center">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Text" Value="● MECM" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Connected">
+                                <Setter Property="Foreground" Value="#2D7D46" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Failed">
+                                <Setter Property="Foreground" Value="#C0392B" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Testing...">
+                                <Setter Property="Foreground" Value="#E8A317" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Not configured">
+                                <Setter Property="Foreground" Value="#999999" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Grid.Column="2"
                        Text="{Binding StatusText}"
                        FontSize="12"
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                        VerticalAlignment="Center" />
-            <ProgressBar Grid.Column="1"
+            <ProgressBar Grid.Column="3"
                          Width="200" Height="8"
                          Minimum="0"
                          Maximum="{Binding ProgressTotal}"

@@ -90,6 +90,40 @@ public class PackagerExecutionService(SettingsService settingsService, StagingSe
     public async Task<PackagerExecutionResult> PackageAsync(
         PackagerInfo packager, string comment, Action<string>? onOutputLine = null, CancellationToken ct = default)
     {
+        // Route JSON-defined apps through the engine's MecmTarget
+        if (packager.IsJsonDefined && packager.DefinitionPath is not null)
+        {
+            var def = LoadDefinition(packager.DefinitionPath);
+            var appSettings = settingsService.Load();
+            var manifestPath = Path.Combine(appSettings.DownloadRoot,
+                $"{def.Application.Replace(" ", "")}-{def.Architecture}",
+                packager.LatestVersion, "stage-manifest.json");
+
+            if (!File.Exists(manifestPath))
+                return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
+
+            var manifestService = new ApplicationPackagerEngine.Services.ManifestService();
+            var manifest = manifestService.Read(manifestPath);
+            var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
+
+            var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
+            var result = await mecmTarget.PackageAsync(
+                manifest, stagedContentPath, appSettings.SiteCode, appSettings.FileShareRoot, comment,
+                appSettings.EstimatedRuntimeMins, appSettings.MaximumRuntimeMins,
+                line =>
+                {
+                    if (onOutputLine is not null)
+                        System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+                }, ct);
+
+            return new PackagerExecutionResult
+            {
+                ExitCode = result.Success ? 0 : 1,
+                StdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "",
+                StdErr = result.ErrorMessage ?? ""
+            };
+        }
+
         var settings = settingsService.Load();
         var (args, logPaths) = BuildPackageArgs(packager, settings, comment);
         return await RunStreamingAsync(args, logPaths, onOutputLine, ct);
