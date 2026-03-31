@@ -35,21 +35,31 @@
 ### PS1 GUI Deprecation
 `start-apppackager.ps1` will be deprecated once v2.0 reaches feature parity and is validated in production. It will remain in the `application-packager` repo as a reference but will not receive new features. The PS1 packager scripts themselves (`package-*.ps1`, `AppPackagerCommon.psm1`) are NOT deprecated — they continue to be the execution engine for v2.0.
 
-### Progress (2026-03-30)
+### Progress
 - Phase 1 COMPLETE: Project skeleton, FluentWindow, NavigationView, DI wiring
 - Phase 2 COMPLETE: Settings page — Organization, MECM Site, DT defaults, M365 Channel, CWA params, Dark/Light theme
 - Phase 3 COMPLETE: PackagerDiscoveryService, ui:DataGrid, select-all checkbox, debug column toggle, status color coding
 - Phase 4 COMPLETE: PackagerExecutionService, MecmQueryService, Check Latest + Check MECM with real process execution
 - Phase 5 COMPLETE: Stage + Package with live stdout streaming, log file writing, stderr capture
 - Phase 6 COMPLETE: Context menu, Package dropdown (MECM/PSADT/Intune), window state persistence
-- Phase 7 COMPLETE: Applications page — own nav item, vendor-grouped collapsible expanders, tri-state checkboxes, Show All/Hide All, Save refreshes Packages grid
-- **v2.0.0-alpha tagged and released 2026-03-30**
+- Phase 7 COMPLETE: Applications page — vendor-grouped expanders, tri-state checkboxes, JSON/PS1 badges
+- Phase 8 COMPLETE: Search/filter bar, keyboard shortcuts (Ctrl+A/F5/Esc/Ctrl+E), CSV export, preferences sync
+- Phase 9 COMPLETE: Per-app timestamps, priority-based auto-check on launch, batch progress bar
+- Phase 10 COMPLETE: Pinned top rows (CanContentScroll=False), native DataGrid scroll, removed custom scroll handler
+- **v2.0.0-alpha tagged 2026-03-30**
+
+### v2.1 Engine — Phase 1 COMPLETE (2026-03-31)
+- ApplicationPackagerEngine class library: IVersionScraper plugin interface, ScraperRegistry (reflection-discovered), HttpRegexScraper, DownloadService (HttpClient, no curl), MsiInspectionService (COM), WrapperGeneratorService, ManifestService, StagingService orchestrator
+- Chrome JSON definition: validated end-to-end (version scrape from Google API + full staging with MSI download, property extraction, wrappers, manifest)
+- UI routing: JSON apps → engine DLL, PS1 apps → powershell.exe
+- Random opaque UIDs on all 117 PS1 scripts + JSON definitions — primary key for exclusion, state, dedup. Never displayed.
+- JSON definitions suppress matching PS1 scripts (same Application name)
 
 ### Remaining for v2.0 stable
 - Header select-all checkbox contrast mismatch on dark theme
 - App icon needs transparent PNG source (white background on dark mode)
-- Preferences migration from old PS1 GUI (first-launch import)
-- Real-world validation: Check Latest / Stage / Package against live MECM environment
+- First-run wizard (deferred — private development)
+- Real-world validation: Package phase against live MECM environment
 
 ---
 
