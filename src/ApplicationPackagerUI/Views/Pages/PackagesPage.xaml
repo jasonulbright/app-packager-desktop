@@ -57,7 +57,7 @@
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- Row 1: DataGrid -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <DataGrid Grid.Row="1"
+        <ui:DataGrid Grid.Row="1"
                   x:Name="PackagerGrid"
                   ItemsSource="{Binding Packagers}"
                   AutoGenerateColumns="False"
@@ -65,13 +65,9 @@
                   CanUserDeleteRows="False"
                   SelectionMode="Single"
                   IsReadOnly="False"
-                  RowHeight="30"
                   RowHeaderWidth="0"
                   GridLinesVisibility="Horizontal"
                   HeadersVisibility="Column"
-                  BorderThickness="1"
-                  BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                  Background="{DynamicResource ControlFillColorDefaultBrush}"
                   FrozenColumnCount="1">
 
             <DataGrid.ContextMenu>
@@ -107,7 +103,12 @@
 
             <DataGrid.Columns>
                 <!-- Select checkbox -->
-                <DataGridTemplateColumn Width="40" CanUserResize="False" CanUserReorder="False" MinWidth="40" MaxWidth="40">
+                <DataGridTemplateColumn Width="48" CanUserResize="False" CanUserReorder="False" MinWidth="48" MaxWidth="48">
+                    <DataGridTemplateColumn.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                            <Setter Property="Padding" Value="0" />
+                        </Style>
+                    </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.Header>
                         <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=Page}}"
                                   Command="{Binding DataContext.ToggleSelectAllCommand, RelativeSource={RelativeSource AncestorType=Page}}"
@@ -144,7 +145,7 @@
                 <DataGridTextColumn x:Name="ColScript" Header="Script" Binding="{Binding Script}" Width="200" IsReadOnly="True"
                                     Visibility="Collapsed" />
             </DataGrid.Columns>
-        </DataGrid>
+        </ui:DataGrid>
 
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- Row 2: Select helpers + debug toggle -->
