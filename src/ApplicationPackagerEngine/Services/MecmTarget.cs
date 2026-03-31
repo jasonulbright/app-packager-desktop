@@ -146,15 +146,15 @@ public sealed class MecmTarget
         sb.AppendLine();
 
         // Clean up revision history (keep only latest)
-        sb.AppendLine("$revisions = Get-CMApplicationRevisionHistory -Name $app.LocalizedDisplayName -ErrorAction SilentlyContinue");
-        sb.AppendLine("if ($revisions -and @($revisions).Count -gt 1) {");
-        sb.AppendLine("  $sorted = @($revisions) | Sort-Object -Property @{Expression={if ($_.Revision) {$_.Revision} else {$_.CIVersion}}} -Descending");
-        sb.AppendLine("  $sorted | Select-Object -Skip 1 | ForEach-Object {");
-        sb.AppendLine("    $rev = if ($_.Revision) {$_.Revision} else {$_.CIVersion}");
-        sb.AppendLine("    Remove-CMApplicationRevisionHistory -InputObject $_ -Force -ErrorAction SilentlyContinue");
+        sb.AppendLine("try {");
+        sb.AppendLine($"  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop");
+        sb.AppendLine("  if (@($revisions).Count -gt 1) {");
+        sb.AppendLine("    @($revisions) | Sort-Object -Property @{Expression={if ($_.Revision) {$_.Revision} else {$_.CIVersion}}} -Descending | Select-Object -Skip 1 | ForEach-Object {");
+        sb.AppendLine("      Remove-CMApplicationRevisionHistory -InputObject $_ -Force -ErrorAction SilentlyContinue");
+        sb.AppendLine("    }");
+        sb.AppendLine("    Write-Host 'Cleaned revision history'");
         sb.AppendLine("  }");
-        sb.AppendLine("  Write-Host 'Cleaned revision history'");
-        sb.AppendLine("}");
+        sb.AppendLine("} catch { Write-Host \"Revision cleanup skipped: $($_.Exception.Message)\" }");
 
         sb.AppendLine("Write-Host 'Application created successfully'");
 
