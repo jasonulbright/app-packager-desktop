@@ -8,8 +8,8 @@
   "InstallerType": "MSI",
   "VersionScraper": {
     "Type": "HttpRegex",
-    "Url": "https://chromiumdash.appspot.com/fetch/releases?channel=Stable&platform=Windows&num=1",
-    "Pattern": "\"version\":\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\""
+    "Url": "https://versionhistory.googleapis.com/v1/chrome/platforms/win64/channels/stable/versions/all/releases?order_by=version+desc&filter=fraction=1&pageSize=1",
+    "Pattern": "\"version\":\\s*\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\""
   },
   "DownloadUrl": "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi",
   "InstallArgs": "/qn /norestart",

@@ -9,7 +9,7 @@
         <helpers:StatusToBrushConverter x:Key="StatusToBrushConverter" />
     </Page.Resources>
 
-    <Grid Margin="16,12,16,12">
+    <Grid Margin="16,12,16,12" ScrollViewer.VerticalScrollBarVisibility="Disabled">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
