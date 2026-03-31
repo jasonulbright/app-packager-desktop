@@ -22,8 +22,8 @@
 - Pinned top rows, native DataGrid scroll
 - Random opaque UIDs on all packagers (primary key, never displayed)
 
-### Remaining for Stable
-- Real-world validation: full pipeline against production MECM environment
+### Status: STABLE
+- Real-world validation complete: Chrome JSON end-to-end on CM01 lab (2026-03-31)
 
 ---
 
