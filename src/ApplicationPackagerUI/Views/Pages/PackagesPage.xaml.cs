@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
@@ -18,6 +19,39 @@ public partial class PackagesPage
         InitializeComponent();
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        KeyDown += OnPageKeyDown;
+        Loaded += (_, _) => Focus();
+    }
+
+    private void OnPageKeyDown(object sender, KeyEventArgs e)
+    {
+        var vm = (PackagesViewModel)DataContext!;
+
+        // Ctrl+A: toggle select all
+        if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            vm.ToggleSelectAllCommand.Execute(null);
+            e.Handled = true;
+        }
+        // F5: refresh packager list
+        else if (e.Key == Key.F5)
+        {
+            _ = vm.LoadPackagersCommand.ExecuteAsync(null);
+            e.Handled = true;
+        }
+        // Escape: cancel running operation
+        else if (e.Key == Key.Escape && vm.IsOperationRunning)
+        {
+            vm.CancelOperationCommand.Execute(null);
+            e.Handled = true;
+        }
+        // Ctrl+E: export to CSV
+        else if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            vm.ExportCsvCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
