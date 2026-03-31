@@ -19,9 +19,6 @@
 - Pinned top rows (CanContentScroll=False), native DataGrid scroll
 - Random opaque UIDs on all packagers (primary key for exclusion, state, dedup — never displayed)
 
-### Known Issues
-- Row checkbox turns white after Check Latest/Stage operations (WPF DataGrid selection foreground inheritance)
-
 ### Remaining for Stable
 - Real-world validation: Package phase against live MECM environment
 
