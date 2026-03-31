@@ -44,8 +44,8 @@
                                 <StackPanel Orientation="Horizontal">
                                     <CheckBox IsThreeState="True"
                                               IsChecked="{Binding IsAllVisible}"
-                                              Command="{Binding DataContext.ToggleVendorGroupCommand, RelativeSource={RelativeSource AncestorType=Page}}"
-                                              CommandParameter="{Binding}"
+                                              Click="VendorCheckBox_Click"
+                                              Tag="{Binding}"
                                               VerticalAlignment="Center" Margin="0,0,8,0" />
                                     <TextBlock Text="{Binding Vendor}" FontWeight="SemiBold" FontSize="13"
                                                VerticalAlignment="Center"
