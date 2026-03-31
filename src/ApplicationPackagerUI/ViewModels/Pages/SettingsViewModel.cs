@@ -7,6 +7,7 @@ namespace ApplicationPackagerUI.ViewModels.Pages;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingsService _settingsService;
+    private readonly PackagerPreferencesService _prefsSync;
     private readonly ISnackbarService _snackbarService;
 
     // Organization
@@ -47,10 +48,14 @@ public partial class SettingsViewModel : ObservableObject
     // UI
     [ObservableProperty] private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
 
-    public SettingsViewModel(SettingsService settingsService, ISnackbarService snackbarService)
+    public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService)
     {
         _settingsService = settingsService;
+        _prefsSync = prefsSync;
         _snackbarService = snackbarService;
+
+        // Migrate from PS1 GUI preferences on first launch
+        prefsSync.MigrateFromPs1IfNeeded();
         LoadSettings();
     }
 
@@ -126,6 +131,11 @@ public partial class SettingsViewModel : ObservableObject
         };
 
         _settingsService.Save(s);
+
+        // Sync to PS1 packager JSON files
+        _prefsSync.SyncCompanyName(s.CompanyName);
+        _prefsSync.SyncCwaSettings(s.Cwa);
+
         _snackbarService.Show("Settings", "Settings saved.", Wpf.Ui.Controls.ControlAppearance.Success,
             new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));
     }

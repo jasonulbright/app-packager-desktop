@@ -17,5 +17,5 @@ public partial class PackagerInfo : ObservableObject
     public string VendorUrl { get; init; } = "";
     public string Description { get; init; } = "";
 
-    public bool IsRunnable => !Script.EndsWith(".notps1", StringComparison.OrdinalIgnoreCase);
+    public bool IsRunnable => true;
 }

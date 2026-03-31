@@ -12,6 +12,8 @@ public partial class PackagesViewModel : ObservableObject
     private readonly ISnackbarService _snackbarService;
 
     [ObservableProperty] private ObservableCollection<PackagerInfo> _packagers = [];
+    [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
+    [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private string _comment = "";
     [ObservableProperty] private string _logText = "";
     [ObservableProperty] private string _statusText = "Ready.";
@@ -62,6 +64,28 @@ public partial class PackagesViewModel : ObservableObject
     private IEnumerable<PackagerInfo> SelectedPackagers =>
         Packagers.Where(p => p.IsSelected && p.IsRunnable);
 
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            FilteredPackagers = new ObservableCollection<PackagerInfo>(Packagers);
+        }
+        else
+        {
+            var term = SearchText;
+            FilteredPackagers = new ObservableCollection<PackagerInfo>(
+                Packagers.Where(p =>
+                    p.Application.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    p.Vendor.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    p.CMName.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+        StatusText = string.IsNullOrWhiteSpace(SearchText)
+            ? $"Loaded {Packagers.Count} packager(s). Ready."
+            : $"Showing {FilteredPackagers.Count} of {Packagers.Count} packager(s).";
+    }
+
     // ── Selection helpers ────────────────────────────────────────
 
     [RelayCommand]
@@ -110,7 +134,8 @@ public partial class PackagesViewModel : ObservableObject
         AddLogLine($"Loading packagers from: {root}");
         var results = await _discoveryService.DiscoverAsync();
         Packagers = new ObservableCollection<PackagerInfo>(results);
-        StatusText = $"Loaded {Packagers.Count} packager(s). Ready.";
+        SearchText = "";
+        ApplyFilter();
     }
 
     // ── Check Latest ─────────────────────────────────────────────

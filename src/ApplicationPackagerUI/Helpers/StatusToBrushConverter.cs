@@ -22,7 +22,7 @@ public class StatusToBrushConverter : IValueConverter
             "Update available" => Amber,
             "Staging..." or "Packaging..." or "Checking latest..." or "Querying MECM..." => Blue,
             var s when s.Contains("error", StringComparison.OrdinalIgnoreCase) => Red,
-            "Not runnable (.notps1)" or "Missing metadata (Vendor/App)" => Gray,
+            "Missing metadata (Vendor/App)" => Gray,
             _ => Brushes.Transparent
         };
     }
