@@ -1,334 +1,162 @@
 # Application Packager — Roadmap
 
-## v2.0 — C# WPF Fluent UI Conversion (ALPHA — v2.0.0-alpha tagged 2026-03-30)
+## v2.0 — C# WPF Fluent UI (ALPHA)
 
 **Repo:** `c:\projects\application-packager-ui\` (GitHub: `jasonulbright/application-packager-ui`, private)
-**Plan file:** `C:\Users\jason\.claude\plans\glowing-sauteeing-sphinx.md`
 
 ### Stack
 - .NET 10, WPF-UI 4.2.0, CommunityToolkit.Mvvm 8.4.2, Microsoft.Extensions.Hosting 10.0.5
-- Template patterns from ProjectDashboard (`c:\projects\projectdashboard\`)
 - FluentWindow + Mica backdrop + NavigationView + MVVM + DI
 
-### Navigation
-- **Packages** (home) — Administrative Comments field, action buttons (Check Latest, Check MECM, Stage, Package dropdown with MECM/PSADT/Intune targets), ui:DataGrid with status color coding, log output area with live streaming, status bar
-- **Settings** (footer) — all configuration in one scrollable sectioned page (Discord/Slack style)
+### Features
+- **Packages page**: ui:DataGrid, Check Latest/MECM/Stage/Package dropdown (MECM/PSADT/Intune targets), search/filter, live log streaming, batch progress bar, cancel support, keyboard shortcuts (Ctrl+A/F5/Esc/Ctrl+E), CSV export
+- **Applications page**: vendor-grouped collapsible expanders, tri-state checkboxes, JSON/PS1 type badges, save refreshes Packages grid
+- **Settings page**: Appearance, Organization, MECM Site, DT defaults, Acquisition Method (Static URL/Winget), M365 Channel, CWA params
+- Per-app timestamps, priority-based auto-check on launch (browsers first)
+- Window state persistence, persistent log file (`%LOCALAPPDATA%\AppPackager\apppackager.log`)
+- Preferences sync to PS1 JSON files (CompanyName, CWA settings)
+- First-launch migration from old PS1 GUI preferences
+- Pinned top rows (CanContentScroll=False), native DataGrid scroll
+- Random opaque UIDs on all packagers (primary key for exclusion, state, dedup — never displayed)
 
-### Settings Page Sections (top to bottom, separated by dividers)
-1. **Save button + title row** (always visible at top)
-2. **Appearance** — Dark/Light theme toggle
-3. **Organization** — Company Name
-4. **MECM Site Settings** — Site Code, File Share Root, Download Root, Packagers Folder
-5. **Deployment Type Defaults** — Estimated/Maximum runtime
-6. **Application Selector** — vendor-grouped, collapsible TreeView with checkboxes (controls which apps appear in Packages grid)
-7. **Per-app settings** — only shown for enabled apps that require config:
-   - M365 Channel Selector (MEC/CC/SAEC)
-   - Citrix Workspace App Install Params (Store, Install Options, Plugins, Policies)
-   - Future apps: license keys, server URLs, ports, etc.
+### Known Issues
+- Row checkbox turns white after Check Latest/Stage operations (WPF DataGrid selection foreground inheritance)
 
-### v2.0 Improvements Over PS1 GUI
-- **Cancel support** — `CancellationTokenSource` with `Process.Kill(entireProcessTree: true)`. The PS1 GUI had no cancel mechanism.
-- **Proper async** — replaces `[System.Windows.Forms.Application]::DoEvents()` with async/await and dispatcher threading. UI stays responsive during long operations.
-- **Preferences migration** — first-launch one-time import from `AppPackager.preferences.json` (old PS1 GUI) so existing users don't re-enter settings.
-- **Packagers folder auto-detection** — resolution chain: Settings override > co-located `Packagers/` > `C:\projects\applicationpackager\Packagers` (dev default) > prompt user in Settings.
-
-### PS1 GUI Deprecation
-`start-apppackager.ps1` will be deprecated once v2.0 reaches feature parity and is validated in production. It will remain in the `application-packager` repo as a reference but will not receive new features. The PS1 packager scripts themselves (`package-*.ps1`, `AppPackagerCommon.psm1`) are NOT deprecated — they continue to be the execution engine for v2.0.
-
-### Progress
-- Phase 1 COMPLETE: Project skeleton, FluentWindow, NavigationView, DI wiring
-- Phase 2 COMPLETE: Settings page — Organization, MECM Site, DT defaults, M365 Channel, CWA params, Dark/Light theme
-- Phase 3 COMPLETE: PackagerDiscoveryService, ui:DataGrid, select-all checkbox, debug column toggle, status color coding
-- Phase 4 COMPLETE: PackagerExecutionService, MecmQueryService, Check Latest + Check MECM with real process execution
-- Phase 5 COMPLETE: Stage + Package with live stdout streaming, log file writing, stderr capture
-- Phase 6 COMPLETE: Context menu, Package dropdown (MECM/PSADT/Intune), window state persistence
-- Phase 7 COMPLETE: Applications page — vendor-grouped expanders, tri-state checkboxes, JSON/PS1 badges
-- Phase 8 COMPLETE: Search/filter bar, keyboard shortcuts (Ctrl+A/F5/Esc/Ctrl+E), CSV export, preferences sync
-- Phase 9 COMPLETE: Per-app timestamps, priority-based auto-check on launch, batch progress bar
-- Phase 10 COMPLETE: Pinned top rows (CanContentScroll=False), native DataGrid scroll, removed custom scroll handler
-- **v2.0.0-alpha tagged 2026-03-30**
-
-### v2.1 Engine — Phase 1 COMPLETE (2026-03-31)
-- ApplicationPackagerEngine class library: IVersionScraper plugin interface, ScraperRegistry (reflection-discovered), HttpRegexScraper, DownloadService (HttpClient, no curl), MsiInspectionService (COM), WrapperGeneratorService, ManifestService, StagingService orchestrator
-- Chrome JSON definition: validated end-to-end (version scrape from Google API + full staging with MSI download, property extraction, wrappers, manifest)
-- UI routing: JSON apps → engine DLL, PS1 apps → powershell.exe
-- Random opaque UIDs on all 117 PS1 scripts + JSON definitions — primary key for exclusion, state, dedup. Never displayed.
-- JSON definitions suppress matching PS1 scripts (same Application name)
-
-### Remaining for v2.0 stable
-- Row checkbox turns white after Check Latest/Stage operations (DataGrid selection style issue)
+### Remaining for Stable
 - Real-world validation: Package phase against live MECM environment
 
-### Deferred to v3.0
-- App icon with transparent PNG source
-- First-run wizard
-
 ---
 
-## v2.1 — Engine DLL + JSON App Definitions (HIGH PRIORITY, next after v2.0)
+## v2.1 — Engine DLL + JSON App Definitions (IN PROGRESS)
 
 ### Problem
-117 packager scripts today, each ~400 lines, ~90% duplicated logic. Only the variables differ (vendor, URLs, version regex, installer type, detection method, install args). Adding a new app means cloning and modifying a full script. With winget integration, the addressable catalog expands to 500-600+ enterprise-relevant apps — the PS1-per-app model doesn't scale.
+117 PS1 packager scripts, ~90% duplicated logic. With winget, the addressable catalog is 500-600+ apps — PS1-per-app doesn't scale.
 
-### Architecture
+### Engine DLL (ApplicationPackagerEngine)
+Proprietary class library. Plugin architecture via reflection discovery.
 
-**JSON app definitions** (one file per app, public/community-contributable):
+| Interface | Purpose | Implementations |
+|-----------|---------|-----------------|
+| `IVersionScraper` | Latest version detection | `HttpRegexScraper` (done), `CdnCabScraper` (M365), `GitHubApiScraper`, `VendorApiScraper`, `WingetScraper` (stub) |
+| `IDeploymentTarget` | Create app in MDM system | `MecmTarget`, `BareStaging` |
+| `IWrapperGenerator` | Install/uninstall scripts | `BareWrapper` (done), `PsadtWrapper` |
+
+Core services (done): DownloadService (HttpClient), MsiInspectionService (COM), WrapperGeneratorService, ManifestService, StagingService orchestrator.
+
+### JSON App Definitions
+One file per app, replaces PS1 scripts. Community-contributable.
 ```json
 {
+  "Schema": 1,
+  "Id": "a3f0c8e12d4b7961",
   "Vendor": "Google",
-  "Application": "Chrome",
-  "Architecture": "x64",
-  "InstallerType": "MSI",
-  "VersionScraper": {
-    "Type": "HttpRegex",
-    "Url": "https://chromiumdash.appspot.com/...",
-    "Pattern": "\"version\":\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\""
-  },
-  "DownloadUrl": "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi",
-  "Detection": { "Type": "RegistryKeyValue", "..." : "..." },
-  "InstallArgs": "/qn /norestart",
-  "UninstallArgs": "/x {ProductCode} /qn",
-  "Settings": {
-    "Channel": { "Type": "ComboBox", "Label": "Update Channel", "Options": ["Stable", "Beta"], "Default": "Stable" }
-  }
+  "Application": "Google Chrome",
+  "Acquisition": { "WingetId": "Google.Chrome" },
+  "VersionScraper": { "Type": "HttpRegex", "Url": "...", "Pattern": "..." },
+  "DownloadUrl": "https://dl.google.com/...",
+  "Detection": { "Type": "RegistryKeyValue", "..." : "..." }
 }
 ```
 
-**Engine DLL** (proprietary black box):
-- Generalized scraper types: `HttpRegex` (most apps), `CdnCabParse` (M365), `GitHubApi`, `VendorApi`, etc.
-- Most apps = scrape a single page with a regex. Same pattern, different URL and regex.
-- New scraper type needed? Implement the `IVersionScraper` interface, register it. JSON just references which type to use.
-- Scraper type registry is plugin-style, NOT a hardcoded switch. Types implement `IVersionScraper` and are discovered via reflection or explicit registration at startup. Adding a new scraper type = add a class, it's automatically available to JSON definitions. No modification to existing code required.
-- Encapsulates: version check, download, staging, wrapper generation, manifest, MECM app creation, detection clauses.
-- Progress callbacks, cancellation, structured results — called directly by UI (no stdout parsing).
-- Replaces `AppPackagerCommon.psm1` functionality in C#.
+### Acquisition: Static URL vs Winget
+- **Static URL** (default): engine scrapes vendor page + regex. Works everywhere.
+- **Winget** (optional): `winget show/download`. Requires winget + repository access (Store GPO). Many orgs block Store — winget is never a requirement, always optional.
+- User preference in Settings. Per-app: if WingetId exists and preference is Winget, try winget first, fall back to static URL.
 
-**Per-app settings auto-generation:**
-- JSON definitions include an optional `Settings` block describing UI fields (text, dropdown, checkbox, etc.)
-- The Settings page dynamically renders per-app config sections from this schema — no XAML changes needed per app.
-- Replaces the hardcoded M365 Channel / CWA sections with data-driven UI.
+### PSADT Integration
+Packaging-time option: "Also create interactive (PSADT) application". Creates a **separate CM Application** (not a second DT) to avoid poisoning TS compatibility. Silent app = Required/TS, Interactive app = Available/Software Center.
 
-**Legacy PS1 support retained:**
-- Existing `package-*.ps1` scripts continue to work alongside JSON-defined apps.
-- UI handles both: JSON apps go through DLL, PS1 apps shell out to PowerShell.
-- Gradual migration: convert one app at a time from PS1 to JSON.
+### Per-App Settings Auto-Generation
+JSON `Settings` block describes UI fields (text, dropdown, checkbox). Settings page renders them dynamically — no XAML per app.
 
-**Migration tooling:**
-- Utility to convert existing `package-*.ps1` into a JSON definition — parses header metadata + extracts variables, URLs, detection config. Accelerates the 26-script migration.
-
-**Third-party contributions:**
-- Anyone can add app support by writing a JSON file.
-- Contributors don't need engine source — define *what*, DLL handles *how*.
-- Power users who need new scraper types can contribute to the DLL.
-
-### Plugin Interfaces
-
-| Interface | Purpose | Built-in Implementations |
-|-----------|---------|-------------------------|
-| `IVersionScraper` | Determine latest available version | `HttpRegex` (most apps), `CdnCabParse` (M365/ODT), `GitHubApi`, `VendorApi` |
-| `IDeploymentTarget` | Create application in MDM/deployment system | `MecmTarget` (CM cmdlets), `BareStaging` (versioned folder + manifest only) |
-| `IWrapperGenerator` | Generate install/uninstall scripts | `BareWrapper` (bat/ps1), `PsadtWrapper` (Deploy-Application.ps1) |
-
-All plugin-style via reflection discovery. Add a class implementing the interface, it's automatically available. No hardcoded switches.
-
-**Future interfaces (v3.0):**
-- `IDownloader` — auth tokens (GitHub private releases), vendor APIs (JetBrains), multi-file (ODT), gated downloads
-- `IPostAction` — webhook, Teams notification, email, CMDB update, trigger downstream deployment
-
-### PSADT (PowerShell App Deployment Toolkit) Integration
-
-Packaging-time option: **"Also create interactive (PSADT) application"**
-
-Creates a **second, separate CM Application** alongside the silent one:
-
-| Application | Install Command | DT Logon Requirement | Use Case |
-|-------------|----------------|---------------------|----------|
-| `Chrome - 136.x (x64)` | `install.bat` | `WhetherOrNotUserIsLoggedOn` | Required deployments, task sequences |
-| `Chrome - 136.x (x64) [Interactive]` | `Deploy-Application.exe` | `WhetherOrNotUserIsLoggedOn` | Available in Software Center (user-facing dialogs) |
-
-**Why two separate applications, NOT two DTs on one app:**
-A deployment type with `OnlyWhenUserIsLoggedOn` can prevent the entire application from appearing in the Task Sequence application picker. MECM evaluates DT eligibility at the app level — a single user-interactive DT poisons TS compatibility even if a higher-priority silent DT exists. Two separate applications avoids this entirely.
-
-**PSADT wrapper auto-population from manifest:**
-- App name, version, vendor from JSON definition
-- `Show-InstallationWelcome -CloseApps` populated from `RunningProcess` array
-- Install/uninstall commands from manifest
-- Deferral settings configurable in Settings page or per-app JSON
-- PSADT toolkit vendored into engine (per dependency philosophy)
-
-Both apps share the same content source. Silent goes to Required/TS collections, Interactive goes to Available/self-service collections. Completely independent deployments.
-
-### Winget Integration & App Discovery
-
-**Dual acquisition paths** per app — JSON definition supports both:
-```json
-{
-  "Acquisition": {
-    "WingetId": "Notepad++.Notepad++",
-    "StaticUrl": "https://github.com/notepad-plus-plus/...",
-    "Preferred": "Winget"
-  }
-}
-```
-
-| Path | Pipeline | Requires |
-|------|----------|----------|
-| **Winget** | `winget download --id <id>` — versioning, download, and hash validation handled by winget. No version scraper, no URL maintenance, no regex. Near-zero pipeline. | Store/winget GPO enabled |
-| **Static URL** | Engine downloads from vendor CDN, scrapes version via `IVersionScraper`. Current behavior. | Internet access, version scraper config |
-
-Per-app choice: winget for commodity apps (Chrome, Firefox, 7-Zip), static URL for niche/internal apps not in winget. Falls back automatically if winget is unavailable (air-gapped, GPO-locked).
-
-**"Add New App" wizard** (search bar in Packages page):
-1. User types app name → engine queries `winget search`
-2. User picks from results → engine runs `winget show <id>` for metadata (vendor, version, installer URL, type, license)
-3. Engine runs `winget download <id>` to temp staging
-4. Engine introspects the downloaded installer:
-   - **MSI**: read ProductCode, UpgradeCode, version, install path from MSI tables (no install needed)
-   - **EXE**: detect installer framework (NSIS, Inno, InstallShield), known silent switches
-   - **MSIX**: read package manifest
-5. Engine auto-generates `definition.json` with all discovered fields pre-populated
-6. User reviews/tweaks in Settings, saves
-
-**v2.1 scope**: Winget search/show/download + MSI table inspection (covers ~60% of apps with zero manual config).
-**v3.0 scope**: Full sandbox pipeline (Windows Sandbox or Hyper-V checkpoint) for EXE introspection — install, diff ARP + filesystem, capture detection data automatically.
+### Migration Tooling
+Utility to convert `package-*.ps1` into JSON definitions (parse headers + extract variables).
 
 ### App Icons
+Base64-encoded PNG in JSON definition. Engine decodes → caches to `%LOCALAPPDATA%\AppPackager\icons\`. 32x32, ~1-3KB. Winget wizard auto-captures from vendor.
 
-Icons are base64-encoded directly in the JSON definition — self-contained, no external URL dependency, works offline and air-gapped:
+### "Add New App" Wizard
+1. Search via winget or manual URL entry
+2. Download + introspect installer (MSI tables, no install needed)
+3. Auto-generate `definition.json`
+4. User reviews/tweaks, saves
 
-```json
-{
-  "Vendor": "Google",
-  "Application": "Chrome",
-  "Icon": "iVBORw0KGgoAAAANSUhEUgAAACAAAA...",
-  "IconFormat": "png"
-}
-```
+### Version History & App Detail View
+- Every version check appends `{ timestamp, version }` per app
+- App detail pane: version history graph, vendor links, definition editor, current state
+- Local history in SQLite/JSON; optionally synced to product website for community tracking
 
-Engine on startup: decode base64 → write to `%LOCALAPPDATA%\AppPackager\icons\<app>.png` → DataGrid binds to the cached file path. Icons are 32x32 PNG (~1-3KB base64), keeping JSON files human-readable.
+### Progress (2026-03-31)
+- Phase 1 COMPLETE: Engine scaffold, Chrome JSON validated end-to-end
+- JSON definitions suppress matching PS1 scripts
+- Acquisition routing (Static URL / Winget preference) wired
+- WingetScraper stub registered (returns null, falls back to static)
 
-For the winget "Add New App" wizard: `winget show` returns the app's icon URL → engine downloads → resizes to 32x32 → base64 encodes into the generated JSON automatically. Zero manual icon work.
-
-Icons sourced from vendor installers/pages — ships with the product, no copyright issue.
-
-### Key Benefits
-- One JSON per app replaces one 400-line PS1 per app.
-- Adding a new app via winget = 2-minute guided flow (was 2 hours of PS1 cloning).
-- Dual acquisition: winget (near-zero pipeline) or static URL (current behavior). Per-app choice.
-- Deep UI integration: progress, cancel, structured results (no stdout parsing).
-- Community-scalable: separate public definitions from proprietary engine.
-- Per-app settings auto-generated from JSON schema — zero XAML per app.
-- PSADT interactive apps without breaking TS compatibility.
-
----
-
-## Distribution & Product
-
-### Packaging Formats
-- **MSI** — enterprise deployment via MECM/GPO
-- **Setup EXE** — standard installer for manual installs
-- **ZIP** — portable/xcopy deployment (no install required)
-- **Portable** — single-directory, no installer, no registry writes
-- **Source code** — via GitHub (public repo for definitions, private repo for engine/UI)
-
-### Code Signing
-- All executables and DLLs signed with a code signing certificate.
-- Engine DLL signed separately — validates authenticity of the black box component.
-
-### Auto-Update
-- Dedicated domain for update infrastructure (TBD).
-- Three update channels:
-  - **App definitions** — JSON files updated independently. Check for new/updated definitions on launch or on-demand.
-  - **Engine DLL** — updated when new scraper types or engine features ship. Versioned, signed.
-  - **Application executable** — full app updates. Version check against update server.
-- Update checks are non-blocking — app launches immediately, updates download in background.
-- Definitions can be updated without updating the app or engine.
-
-### Website & Documentation
-- Product website on the dedicated domain: download page, documentation, changelog, screenshots.
-- Documentation covers: installation, first-run setup, adding custom app definitions, MECM integration guide.
-- No forum initially — GitHub Issues for bug reports and feature requests.
-- GitHub Discussions or Discord considered for community later.
-
-### Repository Strategy
-- **`application-packager-ui`** (PRIVATE) — C# UI + engine DLL source. Contains proprietary code.
-- **`application-packager`** (PUBLIC) — PS1 packager scripts, shared module, legacy GUI. Remains public for community reference.
-- **App definitions** — TBD: either a public repo of JSON files, or bundled with the app and updated via the update server.
+### Remaining
+- Convert remaining 116 PS1 scripts to JSON definitions
+- Implement remaining scraper types (CdnCab, GitHubApi, VendorApi)
+- Implement WingetScraper (functional)
+- `IDeploymentTarget` + `MecmTarget` (Package phase in C#)
+- `PsadtWrapper` implementation
+- "Add New App" wizard UI
+- Per-app settings auto-generation from JSON schema
+- App icons in DataGrid
 
 ---
 
-## Version History & App Detail View (v2.1+)
+## v3.0 — Service Architecture, Distribution, Advanced Features
 
-### Version History Database
-Every version check records a timestamped entry per app: `{ timestamp, version }`. Over time this builds a version history database showing release cadence and update trends per application. Data could be:
-- **Local**: SQLite or JSON append log in `%LOCALAPPDATA%\AppPackager\history\`
-- **Centralized**: synced to the product website for community-wide version tracking with graphs
+### Service Architecture (UI + Agent Split)
 
-### App Detail Pane
-Clicking an app name in the Packages grid opens a detail view showing:
-- **Version history graph** — release timeline, update frequency trends
-- **Vendor links** — vendor page, support page, release notes URL, download page
-- **App definition editor** — modify/customize variables, scraper regex, install args, detection config
-- **Current state** — last checked, latest version, MECM version, staging status
+| Component | Identity | Responsibility |
+|-----------|----------|---------------|
+| **UI** (admin console) | Interactive user | Configuration, monitoring, manual operations |
+| **Service/Agent** | SYSTEM or service account | Auto-check, auto-stage, auto-package, auto-import |
+| **Engine DLL** | Called by both | Core logic |
 
-This is the "per-app dashboard" — beautiful data presentation that keeps admins engaged and informed. In v2.1 with JSON definitions, the detail pane becomes the primary way to customize app behavior without editing files.
+- Shared config in `%PROGRAMDATA%\AppPackager\`
+- UI state in `%LOCALAPPDATA%\AppPackager\`
+- Per-machine install (Program Files), Windows Service (delayed auto-start)
+- PS1 sync files deprecated after full JSON conversion
 
-### Scope Decision (TBD)
-The version history database may be better suited for the product website rather than the local app — community-wide version tracking has more value than per-admin local data. Local app shows individual check history; website aggregates across all users. To be discussed.
+### Agent Capabilities
+- Auto-check: periodic version scraping on schedule
+- Auto-stage: stage automatically when new version detected
+- Auto-package: create MECM/Intune application automatically
+- Auto-import: distribute content, deploy to target collections
+- Notifications: email, Teams webhook, dashboard alert
 
----
+### Distribution
+- **Formats**: MSI, setup EXE, ZIP, portable, source via GitHub
+- **Code signing**: all executables and DLLs signed
+- **Auto-update**: dedicated domain, three channels (definitions, engine DLL, app exe)
+- **Website**: product page, documentation, changelog, screenshots
 
-## Service Architecture & Deployment Model (v3.0+)
+### Additional Plugin Interfaces
+- `IDownloader` — auth tokens (GitHub private releases), vendor APIs, multi-file (ODT), gated downloads
+- `IPostAction` — webhook, Teams notification, email, CMDB update, trigger downstream deployment
 
-### Problem
-The UI currently runs as the interactive user. Writing to network shares, creating MECM applications, and syncing config to protected paths requires elevated permissions or prompts for credentials. This doesn't scale to unattended automation.
-
-### Architecture: UI + Service Split
-
-| Component | Identity | Responsibility | Data Location |
-|-----------|----------|---------------|---------------|
-| **UI** (admin console) | Interactive user | Configuration, monitoring, manual operations | `%LOCALAPPDATA%\AppPackager\` (UI state: window, theme, column widths) |
-| **Service/Agent** | SYSTEM or service account | Auto-check, auto-stage, auto-package, auto-import, network writes | `%PROGRAMDATA%\AppPackager\` (shared config, definitions, version history) |
-| **Engine DLL** | Called by both | Core logic (scrape, download, stage, detect, manifest) | No state of its own |
-
-### Shared Config (`%PROGRAMDATA%\AppPackager\`)
-- `config.json` — SiteCode, FileShareRoot, DownloadRoot, CompanyName, M365Channel, CWA settings
-- `definitions/` — JSON app definitions
-- `history/` — version history database (SQLite or JSON append log)
-- `icons/` — cached app icons
-
-### UI State (`%LOCALAPPDATA%\AppPackager\`)
-- `ui-settings.json` — window position, theme, column widths, pane state
-- `apppackager.log` — session log (append)
-
-### Agent/Service Capabilities
-- **Auto-check**: periodic version scraping on a schedule (configurable interval)
-- **Auto-stage**: when a new version is detected, stage it automatically
-- **Auto-package**: when staged, create the MECM/Intune application automatically
-- **Auto-import**: distribute content, deploy to target collections
-- **Notifications**: email, Teams webhook, or dashboard alert when new versions are available or packages are ready
-- **Runs headless**: no UI required, operates on schedule or trigger
-
-### Installation Model
-- **Per-machine install** (Program Files) — not per-user
-- Service registered as Windows Service (delayed auto-start)
-- UI is a separate executable launched by admin on demand
-- Both share the engine DLL and `%PROGRAMDATA%` config
-- No UAC prompts for routine operations — service has the credentials
-
-### PS1 Sync Files Deprecation
-`packager-preferences.json` and `citrix-workspace-switches.json` in the Packagers folder are backward-compat sync files for PS1 scripts. Once all apps are converted to JSON definitions, these files and the sync logic are removed. The service reads shared config from `%PROGRAMDATA%` directly.
+### Advanced Features
+- App icon with transparent PNG source
+- First-run wizard
+- Full sandbox pipeline (Windows Sandbox / Hyper-V) for EXE introspection
+- Community definition repository (public JSON, private engine)
+- Intune deployment target (.intunewin + Graph API)
 
 ---
 
 ## Testing Strategy
 
 ### v2.0
-- **Build validation** — `dotnet build` must produce zero warnings, zero errors.
-- **Manual integration testing** — launch app, configure settings, discover packagers, run all 4 operations against real MECM environment.
-- **Process execution tests** — validate argument construction matches PS1 GUI exactly (same powershell.exe invocation patterns).
+- Build validation: `dotnet build` zero warnings, zero errors
+- Manual integration testing against real MECM environment
 
 ### v2.1
-- **Unit tests** for engine DLL — each scraper type tested against known page content (mocked HTTP). Version parsing, download URL construction, detection clause generation.
-- **JSON schema validation** — validate app definitions against a JSON schema before loading. Report errors for malformed definitions.
-- **Integration tests** — end-to-end: load JSON definition, scrape version, download, stage, verify manifest. Requires network access but no MECM.
+- Unit tests for engine DLL (mocked HTTP, version parsing, detection clauses)
+- JSON schema validation
+- Integration tests: end-to-end scrape → download → stage → verify manifest
+
+### v3.0
+- Service integration tests (auto-check, auto-stage pipelines)
+- Update server validation
+- Multi-environment deployment testing
