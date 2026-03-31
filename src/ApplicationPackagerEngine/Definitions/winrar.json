@@ -13,7 +13,8 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.rarlab.com/download.htm",
-                           "Pattern":  "winrar-x64-(\\d+)\\.exe"
+                           "Pattern":  "winrar-x64-(\\d+)\\.exe",
+                           "VersionTransform":  "insert_dot:1"
                        },
     "DownloadUrl":  "https://www.rarlab.com/rar/winrar-x64-{version}.exe",
     "InstallArgs":  "/S",

@@ -47,5 +47,50 @@ public sealed class ScraperRegistry
         return await scraper.GetLatestVersionAsync(config, ct);
     }
 
+    /// <summary>
+    /// Gets the latest version with VersionTransform applied for display/detection.
+    /// Returns (rawVersion, displayVersion). Raw is used for download URLs, display for everything else.
+    /// </summary>
+    public async Task<(string? Raw, string? Display)> GetLatestVersionWithTransformAsync(
+        VersionScraperConfig config, CancellationToken ct = default)
+    {
+        var raw = await GetLatestVersionAsync(config, ct);
+        if (raw is null) return (null, null);
+
+        var display = !string.IsNullOrEmpty(config.VersionTransform)
+            ? ApplyTransform(raw, config.VersionTransform)
+            : raw;
+
+        return (raw, display);
+    }
+
+    private static string ApplyTransform(string version, string transform)
+    {
+        foreach (var step in transform.Split('|'))
+        {
+            var trimmed = step.Trim();
+
+            if (trimmed.StartsWith("insert_dot:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (int.TryParse(trimmed[11..], out var pos) && pos >= 0 && pos < version.Length)
+                    version = version[..pos] + "." + version[pos..];
+            }
+            else if (trimmed.StartsWith("replace:", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = trimmed[8..].Split(':', 2);
+                if (parts.Length == 2)
+                    version = version.Replace(parts[0], parts[1]);
+            }
+            else if (trimmed.StartsWith("strip_prefix:", StringComparison.OrdinalIgnoreCase))
+            {
+                var prefix = trimmed[13..];
+                if (version.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    version = version[prefix.Length..];
+            }
+        }
+
+        return version;
+    }
+
     public IReadOnlyCollection<string> RegisteredTypes => _scrapers.Keys;
 }
