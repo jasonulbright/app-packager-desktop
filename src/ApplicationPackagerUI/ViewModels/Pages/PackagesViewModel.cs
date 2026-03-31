@@ -20,6 +20,9 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private bool _isOperationRunning;
     [ObservableProperty] private bool _showDebugColumns;
     [ObservableProperty] private bool _isAllSelected;
+    [ObservableProperty] private int _progressCurrent;
+    [ObservableProperty] private int _progressTotal;
+    [ObservableProperty] private bool _showProgress;
 
     public IAsyncRelayCommand LoadPackagersCommand { get; }
     public IAsyncRelayCommand CheckLatestCommand { get; }
@@ -133,9 +136,28 @@ public partial class PackagesViewModel : ObservableObject
 
         AddLogLine($"Loading packagers from: {root}");
         var results = await _discoveryService.DiscoverAsync();
+
+        // Restore persisted per-app state (LastChecked, versions)
+        var settings = _settingsService.Load();
+        foreach (var p in results)
+        {
+            if (settings.AppStates.TryGetValue(p.Script, out var state))
+            {
+                p.LastChecked = state.LastChecked;
+                p.LatestVersion = state.LatestVersion;
+                p.CurrentVersion = state.CurrentVersion;
+                if (!string.IsNullOrEmpty(state.LatestVersion))
+                    p.Status = "Cached";
+            }
+        }
+
         Packagers = new ObservableCollection<PackagerInfo>(results);
         SearchText = "";
         ApplyFilter();
+
+        // Auto-check on launch (background, priority-ordered)
+        if (settings.AutoCheckLatestOnLaunch)
+            _ = AutoCheckLatestAsync();
     }
 
     // ── Check Latest ─────────────────────────────────────────────
@@ -145,17 +167,44 @@ public partial class PackagesViewModel : ObservableObject
         var selected = SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Check Latest"); return; }
 
+        await RunCheckLatestOnList(selected, "Checking latest versions...", "Latest check");
+    }
+
+    /// <summary>
+    /// Auto-check on launch: checks ALL packagers in priority order (browsers first, then oldest).
+    /// Runs in background without requiring selection.
+    /// </summary>
+    private async Task AutoCheckLatestAsync()
+    {
+        // Small delay to let UI finish rendering
+        await Task.Delay(500);
+
+        var ordered = Packagers.OrderBy(p => p.CheckPriority).ToList();
+        if (ordered.Count == 0) return;
+
+        AddLogLine("Auto-check: starting background version check (priority order)...");
+        await RunCheckLatestOnList(ordered, "Auto-checking latest versions...", "Auto-check");
+    }
+
+    private async Task RunCheckLatestOnList(List<PackagerInfo> targets, string startMessage, string logPrefix)
+    {
         IsOperationRunning = true;
+        ShowProgress = true;
+        ProgressCurrent = 0;
+        ProgressTotal = targets.Count;
         _operationCts = new CancellationTokenSource();
-        StatusText = "Checking latest versions...";
+        StatusText = startMessage;
         var settings = _settingsService.Load();
 
         try
         {
-            foreach (var p in selected)
+            for (var i = 0; i < targets.Count; i++)
             {
                 if (_operationCts.IsCancellationRequested) break;
 
+                var p = targets[i];
+                ProgressCurrent = i + 1;
+                StatusText = $"{logPrefix}: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
                 p.Status = "Checking latest...";
                 AddLogLine($"Latest: {p.Application} ({p.Script})");
 
@@ -166,8 +215,8 @@ public partial class PackagesViewModel : ObservableObject
                     if (version is not null)
                     {
                         p.LatestVersion = version;
+                        p.LastChecked = DateTime.Now;
 
-                        // Compare with current if available
                         if (!string.IsNullOrEmpty(p.CurrentVersion))
                         {
                             var cmp = CompareVersions(p.CurrentVersion, version);
@@ -180,7 +229,6 @@ public partial class PackagesViewModel : ObservableObject
                             p.Status = "Latest retrieved";
                         }
 
-                        // M365 channel tag in log
                         var suffix = p.Script.Contains("m365", StringComparison.OrdinalIgnoreCase)
                             ? $" [{ChannelTag(settings.M365Channel)}]" : "";
                         AddLogLine($"Latest version: {version}{suffix}");
@@ -199,14 +247,17 @@ public partial class PackagesViewModel : ObservableObject
                 }
             }
 
-            StatusText = "Latest check complete.";
+            SaveAppStates();
+            StatusText = $"{logPrefix} complete. {ProgressCurrent} of {ProgressTotal} checked.";
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Latest check cancelled.";
+            SaveAppStates();
+            StatusText = $"{logPrefix} cancelled at {ProgressCurrent} of {ProgressTotal}.";
         }
         finally
         {
+            ShowProgress = false;
             IsOperationRunning = false;
             _operationCts?.Dispose();
             _operationCts = null;
@@ -300,15 +351,21 @@ public partial class PackagesViewModel : ObservableObject
         if (selected.Count == 0) { ShowNoneSelected("Stage"); return; }
 
         IsOperationRunning = true;
+        ShowProgress = true;
+        ProgressCurrent = 0;
+        ProgressTotal = selected.Count;
         _operationCts = new CancellationTokenSource();
         StatusText = "Staging selected packages...";
 
         try
         {
-            foreach (var p in selected)
+            for (var i = 0; i < selected.Count; i++)
             {
                 if (_operationCts.IsCancellationRequested) break;
 
+                var p = selected[i];
+                ProgressCurrent = i + 1;
+                StatusText = $"Staging: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
                 p.Status = "Staging...";
                 AddLogLine($"Stage: {p.Application} ({p.Script})");
 
@@ -337,14 +394,15 @@ public partial class PackagesViewModel : ObservableObject
                 }
             }
 
-            StatusText = "Stage complete.";
+            StatusText = $"Stage complete. {ProgressCurrent} of {ProgressTotal} staged.";
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Stage cancelled.";
+            StatusText = $"Stage cancelled at {ProgressCurrent} of {ProgressTotal}.";
         }
         finally
         {
+            ShowProgress = false;
             IsOperationRunning = false;
             _operationCts?.Dispose();
             _operationCts = null;
@@ -374,15 +432,21 @@ public partial class PackagesViewModel : ObservableObject
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
 
         IsOperationRunning = true;
+        ShowProgress = true;
+        ProgressCurrent = 0;
+        ProgressTotal = selected.Count;
         _operationCts = new CancellationTokenSource();
         StatusText = "Packaging selected applications...";
 
         try
         {
-            foreach (var p in selected)
+            for (var i = 0; i < selected.Count; i++)
             {
                 if (_operationCts.IsCancellationRequested) break;
 
+                var p = selected[i];
+                ProgressCurrent = i + 1;
+                StatusText = $"Packaging: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
                 p.Status = "Packaging...";
                 AddLogLine($"Package: {p.Application} ({p.Script})");
 
@@ -411,14 +475,15 @@ public partial class PackagesViewModel : ObservableObject
                 }
             }
 
-            StatusText = "Package complete.";
+            StatusText = $"Package complete. {ProgressCurrent} of {ProgressTotal} packaged.";
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Package cancelled.";
+            StatusText = $"Package cancelled at {ProgressCurrent} of {ProgressTotal}.";
         }
         finally
         {
+            ShowProgress = false;
             IsOperationRunning = false;
             _operationCts?.Dispose();
             _operationCts = null;
@@ -454,9 +519,23 @@ public partial class PackagesViewModel : ObservableObject
 
     private static int CompareVersions(string a, string b)
     {
-        // Try System.Version first, fall back to string comparison
         if (Version.TryParse(a, out var va) && Version.TryParse(b, out var vb))
             return va.CompareTo(vb);
         return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SaveAppStates()
+    {
+        var s = _settingsService.Load();
+        foreach (var p in Packagers)
+        {
+            s.AppStates[p.Script] = new AppCheckState
+            {
+                LastChecked = p.LastChecked,
+                LatestVersion = p.LatestVersion,
+                CurrentVersion = p.CurrentVersion
+            };
+        }
+        _settingsService.Save(s);
     }
 }

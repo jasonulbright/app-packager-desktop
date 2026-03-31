@@ -18,6 +18,12 @@ public sealed class AppSettings
     // Application visibility
     public string[] HiddenApplications { get; set; } = [];
 
+    // Per-app version check state (Script name → last checked + latest version)
+    public Dictionary<string, AppCheckState> AppStates { get; set; } = [];
+
+    // Auto-check on launch
+    public bool AutoCheckLatestOnLaunch { get; set; } = true;
+
     // Per-app: M365
     public string M365Channel { get; set; } = "MonthlyEnterprise";
 
@@ -32,6 +38,13 @@ public sealed class AppSettings
     public double WindowHeight { get; set; } = 800;
     public bool WindowMaximized { get; set; }
     public bool PaneOpen { get; set; } = true;
+}
+
+public sealed class AppCheckState
+{
+    public DateTime? LastChecked { get; set; }
+    public string LatestVersion { get; set; } = "";
+    public string CurrentVersion { get; set; } = "";
 }
 
 public sealed class CwaInstallSettings

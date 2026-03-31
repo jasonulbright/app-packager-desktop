@@ -193,12 +193,25 @@
                  TextChanged="LogTextBox_TextChanged" />
 
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 4: Status bar -->
+        <!-- Row 5: Status bar + progress -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <TextBlock Grid.Row="5"
-                   Text="{Binding StatusText}"
-                   FontSize="12"
-                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                   Margin="0,4,0,0" />
+        <Grid Grid.Row="5" Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="{Binding StatusText}"
+                       FontSize="12"
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                       VerticalAlignment="Center" />
+            <ProgressBar Grid.Column="1"
+                         Width="200" Height="8"
+                         Minimum="0"
+                         Maximum="{Binding ProgressTotal}"
+                         Value="{Binding ProgressCurrent}"
+                         Visibility="{Binding ShowProgress, Converter={StaticResource BooleanToVisibilityConverter}}"
+                         VerticalAlignment="Center" Margin="12,0,0,0" />
+        </Grid>
     </Grid>
 </Page>
