@@ -245,6 +245,27 @@ Icons sourced from vendor installers/pages — ships with the product, no copyri
 
 ---
 
+## Version History & App Detail View (v2.1+)
+
+### Version History Database
+Every version check records a timestamped entry per app: `{ timestamp, version }`. Over time this builds a version history database showing release cadence and update trends per application. Data could be:
+- **Local**: SQLite or JSON append log in `%LOCALAPPDATA%\AppPackager\history\`
+- **Centralized**: synced to the product website for community-wide version tracking with graphs
+
+### App Detail Pane
+Clicking an app name in the Packages grid opens a detail view showing:
+- **Version history graph** — release timeline, update frequency trends
+- **Vendor links** — vendor page, support page, release notes URL, download page
+- **App definition editor** — modify/customize variables, scraper regex, install args, detection config
+- **Current state** — last checked, latest version, MECM version, staging status
+
+This is the "per-app dashboard" — beautiful data presentation that keeps admins engaged and informed. In v2.1 with JSON definitions, the detail pane becomes the primary way to customize app behavior without editing files.
+
+### Scope Decision (TBD)
+The version history database may be better suited for the product website rather than the local app — community-wide version tracking has more value than per-admin local data. Local app shows individual check history; website aggregates across all users. To be discussed.
+
+---
+
 ## Testing Strategy
 
 ### v2.0
