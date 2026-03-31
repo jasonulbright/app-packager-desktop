@@ -54,6 +54,18 @@ public partial class PackagesPage
         }
     }
 
+    private void SelectAllCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.CheckBox cb)
+        {
+            var vm = (PackagesViewModel)DataContext!;
+            var newState = cb.IsChecked == true;
+            foreach (var p in vm.Packagers)
+                p.IsSelected = newState;
+            vm.IsAllSelected = newState;
+        }
+    }
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(PackagesViewModel.ShowDebugColumns))
