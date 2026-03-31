@@ -10,6 +10,8 @@ public partial class PackagerInfo : ObservableObject
     [ObservableProperty] private DateTime? _lastChecked;
 
     // Immutable metadata — set once during discovery
+    /// <summary>Internal unique identifier. Never displayed to user.</summary>
+    public string Uid { get; init; } = "";
     public string Vendor { get; init; } = "";
     public string Application { get; init; } = "";
     public string CMName { get; init; } = "";

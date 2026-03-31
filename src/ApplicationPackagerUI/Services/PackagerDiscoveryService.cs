@@ -15,6 +15,9 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     [GeneratedRegex(@"^\s*(?:#\s*)?Vendor\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex VendorRegex();
 
+    [GeneratedRegex(@"^\s*(?:#\s*)?UID\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex UidRegex();
+
     [GeneratedRegex(@"^\s*(?:#\s*)?(?:App|Application)\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex AppRegex();
 
@@ -90,20 +93,21 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                     var meta = ParseMetadata(filePath);
                     var scriptName = Path.GetFileName(filePath);
 
-                    // Skip hidden applications
-                    if (hidden.Contains(meta.Application ?? ""))
+                    // No UID = not displayed
+                    if (string.IsNullOrEmpty(meta.Uid))
+                        continue;
+
+                    // Skip by UID
+                    if (hidden.Contains(meta.Uid))
                         continue;
 
                     // Skip PS1 if a JSON definition exists for the same app
                     if (jsonAppNames.Contains(meta.Application ?? ""))
                         continue;
 
-                    var status = "Ready";
-                    if (string.IsNullOrEmpty(meta.Vendor) || string.IsNullOrEmpty(meta.Application))
-                        status = "Missing metadata (Vendor/App)";
-
                     results.Add(new PackagerInfo
                     {
+                        Uid = meta.Uid,
                         Vendor = meta.Vendor ?? "",
                         Application = meta.Application ?? "",
                         CMName = meta.CMName ?? meta.Application ?? "",
@@ -111,7 +115,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                         FullPath = filePath,
                         VendorUrl = meta.VendorUrl ?? "",
                         Description = meta.Description ?? "",
-                        Status = status
+                        Status = "Ready"
                     });
                 }
                 catch (Exception ex)
@@ -152,12 +156,13 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
             {
                 var json = File.ReadAllText(jsonPath);
                 var def = JsonSerializer.Deserialize<AppDefinition>(json, JsonOptions);
-                if (def is null) continue;
+                if (def is null || string.IsNullOrEmpty(def.Id)) continue;
 
-                if (hidden is not null && hidden.Contains(def.Application)) continue;
+                if (hidden is not null && hidden.Contains(def.Id)) continue;
 
                 results.Add(new PackagerInfo
                 {
+                    Uid = def.Id,
                     Vendor = def.Vendor,
                     Application = def.Application,
                     CMName = def.CMName,
@@ -201,8 +206,11 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                 try
                 {
                     var meta = ParseMetadata(filePath);
+                    if (string.IsNullOrEmpty(meta.Uid)) continue;
+
                     results.Add(new PackagerInfo
                     {
+                        Uid = meta.Uid,
                         Vendor = meta.Vendor ?? "",
                         Application = meta.Application ?? "",
                         CMName = meta.CMName ?? meta.Application ?? "",
@@ -223,12 +231,12 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     }
 
     private sealed record ScriptMetadata(
-        string? Vendor, string? Application, string? CMName,
+        string? Uid, string? Vendor, string? Application, string? CMName,
         string? VendorUrl, string? Description);
 
     private static ScriptMetadata ParseMetadata(string path)
     {
-        string? vendor = null, app = null, cmName = null, vendorUrl = null, description = null;
+        string? uid = null, vendor = null, app = null, cmName = null, vendorUrl = null, description = null;
         var inSynopsis = false;
         var lineCount = 0;
 
@@ -237,6 +245,12 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
             if (++lineCount > 200) break;
 
             var line = rawLine.TrimStart('\uFEFF');
+
+            if (uid is null)
+            {
+                var m = UidRegex().Match(line);
+                if (m.Success) { uid = m.Groups[1].Value.Trim(); continue; }
+            }
 
             if (vendor is null)
             {
@@ -279,6 +293,6 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
             }
         }
 
-        return new ScriptMetadata(vendor, app, cmName ?? app, vendorUrl, description);
+        return new ScriptMetadata(uid, vendor, app, cmName ?? app, vendorUrl, description);
     }
 }

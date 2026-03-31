@@ -174,7 +174,7 @@ public partial class PackagesViewModel : ObservableObject
         var settings = _settingsService.Load();
         foreach (var p in results)
         {
-            if (settings.AppStates.TryGetValue(p.Script, out var state))
+            if (settings.AppStates.TryGetValue(p.Uid, out var state))
             {
                 p.LastChecked = state.LastChecked;
                 p.LatestVersion = state.LatestVersion;
@@ -563,7 +563,7 @@ public partial class PackagesViewModel : ObservableObject
         var s = _settingsService.Load();
         foreach (var p in Packagers)
         {
-            s.AppStates[p.Script] = new AppCheckState
+            s.AppStates[p.Uid] = new AppCheckState
             {
                 LastChecked = p.LastChecked,
                 LatestVersion = p.LatestVersion,
