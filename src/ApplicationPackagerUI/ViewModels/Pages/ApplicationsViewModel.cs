@@ -50,6 +50,7 @@ public partial class ApplicationsViewModel : ObservableObject
                              {
                                  Application = a.Application,
                                  Script = a.Script,
+                                 IsJsonDefined = a.IsJsonDefined,
                                  IsVisible = !hidden.Contains(a.Application)
                              };
                              item.PropertyChanged += OnAppVisibilityChanged;
