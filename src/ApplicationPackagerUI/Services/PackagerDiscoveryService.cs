@@ -69,6 +69,11 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
 
         return await Task.Run(() =>
         {
+            // Discover JSON definitions first — they take precedence over PS1 scripts
+            var jsonResults = DiscoverJsonDefinitions(hidden);
+            var jsonAppNames = new HashSet<string>(
+                jsonResults.Select(j => j.Application), StringComparer.OrdinalIgnoreCase);
+
             var files = Directory.GetFiles(root)
                 .Where(f => FilePattern.IsMatch(Path.GetFileName(f)))
                 .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
@@ -87,6 +92,10 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
 
                     // Skip hidden applications
                     if (hidden.Contains(meta.Application ?? ""))
+                        continue;
+
+                    // Skip PS1 if a JSON definition exists for the same app
+                    if (jsonAppNames.Contains(meta.Application ?? ""))
                         continue;
 
                     var status = "Ready";
@@ -116,9 +125,8 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                 }
             }
 
-            // Also discover JSON-defined apps
-            var defResults = DiscoverJsonDefinitions(hidden);
-            results.AddRange(defResults);
+            // Add JSON-defined apps (already discovered above)
+            results.AddRange(jsonResults);
 
             // Sort combined list
             results.Sort((a, b) => string.Compare(a.Application, b.Application, StringComparison.OrdinalIgnoreCase));

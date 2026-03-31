@@ -10,6 +10,8 @@ namespace ApplicationPackagerEngine.Models;
 public sealed class AppDefinition
 {
     public int Schema { get; set; } = 1;
+    /// <summary>Unique identifier for this app definition. Used as primary key for state, visibility, dedup.</summary>
+    public string Id { get; set; } = "";
     public string Vendor { get; set; } = "";
     public string Application { get; set; } = "";
     public string CMName { get; set; } = "";

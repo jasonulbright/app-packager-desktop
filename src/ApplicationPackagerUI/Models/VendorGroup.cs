@@ -4,8 +4,11 @@ public partial class AppVisibilityItem : ObservableObject
 {
     public string Application { get; init; } = "";
     public string Script { get; init; } = "";
+    public bool IsJsonDefined { get; init; }
 
     [ObservableProperty] private bool _isVisible = true;
+
+    public string TypeLabel => IsJsonDefined ? "JSON" : "PS1";
 }
 
 public partial class VendorGroup : ObservableObject

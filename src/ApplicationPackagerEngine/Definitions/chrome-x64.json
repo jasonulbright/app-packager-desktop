@@ -1,5 +1,6 @@
 {
   "Schema": 1,
+  "Id": "google-chrome-x64",
   "Vendor": "Google",
   "Application": "Google Chrome",
   "CMName": "Google Chrome",

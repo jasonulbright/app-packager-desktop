@@ -189,7 +189,8 @@ public partial class PackagesViewModel : ObservableObject
         ApplyFilter();
 
         // Auto-check on launch (background, priority-ordered)
-        if (settings.AutoCheckLatestOnLaunch)
+        // TODO: re-enable after testing. Disabled to allow manual JSON validation.
+        if (false && settings.AutoCheckLatestOnLaunch)
             _ = AutoCheckLatestAsync();
     }
 
