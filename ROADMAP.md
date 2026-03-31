@@ -1,6 +1,6 @@
 # Application Packager — Roadmap
 
-## v2.0 — C# WPF Fluent UI Conversion (IN PROGRESS)
+## v2.0 — C# WPF Fluent UI Conversion (ALPHA — v2.0.0-alpha tagged 2026-03-30)
 
 **Repo:** `c:\projects\application-packager-ui\` (GitHub: `jasonulbright/application-packager-ui`, private)
 **Plan file:** `C:\Users\jason\.claude\plans\glowing-sauteeing-sphinx.md`
@@ -37,17 +37,19 @@
 
 ### Progress (2026-03-30)
 - Phase 1 COMPLETE: Project skeleton, FluentWindow, NavigationView, DI wiring
-- Phase 2 COMPLETE: Full Settings page with all sections, SettingsService JSON persistence, theme switching, snackbar save confirmation
-- Phase 3 COMPLETE: PackagerDiscoveryService (header parsing, auto-detect Packagers folder), ui:DataGrid with Application/Vendor/Current/Latest/Status columns, select-all checkbox, debug column toggle
-- Phase 4 COMPLETE: PackagerExecutionService (shells out to powershell.exe), MecmQueryService (inline PS command), Check Latest + Check MECM wired with real process execution
-- Phase 5 COMPLETE: Stage + Package with live stdout streaming to log area, log file writing, stderr capture
-- Phase 6 COMPLETE: Context menu (Open Log/Staged/Network folders, Copy Latest, Open Vendor URL), Package dropdown (MECM active, PSADT/Intune placeholders), status color coding, window state persistence
+- Phase 2 COMPLETE: Settings page — Organization, MECM Site, DT defaults, M365 Channel, CWA params, Dark/Light theme
+- Phase 3 COMPLETE: PackagerDiscoveryService, ui:DataGrid, select-all checkbox, debug column toggle, status color coding
+- Phase 4 COMPLETE: PackagerExecutionService, MecmQueryService, Check Latest + Check MECM with real process execution
+- Phase 5 COMPLETE: Stage + Package with live stdout streaming, log file writing, stderr capture
+- Phase 6 COMPLETE: Context menu, Package dropdown (MECM/PSADT/Intune), window state persistence
+- Phase 7 COMPLETE: Applications page — own nav item, vendor-grouped collapsible expanders, tri-state checkboxes, Show All/Hide All, Save refreshes Packages grid
+- **v2.0.0-alpha tagged and released 2026-03-30**
 
-### Known Bugs
-- Header select-all checkbox contrast/styling mismatch with dark theme
-- App icon lacks transparency (white background on dark mode) — needs transparent PNG source
-- Preferences migration from old PS1 GUI not yet implemented (first-launch import)
-- Application Selector section in Settings is placeholder (vendor-grouped TreeView not built yet)
+### Remaining for v2.0 stable
+- Header select-all checkbox contrast mismatch on dark theme
+- App icon needs transparent PNG source (white background on dark mode)
+- Preferences migration from old PS1 GUI (first-launch import)
+- Real-world validation: Check Latest / Stage / Package against live MECM environment
 
 ---
 
