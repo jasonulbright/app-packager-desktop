@@ -47,10 +47,10 @@ public sealed class StagingService
             var wingetVersion = await _scrapers.GetLatestVersionAsync(wingetConfig, ct);
             if (wingetVersion is not null)
                 return wingetVersion;
-            // Fall back to static URL if winget fails
         }
 
-        return await _scrapers.GetLatestVersionAsync(def.VersionScraper, ct);
+        var (_, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+        return display;
     }
 
     /// <summary>
@@ -63,22 +63,22 @@ public sealed class StagingService
     {
         try
         {
-            // 1. Scrape version
+            // 1. Scrape version (raw for download URLs, display for folder/manifest/detection)
             onProgress?.Invoke($"Checking latest version for {def.Application}...");
-            var version = await _scrapers.GetLatestVersionAsync(def.VersionScraper, ct);
-            if (string.IsNullOrEmpty(version))
+            var (rawVersion, version) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+            if (string.IsNullOrEmpty(version) || string.IsNullOrEmpty(rawVersion))
                 return new StagingResult { Success = false, ErrorMessage = "Could not determine latest version" };
 
             onProgress?.Invoke($"Version: {version}");
 
-            // 2. Set up versioned content folder
+            // 2. Set up versioned content folder (uses display version)
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
             Directory.CreateDirectory(contentPath);
 
-            // 3. Download installer — substitute {version} in URL
-            var downloadUrl = def.DownloadUrl.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
+            // 3. Download installer — substitute {version} with RAW version for correct URLs
+            var downloadUrl = def.DownloadUrl.Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
             var installerFileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
             var installerPath = Path.Combine(contentPath, installerFileName);
 

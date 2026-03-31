@@ -13,7 +13,8 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://diskanalyzer.com/download",
-                           "Pattern":  "wiztree_(\\d+(?:_\\d+)+)_setup\\.exe"
+                           "Pattern":  "wiztree_(\\d+(?:_\\d+)+)_setup\\.exe",
+                           "VersionTransform":  "replace:_:."
                        },
     "DownloadUrl":  "https://antibody-software.com/files/wiztree_{version}_setup.exe",
     "InstallArgs":  "/VERYSILENT /NORESTART",

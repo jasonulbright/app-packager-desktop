@@ -56,6 +56,15 @@ public sealed class VersionScraperConfig
     public string Type { get; set; } = "HttpRegex";
     public string Url { get; set; } = "";
     public string Pattern { get; set; } = "";
+
+    /// <summary>
+    /// Optional post-capture version transform. Applied after regex extraction.
+    /// Supported transforms (chain with |):
+    ///   insert_dot:N  — insert dot at position N ("2600" → "26.00")
+    ///   replace:X:Y   — replace X with Y ("4_31" → "4.31")
+    ///   strip_prefix:X — remove leading X ("v1.2.3" → "1.2.3")
+    /// </summary>
+    public string? VersionTransform { get; set; }
 }
 
 public sealed class DetectionConfig
