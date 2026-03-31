@@ -56,10 +56,12 @@
 - JSON definitions suppress matching PS1 scripts (same Application name)
 
 ### Remaining for v2.0 stable
-- Header select-all checkbox contrast mismatch on dark theme
-- App icon needs transparent PNG source (white background on dark mode)
-- First-run wizard (deferred — private development)
+- Row checkbox turns white after Check Latest/Stage operations (DataGrid selection style issue)
 - Real-world validation: Package phase against live MECM environment
+
+### Deferred to v3.0
+- App icon with transparent PNG source
+- First-run wizard
 
 ---
 
