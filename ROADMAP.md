@@ -56,7 +56,7 @@
 ## v2.1 — Engine DLL + JSON App Definitions (HIGH PRIORITY, next after v2.0)
 
 ### Problem
-26 packager scripts, each ~400 lines, ~90% duplicated logic. Only the variables differ (vendor, URLs, version regex, installer type, detection method, install args). Adding a new app means cloning and modifying a full script.
+117 packager scripts today, each ~400 lines, ~90% duplicated logic. Only the variables differ (vendor, URLs, version regex, installer type, detection method, install args). Adding a new app means cloning and modifying a full script. With winget integration, the addressable catalog expands to 500-600+ enterprise-relevant apps — the PS1-per-app model doesn't scale.
 
 ### Architecture
 
