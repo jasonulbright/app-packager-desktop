@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 using ApplicationPackagerEngine.Models;
 
@@ -8,10 +9,8 @@ namespace ApplicationPackagerEngine.Scrapers;
 /// Scrapes a web page via HTTP GET and extracts a version string
 /// using a regex pattern. Covers ~80% of apps.
 ///
-/// Uses powershell.exe Invoke-WebRequest instead of .NET HttpClient
-/// because the self-contained .NET 10 app's HTTP stack has TLS/cert
-/// issues on some Windows Server environments. IWR uses the OS HTTP
-/// stack which handles certificates correctly everywhere.
+/// Uses powershell.exe Invoke-WebRequest via temp script file to avoid
+/// argument escaping issues with URLs containing &amp; characters.
 /// </summary>
 public sealed class HttpRegexScraper : IVersionScraper
 {
@@ -34,30 +33,41 @@ public sealed class HttpRegexScraper : IVersionScraper
 
     private static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct)
     {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"ap-fetch-{Guid.NewGuid():N}.ps1");
+        var script = $"[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12\n(Invoke-WebRequest -Uri '{url}' -UseBasicParsing -UserAgent 'ApplicationPackager/2.1').Content";
+        await File.WriteAllTextAsync(scriptPath, script, Encoding.UTF8, ct);
+
+        try
         {
-            FileName = "powershell.exe",
-            Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; (Invoke-WebRequest -Uri '{url}' -UseBasicParsing -UserAgent 'ApplicationPackager/2.1').Content\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
 
-        process.Start();
+            process.Start();
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(30), ct));
+            var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
+            var exitTask = process.WaitForExitAsync(ct);
+            var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(30), ct));
 
-        if (completed != exitTask)
-        {
-            try { process.Kill(true); } catch { }
-            return null;
+            if (completed != exitTask)
+            {
+                try { process.Kill(true); } catch { }
+                return null;
+            }
+
+            var stdout = await stdoutTask;
+            return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
         }
-
-        var stdout = await stdoutTask;
-        return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
+        finally
+        {
+            try { File.Delete(scriptPath); } catch { }
+        }
     }
 }
