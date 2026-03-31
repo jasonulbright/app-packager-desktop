@@ -108,6 +108,39 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ExportCsv()
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Export Packages to CSV",
+            Filter = "CSV files (*.csv)|*.csv",
+            FileName = $"AppPackager-Export-{DateTime.Now:yyyyMMdd}.csv"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var lines = new System.Collections.Generic.List<string>
+            {
+                "Application,Vendor,CMName,Current (MECM),Latest,Status,Last Checked,Script"
+            };
+            foreach (var p in FilteredPackagers)
+            {
+                var lastChecked = p.LastChecked?.ToString("yyyy-MM-dd HH:mm") ?? "";
+                lines.Add($"\"{p.Application}\",\"{p.Vendor}\",\"{p.CMName}\",\"{p.CurrentVersion}\",\"{p.LatestVersion}\",\"{p.Status}\",\"{lastChecked}\",\"{p.Script}\"");
+            }
+            System.IO.File.WriteAllLines(dialog.FileName, lines);
+            AddLogLine($"Exported {FilteredPackagers.Count} rows to: {dialog.FileName}");
+            _snackbarService.Show("Export", $"Exported {FilteredPackagers.Count} rows.",
+                Wpf.Ui.Controls.ControlAppearance.Success, new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Export failed: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
     private void CancelOperation()
     {
         _operationCts?.Cancel();
