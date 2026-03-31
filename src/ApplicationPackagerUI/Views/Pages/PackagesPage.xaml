@@ -12,6 +12,7 @@
     <Grid Margin="16,12,16,12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="180" />
@@ -51,11 +52,20 @@
         </WrapPanel>
 
         <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 1: DataGrid -->
+        <!-- Row 1: Search bar -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <ui:DataGrid Grid.Row="1"
+        <ui:TextBox Grid.Row="1"
+                    Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                    PlaceholderText="Search applications..."
+                    Icon="{ui:SymbolIcon Search24}"
+                    Margin="0,0,0,8" />
+
+        <!-- ═══════════════════════════════════════════════════ -->
+        <!-- Row 2: DataGrid -->
+        <!-- ═══════════════════════════════════════════════════ -->
+        <ui:DataGrid Grid.Row="2"
                   x:Name="PackagerGrid"
-                  ItemsSource="{Binding Packagers}"
+                  ItemsSource="{Binding FilteredPackagers}"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
@@ -154,7 +164,7 @@
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- Row 2: Select helpers + debug toggle -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,6,0,6">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,6">
             <ui:Button Content="Select Update Available"
                        Icon="{ui:SymbolIcon CheckboxChecked24}"
                        Command="{Binding SelectUpdateAvailableCommand}"
@@ -168,7 +178,7 @@
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- Row 3: Log output -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <TextBox Grid.Row="3"
+        <TextBox Grid.Row="4"
                  Text="{Binding LogText, Mode=OneWay}"
                  IsReadOnly="True"
                  TextWrapping="NoWrap"
@@ -185,7 +195,7 @@
         <!-- ═══════════════════════════════════════════════════ -->
         <!-- Row 4: Status bar -->
         <!-- ═══════════════════════════════════════════════════ -->
-        <TextBlock Grid.Row="4"
+        <TextBlock Grid.Row="5"
                    Text="{Binding StatusText}"
                    FontSize="12"
                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"

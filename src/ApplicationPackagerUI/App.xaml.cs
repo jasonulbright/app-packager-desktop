@@ -46,6 +46,7 @@ public partial class App : Application
                 services.AddSingleton<PackagerDiscoveryService>();
                 services.AddSingleton<PackagerExecutionService>();
                 services.AddSingleton<MecmQueryService>();
+                services.AddSingleton<PackagerPreferencesService>();
 
                 // Windows
                 services.AddSingleton<MainWindow>();

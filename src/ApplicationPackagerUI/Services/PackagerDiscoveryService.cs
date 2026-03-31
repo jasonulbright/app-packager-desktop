@@ -6,7 +6,7 @@ namespace ApplicationPackagerUI.Services;
 
 public partial class PackagerDiscoveryService(SettingsService settingsService)
 {
-    private static readonly Regex FilePattern = new(@"^package-.*\.(ps1|notps1)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex FilePattern = new(@"^package-.*\.ps1$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // Header tag patterns — match "Vendor: value" or "# Vendor: value"
     [GeneratedRegex(@"^\s*(?:#\s*)?Vendor\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
@@ -87,9 +87,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                         continue;
 
                     var status = "Ready";
-                    if (scriptName.EndsWith(".notps1", StringComparison.OrdinalIgnoreCase))
-                        status = "Not runnable (.notps1)";
-                    else if (string.IsNullOrEmpty(meta.Vendor) || string.IsNullOrEmpty(meta.Application))
+                    if (string.IsNullOrEmpty(meta.Vendor) || string.IsNullOrEmpty(meta.Application))
                         status = "Missing metadata (Vendor/App)";
 
                     results.Add(new PackagerInfo
