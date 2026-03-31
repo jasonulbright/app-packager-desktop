@@ -55,6 +55,7 @@ public partial class App : Application
                 services.AddSingleton<ApplicationPackagerEngine.Services.WrapperGeneratorService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.ManifestService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.StagingService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.MecmTarget>();
 
                 // Windows
                 services.AddSingleton<MainWindow>();
