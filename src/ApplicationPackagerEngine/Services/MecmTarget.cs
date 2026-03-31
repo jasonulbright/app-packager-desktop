@@ -145,6 +145,17 @@ public sealed class MecmTarget
         sb.Append(" -AddDetectionClause $clause");
         sb.AppendLine();
 
+        // Clean up revision history (keep only latest)
+        sb.AppendLine("$revisions = Get-CMApplicationRevisionHistory -Name $app.LocalizedDisplayName -ErrorAction SilentlyContinue");
+        sb.AppendLine("if ($revisions -and @($revisions).Count -gt 1) {");
+        sb.AppendLine("  $sorted = @($revisions) | Sort-Object -Property @{Expression={if ($_.Revision) {$_.Revision} else {$_.CIVersion}}} -Descending");
+        sb.AppendLine("  $sorted | Select-Object -Skip 1 | ForEach-Object {");
+        sb.AppendLine("    $rev = if ($_.Revision) {$_.Revision} else {$_.CIVersion}");
+        sb.AppendLine("    Remove-CMApplicationRevisionHistory -InputObject $_ -Force -ErrorAction SilentlyContinue");
+        sb.AppendLine("  }");
+        sb.AppendLine("  Write-Host 'Cleaned revision history'");
+        sb.AppendLine("}");
+
         sb.AppendLine("Write-Host 'Application created successfully'");
 
         return sb.ToString();
