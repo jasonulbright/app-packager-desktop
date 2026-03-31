@@ -321,6 +321,7 @@ public partial class PackagesViewModel : ObservableObject
                     else
                     {
                         p.Status = "Error";
+                        p.IsSelected = false;
                         AddLogLine($"ERROR: Could not determine latest version for {p.Application}");
                     }
                 }
@@ -467,6 +468,7 @@ public partial class PackagesViewModel : ObservableObject
                     else
                     {
                         p.Status = "Stage error";
+                        p.IsSelected = false;
                         AddLogLine($"Stage FAILED (exit {result.ExitCode})");
                         LogStdErr(result.StdErr);
                     }
@@ -549,6 +551,7 @@ public partial class PackagesViewModel : ObservableObject
                     else
                     {
                         p.Status = "Package error";
+                        p.IsSelected = false;
                         AddLogLine($"Package FAILED (exit {result.ExitCode})");
                         LogStdErr(result.StdErr);
                     }
