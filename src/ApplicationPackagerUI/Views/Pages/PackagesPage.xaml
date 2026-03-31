@@ -22,11 +22,8 @@
         <!-- Row 0: Comment + action buttons -->
         <!-- ═══════════════════════════════════════════════════ -->
         <WrapPanel Grid.Row="0" Margin="0,0,0,8" VerticalAlignment="Center">
-            <TextBlock Text="Comment:" FontWeight="SemiBold" FontSize="13"
-                       VerticalAlignment="Center" Margin="0,0,8,0"
-                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             <ui:TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
-                        PlaceholderText="WO#00000001234567"
+                        PlaceholderText="Administrative Comments"
                         Width="280" Margin="0,0,16,0" VerticalAlignment="Center" />
 
             <ui:Button Content="Check Latest"
@@ -39,13 +36,12 @@
                        Margin="0,0,4,0" />
             <ui:Button Content="Stage"
                        Icon="{ui:SymbolIcon ArrowCircleDown24}"
-                       Appearance="Info"
                        Command="{Binding StageCommand}"
                        Margin="0,0,4,0" />
-            <ui:Button Content="Package"
+            <ui:Button x:Name="PackageButton"
+                       Content="Package"
                        Icon="{ui:SymbolIcon Box24}"
-                       Appearance="Primary"
-                       Command="{Binding PackageCommand}"
+                       Click="PackageButton_Click"
                        Margin="0,0,4,0" />
             <ui:Button Content="Cancel"
                        Icon="{ui:SymbolIcon Dismiss24}"
@@ -104,6 +100,13 @@
             <DataGrid.Columns>
                 <!-- Select checkbox -->
                 <DataGridTemplateColumn Width="48" CanUserResize="False" CanUserReorder="False" MinWidth="48" MaxWidth="48">
+                    <DataGridTemplateColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                    </DataGridTemplateColumn.HeaderStyle>
                     <DataGridTemplateColumn.CellStyle>
                         <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
                             <Setter Property="Padding" Value="0" />
@@ -112,7 +115,8 @@
                     <DataGridTemplateColumn.Header>
                         <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=Page}}"
                                   Command="{Binding DataContext.ToggleSelectAllCommand, RelativeSource={RelativeSource AncestorType=Page}}"
-                                  HorizontalAlignment="Center" />
+                                  HorizontalAlignment="Center"
+                                  Background="Transparent" />
                     </DataGridTemplateColumn.Header>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

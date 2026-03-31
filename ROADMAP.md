@@ -11,7 +11,7 @@
 - FluentWindow + Mica backdrop + NavigationView + MVVM + DI
 
 ### Navigation
-- **Packages** (home) — DataGrid + operations (Check Latest, Check MECM, Stage, Package)
+- **Packages** (home) — Administrative Comments field, action buttons (Check Latest, Check MECM, Stage, Package dropdown with MECM/PSADT/Intune targets), ui:DataGrid with status color coding, log output area with live streaming, status bar
 - **Settings** (footer) — all configuration in one scrollable sectioned page (Discord/Slack style)
 
 ### Settings Page Sections (top to bottom, separated by dividers)
@@ -36,10 +36,18 @@
 `start-apppackager.ps1` will be deprecated once v2.0 reaches feature parity and is validated in production. It will remain in the `application-packager` repo as a reference but will not receive new features. The PS1 packager scripts themselves (`package-*.ps1`, `AppPackagerCommon.psm1`) are NOT deprecated — they continue to be the execution engine for v2.0.
 
 ### Progress (2026-03-30)
-- Phase 1 COMPLETE: Project skeleton, FluentWindow, NavigationView, DI wiring, all stubs
+- Phase 1 COMPLETE: Project skeleton, FluentWindow, NavigationView, DI wiring
 - Phase 2 COMPLETE: Full Settings page with all sections, SettingsService JSON persistence, theme switching, snackbar save confirmation
-- Phase 3 NEXT: PackagerDiscoveryService + DataGrid on Packages page
-- Phases 4-6: Process execution, Stage/Package with log streaming, context menus, polish
+- Phase 3 COMPLETE: PackagerDiscoveryService (header parsing, auto-detect Packagers folder), ui:DataGrid with Application/Vendor/Current/Latest/Status columns, select-all checkbox, debug column toggle
+- Phase 4 COMPLETE: PackagerExecutionService (shells out to powershell.exe), MecmQueryService (inline PS command), Check Latest + Check MECM wired with real process execution
+- Phase 5 COMPLETE: Stage + Package with live stdout streaming to log area, log file writing, stderr capture
+- Phase 6 COMPLETE: Context menu (Open Log/Staged/Network folders, Copy Latest, Open Vendor URL), Package dropdown (MECM active, PSADT/Intune placeholders), status color coding, window state persistence
+
+### Known Bugs
+- Header select-all checkbox contrast/styling mismatch with dark theme
+- App icon lacks transparency (white background on dark mode) — needs transparent PNG source
+- Preferences migration from old PS1 GUI not yet implemented (first-launch import)
+- Application Selector section in Settings is placeholder (vendor-grouped TreeView not built yet)
 
 ---
 
@@ -172,7 +180,22 @@ Per-app choice: winget for commodity apps (Chrome, Firefox, 7-Zip), static URL f
 
 ### App Icons
 
-JSON definitions include an optional `IconUrl` field. Engine downloads and caches icons to `%LOCALAPPDATA%\AppPackager\icons\`. DataGrid shows a 20x20 icon column. Icons sourced from vendor installers/pages — ships with the product, no copyright issue.
+Icons are base64-encoded directly in the JSON definition — self-contained, no external URL dependency, works offline and air-gapped:
+
+```json
+{
+  "Vendor": "Google",
+  "Application": "Chrome",
+  "Icon": "iVBORw0KGgoAAAANSUhEUgAAACAAAA...",
+  "IconFormat": "png"
+}
+```
+
+Engine on startup: decode base64 → write to `%LOCALAPPDATA%\AppPackager\icons\<app>.png` → DataGrid binds to the cached file path. Icons are 32x32 PNG (~1-3KB base64), keeping JSON files human-readable.
+
+For the winget "Add New App" wizard: `winget show` returns the app's icon URL → engine downloads → resizes to 32x32 → base64 encodes into the generated JSON automatically. Zero manual icon work.
+
+Icons sourced from vendor installers/pages — ships with the product, no copyright issue.
 
 ### Key Benefits
 - One JSON per app replaces one 400-line PS1 per app.
