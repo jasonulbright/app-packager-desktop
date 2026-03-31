@@ -120,7 +120,19 @@
                     </DataGridTemplateColumn.HeaderStyle>
                     <DataGridTemplateColumn.CellStyle>
                         <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
-                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="IsHitTestVisible" Value="True" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="DataGridCell">
+                                        <Grid Background="Transparent">
+                                            <ContentPresenter
+                                                TextElement.Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center" />
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
                         </Style>
                     </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.Header>
@@ -133,10 +145,7 @@
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
                                       IsEnabled="{Binding IsRunnable}"
-                                      HorizontalAlignment="Center"
-                                      Foreground="{DynamicResource CheckBoxForeground}"
-                                      Background="{DynamicResource CheckBoxBackground}"
-                                      BorderBrush="{DynamicResource CheckBoxBorderBrush}" />
+                                      HorizontalAlignment="Center" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
