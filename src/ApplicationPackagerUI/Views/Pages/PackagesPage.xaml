@@ -124,8 +124,8 @@
                         </Style>
                     </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.Header>
-                        <CheckBox IsChecked="{Binding DataContext.IsAllSelected, RelativeSource={RelativeSource AncestorType=Page}}"
-                                  Command="{Binding DataContext.ToggleSelectAllCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                        <CheckBox x:Name="SelectAllCheckBox"
+                                  Click="SelectAllCheckBox_Click"
                                   HorizontalAlignment="Center"
                                   Background="Transparent" />
                     </DataGridTemplateColumn.Header>

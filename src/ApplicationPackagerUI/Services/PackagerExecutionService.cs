@@ -73,7 +73,8 @@ public class PackagerExecutionService(SettingsService settingsService, StagingSe
             {
                 ExitCode = result.Success ? 0 : 1,
                 StdOut = result.Success ? $"Staged to: {result.ContentPath}" : "",
-                StdErr = result.ErrorMessage ?? ""
+                StdErr = result.ErrorMessage ?? "",
+                OutLogPath = result.ManifestPath
             };
         }
 

@@ -1,3 +1,4 @@
+using System.IO;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 
@@ -149,10 +150,24 @@ public partial class PackagesViewModel : ObservableObject
 
     // ── Log helper ───────────────────────────────────────────────
 
+    private static readonly string PersistentLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AppPackager", "apppackager.log");
+
     private void AddLogLine(string message)
     {
-        var line = $"{DateTime.Now:HH:mm:ss}  {message}";
+        var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}";
         LogText = LogText.Length > 0 ? LogText + Environment.NewLine + line : line;
+
+        // Append to persistent log file
+        try
+        {
+            var dir = Path.GetDirectoryName(PersistentLogPath);
+            if (dir is not null && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            File.AppendAllText(PersistentLogPath, line + Environment.NewLine);
+        }
+        catch { }
     }
 
     // ── Load ─────────────────────────────────────────────────────
@@ -411,7 +426,7 @@ public partial class PackagesViewModel : ObservableObject
                     if (result.ExitCode == 0)
                     {
                         p.Status = "Staged";
-                        AddLogLine($"Staged. Log: {System.IO.Path.GetFileName(result.OutLogPath)}");
+                        AddLogLine($"Staged: {result.StdOut}");
                     }
                     else
                     {
