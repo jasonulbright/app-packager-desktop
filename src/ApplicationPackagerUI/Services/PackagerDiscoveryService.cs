@@ -53,6 +53,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
 
     /// <summary>
     /// Discovers all packager scripts and parses their header metadata.
+    /// Filters out hidden applications per settings.
     /// </summary>
     public async Task<List<PackagerInfo>> DiscoverAsync(CancellationToken ct = default)
     {
@@ -112,6 +113,49 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                         Status = $"Read error: {ex.Message}"
                     });
                 }
+            }
+
+            return results;
+        }, ct);
+    }
+
+    /// <summary>
+    /// Discovers ALL packager scripts without filtering hidden apps.
+    /// Used by the Application Selector in Settings.
+    /// </summary>
+    public async Task<List<PackagerInfo>> DiscoverAllAsync(CancellationToken ct = default)
+    {
+        var root = ResolvePackagersRoot();
+        if (root is null)
+            return [];
+
+        return await Task.Run(() =>
+        {
+            var files = Directory.GetFiles(root)
+                .Where(f => FilePattern.IsMatch(Path.GetFileName(f)))
+                .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var results = new List<PackagerInfo>(files.Count);
+
+            foreach (var filePath in files)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var meta = ParseMetadata(filePath);
+                    results.Add(new PackagerInfo
+                    {
+                        Vendor = meta.Vendor ?? "",
+                        Application = meta.Application ?? "",
+                        CMName = meta.CMName ?? meta.Application ?? "",
+                        Script = Path.GetFileName(filePath),
+                        FullPath = filePath,
+                        VendorUrl = meta.VendorUrl ?? "",
+                        Description = meta.Description ?? "",
+                    });
+                }
+                catch { }
             }
 
             return results;

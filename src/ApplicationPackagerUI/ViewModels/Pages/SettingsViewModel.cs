@@ -47,13 +47,6 @@ public partial class SettingsViewModel : ObservableObject
     // UI
     [ObservableProperty] private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
 
-    // Dropdown items
-    public string[] M365ChannelOptions { get; } = ["MonthlyEnterprise", "Current", "SemiAnnual"];
-    public string[] M365ChannelDisplayNames { get; } = ["Monthly Enterprise Channel", "Current Channel", "Semi-Annual Enterprise Channel"];
-    public string[] CwaAutoUpdateOptions { get; } = ["Auto", "Manual", "Disabled"];
-    public string[] CwaAddStorePolicyOptions { get; } = ["None", "Admin", "User"];
-    public string[] CwaSavePasswordOptions { get; } = ["None", "On", "Off"];
-
     public SettingsViewModel(SettingsService settingsService, ISnackbarService snackbarService)
     {
         _settingsService = settingsService;
