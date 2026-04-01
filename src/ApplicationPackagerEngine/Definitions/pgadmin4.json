@@ -24,6 +24,7 @@
                       "RegistryKeyTemplate":  "# DYNAMIC - pgAdmin 4v{MAJOR}_is1",
                       "ValueName":  "DisplayVersion",
                       "Operator":  "GreaterEquals",
+                      "PropertyType":  "Version",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

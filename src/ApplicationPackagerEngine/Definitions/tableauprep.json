@@ -13,7 +13,7 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.tableau.com/support/releases",
-                           "Pattern":  "\\b(20\\d{2})[.-](\\d+)(?:[.-](\\d+))?\\b"
+                           "Pattern":  "# DYNAMIC - Tableau WAF blocks automated requests"
                        },
     "DownloadUrl":  "https://downloads.tableau.com/tssoftware/TableauPrep-{version}.exe",
     "InstallArgs":  "/install /quiet /norestart ACCEPTEULA=1 SENDTELEMETRY=0",

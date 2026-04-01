@@ -16,6 +16,7 @@
                            "Pattern":  "v(\\d+\\.\\d+\\.\\d+)"
                        },
     "DownloadUrl":  "https://bits.avcdn.net/productfamily_CCLEANER7/insttype_FREE/platform_WIN/installertype_FULL/build_RELEASE",
+    "InstallerFileName":  "CCleaner-{version}-Setup.exe",
     "InstallArgs":  "/S",
     "UninstallArgs":  "/S",
     "Detection":  {
@@ -23,6 +24,7 @@
                       "RegistryHive":  "HKLM",
                       "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CCleaner",
                       "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
                       "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },

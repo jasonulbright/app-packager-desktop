@@ -77,9 +77,12 @@ public sealed class StagingService
             var contentPath = Path.Combine(baseRoot, version);
             Directory.CreateDirectory(contentPath);
 
-            // 3. Download installer — substitute {version} with RAW version for correct URLs
-            var downloadUrl = def.DownloadUrl.Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
-            var installerFileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
+            // 3. Download installer — {version} = raw (for URLs that need original format),
+            //    {display_version} = transformed (for URLs that need the display format)
+            var downloadUrl = def.DownloadUrl
+                .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+            var installerFileName = ResolveInstallerFileName(def, downloadUrl, version);
             var installerPath = Path.Combine(contentPath, installerFileName);
 
             if (!File.Exists(installerPath))
@@ -103,7 +106,9 @@ public sealed class StagingService
                 var msiProps = _msiService.ReadProperties(installerPath);
                 productCode = msiProps.ProductCode;
                 productVersion = msiProps.ProductVersion;
-                publisher = msiProps.Manufacturer;
+                if (!string.IsNullOrWhiteSpace(msiProps.Manufacturer) &&
+                    msiProps.Manufacturer.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
+                    publisher = msiProps.Manufacturer;
                 onProgress?.Invoke($"ProductCode: {productCode}");
                 onProgress?.Invoke($"ProductVersion: {productVersion}");
             }
@@ -160,6 +165,26 @@ public sealed class StagingService
         {
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
+    }
+
+    /// <summary>
+    /// Determines the installer filename: explicit override → URL path → constructed fallback.
+    /// </summary>
+    private static string ResolveInstallerFileName(AppDefinition def, string downloadUrl, string version)
+    {
+        // 1. Explicit override in definition (required for fwlinks, query-string URLs, etc.)
+        if (!string.IsNullOrEmpty(def.InstallerFileName))
+            return def.InstallerFileName.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
+
+        // 2. Parse from URL path
+        var urlFileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
+        if (!string.IsNullOrEmpty(urlFileName) && urlFileName.Contains('.'))
+            return urlFileName;
+
+        // 3. Fallback: construct from app name + installer type
+        var safeName = def.Application.Replace(" ", "").Replace("(", "").Replace(")", "");
+        var ext = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ? ".msi" : ".exe";
+        return $"{safeName}-{version}{ext}";
     }
 
     private static StageDetection BuildDetection(AppDefinition def, string? productCode, string version)

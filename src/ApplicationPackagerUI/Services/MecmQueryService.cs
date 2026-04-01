@@ -36,6 +36,9 @@ public class MecmQueryService(SettingsService settingsService)
             $apps = @(Get-CMApplication -Name "$CMName*" -ErrorAction SilentlyContinue)
         }
         if (-not $apps -or $apps.Count -eq 0) {
+            $apps = @(Get-CMApplication -Name "*$CMName*" -ErrorAction SilentlyContinue)
+        }
+        if (-not $apps -or $apps.Count -eq 0) {
             Write-Output 'NOT_FOUND'; exit 0
         }
         $exact = $apps | Where-Object { $_.LocalizedDisplayName -eq $CMName -or $_.Name -eq $CMName }

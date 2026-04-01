@@ -13,9 +13,10 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://tortoisegit.org/download/",
-                           "Pattern":  "TortoiseGit-([\\d.]+)-64bit\\.msi"
+                           "Pattern":  "download\\.tortoisegit\\.org/tgit/[\\d.]+/(TortoiseGit-[\\d.]+-64bit\\.msi)",
+                           "VersionTransform":  "REDIRECT"
                        },
-    "DownloadUrl":  "https://download.tortoisegit.org/tgit/{version}/TortoiseGit-{version}-64bit.msi",
+    "DownloadUrl":  "",
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {

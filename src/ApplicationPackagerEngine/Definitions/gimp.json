@@ -23,6 +23,7 @@
                       "RegistryHive":  "HKLM",
                       "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GIMP-3.0_is1",
                       "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
                       "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },

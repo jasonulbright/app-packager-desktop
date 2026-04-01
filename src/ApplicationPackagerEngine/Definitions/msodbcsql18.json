@@ -16,6 +16,7 @@
                            "Pattern":  "\\b(18\\.\\d+\\.\\d+\\.\\d+)\\b"
                        },
     "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2345415&clcid=0x409",
+    "InstallerFileName":  "msodbcsql-{version}.msi",
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {

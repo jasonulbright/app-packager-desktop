@@ -156,7 +156,7 @@
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="*" IsReadOnly="True" />
 
                 <!-- Status with color coding -->
-                <DataGridTemplateColumn Header="Status" Width="180">
+                <DataGridTemplateColumn Header="Status" Width="180" SortMemberPath="Status">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Status}"

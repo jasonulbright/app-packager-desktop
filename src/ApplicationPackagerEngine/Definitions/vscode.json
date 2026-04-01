@@ -3,7 +3,7 @@
     "Id":  "2383b1ac5eaa4200",
     "Vendor":  "Microsoft",
     "Application":  "Visual Studio Code (x64)",
-    "CMName":  "VS Code",
+    "CMName":  "Visual Studio Code",
     "Architecture":  "x64",
     "VendorUrl":  "https://code.visualstudio.com/",
     "InstallerType":  "EXE",
@@ -16,6 +16,7 @@
                            "Pattern":  "\"(\\d+\\.\\d+\\.\\d+)\""
                        },
     "DownloadUrl":  "https://update.code.visualstudio.com/latest/win32-x64/stable",
+    "InstallerFileName":  "VSCode-{version}-x64.exe",
     "InstallArgs":  "/VERYSILENT /NORESTART /FORCECLOSEAPPLICATIONS /MERGETASKS=!runcode",
     "UninstallArgs":  "/SILENT",
     "Detection":  {

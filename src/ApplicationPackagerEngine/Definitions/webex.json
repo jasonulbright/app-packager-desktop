@@ -13,7 +13,7 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://help.webex.com/en-us/article/mqkve8/",
-                           "Pattern":  "(\\d+\\.\\d+\\.\\d+\\.\\d+)"
+                           "Pattern":  "Windows[^0-9]*(\\d{2}\\.\\d{1,2}\\.\\d\\.\\d{5})"
                        },
     "DownloadUrl":  "https://binaries.webex.com/WebexOfclDesktop-Win-64-Gold/Webex.msi",
     "InstallArgs":  "/qn /norestart",

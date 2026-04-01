@@ -308,10 +308,12 @@ public partial class PackagesViewModel : ObservableObject
                             p.Status = cmp < 0 ? "Update available"
                                      : cmp == 0 ? "Up to date"
                                      : "Current newer";
+                            if (p.Status == "Up to date")
+                                p.IsSelected = false;
                         }
                         else
                         {
-                            p.Status = "Latest retrieved";
+                            p.Status = "Version retrieved";
                         }
 
                         var suffix = p.Script.Contains("m365", StringComparison.OrdinalIgnoreCase)
@@ -392,6 +394,8 @@ public partial class PackagesViewModel : ObservableObject
                             p.Status = cmp < 0 ? "Update available"
                                      : cmp == 0 ? "Up to date"
                                      : "Current newer";
+                            if (p.Status == "Up to date")
+                                p.IsSelected = false;
                         }
                         else
                         {
