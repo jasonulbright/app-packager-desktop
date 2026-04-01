@@ -13,7 +13,7 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://keepass.info/update/version2x.txt",
-                           "Pattern":  "^KeePass:(.+)$"
+                           "Pattern":  "^KeePass:([\\d.]+)"
                        },
     "DownloadUrl":  "https://sourceforge.net/projects/keepass/files/KeePass%202.x/{version}/KeePass-{version}.msi/download",
     "InstallArgs":  "/qn /norestart",

@@ -16,6 +16,7 @@
                            "Pattern":  "\"LATEST_THUNDERBIRD_VERSION\":\\s*\"([^\"]+)\""
                        },
     "DownloadUrl":  "https://download.mozilla.org/?product=thunderbird-msi-latest-ssl&os=win64&lang=en-US",
+    "InstallerFileName":  "Thunderbird-{version}.msi",
     "InstallArgs":  "/quiet /norestart INSTALL_MAINTENANCE_SERVICE=false TASKBAR_SHORTCUT=false DESKTOP_SHORTCUT=false",
     "UninstallArgs":  "/quiet /norestart",
     "Detection":  {

@@ -21,6 +21,11 @@ public sealed class AppDefinition
     public AcquisitionConfig Acquisition { get; set; } = new();
     public VersionScraperConfig VersionScraper { get; set; } = new();
     public string DownloadUrl { get; set; } = "";
+    /// <summary>
+    /// Override filename for the downloaded installer. Required when the DownloadUrl
+    /// doesn't contain a usable filename (fwlinks, query-string URLs, version-agnostic paths).
+    /// </summary>
+    public string? InstallerFileName { get; set; }
     public string InstallArgs { get; set; } = "";
     public string UninstallArgs { get; set; } = "";
     public DetectionConfig Detection { get; set; } = new();

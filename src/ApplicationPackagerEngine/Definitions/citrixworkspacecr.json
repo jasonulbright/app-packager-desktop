@@ -24,6 +24,7 @@
                       "RegistryKeyTemplate":  "SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CitrixOnlinePluginPackWeb",
                       "ValueName":  "DisplayVersion",
                       "Operator":  "GreaterEquals",
+                      "PropertyType":  "Version",
                       "Is64Bit":  false
                   },
     "RunningProcess":  [

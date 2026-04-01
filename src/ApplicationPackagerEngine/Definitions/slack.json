@@ -13,9 +13,10 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://slack.com/ssb/download-win64-msi",
-                           "Pattern":  "/(\\d+\\.\\d+\\.\\d+)/slack-standalone"
+                           "Pattern":  "REDIR:(\\d+\\.\\d+\\.\\d+)/slack-standalone"
                        },
     "DownloadUrl":  "https://slack.com/ssb/download-win64-msi",
+    "InstallerFileName":  "Slack-{version}.msi",
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {
