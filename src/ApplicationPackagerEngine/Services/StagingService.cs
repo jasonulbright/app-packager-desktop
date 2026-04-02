@@ -536,10 +536,16 @@ public sealed class StagingService
 
         if (det.Type.Equals("File", StringComparison.OrdinalIgnoreCase))
         {
-            // For Version-based detection, use raw version (dotted) since CM requires valid version format.
+            // For Version-based detection, prefer raw version if it's a valid dotted version format.
+            // Raw version may contain prefixes (e.g., "Audacity-3.7.7", "v1.2.3") which are not valid CM versions.
             // For Existence detection, version isn't used for comparison.
-            var detVersion = det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true
-                && rawVersion is not null ? rawVersion : version;
+            var detVersion = version;
+            if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true
+                && rawVersion is not null
+                && System.Text.RegularExpressions.Regex.IsMatch(rawVersion, @"^\d+[\d.]+$"))
+            {
+                detVersion = rawVersion;
+            }
 
             return new StageDetection
             {
