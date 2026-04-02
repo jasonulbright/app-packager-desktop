@@ -76,14 +76,36 @@ One file per app. Community-contributable.
 ### PSADT Integration
 Separate CM Application (not second DT) to preserve TS compatibility.
 
-### Remaining v2.1 Work
-- BareStaging, PsadtWrapper
-- "Add New App" wizard
-- Per-app settings auto-generation from JSON schema
-- App icons (base64 in JSON)
-- Migration tooling (PS1 → JSON converter)
+### App Conversion Status: 115 of 117 Fully Automated
+All 117 apps have JSON definitions. 115 are fully automated end-to-end (Check Latest → Check MECM → Stage → Package). 2 require manual download (Citrix LTSR, VMware Workstation) — resolved in v2.2.
 
-### v2.2 — WebView2 Manual Download Panel
+| Scraper | Apps | Method |
+|---------|------|--------|
+| HttpRegex | 50+ | Page/API scrape + regex |
+| JsonQuery | 35+ | JSON API path queries |
+| FileVersion | 10 | Download + EXE/MSI/MSIX inspection |
+| CdnCab | 6 | Office CDN CAB + VersionDescriptor.xml |
+| LAST_MODIFIED | 1 | HTTP header date |
+
+### Remaining v2.1 Work
+- **BareStaging** — `IDeploymentTarget` that stages content without creating a CM Application
+- **PsadtWrapper** — `IWrapperGenerator` that produces Deploy-Application.ps1 (PSADT) wrappers
+  - Creates a SECOND separate CM Application (`[Interactive]` suffix), NOT a second DT on the same app
+  - Reason: a user-interactive DT poisons TS compatibility for the entire app in MECM
+  - Silent app = Required/TS deployments. Interactive app = Available/Software Center self-service
+- **"Add New App" wizard** — guided workflow to create a new JSON definition
+  - Winget path: `winget search` → pick → download → introspect installer → auto-generate definition
+  - Manual path: enter vendor/URL/regex, test scrape, configure detection
+  - MSI table inspection (no install needed) for ProductCode, version, detection data (~60% of apps)
+- Per-app settings auto-generation from JSON schema
+- Migration tooling (PS1 → JSON converter)
+- Deprecate PS1 sync files once all apps validated on JSON definitions
+
+---
+
+## v2.2 — WebView2 Manual Download + App Icons
+
+### WebView2 Manual Download Panel
 For apps where the download is gated behind TOS acceptance or vendor authentication
 (Citrix Workspace LTSR, VMware Workstation Pro, and any future gated vendors).
 
@@ -114,189 +136,104 @@ because the user interacts with a real browser context.
 }
 ```
 
-### App Conversions — Status (117 apps)
+### App Icons
+- `Icon` + `IconFormat` fields on AppDefinition — base64-encoded PNG in JSON (32x32, ~1-3KB)
+- Engine decodes → caches to `%LOCALAPPDATA%\SRLPackr\icons\<appId>.png` → DataGrid binds to cached file
+- Works offline/air-gapped (no external URL fetch)
+- Displayed in DataGrid Application column and app detail pane
+- Optionally set on MECM Application via `-IconLocationFile`
+- "Add New App" wizard auto-captures: download icon URL → resize 32x32 → base64 encode into JSON
 
-#### Fully Validated on CM01 (78 apps)
-Check Latest + Check MECM + Stage + Package all working end-to-end.
+### First-Run Wizard
+- Guides user through initial configuration: MECM site code, file share path, download root, M365 channel, company name
+- Detects CM module availability and tests connection
+- Creates `packager-preferences.json` and app settings on completion
 
-**HttpRegex — original batch (24 apps)**
-- [x] 7-Zip (migrated to GitHub Releases API)
-- [x] Anaconda Distribution
-- [x] CCleaner
-- [x] Cisco Webex
-- [x] CPU-Z
-- [x] Everything
-- [x] FileZilla Client
-- [x] GIMP
-- [x] Google Chrome
-- [x] Inkscape (via GitLab tags API + `{display_version}`)
-- [x] KeePass
-- [x] LibreOffice
-- [x] MSODBCSQL18
-- [x] Mozilla Firefox
-- [x] Mozilla Thunderbird
-- [x] Opera
-- [x] PuTTY
-- [x] Slack (via `REDIR:` redirect URL extraction)
-- [x] SoapUI
-- [x] TreeSize Free
-- [x] Visual Studio Code
-- [x] VLC
-- [x] WinRAR
-- [x] WizTree
-
-**JsonQuery — JSON API batch (13 apps)**
-- [x] ASP.NET 8 Server Hosting Bundle — `releases-index[?channel-version=8.0].latest-runtime`
-- [x] .NET 8 Desktop Runtime — `releases-index[?channel-version=8.0].latest-runtime`
-- [x] .NET 9 Desktop Runtime — `releases-index[?channel-version=9.0].latest-runtime`
-- [x] .NET 10 Desktop Runtime — `releases-index[?channel-version=10.0].latest-runtime`
-- [x] Microsoft Edge — `[?Product=Stable].Releases[?Architecture=x64,Platform=Windows].ProductVersion`
-- [x] Microsoft Edge WebView2 Runtime — same as Edge
-- [x] Node.js LTS — `[?lts!=false].version` + `strip_prefix:v`
-- [x] PostgreSQL 13–17 (5 apps) — `[?cycle=N].latest`
-- [x] Python — `[0].latest`
-
-**GitHub API batch (19 apps)**
-Used existing `HttpRegexScraper` and `JsonQueryScraper` against GitHub Releases API — no dedicated `GitHubApiScraper` needed.
-- [x] Audacity — `strip_prefix:Audacity-`
-- [x] Bitwarden Desktop — HttpRegex `desktop-v` filter on multi-client repo
-- [x] Brave Browser — standalone silent installer
-- [x] DBeaver Community — bare version tag (no prefix)
-- [x] draw.io Desktop — MSI installer
-- [x] Git for Windows — version from asset filename (tag has `.windows.N` suffix)
-- [x] Greenshot — version from asset filename `INSTALLER-X.Y.Z-RELEASE.exe`
-- [x] mRemoteNG — version from asset URL, `releases/latest/download/`
-- [x] Notepad++
-- [x] Obsidian
-- [x] Positron — Posit CDN download, calver tag
-- [x] PowerShell 7
-- [x] PowerShell 7 LTS — HttpRegex filters `v7.4.x` from release list
-- [x] PowerToys
-- [x] RStudio Desktop — tags API, Posit CDN download, `replace:+:-`
-- [x] ShareX
-- [x] Vim
-- [x] WinDirStat — `strip_prefix:release/v`, MSI
-- [x] WinMerge
-
-**Adoptium Temurin — JsonQuery + DownloadUrlQuery (14 apps)**
-Single API call extracts both version (`[0].version.semver`) and download URL (`[0].binary.installer.link`).
-`regex_replace` transform strips `.0.LTS` suffix.
-- [x] Eclipse Temurin JDK 8 (x64), JDK 8 (x86)
-- [x] Eclipse Temurin JDK 11 (x64), JDK 11 (x86)
-- [x] Eclipse Temurin JDK 17, JDK 21, JDK 25
-- [x] Eclipse Temurin JRE 8 (x64), JRE 8 (x86)
-- [x] Eclipse Temurin JRE 11 (x64), JRE 11 (x86)
-- [x] Eclipse Temurin JRE 17, JRE 21, JRE 25
-
-**Amazon Corretto — JsonQuery + regex_replace (7 apps)**
-GitHub tag for version (5-part → 4-part via `regex_replace`), Corretto CDN for download (raw 5-part tag).
-- [x] Amazon Corretto JDK 8 (x64), JDK 8 (x86)
-- [x] Amazon Corretto JDK 11 (x64), JDK 11 (x86)
-- [x] Amazon Corretto JDK 17, JDK 21, JDK 25
-
-**FileVersion — download + inspect (8 apps)**
-`FileVersionScraper` downloads installer to temp cache, reads EXE FileVersionInfo or MSI ProductVersion.
-Stage reuses cached download.
-- [x] AnyDesk — EXE FileVersion
-- [x] Malwarebytes — EXE ProductVersion
-- [x] Microsoft OLE DB Driver 19 — MSI ProductVersion (fwlink redirect)
-- [x] Postman — EXE ProductVersion
-- [x] SQL Server Management Studio 22 — bootstrapper ProductVersion
-- [x] TeamViewer Host — EXE ProductVersion
-- [x] Visual Studio 2026 Enterprise — bootstrapper FileVersion
-- [x] Visual Studio 2026 Community — bootstrapper FileVersion
-
-**REDIRECT — version from HTTP redirect URL (3 apps)**
-Used existing `REDIR:` mode in HttpRegexScraper. `--max-filesize 1` for fast redirect resolution.
-- [x] Foxit PDF Reader — `REDIR:` + version from CDN path
-- [x] TortoiseGit — full URL path as raw version, `regex_replace` for display version
-- [x] Zoom Workplace — `REDIR:` + version from CDN path
-
-**Citrix XML catalog (1 app)**
-HttpRegex against catalog XML. No dedicated XML scraper needed.
-- [x] Citrix Workspace CR — `<Stream>Current</Stream><Version>` regex, static CDN download
-
-**DYNAMIC URL/Detection — HttpRegex + DownloadUrlQuery (10 apps)**
-Version and/or download URL extracted from page scrape or API. `DownloadUrlQuery` added to `HttpRegexScraper` for two-value extraction. Relative URLs auto-prefixed with scraper base path.
-- [x] pgAdmin 4 — version from download page
-- [x] Power BI Desktop — version + URL from MS download page
-- [x] PyCharm Community — JetBrains API
-- [x] R for Windows — r-hub API (JsonQuery + DownloadUrlQuery)
-- [x] TortoiseSVN — version + SourceForge URL from page
-- [x] VMware Tools — version + filename from CDN directory listing
-- [x] WinSCP — version from page, SourceForge download
-- [x] Wireshark — version from page, constructed URL
-- [x] XenCenter — version + URL from XenServer downloads page
-- [x] XenServer VM Tools — version + URL from XenServer downloads page
-
-**Adobe — NoUserAgent workaround (1 app)**
-Adobe blocks browser User-Agent from server IPs. `NoUserAgent` flag added to `VersionScraperConfig`. Version display uses dots-stripped format; detection uses raw dotted version.
-- [x] Adobe Acrobat Reader DC — `NoUserAgent: true`, `replace:.:` for URL construction
-
-**MSVC Runtimes — separate x64/x86 apps (2 apps)**
-FileVersion scraper with `regex_replace` to strip 4th version part. File-based detection on `msvcp140.dll`.
-- [x] Visual C++ Redistributable (x64)
-- [x] Visual C++ Redistributable (x86)
-
-**M365/Office — CdnCab + ODT pipeline (6 apps)**
-`CdnCabScraper` for version from CAB/VersionDescriptor.xml. Full ODT staging pipeline: setup.exe download, XML config generation, `setup.exe /download` for offline source, recursive network copy.
-- [x] M365 Apps for Enterprise (x64)
-- [x] M365 Apps for Enterprise (x86)
-- [x] M365 Project (x64)
-- [x] M365 Project (x86)
-- [x] M365 Visio (x64)
-- [x] M365 Visio (x86)
-
-**Remaining apps — solved with new scrapers/features (5 apps)**
-- [x] CutePDF Writer — FileVersion scraper
-- [x] Microsoft Teams — MsixManifest version from AppxManifest.xml inside MSIX
-- [x] Sysinternals Suite — LAST_MODIFIED header → date version `YYYY.M.D`
-- [x] TeamViewer — HttpRegex page scrape + ZIP→MSI extraction in staging
-- [x] paint.net — JsonQuery GitHub + ZIP→MSI extraction in staging
-
-#### Vendor-Gated — Awaiting v2.2 WebView2 Manual Download Panel (2 apps)
-Check Latest works. Stage blocked by download authentication. Will be resolved by the embedded WebView2 panel (v2.2).
+### Vendor-Gated Apps — Resolved by WebView2 Panel (2 apps)
+Check Latest works today. Stage blocked by download authentication. WebView2 panel completes the pipeline.
 - [ ] Citrix Workspace LTSR — TOS acceptance required, download gated behind `__gda__` token
-- [ ] VMware Workstation — MANUAL: Broadcom Support Portal requires authentication
+- [ ] VMware Workstation — Broadcom Support Portal requires authentication
 
 ---
 
-## v3.0 — Service Architecture, Distribution
+## v2.3 — Intune + Notifications + Version History
+
+### Intune Deployment Target
+New `IDeploymentTarget` implementation alongside `MecmTarget`.
+- `IntuneTarget` — wraps installer as `.intunewin` using `IntuneWinAppUtil.exe`
+- Uploads via Microsoft Graph API (`deviceAppManagement/mobileApps`)
+- Creates Win32 app with detection rules, install/uninstall commands, requirements
+- Uses same staged content — no re-download needed
+- UI dropdown: MECM / Intune / Both (per-operation or global setting)
+
+### Post-Action Notifications (`IPostAction`)
+Fires after Stage or Package completes (success or failure).
+- `WebhookPostAction` — HTTP POST to Teams incoming webhook, Slack webhook, or custom URL
+- `EmailPostAction` — SMTP notification with summary (app, version, status)
+- Configurable per-app or globally in Settings
+- Template-based message body with `{app}`, `{version}`, `{status}`, `{timestamp}` placeholders
+
+### Version History Database
+- Local SQLite database tracking every Check Latest / Stage / Package operation
+- Schema: AppId, Version, Timestamp, Operation, Status, Duration, ErrorMessage
+- App detail pane: click a row in the grid to see full version history, stage/package logs, changelog
+- Export to CSV/JSON for reporting
+- Powers "what changed since last check" diff view
+
+### Community Definition Repository
+- Public GitHub repo of curated JSON definitions (separate from the product repo)
+- In-app sync: Settings → Definitions → "Update from community repository"
+- Definitions are signed (SHA256 hash in a manifest) to prevent tampering
+- User can override community definitions with local customizations
+- Contribution workflow: fork → add/edit definition → PR → review → merge
+
+---
+
+## v3.0 — Service Architecture + Distribution
 
 ### Service Architecture (UI + Agent Split)
 
 | Component | Identity | Responsibility |
 |-----------|----------|---------------|
-| **UI** (admin console) | Interactive user | Configuration, monitoring, manual operations |
-| **Service/Agent** | SYSTEM or service account | Auto-check, auto-stage, auto-package, auto-import |
-| **Engine DLL** | Called by both | Core logic |
+| **UI** (admin console) | Interactive user | Configuration, monitoring, manual operations, WebView2 downloads |
+| **Service/Agent** | SYSTEM or service account | Scheduled auto-check, auto-stage, auto-package, auto-import |
+| **Engine DLL** | Called by both | Core logic (scrapers, staging, packaging) |
 
 - Shared config: `%PROGRAMDATA%\SRLPackr\`
 - UI state: `%LOCALAPPDATA%\SRLPackr\`
-- Per-machine install, Windows Service
+- Per-machine install (`Program Files`), Windows Service (delayed auto-start)
+- Agent runs on schedule even when no user is logged in
+- UI launched on demand, connects to agent via named pipe or localhost API for status/control
 
 ### Agent Capabilities
-- Auto-check, auto-stage, auto-package, auto-import + optional auto-distribute + optional auto deployment-ring deployment creations (user defined setting, pick your staging collections - 3 are a minimum recommended but user can add more collection names and define deployment dates (similar to mecm adr creation scheduling))
-- Notifications: email, Teams webhook, dashboard alert
+- **Scheduled operations**: auto-check, auto-stage, auto-package, auto-import on configurable cron schedule
+- **Auto-distribute**: trigger MECM content distribution to DPs after package creation
+- **Deployment-ring automation**: user-defined phased deployment pipeline
+  - Define N staging collections (minimum 3 recommended: Pilot → UAT → Production)
+  - Each ring has a collection name, deployment action (Available/Required), and schedule offset (e.g., Pilot=0 days, UAT=+3 days, Production=+7 days)
+  - After Package, agent creates deployments to each ring on the defined schedule
+  - Similar to MECM ADR phased deployment, but for third-party apps
+  - Dashboard shows deployment status per ring per app
+- **Notifications**: email, Teams webhook, dashboard alert (via `IPostAction` from v2.3)
+- **Conflict resolution**: if UI and Agent both try to operate on the same app, agent defers to UI
 
-### Distribution
-- Formats: MSI, setup EXE, ZIP, portable, source via GitHub
-- Code signing
-- Auto-update via packr.signalridgelabs.com (definitions, engine DLL, app exe)
-- Product website: packr.signalridgelabs.com
+### Distribution & Packaging
+- **Formats**: MSI installer, setup EXE (Burn/WiX), ZIP portable, source via GitHub
+- **Code signing**:
+  - Settings page: select signing certificate from file (PFX) or Windows certificate store
+  - Signs the published EXE/MSI and optionally the engine DLL
+  - Definition signing: SHA256 hash manifest for community definitions (tamper detection)
+- **Auto-update**: check packr.signalridgelabs.com for new versions of definitions, engine DLL, and app EXE
+- **Product website**: packr.signalridgelabs.com — downloads, documentation, definition browser
 
 ### Additional Plugins
-- `IDownloader` — auth tokens, vendor APIs, multi-file, gated downloads
-- `IPostAction` — webhook, Teams, email, CMDB update
+- `IDownloader` — extensible download strategies: auth tokens, vendor-specific APIs, multi-file orchestration, resume/retry with progress. Replaces raw curl for complex scenarios.
+- `IPostAction` — (introduced in v2.3, extended in v3.0 with agent-aware scheduling)
 
 ### Advanced Features
-- App icon with transparent PNG
-- First-run wizard
-- Sandbox pipeline for EXE introspection
-- Community definition repository
-- Intune deployment target (.intunewin + Graph API)
-- Version history database + app detail pane
-- Centralized version tracking on product website
+- Sandbox pipeline for EXE introspection (Windows Sandbox or Hyper-V isolated environment — run installer, capture ARP registry changes, auto-derive detection rules)
+- Centralized version tracking on product website (aggregated telemetry from opt-in instances)
+- Multi-tenant support (multiple MECM sites / Intune tenants from one UI)
 
 ---
 
@@ -310,9 +247,17 @@ Check Latest works. Stage blocked by download authentication. Will be resolved b
 ### v2.1
 - Unit tests for engine DLL
 - JSON schema validation
-- End-to-end: 24 apps validated on CM01 (Check Latest + Stage + Package + MECM Application creation)
+- End-to-end: 115 of 117 apps validated on CM01 (Check Latest + Check MECM + Stage + Package)
+
+### v2.2–v2.3
+- WebView2 download interception tests (mock TOS page)
+- Intune Graph API integration tests (test tenant)
+- SQLite version history CRUD tests
+- Notification delivery tests (webhook, email)
 
 ### v3.0
-- Service integration tests
+- Service lifecycle tests (install, start, stop, upgrade)
+- Agent scheduling tests (cron trigger, conflict resolution)
+- Deployment-ring pipeline tests (phased deployment timing)
 - Update server validation
-- Multi-environment testing
+- Multi-environment testing (multiple MECM sites)
