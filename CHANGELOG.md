@@ -2,6 +2,30 @@
 
 All notable changes to SRL Packr are documented here.
 
+## [2.1.0-alpha4] - 2026-04-02
+
+### Engine — New Scrapers & Features
+- **CdnCabScraper** — Office CDN version discovery via CAB/VersionDescriptor.xml extraction. Supports MEC, Current, and SemiAnnual channels with `I640Version`/`I320Version` attributes.
+- **ODT staging pipeline** — full M365 staging: download ODT setup.exe, generate download/install/uninstall XML configs, run `setup.exe /download` for offline Office source, generate ODT-specific wrappers.
+- **OdtConfig** on `AppDefinition` — ProductIds, UninstallProductId, Channel, ExcludeApps fields for M365 ODT configuration.
+- **MsixManifest** pattern in `FileVersionScraper` — extracts `Package.Identity.Version` from AppxManifest.xml inside MSIX packages (Teams).
+- **LAST_MODIFIED** pattern in `HttpRegexScraper` — HEAD request extracts Last-Modified header, converts to date-based version `YYYY.M.D` (Sysinternals).
+- **ZIP extraction in staging** — downloaded ZIP files are automatically extracted to find the MSI/EXE installer inside. Original ZIP cleaned up after extraction (TeamViewer, paint.net).
+- **MecmTarget recursive directory copy** — `Directory.GetFiles` with `SearchOption.AllDirectories` preserves subdirectory structure when copying to network share (M365 Office/Data/).
+
+### App Definitions — 114 of 117 validated end-to-end
+- **M365 Apps/Project/Visio x64+x86 (6)**: CdnCab scraper + ODT staging pipeline, full end-to-end
+- **MSVC Runtimes x64+x86 (2)**: FileVersion scraper, separate apps, file-based detection on msvcp140.dll
+- **CutePDF Writer (1)**: FileVersion scraper
+- **Microsoft Teams (1)**: MsixManifest version extraction from MSIX
+- **Sysinternals Suite (1)**: LAST_MODIFIED header → date version
+- **TeamViewer (1)**: HttpRegex page scrape + ZIP→MSI extraction
+- **paint.net (1)**: JsonQuery GitHub API + ZIP→MSI extraction
+
+### Bug Fixes
+- MecmTarget only copied top-level files, missing M365 Office/Data/ subdirectories
+- TeamViewer EXE installer has no version info — reverted to ZIP/MSI variant with proper ARP detection
+
 ## [2.1.0-alpha3] - 2026-04-01
 
 ### Engine — New Scrapers & Features

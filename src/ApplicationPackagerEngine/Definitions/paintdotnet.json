@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "e1f2a3b4c5d60003",
+    "Vendor":  "dotPDN LLC",
+    "Application":  "paint.net (x64)",
+    "CMName":  "paint.net",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.getpaint.net/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/paintdotnet/release/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:v"
+                       },
+    "DownloadUrl":  "https://github.com/paintdotnet/release/releases/download/v{display_version}/paint.net.{display_version}.winmsi.x64.zip",
+    "InstallerFileName":  "paint.net-{display_version}-x64.zip",
+    "InstallArgs":  "/quiet /norestart CHECKFORUPDATES=0 DESKTOPSHORTCUT=0",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "paintdotnet"
+                       ]
+}

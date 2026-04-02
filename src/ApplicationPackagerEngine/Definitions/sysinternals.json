@@ -1,21 +1,22 @@
 {
     "Schema":  1,
-    "Id":  "4d8f903d6f9640ac",
+    "Id":  "e1f2a3b4c5d60004",
     "Vendor":  "Microsoft",
-    "Application":  "Sysinternals Suite",
+    "Application":  "Sysinternals Suite (x64)",
     "CMName":  "Sysinternals Suite",
     "Architecture":  "x64",
-    "VendorUrl":  "https://learn.microsoft.com/en-us/sysinternals/",
-    "InstallerType":  "EXE",
+    "VendorUrl":  "https://learn.microsoft.com/sysinternals/",
+    "InstallerType":  "ZIP",
     "Acquisition":  {
 
                     },
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://download.sysinternals.com/files/SysinternalsSuite.zip",
-                           "Pattern":  "# LAST_MODIFIED - version from HTTP header date"
+                           "Pattern":  "LAST_MODIFIED"
                        },
     "DownloadUrl":  "https://download.sysinternals.com/files/SysinternalsSuite.zip",
+    "InstallerFileName":  "SysinternalsSuite.zip",
     "InstallArgs":  "",
     "UninstallArgs":  "",
     "Detection":  {

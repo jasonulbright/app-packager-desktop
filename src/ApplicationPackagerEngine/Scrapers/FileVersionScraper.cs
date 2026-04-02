@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using ApplicationPackagerEngine.Models;
 
 namespace ApplicationPackagerEngine.Scrapers;
@@ -41,6 +42,7 @@ public sealed class FileVersionScraper : IVersionScraper
             "FILEVERSION" => ReadExeVersion(cachedPath, useFileVersion: true),
             "PRODUCTVERSION" => ReadExeVersion(cachedPath, useFileVersion: false),
             "MSIPRODUCTVERSION" => ReadMsiVersion(cachedPath),
+            "MSIXMANIFEST" => ReadMsixManifestVersion(cachedPath),
             _ => ReadExeVersion(cachedPath, useFileVersion: false) // default to ProductVersion
         };
 
@@ -70,6 +72,29 @@ public sealed class FileVersionScraper : IVersionScraper
             version = $"{info.FileMajorPart}.{info.FileMinorPart}.{info.FileBuildPart}";
 
         return version ?? "";
+    }
+
+    private static string ReadMsixManifestVersion(string msixPath)
+    {
+        try
+        {
+            using var zip = System.IO.Compression.ZipFile.OpenRead(msixPath);
+            var entry = zip.Entries.FirstOrDefault(e =>
+                e.Name.Equals("AppxManifest.xml", StringComparison.OrdinalIgnoreCase));
+            if (entry is null) return "";
+
+            using var reader = new StreamReader(entry.Open());
+            var xml = System.Xml.Linq.XDocument.Parse(reader.ReadToEnd());
+            var ns = xml.Root?.GetDefaultNamespace();
+            var identity = ns is not null
+                ? xml.Root?.Element(ns + "Identity")
+                : xml.Root?.Element("Identity");
+            return identity?.Attribute("Version")?.Value ?? "";
+        }
+        catch
+        {
+            return "";
+        }
     }
 
     private static string ReadMsiVersion(string msiPath)

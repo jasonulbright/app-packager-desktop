@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Scrapers;
 
@@ -94,6 +95,10 @@ public sealed class StagingService
         CancellationToken ct = default,
         string? knownVersion = null)
     {
+        // Route ODT apps to dedicated pipeline
+        if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
+            return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion);
+
         try
         {
             // 1. Get version — reuse from Check Latest if available to avoid redundant API calls.
@@ -170,12 +175,42 @@ public sealed class StagingService
                 onProgress?.Invoke($"Installer already cached: {installerFileName}");
             }
 
-            // 4. Inspect installer (MSI only for now)
+            // 4. If downloaded file is a ZIP, extract and find the real installer inside
+            if (installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
+            {
+                onProgress?.Invoke("Extracting ZIP archive...");
+                var extractDir = Path.Combine(contentPath, "_zip_extract");
+                if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
+                System.IO.Compression.ZipFile.ExtractToDirectory(installerPath, extractDir);
+
+                // Find the MSI or EXE inside
+                var innerInstaller = Directory.GetFiles(extractDir, "*.msi", SearchOption.AllDirectories).FirstOrDefault()
+                    ?? Directory.GetFiles(extractDir, "*.exe", SearchOption.AllDirectories).FirstOrDefault();
+
+                if (innerInstaller is not null)
+                {
+                    var innerName = Path.GetFileName(innerInstaller);
+                    var destPath = Path.Combine(contentPath, innerName);
+                    if (!File.Exists(destPath))
+                        File.Move(innerInstaller, destPath);
+                    installerPath = destPath;
+                    installerFileName = innerName;
+                    onProgress?.Invoke($"Extracted installer: {innerName}");
+                }
+
+                // Clean up extract dir and original ZIP
+                try { Directory.Delete(extractDir, true); } catch { }
+                var originalZip = Path.Combine(contentPath, ResolveInstallerFileName(def, downloadUrl, displayVersion));
+                try { if (File.Exists(originalZip) && originalZip != installerPath) File.Delete(originalZip); } catch { }
+            }
+
+            // 4b. Inspect installer (MSI only for now)
             string? productCode = null;
             string? productVersion = null;
             string publisher = def.Vendor;
 
-            if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
+            if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ||
+                installerPath.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
             {
                 onProgress?.Invoke("Reading MSI properties...");
                 var msiProps = _msiService.ReadProperties(installerPath);
@@ -241,6 +276,219 @@ public sealed class StagingService
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
     }
+
+    // ── ODT staging pipeline ─────────────────────────────────────
+
+    private const string OdtSetupUrl = "https://officecdn.microsoft.com/pr/wsus/setup.exe";
+
+    private async Task<StagingResult> StageOdtAsync(
+        AppDefinition def, string downloadRoot,
+        Action<string>? onProgress, CancellationToken ct, string? knownVersion)
+    {
+        try
+        {
+            var odt = def.Odt;
+            if (odt is null || odt.ProductIds.Length == 0)
+                return new StagingResult { Success = false, ErrorMessage = "OdtConfig with ProductIds is required for ODT apps" };
+
+            // 1. Get version
+            string? version;
+            if (!string.IsNullOrEmpty(knownVersion))
+            {
+                version = knownVersion;
+            }
+            else
+            {
+                onProgress?.Invoke($"Checking latest version for {def.Application}...");
+                var (_, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+                version = display;
+            }
+            if (string.IsNullOrEmpty(version))
+                return new StagingResult { Success = false, ErrorMessage = "Could not determine latest version" };
+
+            // CdnCab scraper strips "16.0." prefix — restore it for ODT
+            var fullVersion = version.Contains('.') && !version.StartsWith("16.") ? $"16.0.{version}" : version;
+
+            onProgress?.Invoke($"Version: {version}");
+
+            // 2. Set up folders
+            var edition = def.Architecture.Equals("x86", StringComparison.OrdinalIgnoreCase) ? "32" : "64";
+            var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
+            var baseRoot = Path.Combine(downloadRoot, appFolder);
+            var contentPath = Path.Combine(baseRoot, version);
+            Directory.CreateDirectory(contentPath);
+
+            // 3. Download ODT setup.exe
+            var setupExe = Path.Combine(baseRoot, "setup.exe");
+            if (!File.Exists(setupExe))
+            {
+                onProgress?.Invoke("Downloading ODT setup.exe...");
+                await _downloadService.DownloadAsync(OdtSetupUrl, setupExe, onProgress: onProgress, ct: ct);
+            }
+            else
+            {
+                onProgress?.Invoke("ODT setup.exe already cached.");
+            }
+
+            // 4. Generate download.xml
+            var downloadXml = GenerateOdtXml(edition, fullVersion, odt, contentPath);
+            var downloadXmlPath = Path.Combine(baseRoot, "download.xml");
+            await File.WriteAllTextAsync(downloadXmlPath, downloadXml, System.Text.Encoding.ASCII, ct);
+            onProgress?.Invoke("Generated download.xml");
+
+            // 5. Run setup.exe /download
+            onProgress?.Invoke("Downloading Office source files (this may take several minutes)...");
+            var dlResult = await RunProcessWithTimeoutAsync(
+                setupExe, $"/download \"{downloadXmlPath}\"",
+                TimeSpan.FromMinutes(30), ct);
+            if (!dlResult)
+                return new StagingResult { Success = false, ErrorMessage = "ODT /download failed" };
+            onProgress?.Invoke("Office source download complete.");
+
+            // 6. Copy setup.exe into content folder
+            var contentSetupExe = Path.Combine(contentPath, "setup.exe");
+            if (!File.Exists(contentSetupExe))
+            {
+                File.Copy(setupExe, contentSetupExe);
+                onProgress?.Invoke("Copied setup.exe to content folder.");
+            }
+
+            // 7. Generate install.xml (no SourcePath — uses relative at install time)
+            var installXml = GenerateOdtXml(edition, fullVersion, odt, sourcePath: null);
+            await File.WriteAllTextAsync(Path.Combine(contentPath, "install.xml"), installXml, System.Text.Encoding.ASCII, ct);
+
+            // 8. Generate uninstall.xml
+            var uninstallProdId = odt.UninstallProductId ?? odt.ProductIds[^1];
+            var uninstallXml = string.Join("\r\n",
+                "<Configuration>",
+                "  <Remove>",
+                $"    <Product ID=\"{uninstallProdId}\" />",
+                "  </Remove>",
+                "  <Display Level=\"None\" AcceptEULA=\"TRUE\" />",
+                "</Configuration>");
+            await File.WriteAllTextAsync(Path.Combine(contentPath, "uninstall.xml"), uninstallXml, System.Text.Encoding.ASCII, ct);
+            onProgress?.Invoke("Generated install.xml and uninstall.xml");
+
+            // 9. Generate ODT-specific wrappers (setup.exe /configure)
+            var installPs1 = string.Join("\r\n",
+                "$setupPath = Join-Path $PSScriptRoot 'setup.exe'",
+                "$configPath = Join-Path $PSScriptRoot 'install.xml'",
+                "$proc = Start-Process -FilePath $setupPath -ArgumentList @('/configure', $configPath) -Wait -PassThru -NoNewWindow -WorkingDirectory $PSScriptRoot",
+                "exit $proc.ExitCode");
+            var uninstallPs1 = string.Join("\r\n",
+                "$setupPath = Join-Path $PSScriptRoot 'setup.exe'",
+                "$configPath = Join-Path $PSScriptRoot 'uninstall.xml'",
+                "$proc = Start-Process -FilePath $setupPath -ArgumentList @('/configure', $configPath) -Wait -PassThru -NoNewWindow -WorkingDirectory $PSScriptRoot",
+                "exit $proc.ExitCode");
+            var installBat = "@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0install.ps1\"\r\nexit /b %ERRORLEVEL%";
+            var uninstallBat = "@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0uninstall.ps1\"\r\nexit /b %ERRORLEVEL%";
+
+            await File.WriteAllTextAsync(Path.Combine(contentPath, "install.ps1"), installPs1, System.Text.Encoding.ASCII, ct);
+            await File.WriteAllTextAsync(Path.Combine(contentPath, "uninstall.ps1"), uninstallPs1, System.Text.Encoding.ASCII, ct);
+            await File.WriteAllTextAsync(Path.Combine(contentPath, "install.bat"), installBat, System.Text.Encoding.ASCII, ct);
+            await File.WriteAllTextAsync(Path.Combine(contentPath, "uninstall.bat"), uninstallBat, System.Text.Encoding.ASCII, ct);
+            onProgress?.Invoke("Generated install/uninstall wrappers.");
+
+            // 10. Write manifest
+            var detection = BuildDetection(def, null, version);
+            var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
+            var publisher = def.Vendor;
+            var manifest = new StageManifest
+            {
+                AppName = $"{def.Application} - {version} ({def.Architecture})",
+                DisplayName = $"{def.Application} ({def.Architecture})",
+                Publisher = publisher,
+                SoftwareVersion = version,
+                InstallerFile = "setup.exe",
+                InstallerType = "ODT",
+                InstallArgs = "/configure install.xml",
+                UninstallArgs = "/configure uninstall.xml",
+                RunningProcess = def.RunningProcess,
+                Detection = detection
+            };
+            _manifestService.Write(manifestPath, manifest);
+            onProgress?.Invoke($"Manifest written: {manifestPath}");
+
+            onProgress?.Invoke($"Stage complete: {contentPath}");
+            return new StagingResult
+            {
+                Success = true,
+                ContentPath = contentPath,
+                ManifestPath = manifestPath
+            };
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private static string GenerateOdtXml(string edition, string version, OdtConfig odt, string? sourcePath)
+    {
+        var lines = new List<string> { "<Configuration>" };
+
+        var addAttrs = new List<string>();
+        if (!string.IsNullOrEmpty(sourcePath))
+            addAttrs.Add($"SourcePath=\"{sourcePath}\"");
+        addAttrs.Add($"OfficeClientEdition=\"{edition}\"");
+        addAttrs.Add($"Channel=\"{odt.Channel}\"");
+        addAttrs.Add("OfficeMgmtCOM=\"TRUE\"");
+        addAttrs.Add($"Version=\"{version}\"");
+        addAttrs.Add("MigrateArch=\"TRUE\"");
+        lines.Add($"  <Add {string.Join(" ", addAttrs)}>");
+
+        foreach (var prodId in odt.ProductIds)
+        {
+            lines.Add($"    <Product ID=\"{prodId}\">");
+            lines.Add("      <Language ID=\"en-us\" />");
+            foreach (var exclude in odt.ExcludeApps)
+                lines.Add($"      <ExcludeApp ID=\"{exclude}\" />");
+            lines.Add("    </Product>");
+        }
+
+        lines.Add("  </Add>");
+        lines.Add("  <Property Name=\"SharedComputerLicensing\" Value=\"1\" />");
+        lines.Add("  <Property Name=\"FORCEAPPSHUTDOWN\" Value=\"TRUE\" />");
+        lines.Add("  <Property Name=\"DeviceBasedLicensing\" Value=\"0\" />");
+        lines.Add("  <Property Name=\"PinIconsToTaskbar\" Value=\"FALSE\" />");
+        lines.Add("  <Property Name=\"SCLCacheOverride\" Value=\"0\" />");
+        lines.Add("  <RemoveMSI />");
+        lines.Add("  <Display Level=\"None\" AcceptEULA=\"TRUE\" />");
+        lines.Add("  <Logging Level=\"Standard\" Path=\"%programdata%\\Appdeploy\\Office2016\" />");
+        lines.Add("</Configuration>");
+
+        return string.Join("\r\n", lines);
+    }
+
+    private static async Task<bool> RunProcessWithTimeoutAsync(
+        string fileName, string arguments, TimeSpan timeout, CancellationToken ct)
+    {
+        using var process = new System.Diagnostics.Process();
+        process.StartInfo = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = fileName,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        process.Start();
+        var exitTask = process.WaitForExitAsync(ct);
+        var completed = await Task.WhenAny(exitTask, Task.Delay(timeout, ct));
+
+        if (completed != exitTask)
+        {
+            try { process.Kill(true); } catch { }
+            return false;
+        }
+
+        return process.ExitCode == 0;
+    }
+
+    // ── Standard staging helpers ────────────────────────────────
 
     /// <summary>
     /// Determines the installer filename: explicit override → URL path → constructed fallback.

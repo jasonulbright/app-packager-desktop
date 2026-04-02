@@ -36,21 +36,25 @@ public sealed class MecmTarget
             onProgress?.Invoke($"Network content path: {networkContentPath}");
             Directory.CreateDirectory(networkContentPath);
 
-            foreach (var file in Directory.GetFiles(stagedContentPath))
+            foreach (var file in Directory.GetFiles(stagedContentPath, "*", SearchOption.AllDirectories))
             {
-                var fileName = Path.GetFileName(file);
-                if (fileName.Equals("stage-manifest.json", StringComparison.OrdinalIgnoreCase))
+                var relativePath = Path.GetRelativePath(stagedContentPath, file);
+                if (relativePath.Equals("stage-manifest.json", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                var dest = Path.Combine(networkContentPath, fileName);
+                var dest = Path.Combine(networkContentPath, relativePath);
+                var destDir = Path.GetDirectoryName(dest)!;
+                if (!Directory.Exists(destDir))
+                    Directory.CreateDirectory(destDir);
+
                 if (!File.Exists(dest))
                 {
                     File.Copy(file, dest);
-                    onProgress?.Invoke($"Copied: {fileName}");
+                    onProgress?.Invoke($"Copied: {relativePath}");
                 }
                 else
                 {
-                    onProgress?.Invoke($"Already on network: {fileName}");
+                    onProgress?.Invoke($"Already on network: {relativePath}");
                 }
             }
 

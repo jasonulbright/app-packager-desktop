@@ -1,6 +1,6 @@
 {
     "Schema":  1,
-    "Id":  "82203b1456444369",
+    "Id":  "e1f2a3b4c5d60002",
     "Vendor":  "TeamViewer",
     "Application":  "TeamViewer (x64)",
     "CMName":  "TeamViewer",
@@ -12,10 +12,11 @@
                     },
     "VersionScraper":  {
                            "Type":  "HttpRegex",
-                           "Url":  "https://download.teamviewer.com/download/version_15x/TeamViewer_MSI64.zip",
-                           "Pattern":  "# FILE_VERSION - MSI ProductVersion from ZIP"
+                           "Url":  "https://www.teamviewer.com/en-us/download/windows/",
+                           "Pattern":  "versionNumber&quot;:&quot;(\\d+\\.\\d+\\.\\d+)"
                        },
     "DownloadUrl":  "https://download.teamviewer.com/download/version_15x/TeamViewer_MSI64.zip",
+    "InstallerFileName":  "TeamViewer_MSI64.zip",
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {
@@ -27,6 +28,7 @@
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
-                           "TeamViewer"
+                           "TeamViewer",
+                           "TeamViewer_Service"
                        ]
 }

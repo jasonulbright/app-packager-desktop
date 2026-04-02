@@ -41,6 +41,13 @@ public sealed class HttpRegexScraper : IVersionScraper
     private async Task<(string? Version, string? DownloadUrl)> FetchVersionAndUrlAsync(
         VersionScraperConfig config, CancellationToken ct)
     {
+        // LAST_MODIFIED mode: extract version from HTTP Last-Modified header as date
+        if (config.Pattern.Equals("LAST_MODIFIED", StringComparison.OrdinalIgnoreCase))
+        {
+            var dateVersion = await FetchLastModifiedVersionAsync(config.Url, ct);
+            return (dateVersion, null);
+        }
+
         var isRedirectMode = config.Pattern.StartsWith("REDIR:");
         var pattern = isRedirectMode ? config.Pattern["REDIR:".Length..] : config.Pattern;
 
@@ -130,6 +137,46 @@ public sealed class HttpRegexScraper : IVersionScraper
 
         var stdout = await stdoutTask;
         return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
+    }
+
+    /// <summary>
+    /// Performs a HEAD request and converts the Last-Modified header to a date-based version (YYYY.M.D).
+    /// </summary>
+    private static async Task<string?> FetchLastModifiedVersionAsync(string url, CancellationToken ct)
+    {
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo
+        {
+            FileName = "curl.exe",
+            Arguments = $"--head -L --silent --max-time 15 \"{url}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
+        var exitTask = process.WaitForExitAsync(ct);
+        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(20), ct));
+
+        if (completed != exitTask)
+        {
+            try { process.Kill(true); } catch { }
+            return null;
+        }
+
+        var stdout = await stdoutTask;
+        if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(stdout)) return null;
+
+        // Parse Last-Modified header: "Last-Modified: Thu, 26 Mar 2026 19:56:26 GMT"
+        var match = Regex.Match(stdout, @"Last-Modified:\s*(.+)", RegexOptions.IgnoreCase);
+        if (!match.Success) return null;
+
+        if (DateTimeOffset.TryParse(match.Groups[1].Value.Trim(), out var dt))
+            return $"{dt.Year}.{dt.Month}.{dt.Day}";
+
+        return null;
     }
 
     private static async Task<string?> RunPowerShellScriptAsync(string scriptPath, CancellationToken ct)

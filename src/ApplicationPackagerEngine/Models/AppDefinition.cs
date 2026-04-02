@@ -34,6 +34,11 @@ public sealed class AppDefinition
     public string? IconFormat { get; set; }
 
     /// <summary>
+    /// ODT configuration for M365 apps. Only used when InstallerType is "ODT".
+    /// </summary>
+    public OdtConfig? Odt { get; set; }
+
+    /// <summary>
     /// Override the display version shown in the UI and used for folder names.
     /// Supports {version} (raw) placeholder. When set, the transformed version is used
     /// only for URL construction, and this value replaces it for display/folders/detection.
@@ -92,6 +97,21 @@ public sealed class VersionScraperConfig
     /// Some vendors (e.g., Adobe) block requests with browser User-Agents from server IPs.
     /// </summary>
     public bool NoUserAgent { get; set; }
+}
+
+/// <summary>
+/// ODT-specific configuration for M365 apps.
+/// </summary>
+public sealed class OdtConfig
+{
+    /// <summary>Product IDs for the Add element (e.g., "O365ProPlusRetail", "ProjectProRetail").</summary>
+    public string[] ProductIds { get; set; } = [];
+    /// <summary>Product ID for the uninstall Remove element (first product only).</summary>
+    public string? UninstallProductId { get; set; }
+    /// <summary>ODT channel name: MonthlyEnterprise, Current, SemiAnnual.</summary>
+    public string Channel { get; set; } = "MonthlyEnterprise";
+    /// <summary>Apps to exclude (e.g., Groove, Lync, OneDrive, Teams, Bing).</summary>
+    public string[] ExcludeApps { get; set; } = ["Groove", "Lync", "OneDrive", "Teams", "Bing"];
 }
 
 public sealed class DetectionConfig
