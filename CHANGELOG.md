@@ -2,6 +2,17 @@
 
 All notable changes to SRL Packr are documented here.
 
+## [2.1.0-alpha5] - 2026-04-02
+
+### App Definitions — 117 of 117 validated
+- **Tableau Desktop, Prep Builder, Reader (3)**: HttpRegex version from release notes, `tssoftwareregistered`/`tssoftware` CDN downloads, `replace:.:-` for URL hyphens, `DisplayVersionOverride` for dotted display
+- Tableau WAF bypass: direct CDN download URLs work, no Akamai blocking
+
+### Roadmap
+- Added v2.2 WebView2 Manual Download Panel spec for vendor-gated apps (Citrix LTSR, VMware Workstation)
+- Embedded `CoreWebView2.DownloadStarting` interception for TOS/auth-gated downloads
+- `ManualDownload`, `ManualDownloadUrl`, `ManualDownloadHint` definition fields planned
+
 ## [2.1.0-alpha4] - 2026-04-02
 
 ### Engine — New Scrapers & Features

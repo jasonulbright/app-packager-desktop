@@ -6,7 +6,7 @@ SRL Packr by Signal Ridge Labs automates the full lifecycle of third-party appli
 
 ## Status
 
-**v2.1.0-alpha4** — 114 of 117 apps validated end-to-end on CM01 lab (Check Latest, Check MECM, Stage, Package). 3 remaining are vendor-blocked (Citrix LTSR TOS gate, Tableau WAF, VMware Workstation auth).
+**v2.1.0-alpha5** — 115 of 117 apps fully automated end-to-end on CM01 lab. 2 remaining (Citrix LTSR, VMware Workstation) have working Check Latest but require manual download — planned for v2.2 WebView2 panel.
 
 ## Stack
 

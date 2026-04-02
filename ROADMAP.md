@@ -77,14 +77,42 @@ One file per app. Community-contributable.
 Separate CM Application (not second DT) to preserve TS compatibility.
 
 ### Remaining v2.1 Work
-- CdnCabScraper for M365 Apps/Project/Visio (6 apps)
-- Staging pipeline: ZIP extraction (paint.net, TeamViewer), multi-file (CutePDF, MSVC)
-- Sysinternals (Last-Modified header → date version), Teams (MSIX manifest)
 - BareStaging, PsadtWrapper
 - "Add New App" wizard
 - Per-app settings auto-generation from JSON schema
 - App icons (base64 in JSON)
 - Migration tooling (PS1 → JSON converter)
+
+### v2.2 — WebView2 Manual Download Panel
+For apps where the download is gated behind TOS acceptance or vendor authentication
+(Citrix Workspace LTSR, VMware Workstation Pro, and any future gated vendors).
+
+**`ManualDownload` flag** on `AppDefinition` — when true, Stage opens an embedded
+WebView2 panel instead of downloading via curl.
+
+**Flow:**
+1. Check Latest works normally (version from API/page scrape)
+2. Stage detects `ManualDownload: true`
+3. Opens embedded WebView2 panel navigated to the vendor download page
+4. User accepts TOS / authenticates within the panel
+5. `CoreWebView2.DownloadStarting` event intercepts the browser download
+6. Download is redirected into the staging content folder automatically
+7. Once file lands, staging resumes (inspect, wrappers, manifest, detection)
+8. WebView2 panel closes, Package proceeds normally
+
+**Why WebView2:** Already a dependency (WPF-UI). The `DownloadStarting` API
+provides filename, URL, and allows redirecting the save path — no temp file
+juggling. Handles cookies, TOS gates, CAPTCHA, and auth portals transparently
+because the user interacts with a real browser context.
+
+**Per-definition config:**
+```json
+{
+  "ManualDownload": true,
+  "ManualDownloadUrl": "https://www.citrix.com/downloads/...",
+  "ManualDownloadHint": "Accept the license agreement, then click Download"
+}
+```
 
 ### App Conversions — Status (117 apps)
 
@@ -226,11 +254,9 @@ FileVersion scraper with `regex_replace` to strip 4th version part. File-based d
 - [x] TeamViewer — HttpRegex page scrape + ZIP→MSI extraction in staging
 - [x] paint.net — JsonQuery GitHub + ZIP→MSI extraction in staging
 
-#### Vendor-Blocked — Cannot Automate (3 apps)
+#### Vendor-Gated — Awaiting v2.2 WebView2 Manual Download Panel (2 apps)
+Check Latest works. Stage blocked by download authentication. Will be resolved by the embedded WebView2 panel (v2.2).
 - [ ] Citrix Workspace LTSR — TOS acceptance required, download gated behind `__gda__` token
-- [ ] Tableau Desktop — Akamai WAF blocks automated requests from dev and lab networks
-- [ ] Tableau Prep Builder — same Tableau WAF issue
-- [ ] Tableau Reader — same Tableau WAF issue
 - [ ] VMware Workstation — MANUAL: Broadcom Support Portal requires authentication
 
 ---
