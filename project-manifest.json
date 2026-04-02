@@ -4,5 +4,5 @@
     "ValidationSchedule":  "none",
     "Category":  "MECM",
     "Status":  "active",
-    "Notes":  "INFO: SRL Packr by Signal Ridge Labs, v2.1.0-alpha6\nINFO: 115/117 apps fully automated (2 vendor-gated await v2.2 WebView2 panel)\nINFO: .NET 10, WPF-UI 4.2.0, ApplicationPackagerEngine DLL\nINFO: Disk logging added, detection version fix shipped\nTASK: Full regression test on CM01 (in progress)\nTASK: v2.2 WebView2 manual download, app icons, first-run wizard\nTASK: v2.3 Intune target, notifications, version history, community repo"
+    "Notes":  "INFO: SRL Packr by Signal Ridge Labs, v2.1.0-alpha6\nINFO: 115/117 apps fully automated, 2 vendor-gated\nINFO: See ROADMAP.md for v2.2-v3.0 plans\nTASK: Full regression test on CM01"
 }
