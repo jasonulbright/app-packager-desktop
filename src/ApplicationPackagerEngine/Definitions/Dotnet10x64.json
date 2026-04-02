@@ -3,7 +3,7 @@
     "Id":  "8357ebf93f804846",
     "Vendor":  "Microsoft",
     "Application":  ".NET 10 Desktop Runtime (x64)",
-    "CMName":  "Microsoft Windows Desktop Runtime - 10",
+    "CMName":  ".NET 10 Desktop Runtime",
     "Architecture":  "x64",
     "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/10.0",
     "InstallerType":  "EXE",
@@ -11,9 +11,9 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "JsonQuery",
                            "Url":  "https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json",
-                           "Pattern":  "# JSON_QUERY - dotnet 10.0 latest-runtime"
+                           "Pattern":  "releases-index[?channel-version=10.0].latest-runtime"
                        },
     "DownloadUrl":  "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/{version}/windowsdesktop-runtime-{version}-win-x64.exe",
     "InstallArgs":  "/install /quiet /norestart",

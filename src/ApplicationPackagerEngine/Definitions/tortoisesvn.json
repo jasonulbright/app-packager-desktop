@@ -1,6 +1,6 @@
 {
     "Schema":  1,
-    "Id":  "cf9e35cc10444620",
+    "Id":  "b1a2c3d4e5f60006",
     "Vendor":  "TortoiseSVN",
     "Application":  "TortoiseSVN (x64)",
     "CMName":  "TortoiseSVN",
@@ -13,9 +13,11 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://tortoisesvn.net/downloads.html",
-                           "Pattern":  "TortoiseSVN-([\\d.]+)-x64-svn-[\\d.]+\\.msi"
+                           "Pattern":  "tortoisesvn/files/([\\d.]+)/Application/TortoiseSVN",
+                           "DownloadUrlQuery":  "(https://sourceforge\\.net/projects/tortoisesvn/files/[\\d.]+/Application/TortoiseSVN-[\\d.]+-x64-svn-[\\d.]+\\.msi)"
                        },
-    "DownloadUrl":  "# DYNAMIC - SourceForge with SVN version in filename",
+    "DownloadUrl":  "",
+    "InstallerFileName":  "TortoiseSVN-{display_version}-x64.msi",
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {

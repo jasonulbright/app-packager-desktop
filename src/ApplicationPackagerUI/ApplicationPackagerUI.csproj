@@ -9,6 +9,7 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <AssemblyName>ApplicationPackagerUI</AssemblyName>
     <RootNamespace>ApplicationPackagerUI</RootNamespace>
+    <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
 
   <ItemGroup>

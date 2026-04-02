@@ -1,9 +1,9 @@
 {
     "Schema":  1,
-    "Id":  "f68075dcf4064a9b",
+    "Id":  "b1a2c3d4e5f60001",
     "Vendor":  "Adobe Inc.",
-    "Application":  "Adobe Acrobat (Reader) DC (x64)",
-    "CMName":  "Adobe Acrobat (Reader) DC",
+    "Application":  "Adobe Acrobat Reader DC (x64)",
+    "CMName":  "Adobe Acrobat Reader DC",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.adobe.com/acrobat/pdf-reader.html",
     "InstallerType":  "EXE",
@@ -13,9 +13,13 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.adobe.com/devnet-docs/acrobatetk/tools/ReleaseNotesDC/index.html",
-                           "Pattern":  "\\b(\\d{2}\\.\\d{3}\\.\\d{5})\\b"
+                           "Pattern":  "\\b(\\d{2}\\.\\d{3}\\.\\d{5})\\b",
+                           "VersionTransform":  "replace:.:",
+                           "NoUserAgent":  true
                        },
-    "DownloadUrl":  "# DYNAMIC - version-specific URL constructed from version",
+    "DownloadUrl":  "https://ardownload3.adobe.com/pub/adobe/acrobat/win/AcrobatDC/{display_version}/AcroRdrDCx64{display_version}_MUI.exe",
+    "InstallerFileName":  "AcroRdrDCx64-{display_version}.exe",
+    "DisplayVersionOverride":  "{version}",
     "InstallArgs":  "/sAll /rs /rps /msi /qn /norestart",
     "UninstallArgs":  "/x /qn /norestart",
     "Detection":  {
@@ -27,7 +31,7 @@
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
-                           "AcroRd32",
-                           "Acrobat"
+                           "Acrobat",
+                           "AcroCEF"
                        ]
 }

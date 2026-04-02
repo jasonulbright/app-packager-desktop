@@ -69,7 +69,9 @@ public class PackagerExecutionService(SettingsService settingsService, StagingSe
         {
             var def = LoadDefinition(packager.DefinitionPath);
             var appSettings = settingsService.Load();
-            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct);
+            // Reuse version from Check Latest to avoid redundant API calls (GitHub rate limiting)
+            var knownVersion = !string.IsNullOrEmpty(packager.LatestVersion) ? packager.LatestVersion : null;
+            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion);
             return new PackagerExecutionResult
             {
                 ExitCode = result.Success ? 0 : 1,

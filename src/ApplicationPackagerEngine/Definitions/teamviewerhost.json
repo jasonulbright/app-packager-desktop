@@ -1,6 +1,6 @@
 {
     "Schema":  1,
-    "Id":  "ce5fa6cda2e24399",
+    "Id":  "a1b2c3d4e5f60006",
     "Vendor":  "TeamViewer",
     "Application":  "TeamViewer Host (x64)",
     "CMName":  "TeamViewer Host",
@@ -11,11 +11,12 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "FileVersion",
                            "Url":  "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
-                           "Pattern":  "# FILE_VERSION - EXE FileVersionInfo"
+                           "Pattern":  "ProductVersion"
                        },
     "DownloadUrl":  "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
+    "InstallerFileName":  "TeamViewer_Host_Setup_x64.exe",
     "InstallArgs":  "/S",
     "UninstallArgs":  "/S",
     "Detection":  {
@@ -27,7 +28,7 @@
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
-                           "TeamViewer_Service",
-                           "TeamViewer"
+                           "TeamViewer",
+                           "TeamViewer_Service"
                        ]
 }

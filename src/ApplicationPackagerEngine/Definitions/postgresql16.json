@@ -11,9 +11,9 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "JsonQuery",
                            "Url":  "https://endoflife.date/api/postgresql.json",
-                           "Pattern":  "# JSON_QUERY - filter cycle==16, extract latest"
+                           "Pattern":  "[?cycle=16].latest"
                        },
     "DownloadUrl":  "https://get.enterprisedb.com/postgresql/postgresql-{version}-1-windows-x64.exe",
     "InstallArgs":  "--mode unattended --unattendedmodeui none --superpassword P0stgres!MECM --serverport 5432 --install_runtimes 0 --disable-components stackbuilder",

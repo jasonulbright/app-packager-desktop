@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "0000089d8d25e2a0",
+    "Vendor":  "Microsoft",
+    "Application":  "PowerShell 7 (x64)",
+    "CMName":  "PowerShell 7",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://github.com/PowerShell/PowerShell",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/PowerShell/PowerShell/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:v"
+                       },
+    "DownloadUrl":  "https://github.com/PowerShell/PowerShell/releases/download/v{display_version}/PowerShell-{display_version}-win-x64.msi",
+    "InstallArgs":  "/quiet /norestart ADD_EXPLORER_CONTEXT_MENU_OPENPOWERSHELL=1 ENABLE_PSREMOTING=1 REGISTER_MANIFEST=1 ADD_PATH=1 USE_MU=0 ENABLE_MU=0",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "pwsh"
+                       ]
+}

@@ -1,21 +1,23 @@
 {
     "Schema":  1,
-    "Id":  "d3c4d7b0d2514fe2",
+    "Id":  "b1a2c3d4e5f60005",
     "Vendor":  "The R Foundation",
     "Application":  "R for Windows (x64)",
-    "CMName":  "R for Windows",
+    "CMName":  "R",
     "Architecture":  "x64",
-    "VendorUrl":  "https://cran.r-project.org/",
+    "VendorUrl":  "https://www.r-project.org/",
     "InstallerType":  "EXE",
     "Acquisition":  {
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "JsonQuery",
                            "Url":  "https://api.r-hub.io/rversions/r-release-win",
-                           "Pattern":  "\"version\":\\s*\"([^\"]+)\""
+                           "Pattern":  "version",
+                           "DownloadUrlQuery":  "URL"
                        },
-    "DownloadUrl":  "# DYNAMIC - from R-hub API response",
+    "DownloadUrl":  "",
+    "InstallerFileName":  "R-{version}-win.exe",
     "InstallArgs":  "/VERYSILENT /NORESTART",
     "UninstallArgs":  "/VERYSILENT",
     "Detection":  {
@@ -26,7 +28,7 @@
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
-                           "Rgui",
-                           "Rterm"
+                           "R",
+                           "Rgui"
                        ]
 }

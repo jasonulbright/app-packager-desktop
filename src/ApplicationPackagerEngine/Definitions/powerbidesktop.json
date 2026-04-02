@@ -1,11 +1,11 @@
 {
     "Schema":  1,
-    "Id":  "7b00608ce2a749c2",
+    "Id":  "b1a2c3d4e5f60003",
     "Vendor":  "Microsoft",
-    "Application":  "Microsoft Power BI Desktop (x64)",
-    "CMName":  "Microsoft Power BI Desktop",
+    "Application":  "Power BI Desktop (x64)",
+    "CMName":  "Power BI Desktop",
     "Architecture":  "x64",
-    "VendorUrl":  "https://www.microsoft.com/download/details.aspx?id=58494",
+    "VendorUrl":  "https://powerbi.microsoft.com/",
     "InstallerType":  "EXE",
     "Acquisition":  {
 
@@ -13,9 +13,11 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.microsoft.com/en-us/download/details.aspx?id=58494",
-                           "Pattern":  "\"[Vv]ersion\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)\""
+                           "Pattern":  "\"version\":\"(\\d+\\.\\d+\\.\\d+\\.\\d+)\"",
+                           "DownloadUrlQuery":  "(https://download\\.microsoft\\.com/[^\"]*PBIDesktop[^\"]*x64[^\"]*\\.exe)"
                        },
-    "DownloadUrl":  "# DYNAMIC - extracted from download page",
+    "DownloadUrl":  "",
+    "InstallerFileName":  "PBIDesktopSetup_x64-{version}.exe",
     "InstallArgs":  "-quiet ACCEPT_EULA=1",
     "UninstallArgs":  "/qn /norestart",
     "Detection":  {

@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "000002954536ed4a",
+    "Vendor":  "Don HO",
+    "Application":  "Notepad++ (x64)",
+    "CMName":  "Notepad++",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://notepad-plus-plus.org/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:v"
+                       },
+    "DownloadUrl":  "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v{display_version}/npp.{display_version}.Installer.x64.exe",
+    "InstallArgs":  "/S /noUpdater",
+    "UninstallArgs":  "/S",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Notepad++",
+                      "FileName":  "notepad++.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "notepad++"
+                       ]
+}

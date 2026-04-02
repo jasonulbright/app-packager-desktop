@@ -49,8 +49,40 @@ public sealed class StagingService
                 return wingetVersion;
         }
 
-        var (_, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+        var (raw, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+
+        if (!string.IsNullOrEmpty(def.DisplayVersionOverride) && raw is not null)
+            return def.DisplayVersionOverride.Replace("{version}", raw, StringComparison.OrdinalIgnoreCase);
+
         return display;
+    }
+
+    /// <summary>
+    /// Resolves the download URL, using DownloadUrlQuery if available (single API call for both version and URL).
+    /// </summary>
+    private async Task<string?> ResolveDownloadUrlFromApiAsync(VersionScraperConfig config, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(config.DownloadUrlQuery)) return null;
+
+        var scraper = _scrapers.Get(config.Type);
+        if (scraper is Scrapers.JsonQueryScraper jqs)
+        {
+            var (_, url) = await jqs.GetVersionAndDownloadUrlAsync(config, ct);
+            return url;
+        }
+        if (scraper is Scrapers.HttpRegexScraper hrs)
+        {
+            var (_, url) = await hrs.GetVersionAndDownloadUrlAsync(config, ct);
+            // If the captured URL is relative (just a filename), prepend the scraper URL's base path
+            if (url is not null && !url.Contains("://"))
+            {
+                var baseUrl = config.Url;
+                if (!baseUrl.EndsWith('/')) baseUrl = baseUrl[..(baseUrl.LastIndexOf('/') + 1)];
+                url = baseUrl + url;
+            }
+            return url;
+        }
+        return null;
     }
 
     /// <summary>
@@ -59,36 +91,79 @@ public sealed class StagingService
     public async Task<StagingResult> StageAsync(
         AppDefinition def, string downloadRoot,
         Action<string>? onProgress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? knownVersion = null)
     {
         try
         {
-            // 1. Scrape version (raw for download URLs, display for folder/manifest/detection)
-            onProgress?.Invoke($"Checking latest version for {def.Application}...");
-            var (rawVersion, version) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+            // 1. Get version — reuse from Check Latest if available to avoid redundant API calls.
+            //    Must re-scrape when a VersionTransform exists, since knownVersion is the display
+            //    version and we need the raw version for download URL substitution.
+            string? rawVersion, version;
+            if (!string.IsNullOrEmpty(knownVersion) && string.IsNullOrEmpty(def.VersionScraper.VersionTransform))
+            {
+                onProgress?.Invoke($"Checking latest version for {def.Application}...");
+                version = knownVersion;
+                rawVersion = knownVersion;
+            }
+            else
+            {
+                onProgress?.Invoke($"Checking latest version for {def.Application}...");
+                (rawVersion, version) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+            }
             if (string.IsNullOrEmpty(version) || string.IsNullOrEmpty(rawVersion))
                 return new StagingResult { Success = false, ErrorMessage = "Could not determine latest version" };
 
-            onProgress?.Invoke($"Version: {version}");
+            // Apply DisplayVersionOverride for UI/folder/detection display
+            // version = transformed (for URL {display_version}), displayVersion = what user sees
+            var displayVersion = version;
+            if (!string.IsNullOrEmpty(def.DisplayVersionOverride))
+                displayVersion = def.DisplayVersionOverride
+                    .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+
+            onProgress?.Invoke($"Version: {displayVersion}");
 
             // 2. Set up versioned content folder (uses display version)
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
-            var contentPath = Path.Combine(baseRoot, version);
+            var contentPath = Path.Combine(baseRoot, displayVersion);
             Directory.CreateDirectory(contentPath);
 
-            // 3. Download installer — {version} = raw (for URLs that need original format),
-            //    {display_version} = transformed (for URLs that need the display format)
-            var downloadUrl = def.DownloadUrl
-                .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
-                .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+            // 3. Resolve download URL — either from API query or template substitution
+            string downloadUrl;
+            if (!string.IsNullOrEmpty(def.VersionScraper.DownloadUrlQuery))
+            {
+                var apiUrl = await ResolveDownloadUrlFromApiAsync(def.VersionScraper, ct);
+                downloadUrl = apiUrl ?? def.DownloadUrl
+                    .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                    .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                downloadUrl = def.DownloadUrl
+                    .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                    .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+            }
             var installerFileName = ResolveInstallerFileName(def, downloadUrl, version);
             var installerPath = Path.Combine(contentPath, installerFileName);
 
             if (!File.Exists(installerPath))
             {
-                await _downloadService.DownloadAsync(downloadUrl, installerPath,
-                    onProgress: onProgress, ct: ct);
+                // Check if FileVersionScraper already downloaded this file during Check Latest
+                var cachedPath = def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase)
+                    ? Scrapers.FileVersionScraper.GetCachedPath(def.VersionScraper.Url)
+                    : null;
+
+                if (cachedPath is not null)
+                {
+                    File.Copy(cachedPath, installerPath);
+                    onProgress?.Invoke($"Copied from version cache: {installerFileName}");
+                }
+                else
+                {
+                    await _downloadService.DownloadAsync(downloadUrl, installerPath,
+                        onProgress: onProgress, ct: ct);
+                }
             }
             else
             {
@@ -126,16 +201,16 @@ public sealed class StagingService
             }
 
             // 6. Build detection config
-            var detection = BuildDetection(def, productCode, version);
+            var detection = BuildDetection(def, productCode, displayVersion, rawVersion);
 
             // 7. Write manifest
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             var manifest = new StageManifest
             {
-                AppName = $"{def.Application} - {version} ({def.Architecture})",
+                AppName = $"{def.Application} - {displayVersion} ({def.Architecture})",
                 DisplayName = $"{def.Application} ({def.Architecture})",
                 Publisher = publisher,
-                SoftwareVersion = version,
+                SoftwareVersion = displayVersion,
                 InstallerFile = installerFileName,
                 InstallerType = def.InstallerType,
                 InstallArgs = def.InstallArgs,
@@ -174,7 +249,9 @@ public sealed class StagingService
     {
         // 1. Explicit override in definition (required for fwlinks, query-string URLs, etc.)
         if (!string.IsNullOrEmpty(def.InstallerFileName))
-            return def.InstallerFileName.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
+            return def.InstallerFileName
+                .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                .Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
 
         // 2. Parse from URL path
         var urlFileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
@@ -187,7 +264,7 @@ public sealed class StagingService
         return $"{safeName}-{version}{ext}";
     }
 
-    private static StageDetection BuildDetection(AppDefinition def, string? productCode, string version)
+    private static StageDetection BuildDetection(AppDefinition def, string? productCode, string version, string? rawVersion = null)
     {
         var det = def.Detection;
 
@@ -211,14 +288,33 @@ public sealed class StagingService
 
         if (det.Type.Equals("File", StringComparison.OrdinalIgnoreCase))
         {
+            // For Version-based detection, use raw version (dotted) since CM requires valid version format.
+            // For Existence detection, version isn't used for comparison.
+            var detVersion = det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true
+                && rawVersion is not null ? rawVersion : version;
+
             return new StageDetection
             {
                 Type = "File",
-                FilePath = det.FilePath ?? "",
+                FilePath = det.FilePath?.Replace("{version}", version, StringComparison.OrdinalIgnoreCase) ?? "",
                 FileName = det.FileName ?? "",
-                ExpectedValue = version,
+                ExpectedValue = detVersion,
                 Operator = det.Operator ?? "GreaterEquals",
                 PropertyType = det.PropertyType ?? "Version",
+                Is64Bit = det.Is64Bit
+            };
+        }
+
+        if (det.Type.Equals("RegistryKey", StringComparison.OrdinalIgnoreCase))
+        {
+            var regKey = det.RegistryKeyTemplate?
+                .Replace("{version}", version, StringComparison.OrdinalIgnoreCase)
+                .Replace("{ProductCode}", productCode ?? "", StringComparison.OrdinalIgnoreCase) ?? "";
+
+            return new StageDetection
+            {
+                Type = "RegistryKey",
+                RegistryKeyRelative = regKey,
                 Is64Bit = det.Is64Bit
             };
         }

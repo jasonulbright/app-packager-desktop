@@ -11,9 +11,9 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "JsonQuery",
                            "Url":  "https://edgeupdates.microsoft.com/api/products?view=enterprise",
-                           "Pattern":  "# JSON_QUERY - Stable channel x64 ProductVersion"
+                           "Pattern":  "[?Product=Stable].Releases[?Architecture=x64,Platform=Windows].ProductVersion"
                        },
     "DownloadUrl":  "https://go.microsoft.com/fwlink/?LinkID=2093437",
     "InstallArgs":  "/qn /norestart",

@@ -1,8 +1,8 @@
 {
     "Schema":  1,
-    "Id":  "ab30d222cb9e4985",
+    "Id":  "b1a2c3d4e5f60004",
     "Vendor":  "JetBrains",
-    "Application":  "PyCharm Community Edition (x64)",
+    "Application":  "PyCharm Community (x64)",
     "CMName":  "PyCharm Community",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.jetbrains.com/pycharm/",
@@ -12,15 +12,15 @@
                     },
     "VersionScraper":  {
                            "Type":  "HttpRegex",
-                           "Url":  "https://data.services.jetbrains.com/products/releases?code=PCC&latest=true&type=release",
-                           "Pattern":  "\"version\":\\s*\"([^\"]+)\""
+                           "Url":  "https://data.services.jetbrains.com/products/releases?code=PCC\u0026latest=true\u0026type=release",
+                           "Pattern":  "\"version\":\"(\\d+\\.\\d+\\.\\d+)\""
                        },
-    "DownloadUrl":  "# DYNAMIC - from JetBrains API response",
+    "DownloadUrl":  "https://download.jetbrains.com/python/pycharm-community-{version}.exe",
     "InstallArgs":  "/S",
     "UninstallArgs":  "/S",
     "Detection":  {
                       "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\JetBrains\\PyCharm Community Edition",
+                      "FilePath":  "C:\\Program Files\\JetBrains\\PyCharm Community",
                       "FileName":  "pycharm64.exe",
                       "PropertyType":  "Existence",
                       "Is64Bit":  true

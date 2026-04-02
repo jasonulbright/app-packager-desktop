@@ -13,8 +13,9 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://zoom.us/client/latest/ZoomInstaller.exe",
-                           "Pattern":  "# REDIRECT - /client/(\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)/ from redirect URL"
+                           "Pattern":  "REDIR:/prod/(\\d+\\.\\d+\\.\\d+\\.\\d+)/"
                        },
+    "InstallerFileName":  "ZoomInstaller-{version}.exe",
     "DownloadUrl":  "https://zoom.us/client/latest/ZoomInstaller.exe",
     "InstallArgs":  "/silent /install",
     "UninstallArgs":  "/silent",

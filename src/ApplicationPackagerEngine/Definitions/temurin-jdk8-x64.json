@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "0000015411f63c00",
+    "Vendor":  "Eclipse Adoptium",
+    "Application":  "Eclipse Temurin JDK 8",
+    "CMName":  "Eclipse Temurin JDK 8",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://adoptium.net/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.adoptium.net/v3/assets/latest/8/hotspot?architecture=x64\u0026image_type=jdk\u0026os=windows",
+                           "Pattern":  "[0].version.semver",
+                           "VersionTransform":  "regex_replace:[\\.-]\\d*\\.?LTS$",
+                           "DownloadUrlQuery":  "[0].binary.installer.link"
+                       },
+    "DownloadUrl":  "",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

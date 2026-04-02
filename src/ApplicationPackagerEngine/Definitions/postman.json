@@ -1,8 +1,8 @@
 {
     "Schema":  1,
-    "Id":  "b8765c4796784c8d",
-    "Vendor":  "Postman Inc.",
-    "Application":  "Postman",
+    "Id":  "a1b2c3d4e5f60004",
+    "Vendor":  "Postman",
+    "Application":  "Postman (x64)",
     "CMName":  "Postman",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.postman.com/",
@@ -11,16 +11,17 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "FileVersion",
                            "Url":  "https://dl.pstmn.io/download/latest/win64",
-                           "Pattern":  "# FILE_VERSION - needs download+inspect"
+                           "Pattern":  "ProductVersion"
                        },
     "DownloadUrl":  "https://dl.pstmn.io/download/latest/win64",
+    "InstallerFileName":  "Postman-win64-Setup.exe",
     "InstallArgs":  "-s",
     "UninstallArgs":  "--uninstall -s",
     "Detection":  {
                       "Type":  "File",
-                      "FilePath":  "%LOCALAPPDATA%\\Postman",
+                      "FilePath":  "C:\\Program Files\\Postman",
                       "FileName":  "Postman.exe",
                       "PropertyType":  "Existence",
                       "Is64Bit":  true
