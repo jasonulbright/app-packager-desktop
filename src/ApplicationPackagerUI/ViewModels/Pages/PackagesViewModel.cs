@@ -151,22 +151,51 @@ public partial class PackagesViewModel : ObservableObject
 
     // ── Log helper ───────────────────────────────────────────────
 
+    private static readonly string LogDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "SRLPackr", "Logs");
+
+    private static readonly string SessionLogPath = Path.Combine(
+        LogDir, $"packr-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+
+    // Legacy path kept for backward compat — new sessions write to timestamped files
     private static readonly string PersistentLogPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AppPackager", "apppackager.log");
+        "SRLPackr", "packr.log");
+
+    private static bool _logInitialized;
 
     private void AddLogLine(string message)
     {
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}";
         LogText = LogText.Length > 0 ? LogText + Environment.NewLine + line : line;
 
-        // Append to persistent log file
+        // Write to both session log and rolling log
         try
         {
-            var dir = Path.GetDirectoryName(PersistentLogPath);
-            if (dir is not null && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-            File.AppendAllText(PersistentLogPath, line + Environment.NewLine);
+            if (!_logInitialized)
+            {
+                Directory.CreateDirectory(LogDir);
+                var header = $"--- SRL Packr session started {DateTime.Now:yyyy-MM-dd HH:mm:ss} ---{Environment.NewLine}";
+                File.WriteAllText(SessionLogPath, header);
+                File.AppendAllText(PersistentLogPath, Environment.NewLine + header);
+                _logInitialized = true;
+
+                // Prune old session logs (keep last 30)
+                try
+                {
+                    var oldLogs = Directory.GetFiles(LogDir, "packr-*.log")
+                        .OrderByDescending(f => f)
+                        .Skip(30);
+                    foreach (var old in oldLogs)
+                        File.Delete(old);
+                }
+                catch { }
+            }
+
+            var entry = line + Environment.NewLine;
+            File.AppendAllText(SessionLogPath, entry);
+            File.AppendAllText(PersistentLogPath, entry);
         }
         catch { }
     }
@@ -183,6 +212,7 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
+        AddLogLine($"Session log: {SessionLogPath}");
         AddLogLine($"Loading packagers from: {root}");
         var results = await _discoveryService.DiscoverAsync();
 

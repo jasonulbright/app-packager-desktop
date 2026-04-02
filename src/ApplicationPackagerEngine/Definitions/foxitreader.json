@@ -13,9 +13,11 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.foxit.com/downloads/latest/?product=Foxit-Reader&platform=Windows&operating_type=64&package_type=exe&language=ML",
-                           "Pattern":  "REDIR:/(\\d{4}\\.\\d+\\.\\d+)/"
+                           "Pattern":  "REDIR:/(\\d{4}\\.\\d+\\.\\d+)/",
+                           "VersionTransform":  "regex_replace:\\.0$|replace:.:"
                        },
-    "DownloadUrl":  "https://www.foxit.com/downloads/latest/?product=Foxit-Reader&platform=Windows&operating_type=64&package_type=exe&language=ML",
+    "DownloadUrl":  "https://cdn01.foxitsoftware.com/product/reader/desktop/win/{version}/FoxitPDFReader{display_version}_L10N_Setup_x64.exe",
+    "DisplayVersionOverride":  "{version}",
     "InstallerFileName":  "FoxitPDFReader-{version}.exe",
     "InstallArgs":  "/VERYSILENT /NORESTART /MERGETASKS=\"!desktopicon\"",
     "UninstallArgs":  "/VERYSILENT /NORESTART",
