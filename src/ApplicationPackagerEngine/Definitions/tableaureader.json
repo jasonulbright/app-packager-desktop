@@ -1,11 +1,11 @@
 {
     "Schema":  1,
-    "Id":  "31b73fa2283849e8",
+    "Id":  "f1a2b3c4d5e60003",
     "Vendor":  "Salesforce (Tableau)",
     "Application":  "Tableau Reader (x64)",
     "CMName":  "Tableau Reader",
     "Architecture":  "x64",
-    "VendorUrl":  "https://www.tableau.com/products/reader",
+    "VendorUrl":  "https://www.tableau.com/",
     "InstallerType":  "EXE",
     "Acquisition":  {
 
@@ -13,17 +13,20 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.tableau.com/support/releases",
-                           "Pattern":  "# DYNAMIC - Tableau WAF blocks automated requests"
+                           "Pattern":  "\\b(20\\d{2}\\.\\d+(?:\\.\\d+)?)\\b",
+                           "VersionTransform":  "regex_replace:^(\\d{4}\\.\\d+)$:$1.0|replace:.:-",
+                           "NoUserAgent":  true
                        },
-    "DownloadUrl":  "https://downloads.tableau.com/tssoftware/TableauReader-64bit-{version}.exe",
+    "DownloadUrl":  "https://downloads.tableau.com/tssoftware/TableauReader-64bit-{display_version}.exe",
+    "DisplayVersionOverride":  "{version}",
     "InstallArgs":  "/install /quiet /norestart ACCEPTEULA=1 SENDTELEMETRY=0",
     "UninstallArgs":  "/uninstall /quiet /norestart",
     "Detection":  {
-                      "Type":  "RegistryKeyValue",
-                      "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
-                      "ValueName":  "DisplayVersion",
-                      "Operator":  "IsEquals",
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Tableau\\Tableau Reader",
+                      "FileName":  "tabreader.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
