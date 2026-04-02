@@ -6,7 +6,7 @@ SRL Packr by Signal Ridge Labs automates the full lifecycle of third-party appli
 
 ## Status
 
-**v2.1.0-alpha3** — 101 of 117 apps validated end-to-end on CM01 lab (Check Latest, Check MECM, Stage, Package).
+**v2.1.0-alpha4** — 114 of 117 apps validated end-to-end on CM01 lab (Check Latest, Check MECM, Stage, Package). 3 remaining are vendor-blocked (Citrix LTSR TOS gate, Tableau WAF, VMware Workstation auth).
 
 ## Stack
 
@@ -31,7 +31,8 @@ ApplicationPackagerUI (WPF)          ← user interface
 |---------|--------|------|
 | `HttpRegexScraper` | Fetch page/API, regex extract | 50+ |
 | `JsonQueryScraper` | JSON API path queries | 35+ |
-| `FileVersionScraper` | Download installer, read EXE/MSI properties | 8 |
+| `FileVersionScraper` | Download installer, read EXE/MSI/MSIX properties | 10 |
+| `CdnCabScraper` | Office CDN CAB/VersionDescriptor.xml | 6 |
 | `WingetScraper` | Winget package manager (stub) | — |
 
 ## JSON App Definition

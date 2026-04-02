@@ -1,25 +1,30 @@
 {
     "Schema":  1,
-    "Id":  "78f61270ab26468e",
+    "Id":  "e1f2a3b4c5d60005",
     "Vendor":  "Microsoft",
-    "Application":  "Microsoft Teams Enterprise (x64)",
-    "CMName":  "Microsoft Teams Enterprise",
+    "Application":  "Microsoft Teams (x64)",
+    "CMName":  "Microsoft Teams",
     "Architecture":  "x64",
-    "VendorUrl":  "https://www.microsoft.com/microsoft-teams/download-app",
+    "VendorUrl":  "https://www.microsoft.com/microsoft-teams/",
     "InstallerType":  "EXE",
     "Acquisition":  {
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "FileVersion",
                            "Url":  "https://go.microsoft.com/fwlink/?linkid=2196106",
-                           "Pattern":  "# MSIX_MANIFEST - version from AppxManifest.xml"
+                           "Pattern":  "MsixManifest"
                        },
     "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2196106",
+    "InstallerFileName":  "MSTeams-x64-{version}.msix",
     "InstallArgs":  "-p -o MSTeams-x64.msix",
     "UninstallArgs":  "-x",
     "Detection":  {
-                      "Type":  "Script"
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\WindowsApps",
+                      "FileName":  "ms-teams.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
                   },
     "RunningProcess":  [
                            "ms-teams"

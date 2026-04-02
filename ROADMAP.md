@@ -34,14 +34,14 @@ Proprietary class library. Plugin architecture via reflection discovery.
 
 | Interface | Purpose | Implementations |
 |-----------|---------|-----------------|
-| `IVersionScraper` | Latest version detection | `HttpRegexScraper` (done), `JsonQueryScraper` (done), `WingetScraper` (stub), `CdnCabScraper`, `VendorApiScraper` |
+| `IVersionScraper` | Latest version detection | `HttpRegexScraper` (done), `JsonQueryScraper` (done), `FileVersionScraper` (done), `CdnCabScraper` (done), `WingetScraper` (stub) |
 | `IDeploymentTarget` | Create app in MDM system | `MecmTarget` (done), `BareStaging` |
 | `IWrapperGenerator` | Install/uninstall scripts | `BareWrapper` (done), `PsadtWrapper` |
 
 Core services: DownloadService (curl.exe), MsiInspectionService (COM), WrapperGeneratorService, ManifestService, StagingService, MecmTarget (powershell.exe 5.1 for CM cmdlets).
 
 ### CM01 Lab Validation
-- 101 apps fully validated end-to-end: Check Latest → Check MECM → Stage → Package → MECM Application
+- 114 apps fully validated end-to-end: Check Latest → Check MECM → Stage → Package → MECM Application
 - Initial 24 HttpRegex apps validated 2026-03-31
 - JsonQuery batch (13 apps) validated 2026-04-01
 - GitHub API batch (19 apps) validated 2026-04-01
@@ -50,6 +50,7 @@ Core services: DownloadService (curl.exe), MsiInspectionService (COM), WrapperGe
 - REDIRECT batch (3 apps) validated 2026-04-01
 - Citrix CR validated 2026-04-01
 - DYNAMIC batch (10 apps) validated 2026-04-01
+- MSVC Runtimes (2 apps), M365 Apps/Project/Visio (6 apps), CutePDF, Teams, Sysinternals, TeamViewer, paint.net validated 2026-04-02
 - VersionTransform working: insert_dot (7-Zip, WinRAR), replace (WizTree)
 - InstallerFileName override working: fwlink URLs (MSODBCSQL18), query-string URLs (Thunderbird), version-agnostic URLs (VS Code, CCleaner)
 - MSI Manufacturer fallback: invalid chars in Manufacturer field (Thunderbird `*`) falls back to def.Vendor
@@ -204,31 +205,33 @@ Version and/or download URL extracted from page scrape or API. `DownloadUrlQuery
 Adobe blocks browser User-Agent from server IPs. `NoUserAgent` flag added to `VersionScraperConfig`. Version display uses dots-stripped format; detection uses raw dotted version.
 - [x] Adobe Acrobat Reader DC — `NoUserAgent: true`, `replace:.:` for URL construction
 
-#### Remaining — Needs Engine Changes or Manual Handling (16 apps)
+**MSVC Runtimes — separate x64/x86 apps (2 apps)**
+FileVersion scraper with `regex_replace` to strip 4th version part. File-based detection on `msvcp140.dll`.
+- [x] Visual C++ Redistributable (x64)
+- [x] Visual C++ Redistributable (x86)
 
-**Needs Staging Pipeline Changes (3 apps)** — multi-file, ZIP extraction, or compound detection.
-- [ ] CutePDF Writer — two files (converter + writer), custom install wrapper
-- [ ] MSVC Runtimes — dual-arch x86+x64, compound registry detection
-- [ ] TeamViewer — ZIP containing MSI, needs unzip in staging
+**M365/Office — CdnCab + ODT pipeline (6 apps)**
+`CdnCabScraper` for version from CAB/VersionDescriptor.xml. Full ODT staging pipeline: setup.exe download, XML config generation, `setup.exe /download` for offline source, recursive network copy.
+- [x] M365 Apps for Enterprise (x64)
+- [x] M365 Apps for Enterprise (x86)
+- [x] M365 Project (x64)
+- [x] M365 Project (x86)
+- [x] M365 Visio (x64)
+- [x] M365 Visio (x86)
 
-**Needs Special Handling (7 apps)** — blocked by vendor restrictions or need non-standard processing.
+**Remaining apps — solved with new scrapers/features (5 apps)**
+- [x] CutePDF Writer — FileVersion scraper
+- [x] Microsoft Teams — MsixManifest version from AppxManifest.xml inside MSIX
+- [x] Sysinternals Suite — LAST_MODIFIED header → date version `YYYY.M.D`
+- [x] TeamViewer — HttpRegex page scrape + ZIP→MSI extraction in staging
+- [x] paint.net — JsonQuery GitHub + ZIP→MSI extraction in staging
+
+#### Vendor-Blocked — Cannot Automate (3 apps)
 - [ ] Citrix Workspace LTSR — TOS acceptance required, download gated behind `__gda__` token
-- [ ] paint.net — MSI inside ZIP, needs staging unzip support
-- [ ] Microsoft Teams — MSIX_MANIFEST: version from AppxManifest.xml inside MSIX package
-- [ ] Sysinternals — LAST_MODIFIED: version derived from HTTP Last-Modified header date
-- [ ] Tableau Desktop — Akamai WAF blocks automated requests
+- [ ] Tableau Desktop — Akamai WAF blocks automated requests from dev and lab networks
 - [ ] Tableau Prep Builder — same Tableau WAF issue
 - [ ] Tableau Reader — same Tableau WAF issue
 - [ ] VMware Workstation — MANUAL: Broadcom Support Portal requires authentication
-
-#### CdnCab (6 apps)
-Implement `CdnCabScraper` (Office CDN + ODT), then convert.
-- [ ] M365 Apps for Enterprise (x64)
-- [ ] M365 Apps for Enterprise (x86)
-- [ ] M365 Project (x64)
-- [ ] M365 Project (x86)
-- [ ] M365 Visio (x64)
-- [ ] M365 Visio (x86)
 
 ---
 
