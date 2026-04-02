@@ -1,8 +1,8 @@
 {
-  "ProjectType": "mecm-tool",
-  "Description": "Enterprise application packaging automation for MECM/Intune with WPF Fluent UI and engine DLL",
-  "Status": "active",
-  "Category": "MECM",
-  "ValidationSchedule": "none",
-  "Notes": "INFO: SRL Packr by Signal Ridge Labs, v2.1.0-alpha6\nINFO: 115 of 117 apps fully automated end-to-end (Check Latest, Check MECM, Stage, Package)\nINFO: .NET 10, WPF-UI 4.2.0, CommunityToolkit.Mvvm, ApplicationPackagerEngine DLL\nTASK: Full regression test on CM01\nTASK: v2.2 WebView2 manual download panel for vendor-gated apps"
+    "Description":  "Enterprise application packaging automation for MECM/Intune with WPF Fluent UI and engine DLL",
+    "ProjectType":  "mecm-tool",
+    "ValidationSchedule":  "none",
+    "Category":  "MECM",
+    "Status":  "active",
+    "Notes":  "INFO: SRL Packr by Signal Ridge Labs, v2.1.0-alpha6\nINFO: 115/117 apps fully automated (2 vendor-gated await v2.2 WebView2 panel)\nINFO: .NET 10, WPF-UI 4.2.0, ApplicationPackagerEngine DLL\nINFO: Disk logging added, detection version fix shipped\nTASK: Full regression test on CM01 (in progress)\nTASK: v2.2 WebView2 manual download, app icons, first-run wizard\nTASK: v2.3 Intune target, notifications, version history, community repo"
 }
