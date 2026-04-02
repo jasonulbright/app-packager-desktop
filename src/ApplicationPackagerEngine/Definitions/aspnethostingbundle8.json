@@ -3,7 +3,7 @@
     "Id":  "0de69513164a4b65",
     "Vendor":  "Microsoft",
     "Application":  "ASP.NET 8 Server Hosting Bundle (x64)",
-    "CMName":  "Microsoft .NET 8",
+    "CMName":  "ASP.NET 8 Server Hosting Bundle",
     "Architecture":  "x64",
     "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/8.0",
     "InstallerType":  "EXE",
@@ -11,9 +11,9 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "JsonQuery",
                            "Url":  "https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json",
-                           "Pattern":  "# JSON_QUERY - needs custom scraper for dotnet releases-index"
+                           "Pattern":  "releases-index[?channel-version=8.0].latest-runtime"
                        },
     "DownloadUrl":  "https://builds.dotnet.microsoft.com/dotnet/aspnetcore/Runtime/{version}/dotnet-hosting-{version}-win.exe",
     "InstallArgs":  "/install /quiet /norestart",

@@ -87,6 +87,16 @@ public sealed class ScraperRegistry
                 if (version.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     version = version[prefix.Length..];
             }
+            else if (trimmed.StartsWith("regex_replace:", StringComparison.OrdinalIgnoreCase))
+            {
+                // regex_replace:PATTERN:REPLACEMENT (empty replacement = delete)
+                var parts = trimmed[14..].Split(':', 2);
+                if (parts.Length >= 1)
+                {
+                    var replacement = parts.Length == 2 ? parts[1] : "";
+                    version = System.Text.RegularExpressions.Regex.Replace(version, parts[0], replacement);
+                }
+            }
         }
 
         return version;

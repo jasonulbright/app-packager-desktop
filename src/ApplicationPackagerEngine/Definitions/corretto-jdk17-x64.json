@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "0000023ed68e6720",
+    "Vendor":  "Amazon",
+    "Application":  "Amazon Corretto JDK 17",
+    "CMName":  "Amazon Corretto JDK 17",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://aws.amazon.com/corretto/",
+    "InstallerType":  "MSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/corretto/corretto-17/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "regex_replace:\\.\\d+$"
+                       },
+    "DownloadUrl":  "https://corretto.aws/downloads/resources/{version}/amazon-corretto-{version}-windows-x64.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

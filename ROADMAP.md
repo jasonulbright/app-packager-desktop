@@ -34,14 +34,22 @@ Proprietary class library. Plugin architecture via reflection discovery.
 
 | Interface | Purpose | Implementations |
 |-----------|---------|-----------------|
-| `IVersionScraper` | Latest version detection | `HttpRegexScraper` (done), `WingetScraper` (stub), `CdnCabScraper`, `GitHubApiScraper`, `VendorApiScraper` |
+| `IVersionScraper` | Latest version detection | `HttpRegexScraper` (done), `JsonQueryScraper` (done), `WingetScraper` (stub), `CdnCabScraper`, `VendorApiScraper` |
 | `IDeploymentTarget` | Create app in MDM system | `MecmTarget` (done), `BareStaging` |
 | `IWrapperGenerator` | Install/uninstall scripts | `BareWrapper` (done), `PsadtWrapper` |
 
 Core services: DownloadService (curl.exe), MsiInspectionService (COM), WrapperGeneratorService, ManifestService, StagingService, MecmTarget (powershell.exe 5.1 for CM cmdlets).
 
-### CM01 Lab Validation (2026-03-31)
-- 24 apps fully validated end-to-end: Check Latest → Stage → Package → MECM Application
+### CM01 Lab Validation
+- 101 apps fully validated end-to-end: Check Latest → Check MECM → Stage → Package → MECM Application
+- Initial 24 HttpRegex apps validated 2026-03-31
+- JsonQuery batch (13 apps) validated 2026-04-01
+- GitHub API batch (19 apps) validated 2026-04-01
+- Adoptium + Corretto batch (21 apps) validated 2026-04-01
+- FileVersion batch (8 apps) validated 2026-04-01
+- REDIRECT batch (3 apps) validated 2026-04-01
+- Citrix CR validated 2026-04-01
+- DYNAMIC batch (10 apps) validated 2026-04-01
 - VersionTransform working: insert_dot (7-Zip, WinRAR), replace (WizTree)
 - InstallerFileName override working: fwlink URLs (MSODBCSQL18), query-string URLs (Thunderbird), version-agnostic URLs (VS Code, CCleaner)
 - MSI Manufacturer fallback: invalid chars in Manufacturer field (Thunderbird `*`) falls back to def.Vendor
@@ -50,7 +58,12 @@ Core services: DownloadService (curl.exe), MsiInspectionService (COM), WrapperGe
 - `REDIR:` pattern prefix for redirect URL extraction (Slack)
 - `{display_version}` placeholder for post-transform version in download URLs (Inkscape)
 - GitLab tags API for Inkscape (inkscape.org blocks automated requests)
-- 5 definitions deferred: Tableau x3 (Akamai WAF), TortoiseGit (URL version mismatch), VMware (manual)
+- `NoUserAgent` flag on VersionScraperConfig — Adobe blocks browser UA from server IPs
+- `DisplayVersionOverride` on AppDefinition — decouples UI display version from URL transform version
+- `DownloadUrlQuery` on HttpRegexScraper — extracts download URL from same page scrape (Power BI, TortoiseSVN, XenCenter, VMware Tools)
+- `regex_replace` transform for Adoptium LTS suffix stripping and Corretto 5→4 part version
+- `FileVersionScraper` — downloads installer to temp cache, reads EXE/MSI version properties
+- `--max-filesize 1` in REDIR mode for fast redirect resolution without downloading body
 
 ### JSON App Definitions
 One file per app. Community-contributable.
@@ -62,8 +75,10 @@ One file per app. Community-contributable.
 ### PSADT Integration
 Separate CM Application (not second DT) to preserve TS compatibility.
 
-### Remaining
-- Implement remaining scraper types, then convert apps by category
+### Remaining v2.1 Work
+- CdnCabScraper for M365 Apps/Project/Visio (6 apps)
+- Staging pipeline: ZIP extraction (paint.net, TeamViewer), multi-file (CutePDF, MSVC)
+- Sysinternals (Last-Modified header → date version), Teams (MSIX manifest)
 - BareStaging, PsadtWrapper
 - "Add New App" wizard
 - Per-app settings auto-generation from JSON schema
@@ -72,9 +87,11 @@ Separate CM Application (not second DT) to preserve TS compatibility.
 
 ### App Conversions — Status (117 apps)
 
-#### HttpRegex — Fully Validated on CM01 (24 apps)
-Check Latest + Stage + Package all working end-to-end in MECM.
-- [x] 7-Zip
+#### Fully Validated on CM01 (78 apps)
+Check Latest + Check MECM + Stage + Package all working end-to-end.
+
+**HttpRegex — original batch (24 apps)**
+- [x] 7-Zip (migrated to GitHub Releases API)
 - [x] Anaconda Distribution
 - [x] CCleaner
 - [x] Cisco Webex
@@ -99,120 +116,110 @@ Check Latest + Stage + Package all working end-to-end in MECM.
 - [x] WinRAR
 - [x] WizTree
 
-#### HttpRegex — Needs JSON_QUERY Scraper (13 apps)
-These scrape a JSON API endpoint and extract a field. Need `JsonQueryScraper`.
-- [ ] ASP.NET 8 Server Hosting Bundle — dotnet releases-index JSON
-- [ ] .NET 8 Desktop Runtime — dotnet releases-index JSON
-- [ ] .NET 9 Desktop Runtime — dotnet releases-index JSON
-- [ ] .NET 10 Desktop Runtime — dotnet releases-index JSON
-- [ ] Microsoft Edge — JSON version endpoint
-- [ ] Node.js — nodejs.org/dist/index.json, filter `lts != false`
-- [ ] PostgreSQL 13 — postgresql.org JSON API, filter `cycle==13`
-- [ ] PostgreSQL 14 — postgresql.org JSON API, filter `cycle==14`
-- [ ] PostgreSQL 15 — postgresql.org JSON API, filter `cycle==15`
-- [ ] PostgreSQL 16 — postgresql.org JSON API, filter `cycle==16`
-- [ ] PostgreSQL 17 — postgresql.org JSON API, filter `cycle==17`
-- [ ] Python — python.org JSON API
-- [ ] WebView2 — JSON version endpoint (same pattern as Edge)
+**JsonQuery — JSON API batch (13 apps)**
+- [x] ASP.NET 8 Server Hosting Bundle — `releases-index[?channel-version=8.0].latest-runtime`
+- [x] .NET 8 Desktop Runtime — `releases-index[?channel-version=8.0].latest-runtime`
+- [x] .NET 9 Desktop Runtime — `releases-index[?channel-version=9.0].latest-runtime`
+- [x] .NET 10 Desktop Runtime — `releases-index[?channel-version=10.0].latest-runtime`
+- [x] Microsoft Edge — `[?Product=Stable].Releases[?Architecture=x64,Platform=Windows].ProductVersion`
+- [x] Microsoft Edge WebView2 Runtime — same as Edge
+- [x] Node.js LTS — `[?lts!=false].version` + `strip_prefix:v`
+- [x] PostgreSQL 13–17 (5 apps) — `[?cycle=N].latest`
+- [x] Python — `[0].latest`
 
-#### HttpRegex — Needs FILE_VERSION Scraper (11 apps)
-Version is only available by downloading the installer and reading file/MSI properties.
-Need `FileVersionScraper` (download → inspect → extract version).
-- [ ] AnyDesk — EXE FileVersionInfo
-- [ ] CutePDF Writer — download + inspect
-- [ ] Malwarebytes — download + inspect
-- [ ] MSOLEDB — MSI ProductVersion after download
-- [ ] MSVC Runtimes — download + inspect
-- [ ] Postman — EXE FileVersionInfo
-- [ ] SSMS — bootstrapper ProductVersion (use aka.ms/ssms/22/release/vs_SSMS.exe)
-- [ ] TeamViewer — MSI ProductVersion from ZIP
-- [ ] TeamViewer Host — EXE FileVersionInfo
-- [ ] Visual Studio 2026 — bootstrapper FileVersion
-- [ ] Visual Studio 2026 Community — bootstrapper FileVersion
+**GitHub API batch (19 apps)**
+Used existing `HttpRegexScraper` and `JsonQueryScraper` against GitHub Releases API — no dedicated `GitHubApiScraper` needed.
+- [x] Audacity — `strip_prefix:Audacity-`
+- [x] Bitwarden Desktop — HttpRegex `desktop-v` filter on multi-client repo
+- [x] Brave Browser — standalone silent installer
+- [x] DBeaver Community — bare version tag (no prefix)
+- [x] draw.io Desktop — MSI installer
+- [x] Git for Windows — version from asset filename (tag has `.windows.N` suffix)
+- [x] Greenshot — version from asset filename `INSTALLER-X.Y.Z-RELEASE.exe`
+- [x] mRemoteNG — version from asset URL, `releases/latest/download/`
+- [x] Notepad++
+- [x] Obsidian
+- [x] Positron — Posit CDN download, calver tag
+- [x] PowerShell 7
+- [x] PowerShell 7 LTS — HttpRegex filters `v7.4.x` from release list
+- [x] PowerToys
+- [x] RStudio Desktop — tags API, Posit CDN download, `replace:+:-`
+- [x] ShareX
+- [x] Vim
+- [x] WinDirStat — `strip_prefix:release/v`, MSI
+- [x] WinMerge
 
-#### HttpRegex — Needs REDIRECT Scraper (3 apps)
-Version extracted from HTTP redirect Location header or final URL.
-- [ ] Foxit PDF Reader — version from redirect Location header `/win/([\d.]+)/`
-- [ ] TortoiseGit — directory version (2.18.0.0) differs from file version (2.18.0.1) in download URL; single `{version}` placeholder can't handle both
-- [ ] Zoom — version from redirect URL `/client/(\d+\.\d+\.\d+(?:\.\d+)?)/`
+**Adoptium Temurin — JsonQuery + DownloadUrlQuery (14 apps)**
+Single API call extracts both version (`[0].version.semver`) and download URL (`[0].binary.installer.link`).
+`regex_replace` transform strips `.0.LTS` suffix.
+- [x] Eclipse Temurin JDK 8 (x64), JDK 8 (x86)
+- [x] Eclipse Temurin JDK 11 (x64), JDK 11 (x86)
+- [x] Eclipse Temurin JDK 17, JDK 21, JDK 25
+- [x] Eclipse Temurin JRE 8 (x64), JRE 8 (x86)
+- [x] Eclipse Temurin JRE 11 (x64), JRE 11 (x86)
+- [x] Eclipse Temurin JRE 17, JRE 21, JRE 25
 
-#### HttpRegex — Needs XML_QUERY Scraper (2 apps)
-Scrape Citrix receiver catalog XML.
-- [ ] Citrix Workspace CR — Citrix catalog XML, Current Release stream
-- [ ] Citrix Workspace LTSR — Citrix catalog XML, LTSR stream
+**Amazon Corretto — JsonQuery + regex_replace (7 apps)**
+GitHub tag for version (5-part → 4-part via `regex_replace`), Corretto CDN for download (raw 5-part tag).
+- [x] Amazon Corretto JDK 8 (x64), JDK 8 (x86)
+- [x] Amazon Corretto JDK 11 (x64), JDK 11 (x86)
+- [x] Amazon Corretto JDK 17, JDK 21, JDK 25
 
-#### Needs DYNAMIC URL/Detection Construction (10 apps)
-Download URL or detection registry key varies per version in ways that
-require custom logic beyond simple `{version}` substitution.
-- [ ] Adobe Acrobat Reader DC — version-specific download URL construction
-- [ ] pgAdmin 4 — detection registry key is `pgAdmin 4v{MAJOR}_is1` (major version changes key name)
-- [ ] Power BI Desktop — download URL extracted from page, not static
-- [ ] PyCharm Community — JetBrains API response, dynamic download URL
-- [ ] R — R-hub API response, dynamic download URL
-- [ ] TortoiseSVN — SourceForge with SVN version embedded in filename
-- [ ] WinSCP — ARP registry key determined after install
-- [ ] Wireshark — ARP registry key determined after install
-- [ ] XenCenter — MSI ProductVersion from download, dynamic URL
-- [ ] XenServer VM Tools — MSI ProductVersion from download, dynamic URL
+**FileVersion — download + inspect (8 apps)**
+`FileVersionScraper` downloads installer to temp cache, reads EXE FileVersionInfo or MSI ProductVersion.
+Stage reuses cached download.
+- [x] AnyDesk — EXE FileVersion
+- [x] Malwarebytes — EXE ProductVersion
+- [x] Microsoft OLE DB Driver 19 — MSI ProductVersion (fwlink redirect)
+- [x] Postman — EXE ProductVersion
+- [x] SQL Server Management Studio 22 — bootstrapper ProductVersion
+- [x] TeamViewer Host — EXE ProductVersion
+- [x] Visual Studio 2026 Enterprise — bootstrapper FileVersion
+- [x] Visual Studio 2026 Community — bootstrapper FileVersion
 
-#### Needs Special Handling (6 apps)
+**REDIRECT — version from HTTP redirect URL (3 apps)**
+Used existing `REDIR:` mode in HttpRegexScraper. `--max-filesize 1` for fast redirect resolution.
+- [x] Foxit PDF Reader — `REDIR:` + version from CDN path
+- [x] TortoiseGit — full URL path as raw version, `regex_replace` for display version
+- [x] Zoom Workplace — `REDIR:` + version from CDN path
+
+**Citrix XML catalog (1 app)**
+HttpRegex against catalog XML. No dedicated XML scraper needed.
+- [x] Citrix Workspace CR — `<Stream>Current</Stream><Version>` regex, static CDN download
+
+**DYNAMIC URL/Detection — HttpRegex + DownloadUrlQuery (10 apps)**
+Version and/or download URL extracted from page scrape or API. `DownloadUrlQuery` added to `HttpRegexScraper` for two-value extraction. Relative URLs auto-prefixed with scraper base path.
+- [x] pgAdmin 4 — version from download page
+- [x] Power BI Desktop — version + URL from MS download page
+- [x] PyCharm Community — JetBrains API
+- [x] R for Windows — r-hub API (JsonQuery + DownloadUrlQuery)
+- [x] TortoiseSVN — version + SourceForge URL from page
+- [x] VMware Tools — version + filename from CDN directory listing
+- [x] WinSCP — version from page, SourceForge download
+- [x] Wireshark — version from page, constructed URL
+- [x] XenCenter — version + URL from XenServer downloads page
+- [x] XenServer VM Tools — version + URL from XenServer downloads page
+
+**Adobe — NoUserAgent workaround (1 app)**
+Adobe blocks browser User-Agent from server IPs. `NoUserAgent` flag added to `VersionScraperConfig`. Version display uses dots-stripped format; detection uses raw dotted version.
+- [x] Adobe Acrobat Reader DC — `NoUserAgent: true`, `replace:.:` for URL construction
+
+#### Remaining — Needs Engine Changes or Manual Handling (16 apps)
+
+**Needs Staging Pipeline Changes (3 apps)** — multi-file, ZIP extraction, or compound detection.
+- [ ] CutePDF Writer — two files (converter + writer), custom install wrapper
+- [ ] MSVC Runtimes — dual-arch x86+x64, compound registry detection
+- [ ] TeamViewer — ZIP containing MSI, needs unzip in staging
+
+**Needs Special Handling (7 apps)** — blocked by vendor restrictions or need non-standard processing.
+- [ ] Citrix Workspace LTSR — TOS acceptance required, download gated behind `__gda__` token
+- [ ] paint.net — MSI inside ZIP, needs staging unzip support
 - [ ] Microsoft Teams — MSIX_MANIFEST: version from AppxManifest.xml inside MSIX package
 - [ ] Sysinternals — LAST_MODIFIED: version derived from HTTP Last-Modified header date
-- [ ] Tableau Desktop — Akamai WAF blocks all automated requests from both dev and lab networks
+- [ ] Tableau Desktop — Akamai WAF blocks automated requests
 - [ ] Tableau Prep Builder — same Tableau WAF issue
 - [ ] Tableau Reader — same Tableau WAF issue
-- [ ] VMware Workstation — MANUAL: Broadcom Support Portal requires authentication, no automation possible
-
-#### GitHubApi (20 apps)
-Implement `GitHubApiScraper` (GitHub Releases API), then convert.
-- [ ] Audacity
-- [ ] Bitwarden Desktop
-- [ ] Brave Browser
-- [ ] DBeaver Community
-- [ ] draw.io
-- [ ] Git for Windows
-- [ ] Greenshot
-- [ ] mRemoteNG
-- [ ] Notepad++
-- [ ] Obsidian
-- [ ] paint.net
-- [ ] Positron
-- [ ] PowerShell 7
-- [ ] PowerShell 7 LTS
-- [ ] PowerToys
-- [ ] RStudio Desktop
-- [ ] ShareX
-- [ ] Vim
-- [ ] VMware Tools
-- [ ] WinDirStat
-- [ ] WinMerge
-
-#### AdoptiumApi (14 apps)
-Implement `AdoptiumApiScraper`, then convert.
-- [ ] Eclipse Temurin JDK 8 (x64)
-- [ ] Eclipse Temurin JDK 8 (x86)
-- [ ] Eclipse Temurin JDK 11 (x64)
-- [ ] Eclipse Temurin JDK 11 (x86)
-- [ ] Eclipse Temurin JDK 17
-- [ ] Eclipse Temurin JDK 21
-- [ ] Eclipse Temurin JDK 25
-- [ ] Eclipse Temurin JRE 8 (x64)
-- [ ] Eclipse Temurin JRE 8 (x86)
-- [ ] Eclipse Temurin JRE 11 (x64)
-- [ ] Eclipse Temurin JRE 11 (x86)
-- [ ] Eclipse Temurin JRE 17
-- [ ] Eclipse Temurin JRE 21
-- [ ] Eclipse Temurin JRE 25
-
-#### GitHubApi — Amazon Corretto (7 apps)
-Same scraper as GitHub, different API pattern.
-- [ ] Amazon Corretto JDK 8 (x64)
-- [ ] Amazon Corretto JDK 8 (x86)
-- [ ] Amazon Corretto JDK 11 (x64)
-- [ ] Amazon Corretto JDK 11 (x86)
-- [ ] Amazon Corretto JDK 17
-- [ ] Amazon Corretto JDK 21
-- [ ] Amazon Corretto JDK 25
+- [ ] VMware Workstation — MANUAL: Broadcom Support Portal requires authentication
 
 #### CdnCab (6 apps)
 Implement `CdnCabScraper` (Office CDN + ODT), then convert.
@@ -240,7 +247,7 @@ Implement `CdnCabScraper` (Office CDN + ODT), then convert.
 - Per-machine install, Windows Service
 
 ### Agent Capabilities
-- Auto-check, auto-stage, auto-package, auto-import
+- Auto-check, auto-stage, auto-package, auto-import + optional auto-distribute + optional auto deployment-ring deployment creations (user defined setting, pick your staging collections - 3 are a minimum recommended but user can add more collection names and define deployment dates (similar to mecm adr creation scheduling))
 - Notifications: email, Teams webhook, dashboard alert
 
 ### Distribution

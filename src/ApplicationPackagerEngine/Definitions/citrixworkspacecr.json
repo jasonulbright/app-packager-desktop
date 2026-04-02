@@ -13,9 +13,10 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://downloadplugins.citrix.com/ReceiverUpdates/Prod/catalog_win.xml",
-                           "Pattern":  "# XML_QUERY - needs custom scraper for Citrix catalog"
+                           "Pattern":  "<Stream>Current</Stream><Version>([\\d.]+)</Version>"
                        },
     "DownloadUrl":  "https://downloadplugins.citrix.com/Windows/CitrixWorkspaceApp.exe",
+    "InstallerFileName":  "CitrixWorkspaceApp-CR-{version}.exe",
     "InstallArgs":  "/silent /noreboot",
     "UninstallArgs":  "/silent /uninstall",
     "Detection":  {

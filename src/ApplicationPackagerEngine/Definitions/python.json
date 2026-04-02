@@ -11,9 +11,9 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "HttpRegex",
+                           "Type":  "JsonQuery",
                            "Url":  "https://endoflife.date/api/python.json",
-                           "Pattern":  "# JSON_QUERY - first entry latest field"
+                           "Pattern":  "[0].latest"
                        },
     "DownloadUrl":  "https://www.python.org/ftp/python/{version}/python-{version}-amd64.exe",
     "InstallArgs":  "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0",

@@ -1,8 +1,8 @@
 {
     "Schema":  1,
-    "Id":  "9eca70bfecc040af",
+    "Id":  "b1a2c3d4e5f60009",
     "Vendor":  "Cloud Software Group",
-    "Application":  "XenCenter",
+    "Application":  "XenCenter (x64)",
     "CMName":  "XenCenter",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.xenserver.com/",
@@ -13,9 +13,11 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.xenserver.com/downloads",
-                           "Pattern":  "# DYNAMIC - MSI ProductVersion from download"
+                           "Pattern":  "xencenter/(\\d+\\.\\d+\\.\\d+)/",
+                           "DownloadUrlQuery":  "(https://downloads\\.xenserver\\.com/xencenter/[^\"]+\\.msi)"
                        },
-    "DownloadUrl":  "# DYNAMIC - extracted from downloads page",
+    "DownloadUrl":  "",
+    "InstallerFileName":  "XenCenter-{version}.msi",
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {
@@ -27,6 +29,6 @@
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
-                           "XenCenter"
+                           "XenCenterMain"
                        ]
 }

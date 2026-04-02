@@ -33,6 +33,15 @@ public sealed class AppDefinition
     public string? Icon { get; set; }
     public string? IconFormat { get; set; }
 
+    /// <summary>
+    /// Override the display version shown in the UI and used for folder names.
+    /// Supports {version} (raw) placeholder. When set, the transformed version is used
+    /// only for URL construction, and this value replaces it for display/folders/detection.
+    /// Example: "{version}" restores the raw dotted version for display when VersionTransform
+    /// strips dots for URL purposes.
+    /// </summary>
+    public string? DisplayVersionOverride { get; set; }
+
     /// <summary>Path to the .json file this was loaded from.</summary>
     [JsonIgnore]
     public string SourcePath { get; set; } = "";
@@ -70,6 +79,19 @@ public sealed class VersionScraperConfig
     ///   strip_prefix:X — remove leading X ("v1.2.3" → "1.2.3")
     /// </summary>
     public string? VersionTransform { get; set; }
+
+    /// <summary>
+    /// Optional JsonQuery pattern to extract the download URL from the same API response.
+    /// When set, the scraper extracts both version and download URL in one request.
+    /// The extracted URL replaces the DownloadUrl template entirely.
+    /// </summary>
+    public string? DownloadUrlQuery { get; set; }
+
+    /// <summary>
+    /// When true, omits the User-Agent header from HTTP requests.
+    /// Some vendors (e.g., Adobe) block requests with browser User-Agents from server IPs.
+    /// </summary>
+    public bool NoUserAgent { get; set; }
 }
 
 public sealed class DetectionConfig

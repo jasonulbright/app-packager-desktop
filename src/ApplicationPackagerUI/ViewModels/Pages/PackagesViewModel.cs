@@ -301,20 +301,7 @@ public partial class PackagesViewModel : ObservableObject
                     {
                         p.LatestVersion = version;
                         p.LastChecked = DateTime.Now;
-
-                        if (!string.IsNullOrEmpty(p.CurrentVersion))
-                        {
-                            var cmp = CompareVersions(p.CurrentVersion, version);
-                            p.Status = cmp < 0 ? "Update available"
-                                     : cmp == 0 ? "Up to date"
-                                     : "Current newer";
-                            if (p.Status == "Up to date")
-                                p.IsSelected = false;
-                        }
-                        else
-                        {
-                            p.Status = "Version retrieved";
-                        }
+                        p.Status = "Latest retrieved";
 
                         var suffix = p.Script.Contains("m365", StringComparison.OrdinalIgnoreCase)
                             ? $" [{ChannelTag(settings.M365Channel)}]" : "";
@@ -394,7 +381,7 @@ public partial class PackagesViewModel : ObservableObject
                             p.Status = cmp < 0 ? "Update available"
                                      : cmp == 0 ? "Up to date"
                                      : "Current newer";
-                            if (p.Status == "Up to date")
+                            if (cmp >= 0)
                                 p.IsSelected = false;
                         }
                         else
@@ -407,8 +394,8 @@ public partial class PackagesViewModel : ObservableObject
                     else
                     {
                         p.CurrentVersion = "";
-                        p.Status = "Not found in MECM";
-                        AddLogLine($"  Not found in MECM");
+                        p.Status = "Not in MECM";
+                        AddLogLine($"  Not in MECM");
                     }
                 }
                 catch (OperationCanceledException) { throw; }
@@ -549,6 +536,7 @@ public partial class PackagesViewModel : ObservableObject
                     if (result.ExitCode == 0)
                     {
                         p.Status = "Packaged";
+                        p.IsSelected = false;
                         var pkgRef = string.IsNullOrEmpty(result.OutLogPath) ? result.StdOut : $"Log: {System.IO.Path.GetFileName(result.OutLogPath)}";
                         AddLogLine($"Packaged. {pkgRef}");
                     }

@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "00001355a7d67152",
+    "Vendor":  "Vim",
+    "Application":  "Vim (x64)",
+    "CMName":  "Vim",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.vim.org/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/vim/vim-win32-installer/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:v"
+                       },
+    "DownloadUrl":  "https://github.com/vim/vim-win32-installer/releases/download/v{display_version}/gvim_{display_version}_x64.exe",
+    "InstallArgs":  "/S",
+    "UninstallArgs":  "/S",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Vim\\vim92",
+                      "FileName":  "gvim.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "gvim",
+                           "vim"
+                       ]
+}

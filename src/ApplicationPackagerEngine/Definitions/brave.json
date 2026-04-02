@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "00000070df16bc85",
+    "Vendor":  "Brave Software",
+    "Application":  "Brave Browser (x64)",
+    "CMName":  "Brave Browser",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://brave.com/",
+    "InstallerType":  "EXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/brave/brave-browser/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:v"
+                       },
+    "DownloadUrl":  "https://github.com/brave/brave-browser/releases/download/v{display_version}/BraveBrowserStandaloneSilentSetup.exe",
+    "InstallerFileName":  "BraveBrowserStandaloneSilentSetup-{display_version}.exe",
+    "InstallArgs":  "--install --silent --system-level",
+    "UninstallArgs":  "--uninstall --silent --system-level",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application",
+                      "FileName":  "brave.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "brave"
+                       ]
+}
