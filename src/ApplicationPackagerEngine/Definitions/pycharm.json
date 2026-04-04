@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.jetbrains.com/pycharm/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
     "Acquisition":  {
 
                     },
@@ -19,10 +20,9 @@
     "InstallArgs":  "/S",
     "UninstallArgs":  "/S",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\JetBrains\\PyCharm Community",
-                      "FileName":  "pycharm64.exe",
-                      "PropertyType":  "Existence",
+                      "Type":  "RegistryKey",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PyCharm Community Edition {version}",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

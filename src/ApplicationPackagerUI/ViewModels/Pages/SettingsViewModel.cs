@@ -20,8 +20,8 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _packagersRoot = "";
 
     // Deployment Type defaults
-    [ObservableProperty] private int _estimatedRuntimeMins = 15;
-    [ObservableProperty] private int _maximumRuntimeMins = 30;
+    [ObservableProperty] private double? _estimatedRuntimeMins = 15;
+    [ObservableProperty] private double? _maximumRuntimeMins = 30;
 
     // Acquisition
     [ObservableProperty] private string _acquisitionMethod = "StaticUrl";
@@ -108,8 +108,8 @@ public partial class SettingsViewModel : ObservableObject
         s.FileShareRoot = FileShareRoot;
         s.DownloadRoot = DownloadRoot;
         s.PackagersRoot = PackagersRoot;
-        s.EstimatedRuntimeMins = EstimatedRuntimeMins;
-        s.MaximumRuntimeMins = MaximumRuntimeMins;
+        s.EstimatedRuntimeMins = (int)(EstimatedRuntimeMins ?? 15);
+        s.MaximumRuntimeMins = (int)(MaximumRuntimeMins ?? 30);
         s.M365Channel = M365Channel;
         s.AcquisitionMethod = AcquisitionMethod;
         s.Theme = CurrentTheme.ToString();

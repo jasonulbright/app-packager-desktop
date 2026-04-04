@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.opera.com/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
     "Acquisition":  {
 
                     },

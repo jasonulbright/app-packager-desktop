@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://powerbi.microsoft.com/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NativeEXE",
     "Acquisition":  {
 
                     },

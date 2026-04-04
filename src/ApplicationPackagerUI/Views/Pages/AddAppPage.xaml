@@ -1,0 +1,189 @@
+<Page
+    x:Class="ApplicationPackagerUI.Views.Pages.AddAppPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    Margin="24,0,24,24"
+    ScrollViewer.CanContentScroll="False">
+
+    <Page.Resources>
+        <helpers:StepVisibilityConverter x:Key="StepVisibilityConverter" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Add New Application" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding StepTitle}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Step content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <Grid>
+                <!-- Step 1: Basic Info -->
+                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
+                    <ui:CardExpander Header="Basic Information" IsExpanded="True" Icon="{ui:SymbolIcon Info24}">
+                        <StackPanel Margin="8">
+                            <TextBlock Text="Vendor" />
+                            <ui:TextBox Text="{Binding Vendor, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="e.g. Mozilla, Google, Microsoft"
+                                        ToolTip="The publisher/vendor name. Used for content share folder structure and CM Application Publisher field." />
+                            <TextBlock Text="Application Name" />
+                            <ui:TextBox Text="{Binding ApplicationName, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="e.g. Mozilla Firefox (x64)"
+                                        ToolTip="Full application name including bitness. Used as the primary identifier in the UI and file naming." />
+                            <TextBlock Text="CM Display Name (optional)" />
+                            <ui:TextBox Text="{Binding CmName, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="Leave blank to use Application Name"
+                                        ToolTip="Name shown in MECM console and Software Center. If blank, uses Application Name." />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Architecture" />
+                                    <ComboBox ItemsSource="{Binding ArchitectureOptions}"
+                                              SelectedItem="{Binding Architecture}"
+                                              ToolTip="Target architecture. Determines which installer variant to download." />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Vendor URL" />
+                                    <ui:TextBox Text="{Binding VendorUrl, UpdateSourceTrigger=PropertyChanged}"
+                                                PlaceholderText="https://www.example.com"
+                                                ToolTip="Vendor's website. For reference only — not used for scraping." />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </ui:CardExpander>
+                </StackPanel>
+
+                <!-- Step 2: Version Source -->
+                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+                    <ui:CardExpander Header="Version Scraper" IsExpanded="True" Icon="{ui:SymbolIcon Search24}">
+                        <StackPanel Margin="8">
+                            <TextBlock Text="Scraper Type" />
+                            <ComboBox ItemsSource="{Binding ScraperTypeOptions}"
+                                      SelectedItem="{Binding ScraperType}"
+                                      ToolTip="HttpRegex: scrape a web page with regex. JsonQuery: query a JSON API. FileVersion: download and read EXE/MSI properties." />
+                            <TextBlock Text="Scraper URL" />
+                            <ui:TextBox Text="{Binding ScraperUrl, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="https://api.github.com/repos/owner/repo/releases/latest"
+                                        ToolTip="URL to fetch for version extraction. For HttpRegex: any page. For JsonQuery: JSON API endpoint." />
+                            <TextBlock Text="Pattern" />
+                            <ui:TextBox Text="{Binding ScraperPattern, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="For HttpRegex: regex with capture group. For JsonQuery: path expression."
+                                        ToolTip="HttpRegex: regex with one capture group for version (e.g. version-(\\d+\\.\\d+)\\.exe). JsonQuery: JSON path (e.g. tag_name)." />
+                            <TextBlock Text="Version Transform (optional)" />
+                            <ui:TextBox Text="{Binding VersionTransform, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="e.g. strip_prefix:v or insert_dot:2 or replace:+:-"
+                                        ToolTip="Post-capture transform. Chain with |. Options: strip_prefix:X, insert_dot:N, replace:X:Y, regex_replace:pattern:replacement." />
+                            <DockPanel>
+                                <ui:Button DockPanel.Dock="Right" Content="Test Scrape" Appearance="Primary"
+                                           Command="{Binding TestScrapeCommand}" Margin="8,0,0,0"
+                                           ToolTip="Test the scraper configuration and display the extracted version." />
+                                <ui:TextBox Text="{Binding TestVersionResult, Mode=OneWay}" IsReadOnly="True"
+                                            PlaceholderText="Click Test Scrape to verify" />
+                            </DockPanel>
+                        </StackPanel>
+                    </ui:CardExpander>
+                </StackPanel>
+
+                <!-- Step 3: Download -->
+                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
+                    <ui:CardExpander Header="Download Configuration" IsExpanded="True" Icon="{ui:SymbolIcon ArrowDownload24}">
+                        <StackPanel Margin="8">
+                            <TextBlock Text="Download URL Template" />
+                            <ui:TextBox Text="{Binding DownloadUrl, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="https://example.com/download/app-{version}-x64.msi"
+                                        ToolTip="URL template for downloading the installer. Use {version} for raw version, {display_version} for transformed version." />
+                            <TextBlock Text="Installer Filename Override (optional)" />
+                            <ui:TextBox Text="{Binding InstallerFileName, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="Leave blank if URL contains a usable filename"
+                                        ToolTip="Override filename when download URL doesn't contain one (fwlinks, redirects). Supports {version} placeholder." />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Installer Type" />
+                                    <ComboBox ItemsSource="{Binding InstallerTypeOptions}"
+                                              SelectedItem="{Binding InstallerType}"
+                                              ToolTip="MSI: Windows Installer. EXE: executable installer. ZIP: archive to extract. MSIX: Windows app package." />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Installer Framework (auto-detected)" />
+                                    <ui:TextBox Text="{Binding InstallerFramework, UpdateSourceTrigger=PropertyChanged}"
+                                                PlaceholderText="Auto-detected during staging"
+                                                ToolTip="NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, MSIX, ZIP. Auto-filled when the engine inspects the installer." />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </ui:CardExpander>
+                </StackPanel>
+
+                <!-- Step 4: Install/Uninstall -->
+                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=4}">
+                    <ui:CardExpander Header="Install &amp; Uninstall" IsExpanded="True" Icon="{ui:SymbolIcon WrenchScrewdriver24}">
+                        <StackPanel Margin="8">
+                            <TextBlock Text="Install Arguments" />
+                            <ui:TextBox Text="{Binding InstallArgs, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="/qn /norestart or /S or /VERYSILENT /NORESTART"
+                                        ToolTip="Silent install arguments. MSI: /qn /norestart. NSIS: /S. InnoSetup: /VERYSILENT /NORESTART /SP-." />
+                            <TextBlock Text="Uninstall Arguments" />
+                            <ui:TextBox Text="{Binding UninstallArgs, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="/x {ProductCode} /qn /norestart or /S"
+                                        ToolTip="Silent uninstall arguments. Use {ProductCode} placeholder for MSI apps." />
+                            <TextBlock Text="Install Context" />
+                            <ComboBox ItemsSource="{Binding InstallContextOptions}"
+                                      SelectedItem="{Binding InstallContext}"
+                                      ToolTip="Machine: installs system-wide (Program Files, HKLM). User: installs per-user (AppData, HKCU). Affects deployment type behavior." />
+                        </StackPanel>
+                    </ui:CardExpander>
+                </StackPanel>
+
+                <!-- Step 5: Review -->
+                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=5}">
+                    <ui:CardExpander Header="Review" IsExpanded="True" Icon="{ui:SymbolIcon Checkmark24}">
+                        <ui:TextBox Text="{Binding ReviewSummary, Mode=OneWay}"
+                                    IsReadOnly="True" AcceptsReturn="True"
+                                    FontFamily="Cascadia Code,Consolas,Courier New"
+                                    MinHeight="300" />
+                    </ui:CardExpander>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- Navigation buttons -->
+        <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">
+            <ui:Button DockPanel.Dock="Left" Content="Back"
+                       Command="{Binding PreviousStepCommand}"
+                       IsEnabled="{Binding CanGoBack}"
+                       Icon="{ui:SymbolIcon ArrowLeft24}" />
+            <ui:Button DockPanel.Dock="Right" Content="Save Definition" Appearance="Primary"
+                       Command="{Binding SaveDefinitionCommand}"
+                       Visibility="{Binding CanSave, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       Icon="{ui:SymbolIcon Save24}" />
+            <ui:Button DockPanel.Dock="Right" Content="Next" Appearance="Primary"
+                       Command="{Binding NextStepCommand}"
+                       IsEnabled="{Binding CanGoNext}"
+                       Visibility="{Binding CanGoNext, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       Icon="{ui:SymbolIcon ArrowRight24}"
+                       Margin="0,0,8,0" />
+            <TextBlock DockPanel.Dock="Left" Text="{Binding StatusText}"
+                       VerticalAlignment="Center" Margin="16,0,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DockPanel>
+    </Grid>
+</Page>

@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://getgreenshot.org/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "InnoSetup",
     "Acquisition":  {
 
                     },
@@ -16,7 +17,7 @@
                            "Pattern":  "\"name\":\\s*\"Greenshot-INSTALLER-(.*?)-RELEASE\\.exe\""
                        },
     "DownloadUrl":  "https://github.com/greenshot/greenshot/releases/download/v{version}/Greenshot-INSTALLER-{version}-RELEASE.exe",
-    "InstallArgs":  "/SP- /ALLUSERS /VERYSILENT /SUPPRESSMESSAGEBOXES /NORUN /FORCECLOSEAPPLICATIONS /NORESTART",
+    "InstallArgs":  "/SP- /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORUN /FORCECLOSEAPPLICATIONS /NORESTART /LANG=en /NOSTARTUP",
     "UninstallArgs":  "/SP- /VERYSILENT /NORESTART",
     "Detection":  {
                       "Type":  "File",

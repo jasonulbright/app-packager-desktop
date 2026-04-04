@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/10.0",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
     "Acquisition":  {
 
                     },

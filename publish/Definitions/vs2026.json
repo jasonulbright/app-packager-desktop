@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "a1b2c3d4e5f60007",
+    "Vendor":  "Microsoft",
+    "Application":  "Visual Studio 2026 Enterprise (x64)",
+    "CMName":  "Visual Studio 2026 Enterprise",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://visualstudio.microsoft.com/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "FileVersion",
+                           "Url":  "https://aka.ms/vs/stable/vs_enterprise.exe",
+                           "Pattern":  "FileVersion"
+                       },
+    "DownloadUrl":  "https://aka.ms/vs/stable/vs_enterprise.exe",
+    "InstallerFileName":  "vs_enterprise.exe",
+    "InstallArgs":  "--noWeb",
+    "UninstallArgs":  "uninstall --quiet",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Microsoft Visual Studio\\2026\\Enterprise\\Common7\\IDE",
+                      "FileName":  "devenv.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "devenv"
+                       ]
+}

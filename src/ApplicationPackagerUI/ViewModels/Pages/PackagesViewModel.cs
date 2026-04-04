@@ -1,4 +1,5 @@
 using System.IO;
+using ApplicationPackagerUI.Controls;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 
@@ -11,6 +12,7 @@ public partial class PackagesViewModel : ObservableObject
     private readonly MecmQueryService _mecmQueryService;
     private readonly SettingsService _settingsService;
     private readonly ISnackbarService _snackbarService;
+    private readonly IContentDialogService _contentDialogService;
 
     [ObservableProperty] private ObservableCollection<PackagerInfo> _packagers = [];
     [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
@@ -39,13 +41,15 @@ public partial class PackagesViewModel : ObservableObject
         PackagerExecutionService executionService,
         MecmQueryService mecmQueryService,
         SettingsService settingsService,
-        ISnackbarService snackbarService)
+        ISnackbarService snackbarService,
+        IContentDialogService contentDialogService)
     {
         _discoveryService = discoveryService;
         _executionService = executionService;
         _mecmQueryService = mecmQueryService;
         _settingsService = settingsService;
         _snackbarService = snackbarService;
+        _contentDialogService = contentDialogService;
 
         LoadPackagersCommand = new AsyncRelayCommand(LoadPackagersAsync);
         CheckLatestCommand = new AsyncRelayCommand(CheckLatestAsync, CanRunOperation);
@@ -478,6 +482,40 @@ public partial class PackagesViewModel : ObservableObject
 
                 try
                 {
+                    // Config review dialog — show if app has InstallerSettings and review is required
+                    if (p.IsJsonDefined && !string.IsNullOrEmpty(p.DefinitionPath) && File.Exists(p.DefinitionPath))
+                    {
+                        var defJson = await File.ReadAllTextAsync(p.DefinitionPath, _operationCts.Token);
+                        var def = System.Text.Json.JsonSerializer.Deserialize<ApplicationPackagerEngine.Models.AppDefinition>(defJson,
+                            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                        var settings = _settingsService.Load();
+                        if (def?.InstallerSettings?.Length > 0 && (def.ReviewBeforeStage || !settings.SkipConfigReview))
+                        {
+                            var settingsPanel = new Controls.InstallerSettingsPanel
+                            {
+                                Parameters = def.InstallerSettings,
+                                MinWidth = 400
+                            };
+                            var dialog = new ContentDialog
+                            {
+                                Title = $"Configure: {p.Application}",
+                                Content = settingsPanel,
+                                PrimaryButtonText = "Continue",
+                                CloseButtonText = "Cancel",
+                                DefaultButton = ContentDialogButton.Primary
+                            };
+                            var dialogResult = await _contentDialogService.ShowAsync(dialog, _operationCts.Token);
+                            if (dialogResult != ContentDialogResult.Primary)
+                            {
+                                p.Status = "Skipped";
+                                AddLogLine($"  Skipped (config review cancelled)");
+                                continue;
+                            }
+                            // TODO: pass settingsPanel.Values to StageAsync for ResolveInstallerArgs
+                        }
+                    }
+
                     var result = await _executionService.StageAsync(
                         p, line => AddLogLine($"  {line}"), _operationCts.Token);
 
@@ -531,9 +569,17 @@ public partial class PackagesViewModel : ObservableObject
         }
         if (string.IsNullOrWhiteSpace(Comment))
         {
-            _snackbarService.Show("Package", "Work Order / Comment is required.",
-                Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(3));
-            return;
+            var dialog = new ContentDialog
+            {
+                Title = "No Comment Provided",
+                Content = "Package without a work order / comment? The comment field will be empty in the MECM Application description.",
+                PrimaryButtonText = "Continue",
+                CloseButtonText = "Cancel",
+                DefaultButton = ContentDialogButton.Close
+            };
+            var result = await _contentDialogService.ShowAsync(dialog, CancellationToken.None);
+            if (result != ContentDialogResult.Primary)
+                return;
         }
 
         var selected = SelectedPackagers.ToList();

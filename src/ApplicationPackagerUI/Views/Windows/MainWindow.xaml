@@ -42,6 +42,10 @@
                     Content="Applications"
                     Icon="{ui:SymbolIcon Apps24}"
                     TargetPageType="{x:Type pages:ApplicationsPage}" />
+                <ui:NavigationViewItem
+                    Content="Add App"
+                    Icon="{ui:SymbolIcon Add24}"
+                    TargetPageType="{x:Type pages:AddAppPage}" />
             </ui:NavigationView.MenuItems>
 
             <ui:NavigationView.FooterMenuItems>
@@ -58,5 +62,7 @@
             </ui:NavigationView.ContentOverlay>
 
         </ui:NavigationView>
+
+        <ui:ContentDialogHost x:Name="RootContentDialog" Grid.Row="0" Grid.RowSpan="2" />
     </Grid>
 </ui:FluentWindow>

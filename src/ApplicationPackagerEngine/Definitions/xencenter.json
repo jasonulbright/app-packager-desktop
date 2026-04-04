@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.xenserver.com/",
     "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
     "Acquisition":  {
 
                     },

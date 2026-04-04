@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "0ac5386a23604dba",
+    "Vendor":  "Mozilla",
+    "Application":  "Mozilla Thunderbird (x64)",
+    "CMName":  "Thunderbird",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.thunderbird.net/",
+    "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeEXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://product-details.mozilla.org/1.0/thunderbird_versions.json",
+                           "Pattern":  "\"LATEST_THUNDERBIRD_VERSION\":\\s*\"([^\"]+)\""
+                       },
+    "DownloadUrl":  "https://download.mozilla.org/?product=thunderbird-msi-latest-ssl&os=win64&lang=en-US",
+    "InstallerFileName":  "Thunderbird-{version}.msi",
+    "InstallArgs":  "/quiet /norestart INSTALL_MAINTENANCE_SERVICE=false TASKBAR_SHORTCUT=false DESKTOP_SHORTCUT=false",
+    "UninstallArgs":  "/quiet /norestart",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Mozilla Thunderbird",
+                      "FileName":  "thunderbird.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "thunderbird"
+                       ]
+}

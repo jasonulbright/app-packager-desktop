@@ -17,7 +17,20 @@ public sealed class AppDefinition
     public string CMName { get; set; } = "";
     public string Architecture { get; set; } = "x64";
     public string VendorUrl { get; set; } = "";
-    public string InstallerType { get; set; } = "MSI"; // MSI, EXE, ODT
+    public string InstallerType { get; set; } = "MSI"; // MSI, EXE, ODT, ZIP, MSIX
+    /// <summary>
+    /// Installer framework technology. Drives automated detection derivation and metadata extraction.
+    /// Values: NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, MSIX, ZIP, Unknown.
+    /// When null/empty, the engine will attempt auto-identification via ArchiveExtractionService.
+    /// </summary>
+    public string? InstallerFramework { get; set; }
+    /// <summary>
+    /// Installation context: "Machine" (default) or "User".
+    /// Machine: installs to Program Files, HKLM registry, deploys to device collections, runs as SYSTEM.
+    /// User: installs to %LOCALAPPDATA%, HKCU registry, deploys to user collections, runs as logged-on user.
+    /// MSIX apps: context is determined by the MSIX manifest, this field is advisory for deployment targeting.
+    /// </summary>
+    public string InstallContext { get; set; } = "Machine";
     public AcquisitionConfig Acquisition { get; set; } = new();
     public VersionScraperConfig VersionScraper { get; set; } = new();
     public string DownloadUrl { get; set; } = "";
@@ -28,6 +41,24 @@ public sealed class AppDefinition
     public string? InstallerFileName { get; set; }
     public string InstallArgs { get; set; } = "";
     public string UninstallArgs { get; set; } = "";
+    /// <summary>
+    /// When true, always show the installer settings review dialog before staging,
+    /// regardless of the global "Skip config review" setting. Use for apps where
+    /// configuration matters (PostgreSQL port/password, VS workloads, ODT products).
+    /// </summary>
+    public bool ReviewBeforeStage { get; set; }
+    /// <summary>
+    /// Whether the app can be uninstalled. Default true. Set false for apps like Microsoft Edge
+    /// that Windows prevents from being removed. Test runner skips uninstall phase when false.
+    /// </summary>
+    public bool CanUninstall { get; set; } = true;
+    /// <summary>
+    /// Per-app configurable installer parameters. Schema-driven — the UI renders controls
+    /// dynamically based on this array. Each parameter defines a switch/flag that can be
+    /// toggled, selected, or edited by the user, with tooltips for guidance.
+    /// The engine substitutes parameter values into InstallArgs at staging time.
+    /// </summary>
+    public InstallerParameter[]? InstallerSettings { get; set; }
     public DetectionConfig Detection { get; set; } = new();
     public string[] RunningProcess { get; set; } = [];
     public string? Icon { get; set; }
@@ -112,6 +143,55 @@ public sealed class OdtConfig
     public string Channel { get; set; } = "MonthlyEnterprise";
     /// <summary>Apps to exclude (e.g., Groove, Lync, OneDrive, Teams, Bing).</summary>
     public string[] ExcludeApps { get; set; } = ["Groove", "Lync", "OneDrive", "Teams", "Bing"];
+    /// <summary>
+    /// Offline: full ODT /download with offline source (large, self-contained).
+    /// Online: thin install.xml only, downloads at install time (small package, requires internet).
+    /// </summary>
+    public string DeploymentMode { get; set; } = "Offline";
+    /// <summary>Update channel for auto-updates after install. Same as Channel if not specified.</summary>
+    public string? UpdateChannel { get; set; }
+    /// <summary>Whether to enable Office auto-updates. Default true.</summary>
+    public bool EnableUpdates { get; set; } = true;
+    /// <summary>Accept EULA silently.</summary>
+    public bool AcceptEula { get; set; } = true;
+    /// <summary>Pin icons to taskbar.</summary>
+    public bool PinToTaskbar { get; set; } = false;
+    /// <summary>Shared computer licensing (for RDS/VDI).</summary>
+    public bool SharedComputerLicensing { get; set; } = false;
+}
+
+/// <summary>
+/// A configurable installer parameter that the UI renders as a control (toggle, dropdown, textbox, number).
+/// The engine resolves these into install/uninstall command-line arguments at staging time.
+/// Each parameter maps to a specific switch or flag in the installer command line.
+/// </summary>
+public sealed class InstallerParameter
+{
+    /// <summary>Unique key for this parameter (e.g., "AddToPath", "ServerPort", "Workload_ManagedDesktop").</summary>
+    public string Key { get; set; } = "";
+    /// <summary>Display label shown in the UI settings panel.</summary>
+    public string Label { get; set; } = "";
+    /// <summary>Tooltip text explaining what this parameter does.</summary>
+    public string? Tooltip { get; set; }
+    /// <summary>Control type: Toggle, Dropdown, Text, Number.</summary>
+    public string ControlType { get; set; } = "Toggle";
+    /// <summary>Default value (bool string for Toggle, string for Dropdown/Text, number string for Number).</summary>
+    public string DefaultValue { get; set; } = "false";
+    /// <summary>Available options for Dropdown control type.</summary>
+    public string[]? Options { get; set; }
+    /// <summary>
+    /// The command-line fragment to append when enabled/set.
+    /// For Toggle: appended when true, omitted when false.
+    /// For Dropdown/Text/Number: {value} placeholder is replaced with the selected value.
+    /// Example: "/D={value}" or "PrependPath={value}" or "--serverport {value}"
+    /// </summary>
+    public string? CommandFragment { get; set; }
+    /// <summary>Group name for organizing parameters into sections in the UI.</summary>
+    public string? Group { get; set; }
+    /// <summary>Minimum value for Number control type.</summary>
+    public double? Minimum { get; set; }
+    /// <summary>Maximum value for Number control type.</summary>
+    public double? Maximum { get; set; }
 }
 
 public sealed class DetectionConfig

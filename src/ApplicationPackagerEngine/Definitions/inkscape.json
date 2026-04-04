@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://inkscape.org/",
     "InstallerType":  "MSI",
+    "InstallerFramework":  "InnoSetup",
     "Acquisition":  {
 
                     },

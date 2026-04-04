@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
     "Acquisition":  {
 
                     },

@@ -1,0 +1,35 @@
+{
+    "Schema":  1,
+    "Id":  "bc1a3c7f3ce94350",
+    "Vendor":  "win.rar GmbH",
+    "Application":  "WinRAR (x64)",
+    "CMName":  "WinRAR",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.win-rar.com/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.rarlab.com/download.htm",
+                           "Pattern":  "winrar-x64-(\\d+)\\.exe",
+                           "VersionTransform":  "insert_dot:1"
+                       },
+    "DownloadUrl":  "https://www.rarlab.com/rar/winrar-x64-{version}.exe",
+    "InstallArgs":  "/S",
+    "UninstallArgs":  "/S",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\WinRAR archiver",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "WinRAR"
+                       ]
+}

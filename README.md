@@ -6,7 +6,7 @@ SRL Packr by Signal Ridge Labs automates the full lifecycle of third-party appli
 
 ## Status
 
-**v2.1.0-alpha5** — 115 of 117 apps fully automated end-to-end on CM01 lab. 2 remaining (Citrix LTSR, VMware Workstation) have working Check Latest but require manual download — planned for v2.2 WebView2 panel.
+**v2.1.0-alpha7** — 90 of 116 apps signed off (install + detection validated on CM01 lab). Engine features: automated detection derivation via installer metadata extraction (7z + per-framework manifest readers), MSIX deployment type, per-user deployment, auto-distribute/deploy, SQLite version history, PSADT wrapper generation. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-app pipeline status.
 
 ## Stack
 
@@ -17,12 +17,13 @@ SRL Packr by Signal Ridge Labs automates the full lifecycle of third-party appli
 ## Architecture
 
 ```
-ApplicationPackagerUI (WPF)          ← user interface
-  └─ ApplicationPackagerEngine (DLL) ← core logic
-       ├─ Scrapers/                  ← IVersionScraper plugins (HttpRegex, JsonQuery, FileVersion)
-       ├─ Services/                  ← Download, MSI inspection, staging, MECM packaging
-       ├─ Models/                    ← AppDefinition, StageManifest, detection configs
-       └─ Definitions/              ← JSON app definitions (one per app)
+ApplicationPackagerUI (WPF)          ← user interface (WPF-UI 4.2.0 Fluent)
+  └─ ApplicationPackagerEngine (DLL) ← core logic (portable .NET 10)
+       ├─ Scrapers/                  ← IVersionScraper plugins (HttpRegex, JsonQuery, FileVersion, CdnCab)
+       ├─ Services/                  ← Download, MSI inspection, 7z extraction, installer ID,
+       │                                staging, MECM packaging, PSADT wrappers, SQLite history
+       ├─ Models/                    ← AppDefinition, StageManifest, InstallerMetadata, InstallerParameter
+       └─ Definitions/              ← JSON app definitions (116 apps, one per file)
 ```
 
 ## Scraper Types

@@ -12,6 +12,8 @@ public sealed class StageManifest
     public string SoftwareVersion { get; set; } = "";
     public string InstallerFile { get; set; } = "";
     public string InstallerType { get; set; } = "MSI";
+    /// <summary>Machine or User install context. Drives deployment type behavior and collection targeting.</summary>
+    public string InstallContext { get; set; } = "Machine";
     public string InstallArgs { get; set; } = "";
     public string UninstallArgs { get; set; } = "";
     public string? ProductCode { get; set; }

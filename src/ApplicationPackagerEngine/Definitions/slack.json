@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://slack.com/",
     "InstallerType":  "MSI",
+    "InstallerFramework":  "MSIX",
     "Acquisition":  {
 
                     },

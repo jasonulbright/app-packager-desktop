@@ -15,19 +15,25 @@ public sealed class StagingService
     private readonly MsiInspectionService _msiService;
     private readonly WrapperGeneratorService _wrapperService;
     private readonly ManifestService _manifestService;
+    private readonly InstallerIdentificationService? _installerIdService;
+    private readonly IconExtractionService? _iconService;
 
     public StagingService(
         ScraperRegistry scrapers,
         DownloadService downloadService,
         MsiInspectionService msiService,
         WrapperGeneratorService wrapperService,
-        ManifestService manifestService)
+        ManifestService manifestService,
+        InstallerIdentificationService? installerIdService = null,
+        IconExtractionService? iconService = null)
     {
         _scrapers = scrapers;
         _downloadService = downloadService;
         _msiService = msiService;
         _wrapperService = wrapperService;
         _manifestService = manifestService;
+        _iconService = iconService;
+        _installerIdService = installerIdService;
     }
 
     /// <summary>
@@ -223,6 +229,45 @@ public sealed class StagingService
                 onProgress?.Invoke($"ProductVersion: {productVersion}");
             }
 
+            // 4c. For non-MSI installers, extract metadata via InstallerIdentificationService
+            InstallerMetadata? installerMetadata = null;
+            if (productCode is null && _installerIdService is not null &&
+                !def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
+            {
+                onProgress?.Invoke("Identifying installer framework...");
+                var framework = await _installerIdService.IdentifyAsync(
+                    installerPath, def.InstallerFramework, ct);
+                onProgress?.Invoke($"Framework: {framework}");
+
+                if (framework != "Unknown")
+                {
+                    onProgress?.Invoke("Extracting installer metadata...");
+                    installerMetadata = await _installerIdService.ExtractMetadataAsync(
+                        installerPath, framework, ct);
+
+                    // Use extracted ProductCode if available (WiX Burn inner MSI)
+                    if (!string.IsNullOrEmpty(installerMetadata.ProductCode))
+                    {
+                        productCode = installerMetadata.ProductCode;
+                        onProgress?.Invoke($"ProductCode (from {installerMetadata.MetadataSource}): {productCode}");
+                    }
+                    if (!string.IsNullOrEmpty(installerMetadata.ProductVersion))
+                        onProgress?.Invoke($"ProductVersion (from {installerMetadata.MetadataSource}): {installerMetadata.ProductVersion}");
+                    if (!string.IsNullOrEmpty(installerMetadata.Manufacturer) &&
+                        installerMetadata.Manufacturer.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
+                        publisher = installerMetadata.Manufacturer;
+                }
+            }
+
+            // 4d. Extract icon from installer
+            if (_iconService is not null)
+            {
+                onProgress?.Invoke("Extracting application icon...");
+                var iconResult = await _iconService.ExtractAsync(installerPath, def.Id, ct);
+                if (iconResult.Success)
+                    onProgress?.Invoke($"Icon cached: {iconResult.CachedPath}");
+            }
+
             // 5. Generate wrappers
             onProgress?.Invoke("Generating install/uninstall wrappers...");
             if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
@@ -236,18 +281,58 @@ public sealed class StagingService
             }
 
             // 6. Build detection config
-            var detection = BuildDetection(def, productCode, displayVersion, rawVersion);
+            // If the definition's detection references {ProductCode} but we have no ProductCode,
+            // and we have installer metadata with detection data, use the metadata instead.
+            var detection = BuildDetection(def, productCode, displayVersion, rawVersion, installerMetadata);
+
+            // 6b. Detection conformance check — log if definition's detection differs from metadata-derived
+            if (installerMetadata?.HasDetectionData == true && detection.Type != "Unknown")
+            {
+                var metaDerived = BuildDetectionFromMetadata(installerMetadata, displayVersion, def.Detection.Is64Bit);
+                if (metaDerived.Type != "Unknown")
+                {
+                    var defType = detection.Type;
+                    var metaType = metaDerived.Type;
+                    var defKey = detection.RegistryKeyRelative ?? detection.FilePath ?? "";
+                    var metaKey = metaDerived.RegistryKeyRelative ?? metaDerived.FilePath ?? "";
+
+                    if (defType != metaType || (!string.IsNullOrEmpty(metaKey) && defKey != metaKey))
+                    {
+                        onProgress?.Invoke($"[CONFORMANCE] Definition detection: {defType} on '{defKey}'");
+                        onProgress?.Invoke($"[CONFORMANCE] Metadata-derived:     {metaType} on '{metaKey}'");
+                        onProgress?.Invoke($"[CONFORMANCE] Source: {installerMetadata.MetadataSource}");
+                    }
+                    else
+                    {
+                        onProgress?.Invoke("[CONFORMANCE] Detection matches metadata — OK");
+                    }
+                }
+            }
 
             // 7. Write manifest
+            // ARP-driven naming: use installer metadata when available, fallback to constructed template
+            var arpDisplayName = installerMetadata?.ProductName;
+            var arpVersion = installerMetadata?.ProductVersion;
+            var cmAppName = !string.IsNullOrEmpty(arpDisplayName)
+                ? arpDisplayName
+                : $"{def.Application} - {displayVersion} ({def.Architecture})";
+            var cmDisplayName = !string.IsNullOrEmpty(arpDisplayName)
+                ? arpDisplayName
+                : $"{def.Application} ({def.Architecture})";
+            var cmVersion = !string.IsNullOrEmpty(arpVersion)
+                ? arpVersion
+                : displayVersion;
+
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             var manifest = new StageManifest
             {
-                AppName = $"{def.Application} - {displayVersion} ({def.Architecture})",
-                DisplayName = $"{def.Application} ({def.Architecture})",
+                AppName = cmAppName,
+                DisplayName = cmDisplayName,
                 Publisher = publisher,
-                SoftwareVersion = displayVersion,
+                SoftwareVersion = cmVersion,
                 InstallerFile = installerFileName,
                 InstallerType = def.InstallerType,
+                InstallContext = def.InstallContext,
                 InstallArgs = def.InstallArgs,
                 UninstallArgs = def.UninstallArgs,
                 ProductCode = productCode,
@@ -512,22 +597,39 @@ public sealed class StagingService
         return $"{safeName}-{version}{ext}";
     }
 
-    private static StageDetection BuildDetection(AppDefinition def, string? productCode, string version, string? rawVersion = null)
+    private static StageDetection BuildDetection(AppDefinition def, string? productCode, string version,
+        string? rawVersion = null, InstallerMetadata? metadata = null)
     {
         var det = def.Detection;
 
+        // If detection references {ProductCode} but we have no ProductCode, and metadata has detection data,
+        // use metadata-derived detection instead of the definition's detection config.
+        if (det.RegistryKeyTemplate?.Contains("{ProductCode}", StringComparison.OrdinalIgnoreCase) == true
+            && string.IsNullOrEmpty(productCode)
+            && metadata?.HasDetectionData == true)
+        {
+            return BuildDetectionFromMetadata(metadata, version, def.Detection.Is64Bit);
+        }
+
         if (det.Type.Equals("RegistryKeyValue", StringComparison.OrdinalIgnoreCase))
         {
-            // Substitute {ProductCode} in template
+            // Substitute {ProductCode} and {version} in template
             var regKey = det.RegistryKeyTemplate?
-                .Replace("{ProductCode}", productCode ?? "", StringComparison.OrdinalIgnoreCase) ?? "";
+                .Replace("{ProductCode}", productCode ?? "", StringComparison.OrdinalIgnoreCase)
+                .Replace("{version}", version, StringComparison.OrdinalIgnoreCase) ?? "";
+
+            // For Version-type detection, sanitize version to valid System.Version format
+            // (e.g., "11.0.30+7" → "11.0.30.7" — CM requires dotted version strings)
+            var detValue = version;
+            if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true)
+                detValue = version.Replace("+", ".").Replace("-", ".");
 
             return new StageDetection
             {
                 Type = "RegistryKeyValue",
                 RegistryKeyRelative = regKey,
                 ValueName = det.ValueName ?? "DisplayVersion",
-                ExpectedValue = version,
+                ExpectedValue = detValue,
                 Operator = det.Operator ?? "IsEquals",
                 PropertyType = det.PropertyType ?? "String",
                 Is64Bit = det.Is64Bit
@@ -574,5 +676,104 @@ public sealed class StagingService
         }
 
         return new StageDetection { Type = det.Type };
+    }
+
+    /// <summary>
+    /// Builds a detection rule from installer metadata extracted by InstallerIdentificationService.
+    /// Used as a fallback when the definition's detection config can't be resolved (e.g., {ProductCode} with no MSI).
+    /// </summary>
+    private static StageDetection BuildDetectionFromMetadata(InstallerMetadata metadata, string version, bool is64Bit)
+    {
+        if (metadata.DetectionType == "RegistryKeyValue" && !string.IsNullOrEmpty(metadata.DetectionKey))
+        {
+            var detValue = metadata.DetectionExpectedValue ?? version;
+            // Sanitize for Version comparison
+            detValue = detValue.Replace("+", ".").Replace("-", ".");
+
+            return new StageDetection
+            {
+                Type = "RegistryKeyValue",
+                RegistryKeyRelative = metadata.DetectionKey,
+                ValueName = metadata.DetectionValueName ?? "DisplayVersion",
+                ExpectedValue = detValue,
+                Operator = "GreaterEquals",
+                PropertyType = "Version",
+                Is64Bit = is64Bit
+            };
+        }
+
+        if (metadata.DetectionType == "RegistryKey" && !string.IsNullOrEmpty(metadata.DetectionKey))
+        {
+            return new StageDetection
+            {
+                Type = "RegistryKey",
+                RegistryKeyRelative = metadata.DetectionKey,
+                Is64Bit = is64Bit
+            };
+        }
+
+        if (metadata.DetectionType == "File" && !string.IsNullOrEmpty(metadata.DetectionFileName))
+        {
+            return new StageDetection
+            {
+                Type = "File",
+                FilePath = metadata.DetectionFilePath ?? "",
+                FileName = metadata.DetectionFileName,
+                ExpectedValue = metadata.ProductVersion ?? version,
+                Operator = "GreaterEquals",
+                PropertyType = "Version",
+                Is64Bit = is64Bit
+            };
+        }
+
+        if (metadata.DetectionType == "MSIX")
+        {
+            // MSIX detection handled natively by CM — return existence marker
+            return new StageDetection
+            {
+                Type = "MSIX",
+                ExpectedValue = metadata.ProductName ?? "",
+                Is64Bit = is64Bit
+            };
+        }
+
+        // Fallback: can't derive detection from metadata
+        return new StageDetection { Type = "Unknown" };
+    }
+
+    /// <summary>
+    /// Resolves InstallerParameter values into a final install arguments string.
+    /// Appends CommandFragment for enabled toggles, substitutes {value} for other types.
+    /// </summary>
+    public static string ResolveInstallerArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values)
+    {
+        if (parameters is null || values is null || parameters.Length == 0)
+            return baseArgs;
+
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(baseArgs))
+            parts.Add(baseArgs);
+
+        foreach (var param in parameters)
+        {
+            if (string.IsNullOrEmpty(param.CommandFragment))
+                continue;
+
+            if (!values.TryGetValue(param.Key, out var value))
+                value = param.DefaultValue;
+
+            if (param.ControlType == "Toggle")
+            {
+                if (value.Equals("true", StringComparison.OrdinalIgnoreCase))
+                    parts.Add(param.CommandFragment.Replace("{value}", "1", StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(value))
+                    parts.Add(param.CommandFragment.Replace("{value}", value, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        return string.Join(" ", parts);
     }
 }

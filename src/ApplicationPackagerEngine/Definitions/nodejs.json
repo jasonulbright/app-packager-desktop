@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://nodejs.org/",
     "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
     "Acquisition":  {
 
                     },

@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "a2f7b815dc6e4903",
+    "Vendor":  "Microsoft",
+    "Application":  ".NET 8 Desktop Runtime (x86)",
+    "CMName":  ".NET 8 Desktop Runtime (x86)",
+    "Architecture":  "x86",
+    "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/8.0",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://builds.dotnet.microsoft.com/dotnet/release-metadata/releases-index.json",
+                           "Pattern":  "releases-index[?channel-version=8.0].latest-runtime"
+                       },
+    "DownloadUrl":  "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/{version}/windowsdesktop-runtime-{version}-win-x86.exe",
+    "InstallArgs":  "/install /quiet /norestart",
+    "UninstallArgs":  "/uninstall /quiet /norestart",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files (x86)\\dotnet\\host\\fxr\\{version}",
+                      "FileName":  "hostfxr.dll",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  false
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

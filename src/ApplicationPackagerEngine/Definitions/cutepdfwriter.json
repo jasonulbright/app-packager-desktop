@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.cutepdf.com/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "InnoSetup",
     "Acquisition":  {
 
                     },
@@ -22,11 +23,11 @@
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CutePDF Writer Installation",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CutePDF Writer Installation",
                       "ValueName":  "DisplayVersion",
-                      "Operator":  "GreaterEquals",
                       "PropertyType":  "Version",
-                      "Is64Bit":  false
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
                   },
     "RunningProcess":  [
 

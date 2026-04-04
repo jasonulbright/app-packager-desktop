@@ -1,0 +1,37 @@
+{
+    "Schema":  1,
+    "Id":  "1ac8a8bd51294760",
+    "Vendor":  "Citrix (Cloud Software Group)",
+    "Application":  "Citrix Workspace (CR) (x64)",
+    "CMName":  "Citrix Workspace CR",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.citrix.com/downloads/workspace-app/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "InstallShield",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://downloadplugins.citrix.com/ReceiverUpdates/Prod/catalog_win.xml",
+                           "Pattern":  "<Stream>Current</Stream><Version>([\\d.]+)</Version>"
+                       },
+    "DownloadUrl":  "https://downloadplugins.citrix.com/Windows/CitrixWorkspaceApp.exe",
+    "InstallerFileName":  "CitrixWorkspaceApp-CR-{version}.exe",
+    "InstallArgs":  "/silent /noreboot",
+    "UninstallArgs":  "/silent /uninstall",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CitrixOnlinePluginPackWeb",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "GreaterEquals",
+                      "PropertyType":  "Version",
+                      "Is64Bit":  false
+                  },
+    "RunningProcess":  [
+                           "SelfService",
+                           "AuthManSvr",
+                           "Receiver"
+                       ]
+}

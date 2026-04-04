@@ -7,6 +7,8 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://obsidian.md/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
+    "InstallContext":  "User",
     "Acquisition":  {
 
                     },
@@ -17,7 +19,7 @@
                            "VersionTransform":  "strip_prefix:v"
                        },
     "DownloadUrl":  "https://github.com/obsidianmd/obsidian-releases/releases/download/v{display_version}/Obsidian-{display_version}.exe",
-    "InstallArgs":  "/S",
+    "InstallArgs":  "/S /D=C:\\Program Files\\Obsidian",
     "UninstallArgs":  "/S",
     "Detection":  {
                       "Type":  "File",

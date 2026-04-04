@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://zoom.us/download",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NativeMSI",
     "Acquisition":  {
 
                     },
@@ -15,15 +16,18 @@
                            "Url":  "https://zoom.us/client/latest/ZoomInstaller.exe",
                            "Pattern":  "REDIR:/prod/(\\d+\\.\\d+\\.\\d+\\.\\d+)/"
                        },
-    "InstallerFileName":  "ZoomInstaller-{version}.exe",
-    "DownloadUrl":  "https://zoom.us/client/latest/ZoomInstaller.exe",
-    "InstallArgs":  "/silent /install",
-    "UninstallArgs":  "/silent",
+    "InstallerType":  "MSI",
+    "InstallerFileName":  "ZoomInstallerFull-{version}.msi",
+    "DownloadUrl":  "https://zoom.us/client/latest/ZoomInstallerFull.msi",
+    "InstallArgs":  "/qn /norestart ZoomAutoUpdate=Disabled",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "%APPDATA%\\Zoom\\bin",
-                      "FileName":  "Zoom.exe",
-                      "PropertyType":  "Existence",
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

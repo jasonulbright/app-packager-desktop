@@ -1,0 +1,35 @@
+{
+    "Schema":  1,
+    "Id":  "000000dadf9145f2",
+    "Vendor":  "mRemoteNG",
+    "Application":  "mRemoteNG (x64)",
+    "CMName":  "mRemoteNG",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://mremoteng.org/",
+    "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://api.github.com/repos/mRemoteNG/mRemoteNG/releases/latest",
+                           "Pattern":  "\"browser_download_url\":\\s*\"https://[^\"]*?/mRemoteNG-Installer-([\\d.]+)\\.msi\""
+                       },
+    "DownloadUrl":  "https://github.com/mRemoteNG/mRemoteNG/releases/latest/download/mRemoteNG-Installer-{version}.msi",
+    "InstallerFileName":  "mRemoteNG-Installer-{version}.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  false
+                  },
+    "RunningProcess":  [
+                           "mRemoteNG"
+                       ]
+}
