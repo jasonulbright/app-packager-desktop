@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.r-project.org/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "InnoSetup",
     "Acquisition":  {
 
                     },
@@ -21,10 +22,9 @@
     "InstallArgs":  "/VERYSILENT /NORESTART",
     "UninstallArgs":  "/VERYSILENT",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\R",
-                      "FileName":  "R.exe",
-                      "PropertyType":  "Existence",
+                      "Type":  "RegistryKey",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\R for Windows {version}_is1",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

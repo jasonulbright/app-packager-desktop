@@ -7,6 +7,8 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.postman.com/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "Squirrel",
+    "InstallContext":  "User",
     "Acquisition":  {
 
                     },

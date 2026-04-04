@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "000000888ad654da",
+    "Vendor":  "Obsidian",
+    "Application":  "Obsidian (x64)",
+    "CMName":  "Obsidian",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://obsidian.md/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
+    "InstallContext":  "User",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/obsidianmd/obsidian-releases/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:v"
+                       },
+    "DownloadUrl":  "https://github.com/obsidianmd/obsidian-releases/releases/download/v{display_version}/Obsidian-{display_version}.exe",
+    "InstallArgs":  "/S /D=C:\\Program Files\\Obsidian",
+    "UninstallArgs":  "/S",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Obsidian",
+                      "FileName":  "Obsidian.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Obsidian"
+                       ]
+}

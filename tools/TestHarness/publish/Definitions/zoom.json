@@ -1,0 +1,36 @@
+{
+    "Schema":  1,
+    "Id":  "562e5eb1a64c4669",
+    "Vendor":  "Zoom Video Communications",
+    "Application":  "Zoom Workplace (x64)",
+    "CMName":  "Zoom Workplace",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://zoom.us/download",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "NativeMSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://zoom.us/client/latest/ZoomInstaller.exe",
+                           "Pattern":  "REDIR:/prod/(\\d+\\.\\d+\\.\\d+\\.\\d+)/"
+                       },
+    "InstallerType":  "MSI",
+    "InstallerFileName":  "ZoomInstallerFull-{version}.msi",
+    "DownloadUrl":  "https://zoom.us/client/latest/ZoomInstallerFull.msi",
+    "InstallArgs":  "/qn /norestart ZoomAutoUpdate=Disabled",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Zoom"
+                       ]
+}

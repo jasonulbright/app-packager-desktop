@@ -6,7 +6,7 @@
 
 ---
 
-## v2.0 — WPF Fluent UI (ALPHA)
+## v2.0 — WPF Fluent UI (COMPLETE)
 
 ### Stack
 - .NET 10, WPF-UI 4.2.0, CommunityToolkit.Mvvm 8.4.2, Microsoft.Extensions.Hosting 10.0.5
@@ -38,36 +38,196 @@ Proprietary class library. Plugin architecture via reflection discovery.
 | `IDeploymentTarget` | Create app in MDM system | `MecmTarget` (done), `BareStaging` |
 | `IWrapperGenerator` | Install/uninstall scripts | `BareWrapper` (done), `PsadtWrapper` |
 
-Core services: DownloadService (curl.exe), MsiInspectionService (COM), WrapperGeneratorService, ManifestService, StagingService, MecmTarget (powershell.exe 5.1 for CM cmdlets).
+### Core Services
 
-### CM01 Lab Validation
-- 114 apps fully validated end-to-end: Check Latest → Check MECM → Stage → Package → MECM Application
-- Initial 24 HttpRegex apps validated 2026-03-31
-- JsonQuery batch (13 apps) validated 2026-04-01
-- GitHub API batch (19 apps) validated 2026-04-01
-- Adoptium + Corretto batch (21 apps) validated 2026-04-01
-- FileVersion batch (8 apps) validated 2026-04-01
-- REDIRECT batch (3 apps) validated 2026-04-01
-- Citrix CR validated 2026-04-01
-- DYNAMIC batch (10 apps) validated 2026-04-01
-- MSVC Runtimes (2 apps), M365 Apps/Project/Visio (6 apps), CutePDF, Teams, Sysinternals, TeamViewer, paint.net validated 2026-04-02
-- VersionTransform working: insert_dot (7-Zip, WinRAR), replace (WizTree)
-- InstallerFileName override working: fwlink URLs (MSODBCSQL18), query-string URLs (Thunderbird), version-agnostic URLs (VS Code, CCleaner)
-- MSI Manufacturer fallback: invalid chars in Manufacturer field (Thunderbird `*`) falls back to def.Vendor
-- Detection: RegistryKeyValue (MSI apps with ProductCode), File (EXE apps), PropertyType Version for GreaterEquals operator
-- Scraper fetching switched from PS5.1 IWR to curl.exe (handles 308 redirects, WAF, JS-encrypted pages)
-- `REDIR:` pattern prefix for redirect URL extraction (Slack)
-- `{display_version}` placeholder for post-transform version in download URLs (Inkscape)
-- GitLab tags API for Inkscape (inkscape.org blocks automated requests)
-- `NoUserAgent` flag on VersionScraperConfig — Adobe blocks browser UA from server IPs
-- `DisplayVersionOverride` on AppDefinition — decouples UI display version from URL transform version
-- `DownloadUrlQuery` on HttpRegexScraper — extracts download URL from same page scrape (Power BI, TortoiseSVN, XenCenter, VMware Tools)
-- `regex_replace` transform for Adoptium LTS suffix stripping and Corretto 5→4 part version
-- `FileVersionScraper` — downloads installer to temp cache, reads EXE/MSI version properties
+| Service | Dependency | Status |
+|---------|-----------|--------|
+| `DownloadService` | curl.exe | Done |
+| `MsiInspectionService` | COM (WindowsInstaller) | Done |
+| `ArchiveExtractionService` | 7z.exe | **TODO** — required for installer manifest extraction (NSIS, Burn, InnoSetup, ZIP) |
+| `InstallerIdentificationService` | 7z.exe | **TODO** — detect installer framework from EXE binary (NSIS, InnoSetup, WiX Burn, InstallShield) |
+| `InstallerMetadataService` | ArchiveExtractionService + framework readers | **TODO** — auto-derive detection rules from installer manifests |
+| `WrapperGeneratorService` | — | Done |
+| `ManifestService` | — | Done |
+| `StagingService` | all above | Done |
+| `MecmTarget` | powershell.exe 5.1 (CM cmdlets) | Done |
+
+### InstallerFramework — Installer Type Identification & Metadata Extraction
+
+**`InstallerFramework` field on AppDefinition** — identifies the installer technology. Required for automated detection derivation.
+
+Values: `NativeMSI`, `NSIS`, `InnoSetup`, `WixBurn`, `InstallShield`, `Squirrel`, `MSIX`, `ZIP`, `Unknown`
+
+**Auto-identification** (when field is not set): Extract EXE with 7z → inspect payload structure:
+- `$PLUGINSDIR/` → NSIS
+- `{app}/` + `unins000.exe` → InnoSetup
+- `*.msi` + `BootstrapperCore.dll` → WiX Burn
+- `AppxManifest.xml` → MSIX
+- Top-level `*.msi` only → wrapped MSI (self-extracting)
+
+**Per-framework manifest readers:**
+
+| Framework | Extraction | Metadata Source | Detection Output |
+|-----------|-----------|-----------------|-----------------|
+| NativeMSI | COM (no extraction) | MSI tables: ProductCode, ProductVersion, Manufacturer | RegistryKeyValue with ProductCode + DisplayVersion |
+| NSIS | 7z | `product-info.json` (JetBrains), payload scan | RegistryKey existence or File detection |
+| InnoSetup | `innoextract` (vendor) | Compiled script: `[Setup]` AppName, AppVersion, DefaultDirName, `[Registry]` section | RegistryKey with InnoSetup `_is1` key pattern |
+| WiX Burn | 7z | Inner `.msi` → MSI tables | RegistryKeyValue with inner MSI ProductCode |
+| MSIX | 7z or ZipFile | `AppxManifest.xml`: Identity Name, Version, Publisher | Native MSIX detection (CM handles automatically) |
+| Squirrel | 7z | `*.nuspec` inside RELEASES file | Per-user File detection or user ARP key |
+| ZIP | ZipFile | File inventory: pick primary EXE, read FileVersion | File existence/version detection |
+
+**Goal:** Given an installer, produce the correct detection rule without manual authoring or trial-and-error deployment.
+
+### MSIX Deployment Type Support
+
+`MecmTarget` must support creating native MSIX deployment types via `Add-CMMSixDeploymentType` (or equivalent CM cmdlet). CM handles provisioning, detection, and per-user registration natively for MSIX — no custom detection scripts needed.
+
+Blocked apps: Microsoft Teams, Slack
+
+### Per-User Deployment Support
+
+Some apps (Obsidian, Postman, Zoom EXE) only install per-user. The engine must support:
+- User-targeted deployments (deploy to user collections, not device collections)
+- User-context detection (ARP in `HKCU` or `%LOCALAPPDATA%` file paths)
+- Extended hardware inventory via MOF edits for detecting user-installed apps
+- Alternatively: force machine-wide install via `/D=` (NSIS), `/ALLUSERS` (InnoSetup), or MSI variant when available
+
+Blocked apps: Obsidian (NSIS per-user), Postman (Squirrel per-user), Zoom EXE (per-user, MSI variant available)
+
+### Auto-Distribute After Package
+
+After `MecmTarget.PackageAsync` succeeds, optionally trigger `Start-CMContentDistribution -DistributionPointGroupName`. Configurable per-operation or globally in Settings. Eliminates manual content distribution step.
+
+### Auto-Deploy After Distribute
+
+After content distribution succeeds, optionally create deployment to a configured test collection with configurable purpose (Required/Available) and maintenance window overrides. Eliminates manual deployment creation step.
+
+### Content Share Path Validation
+
+Before `MecmTarget` copies content to the network share, validate that the target path is accessible and creatable. Fail fast with a clear error message instead of creating CM Applications that reference non-existent content.
+
+Includes: vendor name sanitization (`SanitizeFolderName` — done 2026-04-03), UNC path accessibility check, disk space check.
+
+### Version History Database (SQLite)
+
+Local SQLite database tracking every Check Latest / Stage / Package operation.
+- Schema: AppId, Version, Timestamp, Operation, Status, Duration, ErrorMessage, DetectionRule
+- App detail pane: click a row in the grid to see full version history, stage/package logs
+- Export to CSV/JSON for reporting
+- Powers "what changed since last check" diff view
+- Tracks which detection rule was applied to each packaged version (audit trail)
+
+Pulled forward from v2.3 — essential for regression tracking and operational visibility.
+
+### Comment Field on Package
+
+Make the comment/description field optional on Package. Show OK/Cancel prompt if empty rather than requiring input. Current behavior blocks the workflow.
+
+### Detection Conformance Sweep
+
+Programmatic validation that all 116 definitions produce correct detection rules via the new `InstallerIdentificationService` pipeline. For each definition:
+1. Load cached installer (already downloaded from staging)
+2. Run `InstallerIdentificationService.ExtractMetadataAsync` to derive detection
+3. Compare metadata-derived detection against the hardcoded detection in the JSON
+4. **Match** → remove hardcoded detection fields, let engine derive at staging time
+5. **Mismatch** → flag for investigation, log both expected and derived values
+
+Goal: eliminate all hardcoded detection paths/keys from definitions. The engine derives detection from the installer itself. Only exceptions: apps with no extractable metadata (online installers, ODT) or apps where the vendor's ARP registration is non-standard and unpredictable.
+
+Exceptions (require manual detection config):
+- M365 Apps/Project/Visio — ODT-based, no installer to inspect
+- SSMS — WiX Burn bootstrapper with complex multi-MSI bundle
+- VS Enterprise/Community — online installer, no local payload
+
+### Online vs Offline Packaging Options
+
+For apps with large or online-delivered payloads, provide user options:
+- **M365 Apps**: Online (thin installer, downloads at install time) vs Offline (full ODT `/download` source). ODT XML configuration integrated into Settings with per-product customization (channel, excluded apps, update behavior). Settings UI with tooltips explaining each option, similar to Citrix Workspace App (CWA) parameter settings.
+- **SSMS / VS**: Online bootstrapper (small EXE, downloads components) vs Offline layout (`--layout` flag). User selects workloads/components in Settings.
+- **ODT XML Builder**: Integrated M365 configuration UI — select products, channel, architecture, excluded apps, update settings. Generates install.xml and uninstall.xml. Preview XML before staging.
+- **Installer Parameter Settings**: Per-definition configurable install/uninstall arguments with tooltips describing each switch. Similar to CWA Settings page pattern — grouped parameters with descriptions, defaults, and validation.
+
+### Pre-Stage Config Review Dialog (DONE)
+
+Before staging, if an app has `InstallerSettings` defined, a `ContentDialog` shows the `InstallerSettingsPanel` with all configurable parameters (toggles, dropdowns, text, numbers with tooltips). User reviews/adjusts and clicks Continue or Cancel.
+
+- Per-definition: `"ReviewBeforeStage": true` — always prompt (PostgreSQL port, VS workloads)
+- Global: `SkipConfigReview` in Settings — skip for apps that don't force it
+- Apps with no `InstallerSettings` — skip silently
+
+### .NET 8 Split (DONE)
+
+Split `.NET 8 Desktop Runtime (x86+x64)` into separate x86 and x64 definitions. 117 definitions total.
+
+### Local Definition Test Runner
+
+Validates install, detection, and uninstall locally on bare metal without CM dependency. Faster than lab VM round-trips.
+
+**Two test tracks based on `InstallContext`:**
+
+| Track | Context | Method | Apps |
+|-------|---------|--------|------|
+| **User** | Standard user, no elevation | Direct launch | Per-user apps (Obsidian, Postman, etc.) |
+| **Machine** | SYSTEM | `psexec -s` | All machine-install apps (browsers, runtimes, tools, etc.) |
+
+No crossover — user apps never tested as SYSTEM, machine apps never tested as standard user.
+
+**Test pipeline per app:**
+1. Run install.ps1 (user context or SYSTEM via psexec)
+2. Evaluate detection rule against local registry/filesystem
+3. Run uninstall.ps1
+4. Verify detection returns false (clean removal)
+5. Log results to SQLite version history
+
+Uses `DetectionTester` module functions for detection evaluation. `psexec -s` for SYSTEM context. Results feed into REGRESSION-STATUS.md uninstall column.
+
+**Test Harness** (`tools/TestHarness/`): Console app referencing the engine DLL directly. Stages and tests all definitions headlessly — no GUI needed.
+- Run: `dotnet run -- [definitionsDir] [downloadRoot]`
+- Output: CSV results file + SQLite version history entries
+- Captures full ARP baseline before testing, validates no ARP changes after testing on physical hardware
+- .NET 10 testing deferred to last app (avoid breaking the test runtime)
+
+### ARP-Driven Application Naming (replaces double-bitness fix)
+
+CM Application Name and Software Version are populated directly from ARP registry data extracted from the installer via `InstallerMetadata`:
+- **Software Center display name** = ARP `DisplayName` verbatim (e.g., "7-Zip 26.00 (x64 edition)")
+- **Software Version** = ARP `DisplayVersion` verbatim (e.g., "26.00.00.0")
+- No string construction, no templates, no bitness appending
+- Eliminates double-bitness at the root — nothing to double because we're not constructing the name
+- Fallback to `def.Application` + `def.Architecture` only when metadata extraction fails (online installers, ODT, vendor-gated)
+
+This ensures Software Center shows exactly what Programs and Features shows.
+
+### CM01 Lab Validation — Per-App Pipeline Status
+
+Full pipeline: Check Latest → Check MECM → Stage → Package → Distribute → Deploy → Install → Detect → Uninstall
+
+See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for the complete per-app validation table.
+
+**Summary (2026-04-04):**
+- **90 apps signed off** — Install + Detection validated on CLIENT01
+- **11 apps deferred** — Content distribution, per-user installers, or installer framework issues
+- **13 apps excluded** — Architecture changes needed (MSIX, Burn extraction, CDN throttle, PUP, wrong hypervisor)
+- **2 apps vendor-gated** — Manual download required (Citrix LTSR, VMware Workstation)
+- **Uninstall validation**: Not yet started. Next phase after all detection is signed off.
+
+**Engine fixes applied during validation:**
+- `BuildDetection` sanitizes `+`/`-` to `.` for Version-type RegistryKeyValue detection
+- `BuildDetection` substitutes `{version}` in RegistryKeyValue and RegistryKey key templates
+- `SanitizeFolderName` in MecmTarget — strips trailing dots, commas, special chars from vendor folder names
+- VersionTransform working: insert_dot, replace, strip_prefix, regex_replace
+- InstallerFileName override working: fwlink URLs, query-string URLs, version-agnostic URLs
+- MSI Manufacturer fallback: invalid chars falls back to def.Vendor
+- Scraper fetching via curl.exe (handles 308 redirects, WAF, JS-encrypted pages)
+- `REDIR:` pattern prefix for redirect URL extraction
+- `NoUserAgent` flag, `DisplayVersionOverride`, `DownloadUrlQuery`
+- `regex_replace` transform for Adoptium LTS suffix stripping and Corretto version formats
+- `FileVersionScraper` — downloads installer to temp cache, reads EXE/MSI/MSIX version properties
 - `--max-filesize 1` in REDIR mode for fast redirect resolution without downloading body
 
 ### JSON App Definitions
-One file per app. Community-contributable.
+One file per app. Community-contributable. `InstallerFramework` field added to schema (2026-04-04, all 116 definitions populated).
 
 ### Acquisition: Static URL vs Winget
 - Static URL (default): works everywhere
@@ -75,31 +235,39 @@ One file per app. Community-contributable.
 
 ### PSADT Integration
 Separate CM Application (not second DT) to preserve TS compatibility.
+- Creates a SECOND separate CM Application (`[Interactive]` suffix), NOT a second DT on the same app
+- Reason: a user-interactive DT poisons TS compatibility for the entire app in MECM
+- Silent app = Required/TS deployments. Interactive app = Available/Software Center self-service
 
-### App Conversion Status: 115 of 117 Fully Automated
-All 117 apps have JSON definitions. 115 are fully automated end-to-end (Check Latest → Check MECM → Stage → Package). 2 require manual download (Citrix LTSR, VMware Workstation) — resolved in v2.2.
+### Remaining v2.1 Work — Priority Order
 
-| Scraper | Apps | Method |
-|---------|------|--------|
-| HttpRegex | 50+ | Page/API scrape + regex |
-| JsonQuery | 35+ | JSON API path queries |
-| FileVersion | 10 | Download + EXE/MSI/MSIX inspection |
-| CdnCab | 6 | Office CDN CAB + VersionDescriptor.xml |
-| LAST_MODIFIED | 1 | HTTP header date |
+**Foundation (build first):**
+1. `ArchiveExtractionService` — 7z wrapper in the engine
+2. `InstallerFramework` field + `InstallerIdentificationService` — auto-detect framework from EXE
+3. Per-framework manifest readers (NSIS, InnoSetup, WiX Burn, MSIX, Squirrel, ZIP)
+4. `InstallerMetadataService` — automated detection derivation from manifest data
+5. MSIX deployment type in `MecmTarget`
+6. Per-user deployment support
 
-### Remaining v2.1 Work
-- **BareStaging** — `IDeploymentTarget` that stages content without creating a CM Application
-- **PsadtWrapper** — `IWrapperGenerator` that produces Deploy-Application.ps1 (PSADT) wrappers
-  - Creates a SECOND separate CM Application (`[Interactive]` suffix), NOT a second DT on the same app
-  - Reason: a user-interactive DT poisons TS compatibility for the entire app in MECM
-  - Silent app = Required/TS deployments. Interactive app = Available/Software Center self-service
-- **"Add New App" wizard** — guided workflow to create a new JSON definition
-  - Winget path: `winget search` → pick → download → introspect installer → auto-generate definition
-  - Manual path: enter vendor/URL/regex, test scrape, configure detection
-  - MSI table inspection (no install needed) for ProductCode, version, detection data (~60% of apps)
-- Per-app settings auto-generation from JSON schema
-- Migration tooling (PS1 → JSON converter)
-- Deprecate PS1 sync files once all apps validated on JSON definitions
+**Framing (builds on foundation):**
+7. Auto-distribute after Package
+8. Auto-deploy after distribute
+9. Content share path validation
+10. Version history database (SQLite)
+11. `BareStaging` — `IDeploymentTarget` for staging without CM Application
+12. `PsadtWrapper` — PSADT Deploy-Application.ps1 wrapper generation
+
+**Finishing:**
+13. "Add New App" wizard — uses InstallerFramework, 7z extraction, metadata reading
+14. Comment field optional (OK/Cancel prompt)
+15. .NET 8 x86/x64 split
+16. Double-bitness cosmetic fix
+17. Per-app installer parameter settings — configurable install/uninstall arguments with tooltips per switch (SSMS workloads, VS components, ODT products/channel, CWA params, PostgreSQL port/password, etc.)
+18. Detection conformance sweep — validate all definitions against engine-derived detection
+19. Online vs offline packaging options — M365 ODT XML builder, SSMS/VS layout mode, integrated configuration UI
+20. Per-app settings auto-generation from JSON schema
+21. Migration tooling (PS1 → JSON converter)
+22. Deprecate PS1 sync files once all apps validated on JSON definitions
 
 ---
 
@@ -121,11 +289,6 @@ WebView2 panel instead of downloading via curl.
 6. Download is redirected into the staging content folder automatically
 7. Once file lands, staging resumes (inspect, wrappers, manifest, detection)
 8. WebView2 panel closes, Package proceeds normally
-
-**Why WebView2:** Already a dependency (WPF-UI). The `DownloadStarting` API
-provides filename, URL, and allows redirecting the save path — no temp file
-juggling. Handles cookies, TOS gates, CAPTCHA, and auth portals transparently
-because the user interacts with a real browser context.
 
 **Per-definition config:**
 ```json
@@ -156,7 +319,7 @@ Check Latest works today. Stage blocked by download authentication. WebView2 pan
 
 ---
 
-## v2.3 — Intune + Notifications + Version History
+## v2.3 — Intune + Notifications
 
 ### Intune Deployment Target
 New `IDeploymentTarget` implementation alongside `MecmTarget`.
@@ -172,13 +335,6 @@ Fires after Stage or Package completes (success or failure).
 - `EmailPostAction` — SMTP notification with summary (app, version, status)
 - Configurable per-app or globally in Settings
 - Template-based message body with `{app}`, `{version}`, `{status}`, `{timestamp}` placeholders
-
-### Version History Database
-- Local SQLite database tracking every Check Latest / Stage / Package operation
-- Schema: AppId, Version, Timestamp, Operation, Status, Duration, ErrorMessage
-- App detail pane: click a row in the grid to see full version history, stage/package logs, changelog
-- Export to CSV/JSON for reporting
-- Powers "what changed since last check" diff view
 
 ### Community Definition Repository
 - Public GitHub repo of curated JSON definitions (separate from the product repo)
@@ -207,7 +363,6 @@ Fires after Stage or Package completes (success or failure).
 
 ### Agent Capabilities
 - **Scheduled operations**: auto-check, auto-stage, auto-package, auto-import on configurable cron schedule
-- **Auto-distribute**: trigger MECM content distribution to DPs after package creation
 - **Deployment-ring automation**: user-defined phased deployment pipeline
   - Define N staging collections (minimum 3 recommended: Pilot → UAT → Production)
   - Each ring has a collection name, deployment action (Available/Required), and schedule offset (e.g., Pilot=0 days, UAT=+3 days, Production=+7 days)
@@ -231,9 +386,86 @@ Fires after Stage or Package completes (success or failure).
 - `IPostAction` — (introduced in v2.3, extended in v3.0 with agent-aware scheduling)
 
 ### Advanced Features
-- Sandbox pipeline for EXE introspection (Windows Sandbox or Hyper-V isolated environment — run installer, capture ARP registry changes, auto-derive detection rules)
+- Sandbox pipeline for EXE introspection (Windows Sandbox or Hyper-V isolated environment — run installer, capture ARP registry changes, auto-derive detection rules for frameworks that resist static analysis)
 - Centralized version tracking on product website (aggregated telemetry from opt-in instances)
 - Multi-tenant support (multiple MECM sites / Intune tenants from one UI)
+
+### Packr Web — Server-Side Engine + API
+
+The engine core (scrapers, staging, metadata extraction) is pure .NET with no Windows dependencies. .NET 10 runs on Windows, Linux, and macOS. This enables a server-side architecture:
+
+**Architecture:**
+
+| Component | Runtime | Purpose |
+|-----------|---------|---------|
+| **Packr Web API** | ASP.NET on Linux container | Serves definitions, version data, scraper results via REST API |
+| **Engine Core** | .NET 10 (portable) | Scrapers, metadata extraction, version checking — shared with Desktop |
+| **MecmTarget** | Windows-only | CM PowerShell cmdlets — stays on Packr Desktop, not on web server |
+| **Packr Desktop** | WPF-UI, Windows | Full packaging workflow with CM integration |
+| **Trackr** | Next.js on Vercel | Public version tracking — consumes Packr Web API for version data |
+
+**Key decisions:**
+- **No JS/TS scraper rewrite needed.** The .NET engine runs server-side natively. One codebase serves Desktop, Web API, and Trackr.
+- **curl.exe replacement required for Linux.** Replace with `Fluent.Client` (`lepoco/fluent`) or native `HttpClient` with equivalent redirect/header/WAF handling. Fluent.Client provides chainable API with clean syntax for complex HTTP scenarios.
+- **Definitions as SaaS.** Packr Desktop pulls definitions from `packr.signalridgelabs.com` on demand. Not bundled locally. This IS the SaaS value proposition — configs come from SRL.
+- **On-prem container for enterprise.** Docker image with the engine + web console. OS-agnostic admin interface (Linux admin manages Windows MECM environment via browser). Container facilitates MECM commands on the site server via network logon.
+
+**Packr Web API endpoints:**
+- `GET /api/v1/definitions` — list all app definitions (metadata only)
+- `GET /api/v1/definitions/{id}` — full definition JSON
+- `GET /api/v1/versions/latest` — latest version for all apps (cached, refreshed on schedule)
+- `GET /api/v1/versions/{id}/history` — version history for an app
+- `POST /api/v1/scrape/{id}` — trigger on-demand version check for an app
+
+### Licensing & Subscription Model
+
+Packr Desktop scrapes vendors locally (free, offline, no dependency). Subscription adds cloud-hosted version data and definitions as a service. No license key files — API token validates against `packr.signalridgelabs.com`.
+
+**Trackr as the version data backbone:**
+- Trackr already scrapes 115+ apps on a schedule → `GET /api/v1/versions/latest`
+- Packr Desktop (subscription) calls Trackr API instead of 117 individual vendor scrapes — one HTTP call
+- Faster, more reliable, less vendor WAF/throttle exposure for enterprise users
+- Trackr is free/public for version alerts; Packr subscription gets priority data + definitions
+
+**Tiers:**
+
+| Tier | Scraping | Definitions | Features | Price |
+|------|----------|-------------|----------|-------|
+| **Free** | Local (engine DLL) | Bundled/community | Full pipeline, offline/air-gapped | Free |
+| **Pro** | Cloud (Trackr API) | Cloud-hosted from packr.srl.com | Pre-scraped versions, auto-stage, priority def updates | Subscription |
+| **Enterprise** | Cloud + on-prem fallback | Cloud + custom private defs | Packr Web container, deployment rings, multi-site, audit logging | Subscription |
+
+**What moves to the cloud (Pro/Enterprise):**
+- Version scraping (Trackr API replaces local scraper calls)
+- Definition hosting (pull on demand from `packr.signalridgelabs.com`)
+- Definition updates (new apps, updated URLs/patterns pushed from SRL)
+
+**What stays local (all tiers):**
+- Engine DLL (staging, packaging, metadata extraction, detection derivation)
+- MECM integration (MecmTarget, PowerShell cmdlets, CM connection)
+- Content (installers, wrappers, content share)
+- Install/uninstall execution
+- SQLite version history
+
+**Subscription validation:**
+- API token issued per-org on subscription
+- Packr Desktop sends token with each Trackr API / definition pull request
+- Token validates against `packr.signalridgelabs.com/api/v1/auth/validate`
+- Graceful degradation: if subscription lapses, falls back to local scraping (free tier behavior)
+- No phone-home for offline/air-gapped installs — free tier always works without internet
+
+### Testing — Built Alongside, Not After
+- **Browser E2E test suite** (Playwright) for Packr Web console — written as each page is built
+- **API integration tests** for every Packr Web API endpoint
+- **Test plan** is a deliverable at each milestone, shipped with the feature
+- Desktop app: existing Pester + engine unit tests. Web: Playwright + API integration tests.
+
+**Security surface (v4.0+ vision, needs extensive planning):**
+- Mutual TLS between container and MECM site server
+- Role-based access for web console
+- Audit logging for all packaging operations
+- Credential vault integration (no stored passwords)
+- Zero standing privileges for MECM admin actions
 
 ---
 
@@ -247,7 +479,8 @@ Fires after Stage or Package completes (success or failure).
 ### v2.1
 - Unit tests for engine DLL
 - JSON schema validation
-- End-to-end: 115 of 117 apps validated on CM01 (Check Latest + Check MECM + Stage + Package)
+- Per-app pipeline validation: Check Latest → Check MECM → Stage → Package → Distribute → Deploy → Install → Detect → Uninstall
+- See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-app status
 
 ### v2.2–v2.3
 - WebView2 download interception tests (mock TOS page)

@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "65caa584c123428a",
+    "Vendor":  "PostgreSQL Global Development Group",
+    "Application":  "PostgreSQL 16 (x64)",
+    "CMName":  "PostgreSQL 16",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.postgresql.org/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "InstallShield",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://endoflife.date/api/postgresql.json",
+                           "Pattern":  "[?cycle=16].latest"
+                       },
+    "DownloadUrl":  "https://get.enterprisedb.com/postgresql/postgresql-{version}-1-windows-x64.exe",
+    "InstallArgs":  "--mode unattended --unattendedmodeui none --superpassword P0stgres!MECM --serverport 5432 --install_runtimes 0 --disable-components stackbuilder",
+    "UninstallArgs":  "--mode unattended",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\PostgreSQL\\16\\bin",
+                      "FileName":  "postgres.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "postgres",
+                           "pgAdmin4"
+                       ]
+}

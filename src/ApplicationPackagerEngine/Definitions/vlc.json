@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.videolan.org/vlc/",
     "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
     "Acquisition":  {
 
                     },
@@ -21,9 +22,10 @@
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\VLC media player",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
                       "ValueName":  "DisplayVersion",
-                      "Operator":  "IsEquals",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

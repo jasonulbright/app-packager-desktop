@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://tortoisegit.org/",
     "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
     "Acquisition":  {
 
                     },

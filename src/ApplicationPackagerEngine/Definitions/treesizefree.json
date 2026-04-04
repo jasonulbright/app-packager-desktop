@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.jam-software.com/treesize_free",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
     "Acquisition":  {
 
                     },

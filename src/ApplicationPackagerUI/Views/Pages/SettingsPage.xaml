@@ -119,13 +119,19 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Estimated Runtime (mins)" Style="{StaticResource FieldLabel}" />
-                    <ui:TextBox Text="{Binding EstimatedRuntimeMins, UpdateSourceTrigger=PropertyChanged}"
-                                Width="100" HorizontalAlignment="Left" />
+                    <ui:NumberBox Value="{Binding EstimatedRuntimeMins, Mode=TwoWay}"
+                                  Minimum="1" Maximum="120" SmallChange="5" LargeChange="15"
+                                  SpinButtonPlacementMode="Compact"
+                                  Width="140" HorizontalAlignment="Left"
+                                  ToolTip="Estimated time for the installer to complete. Used by MECM for deployment scheduling." />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Maximum Runtime (mins)" Style="{StaticResource FieldLabel}" />
-                    <ui:TextBox Text="{Binding MaximumRuntimeMins, UpdateSourceTrigger=PropertyChanged}"
-                                Width="100" HorizontalAlignment="Left" />
+                    <ui:NumberBox Value="{Binding MaximumRuntimeMins, Mode=TwoWay}"
+                                  Minimum="1" Maximum="720" SmallChange="5" LargeChange="30"
+                                  SpinButtonPlacementMode="Compact"
+                                  Width="140" HorizontalAlignment="Left"
+                                  ToolTip="Maximum time before MECM considers the install as failed. Default 30 minutes." />
                 </StackPanel>
             </Grid>
 

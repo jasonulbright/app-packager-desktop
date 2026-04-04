@@ -4,5 +4,5 @@
     "ValidationSchedule":  "none",
     "Category":  "MECM",
     "Status":  "active",
-    "Notes":  "INFO: SRL Packr by Signal Ridge Labs, v2.1.0-alpha6\nINFO: 115/117 apps fully automated, 2 vendor-gated\nINFO: See ROADMAP.md for v2.2-v3.0 plans\nTASK: Full regression test on CM01"
+    "Notes":  "INFO: SRL Packr by Signal Ridge Labs, v2.1 engine near-complete\nINFO: 90/116 apps signed off (install + detection validated on CM01)\nINFO: Engine: ArchiveExtractionService, InstallerIdentificationService, automated detection derivation, MSIX DT, per-user support, SQLite history, auto-distribute/deploy\nTASK: v2.1 finishing items (15-22): .NET8 split, cosmetics, per-app settings, ODT builder, migration tooling\nTASK: Uninstall validation for 90 signed-off apps"
 }

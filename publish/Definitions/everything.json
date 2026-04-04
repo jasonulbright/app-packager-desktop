@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "67cc2246f034493e",
+    "Vendor":  "Voidtools",
+    "Application":  "Everything (x64)",
+    "CMName":  "Everything",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.voidtools.com/",
+    "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeEXE",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://www.voidtools.com/downloads/",
+                           "Pattern":  "Everything-(\\d+\\.\\d+\\.\\d+\\.\\d+)\\.x64\\.msi"
+                       },
+    "DownloadUrl":  "https://www.voidtools.com/Everything-{version}.x64.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Everything"
+                       ]
+}

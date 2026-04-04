@@ -27,6 +27,13 @@ public sealed class AppSettings
     // Auto-check on launch
     public bool AutoCheckLatestOnLaunch { get; set; } = true;
 
+    // Staging behavior
+    /// <summary>
+    /// When true, skip the installer settings review dialog before staging.
+    /// Individual apps with ReviewBeforeStage=true will still prompt.
+    /// </summary>
+    public bool SkipConfigReview { get; set; }
+
     // Per-app: M365
     public string M365Channel { get; set; } = "MonthlyEnterprise";
 

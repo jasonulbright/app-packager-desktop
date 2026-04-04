@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "000000280bb18b20",
+    "Vendor":  "Bitwarden Inc",
+    "Application":  "Bitwarden Desktop (x64)",
+    "CMName":  "Bitwarden",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://bitwarden.com/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://api.github.com/repos/bitwarden/clients/releases?per_page=30",
+                           "Pattern":  "\"tag_name\":\\s*\"desktop-v([\\d.]+)\""
+                       },
+    "DownloadUrl":  "https://github.com/bitwarden/clients/releases/download/desktop-v{version}/Bitwarden-Installer-{version}.exe",
+    "InstallArgs":  "/allusers /S",
+    "UninstallArgs":  "/allusers /S",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Bitwarden",
+                      "FileName":  "Bitwarden.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Bitwarden"
+                       ]
+}

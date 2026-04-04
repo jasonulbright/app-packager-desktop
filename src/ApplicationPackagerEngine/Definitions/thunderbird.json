@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.thunderbird.net/",
     "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeEXE",
     "Acquisition":  {
 
                     },

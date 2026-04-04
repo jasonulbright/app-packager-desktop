@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.python.org/downloads/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
     "Acquisition":  {
 
                     },
@@ -20,9 +21,10 @@
     "UninstallArgs":  "/uninstall /quiet",
     "Detection":  {
                       "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Python",
+                      "FilePath":  "C:\\Program Files\\Python314",
                       "FileName":  "python.exe",
-                      "PropertyType":  "Existence",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

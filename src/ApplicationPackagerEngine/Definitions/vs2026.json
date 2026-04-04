@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://visualstudio.microsoft.com/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
     "Acquisition":  {
 
                     },

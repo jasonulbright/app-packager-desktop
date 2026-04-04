@@ -1,0 +1,35 @@
+{
+    "Schema":  1,
+    "Id":  "c1d2e3f4a5b60002",
+    "Vendor":  "Microsoft",
+    "Application":  "Visual C++ Redistributable (x86)",
+    "CMName":  "Visual C++ Redistributable x86",
+    "Architecture":  "x86",
+    "VendorUrl":  "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "WixBurn",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "FileVersion",
+                           "Url":  "https://aka.ms/vc14/vc_redist.x86.exe",
+                           "Pattern":  "ProductVersion",
+                           "VersionTransform":  "regex_replace:\\.\\d+$"
+                       },
+    "DownloadUrl":  "https://aka.ms/vc14/vc_redist.x86.exe",
+    "InstallerFileName":  "vc_redist.x86-{version}.exe",
+    "InstallArgs":  "/install /quiet /norestart",
+    "UninstallArgs":  "/uninstall /quiet /norestart",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Windows\\SysWOW64",
+                      "FileName":  "msvcp140.dll",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  false
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

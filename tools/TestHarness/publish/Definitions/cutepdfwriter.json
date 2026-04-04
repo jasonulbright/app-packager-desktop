@@ -1,0 +1,35 @@
+{
+    "Schema":  1,
+    "Id":  "e1f2a3b4c5d60001",
+    "Vendor":  "Acro Software Inc.",
+    "Application":  "CutePDF Writer",
+    "CMName":  "CutePDF Writer",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.cutepdf.com/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "InnoSetup",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "FileVersion",
+                           "Url":  "http://www.cutepdf.com/download/CuteWriter.exe",
+                           "Pattern":  "ProductVersion"
+                       },
+    "DownloadUrl":  "http://www.cutepdf.com/download/CuteWriter.exe",
+    "InstallerFileName":  "CuteWriter-{version}.exe",
+    "InstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+    "UninstallArgs":  "/uninstall /s",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CutePDF Writer Installation",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

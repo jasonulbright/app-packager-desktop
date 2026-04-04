@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.microsoft.com/microsoft-teams/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "MSIX",
     "Acquisition":  {
 
                     },

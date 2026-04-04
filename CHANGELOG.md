@@ -2,6 +2,51 @@
 
 All notable changes to SRL Packr are documented here.
 
+## [2.1.0-alpha7] - 2026-04-04
+
+### Engine — Installer Metadata Extraction (Foundation)
+- **ArchiveExtractionService** — 7z.exe wrapper: extract, list, extract single file, identify installer framework from archive contents
+- **InstallerIdentificationService** — auto-detect NSIS/InnoSetup/WixBurn/MSIX/ZIP from EXE binary via 7z inspection; extract detection-relevant metadata per framework
+- **Per-framework manifest readers**: NativeMSI (COM), NSIS (product-info.json + primary EXE), InnoSetup ({app}/ + _is1 key), WiX Burn (inner MSI extraction), MSIX (AppxManifest.xml), ZIP (primary EXE FileVersion)
+- **Automated detection derivation** — `BuildDetection` falls back to `InstallerMetadata` when definition's `{ProductCode}` can't be resolved. Eliminates manual detection rule authoring for most installer types.
+- **InstallerFramework field** on `AppDefinition` — all 116 definitions populated (NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, MSIX, ZIP, NativeEXE, ODT)
+- **InstallerParameter model** — schema-driven per-app settings with ControlType (Toggle/Dropdown/Text/Number), CommandFragment, Group, Tooltip. Framework for plugin-style installer parameter UI.
+
+### Engine — Deployment Automation
+- **MSIX deployment type** in MecmTarget — `Add-CMWindowsAppxDeploymentType` for Teams/Slack. CM handles detection natively from MSIX manifest.
+- **Per-user deployment support** — `InstallContext` field (Machine/User) on AppDefinition, flows to `InstallationBehaviorType InstallForUser` on deployment type. LogonRequirementType correctly omitted for user installs per CM docs.
+- **Auto-distribute** — `MecmTarget.DistributeAsync()` with `-DistributionPointGroupName`
+- **Auto-deploy** — `MecmTarget.DeployAsync()` with configurable purpose, maintenance window override
+- **Content share path validation** — pre-check UNC accessibility before packaging
+- **SanitizeFolderName** — strips trailing dots, commas, special chars from vendor folder names (prevents CM content path mismatches)
+
+### Engine — Services
+- **VersionHistoryService** — SQLite database tracking every operation (CheckLatest, Stage, Package, Distribute, Deploy). Per-app history, latest-per-app view, time range queries.
+- **BareStaging** — `IDeploymentTarget` that copies content to network share without creating CM Application. For PSADT prep, Intune prep, manual workflows.
+- **PsadtWrapper** — generates Deploy-Application.ps1 with vendor/app metadata, process close list, PSADT best practices. Creates separate [Interactive] CM Application, not second DT.
+- **BuildDetection version sanitization** — `+` and `-` converted to `.` for Version-type RegistryKeyValue detection values
+- **BuildDetection {version} substitution** — in RegistryKeyValue and RegistryKey key templates
+
+### UI
+- **Add New App wizard** — 5-step page (Basic Info → Version Source → Download → Install/Uninstall → Review & Save) with CardExpander sections, test scrape button, ComboBox selectors, tooltips on every field
+- **ContentDialogHost** added to MainWindow — enables ContentDialog overlays throughout the app
+- **Comment field optional** — Package without comment shows ContentDialog (Continue/Cancel) instead of blocking error
+- **NumberBox** for runtime settings — replaces TextBox with spin buttons, min/max, tooltips
+- **StepVisibilityConverter** — drives wizard step switching
+
+### Regression Testing — 90 of 116 Signed Off
+- Full pipeline validated on CM01 + CLIENT01: Check Latest → Check MECM → Stage → Package → Distribute → Deploy → Install → Detect
+- 11 deferred (install/distribution issues), 13 excluded (architecture changes), 2 vendor-gated
+- Detection fixes: 42 definitions corrected across 4 validation rounds
+- See REGRESSION-STATUS.md for per-app validation table
+
+## [2.1.0-alpha6] - 2026-04-02
+
+### Engine — Detection Fixes
+- Disk logging: per-session log files in `%LOCALAPPDATA%\SRLPackr\Logs\`
+- Status labels realigned to workflow (Latest retrieved, Staged, Packaged, etc.)
+- StatusToBrushConverter default changed from Transparent to Gray
+
 ## [2.1.0-alpha5] - 2026-04-02
 
 ### App Definitions — 117 of 117 validated

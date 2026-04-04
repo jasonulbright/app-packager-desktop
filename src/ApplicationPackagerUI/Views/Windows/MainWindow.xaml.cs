@@ -14,7 +14,8 @@ public partial class MainWindow
         MainWindowViewModel viewModel,
         INavigationService navigationService,
         IServiceProvider serviceProvider,
-        ISnackbarService snackbarService)
+        ISnackbarService snackbarService,
+        IContentDialogService contentDialogService)
     {
         _serviceProvider = serviceProvider;
         DataContext = viewModel;
@@ -23,6 +24,7 @@ public partial class MainWindow
 
         navigationService.SetNavigationControl(RootNavigation);
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
+        contentDialogService.SetDialogHost(RootContentDialog);
         RootNavigation.SetServiceProvider(serviceProvider);
 
         // Note: With CanContentScroll="False" on pages, the NavigationView's

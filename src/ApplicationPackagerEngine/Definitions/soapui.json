@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.soapui.org/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NativeEXE",
     "Acquisition":  {
 
                     },
@@ -19,10 +20,12 @@
     "InstallArgs":  "-q",
     "UninstallArgs":  "-q",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\SmartBear\\SoapUI",
-                      "FileName":  "SoapUI.exe",
-                      "PropertyType":  "Existence",
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\5517-2803-0637-4585",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

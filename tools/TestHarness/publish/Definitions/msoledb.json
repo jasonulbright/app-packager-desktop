@@ -1,0 +1,35 @@
+{
+    "Schema":  1,
+    "Id":  "a1b2c3d4e5f60003",
+    "Vendor":  "Microsoft",
+    "Application":  "Microsoft OLE DB Driver 19 (x64)",
+    "CMName":  "Microsoft OLE DB Driver 19",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://learn.microsoft.com/sql/connect/oledb/",
+    "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "FileVersion",
+                           "Url":  "https://go.microsoft.com/fwlink/?linkid=2318101",
+                           "Pattern":  "MsiProductVersion"
+                       },
+    "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2318101",
+    "InstallerFileName":  "msoledbsql.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "PropertyType":  "String",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

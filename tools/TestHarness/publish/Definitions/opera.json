@@ -1,0 +1,33 @@
+{
+    "Schema":  1,
+    "Id":  "2558aede41f14568",
+    "Vendor":  "Opera Software",
+    "Application":  "Opera Browser (x64)",
+    "CMName":  "Opera Browser",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.opera.com/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "NSIS",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://get.geo.opera.com/pub/opera/desktop/",
+                           "Pattern":  "href=\"(\\d+\\.\\d+\\.\\d+\\.\\d+)/\""
+                       },
+    "DownloadUrl":  "https://get.geo.opera.com/pub/opera/desktop/{version}/win/Opera_{version}_Setup_x64.exe",
+    "InstallArgs":  "/silent /allusers=1 /launchopera=0 /setdefaultbrowser=0",
+    "UninstallArgs":  "--uninstall /silent",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Opera",
+                      "FileName":  "opera.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "opera"
+                       ]
+}

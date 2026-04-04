@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://developer.microsoft.com/microsoft-edge/webview2/",
     "InstallerType":  "EXE",
+    "InstallerFramework":  "NativeEXE",
     "Acquisition":  {
 
                     },
@@ -19,12 +20,13 @@
     "InstallArgs":  "/silent /install",
     "UninstallArgs":  "/silent /uninstall",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Microsoft\\EdgeWebView\\Application",
-                      "FileName":  "msedgewebview2.exe",
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                      "ValueName":  "pv",
                       "PropertyType":  "Version",
                       "Operator":  "GreaterEquals",
-                      "Is64Bit":  true
+                      "Is64Bit":  false
                   },
     "RunningProcess":  [
 

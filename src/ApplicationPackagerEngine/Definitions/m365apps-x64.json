@@ -7,6 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.microsoft.com/microsoft-365/enterprise",
     "InstallerType":  "ODT",
+    "InstallerFramework":  "ODT",
     "Acquisition":  {
 
                     },

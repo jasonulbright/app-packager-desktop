@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "0000006320515248",
+    "Vendor":  "WinDirStat",
+    "Application":  "WinDirStat (x64)",
+    "CMName":  "WinDirStat",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://windirstat.net/",
+    "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/windirstat/windirstat/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:release/v"
+                       },
+    "DownloadUrl":  "https://github.com/windirstat/windirstat/releases/download/release/v{display_version}/WinDirStat-x64.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\WinDirStat",
+                      "FileName":  "WinDirStat.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "WinDirStat"
+                       ]
+}

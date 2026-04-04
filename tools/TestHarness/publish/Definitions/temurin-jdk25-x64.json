@@ -1,0 +1,36 @@
+{
+    "Schema":  1,
+    "Id":  "000000101d0ce892",
+    "Vendor":  "Eclipse Adoptium",
+    "Application":  "Eclipse Temurin JDK 25",
+    "CMName":  "Eclipse Temurin JDK 25",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://adoptium.net/",
+    "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.adoptium.net/v3/assets/latest/25/hotspot?architecture=x64\u0026image_type=jdk\u0026os=windows",
+                           "Pattern":  "[0].version.semver",
+                           "VersionTransform":  "regex_replace:[\\.-]\\d*\\.?LTS$",
+                           "DownloadUrlQuery":  "[0].binary.installer.link"
+                       },
+    "DownloadUrl":  "",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+
+                       ]
+}

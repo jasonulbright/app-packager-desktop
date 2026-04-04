@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "000005da4a74d40a",
+    "Vendor":  "ShareX Team",
+    "Application":  "ShareX (x64)",
+    "CMName":  "ShareX",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://getsharex.com/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "InnoSetup",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "JsonQuery",
+                           "Url":  "https://api.github.com/repos/ShareX/ShareX/releases/latest",
+                           "Pattern":  "tag_name",
+                           "VersionTransform":  "strip_prefix:v"
+                       },
+    "DownloadUrl":  "https://github.com/ShareX/ShareX/releases/download/v{display_version}/ShareX-{display_version}-setup.exe",
+    "InstallArgs":  "/SP- /VERYSILENT /NORESTART /NORUN",
+    "UninstallArgs":  "/SP- /VERYSILENT /NORESTART",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\ShareX",
+                      "FileName":  "ShareX.exe",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "ShareX"
+                       ]
+}

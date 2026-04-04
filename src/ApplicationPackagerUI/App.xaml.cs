@@ -54,6 +54,10 @@ public partial class App : Application
                 services.AddSingleton<ApplicationPackagerEngine.Services.MsiInspectionService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.WrapperGeneratorService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.ManifestService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.VersionHistoryService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.ArchiveExtractionService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.InstallerIdentificationService>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.IconExtractionService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.StagingService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.MecmTarget>();
 
@@ -68,6 +72,8 @@ public partial class App : Application
                 services.AddSingleton<ApplicationsViewModel>();
                 services.AddSingleton<SettingsPage>();
                 services.AddSingleton<SettingsViewModel>();
+                services.AddSingleton<AddAppPage>();
+                services.AddSingleton<AddAppViewModel>();
 
                 // Hosted service
                 services.AddHostedService<ApplicationHostService>();

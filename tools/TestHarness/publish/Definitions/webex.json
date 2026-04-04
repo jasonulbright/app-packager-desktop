@@ -1,0 +1,34 @@
+{
+    "Schema":  1,
+    "Id":  "26b3da773b80430a",
+    "Vendor":  "Cisco",
+    "Application":  "Cisco Webex (x64)",
+    "CMName":  "Cisco Webex",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://www.webex.com/downloads.html",
+    "InstallerType":  "MSI",
+    "InstallerFramework":  "NativeMSI",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://help.webex.com/en-us/article/mqkve8/",
+                           "Pattern":  "Windows[^0-9]*(\\d{2}\\.\\d{1,2}\\.\\d\\.\\d{5})"
+                       },
+    "DownloadUrl":  "https://binaries.webex.com/WebexOfclDesktop-Win-64-Gold/Webex.msi",
+    "InstallArgs":  "/qn /norestart",
+    "UninstallArgs":  "/x {ProductCode} /qn /norestart",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+                      "ValueName":  "DisplayVersion",
+                      "Operator":  "IsEquals",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "CiscoCollabHost",
+                           "webex"
+                       ]
+}

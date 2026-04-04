@@ -1,0 +1,32 @@
+{
+    "Schema":  1,
+    "Id":  "000001b8b99bf5fa",
+    "Vendor":  "Greenshot",
+    "Application":  "Greenshot (x64)",
+    "CMName":  "Greenshot",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://getgreenshot.org/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "InnoSetup",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://api.github.com/repos/greenshot/greenshot/releases/latest",
+                           "Pattern":  "\"name\":\\s*\"Greenshot-INSTALLER-(.*?)-RELEASE\\.exe\""
+                       },
+    "DownloadUrl":  "https://github.com/greenshot/greenshot/releases/download/v{version}/Greenshot-INSTALLER-{version}-RELEASE.exe",
+    "InstallArgs":  "/SP- /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORUN /FORCECLOSEAPPLICATIONS /NORESTART /LANG=en /NOSTARTUP",
+    "UninstallArgs":  "/SP- /VERYSILENT /NORESTART",
+    "Detection":  {
+                      "Type":  "File",
+                      "FilePath":  "C:\\Program Files\\Greenshot",
+                      "FileName":  "Greenshot.exe",
+                      "PropertyType":  "Existence",
+                      "Is64Bit":  true
+                  },
+    "RunningProcess":  [
+                           "Greenshot"
+                       ]
+}
