@@ -205,12 +205,14 @@ Full pipeline: Check Latest → Check MECM → Stage → Package → Distribute 
 
 See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for the complete per-app validation table.
 
-**Summary (2026-04-04):**
-- **90 apps signed off** — Install + Detection validated on CLIENT01
-- **11 apps deferred** — Content distribution, per-user installers, or installer framework issues
-- **13 apps excluded** — Architecture changes needed (MSIX, Burn extraction, CDN throttle, PUP, wrong hypervisor)
-- **2 apps vendor-gated** — Manual download required (Citrix LTSR, VMware Workstation)
-- **Uninstall validation**: Not yet started. Next phase after all detection is signed off.
+**Summary (2026-04-04, automated test harness):**
+- **39 FULL PASS** — Install + Detect + Uninstall + Clean verified via TestHarness
+- **91 installs working** — silent install scripts validated under SYSTEM context
+- **75 detections working** — detection rules validated against local registry/filesystem
+- **36 uninstall-clean failures** — uninstall runs but leaves ARP traces (script refinement needed)
+- **13 install failures** — prereq ordering, custom errors, port conflicts
+- **8 deferred** — MSIX, PUP, hypervisor, harness dependency
+- See [TEST-RESULTS-FINAL-20260404.csv](TEST-RESULTS-FINAL-20260404.csv) for raw data
 
 **Engine fixes applied during validation:**
 - `BuildDetection` sanitizes `+`/`-` to `.` for Version-type RegistryKeyValue detection
