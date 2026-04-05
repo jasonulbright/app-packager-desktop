@@ -1,0 +1,529 @@
+App,Phase,Result,DurationMs
+"Adobe Acrobat Reader DC (x64)","Stage","PASS",0
+"Adobe Acrobat Reader DC (x64)","Install","PASS",78195
+"Adobe Acrobat Reader DC (x64)","Detect","PASS",0
+"Adobe Acrobat Reader DC (x64)","Uninstall","PASS",0
+"Adobe Acrobat Reader DC (x64)","Clean","FAIL (still detected after uninstall)",0
+"Anaconda Distribution (x64)","Stage","PASS",0
+"Anaconda Distribution (x64)","Install","FAIL (exit 2)",0
+"Anaconda Distribution (x64)","Detect","",0
+"Anaconda Distribution (x64)","Uninstall","",0
+"Anaconda Distribution (x64)","Clean","",0
+"AnyDesk","Stage","PASS",0
+"AnyDesk","Install","FAIL (exit 11341829)",0
+"AnyDesk","Detect","",0
+"AnyDesk","Uninstall","",0
+"AnyDesk","Clean","",0
+"ASP.NET 8 Server Hosting Bundle (x64)","Stage","PASS",0
+"ASP.NET 8 Server Hosting Bundle (x64)","Install","PASS",3642
+"ASP.NET 8 Server Hosting Bundle (x64)","Detect","PASS",0
+"ASP.NET 8 Server Hosting Bundle (x64)","Uninstall","PASS",0
+"ASP.NET 8 Server Hosting Bundle (x64)","Clean","FAIL (still detected after uninstall)",0
+"Audacity (x64)","Stage","PASS",0
+"Audacity (x64)","Install","PASS",7676
+"Audacity (x64)","Detect","PASS",0
+"Audacity (x64)","Uninstall","PASS",0
+"Audacity (x64)","Clean","FAIL (still detected after uninstall)",0
+"Bitwarden Desktop (x64)","Stage","PASS",0
+"Bitwarden Desktop (x64)","Install","PASS",22658
+"Bitwarden Desktop (x64)","Detect","PASS",0
+"Bitwarden Desktop (x64)","Uninstall","PASS",0
+"Bitwarden Desktop (x64)","Clean","FAIL (still detected after uninstall)",0
+"Brave Browser (x64)","Stage","PASS",0
+"Brave Browser (x64)","Test","TIMEOUT",300000
+"CCleaner","Stage","PASS",0
+"CCleaner","Install","FAIL (exit 111111)",0
+"CCleaner","Detect","",0
+"CCleaner","Uninstall","",0
+"CCleaner","Clean","",0
+"Google Chrome","Stage","PASS",0
+"Google Chrome","Install","PASS",19100
+"Google Chrome","Detect","PASS",0
+"Google Chrome","Uninstall","PASS",0
+"Google Chrome","Clean","PASS",0
+"Citrix Workspace (CR) (x64)","Stage","PASS",0
+"Citrix Workspace (CR) (x64)","Install","FAIL (exit 40032)",0
+"Citrix Workspace (CR) (x64)","Detect","",0
+"Citrix Workspace (CR) (x64)","Uninstall","",0
+"Citrix Workspace (CR) (x64)","Clean","",0
+"Amazon Corretto JDK 11","Stage","PASS",0
+"Amazon Corretto JDK 11","Install","PASS",7466
+"Amazon Corretto JDK 11","Detect","PASS",0
+"Amazon Corretto JDK 11","Uninstall","PASS",0
+"Amazon Corretto JDK 11","Clean","PASS",0
+"Amazon Corretto JDK 11 (x86)","Stage","PASS",0
+"Amazon Corretto JDK 11 (x86)","Install","PASS",6389
+"Amazon Corretto JDK 11 (x86)","Detect","PASS",0
+"Amazon Corretto JDK 11 (x86)","Uninstall","PASS",0
+"Amazon Corretto JDK 11 (x86)","Clean","PASS",0
+"Amazon Corretto JDK 17","Stage","PASS",0
+"Amazon Corretto JDK 17","Install","PASS",7443
+"Amazon Corretto JDK 17","Detect","PASS",0
+"Amazon Corretto JDK 17","Uninstall","PASS",0
+"Amazon Corretto JDK 17","Clean","PASS",0
+"Amazon Corretto JDK 21","Stage","PASS",0
+"Amazon Corretto JDK 21","Install","PASS",7422
+"Amazon Corretto JDK 21","Detect","PASS",0
+"Amazon Corretto JDK 21","Uninstall","PASS",0
+"Amazon Corretto JDK 21","Clean","PASS",0
+"Amazon Corretto JDK 25","Stage","PASS",0
+"Amazon Corretto JDK 25","Install","PASS",7415
+"Amazon Corretto JDK 25","Detect","PASS",0
+"Amazon Corretto JDK 25","Uninstall","PASS",0
+"Amazon Corretto JDK 25","Clean","PASS",0
+"Amazon Corretto JDK 8","Stage","PASS",0
+"Amazon Corretto JDK 8","Install","PASS",8390
+"Amazon Corretto JDK 8","Detect","PASS",0
+"Amazon Corretto JDK 8","Uninstall","PASS",0
+"Amazon Corretto JDK 8","Clean","PASS",0
+"Amazon Corretto JDK 8 (x86)","Stage","PASS",0
+"Amazon Corretto JDK 8 (x86)","Install","PASS",8437
+"Amazon Corretto JDK 8 (x86)","Detect","PASS",0
+"Amazon Corretto JDK 8 (x86)","Uninstall","PASS",0
+"Amazon Corretto JDK 8 (x86)","Clean","PASS",0
+"CPU-Z","Stage","PASS",0
+"CPU-Z","Install","PASS",0
+"CPU-Z","Detect","FAIL (not detected after install)",0
+"CPU-Z","Uninstall","",0
+"CPU-Z","Clean","",0
+"CutePDF Writer","Stage","PASS",0
+"CutePDF Writer","Install","FAIL (exit 1)",0
+"CutePDF Writer","Detect","",0
+"CutePDF Writer","Uninstall","",0
+"CutePDF Writer","Clean","",0
+"DBeaver Community (x64)","Stage","PASS",0
+"DBeaver Community (x64)","Install","PASS",14415
+"DBeaver Community (x64)","Detect","PASS",0
+"DBeaver Community (x64)","Uninstall","PASS",0
+"DBeaver Community (x64)","Clean","FAIL (still detected after uninstall)",0
+".NET 8 Desktop Runtime (x64)","Stage","PASS",0
+".NET 8 Desktop Runtime (x64)","Install","PASS",5499
+".NET 8 Desktop Runtime (x64)","Detect","PASS",0
+".NET 8 Desktop Runtime (x64)","Uninstall","PASS",0
+".NET 8 Desktop Runtime (x64)","Clean","FAIL (still detected after uninstall)",0
+".NET 8 Desktop Runtime (x86)","Stage","PASS",0
+".NET 8 Desktop Runtime (x86)","Install","PASS",16583
+".NET 8 Desktop Runtime (x86)","Detect","PASS",0
+".NET 8 Desktop Runtime (x86)","Uninstall","PASS",0
+".NET 8 Desktop Runtime (x86)","Clean","FAIL (still detected after uninstall)",0
+".NET 9 Desktop Runtime (x64)","Stage","PASS",0
+".NET 9 Desktop Runtime (x64)","Install","PASS",3474
+".NET 9 Desktop Runtime (x64)","Detect","PASS",0
+".NET 9 Desktop Runtime (x64)","Uninstall","PASS",0
+".NET 9 Desktop Runtime (x64)","Clean","FAIL (still detected after uninstall)",0
+"draw.io Desktop (x64)","Stage","PASS",0
+"draw.io Desktop (x64)","Install","PASS",6417
+"draw.io Desktop (x64)","Detect","PASS",0
+"draw.io Desktop (x64)","Uninstall","PASS",0
+"draw.io Desktop (x64)","Clean","PASS",0
+"Microsoft Edge","Stage","PASS",0
+"Microsoft Edge","Install","PASS",1696
+"Microsoft Edge","Detect","PASS",0
+"Microsoft Edge","Uninstall","SKIP (by design)",0
+"Microsoft Edge","Clean","SKIP (by design)",0
+"Everything (x64)","Stage","PASS",0
+"Everything (x64)","Install","PASS",4311
+"Everything (x64)","Detect","PASS",0
+"Everything (x64)","Uninstall","PASS",0
+"Everything (x64)","Clean","PASS",0
+"Mozilla Firefox (x64)","Stage","PASS",0
+"Mozilla Firefox (x64)","Install","PASS",14521
+"Mozilla Firefox (x64)","Detect","PASS",0
+"Mozilla Firefox (x64)","Uninstall","FAIL (exit 1605)",0
+"Mozilla Firefox (x64)","Clean","FAIL (still detected after uninstall)",0
+"GIMP (x64)","Stage","PASS",0
+"GIMP (x64)","Install","PASS",63259
+"GIMP (x64)","Detect","PASS",0
+"GIMP (x64)","Uninstall","PASS",0
+"GIMP (x64)","Clean","FAIL (still detected after uninstall)",0
+"Git for Windows (x64)","Stage","PASS",0
+"Git for Windows (x64)","Install","PASS",16414
+"Git for Windows (x64)","Detect","PASS",0
+"Git for Windows (x64)","Uninstall","PASS",0
+"Git for Windows (x64)","Clean","FAIL (still detected after uninstall)",0
+"Greenshot (x64)","Stage","PASS",0
+"Greenshot (x64)","Install","FAIL (exit 5)",0
+"Greenshot (x64)","Detect","",0
+"Greenshot (x64)","Uninstall","",0
+"Greenshot (x64)","Clean","",0
+"Inkscape","Stage","PASS",0
+"Inkscape","Install","PASS",46862
+"Inkscape","Detect","PASS",0
+"Inkscape","Uninstall","PASS",0
+"Inkscape","Clean","PASS",0
+"KeePass","Stage","PASS",0
+"KeePass","Install","PASS",6399
+"KeePass","Detect","PASS",0
+"KeePass","Uninstall","PASS",0
+"KeePass","Clean","PASS",0
+"LibreOffice (x64)","Stage","PASS",0
+"LibreOffice (x64)","Install","PASS",57048
+"LibreOffice (x64)","Detect","PASS",0
+"LibreOffice (x64)","Uninstall","PASS",0
+"LibreOffice (x64)","Clean","PASS",0
+"M365 Apps for Enterprise (x64)","Stage","PASS",0
+"M365 Apps for Enterprise (x64)","Install","PASS",0
+"M365 Apps for Enterprise (x64)","Detect","FAIL (not detected after install)",0
+"M365 Apps for Enterprise (x64)","Uninstall","",0
+"M365 Apps for Enterprise (x64)","Clean","",0
+"M365 Apps for Enterprise (x86)","Stage","PASS",0
+"M365 Apps for Enterprise (x86)","Install","PASS",0
+"M365 Apps for Enterprise (x86)","Detect","FAIL (not detected after install)",0
+"M365 Apps for Enterprise (x86)","Uninstall","",0
+"M365 Apps for Enterprise (x86)","Clean","",0
+"M365 Project (x64)","Stage","PASS",0
+"M365 Project (x64)","Install","PASS",0
+"M365 Project (x64)","Detect","FAIL (not detected after install)",0
+"M365 Project (x64)","Uninstall","",0
+"M365 Project (x64)","Clean","",0
+"M365 Project (x86)","Stage","PASS",0
+"M365 Project (x86)","Install","PASS",0
+"M365 Project (x86)","Detect","FAIL (not detected after install)",0
+"M365 Project (x86)","Uninstall","",0
+"M365 Project (x86)","Clean","",0
+"M365 Visio (x64)","Stage","PASS",0
+"M365 Visio (x64)","Install","PASS",0
+"M365 Visio (x64)","Detect","FAIL (not detected after install)",0
+"M365 Visio (x64)","Uninstall","",0
+"M365 Visio (x64)","Clean","",0
+"M365 Visio (x86)","Stage","PASS",0
+"M365 Visio (x86)","Install","PASS",0
+"M365 Visio (x86)","Detect","FAIL (not detected after install)",0
+"M365 Visio (x86)","Uninstall","",0
+"M365 Visio (x86)","Clean","",0
+"Malwarebytes (x64)","Stage","PASS",0
+"Malwarebytes (x64)","Install","PASS",28798
+"Malwarebytes (x64)","Detect","PASS",0
+"Malwarebytes (x64)","Uninstall","PASS",0
+"Malwarebytes (x64)","Clean","FAIL (still detected after uninstall)",0
+"mRemoteNG (x64)","Stage","PASS",0
+"mRemoteNG (x64)","Install","PASS",15540
+"mRemoteNG (x64)","Detect","PASS",0
+"mRemoteNG (x64)","Uninstall","PASS",0
+"mRemoteNG (x64)","Clean","PASS",0
+"Microsoft ODBC Driver 18 for SQL Server (x64)","Stage","PASS",0
+"Microsoft ODBC Driver 18 for SQL Server (x64)","Install","FAIL (exit 1603)",0
+"Microsoft ODBC Driver 18 for SQL Server (x64)","Detect","",0
+"Microsoft ODBC Driver 18 for SQL Server (x64)","Uninstall","",0
+"Microsoft ODBC Driver 18 for SQL Server (x64)","Clean","",0
+"Microsoft OLE DB Driver 19 (x64)","Stage","PASS",0
+"Microsoft OLE DB Driver 19 (x64)","Install","FAIL (exit 1603)",0
+"Microsoft OLE DB Driver 19 (x64)","Detect","",0
+"Microsoft OLE DB Driver 19 (x64)","Uninstall","",0
+"Microsoft OLE DB Driver 19 (x64)","Clean","",0
+"Visual C++ Redistributable (x64)","Stage","PASS",0
+"Visual C++ Redistributable (x64)","Install","PASS",3222
+"Visual C++ Redistributable (x64)","Detect","PASS",0
+"Visual C++ Redistributable (x64)","Uninstall","PASS",0
+"Visual C++ Redistributable (x64)","Clean","FAIL (still detected after uninstall)",0
+"Visual C++ Redistributable (x86)","Stage","PASS",0
+"Visual C++ Redistributable (x86)","Install","PASS",3232
+"Visual C++ Redistributable (x86)","Detect","PASS",0
+"Visual C++ Redistributable (x86)","Uninstall","PASS",0
+"Visual C++ Redistributable (x86)","Clean","FAIL (still detected after uninstall)",0
+"Node.js LTS (x64)","Stage","PASS",0
+"Node.js LTS (x64)","Install","PASS",10508
+"Node.js LTS (x64)","Detect","PASS",0
+"Node.js LTS (x64)","Uninstall","PASS",0
+"Node.js LTS (x64)","Clean","PASS",0
+"Notepad++ (x64)","Stage","PASS",0
+"Notepad++ (x64)","Install","PASS",4479
+"Notepad++ (x64)","Detect","PASS",0
+"Notepad++ (x64)","Uninstall","PASS",0
+"Notepad++ (x64)","Clean","FAIL (still detected after uninstall)",0
+"Obsidian (x64)","Stage","PASS",0
+"Obsidian (x64)","Install","PASS",0
+"Obsidian (x64)","Detect","FAIL (not detected after install)",0
+"Obsidian (x64)","Uninstall","",0
+"Obsidian (x64)","Clean","",0
+"Opera Browser (x64)","Stage","PASS",0
+"Opera Browser (x64)","Install","PASS",13509
+"Opera Browser (x64)","Detect","PASS",0
+"Opera Browser (x64)","Uninstall","PASS",0
+"Opera Browser (x64)","Clean","FAIL (still detected after uninstall)",0
+"paint.net (x64)","Stage","PASS",0
+"paint.net (x64)","Install","PASS",9618
+"paint.net (x64)","Detect","PASS",0
+"paint.net (x64)","Uninstall","PASS",0
+"paint.net (x64)","Clean","PASS",0
+"pgAdmin 4 (x64)","Stage","PASS",0
+"pgAdmin 4 (x64)","Install","PASS",0
+"pgAdmin 4 (x64)","Detect","FAIL (not detected after install)",0
+"pgAdmin 4 (x64)","Uninstall","",0
+"pgAdmin 4 (x64)","Clean","",0
+"Positron (x64)","Stage","PASS",0
+"Positron (x64)","Install","PASS",59881
+"Positron (x64)","Detect","PASS",0
+"Positron (x64)","Uninstall","PASS",0
+"Positron (x64)","Clean","FAIL (still detected after uninstall)",0
+"PostgreSQL 13 (x64)","Stage","PASS",0
+"PostgreSQL 13 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 13 (x64)","Detect","",0
+"PostgreSQL 13 (x64)","Uninstall","",0
+"PostgreSQL 13 (x64)","Clean","",0
+"PostgreSQL 14 (x64)","Stage","PASS",0
+"PostgreSQL 14 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 14 (x64)","Detect","",0
+"PostgreSQL 14 (x64)","Uninstall","",0
+"PostgreSQL 14 (x64)","Clean","",0
+"PostgreSQL 15 (x64)","Stage","PASS",0
+"PostgreSQL 15 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 15 (x64)","Detect","",0
+"PostgreSQL 15 (x64)","Uninstall","",0
+"PostgreSQL 15 (x64)","Clean","",0
+"PostgreSQL 16 (x64)","Stage","PASS",0
+"PostgreSQL 16 (x64)","Install","PASS",287918
+"PostgreSQL 16 (x64)","Detect","PASS",0
+"PostgreSQL 16 (x64)","Uninstall","PASS",0
+"PostgreSQL 16 (x64)","Clean","FAIL (still detected after uninstall)",0
+"PostgreSQL 17 (x64)","Stage","PASS",0
+"PostgreSQL 17 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 17 (x64)","Detect","",0
+"PostgreSQL 17 (x64)","Uninstall","",0
+"PostgreSQL 17 (x64)","Clean","",0
+"Postman (x64)","Stage","PASS",0
+"Postman (x64)","Install","PASS",0
+"Postman (x64)","Detect","FAIL (not detected after install)",0
+"Postman (x64)","Uninstall","",0
+"Postman (x64)","Clean","",0
+"Power BI Desktop (x64)","Stage","PASS",0
+"Power BI Desktop (x64)","Install","PASS",4303
+"Power BI Desktop (x64)","Detect","PASS",0
+"Power BI Desktop (x64)","Uninstall","PASS",0
+"Power BI Desktop (x64)","Clean","FAIL (still detected after uninstall)",0
+"PowerShell 7 (x64)","Stage","PASS",0
+"PowerShell 7 (x64)","Install","PASS",16525
+"PowerShell 7 (x64)","Detect","PASS",0
+"PowerShell 7 (x64)","Uninstall","PASS",0
+"PowerShell 7 (x64)","Clean","PASS",0
+"PowerShell 7 LTS (x64)","Stage","PASS",0
+"PowerShell 7 LTS (x64)","Install","PASS",0
+"PowerShell 7 LTS (x64)","Detect","FAIL (not detected after install)",0
+"PowerShell 7 LTS (x64)","Uninstall","",0
+"PowerShell 7 LTS (x64)","Clean","",0
+"PowerToys (x64)","Stage","PASS",0
+"PowerToys (x64)","Install","PASS",6666
+"PowerToys (x64)","Detect","PASS",0
+"PowerToys (x64)","Uninstall","PASS",0
+"PowerToys (x64)","Clean","FAIL (still detected after uninstall)",0
+"PuTTY (x64)","Stage","PASS",0
+"PuTTY (x64)","Install","PASS",3475
+"PuTTY (x64)","Detect","PASS",0
+"PuTTY (x64)","Uninstall","PASS",0
+"PuTTY (x64)","Clean","PASS",0
+"PyCharm Community (x64)","Stage","PASS",0
+"PyCharm Community (x64)","Test","TIMEOUT",300000
+"Python (x64)","Stage","PASS",0
+"Python (x64)","Install","PASS",13587
+"Python (x64)","Detect","PASS",0
+"Python (x64)","Uninstall","PASS",0
+"Python (x64)","Clean","FAIL (still detected after uninstall)",0
+"R for Windows (x64)","Stage","PASS",0
+"R for Windows (x64)","Install","PASS",12380
+"R for Windows (x64)","Detect","PASS",0
+"R for Windows (x64)","Uninstall","PASS",0
+"R for Windows (x64)","Clean","FAIL (still detected after uninstall)",0
+"RStudio Desktop (x64)","Stage","PASS",0
+"RStudio Desktop (x64)","Install","PASS",32434
+"RStudio Desktop (x64)","Detect","PASS",0
+"RStudio Desktop (x64)","Uninstall","PASS",0
+"RStudio Desktop (x64)","Clean","FAIL (still detected after uninstall)",0
+"ShareX (x64)","Stage","PASS",0
+"ShareX (x64)","Install","PASS",17425
+"ShareX (x64)","Detect","PASS",0
+"ShareX (x64)","Uninstall","PASS",0
+"ShareX (x64)","Clean","FAIL (still detected after uninstall)",0
+"SoapUI Open Source","Stage","PASS",0
+"SoapUI Open Source","Install","PASS",24541
+"SoapUI Open Source","Detect","PASS",0
+"SoapUI Open Source","Uninstall","PASS",0
+"SoapUI Open Source","Clean","FAIL (still detected after uninstall)",0
+"SQL Server Management Studio 22 (x64)","Stage","PASS",0
+"SQL Server Management Studio 22 (x64)","Install","PASS",11329
+"SQL Server Management Studio 22 (x64)","Detect","PASS",0
+"SQL Server Management Studio 22 (x64)","Uninstall","PASS",0
+"SQL Server Management Studio 22 (x64)","Clean","FAIL (still detected after uninstall)",0
+"Sysinternals Suite (x64)","Stage","PASS",0
+"Sysinternals Suite (x64)","Install","PASS",0
+"Sysinternals Suite (x64)","Detect","FAIL (not detected after install)",0
+"Sysinternals Suite (x64)","Uninstall","",0
+"Sysinternals Suite (x64)","Clean","",0
+"Tableau Desktop (x64)","Stage","PASS",0
+"Tableau Desktop (x64)","Install","PASS",3247
+"Tableau Desktop (x64)","Detect","PASS",0
+"Tableau Desktop (x64)","Uninstall","PASS",0
+"Tableau Desktop (x64)","Clean","FAIL (still detected after uninstall)",0
+"Tableau Prep Builder (x64)","Stage","PASS",0
+"Tableau Prep Builder (x64)","Install","PASS",3193
+"Tableau Prep Builder (x64)","Detect","PASS",0
+"Tableau Prep Builder (x64)","Uninstall","PASS",0
+"Tableau Prep Builder (x64)","Clean","FAIL (still detected after uninstall)",0
+"Tableau Reader (x64)","Stage","PASS",0
+"Tableau Reader (x64)","Install","PASS",3208
+"Tableau Reader (x64)","Detect","PASS",0
+"Tableau Reader (x64)","Uninstall","PASS",0
+"Tableau Reader (x64)","Clean","FAIL (still detected after uninstall)",0
+"TeamViewer (x64)","Stage","PASS",0
+"TeamViewer (x64)","Install","FAIL (exit 1603)",0
+"TeamViewer (x64)","Detect","",0
+"TeamViewer (x64)","Uninstall","",0
+"TeamViewer (x64)","Clean","",0
+"TeamViewer Host (x64)","Stage","PASS",0
+"TeamViewer Host (x64)","Install","PASS",19563
+"TeamViewer Host (x64)","Detect","PASS",0
+"TeamViewer Host (x64)","Uninstall","PASS",0
+"TeamViewer Host (x64)","Clean","FAIL (still detected after uninstall)",0
+"Eclipse Temurin JDK 11","Stage","PASS",0
+"Eclipse Temurin JDK 11","Install","PASS",7534
+"Eclipse Temurin JDK 11","Detect","PASS",0
+"Eclipse Temurin JDK 11","Uninstall","PASS",0
+"Eclipse Temurin JDK 11","Clean","PASS",0
+"Eclipse Temurin JDK 11 (x86)","Stage","PASS",0
+"Eclipse Temurin JDK 11 (x86)","Install","PASS",6390
+"Eclipse Temurin JDK 11 (x86)","Detect","PASS",0
+"Eclipse Temurin JDK 11 (x86)","Uninstall","PASS",0
+"Eclipse Temurin JDK 11 (x86)","Clean","PASS",0
+"Eclipse Temurin JDK 17","Stage","PASS",0
+"Eclipse Temurin JDK 17","Install","PASS",7536
+"Eclipse Temurin JDK 17","Detect","PASS",0
+"Eclipse Temurin JDK 17","Uninstall","PASS",0
+"Eclipse Temurin JDK 17","Clean","PASS",0
+"Eclipse Temurin JDK 21","Stage","PASS",0
+"Eclipse Temurin JDK 21","Install","PASS",7390
+"Eclipse Temurin JDK 21","Detect","PASS",0
+"Eclipse Temurin JDK 21","Uninstall","PASS",0
+"Eclipse Temurin JDK 21","Clean","PASS",0
+"Eclipse Temurin JDK 25","Stage","PASS",0
+"Eclipse Temurin JDK 25","Install","PASS",6351
+"Eclipse Temurin JDK 25","Detect","PASS",0
+"Eclipse Temurin JDK 25","Uninstall","PASS",0
+"Eclipse Temurin JDK 25","Clean","PASS",0
+"Eclipse Temurin JDK 8","Stage","PASS",0
+"Eclipse Temurin JDK 8","Install","PASS",6366
+"Eclipse Temurin JDK 8","Detect","PASS",0
+"Eclipse Temurin JDK 8","Uninstall","PASS",0
+"Eclipse Temurin JDK 8","Clean","PASS",0
+"Eclipse Temurin JDK 8 (x86)","Stage","PASS",0
+"Eclipse Temurin JDK 8 (x86)","Install","PASS",6354
+"Eclipse Temurin JDK 8 (x86)","Detect","PASS",0
+"Eclipse Temurin JDK 8 (x86)","Uninstall","PASS",0
+"Eclipse Temurin JDK 8 (x86)","Clean","PASS",0
+"Eclipse Temurin JRE 11","Stage","PASS",0
+"Eclipse Temurin JRE 11","Install","PASS",4344
+"Eclipse Temurin JRE 11","Detect","PASS",0
+"Eclipse Temurin JRE 11","Uninstall","PASS",0
+"Eclipse Temurin JRE 11","Clean","PASS",0
+"Eclipse Temurin JRE 11 (x86)","Stage","PASS",0
+"Eclipse Temurin JRE 11 (x86)","Install","PASS",4333
+"Eclipse Temurin JRE 11 (x86)","Detect","PASS",0
+"Eclipse Temurin JRE 11 (x86)","Uninstall","PASS",0
+"Eclipse Temurin JRE 11 (x86)","Clean","PASS",0
+"Eclipse Temurin JRE 17","Stage","PASS",0
+"Eclipse Temurin JRE 17","Install","PASS",4333
+"Eclipse Temurin JRE 17","Detect","PASS",0
+"Eclipse Temurin JRE 17","Uninstall","PASS",0
+"Eclipse Temurin JRE 17","Clean","PASS",0
+"Eclipse Temurin JRE 21","Stage","PASS",0
+"Eclipse Temurin JRE 21","Install","PASS",4416
+"Eclipse Temurin JRE 21","Detect","PASS",0
+"Eclipse Temurin JRE 21","Uninstall","PASS",0
+"Eclipse Temurin JRE 21","Clean","PASS",0
+"Eclipse Temurin JRE 25","Stage","PASS",0
+"Eclipse Temurin JRE 25","Install","PASS",4337
+"Eclipse Temurin JRE 25","Detect","PASS",0
+"Eclipse Temurin JRE 25","Uninstall","PASS",0
+"Eclipse Temurin JRE 25","Clean","PASS",0
+"Eclipse Temurin JRE 8","Stage","PASS",0
+"Eclipse Temurin JRE 8","Install","PASS",4341
+"Eclipse Temurin JRE 8","Detect","PASS",0
+"Eclipse Temurin JRE 8","Uninstall","PASS",0
+"Eclipse Temurin JRE 8","Clean","PASS",0
+"Eclipse Temurin JRE 8 (x86)","Stage","PASS",0
+"Eclipse Temurin JRE 8 (x86)","Install","PASS",3399
+"Eclipse Temurin JRE 8 (x86)","Detect","PASS",0
+"Eclipse Temurin JRE 8 (x86)","Uninstall","PASS",0
+"Eclipse Temurin JRE 8 (x86)","Clean","PASS",0
+"Mozilla Thunderbird (x64)","Stage","PASS",0
+"Mozilla Thunderbird (x64)","Install","PASS",10458
+"Mozilla Thunderbird (x64)","Detect","PASS",0
+"Mozilla Thunderbird (x64)","Uninstall","FAIL (exit 1605)",0
+"Mozilla Thunderbird (x64)","Clean","FAIL (still detected after uninstall)",0
+"TortoiseGit (x64)","Stage","PASS",0
+"TortoiseGit (x64)","Install","PASS",5482
+"TortoiseGit (x64)","Detect","PASS",0
+"TortoiseGit (x64)","Uninstall","PASS",0
+"TortoiseGit (x64)","Clean","PASS",0
+"TortoiseSVN (x64)","Stage","PASS",0
+"TortoiseSVN (x64)","Install","PASS",7449
+"TortoiseSVN (x64)","Detect","PASS",0
+"TortoiseSVN (x64)","Uninstall","PASS",0
+"TortoiseSVN (x64)","Clean","PASS",0
+"TreeSize Free","Stage","PASS",0
+"TreeSize Free","Test","TIMEOUT",300000
+"Vim (x64)","Stage","PASS",0
+"Vim (x64)","Install","PASS",12606
+"Vim (x64)","Detect","PASS",0
+"Vim (x64)","Uninstall","PASS",0
+"Vim (x64)","Clean","FAIL (still detected after uninstall)",0
+"VLC Media Player (x64)","Stage","PASS",0
+"VLC Media Player (x64)","Install","PASS",11433
+"VLC Media Player (x64)","Detect","PASS",0
+"VLC Media Player (x64)","Uninstall","PASS",0
+"VLC Media Player (x64)","Clean","PASS",0
+"Visual Studio Code (x64)","Stage","PASS",0
+"Visual Studio Code (x64)","Test","TIMEOUT",300000
+"Cisco Webex (x64)","Stage","PASS",0
+"Cisco Webex (x64)","Install","PASS",12444
+"Cisco Webex (x64)","Detect","PASS",0
+"Cisco Webex (x64)","Uninstall","PASS",0
+"Cisco Webex (x64)","Clean","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Stage","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Install","PASS",36799
+"Microsoft Edge WebView2 Runtime (x64)","Detect","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Uninstall","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Clean","FAIL (still detected after uninstall)",0
+"WinDirStat (x64)","Stage","PASS",0
+"WinDirStat (x64)","Install","PASS",3366
+"WinDirStat (x64)","Detect","PASS",0
+"WinDirStat (x64)","Uninstall","PASS",0
+"WinDirStat (x64)","Clean","PASS",0
+"WinMerge (x64)","Stage","PASS",0
+"WinMerge (x64)","Install","PASS",0
+"WinMerge (x64)","Detect","FAIL (not detected after install)",0
+"WinMerge (x64)","Uninstall","",0
+"WinMerge (x64)","Clean","",0
+"WinRAR (x64)","Stage","PASS",0
+"WinRAR (x64)","Install","PASS",3181
+"WinRAR (x64)","Detect","PASS",0
+"WinRAR (x64)","Uninstall","PASS",0
+"WinRAR (x64)","Clean","FAIL (still detected after uninstall)",0
+"WinSCP (x64)","Stage","PASS",0
+"WinSCP (x64)","Install","PASS",5313
+"WinSCP (x64)","Detect","PASS",0
+"WinSCP (x64)","Uninstall","PASS",0
+"WinSCP (x64)","Clean","FAIL (still detected after uninstall)",0
+"Wireshark (x64)","Stage","PASS",0
+"Wireshark (x64)","Install","PASS",19516
+"Wireshark (x64)","Detect","PASS",0
+"Wireshark (x64)","Uninstall","PASS",0
+"Wireshark (x64)","Clean","FAIL (still detected after uninstall)",0
+"WizTree (x64)","Stage","PASS",0
+"WizTree (x64)","Install","PASS",0
+"WizTree (x64)","Detect","FAIL (not detected after install)",0
+"WizTree (x64)","Uninstall","",0
+"WizTree (x64)","Clean","",0
+"XenCenter (x64)","Stage","PASS",0
+"XenCenter (x64)","Install","PASS",0
+"XenCenter (x64)","Detect","FAIL (not detected after install)",0
+"XenCenter (x64)","Uninstall","",0
+"XenCenter (x64)","Clean","",0
+"XenServer VM Tools (x64)","Stage","PASS",0
+"XenServer VM Tools (x64)","Install","PASS",30858
+"XenServer VM Tools (x64)","Detect","PASS",0
+"XenServer VM Tools (x64)","Uninstall","PASS (reboot required)",0
+"XenServer VM Tools (x64)","Clean","PASS",0
+"Zoom Workplace (x64)","Stage","PASS",0
+"Zoom Workplace (x64)","Install","PASS",0
+"Zoom Workplace (x64)","Detect","FAIL (not detected after install)",0
+"Zoom Workplace (x64)","Uninstall","",0
+"Zoom Workplace (x64)","Clean","",0
