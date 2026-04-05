@@ -1,0 +1,276 @@
+App,Phase,Result,DurationMs
+"7-Zip (x64)","Stage","PASS",0
+"7-Zip (x64)","Install","PASS",3342
+"7-Zip (x64)","Detect","PASS",0
+"7-Zip (x64)","Uninstall","PASS",0
+"7-Zip (x64)","Clean","PASS",0
+"Adobe Acrobat Reader DC (x64)","Stage","PASS",0
+"Adobe Acrobat Reader DC (x64)","Install","PASS",79991
+"Adobe Acrobat Reader DC (x64)","Detect","PASS",0
+"Adobe Acrobat Reader DC (x64)","Uninstall","PASS",0
+"Adobe Acrobat Reader DC (x64)","Clean","FAIL (still detected after uninstall)",0
+"Anaconda Distribution (x64)","Stage","PASS",0
+"Anaconda Distribution (x64)","Install","FAIL (exit 2)",0
+"Anaconda Distribution (x64)","Detect","",0
+"Anaconda Distribution (x64)","Uninstall","",0
+"Anaconda Distribution (x64)","Clean","",0
+"AnyDesk","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"ASP.NET 8 Server Hosting Bundle (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Audacity (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Bitwarden Desktop (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Brave Browser (x64)","Stage","PASS",0
+"Brave Browser (x64)","Test","TIMEOUT",300000
+"CCleaner","Stage","PASS",0
+"CCleaner","Install","FAIL (exit 111111)",0
+"CCleaner","Detect","",0
+"CCleaner","Uninstall","",0
+"CCleaner","Clean","",0
+"Google Chrome","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Citrix Workspace (CR) (x64)","Stage","PASS",0
+"Citrix Workspace (CR) (x64)","Install","FAIL (exit 40032)",0
+"Citrix Workspace (CR) (x64)","Detect","",0
+"Citrix Workspace (CR) (x64)","Uninstall","",0
+"Citrix Workspace (CR) (x64)","Clean","",0
+"Amazon Corretto JDK 11","Stage","PASS",0
+"Amazon Corretto JDK 11","Install","PASS",7472
+"Amazon Corretto JDK 11","Detect","PASS",0
+"Amazon Corretto JDK 11","Uninstall","PASS",0
+"Amazon Corretto JDK 11","Clean","PASS",0
+"Amazon Corretto JDK 11 (x86)","Stage","PASS",0
+"Amazon Corretto JDK 11 (x86)","Install","PASS",6361
+"Amazon Corretto JDK 11 (x86)","Detect","PASS",0
+"Amazon Corretto JDK 11 (x86)","Uninstall","PASS",0
+"Amazon Corretto JDK 11 (x86)","Clean","PASS",0
+"Amazon Corretto JDK 17","Stage","PASS",0
+"Amazon Corretto JDK 17","Install","PASS",6387
+"Amazon Corretto JDK 17","Detect","PASS",0
+"Amazon Corretto JDK 17","Uninstall","PASS",0
+"Amazon Corretto JDK 17","Clean","PASS",0
+"Amazon Corretto JDK 21","Stage","PASS",0
+"Amazon Corretto JDK 21","Install","PASS",6390
+"Amazon Corretto JDK 21","Detect","PASS",0
+"Amazon Corretto JDK 21","Uninstall","PASS",0
+"Amazon Corretto JDK 21","Clean","PASS",0
+"Amazon Corretto JDK 25","Stage","PASS",0
+"Amazon Corretto JDK 25","Install","PASS",7398
+"Amazon Corretto JDK 25","Detect","PASS",0
+"Amazon Corretto JDK 25","Uninstall","PASS",0
+"Amazon Corretto JDK 25","Clean","PASS",0
+"Amazon Corretto JDK 8","Stage","PASS",0
+"Amazon Corretto JDK 8","Install","PASS",8368
+"Amazon Corretto JDK 8","Detect","PASS",0
+"Amazon Corretto JDK 8","Uninstall","PASS",0
+"Amazon Corretto JDK 8","Clean","PASS",0
+"Amazon Corretto JDK 8 (x86)","Stage","PASS",0
+"Amazon Corretto JDK 8 (x86)","Install","PASS",8385
+"Amazon Corretto JDK 8 (x86)","Detect","PASS",0
+"Amazon Corretto JDK 8 (x86)","Uninstall","PASS",0
+"Amazon Corretto JDK 8 (x86)","Clean","PASS",0
+"CPU-Z","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"CutePDF Writer","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"DBeaver Community (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+".NET 8 Desktop Runtime (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+".NET 8 Desktop Runtime (x86)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+".NET 9 Desktop Runtime (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"draw.io Desktop (x64)","Stage","PASS",0
+"draw.io Desktop (x64)","Install","PASS",6403
+"draw.io Desktop (x64)","Detect","PASS",0
+"draw.io Desktop (x64)","Uninstall","PASS",0
+"draw.io Desktop (x64)","Clean","PASS",0
+"Microsoft Edge","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Everything (x64)","Stage","PASS",0
+"Everything (x64)","Install","PASS",4334
+"Everything (x64)","Detect","PASS",0
+"Everything (x64)","Uninstall","PASS",0
+"Everything (x64)","Clean","PASS",0
+"Mozilla Firefox (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"GIMP (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Git for Windows (x64)","Stage","PASS",0
+"Git for Windows (x64)","Install","PASS",16611
+"Git for Windows (x64)","Detect","PASS",0
+"Git for Windows (x64)","Uninstall","PASS",0
+"Git for Windows (x64)","Clean","FAIL (still detected after uninstall)",0
+"Greenshot (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Inkscape","Stage","PASS",0
+"Inkscape","Install","PASS",45857
+"Inkscape","Detect","PASS",0
+"Inkscape","Uninstall","PASS",0
+"Inkscape","Clean","PASS",0
+"KeePass","Stage","PASS",0
+"KeePass","Install","PASS",6541
+"KeePass","Detect","PASS",0
+"KeePass","Uninstall","PASS",0
+"KeePass","Clean","PASS",0
+"LibreOffice (x64)","Stage","PASS",0
+"LibreOffice (x64)","Install","PASS",55937
+"LibreOffice (x64)","Detect","PASS",0
+"LibreOffice (x64)","Uninstall","PASS",0
+"LibreOffice (x64)","Clean","PASS",0
+"M365 Apps for Enterprise (x64)","Stage","PASS",0
+"M365 Apps for Enterprise (x64)","Install","PASS",0
+"M365 Apps for Enterprise (x64)","Detect","FAIL (not detected after install)",0
+"M365 Apps for Enterprise (x64)","Uninstall","",0
+"M365 Apps for Enterprise (x64)","Clean","",0
+"M365 Apps for Enterprise (x86)","Stage","PASS",0
+"M365 Apps for Enterprise (x86)","Install","PASS",0
+"M365 Apps for Enterprise (x86)","Detect","FAIL (not detected after install)",0
+"M365 Apps for Enterprise (x86)","Uninstall","",0
+"M365 Apps for Enterprise (x86)","Clean","",0
+"M365 Project (x64)","Stage","PASS",0
+"M365 Project (x64)","Install","PASS",0
+"M365 Project (x64)","Detect","FAIL (not detected after install)",0
+"M365 Project (x64)","Uninstall","",0
+"M365 Project (x64)","Clean","",0
+"M365 Project (x86)","Stage","PASS",0
+"M365 Project (x86)","Install","PASS",0
+"M365 Project (x86)","Detect","FAIL (not detected after install)",0
+"M365 Project (x86)","Uninstall","",0
+"M365 Project (x86)","Clean","",0
+"M365 Visio (x64)","Stage","PASS",0
+"M365 Visio (x64)","Install","PASS",0
+"M365 Visio (x64)","Detect","FAIL (not detected after install)",0
+"M365 Visio (x64)","Uninstall","",0
+"M365 Visio (x64)","Clean","",0
+"M365 Visio (x86)","Stage","PASS",0
+"M365 Visio (x86)","Install","PASS",0
+"M365 Visio (x86)","Detect","FAIL (not detected after install)",0
+"M365 Visio (x86)","Uninstall","",0
+"M365 Visio (x86)","Clean","",0
+"Malwarebytes (x64)","Stage","PASS",0
+"Malwarebytes (x64)","Install","PASS",32424
+"Malwarebytes (x64)","Detect","PASS",0
+"Malwarebytes (x64)","Uninstall","PASS",0
+"Malwarebytes (x64)","Clean","FAIL (still detected after uninstall)",0
+"mRemoteNG (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Microsoft ODBC Driver 18 for SQL Server (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Microsoft OLE DB Driver 19 (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Visual C++ Redistributable (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Visual C++ Redistributable (x86)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Node.js LTS (x64)","Stage","PASS",0
+"Node.js LTS (x64)","Install","PASS",10656
+"Node.js LTS (x64)","Detect","PASS",0
+"Node.js LTS (x64)","Uninstall","PASS",0
+"Node.js LTS (x64)","Clean","PASS",0
+"Notepad++ (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Obsidian (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Opera Browser (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"paint.net (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"pgAdmin 4 (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Positron (x64)","Stage","PASS",0
+"Positron (x64)","Install","PASS",51474
+"Positron (x64)","Detect","PASS",0
+"Positron (x64)","Uninstall","PASS",0
+"Positron (x64)","Clean","FAIL (still detected after uninstall)",0
+"PostgreSQL 13 (x64)","Stage","PASS",0
+"PostgreSQL 13 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 13 (x64)","Detect","",0
+"PostgreSQL 13 (x64)","Uninstall","",0
+"PostgreSQL 13 (x64)","Clean","",0
+"PostgreSQL 14 (x64)","Stage","PASS",0
+"PostgreSQL 14 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 14 (x64)","Detect","",0
+"PostgreSQL 14 (x64)","Uninstall","",0
+"PostgreSQL 14 (x64)","Clean","",0
+"PostgreSQL 15 (x64)","Stage","PASS",0
+"PostgreSQL 15 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 15 (x64)","Detect","",0
+"PostgreSQL 15 (x64)","Uninstall","",0
+"PostgreSQL 15 (x64)","Clean","",0
+"PostgreSQL 16 (x64)","Stage","PASS",0
+"PostgreSQL 16 (x64)","Install","PASS",285174
+"PostgreSQL 16 (x64)","Detect","PASS",0
+"PostgreSQL 16 (x64)","Uninstall","PASS",0
+"PostgreSQL 16 (x64)","Clean","FAIL (still detected after uninstall)",0
+"PostgreSQL 17 (x64)","Stage","PASS",0
+"PostgreSQL 17 (x64)","Install","FAIL (exit 1)",0
+"PostgreSQL 17 (x64)","Detect","",0
+"PostgreSQL 17 (x64)","Uninstall","",0
+"PostgreSQL 17 (x64)","Clean","",0
+"Postman (x64)","Stage","PASS",0
+"Postman (x64)","Install","PASS",0
+"Postman (x64)","Detect","FAIL (not detected after install)",0
+"Postman (x64)","Uninstall","",0
+"Postman (x64)","Clean","",0
+"Power BI Desktop (x64)","Stage","PASS",0
+"Power BI Desktop (x64)","Install","PASS",4276
+"Power BI Desktop (x64)","Detect","PASS",0
+"Power BI Desktop (x64)","Uninstall","PASS",0
+"Power BI Desktop (x64)","Clean","FAIL (still detected after uninstall)",0
+"PowerShell 7 (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"PowerShell 7 LTS (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"PowerToys (x64)","Stage","PASS",0
+"PowerToys (x64)","Install","PASS",6265
+"PowerToys (x64)","Detect","PASS",0
+"PowerToys (x64)","Uninstall","PASS",0
+"PowerToys (x64)","Clean","FAIL (still detected after uninstall)",0
+"PuTTY (x64)","Stage","PASS",0
+"PuTTY (x64)","Install","PASS",3440
+"PuTTY (x64)","Detect","PASS",0
+"PuTTY (x64)","Uninstall","PASS",0
+"PuTTY (x64)","Clean","PASS",0
+"PyCharm Community (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Python (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"R for Windows (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"RStudio Desktop (x64)","Stage","PASS",0
+"RStudio Desktop (x64)","Install","PASS",31112
+"RStudio Desktop (x64)","Detect","PASS",0
+"RStudio Desktop (x64)","Uninstall","PASS",0
+"RStudio Desktop (x64)","Clean","FAIL (still detected after uninstall)",0
+"ShareX (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"SoapUI Open Source","Stage","PASS",0
+"SoapUI Open Source","Install","PASS",24915
+"SoapUI Open Source","Detect","PASS",0
+"SoapUI Open Source","Uninstall","PASS",0
+"SoapUI Open Source","Clean","FAIL (still detected after uninstall)",0
+"SQL Server Management Studio 22 (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Sysinternals Suite (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Tableau Desktop (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Tableau Prep Builder (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Tableau Reader (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"TeamViewer (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"TeamViewer Host (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JDK 11","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JDK 11 (x86)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JDK 17","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JDK 21","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JDK 25","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JDK 8","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JDK 8 (x86)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JRE 11","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JRE 11 (x86)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JRE 17","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JRE 21","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JRE 25","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JRE 8","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Eclipse Temurin JRE 8 (x86)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Mozilla Thunderbird (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"TortoiseGit (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"TortoiseSVN (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"TreeSize Free","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Vim (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"VLC Media Player (x64)","Stage","PASS",0
+"VLC Media Player (x64)","Install","PASS",11446
+"VLC Media Player (x64)","Detect","PASS",0
+"VLC Media Player (x64)","Uninstall","PASS",0
+"VLC Media Player (x64)","Clean","PASS",0
+"Visual Studio Code (x64)","Stage","PASS",0
+"Visual Studio Code (x64)","Test","TIMEOUT",300000
+"Cisco Webex (x64)","Stage","PASS",0
+"Cisco Webex (x64)","Install","PASS",12464
+"Cisco Webex (x64)","Detect","PASS",0
+"Cisco Webex (x64)","Uninstall","PASS",0
+"Cisco Webex (x64)","Clean","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Stage","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Install","PASS",37135
+"Microsoft Edge WebView2 Runtime (x64)","Detect","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Uninstall","PASS",0
+"Microsoft Edge WebView2 Runtime (x64)","Clean","FAIL (still detected after uninstall)",0
+"WinDirStat (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"WinMerge (x64)","Stage","FAIL: Exception has been thrown by the target of an invocation.",0
+"WinRAR (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"WinSCP (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Wireshark (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"WizTree (x64)","Stage","FAIL: Exception has been thrown by the target of an invocation.",0
+"XenCenter (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"XenServer VM Tools (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
+"Zoom Workplace (x64)","Stage","FAIL: An error occurred trying to start process 'C:\Program Files\7-Zip\7z.exe' with working directory 'C:\temp\test-harness'. The system cannot find the file specified.",0
