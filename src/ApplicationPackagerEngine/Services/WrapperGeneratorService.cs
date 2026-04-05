@@ -63,6 +63,7 @@ public sealed class WrapperGeneratorService
                             $uninstaller = $key.UninstallString -replace '"', ''
                             if (Test-Path $uninstaller) {
                                 $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                                 exit $proc.ExitCode
                             }
                         }
@@ -71,6 +72,7 @@ public sealed class WrapperGeneratorService
                 # Fallback: try the installer with uninstall args
                 $exePath = Join-Path $PSScriptRoot '{{exeFileName}}'
                 $proc = Start-Process -FilePath $exePath -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                 exit $proc.ExitCode
                 """;
         }
@@ -89,6 +91,7 @@ public sealed class WrapperGeneratorService
                             $uninstaller = $key.UninstallString -replace '"', ''
                             if ((Test-Path $uninstaller) -and ($key.DisplayName -like '*{{exeFileName.Replace(".exe","")}}*')) {
                                 $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                                 exit $proc.ExitCode
                             }
                         }
@@ -99,10 +102,30 @@ public sealed class WrapperGeneratorService
         }
         else
         {
-            // Default: run the installer EXE with uninstall args
-            uninstallPs1 = $"""
-                $exePath = Join-Path $PSScriptRoot '{exeFileName}'
-                $proc = Start-Process -FilePath $exePath -ArgumentList '{uninstallArgs}' -Wait -PassThru -NoNewWindow
+            // Default: look up vendor uninstaller from ARP, fall back to installer EXE with args
+            uninstallPs1 = $$"""
+                # Try ARP UninstallString first (vendor's own uninstaller)
+                $arpPaths = @(
+                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+                )
+                foreach ($arpPath in $arpPaths) {
+                    Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
+                        $key = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+                        if ($key.UninstallString -and $key.UninstallString -notlike '*msiexec*') {
+                            $uninstaller = $key.UninstallString -replace '"', ''
+                            if (Test-Path $uninstaller) {
+                                $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                                exit $proc.ExitCode
+                            }
+                        }
+                    }
+                }
+                # Fallback: try the installer EXE with uninstall args
+                $exePath = Join-Path $PSScriptRoot '{{exeFileName}}'
+                $proc = Start-Process -FilePath $exePath -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                 exit $proc.ExitCode
                 """;
         }
