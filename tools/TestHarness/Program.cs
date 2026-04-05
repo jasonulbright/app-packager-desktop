@@ -52,6 +52,17 @@ var defFiles = Directory.GetFiles(defsDir, "*.json");
 if (appFilter != null)
     defFiles = defFiles.Where(f => Path.GetFileName(f).Contains(appFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
 
+// Sort with prereqs first: MSVC runtimes → .NET runtimes → ASP.NET → everything else
+int PrereqPriority(string path)
+{
+    var name = Path.GetFileName(path).ToLowerInvariant();
+    if (name.Contains("msvcruntimes")) return 0; // VC++ runtimes first
+    if (name.Contains("dotnet8") || name.Contains("dotnet9")) return 1; // .NET runtimes
+    if (name.Contains("aspnet")) return 2; // ASP.NET hosting
+    return 10; // everything else
+}
+defFiles = defFiles.OrderBy(PrereqPriority).ThenBy(f => Path.GetFileName(f)).ToArray();
+
 Console.WriteLine($"Definitions to process: {defFiles.Length}");
 Console.WriteLine();
 
@@ -60,7 +71,8 @@ var skipList = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 {
     "slack.json", "teams.json", "foxitreader.json", "filezilla.json", "vmwaretools.json",
     "Dotnet10x64.json", // Defer to last
-    "vs2026.json", "vs2026community.json"
+    "vs2026.json", "vs2026community.json",
+    "7zip.json" // Harness dependency — 7z.exe must remain installed for other apps to stage
 };
 
 // Results file — write incrementally
@@ -211,6 +223,13 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
         failed++;
     }
 
+    // Check for pending reboot after each app
+    if (IsRebootPending())
+    {
+        Console.WriteLine("  *** REBOOT PENDING — subsequent installs may fail with 1603 ***");
+        await File.AppendAllTextAsync(resultsPath, $"\"{def.Application}\",\"RebootPending\",\"WARNING\",0\n");
+    }
+
     Console.WriteLine();
 }
 
@@ -220,3 +239,28 @@ Console.WriteLine($"TOTAL: {defFiles.Length} | PASSED: {passed} | FAILED: {faile
 Console.WriteLine($"Results: {resultsPath}");
 
 historyService.Dispose();
+
+static bool IsRebootPending()
+{
+    try
+    {
+        using var cbs = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending");
+        if (cbs != null) return true;
+
+        using var wu = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired");
+        if (wu != null) return true;
+
+        using var pfro = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+            @"SYSTEM\CurrentControlSet\Control\Session Manager");
+        if (pfro != null)
+        {
+            var val = pfro.GetValue("PendingFileRenameOperations");
+            if (val is string[] arr && arr.Length > 0) return true;
+        }
+
+        return false;
+    }
+    catch { return false; }
+}
