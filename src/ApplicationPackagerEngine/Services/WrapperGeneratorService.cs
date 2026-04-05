@@ -30,8 +30,11 @@ public sealed class WrapperGeneratorService
 
     /// <summary>
     /// Generates all 4 wrapper files for an EXE installer.
+    /// Uninstall uses the same EXE with uninstall args, or looks up
+    /// the uninstall string from ARP registry for InnoSetup/NSIS apps.
     /// </summary>
-    public void GenerateExeWrappers(string outputPath, string exeFileName, string installArgs, string uninstallCommand, string uninstallArgs = "")
+    public void GenerateExeWrappers(string outputPath, string exeFileName,
+        string installArgs, string uninstallArgs, string? installerFramework = null)
     {
         var installPs1 = $"""
             $exePath = Join-Path $PSScriptRoot '{exeFileName}'
@@ -39,15 +42,67 @@ public sealed class WrapperGeneratorService
             exit $proc.ExitCode
             """;
 
-        var uninstallPs1 = string.IsNullOrEmpty(uninstallArgs)
-            ? $"""
-            $proc = Start-Process -FilePath '{uninstallCommand}' -Wait -PassThru -NoNewWindow
-            exit $proc.ExitCode
-            """
-            : $"""
-            $proc = Start-Process -FilePath '{uninstallCommand}' -ArgumentList '{uninstallArgs}' -Wait -PassThru -NoNewWindow
-            exit $proc.ExitCode
-            """;
+        // Framework-aware uninstall script
+        string uninstallPs1;
+        if (installerFramework is "InnoSetup")
+        {
+            // InnoSetup: find and run unins000.exe from the install directory via ARP UninstallString
+            uninstallPs1 = $$"""
+                # Find uninstall string from ARP registry
+                $arpPaths = @(
+                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+                )
+                foreach ($arpPath in $arpPaths) {
+                    Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
+                        $key = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+                        if ($key.UninstallString -like '*unins*') {
+                            $uninstaller = $key.UninstallString -replace '"', ''
+                            if (Test-Path $uninstaller) {
+                                $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                                exit $proc.ExitCode
+                            }
+                        }
+                    }
+                }
+                # Fallback: try the installer with uninstall args
+                $exePath = Join-Path $PSScriptRoot '{{exeFileName}}'
+                $proc = Start-Process -FilePath $exePath -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                exit $proc.ExitCode
+                """;
+        }
+        else if (installerFramework is "NSIS")
+        {
+            // NSIS: find uninstaller from ARP UninstallString
+            uninstallPs1 = $$"""
+                $arpPaths = @(
+                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+                )
+                foreach ($arpPath in $arpPaths) {
+                    Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
+                        $key = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+                        if ($key.UninstallString -and $key.UninstallString -notlike '*msiexec*') {
+                            $uninstaller = $key.UninstallString -replace '"', ''
+                            if ((Test-Path $uninstaller) -and ($key.DisplayName -like '*{{exeFileName.Replace(".exe","")}}*')) {
+                                $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                                exit $proc.ExitCode
+                            }
+                        }
+                    }
+                }
+                exit 1
+                """;
+        }
+        else
+        {
+            // Default: run the installer EXE with uninstall args
+            uninstallPs1 = $"""
+                $exePath = Join-Path $PSScriptRoot '{exeFileName}'
+                $proc = Start-Process -FilePath $exePath -ArgumentList '{uninstallArgs}' -Wait -PassThru -NoNewWindow
+                exit $proc.ExitCode
+                """;
+        }
 
         WriteWrappers(outputPath, installPs1, uninstallPs1);
     }
