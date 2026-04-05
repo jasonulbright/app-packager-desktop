@@ -16,12 +16,14 @@ public sealed class WrapperGeneratorService
         var installPs1 = $"""
             $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
             $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+            $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
 
         var uninstallPs1 = $"""
             $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
             $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+            $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
 
@@ -39,6 +41,7 @@ public sealed class WrapperGeneratorService
         var installPs1 = $"""
             $exePath = Join-Path $PSScriptRoot '{exeFileName}'
             $proc = Start-Process -FilePath $exePath -ArgumentList '{installArgs}' -Wait -PassThru -NoNewWindow
+            $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
 
@@ -111,9 +114,17 @@ public sealed class WrapperGeneratorService
     {
         var encoding = new UTF8Encoding(false); // ASCII-compatible, no BOM
 
+        // PowerShell only returns 0 or 1 to cmd.exe. The ps1 writes the real
+        // exit code to exitcode.txt, and the bat reads it back for the true value.
         var batTemplate = """
             @echo off
+            del /q "%~dp0exitcode.txt" >nul 2>&1
             powershell.exe -NonInteractive -ExecutionPolicy Bypass -File "%~dp0{0}"
+            if exist "%~dp0exitcode.txt" (
+                set /p REALCODE=<"%~dp0exitcode.txt"
+                del /q "%~dp0exitcode.txt" >nul 2>&1
+                exit /b %REALCODE%
+            )
             exit /b %ERRORLEVEL%
             """;
 
