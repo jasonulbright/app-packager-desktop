@@ -19,7 +19,7 @@
                        },
     "DownloadUrl":  "https://github.com/vim/vim-win32-installer/releases/download/v{display_version}/gvim_{display_version}_x64.exe",
     "InstallArgs":  "/S",
-    "UninstallArgs":  "/S",
+    "UninstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "Detection":  {
                       "Type":  "File",
                       "FilePath":  "C:\\Program Files\\Vim\\vim92",

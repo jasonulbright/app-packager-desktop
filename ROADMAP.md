@@ -205,14 +205,14 @@ Full pipeline: Check Latest → Check MECM → Stage → Package → Distribute 
 
 See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for the complete per-app validation table.
 
-**Summary (2026-04-04, automated test harness):**
-- **39 FULL PASS** — Install + Detect + Uninstall + Clean verified via TestHarness
-- **91 installs working** — silent install scripts validated under SYSTEM context
-- **75 detections working** — detection rules validated against local registry/filesystem
-- **36 uninstall-clean failures** — uninstall runs but leaves ARP traces (script refinement needed)
+**Summary (2026-04-05, reconciled across all CSV runs):**
+- **45 FULL PASS** — Install + Detect + Uninstall + Clean verified
+- **32 uninstall/clean failures** — install+detect pass, uninstall leaves traces (many likely clear after reboot)
+- **16 detection failures** — install works, detection rule mismatch
 - **13 install failures** — prereq ordering, custom errors, port conflicts
-- **8 deferred** — MSIX, PUP, hypervisor, harness dependency
-- See [TEST-RESULTS-FINAL-20260404.csv](TEST-RESULTS-FINAL-20260404.csv) for raw data
+- **3 timeouts** — NSIS/InnoSetup hangs under SYSTEM
+- **8 excluded/deferred** — MSIX, PUP, hypervisor, too large, harness dependency
+- See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for detailed per-app status
 
 **Engine fixes applied during validation:**
 - `BuildDetection` sanitizes `+`/`-` to `.` for Version-type RegistryKeyValue detection
@@ -227,6 +227,9 @@ See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for the complete per-app valida
 - `regex_replace` transform for Adoptium LTS suffix stripping and Corretto version formats
 - `FileVersionScraper` — downloads installer to temp cache, reads EXE/MSI/MSIX version properties
 - `--max-filesize 1` in REDIR mode for fast redirect resolution without downloading body
+- NSIS uninstall wrapper matches by application display name (not download filename) — fixes Bitwarden, DBeaver, Opera, TeamViewer Host, Notepad++, WinRAR
+- MSI uninstall reads ProductCode from stage-manifest.json — fixes Firefox/Thunderbird exit 1605
+- 7 definition InstallerFramework/UninstallArgs corrections (git, positron, winscp, vim, wireshark, audacity, dbeaver)
 
 ### JSON App Definitions
 One file per app. Community-contributable. `InstallerFramework` field added to schema (2026-04-04, all 116 definitions populated).

@@ -5,3 +5,6 @@ obj/
 .vs/
 *.DotSettings.user
 *.log
+tools/TestHarness/publish/
+tools/TestHarness/bin/
+tools/TestHarness/obj/

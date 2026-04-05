@@ -2,6 +2,27 @@
 
 All notable changes to SRL Packr are documented here.
 
+## [2.1.0-alpha8] - 2026-04-05
+
+### Engine - Uninstall Wrapper Fixes
+- **NSIS uninstall matching** — wrapper now matches ARP entries by application display name (from definition) instead of download filename. Fixes Bitwarden, DBeaver, Opera, TeamViewer Host, Notepad++, WinRAR.
+- **MSI uninstall via ProductCode** — wrapper reads ProductCode from stage-manifest.json first, falls back to MSI file path. Fixes Firefox/Thunderbird exit 1605 (MSI wrapper uninstall).
+- `GenerateExeWrappers` takes new `applicationName` parameter for ARP matching.
+
+### Definition Fixes (7 apps)
+- git.json: InstallerFramework NativeEXE -> InnoSetup
+- positron.json: InstallerFramework NativeEXE -> InnoSetup
+- winscp.json: InstallerFramework NSIS -> InnoSetup
+- vim.json: UninstallArgs `/S` -> `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`
+- wireshark.json: InstallerFramework InnoSetup -> NSIS
+- audacity.json: UninstallArgs added `/SP-`
+
+### Lab Infrastructure
+- CLIENT01 rebuilt: 150GB OS disk (was 60GB), fresh Windows 11 Enterprise
+- `Deploy-HomeLab.ps1`: CLIENT01 OSDiskSize configurable in config.psd1, disk expansion step added
+- `Deploy-HomeLab.ps1`: re-adds CLIENT01 to lab definition when removed (supports VM-only rebuild)
+- Default Switch NIC required for CLIENT01 internet access (not auto-added by AutomatedLab deferred deploy)
+
 ## [2.1.0-alpha7] - 2026-04-04
 
 ### Engine — Installer Metadata Extraction (Foundation)

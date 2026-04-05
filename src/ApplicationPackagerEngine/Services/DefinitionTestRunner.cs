@@ -164,17 +164,23 @@ public sealed class DefinitionTestRunner
             FileName = fileName,
             Arguments = arguments,
             WorkingDirectory = workingDir,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
+            // Do NOT redirect stdout/stderr — child processes inherit the pipe
+            // handles and prevent WaitForExitAsync from completing until ALL
+            // children exit, even after the parent powershell.exe exits.
         };
 
         process.Start();
-        var stdout = await process.StandardOutput.ReadToEndAsync(ct);
-        var stderr = await process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
-        return (process.ExitCode, stdout, stderr);
+        // Hard 5-minute per-phase timeout. Kill process tree if exceeded.
+        var exitTask = process.WaitForExitAsync(CancellationToken.None);
+        if (await Task.WhenAny(exitTask, Task.Delay(300_000)) != exitTask)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            return (-999, "", "TIMEOUT - process killed");
+        }
+        await exitTask;
+        return (process.ExitCode, "", "");
     }
 
     private static async Task<(int ExitCode, string StdOut, string StdErr)> RunAsSystemAsync(
