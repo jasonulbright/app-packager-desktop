@@ -137,7 +137,7 @@ foreach ($defFile in $defs) {
     Write-Host "  Stage+Test..." -NoNewline
 
     try {
-        $result = Invoke-Command -ComputerName $ComputerName -Credential $cred -ScriptBlock {
+        $job = Invoke-Command -ComputerName $ComputerName -Credential $cred -AsJob -ScriptBlock {
             param($AppJson, $StagedRoot, $TimeoutSec)
 
             $def = $AppJson | ConvertFrom-Json
@@ -230,6 +230,25 @@ foreach ($defFile in $defs) {
 
             return $results
         } -ArgumentList ($def | ConvertTo-Json -Depth 10), $StagedRoot, $TimeoutSec -ErrorAction Stop
+
+        # Wait for job with timeout
+        $completed = Wait-Job $job -Timeout $TimeoutSec
+        if (-not $completed) {
+            Write-Host " TIMEOUT (${TimeoutSec}s)" -ForegroundColor Red
+            Stop-Job $job
+            Remove-Job $job -Force
+            "`"$appName`",`"Test`",`"TIMEOUT`",$($TimeoutSec * 1000)" | Out-File $ResultsPath -Append -Encoding UTF8
+            $failed++
+            # Kill any stuck processes on CLIENT01
+            Invoke-Command -ComputerName $ComputerName -Credential $cred -ScriptBlock {
+                Get-Process -Name msiexec, cmd, powershell -ErrorAction SilentlyContinue |
+                    Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-10) } |
+                    Stop-Process -Force -ErrorAction SilentlyContinue
+            } -ErrorAction SilentlyContinue
+            continue
+        }
+        $result = Receive-Job $job
+        Remove-Job $job -Force
 
         # Process results
         $needsReboot = $false
