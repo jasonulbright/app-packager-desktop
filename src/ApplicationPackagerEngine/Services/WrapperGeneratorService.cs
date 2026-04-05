@@ -20,9 +20,20 @@ public sealed class WrapperGeneratorService
             exit $proc.ExitCode
             """;
 
-        var uninstallPs1 = $"""
-            $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
-            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+        var uninstallPs1 = $$"""
+            # Read ProductCode from stage-manifest.json for reliable MSI uninstall
+            $manifest = Join-Path $PSScriptRoot 'stage-manifest.json'
+            $productCode = $null
+            if (Test-Path $manifest) {
+                $json = Get-Content $manifest -Raw | ConvertFrom-Json
+                $productCode = $json.ProductCode
+            }
+            if ($productCode) {
+                $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $productCode, '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+            } else {
+                $msiPath = Join-Path $PSScriptRoot '{{msiFileName}}'
+                $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+            }
             $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
@@ -36,7 +47,8 @@ public sealed class WrapperGeneratorService
     /// the uninstall string from ARP registry for InnoSetup/NSIS apps.
     /// </summary>
     public void GenerateExeWrappers(string outputPath, string exeFileName,
-        string installArgs, string uninstallArgs, string? installerFramework = null)
+        string installArgs, string uninstallArgs, string? installerFramework = null,
+        string? applicationName = null)
     {
         var installPs1 = $"""
             $exePath = Join-Path $PSScriptRoot '{exeFileName}'
@@ -78,7 +90,10 @@ public sealed class WrapperGeneratorService
         }
         else if (installerFramework is "NSIS")
         {
-            // NSIS: find uninstaller from ARP UninstallString
+            // NSIS: find uninstaller from ARP by application name (strip arch suffix for broader match)
+            var matchName = applicationName ?? exeFileName.Replace(".exe", "");
+            // Remove trailing (x64), (x86), (x64) etc. so "Notepad++ (x64)" matches "Notepad++ (64-bit x64)"
+            matchName = System.Text.RegularExpressions.Regex.Replace(matchName, @"\s*\(x\d+\)\s*$", "").Trim();
             uninstallPs1 = $$"""
                 $arpPaths = @(
                     'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
@@ -87,9 +102,9 @@ public sealed class WrapperGeneratorService
                 foreach ($arpPath in $arpPaths) {
                     Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
                         $key = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-                        if ($key.UninstallString -and $key.UninstallString -notlike '*msiexec*') {
+                        if ($key.UninstallString -and $key.UninstallString -notlike '*msiexec*' -and $key.DisplayName -like '*{{matchName}}*') {
                             $uninstaller = $key.UninstallString -replace '"', ''
-                            if ((Test-Path $uninstaller) -and ($key.DisplayName -like '*{{exeFileName.Replace(".exe","")}}*')) {
+                            if (Test-Path $uninstaller) {
                                 $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
                                 $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                                 exit $proc.ExitCode

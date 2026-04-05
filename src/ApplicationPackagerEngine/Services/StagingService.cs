@@ -277,7 +277,7 @@ public sealed class StagingService
             else
             {
                 _wrapperService.GenerateExeWrappers(contentPath, installerFileName,
-                    def.InstallArgs, def.UninstallArgs, def.InstallerFramework);
+                    def.InstallArgs, def.UninstallArgs, def.InstallerFramework, def.Application);
             }
 
             // 6. Build detection config

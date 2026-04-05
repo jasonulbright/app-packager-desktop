@@ -19,7 +19,7 @@
                        },
     "DownloadUrl":  "https://github.com/audacity/audacity/releases/download/Audacity-{display_version}/audacity-win-{display_version}-64bit.exe",
     "InstallArgs":  "/VERYSILENT /NORESTART /NOCANCEL /SP-",
-    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "UninstallArgs":  "/VERYSILENT /SP- /NORESTART",
     "Detection":  {
                       "Type":  "File",
                       "FilePath":  "C:\\Program Files\\Audacity",
