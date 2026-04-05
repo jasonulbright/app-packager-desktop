@@ -19,6 +19,7 @@
     "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2124701",
     "InstallArgs":  "/silent /install",
     "UninstallArgs":  "/silent /uninstall",
+    "CanUninstall":  false,
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKLM",
