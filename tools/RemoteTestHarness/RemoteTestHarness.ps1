@@ -143,7 +143,7 @@ foreach ($defFile in $defs) {
             $def = $AppJson | ConvertFrom-Json
 
             # Find or create staged content
-            $appFolder = ($def.Application -replace ' ','').Replace('(','').Replace(')','') + "-$($def.Architecture)"
+            $appFolder = ($def.Application -replace ' ','') + "-$($def.Architecture)"
             $stagedDir = Get-ChildItem $StagedRoot -Directory -Filter "$appFolder*" -ErrorAction SilentlyContinue |
                 ForEach-Object { Get-ChildItem $_.FullName -Directory | Select-Object -First 1 } |
                 Select-Object -First 1
