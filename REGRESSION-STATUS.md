@@ -13,16 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 87 |
+| **FULL PASS** | 88 |
 | **Install PASS, Detect FAIL** | 13 |
-| **Install FAIL** | 5 |
+| **Install FAIL** | 4 |
 | **Timeout** | 3 |
 | **Excluded/Deferred** | 11 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (87 apps)
+## FULL PASS — Signed Off (88 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -65,6 +65,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 33 | Everything (x64) | 4s | Dirty VM |
 | 34 | GIMP (x64) | 50s | psexec -s |
 | 35 | Git for Windows (x64) | 17s | psexec -s (InstallerFramework fix) |
+| 36 | Greenshot (x64) | 10s | psexec -s (install args fix + kill process before uninstall) |
 | 36 | Google Chrome (x64) | 14s | Both |
 | 37 | Inkscape (x64) | 47s | Dirty VM |
 | 38 | KeePass | 6s | Dirty VM |
@@ -127,7 +128,6 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 2 | AnyDesk | 11341829 | Needs interactive session |
 | 3 | Brave Browser (x64) | -1 | Squirrel hangs under SYSTEM |
 | 4 | CutePDF Writer | 1 | InnoSetup silent args |
-| 5 | Greenshot (x64) | 5 | InnoSetup access denied |
 
 ---
 
