@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "000001b8b99bf5fa",
     "Vendor":  "Greenshot",
@@ -17,7 +17,7 @@
                            "Pattern":  "\"name\":\\s*\"Greenshot-INSTALLER-(.*?)-RELEASE\\.exe\""
                        },
     "DownloadUrl":  "https://github.com/greenshot/greenshot/releases/download/v{version}/Greenshot-INSTALLER-{version}-RELEASE.exe",
-    "InstallArgs":  "/SP- /ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORUN /FORCECLOSEAPPLICATIONS /NORESTART /LANG=en /NOSTARTUP",
+    "InstallArgs":  "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /ALLUSERS /TYPE=Compact",
     "UninstallArgs":  "/SP- /VERYSILENT /NORESTART",
     "Detection":  {
                       "Type":  "File",
@@ -28,5 +28,6 @@
                   },
     "RunningProcess":  [
                            "Greenshot"
-                       ]
+                       ],
+    "UninstallCommand":  "Get-Process Greenshot -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\Greenshot\\unins000.exe\" -ArgumentList \"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow"
 }
