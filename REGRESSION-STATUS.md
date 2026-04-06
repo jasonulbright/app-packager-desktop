@@ -13,16 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 77 |
+| **FULL PASS** | 80 |
 | **Install PASS, Detect FAIL** | 13 |
-| **Install FAIL** | 13 |
+| **Install FAIL** | 12 |
 | **Timeout** | 3 |
 | **Excluded/Deferred** | 11 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (77 apps)
+## FULL PASS — Signed Off (80 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -95,6 +95,9 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 63 | ShareX (x64) | 12s | psexec -s |
 | 64 | SoapUI Open Source | 20s | psexec -s |
 | 65 | SSMS 22 (x64) | 120s | psexec -s |
+| 66 | Tableau Desktop (x64) | 120s | psexec -s (BurnManifest engine fix) |
+| 67 | Tableau Prep Builder (x64) | 90s | psexec -s (BurnManifest engine fix) |
+| 68 | Tableau Reader (x64) | 90s | psexec -s (BurnManifest engine fix) |
 | 66 | TeamViewer (x64) | 27s | Clean VM |
 | 67 | TeamViewer Host (x64) | 15s | psexec -s (NSIS arch-strip fix) |
 | 68 | TortoiseGit (x64) | 10s | Dirty VM |
@@ -109,7 +112,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Install Failures (13 apps)
+## Install Failures (12 apps)
 
 | # | App | Exit Code | Notes |
 |---|-----|-----------|-------|
@@ -125,11 +128,10 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 10 | PostgreSQL 14 (x64) | 1 | Port conflict |
 | 11 | PostgreSQL 15 (x64) | 1 | Port conflict |
 | 12 | PostgreSQL 17 (x64) | 1 | Port conflict |
-| 13 | Tableau Prep Builder (x64) | 1603 | Needs Tableau shared components |
 
 ---
 
-## Detection Failures (13 apps)
+## Detection Failures (11 apps)
 
 Install succeeds but detection rule does not match.
 
@@ -142,12 +144,10 @@ Install succeeds but detection rule does not match.
 | 5 | Postman (x64) | Per-user Squirrel |
 | 6 | PowerShell 7 LTS (x64) | ProductCode detection mismatch |
 | 7 | Sysinternals Suite (x64) | ZIP app, no ARP entry |
-| 8 | Tableau Desktop (x64) | Install+uninstall work (exit 0). {ProductCode} template unresolved for WiX Burn. |
-| 9 | Tableau Reader (x64) | Same as Tableau Desktop |
-| 10 | WinMerge (x64) | Detection mismatch |
-| 11 | WizTree (x64) | Detection mismatch |
-| 12 | XenCenter (x64) | Detection mismatch |
-| 13 | Zoom Workplace (x64) | MSI detection mismatch |
+| 8 | WinMerge (x64) | Detection mismatch |
+| 9 | WizTree (x64) | Detection mismatch |
+| 10 | XenCenter (x64) | Detection mismatch |
+| 11 | Zoom Workplace (x64) | MSI detection mismatch |
 
 ---
 

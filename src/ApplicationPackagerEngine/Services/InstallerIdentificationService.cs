@@ -189,7 +189,8 @@ public sealed class InstallerIdentificationService
 
     private async Task<InstallerMetadata> ExtractWixBurnMetadataAsync(string exePath, CancellationToken ct)
     {
-        // WiX Burn: extract EXE → find inner .msi → read MSI tables
+        // WiX Burn: extract EXE → parse BurnManifest XML for ProductCode,
+        // or find inner .msi and read MSI tables as fallback.
         var tempDir = Path.Combine(Path.GetTempPath(), $"packr-burn-{Guid.NewGuid():N}");
         try
         {
@@ -197,12 +198,59 @@ public sealed class InstallerIdentificationService
             if (!result.Success)
                 return new InstallerMetadata { Framework = "WixBurn" };
 
-            // Find inner MSI files
+            // Strategy 1: Parse BurnManifest XML (file "0") for MsiPackage ProductCode.
+            // Burn EXEs extract to numbered files without extensions. File "0" is the manifest.
+            var burnManifestPath = Path.Combine(tempDir, "0");
+            if (File.Exists(burnManifestPath))
+            {
+                try
+                {
+                    var doc = new System.Xml.XmlDocument();
+                    doc.Load(burnManifestPath);
+                    var nsMgr = new System.Xml.XmlNamespaceManager(doc.NameTable);
+                    nsMgr.AddNamespace("burn", "http://schemas.microsoft.com/wix/2008/Burn");
+
+                    // Find MsiPackage elements — pick the non-Permanent one (main product, not prereqs)
+                    var msiPackages = doc.SelectNodes("//burn:MsiPackage", nsMgr);
+                    if (msiPackages != null)
+                    {
+                        foreach (System.Xml.XmlNode pkg in msiPackages)
+                        {
+                            var permanent = pkg.Attributes?["Permanent"]?.Value;
+                            var productCode = pkg.Attributes?["ProductCode"]?.Value;
+                            var version = pkg.Attributes?["Version"]?.Value;
+                            if (permanent == "yes" || string.IsNullOrEmpty(productCode))
+                                continue;
+
+                            // Get publisher from Registration/Arp element
+                            var arpNode = doc.SelectSingleNode("//burn:Registration/burn:Arp", nsMgr);
+                            var publisher = arpNode?.Attributes?["Publisher"]?.Value;
+                            var displayName = arpNode?.Attributes?["DisplayName"]?.Value;
+
+                            return new InstallerMetadata
+                            {
+                                Framework = "WixBurn",
+                                ProductCode = productCode,
+                                ProductVersion = version,
+                                ProductName = displayName,
+                                Manufacturer = publisher,
+                                DetectionType = "RegistryKeyValue",
+                                DetectionKey = $"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{productCode}",
+                                DetectionValueName = "DisplayVersion",
+                                DetectionExpectedValue = version,
+                                MetadataSource = "BurnManifest-MsiPackage"
+                            };
+                        }
+                    }
+                }
+                catch { /* Fall through to MSI file search */ }
+            }
+
+            // Strategy 2: Find inner .msi files (works when Burn extracts with extensions)
             var msiFiles = Directory.GetFiles(tempDir, "*.msi", SearchOption.AllDirectories);
             if (msiFiles.Length == 0)
-                return new InstallerMetadata { Framework = "WixBurn", MetadataSource = "no-inner-msi" };
+                return new InstallerMetadata { Framework = "WixBurn", MetadataSource = "no-inner-msi-no-manifest" };
 
-            // Use the largest MSI (main product, not prerequisites)
             var mainMsi = msiFiles.OrderByDescending(f => new FileInfo(f).Length).First();
             var msiProps = _msiService.ReadProperties(mainMsi);
 
