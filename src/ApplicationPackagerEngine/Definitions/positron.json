@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "00000a8226a53a2e",
     "Vendor":  "Posit PBC",
@@ -28,5 +28,6 @@
                   },
     "RunningProcess":  [
                            "Positron"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\Positron\\unins000.exe\" -ArgumentList \"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow"
 }

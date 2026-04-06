@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "2558aede41f14568",
     "Vendor":  "Opera Software",
@@ -29,5 +29,6 @@
                   },
     "RunningProcess":  [
                            "opera"
-                       ]
+                       ],
+    "UninstallCommand":  "$installer = Get-ChildItem \"C:\\Program Files\\Opera\" -Recurse -Filter \"installer.exe\" -ErrorAction SilentlyContinue | Select-Object -First 1; $proc = Start-Process -FilePath $installer.FullName -ArgumentList \"--uninstall --system-level --force-uninstall\" -Wait -PassThru -NoNewWindow"
 }

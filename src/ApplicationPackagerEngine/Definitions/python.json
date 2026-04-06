@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "ec72851816834219",
     "Vendor":  "Python Software Foundation",
@@ -30,5 +30,6 @@
     "RunningProcess":  [
                            "python",
                            "pythonw"
-                       ]
+                       ],
+    "UninstallCommand":  "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"python-*-amd64.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /quiet\" -Wait -PassThru -NoNewWindow"
 }

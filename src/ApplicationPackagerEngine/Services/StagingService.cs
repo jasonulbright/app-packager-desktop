@@ -272,12 +272,12 @@ public sealed class StagingService
             onProgress?.Invoke("Generating install/uninstall wrappers...");
             if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
             {
-                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName);
+                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, def.UninstallCommand);
             }
             else
             {
                 _wrapperService.GenerateExeWrappers(contentPath, installerFileName,
-                    def.InstallArgs, def.UninstallArgs, def.InstallerFramework, def.Application);
+                    def.InstallArgs, def.UninstallArgs, def.InstallerFramework, def.Application, def.UninstallCommand);
             }
 
             // 6. Build detection config

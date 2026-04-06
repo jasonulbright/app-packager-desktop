@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "993a7f81913c480f",
     "Vendor":  "Microsoft",
@@ -19,7 +19,6 @@
     "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2124701",
     "InstallArgs":  "/silent /install",
     "UninstallArgs":  "/silent /uninstall",
-    "CanUninstall":  false,
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKLM",
@@ -31,5 +30,6 @@
                   },
     "RunningProcess":  [
 
-                       ]
+                       ],
+    "CanUninstall":  false
 }

@@ -65,10 +65,33 @@ Pattern: ARP UninstallString + `/quiet /norestart`, or `msiexec /x {ProductCode}
 | SoapUI | `"...\SmartBear\SoapUI-{version}\uninstall.exe" -q` | SoapUI.exe | InstallAnywhere. `-q` for quiet (not `/q`). Version in path. |
 | TeamViewer Host | `"C:\Program Files\TeamViewer\uninstall.exe" /S` | TeamViewer (stop service) | Stop service first: `net stop TeamViewer` |
 
+## Apps Using UninstallCommand (direct path, no ARP search)
+
+These apps have `UninstallCommand` set in their JSON definitions because the generic ARP search
+either matches the wrong app or uses the wrong uninstall method.
+
+| App | UninstallCommand | Vendor Source |
+|-----|-----------------|---------------|
+| Adobe Acrobat Reader DC | `msiexec /x {ProductCode} /qn /norestart` (ProductCode from ARP) | [helpx.adobe.com](https://helpx.adobe.com/acrobat/kb/uninstall-acrobat-dc-reader-using-command-line.html) |
+| ASP.NET 8 Hosting Bundle | `dotnet-hosting-*.exe /uninstall /quiet /norestart` (staged EXE) | [learn.microsoft.com](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/hosting-bundle) |
+| Bitwarden Desktop | `"Uninstall Bitwarden.exe" /allusers /S` | [bitwarden.com/help](https://bitwarden.com/help/deploy-desktop-apps-with-intune/) |
+| DBeaver Community | `Uninstall.exe /S /allusers` | [dbeaver.com/docs](https://dbeaver.com/docs/dbeaver/Windows-Silent-Install/#parameters) |
+| Malwarebytes | `mbuns.exe /VERYSILENT /NORESTART /NOSURVEY` | [support.malwarebytes.com](https://support.malwarebytes.com/hc/en-us/articles/360039023473) |
+| Mozilla Firefox | `helper.exe /S` (not msiexec — MSI is wrapper only) | [support.mozilla.org](https://support.mozilla.org/en-US/kb/silently-install-uninstall-firefox-enterprise) |
+| Mozilla Thunderbird | `helper.exe /S` (same as Firefox) | [support.mozilla.org](https://support.mozilla.org/en-US/kb/silently-install-uninstall-firefox-enterprise) |
+| Opera Browser | `launcher.exe --uninstall --system-level --force-uninstall` | [Chocolatey Opera package](https://community.chocolatey.org/packages/Opera) |
+| Positron | `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART` | [InnoSetup docs](https://jrsoftware.org/ishelp/index.php?topic=uninstcmdline) |
+| Power BI Desktop | `msiexec /x {ProductCode} /qn /norestart` (MSI entry from ARP) | [learn.microsoft.com](https://learn.microsoft.com/en-us/power-bi/fundamentals/desktop-get-the-desktop) |
+| Python | `python-*-amd64.exe /uninstall /quiet` (staged EXE) | [docs.python.org](https://docs.python.org/3/using/windows.html#installing-without-ui) |
+| R for Windows | `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART` | [InnoSetup docs](https://jrsoftware.org/ishelp/index.php?topic=uninstcmdline) |
+| RStudio Desktop | `Uninstall.exe /S` | [Chocolatey R.Studio](https://community.chocolatey.org/packages/R.Studio) |
+| Vim | `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART` | [InnoSetup docs](https://jrsoftware.org/ishelp/index.php?topic=uninstcmdline) |
+| WinSCP | `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART` | [winscp.net docs](https://winscp.net/eng/docs/installation#uninstallation) |
+
 ## Special Cases
 
 | App | Decision | Reason |
 |-----|---------|--------|
-| Edge WebView2 | Set `CanUninstall = false` | Microsoft: Evergreen runtime should not be removed |
+| Edge WebView2 | Set `CanUninstall = false` | Microsoft: Evergreen runtime should not be removed. [Source](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#the-evergreen-runtime) |
 | VC++ Redistributable x64/x86 | Set `CanUninstall = false` | Shared components — other apps depend on them |
 | PostgreSQL 16 data dir | Not a bug | Vendor design: data preserved for safety |

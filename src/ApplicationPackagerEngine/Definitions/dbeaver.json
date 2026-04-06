@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "0000063ececba2d8",
     "Vendor":  "DBeaver Corp",
@@ -29,5 +29,6 @@
                   },
     "RunningProcess":  [
                            "dbeaver"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\DBeaver\\Uninstall.exe\" -ArgumentList \"/S /allusers\" -Wait -PassThru -NoNewWindow"
 }

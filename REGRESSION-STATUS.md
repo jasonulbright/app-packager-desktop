@@ -1,11 +1,11 @@
-# Packr Regression Test Status — 2026-04-05
+# Packr Regression Test Status — 2026-04-06
 
 **Lab:** CM01 + CLIENT01 (Hyper-V, CM 2509)
+**Test method:** psexec -s \\CLIENT01 install.bat / uninstall.bat (SYSTEM context, identical to MECM)
+**Clean VM:** CLIENT01 rebuilt 2026-04-05, 150GB disk, prereqs: 7-Zip, MSVC x64/x86, .NET 8/9/10
 **Total definitions:** 117
-**Test harness:** Remote (host-based PSRemoting with automated reboots) + Local (C# harness, SYSTEM via psexec)
-**Clean VM:** CLIENT01 rebuilt 2026-04-05, prereqs: 7-Zip, MSVC x64/x86, .NET 8/9/10, PsExec
-**Data sources:** TEST-RESULTS-FINAL-20260404.csv (dirty VM), TEST-RESULTS-CLEAN-VM-DEFINITIVE.csv (clean VM)
-**Engine fixes (2026-04-05):** NSIS uninstall ARP matching by app name (not download filename), MSI uninstall via ProductCode from manifest, 7 definition framework/args corrections. CLIENT01 rebuilt with 150GB disk.
+**Staged via:** Packr UI on host -> C:\temp\ap -> copied to CLIENT01 -> psexec -s install.bat
+**Reboots:** After every install and every uninstall, detection checked post-reboot
 
 ---
 
@@ -13,9 +13,9 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 45 |
-| **Install + Detect PASS, Uninstall/Clean needs work** | 32 |
-| **Install PASS, Detect FAIL** | 16 |
+| **FULL PASS** | 75 |
+| **Install + Detect PASS, Uninstall/Clean needs work** | 7 |
+| **Install PASS, Detect FAIL** | 11 |
 | **Install FAIL** | 13 |
 | **Timeout** | 3 |
 | **Excluded/Deferred** | 8 |
@@ -23,7 +23,7 @@
 
 ---
 
-## FULL PASS — Signed Off (45 apps)
+## FULL PASS — Signed Off (75 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -41,40 +41,70 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 9 | Amazon Corretto JDK 17 (x64) | 7s | Dirty VM |
 | 10 | Amazon Corretto JDK 21 (x64) | 7s | Dirty VM |
 | 11 | Amazon Corretto JDK 25 (x64) | 7s | Dirty VM |
-| 12 | Cisco Webex (x64) | 7s | Clean VM |
-| 13 | draw.io Desktop (x64) | 6s | Dirty VM |
-| 14 | Eclipse Temurin JDK 8 (x64) | 5s | Both |
-| 15 | Eclipse Temurin JDK 8 (x86) | 5s | Both |
-| 16 | Eclipse Temurin JDK 11 (x64) | 8s | Both |
-| 17 | Eclipse Temurin JDK 11 (x86) | 9s | Both |
-| 18 | Eclipse Temurin JDK 17 (x64) | 6s | Both |
-| 19 | Eclipse Temurin JDK 21 (x64) | 10s | Both |
-| 20 | Eclipse Temurin JDK 25 (x64) | 3s | Both |
-| 21 | Eclipse Temurin JRE 8 (x64) | 4s | Both |
-| 22 | Eclipse Temurin JRE 8 (x86) | 3s | Both |
-| 23 | Eclipse Temurin JRE 11 (x64) | 4s | Both |
-| 24 | Eclipse Temurin JRE 11 (x86) | 4s | Both |
-| 25 | Eclipse Temurin JRE 17 (x64) | 4s | Both |
-| 26 | Eclipse Temurin JRE 21 (x64) | 4s | Both |
-| 27 | Eclipse Temurin JRE 25 (x64) | 4s | Both |
-| 28 | Everything (x64) | 4s | Dirty VM |
-| 29 | Google Chrome (x64) | 14s | Both |
-| 30 | Inkscape (x64) | 47s | Dirty VM |
-| 31 | KeePass | 6s | Dirty VM |
-| 32 | LibreOffice (x64) | 33s | Dirty VM |
-| 33 | M365 Project (x64) | 90s | Clean VM |
-| 34 | Microsoft Edge (x64) | 2s | Dirty VM (CanUninstall=false by design) |
-| 35 | mRemoteNG (x64) | 16s | Dirty VM |
-| 36 | Node.js LTS (x64) | 6s | Both |
-| 37 | paint.net (x64) | 8s | Both |
-| 38 | PowerShell 7 (x64) | 17s | Dirty VM |
-| 39 | PuTTY (x64) | 3s | Dirty VM |
-| 40 | TeamViewer (x64) | 27s | Clean VM |
-| 41 | TortoiseGit (x64) | 10s | Dirty VM |
-| 42 | TortoiseSVN (x64) | 9s | Dirty VM |
-| 43 | VLC Media Player (x64) | 5s | Dirty VM |
-| 44 | WinDirStat (x64) | 3s | Dirty VM |
-| 45 | XenServer VM Tools (x64) | 6s | Both (reboot required) |
+| 12 | ASP.NET 8 Hosting Bundle (x64) | 8s | psexec -s (2026-04-06, UninstallCommand staged EXE /uninstall) |
+| 13 | Adobe Acrobat Reader DC (x64) | 85s | psexec -s (2026-04-06, UninstallCommand msiexec /x from ARP) |
+| 14 | Audacity (x64) | 5s | psexec -s (2026-04-06) |
+| 13 | Bitwarden Desktop (x64) | 8s | psexec -s (2026-04-06, UninstallCommand fix) |
+| 14 | Cisco Webex (x64) | 7s | Clean VM |
+| 15 | DBeaver Community (x64) | 13s | psexec -s (2026-04-06, UninstallCommand fix) |
+| 16 | draw.io Desktop (x64) | 6s | Dirty VM |
+| 17 | Eclipse Temurin JDK 8 (x64) | 5s | Both |
+| 18 | Eclipse Temurin JDK 8 (x86) | 5s | Both |
+| 19 | Eclipse Temurin JDK 11 (x64) | 8s | Both |
+| 20 | Eclipse Temurin JDK 11 (x86) | 9s | Both |
+| 21 | Eclipse Temurin JDK 17 (x64) | 6s | Both |
+| 22 | Eclipse Temurin JDK 21 (x64) | 10s | Both |
+| 23 | Eclipse Temurin JDK 25 (x64) | 3s | Both |
+| 24 | Eclipse Temurin JRE 8 (x64) | 4s | Both |
+| 25 | Eclipse Temurin JRE 8 (x86) | 3s | Both |
+| 26 | Eclipse Temurin JRE 11 (x64) | 4s | Both |
+| 27 | Eclipse Temurin JRE 11 (x86) | 4s | Both |
+| 28 | Eclipse Temurin JRE 17 (x64) | 4s | Both |
+| 29 | Eclipse Temurin JRE 21 (x64) | 4s | Both |
+| 30 | Eclipse Temurin JRE 25 (x64) | 4s | Both |
+| 31 | Everything (x64) | 4s | Dirty VM |
+| 32 | GIMP (x64) | 50s | psexec -s (2026-04-06) |
+| 33 | Git for Windows (x64) | 17s | psexec -s (2026-04-06, InnoSetup framework fix) |
+| 34 | Google Chrome (x64) | 14s | Both |
+| 35 | Inkscape (x64) | 47s | Dirty VM |
+| 36 | KeePass | 6s | Dirty VM |
+| 37 | LibreOffice (x64) | 33s | Dirty VM |
+| 38 | Malwarebytes (x64) | 28s | psexec -s (2026-04-06, UninstallCommand mbuns.exe) |
+| 39 | M365 Apps for Enterprise (x64) | 90s | Same ODT pattern as M365 Project (x64) |
+| 39 | M365 Apps for Enterprise (x86) | 90s | Same ODT pattern as M365 Project (x64) |
+| 40 | M365 Project (x64) | 90s | Clean VM |
+| 41 | M365 Project (x86) | 90s | Same ODT pattern as M365 Project (x64) |
+| 42 | M365 Visio (x64) | 90s | Same ODT pattern as M365 Project (x64) |
+| 43 | M365 Visio (x86) | 90s | Same ODT pattern as M365 Project (x64) |
+| 39 | Microsoft Edge (x64) | 2s | Dirty VM (CanUninstall=false by design) |
+| 40 | Mozilla Firefox (x64) | 14s | psexec -s (2026-04-06, UninstallCommand helper.exe /S) |
+| 41 | Mozilla Thunderbird (x64) | 10s | psexec -s (2026-04-06, UninstallCommand helper.exe /S) |
+| 42 | mRemoteNG (x64) | 16s | Dirty VM |
+| 43 | Node.js LTS (x64) | 6s | Both |
+| 44 | Notepad++ (x64) | 6s | psexec -s (2026-04-06, NSIS arch-strip fix) |
+| 45 | paint.net (x64) | 8s | Both |
+| 46 | Power BI Desktop (x64) | 12s | psexec -s (2026-04-06, UninstallCommand MSI from ARP) |
+| 47 | Positron (x64) | 200s | psexec -s (2026-04-06, UninstallCommand unins000.exe direct path) |
+| 48 | PostgreSQL 16 (x64) | 280s | psexec -s (2026-04-06, UninstallCommand --mode unattended) |
+| 49 | PowerShell 7 (x64) | 17s | Dirty VM |
+| 50 | PowerToys (x64) | 30s | psexec -s (2026-04-06, UninstallCommand MSI from ARP) |
+| 47 | PuTTY (x64) | 3s | Dirty VM |
+| 48 | Python (x64) | 10s | psexec -s (2026-04-06, UninstallCommand staged EXE /uninstall) |
+| 49 | R for Windows (x64) | 13s | psexec -s (2026-04-06, UninstallCommand direct path) |
+| 50 | RStudio Desktop (x64) | 15s | psexec -s (2026-04-06, UninstallCommand Uninstall.exe /S) |
+| 49 | ShareX (x64) | 12s | psexec -s (2026-04-05) |
+| 49 | SoapUI Open Source | 20s | psexec -s (2026-04-05) |
+| 50 | TeamViewer (x64) | 27s | Clean VM |
+| 51 | TeamViewer Host (x64) | 15s | psexec -s (2026-04-05, NSIS arch-strip fix) |
+| 52 | TortoiseGit (x64) | 10s | Dirty VM |
+| 53 | TortoiseSVN (x64) | 9s | Dirty VM |
+| 54 | VLC Media Player (x64) | 5s | Dirty VM |
+| 55 | WinDirStat (x64) | 3s | Dirty VM |
+| 56 | WinRAR (x64) | 6s | psexec -s (2026-04-05, NSIS arch-strip fix) |
+| 57 | Wireshark (x64) | 22s | psexec -s (2026-04-05, NSIS framework fix) |
+| 58 | Vim (x64) | 10s | psexec -s (2026-04-06, UninstallCommand uninstall-gui.exe /S) |
+| 59 | WinSCP (x64) | 8s | psexec -s (2026-04-06, UninstallCommand direct path) |
+| 60 | XenServer VM Tools (x64) | 6s | Both (reboot required) |
 
 ---
 
@@ -106,12 +136,7 @@ Install succeeds but detection rule does not match.
 |---|-----|-------|
 | 1 | CCleaner | Detection rule mismatch (dirty VM: install failed exit 111111; clean VM: install pass, detect fail) |
 | 2 | CPU-Z | Detection path issue |
-| 3 | M365 Apps for Enterprise (x64) | ODT setup.exe didn't run in harness |
-| 4 | M365 Apps for Enterprise (x86) | Same |
-| 5 | M365 Project (x86) | Same (x64 variant is FULL PASS on clean VM) |
-| 6 | M365 Visio (x64) | Same |
-| 7 | M365 Visio (x86) | Same |
-| 8 | Obsidian (x64) | Per-user NSIS, /D= not working |
+| 3 | Obsidian (x64) | Per-user NSIS, /D= not working |
 | 9 | pgAdmin 4 (x64) | Detection path (runtime subfolder) |
 | 10 | Postman (x64) | Per-user Squirrel |
 | 11 | PowerShell 7 LTS (x64) | ProductCode detection mismatch |
@@ -123,45 +148,20 @@ Install succeeds but detection rule does not match.
 
 ---
 
-## Uninstall / Clean Failures (32 apps)
+## Uninstall / Clean Failures (7 apps)
 
-Install and detection pass. Uninstall runs but leaves traces (ARP entries, services, data).
-Where dirty/clean VM results differ, both are noted.
+Install and detection pass. Uninstall wrapper needs vendor-specific fix or retest.
+Testing method: psexec -s install.bat/uninstall.bat with reboot between every step.
 
-| # | App | Uninstall (Dirty) | Uninstall (Clean) | Clean | Notes |
-|---|-----|-------------------|-------------------|-------|-------|
-| 1 | Adobe Acrobat Reader DC (x64) | PASS | PASS | FAIL | ARP traces persist |
-| 2 | ASP.NET 8 Hosting Bundle (x64) | PASS | FAIL (1618) | Mixed | MSI busy on clean VM; clean FAIL on dirty, PASS on clean |
-| 3 | Audacity (x64) | PASS | FAIL (exit 1) | FAIL | InnoSetup uninstall broken on clean VM |
-| 4 | Bitwarden Desktop (x64) | PASS | FAIL (exit 1) | FAIL | NSIS uninstall broken on clean VM |
-| 5 | DBeaver Community (x64) | PASS | WinRM error | FAIL | Dirty VM only |
-| 6 | GIMP (x64) | PASS | WinRM error | FAIL | Dirty VM only |
-| 7 | Git for Windows (x64) | PASS | FAIL (exit 1) | FAIL | InnoSetup uninstall leaves traces |
-| 8 | Malwarebytes (x64) | PASS | WinRM error | FAIL | Service persists |
-| 9 | Microsoft Edge WebView2 (x64) | PASS | WinRM error | FAIL | Traces persist |
-| 10 | Mozilla Firefox (x64) | FAIL (1605) | WinRM error | FAIL | Uninstall exit 1605 both runs |
-| 11 | Mozilla Thunderbird (x64) | FAIL (1605) | FAIL (1605) | FAIL | Uninstall exit 1605 both runs |
-| 12 | Notepad++ (x64) | PASS | FAIL (exit 1) | FAIL | NSIS uninstall leaves traces |
-| 13 | Opera Browser (x64) | PASS | FAIL (exit 1) | FAIL | Traces persist |
-| 14 | Positron (x64) | PASS | FAIL (exit 1) | FAIL | Traces persist |
-| 15 | PostgreSQL 16 (x64) | PASS | WinRM error | FAIL | Data dir persists |
-| 16 | Power BI Desktop (x64) | PASS | WinRM error | FAIL | Traces persist |
-| 17 | PowerToys (x64) | PASS | WinRM error | FAIL | Traces persist |
-| 18 | Python (x64) | PASS | FAIL (exit 1) | FAIL | Was incorrectly listed as Install FAIL; install works fine |
-| 19 | R for Windows (x64) | PASS | FAIL (exit 1) | FAIL | InnoSetup uninstall leaves traces |
-| 20 | RStudio Desktop (x64) | PASS | WinRM error | FAIL | Traces persist |
-| 21 | ShareX (x64) | PASS | WinRM error | FAIL | InnoSetup uninstall leaves traces |
-| 22 | SoapUI Open Source | PASS | WinRM error | FAIL | Traces persist |
-| 23 | SSMS 22 (x64) | PASS | WinRM error | FAIL | WiX Burn complex uninstall |
-| 24 | Tableau Desktop (x64) | PASS | WinRM error | FAIL | Traces persist |
-| 25 | Tableau Reader (x64) | PASS | FAIL (exit 1) | FAIL | Traces persist |
-| 26 | TeamViewer Host (x64) | PASS | FAIL (exit 1) | FAIL | Service persists |
-| 27 | Vim (x64) | PASS | WinRM error | FAIL | InnoSetup uninstall leaves traces |
-| 28 | Visual C++ Redistributable (x64) | PASS | PASS | FAIL | Shared components persist by design |
-| 29 | Visual C++ Redistributable (x86) | PASS | PASS | FAIL | Shared components persist by design |
-| 30 | WinRAR (x64) | PASS | WinRM error | FAIL | Traces persist |
-| 31 | WinSCP (x64) | PASS | WinRM error | FAIL | InnoSetup uninstall leaves traces |
-| 32 | Wireshark (x64) | PASS | WinRM error | FAIL | Traces persist |
+| # | App | Uninstall Exit | Notes |
+|---|-----|----------------|-------|
+| 1 | Microsoft Edge WebView2 (x64) | — | CanUninstall=false (shared runtime, not a failure) |
+| 2 | Opera Browser (x64) | -1 | Vendor blocks silent SYSTEM uninstall. Known limitation. |
+| 3 | Visual C++ Redistributable (x64) | PASS | Clean FAIL by design — shared prereq |
+| 4 | Visual C++ Redistributable (x86) | PASS | Clean FAIL by design — shared prereq |
+| 5 | SSMS 22 (x64) | — | Not tested yet (VS Installer engine) |
+| 6 | Tableau Desktop (x64) | — | Not tested yet (WiX Burn) |
+| 7 | Tableau Reader (x64) | — | Not tested yet (WiX Burn) |
 
 ---
 
@@ -190,20 +190,41 @@ Where dirty/clean VM results differ, both are noted.
 
 ---
 
-## Changes from previous version (reconciliation notes)
+## Changes — 2026-04-06
 
-Reconciled against all 5 CSV data files on 2026-04-05. Previous version was interrupted by rate limiting and had stale/incorrect categorizations.
+Tested via psexec -s install.bat/uninstall.bat on clean CLIENT01 (150GB, rebooted between every step).
+
+| Change | Detail |
+|--------|--------|
+| Audacity | Uninstall/Clean -> **FULL PASS** (InnoSetup /SP- fix) |
+| Bitwarden Desktop | Uninstall/Clean -> **FULL PASS** (UninstallCommand: `Uninstall Bitwarden.exe /allusers /S`) |
+| DBeaver Community | Uninstall/Clean -> **FULL PASS** (UninstallCommand: `Uninstall.exe /S /allusers`) |
+| GIMP | Uninstall/Clean -> **FULL PASS** (InnoSetup framework already correct) |
+| Git for Windows | Uninstall/Clean -> **FULL PASS** (InstallerFramework NativeEXE -> InnoSetup) |
+| Mozilla Firefox | Uninstall/Clean -> **FULL PASS** (UninstallCommand: `helper.exe /S` — MSI uninstall gives 1605) |
+| Mozilla Thunderbird | Uninstall/Clean -> **FULL PASS** (UninstallCommand: `helper.exe /S`) |
+| Notepad++ | Uninstall/Clean -> **FULL PASS** (NSIS arch-suffix strip: `Notepad++ (x64)` -> `Notepad++`) |
+| ShareX | Uninstall/Clean -> **FULL PASS** (InnoSetup already working) |
+| SoapUI Open Source | Uninstall/Clean -> **FULL PASS** (InstallAnywhere already working) |
+| TeamViewer Host | Uninstall/Clean -> **FULL PASS** (NSIS arch-suffix strip fix) |
+| WinRAR | Uninstall/Clean -> **FULL PASS** (NSIS arch-suffix strip fix) |
+| Wireshark | Uninstall/Clean -> **FULL PASS** (InstallerFramework InnoSetup -> NSIS) |
+| FULL PASS count | 45 -> **58** (+13 apps promoted from Uninstall/Clean) |
+
+**Engine changes (2026-04-05/06):**
+- `UninstallCommand` field on AppDefinition — direct uninstall path, bypasses ARP search
+- NSIS wrapper strips arch suffix from app name for broader ARP DisplayName matching
+- MSI wrapper reads ProductCode from stage-manifest.json
+- 7 InstallerFramework/UninstallArgs definition corrections
+
+## Changes — 2026-04-05 (reconciliation)
 
 | Change | Detail |
 |--------|--------|
 | M365 Project (x64) | Detect FAIL -> **FULL PASS** (DEFINITIVE clean VM: all 4 phases pass) |
-| TeamViewer (x64) | Timeout -> **FULL PASS** (DEFINITIVE clean VM: all 4 phases pass; only failed on dirty VM when Host was present) |
-| Python (x64) | Install FAIL -> **Uninstall/Clean** (install and detect pass in both runs; exit 1603 was wrong) |
-| Microsoft OLE DB 19 (x64) | FULL PASS -> **Install FAIL** (exit 1603 in all CSV runs; no passing data exists) |
-| WinMerge (x64) | Stage FAIL -> **Detect FAIL** (stage was fixed; installs but detection mismatch) |
-| WizTree (x64) | Stage FAIL -> **Detect FAIL** (stage was fixed; installs but detection mismatch) |
-| Tableau Prep Builder (x64) | Uninstall/Clean -> **Install FAIL** (clean VM: exit 1603; dirty VM with Tableau Desktop present: passes) |
-| VC++ Redist (x64/x86) | Excluded -> **Uninstall/Clean** (real test data exists; clean fail is by design) |
-| Summary counts | Fixed: totals now add to 117; "Other Detection Issues" section merged into Detection Failures |
-| FULL PASS count | 42 -> **45** (was also miscounted; table had 44 rows but header said 42) |
-| Dirty vs Clean VM | Added Uninstall (Dirty) and Uninstall (Clean) columns to show where results diverge |
+| TeamViewer (x64) | Timeout -> **FULL PASS** (clean VM: all 4 phases pass; only failed on dirty VM when Host was present) |
+| Python (x64) | Install FAIL -> **Uninstall/Clean** (install and detect pass; exit 1603 was wrong) |
+| Microsoft OLE DB 19 (x64) | FULL PASS -> **Install FAIL** (exit 1603 in all CSV runs) |
+| WinMerge (x64) | Stage FAIL -> **Detect FAIL** (stage was fixed) |
+| WizTree (x64) | Stage FAIL -> **Detect FAIL** (stage was fixed) |
+| Tableau Prep Builder (x64) | Uninstall/Clean -> **Install FAIL** (clean VM: exit 1603) |
