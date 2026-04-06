@@ -154,7 +154,7 @@ Install succeeds but detection rule does not match.
 | # | App | Status | Notes |
 |---|-----|--------|-------|
 | 1 | Microsoft Edge WebView2 (x64) | CanUninstall=false | Shared runtime, not a failure |
-| 2 | Opera Browser (x64) | exit -1 | Vendor blocks silent SYSTEM uninstall |
+| 2 | Opera Browser (x64) | N/A | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. Vendor unsupported for enterprise management. |
 | 3 | Tableau Desktop (x64) | exit 0 | Uninstall works but detection rule broken ({ProductCode} template) |
 | 4 | Tableau Reader (x64) | exit 0 | Same detection rule bug as Tableau Desktop |
 | 5 | Visual C++ Redistributable (x64) | by design | Shared prereq, clean fail expected |

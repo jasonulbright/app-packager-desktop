@@ -30,5 +30,6 @@
     "RunningProcess":  [
                            "opera"
                        ],
-    "UninstallCommand":  "$installer = Get-ChildItem \"C:\\Program Files\\Opera\" -Recurse -Filter \"installer.exe\" -ErrorAction SilentlyContinue | Select-Object -First 1; $proc = Start-Process -FilePath $installer.FullName -ArgumentList \"--uninstall --system-level --force-uninstall\" -Wait -PassThru -NoNewWindow"
+    "UninstallCommand":  "$installer = Get-ChildItem \"C:\\Program Files\\Opera\" -Recurse -Filter \"installer.exe\" -ErrorAction SilentlyContinue | Select-Object -First 1; $proc = Start-Process -FilePath $installer.FullName -ArgumentList \"--uninstall --system-level --force-uninstall\" -Wait -PassThru -NoNewWindow",
+    "InstallContext":  "User"
 }
