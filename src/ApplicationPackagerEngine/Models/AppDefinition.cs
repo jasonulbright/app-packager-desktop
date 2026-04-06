@@ -42,6 +42,12 @@ public sealed class AppDefinition
     public string InstallArgs { get; set; } = "";
     public string UninstallArgs { get; set; } = "";
     /// <summary>
+    /// Direct uninstall command template. When set, the uninstall wrapper calls this
+    /// directly instead of searching ARP. Use for apps with known uninstaller paths.
+    /// Example: "\"C:\\Program Files\\Bitwarden\\Uninstall Bitwarden.exe\" /allusers /S"
+    /// </summary>
+    public string? UninstallCommand { get; set; }
+    /// <summary>
     /// When true, always show the installer settings review dialog before staging,
     /// regardless of the global "Skip config review" setting. Use for apps where
     /// configuration matters (PostgreSQL port/password, VS workloads, ODT products).

@@ -11,7 +11,7 @@ public sealed class WrapperGeneratorService
     /// <summary>
     /// Generates all 4 wrapper files for an MSI installer.
     /// </summary>
-    public void GenerateMsiWrappers(string outputPath, string msiFileName)
+    public void GenerateMsiWrappers(string outputPath, string msiFileName, string? uninstallCommand = null)
     {
         var installPs1 = $"""
             $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
@@ -20,23 +20,35 @@ public sealed class WrapperGeneratorService
             exit $proc.ExitCode
             """;
 
-        var uninstallPs1 = $$"""
-            # Read ProductCode from stage-manifest.json for reliable MSI uninstall
-            $manifest = Join-Path $PSScriptRoot 'stage-manifest.json'
-            $productCode = $null
-            if (Test-Path $manifest) {
-                $json = Get-Content $manifest -Raw | ConvertFrom-Json
-                $productCode = $json.ProductCode
-            }
-            if ($productCode) {
-                $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $productCode, '/qn', '/norestart') -Wait -PassThru -NoNewWindow
-            } else {
-                $msiPath = Join-Path $PSScriptRoot '{{msiFileName}}'
-                $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
-            }
-            $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-            exit $proc.ExitCode
-            """;
+        string uninstallPs1;
+        if (!string.IsNullOrEmpty(uninstallCommand))
+        {
+            uninstallPs1 = $$"""
+                {{uninstallCommand}}
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                exit $proc.ExitCode
+                """;
+        }
+        else
+        {
+            uninstallPs1 = $$"""
+                # Read ProductCode from stage-manifest.json for reliable MSI uninstall
+                $manifest = Join-Path $PSScriptRoot 'stage-manifest.json'
+                $productCode = $null
+                if (Test-Path $manifest) {
+                    $json = Get-Content $manifest -Raw | ConvertFrom-Json
+                    $productCode = $json.ProductCode
+                }
+                if ($productCode) {
+                    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $productCode, '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+                } else {
+                    $msiPath = Join-Path $PSScriptRoot '{{msiFileName}}'
+                    $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+                }
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                exit $proc.ExitCode
+                """;
+        }
 
         WriteWrappers(outputPath, installPs1, uninstallPs1);
     }
@@ -48,7 +60,7 @@ public sealed class WrapperGeneratorService
     /// </summary>
     public void GenerateExeWrappers(string outputPath, string exeFileName,
         string installArgs, string uninstallArgs, string? installerFramework = null,
-        string? applicationName = null)
+        string? applicationName = null, string? uninstallCommand = null)
     {
         var installPs1 = $"""
             $exePath = Join-Path $PSScriptRoot '{exeFileName}'
@@ -59,7 +71,18 @@ public sealed class WrapperGeneratorService
 
         // Framework-aware uninstall script
         string uninstallPs1;
-        if (installerFramework is "InnoSetup")
+        if (!string.IsNullOrEmpty(uninstallCommand))
+        {
+            // Direct uninstall command from definition — no ARP search needed.
+            // UninstallCommand is a PowerShell expression that assigns $proc, e.g.:
+            // $proc = Start-Process "C:\Program Files\App\uninstall.exe" -ArgumentList '/S' -Wait -PassThru -NoNewWindow
+            uninstallPs1 = $$"""
+                {{uninstallCommand}}
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                exit $proc.ExitCode
+                """;
+        }
+        else if (installerFramework is "InnoSetup")
         {
             // InnoSetup: find and run unins000.exe from the install directory via ARP UninstallString
             uninstallPs1 = $$"""

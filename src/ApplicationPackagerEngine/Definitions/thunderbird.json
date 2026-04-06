@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "0ac5386a23604dba",
     "Vendor":  "Mozilla",
@@ -16,7 +16,7 @@
                            "Url":  "https://product-details.mozilla.org/1.0/thunderbird_versions.json",
                            "Pattern":  "\"LATEST_THUNDERBIRD_VERSION\":\\s*\"([^\"]+)\""
                        },
-    "DownloadUrl":  "https://download.mozilla.org/?product=thunderbird-msi-latest-ssl&os=win64&lang=en-US",
+    "DownloadUrl":  "https://download.mozilla.org/?product=thunderbird-msi-latest-ssl\u0026os=win64\u0026lang=en-US",
     "InstallerFileName":  "Thunderbird-{version}.msi",
     "InstallArgs":  "/quiet /norestart INSTALL_MAINTENANCE_SERVICE=false TASKBAR_SHORTCUT=false DESKTOP_SHORTCUT=false",
     "UninstallArgs":  "/quiet /norestart",
@@ -30,5 +30,6 @@
                   },
     "RunningProcess":  [
                            "thunderbird"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\Mozilla Thunderbird\\uninstall\\helper.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow"
 }

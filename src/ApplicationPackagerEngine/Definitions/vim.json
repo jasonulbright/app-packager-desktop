@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "00001355a7d67152",
     "Vendor":  "Vim",
@@ -30,5 +30,6 @@
     "RunningProcess":  [
                            "gvim",
                            "vim"
-                       ]
+                       ],
+    "UninstallCommand":  "$unins = Get-ChildItem \"C:\\Program Files\\Vim\" -Recurse -Filter \"uninstall-gui.exe\" -ErrorAction SilentlyContinue | Select-Object -First 1; $proc = Start-Process -FilePath $unins.FullName -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow"
 }

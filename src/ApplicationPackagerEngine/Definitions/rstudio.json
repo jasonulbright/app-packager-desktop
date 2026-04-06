@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "00000036ef822100",
     "Vendor":  "Posit PBC",
@@ -29,5 +29,6 @@
                   },
     "RunningProcess":  [
                            "rstudio"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\RStudio\\Uninstall.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow"
 }

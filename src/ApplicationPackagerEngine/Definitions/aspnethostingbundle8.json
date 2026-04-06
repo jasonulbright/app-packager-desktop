@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "0de69513164a4b65",
     "Vendor":  "Microsoft",
@@ -27,5 +27,6 @@
                   },
     "RunningProcess":  [
 
-                       ]
+                       ],
+    "UninstallCommand":  "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"dotnet-hosting-*.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /quiet /norestart\" -Wait -PassThru -NoNewWindow"
 }

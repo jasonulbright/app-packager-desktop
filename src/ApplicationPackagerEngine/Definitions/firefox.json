@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "3cee634270bc4041",
     "Vendor":  "Mozilla",
@@ -29,5 +29,6 @@
                   },
     "RunningProcess":  [
                            "firefox"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\Mozilla Firefox\\uninstall\\helper.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow"
 }

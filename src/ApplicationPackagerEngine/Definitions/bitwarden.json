@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "000000280bb18b20",
     "Vendor":  "Bitwarden Inc",
@@ -29,5 +29,6 @@
                   },
     "RunningProcess":  [
                            "Bitwarden"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\Bitwarden\\Uninstall Bitwarden.exe\" -ArgumentList \"/allusers /S\" -Wait -PassThru -NoNewWindow"
 }
