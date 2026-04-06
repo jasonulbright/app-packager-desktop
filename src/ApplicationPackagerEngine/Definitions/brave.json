@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "00000070df16bc85",
     "Vendor":  "Brave Software",
@@ -31,5 +31,6 @@
                   },
     "RunningProcess":  [
                            "brave"
-                       ]
+                       ],
+    "InstallContext":  "User"
 }
