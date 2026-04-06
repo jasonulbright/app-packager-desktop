@@ -13,16 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 89 |
+| **FULL PASS** | 90 |
 | **Install PASS, Detect FAIL** | 13 |
-| **Install FAIL** | 4 |
-| **Timeout** | 3 |
-| **Excluded/Deferred** | 10 |
+| **Install FAIL** | 3 |
+| **Timeout** | 2 |
+| **Excluded/Deferred** | 12 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (89 apps)
+## FULL PASS — Signed Off (90 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -96,6 +96,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 65 | PostgreSQL 17 (x64) | 280s | psexec -s (UninstallCommand direct path) |
 | 66 | Power BI Desktop (x64) | 12s | psexec -s (UninstallCommand: MSI from ARP) |
 | 67 | PowerShell 7 (x64) | 17s | Dirty VM |
+| 68 | PowerShell 7 LTS (x64) | 10s | psexec -s |
 | 68 | PowerToys (x64) | 30s | psexec -s (UninstallCommand: MSI from ARP) |
 | 69 | PuTTY (x64) | 3s | Dirty VM |
 | 70 | Python (x64) | 10s | psexec -s (UninstallCommand: staged EXE /uninstall) |
@@ -121,18 +122,17 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Install Failures (5 apps)
+## Install Failures (3 apps)
 
 | # | App | Exit Code | Notes |
 |---|-----|-----------|-------|
 | 1 | Anaconda Distribution (x64) | 2 | Path conflict |
 | 2 | AnyDesk | 11341829 | Needs interactive session |
-| 3 | Brave Browser (x64) | -1 | Squirrel hangs under SYSTEM |
 | 4 | CutePDF Writer | 1 | InnoSetup silent args |
 
 ---
 
-## Detection Failures (11 apps)
+## Detection Failures (10 apps)
 
 Install succeeds but detection rule does not match.
 
@@ -143,7 +143,6 @@ Install succeeds but detection rule does not match.
 | 3 | Obsidian (x64) | Per-user NSIS, /D= not working |
 | 4 | pgAdmin 4 (x64) | Detection path (runtime subfolder) |
 | 5 | Postman (x64) | Per-user Squirrel |
-| 6 | PowerShell 7 LTS (x64) | ProductCode detection mismatch |
 | 7 | Sysinternals Suite (x64) | ZIP app, no ARP entry |
 | 8 | WinMerge (x64) | Detection mismatch |
 | 9 | WizTree (x64) | Detection mismatch |
@@ -152,21 +151,21 @@ Install succeeds but detection rule does not match.
 
 ---
 
-## Timeout (3 apps)
+## Timeout (2 apps)
 
 | # | App | Notes |
 |---|-----|-------|
 | 1 | PyCharm Community (x64) | NSIS hangs under SYSTEM |
 | 2 | TreeSize Free | InnoSetup hangs under SYSTEM |
-| 3 | Visual Studio Code (x64) | NSIS hangs under SYSTEM |
 
 ---
 
-## Excluded / Deferred (10 apps)
+## Excluded / Deferred (12 apps)
 
 | # | App | Reason |
 |---|-----|--------|
-| 2 | FileZilla Client (x64) | PUP/adware in installer |
+| 2 | Brave Browser (x64) | No MSI. Squirrel fails under SYSTEM. Per-user/Interactive only. |
+| 3 | FileZilla Client (x64) | PUP/adware in installer |
 | 3 | Foxit Reader (x64) | CDN throttling |
 | 4 | Microsoft Teams (x64) | MSIX deployment type needed |
 | 5 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
@@ -175,6 +174,7 @@ Install succeeds but detection rule does not match.
 | 8 | Visual C++ Redistributable (x86) | Shared prereq — stays installed by design |
 | 9 | Visual Studio 2026 Community | Too large for lab VM |
 | 10 | Visual Studio 2026 Enterprise | Too large for lab VM |
+| 11 | Visual Studio Code (x64) | Per-user/Interactive. InnoSetup user setup. |
 | 11 | VMware Tools (x64) | Can't install on Hyper-V |
 
 ---
