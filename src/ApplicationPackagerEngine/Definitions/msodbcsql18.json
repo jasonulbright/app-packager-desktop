@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "6271a3b1a16947e7",
     "Vendor":  "Microsoft",
@@ -16,9 +16,9 @@
                            "Url":  "https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server",
                            "Pattern":  "\\b(18\\.\\d+\\.\\d+\\.\\d+)\\b"
                        },
-    "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2345415&clcid=0x409",
+    "DownloadUrl":  "https://go.microsoft.com/fwlink/?linkid=2345415\u0026clcid=0x409",
     "InstallerFileName":  "msodbcsql-{version}.msi",
-    "InstallArgs":  "/qn /norestart",
+    "InstallArgs":  "/qn /norestart IACCEPTMSODBCSQLLICENSETERMS=YES",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {
                       "Type":  "RegistryKeyValue",
