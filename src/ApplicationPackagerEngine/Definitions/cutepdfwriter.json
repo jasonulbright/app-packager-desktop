@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60001",
     "Vendor":  "Acro Software Inc.",
@@ -18,7 +18,7 @@
                        },
     "DownloadUrl":  "http://www.cutepdf.com/download/CuteWriter.exe",
     "InstallerFileName":  "CuteWriter-{version}.exe",
-    "InstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+    "InstallArgs":  "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "UninstallArgs":  "/uninstall /s",
     "Detection":  {
                       "Type":  "RegistryKeyValue",
@@ -31,5 +31,6 @@
                   },
     "RunningProcess":  [
 
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files (x86)\\CutePDF Writer\\unInstcpw64.exe\" -ArgumentList \"/uninstall\" -Wait -PassThru -NoNewWindow"
 }

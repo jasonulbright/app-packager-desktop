@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "33223ed1a2f54eea",
     "Vendor":  "Anaconda, Inc.",
@@ -17,7 +17,7 @@
                            "Pattern":  "Anaconda3-(\\d{4}\\.\\d{2}-\\d+)-Windows-x86_64\\.exe"
                        },
     "DownloadUrl":  "https://repo.anaconda.com/archive/Anaconda3-{version}-Windows-x86_64.exe",
-    "InstallArgs":  "/S /InstallationType=AllUsers /AddToPath=0 /RegisterPython=0 /D=C:\\ProgramData\\anaconda3",
+    "InstallArgs":  "/InstallationType=AllUsers /RegisterPython=0 /S /D=C:\\ProgramData\\Anaconda3",
     "UninstallArgs":  "/S",
     "Detection":  {
                       "Type":  "File",
@@ -30,5 +30,6 @@
                            "anaconda-navigator",
                            "python",
                            "jupyter-notebook"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\ProgramData\\Anaconda3\\Uninstall-Anaconda3.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow"
 }
