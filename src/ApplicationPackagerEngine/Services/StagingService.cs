@@ -283,7 +283,7 @@ public sealed class StagingService
             // 6. Build detection config
             // If the definition's detection references {ProductCode} but we have no ProductCode,
             // and we have installer metadata with detection data, use the metadata instead.
-            var detection = BuildDetection(def, productCode, displayVersion, rawVersion, installerMetadata);
+            var detection = BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata);
 
             // 6b. Detection conformance check — log if definition's detection differs from metadata-derived
             if (installerMetadata?.HasDetectionData == true && detection.Type != "Unknown")
@@ -620,7 +620,9 @@ public sealed class StagingService
 
             // For Version-type detection, sanitize version to valid System.Version format
             // (e.g., "11.0.30+7" → "11.0.30.7" — CM requires dotted version strings)
-            var detValue = version;
+            // Use rawVersion (MSI ProductVersion) when available — ARP DisplayVersion comes from the MSI,
+            // not from the scraped marketing version (e.g., XenCenter: scraped 2026.1.0, MSI 26.1.0).
+            var detValue = rawVersion ?? version;
             if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true)
                 detValue = version.Replace("+", ".").Replace("-", ".");
 

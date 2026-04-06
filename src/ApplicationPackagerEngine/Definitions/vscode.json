@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "2383b1ac5eaa4200",
     "Vendor":  "Microsoft",
@@ -7,7 +7,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://code.visualstudio.com/",
     "InstallerType":  "EXE",
-    "InstallerFramework":  "NativeEXE",
+    "InstallerFramework":  "InnoSetup",
     "Acquisition":  {
 
                     },
@@ -16,9 +16,9 @@
                            "Url":  "https://update.code.visualstudio.com/api/releases/stable",
                            "Pattern":  "\"(\\d+\\.\\d+\\.\\d+)\""
                        },
-    "DownloadUrl":  "https://update.code.visualstudio.com/latest/win32-x64/stable",
+    "DownloadUrl":  "https://go.microsoft.com/fwlink/?LinkID=534107",
     "InstallerFileName":  "VSCode-{version}-x64.exe",
-    "InstallArgs":  "/VERYSILENT /NORESTART /FORCECLOSEAPPLICATIONS /MERGETASKS=!runcode",
+    "InstallArgs":  "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /MERGETASKS=!runcode",
     "UninstallArgs":  "/SILENT",
     "Detection":  {
                       "Type":  "File",
@@ -30,5 +30,7 @@
                   },
     "RunningProcess":  [
                            "Code"
-                       ]
+                       ],
+    "InstallContext":  "User",
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"$env:LOCALAPPDATA\\Programs\\Microsoft VS Code\\unins000.exe\" -ArgumentList \"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow"
 }
