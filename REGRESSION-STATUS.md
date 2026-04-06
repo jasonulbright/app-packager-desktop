@@ -13,16 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 90 |
+| **FULL PASS** | 92 |
 | **Install PASS, Detect FAIL** | 13 |
-| **Install FAIL** | 3 |
+| **Install FAIL** | 1 |
 | **Timeout** | 2 |
 | **Excluded/Deferred** | 12 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (90 apps)
+## FULL PASS — Signed Off (92 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -34,6 +34,8 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 3 | .NET 9 Desktop Runtime (x64) | 7s | Clean VM |
 | 4 | .NET 10 Desktop Runtime (x64) | 7s | Same MSI pattern as .NET 8/9 |
 | 5 | 7-Zip (x64) | 13s | Dirty VM |
+| 6 | Anaconda Distribution (x64) | 300s | psexec -s (AllUsers + /D= path fix) |
+| 7 | AnyDesk | 10s | psexec -s (full install args from vendor docs) |
 | 6 | Adobe Acrobat Reader DC (x64) | 85s | psexec -s (UninstallCommand: msiexec /x from ARP) |
 | 7 | Amazon Corretto JDK 8 (x64) | 5s | Both |
 | 8 | Amazon Corretto JDK 8 (x86) | 6s | Both |
@@ -122,13 +124,11 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Install Failures (3 apps)
+## Install Failures (1 app)
 
 | # | App | Exit Code | Notes |
 |---|-----|-----------|-------|
-| 1 | Anaconda Distribution (x64) | 2 | Path conflict |
-| 2 | AnyDesk | 11341829 | Needs interactive session |
-| 4 | CutePDF Writer | 1 | InnoSetup silent args |
+| 1 | CutePDF Writer | — | Install PASS, uninstall needs custom approach (unInstcpw64.exe) |
 
 ---
 
