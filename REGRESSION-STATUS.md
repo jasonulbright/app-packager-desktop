@@ -13,16 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 80 |
+| **FULL PASS** | 83 |
 | **Install PASS, Detect FAIL** | 13 |
-| **Install FAIL** | 12 |
+| **Install FAIL** | 9 |
 | **Timeout** | 3 |
 | **Excluded/Deferred** | 11 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (80 apps)
+## FULL PASS — Signed Off (83 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -45,6 +45,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 14 | Audacity (x64) | 5s | psexec -s |
 | 15 | Bitwarden Desktop (x64) | 8s | psexec -s (UninstallCommand: Uninstall Bitwarden.exe /allusers /S) |
 | 16 | Cisco Webex (x64) | 7s | Clean VM |
+| 17 | Citrix Workspace (CR) (x64) | 30s | psexec -s (prereqs now present) |
 | 17 | DBeaver Community (x64) | 13s | psexec -s (UninstallCommand: Uninstall.exe /S /allusers) |
 | 18 | draw.io Desktop (x64) | 6s | Dirty VM |
 | 19 | Eclipse Temurin JDK 8 (x64) | 5s | Both |
@@ -77,6 +78,8 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 46 | Malwarebytes (x64) | 28s | psexec -s (UninstallCommand: mbuns.exe) |
 | 47 | Microsoft Edge (x64) | 2s | Dirty VM (CanUninstall=false by design) |
 | 48 | Microsoft Edge WebView2 (x64) | 2s | CanUninstall=false (shared runtime, by design) |
+| 49 | Microsoft ODBC 18 (x64) | 8s | psexec -s (license accept fix + SSMS removed) |
+| 50 | Microsoft OLE DB 19 (x64) | 5s | psexec -s (license accept fix + SSMS removed) |
 | 48 | Mozilla Firefox (x64) | 14s | psexec -s (UninstallCommand: helper.exe /S) |
 | 49 | Mozilla Thunderbird (x64) | 10s | psexec -s (UninstallCommand: helper.exe /S) |
 | 50 | mRemoteNG (x64) | 16s | Dirty VM |
@@ -112,19 +115,16 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Install Failures (12 apps)
+## Install Failures (9 apps)
 
 | # | App | Exit Code | Notes |
 |---|-----|-----------|-------|
 | 1 | Anaconda Distribution (x64) | 2 | Path conflict |
 | 2 | AnyDesk | 11341829 | Needs interactive session |
 | 3 | Brave Browser (x64) | -1 | Squirrel hangs under SYSTEM |
-| 4 | Citrix Workspace (CR) (x64) | 40032 | Missing prereqs |
-| 5 | CutePDF Writer | 1 | InnoSetup silent args |
-| 6 | Greenshot (x64) | 5 | InnoSetup access denied |
-| 7 | Microsoft ODBC 18 (x64) | 1603 | Pending reboot or MSI conflict |
-| 8 | Microsoft OLE DB 19 (x64) | 1603 | Pending reboot or MSI conflict |
-| 9 | PostgreSQL 13 (x64) | 1 | Port conflict with PG16 |
+| 4 | CutePDF Writer | 1 | InnoSetup silent args |
+| 5 | Greenshot (x64) | 5 | InnoSetup access denied |
+| 6 | PostgreSQL 13 (x64) | 1 | Port conflict with PG16 |
 | 10 | PostgreSQL 14 (x64) | 1 | Port conflict |
 | 11 | PostgreSQL 15 (x64) | 1 | Port conflict |
 | 12 | PostgreSQL 17 (x64) | 1 | Port conflict |

@@ -272,7 +272,7 @@ public sealed class StagingService
             onProgress?.Invoke("Generating install/uninstall wrappers...");
             if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
             {
-                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, def.UninstallCommand);
+                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, def.UninstallCommand, def.InstallArgs);
             }
             else
             {

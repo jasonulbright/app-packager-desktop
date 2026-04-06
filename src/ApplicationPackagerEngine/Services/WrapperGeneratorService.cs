@@ -11,11 +11,12 @@ public sealed class WrapperGeneratorService
     /// <summary>
     /// Generates all 4 wrapper files for an MSI installer.
     /// </summary>
-    public void GenerateMsiWrappers(string outputPath, string msiFileName, string? uninstallCommand = null)
+    public void GenerateMsiWrappers(string outputPath, string msiFileName, string? uninstallCommand = null, string? installArgs = null)
     {
+        var msiArgs = string.IsNullOrEmpty(installArgs) ? "/qn /norestart" : installArgs;
         var installPs1 = $"""
             $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
-            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
+            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", '{msiArgs}') -Wait -PassThru -NoNewWindow
             $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
