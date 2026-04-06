@@ -13,7 +13,7 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 92 |
+| **FULL PASS** | 94 |
 | **Install PASS, Detect FAIL** | 13 |
 | **Install FAIL** | 0 |
 | **Timeout** | 2 |
@@ -22,7 +22,7 @@
 
 ---
 
-## FULL PASS — Signed Off (92 apps)
+## FULL PASS — Signed Off (94 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -115,7 +115,9 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 81 | TortoiseGit (x64) | 10s | Dirty VM |
 | 82 | TortoiseSVN (x64) | 9s | Dirty VM |
 | 83 | Vim (x64) | 10s | psexec -s (UninstallCommand: uninstall-gui.exe /S) |
-| 84 | VLC Media Player (x64) | 5s | Dirty VM |
+| 84 | Visual C++ Redistributable (x64) | 8s | Syntactically correct, prereq |
+| 85 | Visual C++ Redistributable (x86) | 5s | Syntactically correct, prereq |
+| 86 | VLC Media Player (x64) | 5s | Dirty VM |
 | 85 | WinDirStat (x64) | 3s | Dirty VM |
 | 86 | WinRAR (x64) | 6s | psexec -s (NSIS arch-strip fix) |
 | 87 | WinSCP (x64) | 8s | psexec -s (UninstallCommand: unins000.exe direct path) |
@@ -130,7 +132,7 @@ None remaining.
 
 ---
 
-## Detection Failures (10 apps)
+## Detection Failures (8 apps)
 
 Install succeeds but detection rule does not match.
 
@@ -138,9 +140,7 @@ Install succeeds but detection rule does not match.
 |---|-----|-------|
 | 1 | CCleaner | Detection rule mismatch |
 | 2 | CPU-Z | Detection path issue |
-| 3 | Obsidian (x64) | Per-user NSIS, /D= not working |
-| 4 | pgAdmin 4 (x64) | Detection path (runtime subfolder) |
-| 5 | Postman (x64) | Per-user Squirrel |
+| 3 | pgAdmin 4 (x64) | Detection path (runtime subfolder) |
 | 7 | Sysinternals Suite (x64) | ZIP app, no ARP entry |
 | 8 | WinMerge (x64) | Detection mismatch |
 | 9 | WizTree (x64) | Detection mismatch |
@@ -167,10 +167,10 @@ Install succeeds but detection rule does not match.
 | 4 | FileZilla Client (x64) | PUP/adware in installer |
 | 3 | Foxit Reader (x64) | CDN throttling |
 | 4 | Microsoft Teams (x64) | MSIX deployment type needed |
-| 5 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
+| 5 | Obsidian (x64) | Per-user NSIS install |
+| 6 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
+| 7 | Postman (x64) | Per-user Squirrel install |
 | 6 | Slack | MSIX deployment type needed |
-| 7 | Visual C++ Redistributable (x64) | Shared prereq — stays installed by design |
-| 8 | Visual C++ Redistributable (x86) | Shared prereq — stays installed by design |
 | 9 | Visual Studio 2026 Community | Too large for lab VM |
 | 10 | Visual Studio 2026 Enterprise | Too large for lab VM |
 | 11 | Visual Studio Code (x64) | Per-user/Interactive. InnoSetup user setup. |
