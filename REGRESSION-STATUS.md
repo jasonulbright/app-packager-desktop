@@ -15,9 +15,9 @@
 |--------|-------|
 | **FULL PASS** | 92 |
 | **Install PASS, Detect FAIL** | 13 |
-| **Install FAIL** | 1 |
+| **Install FAIL** | 0 |
 | **Timeout** | 2 |
-| **Excluded/Deferred** | 12 |
+| **Excluded/Deferred** | 13 |
 | **Total** | **117** |
 
 ---
@@ -124,11 +124,9 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Install Failures (1 app)
+## Install Failures (0 apps)
 
-| # | App | Exit Code | Notes |
-|---|-----|-----------|-------|
-| 1 | CutePDF Writer | — | Install PASS, uninstall needs custom approach (unInstcpw64.exe) |
+None remaining.
 
 ---
 
@@ -160,12 +158,13 @@ Install succeeds but detection rule does not match.
 
 ---
 
-## Excluded / Deferred (12 apps)
+## Excluded / Deferred (13 apps)
 
 | # | App | Reason |
 |---|-----|--------|
 | 2 | Brave Browser (x64) | No MSI. Squirrel fails under SYSTEM. Per-user/Interactive only. |
-| 3 | FileZilla Client (x64) | PUP/adware in installer |
+| 3 | CutePDF Writer | Install works, uninstall uses custom unInstcpw64.exe (printer driver, non-standard) |
+| 4 | FileZilla Client (x64) | PUP/adware in installer |
 | 3 | Foxit Reader (x64) | CDN throttling |
 | 4 | Microsoft Teams (x64) | MSIX deployment type needed |
 | 5 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
