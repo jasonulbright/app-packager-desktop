@@ -13,8 +13,8 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 75 |
-| **Install + Detect PASS, Uninstall/Clean needs work** | 7 |
+| **FULL PASS** | 76 |
+| **Install + Detect PASS, Uninstall/Clean needs work** | 6 |
 | **Install PASS, Detect FAIL** | 11 |
 | **Install FAIL** | 13 |
 | **Timeout** | 3 |
@@ -23,7 +23,7 @@
 
 ---
 
-## FULL PASS — Signed Off (75 apps)
+## FULL PASS — Signed Off (76 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -88,6 +88,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 48 | PostgreSQL 16 (x64) | 280s | psexec -s (2026-04-06, UninstallCommand --mode unattended) |
 | 49 | PowerShell 7 (x64) | 17s | Dirty VM |
 | 50 | PowerToys (x64) | 30s | psexec -s (2026-04-06, UninstallCommand MSI from ARP) |
+| 51 | SSMS 22 (x64) | 120s | psexec -s (2026-04-06) |
 | 47 | PuTTY (x64) | 3s | Dirty VM |
 | 48 | Python (x64) | 10s | psexec -s (2026-04-06, UninstallCommand staged EXE /uninstall) |
 | 49 | R for Windows (x64) | 13s | psexec -s (2026-04-06, UninstallCommand direct path) |
@@ -159,9 +160,8 @@ Testing method: psexec -s install.bat/uninstall.bat with reboot between every st
 | 2 | Opera Browser (x64) | -1 | Vendor blocks silent SYSTEM uninstall. Known limitation. |
 | 3 | Visual C++ Redistributable (x64) | PASS | Clean FAIL by design — shared prereq |
 | 4 | Visual C++ Redistributable (x86) | PASS | Clean FAIL by design — shared prereq |
-| 5 | SSMS 22 (x64) | — | Not tested yet (VS Installer engine) |
-| 6 | Tableau Desktop (x64) | — | Not tested yet (WiX Burn) |
-| 7 | Tableau Reader (x64) | — | Not tested yet (WiX Burn) |
+| 5 | Tableau Desktop (x64) | exit 0 | Install+Uninstall work, detection rule broken ({ProductCode} template unresolved for WiX Burn) |
+| 6 | Tableau Reader (x64) | exit 0 | Same detection rule bug as Tableau Desktop |
 
 ---
 
