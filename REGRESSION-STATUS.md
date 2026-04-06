@@ -13,17 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 76 |
-| **Install + Detect PASS, Uninstall/Clean issues** | 6 |
-| **Install PASS, Detect FAIL** | 11 |
+| **FULL PASS** | 77 |
+| **Install PASS, Detect FAIL** | 13 |
 | **Install FAIL** | 13 |
 | **Timeout** | 3 |
-| **Excluded/Deferred** | 8 |
+| **Excluded/Deferred** | 11 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (76 apps)
+## FULL PASS — Signed Off (77 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -77,6 +76,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 45 | M365 Visio (x86) | 90s | Same ODT pattern as M365 Project (x64) |
 | 46 | Malwarebytes (x64) | 28s | psexec -s (UninstallCommand: mbuns.exe) |
 | 47 | Microsoft Edge (x64) | 2s | Dirty VM (CanUninstall=false by design) |
+| 48 | Microsoft Edge WebView2 (x64) | 2s | CanUninstall=false (shared runtime, by design) |
 | 48 | Mozilla Firefox (x64) | 14s | psexec -s (UninstallCommand: helper.exe /S) |
 | 49 | Mozilla Thunderbird (x64) | 10s | psexec -s (UninstallCommand: helper.exe /S) |
 | 50 | mRemoteNG (x64) | 16s | Dirty VM |
@@ -129,7 +129,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Detection Failures (11 apps)
+## Detection Failures (13 apps)
 
 Install succeeds but detection rule does not match.
 
@@ -142,23 +142,12 @@ Install succeeds but detection rule does not match.
 | 5 | Postman (x64) | Per-user Squirrel |
 | 6 | PowerShell 7 LTS (x64) | ProductCode detection mismatch |
 | 7 | Sysinternals Suite (x64) | ZIP app, no ARP entry |
-| 8 | WinMerge (x64) | Detection mismatch |
-| 9 | WizTree (x64) | Detection mismatch |
-| 10 | XenCenter (x64) | Detection mismatch |
-| 11 | Zoom Workplace (x64) | MSI detection mismatch |
-
----
-
-## Uninstall / Clean Issues (6 apps)
-
-| # | App | Status | Notes |
-|---|-----|--------|-------|
-| 1 | Microsoft Edge WebView2 (x64) | CanUninstall=false | Shared runtime, not a failure |
-| 2 | Opera Browser (x64) | N/A | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. Vendor unsupported for enterprise management. |
-| 3 | Tableau Desktop (x64) | exit 0 | Uninstall works but detection rule broken ({ProductCode} template) |
-| 4 | Tableau Reader (x64) | exit 0 | Same detection rule bug as Tableau Desktop |
-| 5 | Visual C++ Redistributable (x64) | by design | Shared prereq, clean fail expected |
-| 6 | Visual C++ Redistributable (x86) | by design | Shared prereq, clean fail expected |
+| 8 | Tableau Desktop (x64) | Install+uninstall work (exit 0). {ProductCode} template unresolved for WiX Burn. |
+| 9 | Tableau Reader (x64) | Same as Tableau Desktop |
+| 10 | WinMerge (x64) | Detection mismatch |
+| 11 | WizTree (x64) | Detection mismatch |
+| 12 | XenCenter (x64) | Detection mismatch |
+| 13 | Zoom Workplace (x64) | MSI detection mismatch |
 
 ---
 
@@ -172,7 +161,7 @@ Install succeeds but detection rule does not match.
 
 ---
 
-## Excluded / Deferred (8 apps)
+## Excluded / Deferred (11 apps)
 
 | # | App | Reason |
 |---|-----|--------|
@@ -180,10 +169,13 @@ Install succeeds but detection rule does not match.
 | 2 | FileZilla Client (x64) | PUP/adware in installer |
 | 3 | Foxit Reader (x64) | CDN throttling |
 | 4 | Microsoft Teams (x64) | MSIX deployment type needed |
-| 5 | Slack | MSIX deployment type needed |
-| 6 | Visual Studio 2026 Community | Too large for lab VM |
-| 7 | Visual Studio 2026 Enterprise | Too large for lab VM |
-| 8 | VMware Tools (x64) | Can't install on Hyper-V |
+| 5 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
+| 6 | Slack | MSIX deployment type needed |
+| 7 | Visual C++ Redistributable (x64) | Shared prereq — stays installed by design |
+| 8 | Visual C++ Redistributable (x86) | Shared prereq — stays installed by design |
+| 9 | Visual Studio 2026 Community | Too large for lab VM |
+| 10 | Visual Studio 2026 Enterprise | Too large for lab VM |
+| 11 | VMware Tools (x64) | Can't install on Hyper-V |
 
 ---
 
