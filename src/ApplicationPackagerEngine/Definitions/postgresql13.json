@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "04f73a77a17148bd",
     "Vendor":  "PostgreSQL Global Development Group",
@@ -30,5 +30,6 @@
     "RunningProcess":  [
                            "postgres",
                            "pgAdmin4"
-                       ]
+                       ],
+    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\PostgreSQL\\13\\uninstall-postgresql.exe\" -ArgumentList \"--mode unattended\" -Wait -PassThru -NoNewWindow"
 }

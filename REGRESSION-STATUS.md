@@ -13,16 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 83 |
+| **FULL PASS** | 87 |
 | **Install PASS, Detect FAIL** | 13 |
-| **Install FAIL** | 9 |
+| **Install FAIL** | 5 |
 | **Timeout** | 3 |
 | **Excluded/Deferred** | 11 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (83 apps)
+## FULL PASS — Signed Off (87 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -87,7 +87,11 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 52 | Notepad++ (x64) | 6s | psexec -s (NSIS arch-strip fix) |
 | 53 | paint.net (x64) | 8s | Both |
 | 54 | Positron (x64) | 200s | psexec -s (UninstallCommand: unins000.exe direct path) |
-| 55 | PostgreSQL 16 (x64) | 280s | psexec -s (UninstallCommand: --mode unattended) |
+| 55 | PostgreSQL 13 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 56 | PostgreSQL 14 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 57 | PostgreSQL 15 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 58 | PostgreSQL 16 (x64) | 280s | psexec -s (UninstallCommand: --mode unattended) |
+| 59 | PostgreSQL 17 (x64) | 280s | psexec -s (UninstallCommand direct path) |
 | 56 | Power BI Desktop (x64) | 12s | psexec -s (UninstallCommand: MSI from ARP) |
 | 57 | PowerShell 7 (x64) | 17s | Dirty VM |
 | 58 | PowerToys (x64) | 30s | psexec -s (UninstallCommand: MSI from ARP) |
@@ -115,7 +119,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Install Failures (9 apps)
+## Install Failures (5 apps)
 
 | # | App | Exit Code | Notes |
 |---|-----|-----------|-------|
@@ -124,10 +128,6 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 3 | Brave Browser (x64) | -1 | Squirrel hangs under SYSTEM |
 | 4 | CutePDF Writer | 1 | InnoSetup silent args |
 | 5 | Greenshot (x64) | 5 | InnoSetup access denied |
-| 6 | PostgreSQL 13 (x64) | 1 | Port conflict with PG16 |
-| 10 | PostgreSQL 14 (x64) | 1 | Port conflict |
-| 11 | PostgreSQL 15 (x64) | 1 | Port conflict |
-| 12 | PostgreSQL 17 (x64) | 1 | Port conflict |
 
 ---
 
