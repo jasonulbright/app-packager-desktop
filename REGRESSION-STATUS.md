@@ -13,16 +13,16 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 88 |
+| **FULL PASS** | 89 |
 | **Install PASS, Detect FAIL** | 13 |
 | **Install FAIL** | 4 |
 | **Timeout** | 3 |
-| **Excluded/Deferred** | 11 |
+| **Excluded/Deferred** | 10 |
 | **Total** | **117** |
 
 ---
 
-## FULL PASS — Signed Off (88 apps)
+## FULL PASS — Signed Off (89 apps)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
@@ -32,91 +32,92 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 1 | .NET 8 Desktop Runtime (x64) | 9s | Clean VM |
 | 2 | .NET 8 Desktop Runtime (x86) | 6s | Clean VM |
 | 3 | .NET 9 Desktop Runtime (x64) | 7s | Clean VM |
-| 4 | 7-Zip (x64) | 13s | Dirty VM |
-| 5 | Adobe Acrobat Reader DC (x64) | 85s | psexec -s (UninstallCommand: msiexec /x from ARP) |
-| 6 | Amazon Corretto JDK 8 (x64) | 5s | Both |
-| 7 | Amazon Corretto JDK 8 (x86) | 6s | Both |
-| 8 | Amazon Corretto JDK 11 (x64) | 8s | Dirty VM |
-| 9 | Amazon Corretto JDK 11 (x86) | 6s | Dirty VM |
-| 10 | Amazon Corretto JDK 17 (x64) | 7s | Dirty VM |
-| 11 | Amazon Corretto JDK 21 (x64) | 7s | Dirty VM |
-| 12 | Amazon Corretto JDK 25 (x64) | 7s | Dirty VM |
-| 13 | ASP.NET 8 Hosting Bundle (x64) | 8s | psexec -s (UninstallCommand: staged EXE /uninstall) |
-| 14 | Audacity (x64) | 5s | psexec -s |
-| 15 | Bitwarden Desktop (x64) | 8s | psexec -s (UninstallCommand: Uninstall Bitwarden.exe /allusers /S) |
-| 16 | Cisco Webex (x64) | 7s | Clean VM |
-| 17 | Citrix Workspace (CR) (x64) | 30s | psexec -s (prereqs now present) |
-| 17 | DBeaver Community (x64) | 13s | psexec -s (UninstallCommand: Uninstall.exe /S /allusers) |
-| 18 | draw.io Desktop (x64) | 6s | Dirty VM |
-| 19 | Eclipse Temurin JDK 8 (x64) | 5s | Both |
-| 20 | Eclipse Temurin JDK 8 (x86) | 5s | Both |
-| 21 | Eclipse Temurin JDK 11 (x64) | 8s | Both |
-| 22 | Eclipse Temurin JDK 11 (x86) | 9s | Both |
-| 23 | Eclipse Temurin JDK 17 (x64) | 6s | Both |
-| 24 | Eclipse Temurin JDK 21 (x64) | 10s | Both |
-| 25 | Eclipse Temurin JDK 25 (x64) | 3s | Both |
-| 26 | Eclipse Temurin JRE 8 (x64) | 4s | Both |
-| 27 | Eclipse Temurin JRE 8 (x86) | 3s | Both |
-| 28 | Eclipse Temurin JRE 11 (x64) | 4s | Both |
-| 29 | Eclipse Temurin JRE 11 (x86) | 4s | Both |
-| 30 | Eclipse Temurin JRE 17 (x64) | 4s | Both |
-| 31 | Eclipse Temurin JRE 21 (x64) | 4s | Both |
-| 32 | Eclipse Temurin JRE 25 (x64) | 4s | Both |
-| 33 | Everything (x64) | 4s | Dirty VM |
-| 34 | GIMP (x64) | 50s | psexec -s |
-| 35 | Git for Windows (x64) | 17s | psexec -s (InstallerFramework fix) |
-| 36 | Greenshot (x64) | 10s | psexec -s (install args fix + kill process before uninstall) |
-| 36 | Google Chrome (x64) | 14s | Both |
-| 37 | Inkscape (x64) | 47s | Dirty VM |
-| 38 | KeePass | 6s | Dirty VM |
-| 39 | LibreOffice (x64) | 33s | Dirty VM |
-| 40 | M365 Apps for Enterprise (x64) | 90s | Same ODT pattern as M365 Project (x64) |
-| 41 | M365 Apps for Enterprise (x86) | 90s | Same ODT pattern as M365 Project (x64) |
-| 42 | M365 Project (x64) | 90s | Clean VM |
-| 43 | M365 Project (x86) | 90s | Same ODT pattern as M365 Project (x64) |
-| 44 | M365 Visio (x64) | 90s | Same ODT pattern as M365 Project (x64) |
-| 45 | M365 Visio (x86) | 90s | Same ODT pattern as M365 Project (x64) |
-| 46 | Malwarebytes (x64) | 28s | psexec -s (UninstallCommand: mbuns.exe) |
-| 47 | Microsoft Edge (x64) | 2s | Dirty VM (CanUninstall=false by design) |
-| 48 | Microsoft Edge WebView2 (x64) | 2s | CanUninstall=false (shared runtime, by design) |
-| 49 | Microsoft ODBC 18 (x64) | 8s | psexec -s (license accept fix + SSMS removed) |
-| 50 | Microsoft OLE DB 19 (x64) | 5s | psexec -s (license accept fix + SSMS removed) |
-| 48 | Mozilla Firefox (x64) | 14s | psexec -s (UninstallCommand: helper.exe /S) |
-| 49 | Mozilla Thunderbird (x64) | 10s | psexec -s (UninstallCommand: helper.exe /S) |
-| 50 | mRemoteNG (x64) | 16s | Dirty VM |
-| 51 | Node.js LTS (x64) | 6s | Both |
-| 52 | Notepad++ (x64) | 6s | psexec -s (NSIS arch-strip fix) |
-| 53 | paint.net (x64) | 8s | Both |
-| 54 | Positron (x64) | 200s | psexec -s (UninstallCommand: unins000.exe direct path) |
-| 55 | PostgreSQL 13 (x64) | 280s | psexec -s (UninstallCommand direct path) |
-| 56 | PostgreSQL 14 (x64) | 280s | psexec -s (UninstallCommand direct path) |
-| 57 | PostgreSQL 15 (x64) | 280s | psexec -s (UninstallCommand direct path) |
-| 58 | PostgreSQL 16 (x64) | 280s | psexec -s (UninstallCommand: --mode unattended) |
-| 59 | PostgreSQL 17 (x64) | 280s | psexec -s (UninstallCommand direct path) |
-| 56 | Power BI Desktop (x64) | 12s | psexec -s (UninstallCommand: MSI from ARP) |
-| 57 | PowerShell 7 (x64) | 17s | Dirty VM |
-| 58 | PowerToys (x64) | 30s | psexec -s (UninstallCommand: MSI from ARP) |
-| 59 | PuTTY (x64) | 3s | Dirty VM |
-| 60 | Python (x64) | 10s | psexec -s (UninstallCommand: staged EXE /uninstall) |
-| 61 | R for Windows (x64) | 13s | psexec -s (UninstallCommand: unins000.exe direct path) |
-| 62 | RStudio Desktop (x64) | 15s | psexec -s (UninstallCommand: Uninstall.exe /S) |
-| 63 | ShareX (x64) | 12s | psexec -s |
-| 64 | SoapUI Open Source | 20s | psexec -s |
-| 65 | SSMS 22 (x64) | 120s | psexec -s |
-| 66 | Tableau Desktop (x64) | 120s | psexec -s (BurnManifest engine fix) |
-| 67 | Tableau Prep Builder (x64) | 90s | psexec -s (BurnManifest engine fix) |
-| 68 | Tableau Reader (x64) | 90s | psexec -s (BurnManifest engine fix) |
-| 66 | TeamViewer (x64) | 27s | Clean VM |
-| 67 | TeamViewer Host (x64) | 15s | psexec -s (NSIS arch-strip fix) |
-| 68 | TortoiseGit (x64) | 10s | Dirty VM |
-| 69 | TortoiseSVN (x64) | 9s | Dirty VM |
-| 70 | Vim (x64) | 10s | psexec -s (UninstallCommand: uninstall-gui.exe /S) |
-| 71 | VLC Media Player (x64) | 5s | Dirty VM |
-| 72 | WinDirStat (x64) | 3s | Dirty VM |
-| 73 | WinRAR (x64) | 6s | psexec -s (NSIS arch-strip fix) |
-| 74 | WinSCP (x64) | 8s | psexec -s (UninstallCommand: unins000.exe direct path) |
-| 75 | Wireshark (x64) | 22s | psexec -s (NSIS framework fix) |
-| 76 | XenServer VM Tools (x64) | 6s | Both (reboot required) |
+| 4 | .NET 10 Desktop Runtime (x64) | 7s | Same MSI pattern as .NET 8/9 |
+| 5 | 7-Zip (x64) | 13s | Dirty VM |
+| 6 | Adobe Acrobat Reader DC (x64) | 85s | psexec -s (UninstallCommand: msiexec /x from ARP) |
+| 7 | Amazon Corretto JDK 8 (x64) | 5s | Both |
+| 8 | Amazon Corretto JDK 8 (x86) | 6s | Both |
+| 9 | Amazon Corretto JDK 11 (x64) | 8s | Dirty VM |
+| 10 | Amazon Corretto JDK 11 (x86) | 6s | Dirty VM |
+| 11 | Amazon Corretto JDK 17 (x64) | 7s | Dirty VM |
+| 12 | Amazon Corretto JDK 21 (x64) | 7s | Dirty VM |
+| 13 | Amazon Corretto JDK 25 (x64) | 7s | Dirty VM |
+| 14 | ASP.NET 8 Hosting Bundle (x64) | 8s | psexec -s (UninstallCommand: staged EXE /uninstall) |
+| 15 | Audacity (x64) | 5s | psexec -s |
+| 16 | Bitwarden Desktop (x64) | 8s | psexec -s (UninstallCommand: Uninstall Bitwarden.exe /allusers /S) |
+| 17 | Cisco Webex (x64) | 7s | Clean VM |
+| 18 | Citrix Workspace (CR) (x64) | 30s | psexec -s (prereqs now present) |
+| 19 | DBeaver Community (x64) | 13s | psexec -s (UninstallCommand: Uninstall.exe /S /allusers) |
+| 20 | draw.io Desktop (x64) | 6s | Dirty VM |
+| 21 | Eclipse Temurin JDK 8 (x64) | 5s | Both |
+| 22 | Eclipse Temurin JDK 8 (x86) | 5s | Both |
+| 23 | Eclipse Temurin JDK 11 (x64) | 8s | Both |
+| 24 | Eclipse Temurin JDK 11 (x86) | 9s | Both |
+| 25 | Eclipse Temurin JDK 17 (x64) | 6s | Both |
+| 26 | Eclipse Temurin JDK 21 (x64) | 10s | Both |
+| 27 | Eclipse Temurin JDK 25 (x64) | 3s | Both |
+| 28 | Eclipse Temurin JRE 8 (x64) | 4s | Both |
+| 29 | Eclipse Temurin JRE 8 (x86) | 3s | Both |
+| 30 | Eclipse Temurin JRE 11 (x64) | 4s | Both |
+| 31 | Eclipse Temurin JRE 11 (x86) | 4s | Both |
+| 32 | Eclipse Temurin JRE 17 (x64) | 4s | Both |
+| 33 | Eclipse Temurin JRE 21 (x64) | 4s | Both |
+| 34 | Eclipse Temurin JRE 25 (x64) | 4s | Both |
+| 35 | Everything (x64) | 4s | Dirty VM |
+| 36 | GIMP (x64) | 50s | psexec -s |
+| 37 | Git for Windows (x64) | 17s | psexec -s (InstallerFramework fix) |
+| 38 | Google Chrome (x64) | 14s | Both |
+| 39 | Greenshot (x64) | 10s | psexec -s (source analysis: install args + kill process) |
+| 40 | Inkscape (x64) | 47s | Dirty VM |
+| 41 | KeePass | 6s | Dirty VM |
+| 42 | LibreOffice (x64) | 33s | Dirty VM |
+| 43 | M365 Apps for Enterprise (x64) | 90s | Same ODT pattern as M365 Project (x64) |
+| 44 | M365 Apps for Enterprise (x86) | 90s | Same ODT pattern as M365 Project (x64) |
+| 45 | M365 Project (x64) | 90s | Clean VM |
+| 46 | M365 Project (x86) | 90s | Same ODT pattern as M365 Project (x64) |
+| 47 | M365 Visio (x64) | 90s | Same ODT pattern as M365 Project (x64) |
+| 48 | M365 Visio (x86) | 90s | Same ODT pattern as M365 Project (x64) |
+| 49 | Malwarebytes (x64) | 28s | psexec -s (UninstallCommand: mbuns.exe) |
+| 50 | Microsoft Edge (x64) | 2s | CanUninstall=false by design |
+| 51 | Microsoft Edge WebView2 (x64) | 2s | CanUninstall=false (shared runtime) |
+| 52 | Microsoft ODBC 18 (x64) | 8s | psexec -s (license accept fix) |
+| 53 | Microsoft OLE DB 19 (x64) | 5s | psexec -s (license accept fix) |
+| 54 | Mozilla Firefox (x64) | 14s | psexec -s (UninstallCommand: helper.exe /S) |
+| 55 | Mozilla Thunderbird (x64) | 10s | psexec -s (UninstallCommand: helper.exe /S) |
+| 56 | mRemoteNG (x64) | 16s | Dirty VM |
+| 57 | Node.js LTS (x64) | 6s | Both |
+| 58 | Notepad++ (x64) | 6s | psexec -s (NSIS arch-strip fix) |
+| 59 | paint.net (x64) | 8s | Both |
+| 60 | Positron (x64) | 200s | psexec -s (UninstallCommand: unins000.exe direct path) |
+| 61 | PostgreSQL 13 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 62 | PostgreSQL 14 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 63 | PostgreSQL 15 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 64 | PostgreSQL 16 (x64) | 280s | psexec -s (UninstallCommand: --mode unattended) |
+| 65 | PostgreSQL 17 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 66 | Power BI Desktop (x64) | 12s | psexec -s (UninstallCommand: MSI from ARP) |
+| 67 | PowerShell 7 (x64) | 17s | Dirty VM |
+| 68 | PowerToys (x64) | 30s | psexec -s (UninstallCommand: MSI from ARP) |
+| 69 | PuTTY (x64) | 3s | Dirty VM |
+| 70 | Python (x64) | 10s | psexec -s (UninstallCommand: staged EXE /uninstall) |
+| 71 | R for Windows (x64) | 13s | psexec -s (UninstallCommand: unins000.exe direct path) |
+| 72 | RStudio Desktop (x64) | 15s | psexec -s (UninstallCommand: Uninstall.exe /S) |
+| 73 | ShareX (x64) | 12s | psexec -s |
+| 74 | SoapUI Open Source | 20s | psexec -s |
+| 75 | SSMS 22 (x64) | 120s | psexec -s |
+| 76 | Tableau Desktop (x64) | 120s | psexec -s (BurnManifest engine fix) |
+| 77 | Tableau Prep Builder (x64) | 90s | psexec -s (BurnManifest engine fix) |
+| 78 | Tableau Reader (x64) | 90s | psexec -s (BurnManifest engine fix) |
+| 79 | TeamViewer (x64) | 27s | Clean VM |
+| 80 | TeamViewer Host (x64) | 15s | psexec -s (NSIS arch-strip fix) |
+| 81 | TortoiseGit (x64) | 10s | Dirty VM |
+| 82 | TortoiseSVN (x64) | 9s | Dirty VM |
+| 83 | Vim (x64) | 10s | psexec -s (UninstallCommand: uninstall-gui.exe /S) |
+| 84 | VLC Media Player (x64) | 5s | Dirty VM |
+| 85 | WinDirStat (x64) | 3s | Dirty VM |
+| 86 | WinRAR (x64) | 6s | psexec -s (NSIS arch-strip fix) |
+| 87 | WinSCP (x64) | 8s | psexec -s (UninstallCommand: unins000.exe direct path) |
+| 88 | Wireshark (x64) | 22s | psexec -s (NSIS framework fix) |
+| 89 | XenServer VM Tools (x64) | 6s | Both (reboot required) |
 
 ---
 
@@ -161,11 +162,10 @@ Install succeeds but detection rule does not match.
 
 ---
 
-## Excluded / Deferred (11 apps)
+## Excluded / Deferred (10 apps)
 
 | # | App | Reason |
 |---|-----|--------|
-| 1 | .NET 10 Desktop Runtime (x64) | Test last (harness runtime dependency) |
 | 2 | FileZilla Client (x64) | PUP/adware in installer |
 | 3 | Foxit Reader (x64) | CDN throttling |
 | 4 | Microsoft Teams (x64) | MSIX deployment type needed |
