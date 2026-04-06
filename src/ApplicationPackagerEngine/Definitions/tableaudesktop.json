@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "f1a2b3c4d5e60001",
     "Vendor":  "Salesforce (Tableau)",
@@ -19,7 +19,7 @@
                            "NoUserAgent":  true
                        },
     "DownloadUrl":  "https://downloads.tableau.com/tssoftwareregistered/TableauDesktop-64bit-{display_version}.exe",
-    "DisplayVersionOverride": "{version}",
+    "DisplayVersionOverride":  "{version}",
     "InstallArgs":  "/install /quiet /norestart ACCEPTEULA=1 REMOVEINSTALLEDAPP=1 SENDTELEMETRY=0",
     "UninstallArgs":  "/uninstall /quiet /norestart",
     "Detection":  {
@@ -30,5 +30,6 @@
                   },
     "RunningProcess":  [
                            "tableau"
-                       ]
+                       ],
+    "UninstallCommand":  "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"TableauDesktop-*.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /quiet /norestart\" -Wait -PassThru -NoNewWindow"
 }
