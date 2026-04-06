@@ -1,4 +1,4 @@
-{
+﻿{
     "Schema":  1,
     "Id":  "f1a2b3c4d5e60003",
     "Vendor":  "Salesforce (Tableau)",
@@ -30,5 +30,6 @@
                   },
     "RunningProcess":  [
                            "tabreader"
-                       ]
+                       ],
+    "UninstallCommand":  "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"TableauReader-*.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /quiet /norestart\" -Wait -PassThru -NoNewWindow"
 }
