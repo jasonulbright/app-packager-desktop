@@ -27,7 +27,7 @@
                       "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
                       "ValueName":  "DisplayVersion",
                       "Operator":  "IsEquals",
-                      "Is64Bit":  true
+                      "Is64Bit":  false
                   },
     "RunningProcess":  [
                            "XenCenterMain"
