@@ -1,4 +1,4 @@
-# Packr Regression Test Status — 2026-04-06
+# Packr Regression Test Status — 2026-04-10
 
 **Lab:** CM01 + CLIENT01 (Hyper-V, CM 2509)
 **Test method:** psexec -s \\CLIENT01 install.bat / uninstall.bat (SYSTEM context, identical to MECM)
@@ -14,9 +14,8 @@
 | Status | Count |
 |--------|-------|
 | **FULL PASS** | 94 |
-| **Detection FAIL** | 8 |
-| **Timeout** | 2 |
-| **Excluded/Deferred** | 13 |
+| **Needs Retest** | 6 |
+| **Excluded/Deferred** | 17 |
 | **Total** | **117** |
 
 ---
@@ -126,49 +125,59 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Detection Failures (8 apps)
+## Needs Retest (6 apps)
 
-Install succeeds but detection rule does not match. Needs re-stage with latest engine and retest.
+Definition fixes applied 2026-04-10. Re-stage and retest on CLIENT01.
 
-| # | App | Notes |
-|---|-----|-------|
-| 1 | CCleaner | ARP key changed to `CCleaner 7` (was `CCleaner`). Auto-updates during install. |
-| 2 | CPU-Z | Download returned HTML (download gate/CAPTCHA). Definition URL needs fix. |
-| 3 | pgAdmin 4 (x64) | Needs retest — psexec auth expired before test completed |
-| 4 | Sysinternals Suite (x64) | ZIP app, no ARP entry. File-based detection. Needs retest. |
-| 5 | WinMerge (x64) | MSI inspection exception during staging. Needs investigation. |
-| 6 | WizTree (x64) | MSI inspection exception during staging. Needs investigation. |
-| 7 | XenCenter (x64) | Engine ProductVersion fix applied. Psexec auth expired before retest. |
-| 8 | Zoom Workplace (x64) | Per-user MSI. Should move to Excluded. |
+| # | App | Fix Applied | Notes |
+|---|-----|-------------|-------|
+| 1 | CCleaner | ARP key `CCleaner` → `CCleaner 7` | Auto-updates during install — verify ARP key post-install |
+| 2 | Sysinternals Suite (x64) | (none — detection already File/Existence) | ZIP app, no ARP. Retest only — psexec auth expired |
+| 3 | WinMerge (x64) | InstallerFramework `NativeMSI` → `InnoSetup` | Was triggering MSI COM inspection on an InnoSetup EXE |
+| 4 | WizTree (x64) | InstallerFramework `NativeMSI` → `InnoSetup` | Same root cause as WinMerge |
+| 5 | pgAdmin 4 (x64) | (none needed) | Retest only — psexec auth expired before test completed |
+| 6 | XenCenter (x64) | (engine ProductVersion fix already applied) | Retest only — psexec auth expired before retest |
 
 ---
 
-## Timeout (2 apps)
-
-| # | App | Notes |
-|---|-----|-------|
-| 1 | PyCharm Community (x64) | NSIS hangs under SYSTEM |
-| 2 | TreeSize Free | InnoSetup hangs under SYSTEM |
-
----
-
-## Excluded / Deferred (13 apps)
+## Excluded / Deferred (17 apps)
 
 | # | App | Reason |
 |---|-----|--------|
-| 2 | Brave Browser (x64) | No MSI. Squirrel fails under SYSTEM. Per-user/Interactive only. |
+| 1 | Brave Browser (x64) | No MSI. Squirrel fails under SYSTEM. Per-user/Interactive only. |
+| 2 | CPU-Z | Download gate/CAPTCHA on cpuid.com. No automation-friendly download URL. |
 | 3 | CutePDF Writer | Install works, uninstall uses custom unInstcpw64.exe (printer driver, non-standard) |
 | 4 | FileZilla Client (x64) | PUP/adware in installer |
-| 3 | Foxit Reader (x64) | CDN throttling |
-| 4 | Microsoft Teams (x64) | MSIX deployment type needed |
-| 5 | Obsidian (x64) | Per-user NSIS install |
-| 6 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
-| 7 | Postman (x64) | Per-user Squirrel install |
-| 6 | Slack | MSIX deployment type needed |
-| 9 | Visual Studio 2026 Community | Too large for lab VM |
-| 10 | Visual Studio 2026 Enterprise | Too large for lab VM |
-| 11 | Visual Studio Code (x64) | Per-user/Interactive. InnoSetup user setup. |
-| 11 | VMware Tools (x64) | Can't install on Hyper-V |
+| 5 | Foxit Reader (x64) | CDN throttling |
+| 6 | Microsoft Teams (x64) | MSIX deployment type needed |
+| 7 | Obsidian (x64) | Per-user NSIS install |
+| 8 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
+| 9 | Postman (x64) | Per-user Squirrel install |
+| 10 | PyCharm Community (x64) | NSIS hangs under SYSTEM context |
+| 11 | Slack | MSIX deployment type needed |
+| 12 | TreeSize Free | InnoSetup hangs under SYSTEM context |
+| 13 | Visual Studio 2026 Community | Too large for lab VM |
+| 14 | Visual Studio 2026 Enterprise | Too large for lab VM |
+| 15 | Visual Studio Code (x64) | Per-user/Interactive. InnoSetup user setup. |
+| 16 | VMware Tools (x64) | Can't install on Hyper-V |
+| 17 | Zoom Workplace (x64) | Per-user MSI. Should use per-user deployment type (v2.2). |
+
+---
+
+## Changes — 2026-04-10
+
+**Definition fixes (3 apps):**
+- CCleaner: ARP detection key `CCleaner` → `CCleaner 7` (vendor changed registry key in v7)
+- WinMerge: InstallerFramework `NativeMSI` → `InnoSetup` (was triggering MSI COM inspection on an InnoSetup EXE)
+- WizTree: InstallerFramework `NativeMSI` → `InnoSetup` (same root cause as WinMerge)
+
+**Moved to Excluded (4 apps):**
+- CPU-Z: CAPTCHA download gate on cpuid.com — no automation-friendly download URL
+- Zoom Workplace: Per-user MSI, needs per-user deployment type (v2.2)
+- PyCharm Community: NSIS hangs under SYSTEM context
+- TreeSize Free: InnoSetup hangs under SYSTEM context
+
+**Status change:** Detection FAIL (8) + Timeout (2) → Needs Retest (6) + Excluded (+4 = 17)
 
 ---
 
