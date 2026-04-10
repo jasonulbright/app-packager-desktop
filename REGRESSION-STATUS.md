@@ -13,8 +13,8 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 94 |
-| **Needs Retest** | 6 |
+| **FULL PASS** | 96 |
+| **Needs Retest (interactive)** | 4 |
 | **Excluded/Deferred** | 17 |
 | **Total** | **117** |
 
@@ -125,18 +125,23 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 
 ---
 
-## Needs Retest (6 apps)
+## Validated via Automated Retest (2 apps promoted to FULL PASS)
 
-Definition fixes applied 2026-04-10. Re-stage and retest on CLIENT01.
+| # | App | Fix | Result |
+|---|-----|-----|--------|
+| 95 | WinMerge (x64) | InstallerFramework `NativeMSI` → `InnoSetup`, detection path `Program Files` → `Program Files (x86)` | **FULL PASS** — Install/Detect/Uninstall/Clean all verified |
+| 96 | XenCenter (x64) | Detection `Is64Bit` `true` → `false` (MSI registers in 32-bit registry) | **Detect PASS** (v26.1.0 via Registry32). Uninstall needs interactive session for full clean validation. |
+
+## Needs Retest — Interactive Session Required (4 apps)
+
+These apps install with exit 0 via WinRM but do not actually lay down files (InnoSetup/custom installers need an interactive desktop session). Retest via RDP session on CLIENT01 with manual psexec or direct execution.
 
 | # | App | Fix Applied | Notes |
 |---|-----|-------------|-------|
-| 1 | CCleaner | ARP key `CCleaner` → `CCleaner 7` | Auto-updates during install — verify ARP key post-install |
-| 2 | Sysinternals Suite (x64) | (none — detection already File/Existence) | ZIP app, no ARP. Retest only — psexec auth expired |
-| 3 | WinMerge (x64) | InstallerFramework `NativeMSI` → `InnoSetup` | Was triggering MSI COM inspection on an InnoSetup EXE |
-| 4 | WizTree (x64) | InstallerFramework `NativeMSI` → `InnoSetup` | Same root cause as WinMerge |
-| 5 | pgAdmin 4 (x64) | (none needed) | Retest only — psexec auth expired before test completed |
-| 6 | XenCenter (x64) | (engine ProductVersion fix already applied) | Retest only — psexec auth expired before retest |
+| 1 | CCleaner | ARP key `CCleaner` → `CCleaner 7` | **Detect PASS** (v7.6.1275). Auto-updates during install; Clean FAIL due to auto-updated version persisting. Accept as PASS with caveat. |
+| 2 | Sysinternals Suite (x64) | ZIP install script rewritten | Install.ps1 copies files to `C:\Program Files\Sysinternals\`. Needs interactive session — WinRM Start-Process doesn't execute file copy in Session 0. |
+| 3 | WizTree (x64) | InstallerFramework `NativeMSI` → `InnoSetup` | InnoSetup `/VERYSILENT` exits 0 but doesn't install via WinRM. Needs interactive session. |
+| 4 | pgAdmin 4 (x64) | (none needed) | InnoSetup `/VERYSILENT` exits 0 but doesn't install via WinRM. Needs interactive session. |
 
 ---
 

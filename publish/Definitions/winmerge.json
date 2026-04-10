@@ -22,7 +22,7 @@
     "UninstallArgs":  "/VERYSILENT /NORESTART",
     "Detection":  {
                       "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\WinMerge",
+                      "FilePath":  "C:\\Program Files (x86)\\WinMerge",
                       "FileName":  "WinMergeU.exe",
                       "PropertyType":  "Version",
                       "Operator":  "GreaterEquals",

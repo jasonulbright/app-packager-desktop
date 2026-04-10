@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Retests apps from REGRESSION-STATUS.md "Needs Retest" list on CLIENT01.
     Runs Stage (on host via Packr) -> copy to CLIENT01 -> Install -> Detect -> Uninstall -> Clean.
@@ -29,6 +29,9 @@ param(
         'XenCenter'
     ),
     [int]$PhaseTimeoutSec = 300,
+    [string]$Domain = 'lab.local',
+    [string]$AdminUser = 'LabAdmin',
+    [string]$AdminPass = 'P@ssw0rd!',
     [switch]$SkipStage
 )
 
@@ -66,6 +69,17 @@ Write-Host "PsExec: $psexec"
 Write-Host "Staging: $StagingRoot"
 Write-Host "Remote: $RemoteRoot`n"
 
+# Map admin$ share with credentials
+$uncShare = "\\$ClientName\C`$"
+$psexecUser = "$Domain\$AdminUser"
+Write-Host "Connecting to $uncShare as ${psexecUser}..." -ForegroundColor Cyan
+net use $uncShare /user:${psexecUser} $AdminPass /persistent:no 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 2) {
+    Write-Host "ERROR: Failed to connect to $uncShare (exit $LASTEXITCODE)" -ForegroundColor Red
+    exit 1
+}
+Write-Host "Connected.`n" -ForegroundColor Green
+
 # Ensure remote directory exists
 if (-not (Test-Path $RemoteRoot)) { New-Item -Path $RemoteRoot -ItemType Directory -Force | Out-Null }
 
@@ -86,15 +100,26 @@ foreach ($appName in $Apps) {
         continue
     }
 
-    # Copy staged content to CLIENT01
-    $remoteAppDir = Join-Path $RemoteRoot $stagedDir.Name
+    # Resolve version subfolder (e.g., CCleaner-x64\7.06.1270\)
+    $versionDir = Get-ChildItem $stagedDir.FullName -Directory | Select-Object -First 1
+    if (-not $versionDir) {
+        Write-Host "  SKIP: No version subfolder in $($stagedDir.FullName)" -ForegroundColor Yellow
+        $results += [PSCustomObject]@{
+            App = $appName; Install = 'SKIP'; Detect = 'SKIP'
+            Uninstall = 'SKIP'; Clean = 'SKIP'; Overall = 'SKIP (no version dir)'
+        }
+        continue
+    }
+
+    # Copy version folder contents to CLIENT01
+    $remoteAppDir = Join-Path (Join-Path $RemoteRoot $stagedDir.Name) $versionDir.Name
     Write-Phase $appName 'COPY' 'RUNNING' "-> $remoteAppDir"
     if (Test-Path $remoteAppDir) { Remove-Item $remoteAppDir -Recurse -Force }
-    Copy-Item $stagedDir.FullName $remoteAppDir -Recurse -Force
+    Copy-Item $versionDir.FullName $remoteAppDir -Recurse -Force
     Write-Phase $appName 'COPY' 'PASS'
 
     # Local path on CLIENT01
-    $clientLocalDir = $remoteAppDir -replace '\\\\CLIENT01\\C\$', 'C:'
+    $clientLocalDir = $remoteAppDir -replace "\\\\$ClientName\\C\`$", 'C:'
 
     # Phase 1: Install
     Write-Phase $appName 'INSTALL' 'RUNNING'
@@ -108,7 +133,7 @@ foreach ($appName in $Apps) {
         continue
     }
 
-    $installExit = & $psexec -s -accepteula "\\$ClientName" -w $clientLocalDir cmd.exe /c "install.bat" 2>&1
+    & $psexec -s -accepteula -u ${psexecUser} -p $AdminPass "\\$ClientName" -w $clientLocalDir cmd.exe /c "install.bat" 2>&1 | Out-Null
     $installCode = $LASTEXITCODE
     $installResult = if ($installCode -in 0, 3010, 1641) { 'PASS' } else { "FAIL (exit $installCode)" }
     Write-Phase $appName 'INSTALL' $installResult
@@ -124,32 +149,51 @@ foreach ($appName in $Apps) {
     # Brief pause for installers that need it
     Start-Sleep -Seconds 5
 
-    # Phase 2: Detect (run detection check remotely via PowerShell)
+    # Phase 2: Detect (write .ps1 to CLIENT01, run via psexec -File)
     Write-Phase $appName 'DETECT' 'RUNNING'
-    # Read stage-manifest.json for detection config
     $manifestPath = Join-Path $remoteAppDir 'stage-manifest.json'
+    $detectPs1Remote = Join-Path $remoteAppDir 'detect.ps1'
+    $detectPs1Local = $detectPs1Remote -replace "\\\\$ClientName\\C\`$", 'C:'
+    $detectCreated = $false
+
     if (Test-Path $manifestPath) {
         $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
         $det = $manifest.Detection
 
-        # Build detection script based on type
-        $detectScript = switch ($det.Type) {
+        # Build detection script and write as .ps1 file on CLIENT01
+        $detectLines = switch ($det.Type) {
             'RegistryKeyValue' {
-                $regPath = "HKLM:\$($det.RegistryKeyRelative)"
-                "if (Test-Path '$regPath') { `$v = (Get-ItemProperty '$regPath' -ErrorAction SilentlyContinue).'$($det.ValueName)'; if (`$v) { Write-Host `"DETECTED: `$v`"; exit 0 } }; Write-Host 'NOT DETECTED'; exit 1"
+                @(
+                    "`$regPath = 'HKLM:\$($det.RegistryKeyRelative)'"
+                    "if (-not (Test-Path `$regPath)) { Write-Host 'NOT DETECTED: key not found'; exit 1 }"
+                    "`$val = (Get-ItemProperty `$regPath -ErrorAction SilentlyContinue).'$($det.ValueName)'"
+                    "if (`$val) { Write-Host ""DETECTED: `$val""; exit 0 }"
+                    "Write-Host 'NOT DETECTED: value empty'; exit 1"
+                )
             }
             'RegistryKey' {
-                $regPath = "HKLM:\$($det.RegistryKeyRelative)"
-                "if (Test-Path '$regPath') { Write-Host 'DETECTED'; exit 0 }; Write-Host 'NOT DETECTED'; exit 1"
+                @(
+                    "`$regPath = 'HKLM:\$($det.RegistryKeyRelative)'"
+                    "if (Test-Path `$regPath) { Write-Host 'DETECTED'; exit 0 }"
+                    "Write-Host 'NOT DETECTED'; exit 1"
+                )
             }
             'File' {
-                $filePath = Join-Path $det.FilePath $det.FileName
-                "if (Test-Path '$filePath') { Write-Host 'DETECTED'; exit 0 }; Write-Host 'NOT DETECTED'; exit 1"
+                @(
+                    "`$filePath = '$($det.FilePath)\$($det.FileName)'"
+                    "if (Test-Path `$filePath) { Write-Host ""DETECTED: `$filePath""; exit 0 }"
+                    "Write-Host ""NOT DETECTED: `$filePath not found""; exit 1"
+                )
             }
-            default { "Write-Host 'Unknown detection type: $($det.Type)'; exit 1" }
+            default {
+                @("Write-Host 'Unknown detection type: $($det.Type)'; exit 1")
+            }
         }
 
-        & $psexec -s -accepteula "\\$ClientName" powershell.exe -NoProfile -Command $detectScript 2>&1
+        $detectLines | Out-File $detectPs1Remote -Encoding ASCII -Force
+        $detectCreated = $true
+
+        & $psexec -s -accepteula -u ${psexecUser} -p $AdminPass "\\$ClientName" powershell.exe -NoProfile -ExecutionPolicy Bypass -File $detectPs1Local 2>&1
         $detectCode = $LASTEXITCODE
         $detectResult = if ($detectCode -eq 0) { 'PASS' } else { 'FAIL' }
     } else {
@@ -162,7 +206,7 @@ foreach ($appName in $Apps) {
     Write-Phase $appName 'UNINSTALL' 'RUNNING'
     $uninstallBat = Join-Path $remoteAppDir 'uninstall.bat'
     if (Test-Path $uninstallBat) {
-        & $psexec -s -accepteula "\\$ClientName" -w $clientLocalDir cmd.exe /c "uninstall.bat" 2>&1
+        & $psexec -s -accepteula -u ${psexecUser} -p $AdminPass "\\$ClientName" -w $clientLocalDir cmd.exe /c "uninstall.bat" 2>&1 | Out-Null
         $uninstallCode = $LASTEXITCODE
         $uninstallResult = if ($uninstallCode -in 0, 3010) { 'PASS' } else { "FAIL (exit $uninstallCode)" }
     } else {
@@ -175,8 +219,8 @@ foreach ($appName in $Apps) {
 
     # Phase 4: Clean (verify detection no longer matches)
     Write-Phase $appName 'CLEAN' 'RUNNING'
-    if ($detectScript -and $detectCode -eq 0) {
-        & $psexec -s -accepteula "\\$ClientName" powershell.exe -NoProfile -Command $detectScript 2>&1
+    if ($detectCreated -and $detectCode -eq 0) {
+        & $psexec -s -accepteula -u ${psexecUser} -p $AdminPass "\\$ClientName" powershell.exe -NoProfile -ExecutionPolicy Bypass -File $detectPs1Local 2>&1
         $cleanCode = $LASTEXITCODE
         $cleanResult = if ($cleanCode -ne 0) { 'PASS' } else { 'FAIL (still detected)' }
     } else {
@@ -202,3 +246,7 @@ $results | Format-Table -AutoSize
 # Export CSV
 $results | Export-Csv $ResultsCsv -NoTypeInformation -Force
 Write-Host "Results saved to $ResultsCsv" -ForegroundColor Gray
+
+
+
+
