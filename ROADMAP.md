@@ -205,14 +205,12 @@ Full pipeline: Check Latest → Check MECM → Stage → Package → Distribute 
 
 See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for the complete per-app validation table.
 
-**Summary (2026-04-05, reconciled across all CSV runs):**
-- **45 FULL PASS** — Install + Detect + Uninstall + Clean verified
-- **32 uninstall/clean failures** — install+detect pass, uninstall leaves traces (many likely clear after reboot)
-- **16 detection failures** — install works, detection rule mismatch
-- **13 install failures** — prereq ordering, custom errors, port conflicts
-- **3 timeouts** — NSIS/InnoSetup hangs under SYSTEM
-- **8 excluded/deferred** — MSIX, PUP, hypervisor, too large, harness dependency
+**Summary (2026-04-10):**
+- **94 FULL PASS** — Install + Detect + Uninstall + Clean verified
+- **6 needs retest** — definition fixes applied (CCleaner ARP key, WinMerge/WizTree framework tag), awaiting CLIENT01 retest
+- **17 excluded/deferred** — per-user only, MSIX needed, CAPTCHA-gated download, SYSTEM hang, PUP, hypervisor, too large
 - See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for detailed per-app status
+- **Retest automation:** `tools/Retest-FailedApps.ps1` — psexec-driven 4-phase pipeline against CLIENT01, CSV results output
 
 **Engine fixes applied during validation:**
 - `BuildDetection` sanitizes `+`/`-` to `.` for Version-type RegistryKeyValue detection
@@ -273,6 +271,29 @@ Separate CM Application (not second DT) to preserve TS compatibility.
 20. Per-app settings auto-generation from JSON schema
 21. Migration tooling (PS1 → JSON converter)
 22. Deprecate PS1 sync files once all apps validated on JSON definitions
+
+---
+
+### CLI Entry Point (packr.exe headless mode)
+
+Expose engine operations via command-line without launching the WPF GUI. Enables scripted workflows, CI/CD integration, and automated regression testing.
+
+**Commands:**
+```
+packr stage <app-name|app-id> [--definitions-dir <path>] [--output-dir <path>]
+packr test <staged-content-dir> [--client <hostname>] [--user <domain\user>] [--pass <password>]
+packr check-latest [<app-name|app-id>] [--json]
+packr list [--json] [--filter <query>]
+```
+
+- `stage` — runs the full staging pipeline (scrape → download → inspect → wrappers → manifest) headlessly
+- `test` — runs DefinitionTestRunner's 4-phase pipeline (install → detect → uninstall → clean) against a local or remote machine via psexec
+- `check-latest` — scrapes vendor for latest version, outputs to stdout
+- `list` — lists all definitions with current status
+
+**Implementation:** Second `<OutputType>Exe</OutputType>` project (`PackrCli`) referencing the engine DLL. Lightweight — no WPF dependency. Uses `System.CommandLine` for arg parsing.
+
+**Value:** Eliminates GUI dependency for regression testing and automated packaging. The `Retest-FailedApps.ps1` script becomes `packr test` with built-in credential handling.
 
 ---
 
@@ -485,6 +506,8 @@ Packr Desktop scrapes vendors locally (free, offline, no dependency). Subscripti
 - Unit tests for engine DLL
 - JSON schema validation
 - Per-app pipeline validation: Check Latest → Check MECM → Stage → Package → Distribute → Deploy → Install → Detect → Uninstall
+- `tools/Retest-FailedApps.ps1` — automated psexec regression testing against CLIENT01
+- AutoTest (AHK v2) GUI wiring tests — see `c:\projects\autotest` Packr suite (v0.3)
 - See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-app status
 
 ### v2.2–v2.3
