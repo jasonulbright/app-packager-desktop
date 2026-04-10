@@ -23,7 +23,7 @@
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CCleaner",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CCleaner 7",
                       "ValueName":  "DisplayVersion",
                       "PropertyType":  "Version",
                       "Operator":  "GreaterEquals",
