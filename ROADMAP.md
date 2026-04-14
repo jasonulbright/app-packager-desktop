@@ -103,6 +103,16 @@ After `MecmTarget.PackageAsync` succeeds, optionally trigger `Start-CMContentDis
 
 After content distribution succeeds, optionally create deployment to a configured test collection with configurable purpose (Required/Available) and maintenance window overrides. Eliminates manual deployment creation step.
 
+### Dployr Pipeline Export
+
+After staging or packaging, optionally generate a **deployment pipeline JSON** that Dployr can consume. This bridges Packr (packaging) to Dployr (deployment operations).
+
+- Pipeline JSON contains: AppName, SoftwareVersion, ContentPath, Detection, InstallArgs, UninstallArgs, Ring target, source manifest path
+- Single-app export: per-app action in Packages grid context menu
+- Batch export: multi-select apps → "Export to Dployr" button
+- Export location: configurable folder (Dployr watches this folder for incoming JSON)
+- Schema is NOT finalized — it will be defined during Dployr development once the full deployment workflow is understood. See `c:\projects\dployr\ROADMAP.md`.
+
 ### Content Share Path Validation
 
 Before `MecmTarget` copies content to the network share, validate that the target path is accessible and creatable. Fail fast with a clear error message instead of creating CM Applications that reference non-existent content.
