@@ -4,6 +4,8 @@
 
 SRL Packr by Signal Ridge Labs automates the full lifecycle of third-party application packaging: version detection, installer download, staging, and MECM Application creation with detection rules.
 
+![SRL Packr](screenshot.png)
+
 ## Status
 
 **v2.1.0-alpha7** — 90 of 116 apps signed off (install + detection validated on CM01 lab). Engine features: automated detection derivation via installer metadata extraction (7z + per-framework manifest readers), MSIX deployment type, per-user deployment, auto-distribute/deploy, SQLite version history, PSADT wrapper generation. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-app pipeline status.
