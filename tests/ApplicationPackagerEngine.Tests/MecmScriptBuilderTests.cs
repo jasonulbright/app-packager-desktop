@@ -1,0 +1,181 @@
+using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
+
+namespace ApplicationPackagerEngine.Tests;
+
+public sealed class MecmScriptBuilderTests
+{
+    private const string Content = @"\\server\share\Apps\Vendor\App\1.0";
+
+    private static StageManifest Manifest() => new()
+    {
+        AppName = "App",
+        Publisher = "Vendor",
+        SoftwareVersion = "1.0",
+        Detection = new StageDetection
+        {
+            Type = "RegistryKeyValue",
+            RegistryKeyRelative = @"SOFTWARE\Vendor\App",
+            ValueName = "DisplayVersion",
+            ExpectedValue = "1.0"
+        }
+    };
+
+    private static string Build(StageManifest manifest, StageCommandOverrides? overrides = null,
+        Action<string>? onLog = null) =>
+        MecmTarget.BuildPackageScript(manifest, manifest.AppName, Content, "P01", "comment",
+            15, 30, ConditionTemplateService.Defaults(), overrides, onLog);
+
+    [Fact]
+    public void SingleDeploymentType_CreatesOneDtNamedAfterTheApp()
+    {
+        var script = Build(Manifest());
+
+        Assert.Contains("$dtName0 = 'App'", script);
+        Assert.DoesNotContain("$dtName1", script);
+        Assert.Contains($"-ContentLocation '{Content}'", script);
+        Assert.Contains("-InstallCommand 'install.bat' -UninstallCommand 'uninstall.bat'", script);
+        Assert.Contains("-InstallationBehaviorType InstallForSystem", script);
+        Assert.DoesNotContain("-AddRequirement", script);
+        // No requirement rules means the global condition helper is not needed.
+        Assert.DoesNotContain(RequirementRuleBuilder.GlobalConditionFunctionName, script);
+    }
+
+    [Fact]
+    public void UnchangedVersionRerun_ValidatesEveryExpectedDtNameAndExitsClean()
+    {
+        var manifest = Manifest();
+        manifest.DeploymentTypes =
+        [
+            new StageDeploymentType { NameSuffix = "ARM64" },
+            new StageDeploymentType { NameSuffix = "x64" }
+        ];
+
+        var script = Build(manifest);
+
+        Assert.Contains("$expectedDts = @('App - ARM64', 'App - x64')", script);
+        Assert.Contains("$missingDts = @($expectedDts | Where-Object { $currentDts -notcontains $_ })", script);
+        Assert.Contains("if ($missingDts.Count -eq 0) {", script);
+        Assert.Contains("exit 0", script);
+        Assert.Contains("missing deployment type(s)", script);
+    }
+
+    [Fact]
+    public void VersionChange_StagesTheNewSetThenRemovesOldThenRenames()
+    {
+        var manifest = Manifest();
+        manifest.DeploymentTypes =
+        [
+            new StageDeploymentType { NameSuffix = "ARM64" },
+            new StageDeploymentType { NameSuffix = "x64" }
+        ];
+
+        var script = Build(manifest);
+
+        Assert.Contains("$dtCreateName0 = if ($replaceDtNames.Count -gt 0) { \"$dtName0 (staging)\" } else { $dtName0 }", script);
+        var lastAdd = script.LastIndexOf("Add-CMScriptDeploymentType", StringComparison.Ordinal);
+        var remove = script.IndexOf("Remove-CMDeploymentType", StringComparison.Ordinal);
+        var rename = script.IndexOf("-NewDeploymentTypeName", StringComparison.Ordinal);
+        Assert.True(lastAdd < remove, "every deployment type is created before any old one is removed");
+        Assert.True(remove < rename, "old deployment types are removed before the staged names are taken");
+        Assert.Contains("Set-CMApplication -Name 'App' -SoftwareVersion '1.0'", script);
+    }
+
+    [Fact]
+    public void Requirements_AttachPerDeploymentType_AndFallbackStaysUnconditional()
+    {
+        var manifest = Manifest();
+        manifest.DeploymentTypes =
+        [
+            new StageDeploymentType
+            {
+                NameSuffix = "ARM64",
+                ContentSubpath = "arm64",
+                Requirements = [new StageRequirement { ConditionId = "cpu-arch", Value = "ARM64" }]
+            },
+            new StageDeploymentType { NameSuffix = "x64" }
+        ];
+
+        var script = Build(manifest);
+
+        Assert.Contains(RequirementRuleBuilder.GlobalConditionFunctionName, script);
+        Assert.Contains("-Value1 '12'", script);
+        Assert.Contains("-AddRequirement @($dt0_req0)", script);
+        Assert.DoesNotContain("$dt1_req0", script);
+        Assert.Contains($"-ContentLocation '{Path.Combine(Content, "arm64")}'", script);
+        // Rules are resolved before the application is created.
+        Assert.True(
+            script.IndexOf("$dt0_req0 =", StringComparison.Ordinal) <
+            script.IndexOf("New-CMApplication", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void UnknownConditionId_ThrowsBeforeAnyScriptIsProduced()
+    {
+        var manifest = Manifest();
+        manifest.DeploymentTypes =
+        [
+            new StageDeploymentType
+            {
+                NameSuffix = "x64",
+                Requirements = [new StageRequirement { ConditionId = "bogus", Value = "1" }]
+            }
+        ];
+
+        Assert.Throws<InvalidOperationException>(() => Build(manifest));
+    }
+
+    [Fact]
+    public void ManifestCommandOverrides_ApplyToTheSingleDeploymentType()
+    {
+        var manifest = Manifest();
+        manifest.CommandOverrides = new StageCommandOverrides { Install = "setup.exe /s" };
+        var log = new List<string>();
+
+        var script = Build(manifest, onLog: log.Add);
+
+        Assert.Contains("-InstallCommand 'setup.exe /s' -UninstallCommand 'uninstall.bat'", script);
+        Assert.Contains(log, l => l.Contains("(override)"));
+    }
+
+    [Fact]
+    public void ExplicitOverrideParameter_WinsOverTheManifestRecord()
+    {
+        var manifest = Manifest();
+        manifest.CommandOverrides = new StageCommandOverrides { Install = "manifest.exe" };
+
+        var script = Build(manifest, new StageCommandOverrides { Install = "explicit.exe" });
+
+        Assert.Contains("-InstallCommand 'explicit.exe'", script);
+        Assert.DoesNotContain("manifest.exe", script);
+    }
+
+    [Fact]
+    public void CommandOverrides_AreRefusedOnMultiDeploymentTypeManifests()
+    {
+        var manifest = Manifest();
+        manifest.DeploymentTypes =
+        [
+            new StageDeploymentType { NameSuffix = "ARM64" },
+            new StageDeploymentType { NameSuffix = "x64" }
+        ];
+        var log = new List<string>();
+
+        var script = Build(manifest, new StageCommandOverrides { Install = "setup.exe /s" }, log.Add);
+
+        Assert.DoesNotContain("setup.exe /s", script);
+        Assert.Contains(log, l => l.Contains("ignored"));
+    }
+
+    [Fact]
+    public void UserInstallContext_OmitsLogonRequirement()
+    {
+        var manifest = Manifest();
+        manifest.InstallContext = "User";
+
+        var script = Build(manifest);
+
+        Assert.Contains("-InstallationBehaviorType InstallForUser", script);
+        Assert.DoesNotContain("-LogonRequirementType", script);
+    }
+}

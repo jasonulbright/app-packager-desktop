@@ -1,14 +1,48 @@
-# SRL Packr
+# Packr
 
-**Enterprise application packaging automation for MECM/Intune.**
+**Keeps third-party Windows applications packaged and up to date in MECM and Intune — without hand-building each one.**
 
-SRL Packr by Signal Ridge Labs automates the full lifecycle of third-party application packaging: version detection, installer download, staging, and MECM Application creation with detection rules.
+Free, MIT-licensed, and free forever.
 
-![SRL Packr](screenshot.png)
+![Packr](screenshot.png)
+
+## What it does
+
+Packaging an application for enterprise deployment normally means doing the same chore over and over: find the vendor's current version, download the installer, work out the silent install switches, work out how a management system can tell whether the app is already installed, then create the application record by hand. Every app, every update.
+
+Packr does that chore for you. For each application it knows about, it:
+
+1. Checks the vendor for the current version.
+2. Downloads that version's installer.
+3. Stages the installer and generates install and uninstall scripts.
+4. Works out a detection rule — the check that tells MECM or Intune whether the app is present on a machine — by reading the installer itself.
+5. Creates the application in MECM (or an Intune Win32 app), with the deployment type, detection rule, and content already filled in.
+
+You pick applications from a list and press a button. Around 116 applications ship with it already described, so common software is covered out of the box.
+
+## Who it's for
+
+Windows administrators who maintain third-party software in MECM (Configuration Manager) or Intune. You do not need to write scripts to use it — the application definitions are plain data files, and the day-to-day workflow is a normal desktop window with a list and buttons.
+
+If you do want to add your own applications, you can: definitions are single JSON files, and there is a guided "Add New App" flow in the application.
+
+## Quickstart
+
+1. Install the .NET 10 Desktop Runtime.
+2. Download the release zip, unblock it, extract it anywhere, and run `ApplicationPackagerUI.exe`. Nothing is installed; it runs from the folder.
+3. On the **Settings** page, fill in your MECM site code, site server, and the network share where package content should live. The application tests the MECM connection on launch and shows the result.
+4. On the **Packages** page, tick one or more applications and press **Check Latest** to see the current vendor version alongside what your environment already has.
+5. Press **Stage** to download and prepare, then **Package** to create the application in MECM or Intune.
+
+Nothing is sent anywhere. Version checks go directly from your machine to the vendor.
+
+## Relationship to app-packager
+
+Packr is the C# sibling of [app-packager](https://github.com/jasonulbright/app-packager), the PowerShell/WPF packager. Features are proven in app-packager first and then ported here, so app-packager is generally ahead on new capability while Packr is the faster, compiled implementation with the pluggable engine. Both are MIT licensed and free.
 
 ## Status
 
-**v2.1.0-alpha7** — 90 of 116 apps signed off (install + detection validated on CM01 lab). Engine features: automated detection derivation via installer metadata extraction (7z + per-framework manifest readers), MSIX deployment type, per-user deployment, auto-distribute/deploy, SQLite version history, PSADT wrapper generation. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-app pipeline status.
+**v2.1.0-alpha8** — 90 of 116 applications signed off (install and detection validated). Engine features: automated detection derivation via installer metadata extraction (7z plus per-framework manifest readers), MSIX deployment type, per-user deployment, auto-distribute/deploy, SQLite version history, PSADT wrapper generation. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
 
 ## Stack
 
@@ -30,15 +64,19 @@ ApplicationPackagerUI (WPF)          ← user interface (WPF-UI 4.2.0 Fluent)
 
 ## Scraper Types
 
+A scraper is the part that finds out what version a vendor currently ships. Each application definition names the one it uses.
+
 | Scraper | Method | Apps |
 |---------|--------|------|
-| `HttpRegexScraper` | Fetch page/API, regex extract | 50+ |
-| `JsonQueryScraper` | JSON API path queries | 35+ |
+| `HttpRegexScraper` | Fetch page/API, pattern-match the version out of the text | 50+ |
+| `JsonQueryScraper` | Read the version from a vendor JSON API | 35+ |
 | `FileVersionScraper` | Download installer, read EXE/MSI/MSIX properties | 10 |
 | `CdnCabScraper` | Office CDN CAB/VersionDescriptor.xml | 6 |
 | `WingetScraper` | Winget package manager (stub) | — |
 
 ## JSON App Definition
+
+One file per application. `Pattern` below is a text-matching expression (a regular expression); the guided "Add New App" flow builds it for you if you would rather not write one.
 
 ```json
 {
@@ -60,6 +98,14 @@ ApplicationPackagerUI (WPF)          ← user interface (WPF-UI 4.2.0 Fluent)
 }
 ```
 
+## Building a release
+
+```powershell
+tools\build-release.ps1
+```
+
+Publishes a self-contained single-file win-x64 build and writes `Packr-<version>.zip` plus `checksums.txt` into `publish\`.
+
 ## License
 
-Proprietary. Copyright Signal Ridge Labs.
+MIT. See [LICENSE](LICENSE).

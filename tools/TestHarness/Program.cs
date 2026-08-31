@@ -8,6 +8,9 @@ using ApplicationPackagerEngine.Scrapers;
 //   TestHarness.exe [definitionsDir] [downloadRoot] [options]
 //   --stage-only     Stage all definitions without testing
 //   --test-only      Test already-staged definitions without re-staging
+//   --check-only     Run version scrapers only (no downloads/installs);
+//                    CSV report of resolved versions and scraper failures.
+//                    This is the Phase 4 definitions-maintenance sweep.
 //   --app <name>     Test a single app (partial match on filename)
 //   --timeout <sec>  Per-app install timeout in seconds (default 300)
 
@@ -15,6 +18,7 @@ var defsDir = args.Length > 0 && !args[0].StartsWith("--") ? args[0] : @"C:\temp
 var downloadRoot = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : @"C:\temp\ap";
 var stageOnly = args.Contains("--stage-only");
 var testOnly = args.Contains("--test-only");
+var checkOnly = args.Contains("--check-only");
 var appFilter = args.Contains("--app") ? args[Array.IndexOf(args, "--app") + 1] : null;
 var timeoutSec = args.Contains("--timeout") ? int.Parse(args[Array.IndexOf(args, "--timeout") + 1]) : 300;
 
@@ -65,6 +69,50 @@ defFiles = defFiles.OrderBy(PrereqPriority).ThenBy(f => Path.GetFileName(f)).ToA
 
 Console.WriteLine($"Definitions to process: {defFiles.Length}");
 Console.WriteLine();
+
+// --check-only: scraper sweep, no downloads or installs. Skip list does
+// not apply — every definition's version source gets validated.
+if (checkOnly)
+{
+    var checkCsv = Path.Combine(downloadRoot, $"definition-check-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+    Directory.CreateDirectory(downloadRoot);
+    await File.WriteAllTextAsync(checkCsv, "App,Result,Version,Error\n");
+    var okCount = 0; var failCount = 0;
+    foreach (var defFile in defFiles)
+    {
+        var name = Path.GetFileName(defFile);
+        try
+        {
+            var def = JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(defFile),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            def.SourcePath = defFile;
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            var version = await stagingService.GetLatestVersionAsync(def, ct: cts.Token);
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                failCount++;
+                Console.WriteLine($"FAIL: {name} — scraper returned no version");
+                await File.AppendAllTextAsync(checkCsv, $"{name},FAIL,,scraper returned no version\n");
+            }
+            else
+            {
+                okCount++;
+                Console.WriteLine($"OK:   {name} -> {version}");
+                await File.AppendAllTextAsync(checkCsv, $"{name},OK,{version},\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            failCount++;
+            var msg = ex.Message.Replace(',', ';').Replace('\n', ' ').Replace('\r', ' ');
+            Console.WriteLine($"FAIL: {name} — {msg}");
+            await File.AppendAllTextAsync(checkCsv, $"{name},FAIL,,{msg}\n");
+        }
+    }
+    Console.WriteLine();
+    Console.WriteLine($"Check complete: {okCount} OK, {failCount} FAIL. Report: {checkCsv}");
+    return;
+}
 
 // Skip list
 var skipList = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
