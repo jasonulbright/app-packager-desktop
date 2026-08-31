@@ -20,6 +20,8 @@ public sealed class MecmTarget
         int estimatedRuntimeMins = 15,
         int maximumRuntimeMins = 30,
         Action<string>? onProgress = null,
+        StageCommandOverrides? commandOverrides = null,
+        ConditionTemplateDocument? conditionTemplates = null,
         CancellationToken ct = default)
     {
         try
@@ -73,8 +75,9 @@ public sealed class MecmTarget
             onProgress?.Invoke("Connecting to MECM...");
             var psScript = manifest.InstallerType?.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
                 ? BuildMsixMecmScript(manifest, appName, networkContentPath, siteCode, comment)
-                : BuildMecmScript(manifest, appName, networkContentPath,
-                    siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins);
+                : BuildPackageScript(manifest, appName, networkContentPath,
+                    siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
+                    conditionTemplates, commandOverrides, onProgress);
 
             // 3. Execute via Windows PowerShell 5.1
             var result = await RunWindowsPowerShellAsync(psScript, onProgress, ct);
@@ -104,34 +107,82 @@ public sealed class MecmTarget
         }
     }
 
-    private static string BuildMecmScript(
+    /// <summary>
+    /// Builds the CM PowerShell for one application and every deployment
+    /// type its manifest resolves to. Public so the generated script text is
+    /// assertable without a site.
+    ///
+    /// Deployment types are created in spec order because CM assigns
+    /// priority by creation order and the client installs the first
+    /// deployment type whose requirements pass. Requirement rules resolve
+    /// for every spec before any create so a bad spec fails the run without
+    /// leaving a partial application behind. On a version change the new set
+    /// is created under '(staging)' names first, because a deployed
+    /// application refuses to remove its last deployment type; the old set is
+    /// removed and the staged names take the canonical names only after every
+    /// new deployment type created successfully.
+    /// </summary>
+    public static string BuildPackageScript(
         StageManifest manifest, string appName, string networkContentPath,
-        string siteCode, string comment, int estRuntime, int maxRuntime)
+        string siteCode, string comment, int estRuntime, int maxRuntime,
+        ConditionTemplateDocument? conditionTemplates = null,
+        StageCommandOverrides? commandOverrides = null,
+        Action<string>? onLog = null)
     {
-        var det = manifest.Detection;
+        var specs = DeploymentTypeSpecResolver.Resolve(manifest, networkContentPath, appName);
+        var isMultiDt = DeploymentTypeSpecResolver.IsMultiDeploymentType(specs, appName);
+        if (isMultiDt)
+            onLog?.Invoke($"Deployment types (manifest)  : {string.Join(", ", specs.Select(s => s.DtName))}");
+
+        DeploymentTypeSpecResolver.ApplyCommandOverrides(
+            specs, commandOverrides ?? manifest.CommandOverrides, appName, onLog);
+
+        var templates = conditionTemplates ?? ConditionTemplateService.Defaults();
+        var resolvedRules = specs
+            .Select(s => RequirementRuleBuilder.Resolve(s.Requirements, templates))
+            .ToList();
+
         var sb = new StringBuilder();
-
-        // Import CM module
-        sb.AppendLine("$ErrorActionPreference = 'Stop'");
-        sb.AppendLine("$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\\ConfigurationManager.psd1'");
-        sb.AppendLine("if (Test-Path $cmModule) { Import-Module $cmModule }");
-        sb.AppendLine("else { Import-Module ConfigurationManager }");
-
-        // Create PSDrive if needed
-        sb.AppendLine($"if (-not (Get-PSDrive -Name '{siteCode}' -ErrorAction SilentlyContinue)) {{");
-        sb.AppendLine($"    New-PSDrive -Name '{siteCode}' -PSProvider CMSite -Root $env:COMPUTERNAME | Out-Null");
-        sb.AppendLine("}");
-        sb.AppendLine($"Set-Location '{siteCode}:'");
+        AppendCmPreamble(sb, siteCode);
         sb.AppendLine("Write-Host 'Connected to MECM'");
+        if (resolvedRules.Any(r => r.Count > 0))
+            sb.AppendLine(RequirementRuleBuilder.BuildGlobalConditionFunction());
 
-        // Check for existing app (catch the "key" bug)
-        sb.AppendLine("$existing = $null");
-        sb.AppendLine($"try {{ $existing = Get-CMApplication -Name '{Esc(appName)}' -Fast -ErrorAction SilentlyContinue }} catch {{ }}");
-        sb.AppendLine("if ($existing) { Write-Host 'Application already exists'; exit 0 }");
+        // Existing application: an unchanged version with every expected
+        // deployment type present is idempotent; a missing one is a partial
+        // prior run and refuses to continue.
+        sb.AppendLine($"$expectedDts = @({string.Join(", ", specs.Select(s => $"'{Esc(s.DtName)}'"))})");
+        sb.AppendLine("$existing = @()");
+        sb.AppendLine($"try {{ $existing = @(Get-CMApplication -Name '{Esc(appName)}' -ErrorAction SilentlyContinue) }} catch {{ }}");
+        sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple existing MECM applications matched '{Esc(appName)}'; refusing to package until the duplicate names are resolved.\" }}");
+        sb.AppendLine("$app = $null");
+        sb.AppendLine("$replaceDtNames = @()");
+        sb.AppendLine("if ($existing.Count -eq 1) {");
+        sb.AppendLine("    $app = $existing[0]");
+        sb.AppendLine($"    $currentDts = @(Get-CMDeploymentType -ApplicationName '{Esc(appName)}' -ErrorAction Stop | ForEach-Object {{ [string]$_.LocalizedDisplayName }})");
+        sb.AppendLine("    $missingDts = @($expectedDts | Where-Object { $currentDts -notcontains $_ })");
+        sb.AppendLine($"    if ([string]$app.SoftwareVersion -eq '{Esc(manifest.SoftwareVersion)}') {{");
+        sb.AppendLine("        if ($missingDts.Count -eq 0) {");
+        sb.AppendLine($"            Write-Host 'Application already exists    : {Esc(appName)} (v{Esc(manifest.SoftwareVersion)}, unchanged)'");
+        sb.AppendLine("            Write-Host \"Deployment type(s) validated : $($expectedDts -join ', ')\"");
+        sb.AppendLine("            Write-Host \"CI_ID: $($app.CI_ID)\"");
+        sb.AppendLine("            exit 0");
+        sb.AppendLine("        }");
+        sb.AppendLine($"        throw \"Existing MECM application '{Esc(appName)}' is missing deployment type(s): $($missingDts -join ', '). This looks like a partial prior package run; fix or remove the partial app before packaging again.\"");
+        sb.AppendLine("    }");
+        sb.AppendLine("    Write-Host \"Application already exists    : replacing deployment types (v$($app.SoftwareVersion) -> v" + Esc(manifest.SoftwareVersion) + ")\"");
+        sb.AppendLine("    $replaceDtNames = $currentDts");
+        sb.AppendLine("}");
 
-        // Create application
-        sb.AppendLine("Write-Host 'Creating application...'");
-        sb.Append($"$app = New-CMApplication -Name '{Esc(appName)}'");
+        // Requirement rules build before any create so a provider refusal
+        // never leaves a half-built application behind.
+        var ruleVars = new List<List<string>>();
+        for (var i = 0; i < specs.Count; i++)
+            ruleVars.Add(RequirementRuleBuilder.AppendRules(sb, resolvedRules[i], $"dt{i}"));
+
+        sb.AppendLine("if (-not $app) {");
+        sb.AppendLine("    Write-Host 'Creating application...'");
+        sb.Append($"    $app = New-CMApplication -Name '{Esc(appName)}'");
         sb.Append($" -Publisher '{Esc(manifest.Publisher)}'");
         sb.Append($" -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");
         sb.Append($" -Description '{Esc(comment)}'");
@@ -139,41 +190,69 @@ public sealed class MecmTarget
         if (!string.IsNullOrEmpty(manifest.DisplayName))
             sb.Append($" -LocalizedApplicationName '{Esc(manifest.DisplayName)}'");
         sb.AppendLine();
-
+        sb.AppendLine("}");
         sb.AppendLine("Write-Host \"CI_ID: $($app.CI_ID)\"");
 
-        // Create detection clause (leave CM drive)
-        sb.AppendLine("Set-Location C:");
-        sb.AppendLine(BuildDetectionClausePs(det));
-
-        // Reconnect to CM drive
-        sb.AppendLine($"Set-Location '{siteCode}:'");
-
-        // Add deployment type
-        sb.AppendLine("Write-Host 'Adding deployment type...'");
         var isUserInstall = manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase);
-        sb.Append($"Add-CMScriptDeploymentType -ApplicationName '{Esc(appName)}'");
-        sb.Append($" -DeploymentTypeName '{Esc(appName)}'");
-        sb.Append($" -ContentLocation '{Esc(networkContentPath)}'");
-        sb.Append(" -InstallCommand 'install.bat' -UninstallCommand 'uninstall.bat'");
-        if (isUserInstall)
+        for (var i = 0; i < specs.Count; i++)
         {
-            sb.Append(" -InstallationBehaviorType InstallForUser");
-            // LogonRequirementType cannot be set when InstallationBehaviorType is InstallForUser
+            var spec = specs[i];
+            sb.AppendLine($"$dtName{i} = '{Esc(spec.DtName)}'");
+            sb.AppendLine($"$dtCreateName{i} = if ($replaceDtNames.Count -gt 0) {{ \"$dtName{i} (staging)\" }} else {{ $dtName{i} }}");
+
+            // Clause objects are built off the CM PSDrive; the drive context
+            // interferes with their parameter binding.
+            sb.AppendLine("Set-Location C:");
+            sb.AppendLine(BuildDetectionClausePs(spec.Detection));
+            sb.AppendLine($"Set-Location '{siteCode}:'");
+
+            sb.AppendLine($"Write-Host \"Adding deployment type       : $dtCreateName{i}\"");
+            sb.Append($"Add-CMScriptDeploymentType -ApplicationName '{Esc(appName)}'");
+            sb.Append($" -DeploymentTypeName $dtCreateName{i}");
+            sb.Append($" -ContentLocation '{Esc(spec.ContentLocation)}'");
+            sb.Append($" -InstallCommand '{Esc(spec.InstallCommand)}'");
+            sb.Append($" -UninstallCommand '{Esc(spec.UninstallCommand)}'");
+            if (isUserInstall)
+            {
+                sb.Append(" -InstallationBehaviorType InstallForUser");
+                // LogonRequirementType cannot be set when InstallationBehaviorType is InstallForUser
+            }
+            else
+            {
+                sb.Append(" -InstallationBehaviorType InstallForSystem");
+                sb.Append(" -LogonRequirementType WhetherOrNotUserLoggedOn");
+            }
+            sb.Append($" -EstimatedRuntimeMins {estRuntime} -MaximumRuntimeMins {maxRuntime}");
+            sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
+            sb.Append(" -AddDetectionClause $clause");
+            if (ruleVars[i].Count > 0)
+                sb.Append($" -AddRequirement @({string.Join(", ", ruleVars[i])})");
+            sb.AppendLine(" | Out-Null");
         }
-        else
+
+        sb.AppendLine("foreach ($oldDt in $replaceDtNames) {");
+        sb.AppendLine($"    Remove-CMDeploymentType -ApplicationName '{Esc(appName)}' -DeploymentTypeName $oldDt -Force -ErrorAction Stop");
+        sb.AppendLine("    Write-Host \"Removed old deployment type  : $oldDt\"");
+        sb.AppendLine("}");
+        for (var i = 0; i < specs.Count; i++)
         {
-            sb.Append(" -InstallationBehaviorType InstallForSystem");
-            sb.Append(" -LogonRequirementType WhetherOrNotUserLoggedOn");
+            sb.AppendLine($"if ($dtCreateName{i} -ne $dtName{i}) {{");
+            sb.AppendLine($"    Set-CMDeploymentType -ApplicationName '{Esc(appName)}' -DeploymentTypeName $dtCreateName{i} -NewDeploymentTypeName $dtName{i} -ErrorAction Stop");
+            sb.AppendLine($"    Write-Host \"Renamed deployment type      : $dtName{i}\"");
+            sb.AppendLine("}");
         }
-        sb.Append($" -EstimatedRuntimeMins {estRuntime} -MaximumRuntimeMins {maxRuntime}");
-        sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
-        sb.Append(" -AddDetectionClause $clause");
-        sb.AppendLine(" | Out-Null");
+
+        sb.AppendLine("if ($existing.Count -eq 1) {");
+        sb.Append($"    Set-CMApplication -Name '{Esc(appName)}' -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");
+        if (!string.IsNullOrWhiteSpace(comment))
+            sb.Append($" -Description '{Esc(comment)}'");
+        sb.AppendLine(" -ErrorAction Stop");
+        sb.AppendLine($"    Write-Host 'Updated application version  : {Esc(manifest.SoftwareVersion)}'");
+        sb.AppendLine("}");
 
         // Clean up revision history (keep only latest)
         sb.AppendLine("try {");
-        sb.AppendLine($"  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop");
+        sb.AppendLine("  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop");
         sb.AppendLine("  if (@($revisions).Count -gt 1) {");
         sb.AppendLine("    @($revisions) | Sort-Object -Property @{Expression={if ($_.Revision) {$_.Revision} else {$_.CIVersion}}} -Descending | Select-Object -Skip 1 | ForEach-Object {");
         sb.AppendLine("      Remove-CMApplicationRevisionHistory -InputObject $_ -Force -ErrorAction SilentlyContinue");

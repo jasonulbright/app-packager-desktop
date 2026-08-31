@@ -1,6 +1,18 @@
 # Changelog
 
-All notable changes to SRL Packr are documented here.
+All notable changes to Packr are documented here.
+
+## [Unreleased]
+
+### Project
+- **MIT license added** — Packr is free software, free for everyone, permanently.
+- **Docs reframed** — README and ROADMAP drop the commercial product framing (paid tiers, subscription validation, product-site branding). All technical content retained; the optional hosted version-data endpoint is now described as a free, opt-in convenience with local scraping as the default and fallback.
+- **README rewritten for a general administrator audience** — plain-language "what it does / who it's for / quickstart" ahead of the technical sections; relationship to the PowerShell sibling app-packager stated, where features land first.
+- **`tools/build-release.ps1`** — publishes a self-contained single-file win-x64 build and emits `Packr-<version>.zip` plus `checksums.txt` (SHA256, bare filenames) into `publish/`.
+- **Version property** added to the UI project so release tooling has a single source for the version string.
+
+### Parity
+- Parity work with app-packager begins: features shipped there are being ported here, tracked per feature.
 
 ## [2.1.0-alpha8] - 2026-04-05
 

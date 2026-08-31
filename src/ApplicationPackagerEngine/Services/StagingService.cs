@@ -743,6 +743,81 @@ public sealed class StagingService
         return new StageDetection { Type = "Unknown" };
     }
 
+    // ── ad-hoc (dropped installer) staging ───────────────────────
+
+    /// <summary>
+    /// Stages an already-analysed local installer into the same versioned content
+    /// layout the definition pipeline produces, so packaging consumes it unchanged.
+    /// There is no version scrape or download — the file on disk is the source.
+    /// </summary>
+    public Task<StagingResult> StageDroppedInstallerAsync(
+        StageManifest manifest, string sourceInstallerPath, string downloadRoot,
+        Action<string>? onProgress = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            if (!File.Exists(sourceInstallerPath))
+                return Task.FromResult(new StagingResult { Success = false, ErrorMessage = $"Installer not found: {sourceInstallerPath}" });
+
+            // Wrapper .ps1 files are written for Windows PowerShell defaults on the
+            // target device; a non-ASCII installer filename is mangled inside the
+            // wrapper and fails only at deployment time.
+            if (manifest.InstallerFile.Any(c => c > 0x7F))
+                return Task.FromResult(new StagingResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Installer filename contains non-ASCII characters; rename it before staging: {manifest.InstallerFile}"
+                });
+
+            var vendorFolder = MecmTarget.SanitizeFolderNamePublic(manifest.Publisher);
+            var appFolder = MecmTarget.SanitizeFolderNamePublic(manifest.DisplayName ?? manifest.AppName);
+            var versionFolder = MecmTarget.SanitizeFolderNamePublic(manifest.SoftwareVersion);
+
+            if (string.IsNullOrWhiteSpace(appFolder))
+                return Task.FromResult(new StagingResult { Success = false, ErrorMessage = "Application name contains no usable path characters." });
+            if (string.IsNullOrWhiteSpace(versionFolder))
+                return Task.FromResult(new StagingResult { Success = false, ErrorMessage = "Version contains no usable path characters." });
+            if (string.IsNullOrWhiteSpace(vendorFolder))
+                vendorFolder = "Unknown";
+
+            var contentPath = Path.Combine(downloadRoot, vendorFolder, appFolder, versionFolder);
+            Directory.CreateDirectory(contentPath);
+            ct.ThrowIfCancellationRequested();
+
+            var stagedInstaller = Path.Combine(contentPath, manifest.InstallerFile);
+            File.Copy(sourceInstallerPath, stagedInstaller, true);
+            onProgress?.Invoke($"Staged installer: {stagedInstaller}");
+
+            onProgress?.Invoke("Generating install/uninstall wrappers...");
+            if (manifest.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
+                _wrapperService.GenerateMsiWrappers(contentPath, manifest.InstallerFile, null, manifest.InstallArgs);
+            else
+                _wrapperService.GenerateExeWrappers(contentPath, manifest.InstallerFile,
+                    manifest.InstallArgs, manifest.UninstallArgs, null, manifest.AppName, null);
+
+            var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
+            _manifestService.Write(manifestPath, manifest);
+            onProgress?.Invoke($"Manifest written: {manifestPath}");
+
+            return Task.FromResult(new StagingResult
+            {
+                Success = true,
+                Version = manifest.SoftwareVersion,
+                ContentPath = contentPath,
+                ManifestPath = manifestPath
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            return Task.FromResult(new StagingResult { Success = false, ErrorMessage = "Cancelled" });
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(new StagingResult { Success = false, ErrorMessage = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Resolves InstallerParameter values into a final install arguments string.
     /// Appends CommandFragment for enabled toggles, substitutes {value} for other types.
