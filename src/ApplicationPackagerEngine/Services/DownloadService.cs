@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using ApplicationPackagerEngine.Scrapers;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -25,18 +26,8 @@ public sealed class DownloadService
             ct.ThrowIfCancellationRequested();
             onProgress?.Invoke($"Downloading: {Path.GetFileName(outFile)} (attempt {attempt}/{maxAttempts})");
 
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = "curl.exe",
-                Arguments = $"-L --fail --silent --show-error -o \"{outFile}\" \"{url}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            process.Start();
+            using var process = CurlProcess.Start(
+                $"-L --fail --silent --show-error -o \"{outFile}\" \"{url}\"", url);
 
             var stderrTask = process.StandardError.ReadToEndAsync(ct);
             await process.WaitForExitAsync(ct);

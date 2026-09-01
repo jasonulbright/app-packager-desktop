@@ -10,11 +10,12 @@
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "FileVersion",
-    "Url": "https://downloads.dell.com/rvtools/rvtools4.8.1.msi",
-    "Pattern": "MsiProductVersion"
+    "Type": "HeadProbe",
+    "Url": "https://downloads.dell.com/rvtools/rvtools{version}.msi",
+    "Pattern": "4.8.1",
+    "MaxVersionHops": 12
   },
-  "DownloadUrl": "https://downloads.dell.com/rvtools/rvtools4.8.1.msi",
+  "DownloadUrl": "https://downloads.dell.com/rvtools/rvtools{version}.msi",
   "InstallArgs": "/qn /norestart ALLUSERS=1",
   "UninstallArgs": "/x {ProductCode} /qn /norestart",
   "Detection": {

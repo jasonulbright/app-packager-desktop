@@ -76,6 +76,97 @@ public sealed class StagingService
         }
     }
 
+    /// <summary>
+    /// Computes the SHA256 of a staged file as an uppercase hex string.
+    /// </summary>
+    public static string ComputeSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
+    }
+
+    /// <summary>
+    /// Verifies a downloaded payload against a vendor-published SHA256. A
+    /// mismatch means the payload is not the build the feed described — a
+    /// truncated transfer, a mirror serving a different build, or a
+    /// substituted file — and staging must not continue on it.
+    /// A null or empty expected hash is not a verification and passes.
+    /// </summary>
+    public static void VerifyPayloadHash(string path, string? expectedSha256, Action<string>? onProgress = null)
+    {
+        if (string.IsNullOrWhiteSpace(expectedSha256)) return;
+
+        var expected = expectedSha256.Trim().ToUpperInvariant();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(expected, "^[0-9A-F]{64}$"))
+            throw new InvalidOperationException(
+                $"Expected payload SHA256 is not a 64-character hex digest: '{expectedSha256}'.");
+
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"Cannot verify SHA256 of a missing payload: {path}", path);
+
+        var actual = ComputeSha256(path);
+        if (!string.Equals(actual, expected, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Payload SHA256 '{actual}' does not match the expected value '{expected}': {Path.GetFileName(path)}");
+
+        onProgress?.Invoke($"Payload SHA256 verified: {actual}");
+    }
+
+    private static readonly HttpClient HashFeedClient = new() { Timeout = TimeSpan.FromSeconds(60) };
+
+    private const string HashFeedUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+
+    /// <summary>
+    /// Resolves the vendor-published payload hash from the version feed.
+    /// The feed is re-read rather than threaded through the scraper so the
+    /// scraper contract stays version-and-URL only.
+    /// Returns null when the definition declares no hash capture.
+    /// </summary>
+    public static async Task<string?> ResolveFeedHashAsync(
+        VersionScraperConfig config, string? version, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(config.PayloadHashQuery)) return null;
+        if (string.IsNullOrWhiteSpace(config.Url)) return null;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, config.Url);
+        if (!config.NoUserAgent)
+            request.Headers.TryAddWithoutValidation("User-Agent", HashFeedUserAgent);
+
+        using var response = await HashFeedClient.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        var content = await response.Content.ReadAsStringAsync(ct);
+
+        return ExtractFeedHash(content, config, version);
+    }
+
+    /// <summary>
+    /// Applies the hash capture to already-fetched feed content. JsonQuery
+    /// definitions resolve through the JSON path evaluator; every other
+    /// scraper type treats the capture as a regex over the raw text.
+    /// </summary>
+    public static string? ExtractFeedHash(string content, VersionScraperConfig config, string? version)
+    {
+        var query = config.PayloadHashQuery;
+        if (string.IsNullOrWhiteSpace(query)) return null;
+
+        if (version is not null)
+            query = query.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
+
+        if (config.Type.Equals("JsonQuery", StringComparison.OrdinalIgnoreCase))
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(content);
+            return JsonQueryScraper.EvaluateQuery(doc.RootElement, query);
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(content, query);
+        if (!match.Success) return null;
+
+        var named = match.Groups["hash"];
+        if (named.Success) return named.Value;
+        return match.Groups.Count > 1 ? match.Groups[1].Value : match.Value;
+    }
+
     public async Task<string?> GetLatestVersionAsync(
         AppDefinition def, string acquisitionMethod = "StaticUrl", CancellationToken ct = default)
     {
@@ -144,7 +235,8 @@ public sealed class StagingService
         AppDefinition def, string downloadRoot,
         Action<string>? onProgress = null,
         CancellationToken ct = default,
-        string? knownVersion = null)
+        string? knownVersion = null,
+        Dictionary<string, string>? settingsValues = null)
     {
         // Route ODT apps to dedicated pipeline
         if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
@@ -229,6 +321,15 @@ public sealed class StagingService
             {
                 onProgress?.Invoke($"Installer already cached: {installerFileName}");
             }
+
+            // 3b. Payload integrity. A pinned hash wins over the feed value:
+            // it is the stronger statement, and a definition carrying both is
+            // asserting the pin. A cached payload is verified too, so a bad
+            // prior download does not stage on a later run.
+            var expectedHash = def.PayloadSha256;
+            if (string.IsNullOrWhiteSpace(expectedHash))
+                expectedHash = await ResolveFeedHashAsync(def.VersionScraper, rawVersion, ct);
+            VerifyPayloadHash(installerPath, expectedHash, onProgress);
 
             // 4. If downloaded file is a ZIP, extract and find the real installer inside
             if (installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
@@ -358,6 +459,12 @@ public sealed class StagingService
             }
 
             // 5. Generate wrappers
+            // InstallerSettings are the single source for the switches they own: the
+            // definition's InstallArgs carries only the switches no parameter covers.
+            var installArgs = ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, settingsValues);
+            var uninstallArgs = ApplySettingTokens(def.UninstallArgs, def.InstallerSettings, settingsValues) ?? def.UninstallArgs;
+            var uninstallCommand = ApplySettingTokens(def.UninstallCommand, def.InstallerSettings, settingsValues);
+
             onProgress?.Invoke("Generating install/uninstall wrappers...");
             if (isMsix)
             {
@@ -366,17 +473,17 @@ public sealed class StagingService
             }
             else if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
             {
-                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, def.UninstallCommand, def.InstallArgs);
+                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, uninstallCommand, installArgs);
             }
             else if (def.ExtractSetup is not null)
             {
                 _wrapperService.GenerateExtractSetupWrappers(contentPath, installerFileName,
-                    def.ExtractSetup, def.InstallArgs, def.UninstallArgs);
+                    def.ExtractSetup, installArgs, uninstallArgs);
             }
             else
             {
                 _wrapperService.GenerateExeWrappers(contentPath, installerFileName,
-                    def.InstallArgs, def.UninstallArgs, def.InstallerFramework, def.Application, def.UninstallCommand);
+                    installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand);
             }
 
             // 6. Build detection config
@@ -384,7 +491,7 @@ public sealed class StagingService
             // and we have installer metadata with detection data, use the metadata instead.
             var detection = msixPackage is not null
                 ? BuildMsixScriptDetection(msixPackage)
-                : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata);
+                : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues);
 
             // 6b. Detection conformance check — log if definition's detection differs from metadata-derived
             if (installerMetadata?.HasDetectionData == true && detection.Type != "Unknown")
@@ -434,8 +541,8 @@ public sealed class StagingService
                 InstallerFile = installerFileName,
                 InstallerType = def.InstallerType,
                 InstallContext = def.InstallContext,
-                InstallArgs = def.InstallArgs,
-                UninstallArgs = def.UninstallArgs,
+                InstallArgs = installArgs,
+                UninstallArgs = uninstallArgs,
                 ProductCode = productCode,
                 RunningProcess = def.RunningProcess,
                 Detection = detection,
@@ -963,10 +1070,11 @@ public sealed class StagingService
         };
     }
 
-    private static StageDetection BuildDetection(AppDefinition def, string? productCode, string version,
-        string? rawVersion = null, InstallerMetadata? metadata = null)
+    public static StageDetection BuildDetection(AppDefinition def, string? productCode, string version,
+        string? rawVersion = null, InstallerMetadata? metadata = null,
+        Dictionary<string, string>? settingsValues = null)
     {
-        var det = def.Detection;
+        var det = ApplySettingTokens(def.Detection, def.InstallerSettings, settingsValues);
 
         // If detection references {ProductCode} but we have no ProductCode, and metadata has detection data,
         // use metadata-derived detection instead of the definition's detection config.
@@ -977,6 +1085,81 @@ public sealed class StagingService
             return BuildDetectionFromMetadata(metadata, version, def.Detection.Is64Bit);
         }
 
+        if (det.Type.Equals("Script", StringComparison.OrdinalIgnoreCase))
+            return BuildScriptDetection(det, productCode, version);
+
+        if (det.Type.Equals("Compound", StringComparison.OrdinalIgnoreCase))
+            return BuildCompoundDetection(det, productCode, version, rawVersion);
+
+        return BuildSingleDetection(det, productCode, version, rawVersion);
+    }
+
+    /// <summary>
+    /// Materializes a definition's Script detection, substituting the staged
+    /// version into the body so the shipped script compares against the build
+    /// that was actually staged.
+    /// </summary>
+    private static StageDetection BuildScriptDetection(DetectionConfig det, string? productCode, string version)
+    {
+        if (string.IsNullOrWhiteSpace(det.ScriptText))
+            throw new InvalidOperationException("Detection type 'Script' requires a ScriptText body.");
+
+        return new StageDetection
+        {
+            Type = "Script",
+            ScriptLanguage = string.IsNullOrWhiteSpace(det.ScriptLanguage) ? "PowerShell" : det.ScriptLanguage,
+            ScriptText = det.ScriptText
+                .Replace("{version}", version, StringComparison.OrdinalIgnoreCase)
+                .Replace("{ProductCode}", productCode ?? "", StringComparison.OrdinalIgnoreCase)
+        };
+    }
+
+    /// <summary>
+    /// Materializes a definition's Compound detection. Clauses resolve
+    /// individually through the single-clause builder, so a clause carries the
+    /// same version and ProductCode substitution a standalone detection would.
+    /// </summary>
+    private static StageDetection BuildCompoundDetection(
+        DetectionConfig det, string? productCode, string version, string? rawVersion)
+    {
+        var clauses = det.Clauses ?? [];
+        if (clauses.Length < 2)
+            throw new InvalidOperationException(
+                "Detection type 'Compound' requires at least two Clauses.");
+        if (clauses.Any(c => c.Type.Equals("Compound", StringComparison.OrdinalIgnoreCase)
+                          || c.Type.Equals("Script", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(
+                "A Compound detection clause must be a single registry or file clause.");
+
+        var connector = string.IsNullOrWhiteSpace(det.Connector) ? "And" : det.Connector!;
+        if (!connector.Equals("And", StringComparison.OrdinalIgnoreCase)
+            && !connector.Equals("Or", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Compound detection Connector must be 'And' or 'Or' (got '{connector}').");
+
+        var groupSizes = det.GroupSizes;
+        if (groupSizes is { Length: > 0 }
+            && (groupSizes.Length != 2 || groupSizes.Any(g => g <= 0) || groupSizes.Sum() != clauses.Length))
+        {
+            throw new InvalidOperationException(
+                $"Detection.GroupSizes must be exactly two non-zero sizes summing to the clause count (got '{string.Join(",", groupSizes)}' for {clauses.Length} clauses).");
+        }
+
+        return new StageDetection
+        {
+            Type = "Compound",
+            Connector = connector,
+            GroupSizes = groupSizes is { Length: > 0 } ? groupSizes : null,
+            Clauses = [.. clauses.Select(c => BuildSingleDetection(c, productCode, version, rawVersion))]
+        };
+    }
+
+    /// <summary>
+    /// Resolves one registry or file detection config into its staged form.
+    /// </summary>
+    private static StageDetection BuildSingleDetection(
+        DetectionConfig det, string? productCode, string version, string? rawVersion)
+    {
         if (det.Type.Equals("RegistryKeyValue", StringComparison.OrdinalIgnoreCase))
         {
             // Substitute {ProductCode} and {version} in template
@@ -1190,7 +1373,7 @@ public sealed class StagingService
     /// </summary>
     public static string ResolveInstallerArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values)
     {
-        if (parameters is null || values is null || parameters.Length == 0)
+        if (parameters is null || parameters.Length == 0)
             return baseArgs;
 
         var parts = new List<string>();
@@ -1202,7 +1385,7 @@ public sealed class StagingService
             if (string.IsNullOrEmpty(param.CommandFragment))
                 continue;
 
-            if (!values.TryGetValue(param.Key, out var value))
+            if (values is null || !values.TryGetValue(param.Key, out var value))
                 value = param.DefaultValue;
 
             if (param.ControlType == "Toggle")
@@ -1219,4 +1402,66 @@ public sealed class StagingService
 
         return string.Join(" ", parts);
     }
+
+    /// <summary>
+    /// Substitutes {setting:Key} tokens with the effective value of the matching
+    /// InstallerParameter (chosen value, else DefaultValue). A token whose key
+    /// matches no parameter is left in place, so a typo surfaces instead of
+    /// silently producing an empty registry key or uninstall switch.
+    /// </summary>
+    public static string? ApplySettingTokens(string? text, InstallerParameter[]? parameters, Dictionary<string, string>? values)
+    {
+        if (string.IsNullOrEmpty(text) || parameters is null || parameters.Length == 0)
+            return text;
+        if (!text.Contains("{setting:", StringComparison.OrdinalIgnoreCase))
+            return text;
+
+        foreach (var param in parameters)
+        {
+            if (values is null || !values.TryGetValue(param.Key, out var value))
+                value = param.DefaultValue;
+            text = text.Replace($"{{setting:{param.Key}}}", value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// Returns a detection config with {setting:Key} tokens resolved. Returns the
+    /// original instance when no token is present, so definitions without settings
+    /// tokens are not cloned.
+    /// </summary>
+    public static DetectionConfig ApplySettingTokens(DetectionConfig det, InstallerParameter[]? parameters, Dictionary<string, string>? values)
+    {
+        if (parameters is null || parameters.Length == 0)
+            return det;
+
+        if (!HasSettingToken(det))
+            return det;
+
+        return new DetectionConfig
+        {
+            Type = det.Type,
+            RegistryHive = det.RegistryHive,
+            RegistryKeyTemplate = ApplySettingTokens(det.RegistryKeyTemplate, parameters, values),
+            ValueName = det.ValueName,
+            Operator = det.Operator,
+            FilePath = ApplySettingTokens(det.FilePath, parameters, values),
+            FileName = ApplySettingTokens(det.FileName, parameters, values),
+            PropertyType = det.PropertyType,
+            Is64Bit = det.Is64Bit,
+            ScriptLanguage = det.ScriptLanguage,
+            ScriptText = ApplySettingTokens(det.ScriptText, parameters, values),
+            Connector = det.Connector,
+            Clauses = det.Clauses?.Select(c => ApplySettingTokens(c, parameters, values)).ToArray(),
+            GroupSizes = det.GroupSizes
+        };
+    }
+
+    private static bool HasSettingToken(DetectionConfig det) =>
+        det.RegistryKeyTemplate?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
+        || det.FilePath?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
+        || det.FileName?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
+        || det.ScriptText?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
+        || det.Clauses?.Any(HasSettingToken) == true;
 }

@@ -16,6 +16,13 @@ vendor's schedule, not ours.
   Error). Investigate every FAIL: usually a vendor page change; fix the
   scraper config in the definition, never the frozen test verdicts.
 
+  Run the sweep with a GitHub token available. About a third of the
+  definitions scrape `api.github.com`, whose anonymous budget is 60
+  requests per hour; a token raises it to 5000 and keeps the sweep off
+  rate-limit failures that look like vendor breakage. The engine picks up
+  `PACKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`, then `gh auth token`, so an
+  authenticated `gh` needs no further setup.
+
 - **Monthly (or after any definition edit):** full harness pass for the
   changed apps only (`--app <name>`), install + detect + uninstall on
   the lab client, verdict recorded in REGRESSION-STATUS.md.
@@ -75,11 +82,30 @@ schema-vs-PowerShell gaps. The PS packager remains the source of truth
 per the PS-first rule.
 
 **Pinned values that rot on the vendor's schedule:**
-- `omnissahorizonclient` — download-group code CART27FQ2_WIN_2606 rotates quarterly.
-- `agentransack` — tokenized download path not expressible; ZIP payload.
-- `rvtools` — pinned to 4.8.1; no probing scraper.
-- `mariadb-server` — LTS series pinned to 12.3; bump when a newer LTS ships.
-- `pdfstudioviewer` — release year 2026 hardcoded in four fields; annual edit.
+- `pdfstudioviewer` — release year hardcoded in `InstallArgs`,
+  `UninstallCommand`, `Detection.FilePath`, `Detection.FileName`, and
+  `RunningProcess`; annual edit. The scraped `ProductVersion` already
+  carries the year as its major part, but no token derives a version part,
+  and `InstallArgs` and `RunningProcess` get no substitution at all — the
+  fix is a `{version_major}` token in the staging substitution set, not a
+  scraper change. The year was 2026 against a published `ProductVersion` of
+  2024.0.1, so every one of those five fields pointed at a directory the
+  install would not create; corrected to 2024 on 2026-09-01. An annual
+  hand-edit that nothing checks is the failure mode here — the token is
+  worth doing.
+
+Resolved 2026-09-01 (all four live-verified):
+- `omnissahorizonclient` — chained hops resolve the download group from the
+  Customer Connect product listing; verified 8.19.0 and a
+  download3.omnissa.com URL answering 200.
+- `mariadb-server` — chained hops take the highest Stable + LTS series from
+  the REST index, then its newest Windows point release; verified 12.3.3.
+- `agentransack` — a chained hop captures the tokenized, protocol-relative
+  href off the download page; verified 3562 and a 200 on the ZIP. The ZIP
+  payload is not a gap: staging already extracts a ZIP and finds the MSI
+  inside.
+- `rvtools` — the new `HeadProbe` scraper walks the download host from a
+  4.8.1 floor; verified 4.8.1 as still current.
 
 **Unverified against a real payload:**
 - `windowsadk` / `windowspeaddon` — the `VersionSourceMsi` anchors
@@ -90,14 +116,23 @@ per the PS-first rule.
   layout itself is ~1.5 GB and needs a download root short enough to keep
   the versioned content path under 120 characters.
 - `sqlserver2022express` — wrapper text is unit-verified only; the media
-  box (279 MB, HTTP 200) has not been extracted and run here.
+  box (279 MB, HTTP 200) has not been extracted and run here. The
+  `InstanceName` setting now drives the install switch, the uninstall
+  switch, and the detection key through `{setting:InstanceName}`. The
+  `MSSQL16.` prefix on that key stays fixed: it encodes the product major
+  version, not the instance, so it tracks the definition rather than the
+  setting.
 
 **Systematic downgrades (correct today, fragile):**
-- PS Script/Compound detection flattened to single registry or file
-  clauses (anyburn, bulkrenameutility, codemeterruntime, nomachine,
-  nvda, ocenaudio, openshot, picpick, pidgin, teracopy).
-- Vendor SHA256 verification dropped (go, remotedesktopmanager,
-  teracopy, androidstudio, omnissahorizonclient).
+- Vendor SHA256 verification dropped (androidstudio,
+  omnissahorizonclient). The schema now expresses both a pinned
+  `PayloadSha256` and a feed-sourced `VersionScraper.PayloadHashQuery`.
+  androidstudio is outstanding only because its feed has not been matched
+  to a capture yet. omnissahorizonclient needs more than a capture:
+  `sha256checksum` sits in the second chained hop's response, while
+  `ResolveFeedHashAsync` re-reads `VersionScraper.Url`, which is now the
+  first hop. Hash capture has to reach the last hop of a chained scrape
+  before that one can be restored.
 - `openwebstart` — install4j varfile forcing all-users context not
   shippable; silent run may land per-user.
 - `geogebra` — conditional REINSTALL=ALL vomus (fixed ProductCode, no

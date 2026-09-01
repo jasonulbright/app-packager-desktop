@@ -105,4 +105,13 @@ public sealed class StageDetection
     public string? ScriptLanguage { get; set; }
     /// <summary>Script detection body. Only meaningful when Type is Script.</summary>
     public string? ScriptText { get; set; }
+    /// <summary>Clause connector, "And" or "Or". Only meaningful when Type is Compound.</summary>
+    public string? Connector { get; set; }
+    /// <summary>Sub-detections. Only meaningful when Type is Compound.</summary>
+    public StageDetection[]? Clauses { get; set; }
+    /// <summary>
+    /// Two contiguous clause-run sizes producing (run1 AND ...) OR (run2 AND ...).
+    /// Only meaningful when Type is Compound; overrides Connector.
+    /// </summary>
+    public int[]? GroupSizes { get; set; }
 }

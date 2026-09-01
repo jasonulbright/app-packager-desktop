@@ -20,13 +20,30 @@
   "UninstallArgs": "/S",
   "UninstallCommand": "$keys = @('HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NVDA','HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NVDA'); $cmd = $null; foreach ($k in $keys) { if (-not (Test-Path -LiteralPath $k)) { continue }; $hit = Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue; if ($hit -and $hit.UninstallString) { $cmd = $hit.UninstallString; break } }; if (-not $cmd) { exit 0 }; if ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }; $proc = Start-Process -FilePath $exe -ArgumentList '/S' -Wait -PassThru -NoNewWindow",
   "Detection": {
-    "Type": "RegistryKeyValue",
-    "RegistryHive": "HKLM",
-    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NVDA",
-    "ValueName": "DisplayVersion",
-    "PropertyType": "Version",
-    "Operator": "GreaterEquals",
-    "Is64Bit": false
+    "Type": "Compound",
+    "Connector": "Or",
+    "Clauses": [
+      {
+        "Type": "RegistryKeyValue",
+        "RegistryHive": "HKLM",
+        "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NVDA",
+        "ValueName": "DisplayVersion",
+        "PropertyType": "Version",
+        "Operator": "GreaterEquals",
+        "Is64Bit": true
+      },
+      {
+        "Type": "RegistryKeyValue",
+        "RegistryHive": "HKLM",
+        "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NVDA",
+        "ValueName": "DisplayVersion",
+        "PropertyType": "Version",
+        "Operator": "GreaterEquals",
+        "Is64Bit": false
+      }
+    ]
   },
-  "RunningProcess": ["nvda"]
+  "RunningProcess": [
+    "nvda"
+  ]
 }

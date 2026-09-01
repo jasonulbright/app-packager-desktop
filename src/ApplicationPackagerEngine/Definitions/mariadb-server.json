@@ -11,12 +11,22 @@
   "Acquisition": {},
   "ReviewBeforeStage": true,
   "VersionScraper": {
-    "Type": "HttpRegex",
-    "Url": "https://downloads.mariadb.org/rest-api/mariadb/12.3/",
-    "Pattern": "\"file_name\":\\s*\"mariadb-(\\d+\\.\\d+\\.\\d+)-winx64\\.msi\""
+    "Type": "ChainedHttpRegex",
+    "Url": "https://downloads.mariadb.org/rest-api/mariadb/",
+    "Pattern": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "\"release_id\":\\s*\"(?<capture>[\\d.]+)\"[^}]*\"release_status\":\\s*\"Stable\"[^}]*\"release_support_type\":\\s*\"Long Term Support\"",
+        "SelectHighestVersion": true
+      },
+      {
+        "Url": "https://downloads.mariadb.org/rest-api/mariadb/{capture}/",
+        "Pattern": "\"file_name\":\\s*\"mariadb-(?<version>\\d+\\.\\d+\\.\\d+)-winx64\\.msi\""
+      }
+    ]
   },
   "DownloadUrl": "https://downloads.mariadb.org/rest-api/mariadb/{version}/mariadb-{version}-winx64.msi",
-  "InstallArgs": "/qn /norestart SERVICENAME=MariaDB PORT=3306",
+  "InstallArgs": "/qn /norestart",
   "UninstallArgs": "/x {ProductCode} /qn /norestart",
   "InstallerSettings": [
     {

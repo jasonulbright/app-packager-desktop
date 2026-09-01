@@ -66,7 +66,8 @@ public class PackagerExecutionService(
     /// Runs a packager with -StageOnly, streaming stdout line-by-line via the callback.
     /// </summary>
     public async Task<PackagerExecutionResult> StageAsync(
-        PackagerInfo packager, Action<string>? onOutputLine = null, CancellationToken ct = default)
+        PackagerInfo packager, Action<string>? onOutputLine = null, CancellationToken ct = default,
+        Dictionary<string, string>? settingsValues = null)
     {
         // Route JSON-defined apps through the engine DLL
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
@@ -75,7 +76,7 @@ public class PackagerExecutionService(
             var appSettings = settingsService.Load();
             // Reuse version from Check Latest to avoid redundant API calls (GitHub rate limiting)
             var knownVersion = !string.IsNullOrEmpty(packager.LatestVersion) ? packager.LatestVersion : null;
-            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion);
+            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues);
             return new PackagerExecutionResult
             {
                 ExitCode = result.Success ? 0 : 1,

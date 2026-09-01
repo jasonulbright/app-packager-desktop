@@ -129,19 +129,9 @@ public sealed class FileVersionScraper : IVersionScraper
 
     private static async Task DownloadAsync(string url, string outFile, CancellationToken ct)
     {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = "curl.exe",
-            Arguments = $"-L --fail --silent --show-error --max-time 120 -o \"{outFile}\" " +
-                        $"-A \"Mozilla/5.0 (Windows NT 10.0; Win64; x64)\" \"{url}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        process.Start();
+        using var process = CurlProcess.Start(
+            $"-L --fail --silent --show-error --max-time 120 -o \"{outFile}\" " +
+            $"-A \"Mozilla/5.0 (Windows NT 10.0; Win64; x64)\" \"{url}\"", url);
 
         var exitTask = process.WaitForExitAsync(ct);
         var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(130), ct));

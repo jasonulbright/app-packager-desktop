@@ -5,6 +5,71 @@ All notable changes to Packr are documented here.
 ## [Unreleased]
 
 ### Engine
+- **InstallerSettings drive the staged command line** — staging resolves a
+  definition's `InstallerSettings` into the effective install arguments and
+  uses them for wrapper generation and the stage manifest, instead of
+  reading `InstallArgs` verbatim. `StageAsync` takes an optional map of
+  chosen values; a key that is absent falls back to the parameter's
+  `DefaultValue`, so a definition resolves the same with or without a user
+  pass. Definitions that spelled the same switches out twice —
+  `mariadb-server`, `windowsadmincenter`, `sqlserver2022express` — now
+  carry only the switches no parameter owns.
+- **`{setting:Key}` substitution** — uninstall arguments, the uninstall
+  command, and detection templates (registry key, file path and name,
+  script body, and compound clauses) resolve `{setting:Key}` against the
+  effective parameter value. `sqlserver2022express` uses it so a changed
+  instance name moves the uninstall switch and the detection key with it.
+  A token naming no parameter is left in place rather than emptied.
+- **Payload SHA256 verification** — staging verifies the downloaded payload
+  against a vendor-published digest before anything else reads it, next to
+  the installer magic check. The expected value comes either from a pinned
+  `PayloadSha256` on the definition, or from `VersionScraper.PayloadHashQuery`,
+  which captures the hash out of the same feed the version came from so the
+  two describe one build. The capture is a named `hash` regex group for
+  text feeds and a JSON query path for JSON feeds. A cached payload is
+  verified on every run, so a bad earlier download cannot stage later. A
+  mismatch, a malformed expected digest, and a missing payload all fail the
+  stage; no expected value is not a verification and passes. Restored on
+  `teracopy`, `remotedesktopmanager`, and `go`, each confirmed against a
+  fully downloaded payload.
+- **Script and Compound detection in definitions** — a definition can now
+  declare `Detection.Type` of `Script`, carrying a PowerShell body whose
+  `{version}` and `{ProductCode}` placeholders are substituted at stage
+  time, or `Compound`, carrying a `Connector` of `And`/`Or` over a `Clauses`
+  array of registry and file sub-detections. Clauses resolve individually,
+  so each gets the same substitution a standalone detection would.
+  `GroupSizes` expresses the grouped shape `(run1 AND ...) OR (run2 AND ...)`
+  as exactly two contiguous runs. Compound detections map to CM detection
+  clause groups: only the second run is passed to `-GroupDetectionClauses`,
+  because the cmdlet builds the expression left-associatively and
+  parenthesizes the first run on its own. An AND-joined compound emits no
+  connector, AND being the cmdlet default. Nesting a compound inside a
+  compound is refused rather than silently flattened.
+  Restored the detections that had been flattened to a single clause:
+  `nomachine` and `nvda` (Compound Or across both registry views),
+  `codemeterruntime` (Compound Or across both Program Files paths), and
+  `anyburn`, `bulkrenameutility`, `ocenaudio`, `openshot`, `picpick`,
+  `pidgin`, `teracopy` (ARP-scan detection scripts covering both views).
+- **GitHub API authentication** — every request to `api.github.com`, from
+  scrapers and from the downloader alike, carries an
+  `Authorization: Bearer` header when a token is available. The token is
+  resolved once per process from `PACKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`,
+  then `gh auth token`; with no token the requests stay anonymous. The
+  header travels over a curl config on stdin, so the token is not part of
+  the process arguments. Only the API host is tokened — release assets live
+  on hosts that reject the header. This lifts a full-catalog sweep off the
+  anonymous 60/hour budget, which was failing GitHub-sourced definitions on
+  rate limiting alone.
+- **`JsonQuery` honors `NoUserAgent`** — the flag was read by `HttpRegex`
+  only, so a JSON feed that answers an error page to a browser User-Agent
+  could not be scraped whatever the definition asked for.
+- **HeadProbe scraper** — a new scraper for vendors that publish no version
+  index and state no version on the download page. It walks a versioned
+  download URL upward from a floor version, preferring the next patch, then
+  the first patch of the next minor, then of the next major, and settles on
+  the last version the host serves. `MaxVersionHops` bounds the request
+  count. A floor the host no longer serves fails the scrape rather than
+  reporting a version that is not published.
 - **Max-by-version selection** — `HttpRegex` takes `SelectHighestVersion`,
   which collects every pattern match and returns the highest by version
   comparison instead of the first one on the page; `{version}` in
@@ -69,6 +134,28 @@ All notable changes to Packr are documented here.
   manifests that explicitly ask for `MSIX` detection.
 
 ### Definitions
+- **`omnissahorizonclient` resolves its download group** — the quarterly
+  group code was pinned in the scraper URL. Two chained hops now read the
+  code out of the Customer Connect product listing and the version and
+  anonymous download URL out of that group's file details.
+- **`mariadb-server` resolves its release series** — the LTS series was
+  pinned. Two chained hops now take the highest series the REST index
+  reports as Stable with Long Term Support, then the newest Windows point
+  release within it.
+- **`agentransack` captures its live download href** — the vendor path
+  carries a per-release token that no template can express. A chained hop
+  now takes the protocol-relative href off the download page and resolves
+  it against that page.
+- **`rvtools` walks the download host** — the version and URL were pinned
+  to 4.8.1; the definition now uses the `HeadProbe` scraper from a 4.8.1
+  floor.
+- **`pdfstudioviewer` install path corrected** — the release year embedded
+  in the install directory, uninstall command, detection path, detection
+  file, and process name read 2026 against a published `ProductVersion` of
+  2024.0.1, so all five pointed at a directory the install does not create.
+- **`salesforcecli` version scrape restored** — the definition asks for
+  `NoUserAgent`, which `JsonQuery` did not honor; the feed answers an HTML
+  error page to a browser User-Agent, so the scrape returned no version.
 - **`liberica-jdk21` picks the newest release** — the JsonQuery `[0]`
   selection returned 21.0.12+10 while 21.0.12.1+1 was newer; both the
   version and download URL now come from `[max:version]`.
@@ -171,6 +258,10 @@ this engine's output.
   advisory).
 
 ### UI
+- **Config review reaches staging** — the values edited in the
+  pre-stage configuration dialog are now passed to the staging call, so a
+  `ReviewBeforeStage` definition stages with the reviewed settings rather
+  than the definition's defaults.
 - **Settings**: Deployment Target (MECM only / MECM + Intune / Intune
   only), Intune tenant/client/secret (DPAPI-protected at rest), Site
   Server host.

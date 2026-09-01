@@ -20,13 +20,9 @@
   "InstallArgs": "/S",
   "UninstallArgs": "/S",
   "Detection": {
-    "Type": "RegistryKeyValue",
-    "RegistryHive": "HKLM",
-    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PicPick",
-    "ValueName": "DisplayVersion",
-    "PropertyType": "Version",
-    "Operator": "GreaterEquals",
-    "Is64Bit": true
+    "Type": "Script",
+    "ScriptLanguage": "PowerShell",
+    "ScriptText": "$keys = @(\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PicPick',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PicPick'\n)\n$wanted = [version]'{version}'\nforeach ($key in $keys) {\n    if (-not (Test-Path -LiteralPath $key)) { continue }\n    $entry = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue\n    if (-not $entry) { continue }\n    $found = $null\n    if (-not [version]::TryParse([string]$entry.DisplayVersion, [ref]$found)) { continue }\n    if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }\n}\nexit 0"
   },
   "RunningProcess": [
     "picpick"

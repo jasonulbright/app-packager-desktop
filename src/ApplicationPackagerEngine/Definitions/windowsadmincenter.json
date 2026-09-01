@@ -16,7 +16,7 @@
   },
   "DownloadUrl": "https://aka.ms/WACdownload",
   "InstallerFileName": "WindowsAdminCenter.exe",
-  "InstallArgs": "/VERYSILENT /HTTPSPortNumber=443",
+  "InstallArgs": "/VERYSILENT",
   "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
   "UninstallCommand": "\"C:\\Program Files\\WindowsAdminCenter\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
   "InstallerSettings": [

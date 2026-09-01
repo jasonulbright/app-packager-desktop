@@ -10,10 +10,19 @@
   "InstallerFramework": "WixBurn",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "HttpRegex",
-    "Url": "https://customerconnect.omnissa.com/channel/public/api/v1.0/dlg/details?locale=en_US&downloadGroup=CART27FQ2_WIN_2606&productId=1616",
-    "Pattern": "\"fileName\":\"Omnissa-Horizon-Client-\\d+-(\\d+\\.\\d+\\.\\d+)-\\d+\\.exe\"",
-    "DownloadUrlQuery": "\"thirdPartyDownloadUrl\":\"(https://[^\"]+\\.exe)\""
+    "Type": "ChainedHttpRegex",
+    "Url": "https://customerconnect.omnissa.com/channel/public/api/v1.0/products/getRelatedDLGList?locale=en_US&category=virtual_desktop_and_apps&product=omnissa_horizon_clients&version=8&dlgType=PRODUCT_BINARY",
+    "Pattern": "CHAINED",
+    "DownloadUrlQuery": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "\"name\":\"Omnissa Horizon Client for Windows\",\"code\":\"(?<capture>[^\"]+)\""
+      },
+      {
+        "Url": "https://customerconnect.omnissa.com/channel/public/api/v1.0/dlg/details?locale=en_US&downloadGroup={capture}&productId=1616",
+        "Pattern": "\"fileName\":\"Omnissa-Horizon-Client-\\d+-(?<version>\\d+\\.\\d+\\.\\d+)-\\d+\\.exe\".*?\"thirdPartyDownloadUrl\":\"(?<url>https://[^\"]+\\.exe)\""
+      }
+    ]
   },
   "DownloadUrl": "",
   "InstallerFileName": "omnissa-horizon-client.exe",
