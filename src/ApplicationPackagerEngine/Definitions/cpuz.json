@@ -1,32 +1,30 @@
 {
-    "Schema":  1,
-    "Id":  "f533d2b2d2014d88",
-    "Vendor":  "CPUID",
-    "Application":  "CPU-Z",
-    "CMName":  "CPU-Z",
-    "Architecture":  "x64",
-    "VendorUrl":  "https://www.cpuid.com/softwares/cpu-z.html",
-    "InstallerType":  "EXE",
-    "InstallerFramework":  "InnoSetup",
-    "Acquisition":  {
-
-                    },
-    "VersionScraper":  {
-                           "Type":  "HttpRegex",
-                           "Url":  "https://www.cpuid.com/softwares/cpu-z.html",
-                           "Pattern":  "cpu-z_(\\d+\\.\\d+)-en\\.exe"
-                       },
-    "DownloadUrl":  "https://www.cpuid.com/downloads/cpu-z/cpu-z_{version}-en.exe",
-    "InstallArgs":  "/VERYSILENT /NORESTART",
-    "UninstallArgs":  "/VERYSILENT /NORESTART",
-    "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\CPUID\\CPU-Z",
-                      "FileName":  "cpuz_x64.exe",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
-                  },
-    "RunningProcess":  [
-                           "cpuz"
-                       ]
+  "Schema": 1,
+  "Id": "f533d2b2d2014d88",
+  "Vendor": "CPUID",
+  "Application": "CPU-Z",
+  "CMName": "CPU-Z",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.cpuid.com/softwares/cpu-z.html",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.cpuid.com/softwares/cpu-z.html",
+    "Pattern": "cpu-z_(\\d+\\.\\d+)-en\\.exe"
+  },
+  "DownloadUrl": "https://download.cpuid.com/cpu-z/cpu-z_{version}-en.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART",
+  "UninstallArgs": "/VERYSILENT /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\CPUID\\CPU-Z",
+    "FileName": "cpuz_x64.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "cpuz"
+  ]
 }
