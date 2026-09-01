@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "45a9c07be2f18d63",
+  "Vendor": "MSEndpointMgr",
+  "Application": "Intune Debug Toolkit (x64)",
+  "CMName": "Intune Debug Toolkit",
+  "Architecture": "x64",
+  "VendorUrl": "https://msendpointmgr.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/MSEndpointMgr/IntuneDebugToolkit/contents/",
+    "Pattern": "\"download_url\":\\s*\"[^\"]*/IntuneDebugTools[ _-]?v(\\d+(?:\\.\\d+)+)\\.msi\"",
+    "DownloadUrlQuery": "\"download_url\":\\s*\"([^\"]*/IntuneDebugTools[ _-]?v\\d+(?:\\.\\d+)+\\.msi)\""
+  },
+  "DownloadUrl": "https://raw.githubusercontent.com/MSEndpointMgr/IntuneDebugToolkit/main/IntuneDebugToolsv{version}.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

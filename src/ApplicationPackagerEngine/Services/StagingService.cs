@@ -110,12 +110,21 @@ public sealed class StagingService
         if (scraper is Scrapers.HttpRegexScraper hrs)
         {
             var (_, url) = await hrs.GetVersionAndDownloadUrlAsync(config, ct);
-            // If the captured URL is relative (just a filename), prepend the scraper URL's base path
+            // A captured relative URL is resolved against the scraper URL:
+            // a leading '/' is origin-relative, anything else is directory-relative.
             if (url is not null && !url.Contains("://"))
             {
-                var baseUrl = config.Url;
-                if (!baseUrl.EndsWith('/')) baseUrl = baseUrl[..(baseUrl.LastIndexOf('/') + 1)];
-                url = baseUrl + url;
+                if (url.StartsWith('/'))
+                {
+                    var origin = new Uri(config.Url).GetLeftPart(UriPartial.Authority);
+                    url = origin + url;
+                }
+                else
+                {
+                    var baseUrl = config.Url;
+                    if (!baseUrl.EndsWith('/')) baseUrl = baseUrl[..(baseUrl.LastIndexOf('/') + 1)];
+                    url = baseUrl + url;
+                }
             }
             return url;
         }

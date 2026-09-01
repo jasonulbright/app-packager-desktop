@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "82be05d3f74c1a69",
+  "Vendor": "Raspberry Pi Ltd",
+  "Application": "Raspberry Pi Imager (x64)",
+  "CMName": "Raspberry Pi Imager",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.raspberrypi.com/software/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/raspberrypi/rpi-imager/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?/imager-[^\"]*?\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\Raspberry Pi Ltd\\Imager\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{46C75BF3-E267-4834-AE1D-BEB77E05BFA1}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "rpi-imager"
+  ]
+}

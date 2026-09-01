@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "662d3d3b93a4a93e",
+  "Vendor": "Tabular Editor ApS",
+  "Application": "Tabular Editor 2 (x86)",
+  "CMName": "Tabular Editor 2",
+  "Architecture": "x86",
+  "VendorUrl": "https://tabulareditor.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/TabularEditor/TabularEditor/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?([\\d.]+)\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*TabularEditor\\.Installer\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/TabularEditor/TabularEditor/releases/latest/download/TabularEditor.Installer.msi",
+  "InstallerFileName": "TabularEditor-{version}.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": ["TabularEditor"]
+}

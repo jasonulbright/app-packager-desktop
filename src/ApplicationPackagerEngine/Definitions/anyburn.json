@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "119898bbfc32f3e6",
+  "Vendor": "PowerSoft",
+  "Application": "AnyBurn (x64)",
+  "CMName": "AnyBurn",
+  "Architecture": "x64",
+  "VendorUrl": "https://anyburn.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://anyburn.com/index.htm",
+    "Pattern": "(?i)AnyBurn\\s*v(\\d+\\.\\d+(?:\\.\\d+)?)"
+  },
+  "DownloadUrl": "https://anyburn.com/anyburn_setup.exe",
+  "InstallerFileName": "anyburn_setup_{version}.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\AnyBurn",
+    "FileName": "anyburn.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "AnyBurn"
+  ]
+}

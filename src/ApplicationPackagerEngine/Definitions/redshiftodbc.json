@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "5c802ea9d174b3f6",
+  "Vendor": "Amazon Web Services",
+  "Application": "Amazon Redshift ODBC Driver (x64)",
+  "CMName": "Amazon Redshift ODBC Driver",
+  "Architecture": "x64",
+  "VendorUrl": "https://docs.aws.amazon.com/redshift/latest/mgmt/configure-odbc-connection.html",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://docs.aws.amazon.com/redshift/latest/mgmt/odbc20-install-win.html",
+    "Pattern": "https://s3\\.amazonaws\\.com/redshift-downloads/drivers/odbc/(\\d+(?:\\.\\d+){1,3})/AmazonRedshiftODBC64-\\d+(?:\\.\\d+){1,3}\\.msi",
+    "DownloadUrlQuery": "(https://s3\\.amazonaws\\.com/redshift-downloads/drivers/odbc/\\d+(?:\\.\\d+){1,3}/AmazonRedshiftODBC64-\\d+(?:\\.\\d+){1,3}\\.msi)"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

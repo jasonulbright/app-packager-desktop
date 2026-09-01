@@ -1,0 +1,28 @@
+{
+  "Schema": 1,
+  "Id": "5c19b7ae32d84066",
+  "Vendor": "iterate GmbH",
+  "Application": "Cyberduck (x64)",
+  "CMName": "Cyberduck",
+  "Architecture": "x64",
+  "VendorUrl": "https://cyberduck.io/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://version.cyberduck.io/windows/changelog.rss",
+    "Pattern": "Cyberduck-Installer-(\\d+(?:\\.\\d+)+)\\.exe"
+  },
+  "DownloadUrl": "https://update.cyberduck.io/Cyberduck-Installer-{version}.exe",
+  "InstallArgs": "/quiet /norestart InstallBonjour=0",
+  "UninstallArgs": "/uninstall /quiet /norestart",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Cyberduck",
+    "FileName": "Cyberduck.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Cyberduck"]
+}

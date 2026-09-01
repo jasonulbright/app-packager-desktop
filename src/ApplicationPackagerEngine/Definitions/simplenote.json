@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "9f30a86d5c214be7",
+  "Vendor": "Automattic",
+  "Application": "Simplenote (x64)",
+  "CMName": "Simplenote",
+  "Architecture": "x64",
+  "VendorUrl": "https://simplenote.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Automattic/simplenote-electron/releases/latest",
+    "Pattern": "\"name\":\\s*\"Simplenote-win-(\\d+(?:\\.\\d+)+)-x64\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?Simplenote-win-\\d+(?:\\.\\d+)+-x64\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/allusers /S",
+  "UninstallArgs": "/allusers /S",
+  "UninstallCommand": "\"C:\\Program Files\\Simplenote\\Uninstall Simplenote.exe\" /allusers /S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Simplenote",
+    "FileName": "Simplenote.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Simplenote"
+  ]
+}

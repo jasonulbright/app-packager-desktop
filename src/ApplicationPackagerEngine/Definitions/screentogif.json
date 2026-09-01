@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "70da4b19c8e35f26",
+  "Vendor": "Nicke Manarin",
+  "Application": "ScreenToGif (x64)",
+  "CMName": "ScreenToGif",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.screentogif.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/NickeManarin/ScreenToGif/releases/latest",
+    "Pattern": "\"name\":\\s*\"ScreenToGif\\.(\\d+(?:\\.\\d+)+)\\.Setup\\.x64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?ScreenToGif\\.\\d+(?:\\.\\d+)+\\.Setup\\.x64\\.msi)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "ScreenToGif"
+  ]
+}

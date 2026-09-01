@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "1f06728b80218512",
+  "Vendor": "Oracle",
+  "Application": "MySQL Connector/NET",
+  "CMName": "MySQL Connector/NET",
+  "Architecture": "x86",
+  "VendorUrl": "https://dev.mysql.com/downloads/connector/net/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://dev.mysql.com/downloads/connector/net/",
+    "Pattern": "mysql-connector-net-(\\d+\\.\\d+\\.\\d+)\\.msi",
+    "NoUserAgent": true
+  },
+  "DownloadUrl": "https://dev.mysql.com/get/Downloads/Connector-NET/mysql-connector-net-{version}.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": []
+}

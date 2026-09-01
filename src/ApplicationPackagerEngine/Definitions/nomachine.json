@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "ece412b6285f423f",
+  "Vendor": "NoMachine",
+  "Application": "NoMachine (x64)",
+  "CMName": "NoMachine",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.nomachine.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://download.nomachine.com/download/?id=41&platform=windows",
+    "Pattern": "nomachine-personal-edition_(\\d+\\.\\d+\\.\\d+)_\\d+_x64\\.exe",
+    "DownloadUrlQuery": "(https://[^\"' ]*nomachine-personal-edition_\\d+\\.\\d+\\.\\d+_\\d+_x64\\.exe)"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$keys = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NoMachine_is1','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NoMachine_is1'); $cmd = $null; foreach ($k in $keys) { if (-not (Test-Path -LiteralPath $k)) { continue }; $hit = Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue; if ($hit -and $hit.UninstallString) { $cmd = $hit.UninstallString; break } }; if (-not $cmd) { exit 0 }; if ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }; $proc = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\NoMachine_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["nxplayer", "nxservice", "nxtray"]
+}

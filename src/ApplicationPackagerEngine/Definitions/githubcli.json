@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "5b90eac31d78f462",
+  "Vendor": "GitHub",
+  "Application": "GitHub CLI (x64)",
+  "CMName": "GitHub CLI",
+  "Architecture": "x64",
+  "VendorUrl": "https://cli.github.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/cli/cli/releases/latest",
+    "Pattern": "\"name\":\\s*\"gh_(\\d+(?:\\.\\d+)+)_windows_amd64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+_windows_amd64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/cli/cli/releases/download/v{version}/gh_{version}_windows_amd64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["gh"]
+}

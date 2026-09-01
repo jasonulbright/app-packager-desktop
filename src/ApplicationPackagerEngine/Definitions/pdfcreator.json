@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "37562fcd1ab9c883",
+  "Vendor": "pdfforge GmbH",
+  "Application": "PDFCreator (x64)",
+  "CMName": "PDFCreator",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.pdfforge.org/pdfcreator",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://download.pdfforge.org/download/pdfcreator/PDFCreator-stable?download",
+    "Pattern": "REDIR:/pdfcreator/(\\d+\\.\\d+\\.\\d+)/PDFCreator-[0-9_]+-Setup\\.exe",
+    "DownloadUrlQuery": "(https://\\S+/PDFCreator-[0-9_]+-Setup\\.exe)"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/VerySilent /COMPONENTS=none /NoIcons",
+  "UninstallArgs": "/qn /norestart",
+  "UninstallCommand": "$roots = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'); $entry = Get-ChildItem -Path $roots -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^\\{[0-9A-Fa-f-]{36}\\}$' } | Where-Object { (Get-ItemProperty -Path $_.PSPath -Name DisplayName -ErrorAction SilentlyContinue).DisplayName -eq 'PDFCreator' } | Select-Object -First 1; if (-not $entry) { exit 0 }; Get-Process PDFCreator -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; $proc = Start-Process msiexec.exe -ArgumentList '/x',$entry.PSChildName,'/qn','/norestart' -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\PDFCreator",
+    "FileName": "PDFCreator.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["PDFCreator"]
+}

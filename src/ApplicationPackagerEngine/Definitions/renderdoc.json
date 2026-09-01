@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "37f9b6c0a1e24d85",
+  "Vendor": "Baldur Karlsson",
+  "Application": "RenderDoc (x64)",
+  "CMName": "RenderDoc",
+  "Architecture": "x64",
+  "VendorUrl": "https://renderdoc.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://renderdoc.org/builds",
+    "Pattern": "/stable/(\\d+\\.\\d+)/RenderDoc_\\d+\\.\\d+_64\\.msi"
+  },
+  "DownloadUrl": "https://renderdoc.org/stable/{version}/RenderDoc_{version}_64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "qrenderdoc"
+  ]
+}

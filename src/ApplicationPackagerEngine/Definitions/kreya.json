@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "f97a694fd9b944ea",
+  "Vendor": "riok GmbH",
+  "Application": "Kreya (x64)",
+  "CMName": "Kreya",
+  "Architecture": "x64",
+  "VendorUrl": "https://kreya.app/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://kreya.app/downloads/",
+    "Pattern": "https://[^\"' ]*/(\\d+(?:\\.\\d+)+)/Kreya-win-x64\\.msi",
+    "DownloadUrlQuery": "(https://[^\"' ]*/\\d+(?:\\.\\d+)+/Kreya-win-x64\\.msi)"
+  },
+  "DownloadUrl": "https://stable-downloads.kreya.app/{version}/Kreya-win-x64.msi",
+  "InstallerFileName": "Kreya-win-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Kreya"]
+}

@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "0d51bd2b859e42ed",
+  "Vendor": "OpenVPN Inc.",
+  "Application": "OpenVPN (x64)",
+  "CMName": "OpenVPN",
+  "Architecture": "x64",
+  "VendorUrl": "https://openvpn.net/community/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://openvpn.net/community-downloads/",
+    "Pattern": "OpenVPN-(\\d+\\.\\d+\\.\\d+-I\\d+)-amd64\\.msi",
+    "VersionTransform": "regex_replace:-I\\d+$:"
+  },
+  "DownloadUrl": "https://build.openvpn.net/downloads/releases/OpenVPN-{version}-amd64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["openvpn-gui", "openvpn"]
+}

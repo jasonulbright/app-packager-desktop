@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "390b1486f304923f",
+  "Vendor": "XnSoft",
+  "Application": "XnView MP (x64)",
+  "CMName": "XnView MP",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.xnview.com/en/xnviewmp/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://download.xnview.com/versions/XnView_MP/",
+    "Pattern": "href\\s*=\\s*\"XnView_MP-(\\d+(?:\\.\\d+)+)-win-x64\\.exe\""
+  },
+  "DownloadUrl": "https://download.xnview.com/versions/XnView_MP/XnView_MP-{version}-win-x64.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\XnView MP (x64)_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["xnviewmp"]
+}

@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "736ab21985556fe0",
+  "Vendor": "AIMP DevTeam",
+  "Application": "AIMP (x64)",
+  "CMName": "AIMP",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.aimp.ru/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.aimp.ru/?do=download.file&id=3",
+    "Pattern": "REDIR:aimp_(\\d+\\.\\d+\\.\\d+)_w64\\.exe"
+  },
+  "DownloadUrl": "https://aimp.ru/files/desktop/builds/aimp_{version}_w64.exe",
+  "InstallArgs": "/SILENT",
+  "UninstallArgs": "/SILENT",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\AIMP",
+    "FileName": "AIMP.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "AIMP"
+  ]
+}

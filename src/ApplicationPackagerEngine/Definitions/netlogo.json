@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "44c79f16284a80fa",
+  "Vendor": "Northwestern University",
+  "Application": "NetLogo (x64)",
+  "CMName": "NetLogo",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.netlogo.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/NetLogo/NetLogo/releases/latest",
+    "Pattern": "\"name\":\\s*\"NetLogo-(\\d+(?:\\.\\d+)+)-64\\.msi\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*/NetLogo-\\d+(?:\\.\\d+)+-64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/NetLogo/NetLogo/releases/download/{version}/NetLogo-{version}-64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["NetLogo"]
+}

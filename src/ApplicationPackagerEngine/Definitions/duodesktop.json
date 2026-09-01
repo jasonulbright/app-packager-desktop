@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "8a4f27de0b9c516d",
+  "Vendor": "Cisco",
+  "Application": "Duo Desktop (x64)",
+  "CMName": "Duo Desktop",
+  "Architecture": "x64",
+  "VendorUrl": "https://duo.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://dl.duosecurity.com/DuoDesktop-latest.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://dl.duosecurity.com/DuoDesktop-latest.msi",
+  "InstallerFileName": "DuoDesktop.msi",
+  "InstallArgs": "/qn /norestart LAUNCH=False",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["DuoDeviceHealth"]
+}

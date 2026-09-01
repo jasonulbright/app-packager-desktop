@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "fdf12a6e2305720d",
+  "Vendor": "Burnaware",
+  "Application": "BurnAware Free (x86)",
+  "CMName": "BurnAware Free",
+  "Architecture": "x86",
+  "VendorUrl": "https://www.burnaware.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.burnaware.com/download.html",
+    "Pattern": "burnaware_free_(\\d+(?:\\.\\d+)+)\\.exe"
+  },
+  "DownloadUrl": "https://www.burnaware.com/downloads/burnaware_free_{version}.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BurnAware Free_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "BurnAware"
+  ]
+}

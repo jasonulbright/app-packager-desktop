@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "6d3c8b0f5a92e174",
+  "Vendor": "DisplayLink",
+  "Application": "DisplayLink Graphics (x64)",
+  "CMName": "DisplayLink Graphics",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.synaptics.com/products/displaylink-graphics",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.synaptics.com/products/displaylink-graphics/downloads/windows",
+    "Pattern": "downloads/windows-(\\d+\\.\\d+)-m\\d+-public"
+  },
+  "DownloadUrl": "",
+  "InstallerFileName": "DisplayLink-Installer.exe",
+  "InstallArgs": "-silent -noreboot",
+  "UninstallArgs": "-uninstall -silent -noreboot",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\DisplayLink Core Software",
+    "FileName": "DisplayLinkManager.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["DisplayLinkManager", "DisplayLinkUI"]
+}

@@ -67,3 +67,47 @@ sitting.
   WOW6432Node segment AND Is64Bit false, which double-redirects when a
   target adds the segment itself; strip the literal segment (found
   during the PS port, port the fix here).
+
+## Catalog-port definitions: known gaps (177 added, 2026-09-01)
+
+The 177 definitions ported from app-packager's catalog waves carry these
+schema-vs-PowerShell gaps. The PS packager remains the source of truth
+per the PS-first rule.
+
+**Blocked until engine work lands:**
+- `dellcommandupdate` — needs a Dell CatalogPC.cab scraper (nested cab,
+  UTF-16 SoftwareComponent XML); current scraper returns null.
+- `displaylink` — needs a two-hop page crawl; DownloadUrl is empty.
+- `ohmyposh` — MSIX provisioned-package install/detection not supported
+  by the engine; definition present but non-functional.
+- `windowsadk` / `windowspeaddon` — bootstrapper /layout staging not
+  expressible; will not stage correctly.
+- `sqlserver2022express` — extract-then-setup wrapper not expressible;
+  ReviewBeforeStage set.
+
+**Pinned values that rot on the vendor's schedule:**
+- `ultravnc` — mirror URL pinned (uvnc.eu /1800/ path); breaks next release.
+- `omnissahorizonclient` — download-group code CART27FQ2_WIN_2606 rotates quarterly.
+- `codemeterruntime` — file id 17996 pinned; re-point every release.
+- `agentransack` — tokenized download path not expressible; ZIP payload.
+- `rvtools` — pinned to 4.8.1; no probing scraper.
+- `mariadb-server` — LTS series pinned to 12.3; bump when a newer LTS ships.
+- `pdfstudioviewer` — release year 2026 hardcoded in four fields; annual edit.
+
+**Actively wrong today:**
+- `liberica-jdk21` — JsonQuery [0] returns 21.0.12+10 while 21.0.12.1+1
+  is newer; needs max-by-version selection in the scraper.
+
+**Systematic downgrades (correct today, fragile):**
+- First-regex-match replaces max-by-version selection in ~25 definitions
+  (see git log for the add commit); a re-ordered vendor page or
+  back-published maintenance release can pick wrong.
+- PS Script/Compound detection flattened to single registry or file
+  clauses (anyburn, bulkrenameutility, codemeterruntime, nomachine,
+  nvda, ocenaudio, openshot, picpick, pidgin, teracopy).
+- Vendor SHA256 verification dropped (go, remotedesktopmanager,
+  teracopy, androidstudio, omnissahorizonclient).
+- `openwebstart` — install4j varfile forcing all-users context not
+  shippable; silent run may land per-user.
+- `geogebra` — conditional REINSTALL=ALL vomus (fixed ProductCode, no
+  UpgradeCode) not expressible; upgrades may no-op.

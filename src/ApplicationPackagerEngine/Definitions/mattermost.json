@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "87e37447e908146b",
+  "Vendor": "Mattermost",
+  "Application": "Mattermost Desktop (x64)",
+  "CMName": "Mattermost Desktop",
+  "Architecture": "x64",
+  "VendorUrl": "https://mattermost.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/mattermost/desktop/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*win-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/mattermost/desktop/releases/download/v{version}/mattermost-desktop-{version}-win-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Mattermost"]
+}

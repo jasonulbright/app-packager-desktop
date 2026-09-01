@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "0ef551d564d65c03",
+  "Vendor": "Amazon",
+  "Application": "AWS VPN Client (x64)",
+  "CMName": "AWS VPN Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://aws.amazon.com/vpn/client-vpn-download/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://d20adtppz83p9s.cloudfront.net/WPF/latest/AWS_VPN_Client.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://d20adtppz83p9s.cloudfront.net/WPF/latest/AWS_VPN_Client.msi",
+  "InstallerFileName": "AWS_VPN_Client.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "AWS VPN Client"
+  ]
+}

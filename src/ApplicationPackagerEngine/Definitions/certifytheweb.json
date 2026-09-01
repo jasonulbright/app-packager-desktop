@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "242209632ce4722c",
+  "Vendor": "Webprofusion",
+  "Application": "Certify The Web (x64)",
+  "CMName": "Certify The Web",
+  "Architecture": "x64",
+  "VendorUrl": "https://certifytheweb.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://certifytheweb.com/home/download",
+    "Pattern": "downloads\\.certifytheweb\\.com/release/(\\d+(?:\\.\\d+)+)/certify-ccm-windows-x64-\\d+(?:\\.\\d+)+\\.exe",
+    "DownloadUrlQuery": "(https://downloads\\.certifytheweb\\.com/release/\\d+(?:\\.\\d+)+/certify-ccm-windows-x64-\\d+(?:\\.\\d+)+\\.exe)"
+  },
+  "DownloadUrl": "https://downloads.certifytheweb.com/release/{version}/certify-ccm-windows-x64-{version}.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Certify The Web_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "CertifyApp"
+  ]
+}

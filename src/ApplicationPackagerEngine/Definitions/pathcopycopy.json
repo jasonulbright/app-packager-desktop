@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "21887e90b0765bc3",
+  "Vendor": "Charles Lechasseur",
+  "Application": "Path Copy Copy (x64)",
+  "CMName": "Path Copy Copy",
+  "Architecture": "x64",
+  "VendorUrl": "https://pathcopycopy.github.io/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/clechasseur/pathcopycopy/releases/latest",
+    "Pattern": "\"name\":\\s*\"PathCopyCopy(\\d+(?:\\.\\d+)+)\\.exe\""
+  },
+  "DownloadUrl": "https://github.com/clechasseur/pathcopycopy/releases/download/v{version}/PathCopyCopy{version}.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$key = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{3C01F274-867C-4D1D-BE8C-CB488C31B0C9}_is1'; if (-not (Test-Path -LiteralPath $key)) { exit 0 }; $cmd = (Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).UninstallString; if (-not $cmd) { exit 0 }; if ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }; $proc = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{3C01F274-867C-4D1D-BE8C-CB488C31B0C9}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

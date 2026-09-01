@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "3b68028fb9a9434a",
+  "Vendor": "Omnissa",
+  "Application": "Omnissa Horizon Client (x64)",
+  "CMName": "Omnissa Horizon Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.omnissa.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://customerconnect.omnissa.com/channel/public/api/v1.0/dlg/details?locale=en_US&downloadGroup=CART27FQ2_WIN_2606&productId=1616",
+    "Pattern": "\"fileName\":\"Omnissa-Horizon-Client-\\d+-(\\d+\\.\\d+\\.\\d+)-\\d+\\.exe\"",
+    "DownloadUrlQuery": "\"thirdPartyDownloadUrl\":\"(https://[^\"]+\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallerFileName": "omnissa-horizon-client.exe",
+  "InstallArgs": "/silent /norestart",
+  "UninstallArgs": "/uninstall /silent /norestart",
+  "UninstallCommand": "$roots = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'); $entry = $null; foreach ($r in $roots) { if (-not (Test-Path -LiteralPath $r)) { continue }; $entry = Get-ChildItem -LiteralPath $r -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } | Where-Object { $_.DisplayName -eq 'Omnissa Horizon Client' } | Select-Object -First 1; if ($entry) { break } }; if (-not $entry) { exit 0 }; $cmd = $entry.QuietUninstallString; if (-not $cmd) { $cmd = $entry.UninstallString }; if ($cmd -match '^\\s*\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }; $proc = Start-Process -FilePath $exe -ArgumentList '/uninstall','/silent','/norestart' -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Omnissa\\Omnissa Horizon Client",
+    "FileName": "horizon-client.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["horizon-client"]
+}

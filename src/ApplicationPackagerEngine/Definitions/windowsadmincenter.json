@@ -1,0 +1,43 @@
+{
+  "Schema": 1,
+  "Id": "88c9ba10a49d22ce",
+  "Vendor": "Microsoft",
+  "Application": "Windows Admin Center (v2)",
+  "CMName": "Windows Admin Center",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/windows-server/manage/windows-admin-center/overview",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://aka.ms/WACdownload",
+    "Pattern": "FileVersion"
+  },
+  "DownloadUrl": "https://aka.ms/WACdownload",
+  "InstallerFileName": "WindowsAdminCenter.exe",
+  "InstallArgs": "/VERYSILENT /HTTPSPortNumber=443",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\WindowsAdminCenter\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "InstallerSettings": [
+    {
+      "Key": "HttpsPortNumber",
+      "Label": "HTTPS port",
+      "Tooltip": "Port the Windows Admin Center gateway listens on.",
+      "ControlType": "Number",
+      "DefaultValue": "443",
+      "CommandFragment": "/HTTPSPortNumber={value}",
+      "Minimum": 1,
+      "Maximum": 65535
+    }
+  ],
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\WindowsAdminCenter",
+    "FileName": "WindowsAdminCenterAccountManagement.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["WindowsAdminCenter"]
+}

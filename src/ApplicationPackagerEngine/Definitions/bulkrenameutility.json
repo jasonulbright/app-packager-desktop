@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "b8b02a535c37b793",
+  "Vendor": "TGRMN Software",
+  "Application": "Bulk Rename Utility (x64)",
+  "CMName": "Bulk Rename Utility",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.bulkrenameutility.co.uk/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.bulkrenameutility.co.uk/Down/BRU_setup.exe",
+    "Pattern": "REDIR:BRU_setup_(\\d+(?:\\.\\d+)+)\\.exe"
+  },
+  "DownloadUrl": "https://www.s3.tgrmn.com/bru4/BRU_setup_{version}.exe",
+  "InstallerFileName": "BRU_setup.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Bulk Rename Utility",
+    "FileName": "BulkRenameUtility.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "BulkRenameUtility"
+  ]
+}

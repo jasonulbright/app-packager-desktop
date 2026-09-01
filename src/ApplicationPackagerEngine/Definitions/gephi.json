@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "af73162b8e50d94c",
+  "Vendor": "Gephi Consortium",
+  "Application": "Gephi (x64)",
+  "CMName": "Gephi",
+  "Architecture": "x64",
+  "VendorUrl": "https://gephi.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/gephi/gephi/releases/latest",
+    "Pattern": "\"name\":\\s*\"gephi-(\\d+(?:\\.\\d+)+)-windows-x64\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+-windows-x64\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/gephi/gephi/releases/download/v{version}/gephi-{version}-windows-x64.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR=\"C:\\Program Files\\Gephi-{version}\"",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\Gephi-{version}\\unins000.exe\" -ArgumentList \"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Gephi-{version}",
+    "FileName": "unins000.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["gephi"]
+}

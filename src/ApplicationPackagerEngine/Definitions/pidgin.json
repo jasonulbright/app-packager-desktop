@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "b207e5c94f1a836d",
+  "Vendor": "Pidgin",
+  "Application": "Pidgin (x64)",
+  "CMName": "Pidgin",
+  "Architecture": "x64",
+  "VendorUrl": "https://pidgin.im/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://sourceforge.net/projects/pidgin/rss?path=/Pidgin",
+    "Pattern": "pidgin-(\\d+(?:\\.\\d+)+)-offline\\.exe"
+  },
+  "DownloadUrl": "https://sourceforge.net/projects/pidgin/files/Pidgin/{version}/pidgin-{version}-offline.exe/download",
+  "InstallerFileName": "pidgin-{version}-offline.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Pidgin",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "pidgin"
+  ]
+}

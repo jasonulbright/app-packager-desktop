@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "6fcbf7201861d48e",
+  "Vendor": "SoftFever",
+  "Application": "OrcaSlicer (x64)",
+  "CMName": "OrcaSlicer",
+  "Architecture": "x64",
+  "VendorUrl": "https://orcaslicer.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/SoftFever/OrcaSlicer/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"[vV]?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*/OrcaSlicer_Windows_Installer_[^\"]*_x64\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\OrcaSlicer\\Uninstall.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\OrcaSlicer",
+    "FileName": "orca-slicer.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["orca-slicer"]
+}

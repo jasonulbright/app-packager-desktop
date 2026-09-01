@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "df64b57703e23ca6",
+  "Vendor": "Amazon",
+  "Application": "AWS Tools for Windows (x64)",
+  "CMName": "AWS Tools for Windows",
+  "Architecture": "x64",
+  "VendorUrl": "https://aws.amazon.com/powershell/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi",
+  "InstallerFileName": "AWSToolsAndSDKForNet.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "7adc3106c4e3afda",
+  "Vendor": "Amazon Web Services",
+  "Application": "Amazon DCV Client",
+  "CMName": "Amazon DCV Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.amazondcv.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://d1uj6qtbmh3dt5.cloudfront.net/nice-dcv-client-Release.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://d1uj6qtbmh3dt5.cloudfront.net/nice-dcv-client-Release.msi",
+  "InstallerFileName": "nice-dcv-client-Release.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "dcvviewer"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "6b7a28a3e8c0ee21",
+  "Vendor": "ownCloud GmbH",
+  "Application": "ownCloud Desktop Client (x64)",
+  "CMName": "ownCloud Desktop Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://owncloud.com/desktop-app/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://download.owncloud.com/desktop/ownCloud/stable/latest/win/",
+    "Pattern": "(?s).*href=\"\\./ownCloud-(\\d+\\.\\d+\\.\\d+\\.\\d+)\\.x64\\.msi\""
+  },
+  "DownloadUrl": "https://download.owncloud.com/desktop/ownCloud/stable/latest/win/ownCloud-{version}.x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["owncloud"]
+}

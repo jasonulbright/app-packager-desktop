@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "f72e17a89f9c1991",
+  "Vendor": "Microsoft",
+  "Application": "Windows PE add-on for the Windows ADK",
+  "CMName": "Windows PE add-on for the Windows ADK",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/windows-hardware/get-started/adk-install",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://go.microsoft.com/fwlink/?linkid=2289981",
+    "Pattern": "FileVersion"
+  },
+  "DownloadUrl": "https://go.microsoft.com/fwlink/?linkid=2289981",
+  "InstallerFileName": "adkwinpesetup.exe",
+  "InstallArgs": "/quiet /installpath \"C:\\Program Files (x86)\\Windows Kits\\10\" /features OptionId.WindowsPreinstallationEnvironment",
+  "UninstallArgs": "/quiet /uninstall",
+  "UninstallCommand": "adkwinpesetup.exe /quiet /uninstall",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": ["adkwinpesetup"]
+}

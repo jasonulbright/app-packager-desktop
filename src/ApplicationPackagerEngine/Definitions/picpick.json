@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "8a41d2b6c70e5934",
+  "Vendor": "NGWIN",
+  "Application": "PicPick (x64)",
+  "CMName": "PicPick",
+  "Architecture": "x64",
+  "VendorUrl": "https://picpick.app/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://picpick.app/en/download/free/",
+    "Pattern": "https://download\\.picpick\\.net/(\\d+(?:\\.\\d+)+)/picpick_inst\\.exe"
+  },
+  "DownloadUrl": "https://download.picpick.net/{version}/picpick_inst.exe",
+  "InstallerFileName": "picpick_inst.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PicPick",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "picpick"
+  ]
+}

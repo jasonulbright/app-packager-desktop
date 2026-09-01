@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "899b923e4e337030",
+  "Vendor": "Yubico",
+  "Application": "Yubico Authenticator (x64)",
+  "CMName": "Yubico Authenticator",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.yubico.com/products/yubico-authenticator/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Yubico/yubioath-flutter/releases/latest",
+    "Pattern": "\"name\":\\s*\"yubico-authenticator-(\\d+(?:\\.\\d+)+)-win64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*yubico-authenticator-\\d+(?:\\.\\d+)+-win64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/Yubico/yubioath-flutter/releases/download/{version}/yubico-authenticator-{version}-win64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["authenticator"]
+}

@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "71a039df1eb088b7",
+  "Vendor": "Qoppa Software",
+  "Application": "PDF Studio Viewer (x64)",
+  "CMName": "PDF Studio Viewer",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.qoppa.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://download.qoppa.com/pdfstudioviewer/PDFStudioViewer_win64.exe",
+    "Pattern": "ProductVersion"
+  },
+  "DownloadUrl": "https://download.qoppa.com/pdfstudioviewer/PDFStudioViewer_win64.exe",
+  "InstallerFileName": "PDFStudioViewer_win64.exe",
+  "InstallArgs": "-q -dir \"C:\\Program Files\\PDFStudioViewer2026\"",
+  "UninstallArgs": "-q",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\PDFStudioViewer2026\\uninstall.exe\" -ArgumentList \"-q\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\PDFStudioViewer2026",
+    "FileName": "PDFStudioViewer2026.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["PDFStudioViewer2026"]
+}

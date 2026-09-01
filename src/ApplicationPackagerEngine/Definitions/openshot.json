@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "89fd188eca2f418d",
+  "Vendor": "OpenShot Studios, LLC",
+  "Application": "OpenShot Video Editor (x64)",
+  "CMName": "OpenShot Video Editor",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.openshot.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/OpenShot/openshot-qt/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*-x86_64\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ALLUSERS",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$roots = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'); foreach ($r in $roots) { if (-not (Test-Path -LiteralPath $r)) { continue }; $hit = Get-ChildItem -LiteralPath $r -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } | Where-Object { $_.DisplayName -like 'OpenShot Video Editor*' -and $_.UninstallString } | Select-Object -First 1; if (-not $hit) { continue }; $exe = ($hit.UninstallString -replace '^\"([^\"]+)\".*$', '$1').Trim('\"'); if (-not (Test-Path -LiteralPath $exe)) { continue }; $proc = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru -NoNewWindow; exit $proc.ExitCode }; exit 0",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\OpenShot Video Editor",
+    "FileName": "openshot-qt.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["openshot-qt"]
+}

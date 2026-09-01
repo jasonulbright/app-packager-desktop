@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "4b70cf8d296a1e35",
+  "Vendor": "Purslane Tech Pte. Ltd.",
+  "Application": "RustDesk (x64)",
+  "CMName": "RustDesk",
+  "Architecture": "x64",
+  "VendorUrl": "https://rustdesk.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/rustdesk/rustdesk/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?rustdesk-[^\"]*?-x86_64\\.msi)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "rustdesk"
+  ]
+}

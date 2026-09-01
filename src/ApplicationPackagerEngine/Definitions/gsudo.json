@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "b407e1c9d3852f60",
+  "Vendor": "gerardog",
+  "Application": "gsudo (x64)",
+  "CMName": "gsudo",
+  "Architecture": "x64",
+  "VendorUrl": "https://gerardog.github.io/gsudo/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.github.com/repos/gerardog/gsudo/releases/latest",
+    "Pattern": "tag_name",
+    "VersionTransform": "strip_prefix:v"
+  },
+  "DownloadUrl": "https://github.com/gerardog/gsudo/releases/download/{version}/gsudo.setup.x64.msi",
+  "InstallerFileName": "gsudo.setup.x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["gsudo"]
+}

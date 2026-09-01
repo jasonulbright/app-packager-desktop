@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "3c5079eab1f6d824",
+  "Vendor": "Stefan Kueng",
+  "Application": "grepWin (x64)",
+  "CMName": "grepWin",
+  "Architecture": "x64",
+  "VendorUrl": "https://tools.stefankueng.com/grepWin.html",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/stefankueng/grepWin/releases/latest",
+    "Pattern": "\"name\":\\s*\"grepWin-(\\d+(?:\\.\\d+)+)-x64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/stefankueng/grepWin/releases/download/{version}/grepWin-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["grepWin"]
+}

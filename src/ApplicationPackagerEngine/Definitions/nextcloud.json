@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "ebc781d3f83da97e",
+  "Vendor": "Nextcloud GmbH",
+  "Application": "Nextcloud Desktop Client (x64)",
+  "CMName": "Nextcloud",
+  "Architecture": "x64",
+  "VendorUrl": "https://nextcloud.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/nextcloud-releases/desktop/releases/latest",
+    "Pattern": "\"name\":\\s*\"Nextcloud-(\\d+(?:\\.\\d+)+)-x64\\.msi\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*/Nextcloud-[^\"]*-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/nextcloud-releases/desktop/releases/download/v{version}/Nextcloud-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart SKIPAUTOUPDATE=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["nextcloud"]
+}

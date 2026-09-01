@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "37b8ca591e04d62f",
+  "Vendor": "FreeCAD Team",
+  "Application": "FreeCAD (x64)",
+  "CMName": "FreeCAD",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.freecad.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/FreeCAD/FreeCAD/releases/latest",
+    "Pattern": "\"name\":\\s*\"FreeCAD_(\\d+\\.\\d+\\.\\d+)-Windows-x86_64-[^\"]*installer\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+-Windows-x86_64-[^\"]*installer\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/FreeCAD/FreeCAD/releases/download/{version}/FreeCAD_{version}-Windows-x86_64-installer.exe",
+  "InstallArgs": "/AllUsers /S",
+  "UninstallArgs": "/AllUsers /S",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\FreeCAD{version}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["FreeCAD", "FreeCADCmd"]
+}

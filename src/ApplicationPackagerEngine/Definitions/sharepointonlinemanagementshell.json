@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "ba69d31f0c78e254",
+  "Vendor": "Microsoft",
+  "Application": "SharePoint Online Management Shell (x64)",
+  "CMName": "SharePoint Online Management Shell",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.microsoft.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.microsoft.com/en-us/download/details.aspx?id=35588",
+    "Pattern": "\"detailsSection_file_version\":\"(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"name\":\"SharePointOnlineManagementShell_[^\"]*?_en-us\\.msi\",\"url\":\"([^\"]+)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "62fb0d4791ae35c8",
+  "Vendor": "International GeoGebra Institute",
+  "Application": "GeoGebra Classic 6 (x64)",
+  "CMName": "GeoGebra Classic",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.geogebra.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://download.geogebra.org/installers/6.0/version.txt",
+    "Pattern": "(\\d+-\\d+-\\d+-\\d+)",
+    "VersionTransform": "replace:-:."
+  },
+  "DownloadUrl": "https://download.geogebra.org/installers/6.0/GeoGebra-Windows-Installer-{version}.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": ["GeoGebra"]
+}

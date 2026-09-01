@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "01793a70a0450935",
+  "Vendor": "CloudCompare Project",
+  "Application": "CloudCompare (x64)",
+  "CMName": "CloudCompare",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.cloudcompare.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.github.com/repos/CloudCompare/CloudCompare/releases/latest",
+    "Pattern": "tag_name",
+    "VersionTransform": "strip_prefix:v"
+  },
+  "DownloadUrl": "https://www.cloudcompare.org/release/CloudCompare_{version}_setup_x64.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\CloudCompare",
+    "FileName": "CloudCompare.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "CloudCompare",
+    "ccViewer"
+  ]
+}

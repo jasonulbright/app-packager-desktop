@@ -1,0 +1,35 @@
+{
+  "Schema": 1,
+  "Id": "d419a6035ecb827f",
+  "Vendor": "Synology",
+  "Application": "Synology Drive Client (x64)",
+  "CMName": "Synology Drive Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.synology.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://archive.synology.com/download/Utility/SynologyDriveClient",
+    "Pattern": "href\\s*=\\s*\"/download/Utility/SynologyDriveClient/(\\d+\\.\\d+\\.\\d+-\\d+)\"",
+    "VersionTransform": "replace:-:."
+  },
+  "DownloadUrl": "https://global.synologydownload.com/download/Utility/SynologyDriveClient/{version}/Windows/Installer/x86_64/Synology%20Drive%20Client-{version}-x64.msi",
+  "InstallerFileName": "Synology Drive Client-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "cloud-drive-ui",
+    "cloud-drive-daemon"
+  ]
+}

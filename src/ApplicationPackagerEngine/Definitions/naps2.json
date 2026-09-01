@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "54214b48b9043a8a",
+  "Vendor": "NAPS2",
+  "Application": "NAPS2 (x64)",
+  "CMName": "NAPS2",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.naps2.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/cyanfish/naps2/releases/latest",
+    "Pattern": "naps2-(\\d+(?:\\.\\d+)+)-win-x64\\.msi"
+  },
+  "DownloadUrl": "https://github.com/cyanfish/naps2/releases/download/v{version}/naps2-{version}-win-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["NAPS2"]
+}

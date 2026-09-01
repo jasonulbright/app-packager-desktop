@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "da26078d25849670",
+  "Vendor": "BornToBeRoot",
+  "Application": "NETworkManager (x64)",
+  "CMName": "NETworkManager",
+  "Architecture": "x64",
+  "VendorUrl": "https://borntoberoot.net/NETworkManager/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/BornToBeRoot/NETworkManager/releases/latest",
+    "Pattern": "\"name\":\\s*\"NETworkManager_(\\d+(?:\\.\\d+)+)_Setup\\.msi\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*/NETworkManager_[^\"]*_Setup\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/BornToBeRoot/NETworkManager/releases/download/{version}/NETworkManager_{version}_Setup.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["NETworkManager"]
+}

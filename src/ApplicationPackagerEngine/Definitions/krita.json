@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "aba97291884e0d2a",
+  "Vendor": "KDE",
+  "Application": "Krita (x64)",
+  "CMName": "Krita",
+  "Architecture": "x64",
+  "VendorUrl": "https://krita.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://krita.org/en/download/",
+    "Pattern": "krita-x64-(\\d+(?:\\.\\d+)+)-setup\\.exe"
+  },
+  "DownloadUrl": "https://download.kde.org/stable/krita/{version}/krita-x64-{version}-setup.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\Krita (x64)\\uninstall.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Krita_x64",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["krita"]
+}

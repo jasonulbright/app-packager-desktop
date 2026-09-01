@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "f032a665efcfece8",
+  "Vendor": "Ocenaudio Team",
+  "Application": "ocenaudio (x64)",
+  "CMName": "ocenaudio",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.ocenaudio.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.ocenaudio.com/fileinfo/ocenaudio_windows64.exe",
+    "Pattern": "Version:</strong>\\s*Version\\s*(\\d+(?:\\.\\d+){1,3})"
+  },
+  "DownloadUrl": "https://www.ocenaudio.com/downloads/ocenaudio_windows64.exe",
+  "InstallerFileName": "ocenaudio_windows64.exe",
+  "InstallArgs": "/AllUsers /S",
+  "UninstallArgs": "/AllUsers /S",
+  "UninstallCommand": "$keys = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio'); foreach ($k in $keys) { if (-not (Test-Path -LiteralPath $k)) { continue }; $e = Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue; if (-not $e -or -not $e.UninstallString) { continue }; $exe = ($e.UninstallString -replace '^\"([^\"]+)\".*$', '$1').Trim('\"'); if (-not (Test-Path -LiteralPath $exe)) { continue }; $proc = Start-Process -FilePath $exe -ArgumentList '/AllUsers','/S' -Wait -PassThru -NoNewWindow; exit $proc.ExitCode }; exit 0",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["ocenaudio"]
+}

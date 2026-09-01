@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "fdac115278b4eb94",
+  "Vendor": "MongoDB",
+  "Application": "MongoDB Compass (x64)",
+  "CMName": "MongoDB Compass",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.mongodb.com/products/tools/compass",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://compass.mongodb.com/api/v2/download/latest/compass/stable/windows",
+    "Pattern": "REDIR:mongodb-compass-(\\d+(?:\\.\\d+)+)-win32-x64\\."
+  },
+  "DownloadUrl": "https://downloads.mongodb.com/compass/mongodb-compass-{version}-win32-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["MongoDBCompass"]
+}

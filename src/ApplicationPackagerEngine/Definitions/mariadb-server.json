@@ -1,0 +1,52 @@
+{
+  "Schema": 1,
+  "Id": "9fe2552fe5781484",
+  "Vendor": "MariaDB",
+  "Application": "MariaDB Server (x64)",
+  "CMName": "MariaDB Server",
+  "Architecture": "x64",
+  "VendorUrl": "https://mariadb.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "ReviewBeforeStage": true,
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://downloads.mariadb.org/rest-api/mariadb/12.3/",
+    "Pattern": "\"file_name\":\\s*\"mariadb-(\\d+\\.\\d+\\.\\d+)-winx64\\.msi\""
+  },
+  "DownloadUrl": "https://downloads.mariadb.org/rest-api/mariadb/{version}/mariadb-{version}-winx64.msi",
+  "InstallArgs": "/qn /norestart SERVICENAME=MariaDB PORT=3306",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "InstallerSettings": [
+    {
+      "Key": "ServiceName",
+      "Label": "Service name",
+      "Tooltip": "The MSI registers no Windows service when SERVICENAME is absent or empty; an empty value stages a tools-only install.",
+      "ControlType": "Text",
+      "DefaultValue": "MariaDB",
+      "CommandFragment": "SERVICENAME={value}",
+      "Group": "Server"
+    },
+    {
+      "Key": "Port",
+      "Label": "TCP port",
+      "ControlType": "Number",
+      "DefaultValue": "3306",
+      "Minimum": 1,
+      "Maximum": 65535,
+      "CommandFragment": "PORT={value}",
+      "Group": "Server"
+    }
+  ],
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["mysqld", "mysql", "mariadbd"]
+}

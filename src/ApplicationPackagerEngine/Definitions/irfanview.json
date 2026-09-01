@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "9027ed4bc6153fa8",
+  "Vendor": "Irfan Skiljan",
+  "Application": "IrfanView (x64)",
+  "CMName": "IrfanView",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.irfanview.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.irfanview.info/64bit.htm",
+    "Pattern": "iview(\\d{3,4})_x64\\.zip",
+    "VersionTransform": "insert_dot:1"
+  },
+  "DownloadUrl": "https://www.irfanview.info/files/iview{version}_x64_setup.exe",
+  "InstallArgs": "/silent /allusers=1 /desktop=1 /group=1 /assoc=1",
+  "UninstallArgs": "/silent",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\IrfanView\\iv_uninstall.exe\" -ArgumentList \"/silent\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\IrfanView",
+    "FileName": "i_view64.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["i_view64"]
+}

@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "48c1e07b3da95f62",
+  "Vendor": "Meltytech",
+  "Application": "Shotcut (x64)",
+  "CMName": "Shotcut",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.shotcut.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/mltframework/shotcut/releases/latest",
+    "Pattern": "\"name\":\\s*\"shotcut-win64-(\\d+(?:\\.\\d+)+)\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?shotcut-win64-\\d+(?:\\.\\d+)+\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$cmd = (Get-ItemProperty -LiteralPath 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Shotcut_is1' -ErrorAction SilentlyContinue).UninstallString; if (-not $cmd) { exit 0 }; if ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }; $proc = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Shotcut_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "shotcut"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "Schema": 1,
+  "Id": "ecc04cff03d1d915",
+  "Vendor": "JetBrains",
+  "Application": "WebStorm (x64)",
+  "CMName": "WebStorm",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.jetbrains.com/webstorm/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://data.services.jetbrains.com/products/releases?code=WS&latest=true&type=release",
+    "Pattern": "\"version\":\"(\\d+\\.\\d+(?:\\.\\d+)?)\"",
+    "DownloadUrlQuery": "\"link\":\"(https://download\\.jetbrains\\.com/webstorm/WebStorm-[^\"]*\\.exe)\""
+  },
+  "DownloadUrl": "https://download.jetbrains.com/webstorm/WebStorm-{version}.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "RegistryKey",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\WebStorm {version}",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["webstorm64"]
+}

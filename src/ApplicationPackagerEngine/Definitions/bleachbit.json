@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "3d51c6165bb13152",
+  "Vendor": "BleachBit",
+  "Application": "BleachBit (x86)",
+  "CMName": "BleachBit",
+  "Architecture": "x86",
+  "VendorUrl": "https://www.bleachbit.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.bleachbit.org/download/windows",
+    "Pattern": "BleachBit-(\\d+(?:\\.\\d+)+)-setup\\.exe"
+  },
+  "DownloadUrl": "https://download.bleachbit.org/BleachBit-{version}-setup.exe",
+  "InstallArgs": "/allusers /S",
+  "UninstallArgs": "/allusers /S",
+  "UninstallCommand": "\"C:\\Program Files (x86)\\BleachBit\\uninstall.exe\" /allusers /S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files (x86)\\BleachBit",
+    "FileName": "bleachbit.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "bleachbit",
+    "bleachbit_console"
+  ]
+}

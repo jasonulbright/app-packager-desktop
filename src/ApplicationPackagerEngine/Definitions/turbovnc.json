@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "d1ea0a7ceab77796",
+  "Vendor": "The VirtualGL Project",
+  "Application": "TurboVNC (x64)",
+  "CMName": "TurboVNC",
+  "Architecture": "x64",
+  "VendorUrl": "https://turbovnc.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/TurboVNC/turbovnc/releases/latest",
+    "Pattern": "\"name\":\\s*\"TurboVNC-(\\d+(?:\\.\\d+)+)-x64\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*TurboVNC-\\d+(?:\\.\\d+)+-x64\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/TurboVNC/turbovnc/releases/download/{version}/TurboVNC-{version}-x64.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\TurboVNC\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\TurboVNC_is1",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["vncviewer"]
+}

@@ -1,0 +1,26 @@
+{
+  "Schema": 1,
+  "Id": "e7d37867768b50bb",
+  "Vendor": "Jan De Dobbeleer",
+  "Application": "Oh My Posh (x64)",
+  "CMName": "Oh My Posh",
+  "Architecture": "x64",
+  "VendorUrl": "https://ohmyposh.dev/",
+  "InstallerType": "MSIX",
+  "InstallerFramework": "MSIX",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/JanDeDobbeleer/oh-my-posh/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\""
+  },
+  "DownloadUrl": "https://github.com/JanDeDobbeleer/oh-my-posh/releases/download/v{version}/install-x64.msix",
+  "InstallerFileName": "install-x64.msix",
+  "InstallArgs": "",
+  "UninstallArgs": "",
+  "Detection": {
+    "Type": "MSIX",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["oh-my-posh"]
+}

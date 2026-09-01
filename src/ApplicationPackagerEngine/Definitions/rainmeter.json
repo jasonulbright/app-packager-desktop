@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "94c7e2015bd6a83f",
+  "Vendor": "Rainmeter",
+  "Application": "Rainmeter (x64)",
+  "CMName": "Rainmeter",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.rainmeter.net/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/rainmeter/rainmeter/releases/latest",
+    "Pattern": "\"name\":\\s*\"Rainmeter-(\\d+(?:\\.\\d+)+)\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?Rainmeter-\\d+(?:\\.\\d+)+\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/S /VERSION=64 /AUTOSTARTUP=0 /RESTART=0",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "Get-Process Rainmeter -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\Rainmeter\\uninstall.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Rainmeter",
+    "FileName": "Rainmeter.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Rainmeter"
+  ]
+}

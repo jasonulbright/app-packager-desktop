@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "7a3f95d2e18c604b",
+  "Vendor": "Piriform Software Ltd.",
+  "Application": "Defraggler (x64)",
+  "CMName": "Defraggler",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.ccleaner.com/defraggler",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://download.ccleaner.com/dfsetup222.exe",
+    "Pattern": "FileVersion"
+  },
+  "DownloadUrl": "https://download.ccleaner.com/dfsetup222.exe",
+  "InstallerFileName": "dfsetup222.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\Defraggler\\uninst.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Defraggler",
+    "FileName": "Defraggler64.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Defraggler", "Defraggler64"]
+}

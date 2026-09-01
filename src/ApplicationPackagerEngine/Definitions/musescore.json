@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "117651c4653c836b",
+  "Vendor": "MuseScore",
+  "Application": "MuseScore Studio (x64)",
+  "CMName": "MuseScore Studio",
+  "Architecture": "x64",
+  "VendorUrl": "https://musescore.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/musescore/MuseScore/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*/MuseScore-Studio-[^\"/]*?-x86_64\\.msi)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["MuseScore4"]
+}

@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "d6f1350ba874e29c",
+  "Vendor": "KDE e.V.",
+  "Application": "KDiff3 (x64)",
+  "CMName": "KDiff3",
+  "Architecture": "x64",
+  "VendorUrl": "https://apps.kde.org/kdiff3/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://download.kde.org/stable/kdiff3/",
+    "Pattern": "kdiff3-(\\d+(?:\\.\\d+)+)-windows-x86_64\\.exe"
+  },
+  "DownloadUrl": "https://download.kde.org/stable/kdiff3/kdiff3-{version}-windows-x86_64.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\KDiff3\\uninstall.exe\" -ArgumentList \"/S\", \"_?=C:\\Program Files\\KDiff3\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\KDiff3",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["kdiff3"]
+}

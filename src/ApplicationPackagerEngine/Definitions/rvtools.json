@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "e93a5c170f24db68",
+  "Vendor": "Dell",
+  "Application": "RVTools (x64)",
+  "CMName": "RVTools",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.robware.net/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://downloads.dell.com/rvtools/rvtools4.8.1.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://downloads.dell.com/rvtools/rvtools4.8.1.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "RVTools"
+  ]
+}
