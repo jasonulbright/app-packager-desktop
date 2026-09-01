@@ -52,3 +52,18 @@ sitting.
   login/EULA walls; not auto-packagable. Citrix Workspace CR, XenCenter,
   and XenServer VM Tools are NOT walled (verified staged 2026-08-31);
   only Citrix LTSR variants are.
+- **slack.json** — vendor gap found 2026-08-31 during the PS port:
+  Slack's desktop.latestRelease API advertises an MSI whose S3 object
+  does not exist (NoSuchKey for 4.52.153-155); Slack.msix and
+  SlackSetup.exe in the same folder are live. Wait for republication or
+  switch installer type (MSIX / per-user Squirrel — a deliberate
+  decision, not a scraper fix).
+- **cpuz.json** — DownloadUrl moved to download.cpuid.com (the
+  www.cpuid.com path serves an HTML interstitial with HTTP 200). The
+  engine now refuses non-MZ/non-OLE payloads at stage time
+  (StagingService.ValidateInstallerMagic), so this failure mode can no
+  longer stage silently.
+- **citrixworkspacecr.json** — detection key carries a literal
+  WOW6432Node segment AND Is64Bit false, which double-redirects when a
+  target adds the segment itself; strip the literal segment (found
+  during the PS port, port the fix here).

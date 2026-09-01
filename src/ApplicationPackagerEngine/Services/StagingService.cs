@@ -40,6 +40,36 @@ public sealed class StagingService
     /// Gets the latest version for a JSON-defined app without downloading.
     /// Routes through winget or static URL based on preference and availability.
     /// </summary>
+    /// <summary>
+    /// A vendor endpoint that answers HTTP 200 with an HTML interstitial
+    /// would otherwise stage a web page as the installer (seen live with
+    /// CPU-Z). EXE payloads must start MZ; MSI payloads must start with
+    /// the OLE compound-file magic.
+    /// </summary>
+    public static void ValidateInstallerMagic(string path, string installerType)
+    {
+        var type = installerType?.ToUpperInvariant();
+        if (type is not ("EXE" or "MSI")) return;
+        if (!File.Exists(path)) return;
+
+        Span<byte> head = stackalloc byte[8];
+        using (var fs = File.OpenRead(path))
+        {
+            var read = fs.Read(head);
+            if (read < 8) throw new InvalidOperationException($"Downloaded installer is only {read} bytes: {Path.GetFileName(path)}");
+        }
+
+        var ok = type == "EXE"
+            ? head[0] == (byte)'M' && head[1] == (byte)'Z'
+            : head[0] == 0xD0 && head[1] == 0xCF && head[2] == 0x11 && head[3] == 0xE0;
+        if (!ok)
+        {
+            var preview = System.Text.Encoding.ASCII.GetString(head.ToArray()).Replace('\0', '.');
+            throw new InvalidOperationException(
+                $"Downloaded file is not a valid {type} (starts with '{preview}') - the vendor endpoint likely returned an HTML page: {Path.GetFileName(path)}");
+        }
+    }
+
     public async Task<string?> GetLatestVersionAsync(
         AppDefinition def, string acquisitionMethod = "StaticUrl", CancellationToken ct = default)
     {
@@ -174,6 +204,7 @@ public sealed class StagingService
                 {
                     await _downloadService.DownloadAsync(downloadUrl, installerPath,
                         onProgress: onProgress, ct: ct);
+                    ValidateInstallerMagic(installerPath, def.InstallerType);
                 }
             }
             else
