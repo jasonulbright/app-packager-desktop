@@ -37,7 +37,7 @@ public sealed class JsonQueryScraper : IVersionScraper
         if (string.IsNullOrWhiteSpace(config.Url) || string.IsNullOrWhiteSpace(config.Pattern))
             return null;
 
-        var json = await FetchJsonAsync(config.Url, ct);
+        var json = await FetchJsonAsync(config.Url, config.NoUserAgent, ct);
         if (json is null) return null;
 
         try
@@ -61,7 +61,7 @@ public sealed class JsonQueryScraper : IVersionScraper
         if (string.IsNullOrWhiteSpace(config.Url) || string.IsNullOrWhiteSpace(config.Pattern))
             return (null, null);
 
-        var json = await FetchJsonAsync(config.Url, ct);
+        var json = await FetchJsonAsync(config.Url, config.NoUserAgent, ct);
         if (json is null) return (null, null);
 
         try
@@ -282,20 +282,14 @@ public sealed class JsonQueryScraper : IVersionScraper
 
     // ── HTTP fetch ──────────────────────────────────────────────────
 
-    private static async Task<string?> FetchJsonAsync(string url, CancellationToken ct)
+    private static async Task<string?> FetchJsonAsync(string url, bool noUserAgent, CancellationToken ct)
     {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = "curl.exe",
-            Arguments = $"-L --silent --show-error --max-time 25 -A \"{UserAgent}\" \"{url}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+        // Some feeds sit behind a wall that answers an HTML error page to a
+        // browser User-Agent and the JSON to curl's own.
+        var ua = noUserAgent ? "" : $" -A \"{UserAgent}\"";
 
-        process.Start();
+        using var process = CurlProcess.Start(
+            $"-L --silent --show-error --max-time 25{ua} \"{url}\"", url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);

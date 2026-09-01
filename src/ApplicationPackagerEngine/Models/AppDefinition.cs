@@ -42,6 +42,13 @@ public sealed class AppDefinition
     public string InstallArgs { get; set; } = "";
     public string UninstallArgs { get; set; } = "";
     /// <summary>
+    /// Expected SHA256 of the downloaded payload, pinned in the definition.
+    /// Staging refuses a payload whose hash differs. Use only for a fixed URL
+    /// whose content does not change; a versioned payload takes
+    /// VersionScraper.PayloadHashQuery instead.
+    /// </summary>
+    public string? PayloadSha256 { get; set; }
+    /// <summary>
     /// Direct uninstall command template. When set, the uninstall wrapper calls this
     /// directly instead of searching ARP. Use for apps with known uninstaller paths.
     /// Example: "\"C:\\Program Files\\Bitwarden\\Uninstall Bitwarden.exe\" /allusers /S"
@@ -154,6 +161,14 @@ public sealed class VersionScraperConfig
     public string? DownloadUrlQuery { get; set; }
 
     /// <summary>
+    /// Optional capture of the payload SHA256 from the same feed the version
+    /// came from, so the hash and the payload describe one build.
+    /// For HttpRegex, a regex whose named group "hash" — or group 1 — holds the
+    /// hash. For JsonQuery, a query path resolving to the hash string.
+    /// </summary>
+    public string? PayloadHashQuery { get; set; }
+
+    /// <summary>
     /// When true, omits the User-Agent header from HTTP requests.
     /// Some vendors (e.g., Adobe) block requests with browser User-Agents from server IPs.
     /// </summary>
@@ -171,6 +186,13 @@ public sealed class VersionScraperConfig
     /// applies a regex; the capture feeds the next hop's URL template.
     /// </summary>
     public List<ScraperHop>? Hops { get; set; }
+
+    /// <summary>
+    /// Upper bound on the HeadProbe scraper's version walk. Bounds the request
+    /// count if the download host ever answers 200 for every candidate path.
+    /// Zero or absent uses the scraper's default.
+    /// </summary>
+    public int MaxVersionHops { get; set; }
 }
 
 /// <summary>
@@ -347,4 +369,35 @@ public sealed class DetectionConfig
     public string? FileName { get; set; }
     public string? PropertyType { get; set; }
     public bool Is64Bit { get; set; } = true;
+
+    /// <summary>
+    /// Detection script language when Type is "Script": PowerShell (default),
+    /// VBScript, or JavaScript.
+    /// </summary>
+    public string? ScriptLanguage { get; set; }
+
+    /// <summary>
+    /// Detection script body when Type is "Script". {version} is substituted
+    /// with the staged display version at stage time.
+    /// </summary>
+    public string? ScriptText { get; set; }
+
+    /// <summary>
+    /// Clause connector when Type is "Compound": "And" (default) or "Or".
+    /// Ignored when GroupSizes is set, which fixes the expression shape.
+    /// </summary>
+    public string? Connector { get; set; }
+
+    /// <summary>
+    /// Sub-detections when Type is "Compound". Each entry is a single
+    /// registry or file clause; nesting a Compound inside a Compound is not
+    /// expressible in a CM detection expression and is refused.
+    /// </summary>
+    public DetectionConfig[]? Clauses { get; set; }
+
+    /// <summary>
+    /// Two contiguous clause-run sizes producing (run1 AND ...) OR (run2 AND ...).
+    /// Must be exactly two non-zero sizes summing to the clause count.
+    /// </summary>
+    public int[]? GroupSizes { get; set; }
 }

@@ -106,18 +106,8 @@ public class HttpRegexScraper : IVersionScraper
     /// </summary>
     private static async Task<string?> FetchRedirectUrlAsync(string url, CancellationToken ct, string? userAgent = null)
     {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = "curl.exe",
-            Arguments = $"-L --silent --max-time 60 --max-redirs 10 --max-filesize 1 -w \"%{{url_effective}}\"{(userAgent is not null ? $" -A \"{userAgent}\"" : "")} \"{url}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        process.Start();
+        using var process = CurlProcess.Start(
+            $"-L --silent --max-time 60 --max-redirs 10 --max-filesize 1 -w \"%{{url_effective}}\"{(userAgent is not null ? $" -A \"{userAgent}\"" : "")} \"{url}\"", url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
@@ -137,18 +127,8 @@ public class HttpRegexScraper : IVersionScraper
     protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null)
     {
         // Use curl.exe: handles 308 redirects, avoids PS5.1 IWR quirks, better WAF compatibility
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = "curl.exe",
-            Arguments = $"-L --silent --show-error --max-time 25{(userAgent is not null ? $" -A \"{userAgent}\"" : "")} \"{url}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        process.Start();
+        using var process = CurlProcess.Start(
+            $"-L --silent --show-error --max-time 25{(userAgent is not null ? $" -A \"{userAgent}\"" : "")} \"{url}\"", url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
@@ -169,18 +149,8 @@ public class HttpRegexScraper : IVersionScraper
     /// </summary>
     private static async Task<string?> FetchLastModifiedVersionAsync(string url, CancellationToken ct)
     {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = "curl.exe",
-            Arguments = $"--head -L --silent --max-time 15 \"{url}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+        using var process = CurlProcess.Start($"--head -L --silent --max-time 15 \"{url}\"", url);
 
-        process.Start();
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
         var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(20), ct));

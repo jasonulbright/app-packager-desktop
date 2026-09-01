@@ -13,19 +13,19 @@
     "Type": "HttpRegex",
     "Url": "https://codesector.com/updates/teracopy.txt",
     "Pattern": "(?m)^\\s*ProductVersion\\s*=\\s*(\\d+(?:\\.\\d+)+)\\s*$",
-    "DownloadUrlQuery": "(?m)^\\s*URL\\s*=\\s*(\\S+)\\s*$"
+    "DownloadUrlQuery": "(?m)^\\s*URL\\s*=\\s*(\\S+)\\s*$",
+    "PayloadHashQuery": "(?m)^\\s*SHA256\\s*=\\s*(?<hash>[0-9A-Fa-f]{64})\\s*$"
   },
   "DownloadUrl": "https://www.codesector.com/files/teracopy.exe",
   "InstallerFileName": "teracopy-setup.exe",
   "InstallArgs": "/exenoui /qn ALLUSERS=1",
   "UninstallArgs": "",
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\TeraCopy",
-    "FileName": "TeraCopy.exe",
-    "PropertyType": "Version",
-    "Operator": "GreaterEquals",
-    "Is64Bit": true
+    "Type": "Script",
+    "ScriptLanguage": "PowerShell",
+    "ScriptText": "$roots = @(\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'\n)\n$wanted = [version]'{version}'\nforeach ($root in $roots) {\n    if (-not (Test-Path -LiteralPath $root)) { continue }\n    foreach ($sub in Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue) {\n        $entry = Get-ItemProperty -LiteralPath $sub.PSPath -ErrorAction SilentlyContinue\n        if (-not $entry -or [string]$entry.DisplayName -notlike 'TeraCopy*') { continue }\n        $found = $null\n        if (-not [version]::TryParse([string]$entry.DisplayVersion, [ref]$found)) { continue }\n        if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }\n    }\n}\nexit 0"
   },
-  "RunningProcess": ["TeraCopy"]
+  "RunningProcess": [
+    "TeraCopy"
+  ]
 }

@@ -28,12 +28,26 @@
   "InstallArgs": "/q /nosplash /ComponentArgs \"*\":\"/quiet /norestart\"",
   "UninstallArgs": "/qn /norestart",
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files (x86)\\CodeMeter\\Runtime\\bin",
-    "FileName": "CodeMeter.exe",
-    "PropertyType": "Version",
-    "Operator": "GreaterEquals",
-    "Is64Bit": true
+    "Type": "Compound",
+    "Connector": "Or",
+    "Clauses": [
+      {
+        "Type": "File",
+        "FilePath": "C:\\Program Files\\CodeMeter\\Runtime\\bin",
+        "FileName": "CodeMeter.exe",
+        "PropertyType": "Version",
+        "Operator": "GreaterEquals",
+        "Is64Bit": true
+      },
+      {
+        "Type": "File",
+        "FilePath": "C:\\Program Files (x86)\\CodeMeter\\Runtime\\bin",
+        "FileName": "CodeMeter.exe",
+        "PropertyType": "Version",
+        "Operator": "GreaterEquals",
+        "Is64Bit": true
+      }
+    ]
   },
   "RunningProcess": [
     "CodeMeter",

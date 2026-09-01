@@ -16,15 +16,15 @@
   },
   "DownloadUrl": "https://download.qoppa.com/pdfstudioviewer/PDFStudioViewer_win64.exe",
   "InstallerFileName": "PDFStudioViewer_win64.exe",
-  "InstallArgs": "-q -dir \"C:\\Program Files\\PDFStudioViewer2026\"",
+  "InstallArgs": "-q -dir \"C:\\Program Files\\PDFStudioViewer2024\"",
   "UninstallArgs": "-q",
-  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\PDFStudioViewer2026\\uninstall.exe\" -ArgumentList \"-q\" -Wait -PassThru -NoNewWindow",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\PDFStudioViewer2024\\uninstall.exe\" -ArgumentList \"-q\" -Wait -PassThru -NoNewWindow",
   "Detection": {
     "Type": "File",
-    "FilePath": "C:\\Program Files\\PDFStudioViewer2026",
-    "FileName": "PDFStudioViewer2026.exe",
+    "FilePath": "C:\\Program Files\\PDFStudioViewer2024",
+    "FileName": "PDFStudioViewer2024.exe",
     "PropertyType": "Existence",
     "Is64Bit": true
   },
-  "RunningProcess": ["PDFStudioViewer2026"]
+  "RunningProcess": ["PDFStudioViewer2024"]
 }

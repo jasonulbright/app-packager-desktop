@@ -223,7 +223,7 @@ public sealed class MecmTarget
                 // Clause objects are built off the CM PSDrive; the drive context
                 // interferes with their parameter binding.
                 sb.AppendLine("Set-Location C:");
-                sb.AppendLine(BuildDetectionClausePs(spec.Detection));
+                sb.AppendLine(BuildDetectionClauseBlockPs(spec.Detection));
                 sb.AppendLine($"Set-Location '{siteCode}:'");
             }
 
@@ -253,7 +253,8 @@ public sealed class MecmTarget
             }
             else
             {
-                sb.Append(" -AddDetectionClause $clause");
+                sb.Append(" -AddDetectionClause $clauses");
+                sb.Append(BuildDetectionClauseConnectorArgs(spec.Detection));
             }
             if (ruleVars[i].Count > 0)
                 sb.Append($" -AddRequirement @({string.Join(", ", ruleVars[i])})");
@@ -320,6 +321,71 @@ public sealed class MecmTarget
             "javascript" => "JavaScript",
             _ => throw new InvalidOperationException($"Unsupported detection script language: {language}")
         };
+
+    /// <summary>
+    /// Emits the $clauses array the deployment type binds to
+    /// -AddDetectionClause. A single detection produces a one-element array so
+    /// both shapes bind through the same parameter.
+    /// </summary>
+    public static string BuildDetectionClauseBlockPs(StageDetection det)
+    {
+        if (!det.Type.Equals("Compound", StringComparison.OrdinalIgnoreCase))
+            return $"{BuildDetectionClausePs(det)}\r\n$clauses = @($clause)";
+
+        var clauses = CompoundClauses(det);
+        var sb = new StringBuilder();
+        for (var i = 0; i < clauses.Length; i++)
+        {
+            sb.AppendLine(BuildDetectionClausePs(clauses[i]));
+            sb.AppendLine($"$clause{i} = $clause");
+        }
+        sb.Append($"$clauses = @({string.Join(", ", Enumerable.Range(0, clauses.Length).Select(i => $"$clause{i}"))})");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits the connector arguments that shape the detection expression.
+    /// An AND-joined compound needs none: AND is the cmdlet's default.
+    /// GroupSizes passes only the second clause run to -GroupDetectionClauses;
+    /// the cmdlet builds the expression left-associatively, so the first run is
+    /// already parenthesized on its own and -GroupDetectionClauses holds one
+    /// group. OR then attaches to the first clause of the second run.
+    /// </summary>
+    public static string BuildDetectionClauseConnectorArgs(StageDetection det)
+    {
+        if (!det.Type.Equals("Compound", StringComparison.OrdinalIgnoreCase)) return "";
+
+        var clauses = CompoundClauses(det);
+        var groupSizes = det.GroupSizes;
+
+        if (groupSizes is { Length: > 0 })
+        {
+            if (groupSizes.Length != 2 || groupSizes.Any(g => g <= 0) || groupSizes.Sum() != clauses.Length)
+                throw new InvalidOperationException(
+                    $"Detection.GroupSizes must be exactly two non-zero sizes summing to the clause count (got '{string.Join(",", groupSizes)}' for {clauses.Length} clauses).");
+
+            var secondStart = groupSizes[0];
+            var group = string.Join(", ", Enumerable.Range(secondStart, clauses.Length - secondStart)
+                .Select(i => $"$clause{i}.Setting.LogicalName"));
+            return $" -GroupDetectionClauses @({group})"
+                 + $" -DetectionClauseConnector @(@{{LogicalName=$clause{secondStart}.Setting.LogicalName;Connector='OR'}})";
+        }
+
+        if (!"Or".Equals(det.Connector, StringComparison.OrdinalIgnoreCase)) return "";
+
+        var connectors = string.Join(", ", Enumerable.Range(1, clauses.Length - 1)
+            .Select(i => $"@{{LogicalName=$clause{i}.Setting.LogicalName;Connector='OR'}}"));
+        return $" -DetectionClauseConnector @({connectors})";
+    }
+
+    private static StageDetection[] CompoundClauses(StageDetection det)
+    {
+        var clauses = det.Clauses ?? [];
+        if (clauses.Length < 2)
+            throw new InvalidOperationException(
+                "A Compound detection requires at least two Clauses.");
+        return clauses;
+    }
 
     private static string BuildDetectionClausePs(StageDetection det)
     {

@@ -10,11 +10,17 @@
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "HttpRegex",
+    "Type": "ChainedHttpRegex",
     "Url": "https://www.mythicsoft.com/agentransack/download/",
-    "Pattern": "agentransack_x64_msi_(\\d+)\\.zip"
+    "Pattern": "CHAINED",
+    "DownloadUrlQuery": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "(?<url>//download\\.mythicsoft\\.com/flp/(?<version>\\d+)/[^\"'\\s]+/agentransack_x64_msi_\\d+\\.zip)"
+      }
+    ]
   },
-  "DownloadUrl": "https://download.mythicsoft.com/flp/{version}/agentransack_x64_msi_{version}.zip",
+  "DownloadUrl": "",
   "InstallArgs": "/qn /norestart",
   "UninstallArgs": "/x {ProductCode} /qn /norestart",
   "Detection": {

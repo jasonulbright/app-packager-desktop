@@ -514,6 +514,8 @@ public partial class PackagesViewModel : ObservableObject
 
                 try
                 {
+                    Dictionary<string, string>? settingsValues = null;
+
                     // Config review dialog — show if app has InstallerSettings and review is required
                     if (p.IsJsonDefined && !string.IsNullOrEmpty(p.DefinitionPath) && File.Exists(p.DefinitionPath))
                     {
@@ -544,12 +546,12 @@ public partial class PackagesViewModel : ObservableObject
                                 AddLogLine($"  Skipped (config review cancelled)");
                                 continue;
                             }
-                            // TODO: pass settingsPanel.Values to StageAsync for ResolveInstallerArgs
+                            settingsValues = new Dictionary<string, string>(settingsPanel.Values);
                         }
                     }
 
                     var result = await _executionService.StageAsync(
-                        p, line => AddLogLine($"  {line}"), _operationCts.Token);
+                        p, line => AddLogLine($"  {line}"), _operationCts.Token, settingsValues);
 
                     if (result.ExitCode == 0)
                     {

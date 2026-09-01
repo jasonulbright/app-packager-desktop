@@ -17,8 +17,8 @@
   },
   "DownloadUrl": "https://download.microsoft.com/download/3/8/d/38de7036-2433-4207-8eae-06e247e17b25/SQLEXPR_x64_ENU.exe",
   "InstallerFileName": "SQLEXPR_x64_ENU.exe",
-  "InstallArgs": "/Q /ACTION=Install /IACCEPTSQLSERVERLICENSETERMS /SUPPRESSPRIVACYSTATEMENTNOTICE /FEATURES=SQLENGINE /INSTANCENAME=SQLEXPRESS /SQLSYSADMINACCOUNTS=\"BUILTIN\\Administrators\" /SQLSVCSTARTUPTYPE=Automatic /BROWSERSVCSTARTUPTYPE=Disabled /UPDATEENABLED=False",
-  "UninstallArgs": "/Q /ACTION=Uninstall /FEATURES=SQLENGINE /INSTANCENAME=SQLEXPRESS",
+  "InstallArgs": "/Q /ACTION=Install /IACCEPTSQLSERVERLICENSETERMS /SUPPRESSPRIVACYSTATEMENTNOTICE /FEATURES=SQLENGINE /SQLSVCSTARTUPTYPE=Automatic /BROWSERSVCSTARTUPTYPE=Disabled /UPDATEENABLED=False",
+  "UninstallArgs": "/Q /ACTION=Uninstall /FEATURES=SQLENGINE /INSTANCENAME={setting:InstanceName}",
   "ExtractSetup": {
     "ExtractArgs": "/Q /X:{extractdir}",
     "ExtractDirName": "SQLEXPR_Media",
@@ -28,7 +28,7 @@
     {
       "Key": "InstanceName",
       "Label": "Instance name",
-      "Tooltip": "Database Engine instance name. Also selects the detection key (MSSQL16.<instance>), so a change here needs the detection key changed to match.",
+      "Tooltip": "Database Engine instance name. Also selects the detection key (MSSQL16.<instance>) and the uninstall instance, both of which follow this value.",
       "ControlType": "Text",
       "DefaultValue": "SQLEXPRESS",
       "CommandFragment": "/INSTANCENAME={value}",
@@ -47,7 +47,7 @@
   "Detection": {
     "Type": "RegistryKeyValue",
     "RegistryHive": "HKLM",
-    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Microsoft SQL Server\\MSSQL16.SQLEXPRESS\\Setup",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Microsoft SQL Server\\MSSQL16.{setting:InstanceName}\\Setup",
     "ValueName": "Version",
     "PropertyType": "Version",
     "Operator": "GreaterEquals",

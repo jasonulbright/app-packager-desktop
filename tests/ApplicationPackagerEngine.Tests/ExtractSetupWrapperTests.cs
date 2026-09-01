@@ -288,15 +288,21 @@ public sealed class ExtractSetupWrapperTests : IDisposable
     }
 
     [Fact]
-    public void SqlDefinition_DefaultSettingValuesMatchTheBakedInInstallArgs()
+    public void SqlDefinition_DefaultSettingValuesResolveIntoTheInstallArgs()
     {
         var def = DefinitionFixture.Load("sqlserver2022express.json");
 
-        // The resolver is not wired into staging yet, so InstallArgs must carry
-        // the defaults on its own; the settings entries mirror them.
-        Assert.Contains("/INSTANCENAME=SQLEXPRESS", def.InstallArgs);
-        Assert.Contains("/SQLSYSADMINACCOUNTS=\"BUILTIN\\Administrators\"", def.InstallArgs);
-        Assert.Contains("/INSTANCENAME=SQLEXPRESS", def.UninstallArgs);
+        // InstallArgs carries only the switches no parameter owns; the resolver
+        // supplies the rest, so the switch must not be duplicated in the base.
+        Assert.DoesNotContain("/INSTANCENAME=", def.InstallArgs);
+        Assert.DoesNotContain("/SQLSYSADMINACCOUNTS=", def.InstallArgs);
+
+        var resolved = StagingService.ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, null);
+        Assert.Contains("/INSTANCENAME=SQLEXPRESS", resolved);
+        Assert.Contains("/SQLSYSADMINACCOUNTS=\"BUILTIN\\Administrators\"", resolved);
+
+        var uninstall = StagingService.ApplySettingTokens(def.UninstallArgs, def.InstallerSettings, null);
+        Assert.Contains("/INSTANCENAME=SQLEXPRESS", uninstall);
     }
 
     [Fact]

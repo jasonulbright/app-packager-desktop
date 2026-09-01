@@ -13,7 +13,8 @@
     "Type": "HttpRegex",
     "Url": "https://devolutions.net/productinfo.htm",
     "Pattern": "RDMmsiX64\\.Version=(\\d+(?:\\.\\d+)+)",
-    "DownloadUrlQuery": "RDMmsiX64\\.Url=(\\S+)"
+    "DownloadUrlQuery": "RDMmsiX64\\.Url=(\\S+)",
+    "PayloadHashQuery": "RDMmsiX64\\.hash=(?<hash>[0-9A-Fa-f]{64})"
   },
   "DownloadUrl": "",
   "InstallArgs": "/qn /norestart",

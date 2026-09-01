@@ -13,7 +13,8 @@
     "Type": "JsonQuery",
     "Url": "https://go.dev/dl/?mode=json",
     "Pattern": "[0].version",
-    "VersionTransform": "strip_prefix:go"
+    "VersionTransform": "strip_prefix:go",
+    "PayloadHashQuery": "[0].files[?os=windows,arch=amd64,kind=installer].sha256"
   },
   "DownloadUrl": "https://go.dev/dl/{version}.windows-amd64.msi",
   "InstallArgs": "/qn /norestart",
