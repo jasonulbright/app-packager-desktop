@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "0c5a91e3f74b8d26",
+  "Vendor": "dnGREP",
+  "Application": "dnGREP (x64)",
+  "CMName": "dnGREP",
+  "Architecture": "x64",
+  "VendorUrl": "https://dngrep.github.io/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/dnGrep/dnGrep/releases/latest",
+    "Pattern": "\"name\":\\s*\"dnGREP\\.(\\d+(?:\\.\\d+)+)\\.x64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+\\.x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/dnGrep/dnGrep/releases/download/v{version}.0/dnGREP.{version}.x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["dnGREP"]
+}

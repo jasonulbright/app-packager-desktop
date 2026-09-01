@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "a812304ef1d8c26f",
+  "Vendor": "Code Sector",
+  "Application": "TeraCopy (x64)",
+  "CMName": "TeraCopy",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.codesector.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InstallShield",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://codesector.com/updates/teracopy.txt",
+    "Pattern": "(?m)^\\s*ProductVersion\\s*=\\s*(\\d+(?:\\.\\d+)+)\\s*$",
+    "DownloadUrlQuery": "(?m)^\\s*URL\\s*=\\s*(\\S+)\\s*$"
+  },
+  "DownloadUrl": "https://www.codesector.com/files/teracopy.exe",
+  "InstallerFileName": "teracopy-setup.exe",
+  "InstallArgs": "/exenoui /qn ALLUSERS=1",
+  "UninstallArgs": "",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\TeraCopy",
+    "FileName": "TeraCopy.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["TeraCopy"]
+}

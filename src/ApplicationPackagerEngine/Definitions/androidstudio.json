@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "cd723cf101a1faaa",
+  "Vendor": "Google",
+  "Application": "Android Studio (x64)",
+  "CMName": "Android Studio",
+  "Architecture": "x64",
+  "VendorUrl": "https://developer.android.com/studio",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://jb.gg/android-studio-releases-list.json",
+    "Pattern": "/android/studio/install/(\\d+(?:\\.\\d+)+)/android-studio-\\d[\\d.]*-windows\\.exe"
+  },
+  "DownloadUrl": "https://redirector.gvt1.com/edgedl/android/studio/install/{version}/android-studio-{version}-windows.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "\"C:\\Program Files\\Android\\Android Studio\\uninstall.exe\" /S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Android\\Android Studio\\bin",
+    "FileName": "studio64.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "studio64"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "e8189d6f4192d176",
+  "Vendor": "Amazon Web Services",
+  "Application": "AWS SAM CLI (x64)",
+  "CMName": "AWS SAM CLI",
+  "Architecture": "x64",
+  "VendorUrl": "https://aws.amazon.com/serverless/sam/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.github.com/repos/aws/aws-sam-cli/releases/latest",
+    "Pattern": "tag_name",
+    "VersionTransform": "strip_prefix:v"
+  },
+  "DownloadUrl": "https://github.com/aws/aws-sam-cli/releases/download/{version}/AWS_SAM_CLI_64_PY3.msi",
+  "InstallerFileName": "AWS_SAM_CLI_64_PY3.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "sam"
+  ]
+}

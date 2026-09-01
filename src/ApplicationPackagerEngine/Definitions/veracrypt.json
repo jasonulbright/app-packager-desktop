@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "a2a258d821697a41",
+  "Vendor": "AM Crypto",
+  "Application": "VeraCrypt (x64)",
+  "CMName": "VeraCrypt",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.veracrypt.io/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
+    "Pattern": "\"name\":\\s*\"VeraCrypt_Setup_x64_(.+?)\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*VeraCrypt_Setup_x64_[^\"]*\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/veracrypt/VeraCrypt/releases/download/VeraCrypt_{version}/VeraCrypt_Setup_x64_{version}.msi",
+  "InstallerFileName": "veracrypt-x64.msi",
+  "InstallArgs": "/qn /norestart ACCEPTLICENSE=YES",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["VeraCrypt", "VeraCrypt-x64", "VeraCryptExpander"]
+}

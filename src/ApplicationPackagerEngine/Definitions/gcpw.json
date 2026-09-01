@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "d51a806c4b93f27e",
+  "Vendor": "Google",
+  "Application": "Google Credential Provider for Windows (x64)",
+  "CMName": "Google Credential Provider for Windows",
+  "Architecture": "x64",
+  "VendorUrl": "https://tools.google.com/dlpage/gcpw/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://dl.google.com/dl/credentialprovider/gcpwstandaloneenterprise64.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://dl.google.com/dl/credentialprovider/gcpwstandaloneenterprise64.msi",
+  "InstallerFileName": "gcpwstandaloneenterprise64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "6f21ac83b950e7d4",
+  "Vendor": "Binary Fortress Software",
+  "Application": "HashTools (x64)",
+  "CMName": "HashTools",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.binaryfortress.com/HashTools/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.binaryfortress.com/Data/Download/?Package=hashtools",
+    "Pattern": "REDIR:HashToolsSetup-(\\d+(?:\\.\\d+)+)\\.exe",
+    "DownloadUrlQuery": "(https?://[^\\s\"]+HashToolsSetup-\\d+(?:\\.\\d+)+\\.exe)"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=C:\\Program Files\\HashTools",
+  "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\HashTools\\unins000.exe\" -ArgumentList \"/VERYSILENT /NORESTART /SUPPRESSMSGBOXES\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\HashTools",
+    "FileName": "HashTools.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["HashTools"]
+}

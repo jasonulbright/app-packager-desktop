@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "c80b1ededbfd4ae5",
+  "Vendor": "geek software GmbH",
+  "Application": "PDF24 Creator (x64)",
+  "CMName": "PDF24 Creator",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.pdf24.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://creator.pdf24.org/listVersions.php",
+    "Pattern": "pdf24-creator-(\\d+\\.\\d+\\.\\d+)-x64\\.msi"
+  },
+  "DownloadUrl": "https://download.pdf24.org/pdf24-creator-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["pdf24"]
+}

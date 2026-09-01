@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "800973055edbda77",
+  "Vendor": "Typora",
+  "Application": "Typora (x64)",
+  "CMName": "Typora",
+  "Architecture": "x64",
+  "VendorUrl": "https://typora.io/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://typora.io/releases/windows",
+    "Pattern": "<h2[^>]*>\\s*(\\d+\\.\\d+\\.\\d+)\\s*</h2>"
+  },
+  "DownloadUrl": "https://download.typora.io/windows/typora-setup-x64.exe",
+  "InstallerFileName": "typora-setup-x64.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS /DIR=C:\\Program Files\\Typora",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\Typora\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Typora",
+    "FileName": "Typora.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Typora"]
+}

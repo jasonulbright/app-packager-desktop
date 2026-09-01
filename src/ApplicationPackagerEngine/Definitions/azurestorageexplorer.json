@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "7716134f98111f10",
+  "Vendor": "Microsoft",
+  "Application": "Azure Storage Explorer (x64)",
+  "CMName": "Microsoft Azure Storage Explorer",
+  "Architecture": "x64",
+  "VendorUrl": "https://azure.microsoft.com/products/storage/storage-explorer/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.github.com/repos/microsoft/AzureStorageExplorer/releases/latest",
+    "Pattern": "tag_name",
+    "VersionTransform": "strip_prefix:v"
+  },
+  "DownloadUrl": "https://github.com/microsoft/AzureStorageExplorer/releases/download/{version}/StorageExplorer-windows-x64.exe",
+  "InstallerFileName": "StorageExplorer-windows-x64.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ALLUSERS",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Microsoft Azure Storage Explorer",
+    "FileName": "StorageExplorer.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "StorageExplorer"
+  ]
+}

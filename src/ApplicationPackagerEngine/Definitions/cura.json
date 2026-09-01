@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "a72d5e0918bc4f31",
+  "Vendor": "UltiMaker",
+  "Application": "UltiMaker Cura (x64)",
+  "CMName": "UltiMaker Cura",
+  "Architecture": "x64",
+  "VendorUrl": "https://ultimaker.com/software/ultimaker-cura/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Ultimaker/Cura/releases/latest",
+    "Pattern": "\"name\":\\s*\"UltiMaker-Cura-(\\d+(?:\\.\\d+)+)-win64-X64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+-win64-X64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/Ultimaker/Cura/releases/download/{version}/UltiMaker-Cura-{version}-win64-X64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["UltiMaker-Cura"]
+}

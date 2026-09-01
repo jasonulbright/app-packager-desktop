@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "552d1604016d16a9",
+  "Vendor": "Microsoft",
+  "Application": "Azure PowerShell (x64)",
+  "CMName": "Azure PowerShell",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/powershell/azure/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Azure/azure-powershell/releases/latest",
+    "Pattern": "\"name\":\\s*\"Az-Cmdlets-(\\d+(?:\\.\\d+)+)-x64\\.msi\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*?Az-Cmdlets-\\d+(?:\\.\\d+)+-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/Azure/azure-powershell/releases/latest/download/Az-Cmdlets-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

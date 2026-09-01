@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "8e61b9931b229873",
+  "Vendor": "CAKE.com",
+  "Application": "Clockify (x64)",
+  "CMName": "Clockify",
+  "Architecture": "x64",
+  "VendorUrl": "https://clockify.me/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://clockify.me/downloads/clockify-setup.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://clockify.me/downloads/clockify-setup.msi",
+  "InstallerFileName": "clockify-setup.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Clockify"
+  ]
+}

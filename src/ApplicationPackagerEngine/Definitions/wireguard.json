@@ -1,0 +1,29 @@
+{
+  "Schema": 1,
+  "Id": "2e562220ca0c820d",
+  "Vendor": "WireGuard",
+  "Application": "WireGuard (x64)",
+  "CMName": "WireGuard",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.wireguard.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://download.wireguard.com/windows-client/",
+    "Pattern": "[\\s\\S]*href\\s*=\\s*\"wireguard-amd64-(\\d+(?:\\.\\d+)+)\\.msi\""
+  },
+  "DownloadUrl": "https://download.wireguard.com/windows-client/wireguard-amd64-{version}.msi",
+  "InstallArgs": "/qn /norestart DO_NOT_LAUNCH=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["wireguard"]
+}

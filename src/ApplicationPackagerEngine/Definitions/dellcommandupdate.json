@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "b28e604c7d1a3f95",
+  "Vendor": "Dell Inc.",
+  "Application": "Dell Command Update (x64)",
+  "CMName": "Dell Command Update",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.dell.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {
+    "WingetId": "Dell.CommandUpdate"
+  },
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.dell.com/support/kbdoc/en-us/000177325/dell-command-update",
+    "Pattern": "Dell Command \\| Update .*?(\\d+\\.\\d+\\.\\d+)"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/s",
+  "UninstallArgs": "/x /s",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Dell\\CommandUpdate",
+    "FileName": "dcu-cli.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["DellCommandUpdate", "dcu-cli"]
+}

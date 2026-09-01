@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "3ba86c4f19d05e72",
+  "Vendor": "Laurent Cozic",
+  "Application": "Joplin (x64)",
+  "CMName": "Joplin",
+  "Architecture": "x64",
+  "VendorUrl": "https://joplinapp.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/laurent22/joplin/releases",
+    "Pattern": "\"name\":\\s*\"Joplin-Setup-(\\d+(?:\\.\\d+)+)\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+/Joplin-Setup-\\d+(?:\\.\\d+)+\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/laurent22/joplin/releases/download/v{version}/Joplin-Setup-{version}.exe",
+  "InstallArgs": "/allusers /S",
+  "UninstallArgs": "/allusers /S",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\Joplin\\Uninstall Joplin.exe\" -ArgumentList \"/allusers /S\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Joplin",
+    "FileName": "Joplin.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Joplin"]
+}

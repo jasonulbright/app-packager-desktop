@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "d40e87ff6dd9e784",
+  "Vendor": "Mythicsoft",
+  "Application": "Agent Ransack (x64)",
+  "CMName": "Agent Ransack",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.mythicsoft.com/agentransack/",
+  "InstallerType": "ZIP",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.mythicsoft.com/agentransack/download/",
+    "Pattern": "agentransack_x64_msi_(\\d+)\\.zip"
+  },
+  "DownloadUrl": "https://download.mythicsoft.com/flp/{version}/agentransack_x64_msi_{version}.zip",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "AgentRansack"
+  ]
+}

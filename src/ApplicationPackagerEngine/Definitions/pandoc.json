@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "59cc96043af02971",
+  "Vendor": "John MacFarlane",
+  "Application": "Pandoc (x64)",
+  "CMName": "Pandoc",
+  "Architecture": "x64",
+  "VendorUrl": "https://pandoc.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/jgm/pandoc/releases/latest",
+    "Pattern": "\"name\":\\s*\"pandoc-(\\d+(?:\\.\\d+)+)-windows-x86_64\\.msi\""
+  },
+  "DownloadUrl": "https://github.com/jgm/pandoc/releases/download/{version}/pandoc-{version}-windows-x86_64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["pandoc"]
+}

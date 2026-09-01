@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "537c0422142799bb",
+  "Vendor": "Corporation for Digital Scholarship",
+  "Application": "Zotero (x64)",
+  "CMName": "Zotero",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.zotero.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.zotero.org/download/client/dl?channel=release&platform=win-x64",
+    "Pattern": "REDIR:/client/release/(\\d+(?:\\.\\d+)+)/Zotero-[^/]+\\.exe",
+    "DownloadUrlQuery": "(https://\\S+/client/release/\\d+(?:\\.\\d+)+/Zotero-[^/\\s]+\\.exe)"
+  },
+  "DownloadUrl": "https://www.zotero.org/download/client/dl?channel=release&platform=win-x64",
+  "InstallerFileName": "Zotero-{version}_x64_setup.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Zotero",
+    "FileName": "zotero.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["zotero"]
+}

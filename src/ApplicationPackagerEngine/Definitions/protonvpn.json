@@ -1,0 +1,35 @@
+{
+  "Schema": 1,
+  "Id": "c58f0d3a26b7e419",
+  "Vendor": "Proton AG",
+  "Application": "Proton VPN (x64)",
+  "CMName": "Proton VPN",
+  "Architecture": "x64",
+  "VendorUrl": "https://protonvpn.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://protonvpn.com/download/windows-releases.json",
+    "Pattern": "Categories[?Name=Stable].Releases[0].Version",
+    "DownloadUrlQuery": "Categories[?Name=Stable].Releases[0].File.Url"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/silent /norestart",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\Proton\\VPN\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Proton VPN_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "ProtonVPN",
+    "ProtonVPN.Client"
+  ]
+}

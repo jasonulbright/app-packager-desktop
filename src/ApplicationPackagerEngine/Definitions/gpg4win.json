@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "0d38fb5719c6ae24",
+  "Vendor": "g10 Code GmbH",
+  "Application": "Gpg4win (x64)",
+  "CMName": "Gpg4win",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.gpg4win.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.gpg4win.org/download.html",
+    "Pattern": "Gpg4win (\\d+\\.\\d+\\.\\d+)"
+  },
+  "DownloadUrl": "https://files.gpg4win.org/gpg4win-{version}.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Gpg4win",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": ["kleopatra", "gpa", "gpg-agent"]
+}

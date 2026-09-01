@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "1cb2217736c90d1d",
+  "Vendor": "Bambu Lab",
+  "Application": "Bambu Studio (x64)",
+  "CMName": "Bambu Studio",
+  "Architecture": "x64",
+  "VendorUrl": "https://bambulab.com/en/download/studio",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/bambulab/BambuStudio/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"(v[\\d.]+)\"",
+    "VersionTransform": "strip_prefix:v|regex_replace:0(\\d):$1",
+    "DownloadUrlQuery": "\"(https://[^\"]*?Bambu_Studio_win[^\"]*?\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/bambulab/BambuStudio/releases/download/{version}/Bambu_Studio_win.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "\"C:\\Program Files\\Bambu Studio\\Uninstall.exe\" /S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Bambu Studio",
+    "FileName": "bambu-studio.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "bambu-studio"
+  ]
+}

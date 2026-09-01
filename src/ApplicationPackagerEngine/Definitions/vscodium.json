@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "37eacbe3ac0f3bef",
+  "Vendor": "VSCodium",
+  "Application": "VSCodium (x64)",
+  "CMName": "VSCodium",
+  "Architecture": "x64",
+  "VendorUrl": "https://vscodium.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/VSCodium/vscodium/releases/latest",
+    "Pattern": "\"name\":\\s*\"VSCodium-x64-(\\d+(?:\\.\\d+)+)\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*VSCodium-x64-\\d+(?:\\.\\d+)+\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/VSCodium/vscodium/releases/download/{version}/VSCodium-x64-{version}.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["VSCodium"]
+}

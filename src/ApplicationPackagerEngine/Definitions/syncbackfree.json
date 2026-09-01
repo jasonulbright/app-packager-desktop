@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "0b57e29fc481d3a6",
+  "Vendor": "2BrightSparks",
+  "Application": "SyncBackFree",
+  "CMName": "SyncBackFree",
+  "Architecture": "x86",
+  "VendorUrl": "https://www.2brightsparks.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.2brightsparks.com/download-syncbackfree.html",
+    "Pattern": "\"softwareVersion\"\\s*:\\s*\"(\\d+(?:\\.\\d+)+)\""
+  },
+  "DownloadUrl": "https://www.2brightsparks.com/assets/software/SyncBack_Setup.exe",
+  "InstallerFileName": "SyncBack_Setup.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files (x86)\\2BrightSparks\\SyncBackFree\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files (x86)\\2BrightSparks\\SyncBackFree",
+    "FileName": "SyncBackFree.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "SyncBackFree"
+  ]
+}

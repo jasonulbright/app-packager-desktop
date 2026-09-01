@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "e8c47f0d13b95a26",
+  "Vendor": "Google",
+  "Application": "Go Programming Language (x64)",
+  "CMName": "Go Programming Language",
+  "Architecture": "x64",
+  "VendorUrl": "https://go.dev/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://go.dev/dl/?mode=json",
+    "Pattern": "[0].version",
+    "VersionTransform": "strip_prefix:go"
+  },
+  "DownloadUrl": "https://go.dev/dl/{version}.windows-amd64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["go", "gofmt"]
+}

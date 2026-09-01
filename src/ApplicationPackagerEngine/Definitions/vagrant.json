@@ -1,0 +1,29 @@
+{
+  "Schema": 1,
+  "Id": "ad5f256cfdb1920c",
+  "Vendor": "HashiCorp",
+  "Application": "Vagrant (x64)",
+  "CMName": "Vagrant",
+  "Architecture": "x64",
+  "VendorUrl": "https://developer.hashicorp.com/vagrant",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://releases.hashicorp.com/vagrant/",
+    "Pattern": "href\\s*=\\s*\"[^\"]*?/vagrant/(\\d+\\.\\d+\\.\\d+)/\""
+  },
+  "DownloadUrl": "https://releases.hashicorp.com/vagrant/{version}/vagrant_{version}_windows_amd64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["vagrant"]
+}

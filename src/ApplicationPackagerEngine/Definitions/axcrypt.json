@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "97d112568329fa00",
+  "Vendor": "AxCrypt",
+  "Application": "AxCrypt (x64)",
+  "CMName": "AxCrypt",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.axcrypt.net/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://downloader.axcrypt.net/windows/axcrypt-3-appsetup-win_x64.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://downloader.axcrypt.net/windows/axcrypt-3-appsetup-win_x64.msi",
+  "InstallerFileName": "axcrypt-3-appsetup-win_x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "AxCrypt"
+  ]
+}

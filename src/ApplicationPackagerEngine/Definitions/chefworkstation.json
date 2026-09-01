@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "3e54d4313f1268e1",
+  "Vendor": "Chef Software",
+  "Application": "Chef Workstation (x64)",
+  "CMName": "Chef Workstation",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.chef.io/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://omnitruck.chef.io/stable/chef-workstation/metadata?p=windows&pv=2019&m=x86_64",
+    "Pattern": "^version\\s+(\\S+)\\s*$",
+    "DownloadUrlQuery": "^url\\s+(\\S+)\\s*$"
+  },
+  "DownloadUrl": "https://packages.chef.io/files/stable/chef-workstation/{version}/windows/11/chef-workstation-{version}-1-x64.msi",
+  "InstallerFileName": "chef-workstation-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

@@ -1,0 +1,35 @@
+{
+  "Schema": 1,
+  "Id": "6f83fe308ae19b47",
+  "Vendor": "Kovid Goyal",
+  "Application": "calibre (x64)",
+  "CMName": "calibre",
+  "Architecture": "x64",
+  "VendorUrl": "https://calibre-ebook.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://calibre-ebook.com/dist/win64",
+    "Pattern": "REDIR:calibre-64bit-(\\d+(?:\\.\\d+)+)\\.msi"
+  },
+  "DownloadUrl": "https://github.com/kovidgoyal/calibre/releases/download/v{version}/calibre-64bit-{version}.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "calibre",
+    "calibre-parallel",
+    "ebook-viewer",
+    "ebook-edit"
+  ]
+}

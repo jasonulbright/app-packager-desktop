@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "70b3f8c25de41a96",
+  "Vendor": "Google",
+  "Application": "IAP Desktop (x64)",
+  "CMName": "IAP Desktop",
+  "Architecture": "x64",
+  "VendorUrl": "https://googlecloudplatform.github.io/iap-desktop/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/GoogleCloudPlatform/iap-desktop/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+/IapDesktopX64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/GoogleCloudPlatform/iap-desktop/releases/download/{version}/IapDesktopX64.msi",
+  "InstallerFileName": "IapDesktopX64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["IapDesktop"]
+}

@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "c40e7a913b562d8f",
+  "Vendor": "IBM",
+  "Application": "IBM Semeru Runtime Open Edition JDK 11 (x64)",
+  "CMName": "IBM Semeru Runtime Open Edition JDK 11",
+  "Architecture": "x64",
+  "VendorUrl": "https://developer.ibm.com/languages/java/semeru-runtimes/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/ibmruntimes/semeru11-binaries/releases?per_page=100",
+    "Pattern": "\"name\":\\s*\"ibm-semeru-open-jdk_x64_windows_(\\d+(?:\\.\\d+)+)\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?ibm-semeru-open-jdk_x64_windows_\\d+(?:\\.\\d+)+\\.msi)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "java",
+    "javaw"
+  ]
+}

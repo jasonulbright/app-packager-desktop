@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "c278278459fbc8df",
+  "Vendor": "Microsoft",
+  "Application": "Azure Functions Core Tools (x64)",
+  "CMName": "Azure Functions Core Tools",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/azure/azure-functions/functions-run-local",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Azure/azure-functions-core-tools/releases/latest",
+    "Pattern": "\"name\":\\s*\"func-cli-(\\d+(?:\\.\\d+)+)-x64\\.msi\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*?func-cli-\\d+(?:\\.\\d+)+-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/Azure/azure-functions-core-tools/releases/download/{version}/func-cli-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "func"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "469dcfc8951057f4",
+  "Vendor": "Sober Lemur S.r.l.",
+  "Application": "PDFsam Basic (x64)",
+  "CMName": "PDFsam Basic",
+  "Architecture": "x64",
+  "VendorUrl": "https://pdfsam.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/torakiki/pdfsam/releases/latest",
+    "Pattern": "\"name\":\\s*\"pdfsam-basic-(\\d+(?:\\.\\d+)+)-windows-x64\\.msi\""
+  },
+  "DownloadUrl": "https://github.com/torakiki/pdfsam/releases/download/v{version}/pdfsam-basic-{version}-windows-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["pdfsam"]
+}

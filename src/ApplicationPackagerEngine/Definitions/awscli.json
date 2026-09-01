@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "1eef022327a093e4",
+  "Vendor": "Amazon",
+  "Application": "AWS Command Line Interface (x64)",
+  "CMName": "AWS Command Line Interface",
+  "Architecture": "x64",
+  "VendorUrl": "https://aws.amazon.com/cli/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://raw.githubusercontent.com/aws/aws-cli/v2/CHANGELOG.rst",
+    "Pattern": "^(2\\.\\d+\\.\\d+)\\s*$"
+  },
+  "DownloadUrl": "https://awscli.amazonaws.com/AWSCLIV2-{version}.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

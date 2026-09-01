@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "1dd032f666ce76d6",
+  "Vendor": "NetBird",
+  "Application": "NetBird (x64)",
+  "CMName": "NetBird",
+  "Architecture": "x64",
+  "VendorUrl": "https://netbird.io/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/netbirdio/netbird/releases/latest",
+    "Pattern": "netbird_installer_(\\d+(?:\\.\\d+)+)_windows_amd64\\.msi"
+  },
+  "DownloadUrl": "https://github.com/netbirdio/netbird/releases/download/v{version}/netbird_installer_{version}_windows_amd64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["netbird-ui"]
+}

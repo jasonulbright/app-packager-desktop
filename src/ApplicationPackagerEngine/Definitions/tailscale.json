@@ -1,0 +1,29 @@
+{
+  "Schema": 1,
+  "Id": "68295ad373c8b7e2",
+  "Vendor": "Tailscale",
+  "Application": "Tailscale (x64)",
+  "CMName": "Tailscale",
+  "Architecture": "x64",
+  "VendorUrl": "https://tailscale.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://pkgs.tailscale.com/stable/?mode=json",
+    "Pattern": "MSIsVersion"
+  },
+  "DownloadUrl": "https://pkgs.tailscale.com/stable/tailscale-setup-{version}-amd64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["tailscale-ipn"]
+}

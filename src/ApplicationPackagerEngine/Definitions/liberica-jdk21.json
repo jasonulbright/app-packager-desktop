@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "e3c4e90329bc3e9c",
+  "Vendor": "BellSoft",
+  "Application": "Liberica JDK 21 (x64)",
+  "CMName": "Liberica JDK 21",
+  "Architecture": "x64",
+  "VendorUrl": "https://bell-sw.com/libericajdk/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.bell-sw.com/v1/liberica/releases?version-feature=21&version-modifier=latest&os=windows&arch=x86&bitness=64&package-type=msi&bundle-type=jdk&release-type=lts&installation-type=installer&fields=version,downloadUrl,filename,updateVersion,patchVersion,buildVersion",
+    "Pattern": "[0].version",
+    "DownloadUrlQuery": "[0].downloadUrl"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["java", "javaw"]
+}

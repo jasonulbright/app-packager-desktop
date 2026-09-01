@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "af508c26139be74d",
+  "Vendor": "Ansgar Becker",
+  "Application": "HeidiSQL (x64)",
+  "CMName": "HeidiSQL",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.heidisql.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/HeidiSQL/HeidiSQL/releases/latest",
+    "Pattern": "\"name\":\\s*\"HeidiSQL_(\\d+(?:\\.\\d+)+)_Setup\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+_Setup\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/HeidiSQL/HeidiSQL/releases/download/v{version}/HeidiSQL_{version}_Setup.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=C:\\Program Files\\HeidiSQL",
+  "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\HeidiSQL\\unins000.exe\" -ArgumentList \"/VERYSILENT /NORESTART /SUPPRESSMSGBOXES\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\HeidiSQL",
+    "FileName": "heidisql.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["heidisql"]
+}

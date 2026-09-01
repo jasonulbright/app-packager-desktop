@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "2e9b6134fa8057cd",
+  "Vendor": "Draftable",
+  "Application": "Draftable Desktop (x64)",
+  "CMName": "Draftable Desktop",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.draftable.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://dl.draftable.com/desktop/RELEASES",
+    "Pattern": "DraftableDesktop-(\\d+(?:\\.\\d+)+)-"
+  },
+  "DownloadUrl": "https://dl.draftable.com/desktop/DraftableDesktopSystem.msi",
+  "InstallerFileName": "DraftableDesktopSystem.msi",
+  "InstallArgs": "/qn /norestart ADDLOCAL=DraftableDesktop,DmsIntegrations,HttpListener,Shortcuts,StartMenuShortcut",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["DraftableDesktop"]
+}

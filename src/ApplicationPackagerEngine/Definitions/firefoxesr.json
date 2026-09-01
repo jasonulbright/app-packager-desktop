@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "c105e93b6d2f847a",
+  "Vendor": "Mozilla",
+  "Application": "Mozilla Firefox ESR (x64)",
+  "CMName": "Mozilla Firefox ESR",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.mozilla.org/firefox/enterprise/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://product-details.mozilla.org/1.0/firefox_versions.json",
+    "Pattern": "\"FIREFOX_ESR\":\\s*\"([^\"]+)\"",
+    "VersionTransform": "replace:esr:"
+  },
+  "DownloadUrl": "https://releases.mozilla.org/pub/firefox/releases/{version}/win64/en-US/Firefox%20Setup%20{version}.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/qn /norestart",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\Mozilla Firefox\\uninstall\\helper.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Mozilla Firefox",
+    "FileName": "firefox.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["firefox"]
+}

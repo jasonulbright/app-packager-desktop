@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "3f8a41c6d90b47e2",
+  "Vendor": "Skymatic",
+  "Application": "Cryptomator (x64)",
+  "CMName": "Cryptomator",
+  "Architecture": "x64",
+  "VendorUrl": "https://cryptomator.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/cryptomator/cryptomator/releases/latest",
+    "Pattern": "\"name\":\\s*\"Cryptomator-(\\d+(?:\\.\\d+)+)-x64\\.msi\""
+  },
+  "DownloadUrl": "https://github.com/cryptomator/cryptomator/releases/download/{version}/Cryptomator-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Cryptomator"]
+}

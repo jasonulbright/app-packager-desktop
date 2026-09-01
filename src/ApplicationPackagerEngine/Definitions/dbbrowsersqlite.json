@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "1d78ba4e5c0f9236",
+  "Vendor": "DB Browser for SQLite Team",
+  "Application": "DB Browser for SQLite (x64)",
+  "CMName": "DB Browser for SQLite",
+  "Architecture": "x64",
+  "VendorUrl": "https://sqlitebrowser.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/sqlitebrowser/sqlitebrowser/releases/latest",
+    "Pattern": "\"name\":\\s*\"DB\\.Browser\\.for\\.SQLite-v(\\d+(?:\\.\\d+)+)-win64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+-win64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/sqlitebrowser/sqlitebrowser/releases/download/v{version}/DB.Browser.for.SQLite-v{version}-win64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["DB Browser for SQLite"]
+}

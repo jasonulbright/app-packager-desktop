@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "05f7c3cead02b282",
+  "Vendor": "Azul",
+  "Application": "Azul Zulu JRE 8 (x64)",
+  "CMName": "Azul Zulu JRE 8 (x64)",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.azul.com/downloads/?package=jre",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.azul.com/metadata/v1/zulu/packages/?java_version=8&os=windows&arch=x64&archive_type=msi&java_package_type=jre&javafx_bundled=false&release_status=ga&latest=true",
+    "Pattern": "\"java_version\":\\[([\\d,]+)\\]",
+    "VersionTransform": "replace:,:.",
+    "DownloadUrlQuery": "\"download_url\":\"([^\"]+\\.msi)\""
+  },
+  "DownloadUrl": "https://cdn.azul.com/zulu/bin/",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["java", "javaw"]
+}

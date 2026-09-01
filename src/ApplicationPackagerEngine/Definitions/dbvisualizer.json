@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "e40c62f18a3b7d59",
+  "Vendor": "DbVis Software AB",
+  "Application": "DbVisualizer (x64)",
+  "CMName": "DbVisualizer",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.dbvis.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.dbvis.com/download/",
+    "Pattern": "/product_download/dbvis-(\\d+\\.\\d+\\.\\d+)/media/dbvis_windows-x64_\\d+_\\d+_\\d+_jre\\.exe",
+    "VersionTransform": "replace:.:_"
+  },
+  "DownloadUrl": "https://www.dbvis.com/product_download/dbvis-{version}/media/dbvis_windows-x64_{display_version}_jre.exe",
+  "DisplayVersionOverride": "{version}",
+  "InstallArgs": "-q -dir \"C:\\Program Files\\DbVisualizer\"",
+  "UninstallArgs": "-q",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\DbVisualizer\\uninstall.exe\" -ArgumentList \"-q\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\DbVisualizer",
+    "FileName": "dbvis.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["dbvis"]
+}

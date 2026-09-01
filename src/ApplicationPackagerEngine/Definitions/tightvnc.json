@@ -1,0 +1,29 @@
+{
+  "Schema": 1,
+  "Id": "cbbc1a19fa1c8c4d",
+  "Vendor": "GlavSoft",
+  "Application": "TightVNC (x64)",
+  "CMName": "TightVNC",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.tightvnc.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.tightvnc.com/download.php",
+    "Pattern": "https://www\\.tightvnc\\.com/download/(\\d+(?:\\.\\d+)+)/tightvnc-\\d+(?:\\.\\d+)+-gpl-setup-64bit\\.msi"
+  },
+  "DownloadUrl": "https://www.tightvnc.com/download/{version}/tightvnc-{version}-gpl-setup-64bit.msi",
+  "InstallArgs": "/qn /norestart ADDLOCAL=Server,Viewer SERVER_REGISTER_AS_SERVICE=1 SERVER_ADD_FIREWALL_EXCEPTION=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["tvnserver", "tvnviewer"]
+}

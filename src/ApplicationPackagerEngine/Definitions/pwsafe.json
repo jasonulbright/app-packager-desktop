@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "e01b6f4c9a5d3728",
+  "Vendor": "Rony Shapiro",
+  "Application": "Password Safe (x64)",
+  "CMName": "Password Safe",
+  "Architecture": "x64",
+  "VendorUrl": "https://pwsafe.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/pwsafe/pwsafe/releases?per_page=30",
+    "Pattern": "\"name\":\\s*\"pwsafe64-(\\d+(?:\\.\\d+)+)\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?pwsafe64-\\d+(?:\\.\\d+)+\\.msi)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "pwsafe"
+  ]
+}

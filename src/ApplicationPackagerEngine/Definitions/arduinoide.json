@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "0f89b2263af0aa29",
+  "Vendor": "Arduino",
+  "Application": "Arduino IDE (x64)",
+  "CMName": "Arduino IDE",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.arduino.cc/en/software",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/arduino/arduino-ide/releases/latest",
+    "Pattern": "\"name\":\\s*\"arduino-ide_(\\d+(?:\\.\\d+)+)_Windows_64bit\\.msi\""
+  },
+  "DownloadUrl": "https://github.com/arduino/arduino-ide/releases/download/{version}/arduino-ide_{version}_Windows_64bit.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Arduino IDE",
+    "arduino-cli"
+  ]
+}

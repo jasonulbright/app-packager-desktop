@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "6de9147b8c30a2f5",
+  "Vendor": "Jan Fiala",
+  "Application": "PSPad (x64)",
+  "CMName": "PSPad",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.pspad.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.pspad.com/en/download.php",
+    "Pattern": "current version\\s+(\\d+(?:\\.\\d+)+)",
+    "DownloadUrlQuery": "href\\s*=\\s*\"(https://[^\"]*?pspad\\d+_x64_setup\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=C:\\Program Files\\PSPad",
+  "UninstallArgs": "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "Get-Process PSPad -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\PSPad\\unins000.exe\" -ArgumentList \"/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\PSPad",
+    "FileName": "PSPad.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "PSPad"
+  ]
+}

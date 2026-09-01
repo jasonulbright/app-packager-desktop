@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "aef31d7250b98c04",
+  "Vendor": "Devolutions",
+  "Application": "Remote Desktop Manager (x64)",
+  "CMName": "Remote Desktop Manager",
+  "Architecture": "x64",
+  "VendorUrl": "https://devolutions.net/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://devolutions.net/productinfo.htm",
+    "Pattern": "RDMmsiX64\\.Version=(\\d+(?:\\.\\d+)+)",
+    "DownloadUrlQuery": "RDMmsiX64\\.Url=(\\S+)"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "RemoteDesktopManager"
+  ]
+}

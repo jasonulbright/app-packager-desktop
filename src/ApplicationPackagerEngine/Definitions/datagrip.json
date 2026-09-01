@@ -1,0 +1,28 @@
+{
+  "Schema": 1,
+  "Id": "9b40e7c21af6d385",
+  "Vendor": "JetBrains",
+  "Application": "DataGrip (x64)",
+  "CMName": "DataGrip",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.jetbrains.com/datagrip/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://data.services.jetbrains.com/products/releases?code=DG&latest=true&type=release",
+    "Pattern": "DG[0].version",
+    "DownloadUrlQuery": "DG[0].downloads.windows.link"
+  },
+  "DownloadUrl": "https://download.jetbrains.com/datagrip/datagrip-{version}.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "RegistryKey",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\DataGrip {version}",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["datagrip64"]
+}

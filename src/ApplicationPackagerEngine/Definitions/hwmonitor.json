@@ -1,0 +1,28 @@
+{
+  "Schema": 1,
+  "Id": "cd94a17e602f83b5",
+  "Vendor": "CPUID",
+  "Application": "HWMonitor (x64)",
+  "CMName": "HWMonitor",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.cpuid.com/softwares/hwmonitor.html",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.cpuid.com/softwares/hwmonitor.html",
+    "Pattern": "hwmonitor_(\\d+\\.\\d+(?:\\.\\d+)?)\\.exe"
+  },
+  "DownloadUrl": "https://download.cpuid.com/hwmonitor/hwmonitor_{version}.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART",
+  "UninstallArgs": "/VERYSILENT /NORESTART",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\CPUID\\HWMonitor",
+    "FileName": "HWMonitor_x64.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["HWMonitor", "HWMonitor_x64"]
+}

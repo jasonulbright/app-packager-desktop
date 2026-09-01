@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "44ffbc1b76aae099",
+  "Vendor": "uvnc bvba",
+  "Application": "UltraVNC (x64)",
+  "CMName": "UltraVNC",
+  "Architecture": "x64",
+  "VendorUrl": "https://uvnc.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://uvnc.com/downloads/ultravnc.html",
+    "Pattern": "/downloads/ultravnc/\\d+-ultravnc-(\\d+-\\d+-\\d+-\\d+)\\.html",
+    "VersionTransform": "replace:-:."
+  },
+  "DownloadUrl": "https://uvnc.eu/download/1800/UltraVNC_1824_x64_Setup.exe",
+  "InstallerFileName": "UltraVNC_x64_Setup.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /COMPONENTS=UltraVNC_Viewer,UltraVNC_Server /TASKS=",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\uvnc bvba\\UltraVNC\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Ultravnc2_is1",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["vncviewer", "winvnc"]
+}

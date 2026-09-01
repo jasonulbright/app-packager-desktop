@@ -1,0 +1,29 @@
+{
+  "Schema": 1,
+  "Id": "dcb43bf49445f64d",
+  "Vendor": "Yubico",
+  "Application": "Yubico PIV Tool (x64)",
+  "CMName": "Yubico PIV Tool",
+  "Architecture": "x64",
+  "VendorUrl": "https://developers.yubico.com/yubico-piv-tool/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://developers.yubico.com/yubico-piv-tool/Releases/",
+    "Pattern": "yubico-piv-tool-(\\d+(?:\\.\\d+)+)-win64\\.msi"
+  },
+  "DownloadUrl": "https://developers.yubico.com/yubico-piv-tool/Releases/yubico-piv-tool-{version}-win64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["yubico-piv-tool"]
+}

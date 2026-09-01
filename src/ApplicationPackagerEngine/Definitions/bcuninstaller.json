@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "55b32e042d33a293",
+  "Vendor": "Marcin Szeniak",
+  "Application": "Bulk Crap Uninstaller (x64)",
+  "CMName": "Bulk Crap Uninstaller",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.bcuninstaller.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Klocman/Bulk-Crap-Uninstaller/releases/latest",
+    "Pattern": "\"name\":\\s*\"BCUninstaller_(\\d+(?:\\.\\d+)+)_setup\\.exe\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*?BCUninstaller_\\d+(?:\\.\\d+)+_setup\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/Klocman/Bulk-Crap-Uninstaller/releases/latest/download/BCUninstaller_{version}_setup.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{f4fef76c-1aa9-441c-af7e-d27f58d898d1}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "BCUninstaller"
+  ]
+}

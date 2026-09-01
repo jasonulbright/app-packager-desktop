@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "72a8c15e0b9df346",
+  "Vendor": "QGIS",
+  "Application": "QGIS (x64)",
+  "CMName": "QGIS",
+  "Architecture": "x64",
+  "VendorUrl": "https://qgis.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://qgis.org/download/",
+    "Pattern": "is-info is-expanded\" href=https://download\\.qgis\\.org/downloads/QGIS-OSGeo4W-(\\d+\\.\\d+\\.\\d+)-\\d+\\.msi",
+    "DownloadUrlQuery": "is-info is-expanded\" href=(https://download\\.qgis\\.org/downloads/QGIS-OSGeo4W-\\d+\\.\\d+\\.\\d+-\\d+\\.msi)"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "qgis-bin"
+  ]
+}

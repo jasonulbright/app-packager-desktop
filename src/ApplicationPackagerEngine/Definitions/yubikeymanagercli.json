@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "77df20dd697d1377",
+  "Vendor": "Yubico",
+  "Application": "YubiKey Manager CLI (x64)",
+  "CMName": "YubiKey Manager CLI",
+  "Architecture": "x64",
+  "VendorUrl": "https://developers.yubico.com/yubikey-manager/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Yubico/yubikey-manager/releases/latest",
+    "Pattern": "\"name\":\\s*\"yubikey-manager-(\\d+(?:\\.\\d+)+)-win64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*yubikey-manager-\\d+(?:\\.\\d+)+-win64\\.msi)\""
+  },
+  "DownloadUrl": "https://developers.yubico.com/yubikey-manager/Releases/yubikey-manager-{version}-win64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["ykman"]
+}

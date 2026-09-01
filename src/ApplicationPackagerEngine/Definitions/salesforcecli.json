@@ -1,0 +1,36 @@
+{
+  "Schema": 1,
+  "Id": "1c58ea630d97b42f",
+  "Vendor": "Salesforce",
+  "Application": "Salesforce CLI (x64)",
+  "CMName": "Salesforce CLI",
+  "Architecture": "x64",
+  "VendorUrl": "https://developer.salesforce.com/tools/salesforcecli",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-win32-x64-buildmanifest",
+    "Pattern": "version",
+    "NoUserAgent": true
+  },
+  "DownloadUrl": "https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-x64.exe",
+  "InstallerFileName": "sf-x64.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "\"C:\\Program Files\\sf\\uninstall.exe\" /S",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\sf",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "sf",
+    "node"
+  ]
+}

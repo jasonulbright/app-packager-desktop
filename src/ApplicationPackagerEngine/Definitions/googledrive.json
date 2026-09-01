@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "74e2b9c0518af3d6",
+  "Vendor": "Google",
+  "Application": "Google Drive for desktop (x64)",
+  "CMName": "Google Drive",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.google.com/drive/download/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://dl.google.com/drive-file-stream/GoogleDriveSetup.exe",
+    "Pattern": "FileVersion"
+  },
+  "DownloadUrl": "https://dl.google.com/drive-file-stream/GoogleDriveSetup.exe",
+  "InstallerFileName": "GoogleDriveSetup.exe",
+  "InstallArgs": "--silent --desktop_shortcut=false --gsuite_shortcuts=false",
+  "UninstallArgs": "--silent --force_stop",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{6BBAE539-2232-434A-A4E5-9A33560C6283}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["GoogleDriveFS"]
+}

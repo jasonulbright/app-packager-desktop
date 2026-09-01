@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "9094247edabd7a88",
+  "Vendor": "Henri Wahl",
+  "Application": "Nagstamon (x64)",
+  "CMName": "Nagstamon",
+  "Architecture": "x64",
+  "VendorUrl": "https://nagstamon.de/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/HenriWahl/Nagstamon/releases/latest",
+    "Pattern": "Nagstamon-(\\d+(?:\\.\\d+)+)-win64_setup\\.exe",
+    "DownloadUrlQuery": "\"(https://[^\"]*/Nagstamon-\\d+(?:\\.\\d+)+-win64_setup\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/HenriWahl/Nagstamon/releases/download/v{version}/Nagstamon-{version}-win64_setup.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "Get-Process nagstamon -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $u = Get-ChildItem -Path 'C:\\Program Files\\Nagstamon' -Filter 'unins*.exe' -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1; if (-not $u) { exit 0 }; $proc = Start-Process -FilePath $u.FullName -ArgumentList '/SP-','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{44F7CFFB-4776-4DA4-9930-A07178069517}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["nagstamon"]
+}

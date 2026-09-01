@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "28de6b1904c7a5f3",
+  "Vendor": "HandBrake Team",
+  "Application": "HandBrake (x64)",
+  "CMName": "HandBrake",
+  "Architecture": "x64",
+  "VendorUrl": "https://handbrake.fr/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/HandBrake/HandBrake/releases/latest",
+    "Pattern": "\"name\":\\s*\"HandBrake-(\\d+(?:\\.\\d+)+)-x86_64-Win_GUI\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+-x86_64-Win_GUI\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/HandBrake/HandBrake/releases/download/{version}/HandBrake-{version}-x86_64-Win_GUI.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\HandBrake\\uninst.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\HandBrake",
+    "FileName": "HandBrake.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["HandBrake"]
+}

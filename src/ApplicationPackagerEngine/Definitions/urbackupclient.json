@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "f5eae246b56c6354",
+  "Vendor": "UrBackup",
+  "Application": "UrBackup Client (x64)",
+  "CMName": "UrBackup Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.urbackup.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.urbackup.org/download.html",
+    "Pattern": "/Client/(\\d+\\.\\d+\\.\\d+)/UrBackup%20Client%20\\d+\\.\\d+\\.\\d+%28x64%29\\.msi"
+  },
+  "DownloadUrl": "https://hndl.urbackup.org/Client/{version}/UrBackup%20Client%20{version}%28x64%29.msi",
+  "InstallerFileName": "urbackup-client-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["UrBackupClient", "UrBackupClientBackend"]
+}

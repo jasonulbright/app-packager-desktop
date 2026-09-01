@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "f706d7d318544ff0",
+  "Vendor": "Microsoft",
+  "Application": "Windows ADK for Windows 11",
+  "CMName": "Windows ADK for Windows 11",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/windows-hardware/get-started/adk-install",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://go.microsoft.com/fwlink/?linkid=2289980",
+    "Pattern": "FileVersion"
+  },
+  "DownloadUrl": "https://go.microsoft.com/fwlink/?linkid=2289980",
+  "InstallerFileName": "adksetup.exe",
+  "InstallArgs": "/quiet /installpath \"C:\\Program Files (x86)\\Windows Kits\\10\" /features OptionId.DeploymentTools OptionId.UserStateMigrationTool",
+  "UninstallArgs": "/quiet /uninstall",
+  "UninstallCommand": "adksetup.exe /quiet /uninstall",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": ["adksetup"]
+}

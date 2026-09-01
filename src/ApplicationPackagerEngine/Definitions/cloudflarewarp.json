@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "bcc3192b728d80f3",
+  "Vendor": "Cloudflare",
+  "Application": "Cloudflare WARP (x64)",
+  "CMName": "Cloudflare WARP",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.cloudflare.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://downloads.cloudflareclient.com/v1/download/windows/ga",
+    "Pattern": "REDIR:/windows/version/(\\d+(?:\\.\\d+)+)"
+  },
+  "DownloadUrl": "https://downloads.cloudflareclient.com/v1/download/windows/version/{version}",
+  "InstallerFileName": "Cloudflare_WARP_{version}.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Cloudflare WARP"
+  ]
+}

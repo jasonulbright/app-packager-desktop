@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "2d75be910af4c368",
+  "Vendor": "Sysprogs",
+  "Application": "SmarTTY",
+  "CMName": "SmarTTY",
+  "Architecture": "x86",
+  "VendorUrl": "https://sysprogs.com/SmarTTY/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://sysprogs.com/SmarTTY/download/",
+    "Pattern": "href\\s*=\\s*\"[^\"]*?/getfile/\\d+/SmarTTY-(\\d+(?:\\.\\d+)+)\\.msi\"",
+    "DownloadUrlQuery": "href\\s*=\\s*\"(https://[^\"]*?/getfile/\\d+/SmarTTY-\\d+(?:\\.\\d+)+\\.msi)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "SmarTTY"
+  ]
+}

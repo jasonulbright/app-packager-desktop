@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "6ba1c5944c4c7b16",
+  "Vendor": "Zulip",
+  "Application": "Zulip Desktop (x64)",
+  "CMName": "Zulip Desktop",
+  "Architecture": "x64",
+  "VendorUrl": "https://zulip.com/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/zulip/zulip-desktop/releases/latest",
+    "Pattern": "\"name\":\\s*\"Zulip-(\\d+(?:\\.\\d+)+)-x64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*Zulip-\\d+(?:\\.\\d+)+-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/zulip/zulip-desktop/releases/download/v{version}/Zulip-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Zulip"]
+}

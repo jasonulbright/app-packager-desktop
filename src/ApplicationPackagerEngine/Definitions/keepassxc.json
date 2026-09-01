@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "70f046fd19c8a14e",
+  "Vendor": "KeePassXC Team",
+  "Application": "KeePassXC (x64)",
+  "CMName": "KeePassXC",
+  "Architecture": "x64",
+  "VendorUrl": "https://keepassxc.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/keepassxreboot/keepassxc/releases/latest",
+    "Pattern": "\"name\":\\s*\"KeePassXC-(\\d+(?:\\.\\d+)+)-Win64\\.msi\""
+  },
+  "DownloadUrl": "https://github.com/keepassxreboot/keepassxc/releases/download/{version}/KeePassXC-{version}-Win64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["KeePassXC"]
+}

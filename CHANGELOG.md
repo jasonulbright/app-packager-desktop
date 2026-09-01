@@ -4,6 +4,20 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### Definitions
+- **177 definitions added (117 → 294)**, ported from app-packager's
+  Enterprise App Catalog parity waves (releases 1.4.0.16–1.4.0.24).
+  All deserialize cleanly with unique ids; version scrapers live-tested
+  where cheap (~160 confirmed against vendors). Known gaps and pinned
+  values are catalogued in MAINTENANCE.md — five definitions need engine
+  work before they function (Dell Command Update, DisplayLink, Oh My
+  Posh MSIX, Windows ADK/WinPE layout staging, SQL Server Express
+  wrapper), and liberica-jdk21 needs max-by-version scraper selection.
+
+### Fixed
+- `StagingService` resolves origin-relative download hrefs (leading `/`)
+  against the scraper URL's origin instead of its directory.
+
 ### Project
 - **MIT license added** — Packr is free software, free for everyone, permanently.
 - **Docs reframed** — README and ROADMAP drop the commercial product framing (paid tiers, subscription validation, product-site branding). All technical content retained; the optional hosted version-data endpoint is now described as a free, opt-in convenience with local scraping as the default and fallback.

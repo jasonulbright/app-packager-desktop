@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "48c5fa157ea4582d",
+  "Vendor": "Zeal",
+  "Application": "Zeal (x64)",
+  "CMName": "Zeal",
+  "Architecture": "x64",
+  "VendorUrl": "https://zealdocs.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/zealdocs/zeal/releases/latest",
+    "Pattern": "\"name\":\\s*\"zeal-(\\d+(?:\\.\\d+)+)-windows-x64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*zeal-\\d+(?:\\.\\d+)+-windows-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/zealdocs/zeal/releases/download/v{version}/zeal-{version}-windows-x64.msi",
+  "InstallArgs": "/qn /norestart ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["zeal"]
+}

@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "baeabe84e264c870",
+  "Vendor": "Karakun AG",
+  "Application": "OpenWebStart (x64)",
+  "CMName": "OpenWebStart",
+  "Architecture": "x64",
+  "VendorUrl": "https://openwebstart.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/karakun/OpenWebStart/releases/latest",
+    "Pattern": "\"name\":\\s*\"OpenWebStart_windows-x64_(\\d+(?:_\\d+)+)\\.exe\"",
+    "VersionTransform": "replace:_:.",
+    "DownloadUrlQuery": "\"(https://[^\"]*/OpenWebStart_windows-x64_[^\"]*\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/karakun/OpenWebStart/releases/download/v{display_version}/OpenWebStart_windows-x64_{version}.exe",
+  "InstallArgs": "-q -dir \"C:\\Program Files\\OpenWebStart\"",
+  "UninstallArgs": "-q",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\OpenWebStart\\uninstall.exe\" -ArgumentList \"-q\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\OpenWebStart",
+    "FileName": "javaws.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["javaws", "itw-settings"]
+}

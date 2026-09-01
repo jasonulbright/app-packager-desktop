@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "3b491e5a65e7d6f8",
+  "Vendor": "Microsoft",
+  "Application": "Azure CLI (x64)",
+  "CMName": "Azure CLI",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/cli/azure/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://aka.ms/installazurecliwindowsx64",
+    "Pattern": "REDIR:azure-cli-(\\d+(?:\\.\\d+)+)-x64\\.msi"
+  },
+  "DownloadUrl": "https://azcliprod.blob.core.windows.net/msi/azure-cli-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "1ef37ec849be3479",
+  "Vendor": "Calibrite",
+  "Application": "Calibrite PROFILER (x64)",
+  "CMName": "Calibrite PROFILER",
+  "Architecture": "x64",
+  "VendorUrl": "https://calibrite.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/LUMESCA/calibrite-profiler-releases/releases/latest",
+    "Pattern": "\"name\":\\s*\"calibrite-PROFILER-Setup-(\\d+(?:\\.\\d+)+)\\.exe\"",
+    "DownloadUrlQuery": "\"(https://[^\"]*?calibrite-PROFILER-Setup-\\d+(?:\\.\\d+)+\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/LUMESCA/calibrite-profiler-releases/releases/download/v{version}/calibrite-PROFILER-Setup-{version}.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "\"C:\\Program Files\\calibrite PROFILER\\Uninstall calibrite PROFILER.exe\" /S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\calibrite PROFILER",
+    "FileName": "calibrite PROFILER.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "calibrite PROFILER"
+  ]
+}

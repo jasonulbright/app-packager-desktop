@@ -1,0 +1,29 @@
+{
+  "Schema": 1,
+  "Id": "09ced2486056f21d",
+  "Vendor": "TeamSpeak Systems GmbH",
+  "Application": "TeamSpeak 3 Client (x64)",
+  "CMName": "TeamSpeak 3 Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://teamspeak.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://teamspeak.com/en/downloads/",
+    "Pattern": "https://files\\.teamspeak-services\\.com/releases/client/(\\d+(?:\\.\\d+)+)/TeamSpeak3-Client-win64-\\d+(?:\\.\\d+)+\\.exe"
+  },
+  "DownloadUrl": "https://files.teamspeak-services.com/releases/client/{version}/TeamSpeak3-Client-win64-{version}.exe",
+  "InstallArgs": "/S /D=C:\\Program Files\\TeamSpeak 3 Client",
+  "UninstallArgs": "/S",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\TeamSpeak 3 Client",
+    "FileName": "ts3client_win64.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["ts3client_win64"]
+}

@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "16f8b027ade4c953",
+  "Vendor": "Stellarium",
+  "Application": "Stellarium (x64)",
+  "CMName": "Stellarium",
+  "Architecture": "x64",
+  "VendorUrl": "https://stellarium.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Stellarium/stellarium/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?stellarium-[^\"]*?-qt6-win64\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/ALLUSERS /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\Stellarium\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Stellarium_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "stellarium"
+  ]
+}

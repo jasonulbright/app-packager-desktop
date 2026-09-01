@@ -1,0 +1,32 @@
+{
+  "Schema": 1,
+  "Id": "99fae7f52d27fec8",
+  "Vendor": "Kitware",
+  "Application": "CMake (x64)",
+  "CMName": "CMake",
+  "Architecture": "x64",
+  "VendorUrl": "https://cmake.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/Kitware/CMake/releases/latest",
+    "Pattern": "\"name\":\\s*\"cmake-(\\d+(?:\\.\\d+)+)-windows-x86_64\\.msi\""
+  },
+  "DownloadUrl": "https://github.com/Kitware/CMake/releases/download/v{version}/cmake-{version}-windows-x86_64.msi",
+  "InstallArgs": "/qn /norestart CMAKE_IN_PATH=1 ALLUSERS=1",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "cmake-gui"
+  ]
+}

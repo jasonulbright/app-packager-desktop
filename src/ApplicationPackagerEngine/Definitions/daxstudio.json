@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "c6e2093fb7154a8d",
+  "Vendor": "DAX Studio",
+  "Application": "DAX Studio (x64)",
+  "CMName": "DAX Studio",
+  "Architecture": "x64",
+  "VendorUrl": "https://daxstudio.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/DaxStudio/DaxStudio/releases/latest",
+    "Pattern": "\"name\":\\s*\"DaxStudio_(\\d+(?:_\\d+)+)_setup\\.exe\"",
+    "VersionTransform": "replace:_:."
+  },
+  "DownloadUrl": "https://github.com/DaxStudio/DaxStudio/releases/download/v{display_version}/DaxStudio_{version}_setup.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /ALLUSERS",
+  "UninstallArgs": "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "Get-Process DaxStudio -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\DAX Studio\\unins000.exe\" -ArgumentList \"/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\DAX Studio",
+    "FileName": "DaxStudio.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["DaxStudio"]
+}

@@ -1,0 +1,30 @@
+{
+  "Schema": 1,
+  "Id": "7a6c0aa13c8bd1d4",
+  "Vendor": "Aivar Annamaa",
+  "Application": "Thonny (x64)",
+  "CMName": "Thonny",
+  "Architecture": "x64",
+  "VendorUrl": "https://thonny.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/thonny/thonny/releases/latest",
+    "Pattern": "\"name\":\\s*\"thonny-(\\d+(?:\\.\\d+)+)-x64\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*thonny-\\d+(?:\\.\\d+)+-x64\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/thonny/thonny/releases/download/v{version}/thonny-{version}-x64.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ALLUSERS",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Thonny_is1",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["thonny"]
+}

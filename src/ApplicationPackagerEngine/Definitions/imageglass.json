@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "51d0c7a839fb642e",
+  "Vendor": "Duong Dieu Phap",
+  "Application": "ImageGlass (x64)",
+  "CMName": "ImageGlass",
+  "Architecture": "x64",
+  "VendorUrl": "https://imageglass.org/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/d2phap/ImageGlass/releases/latest",
+    "Pattern": "\"name\":\\s*\"ImageGlass_(\\d+(?:\\.\\d+)+)_win-x64\\.msi\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+_win-x64\\.msi)\""
+  },
+  "DownloadUrl": "https://github.com/d2phap/ImageGlass/releases/download/{version}/ImageGlass_{version}_win-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["ImageGlass"]
+}

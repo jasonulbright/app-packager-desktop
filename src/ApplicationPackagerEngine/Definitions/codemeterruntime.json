@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "0c0ff28ff49d88ae",
+  "Vendor": "WIBU-SYSTEMS",
+  "Application": "CodeMeter Runtime Kit (x64)",
+  "CMName": "CodeMeter Runtime Kit",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.wibu.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.wibu.com/us/support/user/user-software.html",
+    "Pattern": "<optgroup[^>]*label=\"Windows 64-bit\"[^>]*>\\s*<option\\s+value=\"\\d+\"[^>]*>\\s*Version\\s+(\\d+\\.\\d+[a-z]?)"
+  },
+  "DownloadUrl": "https://www.wibu.com/us/support/user/downloads-user-software/file/download/17996.html?no_cache=1&directDownload=1",
+  "InstallerFileName": "CodeMeterRuntime.exe",
+  "InstallArgs": "/q /nosplash /ComponentArgs \"*\":\"/quiet /norestart\"",
+  "UninstallArgs": "/qn /norestart",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files (x86)\\CodeMeter\\Runtime\\bin",
+    "FileName": "CodeMeter.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "CodeMeter",
+    "CodeMeterCC"
+  ]
+}

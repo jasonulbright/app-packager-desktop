@@ -1,0 +1,29 @@
+{
+  "Schema": 1,
+  "Id": "dabed5842e21bd6a",
+  "Vendor": "TortoiseHg",
+  "Application": "TortoiseHg (x64)",
+  "CMName": "TortoiseHg",
+  "Architecture": "x64",
+  "VendorUrl": "https://tortoisehg.bitbucket.io/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.mercurial-scm.org/release/tortoisehg/windows/",
+    "Pattern": "[\\s\\S]*tortoisehg-(\\d+(?:\\.\\d+)+)-x64\\.msi"
+  },
+  "DownloadUrl": "https://www.mercurial-scm.org/release/tortoisehg/windows/tortoisehg-{version}-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "Operator": "IsEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["thg", "thgw"]
+}

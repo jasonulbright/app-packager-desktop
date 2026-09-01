@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "20695f47922b0d72",
+  "Vendor": "Parallels",
+  "Application": "Parallels Client (x64)",
+  "CMName": "Parallels Client",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.parallels.com/products/ras/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://download.parallels.com/ras/latest/RASClient-x64.msi",
+    "Pattern": "MsiProductVersion"
+  },
+  "DownloadUrl": "https://download.parallels.com/ras/latest/RASClient-x64.msi",
+  "InstallerFileName": "RASClient-x64.msi",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["TSClient", "AppServerClient"]
+}

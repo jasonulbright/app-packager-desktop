@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "3f9c1a7d40b2e561",
+  "Vendor": "Giorgio Tani",
+  "Application": "PeaZip (x64)",
+  "CMName": "PeaZip",
+  "Architecture": "x64",
+  "VendorUrl": "https://peazip.github.io/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/peazip/PeaZip/releases/latest",
+    "Pattern": "\"name\":\\s*\"peazip-(\\d+(?:\\.\\d+)+)\\.WIN64\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?peazip-\\d+(?:\\.\\d+)+\\.WIN64\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "\"C:\\Program Files\\PeaZip\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{5A2BC38A-406C-4A5B-BF45-6991F9A05325}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "peazip"
+  ]
+}

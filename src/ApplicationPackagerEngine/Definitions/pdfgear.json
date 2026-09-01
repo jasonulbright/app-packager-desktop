@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "039e282d12a721cb",
+  "Vendor": "PDFgear Software",
+  "Application": "PDFgear (x64)",
+  "CMName": "PDFgear",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.pdfgear.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.pdfgear.com/download/",
+    "Pattern": "pdfgear_setup_v(\\d+(?:\\.\\d+)+)\\.exe"
+  },
+  "DownloadUrl": "https://downloadfiles.pdfgear.com/releases/windows/pdfgear_setup_v{version}.exe",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "UninstallArgs": "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "Get-Process PDFgear -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $u = 'C:\\Program Files\\PDFgear\\unins000.exe'; if (-not (Test-Path -LiteralPath $u)) { exit 0 }; $proc = Start-Process -FilePath $u -ArgumentList '/SP-','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{7DACF63A-4EE4-4837-9AF9-C65D4509FFB4}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["PDFgear"]
+}

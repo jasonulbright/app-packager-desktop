@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "d6142b9f8e50c7a3",
+  "Vendor": "Rocket.Chat",
+  "Application": "Rocket.Chat Desktop (x64)",
+  "CMName": "Rocket.Chat",
+  "Architecture": "x64",
+  "VendorUrl": "https://rocket.chat/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/RocketChat/Rocket.Chat.Electron/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?rocketchat-[^\"]*?-win-x64\\.msi)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/qn /norestart ALLUSERS=1 MSIINSTALLPERUSER=\"\" WixAppFolder=WixPerMachineFolder",
+  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Rocket.Chat"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "Schema": 1,
+  "Id": "236c15628ea8c91f",
+  "Vendor": "NVIDIA",
+  "Application": "NVIDIA Graphics Driver - RTX Enterprise (x64)",
+  "CMName": "NVIDIA Graphics Driver - RTX Enterprise",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.nvidia.com/Download/index.aspx",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Unknown",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&psid=132&pfid=1071&osID=57&languageCode=1033&beta=0&isWHQL=1&dltype=-1&dch=1&upCRD=0&qnf=0&sort1=0&numberOfResults=10",
+    "Pattern": "IDS[0].downloadInfo.Version",
+    "DownloadUrlQuery": "IDS[0].downloadInfo.DownloadURL"
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "-s -noreboot -clean",
+  "UninstallArgs": "-uninstall -s -noreboot",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{B2FE1952-0186-46C3-BAEC-A80AA35AC5B8}_Display.Driver",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["nvcontainer", "NVDisplay.Container", "nvsphelper64", "NVIDIA Web Helper"]
+}

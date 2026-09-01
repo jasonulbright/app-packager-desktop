@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "7ae4013c8b96f52d",
+  "Vendor": "Signal Ridge Labs",
+  "Application": "Spectra PDF (x64)",
+  "CMName": "Spectra PDF",
+  "Architecture": "x64",
+  "VendorUrl": "https://github.com/jasonulbright/spectra-pdf",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/jasonulbright/spectra-pdf/releases/latest",
+    "Pattern": "\"tag_name\":\\s*\"v?(\\d+(?:\\.\\d+)+)\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?_x64-setup\\.exe)\""
+  },
+  "DownloadUrl": "",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "\"C:\\Program Files\\Spectra PDF\\uninstall.exe\" /S",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Spectra PDF",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Spectra PDF"
+  ]
+}
