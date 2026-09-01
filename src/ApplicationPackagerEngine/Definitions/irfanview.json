@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.irfanview.info/64bit.htm",
     "Pattern": "iview(\\d{3,4})_x64\\.zip",
     "VersionTransform": "insert_dot:1"

@@ -11,8 +11,9 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.mercurial-scm.org/release/tortoisehg/windows/",
-    "Pattern": "[\\s\\S]*tortoisehg-(\\d+(?:\\.\\d+)+)-x64\\.msi"
+    "Pattern": "tortoisehg-(\\d+(?:\\.\\d+)+)-x64\\.msi"
   },
   "DownloadUrl": "https://www.mercurial-scm.org/release/tortoisehg/windows/tortoisehg-{version}-x64.msi",
   "InstallArgs": "/qn /norestart",

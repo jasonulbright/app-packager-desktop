@@ -19,6 +19,31 @@
   "InstallerFileName": "SQLEXPR_x64_ENU.exe",
   "InstallArgs": "/Q /ACTION=Install /IACCEPTSQLSERVERLICENSETERMS /SUPPRESSPRIVACYSTATEMENTNOTICE /FEATURES=SQLENGINE /INSTANCENAME=SQLEXPRESS /SQLSYSADMINACCOUNTS=\"BUILTIN\\Administrators\" /SQLSVCSTARTUPTYPE=Automatic /BROWSERSVCSTARTUPTYPE=Disabled /UPDATEENABLED=False",
   "UninstallArgs": "/Q /ACTION=Uninstall /FEATURES=SQLENGINE /INSTANCENAME=SQLEXPRESS",
+  "ExtractSetup": {
+    "ExtractArgs": "/Q /X:{extractdir}",
+    "ExtractDirName": "SQLEXPR_Media",
+    "InnerSetupPath": "setup.exe"
+  },
+  "InstallerSettings": [
+    {
+      "Key": "InstanceName",
+      "Label": "Instance name",
+      "Tooltip": "Database Engine instance name. Also selects the detection key (MSSQL16.<instance>), so a change here needs the detection key changed to match.",
+      "ControlType": "Text",
+      "DefaultValue": "SQLEXPRESS",
+      "CommandFragment": "/INSTANCENAME={value}",
+      "Group": "Instance"
+    },
+    {
+      "Key": "SysAdminAccounts",
+      "Label": "Sysadmin accounts",
+      "Tooltip": "Principal added to the sysadmin server role at install time.",
+      "ControlType": "Text",
+      "DefaultValue": "BUILTIN\\Administrators",
+      "CommandFragment": "/SQLSYSADMINACCOUNTS=\"{value}\"",
+      "Group": "Instance"
+    }
+  ],
   "Detection": {
     "Type": "RegistryKeyValue",
     "RegistryHive": "HKLM",

@@ -171,6 +171,7 @@ public static class DeploymentTypeSpecResolver
         if (det is null || string.IsNullOrWhiteSpace(det.Type)) return false;
         return !string.IsNullOrWhiteSpace(det.RegistryKeyRelative)
             || !string.IsNullOrWhiteSpace(det.FilePath)
-            || !string.IsNullOrWhiteSpace(det.FileName);
+            || !string.IsNullOrWhiteSpace(det.FileName)
+            || !string.IsNullOrWhiteSpace(det.ScriptText);
     }
 }

@@ -11,9 +11,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://api.github.com/repos/pwsafe/pwsafe/releases?per_page=30",
     "Pattern": "\"name\":\\s*\"pwsafe64-(\\d+(?:\\.\\d+)+)\\.msi\"",
-    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?pwsafe64-\\d+(?:\\.\\d+)+\\.msi)\""
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?pwsafe64-{version}\\.msi)\""
   },
   "DownloadUrl": "",
   "InstallArgs": "/qn /norestart",

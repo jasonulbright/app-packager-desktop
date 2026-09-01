@@ -32,6 +32,25 @@ public sealed class StageManifest
     public string? AdHocSource { get; set; }
     public StageDeploymentType[]? DeploymentTypes { get; set; }
     public StageCommandOverrides? CommandOverrides { get; set; }
+    /// <summary>Package identity and signer read from an MSIX container at stage time.</summary>
+    public StageMsixPackage? MsixPackage { get; set; }
+}
+
+/// <summary>
+/// MSIX identity recorded at stage time. The install wrapper pins SignerThumbprint
+/// and the uninstall/detection scripts key off Name and Version, so packaging never
+/// re-opens the container.
+/// </summary>
+public sealed class StageMsixPackage
+{
+    public string Name { get; set; } = "";
+    public string Version { get; set; } = "";
+    public string Publisher { get; set; } = "";
+    public string ProcessorArchitecture { get; set; } = "";
+    public string? SignerThumbprint { get; set; }
+    public string? SignerSubject { get; set; }
+    /// <summary>True when the container installs for every user via Add-AppxProvisionedPackage.</summary>
+    public bool Provisioned { get; set; } = true;
 }
 
 /// <summary>One staged file's integrity record (schema v3).</summary>
@@ -82,4 +101,8 @@ public sealed class StageDetection
     public string? FilePath { get; set; }
     public string? FileName { get; set; }
     public bool Is64Bit { get; set; } = true;
+    /// <summary>Script detection language. Only meaningful when Type is Script.</summary>
+    public string? ScriptLanguage { get; set; }
+    /// <summary>Script detection body. Only meaningful when Type is Script.</summary>
+    public string? ScriptText { get; set; }
 }

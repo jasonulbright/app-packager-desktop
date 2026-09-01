@@ -11,9 +11,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://docs.aws.amazon.com/redshift/latest/mgmt/odbc20-install-win.html",
     "Pattern": "https://s3\\.amazonaws\\.com/redshift-downloads/drivers/odbc/(\\d+(?:\\.\\d+){1,3})/AmazonRedshiftODBC64-\\d+(?:\\.\\d+){1,3}\\.msi",
-    "DownloadUrlQuery": "(https://s3\\.amazonaws\\.com/redshift-downloads/drivers/odbc/\\d+(?:\\.\\d+){1,3}/AmazonRedshiftODBC64-\\d+(?:\\.\\d+){1,3}\\.msi)"
+    "DownloadUrlQuery": "(https://s3\\.amazonaws\\.com/redshift-downloads/drivers/odbc/{version}/AmazonRedshiftODBC64-{version}\\.msi)"
   },
   "DownloadUrl": "",
   "InstallArgs": "/qn /norestart",

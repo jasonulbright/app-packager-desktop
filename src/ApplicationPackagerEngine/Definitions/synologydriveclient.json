@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://archive.synology.com/download/Utility/SynologyDriveClient",
     "Pattern": "href\\s*=\\s*\"/download/Utility/SynologyDriveClient/(\\d+\\.\\d+\\.\\d+-\\d+)\"",
     "VersionTransform": "replace:-:."

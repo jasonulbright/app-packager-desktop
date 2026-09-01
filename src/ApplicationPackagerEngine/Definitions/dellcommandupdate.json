@@ -12,11 +12,13 @@
     "WingetId": "Dell.CommandUpdate"
   },
   "VersionScraper": {
-    "Type": "HttpRegex",
-    "Url": "https://www.dell.com/support/kbdoc/en-us/000177325/dell-command-update",
-    "Pattern": "Dell Command \\| Update .*?(\\d+\\.\\d+\\.\\d+)"
+    "Type": "DellCatalog",
+    "Url": "https://downloads.dell.com/catalog/CatalogPC.cab",
+    "Pattern": "Dell-Command-Update-Windows-Universal-Application[^\"]*WIN64",
+    "DownloadUrlQuery": "CHAINED"
   },
   "DownloadUrl": "",
+  "InstallerFileName": "Dell-Command-Update.exe",
   "InstallArgs": "/s",
   "UninstallArgs": "/x /s",
   "Detection": {

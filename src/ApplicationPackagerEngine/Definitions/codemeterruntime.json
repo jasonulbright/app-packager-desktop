@@ -10,11 +10,20 @@
   "InstallerFramework": "WixBurn",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "HttpRegex",
+    "Type": "ChainedHttpRegex",
     "Url": "https://www.wibu.com/us/support/user/user-software.html",
-    "Pattern": "<optgroup[^>]*label=\"Windows 64-bit\"[^>]*>\\s*<option\\s+value=\"\\d+\"[^>]*>\\s*Version\\s+(\\d+\\.\\d+[a-z]?)"
+    "DownloadUrlQuery": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "<optgroup[^>]*label=\"Windows 64-bit\"[^>]*>\\s*<option\\s+value=\"(?<capture>\\d+)\"[^>]*>\\s*Version\\s+(?<version>\\d+\\.\\d+[a-z]?)"
+      },
+      {
+        "Url": "/us/support/user/downloads-user-software/file/download/{capture}.html",
+        "Pattern": "href=\"(?<url>[^\"]*/file/download/\\d+\\.html\\?[^\"]*directDownload[^\"]*cHash=[0-9a-f]+)\""
+      }
+    ]
   },
-  "DownloadUrl": "https://www.wibu.com/us/support/user/downloads-user-software/file/download/17996.html?no_cache=1&directDownload=1",
+  "DownloadUrl": "",
   "InstallerFileName": "CodeMeterRuntime.exe",
   "InstallArgs": "/q /nosplash /ComponentArgs \"*\":\"/quiet /norestart\"",
   "UninstallArgs": "/qn /norestart",

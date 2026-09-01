@@ -222,6 +222,94 @@ public sealed class MecmScriptBuilderTests
         Assert.Contains(log, l => l.Contains("Requirement rules ignored"));
     }
 
+    private static StageManifest MsixManifest()
+    {
+        var manifest = Manifest();
+        manifest.InstallerType = "MSIX";
+        manifest.Detection = StagingService.BuildMsixScriptDetection(new StageMsixPackage
+        {
+            Name = "ohmyposh.cli",
+            Version = "31.1.1.0",
+            ProcessorArchitecture = "x64"
+        });
+        return manifest;
+    }
+
+    [Fact]
+    public void ScriptDetection_PassesScriptTextInsteadOfADetectionClause()
+    {
+        var script = Build(MsixManifest());
+
+        Assert.Contains("$detectScript0 = @'", script);
+        Assert.Contains("Get-AppxProvisionedPackage -Online", script);
+        Assert.Contains("-ScriptLanguage PowerShell -ScriptText $detectScript0", script);
+        Assert.DoesNotContain("-AddDetectionClause", script);
+        Assert.DoesNotContain("New-CMDetectionClause", script);
+    }
+
+    [Fact]
+    public void ScriptDetection_KeepsTheScriptDeploymentTypeWrapperCommands()
+    {
+        var script = Build(MsixManifest());
+
+        Assert.Contains("Add-CMScriptDeploymentType", script);
+        Assert.Contains("-InstallCommand 'install.bat' -UninstallCommand 'uninstall.bat'", script);
+        Assert.DoesNotContain("Add-CMWindowsAppxDeploymentType", script);
+    }
+
+    [Fact]
+    public void ScriptDetection_DoesNotSwitchOffTheSiteDriveForAClause()
+    {
+        var script = Build(MsixManifest());
+
+        Assert.DoesNotContain("Set-Location C:", script);
+    }
+
+    [Fact]
+    public void ScriptDetection_WithoutScriptText_Throws()
+    {
+        var manifest = Manifest();
+        manifest.Detection = new StageDetection { Type = "Script", ScriptLanguage = "PowerShell" };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Build(manifest));
+        Assert.Contains("no ScriptText", ex.Message);
+    }
+
+    [Fact]
+    public void ScriptDetection_WithAnUnsupportedLanguage_Throws()
+    {
+        var manifest = MsixManifest();
+        manifest.Detection.ScriptLanguage = "Python";
+
+        Assert.Throws<InvalidOperationException>(() => Build(manifest));
+    }
+
+    [Fact]
+    public void ScriptDetection_ContainingAHereStringTerminator_Throws()
+    {
+        var manifest = Manifest();
+        manifest.Detection = new StageDetection
+        {
+            Type = "Script",
+            ScriptLanguage = "PowerShell",
+            ScriptText = "Write-Output 'x'\r\n'@\r\nexit 0"
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Build(manifest));
+        Assert.Contains("here-string terminator", ex.Message);
+    }
+
+    [Fact]
+    public void ScriptDetection_SurvivesTheDeploymentTypeSpecResolver()
+    {
+        var manifest = MsixManifest();
+        manifest.DeploymentTypes = [new StageDeploymentType { NameSuffix = "x64" }];
+
+        var script = Build(manifest);
+
+        Assert.Contains("-ScriptText $detectScript0", script);
+    }
+
     [Fact]
     public void UserInstallContext_OmitsLogonRequirement()
     {

@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://krita.org/en/download/",
     "Pattern": "krita-x64-(\\d+(?:\\.\\d+)+)-setup\\.exe"
   },

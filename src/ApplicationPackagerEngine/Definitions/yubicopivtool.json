@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://developers.yubico.com/yubico-piv-tool/Releases/",
     "Pattern": "yubico-piv-tool-(\\d+(?:\\.\\d+)+)-win64\\.msi"
   },

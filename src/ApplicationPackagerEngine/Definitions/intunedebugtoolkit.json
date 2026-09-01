@@ -11,9 +11,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://api.github.com/repos/MSEndpointMgr/IntuneDebugToolkit/contents/",
     "Pattern": "\"download_url\":\\s*\"[^\"]*/IntuneDebugTools[ _-]?v(\\d+(?:\\.\\d+)+)\\.msi\"",
-    "DownloadUrlQuery": "\"download_url\":\\s*\"([^\"]*/IntuneDebugTools[ _-]?v\\d+(?:\\.\\d+)+\\.msi)\""
+    "DownloadUrlQuery": "\"download_url\":\\s*\"([^\"]*/IntuneDebugTools[ _-]?v{version}\\.msi)\""
   },
   "DownloadUrl": "https://raw.githubusercontent.com/MSEndpointMgr/IntuneDebugToolkit/main/IntuneDebugToolsv{version}.msi",
   "InstallArgs": "/qn /norestart",

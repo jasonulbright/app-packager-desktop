@@ -19,7 +19,7 @@
   "InstallArgs": "",
   "UninstallArgs": "",
   "Detection": {
-    "Type": "MSIX",
+    "Type": "Script",
     "Is64Bit": true
   },
   "RunningProcess": ["oh-my-posh"]

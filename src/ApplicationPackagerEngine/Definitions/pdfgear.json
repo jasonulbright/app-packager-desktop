@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.pdfgear.com/download/",
     "Pattern": "pdfgear_setup_v(\\d+(?:\\.\\d+)+)\\.exe"
   },

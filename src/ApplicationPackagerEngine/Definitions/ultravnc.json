@@ -10,12 +10,26 @@
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "HttpRegex",
+    "Type": "ChainedHttpRegex",
     "Url": "https://uvnc.com/downloads/ultravnc.html",
-    "Pattern": "/downloads/ultravnc/\\d+-ultravnc-(\\d+-\\d+-\\d+-\\d+)\\.html",
-    "VersionTransform": "replace:-:."
+    "VersionTransform": "replace:-:.",
+    "DownloadUrlQuery": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "href=\"(?<capture>/downloads/ultravnc/\\d+-ultravnc-(?<version>\\d+-\\d+-\\d+-\\d+)\\.html)\"",
+        "SelectHighestVersion": true
+      },
+      {
+        "Url": "{capture}",
+        "Pattern": "href=\"/component/jdownloads/summary/(?<capture>3-setup/\\d+-ultravnc-\\d+-x64-setup\\.html\\?Itemid=\\d+)\""
+      },
+      {
+        "Url": "https://uvnc.com/component/jdownloads/send/{capture}",
+        "Pattern": "href='(?<url>https?://[^']*UltraVNC[^']*_x64_Setup\\.exe)'"
+      }
+    ]
   },
-  "DownloadUrl": "https://uvnc.eu/download/1800/UltraVNC_1824_x64_Setup.exe",
+  "DownloadUrl": "",
   "InstallerFileName": "UltraVNC_x64_Setup.exe",
   "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /COMPONENTS=UltraVNC_Viewer,UltraVNC_Server /TASKS=",
   "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",

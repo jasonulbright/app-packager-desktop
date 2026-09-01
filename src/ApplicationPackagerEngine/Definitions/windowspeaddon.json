@@ -16,6 +16,17 @@
   },
   "DownloadUrl": "https://go.microsoft.com/fwlink/?linkid=2289981",
   "InstallerFileName": "adkwinpesetup.exe",
+  "BootstrapperLayout": {
+    "BootstrapperUrl": "https://go.microsoft.com/fwlink/?linkid=2289981",
+    "BootstrapperFileName": "adkwinpesetup.exe",
+    "LayoutSwitch": "/layout",
+    "QuietSwitch": "/quiet",
+    "VersionSourceMsi": "Installers\\Windows PE wims (DesktopEditions)-x86*.msi",
+    "InstallPath": "C:\\Program Files (x86)\\Windows Kits\\10",
+    "Features": ["OptionId.WindowsPreinstallationEnvironment"],
+    "UninstallSwitch": "/uninstall",
+    "MaxLayoutPathLength": 120
+  },
   "InstallArgs": "/quiet /installpath \"C:\\Program Files (x86)\\Windows Kits\\10\" /features OptionId.WindowsPreinstallationEnvironment",
   "UninstallArgs": "/quiet /uninstall",
   "UninstallCommand": "adkwinpesetup.exe /quiet /uninstall",

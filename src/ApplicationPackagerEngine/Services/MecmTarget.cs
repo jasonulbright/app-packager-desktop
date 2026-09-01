@@ -75,7 +75,10 @@ public sealed class MecmTarget
 
             // 2. Build the PowerShell script for CM app creation
             onProgress?.Invoke("Connecting to MECM...");
-            var psScript = manifest.InstallerType?.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
+            // Only a manifest asking for CM's native Appx deployment type takes
+            // that path. An MSIX staged with wrappers and a Script detection is
+            // a script deployment type like every other product.
+            var psScript = manifest.Detection?.Type.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
                 ? BuildMsixMecmScript(manifest, appName, networkContentPath, siteCode, comment, providerMachine)
                 : BuildPackageScript(manifest, appName, networkContentPath,
                     siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
@@ -205,11 +208,24 @@ public sealed class MecmTarget
             sb.AppendLine($"$dtName{i} = '{Esc(spec.DtName)}'");
             sb.AppendLine($"$dtCreateName{i} = if ($replaceDtNames.Count -gt 0) {{ \"$dtName{i} (staging)\" }} else {{ $dtName{i} }}");
 
-            // Clause objects are built off the CM PSDrive; the drive context
-            // interferes with their parameter binding.
-            sb.AppendLine("Set-Location C:");
-            sb.AppendLine(BuildDetectionClausePs(spec.Detection));
-            sb.AppendLine($"Set-Location '{siteCode}:'");
+            // Script detection is a deployment-type parameter, not a clause
+            // object, and the two parameter sets are mutually exclusive.
+            var isScriptDetection = spec.Detection.Type.Equals("Script", StringComparison.OrdinalIgnoreCase);
+            if (isScriptDetection)
+            {
+                if (string.IsNullOrWhiteSpace(spec.Detection.ScriptText))
+                    throw new InvalidOperationException(
+                        $"Deployment type '{spec.DtName}' declares Script detection with no ScriptText.");
+                sb.AppendLine(BuildDetectionScriptPs(spec.Detection, i));
+            }
+            else
+            {
+                // Clause objects are built off the CM PSDrive; the drive context
+                // interferes with their parameter binding.
+                sb.AppendLine("Set-Location C:");
+                sb.AppendLine(BuildDetectionClausePs(spec.Detection));
+                sb.AppendLine($"Set-Location '{siteCode}:'");
+            }
 
             sb.AppendLine($"Write-Host \"Adding deployment type       : $dtCreateName{i}\"");
             sb.Append($"Add-CMScriptDeploymentType -ApplicationName '{Esc(appName)}'");
@@ -229,7 +245,16 @@ public sealed class MecmTarget
             }
             sb.Append($" -EstimatedRuntimeMins {estRuntime} -MaximumRuntimeMins {maxRuntime}");
             sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
-            sb.Append(" -AddDetectionClause $clause");
+            if (isScriptDetection)
+            {
+                var lang = string.IsNullOrWhiteSpace(spec.Detection.ScriptLanguage)
+                    ? "PowerShell" : spec.Detection.ScriptLanguage!;
+                sb.Append($" -ScriptLanguage {ValidateScriptLanguage(lang)} -ScriptText $detectScript{i}");
+            }
+            else
+            {
+                sb.Append(" -AddDetectionClause $clause");
+            }
             if (ruleVars[i].Count > 0)
                 sb.Append($" -AddRequirement @({string.Join(", ", ruleVars[i])})");
             sb.AppendLine(" | Out-Null");
@@ -270,6 +295,31 @@ public sealed class MecmTarget
 
         return sb.ToString();
     }
+
+    /// <summary>
+    /// Emits the detection script into a single-quoted here-string, which
+    /// passes the body through with no interpolation. A line that is exactly
+    /// the here-string terminator would end it early, so it is refused.
+    /// </summary>
+    private static string BuildDetectionScriptPs(StageDetection det, int index)
+    {
+        var text = (det.ScriptText ?? "").Replace("\r\n", "\n").TrimEnd('\n');
+        if (text.Split('\n').Any(l => l.TrimEnd() == "'@"))
+            throw new InvalidOperationException(
+                "Detection script contains a here-string terminator line and cannot be embedded.");
+
+        return $"$detectScript{index} = @'\r\n{text.Replace("\n", "\r\n")}\r\n'@";
+    }
+
+    /// <summary>CM accepts only these three script detection languages.</summary>
+    private static string ValidateScriptLanguage(string language) =>
+        language.ToLowerInvariant() switch
+        {
+            "powershell" => "PowerShell",
+            "vbscript" => "VBScript",
+            "javascript" => "JavaScript",
+            _ => throw new InvalidOperationException($"Unsupported detection script language: {language}")
+        };
 
     private static string BuildDetectionClausePs(StageDetection det)
     {
