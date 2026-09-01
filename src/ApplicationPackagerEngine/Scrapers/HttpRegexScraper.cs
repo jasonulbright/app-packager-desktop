@@ -12,11 +12,11 @@ namespace ApplicationPackagerEngine.Scrapers;
 /// Uses powershell.exe Invoke-WebRequest via temp script file to avoid
 /// argument escaping issues with URLs containing &amp; characters.
 /// </summary>
-public sealed class HttpRegexScraper : IVersionScraper
+public class HttpRegexScraper : IVersionScraper
 {
-    public string Type => "HttpRegex";
+    public virtual string Type => "HttpRegex";
 
-    public async Task<string?> GetLatestVersionAsync(VersionScraperConfig config, CancellationToken ct = default)
+    public virtual async Task<string?> GetLatestVersionAsync(VersionScraperConfig config, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(config.Url) || string.IsNullOrWhiteSpace(config.Pattern))
             return null;
@@ -29,7 +29,7 @@ public sealed class HttpRegexScraper : IVersionScraper
     /// Fetches content and extracts both version (Pattern) and optional download URL (DownloadUrlQuery)
     /// in a single request.
     /// </summary>
-    public async Task<(string? Version, string? DownloadUrl)> GetVersionAndDownloadUrlAsync(
+    public virtual async Task<(string? Version, string? DownloadUrl)> GetVersionAndDownloadUrlAsync(
         VersionScraperConfig config, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(config.Url) || string.IsNullOrWhiteSpace(config.Pattern))
@@ -57,15 +57,17 @@ public sealed class HttpRegexScraper : IVersionScraper
             : await FetchViaIwrAsync(config.Url, ct, ua);
         if (content is null) return (null, null);
 
-        string? version = null;
-        var match = Regex.Match(content, pattern, RegexOptions.Multiline);
-        if (match.Success && match.Groups.Count > 1)
-            version = match.Groups[1].Value;
+        var version = ExtractVersion(content, pattern, config.SelectHighestVersion);
 
         string? downloadUrl = null;
         if (!string.IsNullOrEmpty(config.DownloadUrlQuery))
         {
-            var urlMatch = Regex.Match(content, config.DownloadUrlQuery, RegexOptions.Multiline);
+            // {version} lets the URL pattern target the same release the version came from,
+            // which matters once max-by-version selection can pick a later match.
+            var urlPattern = version is not null
+                ? config.DownloadUrlQuery.Replace("{version}", Regex.Escape(version))
+                : config.DownloadUrlQuery;
+            var urlMatch = Regex.Match(content, urlPattern, RegexOptions.Multiline);
             if (urlMatch.Success && urlMatch.Groups.Count > 1)
                 downloadUrl = urlMatch.Groups[1].Value;
         }
@@ -73,7 +75,30 @@ public sealed class HttpRegexScraper : IVersionScraper
         return (version, downloadUrl);
     }
 
-    private const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+    /// <summary>
+    /// Extracts the version capture from content. With selectHighest, every match is
+    /// collected and the highest by version comparison wins; otherwise the first match does.
+    /// </summary>
+    public static string? ExtractVersion(string content, string pattern, bool selectHighest)
+    {
+        var matches = Regex.Matches(content, pattern, RegexOptions.Multiline);
+        if (matches.Count == 0) return null;
+
+        if (!selectHighest)
+        {
+            var first = matches[0];
+            return first.Groups.Count > 1 ? first.Groups[1].Value : null;
+        }
+
+        var candidates = matches
+            .Where(m => m.Groups.Count > 1)
+            .Select(m => m.Groups[1].Value)
+            .ToList();
+
+        return candidates.Count == 0 ? null : LooseVersion.SelectHighest(candidates);
+    }
+
+    protected const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 
     /// <summary>
     /// Fetches the final redirect URL without downloading content.
@@ -109,7 +134,7 @@ public sealed class HttpRegexScraper : IVersionScraper
         return (process.ExitCode == 0 || process.ExitCode == 63) && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 
-    private static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null)
+    protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null)
     {
         // Use curl.exe: handles 308 redirects, avoids PS5.1 IWR quirks, better WAF compatibility
         using var process = new Process();

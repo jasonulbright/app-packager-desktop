@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.urbackup.org/download.html",
     "Pattern": "/Client/(\\d+\\.\\d+\\.\\d+)/UrBackup%20Client%20\\d+\\.\\d+\\.\\d+%28x64%29\\.msi"
   },

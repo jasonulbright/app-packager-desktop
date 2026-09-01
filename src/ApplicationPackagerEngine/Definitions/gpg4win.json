@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.gpg4win.org/download.html",
     "Pattern": "Gpg4win (\\d+\\.\\d+\\.\\d+)"
   },

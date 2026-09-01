@@ -11,9 +11,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://smath.com/en-US/view/SMathStudio/download",
     "Pattern": "href\\s*=\\s*\"[^\"]*?SMathStudioDesktop\\.(\\d+(?:_\\d+)+)\\.Setup\\.msi\"",
-    "DownloadUrlQuery": "href\\s*=\\s*\"(/[^\"]*?SMathStudioDesktop\\.\\d+(?:_\\d+)+\\.Setup\\.msi)\"",
+    "DownloadUrlQuery": "href\\s*=\\s*\"(/[^\"]*?SMathStudioDesktop\\.{version}\\.Setup\\.msi)\"",
     "VersionTransform": "replace:_:."
   },
   "DownloadUrl": "",

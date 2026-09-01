@@ -11,9 +11,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.ldapbrowser.com/download.htm",
     "Pattern": "https?://[^\"'\\s]*?/ldapbrowser-(\\d+(?:\\.\\d+)+)-x64-eng\\.msi",
-    "DownloadUrlQuery": "(https?://[^\"'\\s]*?/ldapbrowser-\\d+(?:\\.\\d+)+-x64-eng\\.msi)"
+    "DownloadUrlQuery": "(https?://[^\"'\\s]*?/ldapbrowser-{version}-x64-eng\\.msi)"
   },
   "DownloadUrl": "",
   "InstallArgs": "/qn /norestart",

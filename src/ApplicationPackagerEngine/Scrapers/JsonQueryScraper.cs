@@ -16,6 +16,7 @@ namespace ApplicationPackagerEngine.Scrapers;
 ///   [?key=value]                 — first array element where key equals value
 ///   [?key!=value]                — first array element where key does NOT equal value
 ///   [?k1=v1,k2=v2]              — first element matching ALL conditions (AND)
+///   [max:field]                  — array element whose field holds the highest version
 ///   property[?filter].field      — chained navigation
 ///
 /// Examples:
@@ -106,6 +107,7 @@ public sealed class JsonQueryScraper : IVersionScraper
                 {
                     IndexAccess idx => GetByIndex(current, idx.Index),
                     FilterAccess filter => FindFirstMatch(current, filter.Conditions),
+                    MaxVersionAccess max => FindHighestVersion(current, max.Field),
                     _ => throw new InvalidOperationException()
                 };
 
@@ -140,6 +142,33 @@ public sealed class JsonQueryScraper : IVersionScraper
                 return item;
         }
         return default;
+    }
+
+    /// <summary>
+    /// Returns the array element whose <paramref name="field"/> holds the highest version.
+    /// Ties keep the first occurrence.
+    /// </summary>
+    private static JsonElement FindHighestVersion(JsonElement array, string field)
+    {
+        JsonElement best = default;
+        LooseVersion? bestVersion = null;
+
+        foreach (var item in array.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) continue;
+            if (!item.TryGetProperty(field, out var prop)) continue;
+
+            var parsed = LooseVersion.TryParse(GetStringValue(prop));
+            if (parsed is null) continue;
+
+            if (bestVersion is null || parsed.CompareTo(bestVersion) > 0)
+            {
+                bestVersion = parsed;
+                best = item;
+            }
+        }
+
+        return best;
     }
 
     private static bool MatchesCondition(JsonElement obj, FilterCondition condition)
@@ -209,6 +238,8 @@ public sealed class JsonQueryScraper : IVersionScraper
 
                 if (inner.StartsWith('?'))
                     arrayAccess = ParseFilter(inner[1..]);
+                else if (inner.StartsWith("max:", StringComparison.OrdinalIgnoreCase))
+                    arrayAccess = new MaxVersionAccess(inner[4..].Trim());
                 else if (int.TryParse(inner, out var idx))
                     arrayAccess = new IndexAccess(idx);
             }
@@ -246,6 +277,7 @@ public sealed class JsonQueryScraper : IVersionScraper
     private interface IArrayAccess;
     private record IndexAccess(int Index) : IArrayAccess;
     private record FilterAccess(List<FilterCondition> Conditions) : IArrayAccess;
+    private record MaxVersionAccess(string Field) : IArrayAccess;
     private record FilterCondition(string Key, string Value, bool IsNegated);
 
     // ── HTTP fetch ──────────────────────────────────────────────────

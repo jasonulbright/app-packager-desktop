@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://creator.pdf24.org/listVersions.php",
     "Pattern": "pdf24-creator-(\\d+\\.\\d+\\.\\d+)-x64\\.msi"
   },

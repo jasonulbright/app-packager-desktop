@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.cpuid.com/softwares/hwmonitor.html",
     "Pattern": "hwmonitor_(\\d+\\.\\d+(?:\\.\\d+)?)\\.exe"
   },

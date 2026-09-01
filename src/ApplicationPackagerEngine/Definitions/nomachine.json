@@ -11,9 +11,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://download.nomachine.com/download/?id=41&platform=windows",
     "Pattern": "nomachine-personal-edition_(\\d+\\.\\d+\\.\\d+)_\\d+_x64\\.exe",
-    "DownloadUrlQuery": "(https://[^\"' ]*nomachine-personal-edition_\\d+\\.\\d+\\.\\d+_\\d+_x64\\.exe)"
+    "DownloadUrlQuery": "(https://[^\"' ]*nomachine-personal-edition_{version}_\\d+_x64\\.exe)"
   },
   "DownloadUrl": "",
   "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",

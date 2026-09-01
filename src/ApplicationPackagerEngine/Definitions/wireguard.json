@@ -11,8 +11,9 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://download.wireguard.com/windows-client/",
-    "Pattern": "[\\s\\S]*href\\s*=\\s*\"wireguard-amd64-(\\d+(?:\\.\\d+)+)\\.msi\""
+    "Pattern": "href\\s*=\\s*\"wireguard-amd64-(\\d+(?:\\.\\d+)+)\\.msi\""
   },
   "DownloadUrl": "https://download.wireguard.com/windows-client/wireguard-amd64-{version}.msi",
   "InstallArgs": "/qn /norestart DO_NOT_LAUNCH=1",

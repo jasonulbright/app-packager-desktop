@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://renderdoc.org/builds",
     "Pattern": "/stable/(\\d+\\.\\d+)/RenderDoc_\\d+\\.\\d+_64\\.msi"
   },

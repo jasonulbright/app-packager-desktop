@@ -4,15 +4,117 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### Engine
+- **Max-by-version selection** — `HttpRegex` takes `SelectHighestVersion`,
+  which collects every pattern match and returns the highest by version
+  comparison instead of the first one on the page; `{version}` in
+  `DownloadUrlQuery` is substituted with the selected version so the
+  download URL comes from the same release. `JsonQuery` gains a
+  `[max:field]` array accessor that selects the element whose field holds
+  the highest version. Comparison handles 2-4+ dotted parts, alphabetic
+  part suffixes (`6.90a`), build metadata (`21.0.12.1+1` outranks
+  `21.0.12+10`), prerelease tails, and comma- or dash-separated parts.
+- **Chained (multi-hop) scraping** — the new `ChainedHttpRegex` scraper
+  walks an ordered list of hops. Each hop fetches a URL and applies a
+  regex; the capture substitutes into the next hop's URL as `{capture}`
+  (or `{captureN}` for an earlier hop), and the named groups `version`
+  and `url` collect the results. Relative hop and download URLs resolve
+  against the page they came from.
+- **Dell catalog scraper** — the new `DellCatalog` scraper downloads
+  `CatalogPC.cab`, expands the nested cab to its UTF-16 XML, and selects
+  the Dell Command | Update Windows Universal Application WIN64 component
+  by highest `vendorVersion`, then newest release date, then widest
+  supported-model list.
+- **MSIX provisioned-package support** — staging an `InstallerType: MSIX`
+  definition reads the package identity (Name, Version, Publisher,
+  architecture) from `AppxManifest.xml` inside the container, verifies the
+  signature in `AppxSignature.p7x` and records the signer thumbprint, and
+  surfaces all of it in the stage manifest under `MsixPackage`. Staging
+  refuses an unsigned package, a signature that does not verify, and an
+  architecture that disagrees with the definition.
+- **MSIX wrappers** — `install.ps1` provisions device-wide via
+  `Add-AppxProvisionedPackage -Online -SkipLicense` after checking the
+  package against the thumbprint pinned at stage time; `uninstall.ps1`
+  reads the identity back out of the package on the client and removes
+  both the provisioning entry and every per-user registration. A per-user
+  (`Add-AppxPackage`) variant is generated on request.
+- **Bootstrapper `/layout` staging** — a definition can carry
+  `BootstrapperLayout`, which makes staging download the vendor
+  bootstrapper into a `bootstrapper` subfolder (the bundle refuses a
+  layout target beneath the folder it runs from) and run it with
+  `/quiet /layout <contentDir>`, so the package content is a complete
+  offline install set instead of a bootstrapper that needs internet from
+  every client. A layout root longer than the configured limit (120 chars)
+  is refused up front, naming the length, rather than reaching the
+  bundle's opaque exit 2002. Detection is derived from a designated MSI
+  inside the layout — exact relative path or a pattern that must match
+  exactly one file — whose ProductVersion is the kit version and whose
+  ProductCode is the ARP key, so no probe install is needed. An existing
+  complete layout is reused. Generated wrappers run the layout's own
+  bootstrapper copy with `/quiet /installpath /features` to install and
+  `/quiet /uninstall` to remove.
+- **Extract-then-setup wrappers** — a definition can carry `ExtractSetup`,
+  generating wrappers that extract a self-extracting payload to a
+  spaceless drive-root path (setup rejects paths containing spaces), run
+  the inner setup executable with the definition's install or uninstall
+  args, and remove the extraction tree, reporting setup's exit code rather
+  than the cleanup's. Argument tokenization keeps a quoted value with
+  spaces as one argument.
+- **Script detection rules** — `StageDetection` carries `ScriptLanguage`
+  and `ScriptText`, and the MECM script builder passes them to
+  `Add-CMScriptDeploymentType` as `-ScriptLanguage`/`-ScriptText` instead
+  of a detection clause. MSIX staging generates a detection script that
+  queries `Get-AppxProvisionedPackage -Online` by DisplayName and compares
+  versions with `>=`. CM's native Appx deployment type is now reserved for
+  manifests that explicitly ask for `MSIX` detection.
+
 ### Definitions
+- **`liberica-jdk21` picks the newest release** — the JsonQuery `[0]`
+  selection returned 21.0.12+10 while 21.0.12.1+1 was newer; both the
+  version and download URL now come from `[max:version]`.
+- **46 definitions moved to max-by-version selection** — pwsafe, semeru
+  (6), zulu (6), synologydriveclient, redshiftodbc, softerraldapbrowser,
+  smartty, smathstudio, renderdoc, picpick, pidgin, gpg4win, hwmonitor,
+  kdiff3, irfanview, dbvisualizer, geogebra, graphviz, iapdesktop,
+  intunedebugtoolkit, teamspeak3client, tightvnc, tortoisehg, typora,
+  urbackupclient, vagrant, veracrypt, wireguard, xnviewmp, yubicopivtool,
+  kreya, krita, mysqlconnectornet, pdf24creator, pdfgear and nomachine no
+  longer depend on the newest release appearing first on the vendor page.
+  Every one live-tested; all return the same version they did before, and
+  their download URLs answer.
+- **`displaylink` works** — a two-hop crawl (download index → release node
+  page) yields the version and the `exe_files` installer URL, replacing an
+  index pattern that no longer matched and an empty DownloadUrl.
+- **`ultravnc` is unpinned** — a three-hop crawl (release index → release
+  page → jdownloads send stub) yields the version and the current mirror
+  URL instead of the hardcoded `uvnc.eu/download/1800/` path.
+- **`codemeterruntime` is unpinned** — a two-hop crawl reads the selected
+  Windows 64-bit build from the download listing and follows it to the
+  file page's `directDownload` link, so the file id and its `cHash` are no
+  longer hardcoded.
+- **`dellcommandupdate` works** — the definition uses the new
+  `DellCatalog` scraper instead of a support-page regex that produced no
+  download URL.
+- **`ohmyposh` is functional** — the MSIX definition now stages, wraps, and
+  detects end to end; verified live against the vendor's signed x64 package.
+- **`windowsadk` / `windowspeaddon` express offline layouts** — both carry a
+  `BootstrapperLayout` naming their bootstrapper URL and file, the feature
+  set, the install root, and the feature MSI detection is anchored to
+  (Deployment Tools and PE wims respectively). Version resolution verified
+  live against both vendor links (10.1.26100.2454).
+- **`sqlserver2022express` expresses its wrapper** — the definition carries
+  the extract args, the extraction folder name (`SQLEXPR_Media`), and the
+  inner setup path, and restores the instance name and sysadmin account
+  choices as `InstallerSettings` entries defaulting to `SQLEXPRESS` and
+  `BUILTIN\Administrators`.
 - **177 definitions added (117 → 294)**, ported from app-packager's
   Enterprise App Catalog parity waves (releases 1.4.0.16–1.4.0.24).
   All deserialize cleanly with unique ids; version scrapers live-tested
   where cheap (~160 confirmed against vendors). Known gaps and pinned
-  values are catalogued in MAINTENANCE.md — five definitions need engine
-  work before they function (Dell Command Update, DisplayLink, Oh My
-  Posh MSIX, Windows ADK/WinPE layout staging, SQL Server Express
-  wrapper), and liberica-jdk21 needs max-by-version scraper selection.
+  values are catalogued in MAINTENANCE.md. The four definitions that
+  needed engine work before they could function (Dell Command Update,
+  DisplayLink, Windows ADK/WinPE layout staging, SQL Server Express
+  wrapper) all have it now.
 
 ### Fixed
 - `StagingService` resolves origin-relative download hrefs (leading `/`)

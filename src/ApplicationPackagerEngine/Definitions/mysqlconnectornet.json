@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://dev.mysql.com/downloads/connector/net/",
     "Pattern": "mysql-connector-net-(\\d+\\.\\d+\\.\\d+)\\.msi",
     "NoUserAgent": true

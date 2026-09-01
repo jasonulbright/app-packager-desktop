@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://typora.io/releases/windows",
     "Pattern": "<h2[^>]*>\\s*(\\d+\\.\\d+\\.\\d+)\\s*</h2>"
   },

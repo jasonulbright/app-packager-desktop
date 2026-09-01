@@ -16,6 +16,17 @@
   },
   "DownloadUrl": "https://go.microsoft.com/fwlink/?linkid=2289980",
   "InstallerFileName": "adksetup.exe",
+  "BootstrapperLayout": {
+    "BootstrapperUrl": "https://go.microsoft.com/fwlink/?linkid=2289980",
+    "BootstrapperFileName": "adksetup.exe",
+    "LayoutSwitch": "/layout",
+    "QuietSwitch": "/quiet",
+    "VersionSourceMsi": "Installers\\Windows Deployment Tools-x86*.msi",
+    "InstallPath": "C:\\Program Files (x86)\\Windows Kits\\10",
+    "Features": ["OptionId.DeploymentTools", "OptionId.UserStateMigrationTool"],
+    "UninstallSwitch": "/uninstall",
+    "MaxLayoutPathLength": 120
+  },
   "InstallArgs": "/quiet /installpath \"C:\\Program Files (x86)\\Windows Kits\\10\" /features OptionId.DeploymentTools OptionId.UserStateMigrationTool",
   "UninstallArgs": "/quiet /uninstall",
   "UninstallCommand": "adksetup.exe /quiet /uninstall",

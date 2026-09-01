@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://picpick.app/en/download/free/",
     "Pattern": "https://download\\.picpick\\.net/(\\d+(?:\\.\\d+)+)/picpick_inst\\.exe"
   },

@@ -76,6 +76,19 @@ public sealed class AppDefinition
     public OdtConfig? Odt { get; set; }
 
     /// <summary>
+    /// Bootstrapper /layout acquisition. When set, staging downloads the
+    /// bootstrapper and runs it to produce an offline layout as the package
+    /// content, instead of shipping the bootstrapper alone.
+    /// </summary>
+    public BootstrapperLayoutConfig? BootstrapperLayout { get; set; }
+
+    /// <summary>
+    /// Extract-then-setup wrapper generation. When set, the wrappers extract a
+    /// self-extracting payload and drive an inner setup executable.
+    /// </summary>
+    public ExtractSetupConfig? ExtractSetup { get; set; }
+
+    /// <summary>
     /// Override the display version shown in the UI and used for folder names.
     /// Supports {version} (raw) placeholder. When set, the transformed version is used
     /// only for URL construction, and this value replaces it for display/folders/detection.
@@ -133,6 +146,10 @@ public sealed class VersionScraperConfig
     /// Optional JsonQuery pattern to extract the download URL from the same API response.
     /// When set, the scraper extracts both version and download URL in one request.
     /// The extracted URL replaces the DownloadUrl template entirely.
+    /// For HttpRegex, {version} in the query is replaced by the extracted version so
+    /// the URL comes from the same release the version did.
+    /// Scrapers that produce the URL themselves (ChainedHttpRegex, DellCatalog) ignore
+    /// the value but require a non-empty one, by convention "CHAINED".
     /// </summary>
     public string? DownloadUrlQuery { get; set; }
 
@@ -141,6 +158,47 @@ public sealed class VersionScraperConfig
     /// Some vendors (e.g., Adobe) block requests with browser User-Agents from server IPs.
     /// </summary>
     public bool NoUserAgent { get; set; }
+
+    /// <summary>
+    /// When true, HttpRegex collects every Pattern match and returns the highest
+    /// by version comparison instead of the first match. Guards against vendor
+    /// pages that list a back-published maintenance release above the newest one.
+    /// </summary>
+    public bool SelectHighestVersion { get; set; }
+
+    /// <summary>
+    /// Ordered hops for the ChainedHttpRegex scraper. Each hop fetches a URL and
+    /// applies a regex; the capture feeds the next hop's URL template.
+    /// </summary>
+    public List<ScraperHop>? Hops { get; set; }
+}
+
+/// <summary>
+/// One fetch-and-capture step of a ChainedHttpRegex scrape.
+/// </summary>
+public sealed class ScraperHop
+{
+    /// <summary>
+    /// URL template for this hop. Placeholders: {capture} (previous hop's capture),
+    /// {capture0}..{captureN} (any earlier hop's capture), {version} (version captured
+    /// so far). Omit on the first hop to use VersionScraperConfig.Url.
+    /// A relative value is resolved against the previous hop's URL.
+    /// </summary>
+    public string? Url { get; set; }
+
+    /// <summary>
+    /// Regex applied to the fetched content. The capture fed forward is the named
+    /// group "capture" when present, otherwise group 1. The optional named groups
+    /// "version" and "url" record the version and download URL; a later hop's
+    /// value replaces an earlier one.
+    /// </summary>
+    public string Pattern { get; set; } = "";
+
+    /// <summary>
+    /// When true, all matches are collected and the one whose capture is the
+    /// highest version wins.
+    /// </summary>
+    public bool SelectHighestVersion { get; set; }
 }
 
 /// <summary>
@@ -171,6 +229,77 @@ public sealed class OdtConfig
     public bool PinToTaskbar { get; set; } = false;
     /// <summary>Shared computer licensing (for RDS/VDI).</summary>
     public bool SharedComputerLicensing { get; set; } = false;
+}
+
+/// <summary>
+/// Offline-layout acquisition for a vendor bootstrapper that can materialize
+/// its own payload set (Windows ADK and the Windows PE add-on).
+/// </summary>
+public sealed class BootstrapperLayoutConfig
+{
+    /// <summary>
+    /// Bootstrapper download URL. Empty falls back to the definition's DownloadUrl.
+    /// </summary>
+    public string BootstrapperUrl { get; set; } = "";
+
+    /// <summary>
+    /// Bootstrapper file name. Empty falls back to the definition's InstallerFileName.
+    /// The layout writes a copy of this file at its own root, and the install
+    /// wrapper runs that copy so the client consumes the local payload set.
+    /// </summary>
+    public string BootstrapperFileName { get; set; } = "";
+
+    /// <summary>Switch that requests an offline layout. Takes the target folder as its argument.</summary>
+    public string LayoutSwitch { get; set; } = "/layout";
+
+    /// <summary>Switch that suppresses the bootstrapper UI for both layout and install.</summary>
+    public string QuietSwitch { get; set; } = "/quiet";
+
+    /// <summary>
+    /// Layout-relative path to the MSI whose ProductVersion is the kit version
+    /// and whose ProductCode is the ARP key. A '*' or '?' makes it a pattern
+    /// matched against the layout, and exactly one file must match.
+    /// </summary>
+    public string VersionSourceMsi { get; set; } = "";
+
+    /// <summary>Install root passed after the /installpath switch.</summary>
+    public string InstallPath { get; set; } = "";
+
+    /// <summary>Feature option ids passed after the /features switch.</summary>
+    public string[] Features { get; set; } = [];
+
+    /// <summary>Switch that removes the installed kit. Paired with QuietSwitch.</summary>
+    public string UninstallSwitch { get; set; } = "/uninstall";
+
+    /// <summary>
+    /// Longest layout root the bundle accepts. Beyond this it refuses with
+    /// exit 2002 ("Invalid download path") because a payload path would
+    /// approach MAX_PATH.
+    /// </summary>
+    public int MaxLayoutPathLength { get; set; } = 120;
+}
+
+/// <summary>
+/// Wrapper generation for a self-extracting payload that wraps an inner setup
+/// executable (the SQL Server Express media box).
+/// </summary>
+public sealed class ExtractSetupConfig
+{
+    /// <summary>
+    /// Argument template the payload is run with to extract itself.
+    /// {extractdir} is replaced with the extraction root.
+    /// </summary>
+    public string ExtractArgs { get; set; } = "/Q /X:{extractdir}";
+
+    /// <summary>
+    /// Folder name created at the system drive root for the extraction tree.
+    /// Setup rejects a path containing spaces, so this must be spaceless, and
+    /// a drive-root parent keeps the inner payload paths short.
+    /// </summary>
+    public string ExtractDirName { get; set; } = "";
+
+    /// <summary>Path of the inner setup executable, relative to the extraction root.</summary>
+    public string InnerSetupPath { get; set; } = "setup.exe";
 }
 
 /// <summary>

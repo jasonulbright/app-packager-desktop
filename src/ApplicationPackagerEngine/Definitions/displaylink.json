@@ -10,9 +10,18 @@
   "InstallerFramework": "Unknown",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "HttpRegex",
+    "Type": "ChainedHttpRegex",
     "Url": "https://www.synaptics.com/products/displaylink-graphics/downloads/windows",
-    "Pattern": "downloads/windows-(\\d+\\.\\d+)-m\\d+-public"
+    "DownloadUrlQuery": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "href=\"(?<capture>/products/displaylink-usb-graphics-software-windows-end-user-[^\"]*?\\?filetype=exe)\""
+      },
+      {
+        "Url": "{capture}",
+        "Pattern": "href=\"(?<url>/sites/default/files/exe_files/[^\"]*Windows(?<version>\\d+\\.\\d+)[^\"]*\\.exe)\""
+      }
+    ]
   },
   "DownloadUrl": "",
   "InstallerFileName": "DisplayLink-Installer.exe",

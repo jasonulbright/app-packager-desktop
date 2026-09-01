@@ -11,9 +11,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://api.github.com/repos/ibmruntimes/semeru17-binaries/releases?per_page=100",
     "Pattern": "\"name\":\\s*\"ibm-semeru-open-jdk_x64_windows_(\\d+(?:\\.\\d+)+)\\.msi\"",
-    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?ibm-semeru-open-jdk_x64_windows_\\d+(?:\\.\\d+)+\\.msi)\""
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?ibm-semeru-open-jdk_x64_windows_{version}\\.msi)\""
   },
   "DownloadUrl": "",
   "InstallArgs": "/qn /norestart",

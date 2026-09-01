@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://www.dbvis.com/download/",
     "Pattern": "/product_download/dbvis-(\\d+\\.\\d+\\.\\d+)/media/dbvis_windows-x64_\\d+_\\d+_\\d+_jre\\.exe",
     "VersionTransform": "replace:.:_"

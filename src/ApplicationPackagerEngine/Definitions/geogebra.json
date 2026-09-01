@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://download.geogebra.org/installers/6.0/version.txt",
     "Pattern": "(\\d+-\\d+-\\d+-\\d+)",
     "VersionTransform": "replace:-:."

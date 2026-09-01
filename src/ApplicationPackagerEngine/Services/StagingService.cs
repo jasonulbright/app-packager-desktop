@@ -17,6 +17,7 @@ public sealed class StagingService
     private readonly ManifestService _manifestService;
     private readonly InstallerIdentificationService? _installerIdService;
     private readonly IconExtractionService? _iconService;
+    private readonly MsixPackageReader _msixReader = new();
 
     public StagingService(
         ScraperRegistry scrapers,
@@ -49,6 +50,11 @@ public sealed class StagingService
     public static void ValidateInstallerMagic(string path, string installerType)
     {
         var type = installerType?.ToUpperInvariant();
+        if (type == "MSIX")
+        {
+            MsixPackageReader.ValidateContainer(path);
+            return;
+        }
         if (type is not ("EXE" or "MSI")) return;
         if (!File.Exists(path)) return;
 
@@ -143,6 +149,9 @@ public sealed class StagingService
         // Route ODT apps to dedicated pipeline
         if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
             return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion);
+
+        if (def.BootstrapperLayout is not null)
+            return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion);
 
         try
         {
@@ -250,10 +259,50 @@ public sealed class StagingService
                 try { if (File.Exists(originalZip) && originalZip != installerPath) File.Delete(originalZip); } catch { }
             }
 
+            var isMsix = def.InstallerType.Equals("MSIX", StringComparison.OrdinalIgnoreCase);
+
             // 4b. Inspect installer (MSI only for now)
             string? productCode = null;
             string? productVersion = null;
             string publisher = def.Vendor;
+
+            StageMsixPackage? msixPackage = null;
+            if (isMsix)
+            {
+                onProgress?.Invoke("Reading MSIX package identity...");
+                MsixPackageReader.ValidateContainer(installerPath);
+                var identity = _msixReader.ReadIdentity(installerPath);
+                onProgress?.Invoke($"MSIX identity name           : {identity.Name}");
+                onProgress?.Invoke($"MSIX identity version        : {identity.Version}");
+                onProgress?.Invoke($"MSIX architecture            : {identity.ProcessorArchitecture}");
+
+                if (!string.IsNullOrWhiteSpace(identity.ProcessorArchitecture)
+                    && !string.IsNullOrWhiteSpace(def.Architecture)
+                    && !identity.ProcessorArchitecture.Equals(def.Architecture, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"MSIX architecture is '{identity.ProcessorArchitecture}' but the definition declares '{def.Architecture}'.");
+
+                // The AppX cmdlets refuse an unsigned or untrusted package, so
+                // the signer is pinned into the install wrapper at stage time.
+                var signature = _msixReader.ReadSignature(installerPath)
+                    ?? throw new InvalidOperationException("MSIX package carries no signature; refusing to stage an unsigned package.");
+                if (!signature.SignatureValid)
+                    throw new InvalidOperationException("MSIX signature did not verify against the package contents.");
+                onProgress?.Invoke($"MSIX signer thumbprint       : {signature.Thumbprint}");
+                if (!signature.ChainTrusted)
+                    onProgress?.Invoke("MSIX signer does not chain to a trusted root on this machine; the target device must trust it.");
+
+                msixPackage = new StageMsixPackage
+                {
+                    Name = identity.Name,
+                    Version = identity.Version,
+                    Publisher = identity.Publisher,
+                    ProcessorArchitecture = identity.ProcessorArchitecture,
+                    SignerThumbprint = signature.Thumbprint,
+                    SignerSubject = signature.Subject,
+                    Provisioned = true
+                };
+            }
 
             if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ||
                 installerPath.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
@@ -271,7 +320,7 @@ public sealed class StagingService
 
             // 4c. For non-MSI installers, extract metadata via InstallerIdentificationService
             InstallerMetadata? installerMetadata = null;
-            if (productCode is null && _installerIdService is not null &&
+            if (productCode is null && _installerIdService is not null && !isMsix &&
                 !def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
             {
                 onProgress?.Invoke("Identifying installer framework...");
@@ -310,9 +359,19 @@ public sealed class StagingService
 
             // 5. Generate wrappers
             onProgress?.Invoke("Generating install/uninstall wrappers...");
-            if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
+            if (isMsix)
+            {
+                _wrapperService.GenerateMsixWrappers(contentPath, installerFileName,
+                    msixPackage!.SignerThumbprint, msixPackage.Provisioned);
+            }
+            else if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
             {
                 _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, def.UninstallCommand, def.InstallArgs);
+            }
+            else if (def.ExtractSetup is not null)
+            {
+                _wrapperService.GenerateExtractSetupWrappers(contentPath, installerFileName,
+                    def.ExtractSetup, def.InstallArgs, def.UninstallArgs);
             }
             else
             {
@@ -323,7 +382,9 @@ public sealed class StagingService
             // 6. Build detection config
             // If the definition's detection references {ProductCode} but we have no ProductCode,
             // and we have installer metadata with detection data, use the metadata instead.
-            var detection = BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata);
+            var detection = msixPackage is not null
+                ? BuildMsixScriptDetection(msixPackage)
+                : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata);
 
             // 6b. Detection conformance check — log if definition's detection differs from metadata-derived
             if (installerMetadata?.HasDetectionData == true && detection.Type != "Unknown")
@@ -377,7 +438,8 @@ public sealed class StagingService
                 UninstallArgs = def.UninstallArgs,
                 ProductCode = productCode,
                 RunningProcess = def.RunningProcess,
-                Detection = detection
+                Detection = detection,
+                MsixPackage = msixPackage
             };
             _manifestService.Write(manifestPath, manifest);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
@@ -400,6 +462,236 @@ public sealed class StagingService
         {
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
+    }
+
+    // ── Bootstrapper /layout staging pipeline ────────────────────
+
+    /// <summary>
+    /// Stages a vendor bootstrapper as a complete offline layout: download the
+    /// bootstrapper, run it with the layout switch, and ship the resulting tree
+    /// as the package content so no client reaches the vendor at install time.
+    /// Detection comes from a designated MSI inside the layout, whose
+    /// ProductVersion is the kit version and whose ProductCode is the ARP key,
+    /// so no probe install is needed.
+    /// </summary>
+    private async Task<StagingResult> StageBootstrapperLayoutAsync(
+        AppDefinition def, string downloadRoot,
+        Action<string>? onProgress, CancellationToken ct, string? knownVersion)
+    {
+        try
+        {
+            var layout = def.BootstrapperLayout!;
+            ValidateBootstrapperLayout(layout);
+
+            string? version = knownVersion;
+            if (string.IsNullOrEmpty(version))
+            {
+                onProgress?.Invoke($"Checking latest version for {def.Application}...");
+                var (_, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
+                version = display;
+            }
+            if (string.IsNullOrEmpty(version))
+                return new StagingResult { Success = false, ErrorMessage = "Could not determine latest version" };
+            onProgress?.Invoke($"Version: {version}");
+
+            var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
+            var baseRoot = Path.Combine(downloadRoot, appFolder);
+            var contentPath = Path.Combine(baseRoot, version);
+
+            AssertLayoutPathLength(contentPath, layout.MaxLayoutPathLength);
+            Directory.CreateDirectory(contentPath);
+
+            // The bundle refuses a layout target beneath the folder it runs from
+            // (exit 2002), so the bootstrapper is kept outside the layout root.
+            var bootstrapperFolder = Path.Combine(baseRoot, "bootstrapper");
+            Directory.CreateDirectory(bootstrapperFolder);
+
+            var bootstrapperFileName = WrapperGeneratorService.ResolveBootstrapperFileName(layout);
+            var bootstrapperPath = Path.Combine(bootstrapperFolder, bootstrapperFileName);
+            var bootstrapperUrl = !string.IsNullOrWhiteSpace(layout.BootstrapperUrl)
+                ? layout.BootstrapperUrl
+                : def.DownloadUrl;
+
+            if (!File.Exists(bootstrapperPath))
+            {
+                var cachedPath = def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase)
+                    ? Scrapers.FileVersionScraper.GetCachedPath(def.VersionScraper.Url)
+                    : null;
+
+                if (cachedPath is not null)
+                {
+                    File.Copy(cachedPath, bootstrapperPath);
+                    onProgress?.Invoke($"Copied bootstrapper from version cache: {bootstrapperFileName}");
+                }
+                else
+                {
+                    await _downloadService.DownloadAsync(bootstrapperUrl, bootstrapperPath, onProgress: onProgress, ct: ct);
+                }
+                ValidateInstallerMagic(bootstrapperPath, "EXE");
+            }
+            else
+            {
+                onProgress?.Invoke($"Bootstrapper already cached: {bootstrapperFileName}");
+            }
+
+            // 2. Build the offline layout. The bundle re-verifies every payload
+            //    over an existing layout, so a complete one is left alone.
+            var layoutSetup = Path.Combine(contentPath, bootstrapperFileName);
+            var layoutInstallers = Path.Combine(contentPath, "Installers");
+            if (File.Exists(layoutSetup) && Directory.Exists(layoutInstallers))
+            {
+                onProgress?.Invoke("Offline layout exists. Skipping layout build.");
+            }
+            else
+            {
+                onProgress?.Invoke("Building offline layout (this downloads the full kit)...");
+                var args = $"{layout.QuietSwitch} {layout.LayoutSwitch} \"{contentPath}\"";
+                var ok = await RunProcessWithTimeoutAsync(bootstrapperPath, args, TimeSpan.FromHours(2), ct);
+                if (!ok)
+                    return new StagingResult { Success = false, ErrorMessage = $"{bootstrapperFileName} {layout.LayoutSwitch} failed" };
+
+                if (!File.Exists(layoutSetup))
+                    return new StagingResult { Success = false, ErrorMessage = $"Layout completed but {bootstrapperFileName} is missing from {contentPath}" };
+                if (!Directory.Exists(layoutInstallers))
+                    return new StagingResult { Success = false, ErrorMessage = $"Layout completed but the Installers folder is missing from {contentPath}" };
+            }
+
+            // 3. Derive detection from the layout's own feature MSI.
+            var versionMsiPath = ResolveVersionSourceMsi(contentPath, layout.VersionSourceMsi);
+            onProgress?.Invoke($"Version source MSI: {Path.GetFileName(versionMsiPath)}");
+            var msiProps = _msiService.ReadProperties(versionMsiPath);
+            if (string.IsNullOrWhiteSpace(msiProps.ProductVersion))
+                return new StagingResult { Success = false, ErrorMessage = "Version source MSI carries no ProductVersion." };
+            if (string.IsNullOrWhiteSpace(msiProps.ProductCode))
+                return new StagingResult { Success = false, ErrorMessage = "Version source MSI carries no ProductCode." };
+            onProgress?.Invoke($"ProductVersion: {msiProps.ProductVersion}");
+            onProgress?.Invoke($"ProductCode: {msiProps.ProductCode}");
+
+            var publisher = !string.IsNullOrWhiteSpace(msiProps.Manufacturer) &&
+                            msiProps.Manufacturer.IndexOfAny(Path.GetInvalidFileNameChars()) < 0
+                ? msiProps.Manufacturer
+                : def.Vendor;
+
+            onProgress?.Invoke("Generating install/uninstall wrappers...");
+            _wrapperService.GenerateBootstrapperLayoutWrappers(contentPath, layout);
+
+            var detection = BuildDetection(def, msiProps.ProductCode, msiProps.ProductVersion, msiProps.ProductVersion);
+
+            var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
+            var manifest = new StageManifest
+            {
+                AppName = $"{def.Application} - {version} ({def.Architecture})",
+                DisplayName = $"{def.Application} ({def.Architecture})",
+                Publisher = publisher,
+                SoftwareVersion = version,
+                InstallerFile = bootstrapperFileName,
+                InstallerType = "EXE",
+                InstallContext = def.InstallContext,
+                InstallArgs = BuildLayoutInstallArgs(layout),
+                UninstallArgs = $"{layout.QuietSwitch} {layout.UninstallSwitch}",
+                UninstallCommand = $"{bootstrapperFileName} {layout.QuietSwitch} {layout.UninstallSwitch}",
+                ProductCode = msiProps.ProductCode,
+                RunningProcess = def.RunningProcess,
+                Detection = detection
+            };
+            _manifestService.Write(manifestPath, manifest);
+            onProgress?.Invoke($"Manifest written: {manifestPath}");
+            onProgress?.Invoke($"Stage complete: {contentPath}");
+
+            return new StagingResult
+            {
+                Success = true,
+                Version = version,
+                ContentPath = contentPath,
+                ManifestPath = manifestPath
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return new StagingResult { Success = false, ErrorMessage = "Cancelled" };
+        }
+        catch (Exception ex)
+        {
+            return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    /// <summary>
+    /// The install command line recorded in the manifest, matching what the
+    /// generated install wrapper runs.
+    /// </summary>
+    public static string BuildLayoutInstallArgs(BootstrapperLayoutConfig layout)
+    {
+        var parts = new List<string> { layout.QuietSwitch };
+        if (!string.IsNullOrWhiteSpace(layout.InstallPath))
+        {
+            parts.Add("/installpath");
+            parts.Add($"\"{layout.InstallPath}\"");
+        }
+        if (layout.Features.Length > 0)
+        {
+            parts.Add("/features");
+            parts.AddRange(layout.Features);
+        }
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>
+    /// The bundle validates the layout root against the longest payload name it
+    /// will write and refuses with exit 2002 when the result would approach
+    /// MAX_PATH. Failing here names the cause instead.
+    /// </summary>
+    public static void AssertLayoutPathLength(string layoutPath, int maxLength)
+    {
+        if (layoutPath.Length > maxLength)
+            throw new InvalidOperationException(
+                $"Layout path is too long for the bundle ({layoutPath.Length} chars, limit {maxLength}): {layoutPath}. Use a shorter download root.");
+    }
+
+    public static void ValidateBootstrapperLayout(BootstrapperLayoutConfig layout)
+    {
+        if (string.IsNullOrWhiteSpace(layout.BootstrapperFileName))
+            throw new InvalidOperationException("BootstrapperLayout.BootstrapperFileName is required.");
+        if (string.IsNullOrWhiteSpace(layout.VersionSourceMsi))
+            throw new InvalidOperationException("BootstrapperLayout.VersionSourceMsi is required: detection is anchored to it.");
+        if (string.IsNullOrWhiteSpace(layout.LayoutSwitch))
+            throw new InvalidOperationException("BootstrapperLayout.LayoutSwitch is required.");
+        if (layout.MaxLayoutPathLength <= 0)
+            throw new InvalidOperationException("BootstrapperLayout.MaxLayoutPathLength must be positive.");
+    }
+
+    /// <summary>
+    /// Resolves the detection anchor inside a built layout. A pattern must
+    /// match exactly one file: several matches mean the anchor no longer
+    /// identifies a single feature MSI and the derived detection would be
+    /// whichever the file system happened to return first.
+    /// </summary>
+    public static string ResolveVersionSourceMsi(string layoutPath, string relativePathOrPattern)
+    {
+        var normalized = relativePathOrPattern.Replace('/', Path.DirectorySeparatorChar);
+
+        if (!normalized.Contains('*') && !normalized.Contains('?'))
+        {
+            var direct = Path.Combine(layoutPath, normalized);
+            if (!File.Exists(direct))
+                throw new InvalidOperationException($"Detection anchor missing from the layout: {direct}");
+            return direct;
+        }
+
+        var searchDir = Path.Combine(layoutPath, Path.GetDirectoryName(normalized) ?? "");
+        var pattern = Path.GetFileName(normalized);
+        var matches = Directory.Exists(searchDir)
+            ? Directory.GetFiles(searchDir, pattern, SearchOption.TopDirectoryOnly)
+            : [];
+
+        return matches.Length switch
+        {
+            1 => matches[0],
+            0 => throw new InvalidOperationException(
+                $"Detection anchor pattern matched no file in the layout: {Path.Combine(searchDir, pattern)}"),
+            _ => throw new InvalidOperationException(
+                $"Detection anchor pattern matched {matches.Length} files in the layout; it must identify exactly one: {Path.Combine(searchDir, pattern)}")
+        };
     }
 
     // ── ODT staging pipeline ─────────────────────────────────────
@@ -635,6 +927,40 @@ public sealed class StagingService
         var safeName = def.Application.Replace(" ", "").Replace("(", "").Replace(")", "");
         var ext = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ? ".msi" : ".exe";
         return $"{safeName}-{version}{ext}";
+    }
+
+    /// <summary>
+    /// Script detection for a provisioned MSIX. A provisioned package lands
+    /// under Program Files\WindowsApps in a directory named with the publisher
+    /// hash, so detection queries the provisioning store instead of a path.
+    /// The script writes to stdout only when an installed version is at or
+    /// above the staged one, which is how CM reads "installed".
+    /// </summary>
+    public static StageDetection BuildMsixScriptDetection(StageMsixPackage package)
+    {
+        var name = package.Name.Replace("'", "''");
+        var version = package.Version.Replace("'", "''");
+
+        var script = string.Join("\r\n",
+            $"$wanted = [version]'{version}'",
+            "$prov = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue |",
+            $"    Where-Object {{ $_.DisplayName -eq '{name}' }}",
+            "foreach ($p in $prov) {",
+            "    $found = $null",
+            "    if (-not [version]::TryParse([string]$p.Version, [ref]$found)) { continue }",
+            "    if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }",
+            "}",
+            "exit 0");
+
+        return new StageDetection
+        {
+            Type = "Script",
+            ScriptLanguage = "PowerShell",
+            ScriptText = script,
+            ExpectedValue = package.Version,
+            Operator = "GreaterEquals",
+            Is64Bit = !package.ProcessorArchitecture.Equals("x86", StringComparison.OrdinalIgnoreCase)
+        };
     }
 
     private static StageDetection BuildDetection(AppDefinition def, string? productCode, string version,

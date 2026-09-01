@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://api.azul.com/metadata/v1/zulu/packages/?java_version=17&os=windows&arch=x64&archive_type=msi&java_package_type=jdk&javafx_bundled=false&release_status=ga&latest=true",
     "Pattern": "\"java_version\":\\[([\\d,]+)\\]",
     "VersionTransform": "replace:,:.",

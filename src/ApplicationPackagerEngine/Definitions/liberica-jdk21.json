@@ -12,8 +12,8 @@
   "VersionScraper": {
     "Type": "JsonQuery",
     "Url": "https://api.bell-sw.com/v1/liberica/releases?version-feature=21&version-modifier=latest&os=windows&arch=x86&bitness=64&package-type=msi&bundle-type=jdk&release-type=lts&installation-type=installer&fields=version,downloadUrl,filename,updateVersion,patchVersion,buildVersion",
-    "Pattern": "[0].version",
-    "DownloadUrlQuery": "[0].downloadUrl"
+    "Pattern": "[max:version].version",
+    "DownloadUrlQuery": "[max:version].downloadUrl"
   },
   "DownloadUrl": "",
   "InstallArgs": "/qn /norestart",

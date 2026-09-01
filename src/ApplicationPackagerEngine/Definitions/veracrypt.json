@@ -11,6 +11,7 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
+    "SelectHighestVersion": true,
     "Url": "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
     "Pattern": "\"name\":\\s*\"VeraCrypt_Setup_x64_(.+?)\\.msi\"",
     "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*VeraCrypt_Setup_x64_[^\"]*\\.msi)\""
