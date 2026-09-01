@@ -34,3 +34,21 @@ that breaks a PS packager will usually break the matching Packr
 definition the same week. When a PS packager gains a fixed URL or
 pattern, port the fix to the matching definition here in the same
 sitting.
+
+## Known-broken definitions (2026-08-31 sweep + stage probe)
+
+- **obsidian.json** — version scrape OK, download 404 (GitHub release
+  asset naming drift; re-derive the asset URL pattern).
+- **wiztree.json** — download URL now returns an HTML page (vendor
+  added a wall or moved the direct link); needs a new direct URL or
+  the app is no longer auto-packagable.
+- **pycharm.json** — scraper/download/signature fixed and verified
+  2026-08-31 (JetBrains unified installer), but the ARP detection key
+  changed; needs a lab install retest before the FULL PASS verdict is
+  trusted.
+- **filezilla.json / foxitreader.json** — on the harness skip list for
+  installer behavior (not download walls); unchanged.
+- **tableaudesktop/prep/reader, vmwaretools** — behind vendor
+  login/EULA walls; not auto-packagable. Citrix Workspace CR, XenCenter,
+  and XenServer VM Tools are NOT walled (verified staged 2026-08-31);
+  only Citrix LTSR variants are.
