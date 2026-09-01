@@ -22,6 +22,8 @@ public sealed class MecmTarget
         Action<string>? onProgress = null,
         StageCommandOverrides? commandOverrides = null,
         ConditionTemplateDocument? conditionTemplates = null,
+        IReadOnlyList<StageRequirement>? requirements = null,
+        string? providerMachine = null,
         CancellationToken ct = default)
     {
         try
@@ -74,10 +76,10 @@ public sealed class MecmTarget
             // 2. Build the PowerShell script for CM app creation
             onProgress?.Invoke("Connecting to MECM...");
             var psScript = manifest.InstallerType?.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
-                ? BuildMsixMecmScript(manifest, appName, networkContentPath, siteCode, comment)
+                ? BuildMsixMecmScript(manifest, appName, networkContentPath, siteCode, comment, providerMachine)
                 : BuildPackageScript(manifest, appName, networkContentPath,
                     siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
-                    conditionTemplates, commandOverrides, onProgress);
+                    conditionTemplates, commandOverrides, onProgress, requirements, providerMachine);
 
             // 3. Execute via Windows PowerShell 5.1
             var result = await RunWindowsPowerShellAsync(psScript, onProgress, ct);
@@ -127,7 +129,9 @@ public sealed class MecmTarget
         string siteCode, string comment, int estRuntime, int maxRuntime,
         ConditionTemplateDocument? conditionTemplates = null,
         StageCommandOverrides? commandOverrides = null,
-        Action<string>? onLog = null)
+        Action<string>? onLog = null,
+        IReadOnlyList<StageRequirement>? requirements = null,
+        string? providerMachine = null)
     {
         var specs = DeploymentTypeSpecResolver.Resolve(manifest, networkContentPath, appName);
         var isMultiDt = DeploymentTypeSpecResolver.IsMultiDeploymentType(specs, appName);
@@ -136,6 +140,7 @@ public sealed class MecmTarget
 
         DeploymentTypeSpecResolver.ApplyCommandOverrides(
             specs, commandOverrides ?? manifest.CommandOverrides, appName, onLog);
+        DeploymentTypeSpecResolver.ApplyRequirements(specs, requirements, appName, onLog);
 
         var templates = conditionTemplates ?? ConditionTemplateService.Defaults();
         var resolvedRules = specs
@@ -143,7 +148,7 @@ public sealed class MecmTarget
             .ToList();
 
         var sb = new StringBuilder();
-        AppendCmPreamble(sb, siteCode);
+        AppendCmPreamble(sb, siteCode, providerMachine);
         sb.AppendLine("Write-Host 'Connected to MECM'");
         if (resolvedRules.Any(r => r.Count > 0))
             sb.AppendLine(RequirementRuleBuilder.BuildGlobalConditionFunction());
@@ -334,7 +339,7 @@ public sealed class MecmTarget
     /// </summary>
     private static string BuildMsixMecmScript(
         StageManifest manifest, string appName, string networkContentPath,
-        string siteCode, string comment)
+        string siteCode, string comment, string? providerMachine = null)
     {
         var sb = new StringBuilder();
 
@@ -346,7 +351,7 @@ public sealed class MecmTarget
 
         // Create PSDrive if needed
         sb.AppendLine($"if (-not (Get-PSDrive -Name '{siteCode}' -ErrorAction SilentlyContinue)) {{");
-        sb.AppendLine($"    New-PSDrive -Name '{siteCode}' -PSProvider CMSite -Root $env:COMPUTERNAME | Out-Null");
+        sb.AppendLine($"    New-PSDrive -Name '{siteCode}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
         sb.AppendLine("}");
         sb.AppendLine($"Set-Location '{siteCode}:'");
         sb.AppendLine("Write-Host 'Connected to MECM'");
@@ -403,10 +408,11 @@ public sealed class MecmTarget
     /// </summary>
     public async Task<bool> DistributeAsync(
         string appName, string siteCode, string dpGroupName = "All DPs",
-        Action<string>? onProgress = null, CancellationToken ct = default)
+        Action<string>? onProgress = null, string? providerMachine = null,
+        CancellationToken ct = default)
     {
         var sb = new StringBuilder();
-        AppendCmPreamble(sb, siteCode);
+        AppendCmPreamble(sb, siteCode, providerMachine);
         sb.AppendLine($"Start-CMContentDistribution -ApplicationName '{Esc(appName)}' -DistributionPointGroupName '{Esc(dpGroupName)}' -ErrorAction Stop");
         sb.AppendLine($"Write-Host 'Distributed: {Esc(appName)} to {Esc(dpGroupName)}'");
 
@@ -423,10 +429,11 @@ public sealed class MecmTarget
     public async Task<bool> DeployAsync(
         string appName, string siteCode, string collectionName,
         string purpose = "Required", bool overrideServiceWindow = true,
-        Action<string>? onProgress = null, CancellationToken ct = default)
+        Action<string>? onProgress = null, string? providerMachine = null,
+        CancellationToken ct = default)
     {
         var sb = new StringBuilder();
-        AppendCmPreamble(sb, siteCode);
+        AppendCmPreamble(sb, siteCode, providerMachine);
 
         sb.Append($"New-CMApplicationDeployment -Name '{Esc(appName)}'");
         sb.Append($" -CollectionName '{Esc(collectionName)}'");
@@ -447,17 +454,27 @@ public sealed class MecmTarget
         return result.ExitCode == 0;
     }
 
-    private static void AppendCmPreamble(StringBuilder sb, string siteCode)
+    private static void AppendCmPreamble(StringBuilder sb, string siteCode, string? providerMachine = null)
     {
         sb.AppendLine("$ErrorActionPreference = 'Stop'");
         sb.AppendLine("$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\\ConfigurationManager.psd1'");
         sb.AppendLine("if (Test-Path $cmModule) { Import-Module $cmModule }");
         sb.AppendLine("else { Import-Module ConfigurationManager }");
         sb.AppendLine($"if (-not (Get-PSDrive -Name '{siteCode}' -ErrorAction SilentlyContinue)) {{");
-        sb.AppendLine($"    New-PSDrive -Name '{siteCode}' -PSProvider CMSite -Root $env:COMPUTERNAME | Out-Null");
+        sb.AppendLine($"    New-PSDrive -Name '{siteCode}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
         sb.AppendLine("}");
         sb.AppendLine($"Set-Location '{siteCode}:'");
     }
+
+    /// <summary>
+    /// The CMSite drive root. $env:COMPUTERNAME only reaches the site when
+    /// the console host is itself the SMS provider, so a configured
+    /// provider host replaces it.
+    /// </summary>
+    private static string CmSiteRoot(string? providerMachine) =>
+        string.IsNullOrWhiteSpace(providerMachine)
+            ? "$env:COMPUTERNAME"
+            : $"'{Esc(providerMachine.Trim())}'";
 
     private static string Esc(string value) => value.Replace("'", "''");
 

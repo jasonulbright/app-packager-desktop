@@ -7,7 +7,11 @@ using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
 
-public class PackagerExecutionService(SettingsService settingsService, StagingService stagingService)
+public class PackagerExecutionService(
+    SettingsService settingsService,
+    StagingService stagingService,
+    IntuneDeploymentService intuneDeploymentService,
+    DeploymentConditionsService deploymentConditionsService)
 {
     private static readonly TimeSpan GetLatestTimeout = TimeSpan.FromSeconds(30);
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -87,17 +91,23 @@ public class PackagerExecutionService(SettingsService settingsService, StagingSe
     }
 
     /// <summary>
-    /// Runs a packager with -PackageOnly, streaming stdout line-by-line via the callback.
+    /// Runs the Package phase for the configured deployment target: the MECM application,
+    /// an Intune Win32 publish, or both.
     /// </summary>
     public async Task<PackagerExecutionResult> PackageAsync(
         PackagerInfo packager, string comment, Action<string>? onOutputLine = null, CancellationToken ct = default)
     {
+        if (packager.StagedManifestPath is not null)
+            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct);
+
+        var settings = settingsService.Load();
+        var target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
+
         // Route JSON-defined apps through the engine's MecmTarget
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
-            var appSettings = settingsService.Load();
-            var manifestPath = Path.Combine(appSettings.DownloadRoot,
+            var manifestPath = Path.Combine(settings.DownloadRoot,
                 $"{def.Application.Replace(" ", "")}-{def.Architecture}",
                 packager.LatestVersion, "stage-manifest.json");
 
@@ -108,27 +118,146 @@ public class PackagerExecutionService(SettingsService settingsService, StagingSe
             var manifest = manifestService.Read(manifestPath);
             var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
 
-            var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
-            var result = await mecmTarget.PackageAsync(
-                manifest, stagedContentPath, appSettings.SiteCode, appSettings.FileShareRoot, comment,
-                appSettings.EstimatedRuntimeMins, appSettings.MaximumRuntimeMins,
-                line =>
-                {
-                    if (onOutputLine is not null)
-                        System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
-                }, ct);
+            void Report(string line)
+            {
+                if (onOutputLine is not null)
+                    System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+            }
+
+            var mecmSucceeded = true;
+            var stdOut = "";
+            var stdErr = "";
+
+            // Operator selections resolve before any target runs: a variant split rewrites
+            // the manifest into gated deployment types, a plain selection stays flat rules
+            // on the single deployment type.
+            var conditions = deploymentConditionsService.GetConditions(def.Id);
+            DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, stagedContentPath, Report);
+            var requirements = DeploymentConditionsService.BuildRequirements(conditions);
+            var commandOverrides = deploymentConditionsService.GetCommandOverrides(def.Id);
+
+            // An Intune-only run stops at the staged content: no site connection, no share
+            // copy, no MECM application. The build and publish below work from local content.
+            if (!DeploymentTargets.SkipsMecm(target))
+            {
+                var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
+                var result = await mecmTarget.PackageAsync(
+                    manifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
+                    settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
+                    Report,
+                    commandOverrides: commandOverrides,
+                    conditionTemplates: new ApplicationPackagerEngine.Services.ConditionTemplateService()
+                        .Load(warning => onOutputLine?.Invoke(warning)),
+                    requirements: requirements,
+                    providerMachine: settings.ProviderMachine,
+                    ct: ct);
+
+                mecmSucceeded = result.Success;
+                stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
+                stdErr = result.ErrorMessage ?? "";
+            }
+            else
+            {
+                Report("Intune only: skipping MECM application, site connection, and share copy.");
+                stdOut = $"Staged content ready: {stagedContentPath}";
+            }
+
+            var notes = IntuneRunNotes.None;
+            if (DeploymentTargets.PublishesToIntune(target) && mecmSucceeded)
+            {
+                notes = await intuneDeploymentService.BuildAndPublishAsync(
+                    manifest, stagedContentPath, Report, comment, ct);
+            }
 
             return new PackagerExecutionResult
             {
-                ExitCode = result.Success ? 0 : 1,
-                StdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "",
-                StdErr = result.ErrorMessage ?? ""
+                ExitCode = mecmSucceeded ? 0 : 1,
+                StdOut = stdOut,
+                StdErr = stdErr,
+                IntuneWinNote = notes.IntuneWinNote,
+                IntunePublishNote = notes.PublishNote
             };
         }
 
-        var settings = settingsService.Load();
+        // A PS1 packager owns its own MECM flow and writes no manifest this layer can read, so
+        // there is nothing to build a .intunewin from. Under Intune only, running it anyway
+        // would create the MECM application the target asked to skip.
+        if (DeploymentTargets.SkipsMecm(target))
+        {
+            return new PackagerExecutionResult
+            {
+                ExitCode = 1,
+                StdErr = "Deployment target is Intune only, and Intune publishing applies to JSON-defined apps. This PS1 packager was not run.",
+                IntunePublishNote = "skipped; PS1 packagers publish to MECM only."
+            };
+        }
+        if (DeploymentTargets.PublishesToIntune(target))
+            onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the MECM flow only.");
+
         var (args, logPaths) = BuildPackageArgs(packager, settings, comment);
         return await RunStreamingAsync(args, logPaths, onOutputLine, ct);
+    }
+
+    // ── Ad-hoc drop: manifest-direct packaging ───────────────────
+
+    /// <summary>
+    /// Packages an already-staged content folder from its stage manifest. A dropped installer
+    /// has no definition and no acquisition version, so the manifest path is the only handle
+    /// on its staged content; everything downstream is the same per-target flow.
+    /// </summary>
+    public async Task<PackagerExecutionResult> PackageStagedManifestAsync(
+        string manifestPath, string comment, Action<string>? onOutputLine = null, CancellationToken ct = default)
+    {
+        if (!File.Exists(manifestPath))
+            return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
+
+        var settings = settingsService.Load();
+        var target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
+        var manifest = new ManifestService().Read(manifestPath);
+        var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
+
+        void Report(string line)
+        {
+            if (onOutputLine is not null)
+                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+        }
+
+        var mecmSucceeded = true;
+        var stdOut = "";
+        var stdErr = "";
+
+        if (!DeploymentTargets.SkipsMecm(target))
+        {
+            var result = await new MecmTarget().PackageAsync(
+                manifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
+                settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
+                Report,
+                conditionTemplates: new ConditionTemplateService().Load(warning => onOutputLine?.Invoke(warning)),
+                providerMachine: settings.ProviderMachine,
+                ct: ct);
+
+            mecmSucceeded = result.Success;
+            stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
+            stdErr = result.ErrorMessage ?? "";
+        }
+        else
+        {
+            Report("Intune only: skipping MECM application, site connection, and share copy.");
+            stdOut = $"Staged content ready: {stagedContentPath}";
+        }
+
+        var notes = IntuneRunNotes.None;
+        if (DeploymentTargets.PublishesToIntune(target) && mecmSucceeded)
+            notes = await intuneDeploymentService.BuildAndPublishAsync(manifest, stagedContentPath, Report, comment, ct);
+
+        return new PackagerExecutionResult
+        {
+            ExitCode = mecmSucceeded ? 0 : 1,
+            StdOut = stdOut,
+            StdErr = stdErr,
+            IntuneWinNote = notes.IntuneWinNote,
+            IntunePublishNote = notes.PublishNote
+        };
     }
 
     // ── Process helpers ──────────────────────────────────────────

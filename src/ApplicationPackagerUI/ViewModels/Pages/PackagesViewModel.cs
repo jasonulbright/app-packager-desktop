@@ -13,6 +13,8 @@ public partial class PackagesViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly ISnackbarService _snackbarService;
     private readonly IContentDialogService _contentDialogService;
+    private readonly ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService _dropAnalysisService;
+    private readonly ApplicationPackagerEngine.Services.StagingService _stagingService;
 
     [ObservableProperty] private ObservableCollection<PackagerInfo> _packagers = [];
     [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
@@ -42,8 +44,12 @@ public partial class PackagesViewModel : ObservableObject
         MecmQueryService mecmQueryService,
         SettingsService settingsService,
         ISnackbarService snackbarService,
-        IContentDialogService contentDialogService)
+        IContentDialogService contentDialogService,
+        ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService dropAnalysisService,
+        ApplicationPackagerEngine.Services.StagingService stagingService)
     {
+        _dropAnalysisService = dropAnalysisService;
+        _stagingService = stagingService;
         _discoveryService = discoveryService;
         _executionService = executionService;
         _mecmQueryService = mecmQueryService;
@@ -57,7 +63,18 @@ public partial class PackagesViewModel : ObservableObject
         StageCommand = new AsyncRelayCommand(StageAsync, CanRunOperation);
         PackageCommand = new AsyncRelayCommand(PackageAsync, CanRunOperation);
 
-        _ = LoadPackagersCommand.ExecuteAsync(null);
+        _ = InitializeAsync();
+    }
+
+    private async Task InitializeAsync()
+    {
+        await LoadPackagersCommand.ExecuteAsync(null);
+
+        var pendingDrop = ReadStartupDropPath();
+        if (pendingDrop is null) return;
+
+        AddLogLine($"Startup: analysing installer from --analyze-drop: {pendingDrop}");
+        await AnalyzeDroppedInstallerCommand.ExecuteAsync(pendingDrop);
     }
 
     private bool CanRunOperation() => !IsOperationRunning;
@@ -245,6 +262,21 @@ public partial class PackagesViewModel : ObservableObject
         // TODO: re-enable after testing. Disabled to allow manual JSON validation.
         if (false && settings.AutoCheckLatestOnLaunch)
             _ = AutoCheckLatestAsync();
+    }
+
+    /// <summary>
+    /// Reads a --analyze-drop &lt;path&gt; startup argument. Drives the drop review flow without
+    /// a real drag-drop, which no automation harness can synthesise across processes.
+    /// </summary>
+    private static string? ReadStartupDropPath()
+    {
+        var args = Environment.GetCommandLineArgs();
+        for (var i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i].Equals("--analyze-drop", StringComparison.OrdinalIgnoreCase))
+                return args[i + 1];
+        }
+        return null;
     }
 
     private async Task TestMecmConnectionAsync()
@@ -623,6 +655,8 @@ public partial class PackagesViewModel : ObservableObject
                         AddLogLine($"Package FAILED (exit {result.ExitCode})");
                         LogStdErr(result.StdErr);
                     }
+
+                    LogIntuneNotes(p, result);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
@@ -647,12 +681,269 @@ public partial class PackagesViewModel : ObservableObject
         }
     }
 
+    // ── Drop-to-package intake ───────────────────────────────────
+
+    private static readonly string[] DroppableExtensions = [".msi", ".exe"];
+
+    /// <summary>
+    /// Entry point for a file drop. Only a single .msi or .exe is analysable; anything else
+    /// is logged and ignored rather than guessed at.
+    /// </summary>
+    [RelayCommand]
+    private async Task HandleDroppedFilesAsync(string[]? paths)
+    {
+        if (paths is null || paths.Length == 0) return;
+
+        if (paths.Length > 1)
+        {
+            AddLogLine($"Drop ignored: {paths.Length} files dropped, one installer at a time.");
+            return;
+        }
+
+        var path = paths[0];
+        var extension = Path.GetExtension(path);
+        if (!DroppableExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            AddLogLine($"Drop ignored: {Path.GetFileName(path)} is not an .msi or .exe.");
+            return;
+        }
+
+        await AnalyzeDroppedInstallerAsync(path);
+    }
+
+    /// <summary>
+    /// Analyses one dropped installer and opens the review dialog. Exposed as a command so the
+    /// flow can be driven without a real drag-drop.
+    /// </summary>
+    [RelayCommand]
+    private async Task AnalyzeDroppedInstallerAsync(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+
+        AddLogLine($"Drop: analysing {Path.GetFileName(path)}...");
+
+        ApplicationPackagerEngine.Services.DroppedInstallerAnalysis analysis;
+        try
+        {
+            analysis = await _dropAnalysisService.AnalyzeAsync(path, deepInspect: true);
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Drop analysis failed: {ex.Message}");
+            return;
+        }
+
+        AddLogLine($"  Engine: {analysis.Engine} ({analysis.InstallerType}), confidence: {analysis.Confidence}");
+        if (analysis.RequiresConfirmation)
+            AddLogLine("  Predicted values present. Confirm them in the review dialog before staging.");
+
+        var panel = new DropReviewPanel();
+        panel.Load(analysis);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Installer drop",
+            Content = panel,
+            PrimaryButtonText = "Stage",
+            SecondaryButtonText = "Save as definition",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+            IsPrimaryButtonEnabled = panel.IsConfirmed,
+            IsSecondaryButtonEnabled = panel.IsConfirmed
+        };
+        panel.ConfirmationChanged += (_, _) =>
+        {
+            dialog.IsPrimaryButtonEnabled = panel.IsConfirmed;
+            dialog.IsSecondaryButtonEnabled = panel.IsConfirmed;
+        };
+
+        var choice = await _contentDialogService.ShowAsync(dialog, CancellationToken.None);
+        if (choice == ContentDialogResult.None)
+        {
+            AddLogLine("Drop cancelled.");
+            return;
+        }
+
+        var problem = panel.Validate();
+        if (problem is not null)
+        {
+            AddLogLine($"Drop rejected: {problem}");
+            _snackbarService.Show("Installer drop", problem,
+                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(3));
+            return;
+        }
+
+        var overrides = panel.ReadOverrides();
+        if (choice == ContentDialogResult.Secondary)
+            SaveDroppedInstallerAsDefinition(analysis, overrides, panel.IsConfirmed);
+        else
+            await StageDroppedInstallerAsync(analysis, overrides, panel.IsConfirmed);
+    }
+
+    private async Task StageDroppedInstallerAsync(
+        ApplicationPackagerEngine.Services.DroppedInstallerAnalysis analysis,
+        ApplicationPackagerEngine.Services.DroppedInstallerOverrides overrides,
+        bool confirmed)
+    {
+        var settings = _settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.DownloadRoot))
+        {
+            AddLogLine("Stage: DownloadRoot is not configured. Open Settings.");
+            return;
+        }
+
+        ApplicationPackagerEngine.Models.StageManifest manifest;
+        try
+        {
+            manifest = _dropAnalysisService.BuildStageManifest(analysis, overrides, confirmed);
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Stage refused: {ex.Message}");
+            return;
+        }
+
+        manifest.DetectedEngine = analysis.Engine;
+        manifest.AdHocSource = analysis.Path;
+
+        IsOperationRunning = true;
+        StatusText = $"Staging dropped installer: {manifest.AppName}";
+        AddLogLine($"Stage: {manifest.AppName} {manifest.SoftwareVersion} (dropped installer)");
+
+        try
+        {
+            var result = await _stagingService.StageDroppedInstallerAsync(
+                manifest, analysis.Path, settings.DownloadRoot, line => AddLogLine($"  {line}"));
+
+            if (!result.Success)
+            {
+                AddLogLine($"Stage FAILED: {result.ErrorMessage}");
+                StatusText = "Stage failed.";
+                return;
+            }
+
+            AddLogLine($"Staged: {result.ContentPath}");
+            AddDroppedPackagerRow(manifest, analysis, result.ManifestPath!);
+            StatusText = $"Staged {manifest.AppName}. Select the row and Package to continue.";
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Stage ERROR: {ex.Message}");
+        }
+        finally
+        {
+            IsOperationRunning = false;
+        }
+    }
+
+    /// <summary>
+    /// Adds the staged drop to the grid as a normal run row so Package uses the same flow.
+    /// </summary>
+    private void AddDroppedPackagerRow(
+        ApplicationPackagerEngine.Models.StageManifest manifest,
+        ApplicationPackagerEngine.Services.DroppedInstallerAnalysis analysis,
+        string manifestPath)
+    {
+        var row = new PackagerInfo
+        {
+            Uid = $"drop-{Guid.NewGuid():N}"[..20],
+            Vendor = manifest.Publisher,
+            Application = manifest.AppName,
+            CMName = manifest.AppName,
+            Script = analysis.FileName,
+            FullPath = analysis.Path,
+            Description = $"{manifest.InstallerType} ({analysis.Engine})",
+            StagedManifestPath = manifestPath,
+            LatestVersion = manifest.SoftwareVersion,
+            Status = "Staged",
+            IsSelected = true
+        };
+
+        Packagers.Add(row);
+        ApplyFilter();
+    }
+
+    private void SaveDroppedInstallerAsDefinition(
+        ApplicationPackagerEngine.Services.DroppedInstallerAnalysis analysis,
+        ApplicationPackagerEngine.Services.DroppedInstallerOverrides overrides,
+        bool confirmed)
+    {
+        ApplicationPackagerEngine.Models.AppDefinition definition;
+        try
+        {
+            definition = _dropAnalysisService.BuildDefinition(analysis, overrides, confirmed);
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Save as definition refused: {ex.Message}");
+            return;
+        }
+
+        var definitionsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
+        var fileName = SanitizeDefinitionFileName(definition.Application);
+        if (fileName.Length == 0)
+        {
+            AddLogLine("Save as definition failed: the application name contains no usable filename characters.");
+            return;
+        }
+
+        var target = Path.Combine(definitionsDir, $"{fileName}.json");
+        if (File.Exists(target))
+        {
+            AddLogLine($"Save as definition refused: {Path.GetFileName(target)} already exists. Existing definitions are never overwritten.");
+            _snackbarService.Show("Save as definition", $"{Path.GetFileName(target)} already exists.",
+                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(definitionsDir);
+            var json = System.Text.Json.JsonSerializer.Serialize(definition,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(target, json);
+            AddLogLine($"Saved definition: {target}");
+            AddLogLine("  Acquisition is unset — a dropped file carries no origin URL. Fill in the download URL and version scraper before Check Latest works.");
+            _ = LoadPackagersCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            AddLogLine($"Save as definition failed: {ex.Message}");
+        }
+    }
+
+    private static string SanitizeDefinitionFileName(string application)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string([.. application.Where(c => !invalid.Contains(c) && c != ' ')]);
+        return cleaned.ToLowerInvariant();
+    }
+
     // ── Helpers ───────────────────────────────────────────────────
 
     private void ShowNoneSelected(string operation)
     {
         _snackbarService.Show(operation, "No packagers selected.",
             Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(2));
+    }
+
+    /// <summary>Mirrors the Intune post-step outcome into the run log and the grid's note column.</summary>
+    private void LogIntuneNotes(PackagerInfo packager, PackagerExecutionResult result)
+    {
+        var notes = new List<string>();
+
+        if (!string.IsNullOrEmpty(result.IntuneWinNote))
+        {
+            AddLogLine($"Intunewin: {result.IntuneWinNote}");
+            notes.Add(result.IntuneWinNote);
+        }
+        if (!string.IsNullOrEmpty(result.IntunePublishNote))
+        {
+            AddLogLine($"Intune publish: {result.IntunePublishNote}");
+            notes.Add(result.IntunePublishNote);
+        }
+
+        packager.IntuneNote = string.Join(" — ", notes);
     }
 
     private void LogStdErr(string stderr)

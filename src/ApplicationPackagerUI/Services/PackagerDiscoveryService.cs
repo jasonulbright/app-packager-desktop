@@ -230,6 +230,43 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         }, ct);
     }
 
+    /// <summary>
+    /// The JSON app definitions themselves, for callers that need fields
+    /// the PackagerInfo projection drops. Sorted by vendor then application.
+    /// </summary>
+    public async Task<List<AppDefinition>> LoadDefinitionsAsync(CancellationToken ct = default)
+    {
+        return await Task.Run(() =>
+        {
+            var results = new List<AppDefinition>();
+            var defsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
+            if (!Directory.Exists(defsDir)) return results;
+
+            foreach (var jsonPath in Directory.GetFiles(defsDir, "*.json"))
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var def = JsonSerializer.Deserialize<AppDefinition>(
+                        File.ReadAllText(jsonPath), JsonOptions);
+                    if (def is null || string.IsNullOrEmpty(def.Id)) continue;
+                    def.SourcePath = jsonPath;
+                    results.Add(def);
+                }
+                catch { }
+            }
+
+            results.Sort((a, b) =>
+            {
+                var vendor = string.Compare(a.Vendor, b.Vendor, StringComparison.OrdinalIgnoreCase);
+                return vendor != 0
+                    ? vendor
+                    : string.Compare(a.Application, b.Application, StringComparison.OrdinalIgnoreCase);
+            });
+            return results;
+        }, ct);
+    }
+
     private sealed record ScriptMetadata(
         string? Uid, string? Vendor, string? Application, string? CMName,
         string? VendorUrl, string? Description);
