@@ -14,6 +14,67 @@ All notable changes to Packr are documented here.
 ### Parity
 - Parity work with app-packager begins: features shipped there are being ported here, tracked per feature.
 
+## [2.2.0-alpha1] - 2026-08-31
+
+Feature parity with app-packager v1.4.0.14. Every ported behavior comes
+from the live-tested PowerShell implementation; the multi-DT and
+requirement-rule script generation was re-validated on the CM lab from
+this engine's output.
+
+### Engine
+- **Stage manifest schema v3** — recursive FileHashes with write-time
+  verification; DeploymentTypes, Requirements, CommandOverrides, and
+  drop-to-package provenance fields; v2 manifests still read cleanly.
+- **Deployment conditions** — condition template document (CPU
+  architecture WQL, OS language built-in with PlatformType narrowing,
+  VPN-connected script condition with configurable adapter patterns),
+  global conditions get-or-created by name with a read-back guard, and
+  requirement rules attached per deployment type. Requirements can also
+  apply to a single-DT app via an explicit parameter.
+- **Multi-deployment-type applications** — DeploymentTypes manifest
+  entries create most-specific-first; version replaces stage the whole
+  new set before removing the old; unchanged reruns validate every DT
+  and exit idempotently. Duplicate-name/missing-suffix/missing-detection
+  specs fail before anything is created.
+- **Command overrides** — explicit override beats the manifest record;
+  flat overrides are refused on multi-DT manifests.
+- **Intune Win32 publishing** — IntuneWinAppUtil download with
+  Authenticode/Microsoft-signer verification, .intunewin build and
+  metadata/encryption-info reader, and the full Graph v1.0 publish flow
+  on native HttpClient: create-or-update by display name, chunked
+  block-blob upload, commit with file encryption info, committed
+  version patch.
+- **Drop-to-package analysis** — byte-signature installer
+  identification (no 7z dependency), 19-engine silent-switch database,
+  proposed fields marked Confirmed/Predicted with provenance, MSI
+  identity authoritative, per-user ARP key routing, stage-manifest and
+  definition graduation.
+- **Provider host threading** — the generated MECM scripts accept a
+  configured site server instead of assuming the local machine.
+- Microsoft.Data.Sqlite 10.0.11 (clears the transitive SQLitePCLRaw
+  advisory).
+
+### UI
+- **Settings**: Deployment Target (MECM only / MECM + Intune / Intune
+  only), Intune tenant/client/secret (DPAPI-protected at rest), Site
+  Server host.
+- **Deployment Conditions page**: per-app Architecture / OS languages /
+  Network / Variant split / Commands grid plus editable condition
+  names; selections persist and flow into packaging (variant splits
+  mirror the PowerShell packagers' gating patterns).
+- **Command override editor** with shipped-default watermarks and
+  one-click revert; grid button reads Default/Modified.
+- **Drop-to-package**: drag an .msi/.exe onto Packages, review every
+  proposed field with Confirmed/Predicted badges, confirm-gated Stage,
+  save-as-definition; staged drops package through the normal pipeline.
+- **Intune-only runs** skip MECM entirely (no site, no share); per-run
+  Intunewin/Intune-publish notes in the grid and live log.
+
+### Tests
+- Engine suite 41 → 182 (manifest v3, condition templates, spec
+  resolver, script builder, Intune reader/rules/publish flow, signature
+  scanner, silent switches, drop analysis).
+
 ## [2.1.0-alpha8] - 2026-04-05
 
 ### Engine - Uninstall Wrapper Fixes

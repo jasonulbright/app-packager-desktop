@@ -25,7 +25,12 @@ public class SettingsService
         try
         {
             var json = File.ReadAllText(SettingsPath);
-            return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+            // Settings written before the Intune target existed carry no section, or a section
+            // with no target; both resolve to MECM only.
+            settings.Intune ??= new IntuneSettings();
+            settings.Intune.DeploymentTarget = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
+            return settings;
         }
         catch
         {

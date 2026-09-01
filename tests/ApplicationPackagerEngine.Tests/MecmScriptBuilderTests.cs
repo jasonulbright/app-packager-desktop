@@ -22,9 +22,10 @@ public sealed class MecmScriptBuilderTests
     };
 
     private static string Build(StageManifest manifest, StageCommandOverrides? overrides = null,
-        Action<string>? onLog = null) =>
+        Action<string>? onLog = null, IReadOnlyList<StageRequirement>? requirements = null,
+        string? providerMachine = null) =>
         MecmTarget.BuildPackageScript(manifest, manifest.AppName, Content, "P01", "comment",
-            15, 30, ConditionTemplateService.Defaults(), overrides, onLog);
+            15, 30, ConditionTemplateService.Defaults(), overrides, onLog, requirements, providerMachine);
 
     [Fact]
     public void SingleDeploymentType_CreatesOneDtNamedAfterTheApp()
@@ -165,6 +166,60 @@ public sealed class MecmScriptBuilderTests
 
         Assert.DoesNotContain("setup.exe /s", script);
         Assert.Contains(log, l => l.Contains("ignored"));
+    }
+
+    [Fact]
+    public void NoProviderMachine_LeavesTheDriveRootOnTheLocalMachine()
+    {
+        var script = Build(Manifest());
+
+        Assert.Contains("-PSProvider CMSite -Root $env:COMPUTERNAME", script);
+    }
+
+    [Fact]
+    public void ProviderMachine_BecomesTheCmSiteDriveRoot()
+    {
+        var script = Build(Manifest(), providerMachine: "cm01.contoso.com");
+
+        Assert.Contains("-PSProvider CMSite -Root 'cm01.contoso.com'", script);
+        Assert.DoesNotContain("$env:COMPUTERNAME", script);
+    }
+
+    [Fact]
+    public void ExplicitRequirements_AttachToTheSingleDeploymentType()
+    {
+        var script = Build(Manifest(), requirements:
+        [
+            new StageRequirement { ConditionId = "cpu-arch", Value = "x64" },
+            new StageRequirement { ConditionId = "vpn-connected", Value = true }
+        ]);
+
+        Assert.Contains("-Value1 '9'", script);
+        Assert.Contains("New-CMRequirementRuleBooleanValue", script);
+        Assert.Contains("-AddRequirement @($dt0_req0, $dt0_req1)", script);
+    }
+
+    [Fact]
+    public void ExplicitRequirements_AreRefusedOnMultiDeploymentTypeManifests()
+    {
+        var manifest = Manifest();
+        manifest.DeploymentTypes =
+        [
+            new StageDeploymentType
+            {
+                NameSuffix = "ARM64",
+                Requirements = [new StageRequirement { ConditionId = "cpu-arch", Value = "ARM64" }]
+            },
+            new StageDeploymentType { NameSuffix = "x64" }
+        ];
+        var log = new List<string>();
+
+        var script = Build(manifest, onLog: log.Add,
+            requirements: [new StageRequirement { ConditionId = "vpn-connected", Value = true }]);
+
+        // The variant entries keep their own rules and the fallback stays unconditional.
+        Assert.DoesNotContain("New-CMRequirementRuleBooleanValue", script);
+        Assert.Contains(log, l => l.Contains("Requirement rules ignored"));
     }
 
     [Fact]

@@ -9,6 +9,9 @@ public partial class PackagerInfo : ObservableObject
     [ObservableProperty] private string _status = "Ready";
     [ObservableProperty] private DateTime? _lastChecked;
 
+    /// <summary>Intune build and publish outcome for the most recent Package run.</summary>
+    [ObservableProperty] private string _intuneNote = "";
+
     // Immutable metadata — set once during discovery
     /// <summary>Internal unique identifier. Never displayed to user.</summary>
     public string Uid { get; init; } = "";
@@ -24,6 +27,12 @@ public partial class PackagerInfo : ObservableObject
     public bool IsJsonDefined { get; init; }
     /// <summary>Path to the .json definition file (null for PS1 scripts).</summary>
     public string? DefinitionPath { get; init; }
+
+    /// <summary>
+    /// Stage manifest of an ad-hoc dropped installer. Set, the row packages straight from
+    /// that manifest instead of resolving one from a definition and a version folder.
+    /// </summary>
+    public string? StagedManifestPath { get; set; }
 
     public bool IsRunnable => true;
 

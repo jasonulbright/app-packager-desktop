@@ -139,6 +139,29 @@ public static class DeploymentTypeSpecResolver
     }
 
     /// <summary>
+    /// Applies operator requirement specs to the single deployment type.
+    /// A multi-deployment-type manifest carries per-variant requirements
+    /// that are authoritative, so the flat set is refused rather than
+    /// applied to every variant.
+    /// </summary>
+    public static void ApplyRequirements(
+        IReadOnlyList<DeploymentTypeSpec> specs,
+        IReadOnlyList<StageRequirement>? requirements,
+        string appName,
+        Action<string>? onLog = null)
+    {
+        if (requirements is null || requirements.Count == 0) return;
+
+        if (IsMultiDeploymentType(specs, appName))
+        {
+            onLog?.Invoke("Requirement rules ignored: a DeploymentTypes manifest carries per-deployment-type Requirements.");
+            return;
+        }
+
+        specs[0].Requirements = [.. requirements.Where(r => r is not null)];
+    }
+
+    /// <summary>
     /// A detection is usable when it names a type and carries at least one
     /// locator field. The C# model always materializes a Detection object,
     /// so emptiness stands in for the PowerShell null check.

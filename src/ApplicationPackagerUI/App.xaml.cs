@@ -47,6 +47,8 @@ public partial class App : Application
                 services.AddSingleton<PackagerExecutionService>();
                 services.AddSingleton<MecmQueryService>();
                 services.AddSingleton<PackagerPreferencesService>();
+                services.AddSingleton<IntuneDeploymentService>();
+                services.AddSingleton<DeploymentConditionsService>();
 
                 // Engine services (v2.1)
                 services.AddSingleton<ApplicationPackagerEngine.Scrapers.ScraperRegistry>();
@@ -60,6 +62,10 @@ public partial class App : Application
                 services.AddSingleton<ApplicationPackagerEngine.Services.IconExtractionService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.StagingService>();
                 services.AddSingleton<ApplicationPackagerEngine.Services.MecmTarget>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.ConditionTemplateService>();
+                services.AddSingleton(sp => new ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService(
+                    sp.GetRequiredService<ApplicationPackagerEngine.Services.MsiInspectionService>(),
+                    sp.GetRequiredService<ApplicationPackagerEngine.Services.InstallerIdentificationService>()));
 
                 // Windows
                 services.AddSingleton<MainWindow>();
@@ -74,6 +80,8 @@ public partial class App : Application
                 services.AddSingleton<SettingsViewModel>();
                 services.AddSingleton<AddAppPage>();
                 services.AddSingleton<AddAppViewModel>();
+                services.AddSingleton<DeploymentConditionsPage>();
+                services.AddSingleton<DeploymentConditionsViewModel>();
 
                 // Hosted service
                 services.AddHostedService<ApplicationHostService>();

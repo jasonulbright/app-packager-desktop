@@ -84,6 +84,13 @@ public sealed class AppDefinition
     /// </summary>
     public string? DisplayVersionOverride { get; set; }
 
+    /// <summary>
+    /// Variant splits this definition can stage, from the set
+    /// Architecture, Language, Network. Absent or empty means the app
+    /// stages one deployment type only and no split may be selected for it.
+    /// </summary>
+    public string[]? SupportsVariants { get; set; }
+
     /// <summary>Path to the .json file this was loaded from.</summary>
     [JsonIgnore]
     public string SourcePath { get; set; } = "";

@@ -54,6 +54,27 @@ public partial class PackagesPage
         }
     }
 
+    // ── Drop-to-package intake ───────────────────────────────────
+
+    private void Page_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Page_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        e.Handled = true;
+
+        var paths = e.Data.GetData(DataFormats.FileDrop) as string[];
+        var vm = (PackagesViewModel)DataContext!;
+
+        // The OLE drop source blocks until the handler returns; Explorer hangs through
+        // the analysis and the review dialog unless the intake is queued behind it.
+        Dispatcher.BeginInvoke(() => vm.HandleDroppedFilesCommand.ExecuteAsync(paths));
+    }
+
     private void SelectAllCheckBox_Click(object sender, RoutedEventArgs e)
     {
         if (sender is System.Windows.Controls.CheckBox cb)

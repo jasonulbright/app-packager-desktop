@@ -84,6 +84,13 @@
                         PlaceholderText="MCM" MaxLength="5" Width="120" HorizontalAlignment="Left"
                         Margin="0,0,0,12" />
 
+            <TextBlock Text="Site Server / SMS Provider Host" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="cm01.contoso.com" Margin="0,0,0,4"
+                        ToolTip="Host the generated CMSite drive connects to. Leave empty to use the local machine, which only reaches the site when this machine is itself the SMS provider." />
+            <TextBlock Text="Leave empty only when this machine is the SMS provider."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+
             <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
             <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />
@@ -103,6 +110,39 @@
                 <ui:TextBox Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="Auto-detect" />
             </DockPanel>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Intune -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Intune" Style="{StaticResource SectionHeader}" />
+
+            <TextBlock Text="Deployment Target" Style="{StaticResource FieldLabel}" />
+            <ComboBox SelectedValue="{Binding DeploymentTarget}"
+                      SelectedValuePath="Tag"
+                      Width="320" HorizontalAlignment="Left" Margin="0,0,0,4"
+                      ToolTip="Where Package creates applications. MECM only: today's flow. MECM + Intune: the MECM application plus a Graph publish of the .intunewin. Intune only: stage, build the .intunewin, and publish via Graph — no site connection and no share copy. Repeat publishes update the existing Intune app.">
+                <ComboBoxItem Content="MECM only" Tag="MECM" />
+                <ComboBoxItem Content="MECM + Intune" Tag="MECMAndIntune" />
+                <ComboBoxItem Content="Intune only" Tag="IntuneOnly" />
+            </ComboBox>
+            <TextBlock Text="Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,12" />
+
+            <TextBlock Text="Client ID" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="App registration (client) ID" Margin="0,0,0,12" />
+
+            <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
+            <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
+            <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
 
             <Border Style="{StaticResource SectionDivider}" />
 

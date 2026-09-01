@@ -15,6 +15,7 @@ public partial class SettingsViewModel : ObservableObject
 
     // MECM Site
     [ObservableProperty] private string _siteCode = "MCM";
+    [ObservableProperty] private string _providerMachine = "";
     [ObservableProperty] private string _fileShareRoot = @"\\fileserver\sccm$";
     [ObservableProperty] private string _downloadRoot = @"C:\temp\ap";
     [ObservableProperty] private string _packagersRoot = "";
@@ -48,8 +49,27 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _cwaAddStorePolicy = "None";
     [ObservableProperty] private string _cwaSavePassword = "None";
 
+    // Intune
+    [ObservableProperty] private string _deploymentTarget = DeploymentTargets.Mecm;
+    [ObservableProperty] private string _intuneTenantId = "";
+    [ObservableProperty] private string _intuneClientId = "";
+
+    /// <summary>
+    /// Secret entry only. Never loaded from settings and never persisted in this form: an empty
+    /// box on save keeps the stored secret, a typed value replaces it DPAPI-protected.
+    /// </summary>
+    [ObservableProperty] private string _intuneClientSecret = "";
+
+    [ObservableProperty] private bool _hasStoredIntuneSecret;
+
     // UI
     [ObservableProperty] private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
+
+    public string IntuneSecretHint => HasStoredIntuneSecret
+        ? "Stored — leave empty to keep it"
+        : "Not set";
+
+    partial void OnHasStoredIntuneSecretChanged(bool value) => OnPropertyChanged(nameof(IntuneSecretHint));
 
     public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService)
     {
@@ -68,6 +88,7 @@ public partial class SettingsViewModel : ObservableObject
 
         CompanyName = s.CompanyName;
         SiteCode = s.SiteCode;
+        ProviderMachine = s.ProviderMachine;
         FileShareRoot = s.FileShareRoot;
         DownloadRoot = s.DownloadRoot;
         PackagersRoot = s.PackagersRoot;
@@ -94,6 +115,12 @@ public partial class SettingsViewModel : ObservableObject
         CwaAddStorePolicy = s.Cwa.AddStorePolicy;
         CwaSavePassword = s.Cwa.SavePassword;
 
+        DeploymentTarget = DeploymentTargets.Normalize(s.Intune.DeploymentTarget);
+        IntuneTenantId = s.Intune.TenantId;
+        IntuneClientId = s.Intune.ClientId;
+        IntuneClientSecret = "";
+        HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
+
         if (Enum.TryParse<ApplicationTheme>(s.Theme, out var theme))
             CurrentTheme = theme;
     }
@@ -105,6 +132,7 @@ public partial class SettingsViewModel : ObservableObject
 
         s.CompanyName = CompanyName;
         s.SiteCode = SiteCode;
+        s.ProviderMachine = ProviderMachine.Trim();
         s.FileShareRoot = FileShareRoot;
         s.DownloadRoot = DownloadRoot;
         s.PackagersRoot = PackagersRoot;
@@ -134,6 +162,18 @@ public partial class SettingsViewModel : ObservableObject
             AddStorePolicy = CwaAddStorePolicy,
             SavePassword = CwaSavePassword,
         };
+
+        s.Intune.DeploymentTarget = DeploymentTargets.Normalize(DeploymentTarget);
+        s.Intune.TenantId = IntuneTenantId.Trim();
+        s.Intune.ClientId = IntuneClientId.Trim();
+        // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
+        // the current Windows user. The plaintext never reaches settings.json.
+        if (!string.IsNullOrEmpty(IntuneClientSecret))
+        {
+            s.Intune.ClientSecretProtected = IntuneSecretProtector.Protect(IntuneClientSecret);
+            IntuneClientSecret = "";
+        }
+        HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 
         _settingsService.Save(s);
 

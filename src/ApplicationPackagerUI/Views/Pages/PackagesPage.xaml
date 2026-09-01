@@ -4,13 +4,16 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
-    ScrollViewer.CanContentScroll="False">
+    ScrollViewer.CanContentScroll="False"
+    AllowDrop="True"
+    DragOver="Page_DragOver"
+    Drop="Page_Drop">
 
     <Page.Resources>
         <helpers:StatusToBrushConverter x:Key="StatusToBrushConverter" />
     </Page.Resources>
 
-    <Grid Margin="16,12,16,12">
+    <Grid Margin="16,12,16,12" Background="Transparent" AllowDrop="True">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -165,6 +168,8 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="Intune" Binding="{Binding IntuneNote}" Width="220" IsReadOnly="True" />
 
                 <!-- Debug columns (visibility toggled in code-behind) -->
                 <DataGridTextColumn x:Name="ColCMName" Header="CMName" Binding="{Binding CMName}" Width="200" IsReadOnly="True"

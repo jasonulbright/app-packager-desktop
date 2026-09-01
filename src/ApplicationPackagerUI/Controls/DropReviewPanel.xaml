@@ -1,0 +1,98 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Controls.DropReviewPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <StackPanel MinWidth="560">
+        <TextBlock x:Name="FileNameText"
+                   FontSize="14" FontWeight="SemiBold"
+                   TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="DetectedText"
+                   Margin="0,4,0,12"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+        <ItemsControl x:Name="FieldList" AutomationProperties.AutomationId="DropReviewFields">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="{Binding Label}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0" />
+
+                        <ui:TextBox Grid.Row="0" Grid.Column="1"
+                                    Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                    IsReadOnly="{Binding IsReadOnlyValue}"
+                                    AutomationProperties.Name="{Binding Label}"
+                                    TextWrapping="Wrap" />
+
+                        <Border Grid.Row="0" Grid.Column="2"
+                                Margin="8,0,0,0"
+                                Padding="8,2"
+                                CornerRadius="4"
+                                VerticalAlignment="Center">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="#1F2D7D46" />
+                                    <Setter Property="BorderBrush" Value="#2D7D46" />
+                                    <Setter Property="BorderThickness" Value="1" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPredicted}" Value="True">
+                                            <Setter Property="Background" Value="#26E8A317" />
+                                            <Setter Property="BorderBrush" Value="#E8A317" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding BadgeText}"
+                                       FontSize="11"
+                                       AutomationProperties.AutomationId="DropReviewBadge">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#2D7D46" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPredicted}" Value="True">
+                                                <Setter Property="Foreground" Value="#E8A317" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+
+                        <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                   Text="{Binding ProvenanceText}"
+                                   FontSize="11"
+                                   Margin="0,2,0,0"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <CheckBox x:Name="ConfirmCheckBox"
+                  Margin="0,8,0,0"
+                  AutomationProperties.AutomationId="DropReviewConfirm"
+                  Content="I confirmed the predicted values"
+                  Checked="ConfirmCheckBox_Changed"
+                  Unchecked="ConfirmCheckBox_Changed" />
+        <TextBlock x:Name="ConfirmHintText"
+                   Margin="0,4,0,0"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                   />
+    </StackPanel>
+</UserControl>
