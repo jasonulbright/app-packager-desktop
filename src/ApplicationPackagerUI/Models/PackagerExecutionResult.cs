@@ -14,4 +14,13 @@ public sealed class PackagerExecutionResult
 
     /// <summary>Outcome of the Intune publish for this run; empty when the step never ran.</summary>
     public string IntunePublishNote { get; init; } = "";
+
+    /// <summary>
+    /// Set when the run emitted the same-version conflict marker instead of
+    /// packaging. Null on every other outcome.
+    /// </summary>
+    public ExistingApplicationConflict? Conflict { get; init; }
 }
+
+/// <summary>The application and version a Skip run declined to overwrite.</summary>
+public sealed record ExistingApplicationConflict(string ApplicationName, string Version);

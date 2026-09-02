@@ -680,6 +680,9 @@ public partial class PackagesViewModel : ObservableObject
         _operationCts = new CancellationTokenSource();
         StatusText = "Packaging selected applications...";
 
+        // Per-run only: an apply-to-all answer dies with the loop and is never persisted.
+        ConflictAnswer? runConflictAnswer = null;
+
         try
         {
             for (var i = 0; i < selected.Count; i++)
@@ -696,6 +699,36 @@ public partial class PackagesViewModel : ObservableObject
                 {
                     var result = await _executionService.PackageAsync(
                         p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token);
+
+                    if (result.Conflict is not null)
+                    {
+                        var answer = runConflictAnswer ?? await AskExistingConflictAsync(result.Conflict);
+                        if (answer.ApplyToAll && answer.Behavior != ConflictAnswer.CancelRemaining)
+                            runConflictAnswer = answer;
+
+                        if (answer.Behavior == ConflictAnswer.CancelRemaining)
+                        {
+                            p.Status = "Skipped";
+                            AddLogLine($"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}. Remaining applications cancelled.");
+                            _operationCts.Cancel();
+                            break;
+                        }
+
+                        if (answer.Behavior == ConflictAnswer.Overwrite)
+                        {
+                            AddLogLine($"Overwriting existing: {result.Conflict.ApplicationName} v{result.Conflict.Version}");
+                            result = await _executionService.PackageAsync(
+                                p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
+                                ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite);
+                        }
+                        else
+                        {
+                            p.Status = "Skipped";
+                            p.IsSelected = false;
+                            AddLogLine($"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}");
+                            continue;
+                        }
+                    }
 
                     if (result.ExitCode == 0)
                     {
@@ -735,6 +768,56 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts?.Dispose();
             _operationCts = null;
         }
+    }
+
+    /// <summary>Operator answer to one same-version conflict.</summary>
+    private sealed record ConflictAnswer(string Behavior, bool ApplyToAll)
+    {
+        public const string Skip = "Skip";
+        public const string Overwrite = "Overwrite";
+        public const string CancelRemaining = "CancelRemaining";
+    }
+
+    /// <summary>
+    /// Asks what to do about an application that already exists at the same
+    /// version. Overwrite replaces its deployment types and keeps the
+    /// application object and its deployments.
+    /// </summary>
+    private async Task<ConflictAnswer> AskExistingConflictAsync(ExistingApplicationConflict conflict)
+    {
+        var applyToAll = new System.Windows.Controls.CheckBox
+        {
+            Content = "Do this for all remaining conflicts in this run",
+            Margin = new System.Windows.Thickness(0, 12, 0, 0)
+        };
+
+        var panel = new System.Windows.Controls.StackPanel();
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"'{conflict.ApplicationName}' already exists at version {conflict.Version}.\n\n"
+                 + "Overwrite replaces its deployment types in place; the application object and its deployments survive.",
+            TextWrapping = System.Windows.TextWrapping.Wrap
+        });
+        panel.Children.Add(applyToAll);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Application Already Exists",
+            Content = panel,
+            PrimaryButtonText = "Overwrite",
+            SecondaryButtonText = "Skip",
+            CloseButtonText = "Cancel remaining",
+            DefaultButton = ContentDialogButton.Secondary
+        };
+
+        var result = await _contentDialogService.ShowAsync(dialog, CancellationToken.None);
+        var behavior = result switch
+        {
+            ContentDialogResult.Primary => ConflictAnswer.Overwrite,
+            ContentDialogResult.Secondary => ConflictAnswer.Skip,
+            _ => ConflictAnswer.CancelRemaining
+        };
+        return new ConflictAnswer(behavior, applyToAll.IsChecked == true);
     }
 
     // ── Drop-to-package intake ───────────────────────────────────

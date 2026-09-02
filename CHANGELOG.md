@@ -4,6 +4,42 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### On-Existing Behavior
+- **`OnExistingBehavior`** — new engine enum (`Skip`, `Overwrite`, `Fail`)
+  baked into the generated MECM script at generation time.
+  `MecmTarget.BuildPackageScript` and `MecmTarget.PackageAsync` take it as an
+  optional parameter defaulting to `Skip`, which is the previous behavior
+  exactly.
+- **Skip** — the idempotent same-version path, plus the machine-readable line
+  `[APP_PACKAGER_CONFLICT] existing-same-version app='<name>' version='<v>'`
+  emitted after the deployment-type validation line and ahead of the idempotent
+  icon apply. Same format as the PowerShell engine, so one parser serves both.
+  The partial-prior-run guard on missing deployment types is unchanged.
+- **Overwrite** — the same-version branch now sets `$replaceExisting` and falls
+  into the version-change replacement path instead of exiting: one
+  `Get-CMDeploymentType` inventory, one staging-name create, remove-old, rename
+  sequence for both branches. The application object and its deployments
+  survive. App-level fields and the icon re-apply on the way out.
+- **Fail** — throws in-script naming the application and its version; nothing
+  is written.
+- **`Set-CMApplication` on an existing application** — re-applies Publisher
+  alongside SoftwareVersion and Description.
+- **`OnExistingConflict`** — marker constant with `Format` and `TryParse`, the
+  seam the GUI reads the conflict off the output stream with.
+
+### Package Run Conflicts
+- **`PackagerExecutionService`** — `PackageAsync` and
+  `PackageStagedManifestAsync` carry an `OnExistingBehavior` through to
+  `MecmTarget`, and watch every reported line for the conflict marker.
+  `PackagerExecutionResult.Conflict` carries the application name and version
+  when one was seen.
+- **`PackagesViewModel`** — a marker hit opens a themed Overwrite / Skip /
+  Cancel remaining dialog with a "Do this for all remaining conflicts in this
+  run" checkbox. Overwrite re-invokes that app's package phase with the
+  behavior set; Skip marks the app Skipped and moves on; Cancel remaining stops
+  the loop. The apply-to-all answer lives for the run only and is not
+  persisted.
+
 ### Icon Pack
 - **`IconPackService`** — resolves the latest `jasonulbright/app-packager-icons`
   release through the GitHub API over `CurlProcess`, so a resolved token raises
