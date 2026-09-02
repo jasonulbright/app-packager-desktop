@@ -4,6 +4,14 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### App Definitions
+- **dbeaver** — Disable AI now sets DBeaver's documented
+  `DBEAVER_AI_DISABLED=true` environment variable (Machine scope for a
+  system install, User scope for a user install) instead of appending
+  `-Dai.disabled=true` to `dbeaver.ini`. The variable survives upgrades
+  and is naturally idempotent; per vendor documentation the permanent
+  disable cannot be re-enabled from Preferences.
+
 ### Engine
 - **Per-parameter value maps** — `InstallerParameter` takes a `ValueMap` and a
   `ValueMaps` table of named maps, so one setting substitutes different strings
