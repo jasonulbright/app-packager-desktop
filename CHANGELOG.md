@@ -4,6 +4,22 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### Offline Icon Pack Install
+- **`IconPackService.InstallFromFileAsync`** — installs the pack from a local or
+  UNC `icon-pack.zip`, for hosts whose proxy blocks the release download. The zip
+  is copied into scratch before extraction so the extraction source never carries
+  a zone identifier from the original location.
+- **Beside-zip checksums** — a `checksums.txt` next to the zip is verified when
+  present; a mismatch installs nothing, and no file at all installs with
+  " Checksum not verified (no checksums.txt beside the zip)." appended to the
+  outcome message.
+- **`CompleteInstall`** — extraction, manifest read, name mapping, and the copy
+  into `Definitions\Icons` are one shared path behind both the download and the
+  from-file entry points; the mapping logic is not duplicated.
+- **Settings page** — "Install from file..." button beside "Download icon pack",
+  `OpenFileDialog` filtered to `*.zip`, same busy gate, status refresh, and
+  snackbar handling as the download button.
+
 ### On-Existing Behavior
 - **`OnExistingBehavior`** — new engine enum (`Skip`, `Overwrite`, `Fail`)
   baked into the generated MECM script at generation time.

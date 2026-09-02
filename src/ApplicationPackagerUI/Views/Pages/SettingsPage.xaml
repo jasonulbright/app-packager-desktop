@@ -121,6 +121,11 @@
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Install from file..."
+                           Icon="{ui:SymbolIcon FolderOpen24}"
+                           Command="{Binding InstallIconPackFromFileCommand}"
+                           IsEnabled="{Binding IconPackIdle}"
+                           Margin="8,0,0,0" VerticalAlignment="Center" />
                 <ui:Button DockPanel.Dock="Right" Content="Download icon pack"
                            Icon="{ui:SymbolIcon ArrowDownload24}"
                            Command="{Binding DownloadIconPackCommand}"

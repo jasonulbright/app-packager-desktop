@@ -332,4 +332,84 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.False(result.Installed);
         Assert.Contains("Definitions folder not found", result.Message);
     }
+
+    // ---- install from file ----
+
+    /// <summary>A definitions folder holding one definition, plus a pack zip carrying its icon.</summary>
+    private (string Definitions, string Zip) BuildPack(string subfolder, string definitionName = "7zip")
+    {
+        var definitions = Path.Combine(_dir, subfolder, "Definitions");
+        Directory.CreateDirectory(definitions);
+        File.WriteAllText(Path.Combine(definitions, definitionName + ".json"), "{}");
+
+        var staging = Path.Combine(_dir, subfolder, "staging");
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(staging, "manifest.json"),
+            $$"""{ "PackVersion": "1.3.0", "Icons": [ { "File": "{{definitionName}}.png", "Packager": "{{definitionName}}" } ] }""");
+        File.WriteAllBytes(Path.Combine(staging, definitionName + ".png"), new byte[] { 1, 2, 3 });
+
+        var source = Path.Combine(_dir, subfolder, "source");
+        Directory.CreateDirectory(source);
+        var zip = Path.Combine(source, IconPackService.PackAssetName);
+        System.IO.Compression.ZipFile.CreateFromDirectory(staging, zip);
+        return (definitions, zip);
+    }
+
+    private static string Sha256Of(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream)).ToLowerInvariant();
+    }
+
+    [Fact]
+    public async Task InstallFromFileAsync_MissingFileReturnsAMessage()
+    {
+        var result = await new IconPackService().InstallFromFileAsync(Path.Combine(_dir, "absent.zip"), _dir);
+
+        Assert.False(result.Installed);
+        Assert.Contains("Icon pack file not found", result.Message);
+    }
+
+    [Fact]
+    public async Task InstallFromFileAsync_ChecksumsBesideTheZipAreVerified()
+    {
+        var (definitions, zip) = BuildPack("verified");
+        File.WriteAllText(
+            Path.Combine(Path.GetDirectoryName(zip)!, IconPackService.ChecksumAssetName),
+            $"{Sha256Of(zip)} *{IconPackService.PackAssetName}\n");
+
+        var result = await new IconPackService().InstallFromFileAsync(zip, definitions);
+
+        Assert.True(result.Installed);
+        Assert.DoesNotContain("not verified", result.Message);
+        Assert.Equal(1, result.Copied);
+        Assert.True(File.Exists(Path.Combine(IconPackService.IconsDirectory(definitions), "7zip.png")));
+    }
+
+    [Fact]
+    public async Task InstallFromFileAsync_NoChecksumsInstallsWithAnUnverifiedNote()
+    {
+        var (definitions, zip) = BuildPack("unverified");
+
+        var result = await new IconPackService().InstallFromFileAsync(zip, definitions);
+
+        Assert.True(result.Installed);
+        Assert.Contains("Checksum not verified", result.Message);
+        Assert.True(File.Exists(Path.Combine(IconPackService.IconsDirectory(definitions), "7zip.png")));
+    }
+
+    [Fact]
+    public async Task InstallFromFileAsync_ChecksumMismatchExtractsNothing()
+    {
+        var (definitions, zip) = BuildPack("mismatch");
+        File.WriteAllText(
+            Path.Combine(Path.GetDirectoryName(zip)!, IconPackService.ChecksumAssetName),
+            $"{new string('a', 64)} *{IconPackService.PackAssetName}\n");
+
+        var result = await new IconPackService().InstallFromFileAsync(zip, definitions);
+
+        Assert.False(result.Installed);
+        Assert.Contains("checksum did not match", result.Message);
+        Assert.False(Directory.Exists(IconPackService.IconsDirectory(definitions)));
+    }
 }

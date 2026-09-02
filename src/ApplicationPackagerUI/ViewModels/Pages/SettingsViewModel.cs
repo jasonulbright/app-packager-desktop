@@ -128,6 +128,42 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Installs the icon pack from a local or UNC zip, for hosts whose proxy blocks the
+    /// release download. Same outcome-as-message handling as the download button.
+    /// </summary>
+    [RelayCommand]
+    private async Task InstallIconPackFromFileAsync()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Select icon pack zip",
+            Filter = "Icon pack (*.zip)|*.zip",
+            CheckFileExists = true
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        IconPackBusy = true;
+        try
+        {
+            var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
+            var result = await new IconPackService().InstallFromFileAsync(
+                dialog.FileName, IconPackService.DefaultDefinitionsDirectory(), version);
+
+            RefreshIconPackStatus();
+
+            _snackbarService.Show(
+                "Icon pack", result.Message,
+                result.Installed ? Wpf.Ui.Controls.ControlAppearance.Success : Wpf.Ui.Controls.ControlAppearance.Caution,
+                new SymbolIcon(result.Installed ? SymbolRegular.Checkmark24 : SymbolRegular.Warning24),
+                TimeSpan.FromSeconds(6));
+        }
+        finally
+        {
+            IconPackBusy = false;
+        }
+    }
+
     /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
     public void ReloadFromStore() => LoadSettings();
 
