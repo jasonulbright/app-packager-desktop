@@ -24,7 +24,10 @@
       "Tooltip": "System installs machine-wide to C:\\Program Files\\DBeaver via /allusers. User installs to %LOCALAPPDATA%\\DBeaver via /currentuser and needs no elevation.",
       "ControlType": "Dropdown",
       "DefaultValue": "System",
-      "Options": ["System", "User"],
+      "Options": [
+        "System",
+        "User"
+      ],
       "CommandFragment": "{value}",
       "ValueMap": {
         "System": "/allusers /S",
@@ -42,6 +45,10 @@
         "RootPs": {
           "System": "$env:ProgramFiles\\DBeaver",
           "User": "$env:LOCALAPPDATA\\DBeaver"
+        },
+        "EnvScope": {
+          "System": "Machine",
+          "User": "User"
         }
       },
       "Group": "Install"
@@ -49,7 +56,7 @@
     {
       "Key": "DisableAI",
       "Label": "Disable AI features",
-      "Tooltip": "Appends -Dai.disabled=true to dbeaver.ini after install. The installer replaces dbeaver.ini on every install, so the append re-runs each time.",
+      "Tooltip": "Sets DBeaver's documented DBEAVER_AI_DISABLED=true environment variable (Machine scope for a system install, User scope for a user install). Survives upgrades; per vendor documentation the permanent disable cannot be re-enabled from Preferences.",
       "ControlType": "Toggle",
       "DefaultValue": "false",
       "Group": "Install"
@@ -58,7 +65,7 @@
   "PostInstallScript": {
     "WhenSetting": "DisableAI",
     "WhenValue": "true",
-    "Script": "$iniPath = Join-Path \"{setting:InstallScope:RootPs}\" 'dbeaver.ini'\n$aiOption = '-Dai.disabled=true'\nif (Test-Path -LiteralPath $iniPath) {\n    $lines = @(Get-Content -LiteralPath $iniPath)\n    if (-not ($lines | Where-Object { $_.Trim() -eq $aiOption })) {\n        # Everything after the -vmargs marker is passed to the JVM; a -D option\n        # placed before it is treated as a launcher argument.\n        if (-not ($lines | Where-Object { $_.Trim() -eq '-vmargs' })) { $lines += '-vmargs' }\n        $lines += $aiOption\n        Set-Content -LiteralPath $iniPath -Value $lines -Encoding ASCII\n    }\n}"
+    "Script": "[Environment]::SetEnvironmentVariable('DBEAVER_AI_DISABLED', 'true', '{setting:InstallScope:EnvScope}')"
   },
   "Detection": {
     "Type": "File",
@@ -68,6 +75,8 @@
     "Operator": "GreaterEquals",
     "Is64Bit": true
   },
-  "RunningProcess": ["dbeaver"],
+  "RunningProcess": [
+    "dbeaver"
+  ],
   "UninstallCommand": "$proc = Start-Process -FilePath \"{setting:InstallScope:RootPs}\\Uninstall.exe\" -ArgumentList '{setting:InstallScope:UninstallArgs}' -Wait -PassThru -NoNewWindow"
 }

@@ -137,15 +137,14 @@ public sealed class DBeaverInstallScopeTests : IDisposable
             StagingService.ApplySettingTokens("{setting:Scope} {setting:Scope:Root}", parameters, null));
     }
 
-    // ── Post-install ini append ─────────────────────────────────
+    // ── Post-install environment variable ───────────────────────
 
     [Fact]
     public void DisableAiOff_LeavesTheInstallWrapperWithoutThePostInstallBlock()
     {
         var install = GenerateInstall(Def(), Values("System", "false"));
 
-        Assert.DoesNotContain("-Dai.disabled=true", install);
-        Assert.DoesNotContain("dbeaver.ini", install);
+        Assert.DoesNotContain("DBEAVER_AI_DISABLED", install);
         Assert.EndsWith("exit $proc.ExitCode", install.TrimEnd());
     }
 
@@ -156,41 +155,24 @@ public sealed class DBeaverInstallScopeTests : IDisposable
     }
 
     [Fact]
-    public void DisableAiOn_AppendsTheIniBlockBehindAnExitCodeGuard()
+    public void DisableAiOn_SetsTheVariableBehindAnExitCodeGuard()
     {
         var install = GenerateInstall(Def(), Values("System", "true"));
 
         var guard = install.IndexOf("if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }", StringComparison.Ordinal);
-        var append = install.IndexOf("-Dai.disabled=true", StringComparison.Ordinal);
+        var set = install.IndexOf("DBEAVER_AI_DISABLED", StringComparison.Ordinal);
         Assert.True(guard >= 0, "install.ps1 has no installer exit-code guard");
-        Assert.True(append > guard, "the ini append is not behind the exit-code guard");
+        Assert.True(set > guard, "the variable set is not behind the exit-code guard");
         Assert.EndsWith("exit 0", install.TrimEnd());
     }
 
     [Fact]
-    public void DisableAiOn_WritesTheIniUnderTheScopedInstallRoot()
+    public void DisableAiOn_ScopesTheVariableToTheInstallScope()
     {
-        Assert.Contains(@"$iniPath = Join-Path ""$env:ProgramFiles\DBeaver"" 'dbeaver.ini'",
+        Assert.Contains("[Environment]::SetEnvironmentVariable('DBEAVER_AI_DISABLED', 'true', 'Machine')",
             GenerateInstall(Def(), Values("System", "true")));
-        Assert.Contains(@"$iniPath = Join-Path ""$env:LOCALAPPDATA\DBeaver"" 'dbeaver.ini'",
+        Assert.Contains("[Environment]::SetEnvironmentVariable('DBEAVER_AI_DISABLED', 'true', 'User')",
             GenerateInstall(Def(), Values("User", "true")));
-    }
-
-    [Fact]
-    public void TheIniAppendIsIdempotentAndKeepsTheOptionAfterVmargs()
-    {
-        var install = GenerateInstall(Def(), Values("System", "true"));
-
-        // Re-runs on every install because the installer replaces dbeaver.ini,
-        // so the block must skip a line it already wrote.
-        Assert.Contains("if (-not ($lines | Where-Object { $_.Trim() -eq $aiOption })) {", install);
-        Assert.Contains("if (-not ($lines | Where-Object { $_.Trim() -eq '-vmargs' })) { $lines += '-vmargs' }", install);
-        Assert.Contains("$lines += $aiOption", install);
-        Assert.Contains("if (Test-Path -LiteralPath $iniPath) {", install);
-
-        var vmargs = install.IndexOf("$lines += '-vmargs'", StringComparison.Ordinal);
-        var option = install.IndexOf("$lines += $aiOption", StringComparison.Ordinal);
-        Assert.True(vmargs < option, "-vmargs must be appended before the -D option");
     }
 
     [Fact]
