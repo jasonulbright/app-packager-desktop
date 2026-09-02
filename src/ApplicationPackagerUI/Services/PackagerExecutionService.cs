@@ -96,10 +96,11 @@ public class PackagerExecutionService(
     /// an Intune Win32 publish, or both.
     /// </summary>
     public async Task<PackagerExecutionResult> PackageAsync(
-        PackagerInfo packager, string comment, Action<string>? onOutputLine = null, CancellationToken ct = default)
+        PackagerInfo packager, string comment, Action<string>? onOutputLine = null,
+        CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip)
     {
         if (packager.StagedManifestPath is not null)
-            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct);
+            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting);
 
         var settings = settingsService.Load();
         var target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
@@ -119,8 +120,10 @@ public class PackagerExecutionService(
             var manifest = manifestService.Read(manifestPath);
             var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
 
+            var conflicts = new ConflictWatch();
             void Report(string line)
             {
+                conflicts.Observe(line);
                 if (onOutputLine is not null)
                     System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
             }
@@ -151,6 +154,7 @@ public class PackagerExecutionService(
                         .Load(warning => onOutputLine?.Invoke(warning)),
                     requirements: requirements,
                     providerMachine: settings.ProviderMachine,
+                    onExisting: onExisting,
                     ct: ct);
 
                 mecmSucceeded = result.Success;
@@ -176,7 +180,8 @@ public class PackagerExecutionService(
                 StdOut = stdOut,
                 StdErr = stdErr,
                 IntuneWinNote = notes.IntuneWinNote,
-                IntunePublishNote = notes.PublishNote
+                IntunePublishNote = notes.PublishNote,
+                Conflict = conflicts.Result
             };
         }
 
@@ -207,7 +212,8 @@ public class PackagerExecutionService(
     /// on its staged content; everything downstream is the same per-target flow.
     /// </summary>
     public async Task<PackagerExecutionResult> PackageStagedManifestAsync(
-        string manifestPath, string comment, Action<string>? onOutputLine = null, CancellationToken ct = default)
+        string manifestPath, string comment, Action<string>? onOutputLine = null,
+        CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip)
     {
         if (!File.Exists(manifestPath))
             return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
@@ -217,8 +223,10 @@ public class PackagerExecutionService(
         var manifest = new ManifestService().Read(manifestPath);
         var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
 
+        var conflicts = new ConflictWatch();
         void Report(string line)
         {
+            conflicts.Observe(line);
             if (onOutputLine is not null)
                 System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
         }
@@ -235,6 +243,7 @@ public class PackagerExecutionService(
                 Report,
                 conditionTemplates: new ConditionTemplateService().Load(warning => onOutputLine?.Invoke(warning)),
                 providerMachine: settings.ProviderMachine,
+                onExisting: onExisting,
                 ct: ct);
 
             mecmSucceeded = result.Success;
@@ -257,8 +266,26 @@ public class PackagerExecutionService(
             StdOut = stdOut,
             StdErr = stdErr,
             IntuneWinNote = notes.IntuneWinNote,
-            IntunePublishNote = notes.PublishNote
+            IntunePublishNote = notes.PublishNote,
+            Conflict = conflicts.Result
         };
+    }
+
+    /// <summary>
+    /// Watches an output stream for the same-version conflict marker. The
+    /// marker is a line among many, so every reported line passes through
+    /// here and only a match is retained.
+    /// </summary>
+    private sealed class ConflictWatch
+    {
+        public ExistingApplicationConflict? Result { get; private set; }
+
+        public void Observe(string line)
+        {
+            if (Result is not null) return;
+            if (OnExistingConflict.TryParse(line, out var app, out var version))
+                Result = new ExistingApplicationConflict(app, version);
+        }
     }
 
     // ── Process helpers ──────────────────────────────────────────
