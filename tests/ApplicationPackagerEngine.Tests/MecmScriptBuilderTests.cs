@@ -333,10 +333,18 @@ public sealed class MecmScriptBuilderTests
         Assert.Contains($@"$iconPath = '{Content}\app-icon.png'", script);
         Assert.Contains("Set-CMApplication -Name 'App' -IconLocationFile $iconPath -ErrorAction Stop", script);
         Assert.Contains("Application icon not applied", script);
-        // The icon follows every deployment type so a provider refusal cannot
-        // leave the application half-built.
-        Assert.True(script.IndexOf("-IconLocationFile", StringComparison.Ordinal)
+        // The creation-path icon follows every deployment type so a provider
+        // refusal cannot leave the application half-built. The earlier
+        // occurrence sits inside the idempotent exit-0 branch, which applies
+        // the icon to an existing unchanged application.
+        Assert.True(script.LastIndexOf("-IconLocationFile", StringComparison.Ordinal)
                   > script.IndexOf("Add-CMScriptDeploymentType", StringComparison.Ordinal));
+        Assert.True(script.IndexOf("-IconLocationFile", StringComparison.Ordinal)
+                  < script.IndexOf("exit 0", StringComparison.Ordinal));
+        // CMSite-drive trap: a bare UNC Test-Path resolves through the CM
+        // provider; both checks must be FileSystem-qualified.
+        Assert.Contains("FileSystem::$iconPath", script);
+        Assert.Contains("FileSystem::$idemIcon", script);
     }
 
     [Fact]
