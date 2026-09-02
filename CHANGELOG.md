@@ -5,6 +5,29 @@ All notable changes to Packr are documented here.
 ## [Unreleased]
 
 ### Engine
+- **Per-parameter value maps** — `InstallerParameter` takes a `ValueMap` and a
+  `ValueMaps` table of named maps, so one setting substitutes different strings
+  in different places: `{value}` and an unnamed `{setting:Key}` use `ValueMap`,
+  while `{setting:Key:MapName}` selects a named map. A value the map does not
+  list substitutes itself. One definition now covers a machine-wide and a
+  per-user install without being duplicated.
+- **`PostInstallScript`** — a definition can carry PowerShell that
+  `WrapperGeneratorService.GenerateExeWrappers` appends to `install.ps1` behind
+  `if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }`, ending the wrapper at
+  `exit 0`. `WhenSetting`/`WhenValue` gate it on an `InstallerSettings` value,
+  and its `{setting:...}` tokens resolve at stage time. A gate naming no
+  parameter suppresses the script.
+
+### App Definitions
+- **dbeaver** — `InstallScope` (System/User, default System) and `DisableAI`
+  (toggle, default off). Scope switches install args between `/allusers /S`
+  and `/S /currentuser`, uninstall args between `/allusers /S` and
+  `/currentuser /S`, and the `Uninstall.exe` path and file detection path
+  between `C:\Program Files\DBeaver` and `%LOCALAPPDATA%\DBeaver`. `DisableAI`
+  appends `-Dai.disabled=true` after the `-vmargs` marker in `dbeaver.ini`,
+  inserting the marker when absent and skipping a line already present; the
+  installer replaces `dbeaver.ini` on every install, so the append re-runs
+  each time.
 - **InstallerSettings drive the staged command line** — staging resolves a
   definition's `InstallerSettings` into the effective install arguments and
   uses them for wrapper generation and the stage manifest, instead of

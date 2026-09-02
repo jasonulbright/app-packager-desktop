@@ -1,34 +1,73 @@
-﻿{
-    "Schema":  1,
-    "Id":  "0000063ececba2d8",
-    "Vendor":  "DBeaver Corp",
-    "Application":  "DBeaver Community (x64)",
-    "CMName":  "DBeaver Community",
-    "Architecture":  "x64",
-    "VendorUrl":  "https://dbeaver.io/",
-    "InstallerType":  "EXE",
-    "InstallerFramework":  "NSIS",
-    "Acquisition":  {
-
-                    },
-    "VersionScraper":  {
-                           "Type":  "JsonQuery",
-                           "Url":  "https://api.github.com/repos/dbeaver/dbeaver/releases/latest",
-                           "Pattern":  "tag_name"
-                       },
-    "DownloadUrl":  "https://github.com/dbeaver/dbeaver/releases/download/{version}/dbeaver-ce-{version}-windows-x86_64.exe",
-    "InstallArgs":  "/allusers /S",
-    "UninstallArgs":  "/allusers /S",
-    "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\DBeaver",
-                      "FileName":  "dbeaver.exe",
-                      "PropertyType":  "Version",
-                      "Operator":  "GreaterEquals",
-                      "Is64Bit":  true
-                  },
-    "RunningProcess":  [
-                           "dbeaver"
-                       ],
-    "UninstallCommand":  "$proc = Start-Process -FilePath \"C:\\Program Files\\DBeaver\\Uninstall.exe\" -ArgumentList \"/S /allusers\" -Wait -PassThru -NoNewWindow"
+{
+  "Schema": 1,
+  "Id": "0000063ececba2d8",
+  "Vendor": "DBeaver Corp",
+  "Application": "DBeaver Community (x64)",
+  "CMName": "DBeaver Community",
+  "Architecture": "x64",
+  "VendorUrl": "https://dbeaver.io/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.github.com/repos/dbeaver/dbeaver/releases/latest",
+    "Pattern": "tag_name"
+  },
+  "DownloadUrl": "https://github.com/dbeaver/dbeaver/releases/download/{version}/dbeaver-ce-{version}-windows-x86_64.exe",
+  "InstallArgs": "",
+  "UninstallArgs": "{setting:InstallScope:UninstallArgs}",
+  "InstallerSettings": [
+    {
+      "Key": "InstallScope",
+      "Label": "Install scope",
+      "Tooltip": "System installs machine-wide to C:\\Program Files\\DBeaver via /allusers. User installs to %LOCALAPPDATA%\\DBeaver via /currentuser and needs no elevation.",
+      "ControlType": "Dropdown",
+      "DefaultValue": "System",
+      "Options": ["System", "User"],
+      "CommandFragment": "{value}",
+      "ValueMap": {
+        "System": "/allusers /S",
+        "User": "/S /currentuser"
+      },
+      "ValueMaps": {
+        "UninstallArgs": {
+          "System": "/allusers /S",
+          "User": "/currentuser /S"
+        },
+        "Root": {
+          "System": "C:\\Program Files\\DBeaver",
+          "User": "%LOCALAPPDATA%\\DBeaver"
+        },
+        "RootPs": {
+          "System": "$env:ProgramFiles\\DBeaver",
+          "User": "$env:LOCALAPPDATA\\DBeaver"
+        }
+      },
+      "Group": "Install"
+    },
+    {
+      "Key": "DisableAI",
+      "Label": "Disable AI features",
+      "Tooltip": "Appends -Dai.disabled=true to dbeaver.ini after install. The installer replaces dbeaver.ini on every install, so the append re-runs each time.",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "Group": "Install"
+    }
+  ],
+  "PostInstallScript": {
+    "WhenSetting": "DisableAI",
+    "WhenValue": "true",
+    "Script": "$iniPath = Join-Path \"{setting:InstallScope:RootPs}\" 'dbeaver.ini'\n$aiOption = '-Dai.disabled=true'\nif (Test-Path -LiteralPath $iniPath) {\n    $lines = @(Get-Content -LiteralPath $iniPath)\n    if (-not ($lines | Where-Object { $_.Trim() -eq $aiOption })) {\n        # Everything after the -vmargs marker is passed to the JVM; a -D option\n        # placed before it is treated as a launcher argument.\n        if (-not ($lines | Where-Object { $_.Trim() -eq '-vmargs' })) { $lines += '-vmargs' }\n        $lines += $aiOption\n        Set-Content -LiteralPath $iniPath -Value $lines -Encoding ASCII\n    }\n}"
+  },
+  "Detection": {
+    "Type": "File",
+    "FilePath": "{setting:InstallScope:Root}",
+    "FileName": "dbeaver.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["dbeaver"],
+  "UninstallCommand": "$proc = Start-Process -FilePath \"{setting:InstallScope:RootPs}\\Uninstall.exe\" -ArgumentList '{setting:InstallScope:UninstallArgs}' -Wait -PassThru -NoNewWindow"
 }

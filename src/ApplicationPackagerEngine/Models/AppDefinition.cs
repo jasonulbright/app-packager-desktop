@@ -72,6 +72,11 @@ public sealed class AppDefinition
     /// The engine substitutes parameter values into InstallArgs at staging time.
     /// </summary>
     public InstallerParameter[]? InstallerSettings { get; set; }
+    /// <summary>
+    /// Post-install configuration appended to install.ps1 behind an installer
+    /// exit-code guard. Null for definitions the installer configures fully.
+    /// </summary>
+    public PostInstallScriptConfig? PostInstallScript { get; set; }
     public DetectionConfig Detection { get; set; } = new();
     public string[] RunningProcess { get; set; } = [];
     public string? Icon { get; set; }
@@ -356,6 +361,34 @@ public sealed class InstallerParameter
     public double? Minimum { get; set; }
     /// <summary>Maximum value for Number control type.</summary>
     public double? Maximum { get; set; }
+    /// <summary>
+    /// Substitution table for the chosen value: the value is looked up here before
+    /// it replaces {value} in CommandFragment or an unnamed {setting:Key} token.
+    /// A value absent from the table substitutes itself.
+    /// </summary>
+    public Dictionary<string, string>? ValueMap { get; set; }
+    /// <summary>
+    /// Named substitution tables addressed by {setting:Key:MapName}. Lets one
+    /// parameter drive several different strings — install switches, an install
+    /// root, an uninstall switch set — without duplicating the definition.
+    /// A value absent from the named table substitutes itself.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>>? ValueMaps { get; set; }
+}
+
+/// <summary>
+/// PowerShell appended to install.ps1 and reached only after the installer
+/// returns 0. Used for post-install configuration the installer itself cannot
+/// express; the script body must be idempotent because it re-runs on reinstall.
+/// </summary>
+public sealed class PostInstallScriptConfig
+{
+    /// <summary>InstallerSettings key gating the script. Null runs it unconditionally.</summary>
+    public string? WhenSetting { get; set; }
+    /// <summary>Value of WhenSetting that enables the script. Default "true".</summary>
+    public string WhenValue { get; set; } = "true";
+    /// <summary>Script body. {setting:Key} and {setting:Key:MapName} tokens are resolved at stage time.</summary>
+    public string Script { get; set; } = "";
 }
 
 public sealed class DetectionConfig
