@@ -173,6 +173,16 @@ public sealed class MecmTarget
         sb.AppendLine("        if ($missingDts.Count -eq 0) {");
         sb.AppendLine($"            Write-Host 'Application already exists    : {Esc(appName)} (v{Esc(manifest.SoftwareVersion)}, unchanged)'");
         sb.AppendLine("            Write-Host \"Deployment type(s) validated : $($expectedDts -join ', ')\"");
+        if (!string.IsNullOrWhiteSpace(manifest.Icon))
+        {
+            // An idempotent rerun still applies the icon, so a package created
+            // before icon support gains one without a version change.
+            var idemIconPath = Path.Combine(networkContentPath, manifest.Icon);
+            sb.AppendLine($"            $idemIcon = '{Esc(idemIconPath)}'");
+            sb.AppendLine("            if (Test-Path -LiteralPath \"FileSystem::$idemIcon\" -PathType Leaf) {");
+            sb.AppendLine($"                try {{ Set-CMApplication -Name '{Esc(appName)}' -IconLocationFile $idemIcon -ErrorAction Stop; Write-Host 'Application icon set         : {Esc(manifest.Icon)}' }} catch {{ Write-Host \"Application icon not applied : $($_.Exception.Message)\" }}");
+            sb.AppendLine("            }");
+        }
         sb.AppendLine("            Write-Host \"CI_ID: $($app.CI_ID)\"");
         sb.AppendLine("            exit 0");
         sb.AppendLine("        }");
@@ -288,7 +298,9 @@ public sealed class MecmTarget
         {
             var iconPath = Path.Combine(networkContentPath, manifest.Icon);
             sb.AppendLine($"$iconPath = '{Esc(iconPath)}'");
-            sb.AppendLine("if (Test-Path -LiteralPath $iconPath -PathType Leaf) {");
+            // The script sits on the CMSite provider drive here; a bare UNC
+            // Test-Path resolves through the CM provider and fails.
+            sb.AppendLine("if (Test-Path -LiteralPath \"FileSystem::$iconPath\" -PathType Leaf) {");
             sb.AppendLine("  try {");
             sb.AppendLine($"    Set-CMApplication -Name '{Esc(appName)}' -IconLocationFile $iconPath -ErrorAction Stop");
             sb.AppendLine($"    Write-Host 'Application icon set         : {Esc(manifest.Icon)}'");
