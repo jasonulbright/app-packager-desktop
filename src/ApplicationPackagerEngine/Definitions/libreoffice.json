@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "09fa3388b00b4526",
+    "IconSource":  "Installer",
     "Vendor":  "The Document Foundation",
     "Application":  "LibreOffice (x64)",
     "CMName":  "LibreOffice",

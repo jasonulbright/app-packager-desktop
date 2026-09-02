@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f533d2b2d2014d88",
+    "IconSource":  "Installer",
   "Vendor": "CPUID",
   "Application": "CPU-Z",
   "CMName": "CPU-Z",

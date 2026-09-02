@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "03d9e5b1746cfa82",
+    "IconSource":  "Installer",
   "Vendor": "IBM",
   "Application": "IBM Semeru Runtime Open Edition JRE 8 (x64)",
   "CMName": "IBM Semeru Runtime Open Edition JRE 8",

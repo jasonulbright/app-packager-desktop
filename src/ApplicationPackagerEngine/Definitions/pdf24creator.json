@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "c80b1ededbfd4ae5",
+    "IconSource":  "Installer",
   "Vendor": "geek software GmbH",
   "Application": "PDF24 Creator (x64)",
   "CMName": "PDF24 Creator",

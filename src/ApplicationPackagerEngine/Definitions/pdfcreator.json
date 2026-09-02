@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "37562fcd1ab9c883",
+    "IconSource":  "External",
   "Vendor": "pdfforge GmbH",
   "Application": "PDFCreator (x64)",
   "CMName": "PDFCreator",

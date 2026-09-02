@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "b407e1c9d3852f60",
+    "IconSource":  "None",
   "Vendor": "gerardog",
   "Application": "gsudo (x64)",
   "CMName": "gsudo",

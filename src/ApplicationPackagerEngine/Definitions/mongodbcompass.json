@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "fdac115278b4eb94",
+    "IconSource":  "External",
   "Vendor": "MongoDB",
   "Application": "MongoDB Compass (x64)",
   "CMName": "MongoDB Compass",

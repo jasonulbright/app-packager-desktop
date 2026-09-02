@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "87e37447e908146b",
+    "IconSource":  "Installer",
   "Vendor": "Mattermost",
   "Application": "Mattermost Desktop (x64)",
   "CMName": "Mattermost Desktop",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "ad5f256cfdb1920c",
+    "IconSource":  "Installer",
   "Vendor": "HashiCorp",
   "Application": "Vagrant (x64)",
   "CMName": "Vagrant",

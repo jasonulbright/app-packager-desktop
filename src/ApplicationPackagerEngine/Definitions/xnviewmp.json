@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "390b1486f304923f",
+    "IconSource":  "Installer",
   "Vendor": "XnSoft",
   "Application": "XnView MP (x64)",
   "CMName": "XnView MP",

@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "00001355a7d67152",
+    "IconSource":  "Installer",
     "Vendor":  "Vim",
     "Application":  "Vim (x64)",
     "CMName":  "Vim",

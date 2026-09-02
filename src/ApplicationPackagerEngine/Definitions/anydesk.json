@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "a1b2c3d4e5f60001",
+    "IconSource":  "Installer",
     "Vendor":  "AnyDesk Software GmbH",
     "Application":  "AnyDesk",
     "CMName":  "AnyDesk",

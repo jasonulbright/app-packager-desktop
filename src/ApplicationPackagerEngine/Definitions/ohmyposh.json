@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e7d37867768b50bb",
+    "IconSource":  "None",
   "Vendor": "Jan De Dobbeleer",
   "Application": "Oh My Posh (x64)",
   "CMName": "Oh My Posh",

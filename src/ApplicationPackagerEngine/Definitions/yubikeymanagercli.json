@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "77df20dd697d1377",
+    "IconSource":  "None",
   "Vendor": "Yubico",
   "Application": "YubiKey Manager CLI (x64)",
   "CMName": "YubiKey Manager CLI",

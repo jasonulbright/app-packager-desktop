@@ -549,6 +549,7 @@ public sealed class StagingService
                 Detection = detection,
                 MsixPackage = msixPackage
             };
+            IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
             _manifestService.Write(manifestPath, manifest);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
@@ -702,6 +703,7 @@ public sealed class StagingService
                 RunningProcess = def.RunningProcess,
                 Detection = detection
             };
+            IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
             _manifestService.Write(manifestPath, manifest);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
             onProgress?.Invoke($"Stage complete: {contentPath}");
@@ -931,6 +933,7 @@ public sealed class StagingService
                 RunningProcess = def.RunningProcess,
                 Detection = detection
             };
+            IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
             _manifestService.Write(manifestPath, manifest);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 

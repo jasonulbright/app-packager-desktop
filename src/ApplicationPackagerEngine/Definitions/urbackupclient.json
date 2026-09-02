@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f5eae246b56c6354",
+    "IconSource":  "Installer",
   "Vendor": "UrBackup",
   "Application": "UrBackup Client (x64)",
   "CMName": "UrBackup Client",

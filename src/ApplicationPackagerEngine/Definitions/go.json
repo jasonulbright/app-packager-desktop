@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e8c47f0d13b95a26",
+    "IconSource":  "Installer",
   "Vendor": "Google",
   "Application": "Go Programming Language (x64)",
   "CMName": "Go Programming Language",

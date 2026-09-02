@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "89fd188eca2f418d",
+    "IconSource":  "Installer",
   "Vendor": "OpenShot Studios, LLC",
   "Application": "OpenShot Video Editor (x64)",
   "CMName": "OpenShot Video Editor",

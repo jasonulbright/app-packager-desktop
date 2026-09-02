@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "44c79f16284a80fa",
+    "IconSource":  "Installer",
   "Vendor": "Northwestern University",
   "Application": "NetLogo (x64)",
   "CMName": "NetLogo",

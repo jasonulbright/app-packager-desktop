@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "8a41d2b6c70e5934",
+    "IconSource":  "Installer",
   "Vendor": "NGWIN",
   "Application": "PicPick (x64)",
   "CMName": "PicPick",

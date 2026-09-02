@@ -321,4 +321,27 @@ public sealed class MecmScriptBuilderTests
         Assert.Contains("-InstallationBehaviorType InstallForUser", script);
         Assert.DoesNotContain("-LogonRequirementType", script);
     }
+
+    [Fact]
+    public void StagedIcon_AppliesAfterCreationAndNeverFailsTheRun()
+    {
+        var manifest = Manifest();
+        manifest.Icon = "app-icon.png";
+
+        var script = Build(manifest);
+
+        Assert.Contains($@"$iconPath = '{Content}\app-icon.png'", script);
+        Assert.Contains("Set-CMApplication -Name 'App' -IconLocationFile $iconPath -ErrorAction Stop", script);
+        Assert.Contains("Application icon not applied", script);
+        // The icon follows every deployment type so a provider refusal cannot
+        // leave the application half-built.
+        Assert.True(script.IndexOf("-IconLocationFile", StringComparison.Ordinal)
+                  > script.IndexOf("Add-CMScriptDeploymentType", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void NoStagedIcon_EmitsNoIconStep()
+    {
+        Assert.DoesNotContain("-IconLocationFile", Build(Manifest()));
+    }
 }

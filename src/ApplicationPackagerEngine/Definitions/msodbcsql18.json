@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "6271a3b1a16947e7",
+    "IconSource":  "External",
     "Vendor":  "Microsoft",
     "Application":  "Microsoft ODBC Driver 18 for SQL Server (x64)",
     "CMName":  "Microsoft ODBC Driver 18 for SQL Server",

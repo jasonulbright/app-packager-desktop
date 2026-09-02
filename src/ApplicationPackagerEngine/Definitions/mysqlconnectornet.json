@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1f06728b80218512",
+    "IconSource":  "External",
   "Vendor": "Oracle",
   "Application": "MySQL Connector/NET",
   "CMName": "MySQL Connector/NET",

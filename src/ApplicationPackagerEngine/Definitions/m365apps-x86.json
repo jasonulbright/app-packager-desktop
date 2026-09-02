@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "d1e2f3a4b5c60002",
+    "IconSource":  "External",
     "Vendor":  "Microsoft",
     "Application":  "M365 Apps for Enterprise (x86)",
     "CMName":  "M365 Apps for Enterprise",

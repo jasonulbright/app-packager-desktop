@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "00000034b6105073",
+    "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "PowerToys (x64)",
     "CMName":  "PowerToys",

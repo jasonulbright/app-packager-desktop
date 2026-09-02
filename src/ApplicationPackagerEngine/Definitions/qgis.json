@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "72a8c15e0b9df346",
+    "IconSource":  "Installer",
   "Vendor": "QGIS",
   "Application": "QGIS (x64)",
   "CMName": "QGIS",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "189c839bf3961e18",
+    "IconSource":  "Installer",
   "Vendor": "NV Access",
   "Application": "NVDA",
   "CMName": "NVDA",

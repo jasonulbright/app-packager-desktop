@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "000002954536ed4a",
+    "IconSource":  "Installer",
     "Vendor":  "Don HO",
     "Application":  "Notepad++ (x64)",
     "CMName":  "Notepad++",

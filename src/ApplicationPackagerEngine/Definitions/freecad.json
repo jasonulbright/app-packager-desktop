@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "37b8ca591e04d62f",
+    "IconSource":  "Installer",
   "Vendor": "FreeCAD Team",
   "Application": "FreeCAD (x64)",
   "CMName": "FreeCAD",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "6fcbf7201861d48e",
+    "IconSource":  "Installer",
   "Vendor": "SoftFever",
   "Application": "OrcaSlicer (x64)",
   "CMName": "OrcaSlicer",

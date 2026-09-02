@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "2558aede41f14568",
+    "IconSource":  "Installer",
     "Vendor":  "Opera Software",
     "Application":  "Opera Browser (x64)",
     "CMName":  "Opera Browser",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1d78ba4e5c0f9236",
+    "IconSource":  "Installer",
   "Vendor": "DB Browser for SQLite Team",
   "Application": "DB Browser for SQLite (x64)",
   "CMName": "DB Browser for SQLite",

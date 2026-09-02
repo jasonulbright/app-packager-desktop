@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "8a4f27de0b9c516d",
+    "IconSource":  "Installer",
   "Vendor": "Cisco",
   "Application": "Duo Desktop (x64)",
   "CMName": "Duo Desktop",

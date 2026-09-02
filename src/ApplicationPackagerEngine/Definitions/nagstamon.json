@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "9094247edabd7a88",
+    "IconSource":  "Installer",
   "Vendor": "Henri Wahl",
   "Application": "Nagstamon (x64)",
   "CMName": "Nagstamon",

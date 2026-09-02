@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "26b3da773b80430a",
+    "IconSource":  "Installer",
     "Vendor":  "Cisco",
     "Application":  "Cisco Webex (x64)",
     "CMName":  "Cisco Webex",

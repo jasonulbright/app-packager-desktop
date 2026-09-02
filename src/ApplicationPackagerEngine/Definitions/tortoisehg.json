@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "dabed5842e21bd6a",
+    "IconSource":  "Installer",
   "Vendor": "TortoiseHg",
   "Application": "TortoiseHg (x64)",
   "CMName": "TortoiseHg",

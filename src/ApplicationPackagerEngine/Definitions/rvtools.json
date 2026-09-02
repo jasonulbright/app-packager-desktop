@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e93a5c170f24db68",
+    "IconSource":  "External",
   "Vendor": "Dell",
   "Application": "RVTools (x64)",
   "CMName": "RVTools",

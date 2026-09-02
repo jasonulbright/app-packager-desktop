@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "a72d5e0918bc4f31",
+    "IconSource":  "Installer",
   "Vendor": "UltiMaker",
   "Application": "UltiMaker Cura (x64)",
   "CMName": "UltiMaker Cura",

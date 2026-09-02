@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3b68028fb9a9434a",
+    "IconSource":  "Installer",
   "Vendor": "Omnissa",
   "Application": "Omnissa Horizon Client (x64)",
   "CMName": "Omnissa Horizon Client",

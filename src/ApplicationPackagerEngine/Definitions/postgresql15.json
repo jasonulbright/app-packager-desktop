@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "09263153f63e4f62",
+    "IconSource":  "Installer",
     "Vendor":  "PostgreSQL Global Development Group",
     "Application":  "PostgreSQL 15 (x64)",
     "CMName":  "PostgreSQL 15",

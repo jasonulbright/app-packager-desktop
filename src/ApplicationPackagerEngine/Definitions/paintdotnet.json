@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60003",
+    "IconSource":  "Installer",
     "Vendor":  "dotPDN LLC",
     "Application":  "paint.net (x64)",
     "CMName":  "paint.net",

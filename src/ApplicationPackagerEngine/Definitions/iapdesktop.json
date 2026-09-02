@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "70b3f8c25de41a96",
+    "IconSource":  "Installer",
   "Vendor": "Google",
   "Application": "IAP Desktop (x64)",
   "CMName": "IAP Desktop",

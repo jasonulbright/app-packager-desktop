@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "88c9ba10a49d22ce",
+    "IconSource":  "Installer",
   "Vendor": "Microsoft",
   "Application": "Windows Admin Center (v2)",
   "CMName": "Windows Admin Center",

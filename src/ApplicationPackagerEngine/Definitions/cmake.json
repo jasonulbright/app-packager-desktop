@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "99fae7f52d27fec8",
+    "IconSource":  "Installer",
   "Vendor": "Kitware",
   "Application": "CMake (x64)",
   "CMName": "CMake",

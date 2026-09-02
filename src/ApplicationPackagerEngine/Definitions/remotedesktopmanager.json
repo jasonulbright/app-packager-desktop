@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "aef31d7250b98c04",
+    "IconSource":  "Installer",
   "Vendor": "Devolutions",
   "Application": "Remote Desktop Manager (x64)",
   "CMName": "Remote Desktop Manager",

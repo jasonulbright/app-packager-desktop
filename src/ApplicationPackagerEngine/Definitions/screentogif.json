@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "70da4b19c8e35f26",
+    "IconSource":  "Installer",
   "Vendor": "Nicke Manarin",
   "Application": "ScreenToGif (x64)",
   "CMName": "ScreenToGif",

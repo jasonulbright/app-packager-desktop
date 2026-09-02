@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "a2f7b815dc6e4903",
+    "IconSource":  "None",
     "Vendor":  "Microsoft",
     "Application":  ".NET 8 Desktop Runtime (x86)",
     "CMName":  ".NET 8 Desktop Runtime (x86)",

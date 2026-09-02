@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "fdf12a6e2305720d",
+    "IconSource":  "Installer",
   "Vendor": "Burnaware",
   "Application": "BurnAware Free (x86)",
   "CMName": "BurnAware Free",

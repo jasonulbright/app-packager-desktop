@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3f9c1a7d40b2e561",
+    "IconSource":  "Installer",
   "Vendor": "Giorgio Tani",
   "Application": "PeaZip (x64)",
   "CMName": "PeaZip",

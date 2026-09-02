@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "dcb43bf49445f64d",
+    "IconSource":  "None",
   "Vendor": "Yubico",
   "Application": "Yubico PIV Tool (x64)",
   "CMName": "Yubico PIV Tool",

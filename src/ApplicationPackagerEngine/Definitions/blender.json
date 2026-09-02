@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "12eafe73aa4a7cc4",
+    "IconSource":  "Installer",
   "Vendor": "Blender Foundation",
   "Application": "Blender (x64)",
   "CMName": "Blender",

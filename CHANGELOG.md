@@ -4,6 +4,42 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### Application Icons
+- **IconNative** — PE `RT_GROUP_ICON` directory parse selecting the largest
+  frame of the module's first icon group, tie-broken on colour depth, emitted
+  as a single-image `.ico`. A zero width/height byte reads as 256. The
+  directory is read through `LoadLibraryEx`/`FindResource` rather than
+  `ExtractAssociatedIcon`, which caps at 32 pixels and reports whatever size
+  was requested.
+- **Transient-load retry** — three PE load attempts at 0/400/1200 ms.
+  `LoadLibraryEx` fails with no error while an on-access scan still holds a
+  freshly written file, silently degrading the first probe of a just-downloaded
+  payload to the 32px fallback.
+- **MsiIconReader** — MSI `Icon` table extraction preferring the
+  `ARPPRODUCTICON` stream, falling back to the table's first row, and re-reading
+  an Icon-table row that holds a PE rather than an `.ico` through the PE path.
+  Both COM objects are released explicitly; a live `Database` handle holds a
+  write lock for the process lifetime.
+- **`IconExtractionService.MaterializeIcon`** — 32px size floor, 512px MECM
+  ceiling, and a 256 KB image cap enforced by PNG re-encode at 512/256/128/64
+  until the file fits. A PNG-compressed 256px frame is copied out byte for byte
+  because `System.Drawing.Icon` cannot decode that shape.
+- **`AppDefinition.IconSource`** — `Installer`, `External`, or `None`; absent,
+  blank, or unrecognized reads as `None`. `Installer` extracts from the staged
+  payload the manifest names, `External` copies
+  `Definitions\Icons\<definition name>.ico|png`. Staging writes `app-icon.ico`
+  or `app-icon.png` into the content folder, records it as `StageManifest.Icon`,
+  and the manifest's `FileHashes` cover it. Icon staging never throws.
+- **MecmTarget** — the package script applies
+  `Set-CMApplication -IconLocationFile` after every deployment type is in place.
+  A missing or refused icon warns and continues.
+- **IntunePublishService** — `win32LobApp.largeIcon` is set from the staged icon
+  as a `mimeContent` (`image/x-icon`, `image/png`, or `image/jpeg` plus the
+  base64 bytes) on the app body. An unresolvable icon leaves the property unset.
+- **Definition tags** — `IconSource` set on 277 of 294 definitions
+  (215 `Installer`, 34 `External`, 28 `None`). The remaining 17 carry no
+  verdict and stay untagged.
+
 ### App Definitions
 - **dbeaver** — Disable AI now sets DBeaver's documented
   `DBEAVER_AI_DISABLED=true` environment variable (Machine scope for a

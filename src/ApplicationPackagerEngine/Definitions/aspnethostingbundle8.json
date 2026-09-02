@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "0de69513164a4b65",
+    "IconSource":  "None",
     "Vendor":  "Microsoft",
     "Application":  "ASP.NET 8 Server Hosting Bundle (x64)",
     "CMName":  "ASP.NET 8 Server Hosting Bundle",

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "000004251cded084",
+    "IconSource":  "Installer",
     "Vendor":  "The Git Development Community",
     "Application":  "Git for Windows (x64)",
     "CMName":  "Git for Windows",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "ba69d31f0c78e254",
+    "IconSource":  "None",
   "Vendor": "Microsoft",
   "Application": "SharePoint Online Management Shell (x64)",
   "CMName": "SharePoint Online Management Shell",

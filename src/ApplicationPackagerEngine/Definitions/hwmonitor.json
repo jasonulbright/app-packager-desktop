@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "cd94a17e602f83b5",
+    "IconSource":  "Installer",
   "Vendor": "CPUID",
   "Application": "HWMonitor (x64)",
   "CMName": "HWMonitor",

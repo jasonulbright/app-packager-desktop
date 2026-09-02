@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "6f21ac83b950e7d4",
+    "IconSource":  "Installer",
   "Vendor": "Binary Fortress Software",
   "Application": "HashTools (x64)",
   "CMName": "HashTools",

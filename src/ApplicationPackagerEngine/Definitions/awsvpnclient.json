@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0ef551d564d65c03",
+    "IconSource":  "Installer",
   "Vendor": "Amazon",
   "Application": "AWS VPN Client (x64)",
   "CMName": "AWS VPN Client",
