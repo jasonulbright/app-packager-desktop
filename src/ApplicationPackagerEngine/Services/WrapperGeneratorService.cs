@@ -62,7 +62,8 @@ public sealed class WrapperGeneratorService
     /// </summary>
     public void GenerateExeWrappers(string outputPath, string exeFileName,
         string installArgs, string uninstallArgs, string? installerFramework = null,
-        string? applicationName = null, string? uninstallCommand = null)
+        string? applicationName = null, string? uninstallCommand = null,
+        string? postInstallScript = null)
     {
         var installPs1 = $"""
             $exePath = Join-Path $PSScriptRoot '{exeFileName}'
@@ -70,6 +71,20 @@ public sealed class WrapperGeneratorService
             $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
+
+        if (!string.IsNullOrWhiteSpace(postInstallScript))
+        {
+            // Post-install configuration runs only after a successful install and
+            // reports 0, so a configuration step never masks the installer's code.
+            installPs1 = $$"""
+                $exePath = Join-Path $PSScriptRoot '{{exeFileName}}'
+                $proc = Start-Process -FilePath $exePath -ArgumentList '{{installArgs}}' -Wait -PassThru -NoNewWindow
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }
+                {{postInstallScript!.Trim().Replace("\r\n", "\n").Replace("\n", "\r\n")}}
+                exit 0
+                """;
+        }
 
         // Framework-aware uninstall script
         string uninstallPs1;

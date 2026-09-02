@@ -483,7 +483,8 @@ public sealed class StagingService
             else
             {
                 _wrapperService.GenerateExeWrappers(contentPath, installerFileName,
-                    installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand);
+                    installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand,
+                    ResolvePostInstallScript(def, settingsValues));
             }
 
             // 6. Build detection config
@@ -1391,12 +1392,12 @@ public sealed class StagingService
             if (param.ControlType == "Toggle")
             {
                 if (value.Equals("true", StringComparison.OrdinalIgnoreCase))
-                    parts.Add(param.CommandFragment.Replace("{value}", "1", StringComparison.OrdinalIgnoreCase));
+                    parts.Add(param.CommandFragment.Replace("{value}", MapValue(param, null, "1"), StringComparison.OrdinalIgnoreCase));
             }
             else
             {
                 if (!string.IsNullOrEmpty(value))
-                    parts.Add(param.CommandFragment.Replace("{value}", value, StringComparison.OrdinalIgnoreCase));
+                    parts.Add(param.CommandFragment.Replace("{value}", MapValue(param, null, value), StringComparison.OrdinalIgnoreCase));
             }
         }
 
@@ -1420,10 +1421,60 @@ public sealed class StagingService
         {
             if (values is null || !values.TryGetValue(param.Key, out var value))
                 value = param.DefaultValue;
-            text = text.Replace($"{{setting:{param.Key}}}", value, StringComparison.OrdinalIgnoreCase);
+            if (param.ValueMaps is not null)
+            {
+                foreach (var map in param.ValueMaps)
+                    text = text!.Replace($"{{setting:{param.Key}:{map.Key}}}", MapValue(param, map.Key, value),
+                        StringComparison.OrdinalIgnoreCase);
+            }
+
+            text = text!.Replace($"{{setting:{param.Key}}}", MapValue(param, null, value), StringComparison.OrdinalIgnoreCase);
         }
 
         return text;
+    }
+
+    /// <summary>
+    /// Applies a parameter's substitution table to a chosen value. A named map
+    /// selects ValueMaps[mapName]; a null name selects ValueMap. A value the
+    /// table does not list substitutes itself, so a table only has to spell out
+    /// the values it rewrites.
+    /// </summary>
+    private static string MapValue(InstallerParameter param, string? mapName, string value)
+    {
+        var table = mapName is null
+            ? param.ValueMap
+            : param.ValueMaps is not null && param.ValueMaps.TryGetValue(mapName, out var named) ? named : null;
+
+        return table is not null && table.TryGetValue(value, out var mapped) ? mapped : value;
+    }
+
+    /// <summary>
+    /// Returns the post-install PowerShell for a definition with its setting
+    /// tokens resolved, or null when the definition has none or the gating
+    /// setting is not at its enabling value.
+    /// </summary>
+    public static string? ResolvePostInstallScript(AppDefinition def, Dictionary<string, string>? values)
+    {
+        var config = def.PostInstallScript;
+        if (config is null || string.IsNullOrWhiteSpace(config.Script))
+            return null;
+
+        if (!string.IsNullOrEmpty(config.WhenSetting))
+        {
+            var gate = def.InstallerSettings?.FirstOrDefault(p =>
+                p.Key.Equals(config.WhenSetting, StringComparison.OrdinalIgnoreCase));
+            if (gate is null)
+                return null;
+
+            if (values is null || !values.TryGetValue(gate.Key, out var chosen))
+                chosen = gate.DefaultValue;
+
+            if (!string.Equals(chosen, config.WhenValue, StringComparison.OrdinalIgnoreCase))
+                return null;
+        }
+
+        return ApplySettingTokens(config.Script, def.InstallerSettings, values);
     }
 
     /// <summary>
