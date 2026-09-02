@@ -18,7 +18,7 @@ Packr does that chore for you. For each application it knows about, it:
 4. Works out a detection rule — the check that tells MECM or Intune whether the app is present on a machine — by reading the installer itself.
 5. Creates the application in MECM (or an Intune Win32 app), with the deployment type, detection rule, and content already filled in.
 
-You pick applications from a list and press a button. Around 116 applications ship with it already described, so common software is covered out of the box.
+You pick applications from a list and press a button. 294 applications ship with it already described, so common software is covered out of the box.
 
 ## Who it's for
 
@@ -42,7 +42,7 @@ Packr is the C# sibling of [app-packager](https://github.com/jasonulbright/app-p
 
 ## Status
 
-**v2.1.0-alpha8** — 90 of 116 applications signed off (install and detection validated). Engine features: automated detection derivation via installer metadata extraction (7z plus per-framework manifest readers), MSIX deployment type, per-user deployment, auto-distribute/deploy, SQLite version history, PSADT wrapper generation. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
+**v2.2.0-alpha2** — 294 application definitions, all version scrapers passing the live check-only sweep. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 payload verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation. 90 of the original 116 definitions are install-and-detection signed off on a lab site; the 2026 additions are stage-verified and awaiting the lab pass. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
 
 ## Stack
 
@@ -59,7 +59,7 @@ ApplicationPackagerUI (WPF)          ← user interface (WPF-UI 4.2.0 Fluent)
        ├─ Services/                  ← Download, MSI inspection, 7z extraction, installer ID,
        │                                staging, MECM packaging, PSADT wrappers, SQLite history
        ├─ Models/                    ← AppDefinition, StageManifest, InstallerMetadata, InstallerParameter
-       └─ Definitions/              ← JSON app definitions (116 apps, one per file)
+       └─ Definitions/              ← JSON app definitions (294 apps, one per file)
 ```
 
 ## Scraper Types
