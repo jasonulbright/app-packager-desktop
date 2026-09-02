@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
@@ -20,7 +21,7 @@ public class SettingsService
     public AppSettings Load()
     {
         if (!File.Exists(SettingsPath))
-            return new AppSettings();
+            return new AppSettings { FirstRunCompleted = false };
 
         try
         {
@@ -30,11 +31,12 @@ public class SettingsService
             // with no target; both resolve to MECM only.
             settings.Intune ??= new IntuneSettings();
             settings.Intune.DeploymentTarget = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
+            settings.FirstRunCompleted = FirstRunDecision.ResolveCompleted(settings.FirstRunCompleted, settingsFileExisted: true);
             return settings;
         }
         catch
         {
-            return new AppSettings();
+            return new AppSettings { FirstRunCompleted = false };
         }
     }
 

@@ -1,3 +1,4 @@
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using Wpf.Ui.Appearance;
@@ -9,6 +10,7 @@ public partial class SettingsViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly PackagerPreferencesService _prefsSync;
     private readonly ISnackbarService _snackbarService;
+    private readonly PackagesViewModel _packagesViewModel;
 
     // Organization
     [ObservableProperty] private string _companyName = "";
@@ -71,16 +73,20 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnHasStoredIntuneSecretChanged(bool value) => OnPropertyChanged(nameof(IntuneSecretHint));
 
-    public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService)
+    public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService, PackagesViewModel packagesViewModel)
     {
         _settingsService = settingsService;
         _prefsSync = prefsSync;
         _snackbarService = snackbarService;
+        _packagesViewModel = packagesViewModel;
 
         // Migrate from PS1 GUI preferences on first launch
         prefsSync.MigrateFromPs1IfNeeded();
         LoadSettings();
     }
+
+    /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
+    public void ReloadFromStore() => LoadSettings();
 
     private void LoadSettings()
     {
@@ -176,6 +182,8 @@ public partial class SettingsViewModel : ObservableObject
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 
         _settingsService.Save(s);
+
+        _packagesViewModel.RefreshDeploymentTargetState();
 
         // Sync to PS1 packager JSON files
         _prefsSync.SyncCompanyName(s.CompanyName);

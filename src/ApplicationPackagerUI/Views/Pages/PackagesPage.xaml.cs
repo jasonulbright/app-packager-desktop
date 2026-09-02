@@ -112,6 +112,14 @@ public partial class PackagesPage
     private void PackageButton_Click(object sender, RoutedEventArgs e)
     {
         var vm = (PackagesViewModel)DataContext!;
+
+        // Intune only: there is no MECM branch to choose, so the button runs the publish directly.
+        if (vm.IsIntuneOnlyTarget)
+        {
+            _ = vm.PackageCommand.ExecuteAsync(null);
+            return;
+        }
+
         var menu = new System.Windows.Controls.ContextMenu();
 
         var mecm = new System.Windows.Controls.MenuItem { Header = "MECM", Icon = new SymbolIcon(SymbolRegular.Server24) };

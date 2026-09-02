@@ -1,3 +1,5 @@
+using ApplicationPackagerEngine.Models;
+
 namespace ApplicationPackagerUI.Models;
 
 public sealed class AppSettings
@@ -61,26 +63,12 @@ public sealed class AppSettings
     public double WindowHeight { get; set; } = 800;
     public bool WindowMaximized { get; set; }
     public bool PaneOpen { get; set; } = true;
-}
 
-/// <summary>Deployment targets a Package run can write to.</summary>
-public static class DeploymentTargets
-{
-    public const string Mecm = "MECM";
-    public const string MecmAndIntune = "MECMAndIntune";
-    public const string IntuneOnly = "IntuneOnly";
-
-    /// <summary>Maps an unknown or absent stored value onto MECM only.</summary>
-    public static string Normalize(string? value) => value switch
-    {
-        MecmAndIntune => MecmAndIntune,
-        IntuneOnly => IntuneOnly,
-        _ => Mecm
-    };
-
-    public static bool PublishesToIntune(string? value) => Normalize(value) != Mecm;
-
-    public static bool SkipsMecm(string? value) => Normalize(value) == IntuneOnly;
+    /// <summary>
+    /// Null in a file written before the flag existed. SettingsService stamps it true on load so
+    /// an already-configured user never meets the setup window.
+    /// </summary>
+    public bool? FirstRunCompleted { get; set; }
 }
 
 public sealed class IntuneSettings

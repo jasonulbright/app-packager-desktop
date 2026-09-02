@@ -30,7 +30,7 @@ If you do want to add your own applications, you can: definitions are single JSO
 
 1. Install the .NET 10 Desktop Runtime.
 2. Download the release zip, unblock it, extract it anywhere, and run `ApplicationPackagerUI.exe`. Nothing is installed; it runs from the folder.
-3. On the **Settings** page, fill in your MECM site code, site server, and the network share where package content should live. The application tests the MECM connection on launch and shows the result.
+3. On first launch a short setup window asks where you deploy — MECM only, MECM + Intune, or Intune only — then asks only for the fields that choice needs. Everything it sets is also on the **Settings** page, so you can skip it and fill in the site code, site server, and network share there instead. For MECM targets the application tests the connection on launch and shows the result; an Intune-only setup skips that test and relabels **Package** to **Publish**.
 4. On the **Packages** page, tick one or more applications and press **Check Latest** to see the current vendor version alongside what your environment already has.
 5. Press **Stage** to download and prepare, then **Package** to create the application in MECM or Intune.
 

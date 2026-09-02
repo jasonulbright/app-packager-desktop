@@ -71,6 +71,10 @@ public partial class App : Application
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainWindowViewModel>();
 
+                // Setup window: transient so a re-open starts from the stored settings.
+                services.AddTransient<SetupWindow>();
+                services.AddTransient<SetupWindowViewModel>();
+
                 // Pages
                 services.AddSingleton<PackagesPage>();
                 services.AddSingleton<PackagesViewModel>();
