@@ -1,0 +1,127 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.SetupWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    Title="Setup"
+    Width="620"
+    Height="600"
+    ResizeMode="NoResize"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <helpers:EnumToBooleanConverter x:Key="EnumToBooleanConverter" />
+        <helpers:StepVisibilityConverter x:Key="StepVisibilityConverter" />
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style x:Key="HintText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Setup" ShowMaximize="False" ShowMinimize="False" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="28,8,28,8">
+
+                <!-- Step 1: environment -->
+                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
+                    <TextBlock Text="Where do you deploy?" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="This sets the Deployment Target. You can change it later in Settings."
+                               Style="{StaticResource HintText}" />
+
+                    <RadioButton Content="MECM only" Margin="0,0,0,4"
+                                 IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=MECM}" />
+                    <TextBlock Text="Package creates the MECM Application and Deployment Type."
+                               Style="{StaticResource HintText}" Margin="24,0,0,10" />
+
+                    <RadioButton Content="MECM + Intune" Margin="0,0,0,4"
+                                 IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=MECMAndIntune}" />
+                    <TextBlock Text="The MECM application plus a Graph publish of the .intunewin."
+                               Style="{StaticResource HintText}" Margin="24,0,0,10" />
+
+                    <RadioButton Content="Intune only" Margin="0,0,0,4"
+                                 IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=IntuneOnly}" />
+                    <TextBlock Text="Stage, build the .intunewin, and publish via Graph. No site connection, no share copy."
+                               Style="{StaticResource HintText}" Margin="24,0,0,10" />
+                </StackPanel>
+
+                <!-- Step 2: the fields that target needs -->
+                <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
+                    <TextBlock Text="Connection details" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,12" />
+
+                    <StackPanel Visibility="{Binding ShowMecmFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="MCM" Margin="0,0,0,12" />
+
+                        <TextBlock Text="Site Server / SMS Provider" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox Text="{Binding ProviderMachine, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Empty uses the local machine" Margin="0,0,0,12" />
+
+                        <TextBlock Text="File Share Root" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />
+
+                        <TextBlock Text="Download Root" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox Text="{Binding DownloadRoot, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="C:\temp\ap" Margin="0,0,0,12" />
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding ShowIntuneFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,12" />
+
+                        <TextBlock Text="Client ID" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox Text="{Binding IntuneClientId, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="App registration (client) ID" Margin="0,0,0,12" />
+
+                        <TextBlock Text="Client Secret" Style="{StaticResource FieldLabel}" />
+                        <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
+                        <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret. Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
+                                   Style="{StaticResource HintText}" />
+                    </StackPanel>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="28,12">
+            <DockPanel>
+                <CheckBox DockPanel.Dock="Left" Content="Don't show this again"
+                          IsChecked="{Binding DontShowAgain}" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ui:Button Content="Back" Command="{Binding BackCommand}" Margin="0,0,8,0"
+                               Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
+                    <ui:Button Content="Skip" Command="{Binding SkipCommand}" Margin="0,0,8,0" />
+                    <ui:Button Content="Next" Appearance="Primary" Command="{Binding NextCommand}"
+                               Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}" />
+                    <ui:Button Content="Save" Appearance="Primary" Command="{Binding SaveCommand}"
+                               Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

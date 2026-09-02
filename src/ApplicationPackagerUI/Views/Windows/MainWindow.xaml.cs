@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using ApplicationPackagerEngine.Models;
 using Microsoft.Extensions.DependencyInjection;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Windows;
@@ -49,6 +50,13 @@ public partial class MainWindow
         if (settings.WindowMaximized)
             WindowState = WindowState.Maximized;
         RootNavigation.IsPaneOpen = settings.PaneOpen;
+
+        if (FirstRunDecision.IsWizardDue(settings.FirstRunCompleted))
+        {
+            var setup = _serviceProvider.GetRequiredService<SetupWindow>();
+            setup.Owner = this;
+            setup.ShowDialog();
+        }
 
         Closing += (_, _) =>
         {

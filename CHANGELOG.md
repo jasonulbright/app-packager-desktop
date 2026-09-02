@@ -203,7 +203,39 @@ All notable changes to Packr are documented here.
   DisplayLink, Windows ADK/WinPE layout staging, SQL Server Express
   wrapper) all have it now.
 
+### UI
+- **First-run setup window** — a themed modal `SetupWindow` opens after the
+  main window loads when no settings file exists or `FirstRunCompleted` is
+  unset. Step one picks the environment (MECM only / MECM + Intune / Intune
+  only), bound to the existing `DeploymentTarget` values and preselected
+  from the stored one; step two shows only the fields that target needs —
+  Site Code, Site Server, File Share Root, and Download Root for MECM,
+  Tenant ID, Client ID, and Client Secret for Intune, the secret DPAPI-
+  protected by `IntuneSecretProtector` with an empty box keeping the saved
+  one. Save writes through `SettingsService`, reloads `SettingsViewModel`,
+  and refreshes the action bar — no restart. A "Don't show this again"
+  checkbox suppresses the window without configuring anything; Skip or
+  closing without it leaves it due next launch. `FirstRunDecision` holds
+  the decision and touches no WPF types; settings files written before the
+  flag existed are stamped `FirstRunCompleted` on load, so upgrading users
+  never see it.
+- **Deployment-target-aware action bar** —
+  `PackagesViewModel.RefreshDeploymentTargetState` applies the target from
+  one place: at launch, after a Settings save, and after the setup window
+  saves. The mapping itself is the WPF-free `DeploymentTargetActionState`.
+  With target `IntuneOnly`, Check MECM is disabled (not hidden) with a
+  tooltip naming the missing ConfigMgr site, Package reads Publish with a
+  matching tooltip and skips the MECM/Intune dropdown, and the launch-time
+  MECM pre-flight version query is skipped before it can open a provider
+  connection, logging the skip. `MECM` and `MECMAndIntune` are unchanged.
+
 ### Fixed
+- **Intune-only runs no longer trip the MECM gates** — `PackageAsync`
+  required `SiteCode` regardless of Deployment Target, so target
+  `IntuneOnly` could never start a run on a console-less workstation. The
+  gate is now `DeploymentTargetGate.Validate`: MECM targets need Site Code
+  and File Share Root, Intune targets need Tenant ID, Client ID, and a
+  stored client secret, and each blocked run says which.
 - `StagingService` resolves origin-relative download hrefs (leading `/`)
   against the scraper URL's origin instead of its directory.
 

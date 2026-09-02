@@ -1,4 +1,5 @@
 using System.IO;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerUI.Controls;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
@@ -30,6 +31,14 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private bool _showProgress;
     [ObservableProperty] private string _mecmConnectionStatus = "Unknown";
 
+    // Deployment-target-aware action bar. Written only by RefreshDeploymentTargetState.
+    [ObservableProperty] private bool _isCheckMecmAvailable = true;
+    [ObservableProperty] private string _checkMecmToolTip = "";
+    [ObservableProperty] private string _packageLabel = "Package";
+    [ObservableProperty] private string _packageToolTip = "";
+    [ObservableProperty] private bool _isIntuneOnlyTarget;
+    private bool _skipMecmPreflight;
+
     public IAsyncRelayCommand LoadPackagersCommand { get; }
     public IAsyncRelayCommand CheckLatestCommand { get; }
     public IAsyncRelayCommand CheckMecmCommand { get; }
@@ -59,11 +68,32 @@ public partial class PackagesViewModel : ObservableObject
 
         LoadPackagersCommand = new AsyncRelayCommand(LoadPackagersAsync);
         CheckLatestCommand = new AsyncRelayCommand(CheckLatestAsync, CanRunOperation);
-        CheckMecmCommand = new AsyncRelayCommand(CheckMecmAsync, CanRunOperation);
+        CheckMecmCommand = new AsyncRelayCommand(CheckMecmAsync, CanRunCheckMecm);
         StageCommand = new AsyncRelayCommand(StageAsync, CanRunOperation);
         PackageCommand = new AsyncRelayCommand(PackageAsync, CanRunOperation);
 
+        RefreshDeploymentTargetState();
+
         _ = InitializeAsync();
+    }
+
+    /// <summary>
+    /// Applies the deployment target to the action bar. The only writer of these bound
+    /// properties; called at launch, after a Settings save, and after the setup window saves.
+    /// </summary>
+    public void RefreshDeploymentTargetState()
+    {
+        var target = _settingsService.Load().Intune.DeploymentTarget;
+        var state = DeploymentTargetActionState.For(target);
+
+        IsCheckMecmAvailable = state.CheckMecmEnabled;
+        CheckMecmToolTip = state.CheckMecmToolTip;
+        PackageLabel = state.PackageLabel;
+        PackageToolTip = state.PackageToolTip;
+        _skipMecmPreflight = state.SkipMecmPreflight;
+        IsIntuneOnlyTarget = DeploymentTargets.SkipsMecm(target);
+
+        CheckMecmCommand.NotifyCanExecuteChanged();
     }
 
     private async Task InitializeAsync()
@@ -78,6 +108,9 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     private bool CanRunOperation() => !IsOperationRunning;
+
+    /// <summary>Disabled rather than hidden under an Intune-only target: the tooltip states why.</summary>
+    private bool CanRunCheckMecm() => CanRunOperation() && IsCheckMecmAvailable;
 
     partial void OnIsOperationRunningChanged(bool value)
     {
@@ -282,6 +315,15 @@ public partial class PackagesViewModel : ObservableObject
     private async Task TestMecmConnectionAsync()
     {
         var settings = _settingsService.Load();
+
+        // Skipped before it can open a provider connection: an Intune-only workstation has no site.
+        if (_skipMecmPreflight)
+        {
+            MecmConnectionStatus = "Not used";
+            AddLogLine("MECM: pre-flight version query skipped — Deployment Target is Intune only.");
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(settings.SiteCode))
         {
             MecmConnectionStatus = "Not configured";
@@ -595,12 +637,24 @@ public partial class PackagesViewModel : ObservableObject
     {
         var settings = _settingsService.Load();
 
-        if (string.IsNullOrWhiteSpace(settings.SiteCode))
+        // MECM targets need the site fields; an Intune-only run needs Intune credentials instead,
+        // so a console-less workstation can still publish.
+        var blocked = DeploymentTargetGate.Validate(
+            settings.Intune.DeploymentTarget,
+            settings.SiteCode,
+            settings.FileShareRoot,
+            settings.Intune.TenantId,
+            settings.Intune.ClientId,
+            !string.IsNullOrWhiteSpace(settings.Intune.ClientSecretProtected));
+
+        if (blocked is not null)
         {
-            _snackbarService.Show("Package", "SiteCode is required. Open Settings.",
-                Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(3));
+            _snackbarService.Show(PackageLabel, blocked,
+                Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+            AddLogLine($"{PackageLabel} blocked: {blocked}");
             return;
         }
+
         if (string.IsNullOrWhiteSpace(Comment))
         {
             var dialog = new ContentDialog
