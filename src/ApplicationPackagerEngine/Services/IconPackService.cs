@@ -283,45 +283,7 @@ public sealed class IconPackService
             if (!VerifyChecksum(zipPath, expected))
                 return new IconPackInstallResult(false, "Icon pack checksum did not match; nothing was installed.");
 
-            var extracted = Path.Combine(scratch, "extracted");
-            ZipFile.ExtractToDirectory(zipPath, extracted, overwriteFiles: true);
-
-            var manifest = ReadManifest(Path.Combine(extracted, "manifest.json"));
-            if (manifest is null)
-                return new IconPackInstallResult(false, "The icon pack carries no readable manifest.json.");
-
-            var definitionNames = Directory.GetFiles(definitions, "*.json")
-                .Select(Path.GetFileNameWithoutExtension)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Select(n => n!)
-                .ToList();
-
-            var map = MapEntries(manifest.Icons, definitionNames);
-
-            var iconsDirectory = IconsDirectory(definitions);
-            Directory.CreateDirectory(iconsDirectory);
-
-            var copied = 0;
-            foreach (var mapping in map.Mappings)
-            {
-                var source = Path.Combine(extracted, mapping.Entry.File ?? "");
-                if (string.IsNullOrWhiteSpace(mapping.Entry.File) || !File.Exists(source)) continue;
-                File.Copy(source, Path.Combine(iconsDirectory, mapping.DefinitionBaseName + ".png"), overwrite: true);
-                copied++;
-            }
-
-            File.Copy(Path.Combine(extracted, "manifest.json"), Path.Combine(iconsDirectory, "manifest.json"), overwrite: true);
-
-            var warning = SatisfiesAppVersion(manifest.MinAppVersion, appVersion)
-                ? ""
-                : $" Pack targets packr {manifest.MinAppVersion} or newer; installed anyway.";
-
-            var message = $"Icon pack {tag} installed: {copied} icons for {map.MatchedEntries} packagers, "
-                        + $"{map.Unmatched.Count} without a matching definition.{warning}";
-            onLog?.Invoke(message);
-
-            return new IconPackInstallResult(true, message, manifest.PackVersion,
-                map.MatchedEntries, copied, map.Unmatched.Count);
+            return CompleteInstall(zipPath, scratch, definitions, appVersion, tag, onLog);
         }
         catch (Exception ex)
         {
@@ -331,6 +293,118 @@ public sealed class IconPackService
         {
             try { if (Directory.Exists(scratch)) Directory.Delete(scratch, recursive: true); } catch { }
         }
+    }
+
+    /// <summary>
+    /// Installs a pack zip already present on disk. A checksums.txt beside the zip is
+    /// verified when present; without one the install proceeds and the message says the
+    /// pack was unverified. The zip is copied into scratch before extraction so the
+    /// extraction source never carries a zone identifier from the original location.
+    /// Never throws.
+    /// </summary>
+    public Task<IconPackInstallResult> InstallFromFileAsync(
+        string zipPath,
+        string? definitionsDirectory = null,
+        string? appVersion = null,
+        Action<string>? onLog = null,
+        CancellationToken ct = default)
+    {
+        var definitions = string.IsNullOrWhiteSpace(definitionsDirectory)
+            ? DefaultDefinitionsDirectory()
+            : definitionsDirectory;
+        var scratch = Path.Combine(Path.GetTempPath(), "packr-iconpack-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
+                return Task.FromResult(new IconPackInstallResult(false, $"Icon pack file not found: {zipPath}"));
+
+            if (!Directory.Exists(definitions))
+                return Task.FromResult(new IconPackInstallResult(false, $"Definitions folder not found: {definitions}"));
+
+            ct.ThrowIfCancellationRequested();
+
+            Directory.CreateDirectory(scratch);
+            var localZip = Path.Combine(scratch, Path.GetFileName(zipPath));
+            File.Copy(zipPath, localZip, overwrite: true);
+
+            var note = " Checksum not verified (no checksums.txt beside the zip).";
+            var sumsBeside = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(zipPath)) ?? "", ChecksumAssetName);
+            if (File.Exists(sumsBeside))
+            {
+                var expected = ParseChecksum(File.ReadAllText(sumsBeside), Path.GetFileName(zipPath));
+                if (!VerifyChecksum(localZip, expected))
+                    return Task.FromResult(new IconPackInstallResult(
+                        false, "Icon pack checksum did not match; nothing was installed."));
+                note = "";
+            }
+
+            var result = CompleteInstall(localZip, scratch, definitions, appVersion, "from file", onLog);
+            return Task.FromResult(result.Installed
+                ? result with { Message = result.Message + note }
+                : result);
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(new IconPackInstallResult(false, $"Icon pack install failed: {ex.Message}"));
+        }
+        finally
+        {
+            try { if (Directory.Exists(scratch)) Directory.Delete(scratch, recursive: true); } catch { }
+        }
+    }
+
+    /// <summary>
+    /// Extraction, manifest read, name mapping, and the copy into Definitions\Icons —
+    /// shared by the download and the from-file paths. The zip is expected verified already.
+    /// </summary>
+    private static IconPackInstallResult CompleteInstall(
+        string zipPath,
+        string scratch,
+        string definitions,
+        string? appVersion,
+        string sourceLabel,
+        Action<string>? onLog)
+    {
+        var extracted = Path.Combine(scratch, "extracted");
+        ZipFile.ExtractToDirectory(zipPath, extracted, overwriteFiles: true);
+
+        var manifest = ReadManifest(Path.Combine(extracted, "manifest.json"));
+        if (manifest is null)
+            return new IconPackInstallResult(false, "The icon pack carries no readable manifest.json.");
+
+        var definitionNames = Directory.GetFiles(definitions, "*.json")
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n!)
+            .ToList();
+
+        var map = MapEntries(manifest.Icons, definitionNames);
+
+        var iconsDirectory = IconsDirectory(definitions);
+        Directory.CreateDirectory(iconsDirectory);
+
+        var copied = 0;
+        foreach (var mapping in map.Mappings)
+        {
+            var source = Path.Combine(extracted, mapping.Entry.File ?? "");
+            if (string.IsNullOrWhiteSpace(mapping.Entry.File) || !File.Exists(source)) continue;
+            File.Copy(source, Path.Combine(iconsDirectory, mapping.DefinitionBaseName + ".png"), overwrite: true);
+            copied++;
+        }
+
+        File.Copy(Path.Combine(extracted, "manifest.json"), Path.Combine(iconsDirectory, "manifest.json"), overwrite: true);
+
+        var warning = SatisfiesAppVersion(manifest.MinAppVersion, appVersion)
+            ? ""
+            : $" Pack targets packr {manifest.MinAppVersion} or newer; installed anyway.";
+
+        var message = $"Icon pack {sourceLabel} installed: {copied} icons for {map.MatchedEntries} packagers, "
+                    + $"{map.Unmatched.Count} without a matching definition.{warning}";
+        onLog?.Invoke(message);
+
+        return new IconPackInstallResult(true, message, manifest.PackVersion,
+            map.MatchedEntries, copied, map.Unmatched.Count);
     }
 
     /// <summary>Release tag and the two asset download URLs; a missing asset yields null.</summary>
