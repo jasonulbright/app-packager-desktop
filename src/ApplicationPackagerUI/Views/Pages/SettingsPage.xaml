@@ -114,6 +114,26 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Packager Icon Pack -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Packager Icon Pack" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Application icons for definitions tagged IconSource External. Downloaded from the icon pack release and installed into Definitions\Icons."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Download icon pack"
+                           Icon="{ui:SymbolIcon ArrowDownload24}"
+                           Command="{Binding DownloadIconPackCommand}"
+                           IsEnabled="{Binding IconPackIdle}"
+                           Margin="8,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding IconPackStatus}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
             <!-- Intune -->
             <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Intune" Style="{StaticResource SectionHeader}" />

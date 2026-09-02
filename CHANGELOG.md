@@ -4,6 +4,34 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### Icon Pack
+- **`IconPackService`** — resolves the latest `jasonulbright/app-packager-icons`
+  release through the GitHub API over `CurlProcess`, so a resolved token raises
+  the anonymous 60/hour budget. `icon-pack.zip` is verified against
+  `checksums.txt` (sha256, bare file name, `*`-marker or two-space form) before
+  anything is extracted; a mismatch installs nothing. Downloads land in a
+  per-run scratch folder that is removed on every exit path.
+- **Definition name mapping** — pack files are named by PowerShell packager
+  name. Each manifest entry resolves to a definition base name by exact match
+  first, then a normalized key (lower case, alphanumerics only, one trailing
+  `x64`/`x86`/`both` removed, `teams-new` aliased to `teams`). A normalized key
+  shared by several definitions copies one PNG per definition, which is how an
+  arch-collapsed pack entry reaches both arch variants. An entry matching no
+  definition is skipped. Live run against pack v1.1.0: 284 entries, 281
+  matched, 2 fanned to a second variant (`dotnet8`, `msvcruntimes`), 3 skipped
+  (`specexec-mitigations`, `vscode-system`, `vscode-user`).
+- **Install target** — `Definitions\Icons\<definition base name>.png`, the path
+  `IconExtractionService.StageExternalIcon` reads for `IconSource` `External`.
+  `manifest.json` is kept beside the icons and carries the status row's pack
+  version and icon count.
+- **Failure surface** — every path returns `IconPackInstallResult` with a plain
+  message: lookup failure, a release with no pack assets, a checksum mismatch, a
+  manifest that will not parse. A `MinAppVersion` newer than the running
+  assembly warns in the result message and still installs.
+- **Settings page** — a Packager Icon Pack row showing installed pack version
+  and icon count with a Download icon pack button, disabled while a download
+  runs and refreshing the status line on completion.
+
 ### Application Icons
 - **IconNative** — PE `RT_GROUP_ICON` directory parse selecting the largest
   frame of the module's first icon group, tie-broken on colour depth, emitted

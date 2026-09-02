@@ -10,3 +10,4 @@ tools/TestHarness/bin/
 tools/TestHarness/obj/
 tempap/
 publish/
+src/ApplicationPackagerEngine/Definitions/Icons/
