@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "d51a806c4b93f27e",
+    "IconSource":  "Installer",
   "Vendor": "Google",
   "Application": "Google Credential Provider for Windows (x64)",
   "CMName": "Google Credential Provider for Windows",

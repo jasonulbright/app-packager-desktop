@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "d6f1350ba874e29c",
+    "IconSource":  "Installer",
   "Vendor": "KDE e.V.",
   "Application": "KDiff3 (x64)",
   "CMName": "KDiff3",

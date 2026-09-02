@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "6de9147b8c30a2f5",
+    "IconSource":  "Installer",
   "Vendor": "Jan Fiala",
   "Application": "PSPad (x64)",
   "CMName": "PSPad",

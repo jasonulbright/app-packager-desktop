@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1eef022327a093e4",
+    "IconSource":  "None",
   "Vendor": "Amazon",
   "Application": "AWS Command Line Interface (x64)",
   "CMName": "AWS Command Line Interface",

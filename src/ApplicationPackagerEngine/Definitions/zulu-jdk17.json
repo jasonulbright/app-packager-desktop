@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "5faeee14906609dc",
+    "IconSource":  "Installer",
   "Vendor": "Azul",
   "Application": "Azul Zulu JDK 17 (x64)",
   "CMName": "Azul Zulu JDK 17 (x64)",

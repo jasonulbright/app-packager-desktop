@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "56054cd7b5464f2f",
+    "IconSource":  "Installer",
     "Vendor":  "PostgreSQL Global Development Group",
     "Application":  "PostgreSQL 14 (x64)",
     "CMName":  "PostgreSQL 14",

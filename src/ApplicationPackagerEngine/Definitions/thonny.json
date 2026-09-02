@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "7a6c0aa13c8bd1d4",
+    "IconSource":  "Installer",
   "Vendor": "Aivar Annamaa",
   "Application": "Thonny (x64)",
   "CMName": "Thonny",

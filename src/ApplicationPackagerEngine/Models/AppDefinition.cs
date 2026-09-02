@@ -83,6 +83,14 @@ public sealed class AppDefinition
     public string? IconFormat { get; set; }
 
     /// <summary>
+    /// Where the application icon comes from at stage time:
+    /// "Installer" extracts it from the staged payload, "External" copies
+    /// Definitions\Icons\&lt;definition id&gt;.ico|png, "None" stages no icon.
+    /// Absent is None, which keeps every untagged definition on the pre-icon path.
+    /// </summary>
+    public string? IconSource { get; set; }
+
+    /// <summary>
     /// ODT configuration for M365 apps. Only used when InstallerType is "ODT".
     /// </summary>
     public OdtConfig? Odt { get; set; }

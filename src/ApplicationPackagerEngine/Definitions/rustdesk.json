@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "4b70cf8d296a1e35",
+    "IconSource":  "Installer",
   "Vendor": "Purslane Tech Pte. Ltd.",
   "Application": "RustDesk (x64)",
   "CMName": "RustDesk",

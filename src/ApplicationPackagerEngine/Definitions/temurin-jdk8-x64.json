@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0000015411f63c00",
+    "IconSource":  "Installer",
     "Vendor":  "Eclipse Adoptium",
     "Application":  "Eclipse Temurin JDK 8",
     "CMName":  "Eclipse Temurin JDK 8",

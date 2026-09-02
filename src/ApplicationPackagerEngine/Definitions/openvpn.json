@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0d51bd2b859e42ed",
+    "IconSource":  "Installer",
   "Vendor": "OpenVPN Inc.",
   "Application": "OpenVPN (x64)",
   "CMName": "OpenVPN",

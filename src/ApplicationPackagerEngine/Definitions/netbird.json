@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1dd032f666ce76d6",
+    "IconSource":  "Installer",
   "Vendor": "NetBird",
   "Application": "NetBird (x64)",
   "CMName": "NetBird",

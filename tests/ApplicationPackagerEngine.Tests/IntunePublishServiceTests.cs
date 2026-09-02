@@ -126,6 +126,68 @@ public sealed class IntunePublishServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Publish_WithStagedIcon_SetsLargeIconMimeContent()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var iconBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 1, 2, 3 };
+        File.WriteAllBytes(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(package))!, "app-icon.png"), iconBytes);
+        var manifest = Manifest();
+        manifest.Icon = "app-icon.png";
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, manifest, Options());
+
+        var create = handler.Requests.First(r =>
+            r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        var largeIcon = JsonNode.Parse(create.Body)!["largeIcon"]!;
+        Assert.Equal("#microsoft.graph.mimeContent", (string?)largeIcon["@odata.type"]);
+        Assert.Equal("image/png", (string?)largeIcon["type"]);
+        Assert.Equal(Convert.ToBase64String(iconBytes), (string?)largeIcon["value"]);
+    }
+
+    [Fact]
+    public async Task Publish_WithMissingIconFile_LeavesLargeIconUnset()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var manifest = Manifest();
+        manifest.Icon = "app-icon.png";
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(package, manifest, Options());
+
+        var create = handler.Requests.First(r =>
+            r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        Assert.DoesNotContain("largeIcon", create.Body);
+    }
+
+    [Theory]
+    [InlineData("app-icon.ico", "image/x-icon")]
+    [InlineData("app-icon.png", "image/png")]
+    [InlineData("app-icon.jpg", "image/jpeg")]
+    [InlineData("app-icon.jpeg", "image/jpeg")]
+    public void BuildIconMimeContent_MapsTheExtensionToAContentType(string fileName, string expected)
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, fileName);
+        File.WriteAllBytes(path, [1, 2, 3]);
+
+        Assert.Equal(expected, (string?)IntunePublishService.BuildIconMimeContent(path)!["type"]);
+    }
+
+    [Fact]
+    public void BuildIconMimeContent_ReturnsNullForAMissingOrEmptyFile()
+    {
+        Directory.CreateDirectory(_dir);
+        var empty = Path.Combine(_dir, "empty.png");
+        File.WriteAllBytes(empty, []);
+
+        Assert.Null(IntunePublishService.BuildIconMimeContent(empty));
+        Assert.Null(IntunePublishService.BuildIconMimeContent(Path.Combine(_dir, "absent.png")));
+    }
+
+    [Fact]
     public async Task Publish_WhenAppExists_PatchesAndDoesNotCreate()
     {
         var package = IntuneWinFixture.Create(_dir);

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1ac8a8bd51294760",
+    "IconSource":  "Installer",
   "Vendor": "Citrix (Cloud Software Group)",
   "Application": "Citrix Workspace (CR) (x64)",
   "CMName": "Citrix Workspace CR",

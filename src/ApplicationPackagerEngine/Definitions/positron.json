@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "00000a8226a53a2e",
+    "IconSource":  "Installer",
     "Vendor":  "Posit PBC",
     "Application":  "Positron (x64)",
     "CMName":  "Positron",

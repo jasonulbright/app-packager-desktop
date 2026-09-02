@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "c6e2093fb7154a8d",
+    "IconSource":  "Installer",
   "Vendor": "DAX Studio",
   "Application": "DAX Studio (x64)",
   "CMName": "DAX Studio",

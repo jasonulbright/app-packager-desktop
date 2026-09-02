@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "9b26fd0417ac385e",
+    "IconSource":  "Installer",
   "Vendor": "IBM",
   "Application": "IBM Semeru Runtime Open Edition JDK 17 (x64)",
   "CMName": "IBM Semeru Runtime Open Edition JDK 17",

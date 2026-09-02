@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e6c209b7413df85a",
+    "IconSource":  "Installer",
   "Vendor": "SMath",
   "Application": "SMath Studio (x64)",
   "CMName": "SMath Studio",

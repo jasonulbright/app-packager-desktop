@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "59cc96043af02971",
+    "IconSource":  "None",
   "Vendor": "John MacFarlane",
   "Application": "Pandoc (x64)",
   "CMName": "Pandoc",

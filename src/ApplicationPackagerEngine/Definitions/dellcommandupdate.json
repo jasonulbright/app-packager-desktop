@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "b28e604c7d1a3f95",
+    "IconSource":  "Installer",
   "Vendor": "Dell Inc.",
   "Application": "Dell Command Update (x64)",
   "CMName": "Dell Command Update",

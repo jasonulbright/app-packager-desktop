@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "119898bbfc32f3e6",
+    "IconSource":  "Installer",
   "Vendor": "PowerSoft",
   "Application": "AnyBurn (x64)",
   "CMName": "AnyBurn",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1e6b04a9c2f83d75",
+    "IconSource":  "External",
   "Vendor": "QGIS",
   "Application": "QGIS LTR (x64)",
   "CMName": "QGIS LTR",

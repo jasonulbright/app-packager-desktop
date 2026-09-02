@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1ef37ec849be3479",
+    "IconSource":  "Installer",
   "Vendor": "Calibrite",
   "Application": "Calibrite PROFILER (x64)",
   "CMName": "Calibrite PROFILER",

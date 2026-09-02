@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "68295ad373c8b7e2",
+    "IconSource":  "Installer",
   "Vendor": "Tailscale",
   "Application": "Tailscale (x64)",
   "CMName": "Tailscale",

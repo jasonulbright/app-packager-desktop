@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "469dcfc8951057f4",
+    "IconSource":  "Installer",
   "Vendor": "Sober Lemur S.r.l.",
   "Application": "PDFsam Basic (x64)",
   "CMName": "PDFsam Basic",

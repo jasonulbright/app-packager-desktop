@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f706d7d318544ff0",
+    "IconSource":  "External",
   "Vendor": "Microsoft",
   "Application": "Windows ADK for Windows 11",
   "CMName": "Windows ADK for Windows 11",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "242209632ce4722c",
+    "IconSource":  "Installer",
   "Vendor": "Webprofusion",
   "Application": "Certify The Web (x64)",
   "CMName": "Certify The Web",

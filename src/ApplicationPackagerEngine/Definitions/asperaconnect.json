@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "15a007da230156ca",
+    "IconSource":  "Installer",
   "Vendor": "IBM",
   "Application": "IBM Aspera Connect (x64)",
   "CMName": "IBM Aspera Connect",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "236c15628ea8c91f",
+    "IconSource":  "Installer",
   "Vendor": "NVIDIA",
   "Application": "NVIDIA Graphics Driver - RTX Enterprise (x64)",
   "CMName": "NVIDIA Graphics Driver - RTX Enterprise",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "039e282d12a721cb",
+    "IconSource":  "Installer",
   "Vendor": "PDFgear Software",
   "Application": "PDFgear (x64)",
   "CMName": "PDFgear",

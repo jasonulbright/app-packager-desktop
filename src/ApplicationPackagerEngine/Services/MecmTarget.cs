@@ -281,6 +281,21 @@ public sealed class MecmTarget
         sb.AppendLine($"    Write-Host 'Updated application version  : {Esc(manifest.SoftwareVersion)}'");
         sb.AppendLine("}");
 
+        // Icon. Set-CMApplication reports success without the provider having
+        // accepted the write, and a missing or rejected icon is not a packaging
+        // error, so the whole step is advisory.
+        if (!string.IsNullOrWhiteSpace(manifest.Icon))
+        {
+            var iconPath = Path.Combine(networkContentPath, manifest.Icon);
+            sb.AppendLine($"$iconPath = '{Esc(iconPath)}'");
+            sb.AppendLine("if (Test-Path -LiteralPath $iconPath -PathType Leaf) {");
+            sb.AppendLine("  try {");
+            sb.AppendLine($"    Set-CMApplication -Name '{Esc(appName)}' -IconLocationFile $iconPath -ErrorAction Stop");
+            sb.AppendLine($"    Write-Host 'Application icon set         : {Esc(manifest.Icon)}'");
+            sb.AppendLine("  } catch { Write-Host \"Application icon not applied : $($_.Exception.Message)\" }");
+            sb.AppendLine("} else { Write-Host \"Application icon not found   : $iconPath\" }");
+        }
+
         // Clean up revision history (keep only latest)
         sb.AppendLine("try {");
         sb.AppendLine("  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop");

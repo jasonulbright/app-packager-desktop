@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "2e562220ca0c820d",
+    "IconSource":  "Installer",
   "Vendor": "WireGuard",
   "Application": "WireGuard (x64)",
   "CMName": "WireGuard",

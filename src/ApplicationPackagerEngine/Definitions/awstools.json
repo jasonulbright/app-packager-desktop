@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "df64b57703e23ca6",
+    "IconSource":  "None",
   "Vendor": "Amazon",
   "Application": "AWS Tools for Windows (x64)",
   "CMName": "AWS Tools for Windows",

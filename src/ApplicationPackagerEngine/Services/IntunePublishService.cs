@@ -112,6 +112,24 @@ public sealed class IntunePublishService : IDisposable
                 ReturnCode(1618, "retry"))
         };
 
+        // largeIcon is a mimeContent (type + base64 bytes) on the app entity,
+        // not a separate upload. An unresolvable icon leaves the property unset
+        // rather than failing the publish.
+        if (!string.IsNullOrWhiteSpace(manifest.Icon))
+        {
+            var iconPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(intuneWinPath))!, manifest.Icon);
+            var largeIcon = BuildIconMimeContent(iconPath);
+            if (largeIcon is not null)
+            {
+                appBody["largeIcon"] = largeIcon;
+                onProgress?.Invoke($"Intune app icon              : {manifest.Icon} ({(string?)largeIcon["type"]})");
+            }
+            else
+            {
+                onProgress?.Invoke($"Intune app icon not applied  : {iconPath}");
+            }
+        }
+
         string appId;
         if (match is not null)
         {
@@ -276,6 +294,40 @@ public sealed class IntunePublishService : IDisposable
     }
 
     /// <summary>Maps a stage-manifest detection onto Graph win32LobApp detection rules.</summary>
+    /// <summary>
+    /// Builds a win32LobApp.largeIcon mimeContent for an icon file: a content
+    /// mime type plus the raw bytes, which Graph JSON carries base64-encoded.
+    /// Null when the file is missing, empty, or unreadable.
+    /// </summary>
+    public static JsonObject? BuildIconMimeContent(string path)
+    {
+        byte[] bytes;
+        try
+        {
+            if (!File.Exists(path)) return null;
+            bytes = File.ReadAllBytes(path);
+        }
+        catch
+        {
+            return null;
+        }
+        if (bytes.Length == 0) return null;
+
+        var type = Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            _ => "image/x-icon"
+        };
+
+        return new JsonObject
+        {
+            ["@odata.type"] = "#microsoft.graph.mimeContent",
+            ["type"] = type,
+            ["value"] = Convert.ToBase64String(bytes)
+        };
+    }
+
     public static JsonArray BuildRules(StageDetection detection)
         => new(MapOne(detection));
 

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0000004ade2be928",
+    "IconSource":  "None",
     "Vendor":  "Amazon",
     "Application":  "Amazon Corretto JDK 8",
     "CMName":  "Amazon Corretto JDK 8",

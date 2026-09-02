@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "b6652e48ffe64fba",
+    "IconSource":  "Installer",
     "Vendor":  "OpenJS Foundation",
     "Application":  "Node.js LTS (x64)",
     "CMName":  "Node.js LTS",

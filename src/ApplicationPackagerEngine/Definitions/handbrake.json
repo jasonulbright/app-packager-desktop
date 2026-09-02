@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "28de6b1904c7a5f3",
+    "IconSource":  "Installer",
   "Vendor": "HandBrake Team",
   "Application": "HandBrake (x64)",
   "CMName": "HandBrake",

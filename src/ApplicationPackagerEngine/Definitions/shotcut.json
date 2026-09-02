@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "48c1e07b3da95f62",
+    "IconSource":  "Installer",
   "Vendor": "Meltytech",
   "Application": "Shotcut (x64)",
   "CMName": "Shotcut",

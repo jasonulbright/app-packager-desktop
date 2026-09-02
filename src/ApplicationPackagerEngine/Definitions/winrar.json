@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "bc1a3c7f3ce94350",
+    "IconSource":  "Installer",
     "Vendor":  "win.rar GmbH",
     "Application":  "WinRAR (x64)",
     "CMName":  "WinRAR",

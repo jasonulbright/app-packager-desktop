@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "16f8b027ade4c953",
+    "IconSource":  "Installer",
   "Vendor": "Stellarium",
   "Application": "Stellarium (x64)",
   "CMName": "Stellarium",

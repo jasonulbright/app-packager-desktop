@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "00000070df16bc85",
+    "IconSource":  "Installer",
     "Vendor":  "Brave Software",
     "Application":  "Brave Browser (x64)",
     "CMName":  "Brave Browser",

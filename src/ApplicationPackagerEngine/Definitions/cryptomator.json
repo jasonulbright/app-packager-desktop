@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3f8a41c6d90b47e2",
+    "IconSource":  "Installer",
   "Vendor": "Skymatic",
   "Application": "Cryptomator (x64)",
   "CMName": "Cryptomator",

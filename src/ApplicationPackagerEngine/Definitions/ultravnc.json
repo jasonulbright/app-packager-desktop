@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "44ffbc1b76aae099",
+    "IconSource":  "Installer",
   "Vendor": "uvnc bvba",
   "Application": "UltraVNC (x64)",
   "CMName": "UltraVNC",

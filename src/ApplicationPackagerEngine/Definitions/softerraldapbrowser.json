@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "5108fb3ce7a2946d",
+    "IconSource":  "Installer",
   "Vendor": "Softerra",
   "Application": "Softerra LDAP Browser (x64)",
   "CMName": "Softerra LDAP Browser",

@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "2383b1ac5eaa4200",
+    "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "Visual Studio Code (x64)",
     "CMName":  "Visual Studio Code",

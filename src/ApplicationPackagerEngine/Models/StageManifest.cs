@@ -24,6 +24,11 @@ public sealed class StageManifest
     public StageDetection Detection { get; set; } = new();
     public DateTimeOffset StagedAt { get; set; } = DateTimeOffset.Now;
     public StageFileHash[]? FileHashes { get; set; }
+    /// <summary>
+    /// File name of the staged application icon inside the content folder.
+    /// Null when the definition stages no icon.
+    /// </summary>
+    public string? Icon { get; set; }
     /// <summary>Full uninstall command for EXE products whose uninstall is not msiexec-based.</summary>
     public string? UninstallCommand { get; set; }
     /// <summary>Installer framework identified at analysis time (drop-to-package).</summary>

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "bcc3192b728d80f3",
+    "IconSource":  "Installer",
   "Vendor": "Cloudflare",
   "Application": "Cloudflare WARP (x64)",
   "CMName": "Cloudflare WARP",

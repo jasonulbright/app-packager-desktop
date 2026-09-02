@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "aba97291884e0d2a",
+    "IconSource":  "Installer",
   "Vendor": "KDE",
   "Application": "Krita (x64)",
   "CMName": "Krita",

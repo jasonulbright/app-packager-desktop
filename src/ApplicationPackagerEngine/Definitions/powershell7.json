@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0000089d8d25e2a0",
+    "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "PowerShell 7 (x64)",
     "CMName":  "PowerShell 7",

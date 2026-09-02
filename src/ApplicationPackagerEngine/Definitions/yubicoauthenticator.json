@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "899b923e4e337030",
+    "IconSource":  "Installer",
   "Vendor": "Yubico",
   "Application": "Yubico Authenticator (x64)",
   "CMName": "Yubico Authenticator",

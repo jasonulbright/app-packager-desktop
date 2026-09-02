@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0da14e79601b4c1f",
+    "IconSource":  "Installer",
     "Vendor":  "Piriform Software Ltd.",
     "Application":  "CCleaner",
     "CMName":  "CCleaner",

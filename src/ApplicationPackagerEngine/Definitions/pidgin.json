@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "b207e5c94f1a836d",
+    "IconSource":  "External",
   "Vendor": "Pidgin",
   "Application": "Pidgin (x64)",
   "CMName": "Pidgin",

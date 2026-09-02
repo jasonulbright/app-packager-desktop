@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "55b32e042d33a293",
+    "IconSource":  "Installer",
   "Vendor": "Marcin Szeniak",
   "Application": "Bulk Crap Uninstaller (x64)",
   "CMName": "Bulk Crap Uninstaller",

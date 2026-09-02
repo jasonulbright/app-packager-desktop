@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "7adc3106c4e3afda",
+    "IconSource":  "Installer",
   "Vendor": "Amazon Web Services",
   "Application": "Amazon DCV Client",
   "CMName": "Amazon DCV Client",

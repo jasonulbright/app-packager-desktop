@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "5b90eac31d78f462",
+    "IconSource":  "None",
   "Vendor": "GitHub",
   "Application": "GitHub CLI (x64)",
   "CMName": "GitHub CLI",

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60005",
+    "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "Microsoft Teams (x64)",
     "CMName":  "Microsoft Teams",
