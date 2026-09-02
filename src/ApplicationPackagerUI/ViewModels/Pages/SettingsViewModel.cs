@@ -1,4 +1,6 @@
+using System.Reflection;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using Wpf.Ui.Appearance;
@@ -64,6 +66,14 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _hasStoredIntuneSecret;
 
+    // Icon pack
+    [ObservableProperty] private string _iconPackStatus = "";
+    [ObservableProperty] private bool _iconPackBusy;
+
+    public bool IconPackIdle => !IconPackBusy;
+
+    partial void OnIconPackBusyChanged(bool value) => OnPropertyChanged(nameof(IconPackIdle));
+
     // UI
     [ObservableProperty] private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
 
@@ -83,6 +93,39 @@ public partial class SettingsViewModel : ObservableObject
         // Migrate from PS1 GUI preferences on first launch
         prefsSync.MigrateFromPs1IfNeeded();
         LoadSettings();
+        RefreshIconPackStatus();
+    }
+
+    private void RefreshIconPackStatus() =>
+        IconPackStatus = IconPackService.StatusText(
+            IconPackService.ReadStatus(IconPackService.DefaultDefinitionsDirectory()));
+
+    /// <summary>
+    /// Downloads and installs the packager icon pack. The service reports every failure
+    /// as a message, so the button surfaces an outcome rather than an error dialog.
+    /// </summary>
+    [RelayCommand]
+    private async Task DownloadIconPackAsync()
+    {
+        IconPackBusy = true;
+        try
+        {
+            var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
+            var result = await new IconPackService().InstallAsync(
+                IconPackService.DefaultDefinitionsDirectory(), version);
+
+            RefreshIconPackStatus();
+
+            _snackbarService.Show(
+                "Icon pack", result.Message,
+                result.Installed ? Wpf.Ui.Controls.ControlAppearance.Success : Wpf.Ui.Controls.ControlAppearance.Caution,
+                new SymbolIcon(result.Installed ? SymbolRegular.Checkmark24 : SymbolRegular.Warning24),
+                TimeSpan.FromSeconds(6));
+        }
+        finally
+        {
+            IconPackBusy = false;
+        }
     }
 
     /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
