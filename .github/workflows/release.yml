@@ -61,6 +61,8 @@ jobs:
           if (git tag -l $tag) { throw "Tag $tag already exists; bump <Version> before releasing." }
           $existing = gh release view $tag --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists." }
+          # The step wrapper exits with the last native exit code; a missing release is the wanted case.
+          $global:LASTEXITCODE = 0
 
           $changelog = Get-Content CHANGELOG.md -Raw
           $section = [regex]::Match($changelog, "(?ms)^## \[$([regex]::Escape($version))\][^\r\n]*\r?\n(.*?)(?=^## \[|\z)")
