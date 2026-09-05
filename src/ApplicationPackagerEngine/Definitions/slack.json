@@ -6,24 +6,21 @@
   "CMName": "Slack",
   "Architecture": "x64",
   "VendorUrl": "https://slack.com/",
-  "InstallerType": "MSI",
+  "InstallerType": "MSIX",
   "InstallerFramework": "MSIX",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "HttpRegex",
-    "Url": "https://slack.com/api/desktop.latestRelease?platform=windows&variant=msi&arch=x64",
-    "Pattern": "\"version\":\"(\\d+\\.\\d+\\.\\d+)\""
+    "Type": "JsonQuery",
+    "Url": "https://slack.com/api/desktop.latestRelease?platform=windows&variant=msix&arch=x64",
+    "Pattern": "version",
+    "DownloadUrlQuery": "download_url"
   },
-  "DownloadUrl": "https://downloads.slack-edge.com/desktop-releases/windows/x64/{version}/slack-standalone-{version}.0.msi",
-  "InstallerFileName": "Slack-{version}.msi",
-  "InstallArgs": "/qn /norestart",
-  "UninstallArgs": "/x {ProductCode} /qn /norestart",
+  "DownloadUrl": "https://downloads.slack-edge.com/desktop-releases/windows/x64/{version}/Slack.msix",
+  "InstallerFileName": "Slack.msix",
+  "InstallArgs": "",
+  "UninstallArgs": "",
   "Detection": {
-    "Type": "RegistryKeyValue",
-    "RegistryHive": "HKLM",
-    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
-    "ValueName": "DisplayVersion",
-    "Operator": "IsEquals",
+    "Type": "Script",
     "Is64Bit": true
   },
   "RunningProcess": [

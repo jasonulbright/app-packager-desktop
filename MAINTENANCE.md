@@ -42,13 +42,18 @@ definition the same week. When a PS packager gains a fixed URL or
 pattern, port the fix to the matching definition here in the same
 sitting.
 
-## Known-broken definitions (2026-08-31 sweep + stage probe)
+## Known-broken definitions (2026-08-31 sweep + stage probe; updated 2026-09-04)
 
-- **obsidian.json** — version scrape OK, download 404 (GitHub release
-  asset naming drift; re-derive the asset URL pattern).
-- **wiztree.json** — download URL now returns an HTML page (vendor
-  added a wall or moved the direct link); needs a new direct URL or
-  the app is no longer auto-packagable.
+Resolved 2026-09-04 (stage-verified): obsidian (newest release carrying a
+Windows installer wins; the release tagged latest can be mobile-only),
+wiztree (file host is diskanalyzer.com/files, which redirects to the
+vendor CDN), slack (MSIX provisioned for all users, lab-verified), cpuz and
+citrixworkspacecr (fixed 2026-08-31). Also verified in the lab the same
+day (install, detect, uninstall, clean): audacity (MSI), defraggler (builds
+page + file resource), gpg4win (64-bit view), kdiff3 (32-bit view; uninstall
+`/S` alone, `_?=` exits -1), netbeans (new), rstudio (/allusers, 64-bit
+view), sharex (x64 asset). Verdicts in REGRESSION-STATUS.md.
+
 - **pycharm.json** — scraper/download/signature fixed and verified
   2026-08-31 (JetBrains unified installer), but the ARP detection key
   changed; needs a lab install retest before the FULL PASS verdict is
@@ -59,21 +64,6 @@ sitting.
   login/EULA walls; not auto-packagable. Citrix Workspace CR, XenCenter,
   and XenServer VM Tools are NOT walled (verified staged 2026-08-31);
   only Citrix LTSR variants are.
-- **slack.json** — vendor gap found 2026-08-31 during the PS port:
-  Slack's desktop.latestRelease API advertises an MSI whose S3 object
-  does not exist (NoSuchKey for 4.52.153-155); Slack.msix and
-  SlackSetup.exe in the same folder are live. Wait for republication or
-  switch installer type (MSIX / per-user Squirrel — a deliberate
-  decision, not a scraper fix).
-- **cpuz.json** — DownloadUrl moved to download.cpuid.com (the
-  www.cpuid.com path serves an HTML interstitial with HTTP 200). The
-  engine now refuses non-MZ/non-OLE payloads at stage time
-  (StagingService.ValidateInstallerMagic), so this failure mode can no
-  longer stage silently.
-- **citrixworkspacecr.json** — detection key carries a literal
-  WOW6432Node segment AND Is64Bit false, which double-redirects when a
-  target adds the segment itself; strip the literal segment (found
-  during the PS port, port the fix here).
 
 ## Catalog-port definitions: known gaps (177 added, 2026-09-01)
 

@@ -1,0 +1,35 @@
+{
+  "Schema": 1,
+  "Id": "5c2e9b7a41d3f086",
+  "IconSource": "Installer",
+  "Vendor": "Apache Software Foundation",
+  "Application": "Apache NetBeans (x64)",
+  "CMName": "Apache NetBeans",
+  "Architecture": "x64",
+  "VendorUrl": "https://netbeans.apache.org/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/codelerity/netbeans-packages/releases/latest",
+    "Pattern": "\"name\":\\s*\"Apache-NetBeans-(\\d+(?:\\.\\d+)*)\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]*/Apache-NetBeans-{version}\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/codelerity/netbeans-packages/releases/latest/download/Apache-NetBeans-{version}.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Apache NetBeans_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "netbeans64",
+    "netbeans"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "Schema": 1,
   "Id": "7a3f95d2e18c604b",
-    "IconSource":  "Installer",
+  "IconSource": "Installer",
   "Vendor": "Piriform Software Ltd.",
   "Application": "Defraggler (x64)",
   "CMName": "Defraggler",
@@ -12,11 +12,18 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "FileVersion",
-    "Url": "https://download.ccleaner.com/dfsetup222.exe",
-    "Pattern": "FileVersion"
+    "Url": "https://www.ccleaner.com/defraggler/builds",
+    "Pattern": "FileVersion",
+    "Hops": [
+      {
+        "Pattern": "(?<url>https://download\\.ccleaner\\.com/dfsetup(?<capture>\\d{3,4})\\.exe)",
+        "SelectHighestVersion": true
+      }
+    ],
+    "DownloadUrlQuery": "CHAINED",
+    "VersionTransform": "regex_replace:^(\\d+)\\.(\\d+)\\.\\d+\\.(\\d+)$:$1.$2.$3"
   },
-  "DownloadUrl": "https://download.ccleaner.com/dfsetup222.exe",
-  "InstallerFileName": "dfsetup222.exe",
+  "DownloadUrl": "",
   "InstallArgs": "/S",
   "UninstallArgs": "/S",
   "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\Defraggler\\uninst.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",

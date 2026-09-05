@@ -4,6 +4,29 @@ All notable changes to Packr are documented here.
 
 ## [Unreleased]
 
+### Definitions
+- Stage Slack as an MSIX provisioned for all users.
+- Switch Audacity 4.0 to its MSI installer with ProductCode detection.
+- Accept ShareX's per-architecture setup asset, falling back to the single setup.
+- Read the Defraggler build from the builds page and the version from the installer resource.
+- Install RStudio for all users and detect it in the 64-bit registry view.
+- Detect Gpg4win in the 64-bit registry view.
+- Detect KDiff3 in the 32-bit registry view.
+- Add Apache NetBeans.
+- Take the newest Obsidian release that carries a Windows installer.
+- Download WizTree from the vendor's own host.
+
+### Engine
+- Resolve a FileVersion scrape through page hops when the vendor links the build but publishes no version.
+- Re-download a cached installer once when its checksum fails.
+- Retry a bootstrapper layout while another installation holds the Windows Installer mutex.
+- Show GitHub API authentication and remaining quota in Settings.
+
+### Fixed
+- Run only the product's own uninstaller: the EXE uninstall wrapper matches the Add/Remove Programs entry by detection key, install folder, then display name instead of taking the first entry.
+- Keep the definition's name, version and publisher when installer metadata read off a bundled component names something else.
+- Evaluate script detections in the remote test harness.
+
 ### Offline Icon Pack Install
 - **`IconPackService.InstallFromFileAsync`** — installs the pack from a local or
   UNC `icon-pack.zip`, for hosts whose proxy blocks the release download. The zip
