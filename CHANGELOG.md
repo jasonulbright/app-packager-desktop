@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.0-alpha5] - 2026-09-05
+
+### Added
+
+- Added Install Parameters to Settings, saved per application.
+- Added M365 deploy mode and excluded apps parameters.
+- Added SSMS install parameters.
+- Added TeamViewer Host device assignment parameters.
+
+### Fixed
+
+- Fixed M365 channel setting not applied to the definitions.
+
 ## [2.2.0-alpha4] - 2026-09-05
 
 ### Added

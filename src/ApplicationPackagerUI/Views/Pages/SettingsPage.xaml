@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    xmlns:controls="clr-namespace:ApplicationPackagerUI.Controls"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
@@ -400,6 +401,34 @@
                 <ComboBoxItem Content="Current Channel" Tag="Current" />
                 <ComboBoxItem Content="Semi-Annual Enterprise Channel (kiosk)" Tag="SemiAnnual" />
             </ComboBox>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Install parameters per application -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Install Parameters" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Switches and choices each installer takes, saved per application. Stage starts from these values: the review dialog shows them first unless it is skipped, in which case they apply as they are."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+            <CheckBox Content="Skip the review dialog before staging and use the saved values" IsChecked="{Binding SkipConfigReview}" Margin="0,0,0,8"
+                      ToolTip="Applications marked for review in their definition still show the dialog." />
+            <TextBlock Text="{Binding InstallParameterSummary}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" Margin="0,0,0,8" />
+
+            <ItemsControl ItemsSource="{Binding InstallParameterGroups}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ui:CardExpander Margin="0,0,0,8" IsExpanded="False">
+                            <ui:CardExpander.Header>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Header}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    <TextBlock Text="{Binding SubHeader}" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                </StackPanel>
+                            </ui:CardExpander.Header>
+                            <controls:InstallerSettingsPanel Parameters="{Binding Parameters}" Store="{Binding Values}" />
+                        </ui:CardExpander>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <Border Style="{StaticResource SectionDivider}" />
 

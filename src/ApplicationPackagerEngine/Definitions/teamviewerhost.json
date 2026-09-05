@@ -1,36 +1,65 @@
 {
-    "Schema":  1,
-    "Id":  "a1b2c3d4e5f60006",
-    "IconSource":  "Installer",
-    "Vendor":  "TeamViewer",
-    "Application":  "TeamViewer Host (x64)",
-    "CMName":  "TeamViewer Host",
-    "Architecture":  "x64",
-    "VendorUrl":  "https://www.teamviewer.com/",
-    "InstallerType":  "EXE",
-    "InstallerFramework":  "NSIS",
-    "Acquisition":  {
-
-                    },
-    "VersionScraper":  {
-                           "Type":  "FileVersion",
-                           "Url":  "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
-                           "Pattern":  "ProductVersion"
-                       },
-    "DownloadUrl":  "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
-    "InstallerFileName":  "TeamViewer_Host_Setup_x64.exe",
-    "InstallArgs":  "/S",
-    "UninstallArgs":  "/S",
-    "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\TeamViewer",
-                      "FileName":  "TeamViewer.exe",
-                      "PropertyType":  "Version",
-                      "Operator":  "GreaterEquals",
-                      "Is64Bit":  true
-                  },
-    "RunningProcess":  [
-                           "TeamViewer",
-                           "TeamViewer_Service"
-                       ]
+  "Schema": 1,
+  "Id": "a1b2c3d4e5f60006",
+  "IconSource": "Installer",
+  "Vendor": "TeamViewer",
+  "Application": "TeamViewer Host (x64)",
+  "CMName": "TeamViewer Host",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.teamviewer.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
+    "Pattern": "ProductVersion"
+  },
+  "DownloadUrl": "https://download.teamviewer.com/download/version_15x/TeamViewer_Host_Setup_x64.exe",
+  "InstallerFileName": "TeamViewer_Host_Setup_x64.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "InstallerSettings": [
+    {
+      "Key": "AssignDevice",
+      "Label": "Assign the device after install",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "Group": "Assignment",
+      "Tooltip": "Runs TeamViewer.exe assignment after a successful install so the device lands in your company account. Needs the Assignment ID below."
+    },
+    {
+      "Key": "AssignmentId",
+      "Label": "Assignment ID",
+      "ControlType": "Text",
+      "DefaultValue": "",
+      "Group": "Assignment",
+      "Tooltip": "From Management Console, Design and Deploy: the assignment ID of your Host module. Leave empty to skip assignment."
+    },
+    {
+      "Key": "AssignmentOptions",
+      "Label": "Assignment options",
+      "ControlType": "Text",
+      "DefaultValue": "--grant-easy-access",
+      "Group": "Assignment",
+      "Tooltip": "Extra switches for TeamViewer.exe assignment, for example --grant-easy-access, --device-alias %COMPUTERNAME%, --reassign."
+    }
+  ],
+  "PostInstallScript": {
+    "WhenSetting": "AssignDevice",
+    "WhenValue": "true",
+    "Script": "$tv = Join-Path $env:ProgramFiles 'TeamViewer\\TeamViewer.exe'\nif (-not (Test-Path -LiteralPath $tv)) { Write-Host 'TeamViewer.exe not found; assignment skipped'; exit 0 }\n$assignment = Start-Process -FilePath $tv -ArgumentList 'assignment --id {setting:AssignmentId} {setting:AssignmentOptions}' -Wait -PassThru -NoNewWindow\nWrite-Host \"Assignment exit $($assignment.ExitCode)\""
+  },
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\TeamViewer",
+    "FileName": "TeamViewer.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "TeamViewer",
+    "TeamViewer_Service"
+  ]
 }
