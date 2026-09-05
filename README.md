@@ -42,7 +42,7 @@ Packr is the C# sibling of [app-packager](https://github.com/jasonulbright/app-p
 
 ## Status
 
-**v2.2.0-alpha2** — 294 application definitions, all version scrapers passing the live check-only sweep. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 payload verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation. 90 of the original 116 definitions are install-and-detection signed off on a lab site; the 2026 additions are stage-verified and awaiting the lab pass. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
+**v2.2.0-alpha2** — 295 application definitions, all version scrapers passing the live check-only sweep. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 payload verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation. 90 of the original 116 definitions are install-and-detection signed off on a lab site; the 2026 additions are stage-verified and awaiting the lab pass. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
 
 ## Stack
 
@@ -104,7 +104,9 @@ One file per application. `Pattern` below is a text-matching expression (a regul
 tools\build-release.ps1
 ```
 
-Publishes a self-contained single-file win-x64 build and writes `Packr-<version>.zip` plus `checksums.txt` into `publish\`.
+Publishes a self-contained single-file win-x64 build and writes `AppPackagerDesktop-<version>.zip` plus `checksums.txt` into `publish\`. `-PublishOnly` and `-PackageOnly` run the two halves separately.
+
+Releases are cut by the Release workflow (Actions, run manually from `main`). It runs the engine tests, publishes, signs the executable with Azure Artifact Signing, verifies the signature, tags `v<version>` from the csproj and publishes the GitHub release with the matching `CHANGELOG.md` section as its notes. Before running it, set `<Version>` in the UI project and give the changelog a section for that version.
 
 ## License
 

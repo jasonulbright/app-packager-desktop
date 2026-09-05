@@ -1,0 +1,165 @@
+name: Release
+
+# Run by hand from main once the csproj <Version> and the matching CHANGELOG
+# section are committed. The run tests, publishes, signs the published
+# executable with Azure Artifact Signing, verifies the signature, zips, tags
+# v<version> and publishes the GitHub release.
+#
+# The Azure login exchanges this job's OIDC token for the signing identity.
+# The federated credential on the app registration must carry this run's
+# subject, which for a manual run from main is
+#   repo:jasonulbright/app-packager-desktop:ref:refs/heads/main
+# or, with immutable subjects enabled on the repository,
+#   repo:jasonulbright@263023789/app-packager-desktop@1196436128:ref:refs/heads/main
+# A private repository on the Free plan has no environments, so the
+# environment-scoped subject form is not available here.
+on:
+  workflow_dispatch:
+    inputs:
+      headline:
+        description: "Release notes headline: one concrete outcome metric (becomes the ## line)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  SIGN_ENDPOINT: https://eus.codesigning.azure.net/
+  SIGN_ACCOUNT: signalridgelabs
+  SIGN_PROFILE: SRL-Public
+  SIGN_SUBJECT_CN: Jason Ulbright
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  release:
+    name: Test, sign, publish (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Refuse to run off main
+        if: github.ref != 'refs/heads/main'
+        shell: pwsh
+        run: |
+          Write-Error "Release runs from main only; this run is on ${{ github.ref }}."
+          exit 1
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the version and its changelog section
+        id: meta
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content src/ApplicationPackagerUI/ApplicationPackagerUI.csproj
+          $version = (($proj.Project.PropertyGroup.Version | Where-Object { $_ }) | Select-Object -First 1).Trim()
+          if (-not $version) { throw 'No <Version> in the UI project.' }
+          $tag = "v$version"
+          if (git tag -l $tag) { throw "Tag $tag already exists; bump <Version> before releasing." }
+          $existing = gh release view $tag --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists." }
+
+          $changelog = Get-Content CHANGELOG.md -Raw
+          $section = [regex]::Match($changelog, "(?ms)^## \[$([regex]::Escape($version))\][^\r\n]*\r?\n(.*?)(?=^## \[|\z)")
+          if (-not $section.Success) { throw "CHANGELOG.md has no '## [$version]' section; rename the Unreleased section before releasing." }
+          $body = $section.Groups[1].Value.Trim()
+          if (-not $body) { throw "The '## [$version]' section of CHANGELOG.md is empty." }
+
+          $headline = ([string]$env:HEADLINE).Trim()
+          if (-not $headline) { throw 'A headline is required.' }
+          $notes = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          $text = "## $headline`n`n$body`n`nFull changelog: CHANGELOG.md`n"
+          [IO.File]::WriteAllText($notes, $text, [Text.UTF8Encoding]::new($false))
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "notes=$notes" >> $env:GITHUB_OUTPUT
+          Write-Host "Releasing $tag"
+          Get-Content $notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEADLINE: ${{ inputs.headline }}
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Engine tests
+        shell: pwsh
+        run: dotnet test tests/ApplicationPackagerEngine.Tests/ApplicationPackagerEngine.Tests.csproj --configuration Release --nologo
+
+      - name: Publish the application
+        shell: pwsh
+        run: ./tools/build-release.ps1 -PublishOnly -OutputRoot "$env:RUNNER_TEMP\publish"
+
+      # OIDC: no client secret exists; the federated credential named in the
+      # header is what authorizes this job.
+      - name: Azure login (federated)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The single-file publish leaves one executable; any loose DLL beside it
+      # is signed as well. The timestamp is what keeps the signature valid
+      # after the short-lived signing certificate expires.
+      - name: Sign the published files
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ env.SIGN_ENDPOINT }}
+          signing-account-name: ${{ env.SIGN_ACCOUNT }}
+          certificate-profile-name: ${{ env.SIGN_PROFILE }}
+          files-folder: ${{ runner.temp }}\publish\release-stage
+          files-folder-filter: exe,dll
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          exclude-azure-cli-credential: false
+          exclude-azure-powershell-credential: true
+          exclude-azure-developer-cli-credential: true
+          exclude-interactive-browser-credential: true
+
+      - name: Verify the signatures
+        shell: pwsh
+        run: ./tools/verify-signatures.ps1 -Path "$env:RUNNER_TEMP\publish\release-stage" -ExpectedSubjectCommonName "$env:SIGN_SUBJECT_CN"
+
+      - name: Package the zip and checksums
+        shell: pwsh
+        run: ./tools/build-release.ps1 -PackageOnly -OutputRoot "$env:RUNNER_TEMP\publish"
+
+      - name: Tag the release commit
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.meta.outputs.tag }}" -m "$env:HEADLINE"
+          git push origin "${{ steps.meta.outputs.tag }}"
+        env:
+          HEADLINE: ${{ inputs.headline }}
+
+      # Assets upload onto a draft; the release goes public only once every
+      # upload succeeded, so a half-uploaded release is never downloadable.
+      - name: Publish the GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $zip = Get-ChildItem "$env:RUNNER_TEMP\publish" -Filter 'AppPackagerDesktop-*.zip' -File | Select-Object -First 1
+          if (-not $zip) { throw 'Release zip missing.' }
+          $checksums = "$env:RUNNER_TEMP\publish\checksums.txt"
+          gh release create "${{ steps.meta.outputs.tag }}" --draft --title "${{ steps.meta.outputs.tag }}" --notes-file "${{ steps.meta.outputs.notes }}" $zip.FullName $checksums
+          if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
+          gh release edit "${{ steps.meta.outputs.tag }}" --draft=false
+          if ($LASTEXITCODE -ne 0) { throw 'gh release edit failed' }
+          Write-Host "published ${{ steps.meta.outputs.tag }}: $($zip.Name)"
