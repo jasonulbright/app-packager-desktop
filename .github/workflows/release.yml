@@ -7,9 +7,8 @@ name: Release
 #
 # The Azure login exchanges this job's OIDC token for the signing identity.
 # The federated credential on the app registration must carry this run's
-# subject, which for a manual run from main is
-#   repo:jasonulbright/app-packager-desktop:ref:refs/heads/main
-# or, with immutable subjects enabled on the repository,
+# subject. The repository presents the immutable form, so for a manual run
+# from main that is
 #   repo:jasonulbright@263023789/app-packager-desktop@1196436128:ref:refs/heads/main
 # A private repository on the Free plan has no environments, so the
 # environment-scoped subject form is not available here.
