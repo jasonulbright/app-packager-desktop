@@ -9,6 +9,7 @@
   "VendorUrl": "https://posit.co/products/open-source/rstudio/",
   "InstallerType": "EXE",
   "InstallerFramework": "NativeEXE",
+  "SupportsInstallModes": ["CurrentUser", "AllUsers"],
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",

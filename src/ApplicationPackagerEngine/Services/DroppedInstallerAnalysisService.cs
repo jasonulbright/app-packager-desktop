@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services.InstallerScripts;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -66,6 +67,20 @@ public sealed class DroppedInstallerAnalysis
     public StageDetection Detection { get; init; } = new();
 
     /// <summary>
+    /// Install modes the compiled script accepts (CurrentUser, AllUsers), in
+    /// that order. One entry when the installer has no mode switch; empty
+    /// when the engine has no script reader.
+    /// </summary>
+    public IReadOnlyList<string> InstallModes { get; init; } = [];
+    /// <summary>The mode the installer takes without a switch.</summary>
+    public string DefaultInstallMode { get; init; } = "";
+    /// <summary>The resolved branch per install mode, keyed like InstallModes.</summary>
+    public IReadOnlyDictionary<string, InstallBranch> ModeBranches { get; init; } = new Dictionary<string, InstallBranch>();
+
+    /// <summary>True when the operator can choose System or User for this drop.</summary>
+    public bool HasInstallModeChoice => InstallModes.Count > 1;
+
+    /// <summary>
     /// Identity confidence for the drop as a whole. MSI identity is authoritative;
     /// every other engine yields predictions.
     /// </summary>
@@ -106,6 +121,12 @@ public sealed class DroppedInstallerOverrides
     public string[]? RunningProcess { get; init; }
     /// <summary>Null takes the analysis prediction (HKCU key means a per-user install).</summary>
     public string? InstallContext { get; init; }
+    /// <summary>
+    /// AllUsers or CurrentUser to stage a non-default branch of a switchable
+    /// installer. Null or the default mode stages the branch the installer
+    /// takes on its own; a mode the script does not offer is refused.
+    /// </summary>
+    public string? InstallMode { get; init; }
 }
 
 /// <summary>
@@ -180,15 +201,24 @@ public sealed class DroppedInstallerAnalysisService
         var versionInfo = msi is null ? TryReadVersionInfo(fullPath) : null;
         var isMsi = msi is not null;
 
+        // The compiled script is the authoritative source for an NSIS or Inno
+        // Setup drop: it carries the values the installer writes to Add/Remove
+        // Programs, so a literal there needs no operator confirmation.
+        var script = msi is null ? CompiledScriptFacts.TryRead(engine, fullPath) : null;
+        var scriptSource = script is null ? null : CompiledScriptFacts.SourceName(engine);
+
         var appName = ResolveIdentity(
             msi?.ProductName, deepMetadata?.ProductName,
-            versionInfo?.ProductName ?? versionInfo?.FileDescription, isMsi, deepMetadata?.MetadataSource);
+            versionInfo?.ProductName ?? versionInfo?.FileDescription, isMsi, deepMetadata?.MetadataSource,
+            script?.DisplayName, scriptSource);
         var publisher = ResolveIdentity(
             msi?.Manufacturer, deepMetadata?.Manufacturer,
-            versionInfo?.CompanyName, isMsi, deepMetadata?.MetadataSource);
+            versionInfo?.CompanyName, isMsi, deepMetadata?.MetadataSource,
+            script?.Publisher, scriptSource);
         var version = ResolveIdentity(
             msi?.ProductVersion, deepMetadata?.ProductVersion,
-            versionInfo?.ProductVersion ?? versionInfo?.FileVersion, isMsi, deepMetadata?.MetadataSource);
+            versionInfo?.ProductVersion ?? versionInfo?.FileVersion, isMsi, deepMetadata?.MetadataSource,
+            script?.DisplayVersion, scriptSource);
 
         var productCodeValue = !string.IsNullOrEmpty(msi?.ProductCode)
             ? msi!.ProductCode
@@ -203,11 +233,38 @@ public sealed class DroppedInstallerAnalysisService
             ? NormalizeMsiArchitecture(msiArchitecture)
             : InstallerSignatureScanner.ReadPeArchitecture(fullPath);
 
-        var arp = PredictUninstallRegistryKey(engine, appName.Value, productCodeValue, msi, architecture);
+        // The default branch of the compiled script names the key, hive and
+        // view the installer registers under; the engine convention is the
+        // fallback when there is no script or the key is computed at run time.
+        var branch = script?.DefaultBranch;
+        var arp = branch is { UninstallRegistryKey: { Length: > 0 } }
+            ? new UninstallKeyPrediction
+            {
+                Path = branch.UninstallRegistryKey,
+                Hive = branch.RegistryHive,
+                Source = scriptSource!,
+                Note = branch.UninstallRegistryKeyNote
+            }
+            : PredictUninstallRegistryKey(engine, appName.Value, productCodeValue, msi, architecture);
 
         var switchSource = $"switch-table:{engine}";
         var detection = BuildDetection(engine, isMsi, productCodeValue, arp?.Path, appName.Value, version.Value, architecture, msi);
-        var perUser = arp?.Hive == "HKCU";
+        if (branch is { UninstallRegistryKey: { Length: > 0 } } && detection.Type == "RegistryKeyValue")
+        {
+            // The script's view beats the PE architecture: a 32-bit stub that runs
+            // SetRegView 64 writes to the 64-bit view, and the reverse.
+            detection.Is64Bit = branch.Is64BitView;
+        }
+        var perUser = branch is not null ? branch.InstallContext == "PerUser" : arp?.Hive == "HKCU";
+
+        var installArgs = branch is not null && !string.IsNullOrWhiteSpace(branch.InstallArgs)
+            ? ProposedField.Confirmed(branch.InstallArgs, scriptSource!)
+            : MakeField(switches.InstallArgs, isMsi, switchSource);
+        var uninstallCommand = isMsi
+            ? ProposedField.Confirmed("", "msi-uninstalls-by-product-code")
+            : branch is { SilentUninstallCommand: { Length: > 0 } }
+                ? ProposedField.Confirmed(branch.SilentUninstallCommand, scriptSource!)
+                : ProposedField.Predicted(switches.UninstallCommand, switchSource);
 
         return new DroppedInstallerAnalysis
         {
@@ -222,21 +279,39 @@ public sealed class DroppedInstallerAnalysisService
             Publisher = publisher,
             SoftwareVersion = version,
             ProductCode = productCode,
-            InstallArgs = MakeField(switches.InstallArgs, isMsi, switchSource),
+            InstallArgs = installArgs,
             UninstallArgs = MakeField(switches.UninstallArgs, isMsi, switchSource),
-            UninstallCommand = isMsi
-                ? ProposedField.Confirmed("", "msi-uninstalls-by-product-code")
-                : ProposedField.Predicted(switches.UninstallCommand, switchSource),
+            UninstallCommand = uninstallCommand,
             UninstallRegistryKey = arp is null
                 ? ProposedField.Empty
-                : isMsi
+                : isMsi || arp.Source == scriptSource
                     ? ProposedField.Confirmed(arp.Path, arp.Source)
                     : ProposedField.Predicted(arp.Path, arp.Source),
             InstallCommand = switches.InstallCommand,
-            Notes = string.Join(" ", new[] { switches.Notes, arp?.Note }.Where(s => !string.IsNullOrWhiteSpace(s))),
-            DetectionHint = DetectionHintFor(engine, productCodeValue, appName.Value),
-            Detection = detection
+            Notes = string.Join(" ", new[] { switches.Notes, arp?.Note, script?.Note }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct()),
+            DetectionHint = script is not null
+                ? $"Read from the compiled {engine} script: {arp?.Path ?? "no Add/Remove Programs key"}."
+                : DetectionHintFor(engine, productCodeValue, appName.Value),
+            Detection = detection,
+            InstallModes = script?.InstallModes ?? [],
+            DefaultInstallMode = script?.DefaultInstallMode ?? "",
+            ModeBranches = script?.Branches ?? new Dictionary<string, InstallBranch>()
         };
+    }
+
+    /// <summary>
+    /// The branch a requested install mode selects, or null for the default
+    /// branch. A mode the script does not offer is refused: staging it would
+    /// pass a switch the installer ignores and register under the other hive.
+    /// </summary>
+    public static InstallBranch? SelectModeBranch(DroppedInstallerAnalysis analysis, string? requestedMode)
+    {
+        if (string.IsNullOrWhiteSpace(requestedMode)) return null;
+        if (string.Equals(requestedMode, analysis.DefaultInstallMode, StringComparison.OrdinalIgnoreCase)) return null;
+        if (!analysis.ModeBranches.TryGetValue(requestedMode, out var branch))
+            throw new InvalidOperationException(
+                $"'{analysis.FileName}' offers no {requestedMode} install mode; the script accepts {(analysis.InstallModes.Count == 0 ? "no mode switch" : string.Join(" and ", analysis.InstallModes))}.");
+        return branch;
     }
 
     /// <summary>
@@ -256,12 +331,21 @@ public sealed class DroppedInstallerAnalysisService
             throw new InvalidOperationException(
                 $"Analysis of '{analysis.FileName}' is predicted, not confirmed. Confirm the proposed values before staging.");
 
+        // A non-default install mode swaps the branch: switch, uninstaller,
+        // key, hive, view and context move together, since each follows the
+        // folder the branch installs into.
+        var modeBranch = SelectModeBranch(analysis, overrides?.InstallMode);
+        var branchInstallArgs = modeBranch?.InstallArgs ?? analysis.InstallArgs.Value;
+        var branchUninstallCommand = modeBranch is null ? analysis.UninstallCommand.Value : modeBranch.SilentUninstallCommand;
+        var installContext = overrides?.InstallContext
+            ?? (modeBranch is null ? analysis.InstallContext : modeBranch.InstallContext == "PerUser" ? "User" : "Machine");
+
         var appName = Pick(overrides?.AppName, analysis.AppName.Value);
         var publisher = Pick(overrides?.Publisher, analysis.Publisher.Value);
         var version = Pick(overrides?.SoftwareVersion, analysis.SoftwareVersion.Value);
-        var installArgs = Pick(overrides?.InstallArgs, analysis.InstallArgs.Value);
+        var installArgs = Pick(overrides?.InstallArgs, branchInstallArgs);
         var uninstallArgs = Pick(overrides?.UninstallArgs, analysis.UninstallArgs.Value);
-        var uninstallCommand = Pick(overrides?.UninstallCommand, analysis.UninstallCommand.Value);
+        var uninstallCommand = Pick(overrides?.UninstallCommand, branchUninstallCommand);
 
         if (string.IsNullOrWhiteSpace(appName))
             throw new InvalidOperationException("Ad-hoc staging requires an application name.");
@@ -273,6 +357,15 @@ public sealed class DroppedInstallerAnalysisService
             publisher = "Unknown";
 
         var detection = analysis.Detection;
+        if (modeBranch is { UninstallRegistryKey: { Length: > 0 } } && detection.Type == "RegistryKeyValue")
+        {
+            detection = CloneDetection(detection);
+            var relative = StripHive(modeBranch.UninstallRegistryKey);
+            var wow = relative.Contains("WOW6432Node\\", StringComparison.OrdinalIgnoreCase);
+            detection.RegistryKeyRelative = wow ? relative.Replace("WOW6432Node\\", "", StringComparison.OrdinalIgnoreCase) : relative;
+            detection.Is64Bit = !wow && modeBranch.Is64BitView;
+            detection.Hive = modeBranch.RegistryHive == "HKCU" ? "CurrentUser" : "LocalMachine";
+        }
         if (string.IsNullOrWhiteSpace(detection.RegistryKeyRelative) && detection.Type == "RegistryKeyValue")
         {
             detection = CloneDetection(detection);
@@ -292,9 +385,10 @@ public sealed class DroppedInstallerAnalysisService
             SoftwareVersion = version,
             InstallerFile = analysis.FileName,
             InstallerType = analysis.InstallerType,
-            InstallContext = overrides?.InstallContext ?? analysis.InstallContext,
+            InstallContext = installContext,
             InstallArgs = installArgs,
             UninstallArgs = uninstallArgs,
+            UninstallCommand = analysis.InstallerType == "MSI" || string.IsNullOrWhiteSpace(uninstallCommand) ? null : uninstallCommand,
             ProductCode = analysis.ProductCode.HasValue ? analysis.ProductCode.Value : null,
             RunningProcess = overrides?.RunningProcess ?? [],
             Detection = detection
@@ -336,9 +430,12 @@ public sealed class DroppedInstallerAnalysisService
             InstallerFileName = manifest.InstallerFile,
             InstallArgs = manifest.InstallArgs,
             UninstallArgs = uninstallArgs,
-            UninstallCommand = string.IsNullOrWhiteSpace(analysis.UninstallCommand.Value)
+            // The definition field holds the wrapper's uninstall expression, not a
+            // bare command line; a bare line would run without capturing $proc.
+            UninstallCommand = string.IsNullOrWhiteSpace(manifest.UninstallCommand)
+                || WrapperGeneratorService.UninstallExpressionFromCommandLine(manifest.UninstallCommand) is not { Length: > 0 } expression
                 ? null
-                : analysis.UninstallCommand.Value,
+                : expression,
             InstallerSettings = InstallerSettingsGenerator.GenerateDefaults(analysis.Engine),
             RunningProcess = manifest.RunningProcess ?? [],
             Detection = new DetectionConfig
@@ -359,10 +456,13 @@ public sealed class DroppedInstallerAnalysisService
     // ── identity resolution ──────────────────────────────────────
 
     private static ProposedField ResolveIdentity(
-        string? msiValue, string? metadataValue, string? versionInfoValue, bool isMsi, string? metadataSource)
+        string? msiValue, string? metadataValue, string? versionInfoValue, bool isMsi, string? metadataSource,
+        string? scriptValue = null, string? scriptSource = null)
     {
         if (!string.IsNullOrWhiteSpace(msiValue))
             return ProposedField.Confirmed(Trim(msiValue), "msi-property-table");
+        if (!string.IsNullOrWhiteSpace(scriptValue))
+            return ProposedField.Confirmed(Trim(scriptValue), scriptSource ?? "compiled-script");
         if (!string.IsNullOrWhiteSpace(metadataValue))
             return ProposedField.Predicted(Trim(metadataValue), metadataSource ?? "framework-manifest");
         if (!string.IsNullOrWhiteSpace(versionInfoValue))

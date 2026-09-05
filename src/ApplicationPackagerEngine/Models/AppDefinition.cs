@@ -124,6 +124,21 @@ public sealed class AppDefinition
     /// </summary>
     public string[]? SupportsVariants { get; set; }
 
+    /// <summary>
+    /// Install modes the installer accepts through a command-line switch,
+    /// from the set CurrentUser, AllUsers. Declared only where the compiled
+    /// script offers both; the operator then chooses System or User per app
+    /// and staging takes that branch of the installer.
+    /// </summary>
+    public string[]? SupportsInstallModes { get; set; }
+
+    /// <summary>True when both modes are declared and an operator choice applies.</summary>
+    [JsonIgnore]
+    public bool OffersInstallModes =>
+        SupportsInstallModes is { Length: >= 2 }
+        && SupportsInstallModes.Contains("CurrentUser", StringComparer.OrdinalIgnoreCase)
+        && SupportsInstallModes.Contains("AllUsers", StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Path to the .json file this was loaded from.</summary>
     [JsonIgnore]
     public string SourcePath { get; set; } = "";

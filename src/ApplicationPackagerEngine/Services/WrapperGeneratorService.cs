@@ -67,6 +67,7 @@ public sealed class WrapperGeneratorService
         string? applicationName = null, string? uninstallCommand = null,
         string? postInstallScript = null, string? arpKeyName = null, string? installFolder = null)
     {
+        uninstallCommand = NormalizeUninstallCommand(uninstallCommand);
         var installPs1 = $"""
             $exePath = Join-Path $PSScriptRoot '{exeFileName}'
             $proc = Start-Process -FilePath $exePath -ArgumentList '{installArgs}' -Wait -PassThru -NoNewWindow
@@ -444,6 +445,126 @@ public sealed class WrapperGeneratorService
         !string.IsNullOrWhiteSpace(layout.BootstrapperFileName)
             ? layout.BootstrapperFileName
             : throw new InvalidOperationException("BootstrapperLayout.BootstrapperFileName is required.");
+
+    /// <summary>
+    /// A definition's uninstall command is either a PowerShell expression
+    /// that assigns $proc or a plain command line. Pasted into the wrapper as
+    /// written, a command line parses as an expression and fails at its first
+    /// switch, so it becomes the Start-Process form: an absolute or
+    /// environment-form executable through UninstallExpressionFromCommandLine,
+    /// a bare file name as the staged file beside the wrapper.
+    /// </summary>
+    public static string? NormalizeUninstallCommand(string? command)
+    {
+        if (string.IsNullOrWhiteSpace(command)) return null;
+        if (command.Contains("$proc", StringComparison.Ordinal)) return command;
+        var tokens = Tokenize(command);
+        if (tokens.Count == 0) return null;
+        var exe = Unquote(tokens[0]);
+        if (exe.Contains('\\') || exe.Contains('%'))
+            return UninstallExpressionFromCommandLine(command);
+        var args = tokens.Skip(1).Select(Unquote).ToList();
+        var argList = args.Count == 0
+            ? ""
+            : $" -ArgumentList @({string.Join(", ", args.Select(a => "'" + EscapePsLiteral(a) + "'"))})";
+        return $"$exePath = Join-Path $PSScriptRoot '{EscapePsLiteral(exe)}'\r\n" +
+               $"$proc = Start-Process -FilePath $exePath{argList} -Wait -PassThru -NoNewWindow";
+    }
+
+    /// <summary>Strips one pair of surrounding double quotes; inner quotes stay.</summary>
+    private static string Unquote(string token) =>
+        token.Length >= 2 && token[0] == '"' && token[^1] == '"' ? token[1..^1] : token;
+
+    /// <summary>
+    /// Moves a definition's uninstall expression to another install branch.
+    /// The $proc = Start-Process statement that names the default branch's
+    /// uninstaller is replaced by the branch's own uninstall lines; the
+    /// statements around it (a process stop before, a wait for the
+    /// uninstaller's temporary copy after) stay. Null when no top-level
+    /// statement names that uninstaller: an expression that looks the
+    /// uninstaller up itself would still find the other branch's product.
+    /// </summary>
+    public static string? MoveUninstallExpressionToBranch(string expression,
+        IEnumerable<string> defaultUninstallerPaths, string branchUninstallCommandLine)
+    {
+        var replacement = UninstallExpressionFromCommandLine(branchUninstallCommandLine);
+        if (replacement.Length == 0) return null;
+
+        foreach (var (start, end) in TopLevelStatements(expression))
+        {
+            var statement = expression[start..end];
+            var trimmed = statement.TrimStart();
+            if (!trimmed.StartsWith("$proc", StringComparison.Ordinal)) continue;
+            if (!defaultUninstallerPaths.Any(p => p.Length > 0 && statement.Contains(p, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            var prefix = expression[..start].TrimEnd();
+            var suffix = expression[end..].TrimStart();
+            var sb = new StringBuilder();
+            if (prefix.Length > 0) sb.Append(prefix).Append("\r\n");
+            sb.Append(replacement);
+            if (suffix.Length > 0) sb.Append(suffix.StartsWith(';') ? "" : "\r\n").Append(suffix);
+            return sb.ToString();
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Ranges of the statements separated by ';' or a line break outside
+    /// quotes, braces and parentheses; the separator is not part of a range.
+    /// </summary>
+    private static IEnumerable<(int Start, int End)> TopLevelStatements(string text)
+    {
+        var start = 0;
+        var depth = 0;
+        char? quote = null;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (quote is not null)
+            {
+                if (c == quote) quote = null;
+                continue;
+            }
+            switch (c)
+            {
+                case '\'' or '"': quote = c; break;
+                case '{' or '(' or '[': depth++; break;
+                case '}' or ')' or ']': depth--; break;
+                case ';' or '\n' when depth == 0:
+                    yield return (start, i);
+                    start = i + 1;
+                    break;
+            }
+        }
+        if (start < text.Length) yield return (start, text.Length);
+    }
+
+    /// <summary>
+    /// Turns a plain uninstall command line ("C:\App\unins000.exe" /VERYSILENT)
+    /// into the uninstall expression the EXE wrapper embeds: the executable is
+    /// environment-expanded on the client, so a %LOCALAPPDATA% path resolves
+    /// in the user's session, and a missing uninstaller exits 0 because the
+    /// product is already gone.
+    /// </summary>
+    public static string UninstallExpressionFromCommandLine(string commandLine)
+    {
+        var tokens = Tokenize(commandLine);
+        if (tokens.Count == 0) return "";
+        var exe = Unquote(tokens[0]);
+        // A bare file name is the switch table's placeholder, not a location;
+        // the Add/Remove Programs lookup finds the real uninstaller instead.
+        if (!exe.Contains('\\') && !exe.Contains('%')) return "";
+        var args = tokens.Skip(1).Select(Unquote).ToList();
+        var lines = new List<string>
+        {
+            $"$uninstaller = [Environment]::ExpandEnvironmentVariables('{EscapePsLiteral(exe)}')",
+            "if (-not (Test-Path -LiteralPath $uninstaller)) { exit 0 }",
+            args.Count == 0
+                ? "$proc = Start-Process -FilePath $uninstaller -Wait -PassThru -NoNewWindow"
+                : $"$proc = Start-Process -FilePath $uninstaller -ArgumentList @({string.Join(", ", args.Select(a => "'" + EscapePsLiteral(a) + "'"))}) -Wait -PassThru -NoNewWindow"
+        };
+        return string.Join("\r\n", lines);
+    }
 
     /// <summary>
     /// Splits a command line on whitespace outside double quotes. Quote

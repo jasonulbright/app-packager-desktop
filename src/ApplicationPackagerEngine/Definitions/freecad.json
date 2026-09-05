@@ -9,6 +9,7 @@
   "VendorUrl": "https://www.freecad.org/",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
+  "SupportsInstallModes": ["CurrentUser", "AllUsers"],
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",

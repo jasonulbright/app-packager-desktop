@@ -9,6 +9,7 @@
   "VendorUrl": "https://stellarium.org/",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
+  "SupportsInstallModes": ["CurrentUser", "AllUsers"],
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",

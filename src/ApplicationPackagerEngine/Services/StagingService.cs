@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services.InstallerScripts;
 using ApplicationPackagerEngine.Scrapers;
 
 namespace ApplicationPackagerEngine.Services;
@@ -238,7 +239,8 @@ public sealed class StagingService
         Action<string>? onProgress = null,
         CancellationToken ct = default,
         string? knownVersion = null,
-        Dictionary<string, string>? settingsValues = null)
+        Dictionary<string, string>? settingsValues = null,
+        string? installMode = null)
     {
         // Route ODT apps to dedicated pipeline
         if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
@@ -495,6 +497,22 @@ public sealed class StagingService
                 ? BuildMsixScriptDetection(msixPackage)
                 : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues);
 
+            // 6a. Install mode. A definition that declares both modes lets the
+            // operator pick System or User; the staged installer's compiled
+            // script supplies that branch, and switch, uninstaller, detection
+            // and context move together with it.
+            var installContext = def.InstallContext;
+            string? modeUninstallCommandLine = null;
+            if (!string.IsNullOrWhiteSpace(installMode))
+            {
+                var applied = ApplyInstallMode(def, installerPath, installMode, installArgs, detection, onProgress, uninstallCommand);
+                installArgs = applied.InstallArgs;
+                if (applied.UninstallExpression is not null) uninstallCommand = applied.UninstallExpression;
+                modeUninstallCommandLine = applied.UninstallCommandLine;
+                detection = applied.Detection;
+                installContext = applied.InstallContext;
+            }
+
             onProgress?.Invoke("Generating install/uninstall wrappers...");
             if (isMsix)
             {
@@ -572,9 +590,11 @@ public sealed class StagingService
                 SoftwareVersion = cmVersion,
                 InstallerFile = installerFileName,
                 InstallerType = def.InstallerType,
-                InstallContext = def.InstallContext,
+                InstallContext = installContext,
+                InstallMode = string.IsNullOrWhiteSpace(installMode) ? null : installMode,
                 InstallArgs = installArgs,
                 UninstallArgs = uninstallArgs,
+                UninstallCommand = modeUninstallCommandLine,
                 ProductCode = productCode,
                 RunningProcess = def.RunningProcess,
                 Detection = detection,
@@ -1134,6 +1154,151 @@ public sealed class StagingService
         };
     }
 
+    /// <summary>The staged fields an install mode rewrites.</summary>
+    public sealed record InstallModeResult(
+        string InstallArgs,
+        string? UninstallCommandLine,
+        string? UninstallExpression,
+        StageDetection Detection,
+        string InstallContext);
+
+    private static readonly string[] ModeSwitches = ["/allusers", "/currentuser"];
+
+    /// <summary>
+    /// Applies the operator's install mode to a definition stage. The staged
+    /// installer's compiled script must offer the mode; the definition must
+    /// declare it. The mode switch replaces any mode switch already in the
+    /// arguments, the uninstaller and detection follow the branch, and a File
+    /// detection moves between the two branch folders.
+    /// </summary>
+    public static InstallModeResult ApplyInstallMode(
+        AppDefinition def, string installerPath, string installMode, string installArgs,
+        StageDetection detection, Action<string>? onProgress = null, string? uninstallExpression = null)
+    {
+        var mode = installMode.Equals("AllUsers", StringComparison.OrdinalIgnoreCase) ? "AllUsers"
+            : installMode.Equals("CurrentUser", StringComparison.OrdinalIgnoreCase) ? "CurrentUser"
+            : throw new InvalidOperationException($"Install mode '{installMode}' is not AllUsers or CurrentUser.");
+        if (!def.OffersInstallModes)
+            throw new InvalidOperationException($"{def.Application} does not declare SupportsInstallModes; an install mode cannot be applied.");
+
+        var engine = InstallerSignatureScanner.Identify(installerPath);
+        var facts = CompiledScriptFacts.TryRead(engine, installerPath)
+            ?? throw new InvalidOperationException($"The {engine} script of {Path.GetFileName(installerPath)} could not be read; the {mode} install mode cannot be applied.");
+        if (!facts.Branches.TryGetValue(mode, out var branch))
+            throw new InvalidOperationException(
+                $"{Path.GetFileName(installerPath)} offers no {mode} install mode; the script accepts {string.Join(" and ", facts.InstallModes)}.");
+        var defaultBranch = facts.DefaultBranch;
+
+        // The switch is the difference between the branch and the default
+        // branch; the definition's other switches stay.
+        var defaultTokens = WrapperGeneratorService.Tokenize(defaultBranch?.InstallArgs ?? "");
+        var modeSwitch = WrapperGeneratorService.Tokenize(branch.InstallArgs)
+            .FirstOrDefault(t => !defaultTokens.Contains(t, StringComparer.OrdinalIgnoreCase)) ?? "";
+        var kept = WrapperGeneratorService.Tokenize(installArgs)
+            .Where(t => !ModeSwitches.Contains(t, StringComparer.OrdinalIgnoreCase));
+        var newInstallArgs = string.Join(" ", kept.Append(modeSwitch).Where(t => t.Length > 0));
+
+        var uninstallLine = string.IsNullOrWhiteSpace(branch.SilentUninstallCommand) ? null : branch.SilentUninstallCommand;
+        var newUninstallExpression = uninstallLine is null ? null : WrapperGeneratorService.UninstallExpressionFromCommandLine(uninstallLine);
+        if (newUninstallExpression == "") newUninstallExpression = null;
+        // A definition's own expression keeps its surrounding statements when
+        // it names the default uninstaller; otherwise the branch's uninstall
+        // command replaces it.
+        if (newUninstallExpression is not null && uninstallLine is not null
+            && !string.IsNullOrWhiteSpace(uninstallExpression) && defaultBranch is not null)
+        {
+            var moved = WrapperGeneratorService.MoveUninstallExpressionToBranch(
+                uninstallExpression, UninstallerPathForms(defaultBranch.UninstallerPathWindows), uninstallLine);
+            if (moved is not null) newUninstallExpression = moved;
+            else if (uninstallExpression.Contains("$proc", StringComparison.Ordinal))
+                onProgress?.Invoke("The definition's uninstall command does not name the default uninstaller; the branch's own uninstall command is used.");
+        }
+        uninstallExpression = newUninstallExpression;
+
+        var newDetection = detection;
+        if (detection.Type is "RegistryKeyValue" or "RegistryKey" && !string.IsNullOrEmpty(branch.UninstallRegistryKey))
+        {
+            newDetection = CloneForMode(detection);
+            var relative = branch.UninstallRegistryKeyRelative;
+            var wow = relative.Contains("WOW6432Node\\", StringComparison.OrdinalIgnoreCase);
+            newDetection.RegistryKeyRelative = wow ? relative.Replace("WOW6432Node\\", "", StringComparison.OrdinalIgnoreCase) : relative;
+            newDetection.Is64Bit = !wow && branch.Is64BitView;
+            newDetection.Hive = branch.RegistryHive == "HKCU" ? "CurrentUser" : "LocalMachine";
+        }
+        else if (detection.Type == "File" && defaultBranch is not null && !string.IsNullOrEmpty(detection.FilePath))
+        {
+            var from = ExpandKnownFolders(defaultBranch.InstallDirWindows).TrimEnd('\\');
+            var to = branch.InstallDirWindows.TrimEnd('\\');
+            var current = detection.FilePath.TrimEnd('\\');
+            if (from.Length > 0 && current.StartsWith(from, StringComparison.OrdinalIgnoreCase))
+            {
+                newDetection = CloneForMode(detection);
+                newDetection.FilePath = to + current[from.Length..];
+            }
+            else
+            {
+                onProgress?.Invoke($"File detection path {detection.FilePath} is not under the default install folder {from}; left unchanged.");
+            }
+        }
+
+        var context = branch.InstallContext == "PerUser" ? "User" : "Machine";
+        onProgress?.Invoke($"Install mode {mode}: arguments '{newInstallArgs}', context {context}" +
+            (uninstallLine is null ? "" : $", uninstall {uninstallLine}"));
+        return new InstallModeResult(newInstallArgs, uninstallLine, uninstallExpression, newDetection, context);
+    }
+
+    private static StageDetection CloneForMode(StageDetection d) => new()
+    {
+        Type = d.Type,
+        RegistryKeyRelative = d.RegistryKeyRelative,
+        ValueName = d.ValueName,
+        ExpectedValue = d.ExpectedValue,
+        Operator = d.Operator,
+        PropertyType = d.PropertyType,
+        FilePath = d.FilePath,
+        FileName = d.FileName,
+        Is64Bit = d.Is64Bit,
+        Hive = d.Hive,
+        ScriptLanguage = d.ScriptLanguage,
+        ScriptText = d.ScriptText,
+        Connector = d.Connector,
+        Clauses = d.Clauses,
+        GroupSizes = d.GroupSizes
+    };
+
+    /// <summary>
+    /// Definitions write literal Program Files paths where the script reader
+    /// writes environment form; the machine folders are expanded to their
+    /// literal x64-host values so the two can be compared.
+    /// </summary>
+    /// <summary>
+    /// The spellings a definition may use for an uninstaller the script reader
+    /// writes in environment form: the literal x64-host path, and the
+    /// PowerShell $env: and ${env:} forms of the leading variable.
+    /// </summary>
+    private static IEnumerable<string> UninstallerPathForms(string windowsPath)
+    {
+        if (string.IsNullOrWhiteSpace(windowsPath)) yield break;
+        yield return windowsPath;
+        yield return ExpandKnownFolders(windowsPath);
+        var variable = System.Text.RegularExpressions.Regex.Match(windowsPath, @"^%([^%]+)%");
+        if (variable.Success)
+        {
+            var rest = windowsPath[variable.Length..];
+            yield return "$env:" + variable.Groups[1].Value + rest;
+            yield return "${env:" + variable.Groups[1].Value + "}" + rest;
+        }
+    }
+
+    private static string ExpandKnownFolders(string path) => path
+        .Replace("%ProgramW6432%", @"C:\Program Files", StringComparison.OrdinalIgnoreCase)
+        .Replace("%ProgramFiles(x86)%", @"C:\Program Files (x86)", StringComparison.OrdinalIgnoreCase)
+        .Replace("%ProgramFiles%", @"C:\Program Files", StringComparison.OrdinalIgnoreCase)
+        .Replace("%CommonProgramW6432%", @"C:\Program Files\Common Files", StringComparison.OrdinalIgnoreCase)
+        .Replace("%CommonProgramFiles(x86)%", @"C:\Program Files (x86)\Common Files", StringComparison.OrdinalIgnoreCase)
+        .Replace("%CommonProgramFiles%", @"C:\Program Files\Common Files", StringComparison.OrdinalIgnoreCase)
+        .Replace("%ProgramData%", @"C:\ProgramData", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Whether metadata ProductName may name the staged application. Sources
     /// that read a manifest or table (Burn manifest, inner MSI, product-info.json,
@@ -1461,8 +1626,12 @@ public sealed class StagingService
             else
             {
                 var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(manifest.Detection);
+                var uninstallExpression = string.IsNullOrWhiteSpace(manifest.UninstallCommand)
+                    ? null
+                    : WrapperGeneratorService.UninstallExpressionFromCommandLine(manifest.UninstallCommand);
+                if (uninstallExpression == "") uninstallExpression = null;
                 _wrapperService.GenerateExeWrappers(contentPath, manifest.InstallerFile,
-                    manifest.InstallArgs, manifest.UninstallArgs, manifest.DetectedEngine, manifest.AppName, null,
+                    manifest.InstallArgs, manifest.UninstallArgs, manifest.DetectedEngine, manifest.AppName, uninstallExpression,
                     null, arpKeyName, installFolder);
             }
 

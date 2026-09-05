@@ -9,6 +9,7 @@
     "VendorUrl":  "https://www.gimp.org/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
+    "SupportsInstallModes": ["CurrentUser", "AllUsers"],
     "Acquisition":  {
 
                     },

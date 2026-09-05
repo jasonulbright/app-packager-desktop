@@ -31,6 +31,7 @@ public partial class DeploymentConditionsViewModel : ObservableObject
 
     public string[] ArchitectureOptions => DeploymentConditionRow.ArchitectureOptions;
     public string[] NetworkOptions => DeploymentConditionRow.NetworkOptions;
+    public string[] InstallModeOptions => DeploymentConditionRow.InstallModeOptions;
 
     public IAsyncRelayCommand LoadCommand { get; }
     public IAsyncRelayCommand<DeploymentConditionRow> EditCommandsCommand { get; }
@@ -84,7 +85,8 @@ public partial class DeploymentConditionsViewModel : ObservableObject
                 DefinitionId = def.Id,
                 Application = def.Application,
                 Vendor = def.Vendor,
-                VariantOptions = [DeploymentConditionValues.NoSplit, .. supported]
+                VariantOptions = [DeploymentConditionValues.NoSplit, .. supported],
+                InstallModeCapable = def.OffersInstallModes
             };
 
             if (settings.DeploymentConditions.TryGetValue(def.Id, out var entry))
@@ -95,6 +97,8 @@ public partial class DeploymentConditionsViewModel : ObservableObject
                 // A split the definition no longer declares falls back to None.
                 if (supported.Contains(entry.Split))
                     row.SplitDisplay = entry.Split;
+                if (row.InstallModeCapable)
+                    row.InstallModeDisplay = DeploymentConditionRow.InstallModeToDisplay(entry.InstallMode);
             }
 
             if (settings.CommandOverrides.TryGetValue(def.Id, out var commands))
@@ -150,19 +154,23 @@ public partial class DeploymentConditionsViewModel : ObservableObject
                 row.LanguagesDisplay.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries));
             var split = row.VariantOptions.Contains(row.SplitDisplay)
                 ? row.SplitDisplay : DeploymentConditionValues.NoSplit;
+            var installMode = row.InstallModeCapable
+                ? DeploymentConditionRow.DisplayToInstallMode(row.InstallModeDisplay) : "";
 
             // An app that asks for nothing stores no entry.
             if (architecture != DeploymentConditionValues.Any
                 || network != DeploymentConditionValues.Any
                 || languages.Length > 0
-                || DeploymentConditionValues.IsSplit(split))
+                || DeploymentConditionValues.IsSplit(split)
+                || DeploymentConditionValues.IsInstallMode(installMode))
             {
                 conditions[row.DefinitionId] = new DeploymentConditionEntry
                 {
                     Architecture = architecture,
                     Languages = languages,
                     Network = network,
-                    Split = split
+                    Split = split,
+                    InstallMode = installMode
                 };
             }
 
