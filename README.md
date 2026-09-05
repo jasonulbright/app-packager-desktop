@@ -28,8 +28,8 @@ If you do want to add your own applications, you can: definitions are single JSO
 
 ## Quickstart
 
-1. Install the .NET 10 Desktop Runtime.
-2. Download the release zip, unblock it, extract it anywhere, and run `ApplicationPackagerUI.exe`. Nothing is installed; it runs from the folder.
+1. Download the release. The installer (`AppPackagerDesktop-Setup-<version>.exe`) installs for the current user with no elevation and puts a Start Menu shortcut in place; `/S` installs silently. The zip is the same build without an installer: extract it anywhere and run `ApplicationPackagerUI.exe`. Both are self-contained and need no separate .NET runtime.
+2. Close the application before installing an update; the installer refuses to replace a running executable.
 3. On first launch a short setup window asks where you deploy — MECM only, MECM + Intune, or Intune only — then asks only for the fields that choice needs. Everything it sets is also on the **Settings** page, so you can skip it and fill in the site code, site server, and network share there instead. For MECM targets the application tests the connection on launch and shows the result; an Intune-only setup skips that test and relabels **Package** to **Publish**.
 4. On the **Packages** page, tick one or more applications and press **Check Latest** to see the current vendor version alongside what your environment already has.
 5. Press **Stage** to download and prepare, then **Package** to create the application in MECM or Intune.
@@ -42,7 +42,7 @@ Packr is the C# sibling of [app-packager](https://github.com/jasonulbright/app-p
 
 ## Status
 
-**v2.2.0-alpha2** — 295 application definitions, all version scrapers passing the live check-only sweep. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 installer verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation. 90 of the original 116 definitions are install-and-detection signed off on a lab site; the 2026 additions are stage-verified and awaiting the lab pass. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
+**v2.2.0-alpha3** — 295 application definitions, all version scrapers passing the live check-only sweep. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 installer verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation. 90 of the original 116 definitions are install-and-detection signed off on a lab site; the 2026 additions are stage-verified and awaiting the lab pass. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
 
 ## Stack
 
@@ -104,9 +104,9 @@ One file per application. `Pattern` below is a text-matching expression (a regul
 tools\build-release.ps1
 ```
 
-Publishes a self-contained single-file win-x64 build and writes `AppPackagerDesktop-<version>.zip` plus `checksums.txt` into `publish\`. `-PublishOnly` and `-PackageOnly` run the two halves separately.
+Publishes a self-contained single-file win-x64 build, compiles the per-user installer from it when NSIS (`makensis`) is installed, and writes `AppPackagerDesktop-Setup-<version>.exe`, `AppPackagerDesktop-<version>.zip` and `checksums.txt` into `publish\`. `-PublishOnly` and `-PackageOnly` run the two halves separately; `tools\build-installer.ps1` compiles the installer from a stage on its own.
 
-Releases are cut by the Release workflow (Actions, run manually from `main`). It runs the engine tests, publishes, signs the executable with Azure Artifact Signing, verifies the signature, tags `v<version>` from the csproj and publishes the GitHub release with the matching `CHANGELOG.md` section as its notes. Before running it, set `<Version>` in the UI project and give the changelog a section for that version.
+Releases are cut by the Release workflow (Actions, run manually from `main`). It runs the engine tests, publishes, signs the executable with Azure Artifact Signing, compiles the installer from the signed files and signs it too, verifies both signatures, tags `v<version>` from the csproj and publishes the GitHub release with the matching `CHANGELOG.md` section as its notes. Before running it, set `<Version>` in the UI project and give the changelog a section for that version.
 
 ## License
 

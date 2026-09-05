@@ -9,6 +9,7 @@
   "VendorUrl": "https://typora.io/",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
+  "SupportsInstallModes": ["CurrentUser", "AllUsers"],
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",
@@ -18,7 +19,7 @@
   },
   "DownloadUrl": "https://download.typora.io/windows/typora-setup-x64.exe",
   "InstallerFileName": "typora-setup-x64.exe",
-  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS /DIR=C:\\Program Files\\Typora",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS",
   "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
   "UninstallCommand": "\"C:\\Program Files\\Typora\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
   "Detection": {
