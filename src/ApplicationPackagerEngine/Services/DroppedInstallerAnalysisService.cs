@@ -46,6 +46,8 @@ public sealed class DroppedInstallerAnalysis
     /// <summary>Deployment-type kind the manifest records: MSI or EXE.</summary>
     public string InstallerType { get; init; } = "EXE";
     public string Architecture { get; init; } = "";
+    /// <summary>"User" when the predicted uninstall key lives under HKCU, else "Machine".</summary>
+    public string InstallContext { get; init; } = "Machine";
 
     public ProposedField AppName { get; init; } = ProposedField.Empty;
     public ProposedField Publisher { get; init; } = ProposedField.Empty;
@@ -102,7 +104,8 @@ public sealed class DroppedInstallerOverrides
     public string? UninstallArgs { get; init; }
     public string? UninstallCommand { get; init; }
     public string[]? RunningProcess { get; init; }
-    public string InstallContext { get; init; } = "Machine";
+    /// <summary>Null takes the analysis prediction (HKCU key means a per-user install).</summary>
+    public string? InstallContext { get; init; }
 }
 
 /// <summary>
@@ -204,6 +207,7 @@ public sealed class DroppedInstallerAnalysisService
 
         var switchSource = $"switch-table:{engine}";
         var detection = BuildDetection(engine, isMsi, productCodeValue, arp?.Path, appName.Value, version.Value, architecture, msi);
+        var perUser = arp?.Hive == "HKCU";
 
         return new DroppedInstallerAnalysis
         {
@@ -213,6 +217,7 @@ public sealed class DroppedInstallerAnalysisService
             Engine = engine,
             InstallerType = isMsi ? "MSI" : "EXE",
             Architecture = architecture,
+            InstallContext = perUser ? "User" : "Machine",
             AppName = appName,
             Publisher = publisher,
             SoftwareVersion = version,
@@ -287,7 +292,7 @@ public sealed class DroppedInstallerAnalysisService
             SoftwareVersion = version,
             InstallerFile = analysis.FileName,
             InstallerType = analysis.InstallerType,
-            InstallContext = overrides?.InstallContext ?? "Machine",
+            InstallContext = overrides?.InstallContext ?? analysis.InstallContext,
             InstallArgs = installArgs,
             UninstallArgs = uninstallArgs,
             ProductCode = analysis.ProductCode.HasValue ? analysis.ProductCode.Value : null,
@@ -339,7 +344,7 @@ public sealed class DroppedInstallerAnalysisService
             Detection = new DetectionConfig
             {
                 Type = manifest.Detection.Type,
-                RegistryHive = manifest.Detection.RegistryKeyRelative is not null ? "HKLM" : null,
+                RegistryHive = manifest.Detection.RegistryKeyRelative is null ? null : manifest.Detection.IsCurrentUserHive ? "HKCU" : "HKLM",
                 RegistryKeyTemplate = registryKeyTemplate,
                 ValueName = manifest.Detection.ValueName,
                 Operator = manifest.Detection.Operator,
@@ -516,6 +521,10 @@ public sealed class DroppedInstallerAnalysisService
             };
         }
 
+        // A predicted key under HKCU is a per-user product; the manifest hive
+        // decides which registry the detection reads on the device.
+        var hive = arpPath?.StartsWith("HKCU", StringComparison.OrdinalIgnoreCase) == true ? "CurrentUser" : "LocalMachine";
+
         if (isMsi && !string.IsNullOrEmpty(productCode))
         {
             return new StageDetection
@@ -526,7 +535,8 @@ public sealed class DroppedInstallerAnalysisService
                 ExpectedValue = version,
                 Operator = "IsEquals",
                 PropertyType = "Version",
-                Is64Bit = msi?.IsPerUser != true && !architecture.Equals("x86", StringComparison.OrdinalIgnoreCase)
+                Is64Bit = msi?.IsPerUser != true && !architecture.Equals("x86", StringComparison.OrdinalIgnoreCase),
+                Hive = msi?.IsPerUser == true ? "CurrentUser" : hive
             };
         }
 
@@ -552,7 +562,8 @@ public sealed class DroppedInstallerAnalysisService
             ExpectedValue = version,
             Operator = "IsEquals",
             PropertyType = "Version",
-            Is64Bit = is64
+            Is64Bit = is64,
+            Hive = hive
         };
     }
 
@@ -572,7 +583,8 @@ public sealed class DroppedInstallerAnalysisService
         PropertyType = source.PropertyType,
         FilePath = source.FilePath,
         FileName = source.FileName,
-        Is64Bit = source.Is64Bit
+        Is64Bit = source.Is64Bit,
+        Hive = source.Hive
     };
 
     private static string DetectionHintFor(string engine, string productCode, string appName) => engine switch

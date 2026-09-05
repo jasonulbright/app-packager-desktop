@@ -1257,6 +1257,21 @@ public sealed class StagingService
     /// <summary>
     /// Resolves one registry or file detection config into its staged form.
     /// </summary>
+    /// <summary>
+    /// Maps a definition's RegistryHive spelling (HKCU, HKEY_CURRENT_USER,
+    /// CurrentUser) onto the manifest's two values. Anything else, including
+    /// an absent value, is the machine hive.
+    /// </summary>
+    public static string ResolveHive(string? registryHive)
+    {
+        var hive = (registryHive ?? "").Trim();
+        return hive.Equals("HKCU", StringComparison.OrdinalIgnoreCase)
+            || hive.Equals("HKEY_CURRENT_USER", StringComparison.OrdinalIgnoreCase)
+            || hive.Equals("CurrentUser", StringComparison.OrdinalIgnoreCase)
+            ? "CurrentUser"
+            : "LocalMachine";
+    }
+
     private static StageDetection BuildSingleDetection(
         DetectionConfig det, string? productCode, string version, string? rawVersion)
     {
@@ -1283,7 +1298,8 @@ public sealed class StagingService
                 ExpectedValue = detValue,
                 Operator = det.Operator ?? "IsEquals",
                 PropertyType = det.PropertyType ?? "String",
-                Is64Bit = det.Is64Bit
+                Is64Bit = det.Is64Bit,
+                Hive = ResolveHive(det.RegistryHive)
             };
         }
 
@@ -1322,7 +1338,8 @@ public sealed class StagingService
             {
                 Type = "RegistryKey",
                 RegistryKeyRelative = regKey,
-                Is64Bit = det.Is64Bit
+                Is64Bit = det.Is64Bit,
+                Hive = ResolveHive(det.RegistryHive)
             };
         }
 

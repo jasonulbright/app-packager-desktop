@@ -446,6 +446,9 @@ public sealed class MecmTarget
         return clauses;
     }
 
+    /// <summary>The -Hive value of the New-CMDetectionClauseRegistry* cmdlets for a detection.</summary>
+    private static string CmHive(StageDetection det) => det.IsCurrentUserHive ? "CurrentUser" : "LocalMachine";
+
     private static string BuildDetectionClausePs(StageDetection det)
     {
         return det.Type switch
@@ -457,10 +460,10 @@ public sealed class MecmTarget
                 $"$clause = New-CMDetectionClauseFile -Path '{Esc(det.FilePath ?? "")}' -FileName '{Esc(det.FileName ?? "")}' -PropertyType {det.PropertyType ?? "Version"} -Value -ExpressionOperator {det.Operator ?? "GreaterEquals"} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             "RegistryKeyValue" =>
-                $"$clause = New-CMDetectionClauseRegistryKeyValue -Hive LocalMachine -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -ValueName '{Esc(det.ValueName ?? "DisplayVersion")}' -PropertyType {det.PropertyType ?? "String"} -Value -ExpressionOperator {det.Operator ?? "IsEquals"} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
+                $"$clause = New-CMDetectionClauseRegistryKeyValue -Hive {CmHive(det)} -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -ValueName '{Esc(det.ValueName ?? "DisplayVersion")}' -PropertyType {det.PropertyType ?? "String"} -Value -ExpressionOperator {det.Operator ?? "IsEquals"} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             "RegistryKey" =>
-                $"$clause = New-CMDetectionClauseRegistryKey -Hive LocalMachine -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -Existence{(det.Is64Bit ? " -Is64Bit" : "")}",
+                $"$clause = New-CMDetectionClauseRegistryKey -Hive {CmHive(det)} -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -Existence{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             _ => throw new InvalidOperationException($"Unsupported detection type: {det.Type}")
         };
