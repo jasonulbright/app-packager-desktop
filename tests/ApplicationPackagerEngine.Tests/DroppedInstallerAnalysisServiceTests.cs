@@ -156,6 +156,30 @@ public class DroppedInstallerAnalysisServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task BuildStageManifest_PerUserMsi_IsAUserContextWithCurrentUserDetection()
+    {
+        var path = WriteFile("peruser.msi");
+        var service = MsiService(allUsers: "");
+        var analysis = await service.AnalyzeAsync(path);
+
+        Assert.Equal("User", analysis.InstallContext);
+        Assert.StartsWith("HKCU", analysis.UninstallRegistryKey.Value);
+
+        // The review panel sends overrides without a context; the prediction has to survive them.
+        var manifest = service.BuildStageManifest(analysis, new DroppedInstallerOverrides { AppName = "Per User App" });
+        Assert.Equal("User", manifest.InstallContext);
+        Assert.Equal("CurrentUser", manifest.Detection.Hive);
+        Assert.True(manifest.Detection.IsCurrentUserHive);
+
+        var definition = service.BuildDefinition(analysis);
+        Assert.Equal("HKCU", definition.Detection.RegistryHive);
+        Assert.Equal("User", definition.InstallContext);
+
+        var machine = service.BuildStageManifest(analysis, new DroppedInstallerOverrides { InstallContext = "Machine" });
+        Assert.Equal("Machine", machine.InstallContext);
+    }
+
+    [Fact]
     public async Task BuildDefinition_Msi_TemplatesTheProductCode()
     {
         var path = WriteFile("7z2408-x64.msi");

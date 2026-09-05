@@ -126,6 +126,31 @@ public sealed class IntunePublishServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Publish_PerUserManifest_RunsAsUserWithCurrentUserKeyPath()
+    {
+        var package = IntuneWinFixture.Create(_dir);
+        var handler = BuildHandler(NoApps);
+        using var svc = new IntunePublishService(handler);
+        var manifest = Manifest();
+        manifest.InstallContext = "User";
+        manifest.Detection = new StageDetection
+        {
+            Type = "RegistryKeyValue",
+            RegistryKeyRelative = @"Software\Vendor\App",
+            ValueName = "DisplayVersion",
+            ExpectedValue = "1.0.0",
+            Operator = "GreaterEquals",
+            Hive = "CurrentUser"
+        };
+
+        await svc.PublishAsync(package, manifest, Options());
+
+        var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        Assert.Contains("\"runAsAccount\":\"user\"", create.Body);
+        Assert.Contains("HKEY_CURRENT_USER\\\\Software\\\\Vendor\\\\App", create.Body);
+    }
+
+    [Fact]
     public async Task Publish_WithStagedIcon_SetsLargeIconMimeContent()
     {
         var package = IntuneWinFixture.Create(_dir);

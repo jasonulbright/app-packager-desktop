@@ -174,7 +174,7 @@ foreach ($defFile in $defs) {
 
             if ($det.Type -eq 'RegistryKeyValue' -and $det.RegistryKeyRelative) {
                 $view = if ($det.Is64Bit) { [Microsoft.Win32.RegistryView]::Registry64 } else { [Microsoft.Win32.RegistryView]::Registry32 }
-                $hklm = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $view)
+                $hklm = [Microsoft.Win32.RegistryKey]::OpenBaseKey($(if ($det.Hive -eq "CurrentUser") { [Microsoft.Win32.RegistryHive]::CurrentUser } else { [Microsoft.Win32.RegistryHive]::LocalMachine }), $view)
                 $key = $hklm.OpenSubKey($det.RegistryKeyRelative)
                 if ($key) {
                     $val = $key.GetValue($det.ValueName)
@@ -184,7 +184,7 @@ foreach ($defFile in $defs) {
                 $hklm.Close()
             } elseif ($det.Type -eq 'RegistryKey' -and $det.RegistryKeyRelative) {
                 $view = if ($det.Is64Bit) { [Microsoft.Win32.RegistryView]::Registry64 } else { [Microsoft.Win32.RegistryView]::Registry32 }
-                $hklm = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $view)
+                $hklm = [Microsoft.Win32.RegistryKey]::OpenBaseKey($(if ($det.Hive -eq "CurrentUser") { [Microsoft.Win32.RegistryHive]::CurrentUser } else { [Microsoft.Win32.RegistryHive]::LocalMachine }), $view)
                 $key = $hklm.OpenSubKey($det.RegistryKeyRelative)
                 if ($key) { $detected = $true; $key.Close() }
                 $hklm.Close()
@@ -232,7 +232,7 @@ foreach ($defFile in $defs) {
                     $stillDetected = $false
                     if ($det.RegistryKeyRelative) {
                         $view2 = if ($det.Is64Bit) { [Microsoft.Win32.RegistryView]::Registry64 } else { [Microsoft.Win32.RegistryView]::Registry32 }
-                        $hklm2 = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $view2)
+                        $hklm2 = [Microsoft.Win32.RegistryKey]::OpenBaseKey($(if ($det.Hive -eq "CurrentUser") { [Microsoft.Win32.RegistryHive]::CurrentUser } else { [Microsoft.Win32.RegistryHive]::LocalMachine }), $view2)
                         $key2 = $hklm2.OpenSubKey($det.RegistryKeyRelative)
                         if ($key2) { $stillDetected = $true; $key2.Close() }
                         $hklm2.Close()

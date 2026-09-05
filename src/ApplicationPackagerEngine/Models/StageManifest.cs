@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
@@ -106,6 +108,17 @@ public sealed class StageDetection
     public string? FilePath { get; set; }
     public string? FileName { get; set; }
     public bool Is64Bit { get; set; } = true;
+    /// <summary>
+    /// Registry hive of a registry detection: "LocalMachine" or "CurrentUser".
+    /// Null reads as LocalMachine, which is what every manifest written before
+    /// the field existed meant.
+    /// </summary>
+    public string? Hive { get; set; }
+
+    /// <summary>True when the detection reads the logged-on user's hive.</summary>
+    [JsonIgnore]
+    public bool IsCurrentUserHive =>
+        string.Equals(Hive, "CurrentUser", StringComparison.OrdinalIgnoreCase);
     /// <summary>Script detection language. Only meaningful when Type is Script.</summary>
     public string? ScriptLanguage { get; set; }
     /// <summary>Script detection body. Only meaningful when Type is Script.</summary>

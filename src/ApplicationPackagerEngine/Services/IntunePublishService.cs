@@ -100,7 +100,9 @@ public sealed class IntunePublishService : IDisposable
             ["minimumSupportedWindowsRelease"] = options.MinimumSupportedWindowsRelease,
             ["installExperience"] = new JsonObject
             {
-                ["runAsAccount"] = "system",
+                // A per-user deployment runs its installer in the user's session; a
+                // machine install under the user account has no rights to Program Files.
+                ["runAsAccount"] = manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase) ? "user" : "system",
                 ["deviceRestartBehavior"] = "basedOnReturnCode"
             },
             ["rules"] = rules,
@@ -348,7 +350,7 @@ public sealed class IntunePublishService : IDisposable
                     ["@odata.type"] = "#microsoft.graph.win32LobAppRegistryRule",
                     ["ruleType"] = "detection",
                     ["check32BitOn64System"] = check32,
-                    ["keyPath"] = @"HKEY_LOCAL_MACHINE\" + (d.RegistryKeyRelative ?? ""),
+                    ["keyPath"] = RegistryKeyPath(d),
                     ["valueName"] = valueName,
                     ["operationType"] = operationType,
                     ["operator"] = VersionOperator(d.Operator),
@@ -361,7 +363,7 @@ public sealed class IntunePublishService : IDisposable
                     ["@odata.type"] = "#microsoft.graph.win32LobAppRegistryRule",
                     ["ruleType"] = "detection",
                     ["check32BitOn64System"] = check32,
-                    ["keyPath"] = @"HKEY_LOCAL_MACHINE\" + (d.RegistryKeyRelative ?? ""),
+                    ["keyPath"] = RegistryKeyPath(d),
                     ["valueName"] = null,
                     ["operationType"] = "exists",
                     ["operator"] = "notConfigured",
@@ -417,6 +419,10 @@ public sealed class IntunePublishService : IDisposable
                 throw new InvalidOperationException($"Detection type '{type}' has no Intune rule mapping.");
         }
     }
+
+    /// <summary>Graph registry rule key path: the hive root name plus the manifest's relative key.</summary>
+    private static string RegistryKeyPath(StageDetection d) =>
+        (d.IsCurrentUserHive ? @"HKEY_CURRENT_USER\" : @"HKEY_LOCAL_MACHINE\") + (d.RegistryKeyRelative ?? "");
 
     private static string VersionOperator(string? op)
         => string.Equals(op, "GreaterEquals", StringComparison.OrdinalIgnoreCase) ? "greaterThanOrEqual" : "equal";
