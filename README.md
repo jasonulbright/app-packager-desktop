@@ -42,7 +42,7 @@ Packr is the C# sibling of [app-packager](https://github.com/jasonulbright/app-p
 
 ## Status
 
-**v2.2.0-alpha2** — 295 application definitions, all version scrapers passing the live check-only sweep. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 payload verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation. 90 of the original 116 definitions are install-and-detection signed off on a lab site; the 2026 additions are stage-verified and awaiting the lab pass. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
+**v2.2.0-alpha2** — 295 application definitions, all version scrapers passing the live check-only sweep. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 installer verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation. 90 of the original 116 definitions are install-and-detection signed off on a lab site; the 2026 additions are stage-verified and awaiting the lab pass. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status.
 
 ## Stack
 

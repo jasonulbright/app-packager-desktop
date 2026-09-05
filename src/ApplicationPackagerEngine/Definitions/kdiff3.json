@@ -9,6 +9,7 @@
   "VendorUrl": "https://apps.kde.org/kdiff3/",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
+  "SupportsInstallModes": ["CurrentUser", "AllUsers"],
   "Acquisition": {},
   "VersionScraper": {
     "Type": "HttpRegex",

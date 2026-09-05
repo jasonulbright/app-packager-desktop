@@ -15,7 +15,7 @@
 - Show a per-run conflict dialog with an apply-to-all choice.
 - Set the DBeaver install scope and AI opt-out from installer settings.
 - Substitute installer settings through value maps and post-install scripts.
-- Verify payload SHA256 against a pinned or feed-published digest.
+- Verify the installer SHA256 against a pinned or feed-published digest.
 - Declare script and compound detection rules in definitions.
 - Authenticate GitHub API calls with PACKR_GITHUB_TOKEN, GITHUB_TOKEN or the GitHub CLI.
 - Show GitHub API authentication and remaining quota in Settings.
@@ -28,6 +28,10 @@
 - Resolve a FileVersion scrape through page hops.
 - Re-download a cached installer once when its checksum fails.
 - Retry a bootstrapper layout while another installation holds the Windows Installer mutex.
+- Read NSIS and Inno Setup installers from their compiled scripts when analyzing a drop.
+- Offer an Install for choice in the drop preview for installers with a mode switch.
+- Choose Install for System or User per application on the Deployment Conditions page.
+- Enable the Install for choice on eleven definitions.
 
 ### Changed
 
@@ -48,6 +52,7 @@
 ### Fixed
 
 - Run only the product's own uninstaller by matching its Add/Remove Programs entry.
+- Run a definition uninstall command written as a plain command line.
 - Keep the definition's name, version and publisher when installer metadata names a bundled component.
 - Detect Gpg4win in the 64-bit registry view.
 - Detect KDiff3 in the 32-bit registry view and uninstall it with its silent switch alone.

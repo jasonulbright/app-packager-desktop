@@ -76,7 +76,13 @@ public class PackagerExecutionService(
             var appSettings = settingsService.Load();
             // Reuse version from Check Latest to avoid redundant API calls (GitHub rate limiting)
             var knownVersion = !string.IsNullOrEmpty(packager.LatestVersion) ? packager.LatestVersion : null;
-            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues);
+            // The operator's Install for choice reaches staging here; an entry
+            // for a definition that no longer declares the modes is ignored.
+            var installMode = def.OffersInstallModes
+                ? deploymentConditionsService.GetConditions(def.Id)?.InstallMode
+                : null;
+            if (string.IsNullOrWhiteSpace(installMode)) installMode = null;
+            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues, installMode);
             return new PackagerExecutionResult
             {
                 ExitCode = result.Success ? 0 : 1,

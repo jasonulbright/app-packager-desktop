@@ -19,6 +19,13 @@ public partial class DeploymentConditionRow : ObservableObject
     public static readonly string[] NetworkOptions =
         [NetworkAny, NetworkVpn, NetworkOnSite];
 
+    public const string InstallModeDefault = "Default";
+    public const string InstallModeSystem = "System";
+    public const string InstallModeUser = "User";
+
+    public static readonly string[] InstallModeOptions =
+        [InstallModeDefault, InstallModeSystem, InstallModeUser];
+
     /// <summary>Definition id; the key the selections persist under.</summary>
     public string DefinitionId { get; init; } = "";
     public string Application { get; init; } = "";
@@ -28,10 +35,14 @@ public partial class DeploymentConditionRow : ObservableObject
     public string[] VariantOptions { get; init; } = [DeploymentConditionValues.NoSplit];
     public bool VariantCapable => VariantOptions.Length > 1;
 
+    /// <summary>True when the definition declares both install modes, so the Install for cell is live.</summary>
+    public bool InstallModeCapable { get; init; }
+
     [ObservableProperty] private string _architectureDisplay = ArchitectureAny;
     [ObservableProperty] private string _languagesDisplay = "";
     [ObservableProperty] private string _networkDisplay = NetworkAny;
     [ObservableProperty] private string _splitDisplay = DeploymentConditionValues.NoSplit;
+    [ObservableProperty] private string _installModeDisplay = InstallModeDefault;
     [ObservableProperty] private string _commandInstall = "";
     [ObservableProperty] private string _commandUninstall = "";
 
@@ -71,5 +82,19 @@ public partial class DeploymentConditionRow : ObservableObject
         NetworkVpn => DeploymentConditionValues.VpnOnly,
         NetworkOnSite => DeploymentConditionValues.OnSiteOnly,
         _ => DeploymentConditionValues.Any
+    };
+
+    public static string InstallModeToDisplay(string? stored) => stored switch
+    {
+        DeploymentConditionValues.AllUsers => InstallModeSystem,
+        DeploymentConditionValues.CurrentUser => InstallModeUser,
+        _ => InstallModeDefault
+    };
+
+    public static string DisplayToInstallMode(string? display) => display switch
+    {
+        InstallModeSystem => DeploymentConditionValues.AllUsers,
+        InstallModeUser => DeploymentConditionValues.CurrentUser,
+        _ => ""
     };
 }

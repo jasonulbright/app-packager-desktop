@@ -144,6 +144,18 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
+                <DataGridTemplateColumn Header="Install for" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ComboBox ItemsSource="{Binding DataContext.InstallModeOptions, RelativeSource={RelativeSource AncestorType=Page}}"
+                                      SelectedItem="{Binding InstallModeDisplay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="{Binding InstallModeCapable}"
+                                      BorderThickness="0" Background="Transparent"
+                                      ToolTip="System installs to Program Files and registers under HKLM; User installs into the profile and registers under HKCU. Offered only where the installer accepts a mode switch. Default keeps the installer's own choice." />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
                 <DataGridTemplateColumn Header="Commands" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

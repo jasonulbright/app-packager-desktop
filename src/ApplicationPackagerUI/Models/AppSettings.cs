@@ -97,6 +97,8 @@ public sealed class DeploymentConditionEntry
     public string Network { get; set; } = DeploymentConditionValues.Any;
     /// <summary>None, Architecture, Language, or Network.</summary>
     public string Split { get; set; } = DeploymentConditionValues.NoSplit;
+    /// <summary>Empty for the installer's own default, else AllUsers or CurrentUser.</summary>
+    public string InstallMode { get; set; } = "";
 }
 
 /// <summary>One app's install/uninstall command overrides. Empty keeps the shipped default.</summary>
@@ -117,6 +119,9 @@ public static class DeploymentConditionValues
     public const string NoSplit = "None";
 
     public static readonly string[] Splits = ["Architecture", "Language", "Network"];
+    public const string AllUsers = "AllUsers";
+    public const string CurrentUser = "CurrentUser";
+    public static bool IsInstallMode(string? value) => value is AllUsers or CurrentUser;
 
     public static bool IsArchitecture(string? value) => value is X64 or Arm64;
     public static bool IsNetwork(string? value) => value is VpnOnly or OnSiteOnly;
