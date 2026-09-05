@@ -1,21 +1,23 @@
 <#
 .SYNOPSIS
-    Builds the release artifacts: a published zip and a matching checksums file.
+    Builds the release artifacts: a published zip, the installer and a checksums file.
 
 .DESCRIPTION
     Publishes ApplicationPackagerUI as a self-contained, single-file win-x64 Release build
-    into a stage folder, then zips the stage into <OutputRoot>\AppPackagerDesktop-<version>.zip
-    and writes checksums.txt beside it.
+    into a stage folder, compiles the installer from it (tools\build-installer.ps1, when
+    makensis is installed), then zips the stage into <OutputRoot>\AppPackagerDesktop-<version>.zip
+    and writes checksums.txt covering the zip and the installer.
 
-    The two halves run separately when something has to happen to the published files
-    in between, which is how the release workflow signs them: -PublishOnly leaves the
-    stage in place, -PackageOnly zips an existing stage.
+    The halves run separately when something has to happen to the published files in
+    between, which is how the release workflow signs them: -PublishOnly leaves the stage
+    in place, build-installer.ps1 runs on the signed stage, -PackageOnly zips the stage
+    and hashes whatever installer sits in <OutputRoot>.
 
     The version comes from <Version> in the UI csproj. Nothing is uploaded; releases are
     created from the artifacts this produces.
 
 .PARAMETER OutputRoot
-    Directory that receives the zip and checksums.txt. Defaults to <repo>\publish.
+    Directory that receives the zip, the installer and checksums.txt. Defaults to <repo>\publish.
 
 .PARAMETER Configuration
     Build configuration. Defaults to Release.
@@ -87,6 +89,17 @@ if (-not $PackageOnly) {
         }
         return
     }
+
+    # A full local build compiles the installer here; the release workflow
+    # instead runs build-installer.ps1 itself, after signing the stage.
+    $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+    if (-not $makensis -and (Test-Path -LiteralPath "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { $makensis = $true }
+    if ($makensis) {
+        & (Join-Path $PSScriptRoot 'build-installer.ps1') -StageDir $stageDir -OutputDir $OutputRoot | Out-Null
+    }
+    else {
+        Write-Warning 'makensis.exe not found; the zip is built without an installer.'
+    }
 }
 
 if (-not (Test-Path $exePath)) { throw "No published stage to package at $stageDir; run without -PackageOnly first." }
@@ -94,14 +107,22 @@ if (-not (Test-Path $exePath)) { throw "No published stage to package at $stageD
 if (Test-Path $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $zipPath -CompressionLevel Optimal
 
-# Bare filename in the checksum line so `sha256sum -c` runs from the download directory.
-$hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  $(Split-Path -Leaf $zipPath)" | Set-Content -LiteralPath $checksumPath -Encoding ascii
+# Bare filenames in the checksum lines so `sha256sum -c` runs from the download directory.
+$installerPath = Join-Path $OutputRoot "AppPackagerDesktop-Setup-$version.exe"
+$artifacts = @($zipPath) + @(if (Test-Path -LiteralPath $installerPath) { $installerPath })
+$lines = foreach ($artifact in $artifacts) {
+    "{0}  {1}" -f (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant(), (Split-Path -Leaf $artifact)
+}
+$lines | Set-Content -LiteralPath $checksumPath -Encoding ascii
 
 Remove-Item -LiteralPath $stageDir -Recurse -Force
+$generatedDir = Join-Path $OutputRoot 'installer-generated'
+if (Test-Path -LiteralPath $generatedDir) { Remove-Item -LiteralPath $generatedDir -Recurse -Force }
 
-$zipItem = Get-Item -LiteralPath $zipPath
 Write-Host ''
-Write-Host ("zip        : {0} ({1:N1} MB)" -f $zipItem.Name, ($zipItem.Length / 1MB))
+foreach ($artifact in $artifacts) {
+    $item = Get-Item -LiteralPath $artifact
+    Write-Host ("artifact   : {0} ({1:N1} MB)" -f $item.Name, ($item.Length / 1MB))
+}
 Write-Host ("checksums  : {0}" -f (Split-Path -Leaf $checksumPath))
-Write-Host ("sha256     : {0}" -f $hash)
+$lines | ForEach-Object { Write-Host ("  {0}" -f $_) }

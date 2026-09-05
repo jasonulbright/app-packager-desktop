@@ -2,8 +2,10 @@ name: Release
 
 # Run by hand from main once the csproj <Version> and the matching CHANGELOG
 # section are committed. The run tests, publishes, signs the published
-# executable with Azure Artifact Signing, verifies the signature, zips, tags
-# v<version> and publishes the GitHub release.
+# executable with Azure Artifact Signing, compiles the installer from the
+# signed stage and signs that too, verifies both signatures, zips, tags
+# v<version> and publishes the GitHub release with the installer, the zip
+# and their checksums.
 #
 # The Azure login exchanges this job's OIDC token for the signing identity.
 # The federated credential on the app registration must carry this run's
@@ -131,9 +133,42 @@ jobs:
           exclude-azure-developer-cli-credential: true
           exclude-interactive-browser-credential: true
 
+      # The installer is compiled from the signed stage, so the executable it
+      # carries is the signed one, then signed itself. The runner image ships
+      # makensis.
+      - name: Build the installer
+        shell: pwsh
+        run: ./tools/build-installer.ps1 -StageDir "$env:RUNNER_TEMP\publish\release-stage" -OutputDir "$env:RUNNER_TEMP\publish"
+
+      # Non-recursive on purpose: the publish root holds the installer, and the
+      # already signed stage sits in a subfolder.
+      - name: Sign the installer
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ env.SIGN_ENDPOINT }}
+          signing-account-name: ${{ env.SIGN_ACCOUNT }}
+          certificate-profile-name: ${{ env.SIGN_PROFILE }}
+          files-folder: ${{ runner.temp }}\publish
+          files-folder-filter: exe
+          files-folder-recurse: false
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          exclude-azure-cli-credential: false
+          exclude-azure-powershell-credential: true
+          exclude-azure-developer-cli-credential: true
+          exclude-interactive-browser-credential: true
+
+      # Covers the stage and the installer beside it.
       - name: Verify the signatures
         shell: pwsh
-        run: ./tools/verify-signatures.ps1 -Path "$env:RUNNER_TEMP\publish\release-stage" -ExpectedSubjectCommonName "$env:SIGN_SUBJECT_CN"
+        run: ./tools/verify-signatures.ps1 -Path "$env:RUNNER_TEMP\publish" -ExpectedSubjectCommonName "$env:SIGN_SUBJECT_CN"
 
       - name: Package the zip and checksums
         shell: pwsh
@@ -159,11 +194,13 @@ jobs:
         run: |
           $zip = Get-ChildItem "$env:RUNNER_TEMP\publish" -Filter 'AppPackagerDesktop-*.zip' -File | Select-Object -First 1
           if (-not $zip) { throw 'Release zip missing.' }
+          $installer = Get-ChildItem "$env:RUNNER_TEMP\publish" -Filter 'AppPackagerDesktop-Setup-*.exe' -File | Select-Object -First 1
+          if (-not $installer) { throw 'Installer missing.' }
           $checksums = "$env:RUNNER_TEMP\publish\checksums.txt"
           $flags = @('--draft')
           if ("${{ steps.meta.outputs.tag }}" -match '-') { $flags += '--prerelease' }
-          gh release create "${{ steps.meta.outputs.tag }}" @flags --title "${{ steps.meta.outputs.tag }}" --notes-file "${{ steps.meta.outputs.notes }}" $zip.FullName $checksums
+          gh release create "${{ steps.meta.outputs.tag }}" @flags --title "${{ steps.meta.outputs.tag }}" --notes-file "${{ steps.meta.outputs.notes }}" $installer.FullName $zip.FullName $checksums
           if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
           gh release edit "${{ steps.meta.outputs.tag }}" --draft=false
           if ($LASTEXITCODE -ne 0) { throw 'gh release edit failed' }
-          Write-Host "published ${{ steps.meta.outputs.tag }}: $($zip.Name)"
+          Write-Host "published ${{ steps.meta.outputs.tag }}: $($installer.Name), $($zip.Name)"

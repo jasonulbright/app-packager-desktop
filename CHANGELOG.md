@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.0-alpha3] - 2026-09-05
+
+### Added
+
+- Ship a per-user installer beside the zip.
+- Enable the Install for choice on Typora.
+
+### Fixed
+
+- Install Typora into Program Files instead of a folder named Program.
+
 ## [2.2.0-alpha2] - 2026-09-04
 
 ### Added
