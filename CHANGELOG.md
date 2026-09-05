@@ -4,31 +4,31 @@
 
 ### Added
 
-- Choose the content folder layout: nested Vendor\App\Version or flat.
-- Distribute content to a distribution point group after Package.
-- Deploy to a test collection after distribution, creating it on request.
-- Create the .intunewin during Package under an MECM-only target.
-- Track applications for One Click with a cadence and an action on update.
-- Run One Click from the Packages page.
-- Show the detected Configuration Manager console, 7-Zip and Content Prep Tool in Settings.
-- Show the version and a releases link in Settings.
+- Added Content Layout (nested or flat) to Settings.
+- Added auto-distribute to a DP group after Package.
+- Added a test collection deployment after distribution.
+- Added Create .intunewin during Package for MECM-only targets.
+- Added One Click tracking with cadence and action on update.
+- Added a One Click button to the Packages page.
+- Added detected Console, 7-Zip and Content Prep Tool rows to Settings.
+- Added About with the version and a releases link.
 
 ### Fixed
 
-- List the shipped definitions when no PowerShell packagers folder exists.
-- Keep the Application column readable in Deployment Conditions.
-- Install Spectra PDF unattended with its required acceptance switch.
+- Fixed the empty Packages list when no PS1 packagers folder exists.
+- Fixed the Deployment Conditions Application column width.
+- Fixed SpectraPDF install params.
 
 ## [2.2.0-alpha3] - 2026-09-05
 
 ### Added
 
-- Ship a per-user installer beside the zip.
-- Enable the Install for choice on Typora.
+- Added a per-user installer.
+- Added Install for System or User to Typora.
 
 ### Fixed
 
-- Install Typora into Program Files instead of a folder named Program.
+- Fixed Typora install path.
 
 ## [2.2.0-alpha2] - 2026-09-04
 
@@ -58,10 +58,10 @@
 - Resolve a FileVersion scrape through page hops.
 - Re-download a cached installer once when its checksum fails.
 - Retry a bootstrapper layout while another installation holds the Windows Installer mutex.
-- Read NSIS and Inno Setup installers from their compiled scripts when analyzing a drop.
-- Offer an Install for choice in the drop preview for installers with a mode switch.
-- Choose Install for System or User per application on the Deployment Conditions page.
-- Enable the Install for choice on eleven definitions.
+- Added NSIS and Inno Setup compiled-script analysis for drops.
+- Added Install for System or User to the drop preview.
+- Added an Install for column to Deployment Conditions.
+- Added Install for System or User to eleven definitions.
 
 ### Changed
 
@@ -82,11 +82,11 @@
 ### Fixed
 
 - Run only the product's own uninstaller by matching its Add/Remove Programs entry.
-- Run a definition uninstall command written as a plain command line.
+- Fixed uninstall wrappers for 17 definitions with plain command-line uninstall commands.
 - Keep the definition's name, version and publisher when installer metadata names a bundled component.
-- Detect Gpg4win in the 64-bit registry view.
-- Detect KDiff3 in the 32-bit registry view and uninstall it with its silent switch alone.
-- Detect RStudio in the 64-bit registry view.
+- Fixed Gpg4win detection view.
+- Fixed KDiff3 detection view and uninstall params.
+- Fixed RStudio detection view.
 - Start Intune-only runs without a ConfigMgr site code.
 - Resolve origin-relative download links against the scraper's origin.
 - Honor NoUserAgent in JSON feeds.
