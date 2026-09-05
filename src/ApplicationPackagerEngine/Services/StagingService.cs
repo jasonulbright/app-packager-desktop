@@ -199,6 +199,8 @@ public sealed class StagingService
         if (string.IsNullOrEmpty(config.DownloadUrlQuery)) return null;
 
         var scraper = _scrapers.Get(config.Type);
+        if (scraper is Scrapers.FileVersionScraper && config.Hops is { Count: > 0 })
+            return await Scrapers.FileVersionScraper.ResolveDownloadUrlAsync(config, ct);
         if (scraper is Scrapers.JsonQueryScraper jqs)
         {
             var (_, url) = await jqs.GetVersionAndDownloadUrlAsync(config, ct);
@@ -300,9 +302,11 @@ public sealed class StagingService
 
             if (!File.Exists(installerPath))
             {
-                // Check if FileVersionScraper already downloaded this file during Check Latest
+                // Check if FileVersionScraper already downloaded this file during Check Latest.
+                // A hop-resolved scrape cached the file under the resolved URL's name.
                 var cachedPath = def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase)
-                    ? Scrapers.FileVersionScraper.GetCachedPath(def.VersionScraper.Url)
+                    ? Scrapers.FileVersionScraper.GetCachedPath(
+                        def.VersionScraper.Hops is { Count: > 0 } ? downloadUrl : def.VersionScraper.Url)
                     : null;
 
                 if (cachedPath is not null)
@@ -329,7 +333,22 @@ public sealed class StagingService
             var expectedHash = def.PayloadSha256;
             if (string.IsNullOrWhiteSpace(expectedHash))
                 expectedHash = await ResolveFeedHashAsync(def.VersionScraper, rawVersion, ct);
-            VerifyPayloadHash(installerPath, expectedHash, onProgress);
+            try
+            {
+                VerifyPayloadHash(installerPath, expectedHash, onProgress);
+            }
+            catch (InvalidOperationException) when (!string.IsNullOrWhiteSpace(expectedHash))
+            {
+                // A torn download (a CDN once served a short body) fails the
+                // hash on every later run while the file sits in the cache.
+                // One fresh download separates that from a vendor-side change.
+                onProgress?.Invoke($"Payload SHA256 mismatch; discarding the cached file and downloading once more: {installerFileName}");
+                File.Delete(installerPath);
+                await _downloadService.DownloadAsync(downloadUrl, installerPath,
+                    onProgress: onProgress, ct: ct);
+                ValidateInstallerMagic(installerPath, def.InstallerType);
+                VerifyPayloadHash(installerPath, expectedHash, onProgress);
+            }
 
             // 4. If downloaded file is a ZIP, extract and find the real installer inside
             if (installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
@@ -443,8 +462,10 @@ public sealed class StagingService
                     }
                     if (!string.IsNullOrEmpty(installerMetadata.ProductVersion))
                         onProgress?.Invoke($"ProductVersion (from {installerMetadata.MetadataSource}): {installerMetadata.ProductVersion}");
+                    // A manufacturer read off the wrong bundled EXE is as wrong as its name.
                     if (!string.IsNullOrEmpty(installerMetadata.Manufacturer) &&
-                        installerMetadata.Manufacturer.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
+                        installerMetadata.Manufacturer.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
+                        IsProductNamePlausible(installerMetadata, def))
                         publisher = installerMetadata.Manufacturer;
                 }
             }
@@ -465,6 +486,15 @@ public sealed class StagingService
             var uninstallArgs = ApplySettingTokens(def.UninstallArgs, def.InstallerSettings, settingsValues) ?? def.UninstallArgs;
             var uninstallCommand = ApplySettingTokens(def.UninstallCommand, def.InstallerSettings, settingsValues);
 
+            // 6. Build detection config
+            // If the definition's detection references {ProductCode} but we have no ProductCode,
+            // and we have installer metadata with detection data, use the metadata instead.
+            // Built ahead of the wrappers: the EXE uninstall wrapper takes its
+            // Add/Remove Programs lookup hints from the resolved detection rule.
+            var detection = msixPackage is not null
+                ? BuildMsixScriptDetection(msixPackage)
+                : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues);
+
             onProgress?.Invoke("Generating install/uninstall wrappers...");
             if (isMsix)
             {
@@ -482,17 +512,11 @@ public sealed class StagingService
             }
             else
             {
+                var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(detection);
                 _wrapperService.GenerateExeWrappers(contentPath, installerFileName,
                     installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand,
-                    ResolvePostInstallScript(def, settingsValues));
+                    ResolvePostInstallScript(def, settingsValues), arpKeyName, installFolder);
             }
-
-            // 6. Build detection config
-            // If the definition's detection references {ProductCode} but we have no ProductCode,
-            // and we have installer metadata with detection data, use the metadata instead.
-            var detection = msixPackage is not null
-                ? BuildMsixScriptDetection(msixPackage)
-                : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues);
 
             // 6b. Detection conformance check — log if definition's detection differs from metadata-derived
             if (installerMetadata?.HasDetectionData == true && detection.Type != "Unknown")
@@ -519,9 +543,16 @@ public sealed class StagingService
             }
 
             // 7. Write manifest
-            // ARP-driven naming: use installer metadata when available, fallback to constructed template
-            var arpDisplayName = installerMetadata?.ProductName;
-            var arpVersion = installerMetadata?.ProductVersion;
+            // ARP-driven naming: use installer metadata when available, fallback to constructed template.
+            // Metadata read off the largest bundled EXE names whatever that EXE is
+            // (a bundled 7-Zip, a GnuPG component), so it is used only when it
+            // names this product.
+            var trustMetadataName = installerMetadata is not null
+                && IsProductNamePlausible(installerMetadata, def);
+            var arpDisplayName = trustMetadataName ? installerMetadata!.ProductName : null;
+            var arpVersion = trustMetadataName ? installerMetadata!.ProductVersion : null;
+            if (installerMetadata?.ProductName is { Length: > 0 } && !trustMetadataName)
+                onProgress?.Invoke($"Installer metadata names '{installerMetadata.ProductName}' ({installerMetadata.MetadataSource}); keeping the definition's name.");
             var cmAppName = !string.IsNullOrEmpty(arpDisplayName)
                 ? arpDisplayName
                 : $"{def.Application} - {displayVersion} ({def.Architecture})";
@@ -655,9 +686,11 @@ public sealed class StagingService
             {
                 onProgress?.Invoke("Building offline layout (this downloads the full kit)...");
                 var args = $"{layout.QuietSwitch} {layout.LayoutSwitch} \"{contentPath}\"";
-                var ok = await RunProcessWithTimeoutAsync(bootstrapperPath, args, TimeSpan.FromHours(2), ct);
-                if (!ok)
-                    return new StagingResult { Success = false, ErrorMessage = $"{bootstrapperFileName} {layout.LayoutSwitch} failed" };
+                var exitCode = await RunInstallerProcessAsync(bootstrapperPath, args, TimeSpan.FromHours(2), ct, onProgress);
+                if (exitCode is null)
+                    return new StagingResult { Success = false, ErrorMessage = $"{bootstrapperFileName} {layout.LayoutSwitch} timed out" };
+                if (exitCode != 0)
+                    return new StagingResult { Success = false, ErrorMessage = $"{bootstrapperFileName} {layout.LayoutSwitch} failed (exit {exitCode})" };
 
                 if (!File.Exists(layoutSetup))
                     return new StagingResult { Success = false, ErrorMessage = $"Layout completed but {bootstrapperFileName} is missing from {contentPath}" };
@@ -991,6 +1024,33 @@ public sealed class StagingService
 
     private static async Task<bool> RunProcessWithTimeoutAsync(
         string fileName, string arguments, TimeSpan timeout, CancellationToken ct)
+        => await RunProcessForExitCodeAsync(fileName, arguments, timeout, ct) == 0;
+
+    /// <summary>Windows Installer's "another installation is in progress".</summary>
+    public const int InstallerBusyExitCode = 1618;
+
+    /// <summary>
+    /// Runs a vendor bootstrapper whose payload step is itself a Windows
+    /// Installer operation, retrying while another installer holds the
+    /// mutex. Returns the final exit code, or null on timeout.
+    /// </summary>
+    public static async Task<int?> RunInstallerProcessAsync(
+        string fileName, string arguments, TimeSpan timeout, CancellationToken ct,
+        Action<string>? onProgress = null, int busyRetries = 6, TimeSpan? busyDelay = null)
+    {
+        var delay = busyDelay ?? TimeSpan.FromSeconds(60);
+        for (var attempt = 1; ; attempt++)
+        {
+            var exitCode = await RunProcessForExitCodeAsync(fileName, arguments, timeout, ct);
+            if (exitCode != InstallerBusyExitCode || attempt > busyRetries)
+                return exitCode;
+            onProgress?.Invoke($"Another installation is in progress (exit {InstallerBusyExitCode}); retry {attempt} of {busyRetries} in {delay.TotalSeconds:0}s...");
+            await Task.Delay(delay, ct);
+        }
+    }
+
+    private static async Task<int?> RunProcessForExitCodeAsync(
+        string fileName, string arguments, TimeSpan timeout, CancellationToken ct)
     {
         using var process = new System.Diagnostics.Process();
         process.StartInfo = new System.Diagnostics.ProcessStartInfo
@@ -1010,10 +1070,10 @@ public sealed class StagingService
         if (completed != exitTask)
         {
             try { process.Kill(true); } catch { }
-            return false;
+            return null;
         }
 
-        return process.ExitCode == 0;
+        return process.ExitCode;
     }
 
     // ── Standard staging helpers ────────────────────────────────
@@ -1072,6 +1132,42 @@ public sealed class StagingService
             Operator = "GreaterEquals",
             Is64Bit = !package.ProcessorArchitecture.Equals("x86", StringComparison.OrdinalIgnoreCase)
         };
+    }
+
+    /// <summary>
+    /// Whether metadata ProductName may name the staged application. Sources
+    /// that read a manifest or table (Burn manifest, inner MSI, product-info.json,
+    /// AppxManifest) are taken as written. A version resource read off the
+    /// largest extracted EXE is taken only when it and the definition name
+    /// share their alphanumeric text in either direction.
+    /// </summary>
+    public static bool IsProductNamePlausible(InstallerMetadata metadata, AppDefinition def)
+    {
+        if (string.IsNullOrWhiteSpace(metadata.ProductName)) return false;
+
+        var source = metadata.MetadataSource ?? "";
+        if (source is "product-info.json" or "BurnManifest-MsiPackage" or "AppxManifest.xml"
+            || source.StartsWith("inner-msi:", StringComparison.Ordinal))
+            return true;
+
+        var found = Normalize(metadata.ProductName);
+        if (found.Length == 0) return false;
+        foreach (var candidate in new[] { def.CMName, def.Application })
+        {
+            var wanted = Normalize(candidate);
+            if (wanted.Length == 0) continue;
+            if (found.Contains(wanted, StringComparison.Ordinal) || wanted.Contains(found, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+
+        static string Normalize(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            // The definition's architecture tag is not part of the vendor's name.
+            var trimmed = System.Text.RegularExpressions.Regex.Replace(value, @"\s*\(x\d+\)\s*$", "");
+            return new string(trimmed.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+        }
     }
 
     public static StageDetection BuildDetection(AppDefinition def, string? productCode, string version,
@@ -1346,8 +1442,12 @@ public sealed class StagingService
             if (manifest.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
                 _wrapperService.GenerateMsiWrappers(contentPath, manifest.InstallerFile, null, manifest.InstallArgs);
             else
+            {
+                var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(manifest.Detection);
                 _wrapperService.GenerateExeWrappers(contentPath, manifest.InstallerFile,
-                    manifest.InstallArgs, manifest.UninstallArgs, null, manifest.AppName, null);
+                    manifest.InstallArgs, manifest.UninstallArgs, manifest.DetectedEngine, manifest.AppName, null,
+                    null, arpKeyName, installFolder);
+            }
 
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             _manifestService.Write(manifestPath, manifest);

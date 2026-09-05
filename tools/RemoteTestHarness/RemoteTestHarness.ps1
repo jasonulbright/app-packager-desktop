@@ -33,7 +33,6 @@ $cred = New-Object System.Management.Automation.PSCredential("contoso\LabAdmin",
 $skipDefs = @(
     '7zip.json'          # Harness dependency
     'Dotnet10x64.json'   # Test last
-    'slack.json'         # MSIX
     'teams.json'         # MSIX
     'foxitreader.json'   # CDN throttle
     'filezilla.json'     # PUP
@@ -192,6 +191,15 @@ foreach ($defFile in $defs) {
             } elseif ($det.Type -eq 'File' -and $det.FilePath -and $det.FileName) {
                 $filePath = Join-Path ([Environment]::ExpandEnvironmentVariables($det.FilePath)) $det.FileName
                 $detected = Test-Path $filePath
+            } elseif ($det.Type -eq 'Script' -and $det.ScriptText) {
+                # CM reads a script detection as installed when it writes to
+                # stdout and exits 0; an MSIX manifest carries this shape.
+                $scriptFile = Join-Path $env:TEMP ("packr-detect-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
+                Set-Content -LiteralPath $scriptFile -Value $det.ScriptText -Encoding ASCII
+                try {
+                    $stdout = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptFile 2>$null
+                    $detected = ($LASTEXITCODE -eq 0) -and -not [string]::IsNullOrWhiteSpace(($stdout -join ''))
+                } finally { Remove-Item -LiteralPath $scriptFile -ErrorAction SilentlyContinue }
             }
 
             $results += @{ Phase = 'Detect'; Result = $(if ($detected) {'PASS'} else {'FAIL (not detected)'}); ExitCode = 0; Duration = 0 }
@@ -212,6 +220,13 @@ foreach ($defFile in $defs) {
                 if ($det.Type -eq 'File' -and $det.FilePath -and $det.FileName) {
                     $filePath = Join-Path ([Environment]::ExpandEnvironmentVariables($det.FilePath)) $det.FileName
                     $stillDetected = Test-Path $filePath
+                } elseif ($det.Type -eq 'Script' -and $det.ScriptText) {
+                    $scriptFile = Join-Path $env:TEMP ("packr-detect-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
+                    Set-Content -LiteralPath $scriptFile -Value $det.ScriptText -Encoding ASCII
+                    try {
+                        $stdout = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptFile 2>$null
+                        $stillDetected = ($LASTEXITCODE -eq 0) -and -not [string]::IsNullOrWhiteSpace(($stdout -join ''))
+                    } finally { Remove-Item -LiteralPath $scriptFile -ErrorAction SilentlyContinue }
                 } else {
                     # Re-check registry
                     $stillDetected = $false
