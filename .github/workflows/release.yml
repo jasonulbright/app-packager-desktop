@@ -98,6 +98,20 @@ jobs:
         shell: pwsh
         run: ./tools/build-release.ps1 -PublishOnly -OutputRoot "$env:RUNNER_TEMP\publish"
 
+      # The current runner image carries no NSIS; the package manager on the
+      # image installs it in well under a minute.
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path -LiteralPath $makensis) -and -not (Get-Command makensis.exe -ErrorAction SilentlyContinue)) {
+            choco install nsis --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "choco install nsis failed with exit code $LASTEXITCODE" }
+          }
+          if (-not (Test-Path -LiteralPath $makensis)) { $makensis = (Get-Command makensis.exe).Source }
+          & $makensis /VERSION
+          $global:LASTEXITCODE = 0
+
       # OIDC: no client secret exists; the federated credential named in the
       # header is what authorizes this job.
       - name: Azure login (federated)
@@ -134,8 +148,7 @@ jobs:
           exclude-interactive-browser-credential: true
 
       # The installer is compiled from the signed stage, so the executable it
-      # carries is the signed one, then signed itself. The runner image ships
-      # makensis.
+      # carries is the signed one, then signed itself.
       - name: Build the installer
         shell: pwsh
         run: ./tools/build-installer.ps1 -StageDir "$env:RUNNER_TEMP\publish\release-stage" -OutputDir "$env:RUNNER_TEMP\publish"
