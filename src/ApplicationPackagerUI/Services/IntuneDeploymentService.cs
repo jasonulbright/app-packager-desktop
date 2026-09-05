@@ -84,6 +84,64 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
     }
 
     /// <summary>
+    /// Builds the .intunewin without publishing and stores a copy beside the network
+    /// content version folder, which is where an operator who packages for MECM only
+    /// expects to pick it up. Failures ride back as the note.
+    /// </summary>
+    public async Task<string> BuildBesideContentAsync(
+        StageManifest manifest,
+        string stagedContentPath,
+        string networkContentPath,
+        Action<string>? log = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var toolPath = await EnsureToolAsync(log, ct).ConfigureAwait(false);
+            var outputFolder = Path.GetDirectoryName(stagedContentPath.TrimEnd(Path.DirectorySeparatorChar))
+                ?? throw new InvalidOperationException($"Staged content folder has no parent: {stagedContentPath}");
+
+            var build = await new IntuneWinToolService().BuildAsync(
+                toolPath, stagedContentPath, SetupFile, outputFolder,
+                OutputName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
+
+            var networkParent = Path.GetDirectoryName(networkContentPath.TrimEnd(Path.DirectorySeparatorChar));
+            if (string.IsNullOrEmpty(networkParent))
+                return $"built {Path.GetFileName(build.IntuneWinPath)}; no network folder to copy beside";
+
+            var target = Path.Combine(networkParent, Path.GetFileName(build.IntuneWinPath));
+            File.Copy(build.IntuneWinPath, target, overwrite: true);
+            log?.Invoke($"Intunewin stored: {target}");
+            return $"built {Path.GetFileName(build.IntuneWinPath)}, stored beside the content";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return $"build failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>The content prep tool path when it is already present, else null.</summary>
+    public static string? InstalledToolPath()
+    {
+        var toolPath = Path.Combine(ToolFolder, "IntuneWinAppUtil.exe");
+        if (File.Exists(toolPath)) return toolPath;
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = Path.Combine(dir.Trim(), "IntuneWinAppUtil.exe");
+            if (File.Exists(candidate)) return candidate;
+        }
+        return null;
+    }
+
+    /// <summary>Downloads the content prep tool into the tool folder; returns its path.</summary>
+    public static Task<string> DownloadToolAsync(Action<string>? log = null, CancellationToken ct = default) =>
+        EnsureToolAsync(log, ct);
+
+    /// <summary>
     /// Returns publish options, or null when any credential is missing. The secret is
     /// unprotected here and never leaves this call path.
     /// </summary>

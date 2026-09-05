@@ -97,12 +97,13 @@
                   RowHeaderWidth="0" BorderThickness="0"
                   IsTextSearchEnabled="True" TextSearch.TextPath="Application">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Application" Width="*"
+                <!-- Fixed columns leave the star column its minimum at the default window width. -->
+                <DataGridTextColumn Header="Application" Width="*" MinWidth="130"
                                     Binding="{Binding Application}" IsReadOnly="True" />
-                <DataGridTextColumn Header="Vendor" Width="140"
+                <DataGridTextColumn Header="Vendor" Width="110"
                                     Binding="{Binding Vendor}" IsReadOnly="True" />
 
-                <DataGridTemplateColumn Header="Architecture" Width="120">
+                <DataGridTemplateColumn Header="Arch" Width="96">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ComboBox ItemsSource="{Binding DataContext.ArchitectureOptions, RelativeSource={RelativeSource AncestorType=Page}}"
@@ -112,7 +113,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="OS languages" Width="160">
+                <DataGridTemplateColumn Header="OS languages" Width="126">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBox Text="{Binding LanguagesDisplay, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
@@ -122,7 +123,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="Network" Width="120">
+                <DataGridTemplateColumn Header="Network" Width="104">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ComboBox ItemsSource="{Binding DataContext.NetworkOptions, RelativeSource={RelativeSource AncestorType=Page}}"
@@ -132,7 +133,18 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="Variant split" Width="130">
+                <DataGridTemplateColumn Header="Commands" Width="100">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ui:Button Content="{Binding CommandLabel}" Padding="8,2" Margin="2"
+                                       Command="{Binding DataContext.EditCommandsCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                       CommandParameter="{Binding}"
+                                       ToolTip="Override the install/uninstall command lines for this app. Empty fields use the packager's shipped commands." />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Variant split" Width="108">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ComboBox ItemsSource="{Binding VariantOptions}"
@@ -144,7 +156,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="Install for" Width="110">
+                <DataGridTemplateColumn Header="Install for" Width="112">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ComboBox ItemsSource="{Binding DataContext.InstallModeOptions, RelativeSource={RelativeSource AncestorType=Page}}"
@@ -152,17 +164,6 @@
                                       IsEnabled="{Binding InstallModeCapable}"
                                       BorderThickness="0" Background="Transparent"
                                       ToolTip="System installs to Program Files and registers under HKLM; User installs into the profile and registers under HKCU. Offered only where the installer accepts a mode switch. Default keeps the installer's own choice." />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <DataGridTemplateColumn Header="Commands" Width="110">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <ui:Button Content="{Binding CommandLabel}" Padding="8,2" Margin="2"
-                                       Command="{Binding DataContext.EditCommandsCommand, RelativeSource={RelativeSource AncestorType=Page}}"
-                                       CommandParameter="{Binding}"
-                                       ToolTip="Override the install/uninstall command lines for this app. Empty fields use the packager's shipped commands." />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

@@ -44,6 +44,7 @@ public partial class PackagesViewModel : ObservableObject
     public IAsyncRelayCommand CheckMecmCommand { get; }
     public IAsyncRelayCommand StageCommand { get; }
     public IAsyncRelayCommand PackageCommand { get; }
+    public IAsyncRelayCommand OneClickCommand { get; }
 
     private CancellationTokenSource? _operationCts;
 
@@ -71,6 +72,7 @@ public partial class PackagesViewModel : ObservableObject
         CheckMecmCommand = new AsyncRelayCommand(CheckMecmAsync, CanRunCheckMecm);
         StageCommand = new AsyncRelayCommand(StageAsync, CanRunOperation);
         PackageCommand = new AsyncRelayCommand(PackageAsync, CanRunOperation);
+        OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
 
         RefreshDeploymentTargetState();
 
@@ -118,7 +120,108 @@ public partial class PackagesViewModel : ObservableObject
         CheckMecmCommand.NotifyCanExecuteChanged();
         StageCommand.NotifyCanExecuteChanged();
         PackageCommand.NotifyCanExecuteChanged();
+        OneClickCommand.NotifyCanExecuteChanged();
     }
+
+    // ── One Click ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Checks the tracked applications, skipping any checked within its cadence unless
+    /// the run is forced, then hands the ones with a newer version to Stage and, for the
+    /// full action, Package. Selection is rewritten to those applications so the three
+    /// phases share one code path with the buttons.
+    /// </summary>
+    private async Task OneClickAsync()
+    {
+        var settings = _settingsService.Load();
+        var oneClick = settings.OneClick;
+        var action = OneClickActions.Normalize(oneClick.Action);
+        var tracked = new HashSet<string>(oneClick.TrackedApplications, StringComparer.OrdinalIgnoreCase);
+        var targets = Packagers.Where(p => p.IsRunnable && tracked.Contains(p.Uid)).ToList();
+
+        if (targets.Count == 0)
+        {
+            AddLogLine("One Click: no tracked applications. Choose them under Settings, One Click.");
+            _snackbarService.Show("One Click", "No applications are tracked. Choose them under Settings.",
+                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Info24), TimeSpan.FromSeconds(4));
+            return;
+        }
+
+        if (action == OneClickActions.StageAndPackage)
+        {
+            var blocked = DeploymentTargetGate.Validate(
+                settings.Intune.DeploymentTarget, settings.SiteCode, settings.FileShareRoot,
+                settings.Intune.TenantId, settings.Intune.ClientId,
+                !string.IsNullOrWhiteSpace(settings.Intune.ClientSecretProtected));
+            if (blocked is not null)
+            {
+                AddLogLine($"One Click blocked: {blocked}");
+                _snackbarService.Show("One Click", blocked,
+                    Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+                return;
+            }
+        }
+
+        var defaultCadence = oneClick.DefaultCadenceDays > 0 ? oneClick.DefaultCadenceDays : 7;
+        var due = new List<PackagerInfo>();
+        foreach (var p in targets)
+        {
+            var cadence = oneClick.CadenceOverrides.TryGetValue(p.Uid, out var days) && days > 0 ? days : defaultCadence;
+            if (!oneClick.ForceOnLaunch && p.LastChecked is { } last && (DateTime.Now - last).TotalDays < cadence)
+            {
+                AddLogLine($"One Click: {p.Application} checked {(int)(DateTime.Now - last).TotalDays}d ago, within its {cadence}d cadence; skipped.");
+                continue;
+            }
+            due.Add(p);
+        }
+
+        AddLogLine($"One Click: {targets.Count} tracked, {due.Count} due, action {action}{(oneClick.ForceOnLaunch ? ", forced" : "")}.");
+        if (due.Count == 0)
+        {
+            StatusText = "One Click: nothing due.";
+            return;
+        }
+
+        await RunCheckLatestOnList(due, "One Click: checking versions...", "One Click");
+
+        // A newer version is one the site does not carry yet; an application never checked
+        // against the site counts as new.
+        var updates = due.Where(p => !string.IsNullOrEmpty(p.LatestVersion)
+                                     && p.Status != "Error"
+                                     && !string.Equals(p.LatestVersion, p.CurrentVersion, StringComparison.OrdinalIgnoreCase))
+                         .ToList();
+        foreach (var p in updates)
+            AddLogLine($"One Click: {p.Application} {p.LatestVersion} available" +
+                       (string.IsNullOrEmpty(p.CurrentVersion) ? "" : $" (site has {p.CurrentVersion})"));
+        if (updates.Count == 0)
+        {
+            StatusText = "One Click: everything current.";
+            AddLogLine("One Click: no newer versions.");
+            return;
+        }
+        if (action == OneClickActions.Report)
+        {
+            StatusText = $"One Click: {updates.Count} newer version(s) reported.";
+            return;
+        }
+
+        foreach (var p in Packagers) p.IsSelected = updates.Contains(p);
+        await StageAsync();
+        if (action != OneClickActions.StageAndPackage) return;
+
+        var staged = updates.Where(p => p.Status == "Staged").ToList();
+        foreach (var p in Packagers) p.IsSelected = staged.Contains(p);
+        if (staged.Count == 0)
+        {
+            StatusText = "One Click: nothing staged to package.";
+            return;
+        }
+        _skipCommentPrompt = true;
+        try { await PackageAsync(); }
+        finally { _skipCommentPrompt = false; }
+    }
+
+    private bool _skipCommentPrompt;
 
     private IEnumerable<PackagerInfo> SelectedPackagers =>
         Packagers.Where(p => p.IsSelected && p.IsRunnable);
@@ -259,16 +362,17 @@ public partial class PackagesViewModel : ObservableObject
     private async Task LoadPackagersAsync()
     {
         var root = _discoveryService.ResolvePackagersRoot();
-        if (root is null)
+        AddLogLine($"Session log: {SessionLogPath}");
+        AddLogLine(root is null
+            ? "Loading the shipped definitions (no PS1 packagers folder configured)."
+            : $"Loading packagers from: {root}");
+        var results = await _discoveryService.DiscoverAsync();
+        if (results.Count == 0)
         {
-            StatusText = "Packagers folder not found. Configure in Settings.";
-            AddLogLine("ERROR: Packagers folder not found. Open Settings to configure.");
+            StatusText = "No applications found. Check the Definitions folder beside the executable or set a Packagers folder in Settings.";
+            AddLogLine("ERROR: no definitions beside the executable and no packagers folder.");
             return;
         }
-
-        AddLogLine($"Session log: {SessionLogPath}");
-        AddLogLine($"Loading packagers from: {root}");
-        var results = await _discoveryService.DiscoverAsync();
 
         // Restore persisted per-app state (LastChecked, versions)
         var settings = _settingsService.Load();
@@ -655,7 +759,7 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(Comment))
+        if (string.IsNullOrWhiteSpace(Comment) && !_skipCommentPrompt)
         {
             var dialog = new ContentDialog
             {

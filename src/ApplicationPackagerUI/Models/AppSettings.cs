@@ -16,12 +16,23 @@ public sealed class AppSettings
     /// </summary>
     public string ProviderMachine { get; set; } = "";
     public string FileShareRoot { get; set; } = @"\\fileserver\sccm$";
+    /// <summary>
+    /// Folder shape under &lt;share&gt;\Applications: Nested is Vendor\App\Version,
+    /// Flat is Vendor-App-Version in one level.
+    /// </summary>
+    public string ContentLayout { get; set; } = ContentLayouts.Nested;
     public string DownloadRoot { get; set; } = @"C:\temp\ap";
     public string PackagersRoot { get; set; } = "";
 
     // Deployment Type defaults
     public int EstimatedRuntimeMins { get; set; } = 15;
     public int MaximumRuntimeMins { get; set; } = 30;
+
+    // Steps after the MECM application exists
+    public ContentDistributionSettings ContentDistribution { get; set; } = new();
+
+    // One Click: tracked applications and what a run does with an update
+    public OneClickSettings OneClick { get; set; } = new();
 
     // Application visibility
     public string[] HiddenApplications { get; set; } = [];
@@ -82,6 +93,59 @@ public sealed class IntuneSettings
     /// The plaintext secret is never persisted and never logged.
     /// </summary>
     public string ClientSecretProtected { get; set; } = "";
+
+    /// <summary>
+    /// Under an MECM-only target, a successful Package also builds the .intunewin and
+    /// stores it beside the network content version folder. Targets that publish to
+    /// Intune build it regardless.
+    /// </summary>
+    public bool CreateIntuneWin { get; set; }
+}
+
+/// <summary>
+/// One Click runs a version check over the tracked applications and, per the
+/// action, stages or stages and packages the ones with a newer version. An
+/// application checked within its cadence is skipped unless the run forces it.
+/// </summary>
+public sealed class OneClickSettings
+{
+    /// <summary>Report, Stage, or StageAndPackage.</summary>
+    public string Action { get; set; } = OneClickActions.Report;
+    public bool ForceOnLaunch { get; set; }
+    public int DefaultCadenceDays { get; set; } = 7;
+    /// <summary>Definition or packager ids.</summary>
+    public string[] TrackedApplications { get; set; } = [];
+    /// <summary>Per-application cadence in days where it differs from the default (id → days).</summary>
+    public Dictionary<string, int> CadenceOverrides { get; set; } = [];
+}
+
+/// <summary>Stored tokens for the One Click action.</summary>
+public static class OneClickActions
+{
+    public const string Report = "Report";
+    public const string Stage = "Stage";
+    public const string StageAndPackage = "StageAndPackage";
+
+    public static string Normalize(string? value) => value switch
+    {
+        Stage => Stage,
+        StageAndPackage => StageAndPackage,
+        _ => Report
+    };
+}
+
+/// <summary>
+/// Optional steps after the MECM application exists: content distribution to a
+/// distribution point group, then a deployment to a test collection. The test
+/// deployment only runs after a distribution.
+/// </summary>
+public sealed class ContentDistributionSettings
+{
+    public bool AutoDistribute { get; set; }
+    public string DpGroupName { get; set; } = "";
+    public bool DeployToTestCollection { get; set; }
+    public string TestCollectionName { get; set; } = "";
+    public bool CreateTestCollectionIfMissing { get; set; }
 }
 
 /// <summary>

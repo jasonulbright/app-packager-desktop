@@ -1,9 +1,22 @@
 # Changelog
 
-## [Unreleased]
+## [2.2.0-alpha4] - 2026-09-05
+
+### Added
+
+- Choose the content folder layout: nested Vendor\App\Version or flat.
+- Distribute content to a distribution point group after Package.
+- Deploy to a test collection after distribution, creating it on request.
+- Create the .intunewin during Package under an MECM-only target.
+- Track applications for One Click with a cadence and an action on update.
+- Run One Click from the Packages page.
+- Show the detected Configuration Manager console, 7-Zip and Content Prep Tool in Settings.
+- Show the version and a releases link in Settings.
 
 ### Fixed
 
+- List the shipped definitions when no PowerShell packagers folder exists.
+- Keep the Application column readable in Deployment Conditions.
 - Install Spectra PDF unattended with its required acceptance switch.
 
 ## [2.2.0-alpha3] - 2026-09-05

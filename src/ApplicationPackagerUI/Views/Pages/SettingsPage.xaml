@@ -95,6 +95,15 @@
             <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />
 
+            <TextBlock Text="Content Layout" Style="{StaticResource FieldLabel}" />
+            <ComboBox SelectedValue="{Binding ContentLayout}"
+                      SelectedValuePath="Tag"
+                      Width="320" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      ToolTip="Folder shape under the share's Applications folder. Nested keeps one folder per vendor and application with a version folder inside; Flat puts every version in one level named Vendor-App-Version.">
+                <ComboBoxItem Content="Nested - Applications\Vendor\App\Version" Tag="Nested" />
+                <ComboBoxItem Content="Flat - Applications\Vendor-App-Version" Tag="Flat" />
+            </ComboBox>
+
             <TextBlock Text="Download Root (local staging)" Style="{StaticResource FieldLabel}" />
             <DockPanel Margin="0,0,0,12">
                 <ui:Button DockPanel.Dock="Right" Content="Browse"
@@ -109,6 +118,137 @@
                            Command="{Binding BrowsePackagersRootCommand}" Margin="8,0,0,0" />
                 <ui:TextBox Text="{Binding PackagersRoot, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="Auto-detect" />
+            </DockPanel>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- After Package: distribution and test deployment -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="After Package" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Optional steps once the MECM application exists. Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+            <CheckBox Content="Distribute content after Package" IsChecked="{Binding AutoDistribute}" Margin="0,0,0,8"
+                      ToolTip="Runs Start-CMContentDistribution for the new application against the group below. A group that already holds the content is treated as done." />
+
+            <TextBlock Text="Distribution point group" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding DpGroupName, UpdateSourceTrigger=PropertyChanged}"
+                        IsEnabled="{Binding AutoDistribute}"
+                        PlaceholderText="All DPs" Width="320" HorizontalAlignment="Left" Margin="0,0,0,12" />
+
+            <CheckBox Content="Deploy to a test collection after distribution" IsChecked="{Binding DeployToTestCollection}"
+                      IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
+                      ToolTip="Creates an Available deployment, effective immediately, to the collection below. An existing deployment is treated as done." />
+
+            <TextBlock Text="Test collection" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding TestCollectionName, UpdateSourceTrigger=PropertyChanged}"
+                        IsEnabled="{Binding TestDeploymentAvailable}"
+                        PlaceholderText="Application pilot devices" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8" />
+
+            <CheckBox Content="Create the collection if it does not exist" IsChecked="{Binding CreateTestCollectionIfMissing}"
+                      IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
+                      ToolTip="A missing collection is created with direct membership, limited to All Systems, and starts empty." />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- One Click -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="One Click" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="One Click on the Packages page checks the applications tracked here and, per the action, stages or stages and packages the ones with a newer version. An application checked within its cadence is skipped unless the run is forced."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Action on update" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding OneClickAction}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
+                              ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Package also creates the applications, using the comment on the Packages page.">
+                        <ComboBoxItem Content="Report only" Tag="Report" />
+                        <ComboBoxItem Content="Stage" Tag="Stage" />
+                        <ComboBoxItem Content="Stage and Package" Tag="StageAndPackage" />
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Default cadence (days)" Style="{StaticResource FieldLabel}" />
+                    <ui:NumberBox Value="{Binding OneClickCadenceDays, Mode=TwoWay}"
+                                  Minimum="1" Maximum="365" SmallChange="1" LargeChange="7"
+                                  SpinButtonPlacementMode="Compact" Width="140" HorizontalAlignment="Left"
+                                  ToolTip="Days a version check stays fresh. A tracked application checked more recently than this is skipped." />
+                </StackPanel>
+            </Grid>
+
+            <CheckBox Content="Force on launch (ignore cadence)" IsChecked="{Binding OneClickForce}" Margin="0,0,0,8"
+                      ToolTip="Every tracked application is checked on each run, whatever its last check time." />
+
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Track none" Command="{Binding TrackNoneOneClickCommand}" Margin="8,0,0,0" />
+                <ui:Button DockPanel.Dock="Right" Content="Track all" Command="{Binding TrackAllOneClickCommand}" Margin="8,0,0,0" />
+                <ui:Button DockPanel.Dock="Right" Content="Refresh list" Icon="{ui:SymbolIcon ArrowSync24}"
+                           Command="{Binding RefreshOneClickRowsCommand}" Margin="8,0,0,0"
+                           ToolTip="Rebuilds the list from the applications the Packages page shows." />
+                <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                    <Run Text="{Binding OneClickTrackedCount, Mode=OneWay}" /><Run Text=" tracked" />
+                </TextBlock>
+            </DockPanel>
+
+            <DataGrid ItemsSource="{Binding OneClickRows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                      CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
+                      BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
+                      Height="280" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="Track" Width="64">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding Tracked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Application" Width="*" MinWidth="130" Binding="{Binding Application}" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Vendor" Width="150" Binding="{Binding Vendor}" IsReadOnly="True" />
+                    <DataGridTemplateColumn Header="Cadence (days)" Width="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBox Text="{Binding CadenceDisplay, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                                         BorderThickness="0" Background="Transparent" Padding="4,2"
+                                         ToolTip="Days for this application only. Empty uses the default cadence." />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Detected tools -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Detected Tools" Style="{StaticResource SectionHeader}" />
+
+            <TextBlock Text="Configuration Manager console" Style="{StaticResource FieldLabel}" />
+            <TextBlock Text="{Binding ConsoleStatus}" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <TextBlock Text="7-Zip command line" Style="{StaticResource FieldLabel}" />
+            <TextBlock Text="{Binding SevenZipStatus}" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <TextBlock Text="Win32 Content Prep Tool" Style="{StaticResource FieldLabel}" />
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Download"
+                           Icon="{ui:SymbolIcon ArrowDownload24}"
+                           Command="{Binding DownloadContentPrepCommand}"
+                           IsEnabled="{Binding ContentPrepIdle}"
+                           Margin="8,0,0,0" VerticalAlignment="Center"
+                           ToolTip="Fetches IntuneWinAppUtil.exe from its Microsoft repository and checks its publisher signature before use." />
+                <TextBlock Text="{Binding ContentPrepStatus}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" VerticalAlignment="Center" />
             </DockPanel>
 
             <Border Style="{StaticResource SectionDivider}" />
@@ -187,6 +327,12 @@
             <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <CheckBox Content="Create .intunewin during Package" IsChecked="{Binding CreateIntuneWin}"
+                      IsEnabled="{Binding CreateIntuneWinApplies}" Margin="0,0,0,4"
+                      ToolTip="Under MECM only, a successful Package also builds the .intunewin from the staged content and stores it beside the network content version folder. Targets that publish to Intune build it regardless." />
+            <TextBlock Text="Applies to the MECM only target; the other targets build the .intunewin as part of publishing."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
 
             <Border Style="{StaticResource SectionDivider}" />
@@ -354,6 +500,22 @@
                     </ComboBox>
                 </StackPanel>
             </Grid>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- About -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="About" Style="{StaticResource SectionHeader}" />
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Releases"
+                           Icon="{ui:SymbolIcon Open24}"
+                           Command="{Binding OpenReleasesCommand}"
+                           Margin="8,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap">
+                    <Run Text="App Packager Desktop " /><Run Text="{Binding AppVersion, Mode=OneWay}" /><Run Text=" - MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." />
+                </TextBlock>
+            </DockPanel>
 
             <!-- Bottom spacer -->
             <Border Height="32" />

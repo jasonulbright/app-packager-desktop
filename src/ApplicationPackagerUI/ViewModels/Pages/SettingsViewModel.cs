@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
@@ -85,6 +87,42 @@ public partial class SettingsViewModel : ObservableObject
     // UI
     [ObservableProperty] private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
 
+    // Content layout and the steps after the MECM application exists
+    [ObservableProperty] private string _contentLayout = ContentLayouts.Nested;
+    [ObservableProperty] private bool _autoDistribute;
+    [ObservableProperty] private string _dpGroupName = "";
+    [ObservableProperty] private bool _deployToTestCollection;
+    [ObservableProperty] private string _testCollectionName = "";
+    [ObservableProperty] private bool _createTestCollectionIfMissing;
+    [ObservableProperty] private bool _createIntuneWin;
+
+    /// <summary>The test deployment needs distributed content, so its fields follow the auto-distribute switch.</summary>
+    public bool TestDeploymentAvailable => AutoDistribute;
+    partial void OnAutoDistributeChanged(bool value) => OnPropertyChanged(nameof(TestDeploymentAvailable));
+
+    /// <summary>Targets that publish to Intune build the .intunewin regardless, so the switch only matters for MECM only.</summary>
+    public bool CreateIntuneWinApplies => !DeploymentTargets.PublishesToIntune(DeploymentTarget);
+    partial void OnDeploymentTargetChanged(string value) => OnPropertyChanged(nameof(CreateIntuneWinApplies));
+
+    // One Click
+    [ObservableProperty] private string _oneClickAction = OneClickActions.Report;
+    [ObservableProperty] private bool _oneClickForce;
+    [ObservableProperty] private double? _oneClickCadenceDays = 7;
+    public ObservableCollection<OneClickRow> OneClickRows { get; } = [];
+    public int OneClickTrackedCount => OneClickRows.Count(r => r.Tracked);
+    /// <summary>Size of the application list the grid mirrors.</summary>
+    public int PackagerCount => _packagesViewModel.Packagers.Count;
+
+    // Detected tools
+    [ObservableProperty] private string _consoleStatus = "";
+    [ObservableProperty] private string _sevenZipStatus = "";
+    [ObservableProperty] private string _contentPrepStatus = "";
+    [ObservableProperty] private bool _contentPrepBusy;
+    public bool ContentPrepIdle => !ContentPrepBusy;
+    partial void OnContentPrepBusyChanged(bool value) => OnPropertyChanged(nameof(ContentPrepIdle));
+
+    public string AppVersion { get; } = ReadAppVersion();
+
     public string IntuneSecretHint => HasStoredIntuneSecret
         ? "Stored — leave empty to keep it"
         : "Not set";
@@ -102,12 +140,86 @@ public partial class SettingsViewModel : ObservableObject
         prefsSync.MigrateFromPs1IfNeeded();
         LoadSettings();
         RefreshIconPackStatus();
+        RefreshToolStatus();
         _ = RefreshGitHubApiStatusAsync();
     }
 
     private void RefreshIconPackStatus() =>
         IconPackStatus = IconPackService.StatusText(
             IconPackService.ReadStatus(IconPackService.DefaultDefinitionsDirectory()));
+
+    private static string ReadAppVersion()
+    {
+        var assembly = Assembly.GetEntryAssembly();
+        var informational = assembly?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        // The informational version carries the pre-release suffix; the build stamps a source hash after '+'.
+        if (!string.IsNullOrWhiteSpace(informational))
+            return informational.Split('+')[0];
+        return assembly?.GetName().Version?.ToString(3) ?? "unknown";
+    }
+
+    /// <summary>
+    /// Presence of the three external tools the flows shell out to: the Configuration
+    /// Manager console module, 7-Zip, and the Win32 Content Prep Tool. Read once when the
+    /// page opens; the prep tool row refreshes after a download.
+    /// </summary>
+    private void RefreshToolStatus()
+    {
+        var adminUi = Environment.GetEnvironmentVariable("SMS_ADMIN_UI_PATH");
+        var module = string.IsNullOrWhiteSpace(adminUi) ? null : Path.GetFullPath(Path.Combine(adminUi, "..", "ConfigurationManager.psd1"));
+        ConsoleStatus = module is not null && File.Exists(module)
+            ? $"Found: {module}"
+            : "Not found. Install the Configuration Manager console; MECM packaging runs its PowerShell module.";
+
+        var sevenZip = ArchiveExtractionService.FindSevenZip();
+        SevenZipStatus = sevenZip is not null
+            ? $"Found: {sevenZip}"
+            : "Not found. Install 7-Zip; installer analysis and archive extraction need 7z.exe.";
+
+        var prep = IntuneDeploymentService.InstalledToolPath();
+        ContentPrepStatus = prep is not null
+            ? $"Found: {prep}"
+            : "Not downloaded yet. Fetched on first Intune build, or download it now.";
+    }
+
+    /// <summary>Downloads the Win32 Content Prep Tool ahead of the first Intune build.</summary>
+    [RelayCommand]
+    private async Task DownloadContentPrepAsync()
+    {
+        if (ContentPrepBusy) return;
+        ContentPrepBusy = true;
+        try
+        {
+            var path = await IntuneDeploymentService.DownloadToolAsync();
+            ContentPrepStatus = $"Found: {path}";
+            _snackbarService.Show("Content Prep Tool", "IntuneWinAppUtil.exe downloaded and verified.",
+                Wpf.Ui.Controls.ControlAppearance.Success, new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(4));
+        }
+        catch (Exception ex)
+        {
+            ContentPrepStatus = $"Download failed: {ex.Message}";
+            _snackbarService.Show("Content Prep Tool", ex.Message,
+                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
+        }
+        finally
+        {
+            ContentPrepBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenReleases()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://github.com/jasonulbright/app-packager-desktop/releases") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _snackbarService.Show("Releases", ex.Message,
+                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+        }
+    }
 
     /// <summary>
     /// Asks api.github.com for the quota of the credentials the scrapers use.
@@ -197,6 +309,47 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
     public void ReloadFromStore() => LoadSettings();
 
+    /// <summary>
+    /// Rebuilds the One Click grid from the applications the Packages page shows, so a
+    /// hidden application cannot be tracked. Called when the page opens and on demand.
+    /// </summary>
+    [RelayCommand]
+    public void RefreshOneClickRows()
+    {
+        var oneClick = _settingsService.Load().OneClick;
+        var tracked = new HashSet<string>(oneClick.TrackedApplications, StringComparer.OrdinalIgnoreCase);
+        OneClickRows.Clear();
+        foreach (var p in _packagesViewModel.Packagers.OrderBy(p => p.Application, StringComparer.OrdinalIgnoreCase))
+        {
+            var row = new OneClickRow
+            {
+                Uid = p.Uid,
+                Application = p.Application,
+                Vendor = p.Vendor,
+                Tracked = tracked.Contains(p.Uid),
+                CadenceDisplay = oneClick.CadenceOverrides.TryGetValue(p.Uid, out var days) ? days.ToString() : ""
+            };
+            row.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(OneClickRow.Tracked)) OnPropertyChanged(nameof(OneClickTrackedCount));
+            };
+            OneClickRows.Add(row);
+        }
+        OnPropertyChanged(nameof(OneClickTrackedCount));
+    }
+
+    [RelayCommand]
+    private void TrackAllOneClick()
+    {
+        foreach (var row in OneClickRows) row.Tracked = true;
+    }
+
+    [RelayCommand]
+    private void TrackNoneOneClick()
+    {
+        foreach (var row in OneClickRows) row.Tracked = false;
+    }
+
     private void LoadSettings()
     {
         var s = _settingsService.Load();
@@ -211,6 +364,19 @@ public partial class SettingsViewModel : ObservableObject
         MaximumRuntimeMins = s.MaximumRuntimeMins;
         AcquisitionMethod = s.AcquisitionMethod;
         M365Channel = s.M365Channel;
+
+        ContentLayout = ContentLayouts.Normalize(s.ContentLayout);
+        AutoDistribute = s.ContentDistribution.AutoDistribute;
+        DpGroupName = s.ContentDistribution.DpGroupName;
+        DeployToTestCollection = s.ContentDistribution.DeployToTestCollection;
+        TestCollectionName = s.ContentDistribution.TestCollectionName;
+        CreateTestCollectionIfMissing = s.ContentDistribution.CreateTestCollectionIfMissing;
+        CreateIntuneWin = s.Intune.CreateIntuneWin;
+
+        OneClickAction = OneClickActions.Normalize(s.OneClick.Action);
+        OneClickForce = s.OneClick.ForceOnLaunch;
+        OneClickCadenceDays = s.OneClick.DefaultCadenceDays > 0 ? s.OneClick.DefaultCadenceDays : 7;
+        RefreshOneClickRows();
 
         CwaStoreName = s.Cwa.StoreName;
         CwaStoreUrl = s.Cwa.StoreUrl;
@@ -256,6 +422,29 @@ public partial class SettingsViewModel : ObservableObject
         s.M365Channel = M365Channel;
         s.AcquisitionMethod = AcquisitionMethod;
         s.Theme = CurrentTheme.ToString();
+
+        s.ContentLayout = ContentLayouts.Normalize(ContentLayout);
+        s.ContentDistribution = new ContentDistributionSettings
+        {
+            AutoDistribute = AutoDistribute,
+            DpGroupName = DpGroupName.Trim(),
+            DeployToTestCollection = DeployToTestCollection,
+            TestCollectionName = TestCollectionName.Trim(),
+            CreateTestCollectionIfMissing = CreateTestCollectionIfMissing,
+        };
+        s.Intune.CreateIntuneWin = CreateIntuneWin;
+
+        var defaultCadence = (int)(OneClickCadenceDays ?? 7);
+        s.OneClick = new OneClickSettings
+        {
+            Action = OneClickActions.Normalize(OneClickAction),
+            ForceOnLaunch = OneClickForce,
+            DefaultCadenceDays = defaultCadence > 0 ? defaultCadence : 7,
+            TrackedApplications = OneClickRows.Where(r => r.Tracked).Select(r => r.Uid).ToArray(),
+            CadenceOverrides = OneClickRows
+                .Where(r => r.CadenceOverride is { } days && days != defaultCadence)
+                .ToDictionary(r => r.Uid, r => r.CadenceOverride!.Value)
+        };
 
         s.Cwa = new CwaInstallSettings
         {
