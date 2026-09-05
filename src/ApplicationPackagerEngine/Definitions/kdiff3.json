@@ -19,7 +19,7 @@
   "DownloadUrl": "https://download.kde.org/stable/kdiff3/kdiff3-{version}-windows-x86_64.exe",
   "InstallArgs": "/S",
   "UninstallArgs": "/S",
-  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\KDiff3\\uninstall.exe\" -ArgumentList \"/S\", \"_?=C:\\Program Files\\KDiff3\" -Wait -PassThru -NoNewWindow",
+  "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\KDiff3\\uninstall.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow; while (Get-Process -Name 'Au_' -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 1 }",
   "Detection": {
     "Type": "RegistryKeyValue",
     "RegistryHive": "HKLM",
@@ -27,7 +27,7 @@
     "ValueName": "DisplayVersion",
     "PropertyType": "Version",
     "Operator": "GreaterEquals",
-    "Is64Bit": true
+    "Is64Bit": false
   },
   "RunningProcess": ["kdiff3"]
 }

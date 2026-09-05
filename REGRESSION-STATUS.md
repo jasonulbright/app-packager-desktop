@@ -3,7 +3,7 @@
 **Lab:** CM01 + CLIENT01 (Hyper-V, CM 2509)
 **Test method:** psexec -s \\CLIENT01 install.bat / uninstall.bat (SYSTEM context, identical to MECM)
 **Clean VM:** CLIENT01 rebuilt 2026-04-05, 150GB disk, prereqs: 7-Zip, MSVC x64/x86, .NET 8/9/10
-**Total definitions:** 117
+**Total definitions:** 121 with a recorded verdict (295 in the catalog)
 **Staged via:** Packr UI on host -> C:\temp\ap -> copied to CLIENT01 -> psexec -s install.bat
 **Reboots:** After every install and every uninstall, detection checked post-reboot
 
@@ -13,10 +13,10 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 96 |
+| **FULL PASS** | 101 |
 | **Needs Retest (interactive)** | 4 |
-| **Excluded/Deferred** | 17 |
-| **Total** | **117** |
+| **Excluded/Deferred** | 16 |
+| **Total** | **121** |
 
 ---
 
@@ -132,6 +132,23 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 95 | WinMerge (x64) | InstallerFramework `NativeMSI` → `InnoSetup`, detection path `Program Files` → `Program Files (x86)` | **FULL PASS** — Install/Detect/Uninstall/Clean all verified |
 | 96 | XenCenter (x64) | Detection `Is64Bit` `true` → `false` (MSI registers in 32-bit registry) | **Detect PASS** (v26.1.0 via Registry32). Uninstall needs interactive session for full clean validation. |
 
+## Validated via Remote Harness — 2026-09-04 (8 apps, all four phases PASS)
+
+Method: staged on the host, copied to CLIENT01, `tools\RemoteTestHarness\RemoteTestHarness.ps1`
+(LabAdmin over WinRM, reboot before an app when the client reports one pending).
+Re-verified after a vendor or definition change, or newly verified:
+
+| # | App | Change verified | Result |
+|---|-----|-----------------|--------|
+| 17 | Audacity (x64) | 4.0 MSI, ProductCode detection | **FULL PASS** (re-verified, replaces the Inno EXE verdict) |
+| 72 | RStudio Desktop (x64) | `/S /allusers`, key in the 64-bit view | **FULL PASS** (re-verified) |
+| 74 | ShareX (x64) | `-setup-x64.exe` asset; uninstall through the new ARP lookup (folder hint) | **FULL PASS** (re-verified) |
+| 97 | Slack (x64) | MSIX provisioned for all users, script detection | **FULL PASS** (moved from Excluded) |
+| 98 | Defraggler (x64) | builds page + file resource version | **FULL PASS** |
+| 99 | Gpg4win (x64) | key in the 64-bit view; uninstall through the new ARP lookup (key hint) | **FULL PASS** |
+| 100 | KDiff3 (x64) | key in the 32-bit view; uninstall `/S` alone (`_?=` exits -1 and removes nothing) | **FULL PASS** (after the uninstall fix; first run Uninstall FAIL exit -1) |
+| 101 | Apache NetBeans (x64) | new definition; uninstall through the new ARP lookup (key hint) | **FULL PASS** |
+
 ## Needs Retest — Interactive Session Required (4 apps)
 
 These apps install with exit 0 via WinRM but do not actually lay down files (InnoSetup/custom installers need an interactive desktop session). Retest via RDP session on CLIENT01 with manual psexec or direct execution.
@@ -145,7 +162,7 @@ These apps install with exit 0 via WinRM but do not actually lay down files (Inn
 
 ---
 
-## Excluded / Deferred (17 apps)
+## Excluded / Deferred (16 apps)
 
 | # | App | Reason |
 |---|-----|--------|
@@ -159,13 +176,34 @@ These apps install with exit 0 via WinRM but do not actually lay down files (Inn
 | 8 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
 | 9 | Postman (x64) | Per-user Squirrel install |
 | 10 | PyCharm Community (x64) | NSIS hangs under SYSTEM context |
-| 11 | Slack | MSIX deployment type needed |
-| 12 | TreeSize Free | InnoSetup hangs under SYSTEM context |
-| 13 | Visual Studio 2026 Community | Too large for lab VM |
-| 14 | Visual Studio 2026 Enterprise | Too large for lab VM |
-| 15 | Visual Studio Code (x64) | Per-user/Interactive. InnoSetup user setup. |
-| 16 | VMware Tools (x64) | Can't install on Hyper-V |
-| 17 | Zoom Workplace (x64) | Per-user MSI. Should use per-user deployment type (v2.2). |
+| 11 | TreeSize Free | InnoSetup hangs under SYSTEM context |
+| 12 | Visual Studio 2026 Community | Too large for lab VM |
+| 13 | Visual Studio 2026 Enterprise | Too large for lab VM |
+| 14 | Visual Studio Code (x64) | Per-user/Interactive. InnoSetup user setup. |
+| 15 | VMware Tools (x64) | Can't install on Hyper-V |
+| 16 | Zoom Workplace (x64) | Per-user MSI. Should use per-user deployment type (v2.2). |
+
+---
+
+## Changes — 2026-09-04
+
+Verified through the remote harness on CLIENT01 (see the 2026-09-04 table above).
+
+**Definition fixes (10 apps):**
+- Slack: MSIX provisioned for all users (vendor withdrew the machine-wide MSI); Excluded → FULL PASS
+- Audacity: 4.0 ships an MSI; InstallerType MSI with ProductCode detection
+- ShareX: 21.0 splits the setup by architecture; the x64 asset is taken, older single setups still resolve
+- Defraggler: version-history page gone; build from the builds page, version from the file resource
+- RStudio: `/S /allusers` install and uninstall, key in the 64-bit view (no WOW6432Node segment)
+- Gpg4win: key in the 64-bit view; KDiff3: key in the 32-bit view (both from real installs)
+- KDiff3: uninstall `/S` alone; with `_?=` the uninstaller exits -1 and removes nothing
+- Apache NetBeans: new definition (codelerity packages, Inno Setup, key `Apache NetBeans_is1`)
+- Obsidian: newest release carrying a Windows installer (the release tagged latest can be mobile-only); WizTree: file host moved (stage-verified only)
+
+**Engine changes affecting verdicts:**
+- EXE uninstall wrapper (Inno Setup and non-NSIS engines without UninstallCommand): resolves the product's own ARP entry by detection key, install folder, then display name. The earlier body ran the first non-msiexec entry found, which on a machine with several products of one engine removes the wrong one. Lab-exercised on ShareX, Apache NetBeans (Inno) and Gpg4win (NSIS). Other FULL PASS verdicts for Inno definitions without UninstallCommand were earned on a single-app VM and still hold for that shape.
+- Stage-time naming ignores metadata read off a bundled component EXE (KDiff3 staged as "7-Zip 25.01", Gpg4win as "GnuPG (2.5.21)" before).
+- Remote harness evaluates Script detections (MSIX).
 
 ---
 

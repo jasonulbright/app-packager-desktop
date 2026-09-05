@@ -18,7 +18,7 @@ Packr does that chore for you. For each application it knows about, it:
 4. Works out a detection rule — the check that tells MECM or Intune whether the app is present on a machine — by reading the installer itself.
 5. Creates the application in MECM (or an Intune Win32 app), with the deployment type, detection rule, and content already filled in.
 
-You pick applications from a list and press a button. 294 applications ship with it already described, so common software is covered out of the box.
+You pick applications from a list and press a button. 295 applications ship with it already described, so common software is covered out of the box.
 
 ## Who it's for
 
@@ -59,7 +59,7 @@ ApplicationPackagerUI (WPF)          ← user interface (WPF-UI 4.2.0 Fluent)
        ├─ Services/                  ← Download, MSI inspection, 7z extraction, installer ID,
        │                                staging, MECM packaging, PSADT wrappers, SQLite history
        ├─ Models/                    ← AppDefinition, StageManifest, InstallerMetadata, InstallerParameter
-       └─ Definitions/              ← JSON app definitions (294 apps, one per file)
+       └─ Definitions/              ← JSON app definitions (295 apps, one per file)
 ```
 
 ## Scraper Types

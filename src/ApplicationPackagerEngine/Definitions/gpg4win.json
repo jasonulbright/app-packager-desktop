@@ -26,7 +26,7 @@
     "ValueName": "DisplayVersion",
     "PropertyType": "Version",
     "Operator": "GreaterEquals",
-    "Is64Bit": false
+    "Is64Bit": true
   },
   "RunningProcess": ["kleopatra", "gpa", "gpg-agent"]
 }
