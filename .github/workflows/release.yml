@@ -151,6 +151,7 @@ jobs:
 
       # Assets upload onto a draft; the release goes public only once every
       # upload succeeded, so a half-uploaded release is never downloadable.
+      # A version with a pre-release suffix (2.2.0-alpha2) is flagged as such.
       - name: Publish the GitHub release
         shell: pwsh
         env:
@@ -159,7 +160,9 @@ jobs:
           $zip = Get-ChildItem "$env:RUNNER_TEMP\publish" -Filter 'AppPackagerDesktop-*.zip' -File | Select-Object -First 1
           if (-not $zip) { throw 'Release zip missing.' }
           $checksums = "$env:RUNNER_TEMP\publish\checksums.txt"
-          gh release create "${{ steps.meta.outputs.tag }}" --draft --title "${{ steps.meta.outputs.tag }}" --notes-file "${{ steps.meta.outputs.notes }}" $zip.FullName $checksums
+          $flags = @('--draft')
+          if ("${{ steps.meta.outputs.tag }}" -match '-') { $flags += '--prerelease' }
+          gh release create "${{ steps.meta.outputs.tag }}" @flags --title "${{ steps.meta.outputs.tag }}" --notes-file "${{ steps.meta.outputs.notes }}" $zip.FullName $checksums
           if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
           gh release edit "${{ steps.meta.outputs.tag }}" --draft=false
           if ($LASTEXITCODE -ne 0) { throw 'gh release edit failed' }

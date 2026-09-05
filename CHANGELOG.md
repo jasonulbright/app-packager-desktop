@@ -4,7 +4,7 @@
 
 ### Added
 
-- Build, sign and publish releases from the release workflow.
+- Build and publish releases from the release workflow.
 - Add Apache NetBeans (catalog at 295).
 - Add 177 definitions from the catalog waves (117 to 294).
 - Install the icon pack from a local or UNC zip.
@@ -21,7 +21,7 @@
 - Show GitHub API authentication and remaining quota in Settings.
 - Add the HeadProbe, chained and Dell catalog scrapers.
 - Select the highest version among page matches and JSON array elements.
-- Stage MSIX packages as provisioned packages with signer verification.
+- Stage MSIX packages as provisioned packages with a pinned publisher.
 - Build offline layouts for the Windows ADK and the Windows PE add-on.
 - Generate extract-then-setup wrappers for the SQL Server Express media box.
 - Open a first-run setup window for the deployment target and its settings.
