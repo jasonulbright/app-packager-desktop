@@ -25,7 +25,8 @@ public sealed class MecmTarget
         IReadOnlyList<StageRequirement>? requirements = null,
         string? providerMachine = null,
         OnExistingBehavior onExisting = OnExistingBehavior.Skip,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? contentLayout = null)
     {
         try
         {
@@ -34,8 +35,7 @@ public sealed class MecmTarget
             var publisher = manifest.Publisher;
             var vendorFolder = SanitizeFolderName(publisher);
             var appFolder = manifest.DisplayName ?? appName;
-            var networkRoot = Path.Combine(fileServerPath, "Applications", vendorFolder, appFolder);
-            var networkContentPath = Path.Combine(networkRoot, version);
+            var networkContentPath = ContentLayouts.ContentPath(fileServerPath, contentLayout ?? ContentLayouts.Nested, vendorFolder, appFolder, version);
 
             // 0. Validate content share accessibility
             var shareRoot = Path.GetPathRoot(fileServerPath) ?? fileServerPath;
@@ -581,23 +581,84 @@ public sealed class MecmTarget
     }
 
     /// <summary>
-    /// Distributes content for a packaged application to a DP group.
-    /// Call after PackageAsync succeeds.
+    /// Distributes content for a packaged application to a DP group. Call after
+    /// PackageAsync succeeds. A group that already holds the content makes the
+    /// cmdlet throw "already been targeted"; that is the wanted end state and
+    /// counts as success.
     /// </summary>
     public async Task<bool> DistributeAsync(
         string appName, string siteCode, string dpGroupName = "All DPs",
         Action<string>? onProgress = null, string? providerMachine = null,
         CancellationToken ct = default)
     {
-        var sb = new StringBuilder();
-        AppendCmPreamble(sb, siteCode, providerMachine);
-        sb.AppendLine($"Start-CMContentDistribution -ApplicationName '{Esc(appName)}' -DistributionPointGroupName '{Esc(dpGroupName)}' -ErrorAction Stop");
-        sb.AppendLine($"Write-Host 'Distributed: {Esc(appName)} to {Esc(dpGroupName)}'");
-
-        var result = await RunWindowsPowerShellAsync(sb.ToString(), onProgress, ct);
+        var result = await RunWindowsPowerShellAsync(
+            BuildDistributionScript(appName, siteCode, dpGroupName, providerMachine), onProgress, ct);
         if (result.ExitCode != 0)
             onProgress?.Invoke($"Distribution failed: {result.StdErr}");
         return result.ExitCode == 0;
+    }
+
+    public static string BuildDistributionScript(string appName, string siteCode, string dpGroupName, string? providerMachine)
+    {
+        var sb = new StringBuilder();
+        AppendCmPreamble(sb, siteCode, providerMachine);
+        sb.AppendLine("try {");
+        sb.AppendLine($"  Start-CMContentDistribution -ApplicationName '{Esc(appName)}' -DistributionPointGroupName '{Esc(dpGroupName)}' -ErrorAction Stop");
+        sb.AppendLine($"  Write-Host 'Content distribution initiated: {Esc(appName)} to {Esc(dpGroupName)}'");
+        sb.AppendLine("} catch {");
+        sb.AppendLine("  if ($_.Exception.Message -match 'already been targeted|already distributed') {");
+        sb.AppendLine($"    Write-Host 'Content already targeted: {Esc(appName)} on {Esc(dpGroupName)}'");
+        sb.AppendLine("  } else { throw }");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Deploys a packaged application to a test collection as Available,
+    /// effective immediately, creating the collection (direct membership,
+    /// limited to All Systems) when asked. A missing collection without that
+    /// permission skips the deployment and reports it; an existing deployment
+    /// counts as success.
+    /// </summary>
+    public async Task<bool> DeployToTestCollectionAsync(
+        string appName, string siteCode, string collectionName, bool createIfMissing,
+        Action<string>? onProgress = null, string? providerMachine = null,
+        CancellationToken ct = default)
+    {
+        var result = await RunWindowsPowerShellAsync(
+            BuildTestCollectionDeploymentScript(appName, siteCode, collectionName, createIfMissing, providerMachine), onProgress, ct);
+        if (result.ExitCode != 0)
+            onProgress?.Invoke($"Test deployment failed: {result.StdErr}");
+        return result.ExitCode == 0;
+    }
+
+    public static string BuildTestCollectionDeploymentScript(
+        string appName, string siteCode, string collectionName, bool createIfMissing, string? providerMachine)
+    {
+        var sb = new StringBuilder();
+        AppendCmPreamble(sb, siteCode, providerMachine);
+        sb.AppendLine($"$collection = Get-CMDeviceCollection -Name '{Esc(collectionName)}' -ErrorAction SilentlyContinue");
+        if (createIfMissing)
+        {
+            sb.AppendLine("if (-not $collection) {");
+            sb.AppendLine($"  Write-Host 'Creating test collection: {Esc(collectionName)} (direct membership, limited to All Systems)'");
+            sb.AppendLine($"  New-CMDeviceCollection -Name '{Esc(collectionName)}' -LimitingCollectionName 'All Systems' -ErrorAction Stop | Out-Null");
+            sb.AppendLine($"  $collection = Get-CMDeviceCollection -Name '{Esc(collectionName)}' -ErrorAction SilentlyContinue");
+            sb.AppendLine("}");
+        }
+        sb.AppendLine("if (-not $collection) {");
+        sb.AppendLine($"  Write-Host 'Test deployment skipped: collection {Esc(collectionName)} not found'");
+        sb.AppendLine("  exit 0");
+        sb.AppendLine("}");
+        sb.AppendLine("try {");
+        sb.AppendLine($"  New-CMApplicationDeployment -Name '{Esc(appName)}' -CollectionName '{Esc(collectionName)}' -DeployAction Install -DeployPurpose Available -AvailableDateTime (Get-Date) -ErrorAction Stop | Out-Null");
+        sb.AppendLine($"  Write-Host 'Test deployment created: {Esc(appName)} to {Esc(collectionName)} (Available, immediate)'");
+        sb.AppendLine("} catch {");
+        sb.AppendLine("  if ($_.Exception.Message -match 'already (exists|deployed|been deployed)') {");
+        sb.AppendLine($"    Write-Host 'Test deployment already exists: {Esc(appName)} to {Esc(collectionName)}'");
+        sb.AppendLine("  } else { throw }");
+        sb.AppendLine("}");
+        return sb.ToString();
     }
 
     /// <summary>

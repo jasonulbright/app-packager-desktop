@@ -148,6 +148,7 @@ public class PackagerExecutionService(
 
             // An Intune-only run stops at the staged content: no site connection, no share
             // copy, no MECM application. The build and publish below work from local content.
+            var afterMecm = "";
             if (!DeploymentTargets.SkipsMecm(target))
             {
                 var mecmTarget = new ApplicationPackagerEngine.Services.MecmTarget();
@@ -161,11 +162,14 @@ public class PackagerExecutionService(
                     requirements: requirements,
                     providerMachine: settings.ProviderMachine,
                     onExisting: onExisting,
-                    ct: ct);
+                    ct: ct,
+                    contentLayout: settings.ContentLayout);
 
                 mecmSucceeded = result.Success;
                 stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
                 stdErr = result.ErrorMessage ?? "";
+                if (result.Success && !result.AlreadyExists)
+                    afterMecm = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
             }
             else
             {
@@ -185,7 +189,7 @@ public class PackagerExecutionService(
                 ExitCode = mecmSucceeded ? 0 : 1,
                 StdOut = stdOut,
                 StdErr = stdErr,
-                IntuneWinNote = notes.IntuneWinNote,
+                IntuneWinNote = notes.IntuneWinNote.Length > 0 ? notes.IntuneWinNote : afterMecm,
                 IntunePublishNote = notes.PublishNote,
                 Conflict = conflicts.Result
             };
@@ -241,20 +245,25 @@ public class PackagerExecutionService(
         var stdOut = "";
         var stdErr = "";
 
+        var afterMecm = "";
         if (!DeploymentTargets.SkipsMecm(target))
         {
-            var result = await new MecmTarget().PackageAsync(
+            var mecmTarget = new MecmTarget();
+            var result = await mecmTarget.PackageAsync(
                 manifest, stagedContentPath, settings.SiteCode, settings.FileShareRoot, comment,
                 settings.EstimatedRuntimeMins, settings.MaximumRuntimeMins,
                 Report,
                 conditionTemplates: new ConditionTemplateService().Load(warning => onOutputLine?.Invoke(warning)),
                 providerMachine: settings.ProviderMachine,
                 onExisting: onExisting,
-                ct: ct);
+                ct: ct,
+                contentLayout: settings.ContentLayout);
 
             mecmSucceeded = result.Success;
             stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
             stdErr = result.ErrorMessage ?? "";
+            if (result.Success && !result.AlreadyExists)
+                afterMecm = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
         }
         else
         {
@@ -271,10 +280,49 @@ public class PackagerExecutionService(
             ExitCode = mecmSucceeded ? 0 : 1,
             StdOut = stdOut,
             StdErr = stdErr,
-            IntuneWinNote = notes.IntuneWinNote,
+            IntuneWinNote = notes.IntuneWinNote.Length > 0 ? notes.IntuneWinNote : afterMecm,
             IntunePublishNote = notes.PublishNote,
             Conflict = conflicts.Result
         };
+    }
+
+    /// <summary>
+    /// The optional steps that follow a new MECM application: content distribution to
+    /// the configured DP group, a test-collection deployment once the content is
+    /// targeted, and, for an MECM-only target that asked for it, a .intunewin stored
+    /// beside the network content. Each step reports its own outcome and none of
+    /// them fails the run, because the application already exists. Returns the
+    /// .intunewin note, or an empty string when none was built.
+    /// </summary>
+    private async Task<string> RunPostPackageStepsAsync(
+        MecmTarget mecmTarget, PackagingResult result, StageManifest manifest, string stagedContentPath,
+        AppSettings settings, string target, Action<string> report, CancellationToken ct)
+    {
+        var distribution = settings.ContentDistribution;
+        if (distribution.AutoDistribute)
+        {
+            if (string.IsNullOrWhiteSpace(distribution.DpGroupName))
+            {
+                report("Auto-distribute is on but no DP group is set; distribution skipped.");
+            }
+            else
+            {
+                var distributed = await mecmTarget.DistributeAsync(
+                    result.ApplicationName, settings.SiteCode, distribution.DpGroupName.Trim(),
+                    report, settings.ProviderMachine, ct);
+                if (distributed && distribution.DeployToTestCollection && !string.IsNullOrWhiteSpace(distribution.TestCollectionName))
+                {
+                    await mecmTarget.DeployToTestCollectionAsync(
+                        result.ApplicationName, settings.SiteCode, distribution.TestCollectionName.Trim(),
+                        distribution.CreateTestCollectionIfMissing, report, settings.ProviderMachine, ct);
+                }
+            }
+        }
+
+        if (settings.Intune.CreateIntuneWin && !DeploymentTargets.PublishesToIntune(target))
+            return await intuneDeploymentService.BuildBesideContentAsync(manifest, stagedContentPath, result.NetworkContentPath, report, ct);
+
+        return "";
     }
 
     /// <summary>
@@ -401,6 +449,9 @@ public class PackagerExecutionService(
 
         if (SupportsFileServerPath(packager))
             args += $" -FileServerPath \"{settings.FileShareRoot}\"";
+        // Only the non-default layout is passed, so a script without the parameter still runs.
+        if (ContentLayouts.IsFlat(settings.ContentLayout))
+            args += " -ContentLayout Flat";
         if (!string.IsNullOrEmpty(settings.DownloadRoot))
             args += $" -DownloadRoot \"{settings.DownloadRoot}\"";
         if (!string.IsNullOrEmpty(settings.M365Channel))

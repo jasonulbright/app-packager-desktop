@@ -180,7 +180,7 @@ public sealed class ArchiveExtractionService
         return (process.ExitCode, stdout, stderr);
     }
 
-    private static string? FindSevenZip()
+    public static string? FindSevenZip()
     {
         var candidates = new[]
         {

@@ -63,9 +63,9 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     /// </summary>
     public async Task<List<PackagerInfo>> DiscoverAsync(CancellationToken ct = default)
     {
+        // The shipped definitions sit beside the executable and need no PS1 folder;
+        // scripts are added on top when a folder resolves.
         var root = ResolvePackagersRoot();
-        if (root is null)
-            return [];
 
         var settings = settingsService.Load();
         var hidden = new HashSet<string>(settings.HiddenApplications, StringComparer.OrdinalIgnoreCase);
@@ -77,10 +77,12 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
             var jsonAppNames = new HashSet<string>(
                 jsonResults.Select(j => j.Application), StringComparer.OrdinalIgnoreCase);
 
-            var files = Directory.GetFiles(root)
-                .Where(f => FilePattern.IsMatch(Path.GetFileName(f)))
-                .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var files = root is null
+                ? []
+                : Directory.GetFiles(root)
+                    .Where(f => FilePattern.IsMatch(Path.GetFileName(f)))
+                    .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
             var results = new List<PackagerInfo>(files.Count);
 
@@ -188,15 +190,15 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     public async Task<List<PackagerInfo>> DiscoverAllAsync(CancellationToken ct = default)
     {
         var root = ResolvePackagersRoot();
-        if (root is null)
-            return [];
 
         return await Task.Run(() =>
         {
-            var files = Directory.GetFiles(root)
-                .Where(f => FilePattern.IsMatch(Path.GetFileName(f)))
-                .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var files = root is null
+                ? []
+                : Directory.GetFiles(root)
+                    .Where(f => FilePattern.IsMatch(Path.GetFileName(f)))
+                    .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
             var results = new List<PackagerInfo>(files.Count);
 

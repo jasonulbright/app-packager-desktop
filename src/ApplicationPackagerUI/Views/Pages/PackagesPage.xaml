@@ -51,6 +51,11 @@
                        ToolTip="{Binding PackageToolTip}"
                        Click="PackageButton_Click"
                        Margin="0,0,4,0" />
+            <ui:Button Content="One Click"
+                       Icon="{ui:SymbolIcon Play24}"
+                       Command="{Binding OneClickCommand}"
+                       ToolTip="Checks the applications tracked under Settings, One Click and stages or packages the ones with a newer version, per the action set there."
+                       Margin="0,0,4,0" />
             <ui:Button Content="Cancel"
                        Icon="{ui:SymbolIcon Dismiss24}"
                        Appearance="Danger"
