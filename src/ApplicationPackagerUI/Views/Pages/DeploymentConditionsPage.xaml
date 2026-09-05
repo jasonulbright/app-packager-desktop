@@ -112,8 +112,15 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="OS languages" Width="160"
-                                    Binding="{Binding LanguagesDisplay, UpdateSourceTrigger=LostFocus, Mode=TwoWay}" />
+                <DataGridTemplateColumn Header="OS languages" Width="160">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBox Text="{Binding LanguagesDisplay, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                                     BorderThickness="0" Background="Transparent" Padding="4,2"
+                                     ToolTip="Comma-separated OS language codes (for example en-US, de-DE). Empty applies no language requirement." />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <DataGridTemplateColumn Header="Network" Width="120">
                     <DataGridTemplateColumn.CellTemplate>
