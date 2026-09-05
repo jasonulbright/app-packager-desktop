@@ -1,35 +1,110 @@
 {
-    "Schema":  1,
-    "Id":  "a1b2c3d4e5f60005",
-    "IconSource":  "External",
-    "Vendor":  "Microsoft",
-    "Application":  "SQL Server Management Studio 22 (x64)",
-    "CMName":  "SQL Server Management Studio",
-    "Architecture":  "x64",
-    "VendorUrl":  "https://learn.microsoft.com/sql/ssms/",
-    "InstallerType":  "EXE",
-    "InstallerFramework":  "WixBurn",
-    "Acquisition":  {
-
-                    },
-    "VersionScraper":  {
-                           "Type":  "FileVersion",
-                           "Url":  "https://aka.ms/ssms/22/release/vs_SSMS.exe",
-                           "Pattern":  "ProductVersion"
-                       },
-    "DownloadUrl":  "https://aka.ms/ssms/22/release/vs_SSMS.exe",
-    "InstallerFileName":  "vs_SSMS.exe",
-    "InstallArgs":  "--quiet --norestart",
-    "UninstallArgs":  "uninstall --quiet --norestart",
-    "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Microsoft SQL Server Management Studio 22\\Release\\Common7\\IDE",
-                      "FileName":  "Ssms.exe",
-                      "PropertyType":  "Version",
-                      "Operator":  "GreaterEquals",
-                      "Is64Bit":  true
-                  },
-    "RunningProcess":  [
-                           "Ssms"
-                       ]
+  "Schema": 1,
+  "Id": "a1b2c3d4e5f60005",
+  "IconSource": "External",
+  "Vendor": "Microsoft",
+  "Application": "SQL Server Management Studio 22 (x64)",
+  "CMName": "SQL Server Management Studio",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/sql/ssms/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "FileVersion",
+    "Url": "https://aka.ms/ssms/22/release/vs_SSMS.exe",
+    "Pattern": "ProductVersion"
+  },
+  "DownloadUrl": "https://aka.ms/ssms/22/release/vs_SSMS.exe",
+  "InstallerFileName": "vs_SSMS.exe",
+  "InstallArgs": "--norestart",
+  "UninstallArgs": "uninstall --installPath \"{setting:InstallPath:Detect}\" {setting:UIMode} --norestart {setting:ForceClose:Uninstall}",
+  "UninstallCommand": "$setupExe = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\\Installer\\setup.exe'; $exePath = if (Test-Path -LiteralPath $setupExe) { $setupExe } else { Join-Path $PSScriptRoot 'vs_SSMS.exe' }; if (-not (Test-Path -LiteralPath $exePath)) { exit 0 }; $proc = Start-Process -FilePath $exePath -ArgumentList 'uninstall --installPath \"{setting:InstallPath:Detect}\" {setting:UIMode} --norestart {setting:ForceClose:Uninstall}' -Wait -PassThru -NoNewWindow",
+  "InstallerSettings": [
+    {
+      "Key": "UIMode",
+      "Label": "UI mode",
+      "ControlType": "Dropdown",
+      "DefaultValue": "Quiet",
+      "Options": ["Quiet", "Passive"],
+      "CommandFragment": "{value}",
+      "ValueMap": { "Quiet": "--quiet", "Passive": "--passive" },
+      "Group": "Install behavior",
+      "Tooltip": "Quiet hides the installer. Passive shows progress only and suits Available deployments better than Required ones."
+    },
+    {
+      "Key": "InstallPath",
+      "Label": "Install path",
+      "ControlType": "Text",
+      "DefaultValue": "",
+      "CommandFragment": "--installPath \"{value}\"",
+      "ValueMaps": { "Detect": { "": "C:\\Program Files\\Microsoft SQL Server Management Studio 22\\Release" } },
+      "Group": "Install behavior",
+      "Tooltip": "Leave empty for the default SSMS 22 path. A path set here is also used for detection and uninstall."
+    },
+    {
+      "Key": "DownloadThenInstall",
+      "Label": "Download all packages before installing",
+      "ControlType": "Toggle",
+      "DefaultValue": "true",
+      "CommandFragment": "--downloadThenInstall",
+      "Group": "Install behavior",
+      "Tooltip": "Setup downloads every package before it starts installing instead of installing while downloading."
+    },
+    {
+      "Key": "NoUpdateInstaller",
+      "Label": "Do not update the Visual Studio Installer",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--noUpdateInstaller",
+      "Group": "Install behavior",
+      "Tooltip": "Skips the installer self-update. Setup can fail when an installer update is required."
+    },
+    {
+      "Key": "IncludeRecommended",
+      "Label": "Include recommended components",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--includeRecommended",
+      "Group": "Components",
+      "Tooltip": "Adds the recommended components of the selected workloads."
+    },
+    {
+      "Key": "IncludeOptional",
+      "Label": "Include optional components",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--includeOptional",
+      "Group": "Components",
+      "Tooltip": "Adds the optional components of the selected workloads; larger and slower install."
+    },
+    {
+      "Key": "RemoveOos",
+      "Label": "Remove out-of-support components",
+      "ControlType": "Toggle",
+      "DefaultValue": "true",
+      "CommandFragment": "--removeOos true",
+      "Group": "Components",
+      "Tooltip": "Removes components that went out of support during this install or update."
+    },
+    {
+      "Key": "ForceClose",
+      "Label": "Close SSMS if it is running",
+      "ControlType": "Toggle",
+      "DefaultValue": "false",
+      "CommandFragment": "--force",
+      "ValueMaps": { "Uninstall": { "true": "--force", "false": "" } },
+      "Group": "Install behavior",
+      "Tooltip": "Lets setup close running SSMS processes; unsaved query windows are lost."
+    }
+  ],
+  "Detection": {
+    "Type": "File",
+    "FilePath": "{setting:InstallPath:Detect}\\Common7\\IDE",
+    "FileName": "Ssms.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": ["Ssms"]
 }

@@ -53,6 +53,13 @@ public sealed class AppSettings
     /// </summary>
     public bool SkipConfigReview { get; set; }
 
+    /// <summary>
+    /// Chosen install parameters per definition (definition Id → parameter key → value),
+    /// edited under Settings. They pre-fill the review dialog and apply as they are when
+    /// the dialog is skipped.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, string>> InstallerSettingValues { get; set; } = [];
+
     // Per-app: M365
     public string M365Channel { get; set; } = "MonthlyEnterprise";
 

@@ -672,8 +672,13 @@ public partial class PackagesViewModel : ObservableObject
                         var settings = _settingsService.Load();
                         if (def?.InstallerSettings?.Length > 0 && (def.ReviewBeforeStage || !settings.SkipConfigReview))
                         {
+                            // The dialog starts from the values saved under Settings; a skipped
+                            // dialog applies those same values through the execution service.
                             var settingsPanel = new Controls.InstallerSettingsPanel
                             {
+                                Store = settings.InstallerSettingValues.TryGetValue(def.Id, out var saved)
+                                    ? new Dictionary<string, string>(saved)
+                                    : new Dictionary<string, string>(),
                                 Parameters = def.InstallerSettings,
                                 MinWidth = 400
                             };

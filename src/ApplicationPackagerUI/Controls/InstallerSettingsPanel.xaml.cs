@@ -11,17 +11,37 @@ namespace ApplicationPackagerUI.Controls;
 /// </summary>
 public partial class InstallerSettingsPanel : UserControl
 {
-    /// <summary>Current parameter values keyed by parameter Key.</summary>
-    public Dictionary<string, string> Values { get; } = new();
+    private Dictionary<string, string> _values = new();
+
+    /// <summary>
+    /// Current parameter values keyed by parameter Key. This is the Store when one was
+    /// supplied, so a caller that owns the dictionary sees edits without copying.
+    /// </summary>
+    public Dictionary<string, string> Values => _values;
 
     public static readonly DependencyProperty ParametersProperty =
-        DependencyProperty.Register(nameof(Parameters), typeof(InstallerParameter[]),
+        DependencyProperty.Register(nameof(Parameters), typeof(IEnumerable<InstallerParameter>),
             typeof(InstallerSettingsPanel), new PropertyMetadata(null, OnParametersChanged));
 
-    public InstallerParameter[]? Parameters
+    public IEnumerable<InstallerParameter>? Parameters
     {
-        get => (InstallerParameter[]?)GetValue(ParametersProperty);
+        get => (IEnumerable<InstallerParameter>?)GetValue(ParametersProperty);
         set => SetValue(ParametersProperty, value);
+    }
+
+    /// <summary>
+    /// Dictionary the panel reads its starting values from and writes edits into. A key
+    /// missing from it starts at the parameter's default and is written on render, so the
+    /// store always holds every parameter after the panel has shown.
+    /// </summary>
+    public static readonly DependencyProperty StoreProperty =
+        DependencyProperty.Register(nameof(Store), typeof(Dictionary<string, string>),
+            typeof(InstallerSettingsPanel), new PropertyMetadata(null, OnParametersChanged));
+
+    public Dictionary<string, string>? Store
+    {
+        get => (Dictionary<string, string>?)GetValue(StoreProperty);
+        set => SetValue(StoreProperty, value);
     }
 
     public InstallerSettingsPanel()
@@ -38,9 +58,9 @@ public partial class InstallerSettingsPanel : UserControl
     private void RenderParameters()
     {
         RootPanel.Children.Clear();
-        Values.Clear();
+        _values = Store ?? new Dictionary<string, string>();
 
-        var parameters = Parameters;
+        var parameters = Parameters?.ToArray();
         if (parameters is null || parameters.Length == 0)
             return;
 
@@ -60,7 +80,11 @@ public partial class InstallerSettingsPanel : UserControl
 
             foreach (var param in group)
             {
-                Values[param.Key] = param.DefaultValue;
+                if (!_values.TryGetValue(param.Key, out var current))
+                {
+                    current = param.DefaultValue;
+                    _values[param.Key] = current;
+                }
 
                 var row = new DockPanel { Margin = new Thickness(0, 4, 0, 4) };
 
@@ -77,11 +101,11 @@ public partial class InstallerSettingsPanel : UserControl
 
                 FrameworkElement control = param.ControlType switch
                 {
-                    "Toggle" => CreateToggle(param),
-                    "Dropdown" => CreateDropdown(param),
-                    "Text" => CreateTextBox(param),
-                    "Number" => CreateNumberBox(param),
-                    _ => CreateTextBox(param)
+                    "Toggle" => CreateToggle(param, current),
+                    "Dropdown" => CreateDropdown(param, current),
+                    "Text" => CreateTextBox(param, current),
+                    "Number" => CreateNumberBox(param, current),
+                    _ => CreateTextBox(param, current)
                 };
 
                 control.HorizontalAlignment = HorizontalAlignment.Right;
@@ -98,56 +122,56 @@ public partial class InstallerSettingsPanel : UserControl
         }
     }
 
-    private ToggleSwitch CreateToggle(InstallerParameter param)
+    private ToggleSwitch CreateToggle(InstallerParameter param, string current)
     {
         var toggle = new ToggleSwitch
         {
-            IsChecked = param.DefaultValue.Equals("true", StringComparison.OrdinalIgnoreCase)
+            IsChecked = current.Equals("true", StringComparison.OrdinalIgnoreCase)
         };
-        toggle.Checked += (_, _) => Values[param.Key] = "true";
-        toggle.Unchecked += (_, _) => Values[param.Key] = "false";
+        toggle.Checked += (_, _) => _values[param.Key] = "true";
+        toggle.Unchecked += (_, _) => _values[param.Key] = "false";
         return toggle;
     }
 
-    private ComboBox CreateDropdown(InstallerParameter param)
+    private ComboBox CreateDropdown(InstallerParameter param, string current)
     {
         var combo = new ComboBox { Width = 200 };
         if (param.Options is not null)
         {
             foreach (var opt in param.Options)
                 combo.Items.Add(opt);
-            combo.SelectedItem = param.DefaultValue;
+            combo.SelectedItem = param.Options.Contains(current) ? current : param.DefaultValue;
         }
         combo.SelectionChanged += (_, _) =>
         {
             if (combo.SelectedItem is string val)
-                Values[param.Key] = val;
+                _values[param.Key] = val;
         };
         return combo;
     }
 
-    private Wpf.Ui.Controls.TextBox CreateTextBox(InstallerParameter param)
+    private Wpf.Ui.Controls.TextBox CreateTextBox(InstallerParameter param, string current)
     {
         var textBox = new Wpf.Ui.Controls.TextBox
         {
-            Text = param.DefaultValue,
-            Width = 200
+            Text = current,
+            Width = 240
         };
-        textBox.TextChanged += (_, _) => Values[param.Key] = textBox.Text;
+        textBox.TextChanged += (_, _) => _values[param.Key] = textBox.Text;
         return textBox;
     }
 
-    private Wpf.Ui.Controls.NumberBox CreateNumberBox(InstallerParameter param)
+    private Wpf.Ui.Controls.NumberBox CreateNumberBox(InstallerParameter param, string current)
     {
         var numberBox = new Wpf.Ui.Controls.NumberBox
         {
-            Value = double.TryParse(param.DefaultValue, out var v) ? v : 0,
+            Value = double.TryParse(current, out var v) ? v : double.TryParse(param.DefaultValue, out var d) ? d : 0,
             Minimum = param.Minimum ?? 0,
             Maximum = param.Maximum ?? 99999,
             SpinButtonPlacementMode = Wpf.Ui.Controls.NumberBoxSpinButtonPlacementMode.Compact,
             Width = 140
         };
-        numberBox.ValueChanged += (_, _) => Values[param.Key] = (numberBox.Value ?? 0).ToString();
+        numberBox.ValueChanged += (_, _) => _values[param.Key] = (numberBox.Value ?? 0).ToString();
         return numberBox;
     }
 }

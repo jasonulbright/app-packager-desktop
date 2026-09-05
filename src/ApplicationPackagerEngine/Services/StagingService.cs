@@ -244,7 +244,7 @@ public sealed class StagingService
     {
         // Route ODT apps to dedicated pipeline
         if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
-            return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion);
+            return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion, settingsValues);
 
         if (def.BootstrapperLayout is not null)
             return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion);
@@ -485,7 +485,9 @@ public sealed class StagingService
             // InstallerSettings are the single source for the switches they own: the
             // definition's InstallArgs carries only the switches no parameter covers.
             var installArgs = ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, settingsValues);
-            var uninstallArgs = ApplySettingTokens(def.UninstallArgs, def.InstallerSettings, settingsValues) ?? def.UninstallArgs;
+            var uninstallArgs = ResolveUninstallArgs(
+                ApplySettingTokens(def.UninstallArgs, def.InstallerSettings, settingsValues) ?? def.UninstallArgs,
+                def.InstallerSettings, settingsValues);
             var uninstallCommand = ApplySettingTokens(def.UninstallCommand, def.InstallerSettings, settingsValues);
 
             // 6. Build detection config
@@ -861,15 +863,67 @@ public sealed class StagingService
 
     private const string OdtSetupUrl = "https://officecdn.microsoft.com/pr/wsus/setup.exe";
 
+    /// <summary>Setting keys the ODT pipeline reads from the chosen values.</summary>
+    public const string OdtChannelKey = "Channel";
+    public const string OdtDeployModeKey = "DeployMode";
+    public const string OdtExcludePrefix = "Exclude_";
+
+    /// <summary>
+    /// The definition's ODT configuration with the chosen values applied: the
+    /// update channel and deploy mode when chosen, and the excluded apps taken
+    /// from the Exclude_* toggles whenever the definition declares any.
+    /// </summary>
+    public static OdtConfig ResolveOdtConfig(AppDefinition def, Dictionary<string, string>? values)
+    {
+        var odt = def.Odt ?? new OdtConfig();
+        var resolved = new OdtConfig
+        {
+            ProductIds = odt.ProductIds,
+            UninstallProductId = odt.UninstallProductId,
+            Channel = odt.Channel,
+            ExcludeApps = odt.ExcludeApps,
+            DeploymentMode = odt.DeploymentMode,
+            UpdateChannel = odt.UpdateChannel,
+            EnableUpdates = odt.EnableUpdates,
+            AcceptEula = odt.AcceptEula,
+            PinToTaskbar = odt.PinToTaskbar,
+            SharedComputerLicensing = odt.SharedComputerLicensing
+        };
+        if (values is null) return resolved;
+
+        if (values.TryGetValue(OdtChannelKey, out var channel) && !string.IsNullOrWhiteSpace(channel))
+            resolved.Channel = channel.Trim();
+
+        var modeParam = def.InstallerSettings?.FirstOrDefault(p => p.Key.Equals(OdtDeployModeKey, StringComparison.OrdinalIgnoreCase));
+        var mode = values.TryGetValue(OdtDeployModeKey, out var chosenMode) ? chosenMode : modeParam?.DefaultValue;
+        if (!string.IsNullOrWhiteSpace(mode))
+            resolved.DeploymentMode = mode.Equals("Online", StringComparison.OrdinalIgnoreCase) ? "Online" : "Offline";
+
+        var excludeParams = def.InstallerSettings?
+            .Where(p => p.Key.StartsWith(OdtExcludePrefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (excludeParams is { Count: > 0 })
+        {
+            resolved.ExcludeApps = excludeParams
+                .Where(p => (values.TryGetValue(p.Key, out var v) ? v : p.DefaultValue).Equals("true", StringComparison.OrdinalIgnoreCase))
+                .Select(p => p.Key[OdtExcludePrefix.Length..])
+                .ToArray();
+        }
+        return resolved;
+    }
+
     private async Task<StagingResult> StageOdtAsync(
         AppDefinition def, string downloadRoot,
-        Action<string>? onProgress, CancellationToken ct, string? knownVersion)
+        Action<string>? onProgress, CancellationToken ct, string? knownVersion,
+        Dictionary<string, string>? settingsValues = null)
     {
         try
         {
-            var odt = def.Odt;
+            var odt = def.Odt is null ? null : ResolveOdtConfig(def, settingsValues);
             if (odt is null || odt.ProductIds.Length == 0)
                 return new StagingResult { Success = false, ErrorMessage = "OdtConfig with ProductIds is required for ODT apps" };
+            var online = odt.DeploymentMode.Equals("Online", StringComparison.OrdinalIgnoreCase);
+            onProgress?.Invoke($"ODT channel {odt.Channel}, {(online ? "Online (CDN install)" : "Offline (source downloaded)")}, excluded: {(odt.ExcludeApps.Length == 0 ? "none" : string.Join(", ", odt.ExcludeApps))}");
 
             // 1. Get version
             string? version;
@@ -910,20 +964,24 @@ public sealed class StagingService
                 onProgress?.Invoke("ODT setup.exe already cached.");
             }
 
-            // 4. Generate download.xml
-            var downloadXml = GenerateOdtXml(edition, fullVersion, odt, contentPath);
-            var downloadXmlPath = Path.Combine(baseRoot, "download.xml");
-            await File.WriteAllTextAsync(downloadXmlPath, downloadXml, System.Text.Encoding.ASCII, ct);
-            onProgress?.Invoke("Generated download.xml");
+            // 4 and 5. Offline: download.xml and setup.exe /download bring the source into
+            // the content folder. Online: the client installs from the CDN, so the content
+            // is setup.exe and the xml files only.
+            if (!online)
+            {
+                var downloadXml = GenerateOdtXml(edition, fullVersion, odt, contentPath, pinVersion: true);
+                var downloadXmlPath = Path.Combine(baseRoot, "download.xml");
+                await File.WriteAllTextAsync(downloadXmlPath, downloadXml, System.Text.Encoding.ASCII, ct);
+                onProgress?.Invoke("Generated download.xml");
 
-            // 5. Run setup.exe /download
-            onProgress?.Invoke("Downloading Office source files (this may take several minutes)...");
-            var dlResult = await RunProcessWithTimeoutAsync(
-                setupExe, $"/download \"{downloadXmlPath}\"",
-                TimeSpan.FromMinutes(30), ct);
-            if (!dlResult)
-                return new StagingResult { Success = false, ErrorMessage = "ODT /download failed" };
-            onProgress?.Invoke("Office source download complete.");
+                onProgress?.Invoke("Downloading Office source files (this may take several minutes)...");
+                var dlResult = await RunProcessWithTimeoutAsync(
+                    setupExe, $"/download \"{downloadXmlPath}\"",
+                    TimeSpan.FromMinutes(30), ct);
+                if (!dlResult)
+                    return new StagingResult { Success = false, ErrorMessage = "ODT /download failed" };
+                onProgress?.Invoke("Office source download complete.");
+            }
 
             // 6. Copy setup.exe into content folder
             var contentSetupExe = Path.Combine(contentPath, "setup.exe");
@@ -933,8 +991,10 @@ public sealed class StagingService
                 onProgress?.Invoke("Copied setup.exe to content folder.");
             }
 
-            // 7. Generate install.xml (no SourcePath — uses relative at install time)
-            var installXml = GenerateOdtXml(edition, fullVersion, odt, sourcePath: null);
+            // 7. Generate install.xml: no SourcePath, so an offline install reads the source
+            // beside it and an online install reads the CDN. Offline pins the downloaded
+            // build; online takes the channel's current build.
+            var installXml = GenerateOdtXml(edition, fullVersion, odt, sourcePath: null, pinVersion: !online);
             await File.WriteAllTextAsync(Path.Combine(contentPath, "install.xml"), installXml, System.Text.Encoding.ASCII, ct);
 
             // 8. Generate uninstall.xml
@@ -1005,7 +1065,7 @@ public sealed class StagingService
         }
     }
 
-    private static string GenerateOdtXml(string edition, string version, OdtConfig odt, string? sourcePath)
+    public static string GenerateOdtXml(string edition, string version, OdtConfig odt, string? sourcePath, bool pinVersion = true)
     {
         var lines = new List<string> { "<Configuration>" };
 
@@ -1015,7 +1075,8 @@ public sealed class StagingService
         addAttrs.Add($"OfficeClientEdition=\"{edition}\"");
         addAttrs.Add($"Channel=\"{odt.Channel}\"");
         addAttrs.Add("OfficeMgmtCOM=\"TRUE\"");
-        addAttrs.Add($"Version=\"{version}\"");
+        if (pinVersion)
+            addAttrs.Add($"Version=\"{version}\"");
         addAttrs.Add("MigrateArch=\"TRUE\"");
         lines.Add($"  <Add {string.Join(" ", addAttrs)}>");
 
@@ -1662,6 +1723,14 @@ public sealed class StagingService
     /// Appends CommandFragment for enabled toggles, substitutes {value} for other types.
     /// </summary>
     public static string ResolveInstallerArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values)
+        => ResolveArgs(baseArgs, parameters, values, p => p.CommandFragment);
+
+    /// <summary>Same appending rules as the install arguments, driven by UninstallFragment.</summary>
+    public static string ResolveUninstallArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values)
+        => ResolveArgs(baseArgs, parameters, values, p => p.UninstallFragment);
+
+    private static string ResolveArgs(string baseArgs, InstallerParameter[]? parameters, Dictionary<string, string>? values,
+        Func<InstallerParameter, string?> fragmentOf)
     {
         if (parameters is null || parameters.Length == 0)
             return baseArgs;
@@ -1672,7 +1741,8 @@ public sealed class StagingService
 
         foreach (var param in parameters)
         {
-            if (string.IsNullOrEmpty(param.CommandFragment))
+            var fragment = fragmentOf(param);
+            if (string.IsNullOrEmpty(fragment))
                 continue;
 
             if (values is null || !values.TryGetValue(param.Key, out var value))
@@ -1681,12 +1751,12 @@ public sealed class StagingService
             if (param.ControlType == "Toggle")
             {
                 if (value.Equals("true", StringComparison.OrdinalIgnoreCase))
-                    parts.Add(param.CommandFragment.Replace("{value}", MapValue(param, null, "1"), StringComparison.OrdinalIgnoreCase));
+                    parts.Add(fragment.Replace("{value}", MapValue(param, null, "1"), StringComparison.OrdinalIgnoreCase));
             }
             else
             {
                 if (!string.IsNullOrEmpty(value))
-                    parts.Add(param.CommandFragment.Replace("{value}", MapValue(param, null, value), StringComparison.OrdinalIgnoreCase));
+                    parts.Add(fragment.Replace("{value}", MapValue(param, null, value), StringComparison.OrdinalIgnoreCase));
             }
         }
 

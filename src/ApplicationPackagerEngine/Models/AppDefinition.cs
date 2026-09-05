@@ -378,6 +378,11 @@ public sealed class InstallerParameter
     /// Example: "/D={value}" or "PrependPath={value}" or "--serverport {value}"
     /// </summary>
     public string? CommandFragment { get; set; }
+    /// <summary>
+    /// The uninstall command-line fragment, with the same Toggle and {value} rules
+    /// as CommandFragment. Null when the parameter does not affect the uninstall.
+    /// </summary>
+    public string? UninstallFragment { get; set; }
     /// <summary>Group name for organizing parameters into sections in the UI.</summary>
     public string? Group { get; set; }
     /// <summary>Minimum value for Number control type.</summary>

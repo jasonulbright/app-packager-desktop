@@ -15,6 +15,12 @@ public partial class SettingsViewModel : ObservableObject
     private readonly PackagerPreferencesService _prefsSync;
     private readonly ISnackbarService _snackbarService;
     private readonly PackagesViewModel _packagesViewModel;
+    private readonly PackagerDiscoveryService _discoveryService;
+
+    // Install parameters per definition
+    public ObservableCollection<InstallParameterGroup> InstallParameterGroups { get; } = [];
+    [ObservableProperty] private bool _skipConfigReview;
+    [ObservableProperty] private string _installParameterSummary = "";
 
     // Organization
     [ObservableProperty] private string _companyName = "";
@@ -129,12 +135,14 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnHasStoredIntuneSecretChanged(bool value) => OnPropertyChanged(nameof(IntuneSecretHint));
 
-    public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService, PackagesViewModel packagesViewModel)
+    public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService,
+        PackagesViewModel packagesViewModel, PackagerDiscoveryService discoveryService)
     {
         _settingsService = settingsService;
         _prefsSync = prefsSync;
         _snackbarService = snackbarService;
         _packagesViewModel = packagesViewModel;
+        _discoveryService = discoveryService;
 
         // Migrate from PS1 GUI preferences on first launch
         prefsSync.MigrateFromPs1IfNeeded();
@@ -142,6 +150,36 @@ public partial class SettingsViewModel : ObservableObject
         RefreshIconPackStatus();
         RefreshToolStatus();
         _ = RefreshGitHubApiStatusAsync();
+        _ = LoadInstallParameterGroupsAsync();
+    }
+
+    /// <summary>
+    /// One group per definition that declares install parameters, each starting from
+    /// the saved values so the panels show what the next stage will use.
+    /// </summary>
+    private async Task LoadInstallParameterGroupsAsync()
+    {
+        var saved = _settingsService.Load().InstallerSettingValues;
+        var definitions = await _discoveryService.LoadDefinitionsAsync();
+        InstallParameterGroups.Clear();
+        foreach (var def in definitions.Where(d => d.InstallerSettings is { Length: > 0 })
+                                       .OrderBy(d => d.Application, StringComparer.OrdinalIgnoreCase))
+        {
+            var values = saved.TryGetValue(def.Id, out var stored)
+                ? new Dictionary<string, string>(stored)
+                : new Dictionary<string, string>();
+            InstallParameterGroups.Add(new InstallParameterGroup
+            {
+                DefinitionId = def.Id,
+                Application = def.Application,
+                Vendor = def.Vendor,
+                Parameters = def.InstallerSettings!,
+                Values = values
+            });
+        }
+        InstallParameterSummary = InstallParameterGroups.Count == 0
+            ? "No definition declares install parameters."
+            : $"{InstallParameterGroups.Count} applications carry install parameters.";
     }
 
     private void RefreshIconPackStatus() =>
@@ -377,6 +415,7 @@ public partial class SettingsViewModel : ObservableObject
         OneClickForce = s.OneClick.ForceOnLaunch;
         OneClickCadenceDays = s.OneClick.DefaultCadenceDays > 0 ? s.OneClick.DefaultCadenceDays : 7;
         RefreshOneClickRows();
+        SkipConfigReview = s.SkipConfigReview;
 
         CwaStoreName = s.Cwa.StoreName;
         CwaStoreUrl = s.Cwa.StoreUrl;
@@ -433,6 +472,10 @@ public partial class SettingsViewModel : ObservableObject
             CreateTestCollectionIfMissing = CreateTestCollectionIfMissing,
         };
         s.Intune.CreateIntuneWin = CreateIntuneWin;
+
+        s.SkipConfigReview = SkipConfigReview;
+        foreach (var group in InstallParameterGroups)
+            s.InstallerSettingValues[group.DefinitionId] = new Dictionary<string, string>(group.Values);
 
         var defaultCadence = (int)(OneClickCadenceDays ?? 7);
         s.OneClick = new OneClickSettings

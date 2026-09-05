@@ -82,6 +82,16 @@ public class PackagerExecutionService(
                 ? deploymentConditionsService.GetConditions(def.Id)?.InstallMode
                 : null;
             if (string.IsNullOrWhiteSpace(installMode)) installMode = null;
+            // Saved install parameters apply when the caller brought none (no review
+            // dialog); the M365 channel from Settings rides along for ODT definitions.
+            settingsValues ??= appSettings.InstallerSettingValues.TryGetValue(def.Id, out var saved)
+                ? new Dictionary<string, string>(saved)
+                : null;
+            if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(appSettings.M365Channel))
+            {
+                settingsValues ??= [];
+                settingsValues[StagingService.OdtChannelKey] = appSettings.M365Channel;
+            }
             var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues, installMode);
             return new PackagerExecutionResult
             {
