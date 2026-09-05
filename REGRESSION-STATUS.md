@@ -13,10 +13,10 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 114 |
+| **FULL PASS** | 115 |
 | **Needs Retest (interactive)** | 4 |
 | **Excluded/Deferred** | 16 |
-| **Total** | **134** |
+| **Total** | **135** |
 
 ---
 
@@ -149,7 +149,7 @@ Re-verified after a vendor or definition change, or newly verified:
 | 100 | KDiff3 (x64) | key in the 32-bit view; uninstall `/S` alone (`_?=` exits -1 and removes nothing) | **FULL PASS** (after the uninstall fix; first run Uninstall FAIL exit -1) |
 | 101 | Apache NetBeans (x64) | new definition; uninstall through the new ARP lookup (key hint) | **FULL PASS** |
 
-## Validated via Remote Harness — 2026-09-05 (13 apps, all four phases PASS)
+## Validated via Remote Harness — 2026-09-05 (14 apps, all four phases PASS)
 
 Same method as 2026-09-04. These are the definitions whose plain command-line
 `UninstallCommand` was pasted into the uninstall wrapper unparsed until 9334506;
@@ -171,6 +171,7 @@ KDiff3 additionally ran as a User-mode stage (Install for = User).
 | 112 | Typora (x64) | `/DIR=` override with an unquoted space removed (it installed to `C:\Program`); uninstall wrapper from a plain command line | **FULL PASS** (second run, after the fix) |
 | 113 | UltraVNC (x64) | uninstall wrapper from a plain command line | **FULL PASS** |
 | 114 | Unity Hub (x64) | uninstall wrapper from a plain command line | **FULL PASS** |
+| 115 | Spectra PDF (x64) | `/acceptEULA` added to the silent install (the installer exits 2 without it); uninstall wrapper from a plain command line | **FULL PASS** (install.bat / uninstall.bat from the stage, key and version checked in the 64-bit view) |
 | 100 | KDiff3 (x64) | Install for = User: `/S /CurrentUser`, HKCU key, uninstall from `%LOCALAPPDATA%` with the `Au_` wait | **FULL PASS** (User mode; System verdict from 2026-09-04 stands) |
 
 Not verified in this run (the wrapper repair applies to them too):
@@ -179,7 +180,6 @@ Not verified in this run (the wrapper repair applies to them too):
 |-----|--------|--------|
 | Android Studio (x64) | Install FAIL (exit 1223) | The installer reports a cancelled operation in the non-interactive WinRM session before any file is written; uninstall never ran. Retest under SYSTEM (psexec) or interactively. |
 | Calibrite PROFILER (x64) | Install TIMEOUT (900 s) | `/S` did not return; the product folder and its ARP key were present afterwards, so the installer finished its copy and then waited on something. Uninstall not exercised. |
-| Spectra PDF (x64) | Install FAIL (exit 2) | The installer aborts within 3 s in the WinRM session; `/S /allusers` also exits 2 but leaves a partial folder. Under investigation in the installer's own repository. |
 | Windows Admin Center (v2) | WinRM session lost | The install reconfigures WinRM and drops the harness session. Needs a psexec or interactive run. |
 
 ## Needs Retest — Interactive Session Required (4 apps)
@@ -221,7 +221,7 @@ These apps install with exit 0 via WinRM but do not actually lay down files (Inn
 ## Changes — 2026-09-05
 
 Engine changes affecting verdicts (lab results in the 2026-09-05 table above):
-- Definitions whose `UninstallCommand` is a plain command line (17: Android Studio, Bambu Studio, BleachBit, calibrite PROFILER, PeaZip, Proton VPN, Raspberry Pi Imager, Salesforce CLI, Simplenote, Spectra PDF, Stellarium, SyncBackFree, TurboVNC, Typora, UltraVNC, Unity Hub, Windows Admin Center) shipped an uninstall wrapper that failed to parse: the quoted path parsed as a string expression and the first switch as a stray token. The Windows ADK and Windows PE add-on definitions carry the same shape but stage as bootstrapper layouts with their own wrappers, so they were never affected. The wrapper now runs them through Start-Process; 13 of the 17 passed all four phases the same day, Typora after its own fix, and the other four are listed above with the reason each did not complete.
+- Definitions whose `UninstallCommand` is a plain command line (17: Android Studio, Bambu Studio, BleachBit, calibrite PROFILER, PeaZip, Proton VPN, Raspberry Pi Imager, Salesforce CLI, Simplenote, Spectra PDF, Stellarium, SyncBackFree, TurboVNC, Typora, UltraVNC, Unity Hub, Windows Admin Center) shipped an uninstall wrapper that failed to parse: the quoted path parsed as a string expression and the first switch as a stray token. The Windows ADK and Windows PE add-on definitions carry the same shape but stage as bootstrapper layouts with their own wrappers, so they were never affected. The wrapper now runs them through Start-Process; 14 of the 17 passed all four phases the same day, Typora and Spectra PDF after their own fixes, and the other three are listed above with the reason each did not complete.
 - Install for (System / User) on eleven definitions rewrites the staged switch, uninstaller, detection hive/view and context from the compiled script. KDiff3 staged in User mode went through the remote harness on CLIENT01 in the LabAdmin session: install `/S /CurrentUser`, key found under HKCU, uninstall through `%LOCALAPPDATA%ProgramsKDiff3Ninstall.exe` with the `Au_` wait, key gone (all four phases PASS). The other ten have System-mode verdicts only.
 - Drop analysis reads NSIS and Inno Setup compiled scripts; verdicts for drops are not tracked here.
 

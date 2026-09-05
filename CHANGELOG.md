@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Install Spectra PDF unattended with its required acceptance switch.
+
 ## [2.2.0-alpha3] - 2026-09-05
 
 ### Added

@@ -17,7 +17,7 @@
     "DownloadUrlQuery": "\"browser_download_url\":\\s*\"(https://[^\"]*?_x64-setup\\.exe)\""
   },
   "DownloadUrl": "",
-  "InstallArgs": "/S",
+  "InstallArgs": "/S /acceptEULA",
   "UninstallArgs": "/S",
   "UninstallCommand": "\"C:\\Program Files\\Spectra PDF\\uninstall.exe\" /S",
   "Detection": {
@@ -30,6 +30,6 @@
     "Is64Bit": true
   },
   "RunningProcess": [
-    "Spectra PDF"
+    "spectrapdf"
   ]
 }
