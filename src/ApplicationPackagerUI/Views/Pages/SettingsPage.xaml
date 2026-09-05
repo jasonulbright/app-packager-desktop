@@ -139,6 +139,26 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <!-- ═══════════════════════════════════════════════════ -->
+            <!-- GitHub API -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="GitHub API" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from PACKR_GITHUB_TOKEN, GITHUB_TOKEN or gh auth login raises that to 5,000."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Refresh"
+                           Icon="{ui:SymbolIcon ArrowSync24}"
+                           Command="{Binding RefreshGitHubApiStatusCommand}"
+                           IsEnabled="{Binding GitHubApiIdle}"
+                           Margin="8,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding GitHubApiStatus}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap" VerticalAlignment="Center" />
+            </DockPanel>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
             <!-- Intune -->
             <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Intune" Style="{StaticResource SectionHeader}" />

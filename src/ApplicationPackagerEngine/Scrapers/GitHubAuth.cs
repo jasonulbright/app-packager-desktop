@@ -16,14 +16,20 @@ public static class GitHubAuth
 {
     private const string ApiHost = "api.github.com";
 
-    private static readonly Lazy<string?> Cached = new(
-        () => ResolveToken(Environment.GetEnvironmentVariable, ReadGhCliToken),
+    private static readonly Lazy<(string? Token, string? Source)> Cached = new(
+        () => ResolveTokenWithSource(Environment.GetEnvironmentVariable, ReadGhCliToken),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>
     /// The resolved token, or null when none is available. Resolved once per process.
     /// </summary>
-    public static string? Token => Cached.Value;
+    public static string? Token => Cached.Value.Token;
+
+    /// <summary>
+    /// Where the token came from: the variable name, "gh auth login", or null
+    /// when requests are anonymous.
+    /// </summary>
+    public static string? TokenSource => Cached.Value.Source;
 
     /// <summary>
     /// True when the URL targets the GitHub REST API. Release asset downloads live on
@@ -56,15 +62,24 @@ public static class GitHubAuth
     /// PACKR_GITHUB_TOKEN, GITHUB_TOKEN, or the gh CLI, else null.
     /// </summary>
     public static string? ResolveToken(Func<string, string?> readEnv, Func<string?> readGhCli)
+        => ResolveTokenWithSource(readEnv, readGhCli).Token;
+
+    /// <summary>
+    /// Token resolution that also names the winning source, for the Settings
+    /// status row. A source whose value is refused by Sanitize still ends the
+    /// search: the operator set it, so falling through would hide the problem.
+    /// </summary>
+    public static (string? Token, string? Source) ResolveTokenWithSource(
+        Func<string, string?> readEnv, Func<string?> readGhCli)
     {
         foreach (var name in new[] { "PACKR_GITHUB_TOKEN", "GITHUB_TOKEN" })
         {
             var value = readEnv(name)?.Trim();
-            if (!string.IsNullOrEmpty(value)) return Sanitize(value);
+            if (!string.IsNullOrEmpty(value)) return (Sanitize(value), name);
         }
 
         var cli = readGhCli()?.Trim();
-        return string.IsNullOrEmpty(cli) ? null : Sanitize(cli);
+        return string.IsNullOrEmpty(cli) ? (null, null) : (Sanitize(cli), "gh auth login");
     }
 
     /// <summary>

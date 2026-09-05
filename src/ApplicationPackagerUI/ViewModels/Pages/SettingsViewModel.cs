@@ -74,6 +74,14 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnIconPackBusyChanged(bool value) => OnPropertyChanged(nameof(IconPackIdle));
 
+    // GitHub API
+    [ObservableProperty] private string _gitHubApiStatus = "Checking...";
+    [ObservableProperty] private bool _gitHubApiBusy;
+
+    public bool GitHubApiIdle => !GitHubApiBusy;
+
+    partial void OnGitHubApiBusyChanged(bool value) => OnPropertyChanged(nameof(GitHubApiIdle));
+
     // UI
     [ObservableProperty] private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
 
@@ -94,11 +102,33 @@ public partial class SettingsViewModel : ObservableObject
         prefsSync.MigrateFromPs1IfNeeded();
         LoadSettings();
         RefreshIconPackStatus();
+        _ = RefreshGitHubApiStatusAsync();
     }
 
     private void RefreshIconPackStatus() =>
         IconPackStatus = IconPackService.StatusText(
             IconPackService.ReadStatus(IconPackService.DefaultDefinitionsDirectory()));
+
+    /// <summary>
+    /// Asks api.github.com for the quota of the credentials the scrapers use.
+    /// The query is the only network call on this page and runs when it opens,
+    /// so a sweep about to hit the anonymous budget is visible beforehand.
+    /// </summary>
+    [RelayCommand]
+    private async Task RefreshGitHubApiStatusAsync()
+    {
+        if (GitHubApiBusy) return;
+        GitHubApiBusy = true;
+        try
+        {
+            var status = await GitHubApiStatusService.QueryAsync();
+            GitHubApiStatus = status.StatusText();
+        }
+        finally
+        {
+            GitHubApiBusy = false;
+        }
+    }
 
     /// <summary>
     /// Downloads and installs the packager icon pack. The service reports every failure

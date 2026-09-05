@@ -15,6 +15,12 @@ namespace ApplicationPackagerEngine.Scrapers;
 ///
 /// Downloaded files are cached in %TEMP%\SRLPackr-FileVersionCache\ so that
 /// Stage can reuse the already-downloaded installer instead of re-downloading.
+///
+/// With Hops set, the hops run first (ChainedHttpRegexScraper semantics) and
+/// their "url" capture names the file to download, for a vendor whose page
+/// links the current build but publishes no version string. Staging reads the
+/// same URL through ResolveDownloadUrlAsync; DownloadUrlQuery must be
+/// non-empty ("CHAINED") for staging to ask.
 /// </summary>
 public sealed class FileVersionScraper : IVersionScraper
 {
@@ -27,14 +33,18 @@ public sealed class FileVersionScraper : IVersionScraper
         if (string.IsNullOrWhiteSpace(config.Url) || string.IsNullOrWhiteSpace(config.Pattern))
             return null;
 
+        var url = await ResolveDownloadUrlAsync(config, ct);
+        if (url is null) return null;
+
         Directory.CreateDirectory(CacheDir);
 
         // Derive a stable filename from the URL
-        var fileName = ResolveFileName(config.Url);
+        var fileName = ResolveFileName(url);
         var cachedPath = Path.Combine(CacheDir, fileName);
 
-        // Always re-download (these URLs serve "latest" with no version in path)
-        await DownloadAsync(config.Url, cachedPath, ct);
+        // Always re-download: a fixed URL serves "latest" with no version in
+        // the path, and a hop-resolved build name repeats across point releases.
+        await DownloadAsync(url, cachedPath, ct);
         if (!File.Exists(cachedPath)) return null;
 
         var version = config.Pattern.ToUpperInvariant() switch
@@ -47,6 +57,19 @@ public sealed class FileVersionScraper : IVersionScraper
         };
 
         return string.IsNullOrWhiteSpace(version) ? null : version.Trim();
+    }
+
+    /// <summary>
+    /// The URL whose file carries the version: the configured URL, or with
+    /// Hops the "url" capture of the crawl. Null when a hop fails to match.
+    /// </summary>
+    public static async Task<string?> ResolveDownloadUrlAsync(VersionScraperConfig config, CancellationToken ct = default)
+    {
+        if (config.Hops is not { Count: > 0 })
+            return string.IsNullOrWhiteSpace(config.Url) ? null : config.Url;
+
+        var (_, url) = await ChainedHttpRegexScraper.CrawlAsync(config, ct);
+        return string.IsNullOrWhiteSpace(url) ? null : url;
     }
 
     /// <summary>

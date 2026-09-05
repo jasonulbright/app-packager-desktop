@@ -117,7 +117,7 @@ if (checkOnly)
 // Skip list
 var skipList = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 {
-    "slack.json", "teams.json", "foxitreader.json", "filezilla.json", "vmwaretools.json",
+    "teams.json", "foxitreader.json", "filezilla.json", "vmwaretools.json",
     "Dotnet10x64.json", // Defer to last
     "vs2026.json", "vs2026community.json",
     "7zip.json" // Harness dependency — 7z.exe must remain installed for other apps to stage

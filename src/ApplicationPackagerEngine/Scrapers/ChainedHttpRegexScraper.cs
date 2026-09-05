@@ -26,7 +26,11 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
         VersionScraperConfig config, CancellationToken ct = default)
         => await CrawlAsync(config, ct);
 
-    private static async Task<(string? Version, string? DownloadUrl)> CrawlAsync(
+    /// <summary>
+    /// Runs the hops of <paramref name="config"/>. Shared with the FileVersion
+    /// scraper, whose hops locate the installer whose resource carries the version.
+    /// </summary>
+    public static async Task<(string? Version, string? DownloadUrl)> CrawlAsync(
         VersionScraperConfig config, CancellationToken ct)
     {
         if (config.Hops is null || config.Hops.Count == 0)

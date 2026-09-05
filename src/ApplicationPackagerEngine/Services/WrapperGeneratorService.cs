@@ -57,13 +57,15 @@ public sealed class WrapperGeneratorService
 
     /// <summary>
     /// Generates all 4 wrapper files for an EXE installer.
-    /// Uninstall uses the same EXE with uninstall args, or looks up
-    /// the uninstall string from ARP registry for InnoSetup/NSIS apps.
+    /// Uninstall runs the definition's command when it has one; otherwise it
+    /// resolves the product's Add/Remove Programs entry (see
+    /// BuildArpLookupUninstall) using the detection key name and install
+    /// folder as lookup hints.
     /// </summary>
     public void GenerateExeWrappers(string outputPath, string exeFileName,
         string installArgs, string uninstallArgs, string? installerFramework = null,
         string? applicationName = null, string? uninstallCommand = null,
-        string? postInstallScript = null)
+        string? postInstallScript = null, string? arpKeyName = null, string? installFolder = null)
     {
         var installPs1 = $"""
             $exePath = Join-Path $PSScriptRoot '{exeFileName}'
@@ -99,93 +101,149 @@ public sealed class WrapperGeneratorService
                 exit $proc.ExitCode
                 """;
         }
-        else if (installerFramework is "InnoSetup")
-        {
-            // InnoSetup: find and run unins000.exe from the install directory via ARP UninstallString
-            uninstallPs1 = $$"""
-                # Find uninstall string from ARP registry
-                $arpPaths = @(
-                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
-                )
-                foreach ($arpPath in $arpPaths) {
-                    Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
-                        $key = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-                        if ($key.UninstallString -like '*unins*') {
-                            $uninstaller = $key.UninstallString -replace '"', ''
-                            if (Test-Path $uninstaller) {
-                                $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
-                                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-                                exit $proc.ExitCode
-                            }
-                        }
-                    }
-                }
-                # Fallback: try the installer with uninstall args
-                $exePath = Join-Path $PSScriptRoot '{{exeFileName}}'
-                $proc = Start-Process -FilePath $exePath -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
-                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-                exit $proc.ExitCode
-                """;
-        }
-        else if (installerFramework is "NSIS")
-        {
-            // NSIS: find uninstaller from ARP by application name (strip arch suffix for broader match)
-            var matchName = applicationName ?? exeFileName.Replace(".exe", "");
-            // Remove trailing (x64), (x86), (x64) etc. so "Notepad++ (x64)" matches "Notepad++ (64-bit x64)"
-            matchName = System.Text.RegularExpressions.Regex.Replace(matchName, @"\s*\(x\d+\)\s*$", "").Trim();
-            uninstallPs1 = $$"""
-                $arpPaths = @(
-                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
-                )
-                foreach ($arpPath in $arpPaths) {
-                    Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
-                        $key = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-                        if ($key.UninstallString -and $key.UninstallString -notlike '*msiexec*' -and $key.DisplayName -like '*{{matchName}}*') {
-                            $uninstaller = $key.UninstallString -replace '"', ''
-                            if (Test-Path $uninstaller) {
-                                $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
-                                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-                                exit $proc.ExitCode
-                            }
-                        }
-                    }
-                }
-                exit 1
-                """;
-        }
         else
         {
-            // Default: look up vendor uninstaller from ARP, fall back to installer EXE with args
-            uninstallPs1 = $$"""
-                # Try ARP UninstallString first (vendor's own uninstaller)
-                $arpPaths = @(
-                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
-                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
-                )
-                foreach ($arpPath in $arpPaths) {
-                    Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
-                        $key = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-                        if ($key.UninstallString -and $key.UninstallString -notlike '*msiexec*') {
-                            $uninstaller = $key.UninstallString -replace '"', ''
-                            if (Test-Path $uninstaller) {
-                                $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
-                                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-                                exit $proc.ExitCode
-                            }
-                        }
-                    }
-                }
-                # Fallback: try the installer EXE with uninstall args
-                $exePath = Join-Path $PSScriptRoot '{{exeFileName}}'
-                $proc = Start-Process -FilePath $exePath -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
-                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-                exit $proc.ExitCode
-                """;
+            uninstallPs1 = BuildArpLookupUninstall(exeFileName, uninstallArgs, installerFramework,
+                applicationName, arpKeyName, installFolder);
         }
 
         WriteWrappers(outputPath, installPs1, uninstallPs1);
+    }
+
+    /// <summary>
+    /// Uninstall body that locates this product's own Add/Remove Programs
+    /// entry before running its uninstaller. Candidates are tried from most
+    /// to least specific: the detection key name, an uninstaller inside the
+    /// detection folder, then a display-name match. A scan that ran the
+    /// first uninstaller found removes an unrelated product on any machine
+    /// carrying more than one product of the same installer engine.
+    /// Inno Setup entries must name an unins*.exe; with no match the body
+    /// exits 0 because re-running the setup with silent switches installs.
+    /// NSIS exits 1 with no match. Other engines fall back to the staged
+    /// installer with the uninstall arguments, which is how a Burn bundle
+    /// removes itself.
+    /// </summary>
+    public static string BuildArpLookupUninstall(string exeFileName, string uninstallArgs,
+        string? installerFramework, string? applicationName, string? arpKeyName, string? installFolder)
+    {
+        // The trailing architecture tag is the definition's, not the vendor's:
+        // "Notepad++ (x64)" has to match "Notepad++ (64-bit x64)".
+        var matchName = applicationName ?? exeFileName.Replace(".exe", "");
+        matchName = System.Text.RegularExpressions.Regex.Replace(matchName, @"\s*\(x\d+\)\s*$", "").Trim();
+
+        var innoFilter = installerFramework is "InnoSetup"
+            ? " -and $_.UninstallString -like '*unins*'"
+            : "";
+
+        var noMatch = installerFramework switch
+        {
+            "InnoSetup" => "exit 0",
+            "NSIS" => "exit 1",
+            _ => $$"""
+                $exePath = Join-Path $PSScriptRoot '{{EscapePsLiteral(exeFileName)}}'
+                $proc = Start-Process -FilePath $exePath -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                exit $proc.ExitCode
+                """
+        };
+
+        return $$"""
+            $arpPaths = @(
+                'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+            )
+            function Get-UninstallerPath([string]$command) {
+                if ($command -match '^\s*"([^"]+)"') { return $matches[1] }
+                $trimmed = $command.Trim()
+                if (Test-Path -LiteralPath $trimmed) { return $trimmed }
+                return ($trimmed -split '\s+[/-]', 2)[0].Trim()
+            }
+            $entries = @(foreach ($arpPath in $arpPaths) {
+                Get-ChildItem $arpPath -ErrorAction SilentlyContinue | ForEach-Object {
+                    Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+                }
+            })
+            $entries = @($entries | Where-Object { $_.UninstallString -and $_.UninstallString -notlike '*msiexec*'{{innoFilter}} })
+            $keyName = '{{EscapePsLiteral(arpKeyName ?? "")}}'
+            $installFolder = '{{EscapePsLiteral(installFolder ?? "")}}'
+            $displayName = '{{EscapeLikePattern(matchName)}}'
+            $match = $null
+            if ($keyName) {
+                $match = $entries | Where-Object { $_.PSChildName -eq $keyName } | Select-Object -First 1
+            }
+            if (-not $match -and $installFolder) {
+                $root = $installFolder.TrimEnd('\') + '\'
+                $match = $entries | Where-Object { (Get-UninstallerPath $_.UninstallString).StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+            }
+            if (-not $match -and $displayName) {
+                $match = $entries | Where-Object { $_.DisplayName -like $displayName } | Select-Object -First 1
+            }
+            if ($match) {
+                $uninstaller = Get-UninstallerPath $match.UninstallString
+                if (Test-Path -LiteralPath $uninstaller) {
+                    $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                    $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
+                    exit $proc.ExitCode
+                }
+            }
+            {{noMatch}}
+            """;
+    }
+
+    /// <summary>
+    /// Wraps a display name in wildcards for a PowerShell -like pattern inside
+    /// a single-quoted literal. Wildcard characters in the name are bracketed
+    /// so a name such as "Foo [Beta]" matches itself, and an empty name yields
+    /// an empty pattern so the caller skips the display-name step.
+    /// </summary>
+    public static string EscapeLikePattern(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "";
+        var sb = new StringBuilder("*");
+        foreach (var c in name)
+        {
+            switch (c)
+            {
+                case '*': case '?': case '[': case ']': sb.Append('[').Append(c).Append(']'); break;
+                case '\'': sb.Append("''"); break;
+                default: sb.Append(c); break;
+            }
+        }
+        return sb.Append('*').ToString();
+    }
+
+    /// <summary>
+    /// The two lookup hints the uninstall wrapper takes from a detection rule:
+    /// the Add/Remove Programs key name when the rule reads such a key, and
+    /// the install folder when the rule checks a file. A compound rule
+    /// contributes the first clause of each kind.
+    /// </summary>
+    public static (string? ArpKeyName, string? InstallFolder) ResolveUninstallHints(StageDetection? detection)
+    {
+        if (detection is null) return (null, null);
+
+        string? keyName = null;
+        string? folder = null;
+        var clauses = detection.Clauses is { Length: > 0 } ? detection.Clauses : [detection];
+        foreach (var clause in clauses)
+        {
+            var key = clause.RegistryKeyRelative;
+            if (keyName is null && !string.IsNullOrWhiteSpace(key))
+            {
+                var marker = key.LastIndexOf(@"\Uninstall\", StringComparison.OrdinalIgnoreCase);
+                if (marker >= 0)
+                {
+                    var leaf = key[(marker + @"\Uninstall\".Length)..].Trim('\\');
+                    // An unresolved template token ({ProductCode}) is not a key name; a GUID leaf is.
+                    if (leaf.Length > 0 && !leaf.Contains('\\')
+                        && !System.Text.RegularExpressions.Regex.IsMatch(leaf, @"\{[A-Za-z_:]+\}"))
+                        keyName = leaf;
+                }
+            }
+            if (folder is null && !string.IsNullOrWhiteSpace(clause.FilePath) && !clause.FilePath.Contains('{'))
+                folder = clause.FilePath;
+        }
+        return (keyName, folder);
     }
 
     /// <summary>
