@@ -17,7 +17,7 @@
     "DownloadUrlQuery": "(https?://[^\\s\"]+HashToolsSetup-\\d+(?:\\.\\d+)+\\.exe)"
   },
   "DownloadUrl": "",
-  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=C:\\Program Files\\HashTools",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=\"C:\\Program Files\\HashTools\"",
   "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
   "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\HashTools\\unins000.exe\" -ArgumentList \"/VERYSILENT /NORESTART /SUPPRESSMSGBOXES\" -Wait -PassThru -NoNewWindow",
   "Detection": {

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.0-alpha6] - 2026-09-07
+
+### Fixed
+
+- Fixed install paths with spaces for HashTools, HeidiSQL and PSPad.
+- Fixed the TeamViewer Host version read without 7-Zip.
+- Fixed repeated full downloads when checking versions from the installer.
+- Fixed Intune detection for prefix, suffix and substring matches.
+- Fixed Intune detection operators other than equals and greater-or-equal.
+
 ## [2.2.0-alpha5] - 2026-09-05
 
 ### Added
