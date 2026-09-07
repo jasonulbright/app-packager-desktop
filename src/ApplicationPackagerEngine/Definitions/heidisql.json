@@ -17,7 +17,7 @@
     "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+_Setup\\.exe)\""
   },
   "DownloadUrl": "https://github.com/HeidiSQL/HeidiSQL/releases/download/v{version}/HeidiSQL_{version}_Setup.exe",
-  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=C:\\Program Files\\HeidiSQL",
+  "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=\"C:\\Program Files\\HeidiSQL\"",
   "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
   "UninstallCommand": "$proc = Start-Process -FilePath \"C:\\Program Files\\HeidiSQL\\unins000.exe\" -ArgumentList \"/VERYSILENT /NORESTART /SUPPRESSMSGBOXES\" -Wait -PassThru -NoNewWindow",
   "Detection": {

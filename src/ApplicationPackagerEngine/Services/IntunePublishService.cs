@@ -331,7 +331,31 @@ public sealed class IntunePublishService : IDisposable
     }
 
     public static JsonArray BuildRules(StageDetection detection)
-        => new(MapOne(detection));
+    {
+        if (!string.Equals(detection.Type, "Compound", StringComparison.OrdinalIgnoreCase))
+            return new JsonArray(MapOne(detection));
+
+        // Graph ANDs every detection rule it is given, so an OR-connected
+        // compound would publish as a narrower rule than the definition states.
+        if (string.Equals(detection.Connector, "Or", StringComparison.OrdinalIgnoreCase)
+            || detection.GroupSizes is { Length: > 0 })
+            throw new InvalidOperationException(
+                "OR-connected compound detections cannot map to Intune rules (Graph ANDs all detection rules); use a Script detection for this app.");
+
+        var clauses = detection.Clauses ?? [];
+        if (clauses.Length < 2)
+            throw new InvalidOperationException("A Compound detection requires at least two Clauses.");
+
+        var rules = clauses.Select(MapOne).ToArray();
+        if (rules.Length > 1 && rules.Any(IsScriptRule))
+            throw new InvalidOperationException(
+                "A prefix, suffix, or substring clause maps to a script rule, which this mapping does not combine with other clauses; use a Script detection for this app.");
+
+        return new JsonArray(rules);
+    }
+
+    private static bool IsScriptRule(JsonNode rule) =>
+        string.Equals((string?)rule["@odata.type"], "#microsoft.graph.win32LobAppPowerShellScriptRule", StringComparison.Ordinal);
 
     private static JsonNode MapOne(StageDetection d)
     {
@@ -344,6 +368,11 @@ public sealed class IntunePublishService : IDisposable
             {
                 var expected = d.ExpectedValue ?? "";
                 var valueName = string.IsNullOrWhiteSpace(d.ValueName) ? "DisplayVersion" : d.ValueName;
+                // A detection that names no operator defaults the way the MECM
+                // clause builder defaults it.
+                var opName = string.IsNullOrWhiteSpace(d.Operator) ? "IsEquals" : d.Operator!;
+                if (ScriptOperators.Contains(opName, StringComparer.OrdinalIgnoreCase))
+                    return RegistryValueScriptRule(d, valueName, expected, opName);
                 var operationType = Version.TryParse(expected, out _) ? "version" : "string";
                 return new JsonObject
                 {
@@ -353,7 +382,7 @@ public sealed class IntunePublishService : IDisposable
                     ["keyPath"] = RegistryKeyPath(d),
                     ["valueName"] = valueName,
                     ["operationType"] = operationType,
-                    ["operator"] = VersionOperator(d.Operator),
+                    ["operator"] = MapOperator(opName, "registry value"),
                     ["comparisonValue"] = expected
                 };
             }
@@ -373,6 +402,9 @@ public sealed class IntunePublishService : IDisposable
             {
                 if (string.Equals(d.PropertyType, "Version", StringComparison.OrdinalIgnoreCase))
                 {
+                    // A file-version detection that names no operator defaults
+                    // the way the MECM clause builder defaults it.
+                    var opName = string.IsNullOrWhiteSpace(d.Operator) ? "GreaterEquals" : d.Operator!;
                     return new JsonObject
                     {
                         ["@odata.type"] = "#microsoft.graph.win32LobAppFileSystemRule",
@@ -381,7 +413,7 @@ public sealed class IntunePublishService : IDisposable
                         ["fileOrFolderName"] = d.FileName ?? "",
                         ["check32BitOn64System"] = check32,
                         ["operationType"] = "version",
-                        ["operator"] = VersionOperator(d.Operator),
+                        ["operator"] = MapOperator(opName, "file version"),
                         ["comparisonValue"] = d.ExpectedValue ?? ""
                     };
                 }
@@ -424,8 +456,67 @@ public sealed class IntunePublishService : IDisposable
     private static string RegistryKeyPath(StageDetection d) =>
         (d.IsCurrentUserHive ? @"HKEY_CURRENT_USER\" : @"HKEY_LOCAL_MACHINE\") + (d.RegistryKeyRelative ?? "");
 
-    private static string VersionOperator(string? op)
-        => string.Equals(op, "GreaterEquals", StringComparison.OrdinalIgnoreCase) ? "greaterThanOrEqual" : "equal";
+    /// <summary>Detection operators Graph expresses directly on a registry or file rule.</summary>
+    private static readonly Dictionary<string, string> RuleOperators = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["IsEquals"] = "equal",
+        ["NotEquals"] = "notEqual",
+        ["GreaterThan"] = "greaterThan",
+        ["GreaterEquals"] = "greaterThanOrEqual",
+        ["LessThan"] = "lessThan",
+        ["LessEquals"] = "lessThanOrEqual"
+    };
+
+    /// <summary>Operators Graph has no rule operator for; they map to a script rule.</summary>
+    private static readonly string[] ScriptOperators = ["BeginsWith", "EndsWith", "Contains"];
+
+    private static string MapOperator(string name, string context)
+        => RuleOperators.TryGetValue(name, out var mapped)
+            ? mapped
+            : throw new InvalidOperationException($"Detection operator '{name}' ({context}) has no Intune rule mapping.");
+
+    /// <summary>
+    /// Registry-value rule for a prefix, suffix, or substring comparison. Graph
+    /// registry rules carry equality and ordering operators only, so the
+    /// comparison keeps its meaning through a script that reads the value from
+    /// the requested registry view.
+    /// </summary>
+    private static JsonNode RegistryValueScriptRule(StageDetection d, string valueName, string expected, string op)
+    {
+        var hive = d.IsCurrentUserHive ? "CurrentUser" : "LocalMachine";
+        var view = d.Is64Bit ? "Registry64" : "Registry32";
+        // String.Contains(string, StringComparison) is absent from .NET Framework,
+        // which the client-side Windows PowerShell runs the script under.
+        var test = op.ToUpperInvariant() switch
+        {
+            "BEGINSWITH" => $"$value.StartsWith({PsLiteral(expected)}, [System.StringComparison]::OrdinalIgnoreCase)",
+            "ENDSWITH" => $"$value.EndsWith({PsLiteral(expected)}, [System.StringComparison]::OrdinalIgnoreCase)",
+            _ => $"$value.IndexOf({PsLiteral(expected)}, [System.StringComparison]::OrdinalIgnoreCase) -ge 0"
+        };
+
+        var script = string.Join("\r\n",
+            $"$base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::{hive}, [Microsoft.Win32.RegistryView]::{view})",
+            $"$key = $base.OpenSubKey({PsLiteral(d.RegistryKeyRelative ?? "")})",
+            "if ($key) {",
+            $"    $value = [string]$key.GetValue({PsLiteral(valueName)})",
+            $"    if ({test}) {{ Write-Output 'Detected'; exit 0 }}",
+            "}",
+            "exit 1");
+
+        return new JsonObject
+        {
+            ["@odata.type"] = "#microsoft.graph.win32LobAppPowerShellScriptRule",
+            ["ruleType"] = "detection",
+            ["enforceSignatureCheck"] = false,
+            ["runAs32Bit"] = false,
+            ["scriptContent"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(script)),
+            ["operationType"] = "notConfigured",
+            ["operator"] = "notConfigured"
+        };
+    }
+
+    /// <summary>A single-quoted PowerShell string literal; an apostrophe doubles.</summary>
+    private static string PsLiteral(string value) => "'" + value.Replace("'", "''") + "'";
 
     private async Task<string> WaitForStorageUriAsync(string fileUri, string token, IntunePublishOptions options, CancellationToken ct)
     {

@@ -218,6 +218,17 @@ These apps install with exit 0 via WinRM but do not actually lay down files (Inn
 
 ---
 
+## Changes — 2026-09-07
+
+**Definition fixes (3 apps):** HashTools, HeidiSQL and PSPad passed an Inno `/DIR=` target holding a space with no quotes of its own. The wrapper hands the whole argument string to Start-Process, which adds no quoting, so the installer read the directory as `C:\Program` — the same shape Typora hit on 2026-09-05. All three now quote the value. None of the three carries a recorded verdict, so no verdict is reopened; they need a first lab pass, not a retest.
+
+**Engine changes affecting verdicts:**
+- The version read from an installer's version resource now falls back to the four fixed-block product parts when the string table is empty. TeamViewer Host stages as `15.81.6.0` where it staged `15.81.6` before, and its file-version detection carries the same value. TeamViewer Host holds a FULL PASS verdict from 2026-04-06; the staged version string changed, so its detection needs one confirming lab pass.
+- A version scraped from the installer file revalidates its cached download instead of re-fetching it: the request carries the cached file's timestamp, an unchanged release answers 304 and keeps the cache, and a failed request keeps the cache too. The payload staged for a given version is unchanged, so no verdict is affected. Verified against the TeamViewer Host download on both branches (304 with the cache kept, 200 with the cache replaced and its timestamp set from the server).
+- Intune detection rules map every declared operator (`IsEquals`, `NotEquals`, `GreaterThan`, `GreaterEquals`, `LessThan`, `LessEquals`); a prefix, suffix or substring operator becomes a PowerShell script rule reading the value from the requested registry view, and an unmapped operator is refused instead of published as equality. Compound AND detections map one rule per clause. No shipped definition declares those three operators today, so no verdict is affected.
+
+---
+
 ## Changes — 2026-09-05
 
 Engine changes affecting verdicts (lab results in the 2026-09-05 table above):
