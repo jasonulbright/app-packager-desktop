@@ -167,6 +167,17 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Application title" Width="146">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ComboBox ItemsSource="{Binding DataContext.TitleModeOptions, RelativeSource={RelativeSource AncestorType=Page}}"
+                                      SelectedItem="{Binding TitleModeDisplay, UpdateSourceTrigger=PropertyChanged}"
+                                      BorderThickness="0" Background="Transparent"
+                                      ToolTip="MECM application title and Intune display name: include the release version for separate applications per release, or omit it to update one perpetual application. Changing this does not rename applications the site already holds. Content folders, detection and Software Center display names are unchanged." />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

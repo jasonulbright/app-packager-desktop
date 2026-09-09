@@ -23,4 +23,4 @@ public sealed class PackagerExecutionResult
 }
 
 /// <summary>The application and version a Skip run declined to overwrite.</summary>
-public sealed record ExistingApplicationConflict(string ApplicationName, string Version);
+public sealed record ExistingApplicationConflict(string ApplicationName, string Version, string IncomingVersion);

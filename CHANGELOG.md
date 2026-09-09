@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.0-alpha7] - 2026-09-09
+
+### Added
+
+- Added per-app versioned or perpetual application titles.
+- Added overwrite, skip or cancel for an existing application at any version.
+
+### Fixed
+
+- Fixed the task-sequence option breaking user installs.
+
 ## [2.2.0-alpha6] - 2026-09-07
 
 ### Fixed

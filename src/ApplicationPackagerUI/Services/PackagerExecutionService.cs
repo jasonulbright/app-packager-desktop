@@ -155,6 +155,10 @@ public class PackagerExecutionService(
             DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, stagedContentPath, Report);
             var requirements = DeploymentConditionsService.BuildRequirements(conditions);
             var commandOverrides = deploymentConditionsService.GetCommandOverrides(def.Id);
+            var applicationTitle = ApplicationTitle.Resolve(
+                manifest.AppName, manifest.SoftwareVersion, ApplicationTitle.Parse(conditions?.TitleMode));
+            if (applicationTitle != manifest.AppName)
+                Report($"Application title            : {applicationTitle}");
 
             // An Intune-only run stops at the staged content: no site connection, no share
             // copy, no MECM application. The build and publish below work from local content.
@@ -173,7 +177,8 @@ public class PackagerExecutionService(
                     providerMachine: settings.ProviderMachine,
                     onExisting: onExisting,
                     ct: ct,
-                    contentLayout: settings.ContentLayout);
+                    contentLayout: settings.ContentLayout,
+                    applicationTitle: applicationTitle);
 
                 mecmSucceeded = result.Success;
                 stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
@@ -190,6 +195,10 @@ public class PackagerExecutionService(
             var notes = IntuneRunNotes.None;
             if (DeploymentTargets.PublishesToIntune(target) && mecmSucceeded)
             {
+                // The Intune display name carries the same title as the MECM
+                // application. Every path that reads the manifest name for a
+                // content location has already run.
+                manifest.AppName = applicationTitle;
                 notes = await intuneDeploymentService.BuildAndPublishAsync(
                     manifest, stagedContentPath, Report, comment, ct);
             }
@@ -336,8 +345,8 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
-    /// Watches an output stream for the same-version conflict marker. The
-    /// marker is a line among many, so every reported line passes through
+    /// Watches an output stream for the existing-application conflict marker.
+    /// The marker is a line among many, so every reported line passes through
     /// here and only a match is retained.
     /// </summary>
     private sealed class ConflictWatch
@@ -347,8 +356,8 @@ public class PackagerExecutionService(
         public void Observe(string line)
         {
             if (Result is not null) return;
-            if (OnExistingConflict.TryParse(line, out var app, out var version))
-                Result = new ExistingApplicationConflict(app, version);
+            if (OnExistingConflict.TryParse(line, out var app, out var version, out var incoming))
+                Result = new ExistingApplicationConflict(app, version, incoming);
         }
     }
 
