@@ -23,11 +23,13 @@
     "InstallArgs":  "-s",
     "UninstallArgs":  "--uninstall -s",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\Postman",
-                      "FileName":  "Postman.exe",
-                      "PropertyType":  "Existence",
-                      "Is64Bit":  true
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKCU",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Postman",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  false
                   },
     "RunningProcess":  [
                            "Postman"

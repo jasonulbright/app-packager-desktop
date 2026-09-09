@@ -146,9 +146,9 @@ public class InstallModeTransformTests
             ExpectedValue = "1.2.3"
         };
 
-        var result = StagingService.ApplyInstallMode(def, Fixture("inno-admin-modes-x64.bin"), "CurrentUser", "/VERYSILENT /SP-", detection);
+        var result = StagingService.ApplyInstallMode(def, Fixture("inno-admin-modes-x64.bin"), "AllUsers", "/VERYSILENT /SP-", detection);
 
-        Assert.Equal(@"%LOCALAPPDATA%\Programs\Tree\bin", result.Detection.FilePath);
+        Assert.Equal(@"%ProgramFiles%\Tree\bin", result.Detection.FilePath);
         Assert.Equal("tree.exe", result.Detection.FileName);
         Assert.Equal(@"C:\Program Files\Tree\bin", detection.FilePath);
     }
@@ -156,14 +156,53 @@ public class InstallModeTransformTests
     [Fact]
     public void FileDetectionOutsideTheDefaultFolder_IsLeftAlone()
     {
-        var def = Def("InnoSetup", "/VERYSILENT", new DetectionConfig { Type = "File" });
+        var def = Def("NSIS", "/S", new DetectionConfig { Type = "File" });
         var detection = new StageDetection { Type = "File", FilePath = @"C:\Tools\Tree", FileName = "tree.exe" };
         var notes = new List<string>();
 
-        var result = StagingService.ApplyInstallMode(def, Fixture("inno-admin-modes-x64.bin"), "CurrentUser", "/VERYSILENT", detection, notes.Add);
+        var result = StagingService.ApplyInstallMode(def, Fixture("nsis-u-multimode.bin"), "AllUsers", "/S", detection, notes.Add);
 
         Assert.Equal(@"C:\Tools\Tree", result.Detection.FilePath);
         Assert.Contains(notes, n => n.Contains("left unchanged"));
+    }
+
+    [Fact]
+    public void PerUserBranch_FileDetectionBecomesHkcuVersionDetection()
+    {
+        var def = Def("InnoSetup", "/VERYSILENT /SP-", new DetectionConfig { Type = "File" });
+        var detection = new StageDetection
+        {
+            Type = "File",
+            FilePath = @"C:\Program Files\Tree\bin",
+            FileName = "tree.exe",
+            PropertyType = "Version",
+            Operator = "GreaterEquals",
+            ExpectedValue = "1.2.3",
+            Is64Bit = true
+        };
+
+        var result = StagingService.ApplyInstallMode(
+            def, Fixture("inno-admin-modes-x64.bin"), "CurrentUser", "/VERYSILENT /SP-", detection, null, null, "1.2.3");
+
+        Assert.Equal("RegistryKeyValue", result.Detection.Type);
+        Assert.Equal("CurrentUser", result.Detection.Hive);
+        Assert.Equal(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Tree64_is1", result.Detection.RegistryKeyRelative);
+        Assert.Equal("DisplayVersion", result.Detection.ValueName);
+        Assert.Equal("GreaterEquals", result.Detection.Operator);
+        Assert.Equal("1.2.3", result.Detection.ExpectedValue);
+        Assert.False(result.Detection.Is64Bit);
+        Assert.Equal("File", detection.Type);
+    }
+
+    [Fact]
+    public void PerUserBranch_WithoutAVersion_RefusesToInventUserDetection()
+    {
+        var def = Def("InnoSetup", "/VERYSILENT /SP-", new DetectionConfig { Type = "File" });
+        var detection = new StageDetection { Type = "File", FilePath = @"C:\Program Files\Tree\bin", FileName = "tree.exe" };
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            StagingService.ApplyInstallMode(def, Fixture("inno-admin-modes-x64.bin"), "CurrentUser", "/VERYSILENT /SP-", detection));
+        Assert.Contains("Cannot create user detection", ex.Message);
     }
 
     [Fact]

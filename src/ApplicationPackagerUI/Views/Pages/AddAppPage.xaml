@@ -126,7 +126,7 @@
                                     <TextBlock Text="Installer Framework (auto-detected)" />
                                     <ui:TextBox Text="{Binding InstallerFramework, UpdateSourceTrigger=PropertyChanged}"
                                                 PlaceholderText="Auto-detected during staging"
-                                                ToolTip="NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, MSIX, ZIP. Auto-filled when the engine inspects the installer." />
+                                                ToolTip="NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, Velopack, MSIX, ZIP. Auto-filled when the engine inspects the installer." />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>

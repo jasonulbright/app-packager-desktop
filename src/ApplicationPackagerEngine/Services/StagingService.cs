@@ -507,7 +507,7 @@ public sealed class StagingService
             string? modeUninstallCommandLine = null;
             if (!string.IsNullOrWhiteSpace(installMode))
             {
-                var applied = ApplyInstallMode(def, installerPath, installMode, installArgs, detection, onProgress, uninstallCommand);
+                var applied = ApplyInstallMode(def, installerPath, installMode, installArgs, detection, onProgress, uninstallCommand, displayVersion);
                 installArgs = applied.InstallArgs;
                 if (applied.UninstallExpression is not null) uninstallCommand = applied.UninstallExpression;
                 modeUninstallCommandLine = applied.UninstallCommandLine;
@@ -1225,16 +1225,21 @@ public sealed class StagingService
 
     private static readonly string[] ModeSwitches = ["/allusers", "/currentuser"];
 
+    private static readonly System.Text.RegularExpressions.Regex GuidKeyName =
+        new(@"\{[0-9a-fA-F-]{36}\}", System.Text.RegularExpressions.RegexOptions.Compiled);
+
     /// <summary>
     /// Applies the operator's install mode to a definition stage. The staged
     /// installer's compiled script must offer the mode; the definition must
     /// declare it. The mode switch replaces any mode switch already in the
-    /// arguments, the uninstaller and detection follow the branch, and a File
+    /// arguments, the uninstaller and detection follow the branch, a per-user
+    /// branch detects through its HKCU uninstall key, and a system File
     /// detection moves between the two branch folders.
     /// </summary>
     public static InstallModeResult ApplyInstallMode(
         AppDefinition def, string installerPath, string installMode, string installArgs,
-        StageDetection detection, Action<string>? onProgress = null, string? uninstallExpression = null)
+        StageDetection detection, Action<string>? onProgress = null, string? uninstallExpression = null,
+        string? softwareVersion = null)
     {
         var mode = installMode.Equals("AllUsers", StringComparison.OrdinalIgnoreCase) ? "AllUsers"
             : installMode.Equals("CurrentUser", StringComparison.OrdinalIgnoreCase) ? "CurrentUser"
@@ -1285,6 +1290,33 @@ public sealed class StagingService
             newDetection.RegistryKeyRelative = wow ? relative.Replace("WOW6432Node\\", "", StringComparison.OrdinalIgnoreCase) : relative;
             newDetection.Is64Bit = !wow && branch.Is64BitView;
             newDetection.Hive = branch.RegistryHive == "HKCU" ? "CurrentUser" : "LocalMachine";
+        }
+        else if (detection.Type == "File" && branch.InstallContext == "PerUser")
+        {
+            // A profile path cannot be resolved in the packaging or SYSTEM
+            // context, so the per-user branch detects through the uninstall key
+            // the branch itself names. Nothing is guessed from a folder name.
+            var relative = branch.UninstallRegistryKeyRelative;
+            var version = string.IsNullOrWhiteSpace(softwareVersion) ? detection.ExpectedValue : softwareVersion;
+            // A key holding an installer variable, a wildcard or an environment
+            // token was never resolved. A braced GUID is a resolved key name.
+            var unresolved = GuidKeyName.Replace(relative, "");
+            if (branch.RegistryHive != "HKCU" || string.IsNullOrWhiteSpace(relative)
+                || unresolved.IndexOfAny(['$', '{', '}', '*', '?', '%']) >= 0
+                || string.IsNullOrWhiteSpace(version))
+                throw new InvalidOperationException(
+                    $"Cannot create user detection for {Path.GetFileName(installerPath)}: the script did not supply a concrete HKCU uninstall key and application version.");
+            newDetection = new StageDetection
+            {
+                Type = "RegistryKeyValue",
+                Hive = "CurrentUser",
+                RegistryKeyRelative = relative,
+                ValueName = "DisplayVersion",
+                PropertyType = "Version",
+                Operator = "GreaterEquals",
+                ExpectedValue = version,
+                Is64Bit = false
+            };
         }
         else if (detection.Type == "File" && defaultBranch is not null && !string.IsNullOrEmpty(detection.FilePath))
         {

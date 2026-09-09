@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.2.0-alpha8] - 2026-09-09
+
+### Added
+
+- Added Velopack installers such as Draftable Desktop Setup to drop analysis.
+
+### Fixed
+
+- Fixed HKCU detection for user installs.
+- Fixed Postman detection to read the user uninstall key.
+
 ## [2.2.0-alpha7] - 2026-09-09
 
 ### Added
