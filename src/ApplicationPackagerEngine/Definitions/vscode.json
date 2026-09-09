@@ -3,8 +3,8 @@
     "Id":  "2383b1ac5eaa4200",
     "IconSource":  "Installer",
     "Vendor":  "Microsoft",
-    "Application":  "Visual Studio Code (x64)",
-    "CMName":  "Visual Studio Code",
+    "Application":  "Visual Studio Code (System) (x64)",
+    "CMName":  "Visual Studio Code (System)",
     "Architecture":  "x64",
     "VendorUrl":  "https://code.visualstudio.com/",
     "InstallerType":  "EXE",
@@ -17,10 +17,11 @@
                            "Url":  "https://update.code.visualstudio.com/api/releases/stable",
                            "Pattern":  "\"(\\d+\\.\\d+\\.\\d+)\""
                        },
-    "DownloadUrl":  "https://go.microsoft.com/fwlink/?LinkID=534107",
-    "InstallerFileName":  "VSCode-{version}-x64.exe",
-    "InstallArgs":  "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /MERGETASKS=!runcode",
-    "UninstallArgs":  "/SILENT",
+    "DownloadUrl":  "https://update.code.visualstudio.com/{version}/win32-x64/stable",
+    "InstallerFileName":  "VSCodeSetup-x64-{version}.exe",
+    "InstallArgs":  "/VERYSILENT /NORESTART /MERGETASKS=!runcode",
+    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "UninstallCommand":  "\"%ProgramFiles%\\Microsoft VS Code\\unins000.exe\" /VERYSILENT /NORESTART",
     "Detection":  {
                       "Type":  "File",
                       "FilePath":  "C:\\Program Files\\Microsoft VS Code",
@@ -31,7 +32,5 @@
                   },
     "RunningProcess":  [
                            "Code"
-                       ],
-    "InstallContext":  "User",
-    "UninstallCommand":  "$proc = Start-Process -FilePath \"$env:LOCALAPPDATA\\Programs\\Microsoft VS Code\\unins000.exe\" -ArgumentList \"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow"
+                       ]
 }

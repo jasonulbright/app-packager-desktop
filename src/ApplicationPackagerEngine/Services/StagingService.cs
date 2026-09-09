@@ -1547,6 +1547,11 @@ public sealed class StagingService
             var detValue = rawVersion ?? version;
             if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true)
                 detValue = version.Replace("+", ".").Replace("-", ".");
+            // A prefix comparison reads the value the package reports, so the
+            // raw scrape is wrong here: it can be an untransformed token
+            // ("723" for a release displayed as 7.23.0).
+            else if (det.Operator?.Equals("BeginsWith", StringComparison.OrdinalIgnoreCase) == true)
+                detValue = version;
 
             return new StageDetection
             {

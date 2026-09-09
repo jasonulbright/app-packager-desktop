@@ -1,0 +1,38 @@
+{
+    "Schema":  1,
+    "Id":  "7c4f1e93a6b25d18",
+    "IconSource":  "Installer",
+    "Vendor":  "Microsoft",
+    "Application":  "Visual Studio Code (User) (x64)",
+    "CMName":  "Visual Studio Code (User)",
+    "Architecture":  "x64",
+    "VendorUrl":  "https://code.visualstudio.com/",
+    "InstallerType":  "EXE",
+    "InstallerFramework":  "InnoSetup",
+    "InstallContext":  "User",
+    "Acquisition":  {
+
+                    },
+    "VersionScraper":  {
+                           "Type":  "HttpRegex",
+                           "Url":  "https://update.code.visualstudio.com/api/releases/stable",
+                           "Pattern":  "\"(\\d+\\.\\d+\\.\\d+)\""
+                       },
+    "DownloadUrl":  "https://update.code.visualstudio.com/{version}/win32-x64-user/stable",
+    "InstallerFileName":  "VSCodeUserSetup-x64-{version}.exe",
+    "InstallArgs":  "/VERYSILENT /NORESTART /MERGETASKS=!runcode",
+    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "UninstallCommand":  "\"%LOCALAPPDATA%\\Programs\\Microsoft VS Code\\unins000.exe\" /VERYSILENT /NORESTART",
+    "Detection":  {
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKCU",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{771FD6B0-FA20-440A-A002-3B3BAC16DC50}_is1",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "Version",
+                      "Operator":  "GreaterEquals",
+                      "Is64Bit":  false
+                  },
+    "RunningProcess":  [
+                           "Code"
+                       ]
+}

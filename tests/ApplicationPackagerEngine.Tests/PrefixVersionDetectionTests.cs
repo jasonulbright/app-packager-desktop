@@ -1,0 +1,103 @@
+using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
+
+namespace ApplicationPackagerEngine.Tests;
+
+/// <summary>
+/// Applications whose ARP DisplayVersion carries a build suffix the vendor
+/// version does not. A Version comparison against such a value is false even
+/// when the right release is installed, so the detection compares the string
+/// prefix instead.
+/// </summary>
+public class PrefixVersionDetectionTests
+{
+    [Theory]
+    [InlineData("postgresql13.json", @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 13")]
+    [InlineData("postgresql14.json", @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 14")]
+    [InlineData("postgresql15.json", @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 15")]
+    [InlineData("postgresql16.json", @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 16")]
+    [InlineData("postgresql17.json", @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 17")]
+    [InlineData("winrar.json", @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\WinRAR archiver")]
+    public void TheArpDisplayVersionIsComparedAsAStringPrefix(string fileName, string key)
+    {
+        var detection = DefinitionFixture.Load(fileName).Detection;
+
+        Assert.Equal("RegistryKeyValue", detection.Type);
+        Assert.Equal("HKLM", detection.RegistryHive);
+        Assert.Equal(key, detection.RegistryKeyTemplate);
+        Assert.Equal("DisplayVersion", detection.ValueName);
+        Assert.Equal("String", detection.PropertyType);
+        Assert.Equal("BeginsWith", detection.Operator);
+        Assert.True(detection.Is64Bit);
+    }
+
+    /// <summary>
+    /// WinRAR writes "7.20.0" for a release the vendor page reports as "7.20".
+    /// A two-part Version has revision and build -1, so it sorts below the
+    /// three-part expected value and a GreaterEquals rule never matches.
+    /// </summary>
+    [Fact]
+    public void TheOldVersionComparisonMissesTheInstalledRelease()
+    {
+        Assert.False(Version.Parse("7.20") >= Version.Parse("7.20.0"));
+        Assert.StartsWith("7.20", "7.20.0", StringComparison.Ordinal);
+    }
+
+    /// <summary>The EnterpriseDB installer appends a build suffix to the release.</summary>
+    [Fact]
+    public void ThePostgresBuildSuffixStillMatchesThePrefix()
+    {
+        Assert.StartsWith("17.6", "17.6-1", StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ThePrefixIsComparedAgainstTheDisplayedVersion()
+    {
+        var def = DefinitionFixture.Load("winrar.json");
+
+        var detection = StagingService.BuildDetection(def, null, "7.23.0", "723");
+
+        Assert.Equal("7.23.0", detection.ExpectedValue);
+    }
+
+    /// <summary>An equality rule still reads the value the installer wrote.</summary>
+    [Fact]
+    public void AnEqualityRuleKeepsTheInstallerValue()
+    {
+        var def = DefinitionFixture.Load("winrar.json");
+        def.Detection.Operator = "IsEquals";
+
+        var detection = StagingService.BuildDetection(def, null, "7.23.0", "7.23.0.1");
+
+        Assert.Equal("7.23.0.1", detection.ExpectedValue);
+    }
+
+    [Fact]
+    public void TheGeneratedClauseCarriesTheStringPrefixComparison()
+    {
+        var manifest = new StageManifest
+        {
+            AppName = "PostgreSQL 17",
+            Publisher = "PostgreSQL Global Development Group",
+            SoftwareVersion = "17.6",
+            Detection = new StageDetection
+            {
+                Type = "RegistryKeyValue",
+                RegistryKeyRelative = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 17",
+                ValueName = "DisplayVersion",
+                PropertyType = "String",
+                Operator = "BeginsWith",
+                ExpectedValue = "17.6",
+                Is64Bit = true
+            }
+        };
+
+        var script = MecmTarget.BuildPackageScript(manifest, manifest.AppName,
+            @"\server\share\Apps\PostgreSQL\PostgreSQL 17\17.6", "P01", "comment",
+            15, 30, ConditionTemplateService.Defaults());
+
+        Assert.Contains(
+            @"New-CMDetectionClauseRegistryKeyValue -Hive LocalMachine -KeyName 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 17' -ValueName 'DisplayVersion' -PropertyType String -Value -ExpressionOperator BeginsWith -ExpectedValue '17.6' -Is64Bit",
+            script);
+    }
+}

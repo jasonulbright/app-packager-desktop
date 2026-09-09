@@ -26,8 +26,8 @@
                       "RegistryHive":  "HKLM",
                       "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\WinRAR archiver",
                       "ValueName":  "DisplayVersion",
-                      "PropertyType":  "Version",
-                      "Operator":  "GreaterEquals",
+                      "PropertyType":  "String",
+                      "Operator":  "BeginsWith",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
