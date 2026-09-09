@@ -20,7 +20,7 @@ public sealed class AppDefinition
     public string InstallerType { get; set; } = "MSI"; // MSI, EXE, ODT, ZIP, MSIX
     /// <summary>
     /// Installer framework technology. Drives automated detection derivation and metadata extraction.
-    /// Values: NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, MSIX, ZIP, Unknown.
+    /// Values: NativeMSI, NSIS, InnoSetup, WixBurn, InstallShield, Squirrel, Velopack, MSIX, ZIP, Unknown.
     /// When null/empty, the engine will attempt auto-identification via ArchiveExtractionService.
     /// </summary>
     public string? InstallerFramework { get; set; }

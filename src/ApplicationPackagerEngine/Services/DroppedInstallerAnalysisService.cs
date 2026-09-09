@@ -42,13 +42,22 @@ public sealed class DroppedInstallerAnalysis
     public string FileName { get; init; } = "";
     public long FileSize { get; init; }
 
-    /// <summary>Detected engine: NativeMSI, NSIS, InnoSetup, WixBurn, Squirrel, and so on.</summary>
+    /// <summary>Detected engine: NativeMSI, NSIS, InnoSetup, WixBurn, Squirrel, Velopack, and so on.</summary>
     public string Engine { get; init; } = "Unknown";
     /// <summary>Deployment-type kind the manifest records: MSI or EXE.</summary>
     public string InstallerType { get; init; } = "EXE";
     public string Architecture { get; init; } = "";
     /// <summary>"User" when the predicted uninstall key lives under HKCU, else "Machine".</summary>
     public string InstallContext { get; init; } = "Machine";
+
+    /// <summary>Package id of a format that names itself, such as a Velopack nuspec id.</summary>
+    public string PackageId { get; init; } = "";
+    /// <summary>
+    /// The package's own version where it differs from the version the product
+    /// registers: a Velopack nuspec keeps prerelease and build labels that the
+    /// Add/Remove Programs entry drops.
+    /// </summary>
+    public string PackageVersion { get; init; } = "";
 
     public ProposedField AppName { get; init; } = ProposedField.Empty;
     public ProposedField Publisher { get; init; } = ProposedField.Empty;
@@ -207,18 +216,25 @@ public sealed class DroppedInstallerAnalysisService
         var script = msi is null ? CompiledScriptFacts.TryRead(engine, fullPath) : null;
         var scriptSource = script is null ? null : CompiledScriptFacts.SourceName(engine);
 
+        // The nuspec inside a Velopack setup is read the same way a compiled
+        // script is: it holds the values the product registers, so it outranks
+        // the setup stub's own PE resource.
+        var velopack = engine == "Velopack" ? VelopackMetadataReader.Read(fullPath) : null;
+        if (velopack is { HeaderAvailable: false }) velopack = null;
+        const string VelopackSource = "velopack-nuspec";
+
         var appName = ResolveIdentity(
             msi?.ProductName, deepMetadata?.ProductName,
             versionInfo?.ProductName ?? versionInfo?.FileDescription, isMsi, deepMetadata?.MetadataSource,
-            script?.DisplayName, scriptSource);
+            velopack?.DisplayName ?? script?.DisplayName, velopack is null ? scriptSource : VelopackSource);
         var publisher = ResolveIdentity(
             msi?.Manufacturer, deepMetadata?.Manufacturer,
             versionInfo?.CompanyName, isMsi, deepMetadata?.MetadataSource,
-            script?.Publisher, scriptSource);
+            velopack?.Publisher ?? script?.Publisher, velopack is null ? scriptSource : VelopackSource);
         var version = ResolveIdentity(
             msi?.ProductVersion, deepMetadata?.ProductVersion,
             versionInfo?.ProductVersion ?? versionInfo?.FileVersion, isMsi, deepMetadata?.MetadataSource,
-            script?.DisplayVersion, scriptSource);
+            velopack?.DisplayVersion ?? script?.DisplayVersion, velopack is null ? scriptSource : VelopackSource);
 
         var productCodeValue = !string.IsNullOrEmpty(msi?.ProductCode)
             ? msi!.ProductCode
@@ -233,11 +249,24 @@ public sealed class DroppedInstallerAnalysisService
             ? NormalizeMsiArchitecture(msiArchitecture)
             : InstallerSignatureScanner.ReadPeArchitecture(fullPath);
 
+        // A 32-bit Velopack setup stub can carry an x64 or ARM64 application;
+        // the deployment describes the application, not the stub.
+        if (NormalizePackageArchitecture(velopack?.Architecture) is { Length: > 0 } payloadArchitecture)
+            architecture = payloadArchitecture;
+
         // The default branch of the compiled script names the key, hive and
         // view the installer registers under; the engine convention is the
         // fallback when there is no script or the key is computed at run time.
         var branch = script?.DefaultBranch;
-        var arp = branch is { UninstallRegistryKey: { Length: > 0 } }
+        var arp = velopack is not null
+            ? new UninstallKeyPrediction
+            {
+                Path = velopack.UninstallRegistryKey,
+                Hive = "HKCU",
+                Source = VelopackSource,
+                Note = velopack.Note
+            }
+            : branch is { UninstallRegistryKey: { Length: > 0 } }
             ? new UninstallKeyPrediction
             {
                 Path = branch.UninstallRegistryKey,
@@ -262,6 +291,8 @@ public sealed class DroppedInstallerAnalysisService
             : MakeField(switches.InstallArgs, isMsi, switchSource);
         var uninstallCommand = isMsi
             ? ProposedField.Confirmed("", "msi-uninstalls-by-product-code")
+            : velopack is not null
+                ? ProposedField.Confirmed(velopack.SilentUninstallCommand, VelopackSource)
             : branch is { SilentUninstallCommand: { Length: > 0 } }
                 ? ProposedField.Confirmed(branch.SilentUninstallCommand, scriptSource!)
                 : ProposedField.Predicted(switches.UninstallCommand, switchSource);
@@ -275,6 +306,8 @@ public sealed class DroppedInstallerAnalysisService
             InstallerType = isMsi ? "MSI" : "EXE",
             Architecture = architecture,
             InstallContext = perUser ? "User" : "Machine",
+            PackageId = velopack?.PackageId ?? "",
+            PackageVersion = velopack?.PackageVersion ?? "",
             AppName = appName,
             Publisher = publisher,
             SoftwareVersion = version,
@@ -502,6 +535,19 @@ public sealed class DroppedInstallerAnalysisService
         }
     }
 
+    /// <summary>
+    /// Maps a package manifest's architecture name onto the engine's spelling.
+    /// Returns an empty string for an absent or unrecognised value, which leaves
+    /// the PE architecture in place.
+    /// </summary>
+    private static string NormalizePackageArchitecture(string? value) => (value ?? "").ToLowerInvariant() switch
+    {
+        "x86" => "x86",
+        "x64" => "x64",
+        "arm64" => "ARM64",
+        _ => ""
+    };
+
     private static string NormalizeMsiArchitecture(string template) =>
         template.StartsWith("Intel", StringComparison.OrdinalIgnoreCase) || template == "x86"
             ? "x86"
@@ -578,6 +624,11 @@ public sealed class DroppedInstallerAnalysisService
                     Source = "engine-convention:Squirrel",
                     Note = "Squirrel installs per-user to %LOCALAPPDATA% and registers under HKCU."
                 };
+
+            case "Velopack":
+                // The key name is the embedded nuspec id; no other part of the
+                // file supplies it, and a display title is not a substitute.
+                return null;
 
             case "InnoSetup":
                 if (string.IsNullOrEmpty(appName)) return null;
@@ -698,6 +749,7 @@ public sealed class DroppedInstallerAnalysisService
         "WixBurn" => @"BundleUpgradeCode or the related MSI ProductCode under HKLM\...\Uninstall.",
         "BitRock" => @"Registry uninstall key detection keyed on DisplayName (BitRock writes HKLM\...\Uninstall\<AppName> by default).",
         "Squirrel" => @"Registry uninstall key in HKCU\...\Uninstall\<AppName> (per-user), or file-version on the installed EXE.",
+        "Velopack" => @"Registry uninstall key in HKCU\...\Uninstall\<PackageId> (per-user); DisplayVersion is major.minor.patch without prerelease or build labels.",
         "MSIX" or "MsixBundle" => string.IsNullOrEmpty(appName)
             ? "MSIX family-name detection via Get-AppxPackage."
             : $"MSIX family-name detection via Get-AppxPackage -Name {appName}",

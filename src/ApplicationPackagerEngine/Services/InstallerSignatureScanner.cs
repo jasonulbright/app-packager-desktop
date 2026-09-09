@@ -21,9 +21,42 @@ public static class InstallerSignatureScanner
     ];
 
     /// <summary>
+    /// The 32-byte marker the Velopack setup stub carries immediately after the
+    /// two bundle header values. Only a setup stub embeds it; an application
+    /// built with Velopack, or its Update.exe, is not itself an installer.
+    /// </summary>
+    private static readonly byte[] VelopackBundleSignature =
+    [
+        0x94, 0xf0, 0xb1, 0x7b, 0x68, 0x93, 0xe0, 0x29, 0x37, 0xeb, 0x34, 0xef, 0x53, 0xaa, 0xe7, 0xd4,
+        0x2b, 0x54, 0xf5, 0x70, 0x7e, 0xf5, 0xd6, 0xf5, 0x78, 0x54, 0x98, 0x3e, 0x5e, 0x94, 0xed, 0x7d
+    ];
+
+    /// <summary>
+    /// Reads the Velopack bundle header — two little-endian Int64 values, the
+    /// offset and length of the embedded package — from the head of a setup
+    /// stub. Returns null when the file carries no such header.
+    /// </summary>
+    public static VelopackBundleHeader? TryReadVelopackBundleHeader(byte[] bytes)
+    {
+        if (bytes.Length < 48 || bytes[0] != 0x4D || bytes[1] != 0x5A) return null;
+        var index = bytes.AsSpan().IndexOf(VelopackBundleSignature);
+        // The two values precede the marker; a marker in the first 16 bytes
+        // cannot be one, so it is a stray copy of the constant.
+        if (index < 16) return null;
+        return new VelopackBundleHeader
+        {
+            Offset = BitConverter.ToInt64(bytes, index - 16),
+            Length = BitConverter.ToInt64(bytes, index - 8)
+        };
+    }
+
+    /// <summary>Reads the head of a file, up to <see cref="ScanWindowBytes"/>.</summary>
+    public static byte[] ReadScanWindow(string path) => ReadHead(path, ScanWindowBytes);
+
+    /// <summary>
     /// Returns the engine name: NativeMSI, MSP, NSIS, InnoSetup, InstallShield, WixBurn,
-    /// AdvancedInstaller, BitRock, Squirrel, SevenZipSfx, WinRarSfx, MSIX, MsixBundle,
-    /// Chocolatey, NuGet, Intunewin, PsadtV3, PsadtV4, or Unknown.
+    /// AdvancedInstaller, BitRock, Squirrel, Velopack, SevenZipSfx, WinRarSfx, MSIX,
+    /// MsixBundle, Chocolatey, NuGet, Intunewin, PsadtV3, PsadtV4, or Unknown.
     /// </summary>
     public static string Identify(string path)
     {
@@ -101,6 +134,11 @@ public static class InstallerSignatureScanner
         // OLE compound document — an MSI wearing an .exe extension.
         if (bytes.Length >= 4 && bytes[0] == 0xD0 && bytes[1] == 0xCF && bytes[2] == 0x11 && bytes[3] == 0xE0)
             return "NativeMSI";
+
+        // Velopack before Squirrel: a Velopack setup carries Squirrel
+        // compatibility strings in its payload, and its own bundle header is
+        // the stronger fact.
+        if (TryReadVelopackBundleHeader(bytes) is not null) return "Velopack";
 
         // Squirrel before NSIS: Squirrel bootstrappers are not NSIS-built, and
         // ordering guards against a future marker collision.
@@ -222,4 +260,11 @@ public static class InstallerSignatureScanner
         var index = entry.LastIndexOfAny(['/', '\\']);
         return index < 0 ? entry : entry[(index + 1)..];
     }
+}
+
+/// <summary>Position and size of the package a Velopack setup stub embeds.</summary>
+public sealed class VelopackBundleHeader
+{
+    public long Offset { get; init; }
+    public long Length { get; init; }
 }

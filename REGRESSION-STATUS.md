@@ -220,9 +220,11 @@ These apps install with exit 0 via WinRM but do not actually lay down files (Inn
 
 ## Changes — 2026-09-09
 
-No definition was touched and no verdict moves.
+**Definition fix (1 app):** Postman detected a `Postman.exe` under `C:\Program Files`, a path its per-user installer never writes. It now reads DisplayVersion from the HKCU uninstall key. Postman is Excluded/Deferred (#9, per-user Squirrel install) and holds no verdict, so none is reopened.
 
 **Engine changes, none affecting a verdict:**
+- Drop analysis recognizes Velopack setup stubs and reads the nuspec inside them for the identity, the application architecture, the per-user install and uninstall commands and the HKCU uninstall key. Drops carry no recorded verdicts.
+- A definition staged in User mode whose detection is a file rule now detects through the branch's HKCU uninstall key, and a branch that supplies no concrete key is refused rather than staged. Five Install for definitions carry file detection (Bitwarden, BleachBit, Joplin, Simplenote, Typora); all five hold System-mode verdicts only, and System mode is untouched. The KDiff3 user-mode pass detects through the registry already.
 - The MECM application title can be chosen per app: the packager default, the base title with the release version appended, or the base title alone for one perpetual application. The choice names the application and the Intune display name only. Content folders, the wrappers inside them, and detection stay versioned exactly as the recorded verdicts exercised them.
 - Every exact-title collision now takes the operator's Overwrite, Skip or Cancel answer, at any version, and the title is checked before content is copied to the share. What a package run writes for a new application is unchanged.
 - An application whose deployment type installs into a user profile is created without task-sequence eligibility, and an existing one has the flag cleared. The flag controls only whether a task sequence may install the application; the install, detection and uninstall commands are untouched. The eleven Install for definitions from 2026-09-05, including the KDiff3 user-mode pass, keep their verdicts.

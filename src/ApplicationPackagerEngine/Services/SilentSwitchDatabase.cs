@@ -58,6 +58,12 @@ public static class SilentSwitchDatabase
             Uninstall = "\"%LOCALAPPDATA%\\<AppName>\\Update.exe\" --uninstall -s",
             Notes = "Installs per-user to %LOCALAPPDATA%\\<AppName>\\. Use --silent (double dash, lowercase), not the /S NSIS switch."
         },
+        ["Velopack"] = new()
+        {
+            Install = "\"<EXE>\" --silent",
+            Uninstall = "",
+            Notes = "Silent install: --silent or -s. Installs per-user to %LOCALAPPDATA%\\<PackageId> by default. --installto (-t) overrides the folder, --log (-l) sets the log file. Uninstall runs the installed Update.exe --uninstall --silent; its path is resolved from the embedded nuspec."
+        },
         ["MSIX"] = new()
         {
             Install = "Add-AppxPackage -Path \"<EXE>\"",
