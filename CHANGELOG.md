@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.2.0-alpha9] - 2026-09-09
+
+### Added
+
+- Added a Visual Studio Code user setup definition that installs into the profile.
+
+### Changed
+
+- Renamed the Visual Studio Code application to Visual Studio Code (System).
+
+### Fixed
+
+- Fixed PostgreSQL 13 to 17 detection to read the uninstall key version.
+- Fixed WinRAR detection missing an installed release.
+- Fixed the Visual Studio Code definition to install the system setup.
+
 ## [2.2.0-alpha8] - 2026-09-09
 
 ### Added

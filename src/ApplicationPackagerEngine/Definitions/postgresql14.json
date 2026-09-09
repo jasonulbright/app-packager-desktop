@@ -21,11 +21,12 @@
     "InstallArgs":  "--mode unattended --unattendedmodeui none --superpassword P0stgres!MECM --serverport 5432 --install_runtimes 0 --disable-components stackbuilder",
     "UninstallArgs":  "--mode unattended",
     "Detection":  {
-                      "Type":  "File",
-                      "FilePath":  "C:\\Program Files\\PostgreSQL\\14\\bin",
-                      "FileName":  "postgres.exe",
-                      "PropertyType":  "Version",
-                      "Operator":  "GreaterEquals",
+                      "Type":  "RegistryKeyValue",
+                      "RegistryHive":  "HKLM",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PostgreSQL 14",
+                      "ValueName":  "DisplayVersion",
+                      "PropertyType":  "String",
+                      "Operator":  "BeginsWith",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [
