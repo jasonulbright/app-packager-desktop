@@ -1,3 +1,5 @@
+using ApplicationPackagerEngine.Services;
+
 namespace ApplicationPackagerUI.Models;
 
 /// <summary>
@@ -26,6 +28,13 @@ public partial class DeploymentConditionRow : ObservableObject
     public static readonly string[] InstallModeOptions =
         [InstallModeDefault, InstallModeSystem, InstallModeUser];
 
+    public const string TitleModeDefault = "Packager default";
+    public const string TitleModeIncludeVersion = "Include version";
+    public const string TitleModeNoVersion = "No version";
+
+    public static readonly string[] TitleModeOptions =
+        [TitleModeDefault, TitleModeIncludeVersion, TitleModeNoVersion];
+
     /// <summary>Definition id; the key the selections persist under.</summary>
     public string DefinitionId { get; init; } = "";
     public string Application { get; init; } = "";
@@ -43,6 +52,7 @@ public partial class DeploymentConditionRow : ObservableObject
     [ObservableProperty] private string _networkDisplay = NetworkAny;
     [ObservableProperty] private string _splitDisplay = DeploymentConditionValues.NoSplit;
     [ObservableProperty] private string _installModeDisplay = InstallModeDefault;
+    [ObservableProperty] private string _titleModeDisplay = TitleModeDefault;
     [ObservableProperty] private string _commandInstall = "";
     [ObservableProperty] private string _commandUninstall = "";
 
@@ -95,6 +105,20 @@ public partial class DeploymentConditionRow : ObservableObject
     {
         InstallModeSystem => DeploymentConditionValues.AllUsers,
         InstallModeUser => DeploymentConditionValues.CurrentUser,
+        _ => ""
+    };
+
+    public static string TitleModeToDisplay(string? stored) => stored switch
+    {
+        ApplicationTitle.IncludeVersionToken => TitleModeIncludeVersion,
+        ApplicationTitle.NoVersionToken => TitleModeNoVersion,
+        _ => TitleModeDefault
+    };
+
+    public static string DisplayToTitleMode(string? display) => display switch
+    {
+        TitleModeIncludeVersion => ApplicationTitle.IncludeVersionToken,
+        TitleModeNoVersion => ApplicationTitle.NoVersionToken,
         _ => ""
     };
 }

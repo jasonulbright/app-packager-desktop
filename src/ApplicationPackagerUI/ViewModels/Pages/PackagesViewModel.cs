@@ -879,7 +879,7 @@ public partial class PackagesViewModel : ObservableObject
         }
     }
 
-    /// <summary>Operator answer to one same-version conflict.</summary>
+    /// <summary>Operator answer to one existing-application conflict.</summary>
     private sealed record ConflictAnswer(string Behavior, bool ApplyToAll)
     {
         public const string Skip = "Skip";
@@ -888,9 +888,9 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Asks what to do about an application that already exists at the same
-    /// version. Overwrite replaces its deployment types and keeps the
-    /// application object and its deployments.
+    /// Asks what to do about an application the site already holds under this
+    /// exact title, at any version. Overwrite replaces its deployment types
+    /// and keeps the application object and its deployments.
     /// </summary>
     private async Task<ConflictAnswer> AskExistingConflictAsync(ExistingApplicationConflict conflict)
     {
@@ -903,8 +903,10 @@ public partial class PackagesViewModel : ObservableObject
         var panel = new System.Windows.Controls.StackPanel();
         panel.Children.Add(new TextBlock
         {
-            Text = $"'{conflict.ApplicationName}' already exists at version {conflict.Version}.\n\n"
-                 + "Overwrite replaces its deployment types in place; the application object and its deployments survive.",
+            Text = $"'{conflict.ApplicationName}' already exists at version {conflict.Version}. "
+                 + $"The staged version is {conflict.IncomingVersion}.\n\n"
+                 + "Overwrite updates its content and deployment types while keeping the application and its deployments. "
+                 + "Skip leaves it unchanged; Cancel remaining stops the rest of the run.",
             TextWrapping = System.Windows.TextWrapping.Wrap
         });
         panel.Children.Add(applyToAll);

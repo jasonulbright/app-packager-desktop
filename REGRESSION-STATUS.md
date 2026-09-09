@@ -218,6 +218,17 @@ These apps install with exit 0 via WinRM but do not actually lay down files (Inn
 
 ---
 
+## Changes — 2026-09-09
+
+No definition was touched and no verdict moves.
+
+**Engine changes, none affecting a verdict:**
+- The MECM application title can be chosen per app: the packager default, the base title with the release version appended, or the base title alone for one perpetual application. The choice names the application and the Intune display name only. Content folders, the wrappers inside them, and detection stay versioned exactly as the recorded verdicts exercised them.
+- Every exact-title collision now takes the operator's Overwrite, Skip or Cancel answer, at any version, and the title is checked before content is copied to the share. What a package run writes for a new application is unchanged.
+- An application whose deployment type installs into a user profile is created without task-sequence eligibility, and an existing one has the flag cleared. The flag controls only whether a task sequence may install the application; the install, detection and uninstall commands are untouched. The eleven Install for definitions from 2026-09-05, including the KDiff3 user-mode pass, keep their verdicts.
+
+---
+
 ## Changes — 2026-09-07
 
 **Definition fixes (3 apps):** HashTools, HeidiSQL and PSPad passed an Inno `/DIR=` target holding a space with no quotes of its own. The wrapper hands the whole argument string to Start-Process, which adds no quoting, so the installer read the directory as `C:\Program` — the same shape Typora hit on 2026-09-05. All three now quote the value. None of the three carries a recorded verdict, so no verdict is reopened; they need a first lab pass, not a retest.

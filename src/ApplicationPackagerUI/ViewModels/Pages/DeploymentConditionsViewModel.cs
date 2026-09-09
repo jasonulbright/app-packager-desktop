@@ -32,6 +32,7 @@ public partial class DeploymentConditionsViewModel : ObservableObject
     public string[] ArchitectureOptions => DeploymentConditionRow.ArchitectureOptions;
     public string[] NetworkOptions => DeploymentConditionRow.NetworkOptions;
     public string[] InstallModeOptions => DeploymentConditionRow.InstallModeOptions;
+    public string[] TitleModeOptions => DeploymentConditionRow.TitleModeOptions;
 
     public IAsyncRelayCommand LoadCommand { get; }
     public IAsyncRelayCommand<DeploymentConditionRow> EditCommandsCommand { get; }
@@ -99,6 +100,7 @@ public partial class DeploymentConditionsViewModel : ObservableObject
                     row.SplitDisplay = entry.Split;
                 if (row.InstallModeCapable)
                     row.InstallModeDisplay = DeploymentConditionRow.InstallModeToDisplay(entry.InstallMode);
+                row.TitleModeDisplay = DeploymentConditionRow.TitleModeToDisplay(entry.TitleMode);
             }
 
             if (settings.CommandOverrides.TryGetValue(def.Id, out var commands))
@@ -156,13 +158,15 @@ public partial class DeploymentConditionsViewModel : ObservableObject
                 ? row.SplitDisplay : DeploymentConditionValues.NoSplit;
             var installMode = row.InstallModeCapable
                 ? DeploymentConditionRow.DisplayToInstallMode(row.InstallModeDisplay) : "";
+            var titleMode = DeploymentConditionRow.DisplayToTitleMode(row.TitleModeDisplay);
 
             // An app that asks for nothing stores no entry.
             if (architecture != DeploymentConditionValues.Any
                 || network != DeploymentConditionValues.Any
                 || languages.Length > 0
                 || DeploymentConditionValues.IsSplit(split)
-                || DeploymentConditionValues.IsInstallMode(installMode))
+                || DeploymentConditionValues.IsInstallMode(installMode)
+                || DeploymentConditionValues.IsTitleMode(titleMode))
             {
                 conditions[row.DefinitionId] = new DeploymentConditionEntry
                 {
@@ -170,7 +174,8 @@ public partial class DeploymentConditionsViewModel : ObservableObject
                     Languages = languages,
                     Network = network,
                     Split = split,
-                    InstallMode = installMode
+                    InstallMode = installMode,
+                    TitleMode = titleMode
                 };
             }
 

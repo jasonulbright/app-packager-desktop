@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
 
 namespace ApplicationPackagerUI.Models;
 
@@ -170,6 +171,8 @@ public sealed class DeploymentConditionEntry
     public string Split { get; set; } = DeploymentConditionValues.NoSplit;
     /// <summary>Empty for the installer's own default, else AllUsers or CurrentUser.</summary>
     public string InstallMode { get; set; } = "";
+    /// <summary>Empty for the packager default, else IncludeVersion or NoVersion.</summary>
+    public string TitleMode { get; set; } = "";
 }
 
 /// <summary>One app's install/uninstall command overrides. Empty keeps the shipped default.</summary>
@@ -193,6 +196,9 @@ public static class DeploymentConditionValues
     public const string AllUsers = "AllUsers";
     public const string CurrentUser = "CurrentUser";
     public static bool IsInstallMode(string? value) => value is AllUsers or CurrentUser;
+
+    public static bool IsTitleMode(string? value) =>
+        value is ApplicationTitle.IncludeVersionToken or ApplicationTitle.NoVersionToken;
 
     public static bool IsArchitecture(string? value) => value is X64 or Arm64;
     public static bool IsNetwork(string? value) => value is VpnOnly or OnSiteOnly;

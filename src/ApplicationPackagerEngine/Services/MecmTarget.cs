@@ -26,15 +26,19 @@ public sealed class MecmTarget
         string? providerMachine = null,
         OnExistingBehavior onExisting = OnExistingBehavior.Skip,
         CancellationToken ct = default,
-        string? contentLayout = null)
+        string? contentLayout = null,
+        string? applicationTitle = null)
     {
         try
         {
-            var appName = manifest.AppName;
+            // The title decides the application and its deployment type names;
+            // the content folder stays on the manifest name so a title change
+            // never moves content already on the share.
+            var appName = string.IsNullOrWhiteSpace(applicationTitle) ? manifest.AppName : applicationTitle;
             var version = manifest.SoftwareVersion;
             var publisher = manifest.Publisher;
             var vendorFolder = SanitizeFolderName(publisher);
-            var appFolder = manifest.DisplayName ?? appName;
+            var appFolder = manifest.DisplayName ?? manifest.AppName;
             var networkContentPath = ContentLayouts.ContentPath(fileServerPath, contentLayout ?? ContentLayouts.Nested, vendorFolder, appFolder, version);
 
             // 0. Validate content share accessibility
@@ -46,6 +50,25 @@ public sealed class MecmTarget
                     Success = false,
                     ErrorMessage = $"Content share not accessible: {fileServerPath}"
                 };
+            }
+
+            // 0b. Title collision, decided before anything is written. A Skip
+            // run that finds the title must leave no copied content behind.
+            if (onExisting == OnExistingBehavior.Skip)
+            {
+                var conflicted = false;
+                void WatchProbe(string line)
+                {
+                    if (OnExistingConflict.TryParse(line, out _, out _, out _)) conflicted = true;
+                    onProgress?.Invoke(line);
+                }
+
+                var probe = await RunWindowsPowerShellAsync(
+                    BuildExistingProbeScript(appName, version, siteCode, providerMachine), WatchProbe, ct);
+                if (probe.ExitCode != 0)
+                    return new PackagingResult { Success = false, ErrorMessage = probe.StdErr };
+                if (conflicted)
+                    return new PackagingResult { Success = true, AlreadyExists = true, ApplicationName = appName };
             }
 
             // 1. Copy content to network
@@ -115,6 +138,38 @@ public sealed class MecmTarget
     }
 
     /// <summary>
+    /// Builds the CM PowerShell that reports whether the site already holds an
+    /// application with this exact title, at any version. Wildcard handling
+    /// would match a family of titles, so it is disabled and the results are
+    /// filtered to an exact name; only the exact title decides the collision.
+    /// Public so the generated script text is assertable without a site.
+    /// </summary>
+    public static string BuildExistingProbeScript(
+        string appName, string incomingVersion, string siteCode, string? providerMachine = null)
+    {
+        var sb = new StringBuilder();
+        AppendCmPreamble(sb, siteCode, providerMachine);
+        sb.AppendLine($"$existing = @(Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction Stop | Where-Object {{ $_.LocalizedDisplayName -eq '{Esc(appName)}' -or $_.Name -eq '{Esc(appName)}' }})");
+        sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple applications have the exact title '{Esc(appName)}'; resolve duplicates before packaging.\" }}");
+        sb.AppendLine("if ($existing.Count -eq 1) {");
+        AppendConflictMarker(sb, appName, incomingVersion, "    ", "$existing[0]");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits the conflict marker with the site version read at run time. The
+    /// name and staged version are literals inside a single-quoted string, so
+    /// a title containing a dollar sign is never interpolated.
+    /// </summary>
+    private static void AppendConflictMarker(
+        StringBuilder sb, string appName, string incomingVersion, string indent, string appVar)
+    {
+        var prefix = $"{OnExistingConflict.Marker} app='{appName}' version=";
+        sb.AppendLine($"{indent}Write-Host ('{Esc(prefix)}' + \"'$({appVar}.SoftwareVersion)'\" + ' incoming=''{Esc(incomingVersion)}''')");
+    }
+
+    /// <summary>
     /// Builds the CM PowerShell for one application and every deployment
     /// type its manifest resolves to. Public so the generated script text is
     /// assertable without a site.
@@ -159,12 +214,18 @@ public sealed class MecmTarget
         if (resolvedRules.Any(r => r.Count > 0))
             sb.AppendLine(RequirementRuleBuilder.BuildGlobalConditionFunction());
 
-        // Existing application: an unchanged version with every expected
-        // deployment type present is idempotent; a missing one is a partial
-        // prior run and refuses to continue.
+        // Task-sequence installation is application-wide, so it is offered only
+        // when the deployment types all run as system without a logged-on user.
+        var isUserInstall = manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase);
+        var allowTaskSequence = !isUserInstall;
+
+        // Existing application: every title collision takes the operator's
+        // policy, at any version. Under Skip, an unchanged application with
+        // every expected deployment type present is idempotent; a missing one
+        // is a partial prior run and refuses to continue.
         sb.AppendLine($"$expectedDts = @({string.Join(", ", specs.Select(s => $"'{Esc(s.DtName)}'"))})");
         sb.AppendLine("$existing = @()");
-        sb.AppendLine($"try {{ $existing = @(Get-CMApplication -Name '{Esc(appName)}' -ErrorAction SilentlyContinue) }} catch {{ }}");
+        sb.AppendLine($"try {{ $existing = @(Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction SilentlyContinue) }} catch {{ }}");
         sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple existing MECM applications matched '{Esc(appName)}'; refusing to package until the duplicate names are resolved.\" }}");
         sb.AppendLine("$app = $null");
         sb.AppendLine("$replaceExisting = $false");
@@ -173,50 +234,49 @@ public sealed class MecmTarget
         sb.AppendLine("    $app = $existing[0]");
         sb.AppendLine($"    $currentDts = @(Get-CMDeploymentType -ApplicationName '{Esc(appName)}' -ErrorAction Stop | ForEach-Object {{ [string]$_.LocalizedDisplayName }})");
         sb.AppendLine("    $missingDts = @($expectedDts | Where-Object { $currentDts -notcontains $_ })");
-        sb.AppendLine($"    if ([string]$app.SoftwareVersion -eq '{Esc(manifest.SoftwareVersion)}') {{");
-        sb.AppendLine($"        Write-Host 'On-existing behavior         : {onExisting}'");
+        sb.AppendLine($"    Write-Host 'On-existing behavior         : {onExisting}'");
         switch (onExisting)
         {
             case OnExistingBehavior.Fail:
-                sb.AppendLine($"        throw \"Existing MECM application '{Esc(appName)}' is already at version {Esc(manifest.SoftwareVersion)} and OnExisting=Fail was requested.\"");
+                sb.AppendLine($"    throw \"Existing MECM application '{Esc(appName)}' already exists at version $($app.SoftwareVersion) and OnExisting=Fail was requested.\"");
                 break;
 
             case OnExistingBehavior.Overwrite:
-                // Same content path, same version, wrong deployment types.
-                // Takes the version-change replacement path below so the
-                // application object and its deployments survive.
-                sb.AppendLine("        Write-Host 'Existing application         : overwriting deployment types (same version, operator choice)'");
-                sb.AppendLine("        $replaceExisting = $true");
+                // The application object and its deployments survive; only the
+                // deployment types and the version are replaced.
+                sb.AppendLine("    Write-Host \"Application already exists    : replacing deployment types (v$($app.SoftwareVersion) -> v" + Esc(manifest.SoftwareVersion) + ", operator choice)\"");
+                sb.AppendLine("    $replaceExisting = $true");
                 break;
 
             default:
-                sb.AppendLine("        if ($missingDts.Count -eq 0) {");
-                sb.AppendLine($"            Write-Host 'Application already exists    : {Esc(appName)} (v{Esc(manifest.SoftwareVersion)}, unchanged)'");
-                sb.AppendLine("            Write-Host \"Deployment type(s) validated : $($expectedDts -join ', ')\"");
+                sb.AppendLine("    if ($missingDts.Count -eq 0) {");
+                if (!allowTaskSequence)
+                {
+                    // Repair an application left task-sequence eligible by an
+                    // earlier run, even when its deployment types are retained.
+                    AppendTaskSequenceRepair(sb, appName, "        ");
+                }
+                sb.AppendLine($"        Write-Host \"Application already exists    : {Esc(appName)} (v$($app.SoftwareVersion), unchanged)\"");
+                sb.AppendLine("        Write-Host \"Deployment type(s) validated : $($expectedDts -join ', ')\"");
                 // Machine-readable companion to the line above: the GUI parses
                 // it to offer the operator an overwrite re-run.
-                sb.AppendLine($"            Write-Host '{Esc(OnExistingConflict.Format(appName, manifest.SoftwareVersion))}'");
+                AppendConflictMarker(sb, appName, manifest.SoftwareVersion, "        ", "$app");
                 if (!string.IsNullOrWhiteSpace(manifest.Icon))
                 {
                     // An idempotent rerun still applies the icon, so a package created
                     // before icon support gains one without a version change.
                     var idemIconPath = Path.Combine(networkContentPath, manifest.Icon);
-                    sb.AppendLine($"            $idemIcon = '{Esc(idemIconPath)}'");
-                    sb.AppendLine("            if (Test-Path -LiteralPath \"FileSystem::$idemIcon\" -PathType Leaf) {");
-                    sb.AppendLine($"                try {{ Set-CMApplication -Name '{Esc(appName)}' -IconLocationFile $idemIcon -ErrorAction Stop; Write-Host 'Application icon set         : {Esc(manifest.Icon)}' }} catch {{ Write-Host \"Application icon not applied : $($_.Exception.Message)\" }}");
-                    sb.AppendLine("            }");
+                    sb.AppendLine($"        $idemIcon = '{Esc(idemIconPath)}'");
+                    sb.AppendLine("        if (Test-Path -LiteralPath \"FileSystem::$idemIcon\" -PathType Leaf) {");
+                    sb.AppendLine($"            try {{ Set-CMApplication -Name '{Esc(appName)}' -IconLocationFile $idemIcon -ErrorAction Stop; Write-Host 'Application icon set         : {Esc(manifest.Icon)}' }} catch {{ Write-Host \"Application icon not applied : $($_.Exception.Message)\" }}");
+                    sb.AppendLine("        }");
                 }
-                sb.AppendLine("            Write-Host \"CI_ID: $($app.CI_ID)\"");
-                sb.AppendLine("            exit 0");
-                sb.AppendLine("        }");
-                sb.AppendLine($"        throw \"Existing MECM application '{Esc(appName)}' is missing deployment type(s): $($missingDts -join ', '). This looks like a partial prior package run; fix or remove the partial app before packaging again.\"");
+                sb.AppendLine("        Write-Host \"CI_ID: $($app.CI_ID)\"");
+                sb.AppendLine("        exit 0");
+                sb.AppendLine("    }");
+                sb.AppendLine($"    throw \"Existing MECM application '{Esc(appName)}' is missing deployment type(s): $($missingDts -join ', '). This looks like a partial prior package run; fix or remove the partial app before packaging again.\"");
                 break;
         }
-        sb.AppendLine("    }");
-        sb.AppendLine("    else {");
-        sb.AppendLine("        Write-Host \"Application already exists    : replacing deployment types (v$($app.SoftwareVersion) -> v" + Esc(manifest.SoftwareVersion) + ")\"");
-        sb.AppendLine("        $replaceExisting = $true");
-        sb.AppendLine("    }");
         // One replacement path: the same-version Overwrite branch and the
         // version-change branch share the staging-name create, remove-old,
         // rename sequence below.
@@ -229,20 +289,29 @@ public sealed class MecmTarget
         for (var i = 0; i < specs.Count; i++)
             ruleVars.Add(RequirementRuleBuilder.AppendRules(sb, resolvedRules[i], $"dt{i}"));
 
+        // Clear the incompatible flag before the replacement deployment types
+        // are added. An operator's own setting on a compatible application is
+        // left alone.
+        if (!allowTaskSequence)
+        {
+            sb.AppendLine("if ($app) {");
+            AppendTaskSequenceRepair(sb, appName, "    ");
+            sb.AppendLine("}");
+        }
+
         sb.AppendLine("if (-not $app) {");
         sb.AppendLine("    Write-Host 'Creating application...'");
         sb.Append($"    $app = New-CMApplication -Name '{Esc(appName)}'");
         sb.Append($" -Publisher '{Esc(manifest.Publisher)}'");
         sb.Append($" -SoftwareVersion '{Esc(manifest.SoftwareVersion)}'");
         sb.Append($" -Description '{Esc(comment)}'");
-        sb.Append(" -AutoInstall $true");
+        sb.Append(allowTaskSequence ? " -AutoInstall $true" : " -AutoInstall $false");
         if (!string.IsNullOrEmpty(manifest.DisplayName))
             sb.Append($" -LocalizedApplicationName '{Esc(manifest.DisplayName)}'");
         sb.AppendLine();
         sb.AppendLine("}");
         sb.AppendLine("Write-Host \"CI_ID: $($app.CI_ID)\"");
 
-        var isUserInstall = manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase);
         for (var i = 0; i < specs.Count; i++)
         {
             var spec = specs[i];
@@ -714,6 +783,19 @@ public sealed class MecmTarget
         string.IsNullOrWhiteSpace(providerMachine)
             ? "$env:COMPUTERNAME"
             : $"'{Esc(providerMachine.Trim())}'";
+
+    /// <summary>
+    /// Emits the repair that clears task-sequence eligibility on an existing
+    /// application. AutoInstall is application-wide, so one deployment type
+    /// needing a user context makes the flag invalid for the whole object.
+    /// </summary>
+    private static void AppendTaskSequenceRepair(StringBuilder sb, string appName, string indent)
+    {
+        sb.AppendLine($"{indent}if ($app.AutoInstall -ne $false) {{");
+        sb.AppendLine($"{indent}    Set-CMApplication -Name '{Esc(appName)}' -AutoInstall $false -ErrorAction Stop | Out-Null");
+        sb.AppendLine($"{indent}    Write-Host 'Task-sequence install        : disabled (deployment type requires a user context)'");
+        sb.AppendLine($"{indent}}}");
+    }
 
     private static string Esc(string value) => value.Replace("'", "''");
 
