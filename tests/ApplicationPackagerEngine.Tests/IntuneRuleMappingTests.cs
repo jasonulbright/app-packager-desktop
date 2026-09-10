@@ -102,7 +102,7 @@ public class IntuneRuleMappingTests
     public void Script_MapsToBase64PowerShellRule()
     {
         const string script = "if (Test-Path 'C:\\Contoso') { Write-Output 'ok' }";
-        var rule = Single(new StageDetection { Type = "Script", ExpectedValue = script });
+        var rule = Single(new StageDetection { Type = "Script", ScriptText = script, ScriptLanguage = "PowerShell" });
 
         Assert.Equal("#microsoft.graph.win32LobAppPowerShellScriptRule", (string?)rule["@odata.type"]);
         Assert.Equal(Convert.ToBase64String(Encoding.UTF8.GetBytes(script)), (string?)rule["scriptContent"]);
@@ -110,6 +110,84 @@ public class IntuneRuleMappingTests
         Assert.Equal("notConfigured", (string?)rule["operator"]);
         Assert.False((bool)rule["enforceSignatureCheck"]!);
         Assert.False((bool)rule["runAs32Bit"]!);
+    }
+
+    /// <summary>
+    /// MSIX staging writes the package version to ExpectedValue beside the body, so the
+    /// canonical field has to win or the published rule is the version, not the script.
+    /// </summary>
+    [Fact]
+    public void Script_WithBothFields_EncodesScriptTextNotTheVersion()
+    {
+        const string script = "$wanted = [version]'3.4.5.0'\nexit 0";
+        var rule = Single(new StageDetection
+        {
+            Type = "Script",
+            ScriptText = script,
+            ScriptLanguage = "PowerShell",
+            ExpectedValue = "3.4.5.0",
+            Operator = "GreaterEquals"
+        });
+
+        Assert.Equal(script, ScriptOf(rule));
+        Assert.NotEqual("3.4.5.0", ScriptOf(rule));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\r\n\t")]
+    public void Script_WithNoBody_Throws(string? scriptText)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => IntunePublishService.BuildRules(new StageDetection { Type = "Script", ScriptText = scriptText }));
+        Assert.Contains("no ScriptText", ex.Message);
+    }
+
+    /// <summary>
+    /// ExpectedValue is a comparison value on a Script detection, never a body, so a
+    /// manifest carrying only one is refused whether or not it names an Operator.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("GreaterEquals")]
+    public void Script_WithOnlyAComparisonValue_Throws(string? op)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => IntunePublishService.BuildRules(new StageDetection
+            {
+                Type = "Script",
+                ExpectedValue = "3.4.5.0",
+                Operator = op
+            }));
+        Assert.Contains("no ScriptText", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("VBScript")]
+    [InlineData("JavaScript")]
+    public void Script_InAnUnsupportedLanguage_Throws(string language)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => IntunePublishService.BuildRules(new StageDetection
+            {
+                Type = "Script",
+                ScriptText = "wscript.echo \"x\"",
+                ScriptLanguage = language
+            }));
+        Assert.Contains("has no Intune rule mapping", ex.Message);
+        Assert.Contains(language, ex.Message);
+    }
+
+    /// <summary>A blank language keeps the PowerShell default the staging builder applies.</summary>
+    [Fact]
+    public void Script_WithNoLanguage_EncodesAsPowerShell()
+    {
+        var rule = Single(new StageDetection { Type = "Script", ScriptText = "exit 0" });
+
+        Assert.Equal("#microsoft.graph.win32LobAppPowerShellScriptRule", (string?)rule["@odata.type"]);
+        Assert.Equal("exit 0", ScriptOf(rule));
     }
 
     [Fact]

@@ -29,7 +29,10 @@ public sealed class DefinitionTestRunner
         CancellationToken ct = default)
     {
         var result = new TestResult { AppName = manifest.AppName };
-        var isUserInstall = def.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase);
+        // The staged context, not the definition's: an install mode can transform a
+        // machine-wide definition into a per-user deployment, and the test has to run the
+        // way the deployment will.
+        var isUserInstall = manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase);
         var sw = Stopwatch.StartNew();
 
         onProgress?.Invoke($"Testing: {manifest.AppName}");
@@ -77,11 +80,16 @@ public sealed class DefinitionTestRunner
 
         // 2. Detect
         onProgress?.Invoke("Phase 2: Evaluating detection...");
-        var detected = EvaluateDetection(manifest.Detection);
-        result.DetectResult = detected ? "PASS" : "FAIL (not detected after install)";
+        var detection = DetectionEvaluator.Evaluate(manifest.Detection);
+        result.DetectResult = detection switch
+        {
+            DetectionEvaluation.Detected => "PASS",
+            DetectionEvaluation.NotDetected => "FAIL (not detected after install)",
+            _ => "FAIL (detection rule could not be evaluated)"
+        };
         onProgress?.Invoke($"  Detect: {result.DetectResult}");
 
-        if (!detected)
+        if (detection != DetectionEvaluation.Detected)
         {
             result.OverallResult = "FAIL";
             LogResult(def, manifest, result, sw.ElapsedMilliseconds);
@@ -122,8 +130,15 @@ public sealed class DefinitionTestRunner
 
         // 4. Verify clean
         onProgress?.Invoke("Phase 4: Verifying clean removal...");
-        var stillDetected = EvaluateDetection(manifest.Detection);
-        result.CleanResult = stillDetected ? "FAIL (still detected after uninstall)" : "PASS";
+        // Negating the verdict would turn a rule that could not be read into a clean
+        // machine, so an evaluation error fails this phase rather than passing it.
+        var clean = DetectionEvaluator.Evaluate(manifest.Detection);
+        result.CleanResult = clean switch
+        {
+            DetectionEvaluation.NotDetected => "PASS",
+            DetectionEvaluation.Detected => "FAIL (still detected after uninstall)",
+            _ => "FAIL (detection rule could not be evaluated)"
+        };
         onProgress?.Invoke($"  Clean: {result.CleanResult}");
 
         result.OverallResult = (result.InstallResult.StartsWith("PASS")
@@ -226,110 +241,6 @@ public sealed class DefinitionTestRunner
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    /// <summary>
-    /// Evaluates a detection rule against the local machine's registry and filesystem.
-    /// </summary>
-    private static bool EvaluateDetection(StageDetection det)
-    {
-        try
-        {
-            return det.Type switch
-            {
-                "RegistryKeyValue" => EvaluateRegistryKeyValue(det),
-                "RegistryKey" => EvaluateRegistryKey(det),
-                "File" => EvaluateFile(det),
-                _ => false
-            };
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool EvaluateRegistryKeyValue(StageDetection det)
-    {
-        if (string.IsNullOrEmpty(det.RegistryKeyRelative)) return false;
-
-        var view = det.Is64Bit
-            ? Microsoft.Win32.RegistryView.Registry64
-            : Microsoft.Win32.RegistryView.Registry32;
-        using var hklm = Microsoft.Win32.RegistryKey.OpenBaseKey(
-            Microsoft.Win32.RegistryHive.LocalMachine, view);
-        using var key = hklm.OpenSubKey(det.RegistryKeyRelative);
-        if (key is null) return false;
-
-        var value = key.GetValue(det.ValueName ?? "DisplayVersion")?.ToString();
-        if (string.IsNullOrEmpty(value)) return false;
-
-        if (string.IsNullOrEmpty(det.ExpectedValue)) return true; // existence only
-
-        if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true)
-        {
-            if (Version.TryParse(value, out var actual) && Version.TryParse(det.ExpectedValue, out var expected))
-            {
-                return det.Operator switch
-                {
-                    "GreaterEquals" => actual >= expected,
-                    "IsEquals" => actual == expected,
-                    _ => actual >= expected
-                };
-            }
-        }
-
-        // String comparison
-        return det.Operator switch
-        {
-            "IsEquals" => string.Equals(value, det.ExpectedValue, StringComparison.OrdinalIgnoreCase),
-            "GreaterEquals" => string.Compare(value, det.ExpectedValue, StringComparison.OrdinalIgnoreCase) >= 0,
-            _ => string.Equals(value, det.ExpectedValue, StringComparison.OrdinalIgnoreCase)
-        };
-    }
-
-    private static bool EvaluateRegistryKey(StageDetection det)
-    {
-        if (string.IsNullOrEmpty(det.RegistryKeyRelative)) return false;
-
-        var view = det.Is64Bit
-            ? Microsoft.Win32.RegistryView.Registry64
-            : Microsoft.Win32.RegistryView.Registry32;
-        using var hklm = Microsoft.Win32.RegistryKey.OpenBaseKey(
-            Microsoft.Win32.RegistryHive.LocalMachine, view);
-        using var key = hklm.OpenSubKey(det.RegistryKeyRelative);
-        return key is not null;
-    }
-
-    private static bool EvaluateFile(StageDetection det)
-    {
-        if (string.IsNullOrEmpty(det.FilePath) || string.IsNullOrEmpty(det.FileName))
-            return false;
-
-        var filePath = Path.Combine(
-            Environment.ExpandEnvironmentVariables(det.FilePath),
-            det.FileName);
-
-        if (!File.Exists(filePath)) return false;
-
-        if (det.PropertyType?.Equals("Existence", StringComparison.OrdinalIgnoreCase) == true)
-            return true;
-
-        if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true
-            && !string.IsNullOrEmpty(det.ExpectedValue))
-        {
-            var fi = FileVersionInfo.GetVersionInfo(filePath);
-            if (Version.TryParse(fi.FileVersion, out var actual) && Version.TryParse(det.ExpectedValue, out var expected))
-            {
-                return det.Operator switch
-                {
-                    "GreaterEquals" => actual >= expected,
-                    "IsEquals" => actual == expected,
-                    _ => actual >= expected
-                };
-            }
-        }
-
-        return true;
-    }
 
     private void LogResult(AppDefinition def, StageManifest manifest, TestResult result, long durationMs)
     {

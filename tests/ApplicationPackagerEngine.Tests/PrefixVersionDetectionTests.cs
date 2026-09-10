@@ -32,22 +32,47 @@ public class PrefixVersionDetectionTests
     }
 
     /// <summary>
-    /// WinRAR writes "7.20.0" for a release the vendor page reports as "7.20".
-    /// A two-part Version has revision and build -1, so it sorts below the
-    /// three-part expected value and a GreaterEquals rule never matches.
+    /// The staged expectation is the short vendor version and the installed ARP value
+    /// carries an extra part. A detection compares the installed value against the
+    /// expectation, so the ordering comparison reads 7.23.0 against 7.23 and matches.
+    /// The prefix rule is upstream's shape for these six apps; it is not a repair for a
+    /// WinRAR release the old rule missed.
     /// </summary>
     [Fact]
-    public void TheOldVersionComparisonMissesTheInstalledRelease()
+    public void TheOrderingComparisonWouldAlsoHaveMatchedTheInstalledWinRarRelease()
     {
-        Assert.False(Version.Parse("7.20") >= Version.Parse("7.20.0"));
-        Assert.StartsWith("7.20", "7.20.0", StringComparison.Ordinal);
+        var def = DefinitionFixture.Load("winrar.json");
+        def.Detection.PropertyType = "Version";
+        def.Detection.Operator = "GreaterEquals";
+
+        var staged = StagingService.BuildDetection(def, null, "7.23", "723");
+
+        Assert.Equal("7.23", staged.ExpectedValue);
+        Assert.True(Version.Parse("7.23.0") >= Version.Parse(staged.ExpectedValue!));
+        Assert.Equal(DetectionEvaluation.Detected, DetectionEvaluator.CompareValue("7.23.0", staged));
     }
 
-    /// <summary>The EnterpriseDB installer appends a build suffix to the release.</summary>
+    /// <summary>
+    /// The EnterpriseDB build suffix is what an ordering comparison cannot survive: the
+    /// installed value is not a version at all, so a Version rule has nothing to compare
+    /// and the prefix rule is what actually reads it.
+    /// </summary>
     [Fact]
-    public void ThePostgresBuildSuffixStillMatchesThePrefix()
+    public void ThePostgresArpValueIsNotAVersionAndOnlyThePrefixRuleReadsIt()
     {
-        Assert.StartsWith("17.6", "17.6-1", StringComparison.Ordinal);
+        Assert.False(Version.TryParse("17.11-1", out _));
+
+        var def = DefinitionFixture.Load("postgresql17.json");
+        var staged = StagingService.BuildDetection(def, null, "17.11");
+
+        Assert.Equal("17.11", staged.ExpectedValue);
+        Assert.Equal(DetectionEvaluation.Detected, DetectionEvaluator.CompareValue("17.11-1", staged));
+
+        // The same reading under an ordering comparison cannot be evaluated.
+        var ordering = StagingService.BuildDetection(def, null, "17.11");
+        ordering.PropertyType = "Version";
+        ordering.Operator = "GreaterEquals";
+        Assert.Equal(DetectionEvaluation.Error, DetectionEvaluator.CompareValue("17.11-1", ordering));
     }
 
     [Fact]

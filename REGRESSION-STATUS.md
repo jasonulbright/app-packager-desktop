@@ -13,17 +13,48 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 115 |
+| **FULL PASS** | 109 |
+| **Reopened (Detection edited)** | 6 |
 | **Needs Retest (interactive)** | 4 |
 | **Excluded/Deferred** | 16 |
 | **Total** | **135** |
 
 ---
 
-## FULL PASS — Signed Off (94 apps)
+## Reopened — Detection rule changed (6 apps)
+
+The signed-off rule in MAINTENANCE.md reopens a verdict when a definition's
+`Detection` changes. These six moved to a String `BeginsWith` comparison on the
+Add/Remove Programs `DisplayVersion`, so their recorded verdicts no longer
+describe the rule that ships.
+
+**No clean-VM pass has been run against the new rules.** Staging downloads and
+string comparisons are not a substitute for install, detect, uninstall and clean
+on the lab client. Each app below needs a `--app <name>` harness pass before it
+returns to FULL PASS.
+
+| App | Prior verdict | Detection now | Awaiting |
+|-----|---------------|---------------|----------|
+| PostgreSQL 13 (x64) | FULL PASS, 280s, psexec -s | HKLM `PostgreSQL 13` DisplayVersion, String BeginsWith | install / detect / uninstall / clean |
+| PostgreSQL 14 (x64) | FULL PASS, 280s, psexec -s | HKLM `PostgreSQL 14` DisplayVersion, String BeginsWith | install / detect / uninstall / clean |
+| PostgreSQL 15 (x64) | FULL PASS, 280s, psexec -s | HKLM `PostgreSQL 15` DisplayVersion, String BeginsWith | install / detect / uninstall / clean |
+| PostgreSQL 16 (x64) | FULL PASS, 280s, psexec -s | HKLM `PostgreSQL 16` DisplayVersion, String BeginsWith | install / detect / uninstall / clean |
+| PostgreSQL 17 (x64) | FULL PASS, 280s, psexec -s | HKLM `PostgreSQL 17` DisplayVersion, String BeginsWith | install / detect / uninstall / clean |
+| WinRAR (x64) | FULL PASS, 6s, psexec -s (NSIS arch-strip fix) | HKLM `WinRAR archiver` DisplayVersion, String BeginsWith | install / detect / uninstall / clean |
+
+The five PostgreSQL definitions also moved off `postgres.exe` file-version
+detection, so the rule reads a different source entirely, not just a different
+comparison. The prior verdicts above stay on record as what was tested then.
+
+---
+
+## FULL PASS — Signed Off (94 rows; 6 reopened, see above)
 
 All phases validated: Stage, Install, Detect, Uninstall, Clean.
 Do NOT retest. Do NOT edit definitions without explicit approval.
+
+Rows marked REOPENED keep their historical verdict for reference but no longer
+count as signed off; their current status is in the reopened section above.
 
 | # | App | Time | Test Source |
 |---|-----|------|------------|
@@ -86,11 +117,11 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 57 | Node.js LTS (x64) | 6s | Both |
 | 58 | Notepad++ (x64) | 6s | psexec -s (NSIS arch-strip fix) |
 | 59 | Positron (x64) | 200s | psexec -s (UninstallCommand: unins000.exe direct path) |
-| 60 | PostgreSQL 13 (x64) | 280s | psexec -s (UninstallCommand direct path) |
-| 61 | PostgreSQL 14 (x64) | 280s | psexec -s (UninstallCommand direct path) |
-| 62 | PostgreSQL 15 (x64) | 280s | psexec -s (UninstallCommand direct path) |
-| 63 | PostgreSQL 16 (x64) | 280s | psexec -s (UninstallCommand: --mode unattended) |
-| 64 | PostgreSQL 17 (x64) | 280s | psexec -s (UninstallCommand direct path) |
+| 60 | PostgreSQL 13 (x64) | 280s | REOPENED (Detection edited) — prior: psexec -s (UninstallCommand direct path) |
+| 61 | PostgreSQL 14 (x64) | 280s | REOPENED (Detection edited) — prior: psexec -s (UninstallCommand direct path) |
+| 62 | PostgreSQL 15 (x64) | 280s | REOPENED (Detection edited) — prior: psexec -s (UninstallCommand direct path) |
+| 63 | PostgreSQL 16 (x64) | 280s | REOPENED (Detection edited) — prior: psexec -s (UninstallCommand: --mode unattended) |
+| 64 | PostgreSQL 17 (x64) | 280s | REOPENED (Detection edited) — prior: psexec -s (UninstallCommand direct path) |
 | 65 | Power BI Desktop (x64) | 12s | psexec -s (UninstallCommand: MSI from ARP) |
 | 66 | PowerShell 7 (x64) | 17s | Dirty VM |
 | 67 | PowerShell 7 LTS (x64) | 10s | psexec -s |
@@ -114,7 +145,7 @@ Do NOT retest. Do NOT edit definitions without explicit approval.
 | 85 | Visual C++ Redistributable (x64) | 8s | Syntactically correct, prereq |
 | 86 | Visual C++ Redistributable (x86) | 5s | Syntactically correct, prereq |
 | 87 | WinDirStat (x64) | 3s | Dirty VM |
-| 88 | WinRAR (x64) | 6s | psexec -s (NSIS arch-strip fix) |
+| 88 | WinRAR (x64) | 6s | REOPENED (Detection edited) — prior: psexec -s (NSIS arch-strip fix) |
 | 89 | WinSCP (x64) | 8s | psexec -s (UninstallCommand: unins000.exe direct path) |
 | 90 | Wireshark (x64) | 22s | psexec -s (NSIS framework fix) |
 | 91 | XenServer VM Tools (x64) | 6s | Both (reboot required) |

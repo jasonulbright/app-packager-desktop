@@ -9,12 +9,25 @@
 ### Changed
 
 - Renamed the Visual Studio Code application to Visual Studio Code (System).
+- Changed WinRAR DisplayVersion detection to match the release prefix, consistent with the PowerShell packager.
 
 ### Fixed
 
 - Fixed PostgreSQL 13 to 17 detection to read the uninstall key version.
-- Fixed WinRAR detection missing an installed release.
 - Fixed the Visual Studio Code definition to install the system setup.
+- Fixed Intune script detection, installer architecture requirements, and saved install/uninstall command overrides.
+- Fixed required Intune publication failures being reported as successful packaging; partial MECM success remains visible.
+- Fixed stale MECM content after restaging the same version. Changed files are refreshed and verified before application updates.
+- Fixed Check Latest, Check MECM, Stage, and Package summaries to count actual successes, failures, skips, and cancellations.
+- Fixed MECM query failures clearing the last known version and One Click continuing after cancellation.
+- Fixed interrupted downloads leaving incomplete cached installers or running child processes, and legacy version checks hanging on process output.
+- Fixed detection checks to honor registry hives, views, and comparison operators, report evaluation errors separately from absence, and bound remote script execution.
+
+### Validation and lab follow-up
+
+- All five Release projects build without warnings or errors; 1,091 C# tests and 70 Windows PowerShell 5.1 checks pass.
+- Live MECM/Intune publication and complete UI deployment workflows await lab validation. WinRAR and PostgreSQL 13 to 17 need fresh install, detect, uninstall, and clean cycles for their changed detection rules.
+- Use freshly staged content for the lab pass. Restage older x86/ARM64 content before Intune publication; manifests without an explicit architecture default to x64.
 
 ## [2.2.0-alpha8] - 2026-09-09
 

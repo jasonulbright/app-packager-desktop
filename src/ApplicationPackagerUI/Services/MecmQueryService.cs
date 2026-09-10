@@ -1,20 +1,17 @@
 using System.Diagnostics;
+using System.IO;
+using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
 
 namespace ApplicationPackagerUI.Services;
-
-public sealed class MecmQueryResult
-{
-    public bool Found { get; init; }
-    public string? DisplayName { get; init; }
-    public string? SoftwareVersion { get; init; }
-    public int MatchCount { get; init; }
-}
 
 public class MecmQueryService(SettingsService settingsService)
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
-    // Inline PS script that replicates Get-MecmCurrentVersionByCMName from start-apppackager.ps1
+    // Replicates Get-MecmCurrentVersionByCMName from start-apppackager.ps1. Run from a
+    // file with the site code and name passed as parameters, so neither is ever spliced
+    // into executable text.
     private const string QueryScript = """
         param($SiteCode, $CMName)
         if (-not (Get-Command -Name Get-CMApplication -ErrorAction SilentlyContinue)) {
@@ -26,17 +23,21 @@ public class MecmQueryService(SettingsService settingsService)
             } catch {}
         }
         if (-not (Get-Command -Name Get-CMApplication -ErrorAction SilentlyContinue)) {
-            Write-Output 'ERROR:CM_CMDLETS_NOT_AVAILABLE'; exit 0
+            Write-Output 'ERROR:CM_CMDLETS_NOT_AVAILABLE'; exit 3
         }
         try { Set-Location "${SiteCode}:" -ErrorAction Stop } catch {
-            Write-Output 'ERROR:SITE_DRIVE_FAILED'; exit 0
+            Write-Output 'ERROR:SITE_DRIVE_FAILED'; exit 4
         }
-        $apps = @(Get-CMApplication -Name $CMName -ErrorAction SilentlyContinue)
-        if (-not $apps -or $apps.Count -eq 0) {
-            $apps = @(Get-CMApplication -Name "$CMName*" -ErrorAction SilentlyContinue)
-        }
-        if (-not $apps -or $apps.Count -eq 0) {
-            $apps = @(Get-CMApplication -Name "*$CMName*" -ErrorAction SilentlyContinue)
+        try {
+            $apps = @(Get-CMApplication -Name $CMName -ErrorAction Stop)
+            if (-not $apps -or $apps.Count -eq 0) {
+                $apps = @(Get-CMApplication -Name "$CMName*" -ErrorAction Stop)
+            }
+            if (-not $apps -or $apps.Count -eq 0) {
+                $apps = @(Get-CMApplication -Name "*$CMName*" -ErrorAction Stop)
+            }
+        } catch {
+            Write-Output 'ERROR:QUERY_FAILED'; exit 5
         }
         if (-not $apps -or $apps.Count -eq 0) {
             Write-Output 'NOT_FOUND'; exit 0
@@ -55,57 +56,40 @@ public class MecmQueryService(SettingsService settingsService)
             }
         }
         Write-Output "FOUND|$($chosen.LocalizedDisplayName)|$($chosen.SoftwareVersion)|$($apps.Count)"
+        exit 0
         """;
 
     public async Task<MecmQueryResult> QueryVersionAsync(string cmName, CancellationToken ct = default)
     {
-        var settings = settingsService.Load();
-        var siteCode = settings.SiteCode;
+        var siteCode = settingsService.Load().SiteCode;
 
-        // Escape for -Command invocation
-        var escapedScript = QueryScript.Replace("\"", "\\\"");
-        var args = $"-NoProfile -ExecutionPolicy Bypass -Command \"& {{ {escapedScript} }} -SiteCode '{siteCode}' -CMName '{cmName}'\"";
-
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
+        var scriptFile = Path.Combine(Path.GetTempPath(), $"packr-cmquery-{Guid.NewGuid():N}.ps1");
+        try
         {
-            FileName = "powershell.exe",
-            Arguments = args,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+            await File.WriteAllTextAsync(scriptFile, QueryScript, ct).ConfigureAwait(false);
+            var startInfo = new ProcessStartInfo { FileName = "powershell.exe" };
+            // Passed as argument values, never spliced into the script body.
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-NonInteractive");
+            startInfo.ArgumentList.Add("-ExecutionPolicy");
+            startInfo.ArgumentList.Add("Bypass");
+            startInfo.ArgumentList.Add("-File");
+            startInfo.ArgumentList.Add(scriptFile);
+            startInfo.ArgumentList.Add("-SiteCode");
+            startInfo.ArgumentList.Add(siteCode ?? "");
+            startInfo.ArgumentList.Add("-CMName");
+            startInfo.ArgumentList.Add(cmName ?? "");
 
-        process.Start();
+            var run = await BoundedProcessRunner.RunAsync(startInfo, Timeout, ct).ConfigureAwait(false);
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(Timeout, ct));
+            if (run.TimedOut)
+                return MecmQueryResult.Failure($"query timed out after {Timeout.TotalSeconds:0}s");
 
-        if (completed != exitTask)
-        {
-            try { process.Kill(true); } catch { }
-            return new MecmQueryResult { Found = false };
+            return MecmQueryClassifier.Classify(run.ExitCode, run.StdOut, run.StdErr);
         }
-
-        var stdout = (await stdoutTask).Trim();
-
-        if (stdout.StartsWith("NOT_FOUND") || stdout.StartsWith("ERROR:"))
-            return new MecmQueryResult { Found = false };
-
-        if (stdout.StartsWith("FOUND|"))
+        finally
         {
-            var parts = stdout.Split('|');
-            return new MecmQueryResult
-            {
-                Found = true,
-                DisplayName = parts.Length > 1 ? parts[1] : null,
-                SoftwareVersion = parts.Length > 2 ? parts[2] : null,
-                MatchCount = parts.Length > 3 && int.TryParse(parts[3], out var mc) ? mc : 1
-            };
+            try { File.Delete(scriptFile); } catch (IOException) { }
         }
-
-        return new MecmQueryResult { Found = false };
     }
 }

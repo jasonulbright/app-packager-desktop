@@ -418,6 +418,11 @@ public sealed class DroppedInstallerAnalysisService
             SoftwareVersion = version,
             InstallerFile = analysis.FileName,
             InstallerType = analysis.InstallerType,
+            // The analysis reads the payload's own architecture; an unreadable one keeps
+            // the same x64 default the graduated definition takes.
+            Architecture = string.IsNullOrEmpty(analysis.Architecture)
+                ? InstallerArchitectures.LegacyDefault
+                : analysis.Architecture,
             InstallContext = installContext,
             InstallArgs = installArgs,
             UninstallArgs = uninstallArgs,

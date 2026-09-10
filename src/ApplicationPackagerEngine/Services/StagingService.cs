@@ -242,6 +242,10 @@ public sealed class StagingService
         Dictionary<string, string>? settingsValues = null,
         string? installMode = null)
     {
+        // A run already cancelled does no work and reports cancellation, rather than
+        // starting a download whose result nobody wants.
+        ct.ThrowIfCancellationRequested();
+
         // Route ODT apps to dedicated pipeline
         if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
             return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion, settingsValues);
@@ -592,6 +596,7 @@ public sealed class StagingService
                 SoftwareVersion = cmVersion,
                 InstallerFile = installerFileName,
                 InstallerType = def.InstallerType,
+                Architecture = def.Architecture,
                 InstallContext = installContext,
                 InstallMode = string.IsNullOrWhiteSpace(installMode) ? null : installMode,
                 InstallArgs = installArgs,
@@ -616,9 +621,11 @@ public sealed class StagingService
                 ManifestPath = manifestPath
             };
         }
+        // Cancellation is not a staging failure. Returning it as one lets a caller read an
+        // interrupted run as an ordinary result and carry on.
         catch (OperationCanceledException)
         {
-            return new StagingResult { Success = false, ErrorMessage = "Cancelled" };
+            throw;
         }
         catch (Exception ex)
         {
@@ -750,6 +757,7 @@ public sealed class StagingService
                 SoftwareVersion = version,
                 InstallerFile = bootstrapperFileName,
                 InstallerType = "EXE",
+                Architecture = def.Architecture,
                 InstallContext = def.InstallContext,
                 InstallArgs = BuildLayoutInstallArgs(layout),
                 UninstallArgs = $"{layout.QuietSwitch} {layout.UninstallSwitch}",
@@ -771,9 +779,11 @@ public sealed class StagingService
                 ManifestPath = manifestPath
             };
         }
+        // Cancellation is not a staging failure. Returning it as one lets a caller read an
+        // interrupted run as an ordinary result and carry on.
         catch (OperationCanceledException)
         {
-            return new StagingResult { Success = false, ErrorMessage = "Cancelled" };
+            throw;
         }
         catch (Exception ex)
         {
@@ -1041,6 +1051,7 @@ public sealed class StagingService
                 SoftwareVersion = version,
                 InstallerFile = "setup.exe",
                 InstallerType = "ODT",
+                Architecture = def.Architecture,
                 InstallArgs = "/configure install.xml",
                 UninstallArgs = "/configure uninstall.xml",
                 RunningProcess = def.RunningProcess,
@@ -1745,9 +1756,10 @@ public sealed class StagingService
                 ManifestPath = manifestPath
             });
         }
+        // Cancellation is not a staging failure; it propagates.
         catch (OperationCanceledException)
         {
-            return Task.FromResult(new StagingResult { Success = false, ErrorMessage = "Cancelled" });
+            throw;
         }
         catch (Exception ex)
         {
