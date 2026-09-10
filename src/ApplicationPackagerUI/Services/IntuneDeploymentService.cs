@@ -6,18 +6,10 @@ using ApplicationPackagerUI.Models;
 namespace ApplicationPackagerUI.Services;
 
 /// <summary>
-/// Outcome of one Intune post-step. Both notes mirror the lines the operator sees for a run;
-/// an empty note means that half of the step never ran.
-/// </summary>
-public sealed record IntuneRunNotes(string IntuneWinNote, string PublishNote)
-{
-    public static readonly IntuneRunNotes None = new("", "");
-}
-
-/// <summary>
 /// Builds a .intunewin from staged content and publishes it as an Intune Win32 app.
 /// Failures never throw to the caller: by the time this runs the MECM application (when one
-/// was requested) already exists, so the outcome rides back as notes for the run log.
+/// was requested) already exists, so the outcome rides back as a status the caller decides
+/// on, carrying the notes the operator sees. Cancellation still propagates.
 /// </summary>
 public sealed class IntuneDeploymentService(SettingsService settingsService)
 {
@@ -27,7 +19,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
 
     private const string SetupFile = "install.bat";
 
-    public async Task<IntuneRunNotes> BuildAndPublishAsync(
+    public async Task<IntuneRunOutcome> BuildAndPublishAsync(
         StageManifest manifest,
         string stagedContentPath,
         Action<string>? log = null,
@@ -54,24 +46,17 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         }
         catch (Exception ex)
         {
-            return new IntuneRunNotes($"build failed: {ex.Message}", "");
+            return IntuneRunOutcome.BuildFailed($"build failed: {ex.Message}");
         }
 
         var winNote = $"built {Path.GetFileName(intuneWinPath)}";
 
-        var settings = settingsService.Load();
-        var options = BuildOptions(settings.Intune, manifest, description);
-        if (options is null)
-            return new IntuneRunNotes(winNote, "Intune credentials not configured; set Tenant ID, Client ID, and Client Secret in Settings.");
-
-        if (manifest.DeploymentTypes is { Length: > 0 })
-            return new IntuneRunNotes(winNote, "variant-split app; publish skipped (single-payload apps only for now).");
-
+        // Reading settings and resolving options can both fail on stored data; neither is
+        // a published app, so both answer through the same failure path.
+        IntunePublishOptions? options;
         try
         {
-            using var publisher = new IntunePublishService();
-            var appId = await publisher.PublishAsync(intuneWinPath, manifest, options, log, ct).ConfigureAwait(false);
-            return new IntuneRunNotes(winNote, $"published (app id {appId})");
+            options = BuildOptions(settingsService.Load().Intune, manifest, description);
         }
         catch (OperationCanceledException)
         {
@@ -79,7 +64,29 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         }
         catch (Exception ex)
         {
-            return new IntuneRunNotes(winNote, $"publish failed: {ex.Message}");
+            return IntuneRunOutcome.PublishFailed(winNote, ex.Message);
+        }
+        if (options is null)
+            return IntuneRunOutcome.PublishRefused(winNote,
+                "Intune credentials not configured; set Tenant ID, Client ID, and Client Secret in Settings.");
+
+        if (manifest.DeploymentTypes is { Length: > 0 })
+            return IntuneRunOutcome.PublishRefused(winNote,
+                "variant-split app; publish skipped (single-payload apps only for now).");
+
+        try
+        {
+            using var publisher = new IntunePublishService();
+            var appId = await publisher.PublishAsync(intuneWinPath, manifest, options, log, ct).ConfigureAwait(false);
+            return IntuneRunOutcome.Published(winNote, $"published (app id {appId})");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return IntuneRunOutcome.PublishFailed(winNote, $"publish failed: {ex.Message}");
         }
     }
 
@@ -161,7 +168,9 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             ClientId = stored.ClientId.Trim(),
             ClientSecret = secret,
             Description = description,
-            Architecture = manifest.Detection.Is64Bit ? "x64" : "x86"
+            // The payload's own architecture, never the detection's registry view: a
+            // per-user x64 product detects through the 32-bit view.
+            Architecture = InstallerArchitectures.Resolve(manifest)
         };
     }
 

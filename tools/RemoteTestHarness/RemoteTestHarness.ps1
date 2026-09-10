@@ -113,6 +113,14 @@ Write-Host ""
 
 $passed = 0; $failed = 0; $skipped = 0
 
+# Read once and shipped into each remote job, so the client evaluates rules with the same
+# semantics as the engine rather than a looser copy.
+$evaluationPath = Join-Path $PSScriptRoot 'DetectionEvaluation.ps1'
+if (-not (Test-Path -LiteralPath $evaluationPath)) {
+    throw "Detection evaluator not found beside the harness: $evaluationPath"
+}
+$evaluationSource = Get-Content -LiteralPath $evaluationPath -Raw
+
 foreach ($defFile in $defs) {
     $def = Get-Content $defFile.FullName -Raw | ConvertFrom-Json
     $appName = $def.Application
@@ -137,7 +145,11 @@ foreach ($defFile in $defs) {
 
     try {
         $job = Invoke-Command -ComputerName $ComputerName -Credential $cred -AsJob -ScriptBlock {
-            param($AppJson, $StagedRoot, $TimeoutSec)
+            param($AppJson, $StagedRoot, $TimeoutSec, $EvaluationSource)
+
+            # The evaluator travels as source text: this block runs on the client and the
+            # file lives beside this script on the controller.
+            . ([scriptblock]::Create($EvaluationSource))
 
             $def = $AppJson | ConvertFrom-Json
 
@@ -170,41 +182,17 @@ foreach ($defFile in $defs) {
             # Detect
             $manifestJson = Get-Content (Join-Path $contentPath 'stage-manifest.json') -Raw | ConvertFrom-Json
             $det = $manifestJson.Detection
-            $detected = $false
+            $scriptRunner = { param($text) Invoke-DetectionScript -ScriptText $text -TimeoutSeconds $TimeoutSec }
+            $verdict = Get-DetectionVerdict -Detection $det -ScriptRunner $scriptRunner
 
-            if ($det.Type -eq 'RegistryKeyValue' -and $det.RegistryKeyRelative) {
-                $view = if ($det.Is64Bit) { [Microsoft.Win32.RegistryView]::Registry64 } else { [Microsoft.Win32.RegistryView]::Registry32 }
-                $hklm = [Microsoft.Win32.RegistryKey]::OpenBaseKey($(if ($det.Hive -eq "CurrentUser") { [Microsoft.Win32.RegistryHive]::CurrentUser } else { [Microsoft.Win32.RegistryHive]::LocalMachine }), $view)
-                $key = $hklm.OpenSubKey($det.RegistryKeyRelative)
-                if ($key) {
-                    $val = $key.GetValue($det.ValueName)
-                    if ($val) { $detected = $true }
-                    $key.Close()
-                }
-                $hklm.Close()
-            } elseif ($det.Type -eq 'RegistryKey' -and $det.RegistryKeyRelative) {
-                $view = if ($det.Is64Bit) { [Microsoft.Win32.RegistryView]::Registry64 } else { [Microsoft.Win32.RegistryView]::Registry32 }
-                $hklm = [Microsoft.Win32.RegistryKey]::OpenBaseKey($(if ($det.Hive -eq "CurrentUser") { [Microsoft.Win32.RegistryHive]::CurrentUser } else { [Microsoft.Win32.RegistryHive]::LocalMachine }), $view)
-                $key = $hklm.OpenSubKey($det.RegistryKeyRelative)
-                if ($key) { $detected = $true; $key.Close() }
-                $hklm.Close()
-            } elseif ($det.Type -eq 'File' -and $det.FilePath -and $det.FileName) {
-                $filePath = Join-Path ([Environment]::ExpandEnvironmentVariables($det.FilePath)) $det.FileName
-                $detected = Test-Path $filePath
-            } elseif ($det.Type -eq 'Script' -and $det.ScriptText) {
-                # CM reads a script detection as installed when it writes to
-                # stdout and exits 0; an MSIX manifest carries this shape.
-                $scriptFile = Join-Path $env:TEMP ("packr-detect-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
-                Set-Content -LiteralPath $scriptFile -Value $det.ScriptText -Encoding ASCII
-                try {
-                    $stdout = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptFile 2>$null
-                    $detected = ($LASTEXITCODE -eq 0) -and -not [string]::IsNullOrWhiteSpace(($stdout -join ''))
-                } finally { Remove-Item -LiteralPath $scriptFile -ErrorAction SilentlyContinue }
+            $detectResult = switch ($verdict) {
+                'Detected'    { 'PASS' }
+                'NotDetected' { 'FAIL (not detected)' }
+                default       { 'FAIL (detection rule could not be evaluated)' }
             }
+            $results += @{ Phase = 'Detect'; Result = $detectResult; ExitCode = 0; Duration = 0 }
 
-            $results += @{ Phase = 'Detect'; Result = $(if ($detected) {'PASS'} else {'FAIL (not detected)'}); ExitCode = 0; Duration = 0 }
-
-            if (-not $detected) { return $results }
+            if ($verdict -ne 'Detected') { return $results }
 
             # Uninstall
             $unPs1 = Join-Path $contentPath 'uninstall.ps1'
@@ -216,35 +204,21 @@ foreach ($defFile in $defs) {
                 $unExit = $proc.ExitCode
                 $results += @{ Phase = 'Uninstall'; Result = $(if ($unExit -eq 0) {'PASS'} elseif ($unExit -eq 3010) {'PASS (reboot required)'} else {"FAIL (exit $unExit)"}); ExitCode = $unExit; Duration = $sw.ElapsedMilliseconds }
 
-                # Clean check
-                if ($det.Type -eq 'File' -and $det.FilePath -and $det.FileName) {
-                    $filePath = Join-Path ([Environment]::ExpandEnvironmentVariables($det.FilePath)) $det.FileName
-                    $stillDetected = Test-Path $filePath
-                } elseif ($det.Type -eq 'Script' -and $det.ScriptText) {
-                    $scriptFile = Join-Path $env:TEMP ("packr-detect-{0}.ps1" -f [guid]::NewGuid().ToString('N'))
-                    Set-Content -LiteralPath $scriptFile -Value $det.ScriptText -Encoding ASCII
-                    try {
-                        $stdout = & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptFile 2>$null
-                        $stillDetected = ($LASTEXITCODE -eq 0) -and -not [string]::IsNullOrWhiteSpace(($stdout -join ''))
-                    } finally { Remove-Item -LiteralPath $scriptFile -ErrorAction SilentlyContinue }
-                } else {
-                    # Re-check registry
-                    $stillDetected = $false
-                    if ($det.RegistryKeyRelative) {
-                        $view2 = if ($det.Is64Bit) { [Microsoft.Win32.RegistryView]::Registry64 } else { [Microsoft.Win32.RegistryView]::Registry32 }
-                        $hklm2 = [Microsoft.Win32.RegistryKey]::OpenBaseKey($(if ($det.Hive -eq "CurrentUser") { [Microsoft.Win32.RegistryHive]::CurrentUser } else { [Microsoft.Win32.RegistryHive]::LocalMachine }), $view2)
-                        $key2 = $hklm2.OpenSubKey($det.RegistryKeyRelative)
-                        if ($key2) { $stillDetected = $true; $key2.Close() }
-                        $hklm2.Close()
-                    }
+                # Clean check. Only a genuine not-detected is clean: a rule that could not
+                # be read says nothing about whether the application is gone.
+                $cleanVerdict = Get-DetectionVerdict -Detection $det -ScriptRunner $scriptRunner
+                $cleanResult = switch ($cleanVerdict) {
+                    'NotDetected' { 'PASS' }
+                    'Detected'    { 'FAIL (still detected)' }
+                    default       { 'FAIL (detection rule could not be evaluated)' }
                 }
-                $results += @{ Phase = 'Clean'; Result = $(if ($stillDetected) {'FAIL (still detected)'} else {'PASS'}); ExitCode = 0; Duration = 0 }
+                $results += @{ Phase = 'Clean'; Result = $cleanResult; ExitCode = 0; Duration = 0 }
             } else {
                 $results += @{ Phase = 'Uninstall'; Result = 'SKIP (no uninstall.ps1)'; ExitCode = 0; Duration = 0 }
             }
 
             return $results
-        } -ArgumentList ($def | ConvertTo-Json -Depth 10), $StagedRoot, $TimeoutSec -ErrorAction Stop
+        } -ArgumentList ($def | ConvertTo-Json -Depth 10), $StagedRoot, $TimeoutSec, $evaluationSource -ErrorAction Stop
 
         # Wait for job with timeout
         $completed = Wait-Job $job -Timeout $TimeoutSec

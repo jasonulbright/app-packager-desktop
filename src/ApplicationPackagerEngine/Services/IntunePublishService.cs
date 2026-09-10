@@ -86,9 +86,18 @@ public sealed class IntunePublishService : IDisposable
         var match = existingApp?.FirstOrDefault(n =>
             (string?)n?["@odata.type"] == "#microsoft.graph.win32LobApp");
 
+        // applicableArchitectures has no arm64 member; arm64 is expressed through
+        // allowedArchitectures, and Graph forces applicableArchitectures to none whenever
+        // allowedArchitectures is non-null. Both are written on every publish so a repeat
+        // publish that moves an app between architectures cannot leave a stale
+        // allowedArchitectures behind to override the incoming one.
+        var (applicableArchitectures, allowedArchitectures) = GraphArchitectures(options.Architecture);
+
         var appBody = new JsonObject
         {
             ["@odata.type"] = "#microsoft.graph.win32LobApp",
+            ["applicableArchitectures"] = applicableArchitectures,
+            ["allowedArchitectures"] = allowedArchitectures,
             ["displayName"] = manifest.AppName,
             ["description"] = string.IsNullOrWhiteSpace(options.Description) ? manifest.AppName : options.Description,
             ["publisher"] = manifest.Publisher,
@@ -96,7 +105,6 @@ public sealed class IntunePublishService : IDisposable
             ["setupFilePath"] = meta.SetupFile,
             ["installCommandLine"] = installCommand,
             ["uninstallCommandLine"] = uninstallCommand,
-            ["applicableArchitectures"] = options.Architecture,
             ["minimumSupportedWindowsRelease"] = options.MinimumSupportedWindowsRelease,
             ["installExperience"] = new JsonObject
             {
@@ -330,6 +338,21 @@ public sealed class IntunePublishService : IDisposable
         };
     }
 
+    /// <summary>
+    /// Splits an installer architecture across the two Graph properties. x86 and x64 are
+    /// members of applicableArchitectures; arm64 is not, and is carried by
+    /// allowedArchitectures with applicableArchitectures set to none. The unused property
+    /// is written explicitly rather than omitted, so updating an existing app clears
+    /// whichever value the previous publish set.
+    /// </summary>
+    public static (string Applicable, string? Allowed) GraphArchitectures(string? architecture)
+    {
+        var resolved = InstallerArchitectures.Resolve(architecture);
+        return resolved == InstallerArchitectures.Arm64
+            ? ("none", "arm64")
+            : (resolved, null);
+    }
+
     public static JsonArray BuildRules(StageDetection detection)
     {
         if (!string.Equals(detection.Type, "Compound", StringComparison.OrdinalIgnoreCase))
@@ -431,11 +454,19 @@ public sealed class IntunePublishService : IDisposable
             }
             case "Script":
             {
-                // The schema carries the detection script body in ExpectedValue; there is no
-                // separate script field on StageDetection.
-                var scriptText = d.ExpectedValue ?? "";
+                // ScriptText carries the body. ExpectedValue on a Script detection is a
+                // comparison value, not a script: MSIX staging writes the package version
+                // there beside the body, so encoding it would publish the version as the
+                // detection.
+                var scriptText = d.ScriptText;
                 if (string.IsNullOrWhiteSpace(scriptText))
-                    throw new InvalidOperationException("Script detection carries no script text; the Intune rule cannot be built.");
+                    throw new InvalidOperationException("Script detection carries no ScriptText; the Intune rule cannot be built.");
+                // Graph runs a Win32 detection script as PowerShell; it has no rule shape
+                // for the other languages the MECM clause builder accepts.
+                if (!string.IsNullOrWhiteSpace(d.ScriptLanguage)
+                    && !d.ScriptLanguage.Equals("PowerShell", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"Detection script language '{d.ScriptLanguage}' has no Intune rule mapping; Graph runs a Win32 detection script as PowerShell.");
                 return new JsonObject
                 {
                     ["@odata.type"] = "#microsoft.graph.win32LobAppPowerShellScriptRule",

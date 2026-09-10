@@ -71,31 +71,36 @@ public sealed class MecmTarget
                     return new PackagingResult { Success = true, AlreadyExists = true, ApplicationName = appName };
             }
 
-            // 1. Copy content to network
+            // 1. Mirror content to the network, refreshing files whose content changed.
             onProgress?.Invoke($"Network content path: {networkContentPath}");
-            Directory.CreateDirectory(networkContentPath);
 
-            foreach (var file in Directory.GetFiles(stagedContentPath, "*", SearchOption.AllDirectories))
-            {
-                var relativePath = Path.GetRelativePath(stagedContentPath, file);
-                if (relativePath.Equals("stage-manifest.json", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var dest = Path.Combine(networkContentPath, relativePath);
-                var destDir = Path.GetDirectoryName(dest)!;
-                if (!Directory.Exists(destDir))
-                    Directory.CreateDirectory(destDir);
-
-                if (!File.Exists(dest))
+            // The local stage is the source of the copy, so a stage that no longer
+            // matches its own manifest is refused before the share is touched.
+            var localProblems = ContentSyncService.Verify(stagedContentPath, manifest);
+            if (localProblems.Count > 0)
+                return new PackagingResult
                 {
-                    File.Copy(file, dest);
-                    onProgress?.Invoke($"Copied: {relativePath}");
-                }
-                else
+                    Success = false,
+                    ErrorMessage = $"Staged content does not match its manifest: {string.Join("; ", localProblems)}"
+                };
+
+            var sync = ContentSyncService.Sync(stagedContentPath, networkContentPath, manifest, onProgress, ct);
+            if (sync.UsedSourceHashes)
+                onProgress?.Invoke("Content integrity: manifest carries no FileHashes; compared against the staged files.");
+            onProgress?.Invoke(
+                $"Content synchronized: {sync.Copied.Count} copied, {sync.Refreshed.Count} refreshed, {sync.Unchanged.Count} unchanged.");
+
+            // Verified before the application is created or updated, so CM never points
+            // a deployment type at content that does not match the manifest.
+            var networkProblems = ContentSyncService.Verify(networkContentPath, manifest);
+            if (networkProblems.Count > 0)
+                return new PackagingResult
                 {
-                    onProgress?.Invoke($"Already on network: {relativePath}");
-                }
-            }
+                    Success = false,
+                    ErrorMessage = $"Network content verification failed: {string.Join("; ", networkProblems)}"
+                };
+            if (manifest.FileHashes is { Length: > 0 })
+                onProgress?.Invoke($"Content integrity verified: {manifest.FileHashes.Length} file(s).");
 
             // 2. Build the PowerShell script for CM app creation
             onProgress?.Invoke("Connecting to MECM...");

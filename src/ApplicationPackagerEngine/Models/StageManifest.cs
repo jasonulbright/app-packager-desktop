@@ -17,6 +17,13 @@ public sealed class StageManifest
     public string SoftwareVersion { get; set; } = "";
     public string InstallerFile { get; set; } = "";
     public string InstallerType { get; set; } = "MSI";
+    /// <summary>
+    /// Architecture of the installer payload: x86, x64 or ARM64. Distinct from
+    /// Detection.Is64Bit, which is the registry or file system view a detection reads —
+    /// an x64 product installed per-user detects through the 32-bit view routinely.
+    /// A manifest written before this field existed carries none and reads as x64.
+    /// </summary>
+    public string Architecture { get; set; } = InstallerArchitectures.X64;
     /// <summary>Machine or User install context. Drives deployment type behavior and collection targeting.</summary>
     public string InstallContext { get; set; } = "Machine";
     /// <summary>AllUsers or CurrentUser when the operator chose an install mode for a switchable installer; null otherwise.</summary>

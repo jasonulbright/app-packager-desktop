@@ -182,7 +182,14 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
-        await RunCheckLatestOnList(due, "One Click: checking versions...", "One Click");
+        // A cancelled phase ends the run. Whatever the check already recorded stays on the
+        // rows; One Click does not go on to stage or package after the operator stopped it.
+        var checkTally = await RunCheckLatestOnList(due, "One Click: checking versions...", "One Click");
+        if (checkTally.Cancelled)
+        {
+            AddLogLine("One Click: cancelled during the version check; nothing staged or packaged.");
+            return;
+        }
 
         // A newer version is one the site does not carry yet; an application never checked
         // against the site counts as new.
@@ -195,25 +202,38 @@ public partial class PackagesViewModel : ObservableObject
                        (string.IsNullOrEmpty(p.CurrentVersion) ? "" : $" (site has {p.CurrentVersion})"));
         if (updates.Count == 0)
         {
-            StatusText = "One Click: everything current.";
+            // A batch whose lookups failed has not established that anything is current.
+            StatusText = checkTally.AllSucceeded(due.Count)
+                ? "One Click: everything current."
+                : $"One Click: no newer versions found. {checkTally.Describe(due.Count, "checked")}.";
             AddLogLine("One Click: no newer versions.");
             return;
         }
         if (action == OneClickActions.Report)
         {
-            StatusText = $"One Click: {updates.Count} newer version(s) reported.";
+            var reported = $"One Click: {updates.Count} newer version(s) reported.";
+            StatusText = checkTally.AllSucceeded(due.Count)
+                ? reported
+                : $"{reported} {checkTally.Describe(due.Count, "checked")}.";
             return;
         }
 
         foreach (var p in Packagers) p.IsSelected = updates.Contains(p);
-        await StageAsync();
+        var stageTally = await RunStageAsync();
+        if (stageTally.Cancelled)
+        {
+            AddLogLine("One Click: cancelled during staging; nothing packaged.");
+            return;
+        }
         if (action != OneClickActions.StageAndPackage) return;
 
         var staged = updates.Where(p => p.Status == "Staged").ToList();
         foreach (var p in Packagers) p.IsSelected = staged.Contains(p);
         if (staged.Count == 0)
         {
-            StatusText = "One Click: nothing staged to package.";
+            // Nothing to package because staging did not produce anything, which is a
+            // different thing from there having been nothing to do.
+            StatusText = $"One Click: nothing staged to package. {stageTally.Describe(updates.Count, "staged")}.";
             return;
         }
         _skipCommentPrompt = true;
@@ -483,7 +503,8 @@ public partial class PackagesViewModel : ObservableObject
         await RunCheckLatestOnList(ordered, "Auto-checking latest versions...", "Auto-check");
     }
 
-    private async Task RunCheckLatestOnList(List<PackagerInfo> targets, string startMessage, string logPrefix)
+    private async Task<PackagingRunTally> RunCheckLatestOnList(
+        List<PackagerInfo> targets, string startMessage, string logPrefix)
     {
         IsOperationRunning = true;
         ShowProgress = true;
@@ -492,12 +513,15 @@ public partial class PackagesViewModel : ObservableObject
         _operationCts = new CancellationTokenSource();
         StatusText = startMessage;
         var settings = _settingsService.Load();
+        var tally = new PackagingRunTally();
 
         try
         {
             for (var i = 0; i < targets.Count; i++)
             {
-                if (_operationCts.IsCancellationRequested) break;
+                // Cancellation seen between items interrupts nothing; the items after this
+                // point were never attempted.
+                if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
 
                 var p = targets[i];
                 ProgressCurrent = i + 1;
@@ -514,6 +538,7 @@ public partial class PackagesViewModel : ObservableObject
                         p.LatestVersion = version;
                         p.LastChecked = DateTime.Now;
                         p.Status = "Latest retrieved";
+                        tally.RecordSuccess();
 
                         var suffix = p.Script.Contains("m365", StringComparison.OrdinalIgnoreCase)
                             ? $" [{ChannelTag(settings.M365Channel)}]" : "";
@@ -521,26 +546,45 @@ public partial class PackagesViewModel : ObservableObject
                     }
                     else
                     {
+                        // A null lookup after the operator cancelled is an interrupted item,
+                        // not a version that could not be found.
+                        if (tally.RecordInterruptedOrFailed(_operationCts.Token))
+                        {
+                            p.Status = "Cancelled";
+                            break;
+                        }
                         p.Status = "Error";
                         p.IsSelected = false;
                         AddLogLine($"ERROR: Could not determine latest version for {p.Application}");
                     }
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException ex)
+                {
+                    // The row that was in flight has no verdict and is not "not attempted".
+                    if (tally.RecordInterruptedOrFailed(_operationCts.Token))
+                    {
+                        p.Status = "Cancelled";
+                        break;
+                    }
+                    // A timeout inside the service throws the same type; that is this item
+                    // failing, not the operator stopping the batch.
+                    p.Status = "Error";
+                    AddLogLine($"ERROR: {ex.Message}");
+                }
                 catch (Exception ex)
                 {
                     p.Status = "Error";
+                    tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
             }
 
             SaveAppStates();
-            StatusText = $"{logPrefix} complete. {ProgressCurrent} of {ProgressTotal} checked.";
-        }
-        catch (OperationCanceledException)
-        {
-            SaveAppStates();
-            StatusText = $"{logPrefix} cancelled at {ProgressCurrent} of {ProgressTotal}.";
+            // A lookup can finish successfully after the operator cancelled, so the run's
+            // state is settled here rather than only when an item was interrupted.
+            tally.Finish(_operationCts.Token);
+            StatusText = tally.Summarize(logPrefix, ProgressTotal, "checked");
+            return tally;
         }
         finally
         {
@@ -569,12 +613,13 @@ public partial class PackagesViewModel : ObservableObject
         IsOperationRunning = true;
         _operationCts = new CancellationTokenSource();
         StatusText = "Querying MECM...";
+        var tally = new PackagingRunTally();
 
         try
         {
             foreach (var p in selected)
             {
-                if (_operationCts.IsCancellationRequested) break;
+                if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
 
                 p.Status = "Querying MECM...";
                 AddLogLine($"MECM: {p.Application}");
@@ -582,6 +627,26 @@ public partial class PackagesViewModel : ObservableObject
                 try
                 {
                     var result = await _mecmQueryService.QueryVersionAsync(p.CMName, _operationCts.Token);
+
+                    // A query that never reached an answer establishes nothing, so the last
+                    // known version stays put rather than being cleared as an absence.
+                    if (result.Failed)
+                    {
+                        // A failed query after the operator cancelled is an interrupted
+                        // item; the site was never given a chance to answer.
+                        if (tally.RecordInterruptedOrFailed(_operationCts.Token))
+                        {
+                            p.Status = "Cancelled";
+                            break;
+                        }
+                        p.Status = "Error";
+                        AddLogLine($"ERROR: {result.FailureReason}");
+                        continue;
+                    }
+
+                    // The site answered either way. An application it does not carry is a
+                    // completed check, not a failed one.
+                    tally.RecordSuccess();
 
                     if (result.Found)
                     {
@@ -610,19 +675,26 @@ public partial class PackagesViewModel : ObservableObject
                         AddLogLine($"  Not in MECM");
                     }
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException ex)
+                {
+                    if (tally.RecordInterruptedOrFailed(_operationCts.Token))
+                    {
+                        p.Status = "Cancelled";
+                        break;
+                    }
+                    p.Status = "Error";
+                    AddLogLine($"ERROR: {ex.Message}");
+                }
                 catch (Exception ex)
                 {
                     p.Status = "Error";
+                    tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
             }
 
-            StatusText = "MECM query complete.";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = "MECM query cancelled.";
+            tally.Finish(_operationCts.Token);
+            StatusText = tally.Summarize("MECM query", selected.Count, "checked");
         }
         finally
         {
@@ -634,10 +706,13 @@ public partial class PackagesViewModel : ObservableObject
 
     // ── Stage ────────────────────────────────────────────────────
 
-    private async Task StageAsync()
+    private async Task StageAsync() => await RunStageAsync();
+
+    /// <summary>Stages the selection and reports what actually happened to each item.</summary>
+    private async Task<PackagingRunTally> RunStageAsync()
     {
         var selected = SelectedPackagers.ToList();
-        if (selected.Count == 0) { ShowNoneSelected("Stage"); return; }
+        if (selected.Count == 0) { ShowNoneSelected("Stage"); return new PackagingRunTally(); }
 
         IsOperationRunning = true;
         ShowProgress = true;
@@ -645,12 +720,13 @@ public partial class PackagesViewModel : ObservableObject
         ProgressTotal = selected.Count;
         _operationCts = new CancellationTokenSource();
         StatusText = "Staging selected packages...";
+        var tally = new PackagingRunTally();
 
         try
         {
             for (var i = 0; i < selected.Count; i++)
             {
-                if (_operationCts.IsCancellationRequested) break;
+                if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
 
                 var p = selected[i];
                 ProgressCurrent = i + 1;
@@ -691,9 +767,13 @@ public partial class PackagesViewModel : ObservableObject
                                 DefaultButton = ContentDialogButton.Primary
                             };
                             var dialogResult = await _contentDialogService.ShowAsync(dialog, _operationCts.Token);
+                            // A dialog dismissed because the operator cancelled the run is
+                            // a cancellation, not a decision to skip this application.
+                            _operationCts.Token.ThrowIfCancellationRequested();
                             if (dialogResult != ContentDialogResult.Primary)
                             {
                                 p.Status = "Skipped";
+                                tally.RecordSkip();
                                 AddLogLine($"  Skipped (config review cancelled)");
                                 continue;
                             }
@@ -707,29 +787,43 @@ public partial class PackagesViewModel : ObservableObject
                     if (result.ExitCode == 0)
                     {
                         p.Status = "Staged";
+                        tally.RecordSuccess();
                         AddLogLine($"Staged: {result.StdOut}");
                     }
                     else
                     {
+                        if (tally.RecordInterruptedOrFailed(_operationCts.Token))
+                        {
+                            p.Status = "Cancelled";
+                            break;
+                        }
                         p.Status = "Stage error";
                         p.IsSelected = false;
                         AddLogLine($"Stage FAILED (exit {result.ExitCode})");
                         LogStdErr(result.StdErr);
                     }
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException ex)
+                {
+                    if (tally.RecordInterruptedOrFailed(_operationCts.Token))
+                    {
+                        p.Status = "Cancelled";
+                        break;
+                    }
+                    p.Status = "Stage error";
+                    AddLogLine($"ERROR: {ex.Message}");
+                }
                 catch (Exception ex)
                 {
                     p.Status = "Stage error";
+                    tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
             }
 
-            StatusText = $"Stage complete. {ProgressCurrent} of {ProgressTotal} staged.";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = $"Stage cancelled at {ProgressCurrent} of {ProgressTotal}.";
+            tally.Finish(_operationCts.Token);
+            StatusText = tally.Summarize("Stage", ProgressTotal, "staged");
+            return tally;
         }
         finally
         {
@@ -792,11 +886,14 @@ public partial class PackagesViewModel : ObservableObject
         // Per-run only: an apply-to-all answer dies with the loop and is never persisted.
         ConflictAnswer? runConflictAnswer = null;
 
+
+        var tally = new ApplicationPackagerEngine.Models.PackagingRunTally();
+
         try
         {
             for (var i = 0; i < selected.Count; i++)
             {
-                if (_operationCts.IsCancellationRequested) break;
+                if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
 
                 var p = selected[i];
                 ProgressCurrent = i + 1;
@@ -818,6 +915,7 @@ public partial class PackagesViewModel : ObservableObject
                         if (answer.Behavior == ConflictAnswer.CancelRemaining)
                         {
                             p.Status = "Skipped";
+                            tally.RecordSkip();
                             AddLogLine($"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}. Remaining applications cancelled.");
                             _operationCts.Cancel();
                             break;
@@ -834,6 +932,7 @@ public partial class PackagesViewModel : ObservableObject
                         {
                             p.Status = "Skipped";
                             p.IsSelected = false;
+                            tally.RecordSkip();
                             AddLogLine($"Existing application kept: {result.Conflict.ApplicationName} v{result.Conflict.Version}");
                             continue;
                         }
@@ -843,32 +942,55 @@ public partial class PackagesViewModel : ObservableObject
                     {
                         p.Status = "Packaged";
                         p.IsSelected = false;
+                        tally.RecordSuccess();
                         var pkgRef = string.IsNullOrEmpty(result.OutLogPath) ? result.StdOut : $"Log: {System.IO.Path.GetFileName(result.OutLogPath)}";
                         AddLogLine($"Packaged. {pkgRef}");
                     }
                     else
                     {
-                        p.Status = "Package error";
-                        p.IsSelected = false;
-                        AddLogLine($"Package FAILED (exit {result.ExitCode})");
-                        LogStdErr(result.StdErr);
+                        // The target catches its own exceptions, so a run cancelled mid-flight
+                        // comes back as an ordinary failed result. The caller's token is what
+                        // tells the two apart.
+                        var stopped = tally.RecordInterruptedOrFailed(_operationCts.Token);
+                        p.Status = stopped ? "Cancelled" : "Package error";
+                        if (!stopped)
+                        {
+                            p.IsSelected = false;
+                            AddLogLine($"Package FAILED (exit {result.ExitCode})");
+                            LogStdErr(result.StdErr);
+                        }
+
+                        // Notes stand either way: a partially completed target may already
+                        // have created the application or written content.
+                        LogIntuneNotes(p, result);
+                        if (stopped) break;
+                        continue;
                     }
 
                     LogIntuneNotes(p, result);
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException ex)
+                {
+                    if (tally.RecordInterruptedOrFailed(_operationCts.Token))
+                    {
+                        p.Status = "Cancelled";
+                        break;
+                    }
+                    p.Status = "Package error";
+                    AddLogLine($"ERROR: {ex.Message}");
+                }
                 catch (Exception ex)
                 {
                     p.Status = "Package error";
+                    tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
             }
 
-            StatusText = $"Package complete. {ProgressCurrent} of {ProgressTotal} packaged.";
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = $"Package cancelled at {ProgressCurrent} of {ProgressTotal}.";
+            // Keeping an existing application with Cancel remaining cancels the token and
+            // leaves the loop normally, so completion is not what happened.
+            tally.Finish(_operationCts.Token);
+            StatusText = tally.Summarize("Package", ProgressTotal, "packaged");
         }
         finally
         {

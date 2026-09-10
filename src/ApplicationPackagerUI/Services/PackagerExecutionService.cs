@@ -33,26 +33,18 @@ public class PackagerExecutionService(
         var settings = settingsService.Load();
         var args = BuildGetLatestArgs(packager, settings);
 
-        using var process = CreateProcess(args);
-        process.Start();
+        // The shared runner drains both streams and terminates the child on cancellation
+        // or timeout, including when stderr would otherwise fill its pipe.
+        var run = await BoundedProcessRunner.RunAsync(
+            new ProcessStartInfo { FileName = "powershell.exe", Arguments = args },
+            GetLatestTimeout, ct);
+        ct.ThrowIfCancellationRequested();
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(GetLatestTimeout, ct));
-
-        if (completed != exitTask)
-        {
-            try { process.Kill(true); } catch { }
-            return null;
-        }
-
-        var stdout = await stdoutTask;
-
-        if (process.ExitCode != 0)
+        if (run.TimedOut || run.ExitCode != 0)
             return null;
 
         // First non-empty line is the version
-        foreach (var line in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in run.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var trimmed = line.Trim();
             if (trimmed.Length > 0)
@@ -145,6 +137,7 @@ public class PackagerExecutionService(
             }
 
             var mecmSucceeded = true;
+            var mecmAlreadyExists = false;
             var stdOut = "";
             var stdErr = "";
 
@@ -154,7 +147,11 @@ public class PackagerExecutionService(
             var conditions = deploymentConditionsService.GetConditions(def.Id);
             DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, stagedContentPath, Report);
             var requirements = DeploymentConditionsService.BuildRequirements(conditions);
-            var commandOverrides = deploymentConditionsService.GetCommandOverrides(def.Id);
+            // Recorded on the manifest, not just handed to MECM: the Intune publish reads
+            // its command lines from the manifest, so a saved override that never lands
+            // there publishes install.bat and uninstall.bat instead.
+            var commandOverrides = ApplicationPackagerEngine.Services.DeploymentTypeSpecResolver
+                .ResolveCommandOverrides(manifest, deploymentConditionsService.GetCommandOverrides(def.Id));
             var applicationTitle = ApplicationTitle.Resolve(
                 manifest.AppName, manifest.SoftwareVersion, ApplicationTitle.Parse(conditions?.TitleMode));
             if (applicationTitle != manifest.AppName)
@@ -181,6 +178,7 @@ public class PackagerExecutionService(
                     applicationTitle: applicationTitle);
 
                 mecmSucceeded = result.Success;
+                mecmAlreadyExists = result.AlreadyExists;
                 stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
                 stdErr = result.ErrorMessage ?? "";
                 if (result.Success && !result.AlreadyExists)
@@ -192,8 +190,9 @@ public class PackagerExecutionService(
                 stdOut = $"Staged content ready: {stagedContentPath}";
             }
 
-            var notes = IntuneRunNotes.None;
-            if (DeploymentTargets.PublishesToIntune(target) && mecmSucceeded)
+            var intuneRequested = DeploymentTargets.PublishesToIntune(target);
+            var notes = IntuneRunOutcome.NotRun;
+            if (intuneRequested && mecmSucceeded)
             {
                 // The Intune display name carries the same title as the MECM
                 // application. Every path that reads the manifest name for a
@@ -203,12 +202,17 @@ public class PackagerExecutionService(
                     manifest, stagedContentPath, Report, comment, ct);
             }
 
+            var outcome = PackagingOutcomeComposer.Compose(
+                PackagingOutcomeComposer.MecmStatus(
+                    !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists),
+                stdErr, intuneRequested, notes);
+
             return new PackagerExecutionResult
             {
-                ExitCode = mecmSucceeded ? 0 : 1,
+                ExitCode = outcome.ExitCode,
                 StdOut = stdOut,
-                StdErr = stdErr,
-                IntuneWinNote = notes.IntuneWinNote.Length > 0 ? notes.IntuneWinNote : afterMecm,
+                StdErr = outcome.StdErr,
+                IntuneWinNote = notes.BuildNote.Length > 0 ? notes.BuildNote : afterMecm,
                 IntunePublishNote = notes.PublishNote,
                 Conflict = conflicts.Result
             };
@@ -261,6 +265,7 @@ public class PackagerExecutionService(
         }
 
         var mecmSucceeded = true;
+        var mecmAlreadyExists = false;
         var stdOut = "";
         var stdErr = "";
 
@@ -279,6 +284,7 @@ public class PackagerExecutionService(
                 contentLayout: settings.ContentLayout);
 
             mecmSucceeded = result.Success;
+            mecmAlreadyExists = result.AlreadyExists;
             stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
             stdErr = result.ErrorMessage ?? "";
             if (result.Success && !result.AlreadyExists)
@@ -290,16 +296,22 @@ public class PackagerExecutionService(
             stdOut = $"Staged content ready: {stagedContentPath}";
         }
 
-        var notes = IntuneRunNotes.None;
-        if (DeploymentTargets.PublishesToIntune(target) && mecmSucceeded)
+        var intuneRequested = DeploymentTargets.PublishesToIntune(target);
+        var notes = IntuneRunOutcome.NotRun;
+        if (intuneRequested && mecmSucceeded)
             notes = await intuneDeploymentService.BuildAndPublishAsync(manifest, stagedContentPath, Report, comment, ct);
+
+        var outcome = PackagingOutcomeComposer.Compose(
+            PackagingOutcomeComposer.MecmStatus(
+                !DeploymentTargets.SkipsMecm(target), mecmSucceeded, mecmAlreadyExists),
+            stdErr, intuneRequested, notes);
 
         return new PackagerExecutionResult
         {
-            ExitCode = mecmSucceeded ? 0 : 1,
+            ExitCode = outcome.ExitCode,
             StdOut = stdOut,
-            StdErr = stdErr,
-            IntuneWinNote = notes.IntuneWinNote.Length > 0 ? notes.IntuneWinNote : afterMecm,
+            StdErr = outcome.StdErr,
+            IntuneWinNote = notes.BuildNote.Length > 0 ? notes.BuildNote : afterMecm,
             IntunePublishNote = notes.PublishNote,
             Conflict = conflicts.Result
         };
@@ -384,24 +396,38 @@ public class PackagerExecutionService(
         using var process = CreateProcess(arguments);
         process.Start();
 
-        // Stream stdout line-by-line
-        var stderrTask = process.StandardError.ReadToEndAsync(ct);
+        // Read stderr without the caller's token: abandoning it leaves the child blocked
+        // on a full pipe, and terminating the child is what ends the stream.
+        var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
         var outLines = new List<string>();
 
-        string? line;
-        while ((line = await process.StandardOutput.ReadLineAsync(ct)) is not null)
+        string stderr;
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            outLines.Add(line);
-            if (onOutputLine is not null)
+            // Stream stdout line-by-line
+            string? line;
+            while ((line = await process.StandardOutput.ReadLineAsync(ct)) is not null)
             {
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(
-                    () => onOutputLine(line));
+                ct.ThrowIfCancellationRequested();
+                outLines.Add(line);
+                if (onOutputLine is not null)
+                {
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                        () => onOutputLine(line));
+                }
             }
-        }
 
-        await process.WaitForExitAsync(ct);
-        var stderr = await stderrTask;
+            await process.WaitForExitAsync(ct);
+            stderr = await stderrTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // Disposing the handle ends the wait, not the script. A stage or package run
+            // left behind would go on writing to the share long after the operator stopped.
+            BoundedProcessRunner.Terminate(process);
+            try { _ = await stderrTask; } catch (Exception) { }
+            throw;
+        }
 
         // Write log files
         try

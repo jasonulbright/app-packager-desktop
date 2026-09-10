@@ -105,6 +105,22 @@ public static class DeploymentTypeSpecResolver
         specs.Count > 1 || (specs.Count == 1 && !string.Equals(specs[0].DtName, appName, StringComparison.Ordinal));
 
     /// <summary>
+    /// Settles which commands both targets see and records them on the manifest. A saved
+    /// operator override replaces the manifest's own commands outright, which is the
+    /// precedence the MECM path already applies to its argument; with no saved override
+    /// the manifest keeps what it carries, so an ad-hoc or manifest-direct stage still
+    /// supplies its own commands. The manifest is updated in memory only — the staged
+    /// file is not rewritten, and neither are the stored settings.
+    /// </summary>
+    public static StageCommandOverrides? ResolveCommandOverrides(
+        StageManifest manifest, StageCommandOverrides? saved)
+    {
+        var effective = saved ?? manifest.CommandOverrides;
+        manifest.CommandOverrides = effective;
+        return effective;
+    }
+
+    /// <summary>
     /// Applies operator command overrides to the single deployment type.
     /// A multi-deployment-type manifest carries per-variant commands, so the
     /// flat override is refused rather than applied to every variant.
