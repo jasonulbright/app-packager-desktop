@@ -32,14 +32,14 @@ public sealed class DefinitionEngineFieldTests : IDisposable
     [Fact]
     public void NoHeadersAddNoCurlArguments()
     {
-        Assert.Equal("", CurlHeaders.Arguments(null));
-        Assert.Equal("", CurlHeaders.Arguments([]));
+        Assert.Empty(CurlHeaders.Arguments(null));
+        Assert.Empty(CurlHeaders.Arguments([]));
     }
 
     [Fact]
-    public void HeadersBecomeQuotedCurlArgumentsWithCompression()
+    public void HeadersBecomeSeparateCurlArgumentsWithCompression()
     {
-        Assert.Equal(" --compressed -H \"User-Agent: Mozilla/5.0\" -H \"Referer: https://www.example.com/\"",
+        Assert.Equal(["--compressed", "-H", "User-Agent: Mozilla/5.0", "-H", "Referer: https://www.example.com/"],
             CurlHeaders.Arguments(["User-Agent: Mozilla/5.0", " Referer: https://www.example.com/ "]));
     }
 

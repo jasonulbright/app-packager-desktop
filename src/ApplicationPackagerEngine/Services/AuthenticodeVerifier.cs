@@ -46,7 +46,7 @@ public static class AuthenticodeVerifier
                 dwStateAction = 0,
                 hWVTStateData = IntPtr.Zero,
                 pwszURLReference = IntPtr.Zero,
-                dwProvFlags = 0x00000010, // WTD_SAFER_FLAG
+                dwProvFlags = 0x00000010, // WTD_REVOCATION_CHECK_NONE: the chain is built without revocation checks
                 dwUIContext = 0,
                 pSignatureSettings = IntPtr.Zero
             };

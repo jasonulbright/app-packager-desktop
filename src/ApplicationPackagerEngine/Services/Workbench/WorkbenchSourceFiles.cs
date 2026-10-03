@@ -40,7 +40,9 @@ public static class WorkbenchSourceFiles
     /// <summary>
     /// One entry for a file, or one per file under a folder with the destination kept
     /// relative under the folder's own name. A reparse point is refused, because its
-    /// target can change after the build snapshots it.
+    /// target can change after the build snapshots it. Under a folder, reparse-point
+    /// files and folders are skipped and never entered, so a junction cannot pull in
+    /// files from outside the picked folder.
     /// </summary>
     public static IReadOnlyList<WorkbenchSourceFile> FromPath(string path)
     {
@@ -52,11 +54,37 @@ public static class WorkbenchSourceFiles
 
         var root = Path.GetFullPath(path).TrimEnd('\\', '/');
         var folderName = Path.GetFileName(root);
-        return Directory.GetFiles(root, "*", SearchOption.AllDirectories)
-            .Where(f => !WorkbenchJson.IsReparsePoint(f))
+        var options = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.ReparsePoint,
+            IgnoreInaccessible = false,
+            MatchType = MatchType.Win32
+        };
+        return Directory.GetFiles(root, "*", options)
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .Select(f => Describe(f, Path.Combine(folderName, Path.GetRelativePath(root, f))))
+            .Select(f =>
+            {
+                AssertNoReparseAncestor(root, f);
+                return Describe(f, Path.Combine(folderName, Path.GetRelativePath(root, f)));
+            })
             .ToList();
+    }
+
+    /// <summary>
+    /// Throws when the file or any folder between it and the picked folder is a reparse
+    /// point; a folder swapped for a junction after enumeration is caught here.
+    /// </summary>
+    public static void AssertNoReparseAncestor(string pickedFolder, string file)
+    {
+        var rootFull = Path.GetFullPath(pickedFolder).TrimEnd('\\');
+        var current = Path.GetFullPath(file);
+        while (!string.IsNullOrEmpty(current) && current.TrimEnd('\\').Length > rootFull.Length)
+        {
+            if (WorkbenchJson.IsReparsePoint(current))
+                throw new InvalidOperationException($"Source file '{file}' resolves through a reparse point at '{current}'.");
+            current = Path.GetDirectoryName(current);
+        }
     }
 
     /// <summary>The same entry pointing at another file: new provenance, hash and size, no asset id yet.</summary>

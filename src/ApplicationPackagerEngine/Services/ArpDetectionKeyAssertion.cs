@@ -90,7 +90,8 @@ public static partial class ArpDetectionKeyAssertion
             case "WixBurn":
             {
                 var bundleId = WixBurnBundleReader.ReadBundleId(installerPath);
-                return new InstallerArpKey(engine, bundleId is null ? "" : $@"HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{bundleId}", "");
+                return new InstallerArpKey(engine, bundleId is null ? "" : $@"HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{bundleId}",
+                    BurnRegistryView(InstallerSignatureScanner.ReadPeArchitecture(installerPath)));
             }
             default:
                 return null;
@@ -98,9 +99,24 @@ public static partial class ArpDetectionKeyAssertion
     }
 
     /// <summary>
+    /// The view a Burn bundle writes its uninstall key in: the engine of an x86 bundle
+    /// runs as a 32-bit process and registers under WOW6432Node; an x64 or ARM64
+    /// bundle registers in the 64-bit view. Empty when the PE machine is unreadable.
+    /// </summary>
+    public static string BurnRegistryView(string peArchitecture) => peArchitecture switch
+    {
+        "x86" => "32",
+        "x64" or "ARM64" => "64",
+        _ => ""
+    };
+
+    /// <summary>
     /// Checks a staged detection against its installer. Only registry clauses whose
-    /// definition template is a literal uninstall key take part. Several such clauses
-    /// pass when any one of them matches; otherwise the first mismatch is thrown.
+    /// definition template is a literal uninstall key take part. The clauses form the
+    /// AND groups of the detection: one group for a plain or AND compound, one group per
+    /// clause for an OR compound, and the two clause runs of GroupSizes. The check passes
+    /// when, in some group that holds a literal clause, every literal clause matches;
+    /// otherwise the first mismatch is thrown.
     /// </summary>
     public static void CheckStage(StageDetection detection, DetectionConfig? definitionDetection,
         string installerPath, string? installArgs, Action<string>? onProgress = null)
@@ -117,23 +133,40 @@ public static partial class ArpDetectionKeyAssertion
         }
 
         InvalidOperationException? first = null;
-        foreach (var clause in literals)
+        foreach (var group in ClauseGroups(detection))
         {
+            var members = literals.Where(l => group.Contains(l.Index)).ToList();
+            if (members.Count == 0) continue;
             try
             {
-                Assert(header.Key, header.RegistryView, clause.RegistryKeyRelative!, clause.Is64Bit);
-                onProgress?.Invoke($"ARP key confirmed            : {clause.RegistryKeyRelative} ({header.Engine} header)");
-                return;
+                foreach (var (_, clause) in members)
+                    Assert(header.Key, header.RegistryView, clause.RegistryKeyRelative!, clause.Is64Bit);
             }
             catch (InvalidOperationException ex)
             {
                 first ??= ex;
+                continue;
             }
+            foreach (var (_, clause) in members)
+                onProgress?.Invoke($"ARP key confirmed            : {clause.RegistryKeyRelative} ({header.Engine} header)");
+            return;
         }
         throw first!;
     }
 
-    private static IEnumerable<StageDetection> LiteralClauses(StageDetection detection, DetectionConfig? definition)
+    /// <summary>The clause indexes of each AND group of the detection.</summary>
+    public static IReadOnlyList<IReadOnlyList<int>> ClauseGroups(StageDetection detection)
+    {
+        if (!string.Equals(detection.Type, "Compound", StringComparison.OrdinalIgnoreCase)) return [[0]];
+        var count = detection.Clauses?.Length ?? 0;
+        if (detection.GroupSizes is [var firstRun, var secondRun] && firstRun > 0 && secondRun > 0 && firstRun + secondRun == count)
+            return [Enumerable.Range(0, firstRun).ToList(), Enumerable.Range(firstRun, secondRun).ToList()];
+        if (string.Equals(detection.Connector, "Or", StringComparison.OrdinalIgnoreCase))
+            return Enumerable.Range(0, count).Select(i => (IReadOnlyList<int>)[i]).ToList();
+        return [Enumerable.Range(0, count).ToList()];
+    }
+
+    private static IEnumerable<(int Index, StageDetection Clause)> LiteralClauses(StageDetection detection, DetectionConfig? definition)
     {
         static bool IsRegistry(StageDetection d) => d.Type is "RegistryKeyValue" or "RegistryKey";
 
@@ -145,12 +178,12 @@ public static partial class ArpDetectionKeyAssertion
             for (var i = 0; i < clauses.Length; i++)
                 if (IsRegistry(clauses[i]) && IsLiteralUninstallKey(templates[i].RegistryKeyTemplate)
                     && !string.IsNullOrWhiteSpace(clauses[i].RegistryKeyRelative))
-                    yield return clauses[i];
+                    yield return (i, clauses[i]);
             yield break;
         }
 
         if (IsRegistry(detection) && IsLiteralUninstallKey(definition?.RegistryKeyTemplate)
             && !string.IsNullOrWhiteSpace(detection.RegistryKeyRelative))
-            yield return detection;
+            yield return (0, detection);
     }
 }

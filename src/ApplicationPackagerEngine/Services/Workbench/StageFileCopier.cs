@@ -16,6 +16,7 @@ public static class StageFileCopier
     {
         if (Path.IsPathRooted(destination))
             throw new InvalidOperationException($"Source file destination '{destination}' must be relative to the content root.");
+        AssertPlainDestination(destination);
         var rootFull = Path.GetFullPath(stageRoot).TrimEnd('\\');
         var targetFull = Path.GetFullPath(Path.Combine(rootFull, destination));
         if (!targetFull.StartsWith(rootFull + "\\", StringComparison.OrdinalIgnoreCase))
@@ -38,6 +39,33 @@ public static class StageFileCopier
         AssertNoReparsePoint(rootFull, folder);
         File.Copy(sourcePath, targetFull, overwrite: true);
         return targetFull;
+    }
+
+    private static readonly HashSet<string> DeviceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
+        "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "COM¹", "COM²", "COM³",
+        "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "LPT¹", "LPT²", "LPT³"
+    };
+
+    /// <summary>
+    /// Throws for a destination with a colon or a device-name segment. A colon names an
+    /// alternate data stream (install.ps1:hidden writes into the generated install.ps1,
+    /// outside the collision check and the file hashes) or a drive; a device name
+    /// such as NUL or COM1, with or without an extension, opens the device.
+    /// </summary>
+    public static void AssertPlainDestination(string destination)
+    {
+        if (destination.Contains(':'))
+            throw new InvalidOperationException(
+                $"Source file destination '{destination}' contains a colon; a destination is a plain relative path without a drive or stream name.");
+        foreach (var segment in destination.Split('\\', '/'))
+        {
+            var stem = segment.Split('.')[0].TrimEnd(' ');
+            if (DeviceNames.Contains(stem))
+                throw new InvalidOperationException(
+                    $"Source file destination '{destination}' uses the device name '{segment}'.");
+        }
     }
 
     /// <summary>

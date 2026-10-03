@@ -353,6 +353,16 @@ public class WsusPublishServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SendsTheStagedSha256OfEveryPayloadFileInTheOrderOfThePayloadFiles()
+    {
+        await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        var files = (_publishRequests[0]["PayloadFiles"] as JsonArray)!.Select(n => n!.GetValue<string>()).ToList();
+        var hashes = (_publishRequests[0]["PayloadSha256"] as JsonArray)!.Select(n => n!.GetValue<string>()).ToList();
+        Assert.Equal(files.Select(f => Sha256(Path.Combine(_content, f))), hashes);
+    }
+
+    [Fact]
     public async Task RefusesAnAccountThatIsNotAWsusAdministratorBeforeBuildingAnything()
     {
         _prepareErrorKind = WsusErrorKinds.NotAdministrator;

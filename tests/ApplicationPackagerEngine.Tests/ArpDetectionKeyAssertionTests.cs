@@ -23,14 +23,14 @@ public sealed class ArpDetectionKeyAssertionTests : IDisposable
     }
 
     /// <summary>A PE image with one .wixburn section whose BURN_SECTION header carries <paramref name="bundleId"/>.</summary>
-    internal static byte[] BurnBundle(Guid bundleId)
+    internal static byte[] BurnBundle(Guid bundleId, ushort machine = 0x14C)
     {
         var image = new byte[0x400];
         image[0] = (byte)'M';
         image[1] = (byte)'Z';
         BitConverter.GetBytes(0x80u).CopyTo(image, 0x3C);
         Encoding.ASCII.GetBytes("PE\0\0").CopyTo(image, 0x80);
-        BitConverter.GetBytes((ushort)0x14C).CopyTo(image, 0x84);
+        BitConverter.GetBytes(machine).CopyTo(image, 0x84);
         BitConverter.GetBytes((ushort)1).CopyTo(image, 0x86);
         BitConverter.GetBytes((ushort)0).CopyTo(image, 0x94);
         var section = 0x98;
@@ -45,10 +45,10 @@ public sealed class ArpDetectionKeyAssertionTests : IDisposable
         return image;
     }
 
-    private string WriteBundle(Guid bundleId)
+    private string WriteBundle(Guid bundleId, ushort machine = 0x14C)
     {
         var path = Path.Combine(_dir, "bundle-" + Guid.NewGuid().ToString("N") + ".exe");
-        File.WriteAllBytes(path, BurnBundle(bundleId));
+        File.WriteAllBytes(path, BurnBundle(bundleId, machine));
         return path;
     }
 
@@ -132,16 +132,63 @@ public sealed class ArpDetectionKeyAssertionTests : IDisposable
     }
 
     [Fact]
-    public void ABundleWhoseIdMatchesPassesInEitherView()
+    public void AnX86BundleRegistersInThe32BitViewOnly()
     {
         var installer = WriteBundle(Guid.Parse("28e98351-a452-4868-9b5f-a1ad2ace66e8"));
         var key = Arp + "{28E98351-A452-4868-9B5F-A1AD2ACE66E8}";
         var log = new List<string>();
 
         ArpDetectionKeyAssertion.CheckStage(Registry(key, false), Template(key), installer, "/quiet", log.Add);
-        ArpDetectionKeyAssertion.CheckStage(Registry(key, true), Template(key), installer, "/quiet", log.Add);
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            ArpDetectionKeyAssertion.CheckStage(Registry(key, true), Template(key), installer, "/quiet", log.Add));
 
-        Assert.Equal(2, log.Count(l => l.StartsWith("ARP key confirmed", StringComparison.Ordinal)));
+        Assert.Single(log, l => l.StartsWith("ARP key confirmed", StringComparison.Ordinal));
+        Assert.Equal("Installer writes its ARP key in the 32-bit view but detection expects the other view.", ex.Message);
+    }
+
+    [Theory]
+    [InlineData((ushort)0x8664)]
+    [InlineData((ushort)0xAA64)]
+    public void A64BitBundleRegistersInThe64BitViewOnly(ushort machine)
+    {
+        var installer = WriteBundle(Guid.Parse("28e98351-a452-4868-9b5f-a1ad2ace66e8"), machine);
+        var key = Arp + "{28E98351-A452-4868-9B5F-A1AD2ACE66E8}";
+
+        ArpDetectionKeyAssertion.CheckStage(Registry(key, true), Template(key), installer, "/quiet");
+        Assert.Throws<InvalidOperationException>(() => ArpDetectionKeyAssertion.CheckStage(Registry(key, false), Template(key), installer, "/quiet"));
+    }
+
+    [Fact]
+    public void AnAndCompoundNeedsEveryLiteralClauseToMatch()
+    {
+        var installer = WriteBundle(Guid.Parse("28e98351-a452-4868-9b5f-a1ad2ace66e8"));
+        var good = Arp + "{28E98351-A452-4868-9B5F-A1AD2ACE66E8}";
+        var stale = Arp + "{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}";
+        var definition = new DetectionConfig { Type = "Compound", Clauses = [Template(good), Template(stale)] };
+        var detection = new StageDetection { Type = "Compound", Connector = "And", Clauses = [Registry(good, false), Registry(stale, false)] };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => ArpDetectionKeyAssertion.CheckStage(detection, definition, installer, ""));
+        Assert.Contains(stale, ex.Message);
+
+        var bothGood = new StageDetection { Type = "Compound", Clauses = [Registry(good, false), Registry(good, false)] };
+        ArpDetectionKeyAssertion.CheckStage(bothGood, new DetectionConfig { Type = "Compound", Clauses = [Template(good), Template(good)] }, installer, "");
+    }
+
+    [Fact]
+    public void GroupedClausesPassWhenOneGroupMatchesEntirely()
+    {
+        var installer = WriteBundle(Guid.Parse("28e98351-a452-4868-9b5f-a1ad2ace66e8"));
+        var good = Arp + "{28E98351-A452-4868-9B5F-A1AD2ACE66E8}";
+        var stale = Arp + "{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}";
+        var definition = new DetectionConfig { Type = "Compound", Clauses = [Template(stale), Template(good), Template(good), Template(good)] };
+
+        var secondGroupGood = new StageDetection { Type = "Compound", GroupSizes = [2, 2],
+            Clauses = [Registry(stale, false), Registry(good, false), Registry(good, false), Registry(good, false)] };
+        ArpDetectionKeyAssertion.CheckStage(secondGroupGood, definition, installer, "");
+
+        var mixedGroups = new StageDetection { Type = "Compound", GroupSizes = [1, 3],
+            Clauses = [Registry(stale, false), Registry(good, false), Registry(good, true), Registry(good, false)] };
+        Assert.Throws<InvalidOperationException>(() => ArpDetectionKeyAssertion.CheckStage(mixedGroups, definition, installer, ""));
     }
 
     [Fact]

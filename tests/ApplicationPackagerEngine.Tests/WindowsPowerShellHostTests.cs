@@ -63,4 +63,59 @@ public class WindowsPowerShellHostTests
         Assert.Contains("problem", run.StdErr);
         Assert.Empty(Directory.GetFiles(Path.GetTempPath(), "ap-host-test-*.ps1"));
     }
+
+    [Fact]
+    public async Task AChildThatWritesMoreStandardErrorThanThePipeHoldsCompletes()
+    {
+        var run = await WindowsPowerShellHost.RunAsync(
+            "[Console]::Error.Write(('e' * 200000))\r\n[Console]::Error.Flush()\r\nWrite-Output 'done'\r\nexit 4",
+            null, default, "ap-host-stderr").WaitAsync(TimeSpan.FromSeconds(90));
+
+        Assert.Equal(4, run.ExitCode);
+        Assert.Equal("done", run.StdOut);
+        Assert.Equal(200000, run.StdErr.Count(c => c == 'e'));
+    }
+
+    [Fact]
+    public async Task ACancelledChildIsEndedBeforeTheCallReturnsAndItsScriptIsRemoved()
+    {
+        using var cts = new CancellationTokenSource();
+        var pid = 0;
+        var running = WindowsPowerShellHost.RunAsync(
+            "Write-Output $PID\r\nStart-Sleep -Seconds 300\r\nexit 0",
+            line => { if (int.TryParse(line, out var id)) { pid = id; cts.Cancel(); } },
+            cts.Token, "ap-host-cancel");
+
+        try
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(90)));
+            Assert.NotEqual(0, pid);
+            Assert.False(IsRunning(pid), "the cancelled Windows PowerShell child is still running");
+            Assert.Empty(Directory.GetFiles(Path.GetTempPath(), "ap-host-cancel-*.ps1"));
+        }
+        finally
+        {
+            if (pid != 0 && IsRunning(pid))
+                try { System.Diagnostics.Process.GetProcessById(pid).Kill(true); } catch (Exception) { }
+        }
+    }
+
+    private static bool IsRunning(int pid)
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            return !process.HasExited;
+        }
+        catch (ArgumentException) { return false; }
+        catch (InvalidOperationException) { return false; }
+    }
+
+    [Fact]
+    public void StandardInputIsWrittenAsUtf8WithoutAPreamble()
+    {
+        var info = WindowsPowerShellHost.BuildStartInfo(@"C:\Temp\a.ps1", null, redirectStandardInput: true);
+        Assert.Equal(65001, info.StandardInputEncoding!.CodePage);
+        Assert.Empty(info.StandardInputEncoding.GetPreamble());
+    }
 }

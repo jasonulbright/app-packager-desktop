@@ -59,4 +59,51 @@ public sealed class WorkbenchTokenBindingTests
         Assert.Equal("", WorkbenchTokens.Resolve("", Manifest()));
         Assert.Equal("setup.exe /S {x}", WorkbenchTokens.Resolve("setup.exe /S {x}", Manifest()));
     }
+
+    [Theory]
+    [InlineData("SoftwareVersion", "Version", "1'; calc; #")]
+    [InlineData("SoftwareVersion", "Version", "1.0 & calc")]
+    [InlineData("SoftwareVersion", "Version", "$(calc)")]
+    [InlineData("SoftwareVersion", "Version", "1.0’")]
+    [InlineData("ProductCode", "ProductCode", "11111111-2222-3333-4444-555555555555")]
+    [InlineData("ProductCode", "ProductCode", "{11111111-2222-3333-4444-555555555555}' ; calc")]
+    [InlineData("InstallerFile", "InstallerFile", "setup%PATH%.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "setup\".exe")]
+    [InlineData("InstallerFile", "InstallerFile", "it's.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "a“b.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "a;b.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "a$b.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "a`b.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "a|b.exe")]
+    [InlineData("InstallerFile", "InstallerFile", @"..\a.exe")]
+    public void Resolve_RefusesAValueThatIsNotSafeForItsToken(string field, string token, string value)
+    {
+        var manifest = Manifest();
+        manifest[field] = value;
+
+        var ex = Assert.Throws<InvalidOperationException>(() => WorkbenchTokens.Resolve($"run {{{{{token}}}}}", manifest, TokenContext.Script));
+
+        Assert.Contains($"'{{{{{token}}}}}'", ex.Message);
+        Assert.Contains($"'{value}'", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("Version", "2026.10.02.0103")]
+    [InlineData("Version", "1.0.0-beta+5_x64")]
+    [InlineData("InstallerFile", "Setup (x64) 1.2.exe")]
+    [InlineData("InstallerFile", "7z2409-x64.msi")]
+    public void Resolve_BindsOrdinaryValues(string token, string value)
+    {
+        var manifest = Manifest();
+        manifest[token == "Version" ? "SoftwareVersion" : token] = value;
+        Assert.Equal("run " + value, WorkbenchTokens.Resolve($"run {{{{{token}}}}}", manifest));
+    }
+
+    [Fact]
+    public void Resolve_ATokenTheTextDoesNotUseIsNotChecked()
+    {
+        var manifest = Manifest();
+        manifest["SoftwareVersion"] = "1.0 (x64)";
+        Assert.Equal("setup.exe", WorkbenchTokens.Resolve("{{InstallerFile}}", manifest));
+    }
 }

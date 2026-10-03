@@ -97,16 +97,25 @@ public sealed class SigningOffByteIdentityTests
     private static string Sha(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
 
     /// <summary>
-    /// The recorded hashes and fixtures cover the script without this argument, which every
+    /// The recorded hashes and fixtures cover the script without these arguments, which every
     /// script deployment type carries when the manifest names no post-execution behavior.
     /// </summary>
-    private const string DefaultReboot = " -RebootBehavior BasedOnExitCode";
+    private const string DefaultReboot = " -RebootBehavior BasedOnExitCode -UserInteractionMode Hidden";
 
-    /// <summary>The script with the default reboot argument removed, after checking it appears once per deployment type.</summary>
+    /// <summary>The two lines that re-read the application's CI_ID after the revision cleanup, which the recorded hashes also predate.</summary>
+    private static readonly System.Text.RegularExpressions.Regex FinalCiIdLines = new(
+        @"^\$finalApp = @\(Get-CMApplication [^\r\n]*\r?\n^if \(\$finalApp\) \{ Write-Host ""Final CI_ID: [^\r\n]*\r?\n",
+        System.Text.RegularExpressions.RegexOptions.Multiline);
+
+    /// <summary>
+    /// The script with the default reboot argument and the final CI_ID re-read removed, after
+    /// checking the argument appears once per deployment type and the re-read once.
+    /// </summary>
     private static string WithoutDefaultReboot(string script, int deploymentTypes = 1)
     {
         Assert.Equal(deploymentTypes, script.Split(DefaultReboot).Length - 1);
-        return script.Replace(DefaultReboot, "");
+        Assert.Single(FinalCiIdLines.Matches(script));
+        return FinalCiIdLines.Replace(script.Replace(DefaultReboot, ""), "");
     }
 
     private static readonly MecmScriptSigningContext AllOff = new()

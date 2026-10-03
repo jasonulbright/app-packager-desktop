@@ -168,10 +168,9 @@ public sealed class DellCatalogScraper : HttpRegexScraper
 
     private static async Task<bool> DownloadAsync(string url, string outFile, CancellationToken ct)
     {
-        var exitCode = await RunAsync(
-            "curl.exe",
-            $"-L --silent --show-error --max-time 180 -A \"{UserAgent}\" -o \"{outFile}\" \"{url}\"",
-            TimeSpan.FromMinutes(4), ct);
+        using var process = CurlProcess.Start(
+            ["-L", "--silent", "--show-error", "--max-time", "180", "-A", UserAgent, "-o", outFile], url);
+        var exitCode = await WaitAsync(process, TimeSpan.FromMinutes(4), ct);
         return exitCode == 0 && File.Exists(outFile) && new FileInfo(outFile).Length > 0;
     }
 
@@ -189,6 +188,11 @@ public sealed class DellCatalogScraper : HttpRegexScraper
         };
 
         process.Start();
+        return await WaitAsync(process, timeout, ct);
+    }
+
+    private static async Task<int> WaitAsync(Process process, TimeSpan timeout, CancellationToken ct)
+    {
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
         var completed = await Task.WhenAny(exitTask, Task.Delay(timeout, ct));

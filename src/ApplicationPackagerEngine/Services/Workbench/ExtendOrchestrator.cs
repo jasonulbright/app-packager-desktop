@@ -33,7 +33,9 @@ public static class ExtendOrchestrator
             "    param([string]$Name)",
             "    $script = Join-Path $PSScriptRoot $Name",
             "    if (-not (Test-Path -LiteralPath $script)) { throw \"Step script not found: $script\" }",
-            $"    $stepArgs = @('-NoProfile', '-NonInteractive'{policyArgument}, '-File', $script)",
+            // Start-Process joins -ArgumentList with spaces and quotes nothing, so a
+            // script path with a space would split into several arguments.
+            $"    $stepArgs = @('-NoProfile', '-NonInteractive'{policyArgument}, '-File', ('\"' + $script + '\"'))",
             "    $proc = Start-Process -FilePath $hostExe -ArgumentList $stepArgs -Wait -PassThru -NoNewWindow",
             "    return [int]$proc.ExitCode",
             "}",
@@ -42,19 +44,19 @@ public static class ExtendOrchestrator
 
         if (!string.IsNullOrWhiteSpace(before))
         {
-            lines.Add($"$code = Invoke-Step -Name '{before}'");
+            lines.Add($"$code = Invoke-Step -Name '{PowerShellLiteral.EscapeSingleQuoted(before)}'");
             lines.Add("if ($code -eq 3010) { $rebootPending = $true; $code = 0 }");
             lines.Add("if ($code -ne 0) { exit $code }");
         }
 
-        lines.Add($"$code = Invoke-Step -Name '{generated}'");
+        lines.Add($"$code = Invoke-Step -Name '{PowerShellLiteral.EscapeSingleQuoted(generated)}'");
         lines.Add("if ($code -eq 3010) { $rebootPending = $true; $code = 0 }");
         if (!string.IsNullOrWhiteSpace(after))
         {
             if (afterRunsOnFailure)
             {
                 lines.Add("$generatedCode = $code");
-                lines.Add($"$afterCode = Invoke-Step -Name '{after}'");
+                lines.Add($"$afterCode = Invoke-Step -Name '{PowerShellLiteral.EscapeSingleQuoted(after)}'");
                 lines.Add("if ($afterCode -eq 3010) { $rebootPending = $true; $afterCode = 0 }");
                 lines.Add("if ($generatedCode -ne 0) { exit $generatedCode }");
                 lines.Add("if ($afterCode -ne 0) { exit $afterCode }");
@@ -62,7 +64,7 @@ public static class ExtendOrchestrator
             else
             {
                 lines.Add("if ($code -ne 0) { exit $code }");
-                lines.Add($"$code = Invoke-Step -Name '{after}'");
+                lines.Add($"$code = Invoke-Step -Name '{PowerShellLiteral.EscapeSingleQuoted(after)}'");
                 lines.Add("if ($code -eq 3010) { $rebootPending = $true; $code = 0 }");
                 lines.Add("if ($code -ne 0) { exit $code }");
             }

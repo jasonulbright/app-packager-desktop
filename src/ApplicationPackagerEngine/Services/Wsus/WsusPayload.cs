@@ -95,6 +95,24 @@ public static class WsusPayload
         }
     }
 
+    /// <summary>
+    /// The SHA-256 the stage recorded for each file, upper-case hex, in the order of
+    /// <paramref name="files"/>. A file without a recorded hash throws.
+    /// </summary>
+    public static IReadOnlyList<string> RecordedHashes(StageManifest manifest, IReadOnlyList<string> files)
+    {
+        var recorded = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in manifest.FileHashes ?? [])
+        {
+            if (entry is null) continue;
+            recorded[Normalize(entry.RelativePath)] = entry.Sha256 ?? "";
+        }
+        return files.Select(file => recorded.TryGetValue(file, out var hash) && !string.IsNullOrEmpty(hash)
+                ? hash.ToUpperInvariant()
+                : throw new WsusPayloadException($"The stage manifest records no hash for '{file}'; re-run the Stage phase."))
+            .ToList();
+    }
+
     /// <summary>The total size of the payload files that exist, in megabytes.</summary>
     public static double Megabytes(string contentFolder, IEnumerable<string> files)
     {

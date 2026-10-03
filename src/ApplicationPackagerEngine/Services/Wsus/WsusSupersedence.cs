@@ -20,9 +20,11 @@ public static class WsusSupersedence
     /// <summary>
     /// Only a lower version is superseded: a build of an older version,
     /// published after a newer one, must not retire the newer update. A
-    /// version that cannot be compared is left alone.
+    /// version that cannot be compared is left alone. An update under one of
+    /// <paramref name="formerTags"/> counts as this identity's.
     /// </summary>
-    public static WsusSupersedenceDecision Decide(IEnumerable<WsusUpdateCandidate> candidates, string identityTag, string version)
+    public static WsusSupersedenceDecision Decide(IEnumerable<WsusUpdateCandidate> candidates, string identityTag, string version,
+        IReadOnlyCollection<string>? formerTags = null)
     {
         WsusUpdateCandidate? existing = null;
         var earlier = new List<WsusUpdateCandidate>();
@@ -31,7 +33,7 @@ public static class WsusSupersedence
         foreach (var candidate in candidates)
         {
             var parsed = WsusIdentity.ParseIdentity(candidate.Description);
-            if (parsed is null || parsed.IdentityTag != identityTag) continue;
+            if (parsed is null || (parsed.IdentityTag != identityTag && formerTags?.Contains(parsed.IdentityTag) != true)) continue;
             if (parsed.PackageType != WsusSettings.UpdatePackageType)
             {
                 if (!candidate.Expired) retired++;

@@ -24,34 +24,45 @@ public static class SharedDownloadCache
         return $"{Convert.ToHexString(digest, 0, 8).ToLowerInvariant()}-{fileName}";
     }
 
-    /// <summary>curl arguments for the conditional refresh of a cached file into a side file.</summary>
-    public static string RefreshArguments(string url, string cachedPath, string refreshPath, IReadOnlyList<string>? headers = null) =>
-        $"-L --fail --silent --show-error{CurlHeaders.Arguments(headers)} -R -z \"{cachedPath}\" -o \"{refreshPath}\" \"{url}\"";
+    /// <summary>curl options for the conditional refresh of a cached file into a side file; the URL is added by <see cref="CurlProcess"/>.</summary>
+    public static IReadOnlyList<string> RefreshArguments(string cachedPath, string refreshPath, IReadOnlyList<string>? headers = null) =>
+        ["-L", "--fail", "--silent", "--show-error", .. CurlHeaders.Arguments(headers), "-R", "-z", cachedPath, "-o", refreshPath];
 
     /// <summary>
     /// Fills or refreshes the cache entry for <paramref name="url"/>, then copies it to
     /// <paramref name="outFile"/> with the cached file's time. Returns the cache path.
-    /// A failed refresh keeps the cached file; a failed first download throws.
+    /// A failed first download throws. A failed refresh keeps the cached file when
+    /// <paramref name="keepCachedOnFailedRefresh"/> is true and throws otherwise: a version
+    /// read from the vendor's page names a release the cached file may not be.
+    /// One exclusive lock per cache entry serializes concurrent stages of one URL.
     /// </summary>
     public static async Task<string> FetchAsync(
         DownloadService downloads, string url, string outFile, string cacheRoot,
-        IReadOnlyList<string>? headers = null, Action<string>? onProgress = null, CancellationToken ct = default)
+        IReadOnlyList<string>? headers = null, Action<string>? onProgress = null, CancellationToken ct = default,
+        bool keepCachedOnFailedRefresh = true)
     {
+        CurlProcess.ValidateUrl(url);
         Directory.CreateDirectory(cacheRoot);
         var cached = Path.Combine(cacheRoot, Key(url, Path.GetFileName(outFile)));
+
+        await using var entryLock = await AcquireEntryLockAsync(cached, ct);
 
         if (!File.Exists(cached) || new FileInfo(cached).Length == 0)
         {
             onProgress?.Invoke($"Downloading                  : {url}");
-            await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: " -R");
+            await downloads.DownloadAsync(url, cached, onProgress: onProgress, ct: ct, headers: headers, extraArguments: ["-R"]);
         }
         else
         {
             onProgress?.Invoke("Cached download present; refreshing only if newer.");
-            var refresh = cached + ".refresh";
-            TryDelete(refresh);
-            var (succeeded, error) = await RunCurlAsync(RefreshArguments(url, cached, refresh, headers), url, ct);
+            var refresh = $"{cached}.{Guid.NewGuid():N}.refresh";
+            var (succeeded, error) = await RunCurlAsync(RefreshArguments(cached, refresh, headers), url, ct);
             var outcome = FileVersionScraper.ApplyRefresh(cached, refresh, succeeded);
+            if (outcome == FileVersionScraper.CacheRefresh.Kept && !keepCachedOnFailedRefresh)
+                throw new InvalidOperationException(
+                    $"Refresh of the cached download failed for {url}: {error}. The cached copy is dated "
+                    + $"{File.GetLastWriteTimeUtc(cached):yyyy-MM-dd HH:mm} UTC ({CachedAge(cached)}) and may not be the release "
+                    + "the version source names, so it is not staged.");
             onProgress?.Invoke(outcome switch
             {
                 FileVersionScraper.CacheRefresh.Replaced => "Cached download replaced by a newer release.",
@@ -62,6 +73,39 @@ public static class SharedDownloadCache
 
         CopyWithTimestamp(cached, outFile);
         return cached;
+    }
+
+    private static string CachedAge(string cached)
+    {
+        var age = DateTime.UtcNow - File.GetLastWriteTimeUtc(cached);
+        return age.TotalDays >= 1 ? $"{(int)age.TotalDays} days old" : $"{Math.Max(0, (int)age.TotalHours)} hours old";
+    }
+
+    /// <summary>
+    /// Opens <c>&lt;entry&gt;.lock</c> with no sharing and waits while another stage holds it.
+    /// The lock file is deleted when the last holder closes it. A delete-pending lock file
+    /// answers access denied for a moment, so that answer is retried a bounded number of times.
+    /// </summary>
+    private static async Task<FileStream> AcquireEntryLockAsync(string cached, CancellationToken ct)
+    {
+        var lockPath = cached + ".lock";
+        var denied = 0;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException)
+            {
+                await Task.Delay(100, ct);
+            }
+            catch (UnauthorizedAccessException) when (++denied < 100)
+            {
+                await Task.Delay(100, ct);
+            }
+        }
     }
 
     /// <summary>
@@ -76,7 +120,7 @@ public static class SharedDownloadCache
         File.SetLastWriteTimeUtc(outFile, File.GetLastWriteTimeUtc(cachedPath));
     }
 
-    private static async Task<(bool Succeeded, string Error)> RunCurlAsync(string arguments, string url, CancellationToken ct)
+    private static async Task<(bool Succeeded, string Error)> RunCurlAsync(IReadOnlyList<string> arguments, string url, CancellationToken ct)
     {
         using var process = CurlProcess.Start(arguments, url);
         var stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
@@ -92,10 +136,5 @@ public static class SharedDownloadCache
         string error;
         try { error = (await stderr).Trim(); } catch (Exception) { error = ""; }
         return (process.ExitCode == 0, error);
-    }
-
-    private static void TryDelete(string path)
-    {
-        try { if (File.Exists(path)) File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 }
