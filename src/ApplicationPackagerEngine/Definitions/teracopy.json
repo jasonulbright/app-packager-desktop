@@ -21,6 +21,7 @@
   "InstallerFileName": "teracopy-setup.exe",
   "InstallArgs": "/exenoui /qn ALLUSERS=1",
   "UninstallArgs": "",
+  "UninstallCommand": "$proc = $null; foreach ($root in @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall')) { foreach ($sub in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) { $entry = Get-ItemProperty -LiteralPath $sub.PSPath -ErrorAction SilentlyContinue; if (-not $entry -or [string]$entry.DisplayName -notlike 'TeraCopy*') { continue }; $code = [regex]::Match([string]$entry.UninstallString, '\\{[0-9A-Fa-f-]{36}\\}').Value; if (-not $code) { $code = [regex]::Match($sub.PSChildName, '\\{[0-9A-Fa-f-]{36}\\}').Value }; if (-not $code) { continue }; $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $code, '/qn', '/norestart') -Wait -PassThru -NoNewWindow; break }; if ($proc) { break } }; if (-not $proc) { Write-Error 'TeraCopy uninstall entry not found.'; exit 1 }",
   "Detection": {
     "Type": "RegistryKeyValue",
     "RegistryHive": "HKLM",
