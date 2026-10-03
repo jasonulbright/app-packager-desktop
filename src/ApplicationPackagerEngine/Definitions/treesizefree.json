@@ -9,6 +9,7 @@
     "VendorUrl":  "https://www.jam-software.com/treesize_free",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",
+    "SupportsInstallModes":  ["CurrentUser", "AllUsers"],
     "Acquisition":  {
 
                     },
@@ -18,8 +19,9 @@
                            "Pattern":  "Version\\s+([\\d.]+)</h3>"
                        },
     "DownloadUrl":  "https://www.jam-software.com/treesize_free/TreeSizeFreeSetup.exe",
-    "InstallArgs":  "/VERYSILENT /NORESTART /MERGETASKS=!desktopicon",
-    "UninstallArgs":  "/VERYSILENT /NORESTART",
+    "InstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS /MERGETASKS=!desktopicon",
+    "UninstallArgs":  "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+    "UninstallCommand":  "$keys = @(\n    'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'\n)\n$cmd = $null\nforeach ($root in $keys) {\n    if (-not (Test-Path -LiteralPath $root)) { continue }\n    $hit = Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue |\n        ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } |\n        Where-Object { $_.DisplayName -like 'TreeSize Free*' } |\n        Select-Object -First 1\n    if ($hit -and $hit.UninstallString) { $cmd = $hit.UninstallString; break }\n}\nif (-not $cmd) { exit 0 }\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }\nif (-not (Test-Path -LiteralPath $exe)) { exit 0 }\n$proc = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -NoNewWindow",
     "Detection":  {
                       "Type":  "File",
                       "FilePath":  "C:\\Program Files\\JAM Software\\TreeSize Free",

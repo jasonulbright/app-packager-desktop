@@ -21,9 +21,13 @@
   "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
   "UninstallCommand": "$roots = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'); foreach ($r in $roots) { if (-not (Test-Path -LiteralPath $r)) { continue }; $hit = Get-ChildItem -LiteralPath $r -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } | Where-Object { $_.DisplayName -like 'OpenShot Video Editor*' -and $_.UninstallString } | Select-Object -First 1; if (-not $hit) { continue }; $exe = ($hit.UninstallString -replace '^\"([^\"]+)\".*$', '$1').Trim('\"'); if (-not (Test-Path -LiteralPath $exe)) { continue }; $proc = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru -NoNewWindow; exit $proc.ExitCode }; exit 0",
   "Detection": {
-    "Type": "Script",
-    "ScriptLanguage": "PowerShell",
-    "ScriptText": "$roots = @(\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'\n)\n$wanted = [version]'{version}'\nforeach ($root in $roots) {\n    if (-not (Test-Path -LiteralPath $root)) { continue }\n    foreach ($sub in Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue) {\n        $entry = Get-ItemProperty -LiteralPath $sub.PSPath -ErrorAction SilentlyContinue\n        if (-not $entry -or [string]$entry.DisplayName -notlike 'OpenShot Video Editor*') { continue }\n        $found = $null\n        if (-not [version]::TryParse([string]$entry.DisplayVersion, [ref]$found)) { continue }\n        if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }\n    }\n}\nexit 0"
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{4BB0DCDC-BC24-49EC-8937-72956C33A470}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
   },
   "RunningProcess": [
     "openshot-qt"

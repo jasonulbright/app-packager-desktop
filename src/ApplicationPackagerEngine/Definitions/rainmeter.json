@@ -19,7 +19,7 @@
   "DownloadUrl": "",
   "InstallArgs": "/S /VERSION=64 /AUTOSTARTUP=0 /RESTART=0",
   "UninstallArgs": "/S",
-  "UninstallCommand": "Get-Process Rainmeter -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\Rainmeter\\uninstall.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
+  "UninstallCommand": "Get-Process Rainmeter -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\Rainmeter\\uninst.exe\" -ArgumentList \"/S\" -Wait -PassThru -NoNewWindow",
   "Detection": {
     "Type": "File",
     "FilePath": "C:\\Program Files\\Rainmeter",

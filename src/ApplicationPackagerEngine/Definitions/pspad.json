@@ -19,7 +19,7 @@
   "DownloadUrl": "",
   "InstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES /SP- /DIR=\"C:\\Program Files\\PSPad\"",
   "UninstallArgs": "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
-  "UninstallCommand": "Get-Process PSPad -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\PSPad\\unins000.exe\" -ArgumentList \"/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow",
+  "UninstallCommand": "Get-Process PSPad -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep 2; $proc = Start-Process -FilePath \"C:\\Program Files\\PSPad\\Uninst\\unins000.exe\" -ArgumentList \"/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow",
   "Detection": {
     "Type": "File",
     "FilePath": "C:\\Program Files\\PSPad",

@@ -13,15 +13,16 @@
 
                     },
     "VersionScraper":  {
-                           "Type":  "JsonQuery",
-                           "Url":  "https://api.github.com/repos/brave/brave-browser/releases/latest",
-                           "Pattern":  "tag_name",
-                           "VersionTransform":  "strip_prefix:v"
+                           "Type":  "FileVersion",
+                           "Url":  "https://referrals.brave.com/latest/brave_installer-x64.exe",
+                           "Pattern":  "FileVersion",
+                           "VersionTransform":  "regex_replace:^\\d+\\.(\\d+\\.\\d+\\.\\d+)$:$1"
                        },
-    "DownloadUrl":  "https://github.com/brave/brave-browser/releases/download/v{display_version}/BraveBrowserStandaloneSilentSetup.exe",
-    "InstallerFileName":  "BraveBrowserStandaloneSilentSetup-{display_version}.exe",
-    "InstallArgs":  "--install --silent --system-level",
-    "UninstallArgs":  "--uninstall --silent --system-level",
+    "DownloadUrl":  "https://referrals.brave.com/latest/brave_installer-x64.exe",
+    "InstallerFileName":  "brave_installer-x64-{version}.exe",
+    "InstallArgs":  "--install --silent --system-level --do-not-launch-chrome",
+    "UninstallArgs":  "--uninstall --system-level --force-uninstall",
+    "UninstallCommand":  "$setup = Get-ChildItem -Path 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\*\\Installer\\setup.exe' -ErrorAction SilentlyContinue | Sort-Object -Property FullName -Descending | Select-Object -First 1; if (-not $setup) { exit 0 }; $proc = Start-Process -FilePath $setup.FullName -ArgumentList @('--uninstall', '--system-level', '--force-uninstall') -Wait -PassThru -NoNewWindow; if ($proc.ExitCode -eq 19) { exit 0 }; if ($proc.ExitCode -eq 20) { exit 3010 }",
     "Detection":  {
                       "Type":  "File",
                       "FilePath":  "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application",

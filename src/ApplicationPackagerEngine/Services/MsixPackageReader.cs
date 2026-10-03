@@ -155,4 +155,29 @@ public sealed class MsixPackageReader
             ChainTrusted = chainTrusted
         };
     }
+
+    private const string CrockfordBase32 = "0123456789abcdefghjkmnpqrstvwxyz";
+
+    /// <summary>
+    /// The 13-character publisher id that completes a package full name: the
+    /// first 64 bits of the SHA-256 of the UTF-16LE publisher string, padded
+    /// with one zero bit to 65 bits and written in 5-bit groups over the
+    /// Crockford base32 alphabet. The publisher string is hashed exactly as
+    /// the manifest spells it; any whitespace change yields another id.
+    /// </summary>
+    public static string PublisherHash(string publisher)
+    {
+        var digest = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.Unicode.GetBytes(publisher));
+        var bits = System.Buffers.Binary.BinaryPrimitives.ReadUInt64BigEndian(digest);
+        var chars = new char[13];
+        for (var i = 0; i < 13; i++)
+        {
+            // Group i covers bits [5i, 5i+5) of the 65-bit string; the last
+            // group holds the final 4 digest bits and the zero pad bit.
+            var shift = 64 - 5 * (i + 1);
+            var group = shift >= 0 ? (int)((bits >> shift) & 0x1F) : (int)((bits << 1) & 0x1F);
+            chars[i] = CrockfordBase32[group];
+        }
+        return new string(chars);
+    }
 }

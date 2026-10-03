@@ -20,7 +20,7 @@
   "InstallArgs": "",
   "UninstallArgs": "",
   "Detection": {
-    "Type": "Script",
+    "Type": "RegistryKey",
     "Is64Bit": true
   },
   "RunningProcess": ["oh-my-posh"]

@@ -229,6 +229,7 @@ public class InstallModeTransformTests
     [InlineData("bitwarden.json")]
     [InlineData("keystoreexplorer.json")]
     [InlineData("typora.json")]
+    [InlineData("treesizefree.json")]
     public void TaggedDefinitions_DeclareBothModesAndForceNoFolder(string definition)
     {
         var def = DefinitionFixture.Load(definition);

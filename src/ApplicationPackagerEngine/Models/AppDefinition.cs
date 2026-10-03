@@ -79,6 +79,21 @@ public sealed class AppDefinition
     public PostInstallScriptConfig? PostInstallScript { get; set; }
     public DetectionConfig Detection { get; set; } = new();
     public string[] RunningProcess { get; set; } = [];
+
+    /// <summary>
+    /// Process names (no .exe) the EXE installer launches on success.
+    /// Start-Process -Wait also waits for those descendants, which never exit
+    /// under a system-context deployment, so the install wrapper waits for the
+    /// installer process alone and then stops these processes.
+    /// </summary>
+    public string[]? PostInstallKillProcesses { get; set; }
+
+    /// <summary>
+    /// Installer exit codes that mean "reboot required". The EXE install and
+    /// uninstall wrappers report each as 3010, the code the deployment
+    /// agents read as success with a pending restart.
+    /// </summary>
+    public int[]? RebootExitCodes { get; set; }
     public string? Icon { get; set; }
     public string? IconFormat { get; set; }
 

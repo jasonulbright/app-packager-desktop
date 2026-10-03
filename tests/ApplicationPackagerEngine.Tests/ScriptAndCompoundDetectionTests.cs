@@ -404,6 +404,10 @@ public sealed class ScriptAndCompoundDetectionTests
         Assert.Contains(det.Clauses, c => c.FilePath == @"C:\Program Files (x86)\CodeMeter\Runtime\bin");
     }
 
+    /// <summary>
+    /// These definitions detect through one fixed registry key in one view, so
+    /// no detection script ships for them.
+    /// </summary>
     [Theory]
     [InlineData("ocenaudio.json")]
     [InlineData("openshot.json")]
@@ -412,24 +416,24 @@ public sealed class ScriptAndCompoundDetectionTests
     [InlineData("anyburn.json")]
     [InlineData("bulkrenameutility.json")]
     [InlineData("teracopy.json")]
-    public void ArpScanDefinitions_CarryAPowerShellScriptCoveringBothRegistryViews(string fileName)
+    public void FixedKeyDefinitions_CarryNoDetectionScript(string fileName)
     {
         var det = DefinitionFixture.Load(fileName).Detection;
 
-        Assert.Equal("Script", det.Type);
-        Assert.Equal("PowerShell", det.ScriptLanguage);
-        Assert.Contains("{version}", det.ScriptText);
-        Assert.Contains(@"CurrentVersion\Uninstall", det.ScriptText);
-        Assert.Contains(@"WOW6432Node", det.ScriptText);
+        Assert.Equal("RegistryKeyValue", det.Type);
+        Assert.Null(det.ScriptText);
+        Assert.DoesNotContain("WOW6432Node", det.RegistryKeyTemplate);
     }
 
-    [Theory]
-    [InlineData("ocenaudio.json")]
-    [InlineData("openshot.json")]
-    [InlineData("teracopy.json")]
-    public void ArpScanScripts_StageIntoAnEmbeddableDeploymentTypeScript(string fileName)
+    [Fact]
+    public void ArpScanScript_StagesIntoAnEmbeddableDeploymentTypeScript()
     {
-        var def = DefinitionFixture.Load(fileName);
+        var def = WithDetection(new DetectionConfig
+        {
+            Type = "Script",
+            ScriptLanguage = "PowerShell",
+            ScriptText = "$keys = @(\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Test App',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Test App'\n)\n$wanted = [version]'{version}'\nforeach ($key in $keys) {\n    if (-not (Test-Path -LiteralPath $key)) { continue }\n    $entry = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue\n    $found = $null\n    if (-not [version]::TryParse([string]$entry.DisplayVersion, [ref]$found)) { continue }\n    if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }\n}\nexit 0"
+        });
         var staged = StagingService.BuildDetection(def, null, "7.7.7");
 
         var script = Script(staged);
@@ -437,5 +441,18 @@ public sealed class ScriptAndCompoundDetectionTests
         Assert.Contains("$detectScript0 = @'", script);
         Assert.Contains("[version]'7.7.7'", script);
         Assert.Contains("-ScriptLanguage PowerShell -ScriptText $detectScript0", script);
+    }
+
+    [Theory]
+    [InlineData("ocenaudio.json", @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ocenaudio", "")]
+    [InlineData("teracopy.json", @"SOFTWARE\Code Sector\TeraCopy", " -Is64Bit")]
+    public void FixedKeyDefinitions_StageIntoARegistryValueClause(string fileName, string key, string view)
+    {
+        var staged = StagingService.BuildDetection(DefinitionFixture.Load(fileName), null, "7.7.7");
+
+        var script = Script(staged);
+
+        Assert.DoesNotContain("$detectScript0", script);
+        Assert.Contains($"-KeyName '{key}' -ValueName '{staged.ValueName}' -PropertyType Version -Value -ExpressionOperator GreaterEquals -ExpectedValue '7.7.7'{view}", script);
     }
 }

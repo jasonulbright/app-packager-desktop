@@ -40,5 +40,6 @@
     "Operator": "GreaterEquals",
     "Is64Bit": true
   },
-  "RunningProcess": ["WindowsAdminCenter"]
+  "RunningProcess": ["WindowsAdminCenter"],
+  "PostInstallKillProcesses": ["WindowsAdminCenterLauncher"]
 }

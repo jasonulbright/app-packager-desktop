@@ -21,7 +21,9 @@
   "DownloadUrl": "",
   "InstallerFileName": "Dell-Command-Update.exe",
   "InstallArgs": "/s",
-  "UninstallArgs": "/x /s",
+  "UninstallArgs": "/passthrough /x /s /v\"/qn\"",
+  "UninstallCommand": "$exePath = Join-Path $PSScriptRoot 'Dell-Command-Update.exe'; $proc = Start-Process -FilePath $exePath -ArgumentList @('/passthrough', '/x', '/s', '/v\"/qn\"') -Wait -PassThru -NoNewWindow",
+  "RebootExitCodes": [2],
   "Detection": {
     "Type": "File",
     "FilePath": "C:\\Program Files\\Dell\\CommandUpdate",
