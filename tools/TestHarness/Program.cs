@@ -14,6 +14,11 @@ using ApplicationPackagerEngine.Scrapers;
 //   --app <name>     Test a single app (partial match on filename)
 //   --install-mode <mode>  Stage with an install mode (CurrentUser or AllUsers) for a
 //                    definition that declares SupportsInstallModes
+//   --stage-inputs <file>  JSON with the operator settings a stage reads:
+//                    { "LocalSourceFolders": { "<definition Id>": "<folder>" },
+//                      "SideFiles": { "<side file key>": "<file>" },
+//                      "InstallerSettings": { "<definition Id>": { "<key>": "<value>" } },
+//                      "SigningPolicy": { <script signing policy fields> } }
 //   --timeout <sec>  Per-app install timeout in seconds (default 300)
 //
 // Lab modes (no definitions directory; each exits 0 on success, 1 otherwise):
@@ -33,6 +38,7 @@ using ApplicationPackagerEngine.Scrapers;
 //                                    from the console (or the first line of redirected input)
 //   TestHarness.exe --package-mecm <stagedContentFolder> --site <code> --provider <fqdn>
 //                    --share <uncRoot> [--on-existing Skip|Overwrite|Fail] [--comment <text>]
+//                    [--stage-inputs <file>]  (its SigningPolicy applies to the package step)
 //     ConfigMgr application for an already staged folder with the settings the UI passes:
 //     title from the manifest's title mode, the manifest's command overrides, default
 //     condition templates, Nested content layout, 15/30 runtime minutes, signing off.
@@ -50,6 +56,7 @@ var testOnly = args.Contains("--test-only");
 var checkOnly = args.Contains("--check-only");
 var appFilter = args.Contains("--app") ? args[Array.IndexOf(args, "--app") + 1] : null;
 var installMode = args.Contains("--install-mode") ? args[Array.IndexOf(args, "--install-mode") + 1] : null;
+var stageInputsFile = args.Contains("--stage-inputs") ? HarnessStageInputs.Load(args[Array.IndexOf(args, "--stage-inputs") + 1]) : null;
 var timeoutSec = args.Contains("--timeout") ? int.Parse(args[Array.IndexOf(args, "--timeout") + 1]) : 300;
 
 Console.WriteLine($"Packr Test Harness");
@@ -197,7 +204,8 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
         try
         {
             using var stageCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
-            var stageResult = await stagingService.StageAsync(def, downloadRoot, msg => { }, stageCts.Token, installMode: installMode);
+            var stageResult = await stagingService.StageAsync(def, downloadRoot, msg => { }, stageCts.Token,
+                settingsValues: stageInputsFile?.SettingsFor(def), installMode: installMode, inputs: stageInputsFile?.InputsFor(def));
             if (!stageResult.Success)
             {
                 Console.WriteLine($"FAIL — {stageResult.ErrorMessage}");

@@ -103,7 +103,8 @@ internal static class LabModes
     /// <summary>
     /// The ConfigMgr Package phase for a staged folder, as the UI runs it for a
     /// staged manifest: title from the manifest's title mode, the manifest's own
-    /// command overrides, the default condition templates, signing off.
+    /// command overrides, the default condition templates, and the signing policy of the
+    /// --stage-inputs file when one is given (off otherwise).
     /// </summary>
     private static async Task<int> RunPackageMecmAsync(string[] args)
     {
@@ -118,7 +119,8 @@ internal static class LabModes
         var commandOverrides = DeploymentTypeSpecResolver.ResolveCommandOverrides(manifest, null);
         var applicationTitle = ApplicationTitle.Resolve(manifest.AppName, manifest.SoftwareVersion, ApplicationTitle.Parse(manifest.TitleMode));
         if (applicationTitle != manifest.AppName) Console.WriteLine($"Application title            : {applicationTitle}");
-        var signingPolicy = StageFinalizer.EffectivePolicy(null, new SigningPolicy());
+        var stageInputs = Value(args, "--stage-inputs") is { } inputsPath ? HarnessStageInputs.Load(inputsPath) : null;
+        var signingPolicy = StageFinalizer.EffectivePolicy(null, SigningPolicy.FromSettings(stageInputs?.SigningPolicy));
 
         var result = await new MecmTarget().PackageAsync(
             manifest, folder, siteCode, share, comment, 15, 30,
