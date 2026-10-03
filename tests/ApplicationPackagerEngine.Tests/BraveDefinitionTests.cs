@@ -63,6 +63,7 @@ public sealed class BraveDefinitionTests : IDisposable
         var def = DefinitionFixture.Load("brave.json");
 
         Assert.Equal("--install --silent --system-level --do-not-launch-chrome", def.InstallArgs);
+        Assert.Equal("Machine", def.InstallContext);
         Assert.Equal("--uninstall --system-level --force-uninstall", def.UninstallArgs);
     }
 
