@@ -74,7 +74,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     /// <summary>
     /// Publish to WSUS: each checked row is staged when it has no stage of its latest
     /// version, then published through the WSUS publish service. A refusal leaves the
-    /// row at "WSUS: not supported" with its code; the log carries the full text.
+    /// row at "not supported: &lt;codes&gt;"; the log and the status tooltip carry the full text.
     /// </summary>
     private async Task PublishWsusRunAsync(IReadOnlyList<PackagerInfo>? rows = null, RunSnapshot? workbenchSnapshot = null)
     {

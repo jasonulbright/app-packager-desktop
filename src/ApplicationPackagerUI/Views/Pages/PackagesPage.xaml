@@ -196,23 +196,27 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" IsReadOnly="True" />
-                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="170" IsReadOnly="True" />
-                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="*" MinWidth="160" IsReadOnly="True" />
-                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="*" IsReadOnly="True" />
+                <!-- A star column without MinWidth shrinks below its header text in a narrow window. -->
+                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True" />
+                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" IsReadOnly="True" />
+                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="170" IsReadOnly="True" />
+                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" IsReadOnly="True" />
 
                 <!-- Status with color coding -->
-                <DataGridTemplateColumn Header="Status" Width="180" SortMemberPath="Status">
+                <DataGridTemplateColumn Header="Status" Width="170" SortMemberPath="Status">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Status}"
+                                       ToolTip="{Binding StatusDetail}"
+                                       TextTrimming="CharacterEllipsis"
                                        Foreground="{Binding Status, Converter={StaticResource StatusToBrushConverter}}"
                                        VerticalAlignment="Center" Margin="4,0" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="Intune" Binding="{Binding IntuneNote}" Width="220" IsReadOnly="True" />
+                <DataGridTextColumn x:Name="ColIntune" Header="Intune" Binding="{Binding IntuneNote}" Width="*" MinWidth="110" IsReadOnly="True"
+                                    Visibility="Collapsed" />
 
                 <!-- Debug columns (visibility toggled in code-behind) -->
                 <DataGridTextColumn x:Name="ColCMName" Header="CMName" Binding="{Binding CMName}" Width="200" IsReadOnly="True"

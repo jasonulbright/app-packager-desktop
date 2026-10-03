@@ -30,6 +30,8 @@ public partial class DropReviewPanel : UserControl
     public DropReviewPanel()
     {
         InitializeComponent();
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
     /// <summary>Raised when the acknowledgment toggles, so the host can re-gate its Stage button.</summary>
@@ -209,6 +211,43 @@ public partial class DropReviewPanel : UserControl
         var view = detection.IsCurrentUserHive ? "user hive" : detection.Is64Bit ? "64-bit view" : "32-bit view";
         return $"Registry {detection.Type}: {key} — {detection.ValueName} {detection.Operator} version ({view})";
     }
+
+    /// <summary>
+    /// Window height that the dialog chrome and the fixed rows of this panel take: dialog
+    /// margins and title, file header, confirmation, Save as Application and the footer buttons.
+    /// </summary>
+    public const double ReservedHeight = 500;
+
+    public const double MinFieldsHeight = 120;
+
+    /// <summary>The height the scrolled fields may take in a window of <paramref name="windowHeight"/>.</summary>
+    public static double FieldsMaxHeight(double windowHeight) =>
+        double.IsFinite(windowHeight) ? Math.Max(MinFieldsHeight, windowHeight - ReservedHeight) : double.PositiveInfinity;
+
+    /// <summary>
+    /// True caps the fields to the window height, so the rows below them stay in view inside
+    /// a dialog. False lets the fields take their full height inside a host that scrolls.
+    /// </summary>
+    public bool FitToWindow { get; set; }
+
+    private Window? _fitWindow;
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        if (!FitToWindow || Window.GetWindow(this) is not { } window) return;
+        _fitWindow = window;
+        window.SizeChanged += OnWindowSizeChanged;
+        FieldsScroller.MaxHeight = FieldsMaxHeight(window.ActualHeight);
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (_fitWindow is not null) _fitWindow.SizeChanged -= OnWindowSizeChanged;
+        _fitWindow = null;
+    }
+
+    private void OnWindowSizeChanged(object sender, SizeChangedEventArgs e) =>
+        FieldsScroller.MaxHeight = FieldsMaxHeight(e.NewSize.Height);
 
     private void InstallModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
