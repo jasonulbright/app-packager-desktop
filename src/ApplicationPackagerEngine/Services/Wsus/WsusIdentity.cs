@@ -47,40 +47,42 @@ public static partial class WsusIdentity
     /// <summary>
     /// 'AppPackager:&lt;ApplicationId&gt;/&lt;ProfileId&gt;', the form the Intune
     /// publisher writes. A manifest staged without an ApplicationId falls back to
-    /// 'legacy:&lt;Publisher&gt;:&lt;title&gt;' with the version removed from the title:
-    /// a version, or even its major, in the identity gives every release its own
-    /// identity, and a new release then supersedes nothing.
+    /// 'legacy:&lt;Publisher&gt;:&lt;title&gt;' with the version in the title reduced to its
+    /// major: every release of one major shares the identity, and side-by-side lines
+    /// such as .NET 6 and .NET 8 keep their own, so one line never supersedes the other.
     /// </summary>
     public static string IdentityTag(StageManifest manifest)
     {
         var applicationId = manifest.ApplicationId ?? "";
-        if (string.IsNullOrWhiteSpace(applicationId)) applicationId = LegacyKey(manifest, keepMajor: false);
+        if (string.IsNullOrWhiteSpace(applicationId)) applicationId = LegacyKey(manifest);
         return $"AppPackager:{applicationId}/{ProfileOf(manifest)}";
     }
 
     /// <summary>
-    /// The title-derived tag that keeps the version's major in the title. An update
-    /// published under it is this application's, so supersedence and a repeat publish
-    /// take it into account.
+    /// For a manifest that carries an ApplicationId, the legacy tag the same manifest
+    /// carried before it had one; an update published under it is this application's,
+    /// so supersedence and a repeat publish take it into account. Empty for a manifest
+    /// without an ApplicationId, whose identity already is that legacy tag.
     /// </summary>
     public static IReadOnlyList<string> FormerIdentityTags(StageManifest manifest)
     {
-        var former = $"AppPackager:{LegacyKey(manifest, keepMajor: true)}/{ProfileOf(manifest)}";
+        if (string.IsNullOrWhiteSpace(manifest.ApplicationId)) return [];
+        var former = $"AppPackager:{LegacyKey(manifest)}/{ProfileOf(manifest)}";
         return former == IdentityTag(manifest) ? [] : [former];
     }
 
     private static string ProfileOf(StageManifest manifest) =>
         string.IsNullOrWhiteSpace(manifest.ProfileId) ? "default" : manifest.ProfileId;
 
-    private static string LegacyKey(StageManifest manifest, bool keepMajor)
+    private static string LegacyKey(StageManifest manifest)
     {
         var title = (manifest.AppName ?? "").Trim();
         var version = (manifest.SoftwareVersion ?? "").Trim();
         if (version.Length > 0)
         {
-            var replacement = keepMajor ? LeadingNumber().Match(version).Value : "";
+            var major = LeadingNumber().Match(version).Value;
             title = Regex.Replace(title, @"(?<![\w.])v?" + Regex.Escape(version) + @"(?![\w.])",
-                replacement.Replace("$", "$$"), RegexOptions.IgnoreCase);
+                major.Replace("$", "$$"), RegexOptions.IgnoreCase);
         }
         var key = NonKeyCharacters().Replace(title, "-").Trim('-');
         var publisher = NonKeyCharacters().Replace(manifest.Publisher ?? "", "-").Trim('-');

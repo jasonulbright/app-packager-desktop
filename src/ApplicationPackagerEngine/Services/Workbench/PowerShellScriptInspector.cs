@@ -70,13 +70,17 @@ public static class PowerShellScriptInspector
         """;
 
     /// <summary>The command that inspects the file at <paramref name="path"/>; the path is its only variable part.</summary>
-    public static string InspectorCommand(string path) => InspectorTemplate.Replace("__PATH__", path.Replace("'", "''"));
+    public static string InspectorCommand(string path) => InspectorTemplate.Replace("__PATH__", PowerShellLiteral.EscapeSingleQuoted(path));
 
     /// <summary>Parses <paramref name="text"/>. An empty script has no diagnostics and writes nothing.</summary>
-    public static async Task<ScriptInspection> InspectAsync(string? text, CancellationToken ct = default)
+    public static Task<ScriptInspection> InspectAsync(string? text, CancellationToken ct = default) =>
+        InspectAsync(text, Path.GetTempPath(), ct);
+
+    /// <summary>Parses <paramref name="text"/> through a temporary file in <paramref name="tempFolder"/>.</summary>
+    internal static async Task<ScriptInspection> InspectAsync(string? text, string tempFolder, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(text)) return ScriptInspection.Empty;
-        var path = Path.Combine(Path.GetTempPath(), "apkg-parse-" + Guid.NewGuid().ToString("N") + ".ps1");
+        var path = Path.Combine(tempFolder, "apkg-parse-" + Guid.NewGuid().ToString("N") + ".ps1");
         try
         {
             await File.WriteAllTextAsync(path, text, new UTF8Encoding(false), ct).ConfigureAwait(false);
@@ -90,7 +94,7 @@ public static class PowerShellScriptInspector
             if (run.TimedOut) return new ScriptInspection([], false, "Windows PowerShell did not finish parsing the script.");
             if (run.ExitCode != 0 || string.IsNullOrWhiteSpace(run.StdOut))
                 return new ScriptInspection([], false, string.IsNullOrWhiteSpace(run.StdErr) ? $"Windows PowerShell exited {run.ExitCode}." : run.StdErr.Trim());
-            return Parse(run.StdOut);
+            return ReadOutput(run.StdOut);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
@@ -99,6 +103,16 @@ public static class PowerShellScriptInspector
         finally
         {
             try { File.Delete(path); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>The inspector's output as an inspection; output that is not the expected JSON is the inspection's failure.</summary>
+    public static ScriptInspection ReadOutput(string stdout)
+    {
+        try { return Parse(stdout); }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            return new ScriptInspection([], false, "Windows PowerShell returned output the inspector cannot read: " + ex.Message);
         }
     }
 

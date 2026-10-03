@@ -459,8 +459,9 @@ public sealed partial class MecmTarget
             if (timing.Source == "manifest")
                 onLog?.Invoke($"Runtime minutes (manifest)   : estimated {timing.EstimatedRuntimeMins}, maximum {timing.MaximumRuntimeMins}");
             sb.Append($" -EstimatedRuntimeMins {timing.EstimatedRuntimeMins} -MaximumRuntimeMins {timing.MaximumRuntimeMins}");
+            // A switch: '-RequireUserInteraction $true' binds $true positionally and the cmdlet refuses the call.
             if (manifest.RequireUserInteraction == true)
-                sb.Append(" -RequireUserInteraction $true");
+                sb.Append(" -RequireUserInteraction:$true");
             sb.Append(content.CmdletArguments);
             sb.Append($" -RebootBehavior {ResolveRebootBehavior(manifest.PostExecutionBehavior)}");
             sb.Append(" -UserInteractionMode Hidden");

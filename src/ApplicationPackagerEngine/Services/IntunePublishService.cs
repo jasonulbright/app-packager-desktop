@@ -237,43 +237,36 @@ public sealed class IntunePublishService : IDisposable
     /// <summary>
     /// The notes value that identifies an Intune app as this build's target:
     /// AppPackager:&lt;ApplicationId&gt;/&lt;ProfileId&gt;. A manifest with no ApplicationId takes
-    /// a legacy key derived from its title, and no ProfileId reads as default.
+    /// a legacy key derived from its whole title, version included, so two major lines
+    /// whose titles differ only in the version never share one app; no ProfileId reads
+    /// as default.
     /// </summary>
     public static string IdentityTag(StageManifest manifest)
     {
         var applicationId = manifest.ApplicationId;
-        if (string.IsNullOrWhiteSpace(applicationId)) applicationId = LegacyKey(manifest, withVersion: false);
+        if (string.IsNullOrWhiteSpace(applicationId)) applicationId = LegacyKey(manifest);
         return $"AppPackager:{applicationId}/{ProfileOf(manifest)}";
     }
 
     /// <summary>
-    /// The title-derived tag with the version left in the title. An app carrying it is
-    /// this application's and is updated and retagged, not duplicated.
+    /// For a manifest that carries an ApplicationId, the legacy tag the same manifest
+    /// carried before it had one. An app carrying it, and no other identity tag, is this
+    /// application's and is updated and retagged, not duplicated. Empty for a manifest
+    /// without an ApplicationId.
     /// </summary>
     public static IReadOnlyList<string> FormerIdentityTags(StageManifest manifest)
     {
-        var former = $"AppPackager:{LegacyKey(manifest, withVersion: true)}/{ProfileOf(manifest)}";
+        if (string.IsNullOrWhiteSpace(manifest.ApplicationId)) return [];
+        var former = $"AppPackager:{LegacyKey(manifest)}/{ProfileOf(manifest)}";
         return former == IdentityTag(manifest) ? [] : [former];
     }
 
     private static string ProfileOf(StageManifest manifest) =>
         string.IsNullOrWhiteSpace(manifest.ProfileId) ? "default" : manifest.ProfileId;
 
-    /// <summary>
-    /// legacy: and the title with every character outside [\w.-] replaced by a hyphen.
-    /// Without the version, the title's copy of the version text is removed first, so one
-    /// application keeps one tag across releases.
-    /// </summary>
-    private static string LegacyKey(StageManifest manifest, bool withVersion)
-    {
-        var title = manifest.AppName ?? "";
-        var version = (manifest.SoftwareVersion ?? "").Trim();
-        if (!withVersion && version.Length > 0)
-            title = System.Text.RegularExpressions.Regex.Replace(title,
-                @"(?<![\w.])v?" + System.Text.RegularExpressions.Regex.Escape(version) + @"(?![\w.])", "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
-        return "legacy:" + System.Text.RegularExpressions.Regex.Replace(title, @"[^\w.-]", "-");
-    }
+    /// <summary>legacy: and the title with every character outside [\w.-] replaced by a hyphen.</summary>
+    private static string LegacyKey(StageManifest manifest) =>
+        "legacy:" + System.Text.RegularExpressions.Regex.Replace(manifest.AppName ?? "", @"[^\w.-]", "-");
 
     /// <summary>
     /// The installExperience.deviceRestartBehavior for every published app. The restart
@@ -304,7 +297,7 @@ public sealed class IntunePublishService : IDisposable
                 if (app is not null && (string?)app["@odata.type"] == Win32Type)
                 {
                     if (CarriesTag((string?)app["notes"], identityTag)) tagged.Add(app);
-                    else if (formerTags?.Any(f => CarriesTag((string?)app["notes"], f)) == true) formerTagged.Add(app);
+                    else if (formerTags is { Count: > 0 } && CarriesOnlyTagsOf((string?)app["notes"], formerTags)) formerTagged.Add(app);
                 }
             uri = (string?)page?["@odata.nextLink"];
         }
@@ -336,6 +329,16 @@ public sealed class IntunePublishService : IDisposable
     /// <summary>True when one line of <paramref name="notes"/> is exactly the identity tag.</summary>
     public static bool CarriesTag(string? notes, string identityTag) =>
         NoteLines(notes).Any(line => line == identityTag);
+
+    /// <summary>
+    /// True when <paramref name="notes"/> carries at least one identity tag and every
+    /// identity tag line in it is one of <paramref name="tags"/>.
+    /// </summary>
+    public static bool CarriesOnlyTagsOf(string? notes, IReadOnlyCollection<string> tags)
+    {
+        var tagLines = NoteLines(notes).Where(line => line.StartsWith(IdentityTagPrefix, StringComparison.Ordinal)).ToList();
+        return tagLines.Count > 0 && tagLines.All(tags.Contains);
+    }
 
     /// <summary>True when one line of <paramref name="notes"/> is an identity tag of any application.</summary>
     public static bool CarriesAnyTag(string? notes) =>

@@ -46,7 +46,9 @@ public static class AuthenticodeVerifier
                 dwStateAction = 0,
                 hWVTStateData = IntPtr.Zero,
                 pwszURLReference = IntPtr.Zero,
-                dwProvFlags = 0x00000010, // WTD_REVOCATION_CHECK_NONE: the chain is built without revocation checks
+                // No provider flags, as Get-AuthenticodeSignature passes: revocation follows the
+                // machine's Software Publishing policy, so both give one verdict for one file.
+                dwProvFlags = 0,
                 dwUIContext = 0,
                 pSignatureSettings = IntPtr.Zero
             };

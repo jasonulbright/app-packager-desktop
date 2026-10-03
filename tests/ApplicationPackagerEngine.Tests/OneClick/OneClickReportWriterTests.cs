@@ -108,6 +108,49 @@ public sealed class OneClickReportWriterTests : IDisposable
     }
 
     [Fact]
+    public void TwoReportsStartedInOneSecondKeepBothFilesAndListNewestFirst()
+    {
+        var folder = Path.Combine(_root, "same-second");
+        var started = new DateTime(2026, 4, 6, 9, 0, 0);
+        var first = OneClickReportWriter.Write(new OneClickReportRun { Started = started, Ended = started, Action = "Report only" },
+            [Row("First", "1.0", "Checked")], folder);
+        var second = OneClickReportWriter.Write(new OneClickReportRun { Started = started, Ended = started, Action = "Report only" },
+            [Row("Second", "1.0", "Checked")], folder);
+
+        Assert.NotEqual(first.MarkdownPath, second.MarkdownPath);
+        Assert.Equal("one-click-20260406-090000-2.md", Path.GetFileName(second.MarkdownPath));
+        Assert.Contains("First", File.ReadAllText(first.MarkdownPath));
+        Assert.Contains("Second", File.ReadAllText(second.MarkdownPath));
+        Assert.Equal([second.JsonPath, first.JsonPath], OneClickReportWriter.List(folder).Select(i => i.JsonPath));
+    }
+
+    [Fact]
+    public void MarkdownAndHtmlInAnyTextFieldRenderAsTyped()
+    {
+        var run = new OneClickReportRun
+        {
+            Started = new DateTime(2026, 4, 7, 9, 0, 0), Ended = new DateTime(2026, 4, 7, 9, 1, 0),
+            Operator = "<img src=x>", Computer = "*WS01*", Action = "Stage and Publish",
+            Scope = new Dictionary<string, string> { ["WSUS"] = "approved for group [Pilot](http://evil)" }
+        };
+        var row = Row("[Click](http://evil.example)", "1.0 <b>", "Failed", cm: "failed: `code` _x_", reason: "<script>alert(1)</script>",
+            wsusDetail: "# heading & ![img](x)");
+
+        var text = OneClickReportWriter.Markdown(run, [row]);
+
+        Assert.Contains(@"\[Click\]\(http://evil.example\)", text);
+        Assert.Contains("1.0 &lt;b&gt;", text);
+        Assert.Contains(@"failed: \`code\` \_x\_", text);
+        Assert.Contains("&lt;script&gt;alert\\(1\\)&lt;/script&gt;", text);
+        Assert.Contains(@"\# heading &amp; \!\[img\]\(x\)", text);
+        Assert.Contains("| Operator | &lt;img src=x&gt; |", text);
+        Assert.Contains(@"| Computer | \*WS01\* |", text);
+        Assert.Contains(@"- WSUS: approved for group \[Pilot\]\(http://evil\)", text);
+        Assert.DoesNotContain("<", text.Replace("&lt;", ""));
+        Assert.DoesNotContain("](", text);
+    }
+
+    [Fact]
     public void AMissingFolderListsNothingAndTheFileIsNamedByTheStartTime()
     {
         Assert.Empty(OneClickReportWriter.List(Path.Combine(_root, "none")));

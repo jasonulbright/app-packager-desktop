@@ -77,6 +77,30 @@ public sealed class PowerShellScriptInspectorTests : IDisposable
     }
 
     [Fact]
+    public async Task TheInspectorRunsFromATempFolderWhosePathCarriesATypographicApostrophe()
+    {
+        var folder = _t.NewFolder("O’Neil");
+
+        var inspection = await PowerShellScriptInspector.InspectAsync("$a = 1\r\nif ($a -eq 1 {\r\n}", folder, CancellationToken.None);
+
+        Assert.Null(inspection.Failure);
+        Assert.Equal(2, inspection.Errors[0].Line);
+        Assert.Contains("O’’Neil", PowerShellScriptInspector.InspectorCommand(Path.Combine(folder, "x.ps1")));
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("[1,2]")]
+    [InlineData("""{"Errors":[{"Line":1,"Column":1,"Message":5}]}""")]
+    public void OutputThatIsNotTheInspectorJsonIsAFailureNotAnException(string stdout)
+    {
+        var inspection = PowerShellScriptInspector.ReadOutput(stdout);
+
+        Assert.NotNull(inspection.Failure);
+        Assert.StartsWith("Parser failure: Windows PowerShell returned output the inspector cannot read", inspection.Diagnostics[0]);
+    }
+
+    [Fact]
     public void ASingleErrorSerializedAsAnObjectIsRead()
     {
         var inspection = PowerShellScriptInspector.Parse("""{"Errors":{"Line":3,"Column":7,"Message":"Missing closing '}'."},"WritesOutput":false,"Failure":""}""");

@@ -1,0 +1,153 @@
+using System.Text.Json.Nodes;
+using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Models;
+using ApplicationPackagerUI.Services;
+
+namespace ApplicationPackagerEngine.Tests;
+
+/// <summary>
+/// The settings file holds the One Click history and refusal memory: a file that cannot be
+/// read is never overwritten by an automatic save, an operator save keeps a copy of it first,
+/// writes replace the file atomically, a save keeps entries the grid does not list, and the
+/// stored deployment target keeps every target name. Each test has its own data root.
+/// </summary>
+[Collection(ProcessEnvironmentCollection.Name)]
+public sealed class SettingsDurabilityTests : IDisposable
+{
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-settings-durable-" + Guid.NewGuid().ToString("N"));
+    private readonly Dictionary<string, string?> _saved = [];
+
+    public SettingsDurabilityTests()
+    {
+        foreach (var name in new[] { AppDataPaths.DataRootVariable, SettingsService.LauncherSiteCodeVariable, SettingsService.LauncherProviderVariable })
+            _saved[name] = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
+        Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
+        Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
+        Directory.CreateDirectory(_root);
+    }
+
+    public void Dispose()
+    {
+        foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
+        try { Directory.Delete(_root, true); } catch (IOException) { }
+    }
+
+    private const string Unreadable = """{ "AppStates": { "package-a": { "Published": { "WSUS": { "Version": "1.0" """;
+
+    [Fact]
+    public void AnUnreadableFileIsNotOverwrittenByAnAutomaticSave()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, Unreadable);
+        var service = new SettingsService();
+
+        var s = service.Load();
+        Assert.True(service.IsFileUnreadable);
+        s.AppStates["package-b"] = new AppCheckState { LatestVersion = "2.0" };
+        service.Save(s);
+
+        Assert.Equal(Unreadable, File.ReadAllText(SettingsService.SettingsPath));
+    }
+
+    [Fact]
+    public void TheOperatorIsToldOnceWithThePath()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, Unreadable);
+        var service = new SettingsService();
+
+        service.Load();
+        service.Load();
+
+        var warning = service.TakeLoadWarning();
+        Assert.NotNull(warning);
+        Assert.Contains(SettingsService.SettingsPath, warning);
+        Assert.Null(service.TakeLoadWarning());
+    }
+
+    [Fact]
+    public void AnOperatorSaveKeepsTheUnreadableFileBeforeReplacingIt()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, Unreadable);
+        var service = new SettingsService();
+        var s = service.Load();
+        s.DownloadRoot = @"C:\dl";
+
+        service.SaveOperatorEdit(s);
+
+        var kept = Assert.Single(Directory.GetFiles(_root, "settings.json.unreadable-*"));
+        Assert.Equal(Unreadable, File.ReadAllText(kept));
+        Assert.Equal(@"C:\dl", new SettingsService().Load().DownloadRoot);
+        Assert.False(service.IsFileUnreadable);
+    }
+
+    [Fact]
+    public void AWriteReplacesTheFileAndLeavesNoSideFile()
+    {
+        var service = new SettingsService();
+        var s = service.Load();
+        s.DownloadRoot = @"C:\one";
+        service.Save(s);
+        s.DownloadRoot = @"C:\two";
+        service.Save(s);
+
+        Assert.Equal(@"C:\two", (string?)JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["DownloadRoot"]);
+        Assert.Equal(["settings.json"], Directory.GetFiles(_root).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void ASaveWithAnEmptyGridKeepsTheTrackedListAndTheCadenceOverrides()
+    {
+        var stored = new OneClickSettings
+        {
+            TrackedApplications = ["package-a", "package-b"],
+            CadenceOverrides = new Dictionary<string, int> { ["package-a"] = 3 }
+        };
+
+        var (tracked, cadence) = OneClickSettingsMap.TrackedAndCadence([], 7, stored);
+
+        Assert.Equal(["package-a", "package-b"], tracked);
+        Assert.Equal(3, cadence["package-a"]);
+    }
+
+    [Fact]
+    public void AListedRowDecidesItsOwnTrackingAndCadence()
+    {
+        var stored = new OneClickSettings
+        {
+            TrackedApplications = ["package-a", "package-hidden"],
+            CadenceOverrides = new Dictionary<string, int> { ["package-a"] = 3, ["package-hidden"] = 14 }
+        };
+
+        var (tracked, cadence) = OneClickSettingsMap.TrackedAndCadence([("package-a", false, null), ("package-c", true, 5)], 7, stored);
+
+        Assert.Equal(["package-c", "package-hidden"], tracked);
+        Assert.Equal(new Dictionary<string, int> { ["package-c"] = 5, ["package-hidden"] = 14 }, cadence);
+    }
+
+    [Theory]
+    [InlineData("MECMAndWSUS")]
+    [InlineData("WSUSOnly")]
+    [InlineData("IntuneOnly")]
+    [InlineData("MECMAndIntune")]
+    public void TheStoredTargetKeepsEveryTargetNameOnLoadAndSave(string target)
+    {
+        File.WriteAllText(SettingsService.SettingsPath, $$"""{ "Intune": { "DeploymentTarget": "{{target}}" } }""");
+        var service = new SettingsService();
+        var s = service.Load();
+        Assert.Equal(target, s.Intune.DeploymentTarget);
+
+        service.Save(s);
+        Assert.Equal(target, (string?)JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["Intune"]!["DeploymentTarget"]);
+    }
+
+    [Fact]
+    public void TheTargetNamesMeanWhatUpstreamMeans()
+    {
+        Assert.Equal(DeploymentTargets.WsusOnly, DeploymentTargets.Normalize("WSUSOnly"));
+        Assert.True(DeploymentTargets.SkipsMecm("WSUSOnly"));
+        Assert.False(DeploymentTargets.PublishesToIntune("MECMAndWSUS"));
+        Assert.True(DeploymentTargets.PublishesToWsus("MECMAndWSUS"));
+        Assert.Equal(DeploymentTargets.Mecm, DeploymentTargets.Normalize("nonsense"));
+    }
+}

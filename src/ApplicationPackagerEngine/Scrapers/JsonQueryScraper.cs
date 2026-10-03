@@ -288,8 +288,9 @@ public sealed class JsonQueryScraper : IVersionScraper
         // browser User-Agent and the JSON to curl's own.
         string[] ua = noUserAgent ? [] : ["-A", UserAgent];
 
+        var headerFile = GitHubRateLimit.NewHeaderFile();
         using var process = CurlProcess.Start(
-            ["-L", "--silent", "--show-error", "--max-time", "25", .. ua, .. headers ?? []], url);
+            ["-L", "--silent", "--show-error", "--max-time", "25", .. GitHubRateLimit.HeaderArguments(headerFile), .. ua, .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
@@ -298,10 +299,12 @@ public sealed class JsonQueryScraper : IVersionScraper
         if (completed != exitTask)
         {
             try { process.Kill(true); } catch { }
+            try { File.Delete(headerFile); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             return null;
         }
 
         var stdout = await stdoutTask;
+        GitHubRateLimit.ThrowIfRefused(url, headerFile, stdout);
         return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 }

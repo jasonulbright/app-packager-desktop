@@ -81,14 +81,25 @@ public static class SharedDownloadCache
         return age.TotalDays >= 1 ? $"{(int)age.TotalDays} days old" : $"{Math.Max(0, (int)age.TotalHours)} hours old";
     }
 
+    /// <summary>The longest wait for a cache entry another stage holds before the stage fails.</summary>
+    public static readonly TimeSpan EntryLockWait = TimeSpan.FromMinutes(30);
+
+    private const int SharingViolation = unchecked((int)0x80070020);
+    private const int LockViolation = unchecked((int)0x80070021);
+
     /// <summary>
     /// Opens <c>&lt;entry&gt;.lock</c> with no sharing and waits while another stage holds it.
     /// The lock file is deleted when the last holder closes it. A delete-pending lock file
     /// answers access denied for a moment, so that answer is retried a bounded number of times.
+    /// Only a sharing or lock violation means another holder; any other I/O error, such as a
+    /// cache share that went offline, fails at once, and a holder that keeps the entry past
+    /// <paramref name="maxWait"/> fails the stage, each with a message naming the entry.
     /// </summary>
-    private static async Task<FileStream> AcquireEntryLockAsync(string cached, CancellationToken ct)
+    internal static async Task<FileStream> AcquireEntryLockAsync(string cached, CancellationToken ct, TimeSpan? maxWait = null)
     {
         var lockPath = cached + ".lock";
+        var limit = maxWait ?? EntryLockWait;
+        var waited = System.Diagnostics.Stopwatch.StartNew();
         var denied = 0;
         while (true)
         {
@@ -97,9 +108,16 @@ public static class SharedDownloadCache
             {
                 return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
             }
-            catch (IOException)
+            catch (IOException ex) when (ex.HResult is SharingViolation or LockViolation)
             {
+                if (waited.Elapsed >= limit)
+                    throw new InvalidOperationException(
+                        $"The shared download cache entry {cached} stayed locked by another stage for {limit.TotalMinutes:0.#} minutes; this stage stopped waiting.", ex);
                 await Task.Delay(100, ct);
+            }
+            catch (IOException ex)
+            {
+                throw new InvalidOperationException($"The shared download cache entry {cached} could not be locked: {ex.Message}", ex);
             }
             catch (UnauthorizedAccessException) when (++denied < 100)
             {

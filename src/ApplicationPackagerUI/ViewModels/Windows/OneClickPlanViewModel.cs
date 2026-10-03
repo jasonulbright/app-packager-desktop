@@ -159,6 +159,7 @@ public partial class OneClickPlanViewModel : ObservableObject
                     item.Reason = p.Reason;
                     item.LastPublished = p.LastPublishedText;
                     item.PublishTo = p.PublishTo;
+                    item.NotReady = p.NotReady;
                     if (!item.IncludeTouched) item.Include = p.Include;
                     continue;
                 }
@@ -176,6 +177,7 @@ public partial class OneClickPlanViewModel : ObservableObject
                     Planned = p.Planned,
                     Reason = p.Reason,
                     PublishTo = p.PublishTo,
+                    NotReady = p.NotReady,
                     Include = p.Include
                 };
                 item.PropertyChanged += OnItemChanged;

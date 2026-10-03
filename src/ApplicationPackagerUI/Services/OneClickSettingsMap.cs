@@ -47,6 +47,25 @@ public static class OneClickSettingsMap
         rows.Where(r => !r.Set.Equals(defaults))
             .ToDictionary(r => r.Key, r => r.Set.Copy(), StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The tracked list and cadence overrides a settings save stores: the rows the One
+    /// Click grid shows, plus every stored entry of an application the grid does not list,
+    /// so a save while the Packages page shows fewer applications loses no entry.
+    /// </summary>
+    public static (string[] Tracked, Dictionary<string, int> CadenceOverrides) TrackedAndCadence(
+        IReadOnlyCollection<(string Uid, bool Tracked, int? Cadence)> rows, int defaultCadence, OneClickSettings stored)
+    {
+        var listed = new HashSet<string>(rows.Select(r => r.Uid), StringComparer.OrdinalIgnoreCase);
+        var tracked = rows.Where(r => r.Tracked).Select(r => r.Uid)
+            .Concat(stored.TrackedApplications.Where(uid => !listed.Contains(uid)))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var cadence = rows.Where(r => r.Cadence is { } days && days != defaultCadence)
+            .ToDictionary(r => r.Uid, r => r.Cadence!.Value, StringComparer.OrdinalIgnoreCase);
+        foreach (var (uid, days) in stored.CadenceOverrides)
+            if (!listed.Contains(uid)) cadence.TryAdd(uid, days);
+        return (tracked, cadence);
+    }
+
     /// <summary>The log line after Setup saves: every default destination, or none.</summary>
     public static string SetupCompleteLine(DestinationSet defaults) =>
         $"Setup complete. One Click publishes to {defaults.Describe()}; change it in Settings, One Click Settings.";

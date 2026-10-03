@@ -55,21 +55,63 @@ public static class OneClickReportWriter
 
     public static string Folder(string logFolder) => Path.Combine(logFolder, FolderName);
 
-    private static string Escape(string? text) => (text ?? "").Replace("|", "\\|").Replace("\r\n", " ").Replace("\n", " ");
+    private const string MarkdownMetacharacters = "\\`*_{}[]()#+!|~";
+
+    /// <summary>
+    /// One line of literal text for a Markdown table cell or list item: every Markdown
+    /// metacharacter takes a backslash and the HTML metacharacters become entities, so
+    /// an application name such as [x](url) or &lt;b&gt; renders as typed.
+    /// </summary>
+    public static string Escape(string? text)
+    {
+        var sb = new StringBuilder();
+        foreach (var c in (text ?? "").Replace("\r\n", " ").Replace('\r', ' ').Replace('\n', ' '))
+        {
+            switch (c)
+            {
+                case '&': sb.Append("&amp;"); break;
+                case '<': sb.Append("&lt;"); break;
+                case '>': sb.Append("&gt;"); break;
+                default:
+                    if (MarkdownMetacharacters.Contains(c)) sb.Append('\\');
+                    sb.Append(c);
+                    break;
+            }
+        }
+        return sb.ToString();
+    }
 
     private static string Get(IReadOnlyDictionary<string, string> map, string key) => map.TryGetValue(key, out var v) ? v ?? "" : "";
 
+    /// <summary>
+    /// Writes both files under a name no earlier report holds: two runs started in the
+    /// same second take one-click-&lt;stamp&gt;, then one-click-&lt;stamp&gt;-2, and so on.
+    /// A name is claimed by creating its JSON file, so a concurrent writer never shares it.
+    /// </summary>
     /// <returns>The Markdown and JSON paths.</returns>
     public static (string MarkdownPath, string JsonPath) Write(OneClickReportRun run, IReadOnlyList<OneClickReportRow> rows, string folder)
     {
         Directory.CreateDirectory(folder);
         var stamp = run.Started.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-        var mdPath = Path.Combine(folder, $"one-click-{stamp}.md");
-        var jsonPath = Path.Combine(folder, $"one-click-{stamp}.json");
-
-        File.WriteAllText(mdPath, Markdown(run, rows), new UTF8Encoding(false));
-        File.WriteAllText(jsonPath, Json(run, rows).ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
-        return (mdPath, jsonPath);
+        var encoding = new UTF8Encoding(false);
+        var json = Json(run, rows).ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        for (var n = 1; ; n++)
+        {
+            var baseName = n == 1 ? $"one-click-{stamp}" : $"one-click-{stamp}-{n}";
+            var mdPath = Path.Combine(folder, baseName + ".md");
+            var jsonPath = Path.Combine(folder, baseName + ".json");
+            if (File.Exists(mdPath)) continue;
+            FileStream claim;
+            try { claim = new FileStream(jsonPath, FileMode.CreateNew, FileAccess.Write, FileShare.None); }
+            catch (IOException) when (File.Exists(jsonPath)) { continue; }
+            using (claim)
+            using (var writer = new StreamWriter(claim, encoding))
+                writer.Write(json);
+            using (var md = new FileStream(mdPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(md, encoding))
+                writer.Write(Markdown(run, rows));
+            return (mdPath, jsonPath);
+        }
     }
 
     public static string Markdown(OneClickReportRun run, IReadOnlyList<OneClickReportRow> rows)
@@ -85,7 +127,7 @@ public static class OneClickReportWriter
             "| Ended | " + run.Ended.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " |",
             "| Operator | " + Escape(run.Operator) + " |",
             "| Computer | " + Escape(run.Computer) + " |",
-            "| Action | " + run.Action + (run.Force ? " (force)" : "") + " |"
+            "| Action | " + Escape(run.Action) + (run.Force ? " (force)" : "") + " |"
         };
         if (run.Canceled) lines.Add("| Canceled | yes |");
         lines.Add("| Applications | " + rows.Count + " |");
@@ -102,7 +144,7 @@ public static class OneClickReportWriter
             foreach (var d in OneClickDestinations.All)
             {
                 var text = Get(run.Scope, d);
-                if (text.Length > 0) lines.Add($"- {d}: {text}");
+                if (text.Length > 0) lines.Add($"- {d}: {Escape(text)}");
             }
             lines.Add("");
         }
@@ -180,6 +222,15 @@ public static class OneClickReportWriter
         };
     }
 
+    /// <summary>1 for one-click-&lt;stamp&gt;.json, n for one-click-&lt;stamp&gt;-n.json.</summary>
+    private static int SameSecondOrdinal(string jsonPath)
+    {
+        var name = Path.GetFileNameWithoutExtension(jsonPath);
+        var dash = name.LastIndexOf('-');
+        return dash > "one-click-yyyyMMdd-HHmmss".Length - 1
+               && int.TryParse(name[(dash + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : 1;
+    }
+
     /// <summary>Earlier run reports, newest first. An unreadable file is left out.</summary>
     public static IReadOnlyList<OneClickReportSummary> List(string folder)
     {
@@ -201,6 +252,6 @@ public static class OneClickReportWriter
             {
             }
         }
-        return items;
+        return items.OrderByDescending(i => i.Started).ThenByDescending(i => SameSecondOrdinal(i.JsonPath)).ToList();
     }
 }

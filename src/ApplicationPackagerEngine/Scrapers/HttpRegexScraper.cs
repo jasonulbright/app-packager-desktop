@@ -131,8 +131,9 @@ public class HttpRegexScraper : IVersionScraper
     protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null, IReadOnlyList<string>? headers = null)
     {
         // Use curl.exe: handles 308 redirects, avoids PS5.1 IWR quirks, better WAF compatibility
+        var headerFile = GitHubRateLimit.NewHeaderFile();
         using var process = CurlProcess.Start(
-            ["-L", "--silent", "--show-error", "--max-time", "25", .. UserAgentArguments(userAgent), .. headers ?? []], url);
+            ["-L", "--silent", "--show-error", "--max-time", "25", .. GitHubRateLimit.HeaderArguments(headerFile), .. UserAgentArguments(userAgent), .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
@@ -141,10 +142,12 @@ public class HttpRegexScraper : IVersionScraper
         if (completed != exitTask)
         {
             try { process.Kill(true); } catch { }
+            try { File.Delete(headerFile); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             return null;
         }
 
         var stdout = await stdoutTask;
+        GitHubRateLimit.ThrowIfRefused(url, headerFile, stdout);
         return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 

@@ -48,9 +48,9 @@ public sealed class UnprofiledIdentityTests : IDisposable
     }
 
     [Fact]
-    public void AnUpdateUnderTheFormerVersionedLegacyTagIsSupersededToo()
+    public void AnUpdateUnderTheLegacyTagOfTheSameMajorIsSupersededByTheCatalogBuild()
     {
-        var manifest = new StageManifest { AppName = "7-Zip (x64) - 26.03 (x64)", Publisher = "Igor Pavlov", SoftwareVersion = "26.03" };
+        var manifest = new StageManifest { ApplicationId = "catalog:sevenzip", AppName = "7-Zip (x64) - 26.03 (x64)", Publisher = "Igor Pavlov", SoftwareVersion = "26.03" };
         var older = new StageManifest { AppName = "7-Zip (x64) - 26.01 (x64)", Publisher = "Igor Pavlov", SoftwareVersion = "26.01" };
         var formerLine = WsusIdentity.IdentityLine("AppPackager:legacy:Igor-Pavlov:7-Zip-x64-26-x64/default", WsusSettings.UpdatePackageType, "26.01");
         var candidate = new WsusUpdateCandidate(Guid.NewGuid().ToString(), "7-Zip", "7-Zip 26.01\r\n\r\n" + formerLine,
@@ -59,6 +59,6 @@ public sealed class UnprofiledIdentityTests : IDisposable
         var decision = WsusSupersedence.Decide([candidate], WsusIdentity.IdentityTag(manifest), "26.03", WsusIdentity.FormerIdentityTags(manifest));
 
         Assert.Single(decision.Earlier);
-        Assert.Equal(WsusIdentity.IdentityTag(older), WsusIdentity.IdentityTag(manifest));
+        Assert.Equal(WsusIdentity.IdentityTag(older), Assert.Single(WsusIdentity.FormerIdentityTags(manifest)));
     }
 }

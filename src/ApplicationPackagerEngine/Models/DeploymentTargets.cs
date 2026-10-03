@@ -1,23 +1,34 @@
 namespace ApplicationPackagerEngine.Models;
 
-/// <summary>Deployment targets a Package run can write to.</summary>
+/// <summary>
+/// The stored deployment target: the nearest single target name for the One Click
+/// default destinations, which a grid Stage records in its run snapshot and hands to a
+/// PS1 packager. The publish buttons name their own destination and never read it.
+/// </summary>
 public static class DeploymentTargets
 {
     public const string Mecm = "MECM";
     public const string MecmAndIntune = "MECMAndIntune";
     public const string IntuneOnly = "IntuneOnly";
+    public const string MecmAndWsus = "MECMAndWSUS";
+    public const string WsusOnly = "WSUSOnly";
 
-    /// <summary>Maps an unknown or absent stored value onto MECM only.</summary>
+    /// <summary>Keeps every known target name; an unknown or absent stored value is MECM only.</summary>
     public static string Normalize(string? value) => value switch
     {
         MecmAndIntune => MecmAndIntune,
         IntuneOnly => IntuneOnly,
+        MecmAndWsus => MecmAndWsus,
+        WsusOnly => WsusOnly,
         _ => Mecm
     };
 
-    public static bool PublishesToIntune(string? value) => Normalize(value) != Mecm;
+    public static bool PublishesToIntune(string? value) => Normalize(value) is MecmAndIntune or IntuneOnly;
 
-    public static bool SkipsMecm(string? value) => Normalize(value) == IntuneOnly;
+    public static bool PublishesToWsus(string? value) => Normalize(value) is MecmAndWsus or WsusOnly;
+
+    /// <summary>True for the site-free targets: no site connection, no share copy, no ConfigMgr application.</summary>
+    public static bool SkipsMecm(string? value) => Normalize(value) is IntuneOnly or WsusOnly;
 }
 
 /// <summary>

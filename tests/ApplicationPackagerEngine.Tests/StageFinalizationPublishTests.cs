@@ -165,8 +165,32 @@ public sealed class StageFinalizationPublishTests : IDisposable
 
         var script = Script(manifest, log);
 
-        Assert.Contains(" -InstallationBehaviorType InstallForSystem -LogonRequirementType OnlyWhenUserLoggedOn -EstimatedRuntimeMins 12 -MaximumRuntimeMins 40 -RequireUserInteraction $true", script);
+        Assert.Contains(" -InstallationBehaviorType InstallForSystem -LogonRequirementType OnlyWhenUserLoggedOn -EstimatedRuntimeMins 12 -MaximumRuntimeMins 40 -RequireUserInteraction:$true", script);
+        Assert.Contains(" -UserInteractionMode Hidden", script);
+        Assert.DoesNotContain("-RequireUserInteraction $true", script);
         Assert.Contains("Runtime minutes (manifest)   : estimated 12, maximum 40", log);
+    }
+
+    [Fact]
+    public async Task TheInteractionArgumentsBindToASwitchParameterInWindowsPowerShell()
+    {
+        var manifest = Registry();
+        manifest.RequireUserInteraction = true;
+        var script = Script(manifest);
+        var start = script.IndexOf(" -RequireUserInteraction", StringComparison.Ordinal);
+        var fragment = script[start..].Split(" -")[1];
+        var probe = "function Add-Probe { [CmdletBinding()] param([switch]$RequireUserInteraction, [string]$UserInteractionMode) " +
+                    "[Console]::Out.Write(('{0}|{1}' -f $RequireUserInteraction.IsPresent, $UserInteractionMode)) }; " +
+                    "Add-Probe -" + fragment + " -UserInteractionMode Hidden";
+
+        var run = await BoundedProcessRunner.RunAsync(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            Arguments = "-NoLogo -NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(probe))
+        }, TimeSpan.FromSeconds(60), CancellationToken.None);
+
+        Assert.Equal("", run.StdErr.Trim());
+        Assert.Equal("True|Hidden", run.StdOut.Trim());
     }
 
     [Fact]

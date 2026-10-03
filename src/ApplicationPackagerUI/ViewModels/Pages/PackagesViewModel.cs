@@ -299,6 +299,8 @@ public partial class PackagesViewModel : ObservableObject
     {
         var root = _discoveryService.ResolvePackagersRoot();
         AddLogLine($"Session log: {SessionLogPath}");
+        _ = _settingsService.Load();
+        if (_settingsService.TakeLoadWarning() is { } settingsWarning) AddLogLine("WARNING: " + settingsWarning);
         AddLogLine(root is null
             ? "Loading the shipped definitions (no PS1 packagers folder configured)."
             : $"Loading packagers from: {root}");
@@ -644,9 +646,7 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <summary>Stages the selection, or the given rows, and reports what actually happened to each item.</summary>
-    private async Task<PackagingRunTally> RunStageAsync(IReadOnlyList<PackagerInfo>? rows = null, RunSnapshot? workbenchSnapshot = null,
-        IReadOnlyDictionary<PackagerInfo, PackagerExecutionService.OneClickBuildPlan>? oneClickPlans = null,
-        IDictionary<PackagerInfo, RunSnapshot>? stagedSnapshots = null)
+    private async Task<PackagingRunTally> RunStageAsync(IReadOnlyList<PackagerInfo>? rows = null, RunSnapshot? workbenchSnapshot = null)
     {
         var selected = rows?.ToList() ?? SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Stage"); return new PackagingRunTally(); }
@@ -720,27 +720,12 @@ public partial class PackagesViewModel : ObservableObject
                         }
                     }
 
-                    var snapshot = workbenchSnapshot;
-                    if (oneClickPlans is not null && oneClickPlans.TryGetValue(p, out var plan))
-                    {
-                        snapshot = _executionService.CreateOneClickSnapshot(p, plan, out var refusal);
-                        if (refusal is not null)
-                        {
-                            p.Status = "Stage error";
-                            p.IsSelected = false;
-                            tally.RecordFailure();
-                            AddLogLine($"Stage FAILED: {p.Application}: {refusal}");
-                            continue;
-                        }
-                    }
-
                     var result = await _executionService.StageAsync(
-                        p, line => AddLogLine($"  {line}"), _operationCts.Token, settingsValues, snapshot);
+                        p, line => AddLogLine($"  {line}"), _operationCts.Token, settingsValues, workbenchSnapshot);
 
                     if (result.ExitCode == 0)
                     {
                         p.Status = "Staged";
-                        if (snapshot is not null && stagedSnapshots is not null) stagedSnapshots[p] = snapshot;
                         tally.RecordSuccess();
                         AddLogLine($"Staged: {result.StdOut}");
                     }
@@ -792,10 +777,8 @@ public partial class PackagesViewModel : ObservableObject
 
     /// <summary>
     /// Packages the selection, or the given rows, for one publish target: ConfigMgr or Intune only.
-    /// A row in <paramref name="rowSnapshots"/> packages with the snapshot it was staged with.
     /// </summary>
-    private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot,
-        IReadOnlyDictionary<PackagerInfo, RunSnapshot>? rowSnapshots = null)
+    private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot)
     {
         // The comment and review dialogs await the operator; the flag is raised before them
         // so no other operation starts while they are open.
@@ -805,12 +788,11 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
         IsOperationRunning = true;
-        try { await PackageCoreAsync(rows, targetOverride, snapshot, rowSnapshots); }
+        try { await PackageCoreAsync(rows, targetOverride, snapshot); }
         finally { IsOperationRunning = false; }
     }
 
-    private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot,
-        IReadOnlyDictionary<PackagerInfo, RunSnapshot>? rowSnapshots)
+    private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot)
     {
         var settings = _settingsService.Load();
         var target = targetOverride ?? PublishRunTargets.ConfigMgr;
@@ -878,12 +860,11 @@ public partial class PackagesViewModel : ObservableObject
                 p.Status = "Packaging...";
                 AddLogLine($"Package: {p.Application} ({p.Script})");
 
-                var rowSnapshot = SnapshotForRow(p, snapshot, rowSnapshots);
                 try
                 {
                     var result = await _executionService.PackageAsync(
                         p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
-                        targetOverride: targetOverride, snapshot: rowSnapshot);
+                        targetOverride: target, snapshot: snapshot);
 
                     if (result.Conflict is not null)
                     {
@@ -906,7 +887,7 @@ public partial class PackagesViewModel : ObservableObject
                             result = await _executionService.PackageAsync(
                                 p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
                                 ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite,
-                                rowSnapshot, targetOverride);
+                                snapshot, target);
                         }
                         else
                         {
@@ -982,11 +963,6 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts = null;
         }
     }
-
-    /// <summary>The snapshot a row packages with: the one it was staged with, else the run's.</summary>
-    public static RunSnapshot? SnapshotForRow(PackagerInfo row, RunSnapshot? runSnapshot,
-        IReadOnlyDictionary<PackagerInfo, RunSnapshot>? rowSnapshots) =>
-        rowSnapshots is not null && rowSnapshots.TryGetValue(row, out var staged) ? staged : runSnapshot;
 
     /// <summary>Operator answer to one existing-application conflict.</summary>
     private sealed record ConflictAnswer(string Behavior, bool ApplyToAll)

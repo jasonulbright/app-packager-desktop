@@ -615,15 +615,15 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         var defaults = OneClickDefaultDestinations;
         var destinations = OneClickSettingsMap.RowsThatDiffer(OneClickRows.Select(r => (r.Uid, r.Destinations)), defaults);
         foreach (var (key, set) in _unlistedDestinations) destinations.TryAdd(key, set);
+        var (tracked, cadenceOverrides) = OneClickSettingsMap.TrackedAndCadence(
+            OneClickRows.Select(r => (r.Uid, r.Tracked, r.CadenceOverride)).ToList(), defaultCadence, s.OneClick);
         s.OneClick = new OneClickSettings
         {
             Action = OneClickActions.Normalize(OneClickAction),
             ForceOnLaunch = OneClickForce,
             DefaultCadenceDays = defaultCadence > 0 ? defaultCadence : 7,
-            TrackedApplications = OneClickRows.Where(r => r.Tracked).Select(r => r.Uid).ToArray(),
-            CadenceOverrides = OneClickRows
-                .Where(r => r.CadenceOverride is { } days && days != defaultCadence)
-                .ToDictionary(r => r.Uid, r => r.CadenceOverride!.Value),
+            TrackedApplications = tracked,
+            CadenceOverrides = cadenceOverrides,
             Destinations = destinations,
             DefaultDestinations = defaults,
             OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(OneClickOnExisting)

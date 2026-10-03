@@ -150,7 +150,8 @@ public partial class PackagesViewModel
         {
             IsOperationRunning = false;
         }
-        await PackageAsync([row!], target, snapshot);
+        if (target == PublishRunTargets.WsusOnly) await PublishWsusRunAsync([row!], snapshot);
+        else await PackageAsync([row!], target, snapshot);
     }
 
     private async Task<PackagerInfo?> StageByoCoreAsync(string applicationId, RunSnapshot snapshot, AppSettings settings)

@@ -149,14 +149,40 @@ public class WsusIdentityTests
     }
 
     [Fact]
-    public void KeepsOneLegacyIdentityAcrossReleasesWhenTheTitleCarriesTheVersion()
+    public void KeepsOneLegacyIdentityAcrossReleasesOfOneMajor()
     {
-        var a = WsusIdentity.IdentityTag(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 25.01 (x64)"; m.SoftwareVersion = "25.01"; }));
+        var a = WsusIdentity.IdentityTag(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 26.01 (x64)"; m.SoftwareVersion = "26.01"; }));
         var b = WsusIdentity.IdentityTag(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 26.03 (x64)"; m.SoftwareVersion = "26.03"; }));
-        Assert.Equal("AppPackager:legacy:Contoso:7-Zip-x64-x64/default", a);
+        Assert.Equal("AppPackager:legacy:Contoso:7-Zip-x64-26-x64/default", a);
         Assert.Equal(a, b);
-        Assert.Equal(["AppPackager:legacy:Contoso:7-Zip-x64-26-x64/default"],
-            WsusIdentity.FormerIdentityTags(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 26.03 (x64)"; m.SoftwareVersion = "26.03"; })));
+        Assert.Empty(WsusIdentity.FormerIdentityTags(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 26.03 (x64)"; m.SoftwareVersion = "26.03"; })));
+    }
+
+    [Fact]
+    public void KeepsTwoMajorLinesApartWithoutAnApplicationId()
+    {
+        var net8 = WsusIdentity.IdentityTag(Manifest(m =>
+        {
+            m.ApplicationId = ""; m.AppName = "Microsoft .NET Runtime 8.0.6 (x64)"; m.Publisher = "Microsoft Corporation"; m.SoftwareVersion = "8.0.6";
+        }));
+        var net6 = WsusIdentity.IdentityTag(Manifest(m =>
+        {
+            m.ApplicationId = ""; m.AppName = "Microsoft .NET Runtime 6.0.31 (x64)"; m.Publisher = "Microsoft Corporation"; m.SoftwareVersion = "6.0.31";
+        }));
+        Assert.Equal("AppPackager:legacy:Microsoft-Corporation:Microsoft-.NET-Runtime-8-x64/default", net8);
+        Assert.NotEqual(net8, net6);
+
+        var older = new WsusUpdateCandidate(Guid.NewGuid().ToString(), "Microsoft .NET Runtime 6.0.31 (x64)",
+            "x\r\n\r\n" + WsusIdentity.IdentityLine(net6, "Update", "6.0.31"), DateTimeOffset.Now.AddDays(-7), false, "Published");
+        Assert.Empty(WsusSupersedence.Decide([older], net8, "8.0.6").Earlier);
+    }
+
+    [Fact]
+    public void TheFormerTagOfACatalogManifestIsExactlyItsLegacyTagAndNothingBroader()
+    {
+        var catalog = Manifest(m => { m.ApplicationId = "catalog:dotnet8"; m.AppName = "Microsoft .NET Runtime 8.0.6 (x64)"; m.SoftwareVersion = "8.0.6"; });
+        var legacy = Manifest(m => { m.ApplicationId = ""; m.AppName = "Microsoft .NET Runtime 8.0.6 (x64)"; m.SoftwareVersion = "8.0.6"; });
+        Assert.Equal([WsusIdentity.IdentityTag(legacy)], WsusIdentity.FormerIdentityTags(catalog));
     }
 
     [Fact]
