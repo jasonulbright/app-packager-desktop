@@ -39,6 +39,11 @@ public static class StaleStageArtifacts
                 if (string.IsNullOrWhiteSpace(relative)) continue;
                 var full = Path.GetFullPath(Path.Combine(rootFull, relative));
                 if (!full.StartsWith(rootFull + "\\", StringComparison.OrdinalIgnoreCase)) continue;
+                if (ResolvesThroughReparsePoint(rootFull, full))
+                {
+                    onLog?.Invoke($"Stage prune kept             : {relative} (the path resolves through a reparse point)");
+                    continue;
+                }
                 if (File.Exists(full))
                 {
                     if (string.Equals(category, "SourceFile", StringComparison.OrdinalIgnoreCase))
@@ -61,7 +66,7 @@ public static class StaleStageArtifacts
 
         foreach (var folder in folders.OrderByDescending(f => f.Length))
         {
-            if (!Directory.Exists(folder)) continue;
+            if (!Directory.Exists(folder) || ResolvesThroughReparsePoint(rootFull, folder)) continue;
             if (!Directory.EnumerateFileSystemEntries(folder).Any())
             {
                 try { Directory.Delete(folder); }
@@ -70,5 +75,22 @@ public static class StaleStageArtifacts
             }
         }
         return removed;
+    }
+
+    /// <summary>
+    /// True when the path, any folder between it and the stage root, or the root itself is
+    /// a reparse point. A text prefix check alone lets a folder replaced by a junction send
+    /// the hash and the delete to a file outside the stage root.
+    /// </summary>
+    public static bool ResolvesThroughReparsePoint(string stageRoot, string path)
+    {
+        var rootFull = Path.GetFullPath(stageRoot).TrimEnd('\\');
+        var current = Path.GetFullPath(path);
+        while (!string.IsNullOrEmpty(current) && current.TrimEnd('\\').Length > rootFull.Length)
+        {
+            if (WorkbenchJson.IsReparsePoint(current)) return true;
+            current = Path.GetDirectoryName(current);
+        }
+        return WorkbenchJson.IsReparsePoint(rootFull);
     }
 }

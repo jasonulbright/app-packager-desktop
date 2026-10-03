@@ -99,16 +99,19 @@ public class HttpRegexScraper : IVersionScraper
         return candidates.Count == 0 ? null : LooseVersion.SelectHighest(candidates);
     }
 
+    /// <summary>-A and the agent, or nothing when no agent is sent.</summary>
+    protected static string[] UserAgentArguments(string? userAgent) => userAgent is null ? [] : ["-A", userAgent];
+
     protected const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
 
     /// <summary>
     /// Fetches the final redirect URL without downloading content.
     /// Uses curl -w to extract the effective URL after all redirects.
     /// </summary>
-    private static async Task<string?> FetchRedirectUrlAsync(string url, CancellationToken ct, string? userAgent = null, string headers = "")
+    private static async Task<string?> FetchRedirectUrlAsync(string url, CancellationToken ct, string? userAgent = null, IReadOnlyList<string>? headers = null)
     {
         using var process = CurlProcess.Start(
-            $"-L --silent --max-time 60 --max-redirs 10 --max-filesize 1 -w \"%{{url_effective}}\"{(userAgent is not null ? $" -A \"{userAgent}\"" : "")}{headers} \"{url}\"", url);
+            ["-L", "--silent", "--max-time", "60", "--max-redirs", "10", "--max-filesize", "1", "-w", "%{url_effective}", .. UserAgentArguments(userAgent), .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
@@ -125,11 +128,11 @@ public class HttpRegexScraper : IVersionScraper
         return (process.ExitCode == 0 || process.ExitCode == 63) && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 
-    protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null, string headers = "")
+    protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null, IReadOnlyList<string>? headers = null)
     {
         // Use curl.exe: handles 308 redirects, avoids PS5.1 IWR quirks, better WAF compatibility
         using var process = CurlProcess.Start(
-            $"-L --silent --show-error --max-time 25{(userAgent is not null ? $" -A \"{userAgent}\"" : "")}{headers} \"{url}\"", url);
+            ["-L", "--silent", "--show-error", "--max-time", "25", .. UserAgentArguments(userAgent), .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
@@ -150,7 +153,7 @@ public class HttpRegexScraper : IVersionScraper
     /// </summary>
     private static async Task<string?> FetchLastModifiedVersionAsync(string url, CancellationToken ct)
     {
-        using var process = CurlProcess.Start($"--head -L --silent --max-time 15 \"{url}\"", url);
+        using var process = CurlProcess.Start(["--head", "-L", "--silent", "--max-time", "15"], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);

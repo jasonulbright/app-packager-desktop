@@ -93,7 +93,7 @@ public sealed class HeadProbeScraper : IVersionScraper
         var url = BuildUrl(template, version);
 
         using var process = CurlProcess.Start(
-            $"-L --silent --show-error --head --max-time 20 -o NUL -w \"%{{http_code}}\" \"{url}\"", url);
+            ["-L", "--silent", "--show-error", "--head", "--max-time", "20", "-o", "NUL", "-w", "%{http_code}"], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);

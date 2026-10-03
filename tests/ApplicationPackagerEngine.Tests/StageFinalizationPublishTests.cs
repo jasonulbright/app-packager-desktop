@@ -346,8 +346,8 @@ public sealed class StageFinalizationPublishTests : IDisposable
 
         var scope = ProfileContentScope.ForManifest(manifest, t.Store.DataRoot);
 
-        Assert.Equal("AlphaTeam", scope.Suffix);
-        Assert.Equal("1.0-AlphaTeam", scope.ScopedVersionFolder("1.0"));
+        Assert.Equal($"AlphaTeam-{profile.ProfileId[..8]}", scope.Suffix);
+        Assert.Equal($"1.0-AlphaTeam-{profile.ProfileId[..8]}", scope.ScopedVersionFolder("1.0"));
         Assert.Equal("1.0", ProfileContentScope.ForManifest(new StageManifest(), t.Store.DataRoot).ScopedVersionFolder("1.0"));
         Assert.Equal(Path.Combine(@"C:\dl", "profiles", profile.ProfileId), ProfileContentScope.LocalDownloadRoot(@"C:\dl", profile.ProfileId));
         Assert.Equal(@"C:\dl", ProfileContentScope.LocalDownloadRoot(@"C:\dl", "default"));

@@ -449,7 +449,7 @@ public sealed class IconPackService
     {
         var url = $"https://api.github.com/repos/{Repository}/releases/latest";
         using var process = CurlProcess.Start(
-            $"-L --silent --show-error --max-time 25 -A \"{UserAgent}\" \"{url}\"", url);
+            ["-L", "--silent", "--show-error", "--max-time", "25", "-A", UserAgent], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         await process.WaitForExitAsync(ct);

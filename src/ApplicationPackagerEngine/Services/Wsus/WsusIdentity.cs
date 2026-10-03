@@ -47,30 +47,45 @@ public static partial class WsusIdentity
     /// <summary>
     /// 'AppPackager:&lt;ApplicationId&gt;/&lt;ProfileId&gt;', the form the Intune
     /// publisher writes. A manifest staged without an ApplicationId falls back to
-    /// 'legacy:&lt;Publisher&gt;:&lt;title&gt;', where a version inside the title is
-    /// reduced to its major: every release of one major shares the identity that
-    /// supersedence follows, and side-by-side majors stay apart.
+    /// 'legacy:&lt;Publisher&gt;:&lt;title&gt;' with the version removed from the title:
+    /// a version, or even its major, in the identity gives every release its own
+    /// identity, and a new release then supersedes nothing.
     /// </summary>
     public static string IdentityTag(StageManifest manifest)
     {
         var applicationId = manifest.ApplicationId ?? "";
-        if (string.IsNullOrWhiteSpace(applicationId))
+        if (string.IsNullOrWhiteSpace(applicationId)) applicationId = LegacyKey(manifest, keepMajor: false);
+        return $"AppPackager:{applicationId}/{ProfileOf(manifest)}";
+    }
+
+    /// <summary>
+    /// The title-derived tag that keeps the version's major in the title. An update
+    /// published under it is this application's, so supersedence and a repeat publish
+    /// take it into account.
+    /// </summary>
+    public static IReadOnlyList<string> FormerIdentityTags(StageManifest manifest)
+    {
+        var former = $"AppPackager:{LegacyKey(manifest, keepMajor: true)}/{ProfileOf(manifest)}";
+        return former == IdentityTag(manifest) ? [] : [former];
+    }
+
+    private static string ProfileOf(StageManifest manifest) =>
+        string.IsNullOrWhiteSpace(manifest.ProfileId) ? "default" : manifest.ProfileId;
+
+    private static string LegacyKey(StageManifest manifest, bool keepMajor)
+    {
+        var title = (manifest.AppName ?? "").Trim();
+        var version = (manifest.SoftwareVersion ?? "").Trim();
+        if (version.Length > 0)
         {
-            var title = (manifest.AppName ?? "").Trim();
-            var version = (manifest.SoftwareVersion ?? "").Trim();
-            if (version.Length > 0)
-            {
-                var major = LeadingNumber().Match(version).Value;
-                title = Regex.Replace(title, @"(?<![\w.])v?" + Regex.Escape(version) + @"(?![\w.])",
-                    major.Replace("$", "$$"), RegexOptions.IgnoreCase);
-            }
-            var key = NonKeyCharacters().Replace(title, "-").Trim('-');
-            var publisher = NonKeyCharacters().Replace(manifest.Publisher ?? "", "-").Trim('-');
-            if (publisher.Length > 0) key = publisher + ":" + key;
-            applicationId = "legacy:" + key;
+            var replacement = keepMajor ? LeadingNumber().Match(version).Value : "";
+            title = Regex.Replace(title, @"(?<![\w.])v?" + Regex.Escape(version) + @"(?![\w.])",
+                replacement.Replace("$", "$$"), RegexOptions.IgnoreCase);
         }
-        var profileId = string.IsNullOrWhiteSpace(manifest.ProfileId) ? "default" : manifest.ProfileId;
-        return $"AppPackager:{applicationId}/{profileId}";
+        var key = NonKeyCharacters().Replace(title, "-").Trim('-');
+        var publisher = NonKeyCharacters().Replace(manifest.Publisher ?? "", "-").Trim('-');
+        if (publisher.Length > 0) key = publisher + ":" + key;
+        return "legacy:" + key;
     }
 
     /// <summary>The description line that marks an update as this identity's, with the version supersedence compares.</summary>

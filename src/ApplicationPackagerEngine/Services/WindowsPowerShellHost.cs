@@ -20,7 +20,11 @@ public static class WindowsPowerShellHost
     /// joined output and the standard error text. Arguments go after the
     /// script path, one quoted argument each. With
     /// <paramref name="standardInput"/> set, the text is written to the
-    /// child's standard input, which is then closed.
+    /// child's standard input as UTF-8, which is then closed; the script reads
+    /// it back as UTF-8 (see <see cref="StandardInputEncoding"/>). Both output
+    /// streams are read at the same time, so a child that fills one pipe
+    /// while the other is being read still completes. Cancellation ends the
+    /// child's process tree and waits for it before the script file is removed.
     /// </summary>
     public static async Task<(int ExitCode, string StdOut, string StdErr)> RunAsync(
         string script, Action<string>? onProgress, CancellationToken ct,
@@ -39,23 +43,48 @@ public static class WindowsPowerShellHost
 
             process.Start();
 
-            if (standardInput is not null)
-            {
-                await process.StandardInput.WriteLineAsync(standardInput.AsMemory(), ct);
-                process.StandardInput.Close();
-            }
-
+            // Neither reader takes the caller's token: an abandoned read leaves the child
+            // blocked on a full pipe, and terminating the child is what ends both streams.
             var outLines = new List<string>();
-            string? line;
-            while ((line = await process.StandardOutput.ReadLineAsync(ct)) is not null)
+            async Task ReadOutputAsync()
             {
-                outLines.Add(line);
-                onProgress?.Invoke(line);
+                string? line;
+                while ((line = await process.StandardOutput.ReadLineAsync(CancellationToken.None)) is not null)
+                {
+                    outLines.Add(line);
+                    onProgress?.Invoke(line);
+                }
+            }
+            var stdoutTask = ReadOutputAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync(CancellationToken.None);
+
+            try
+            {
+                if (standardInput is not null)
+                {
+                    // A script that never reads its input can exit first and close the pipe.
+                    try
+                    {
+                        await process.StandardInput.WriteLineAsync(standardInput.AsMemory(), ct);
+                        process.StandardInput.Close();
+                    }
+                    catch (IOException)
+                    {
+                        try { process.StandardInput.Dispose(); } catch (IOException) { }
+                    }
+                }
+                await process.WaitForExitAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                BoundedProcessRunner.Terminate(process);
+                try { await Task.WhenAll(stdoutTask, stderrTask).WaitAsync(TimeSpan.FromSeconds(10), CancellationToken.None); }
+                catch (Exception) { }
+                throw;
             }
 
-            var stderr = await process.StandardError.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
-
+            await stdoutTask;
+            var stderr = await stderrTask;
             return (process.ExitCode, string.Join(Environment.NewLine, outLines), stderr);
         }
         finally
@@ -63,6 +92,13 @@ public static class WindowsPowerShellHost
             try { File.Delete(scriptPath); } catch { }
         }
     }
+
+    /// <summary>
+    /// The encoding of the child's standard input. The script reads it with a UTF-8
+    /// reader over the raw standard input stream, because the console input code
+    /// page of a hidden console is the OEM page and decodes non-ASCII text differently.
+    /// </summary>
+    public static readonly Encoding StandardInputEncoding = new UTF8Encoding(false);
 
     /// <summary>
     /// The process start settings for one script run. Public so the argument
@@ -82,6 +118,7 @@ public static class WindowsPowerShellHost
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             RedirectStandardInput = redirectStandardInput,
+            StandardInputEncoding = redirectStandardInput ? StandardInputEncoding : null,
             UseShellExecute = false,
             CreateNoWindow = true
         };

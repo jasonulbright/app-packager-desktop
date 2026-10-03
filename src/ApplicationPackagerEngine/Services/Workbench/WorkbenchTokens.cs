@@ -52,12 +52,44 @@ public static partial class WorkbenchTokens
             if (string.IsNullOrWhiteSpace(value))
                 throw new InvalidOperationException(
                     $"Build token '{{{{{name}}}}}' has no value at build time; the stage did not resolve it.");
+            AssertSafeValue(name, value);
             return value;
         });
 
         if (result.Contains("{{", StringComparison.Ordinal))
             throw new InvalidOperationException($"Unresolved build token in '{text}'.");
         return result;
+    }
+
+    [GeneratedRegex(@"^[A-Za-z0-9.+_-]+$")]
+    private static partial Regex SafeVersion();
+
+    [GeneratedRegex(@"^\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}$")]
+    private static partial Regex BracedGuid();
+
+    private const string InstallerFileRefused = "%;&|<>`$\\/:*?";
+
+    /// <summary>
+    /// A bound value is pasted into an operator-written script or command line as text,
+    /// so each token admits only values that cannot end a quoted string, start a command
+    /// or expand a variable: a version is letters, digits and . + - _; a product code
+    /// is a GUID in braces; an installer file name carries no quote of any kind, no
+    /// %, ;, &amp;, |, &lt;, &gt;, backtick, $, path separator or control character.
+    /// </summary>
+    public static void AssertSafeValue(string name, string value)
+    {
+        var safe = name.ToLowerInvariant() switch
+        {
+            "version" => SafeVersion().IsMatch(value),
+            "productcode" => BracedGuid().IsMatch(value),
+            "installerfile" => value.Trim().Length > 0
+                && !value.Any(c => char.IsControl(c) || InstallerFileRefused.Contains(c)
+                    || PowerShellLiteral.SingleQuoteCharacters.Contains(c) || PowerShellLiteral.DoubleQuoteCharacters.Contains(c)),
+            _ => true
+        };
+        if (!safe)
+            throw new InvalidOperationException(
+                $"Build token '{{{{{name}}}}}' value '{value}' cannot be placed in a command or script: it carries characters outside what the token allows.");
     }
 
     public static string Resolve(string text, StageManifest manifest, TokenContext context = TokenContext.Command) =>

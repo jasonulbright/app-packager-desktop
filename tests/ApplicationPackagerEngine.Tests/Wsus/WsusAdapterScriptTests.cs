@@ -158,6 +158,21 @@ public class WsusAdapterScriptTests : IDisposable
     }
 
     [Fact]
+    public async Task APfxPasswordWithNonAsciiCharactersArrivesUnchanged()
+    {
+        var pfx = Path.Combine(_temp.Path, "signing.pfx");
+        File.WriteAllText(pfx, "stand-in");
+        var request = Request();
+        request["PfxPath"] = pfx;
+        const string password = "päß wörd €é中";
+
+        var (result, log) = await StandIn("Default", "ImportPfx", request, password);
+
+        Assert.True(result.Ok, result.Error);
+        Assert.Equal([$"pfx {pfx} password {password}", "save"], log);
+    }
+
+    [Fact]
     public async Task NamesTheAccountRoleWhenTheAccountIsNotAWsusAdministrator()
     {
         var (result, _) = await StandIn("Reporter", "SetState", AddTo(Request(), "Action", "Decline", "PackageIds", new JsonArray("bbbbbbbb-0000-0000-0000-000000000002")));
@@ -246,6 +261,70 @@ public class WsusAdapterScriptTests : IDisposable
         var (result, _) = await StandIn("Default", "Publish", request);
         Assert.Equal(WsusErrorKinds.Input, result.ErrorKind);
         Assert.Equal(@"The staged file path '..\outside.txt' points outside the content folder.", result.Error);
+    }
+
+    [Fact]
+    public async Task PrepareReturnsTheUpdatesUnderAFormerIdentityTagAsCandidates()
+    {
+        var request = Request();
+        request["IdentityTag"] = "AppPackager:catalog:other/default";
+        var (none, _) = await StandIn("Default", "PublishPrepare", (JsonObject)request.DeepClone());
+        request["FormerIdentityTags"] = new JsonArray("AppPackager:catalog:package-tool/default");
+        var (former, _) = await StandIn("Default", "PublishPrepare", request);
+
+        Assert.True(none.Ok, none.Error);
+        Assert.Empty(none.Data!["Candidates"]!.AsArray());
+        Assert.True(former.Ok, former.Error);
+        Assert.Single(former.Data!["Candidates"]!.AsArray());
+    }
+
+    private JsonObject PublishRequest(string content, string sha256)
+    {
+        var folder = Path.Combine(_temp.Path, "content-" + Guid.NewGuid().ToString("N")[..6]);
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "setup.exe"), content);
+        var request = Request();
+        request["ContentFolder"] = folder;
+        request["PayloadFiles"] = new JsonArray("setup.exe");
+        request["PayloadSha256"] = new JsonArray(sha256);
+        request["Plan"] = new JsonObject { ["PackageId"] = Guid.NewGuid().ToString(), ["InstallerFile"] = "setup.exe" };
+        return request;
+    }
+
+    private static string Sha256Hex(string text) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+
+    [Fact]
+    public async Task APayloadFileWhoseCopyDiffersFromTheStagedHashIsRefusedBeforeThePackageIsBuilt()
+    {
+        var (result, log) = await StandIn("Default", "Publish", PublishRequest("replaced after staging", Sha256Hex("staged bytes")));
+
+        Assert.False(result.Ok);
+        Assert.Equal(WsusErrorKinds.Input, result.ErrorKind);
+        Assert.Equal("'setup.exe' changed after it was staged (SHA-256 mismatch); re-run the Stage phase.", result.Error);
+        Assert.Empty(log);
+    }
+
+    [Fact]
+    public async Task APayloadWithoutAnExpectedHashIsRefused()
+    {
+        var request = PublishRequest("staged bytes", Sha256Hex("staged bytes"));
+        request.Remove("PayloadSha256");
+
+        var (result, log) = await StandIn("Default", "Publish", request);
+
+        Assert.Equal(WsusErrorKinds.Input, result.ErrorKind);
+        Assert.Equal("The request carries no SHA-256 for 'setup.exe'.", result.Error);
+        Assert.Empty(log);
+    }
+
+    [Fact]
+    public async Task APayloadWhoseCopyMatchesItsHashIsPackagedFromThePrivateCopy()
+    {
+        var (result, log) = await StandIn("Default", "Publish", PublishRequest("staged bytes", Sha256Hex("staged bytes").ToLowerInvariant()));
+
+        Assert.True(result.Ok, result.Error);
+        Assert.Equal(["package setup.exe staged bytes", "publish"], log);
     }
 
     private static JsonObject AddTo(JsonObject request, string key1, string value1, string key2, JsonNode value2)

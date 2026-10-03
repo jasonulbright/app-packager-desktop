@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Scrapers;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
 
@@ -33,6 +34,9 @@ public sealed class SharedDownloadCacheTests : IDisposable
         public DateTimeOffset LastModified { get; set; } = new(2026, 5, 4, 3, 2, 1, TimeSpan.Zero);
         public ConcurrentQueue<string> Requests { get; } = new();
         public int BodiesSent;
+        /// <summary>A status other than 200 or 304 answered to every request while set.</summary>
+        public int? FailStatus { get; set; }
+        public TimeSpan Delay { get; set; } = TimeSpan.Zero;
         public string Url { get; }
 
         public ConditionalServer()
@@ -66,7 +70,12 @@ public sealed class SharedDownloadCacheTests : IDisposable
                         Requests.Enqueue(text);
                         var since = text.Split("\r\n").FirstOrDefault(l => l.StartsWith("If-Modified-Since:", StringComparison.OrdinalIgnoreCase));
                         var lastModified = LastModified.ToString("r", CultureInfo.InvariantCulture);
-                        if (since is not null && DateTimeOffset.Parse(since["If-Modified-Since:".Length..].Trim(), CultureInfo.InvariantCulture) >= LastModified)
+                        if (Delay > TimeSpan.Zero) await Task.Delay(Delay, _stop.Token);
+                        if (FailStatus is int status)
+                        {
+                            await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 {status} Refused\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"), _stop.Token);
+                        }
+                        else if (since is not null && DateTimeOffset.Parse(since["If-Modified-Since:".Length..].Trim(), CultureInfo.InvariantCulture) >= LastModified)
                         {
                             await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 304 Not Modified\r\nLast-Modified: {lastModified}\r\nConnection: close\r\n\r\n"), _stop.Token);
                         }
@@ -108,9 +117,9 @@ public sealed class SharedDownloadCacheTests : IDisposable
     [Fact]
     public void TheRefreshRequestIsConditionalOnTheCachedFileAndKeepsTheRemoteTime()
     {
-        var args = SharedDownloadCache.RefreshArguments("https://v.example/s.exe", @"C:\c\k-s.exe", @"C:\c\k-s.exe.refresh");
-        Assert.Contains(@" -R -z ""C:\c\k-s.exe""", args);
-        Assert.Contains(@"-o ""C:\c\k-s.exe.refresh""", args);
+        var args = string.Join(" ", SharedDownloadCache.RefreshArguments(@"C:\c\k-s.exe", @"C:\c\k-s.exe.refresh"));
+        Assert.Contains(@" -R -z C:\c\k-s.exe ", args);
+        Assert.Contains(@"-o C:\c\k-s.exe.refresh", args);
     }
 
     [Fact]
@@ -153,6 +162,84 @@ public sealed class SharedDownloadCacheTests : IDisposable
         Assert.Contains("Cached download replaced by a newer release.", lines);
         Assert.Equal(server.Body, File.ReadAllBytes(target));
         Assert.Equal(server.LastModified.UtcDateTime, File.GetLastWriteTimeUtc(target));
+    }
+
+    [Fact]
+    public async Task AFailedRefreshFailsWhenTheVersionCameFromTheVersionSource()
+    {
+        using var server = new ConditionalServer();
+        var cacheRoot = Path.Combine(_root, "_cache");
+        await SharedDownloadCache.FetchAsync(new DownloadService(), server.Url, Path.Combine(_root, "1.0", "setup.exe"), cacheRoot);
+        server.FailStatus = 403;
+        var target = Path.Combine(_root, "2.0", "setup.exe");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SharedDownloadCache.FetchAsync(new DownloadService(), server.Url, target, cacheRoot, keepCachedOnFailedRefresh: false));
+
+        Assert.Contains(server.Url, ex.Message);
+        Assert.Contains("The cached copy is dated 2026-05-04 03:02 UTC (", ex.Message);
+        Assert.Contains(" days old)", ex.Message);
+        Assert.False(File.Exists(target));
+    }
+
+    [Fact]
+    public async Task AFailedRefreshKeepsTheCacheWhenTheVersionIsReadFromTheFile()
+    {
+        using var server = new ConditionalServer();
+        var cacheRoot = Path.Combine(_root, "_cache");
+        await SharedDownloadCache.FetchAsync(new DownloadService(), server.Url, Path.Combine(_root, "a", "setup.exe"), cacheRoot);
+        server.FailStatus = 403;
+        var target = Path.Combine(_root, "b", "setup.exe");
+        var lines = new List<string>();
+
+        await SharedDownloadCache.FetchAsync(new DownloadService(), server.Url, target, cacheRoot, onProgress: lines.Add);
+
+        Assert.Equal(server.Body, File.ReadAllBytes(target));
+        Assert.Contains(lines, l => l.StartsWith("Cached download kept; refresh failed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AStageWhoseScraperNamedTheVersionFailsWhenTheRefreshFails()
+    {
+        using var server = new ConditionalServer();
+        var downloadRoot = Path.Combine(_root, "dl");
+        var def = new AppDefinition
+        {
+            Id = "fixedname", Vendor = "Contoso", Application = "Fixed", Architecture = "x64", InstallerType = "EXE",
+            InstallArgs = "/S",
+            VersionScraper = new VersionScraperConfig { Type = "HttpRegex", Url = "http://127.0.0.1:9/never", Pattern = "(x)" },
+            DownloadUrl = server.Url,
+            Detection = new DetectionConfig { Type = "File", FilePath = @"C:\Program Files\Fixed", FileName = "fixed.exe", PropertyType = "Existence" }
+        };
+        var staging = new StagingService(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
+            new WrapperGeneratorService(), new ManifestService());
+        await staging.StageAsync(def, downloadRoot, knownVersion: "1.0");
+        Assert.Single(Directory.GetFiles(WorkbenchPaths.GetSharedDownloadCacheRoot(downloadRoot), "*-setup.exe"));
+        server.FailStatus = 403;
+
+        var second = await staging.StageAsync(def, downloadRoot, knownVersion: "2.0");
+
+        Assert.False(second.Success);
+        Assert.Contains($"Refresh of the cached download failed for {server.Url}", second.ErrorMessage);
+        Assert.False(File.Exists(Path.Combine(downloadRoot, "Fixed-x64", "2.0", "setup.exe")));
+    }
+
+    [Fact]
+    public async Task TwoConcurrentStagesOfOneUrlDownloadItOnce()
+    {
+        using var server = new ConditionalServer { Delay = TimeSpan.FromMilliseconds(600) };
+        var cacheRoot = Path.Combine(_root, "_cache");
+        var first = Path.Combine(_root, "p1", "setup.exe");
+        var second = Path.Combine(_root, "p2", "setup.exe");
+
+        await Task.WhenAll(
+            SharedDownloadCache.FetchAsync(new DownloadService(), server.Url, first, cacheRoot),
+            SharedDownloadCache.FetchAsync(new DownloadService(), server.Url, second, cacheRoot));
+
+        Assert.Equal(1, server.BodiesSent);
+        Assert.Equal(server.Body, File.ReadAllBytes(first));
+        Assert.Equal(server.Body, File.ReadAllBytes(second));
+        Assert.Single(Directory.GetFiles(cacheRoot));
     }
 
     [Fact]

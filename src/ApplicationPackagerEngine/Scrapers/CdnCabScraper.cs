@@ -85,7 +85,7 @@ public sealed class CdnCabScraper : IVersionScraper
     private static async Task DownloadAsync(string url, string outFile, CancellationToken ct)
     {
         using var process = CurlProcess.Start(
-            $"-L --fail --silent --show-error --max-time 30 -o \"{outFile}\" \"{url}\"", url);
+            ["-L", "--fail", "--silent", "--show-error", "--max-time", "30", "-o", outFile], url);
 
         var exitTask = process.WaitForExitAsync(ct);
         var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(35), ct));

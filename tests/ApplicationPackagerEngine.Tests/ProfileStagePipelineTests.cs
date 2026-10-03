@@ -162,7 +162,7 @@ public sealed class ProfileStagePipelineTests : IDisposable
             "P01", "comment", 15, 30, ConditionTemplateService.Defaults(), manifest.CommandOverrides,
             scriptSigning: MecmScriptSigningContext.FromManifest(manifest, new SigningPolicy()));
         Assert.Contains(" -EstimatedRuntimeMins 20 -MaximumRuntimeMins 90", mecm);
-        Assert.Equal("1.2.3-PilotRing", ProfileContentScope.ForManifest(manifest, _t.Store.DataRoot).ScopedVersionFolder(manifest.SoftwareVersion));
+        Assert.Equal($"1.2.3-PilotRing-{profile.ProfileId[..8]}", ProfileContentScope.ForManifest(manifest, _t.Store.DataRoot).ScopedVersionFolder(manifest.SoftwareVersion));
     }
 
     [Fact]
@@ -228,8 +228,8 @@ public sealed class ProfileStagePipelineTests : IDisposable
             Assert.Equal(manifests[i].BuildId, record["BuildId"]!.GetValue<string>());
             Assert.Equal(roots[i], BuildRecords.ResolveStageManifestForBuild(manifests[i].BuildId, Path.Combine(root, "profiles")).StageRoot);
         }
-        Assert.Equal("1.2.3-Alpha", ProfileContentScope.ForManifest(manifests[0], _t.Store.DataRoot).ScopedVersionFolder("1.2.3"));
-        Assert.Equal("1.2.3-Beta", ProfileContentScope.ForManifest(manifests[1], _t.Store.DataRoot).ScopedVersionFolder("1.2.3"));
+        Assert.Equal($"1.2.3-Alpha-{alpha.ProfileId[..8]}", ProfileContentScope.ForManifest(manifests[0], _t.Store.DataRoot).ScopedVersionFolder("1.2.3"));
+        Assert.Equal($"1.2.3-Beta-{beta.ProfileId[..8]}", ProfileContentScope.ForManifest(manifests[1], _t.Store.DataRoot).ScopedVersionFolder("1.2.3"));
     }
 
     [Fact]

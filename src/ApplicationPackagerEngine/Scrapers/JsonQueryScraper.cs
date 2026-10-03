@@ -282,14 +282,14 @@ public sealed class JsonQueryScraper : IVersionScraper
 
     // ── HTTP fetch ──────────────────────────────────────────────────
 
-    private static async Task<string?> FetchJsonAsync(string url, bool noUserAgent, CancellationToken ct, string headers = "")
+    private static async Task<string?> FetchJsonAsync(string url, bool noUserAgent, CancellationToken ct, IReadOnlyList<string>? headers = null)
     {
         // Some feeds sit behind a wall that answers an HTML error page to a
         // browser User-Agent and the JSON to curl's own.
-        var ua = noUserAgent ? "" : $" -A \"{UserAgent}\"";
+        string[] ua = noUserAgent ? [] : ["-A", UserAgent];
 
         using var process = CurlProcess.Start(
-            $"-L --silent --show-error --max-time 25{ua}{headers} \"{url}\"", url);
+            ["-L", "--silent", "--show-error", "--max-time", "25", .. ua, .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
