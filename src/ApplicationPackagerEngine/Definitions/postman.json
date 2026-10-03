@@ -23,6 +23,9 @@
     "InstallArgs":  "-s",
     "UninstallArgs":  "--uninstall -s",
     "UninstallCommand":  "Get-Process Postman -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; $updateExe = Join-Path $env:LOCALAPPDATA 'Postman\\Update.exe'; if (-not (Test-Path -LiteralPath $updateExe)) { exit 0 }; $proc = Start-Process -FilePath $updateExe -ArgumentList @('--uninstall', '-s') -Wait -PassThru -NoNewWindow",
+    "PostInstallScript":  {
+                              "Script":  "$installedExe = Join-Path $env:LOCALAPPDATA 'Postman\\Postman.exe'\n$deadline = (Get-Date).AddMinutes(5)\nwhile (-not (Test-Path -LiteralPath $installedExe)) {\n    if ((Get-Date) -gt $deadline) { Write-Error \"Postman install did not produce $installedExe within 5 minutes\"; exit 4 }\n    Start-Sleep -Seconds 5\n}\nStart-Sleep -Seconds 3\ntry { Stop-Process -Name Postman -Force -ErrorAction SilentlyContinue } catch { }"
+                          },
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKCU",
