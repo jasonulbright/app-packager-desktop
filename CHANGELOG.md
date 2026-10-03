@@ -84,7 +84,7 @@
 
 ### Validation and lab follow-up
 
-- All Release projects build without errors; 3,277 C# tests pass.
+- All Release projects build without errors; 3,355 C# tests pass.
 - Lab runs on the ConfigMgr site, the WSUS server and two clients cover install, detection and uninstall for the changed definitions, ConfigMgr packaging and deployment, WSUS publishing and a client update, and signed builds on a client that enforces AllSigned.
 - Intune publishing is tested against mocked Graph calls only; no tenant validation has run.
 - Windows Admin Center, CutePDF Writer and Jabra Direct carry detection rules the lab proved wrong; they wait for the PowerShell packager. Jabra Direct is refused at Stage.

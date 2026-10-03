@@ -86,7 +86,7 @@ Packr is the C# sibling of [app-packager](https://github.com/jasonulbright/app-p
 
 **v2.2.0-alpha10** — 319 application definitions. At parity with app-packager 2026.10.02.0103: Application Workbench with profiles, script signing, WSUS publishing, publish per destination, One Click per destination, bring-your-own installers, bundles and the command-line build, on top of the existing engine (multi-deployment-type applications with requirement rules, Intune Win32 publishing via Graph, MSIX provisioned packages, installer hash and signature verification, script and compound detection, chained scrapers, bootstrapper layouts, drop-to-package analysis).
 
-3,277 C# tests pass and all Release projects build without errors. Lab runs cover ConfigMgr packaging and deployment, WSUS publishing with a client update, and signed builds on a client that enforces AllSigned. Intune publishing is tested against mocked Graph calls only. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application verdicts and [CHANGELOG.md](CHANGELOG.md) for the open lab items.
+3,355 C# tests pass and all Release projects build without errors. Lab runs cover ConfigMgr packaging and deployment, WSUS publishing with a client update, and signed builds on a client that enforces AllSigned. Intune publishing is tested against mocked Graph calls only. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application verdicts and [CHANGELOG.md](CHANGELOG.md) for the open lab items.
 
 ## Stack
 
