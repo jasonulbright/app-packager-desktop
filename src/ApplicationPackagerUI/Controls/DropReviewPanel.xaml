@@ -113,5 +113,19 @@
                    TextWrapping="Wrap"
                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                    />
+
+        <Grid x:Name="SaveApplicationRow" Margin="0,14,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                       Text="Save as Application keeps this installer as source revision 1 of a bring-your-own application. Nothing is staged or deployed." />
+            <ui:Button Grid.Column="1" x:Name="SaveApplicationButton" Content="Save as Application" MinWidth="150"
+                       AutomationProperties.AutomationId="DropReviewSaveApplication"
+                       Click="SaveApplicationButton_Click"
+                       ToolTip="Keep this installer as a durable application so it reopens in the Application Workbench without a download script. Its update source stays manual." />
+        </Grid>
     </StackPanel>
 </UserControl>
