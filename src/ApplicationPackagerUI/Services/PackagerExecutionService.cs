@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
@@ -95,8 +96,10 @@ public class PackagerExecutionService(
         }
 
         var settings = settingsService.Load();
-        var (args, logPaths) = BuildStageArgs(packager, settings);
-        return await RunStreamingAsync(args, logPaths, onOutputLine, ct);
+        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal);
+        if (refusal is not null) return refusal;
+        var (args, logPaths) = BuildStageArgs(packager, settings, bridge?.DownloadRoot);
+        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, bridge?.Environment);
     }
 
     /// <summary>
@@ -233,8 +236,41 @@ public class PackagerExecutionService(
         if (DeploymentTargets.PublishesToIntune(target))
             onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the MECM flow only.");
 
-        var (args, logPaths) = BuildPackageArgs(packager, settings, comment);
-        return await RunStreamingAsync(args, logPaths, onOutputLine, ct);
+        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal);
+        if (refusal is not null) return refusal;
+        var (args, logPaths) = BuildPackageArgs(packager, settings, comment, bridge?.DownloadRoot);
+        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, bridge?.Environment);
+    }
+
+    /// <summary>
+    /// Writes the run snapshot for a PS1 packager's active workbench profile and returns the
+    /// child environment. A signing refusal stops the run before the child starts; any other
+    /// failure runs the child without the bridge, as it ran before profiles existed.
+    /// </summary>
+    private static PackagerChildLaunch? PrepareChildBridge(
+        PackagerInfo packager, AppSettings settings, Action<string>? onOutputLine, out PackagerExecutionResult? refusal)
+    {
+        refusal = null;
+        try
+        {
+            return PackagerChildBridge.Prepare(
+                WorkbenchStore.Open(), packager.FullPath, settings.DownloadRoot,
+                DeploymentTargets.Normalize(settings.Intune.DeploymentTarget));
+        }
+        catch (Exception ex) when (ex.Message.Contains("SigningCertificateUnavailable", StringComparison.Ordinal)
+                                   || ex.Message == NoSigningServiceGate.NotLoadedMessage)
+        {
+            refusal = new PackagerExecutionResult { ExitCode = 1, StdErr = ex.Message };
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                                   or ArgumentException or JsonException)
+        {
+            var line = $"Run snapshot not created for {Path.GetFileNameWithoutExtension(packager.Script)}: {ex.Message}";
+            if (onOutputLine is not null)
+                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+            return null;
+        }
     }
 
     // ── Ad-hoc drop: manifest-direct packaging ───────────────────
@@ -375,7 +411,7 @@ public class PackagerExecutionService(
 
     // ── Process helpers ──────────────────────────────────────────
 
-    private static Process CreateProcess(string arguments)
+    private static Process CreateProcess(string arguments, IReadOnlyDictionary<string, string>? environment)
     {
         var process = new Process();
         process.StartInfo = new ProcessStartInfo
@@ -387,13 +423,15 @@ public class PackagerExecutionService(
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        PackagerChildBridge.Apply(process.StartInfo, environment);
         return process;
     }
 
     private async Task<PackagerExecutionResult> RunStreamingAsync(
-        string arguments, LogPaths logPaths, Action<string>? onOutputLine, CancellationToken ct)
+        string arguments, LogPaths logPaths, Action<string>? onOutputLine, CancellationToken ct,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
-        using var process = CreateProcess(arguments);
+        using var process = CreateProcess(arguments, environment);
         process.Start();
 
         // Read stderr without the caller's token: abandoning it leaves the child blocked
@@ -469,23 +507,25 @@ public class PackagerExecutionService(
         return args;
     }
 
-    private (string args, LogPaths logs) BuildStageArgs(PackagerInfo packager, AppSettings settings)
+    private (string args, LogPaths logs) BuildStageArgs(PackagerInfo packager, AppSettings settings, string? profileDownloadRoot)
     {
         var logs = CreateLogPaths(packager, "stage", settings.DownloadRoot);
+        var downloadRoot = profileDownloadRoot ?? settings.DownloadRoot;
 
         var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{packager.FullPath}\" -StageOnly -LogPath \"{logs.StructuredLog}\"";
 
-        if (!string.IsNullOrEmpty(settings.DownloadRoot))
-            args += $" -DownloadRoot \"{settings.DownloadRoot}\"";
+        if (!string.IsNullOrEmpty(downloadRoot))
+            args += $" -DownloadRoot \"{downloadRoot}\"";
         if (!string.IsNullOrEmpty(settings.M365Channel))
             args += $" -M365Channel \"{settings.M365Channel}\"";
 
         return (args, logs);
     }
 
-    private (string args, LogPaths logs) BuildPackageArgs(PackagerInfo packager, AppSettings settings, string comment)
+    private (string args, LogPaths logs) BuildPackageArgs(PackagerInfo packager, AppSettings settings, string comment, string? profileDownloadRoot)
     {
         var logs = CreateLogPaths(packager, "package", settings.DownloadRoot);
+        var downloadRoot = profileDownloadRoot ?? settings.DownloadRoot;
 
         var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{packager.FullPath}\" -PackageOnly";
         args += $" -SiteCode \"{settings.SiteCode}\"";
@@ -497,8 +537,8 @@ public class PackagerExecutionService(
         // Only the non-default layout is passed, so a script without the parameter still runs.
         if (ContentLayouts.IsFlat(settings.ContentLayout))
             args += " -ContentLayout Flat";
-        if (!string.IsNullOrEmpty(settings.DownloadRoot))
-            args += $" -DownloadRoot \"{settings.DownloadRoot}\"";
+        if (!string.IsNullOrEmpty(downloadRoot))
+            args += $" -DownloadRoot \"{downloadRoot}\"";
         if (!string.IsNullOrEmpty(settings.M365Channel))
             args += $" -M365Channel \"{settings.M365Channel}\"";
         if (settings.EstimatedRuntimeMins > 0)

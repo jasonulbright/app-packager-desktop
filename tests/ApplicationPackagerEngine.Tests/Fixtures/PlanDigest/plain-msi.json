@@ -1,0 +1,83 @@
+﻿{
+  "SchemaVersion": 4,
+  "AppName": "7-Zip 24.09 (x64)",
+  "DisplayName": null,
+  "Publisher": "Igor Pavlov",
+  "SoftwareVersion": "24.09",
+  "InstallerFile": "7z2409-x64.msi",
+  "InstallerType": "MSI",
+  "Architecture": "x64",
+  "InstallContext": "Machine",
+  "InstallMode": null,
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/qn",
+  "ProductCode": "{23170F69-40C1-2702-2409-000001000000}",
+  "RunningProcess": [
+    "7zFM"
+  ],
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryKeyRelative": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{23170F69-40C1-2702-2409-000001000000}",
+    "ValueName": "DisplayVersion",
+    "ExpectedValue": "24.09.00.0",
+    "Operator": "GreaterEquals",
+    "PropertyType": "Version",
+    "FilePath": null,
+    "FileName": null,
+    "Is64Bit": true,
+    "Hive": null,
+    "ScriptLanguage": null,
+    "ScriptText": null,
+    "Connector": null,
+    "Clauses": null,
+    "GroupSizes": null
+  },
+  "StagedAt": "2026-10-03T07:15:25.8046409-04:00",
+  "FileHashes": [
+    {
+      "RelativePath": "7z2409-x64.msi",
+      "Sha256": "B6050B6D77F2B9AA0D06A2391034256A4B2764D2992B13738A4FD3A791B60570",
+      "Size": 11
+    },
+    {
+      "RelativePath": "app-icon.ico",
+      "Sha256": "C2D4B446A44CE54FAB8E01150E24DD24F3D850C7C14DCFE31F6321341DD86874",
+      "Size": 4
+    },
+    {
+      "RelativePath": "install.bat",
+      "Sha256": "ABB30B0A70E39DE39CE0790C6C157FD04BCFB998705EC1672FE8070FF2D34573",
+      "Size": 9
+    },
+    {
+      "RelativePath": "uninstall.bat",
+      "Sha256": "ABB30B0A70E39DE39CE0790C6C157FD04BCFB998705EC1672FE8070FF2D34573",
+      "Size": 9
+    }
+  ],
+  "Icon": "app-icon.ico",
+  "UninstallCommand": null,
+  "DetectedEngine": null,
+  "AdHocSource": null,
+  "DeploymentTypes": null,
+  "CommandOverrides": null,
+  "MsixPackage": null,
+  "BuildId": "",
+  "ApplicationId": "",
+  "ProfileId": "default",
+  "ProfileRevision": 0,
+  "Timing": {
+    "EstimatedMinutes": null,
+    "MaximumMinutes": null
+  },
+  "Execution": {
+    "Context": null,
+    "LogonRequirement": null,
+    "UserInteraction": null,
+    "ScriptHost": null
+  },
+  "DetectionSource": "Default",
+  "CustomAssets": [],
+  "RunOverrides": {},
+  "PlanDigest": "FFB089ACD6A886E22460B6B7815534DB135E2B5A7A4B15CCD6DA3CA898ABCBE3"
+}

@@ -1,12 +1,14 @@
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services.Workbench;
 
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
-/// Reads and writes stage-manifest.json files (schema v3).
+/// Reads and writes stage-manifest.json files (schema v4).
 /// Compatible with manifests produced by PS1 packagers; v2 manifests
-/// read cleanly and simply carry no hash list.
+/// read cleanly and simply carry no hash list, and a manifest newer
+/// than v4 is refused.
 /// </summary>
 public sealed class ManifestService
 {
@@ -25,10 +27,11 @@ public sealed class ManifestService
     public void Write(string path, StageManifest manifest)
     {
         manifest.StagedAt = DateTimeOffset.Now;
-        manifest.SchemaVersion = 3;
+        manifest.SchemaVersion = StageManifest.CurrentSchemaVersion;
         var root = Path.GetDirectoryName(Path.GetFullPath(path))!;
         var manifestName = Path.GetFileName(path);
         manifest.FileHashes = ComputeFileHashes(root, manifestName);
+        manifest.PlanDigest = StageManifestPlanDigest.Compute(manifest);
         var json = JsonSerializer.Serialize(manifest, JsonOptions);
         File.WriteAllText(path, json, System.Text.Encoding.UTF8);
 
@@ -89,7 +92,15 @@ public sealed class ManifestService
             throw new FileNotFoundException("Stage manifest not found", path);
 
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<StageManifest>(json, JsonOptions)
+        var manifest = JsonSerializer.Deserialize<StageManifest>(json, JsonOptions)
             ?? throw new InvalidOperationException("Failed to deserialize stage manifest");
+
+        // Fields a newer build added would be dropped here, and a dropped detection
+        // or signing field publishes the wrong thing.
+        if (manifest.SchemaVersion > StageManifest.CurrentSchemaVersion)
+            throw new InvalidOperationException(
+                $"Stage manifest schema version {manifest.SchemaVersion} is newer than this AppPackager understands " +
+                $"(maximum {StageManifest.CurrentSchemaVersion}): {path}. Update AppPackager, or re-run the Stage phase with this version.");
+        return manifest;
     }
 }

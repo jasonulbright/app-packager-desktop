@@ -1,16 +1,20 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
-/// Matches the stage-manifest.json schema v3 from PS1 packagers
-/// (AppPackagerCommon 0.0.21): v2 fields plus FileHashes integrity
-/// records, per-deployment-type entries, and the operator command
-/// override record. v2 manifests deserialize cleanly (new fields null).
+/// Matches the stage-manifest.json schema v4 from PS1 packagers: v2 fields,
+/// v3 FileHashes integrity records, per-deployment-type entries and the
+/// operator command override record, and the v4 build identity, timing,
+/// execution and plan digest. v2 and v3 manifests deserialize cleanly
+/// (v3 fields null, v4 fields at their defaults).
 /// </summary>
 public sealed class StageManifest
 {
-    public int SchemaVersion { get; set; } = 3;
+    public const int CurrentSchemaVersion = 4;
+
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public string AppName { get; set; } = "";
     public string? DisplayName { get; set; }
     public string Publisher { get; set; } = "";
@@ -50,6 +54,68 @@ public sealed class StageManifest
     public StageCommandOverrides? CommandOverrides { get; set; }
     /// <summary>Package identity and signer read from an MSIX container at stage time.</summary>
     public StageMsixPackage? MsixPackage { get; set; }
+
+    // Schema v4. Every field below carries its default on an unprofiled build, so a
+    // reader never has to tell "unprofiled" apart from "written before v4".
+
+    /// <summary>The build that produced this stage; empty for an unprofiled build.</summary>
+    public string BuildId { get; set; } = "";
+    /// <summary>The workbench ApplicationId; empty for an unprofiled build.</summary>
+    public string ApplicationId { get; set; } = "";
+    public string ProfileId { get; set; } = "default";
+    public int ProfileRevision { get; set; }
+    public StageTiming Timing { get; set; } = new();
+    public StageExecution Execution { get; set; } = new();
+    /// <summary>Default, or Custom when a profile replaced the detection.</summary>
+    public string DetectionSource { get; set; } = "Default";
+    /// <summary>Files a profile placed into the stage (icon, source files).</summary>
+    public StageCustomAsset[] CustomAssets { get; set; } = [];
+    /// <summary>The run-level overrides this build used; they never reach the profile.</summary>
+    public JsonObject RunOverrides { get; set; } = [];
+    /// <summary>IncludeVersion or NoVersion when a profile chose one; absent otherwise.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TitleMode { get; set; }
+    /// <summary>The signing outcome as the signing service records it; absent when nothing signed.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonNode? ScriptSigning { get; set; }
+    /// <summary>SHA-256 over the canonical plan; see <c>StageManifestPlanDigest</c>.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PlanDigest { get; set; }
+}
+
+/// <summary>Resolved runtime minutes for the build (schema v4).</summary>
+public sealed class StageTiming
+{
+    public int? EstimatedMinutes { get; set; }
+    public int? MaximumMinutes { get; set; }
+    /// <summary>False when the minutes were recorded but not sent to Intune; absent on an unprofiled build.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IntuneApplied { get; set; }
+}
+
+/// <summary>Resolved execution settings for the build (schema v4).</summary>
+public sealed class StageExecution
+{
+    public string? Context { get; set; }
+    public string? LogonRequirement { get; set; }
+    /// <summary>A boolean from a packager, or the interaction text a profile stores.</summary>
+    public JsonNode? UserInteraction { get; set; }
+    public string? ScriptHost { get; set; }
+}
+
+/// <summary>One file a profile placed into the stage (schema v4).</summary>
+public sealed class StageCustomAsset
+{
+    /// <summary>Icon or SourceFile.</summary>
+    public string Category { get; set; } = "";
+    public string RelativePath { get; set; } = "";
+    public string? Asset { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Sha256 { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Size { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Linked { get; set; }
 }
 
 /// <summary>

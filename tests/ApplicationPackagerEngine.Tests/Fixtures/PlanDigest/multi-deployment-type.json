@@ -1,0 +1,194 @@
+﻿{
+  "SchemaVersion": 4,
+  "AppName": "Contoso Reader",
+  "DisplayName": "Contoso Reader (Managed)",
+  "Publisher": "Contoso",
+  "SoftwareVersion": "3.1.0",
+  "InstallerFile": "reader-setup.exe",
+  "InstallerType": "EXE",
+  "Architecture": "x64",
+  "InstallContext": "Machine",
+  "InstallMode": null,
+  "InstallArgs": "/S",
+  "UninstallArgs": "",
+  "ProductCode": null,
+  "RunningProcess": [
+    "reader",
+    "reader-helper"
+  ],
+  "Detection": {
+    "Type": "Compound",
+    "RegistryKeyRelative": null,
+    "ValueName": null,
+    "ExpectedValue": null,
+    "Operator": null,
+    "PropertyType": null,
+    "FilePath": null,
+    "FileName": null,
+    "Is64Bit": true,
+    "Hive": null,
+    "ScriptLanguage": null,
+    "ScriptText": null,
+    "Connector": "Or",
+    "Clauses": [
+      {
+        "Type": "File",
+        "RegistryKeyRelative": null,
+        "ValueName": null,
+        "ExpectedValue": "3.1.0",
+        "Operator": "GreaterEquals",
+        "PropertyType": "Version",
+        "FilePath": "%ProgramFiles%\\Contoso\\Reader",
+        "FileName": "reader.exe",
+        "Is64Bit": true,
+        "Hive": null,
+        "ScriptLanguage": null,
+        "ScriptText": null,
+        "Connector": null,
+        "Clauses": null,
+        "GroupSizes": null
+      },
+      {
+        "Type": "RegistryKeyValue",
+        "RegistryKeyRelative": "SOFTWARE\\Contoso\\Reader",
+        "ValueName": "Version",
+        "ExpectedValue": "3.1.0",
+        "Operator": "Equals",
+        "PropertyType": null,
+        "FilePath": null,
+        "FileName": null,
+        "Is64Bit": false,
+        "Hive": "LocalMachine",
+        "ScriptLanguage": null,
+        "ScriptText": null,
+        "Connector": null,
+        "Clauses": null,
+        "GroupSizes": null
+      }
+    ],
+    "GroupSizes": [
+      1,
+      1
+    ]
+  },
+  "StagedAt": "2026-10-03T07:15:25.8491914-04:00",
+  "FileHashes": [
+    {
+      "RelativePath": "app-icon.png",
+      "Sha256": "8F8CBB7DCF46E0BC7D53265749A6C17D116093A6BA95E442764060C76FD4A86C",
+      "Size": 3
+    },
+    {
+      "RelativePath": "arm64\\reader-setup.exe",
+      "Sha256": "8926B18B6DDDF493DCB7FEBCD875890088935A9A1063F1306BDA1F5045F32724",
+      "Size": 11
+    },
+    {
+      "RelativePath": "config\\settings.json",
+      "Sha256": "9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08",
+      "Size": 4
+    },
+    {
+      "RelativePath": "reader-setup.exe",
+      "Sha256": "3AEB54861923C6DAEF8E0E480541524A2B52EDB5AD28FDF8AC496EEB50B8C368",
+      "Size": 11
+    }
+  ],
+  "Icon": null,
+  "UninstallCommand": "\u0022%ProgramFiles%\\Contoso\\Reader\\uninst.exe\u0022 /S",
+  "DetectedEngine": null,
+  "AdHocSource": null,
+  "DeploymentTypes": [
+    {
+      "NameSuffix": "ARM64",
+      "ContentSubpath": "arm64",
+      "InstallCommandLine": "install.bat",
+      "UninstallCommandLine": "uninstall.bat",
+      "Detection": null,
+      "Requirements": [
+        {
+          "ConditionId": "cpu-arch",
+          "Value": "ARM64",
+          "Cultures": null
+        }
+      ]
+    },
+    {
+      "NameSuffix": "x64",
+      "ContentSubpath": null,
+      "InstallCommandLine": null,
+      "UninstallCommandLine": null,
+      "Detection": null,
+      "Requirements": [
+        {
+          "ConditionId": "cpu-arch",
+          "Value": "x64",
+          "Cultures": null
+        },
+        {
+          "ConditionId": "os-language",
+          "Value": null,
+          "Cultures": [
+            "de-DE",
+            "fr-FR"
+          ]
+        },
+        {
+          "ConditionId": "vpn-connected",
+          "Value": true,
+          "Cultures": null
+        }
+      ]
+    },
+    {
+      "NameSuffix": "Fallback",
+      "ContentSubpath": null,
+      "InstallCommandLine": null,
+      "UninstallCommandLine": null,
+      "Detection": null,
+      "Requirements": []
+    }
+  ],
+  "CommandOverrides": {
+    "Install": "install.bat /custom",
+    "Uninstall": ""
+  },
+  "MsixPackage": null,
+  "BuildId": "20261003-101500-1a2b3c4d",
+  "ApplicationId": "catalog:package-contosoreader",
+  "ProfileId": "4f1c2d3e5a6b7c8d9e0f112233445566",
+  "ProfileRevision": 3,
+  "Timing": {
+    "EstimatedMinutes": 12,
+    "MaximumMinutes": 60,
+    "IntuneApplied": false
+  },
+  "Execution": {
+    "Context": "InstallForSystem",
+    "LogonRequirement": "WhetherOrNotUserLoggedOn",
+    "UserInteraction": false,
+    "ScriptHost": "x64"
+  },
+  "DetectionSource": "Custom",
+  "CustomAssets": [
+    {
+      "Category": "Icon",
+      "RelativePath": "app-icon.png",
+      "Asset": "0123456789abcdef"
+    },
+    {
+      "Category": "SourceFile",
+      "RelativePath": "config\\settings.json",
+      "Asset": "fedcba9876543210",
+      "Sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "Size": 4,
+      "Linked": false
+    }
+  ],
+  "RunOverrides": {
+    "EstimatedMinutes": 12,
+    "InstallCommand": null
+  },
+  "TitleMode": "NoVersion",
+  "PlanDigest": "3C42E6317ECBB75ECBC3573C274C45369FB4E4F2C650E00826D3C1B1E76AA97B"
+}
