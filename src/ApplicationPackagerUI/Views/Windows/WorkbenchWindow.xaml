@@ -93,6 +93,24 @@
             <Setter Property="Padding" Value="8,3" />
             <Setter Property="Margin" Value="0,0,8,0" />
         </Style>
+        <Style x:Key="WbDiagnostics" TargetType="ListBox">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Courier New" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="Padding" Value="8,3" />
+                        <Setter Property="MinHeight" Value="0" />
+                        <Setter Property="Margin" Value="0" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="WbGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
             <Setter Property="AutoGenerateColumns" Value="False" />
             <Setter Property="CanUserAddRows" Value="False" />
@@ -129,7 +147,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="240" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="Application" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
@@ -306,6 +324,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="110" />
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0">
@@ -344,14 +363,11 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Effective command" Style="{StaticResource WbLabel}" />
-                        <ui:TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" x:Name="txtEffectiveCommand" Style="{StaticResource WbField}"
-                                    FontFamily="Cascadia Code, Consolas, Courier New"
-                                    Text="{Binding CommandOverride, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="{Binding InheritedCommand}"
+                        <ui:TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtEffectiveCommand" Style="{StaticResource WbField}"
+                                    FontFamily="Cascadia Code, Consolas, Courier New" IsReadOnly="True"
+                                    Text="{Binding EffectiveCommand, Mode=OneWay}"
                                     ToolTip="The entry command the build writes for this target. Needs staging until the packager resolves its installer." />
-                        <TextBlock Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2" x:Name="lblCommandSrc" Text="{Binding CommandSource}" Style="{StaticResource WbSource}" />
-                        <ui:Button Grid.Row="0" Grid.Column="5" x:Name="btnCommandReset" Content="Reset" Style="{StaticResource WbInlineButton}"
-                                   HorizontalAlignment="Left" Command="{Binding ResetCommandOverrideCommand}" />
+                        <TextBlock Grid.Row="0" Grid.Column="4" Grid.ColumnSpan="2" x:Name="lblCommandSrc" Text="{Binding CommandSource}" Style="{StaticResource WbSource}" />
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Return codes" Style="{StaticResource WbLabel}" />
                         <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtReturnCodes" Style="{StaticResource WbField}"
@@ -421,6 +437,11 @@
 
                     <TextBlock Grid.Row="3" x:Name="txtScriptNote" Text="{Binding ScriptNote}" Style="{StaticResource WbNote}" Margin="0,8,0,4" />
 
+                    <DockPanel Grid.Row="4">
+                        <TextBlock DockPanel.Dock="Top" Text="Parse diagnostics" Style="{StaticResource WbNote}" Margin="0,0,0,3" />
+                        <ListBox x:Name="lstScriptDiagnostics" Style="{StaticResource WbDiagnostics}" ItemsSource="{Binding ScriptDiagnostics}"
+                                 AutomationProperties.Name="Script parse diagnostics" />
+                    </DockPanel>
                 </Grid>
 
                 <!-- ================= Detection ================= -->
@@ -546,6 +567,7 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="110" />
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" x:Name="txtIntuneContract" Style="{StaticResource WbNote}"
                                        Text="Intune reads the detection result from the script: exit code 0 plus output on STDOUT means installed. Any output on STDERR is a negative result, and exit 0 with no output means not installed. A detector that only exits successfully is rejected here." />
@@ -562,6 +584,11 @@
                                       IsChecked="{Binding IntuneScriptConversion}"
                                       Content="Allow Intune to publish this rule as a converted detection script"
                                       ToolTip="Native clauses without an Intune mapping stay blocked until this is chosen explicitly." />
+                            <DockPanel Grid.Row="3">
+                                <TextBlock DockPanel.Dock="Top" Text="Parse diagnostics" Style="{StaticResource WbNote}" Margin="0,0,0,3" />
+                                <ListBox x:Name="lstDetectDiagnostics" Style="{StaticResource WbDiagnostics}" ItemsSource="{Binding DetectDiagnostics}"
+                                         AutomationProperties.Name="Detection parse diagnostics" />
+                            </DockPanel>
                         </Grid>
                     </Grid>
                 </Grid>
@@ -831,9 +858,9 @@
                     <TextBlock Grid.Row="2" Grid.Column="2" Text="Prior builds" Style="{StaticResource WbHeading}" />
                     <DataGrid Grid.Row="3" Grid.Column="2" x:Name="dgBuilds" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding PriorBuilds}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Build id" Width="180" Binding="{Binding BuildId}" />
-                            <DataGridTextColumn Header="Version" Width="110" Binding="{Binding Version}" />
-                            <DataGridTextColumn Header="Revision" Width="80" Binding="{Binding Revision}" />
+                            <DataGridTextColumn Header="Build id" Width="210" Binding="{Binding BuildId}" />
+                            <DataGridTextColumn Header="Version" Width="80" Binding="{Binding Version}" />
+                            <DataGridTextColumn Header="Revision" Width="64" Binding="{Binding Revision}" />
                             <DataGridTextColumn Header="Result" Width="*" Binding="{Binding Result}" />
                         </DataGrid.Columns>
                     </DataGrid>

@@ -135,30 +135,44 @@ public class VendorSourceChangeTests
         Assert.True(def.Detection.Is64Bit);
     }
 
-    // ── Defraggler: builds page names the build, the resource carries the version ──
-
-    private const string DefragglerBuildsPage = """
-        <a href="https://download.ccleaner.com/dfsetup221.exe">Download</a>
-        <a href="https://download.ccleaner.com/dfsetup222.exe">Download</a>
-        <a href="https://download.ccleaner.com/dfsetup222.exe">Download</a>
-        """;
+    // ── Defraggler: the builds page is gone, the download host names the build, the resource carries the version ──
 
     [Fact]
-    public void Defraggler_HopSelectsTheHighestBuildLink()
+    public void Defraggler_ProbesTheDownloadHostNotTheRemovedBuildsPage()
     {
         var config = DefinitionFixture.Load("defraggler.json").VersionScraper;
 
         Assert.Equal("FileVersion", config.Type);
         Assert.Equal("CHAINED", config.DownloadUrlQuery);
-        Assert.NotNull(config.Hops);
-        var hop = config.Hops![0];
-        Assert.True(hop.SelectHighestVersion);
+        Assert.Null(config.Hops);
+        Assert.DoesNotContain("/builds", config.Url);
+        Assert.Equal("https://download.ccleaner.com/dfsetup{build}.exe", config.Url);
+        Assert.Equal("222", config.ProbeFloor);
+        Assert.True(FileVersionScraper.DiscoversUrl(config));
+    }
 
-        var urls = Regex.Matches(DefragglerBuildsPage, hop.Pattern, RegexOptions.Multiline)
-            .Select(m => (Build: m.Groups["capture"].Value, Url: m.Groups["url"].Value))
-            .ToList();
-        Assert.Contains(("222", "https://download.ccleaner.com/dfsetup222.exe"), urls);
-        Assert.Equal("222", LooseVersion.SelectHighest(urls.Select(u => u.Build).ToList()));
+    [Fact]
+    public async Task Defraggler_TheNewestServedBuildNamesTheDownload()
+    {
+        var config = DefinitionFixture.Load("defraggler.json").VersionScraper;
+        var served = new HashSet<string>
+        {
+            "https://download.ccleaner.com/dfsetup222.exe",
+            "https://download.ccleaner.com/dfsetup223.exe",
+            "https://download.ccleaner.com/dfsetup225.exe"
+        };
+
+        var url = await FileVersionScraper.ResolveDownloadUrlAsync(config, default, (u, _) => Task.FromResult(served.Contains(u)));
+
+        Assert.Equal("https://download.ccleaner.com/dfsetup225.exe", url);
+    }
+
+    [Fact]
+    public async Task Defraggler_AFloorTheHostNoLongerServesFailsTheScrape()
+    {
+        var config = DefinitionFixture.Load("defraggler.json").VersionScraper;
+
+        Assert.Null(await FileVersionScraper.ResolveDownloadUrlAsync(config, default, (_, _) => Task.FromResult(false)));
     }
 
     [Fact]

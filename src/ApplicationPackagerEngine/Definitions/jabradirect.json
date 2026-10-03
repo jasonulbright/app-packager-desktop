@@ -5,6 +5,8 @@
   "Vendor": "GN Audio A/S",
   "Application": "Jabra Direct (x86)",
   "CMName": "Jabra Direct",
+  "AppName": "Jabra Direct",
+  "Publisher": "GN Audio A/S",
   "Architecture": "x86",
   "VendorUrl": "https://www.jabra.com/software-and-services/jabra-direct",
   "InstallerType": "EXE",

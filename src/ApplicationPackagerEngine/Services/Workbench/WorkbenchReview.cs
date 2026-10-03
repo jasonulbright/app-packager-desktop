@@ -63,6 +63,30 @@ public static class WorkbenchReview
         return plan.ToString();
     }
 
+    /// <summary>
+    /// The plan's signing line for the policy a build of this profile resolves at Stage:
+    /// the global policy from Settings, which the run snapshot freezes.
+    /// </summary>
+    public static string SigningLine(Models.Signing.SigningPolicy? stored)
+    {
+        var policy = Models.Signing.SigningPolicy.Normalize(stored);
+        if (!policy.AnySwitch) return "off; no script is signed in this build";
+        static string List(params (bool On, string Name)[] items) => string.Join(", ", items.Where(i => i.On).Select(i => i.Name));
+        var signs = List((policy.SignDetection, "detection"), (policy.SignRequirements, "requirement"), (policy.SignDeployment, "install and uninstall"));
+        var requires = List((policy.RequireDetection, "detection"), (policy.RequireRequirements, "requirement"), (policy.RequireDeployment, "install and uninstall"));
+        var parts = new List<string>();
+        if (signs.Length > 0) parts.Add("signs " + signs + " scripts");
+        if (requires.Length > 0) parts.Add("requires valid " + requires + " signatures");
+        parts.Add(string.IsNullOrWhiteSpace(policy.CertificateThumbprint)
+            ? "no certificate selected"
+            : $"certificate {policy.CertificateThumbprint} ({policy.StoreLocation})");
+        parts.Add(string.IsNullOrWhiteSpace(policy.TimestampServer)
+            ? "no timestamp"
+            : "timestamp " + policy.TimestampServer + (policy.TimestampRequired ? " (required)" : ""));
+        parts.Add(policy.HashAlgorithm);
+        return string.Join("; ", parts) + "; applied at build time";
+    }
+
     /// <summary>The Type combo text for a stored rule type: Script shows as PowerShell.</summary>
     public static string DetectionTypeDisplay(string? storedType) =>
         string.Equals(storedType, "Script", StringComparison.OrdinalIgnoreCase) ? "PowerShell"

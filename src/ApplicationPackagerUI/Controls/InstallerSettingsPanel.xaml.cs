@@ -99,6 +99,19 @@ public partial class InstallerSettingsPanel : UserControl
                 DockPanel.SetDock(label, Dock.Left);
                 row.Children.Add(label);
 
+                if (param.ControlType == ApplicationPackagerEngine.Services.StagingService.LocaleListControl)
+                {
+                    var list = CreateLocaleList(param, current);
+                    if (!string.IsNullOrEmpty(param.Tooltip)) list.ToolTip = param.Tooltip;
+                    var block = new StackPanel { Margin = new Thickness(0, 4, 0, 4) };
+                    label.Margin = new Thickness(0, 0, 0, 4);
+                    row.Children.Remove(label);
+                    block.Children.Add(label);
+                    block.Children.Add(list);
+                    stackPanel.Children.Add(block);
+                    continue;
+                }
+
                 FrameworkElement control = param.ControlType switch
                 {
                     "Toggle" => CreateToggle(param, current),
@@ -159,6 +172,58 @@ public partial class InstallerSettingsPanel : UserControl
         };
         textBox.TextChanged += (_, _) => _values[param.Key] = textBox.Text;
         return textBox;
+    }
+
+    /// <summary>
+    /// An All checkbox and one checkbox per locale code. Each code is shown through a
+    /// TextBlock: string content reads '_' as an access-key marker and shows de_DE as deDE.
+    /// The stored value is All, the checked codes comma separated, or empty.
+    /// </summary>
+    private StackPanel CreateLocaleList(InstallerParameter param, string current)
+    {
+        var stored = ApplicationPackagerEngine.Services.StagingService.ParseLocaleList(current);
+        var panel = new StackPanel();
+        var all = new CheckBox
+        {
+            Content = new System.Windows.Controls.TextBlock { Text = "All languages" },
+            IsChecked = stored.Contains("All"),
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        System.Windows.Automation.AutomationProperties.SetName(all, "All languages");
+        var wrap = new WrapPanel { Margin = new Thickness(16, 2, 0, 4), MaxWidth = 560, HorizontalAlignment = HorizontalAlignment.Left };
+        var boxes = new List<(string Code, CheckBox Box)>();
+        foreach (var code in param.Options ?? [])
+        {
+            var box = new CheckBox
+            {
+                Content = new System.Windows.Controls.TextBlock { Text = code },
+                IsChecked = stored.Contains(code),
+                Width = 84,
+                Margin = new Thickness(0, 2, 0, 2)
+            };
+            System.Windows.Automation.AutomationProperties.SetName(box, code);
+            boxes.Add((code, box));
+            wrap.Children.Add(box);
+        }
+
+        void Write()
+        {
+            wrap.IsEnabled = all.IsChecked != true;
+            _values[param.Key] = all.IsChecked == true
+                ? "All"
+                : string.Join(",", boxes.Where(b => b.Box.IsChecked == true).Select(b => b.Code));
+        }
+        wrap.IsEnabled = all.IsChecked != true;
+        all.Checked += (_, _) => Write();
+        all.Unchecked += (_, _) => Write();
+        foreach (var (_, box) in boxes)
+        {
+            box.Checked += (_, _) => Write();
+            box.Unchecked += (_, _) => Write();
+        }
+        panel.Children.Add(all);
+        panel.Children.Add(wrap);
+        return panel;
     }
 
     private Wpf.Ui.Controls.NumberBox CreateNumberBox(InstallerParameter param, string current)

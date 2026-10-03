@@ -207,7 +207,7 @@ public sealed class StagingService
         if (string.IsNullOrEmpty(config.DownloadUrlQuery)) return null;
 
         var scraper = _scrapers.Get(config.Type);
-        if (scraper is Scrapers.FileVersionScraper && config.Hops is { Count: > 0 })
+        if (scraper is Scrapers.FileVersionScraper && Scrapers.FileVersionScraper.DiscoversUrl(config))
             return await Scrapers.FileVersionScraper.ResolveDownloadUrlAsync(config, ct);
         if (scraper is Scrapers.JsonQueryScraper jqs)
         {
@@ -472,21 +472,36 @@ public sealed class StagingService
                     installerMetadata = await _installerIdService.ExtractMetadataAsync(
                         installerPath, framework, ct);
 
-                    // Use extracted ProductCode if available (WiX Burn inner MSI)
+                    // An extracted ProductCode (WiX Burn inner MSI) is taken only where the
+                    // definition resolves a {ProductCode} token; elsewhere it would put a
+                    // value in the manifest that a machine without 7-Zip never reads.
                     if (!string.IsNullOrEmpty(installerMetadata.ProductCode))
                     {
-                        productCode = installerMetadata.ProductCode;
-                        onProgress?.Invoke($"ProductCode (from {installerMetadata.MetadataSource}): {productCode}");
+                        if (ReferencesProductCode(def))
+                        {
+                            productCode = installerMetadata.ProductCode;
+                            onProgress?.Invoke($"ProductCode (from {installerMetadata.MetadataSource}): {productCode}");
+                        }
+                        else
+                        {
+                            onProgress?.Invoke($"ProductCode {installerMetadata.ProductCode} ({installerMetadata.MetadataSource}) not recorded; the definition does not use it.");
+                        }
                     }
                     if (!string.IsNullOrEmpty(installerMetadata.ProductVersion))
                         onProgress?.Invoke($"ProductVersion (from {installerMetadata.MetadataSource}): {installerMetadata.ProductVersion}");
                     // A manufacturer read off the wrong bundled EXE is as wrong as its name.
-                    if (!string.IsNullOrEmpty(installerMetadata.Manufacturer) &&
+                    if (string.IsNullOrWhiteSpace(def.AppName) &&
+                        !string.IsNullOrEmpty(installerMetadata.Manufacturer) &&
                         installerMetadata.Manufacturer.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
                         IsProductNamePlausible(installerMetadata, def))
                         publisher = installerMetadata.Manufacturer;
                 }
             }
+
+            if (productCode is null && !isMsix && ReferencesProductCode(def))
+                throw new InvalidOperationException(
+                    $"{def.Application} resolves {{ProductCode}} from the installer, and no ProductCode could be read from {installerFileName}. " +
+                    "Reading it from an EXE needs 7-Zip on this machine.");
 
             // 4d. Extract icon from installer
             if (_iconService is not null && def.ZipPayload is null)
@@ -602,25 +617,11 @@ public sealed class StagingService
             }
 
             // 7. Write manifest
-            // ARP-driven naming: use installer metadata when available, fallback to constructed template.
-            // Metadata read off the largest bundled EXE names whatever that EXE is
-            // (a bundled 7-Zip, a GnuPG component), so it is used only when it
-            // names this product.
-            var trustMetadataName = installerMetadata is not null
-                && IsProductNamePlausible(installerMetadata, def);
-            var arpDisplayName = trustMetadataName ? installerMetadata!.ProductName : null;
-            var arpVersion = trustMetadataName ? installerMetadata!.ProductVersion : null;
-            if (installerMetadata?.ProductName is { Length: > 0 } && !trustMetadataName)
-                onProgress?.Invoke($"Installer metadata names '{installerMetadata.ProductName}' ({installerMetadata.MetadataSource}); keeping the definition's name.");
-            var cmAppName = !string.IsNullOrEmpty(arpDisplayName)
-                ? arpDisplayName
-                : $"{def.Application} - {displayVersion} ({def.Architecture})";
-            var cmDisplayName = !string.IsNullOrEmpty(arpDisplayName)
-                ? arpDisplayName
-                : $"{def.Application} ({def.Architecture})";
-            var cmVersion = !string.IsNullOrEmpty(arpVersion)
-                ? arpVersion
-                : displayVersion;
+            var stageIdentity = ResolveStageIdentity(def, displayVersion, publisher, installerMetadata, onProgress);
+            var cmAppName = stageIdentity.AppName;
+            var cmDisplayName = stageIdentity.DisplayName;
+            publisher = stageIdentity.Publisher;
+            var cmVersion = stageIdentity.SoftwareVersion;
 
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             var manifest = new StageManifest
@@ -713,7 +714,7 @@ public sealed class StagingService
             // A hop-resolved scrape cached the file under the resolved URL's name.
             var cachedPath = def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase)
                 ? Scrapers.FileVersionScraper.GetCachedPath(
-                    def.VersionScraper.Hops is { Count: > 0 } ? downloadUrl : def.VersionScraper.Url)
+                    Scrapers.FileVersionScraper.DiscoversUrl(def.VersionScraper) ? downloadUrl : def.VersionScraper.Url)
                 : null;
 
             if (cachedPath is not null)
@@ -1768,6 +1769,49 @@ public sealed class StagingService
         .Replace("%CommonProgramFiles%", @"C:\Program Files\Common Files", StringComparison.OrdinalIgnoreCase)
         .Replace("%ProgramData%", @"C:\ProgramData", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>The application name, display name, publisher and version one stage records.</summary>
+    public sealed record StageIdentity(string AppName, string DisplayName, string Publisher, string SoftwareVersion);
+
+    /// <summary>
+    /// Names and versions a stage. The version is the scraped one on every machine: the
+    /// inner MSI of a bundle carries its own build number (8.0.31.26421 for 8.0.31), and
+    /// only a machine with 7-Zip reads it. A definition with AppName fixes the name and
+    /// publisher; otherwise a metadata name that names this product is used (metadata read
+    /// off the largest bundled EXE can name a bundled 7-Zip or GnuPG component), then the
+    /// constructed name.
+    /// </summary>
+    public static StageIdentity ResolveStageIdentity(AppDefinition def, string displayVersion, string publisher,
+        InstallerMetadata? installerMetadata, Action<string>? onProgress = null)
+    {
+        var fixedName = string.IsNullOrWhiteSpace(def.AppName)
+            ? null
+            : def.AppName.Replace("{version}", displayVersion, StringComparison.OrdinalIgnoreCase).Trim();
+        var trustMetadataName = fixedName is null && installerMetadata is not null
+            && IsProductNamePlausible(installerMetadata, def);
+        var name = fixedName ?? (trustMetadataName ? installerMetadata!.ProductName : null);
+        if (fixedName is not null) publisher = string.IsNullOrWhiteSpace(def.Publisher) ? def.Vendor : def.Publisher.Trim();
+        if (installerMetadata?.ProductName is { Length: > 0 } && !trustMetadataName)
+            onProgress?.Invoke($"Installer metadata names '{installerMetadata.ProductName}' ({installerMetadata.MetadataSource}); keeping the definition's name.");
+        if (installerMetadata?.ProductVersion is { Length: > 0 } metadataVersion
+            && !string.Equals(metadataVersion, displayVersion, StringComparison.OrdinalIgnoreCase))
+            onProgress?.Invoke($"Installer metadata version {metadataVersion} ({installerMetadata.MetadataSource}); staging the scraped {displayVersion}.");
+        return new StageIdentity(
+            !string.IsNullOrEmpty(name) ? name : $"{def.Application} - {displayVersion} ({def.Architecture})",
+            !string.IsNullOrEmpty(name) ? name : $"{def.Application} ({def.Architecture})",
+            publisher,
+            displayVersion);
+    }
+
+    /// <summary>True when the definition's detection, commands or arguments resolve a {ProductCode} token.</summary>
+    public static bool ReferencesProductCode(AppDefinition def)
+    {
+        static bool Has(string? text) => text?.Contains("{ProductCode}", StringComparison.OrdinalIgnoreCase) == true;
+        var detection = def.Detection;
+        return Has(def.InstallArgs) || Has(def.UninstallArgs) || Has(def.UninstallCommand)
+            || Has(detection.RegistryKeyTemplate) || Has(detection.ScriptText)
+            || (detection.Clauses ?? []).Any(c => Has(c.RegistryKeyTemplate));
+    }
+
     /// <summary>
     /// Whether metadata ProductName may name the staged application. Sources
     /// that read a manifest or table (Burn manifest, inner MSI, product-info.json,
@@ -2205,6 +2249,12 @@ public sealed class StagingService
                 if (value.Equals("true", StringComparison.OrdinalIgnoreCase))
                     parts.Add(fragment.Replace("{value}", MapValue(param, null, "1"), StringComparison.OrdinalIgnoreCase));
             }
+            else if (param.ControlType == LocaleListControl)
+            {
+                var list = ResolveLocaleList(param, value);
+                if (list.Length > 0)
+                    parts.Add(fragment.Replace("{value}", list, StringComparison.OrdinalIgnoreCase));
+            }
             else
             {
                 if (!string.IsNullOrEmpty(value))
@@ -2213,6 +2263,45 @@ public sealed class StagingService
         }
 
         return string.Join(" ", parts);
+    }
+
+    /// <summary>The InstallerParameter control type for a multi-select list of locale codes.</summary>
+    public const string LocaleListControl = "LocaleList";
+
+    private static readonly System.Text.RegularExpressions.Regex StoredLocalePattern =
+        new("^([a-z]{2}_[A-Z]{2}|All)$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// The stored codes of a LocaleList, comma or space separated, split and kept only
+    /// where they read as a locale code or All, as the stored preference is filtered.
+    /// </summary>
+    public static IReadOnlyList<string> ParseLocaleList(string? stored) =>
+        (stored ?? "").Split([',', ';', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Where(code => StoredLocalePattern.IsMatch(code))
+            .ToList();
+
+    /// <summary>
+    /// The value a LocaleList puts into its fragment: empty when nothing is selected, the
+    /// mapped All keyword when All is selected, otherwise the selected codes plus
+    /// AlwaysInclude, sorted and comma separated. A code the parameter does not list
+    /// stops the stage.
+    /// </summary>
+    public static string ResolveLocaleList(InstallerParameter param, string? stored)
+    {
+        var codes = ParseLocaleList(stored);
+        if (codes.Count == 0) return "";
+        if (codes.Contains("All", StringComparer.Ordinal)) return MapValue(param, null, "All");
+
+        var known = new HashSet<string>(param.Options ?? [], StringComparer.Ordinal);
+        if (!string.IsNullOrWhiteSpace(param.AlwaysInclude)) known.Add(param.AlwaysInclude);
+        var unknown = codes.Where(c => !known.Contains(c)).Distinct(StringComparer.Ordinal).ToList();
+        if (unknown.Count > 0)
+            throw new InvalidOperationException(
+                $"Unknown locale code(s) for {param.Label}: {string.Join(", ", unknown)}. Known codes: {string.Join(", ", known.Order(StringComparer.Ordinal))}.");
+
+        var set = codes.ToList();
+        if (!string.IsNullOrWhiteSpace(param.AlwaysInclude)) set.Add(param.AlwaysInclude);
+        return string.Join(",", set.Distinct(StringComparer.Ordinal).Order(StringComparer.OrdinalIgnoreCase));
     }
 
     /// <summary>
