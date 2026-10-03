@@ -1,0 +1,66 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Controls.ByoReplacementPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ApplicationPackagerUI.Controls">
+
+    <ScrollViewer x:Name="Scroller" MaxHeight="540" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Width="600" Margin="0,0,12,0">
+            <TextBlock x:Name="HeadingText" FontSize="13" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+
+            <TextBlock Text="Identity differences" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock x:Name="SummaryText" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"
+                       AutomationProperties.AutomationId="ByoReplacementSummary"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <ItemsControl x:Name="ChangeList" AutomationProperties.AutomationId="ByoReplacementChanges" Margin="0,0,0,12"
+                          Focusable="False" IsTabStop="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="86" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Padding="8,2" CornerRadius="4" BorderThickness="1"
+                                    VerticalAlignment="Top" HorizontalAlignment="Left">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#26E8A317" />
+                                        <Setter Property="BorderBrush" Value="#E8A317" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SeverityText}" Value="Blocking">
+                                                <Setter Property="Background" Value="#26D13438" />
+                                                <Setter Property="BorderBrush" Value="#D13438" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding SeverityText}" FontSize="11"
+                                           AutomationProperties.AutomationId="ByoReplacementSeverity">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#E8A317" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SeverityText}" Value="Blocking">
+                                                    <Setter Property="Foreground" Value="#E8484C" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding Message}" TextWrapping="Wrap" FontSize="12" Margin="8,2,0,0"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="New revision" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <local:DropReviewPanel x:Name="Review" MinWidth="0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

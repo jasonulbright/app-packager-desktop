@@ -1232,8 +1232,19 @@ public partial class PackagesViewModel : ObservableObject
             dialog.IsPrimaryButtonEnabled = panel.IsConfirmed;
             dialog.IsSecondaryButtonEnabled = panel.IsConfirmed;
         };
+        var saveAsApplication = false;
+        panel.SaveAsApplicationRequested += (_, _) =>
+        {
+            saveAsApplication = true;
+            dialog.Hide(ContentDialogResult.None);
+        };
 
         var choice = await _contentDialogService.ShowAsync(dialog, CancellationToken.None);
+        if (saveAsApplication)
+        {
+            await SaveDroppedInstallerAsApplicationAsync(analysis, panel);
+            return;
+        }
         if (choice == ContentDialogResult.None)
         {
             AddLogLine("Drop cancelled.");

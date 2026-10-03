@@ -140,14 +140,14 @@
         <Grid Grid.Row="1" Margin="16,4,16,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="320*" MinWidth="170" MaxWidth="320" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="200*" MinWidth="130" MaxWidth="200" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="1*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="240" />
+                <ColumnDefinition Width="240*" MinWidth="160" MaxWidth="240" />
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="Application" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
@@ -161,10 +161,21 @@
             <ComboBox Grid.Column="3" x:Name="cboProfile" Margin="0,0,8,0"
                       ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name"
                       ToolTip="Packager default is read-only. Save as creates a named profile; one profile is active per application." />
-            <ui:Button Grid.Column="4" x:Name="btnProfileRename" Content="Rename" MinWidth="90"
-                       Command="{Binding RenameProfileCommand}" ToolTip="Rename the selected custom profile." />
+            <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <ui:Button x:Name="btnProfileRename" Content="Rename" MinWidth="90"
+                           Command="{Binding RenameProfileCommand}" ToolTip="Rename the selected custom profile." />
+                <ui:DropDownButton x:Name="btnBundle" Content="Bundle" Margin="8,0,0,0"
+                                   ToolTip="Export this application with its profiles and assets as a portable bundle, or import a bundle.">
+                    <ui:DropDownButton.Flyout>
+                        <ContextMenu>
+                            <MenuItem Header="Export bundle..." Click="ExportBundle_Click" />
+                            <MenuItem Header="Import bundle..." Click="ImportBundle_Click" />
+                        </ContextMenu>
+                    </ui:DropDownButton.Flyout>
+                </ui:DropDownButton>
+            </StackPanel>
             <TextBlock Grid.Column="5" x:Name="txtSourceType" Text="{Binding SourceTypeText}" Style="{StaticResource WbSource}"
-                       Margin="12,0,0,0" ToolTip="Where this application definition comes from." />
+                       Margin="12,0,12,0" ToolTip="Where this application definition comes from." />
 
             <TextBlock Grid.Column="7" Text="Build" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
             <ComboBox Grid.Column="8" x:Name="cboBuild" ItemsSource="{Binding Builds}" SelectedItem="{Binding SelectedBuild}"
@@ -313,6 +324,28 @@
 
                         <TextBlock Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="4" x:Name="txtAppNote" Style="{StaticResource WbNote}" Margin="0,10,0,0"
                                    Text="The displayed title is separate from the stable identity: renaming a profile never renames an existing site application, and the output folder keeps the packager name." />
+
+                        <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="4" x:Name="pnlByoSource" Margin="0,6,0,0"
+                                    Visibility="{Binding IsByo, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Installer source" Style="{StaticResource WbHeading}" />
+                            <TextBlock x:Name="txtByoSource" Text="{Binding ByoSourceText}" Style="{StaticResource WbNote}" />
+                            <DataGrid x:Name="gridByoSources" Style="{StaticResource WbGrid}" ItemsSource="{Binding ByoSources}"
+                                      IsReadOnly="True" MaxHeight="190" Margin="0,0,0,10">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Revision" Width="70" Binding="{Binding Revision}" />
+                                    <DataGridTextColumn Header="Installer" Width="1.2*" MinWidth="140" Binding="{Binding FileName}" />
+                                    <DataGridTextColumn Header="Version" Width="90" Binding="{Binding Version}" />
+                                    <DataGridTextColumn Header="Type" Width="60" Binding="{Binding InstallerType}" />
+                                    <DataGridTextColumn Header="Architecture" Width="96" Binding="{Binding Architecture}" />
+                                    <DataGridTextColumn Header="SHA-256" Width="112" Binding="{Binding ShortSha256}" />
+                                    <DataGridTextColumn Header="Added" Width="128" Binding="{Binding Added}" />
+                                    <DataGridTextColumn Header="Blocking changes" Width="*" MinWidth="200" Binding="{Binding Flags}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <ui:Button x:Name="btnReplaceInstaller" Content="Replace installer..." MinWidth="150" HorizontalAlignment="Left"
+                                       Command="{Binding ReplaceInstallerCommand}"
+                                       ToolTip="Analyze a new installer, compare its identity with the current revision, and add it as the next source revision. Earlier revisions are kept." />
+                        </StackPanel>
                     </Grid>
                 </ScrollViewer>
 
