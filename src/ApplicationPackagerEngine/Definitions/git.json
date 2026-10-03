@@ -15,7 +15,7 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://api.github.com/repos/git-for-windows/git/releases/latest",
-                           "Pattern":  "\"name\":\\s*\"Git-(\\d+\\.\\d+\\.\\d+\\.\\d+)-64-bit\\.exe\""
+                           "Pattern":  "\"name\":\\s*\"Git-(\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)-64-bit\\.exe\""
                        },
     "DownloadUrl":  "https://github.com/git-for-windows/git/releases/latest/download/Git-{version}-64-bit.exe",
     "InstallArgs":  "/VERYSILENT /NORESTART /NOCANCEL /SP-",
