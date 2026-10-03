@@ -19,6 +19,7 @@ public partial class PackagesViewModel : ObservableObject
     private readonly ApplicationPackagerEngine.Services.StagingService _stagingService;
     private readonly ApplicationPackagerEngine.Services.Wsus.IWsusPublisher _wsusPublisher;
     private readonly IPublishDialogs _publishDialogs;
+    private readonly PublishRunService _publishRuns;
 
     [ObservableProperty] private ObservableCollection<PackagerInfo> _packagers = [];
     [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
@@ -69,8 +70,10 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService dropAnalysisService,
         ApplicationPackagerEngine.Services.StagingService stagingService,
         ApplicationPackagerEngine.Services.Wsus.IWsusPublisher wsusPublisher,
-        IPublishDialogs publishDialogs)
+        IPublishDialogs publishDialogs,
+        PublishRunService publishRuns)
     {
+        _publishRuns = publishRuns;
         _dropAnalysisService = dropAnalysisService;
         _stagingService = stagingService;
         _discoveryService = discoveryService;
@@ -98,12 +101,7 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <summary>The settings the publish buttons depend on, as stored now.</summary>
-    public static PublishReadiness ReadinessOf(AppSettings settings) => new(
-        settings.Systems ?? new SystemsInUse(),
-        ApplicationPackagerEngine.Services.ConfigMgrConsole.IsInstalled(),
-        settings.SiteCode, settings.FileShareRoot,
-        settings.Intune.TenantId, settings.Intune.ClientId, !string.IsNullOrWhiteSpace(settings.Intune.ClientSecretProtected),
-        settings.Wsus.ServerName);
+    public static PublishReadiness ReadinessOf(AppSettings settings) => PublishRunService.ReadinessOf(settings);
 
     /// <summary>
     /// Applies Systems in use and the stored settings to the publish buttons: a button
@@ -800,7 +798,7 @@ public partial class PackagesViewModel : ObservableObject
 
         // The site gates apply only to a ConfigMgr run; an Intune-only run needs its
         // credentials instead, so a console-less workstation can still publish.
-        var blocked = PublishActionState.RunGate(target, ReadinessOf(settings));
+        var blocked = PublishRunService.RunGate(target, settings);
 
         if (blocked is not null)
         {
@@ -904,8 +902,7 @@ public partial class PackagesViewModel : ObservableObject
                         p.Status = RowStatus(target, result.ExitCode);
                         p.IsSelected = false;
                         tally.RecordSuccess();
-                        var pkgRef = string.IsNullOrEmpty(result.OutLogPath) ? result.StdOut : $"Log: {System.IO.Path.GetFileName(result.OutLogPath)}";
-                        AddLogLine($"Packaged. {pkgRef}");
+                        AddLogLine(PublishRunService.PackagedLine(result));
                     }
                     else
                     {
@@ -1336,23 +1333,8 @@ public partial class PackagesViewModel : ObservableObject
     }
 
     /// <summary>Mirrors the Intune post-step outcome into the run log and the grid's note column.</summary>
-    private void LogIntuneNotes(PackagerInfo packager, PackagerExecutionResult result)
-    {
-        var notes = new List<string>();
-
-        if (!string.IsNullOrEmpty(result.IntuneWinNote))
-        {
-            AddLogLine($"Intunewin: {result.IntuneWinNote}");
-            notes.Add(result.IntuneWinNote);
-        }
-        if (!string.IsNullOrEmpty(result.IntunePublishNote))
-        {
-            AddLogLine($"Intune publish: {result.IntunePublishNote}");
-            notes.Add(result.IntunePublishNote);
-        }
-
-        packager.IntuneNote = string.Join(" — ", notes);
-    }
+    private void LogIntuneNotes(PackagerInfo packager, PackagerExecutionResult result) =>
+        PublishRunService.LogIntuneNotes(packager, result, AddLogLine);
 
     private void LogStdErr(string stderr)
     {

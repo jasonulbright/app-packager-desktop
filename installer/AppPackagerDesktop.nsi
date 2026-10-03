@@ -32,6 +32,7 @@ Unicode true
 !define PRODUCT_NAME "App Packager Desktop"
 !define PRODUCT_PUBLISHER "Jason Ulbright"
 !define PRODUCT_EXE "ApplicationPackagerUI.exe"
+!define BUILD_EXE "AppPackagerBuild.exe"
 !define ARP_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerDesktop"
 !define INSTALL_KEY "Software\AppPackagerDesktop"
 
@@ -68,7 +69,8 @@ Section "Install"
 
   ; A running instance holds its executable open; the copy below would fail
   ; halfway, so the check runs first. Opening for append succeeds on an idle
-  ; file and is refused for an executing image.
+  ; file and is refused for an executing image. A scheduled command-line build
+  ; holds AppPackagerBuild.exe open the same way.
   ${If} ${FileExists} "$INSTDIR\${PRODUCT_EXE}"
     ClearErrors
     FileOpen $0 "$INSTDIR\${PRODUCT_EXE}" a
@@ -77,6 +79,17 @@ Section "Install"
         MessageBox MB_ICONSTOP "Close ${PRODUCT_NAME} and run the installer again."
       ${EndIf}
       Abort "${PRODUCT_NAME} is running."
+    ${EndIf}
+    FileClose $0
+  ${EndIf}
+  ${If} ${FileExists} "$INSTDIR\${BUILD_EXE}"
+    ClearErrors
+    FileOpen $0 "$INSTDIR\${BUILD_EXE}" a
+    ${If} ${Errors}
+      ${IfNot} ${Silent}
+        MessageBox MB_ICONSTOP "A command-line build (${BUILD_EXE}) is running. Wait for it to finish and run the installer again."
+      ${EndIf}
+      Abort "${BUILD_EXE} is running."
     ${EndIf}
     FileClose $0
   ${EndIf}

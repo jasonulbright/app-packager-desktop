@@ -2,7 +2,8 @@ name: Release
 
 # Run by hand from main once the csproj <Version> and the matching CHANGELOG
 # section are committed. The run tests, publishes, signs the published
-# executable with Azure Artifact Signing, compiles the installer from the
+# executables (the application and AppPackagerBuild.exe) with Azure Artifact
+# Signing, compiles the installer from the
 # signed stage and signs that too, verifies both signatures, zips, tags
 # v<version> and publishes the GitHub release with the installer, the zip
 # and their checksums.
@@ -121,8 +122,8 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # The single-file publish leaves one executable; any loose DLL beside it
-      # is signed as well. The timestamp is what keeps the signature valid
+      # The two single-file publishes leave two executables, the application
+      # and AppPackagerBuild.exe; any loose DLL beside them is signed as well. The timestamp is what keeps the signature valid
       # after the short-lived signing certificate expires.
       - name: Sign the published files
         uses: azure/artifact-signing-action@v2

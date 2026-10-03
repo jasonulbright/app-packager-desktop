@@ -25,8 +25,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     };
 
     /// <summary>The grid status of a ConfigMgr or Intune run row.</summary>
-    private static string RowStatus(string target, int exitCode) =>
-        PublishRowOutcome.For(target, exitCode, intune: exitCode == 0 ? IntuneRunOutcome.Published("", "") : null).Status;
+    private static string RowStatus(string target, int exitCode) => PublishRunService.RowStatus(target, exitCode);
 
     /// <summary>One publish run for the checked rows with the button's own destination; the saved deployment target plays no part.</summary>
     private Task StartPublishRunAsync(string target) =>
@@ -81,7 +80,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     {
         var settings = _settingsService.Load();
         const string label = "Publish to WSUS";
-        if (PublishActionState.RunGate(PublishRunTargets.WsusOnly, ReadinessOf(settings)) is { } blocked)
+        if (PublishRunService.RunGate(PublishRunTargets.WsusOnly, settings) is { } blocked)
         {
             AddLogLine($"{label} blocked: {blocked}");
             StatusText = "WSUS server required.";
@@ -114,37 +113,17 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
 
                 try
                 {
-                    PackagerExecutionResult stage;
-                    if (workbenchSnapshot is not null)
+                    var run = await _publishRuns.PublishWsusRowAsync(p, workbenchSnapshot, AddLogLine, _operationCts.Token);
+                    if (run.StageFailed)
                     {
-                        // A Workbench publish consumes the sealed build its snapshot names.
-                        stage = new PackagerExecutionResult { ExitCode = 0 };
-                    }
-                    else if (_executionService.ExistingStageManifest(p) is { } existing)
-                    {
-                        AddLogLine($"  Stage manifest found: {existing}");
-                        stage = new PackagerExecutionResult { ExitCode = 0, OutLogPath = existing };
-                    }
-                    else
-                    {
-                        p.Status = "Staging...";
-                        stage = await _executionService.StageAsync(p, line => AddLogLine($"  {line}"), _operationCts.Token, null, workbenchSnapshot,
-                            PublishRunTargets.WsusOnly);
-                        if (stage.ExitCode != 0)
-                        {
-                            if (tally.RecordInterruptedOrFailed(_operationCts.Token)) { p.Status = "Cancelled"; break; }
-                            p.Status = "Publish error";
-                            AddLogLine($"Stage FAILED (exit {stage.ExitCode})");
-                            LogStdErr(stage.StdErr);
-                            continue;
-                        }
+                        if (tally.RecordInterruptedOrFailed(_operationCts.Token)) { p.Status = "Cancelled"; break; }
+                        p.Status = "Publish error";
+                        AddLogLine($"Stage FAILED (exit {run.Stage.ExitCode})");
+                        LogStdErr(run.Stage.StdErr);
+                        continue;
                     }
 
-                    p.Status = "Publishing to WSUS...";
-                    var step = await _executionService.PublishWsusAsync(p, stage, workbenchSnapshot, _wsusPublisher, line => AddLogLine($"  {line}"), _operationCts.Token);
-                    var outcome = PublishRowOutcome.For(PublishRunTargets.WsusOnly, 0, wsus: step);
-                    p.Status = outcome.Status;
-                    AddLogLine("WSUS publish: " + step.Message);
+                    var outcome = run.Outcome!;
                     if (outcome.Kind == PublishRowOutcomeKind.Success) { tally.RecordSuccess(); p.IsSelected = false; }
                     else if (outcome.Kind == PublishRowOutcomeKind.NotSupported) tally.RecordSkip();
                     else tally.RecordFailure();

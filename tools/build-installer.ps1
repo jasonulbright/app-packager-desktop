@@ -11,7 +11,7 @@
     the installer. The version comes from <Version> in the UI csproj.
 
 .PARAMETER StageDir
-    Published folder holding ApplicationPackagerUI.exe and Definitions\.
+    Published folder holding ApplicationPackagerUI.exe, AppPackagerBuild.exe and Definitions\.
 
 .PARAMETER OutputDir
     Folder that receives the installer. The generated include is written to
@@ -41,8 +41,10 @@ foreach ($required in @($projectPath, $script, $icon)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Missing: $required" }
 }
 $StageDir = (Resolve-Path -LiteralPath $StageDir).Path
-if (-not (Test-Path -LiteralPath (Join-Path $StageDir 'ApplicationPackagerUI.exe'))) {
-    throw "No ApplicationPackagerUI.exe under $StageDir; publish first."
+foreach ($executable in @('ApplicationPackagerUI.exe', 'AppPackagerBuild.exe')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $StageDir $executable))) {
+        throw "No $executable under $StageDir; publish first."
+    }
 }
 
 if (-not $MakeNsis) {

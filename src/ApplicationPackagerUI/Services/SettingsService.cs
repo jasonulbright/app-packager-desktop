@@ -28,6 +28,15 @@ public class SettingsService
     private (string Applied, string Original)? _launcherSite;
     private (string Applied, string Original)? _launcherProvider;
 
+    private Action<AppSettings>? _runOverrides;
+
+    /// <summary>
+    /// Values every later Load applies over the stored settings, for this instance only.
+    /// An instance with run overrides refuses to write: a save would persist values the
+    /// operator never saved.
+    /// </summary>
+    public void ApplyRunOverrides(Action<AppSettings> overrides) => _runOverrides = overrides;
+
     public AppSettings Load()
     {
         AppSettings settings;
@@ -79,6 +88,7 @@ public class SettingsService
 
         lock (_gate) _unreadableReason = null;
         ApplyLauncherDefaults(settings);
+        _runOverrides?.Invoke(settings);
         return settings;
     }
 
@@ -162,6 +172,8 @@ public class SettingsService
     /// </summary>
     private void Write(AppSettings settings, bool operatorEdit)
     {
+        if (_runOverrides is not null)
+            throw new InvalidOperationException("These settings carry run overrides for this process and are not written.");
         Directory.CreateDirectory(SettingsDir);
         var node = JsonSerializer.SerializeToNode(settings, JsonOptions)!.AsObject();
         lock (_gate)

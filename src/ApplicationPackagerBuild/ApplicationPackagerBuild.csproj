@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>..\ApplicationPackagerUI\app.ico</ApplicationIcon>
+    <AssemblyName>AppPackagerBuild</AssemblyName>
+    <RootNamespace>ApplicationPackagerBuild</RootNamespace>
+    <RollForward>LatestMajor</RollForward>
+    <!-- One version source: the UI project's <Version>, which the release scripts read. -->
+    <Version>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\ApplicationPackagerUI\ApplicationPackagerUI.csproj')), '&lt;Version&gt;([^&lt;]+)&lt;/Version&gt;').Groups[1].Value)</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ApplicationPackagerEngine\ApplicationPackagerEngine.csproj" />
+    <ProjectReference Include="..\ApplicationPackagerUI\ApplicationPackagerUI.csproj" />
+  </ItemGroup>
+
+  <!-- The referenced application is itself an executable, so the SDK adds its runtimeconfig.json to this publish;
+       in the shared release stage it would sit loose beside the single-file ApplicationPackagerUI.exe. -->
+  <Target Name="DropReferencedApplicationRuntimeConfig" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'ApplicationPackagerUI.runtimeconfig.json'" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ApplicationPackagerEngine.Tests" />
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+</Project>

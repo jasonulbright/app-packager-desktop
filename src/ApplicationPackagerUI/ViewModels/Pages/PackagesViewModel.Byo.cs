@@ -188,22 +188,8 @@ public partial class PackagesViewModel
     /// <summary>Lists one staged BYO build in the grid as a normal run row; an earlier row of the same application is replaced.</summary>
     private PackagerInfo AddByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId)
     {
-        var uid = "byo-" + ApplicationIds.ToKey(applicationId);
-        foreach (var existing in Packagers.Where(p => p.Uid == uid).ToList()) Packagers.Remove(existing);
-        var row = new PackagerInfo
-        {
-            Uid = uid,
-            Vendor = manifest.Publisher,
-            Application = manifest.AppName,
-            CMName = manifest.AppName,
-            Script = analysis.FileName,
-            FullPath = analysis.Path,
-            Description = $"Bring your own installer: {manifest.InstallerType} ({analysis.Engine})",
-            StagedManifestPath = manifestPath,
-            LatestVersion = manifest.SoftwareVersion,
-            Status = "Staged",
-            IsSelected = true
-        };
+        var row = Services.WorkbenchRunSnapshots.ByoRow(manifest, analysis, manifestPath, applicationId);
+        foreach (var existing in Packagers.Where(p => p.Uid == row.Uid).ToList()) Packagers.Remove(existing);
         Packagers.Add(row);
         ApplyFilter();
         return row;
