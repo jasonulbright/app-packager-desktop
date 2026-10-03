@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services.InstallerScripts;
+using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerEngine.Scrapers;
 
 namespace ApplicationPackagerEngine.Services;
@@ -253,12 +254,25 @@ public sealed class StagingService
         // starting a download whose result nobody wants.
         ct.ThrowIfCancellationRequested();
 
+        // The signing certificate resolves before anything is written, so an unusable
+        // one refuses the build with no partial content.
+        StageFinalizer finalizer;
+        try
+        {
+            finalizer = StageFinalizer.Begin(inputs);
+            downloadRoot = finalizer.ScopeDownloadRoot(downloadRoot);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new StagingResult { Success = false, ErrorMessage = ex.Message };
+        }
+
         // Route ODT apps to dedicated pipeline
         if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
-            return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion, settingsValues);
+            return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion, settingsValues, finalizer);
 
         if (def.BootstrapperLayout is not null)
-            return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion);
+            return await StageBootstrapperLayoutAsync(def, downloadRoot, onProgress, ct, knownVersion, finalizer);
 
         try
         {
@@ -528,29 +542,31 @@ public sealed class StagingService
             }
 
             onProgress?.Invoke("Generating install/uninstall wrappers...");
+            finalizer.PrepareStageRoot(contentPath);
+            var wrappers = finalizer.Wrappers(_wrapperService);
             if (isMsix)
             {
-                _wrapperService.GenerateMsixWrappers(contentPath, installerFileName,
+                wrappers.GenerateMsixWrappers(contentPath, installerFileName,
                     msixPackage!.SignerThumbprint, msixPackage.Provisioned);
             }
             else if (def.ZipPayload is not null)
             {
-                ZipPayload.GenerateWrappers(_wrapperService, contentPath, installerFileName, def.ZipPayload);
+                ZipPayload.GenerateWrappers(wrappers, contentPath, installerFileName, def.ZipPayload);
             }
             else if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
             {
-                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, uninstallCommand, installArgs,
+                wrappers.GenerateMsiWrappers(contentPath, installerFileName, uninstallCommand, installArgs,
                     def.ExpandInstallArgs);
             }
             else if (def.ExtractSetup is not null)
             {
-                _wrapperService.GenerateExtractSetupWrappers(contentPath, installerFileName,
+                wrappers.GenerateExtractSetupWrappers(contentPath, installerFileName,
                     def.ExtractSetup, installArgs, uninstallArgs);
             }
             else
             {
                 var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(detection);
-                _wrapperService.GenerateExeWrappers(contentPath, installerFileName,
+                wrappers.GenerateExeWrappers(contentPath, installerFileName,
                     installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand,
                     ResolvePostInstallScript(def, settingsValues), arpKeyName, installFolder,
                     def.PostInstallKillProcesses, def.RebootExitCodes);
@@ -629,7 +645,7 @@ public sealed class StagingService
                 onProgress?.Invoke($"Placed {sideFile.Label} beside installer: {sideFile.FileName}");
             }
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
-            _manifestService.Write(manifestPath, manifest);
+            finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
             onProgress?.Invoke($"Stage complete: {contentPath}");
@@ -912,7 +928,8 @@ public sealed class StagingService
     /// </summary>
     private async Task<StagingResult> StageBootstrapperLayoutAsync(
         AppDefinition def, string downloadRoot,
-        Action<string>? onProgress, CancellationToken ct, string? knownVersion)
+        Action<string>? onProgress, CancellationToken ct, string? knownVersion,
+        StageFinalizer finalizer)
     {
         try
         {
@@ -1011,7 +1028,8 @@ public sealed class StagingService
                 : def.Vendor;
 
             onProgress?.Invoke("Generating install/uninstall wrappers...");
-            _wrapperService.GenerateBootstrapperLayoutWrappers(contentPath, layout);
+            finalizer.PrepareStageRoot(contentPath);
+            finalizer.Wrappers(_wrapperService).GenerateBootstrapperLayoutWrappers(contentPath, layout);
 
             var detection = BuildDetection(def, msiProps.ProductCode, msiProps.ProductVersion, msiProps.ProductVersion);
 
@@ -1034,7 +1052,7 @@ public sealed class StagingService
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
-            _manifestService.Write(manifestPath, manifest);
+            finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
             onProgress?.Invoke($"Stage complete: {contentPath}");
 
@@ -1192,7 +1210,7 @@ public sealed class StagingService
     private async Task<StagingResult> StageOdtAsync(
         AppDefinition def, string downloadRoot,
         Action<string>? onProgress, CancellationToken ct, string? knownVersion,
-        Dictionary<string, string>? settingsValues = null)
+        Dictionary<string, string>? settingsValues, StageFinalizer finalizer)
     {
         try
         {
@@ -1299,9 +1317,10 @@ public sealed class StagingService
                 "$proc = Start-Process -FilePath $setupPath -ArgumentList @('/configure', $configPath) -Wait -PassThru -NoNewWindow -WorkingDirectory $PSScriptRoot",
                 "if (-not $proc) { exit 1 }",
                 "exit $proc.ExitCode");
-            var installBat = "@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0install.ps1\"\r\nexit /b %ERRORLEVEL%";
-            var uninstallBat = "@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0uninstall.ps1\"\r\nexit /b %ERRORLEVEL%";
+            var installBat = finalizer.OdtLauncher("install.ps1");
+            var uninstallBat = finalizer.OdtLauncher("uninstall.ps1");
 
+            finalizer.PrepareStageRoot(contentPath);
             await File.WriteAllTextAsync(Path.Combine(contentPath, "install.ps1"), installPs1, System.Text.Encoding.ASCII, ct);
             await File.WriteAllTextAsync(Path.Combine(contentPath, "uninstall.ps1"), uninstallPs1, System.Text.Encoding.ASCII, ct);
             await File.WriteAllTextAsync(Path.Combine(contentPath, "install.bat"), installBat, System.Text.Encoding.ASCII, ct);
@@ -1327,7 +1346,7 @@ public sealed class StagingService
                 Detection = detection
             };
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
-            _manifestService.Write(manifestPath, manifest);
+            finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
             onProgress?.Invoke($"Stage complete: {contentPath}");
@@ -2004,10 +2023,13 @@ public sealed class StagingService
     public Task<StagingResult> StageDroppedInstallerAsync(
         StageManifest manifest, string sourceInstallerPath, string downloadRoot,
         Action<string>? onProgress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        StageInputs? inputs = null)
     {
         try
         {
+            var finalizer = StageFinalizer.Begin(inputs);
+            downloadRoot = finalizer.ScopeDownloadRoot(downloadRoot);
             if (!File.Exists(sourceInstallerPath))
                 return Task.FromResult(new StagingResult { Success = false, ErrorMessage = $"Installer not found: {sourceInstallerPath}" });
 
@@ -2041,8 +2063,10 @@ public sealed class StagingService
             onProgress?.Invoke($"Staged installer: {stagedInstaller}");
 
             onProgress?.Invoke("Generating install/uninstall wrappers...");
+            finalizer.PrepareStageRoot(contentPath);
+            var wrappers = finalizer.Wrappers(_wrapperService);
             if (manifest.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
-                _wrapperService.GenerateMsiWrappers(contentPath, manifest.InstallerFile, null, manifest.InstallArgs);
+                wrappers.GenerateMsiWrappers(contentPath, manifest.InstallerFile, null, manifest.InstallArgs);
             else
             {
                 var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(manifest.Detection);
@@ -2050,13 +2074,13 @@ public sealed class StagingService
                     ? null
                     : WrapperGeneratorService.UninstallExpressionFromCommandLine(manifest.UninstallCommand);
                 if (uninstallExpression == "") uninstallExpression = null;
-                _wrapperService.GenerateExeWrappers(contentPath, manifest.InstallerFile,
+                wrappers.GenerateExeWrappers(contentPath, manifest.InstallerFile,
                     manifest.InstallArgs, manifest.UninstallArgs, manifest.DetectedEngine, manifest.AppName, uninstallExpression,
                     null, arpKeyName, installFolder);
             }
 
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
-            _manifestService.Write(manifestPath, manifest);
+            finalizer.FinalizeAndWrite(_manifestService, manifestPath, manifest, onProgress);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
 
             return Task.FromResult(new StagingResult

@@ -37,6 +37,7 @@ public class SettingsService
             settings.Cwa = null;
             settings.LocalSourceFolders ??= [];
             settings.SideFiles ??= [];
+            settings.ScriptSigning = ApplicationPackagerEngine.Models.Signing.SigningPolicy.FromSettings(settings.ScriptSigning);
             return settings;
         }
         catch

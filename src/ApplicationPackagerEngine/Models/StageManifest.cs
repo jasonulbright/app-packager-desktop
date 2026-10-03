@@ -57,6 +57,35 @@ public sealed class StageManifest
     /// <summary>ConfigMgr deployment-type post-installation behavior; absent leaves the cmdlet default.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PostExecutionBehavior { get; set; }
+    /// <summary>
+    /// Requirement rules of the single deployment type, keyed by RuleId (or ConditionId).
+    /// A DeploymentTypes manifest carries its rules per entry instead.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public StageRequirement[]? Requirements { get; set; }
+    /// <summary>ConfigMgr InstallationBehaviorType; absent derives it from InstallContext.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InstallationBehaviorType { get; set; }
+    /// <summary>ConfigMgr LogonRequirementType; absent is WhetherOrNotUserLoggedOn for a system install.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LogonRequirementType { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? RequireUserInteraction { get; set; }
+    /// <summary>The content-relative entry file the Intune package runs; absent is install.bat.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SetupFile { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonNode? InstallReturnCodes { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonNode? InstallRebootPolicy { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonNode? InstallWorkingDirectory { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonNode? UninstallReturnCodes { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonNode? UninstallRebootPolicy { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonNode? UninstallWorkingDirectory { get; set; }
 
     // Schema v4. Every field below carries its default on an unprofiled build, so a
     // reader never has to tell "unprofiled" apart from "written before v4".
@@ -71,14 +100,14 @@ public sealed class StageManifest
     public StageExecution Execution { get; set; } = new();
     /// <summary>Default, or Custom when a profile replaced the detection.</summary>
     public string DetectionSource { get; set; } = "Default";
-    /// <summary>Files a profile placed into the stage (icon, source files).</summary>
+    /// <summary>Files a profile placed into the stage (icon, scripts, hooks, source files).</summary>
     public StageCustomAsset[] CustomAssets { get; set; } = [];
     /// <summary>The run-level overrides this build used; they never reach the profile.</summary>
     public JsonObject RunOverrides { get; set; } = [];
     /// <summary>IncludeVersion or NoVersion when a profile chose one; absent otherwise.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TitleMode { get; set; }
-    /// <summary>The signing outcome as the signing service records it; absent when nothing signed.</summary>
+    /// <summary>The signing outcome as the signing service records it; every stage writes it, absent on older manifests.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonNode? ScriptSigning { get; set; }
     /// <summary>SHA-256 over the canonical plan; see <c>StageManifestPlanDigest</c>.</summary>
@@ -109,7 +138,7 @@ public sealed class StageExecution
 /// <summary>One file a profile placed into the stage (schema v4).</summary>
 public sealed class StageCustomAsset
 {
-    /// <summary>Icon or SourceFile.</summary>
+    /// <summary>Icon, SourceFile, Install, Uninstall, a hook (InstallBefore, ...) or an orchestrator (InstallOrchestrator, ...).</summary>
     public string Category { get; set; } = "";
     public string RelativePath { get; set; } = "";
     public string? Asset { get; set; }
@@ -158,11 +187,18 @@ public sealed class StageDeploymentType
     public string? UninstallCommandLine { get; set; }
     public StageDetection? Detection { get; set; }
     public StageRequirement[]? Requirements { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InstallationBehaviorType { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LogonRequirementType { get; set; }
 }
 
 /// <summary>A requirement rule spec keyed to a condition template id.</summary>
 public sealed class StageRequirement
 {
+    /// <summary>The identity requirement operations match on; absent matches by ConditionId.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RuleId { get; set; }
     public string ConditionId { get; set; } = "";
     public object? Value { get; set; }
     public string[]? Cultures { get; set; }
@@ -210,4 +246,11 @@ public sealed class StageDetection
     /// Only meaningful when Type is Compound; overrides Connector.
     /// </summary>
     public int[]? GroupSizes { get; set; }
+    /// <summary>
+    /// The profile's choice for a prefix, suffix or substring registry operator at
+    /// Intune publish: true converts it to a script rule, false refuses the publish.
+    /// Absent, as on every manifest staged before the field existed, converts.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IntuneScriptConversion { get; set; }
 }

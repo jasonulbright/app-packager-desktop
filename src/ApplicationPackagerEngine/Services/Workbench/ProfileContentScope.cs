@@ -57,6 +57,36 @@ public sealed partial record ProfileContentScope(string ProfileId, string Name, 
         return new ProfileContentScope(profileId, name, suffix);
     }
 
+    /// <summary>
+    /// The scope a staged build was finalized under, read from the build's own run
+    /// snapshot (runs\&lt;BuildId&gt;.json) so the network folder matches the profile
+    /// name at stage time. A build without a profile is the default scope; a
+    /// snapshot that is gone falls back to the profile id.
+    /// </summary>
+    public static ProfileContentScope ForManifest(Models.StageManifest manifest, string? dataRoot = null)
+    {
+        if (string.IsNullOrWhiteSpace(manifest.BuildId) || ApplicationIds.IsDefaultProfile(manifest.ProfileId)) return Default;
+        if (ApplicationIds.IsPlainFolderName(manifest.BuildId))
+        {
+            var root = string.IsNullOrWhiteSpace(dataRoot) ? WorkbenchPaths.ResolveDataRoot(create: false) : dataRoot;
+            var path = Path.Combine(root, "runs", manifest.BuildId + ".json");
+            if (File.Exists(path))
+            {
+                var scope = FromSnapshot(path);
+                if (string.Equals(scope.ProfileId, manifest.ProfileId, StringComparison.OrdinalIgnoreCase)) return scope;
+            }
+        }
+        return FromValues(manifest.ProfileId, null);
+    }
+
+    /// <summary>
+    /// The local staging root for a profile: &lt;root&gt;\profiles\&lt;ProfileId&gt;, or the
+    /// root unchanged for the default profile. Network folders take the version
+    /// suffix instead (see <see cref="ScopedVersionFolder(string)"/>).
+    /// </summary>
+    public static string LocalDownloadRoot(string downloadRoot, string? profileId) =>
+        WorkbenchPaths.GetProfileDownloadRoot(downloadRoot, profileId);
+
     /// <summary>The version folder name for a suffix: the version alone, or &lt;version&gt;-&lt;suffix&gt;.</summary>
     public static string ScopedVersionFolder(string version, string? suffix) =>
         string.IsNullOrWhiteSpace(suffix) ? version : $"{version}-{suffix}";

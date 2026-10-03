@@ -87,6 +87,12 @@ public sealed class AppSettings
     // Intune / deployment target
     public IntuneSettings Intune { get; set; } = new();
 
+    /// <summary>
+    /// The global script-signing policy, every switch off by default. A run
+    /// snapshot's own policy takes its place for that build.
+    /// </summary>
+    public ApplicationPackagerEngine.Models.Signing.SigningPolicy ScriptSigning { get; set; } = new();
+
     // Per-app deployment conditions and command overrides (definition Id → entry)
     public Dictionary<string, DeploymentConditionEntry> DeploymentConditions { get; set; } = [];
     public Dictionary<string, CommandOverrideEntry> CommandOverrides { get; set; } = [];

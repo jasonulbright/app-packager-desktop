@@ -212,6 +212,63 @@ public static class ScriptSigningOrchestrator
     }
 
     /// <summary>
+    /// The ScriptSigning record of a stage under a policy with every Sign and
+    /// Require switch off. Nothing under the stage root is written or removed:
+    /// detection and requirement scripts are recorded from their text as
+    /// NotRequested with no file, so the script detection keeps its text
+    /// transport, and the deployment scripts are hashed in place.
+    /// </summary>
+    public static ScriptSigningRecord DescribeStage(string stageRoot, ScriptSigningInput input, SigningPolicy policy,
+        ScriptSigningService? signer = null)
+    {
+        var normalized = SigningPolicy.Normalize(policy);
+        if (normalized.AnySign || normalized.RequireDetection || normalized.RequireRequirements || normalized.RequireDeployment)
+            throw new InvalidOperationException("A policy with a Sign or Require switch on signs the stage; it cannot be recorded without signing.");
+        signer ??= new ScriptSigningService();
+        var utf8NoBom = new UTF8Encoding(false);
+        var record = new ScriptSigningRecord { PolicyDigest = normalized.PolicyDigest };
+
+        var detection = input.Detection;
+        if (detection is not null && !string.IsNullOrWhiteSpace(detection.ScriptText) && IsPowerShell(detection.ScriptLanguage))
+        {
+            record.Detection = new DetectionSigningRecord
+            {
+                Status = SigningStatus.NotRequested,
+                Sha256 = ScriptSignatureVerifier.Sha256Hex(utf8NoBom.GetBytes(detection.ScriptText!))
+            };
+        }
+
+        var requirements = RequirementScripts(input.Requirements);
+        if (requirements.Count > 0)
+        {
+            var items = requirements.Select(r => new RequirementSigningItem
+            {
+                RuleId = r.RuleId,
+                Sha256 = ScriptSignatureVerifier.Sha256Hex(utf8NoBom.GetBytes(r.ScriptText)),
+                Status = SigningStatus.NotRequested
+            }).ToArray();
+            record.Requirements = new RequirementsSigningRecord { Items = items, Status = SigningStatus.Aggregate(items.Select(i => i.Status)) };
+        }
+
+        var (owned, thirdParty) = DeploymentInventory(stageRoot, input.ThirdPartyScripts);
+        if (owned.Count > 0 || thirdParty.Count > 0)
+        {
+            var files = owned.Select(f => DeploymentEntry(signer.SignForCategory(f.FullName, normalized, SigningCategory.Deployment),
+                    f.RelativePath, DeploymentSigningFile.OwnerAppPackager))
+                .Concat(thirdParty.Select(f => DeploymentEntry(
+                    signer.SignForCategory(f.FullName, normalized, SigningCategory.Deployment, preserveExisting: true),
+                    f.RelativePath, DeploymentSigningFile.OwnerThirdParty)))
+                .ToArray();
+            record.Deployment.Files = files;
+            record.Deployment.Status = SigningStatus.Aggregate(files.Select(f => f.Status));
+        }
+
+        record.Deployment.LaunchersBypassFree =
+            DeploymentLauncher.AuditChain(stageRoot, input.Commands, normalized, input.ThirdPartyScripts).BypassFree;
+        return record;
+    }
+
+    /// <summary>
     /// Every .ps1/.psm1 under the stage root except scripts\ (owned by the
     /// Detection and Requirements categories), split into AppPackager-owned
     /// files and third-party files (PSADT layouts and declared scripts).

@@ -1,6 +1,9 @@
 using System.IO;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Signing;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Signing;
+using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
@@ -24,7 +27,8 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         string stagedContentPath,
         Action<string>? log = null,
         string description = "",
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        SigningPolicy? signingPolicy = null)
     {
         string intuneWinPath;
         try
@@ -35,7 +39,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
 
             var toolService = new IntuneWinToolService();
             var build = await toolService.BuildAsync(
-                toolPath, stagedContentPath, SetupFile, outputFolder,
+                toolPath, stagedContentPath, SetupFileOf(manifest), outputFolder,
                 OutputName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
 
             intuneWinPath = build.IntuneWinPath;
@@ -56,7 +60,9 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         IntunePublishOptions? options;
         try
         {
-            options = BuildOptions(settingsService.Load().Intune, manifest, description);
+            var settings = settingsService.Load();
+            options = BuildOptions(settings.Intune, manifest, description);
+            signingPolicy ??= settings.ScriptSigning;
         }
         catch (OperationCanceledException)
         {
@@ -77,7 +83,9 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         try
         {
             using var publisher = new IntunePublishService();
-            var appId = await publisher.PublishAsync(intuneWinPath, manifest, options, log, ct).ConfigureAwait(false);
+            var appId = await publisher.PublishAsync(intuneWinPath, manifest, options, log, ct,
+                IntuneScriptRuleContext.FromManifest(manifest, signingPolicy, stagedContentPath)).ConfigureAwait(false);
+            PublicationRecords.TryAppend(manifest, PublicationRecords.Intune, PublicationRecords.Succeeded, appId, options.TenantId, onLog: log);
             return IntuneRunOutcome.Published(winNote, $"published (app id {appId})");
         }
         catch (OperationCanceledException)
@@ -86,6 +94,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         }
         catch (Exception ex)
         {
+            PublicationRecords.TryAppend(manifest, PublicationRecords.Intune, PublicationRecords.Failed, null, options.TenantId, ex.Message, log);
             return IntuneRunOutcome.PublishFailed(winNote, $"publish failed: {ex.Message}");
         }
     }
@@ -109,7 +118,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
                 ?? throw new InvalidOperationException($"Staged content folder has no parent: {stagedContentPath}");
 
             var build = await new IntuneWinToolService().BuildAsync(
-                toolPath, stagedContentPath, SetupFile, outputFolder,
+                toolPath, stagedContentPath, SetupFileOf(manifest), outputFolder,
                 OutputName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
 
             var networkParent = Path.GetDirectoryName(networkContentPath.TrimEnd(Path.DirectorySeparatorChar));
@@ -185,6 +194,10 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         var service = new IntuneWinToolService();
         return await service.InstallAsync(ToolFolder, onProgress: log, ct: ct).ConfigureAwait(false);
     }
+
+    /// <summary>The entry file the content prep tool records: the manifest's resolved setup file, else install.bat.</summary>
+    private static string SetupFileOf(StageManifest manifest) =>
+        string.IsNullOrWhiteSpace(manifest.SetupFile) ? SetupFile : manifest.SetupFile;
 
     private static string OutputName(StageManifest manifest)
     {

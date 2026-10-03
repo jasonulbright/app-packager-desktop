@@ -43,6 +43,40 @@ public sealed class SigningPolicy
     [JsonIgnore]
     public bool AnySign => SignDetection || SignRequirements || SignDeployment;
 
+    [JsonIgnore]
+    public bool AnySwitch => AnySign || RequireDetection || RequireRequirements || RequireDeployment;
+
+    /// <summary>
+    /// The policy a settings file stores, made safe to adopt: a missing policy is
+    /// all off, a thumbprint that is not exactly 40 hex characters is dropped rather
+    /// than adopted, an unknown store location is CurrentUser, the timestamp URL is
+    /// trimmed and a blank hash algorithm is SHA256.
+    /// </summary>
+    public static SigningPolicy FromSettings(SigningPolicy? stored)
+    {
+        if (stored is null) return new SigningPolicy();
+        var thumbprint = (stored.CertificateThumbprint ?? "").Trim();
+        var store = (stored.StoreLocation ?? "") switch
+        {
+            var s when s.Equals(LocalMachine, StringComparison.OrdinalIgnoreCase) => LocalMachine,
+            _ => CurrentUser
+        };
+        return new SigningPolicy
+        {
+            SignDetection = stored.SignDetection,
+            SignRequirements = stored.SignRequirements,
+            SignDeployment = stored.SignDeployment,
+            RequireDetection = stored.RequireDetection,
+            RequireRequirements = stored.RequireRequirements,
+            RequireDeployment = stored.RequireDeployment,
+            CertificateThumbprint = Regex.IsMatch(thumbprint, "^[0-9A-Fa-f]{40}$") ? thumbprint.ToUpperInvariant() : "",
+            StoreLocation = store,
+            TimestampServer = (stored.TimestampServer ?? "").Trim(),
+            TimestampRequired = stored.TimestampRequired,
+            HashAlgorithm = string.IsNullOrWhiteSpace(stored.HashAlgorithm) ? "SHA256" : stored.HashAlgorithm.Trim().ToUpperInvariant()
+        };
+    }
+
     public bool Sign(SigningCategory category) => category switch
     {
         SigningCategory.Detection => SignDetection,
