@@ -353,7 +353,7 @@ public sealed class StagingService
             else
             {
                 (downloadUrl, installerFileName, installerPath) =
-                    await AcquireDownloadAsync(def, contentPath, version, rawVersion, onProgress, ct);
+                    await AcquireDownloadAsync(def, contentPath, version, rawVersion, onProgress, ct, downloadRoot);
             }
 
             // 4. If downloaded file is a ZIP, extract and find the real installer inside.
@@ -540,6 +540,11 @@ public sealed class StagingService
                 detection = applied.Detection;
                 installContext = applied.InstallContext;
             }
+            else if (msixPackage is null && def.ZipPayload is null)
+            {
+                // A mode-applied detection already comes from the installer's own branch.
+                ArpDetectionKeyAssertion.CheckStage(detection, def.Detection, installerPath, installArgs, onProgress);
+            }
 
             onProgress?.Invoke("Generating install/uninstall wrappers...");
             finalizer.PrepareStageRoot(contentPath);
@@ -678,7 +683,7 @@ public sealed class StagingService
     /// </summary>
     private async Task<(string DownloadUrl, string InstallerFileName, string InstallerPath)> AcquireDownloadAsync(
         AppDefinition def, string contentPath, string version, string rawVersion,
-        Action<string>? onProgress, CancellationToken ct)
+        Action<string>? onProgress, CancellationToken ct, string? downloadRoot = null)
     {
         string downloadUrl;
         if (!string.IsNullOrEmpty(def.VersionScraper.DownloadUrlQuery))
@@ -699,6 +704,7 @@ public sealed class StagingService
         var installerPath = Path.Combine(contentPath, installerFileName);
         var headers = def.VersionScraper.RequestHeaders;
         var magicType = MagicTypeFor(installerPath, def.InstallerType);
+        var sharedCacheRoot = SharedCacheRootFor(def, downloadRoot, onProgress);
 
         if (!File.Exists(installerPath))
         {
@@ -713,6 +719,11 @@ public sealed class StagingService
             {
                 File.Copy(cachedPath, installerPath);
                 onProgress?.Invoke($"Copied from version cache: {installerFileName}");
+            }
+            else if (sharedCacheRoot is not null)
+            {
+                await SharedDownloadCache.FetchAsync(_downloadService, downloadUrl, installerPath, sharedCacheRoot, headers, onProgress, ct);
+                ValidateInstallerMagic(installerPath, magicType);
             }
             else
             {
@@ -748,6 +759,11 @@ public sealed class StagingService
             // One fresh download separates that from a vendor-side change.
             onProgress?.Invoke($"Payload SHA256 mismatch; discarding the cached file and downloading once more: {installerFileName}");
             File.Delete(installerPath);
+            if (sharedCacheRoot is not null)
+            {
+                var cached = Path.Combine(sharedCacheRoot, SharedDownloadCache.Key(downloadUrl, installerFileName));
+                if (File.Exists(cached)) File.Delete(cached);
+            }
             await _downloadService.DownloadAsync(downloadUrl, installerPath,
                 onProgress: onProgress, ct: ct, headers: headers);
             ValidateInstallerMagic(installerPath, magicType);
@@ -758,6 +774,30 @@ public sealed class StagingService
             AuthenticodeVerifier.RequireValid(installerPath, onProgress);
 
         return (downloadUrl, installerFileName, installerPath);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex VersionToken =
+        new(@"\{[A-Za-z_]*version[A-Za-z_]*\}", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// True for a definition whose download URL serves the current release under one
+    /// fixed name: no version token in the URL and no URL read from the version source.
+    /// </summary>
+    public static bool IsFixedNameDownload(AppDefinition def) =>
+        !string.IsNullOrWhiteSpace(def.DownloadUrl)
+        && string.IsNullOrEmpty(def.VersionScraper.DownloadUrlQuery)
+        && !VersionToken.IsMatch(def.DownloadUrl);
+
+    /// <summary>The shared cache folder for a fixed-name download, or null when the stage has no download root or the folder cannot be created.</summary>
+    private static string? SharedCacheRootFor(AppDefinition def, string? downloadRoot, Action<string>? onProgress)
+    {
+        if (string.IsNullOrWhiteSpace(downloadRoot) || !IsFixedNameDownload(def)) return null;
+        try { return Workbench.WorkbenchPaths.GetSharedDownloadCacheRoot(downloadRoot); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            onProgress?.Invoke($"Shared download cache unavailable; caching per download root: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>

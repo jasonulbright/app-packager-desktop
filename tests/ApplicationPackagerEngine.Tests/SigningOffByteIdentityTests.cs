@@ -96,6 +96,19 @@ public sealed class SigningOffByteIdentityTests
 
     private static string Sha(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
 
+    /// <summary>
+    /// The recorded hashes and fixtures cover the script without this argument, which every
+    /// script deployment type carries when the manifest names no post-execution behavior.
+    /// </summary>
+    private const string DefaultReboot = " -RebootBehavior BasedOnExitCode";
+
+    /// <summary>The script with the default reboot argument removed, after checking it appears once per deployment type.</summary>
+    private static string WithoutDefaultReboot(string script, int deploymentTypes = 1)
+    {
+        Assert.Equal(deploymentTypes, script.Split(DefaultReboot).Length - 1);
+        return script.Replace(DefaultReboot, "");
+    }
+
     private static readonly MecmScriptSigningContext AllOff = new()
     {
         Policy = new SigningPolicy(),
@@ -107,24 +120,24 @@ public sealed class SigningOffByteIdentityTests
     [InlineData(true)]
     public void RegistryDetection_MecmScriptIsUnchanged(bool withContext) =>
         Assert.Equal("96464723E11F3DFEFE0A9D0058642D4D0630A90CBE9A9D946AAB5333E9A0C8E5",
-            Sha(Build(Registry(), signing: withContext ? AllOff : null)));
+            Sha(WithoutDefaultReboot(Build(Registry(), signing: withContext ? AllOff : null))));
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void FileDetectionWithWqlAndBuiltInRequirements_MecmScriptIsUnchanged(bool withContext) =>
         Assert.Equal("3999D9B1C166371F2609A76338CC1CF7C3E290A40AB2A73AA84F139A49698BC0",
-            Sha(Build(FileVersionUserInstall(),
+            Sha(WithoutDefaultReboot(Build(FileVersionUserInstall(),
                 [new StageRequirement { ConditionId = "cpu-arch", Value = "x64" },
                  new StageRequirement { ConditionId = "os-language", Cultures = ["de-DE"] }],
-                OnExistingBehavior.Overwrite, "cm01.contoso.com", withContext ? AllOff : null)));
+                OnExistingBehavior.Overwrite, "cm01.contoso.com", withContext ? AllOff : null))));
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void CompoundMultiDeploymentType_MecmScriptIsUnchanged(bool withContext) =>
         Assert.Equal("A138D703D27A23C7D6C8D43D15005C5068D043CD0B469D8BB274AA8212FFBDAA",
-            Sha(Build(CompoundMultiDt(), signing: withContext ? AllOff : null)));
+            Sha(WithoutDefaultReboot(Build(CompoundMultiDt(), signing: withContext ? AllOff : null), deploymentTypes: 2)));
 
     /// <summary>A checkout can rewrite the fixture's line endings; the generated script always uses CRLF.</summary>
     private static string Fixture(string name) =>
@@ -147,7 +160,7 @@ public sealed class SigningOffByteIdentityTests
     [Fact]
     public void UnsignedScriptDetection_KeepsTodaysLinesAndAddsOnlyTheReadBack()
     {
-        AssertKeepsEveryLineInOrder("mecm-unsigned-script-detection.ps1.bin", Build(ScriptDetection()), out var added);
+        AssertKeepsEveryLineInOrder("mecm-unsigned-script-detection.ps1.bin", WithoutDefaultReboot(Build(ScriptDetection())), out var added);
 
         Assert.Contains("$detectTransport0 = [pscustomobject]@{ Transport = 'Text'; Path = ''; TempPath = ''; Text = $detectScript0; Bytes = [System.Text.Encoding]::UTF8.GetBytes($detectScript0); Signed = $false }", added);
         Assert.Contains("Test-ApkgStoredDetectionScript -ApplicationName 'App' -DeploymentTypeName $dtCreateName0 -Transport $detectTransport0 -ExpectedThumbprint '' -RequireDetection $false", added);
@@ -158,7 +171,7 @@ public sealed class SigningOffByteIdentityTests
     [Fact]
     public void UnsignedScriptCondition_KeepsTodaysLinesAndResolvesThroughTheVersionedResolver()
     {
-        var current = Build(Registry(), [new StageRequirement { ConditionId = "vpn-connected", Value = true }]);
+        var current = WithoutDefaultReboot(Build(Registry(), [new StageRequirement { ConditionId = "vpn-connected", Value = true }]));
         var before = Fixture("mecm-unsigned-vpn-condition.ps1.bin");
 
         // The body still travels inline, now with its content hash.

@@ -110,7 +110,7 @@ public class PackagerExecutionService(
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildStageArgs(packager, settings, bridge?.DownloadRoot);
-        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, bridge?.Environment);
+        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
     }
 
     /// <summary>
@@ -182,7 +182,8 @@ public class PackagerExecutionService(
             var commandOverrides = ApplicationPackagerEngine.Services.DeploymentTypeSpecResolver
                 .ResolveCommandOverrides(manifest, profiled ? null : deploymentConditionsService.GetCommandOverrides(def.Id));
             var applicationTitle = ApplicationTitle.Resolve(
-                manifest.AppName, manifest.SoftwareVersion, ApplicationTitle.Parse(manifest.TitleMode ?? conditions?.TitleMode));
+                manifest.AppName, manifest.SoftwareVersion,
+                ApplicationTitle.ResolveMode(manifest.TitleMode, conditions?.TitleMode, settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle));
             var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
             if (applicationTitle != manifest.AppName)
                 Report($"Application title            : {applicationTitle}");
@@ -207,7 +208,8 @@ public class PackagerExecutionService(
                     contentLayout: settings.ContentLayout,
                     applicationTitle: applicationTitle,
                     scriptSigning: MecmScriptSigningContext.FromManifest(manifest, signingPolicy),
-                    contentScope: ProfileContentScope.ForManifest(manifest));
+                    contentScope: ProfileContentScope.ForManifest(manifest),
+                    contentOptions: ContentOptions(settings, Report));
 
                 mecmSucceeded = result.Success;
                 mecmAlreadyExists = result.AlreadyExists;
@@ -219,7 +221,7 @@ public class PackagerExecutionService(
             }
             else
             {
-                Report("Intune only: skipping MECM application, site connection, and share copy.");
+                Report("Intune only: skipping ConfigMgr application, site connection, and share copy.");
                 stdOut = $"Staged content ready: {stagedContentPath}";
             }
 
@@ -232,7 +234,7 @@ public class PackagerExecutionService(
                 // content location has already run.
                 manifest.AppName = applicationTitle;
                 notes = await intuneDeploymentService.BuildAndPublishAsync(
-                    manifest, stagedContentPath, Report, comment, ct, signingPolicy);
+                    manifest, stagedContentPath, Report, comment, ct, signingPolicy, requirements);
             }
 
             var outcome = PackagingOutcomeComposer.Compose(
@@ -260,16 +262,16 @@ public class PackagerExecutionService(
             {
                 ExitCode = 1,
                 StdErr = "Deployment target is Intune only, and Intune publishing applies to JSON-defined apps. This PS1 packager was not run.",
-                IntunePublishNote = "skipped; PS1 packagers publish to MECM only."
+                IntunePublishNote = "skipped; PS1 packagers publish to ConfigMgr only."
             };
         }
         if (DeploymentTargets.PublishesToIntune(target))
-            onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the MECM flow only.");
+            onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the ConfigMgr flow only.");
 
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildPackageArgs(packager, settings, comment, bridge?.DownloadRoot);
-        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, bridge?.Environment);
+        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
     }
 
     /// <summary>
@@ -285,11 +287,13 @@ public class PackagerExecutionService(
         try
         {
             if (snapshot is not null)
-                return PackagerChildBridge.FromSnapshot(WorkbenchStore.Open(snapshot.DataRoot), snapshot, settings.DownloadRoot);
+                return PackagerChildBridge.FromSnapshot(WorkbenchStore.Open(snapshot.DataRoot), snapshot, settings.DownloadRoot,
+                    settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle);
             return PackagerChildBridge.Prepare(
                 WorkbenchStore.Open(), packager.FullPath, settings.DownloadRoot,
                 DeploymentTargets.Normalize(settings.Intune.DeploymentTarget),
-                JsonSerializer.SerializeToNode(settings.ScriptSigning), new ScriptSigningCertificateGate());
+                JsonSerializer.SerializeToNode(settings.ScriptSigning), new ScriptSigningCertificateGate(),
+                settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle);
         }
         catch (Exception ex) when (ex.Message.Contains("SigningCertificateUnavailable", StringComparison.Ordinal)
                                    || ex.Message == NoSigningServiceGate.NotLoadedMessage)
@@ -305,6 +309,121 @@ public class PackagerExecutionService(
                 System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
             return null;
         }
+    }
+
+    /// <summary>
+    /// The Intune compatibility findings for the stage a Package run would publish, with
+    /// the operator's variant split and requirement selections applied as the run applies
+    /// them. Null when the row has no readable staged manifest.
+    /// </summary>
+    public IReadOnlyList<IntuneCompatibilityFinding>? ReviewIntuneCompatibility(PackagerInfo packager)
+    {
+        try
+        {
+            string? manifestPath = packager.StagedManifestPath;
+            AppDefinition? def = null;
+            if (manifestPath is null && packager.IsJsonDefined && packager.DefinitionPath is not null)
+            {
+                def = LoadDefinition(packager.DefinitionPath);
+                var settings = settingsService.Load();
+                var appRoot = Path.Combine(settings.DownloadRoot, $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+                manifestPath = Path.Combine(appRoot, packager.LatestVersion ?? "", "stage-manifest.json");
+                if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
+                    manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
+            }
+            if (manifestPath is null || !File.Exists(manifestPath)) return null;
+
+            var manifest = new ManifestService().Read(manifestPath);
+            if (def is null || StageFinalizer.CarriesBuild(manifest))
+                return IntuneCompatibilityFindings.Build(manifest);
+            var conditions = deploymentConditionsService.GetConditions(def.Id);
+            DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, Path.GetDirectoryName(manifestPath)!);
+            return IntuneCompatibilityFindings.Build(manifest, DeploymentConditionsService.BuildRequirements(conditions));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The workbench identity a One Click build of the row is sealed under.</summary>
+    public sealed record OneClickBuildPlan(string DataRoot, string ApplicationId, string ProfileId, int ProfileRevision);
+
+    /// <summary>The row's application, active profile and its revision; null when the workbench cannot resolve them.</summary>
+    public OneClickBuildPlan? ResolveBuildPlan(PackagerInfo packager)
+    {
+        try
+        {
+            var applicationId = packager.IsJsonDefined && packager.DefinitionPath is not null
+                ? ApplicationIds.New(ApplicationOrigin.Catalog, name: LoadDefinition(packager.DefinitionPath).Id)
+                : ApplicationIds.New(ApplicationOrigin.Catalog, path: packager.FullPath);
+            if (!ApplicationIds.IsValid(applicationId)) return null;
+            var store = WorkbenchStore.Open();
+            var profileId = store.GetApplicationDefinition(applicationId).ActiveProfileId;
+            if (string.IsNullOrWhiteSpace(profileId)) profileId = ApplicationIds.DefaultProfileId;
+            return new OneClickBuildPlan(store.DataRoot, applicationId, profileId, store.GetProfile(applicationId, profileId).Revision);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                                   or ArgumentException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The run snapshot a One Click stage of a JSON definition builds from. The signing
+    /// certificate is resolved here, per application; a policy the certificate cannot meet
+    /// is returned as the refusal and nothing is staged. A PS1 packager gets its snapshot
+    /// from the child bridge, which refuses the same way.
+    /// </summary>
+    public RunSnapshot? CreateOneClickSnapshot(PackagerInfo packager, OneClickBuildPlan plan, out string? refusal)
+    {
+        refusal = null;
+        if (!packager.IsJsonDefined) return null;
+        var settings = settingsService.Load();
+        try
+        {
+            return WorkbenchStore.Open(plan.DataRoot).CreateRunSnapshot(new RunSnapshotRequest
+            {
+                ApplicationId = plan.ApplicationId,
+                ProfileId = plan.ProfileId,
+                Target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget),
+                SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
+                DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, plan.ProfileId)
+            }, new ScriptSigningCertificateGate());
+        }
+        catch (Exception ex) when (ex.Message.Contains("SigningCertificateUnavailable", StringComparison.Ordinal)
+                                   || ex.Message == NoSigningServiceGate.NotLoadedMessage)
+        {
+            refusal = ex.Message;
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                                   or ArgumentException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The deployment type content options the settings store, warnings to the run log.</summary>
+    public static DeploymentTypeContentOptions ContentOptions(AppSettings settings, Action<string>? onWarning = null) =>
+        DeploymentTypeContentOptions.Resolve(settings.ContentFallback, settings.SlowNetworkDeploymentMode, onWarning);
+
+    /// <summary>
+    /// The PS1 child environment: the workbench bridge when one was prepared, the
+    /// deployment type content options, and the global title mode when no profile set one.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ChildEnvironment(PackagerChildLaunch? bridge, AppSettings settings)
+    {
+        var environment = new Dictionary<string, string>(bridge?.Environment ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in ContentOptions(settings).EnvironmentValues)
+            environment[name] = value;
+        if (!environment.ContainsKey(PackagerChildBridge.TitleModeVariable))
+        {
+            var token = ApplicationTitle.DefaultModeToken(settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle);
+            if (token.Length > 0) environment[PackagerChildBridge.TitleModeVariable] = token;
+        }
+        return environment;
     }
 
     // ── Ad-hoc drop: manifest-direct packaging ───────────────────
@@ -355,7 +474,8 @@ public class PackagerExecutionService(
                 ct: ct,
                 contentLayout: settings.ContentLayout,
                 scriptSigning: MecmScriptSigningContext.FromManifest(manifest, signingPolicy),
-                contentScope: ProfileContentScope.ForManifest(manifest));
+                contentScope: ProfileContentScope.ForManifest(manifest),
+                contentOptions: ContentOptions(settings, Report));
 
             mecmSucceeded = result.Success;
             mecmAlreadyExists = result.AlreadyExists;
@@ -367,7 +487,7 @@ public class PackagerExecutionService(
         }
         else
         {
-            Report("Intune only: skipping MECM application, site connection, and share copy.");
+            Report("Intune only: skipping ConfigMgr application, site connection, and share copy.");
             stdOut = $"Staged content ready: {stagedContentPath}";
         }
 

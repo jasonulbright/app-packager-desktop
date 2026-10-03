@@ -43,6 +43,29 @@ public static partial class ApplicationTitle
         _ => TitleMode.Default
     };
 
+    /// <summary>
+    /// The title mode for one package run, most specific first: the profile's mode, the
+    /// per-application entry, the global IncludeVersionInTitle, the global
+    /// RemoveVersionFromTitle, then the packager default. A tier that stores no mode
+    /// passes the decision to the next one.
+    /// </summary>
+    public static TitleMode ResolveMode(string? profileMode, string? perApplicationMode,
+        bool includeVersionInTitle, bool removeVersionFromTitle)
+    {
+        foreach (var stored in new[] { profileMode, perApplicationMode })
+        {
+            var mode = Parse(Workbench.PackagerChildBridge.NormalizeTitleMode(stored?.Trim()));
+            if (mode != TitleMode.Default) return mode;
+        }
+        if (includeVersionInTitle) return TitleMode.IncludeVersion;
+        if (removeVersionFromTitle) return TitleMode.NoVersion;
+        return TitleMode.Default;
+    }
+
+    /// <summary>The global default mode token alone, for a run with no profile or per-application entry.</summary>
+    public static string DefaultModeToken(bool includeVersionInTitle, bool removeVersionFromTitle) =>
+        ToToken(ResolveMode(null, null, includeVersionInTitle, removeVersionFromTitle));
+
     /// <summary>Writes the stored token for a mode. Default stores nothing.</summary>
     public static string ToToken(TitleMode mode) => mode switch
     {
@@ -65,6 +88,10 @@ public static partial class ApplicationTitle
         if (!string.IsNullOrWhiteSpace(version))
         {
             var pattern = @"(?<![\w.])v?" + Regex.Escape(version) + @"(?![\w.])";
+            // Strip-then-append would move a version the name already carries to the
+            // end: "Audacity 3.7.9 (x64)" must not become "Audacity (x64) - 3.7.9".
+            if (mode == TitleMode.IncludeVersion && Regex.IsMatch(appName, pattern, RegexOptions.IgnoreCase))
+                return appName;
             baseName = Regex.Replace(baseName, pattern, "", RegexOptions.IgnoreCase);
         }
 

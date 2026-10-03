@@ -12,7 +12,7 @@ public class MecmQueryService(SettingsService settingsService)
     // Replicates Get-MecmCurrentVersionByCMName from start-apppackager.ps1. Run from a
     // file with the site code and name passed as parameters, so neither is ever spliced
     // into executable text.
-    private const string QueryScript = """
+    public const string QueryScript = """
         param($SiteCode, $CMName)
         if (-not (Get-Command -Name Get-CMApplication -ErrorAction SilentlyContinue)) {
             try {
@@ -28,13 +28,21 @@ public class MecmQueryService(SettingsService settingsService)
         try { Set-Location "${SiteCode}:" -ErrorAction Stop } catch {
             Write-Output 'ERROR:SITE_DRIVE_FAILED'; exit 4
         }
+        function Test-MecmApplicationTitle {
+            param([string]$CMName, [AllowEmptyString()][string]$Title)
+            if ([string]::IsNullOrEmpty($Title) -or -not $Title.StartsWith($CMName, [System.StringComparison]::OrdinalIgnoreCase)) { return $false }
+            $rest = $Title.Substring($CMName.Length)
+            $continuation = if ($CMName -match '\d$') { '(\.\d[\w.+-]*)?' } else { '' }
+            $detail = '\s+(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64)'
+            return ($rest -match ('^' + $continuation + '(' + $detail + ')*(\s+-\s+.*)?$'))
+        }
         try {
             $apps = @(Get-CMApplication -Name $CMName -ErrorAction Stop)
             if (-not $apps -or $apps.Count -eq 0) {
-                $apps = @(Get-CMApplication -Name "$CMName*" -ErrorAction Stop)
-            }
-            if (-not $apps -or $apps.Count -eq 0) {
-                $apps = @(Get-CMApplication -Name "*$CMName*" -ErrorAction Stop)
+                $apps = @(Get-CMApplication -Name "$CMName*" -ErrorAction Stop | Where-Object {
+                        $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
+                        Test-MecmApplicationTitle -CMName $CMName -Title $title
+                    })
             }
         } catch {
             Write-Output 'ERROR:QUERY_FAILED'; exit 5
@@ -47,10 +55,10 @@ public class MecmQueryService(SettingsService settingsService)
         else {
             $parsable = @(); $nonParsable = @()
             foreach ($a in $apps) {
-                try { $null = [version]$a.SoftwareVersion; $parsable += $a } catch { $nonParsable += $a }
+                try { $null = [version]([string]$a.SoftwareVersion -replace '^(\d+)$', '$1.0'); $parsable += $a } catch { $nonParsable += $a }
             }
             if ($parsable.Count -gt 0) {
-                $chosen = $parsable | Sort-Object { [version]$_.SoftwareVersion } -Descending | Select-Object -First 1
+                $chosen = $parsable | Sort-Object { [version]([string]$_.SoftwareVersion -replace '^(\d+)$', '$1.0') } -Descending | Select-Object -First 1
             } else {
                 $chosen = $nonParsable | Sort-Object Name -Descending | Select-Object -First 1
             }

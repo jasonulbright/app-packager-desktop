@@ -86,22 +86,22 @@ public sealed class AppDataPathsTests
     [Fact]
     public void TheSettingsRootVariable_MovesSettingsTemplatesAndTheDefaultWorkbenchRoot()
     {
-        var previous = Environment.GetEnvironmentVariable(AppDataPaths.RootVariable);
+        var previous = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
         var root = Path.Combine(Path.GetTempPath(), "ap-settings-root-" + Guid.NewGuid().ToString("N"));
         try
         {
-            Environment.SetEnvironmentVariable(AppDataPaths.RootVariable, root);
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, root);
 
             Assert.Equal(root, AppDataPaths.Root);
             Assert.Equal(Path.Combine(root, "Workbench"), WorkbenchPaths.DefaultDataRoot);
             Assert.Equal(Path.Combine(root, "condition-templates.json"), new ConditionTemplateService().TemplatesPath);
 
-            Environment.SetEnvironmentVariable(AppDataPaths.RootVariable, null);
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, null);
             Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager"), AppDataPaths.Root);
         }
         finally
         {
-            Environment.SetEnvironmentVariable(AppDataPaths.RootVariable, previous);
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, previous);
         }
     }
 }
