@@ -1,12 +1,19 @@
-# Packr
+# App Packager Desktop
 
-Packr packages third-party Windows applications and publishes them to ConfigMgr, Intune and WSUS. It is a Windows desktop application. It is free and MIT licensed.
+[![Release workflow](https://img.shields.io/github/actions/workflow/status/jasonulbright/app-packager-desktop/release.yml?label=release%20workflow)](https://github.com/jasonulbright/app-packager-desktop/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/jasonulbright/app-packager-desktop?label=release)](https://github.com/jasonulbright/app-packager-desktop/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/jasonulbright/app-packager-desktop/total?label=downloads)](https://github.com/jasonulbright/app-packager-desktop/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D4)](#requirements)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4)](#build-from-source)
+[![License](https://img.shields.io/github/license/jasonulbright/app-packager-desktop)](LICENSE)
+
+App Packager Desktop packages third-party Windows applications and publishes them to ConfigMgr, Intune and WSUS. It is a Windows desktop application. It is free and MIT licensed.
 
 ![The Packages page](docs/images/packages.png)
 
 ## What it does
 
-For each application in its catalog, Packr does these steps:
+For each application in its catalog, App Packager Desktop does these steps:
 
 1. It reads the current version from the vendor.
 2. It downloads the installer of that version.
@@ -22,7 +29,7 @@ The catalog has 319 application definitions. A definition is one JSON file. You 
 - Windows PowerShell 5.1.
 - For ConfigMgr: the Configuration Manager console on this computer and an account with rights to create applications.
 - For WSUS: the WSUS console or the RSAT WSUS tools on this computer, at the version of the server, and an account in the WSUS Administrators group.
-- For Intune: an app registration with a client secret. Packr downloads the Microsoft Win32 Content Prep Tool when it is necessary.
+- For Intune: an app registration with a client secret. App Packager Desktop downloads the Microsoft Win32 Content Prep Tool when it is necessary.
 - 7-Zip, for applications whose installer is an archive.
 
 The release is self-contained. A separate .NET runtime is not necessary.
@@ -59,17 +66,17 @@ The Workbench is the editor for one application. A definition supplies the defau
 
 ## Bring your own installer
 
-Drop an installer on the Packages page. Packr analyses it and shows the installer type, the silent arguments and a detection rule. **Save as Application** keeps it as an application with numbered installer revisions.
+Drop an installer on the Packages page. App Packager Desktop analyses it and shows the installer type, the silent arguments and a detection rule. **Save as Application** keeps it as an application with numbered installer revisions.
 
 ## Script signing
 
-**Settings**, **Script Signing** signs the scripts that a build generates: detection scripts, requirement scripts and deployment scripts. Each category has a Sign switch and a Require switch. With Sign, Packr signs the scripts when it can. With Require, Packr refuses a build or a publish when a script in that category has no valid signature. You select the certificate by thumbprint from the current user store or the local machine store. When deployment scripts are signed, the launchers run without an execution-policy argument, and the policy of the endpoint applies.
+**Settings**, **Script Signing** signs the scripts that a build generates: detection scripts, requirement scripts and deployment scripts. Each category has a Sign switch and a Require switch. With Sign, App Packager Desktop signs the scripts when it can. With Require, App Packager Desktop refuses a build or a publish when a script in that category has no valid signature. You select the certificate by thumbprint from the current user store or the local machine store. When deployment scripts are signed, the launchers run without an execution-policy argument, and the policy of the endpoint applies.
 
 ## WSUS publishing
 
 **Publish to WSUS** publishes the installer as a locally published update. The rules of the update come from the detection of the application: WSUS offers the update only to a computer that has an older version. **WSUS Updates** lists the published updates. It can approve, decline, expire and remove an update, and it can import an update from the Microsoft Update Catalog.
 
-Packr refuses an application that installs for the signed-in user, and an application whose install script does more than run the installer. The refusal gives a code and the reason.
+App Packager Desktop refuses an application that installs for the signed-in user, and an application whose install script does more than run the installer. The refusal gives a code and the reason.
 
 ## One Click
 
@@ -134,7 +141,7 @@ About one third of the definitions read `api.github.com`. Without a token, GitHu
 ## Data and network
 
 - Settings are in `%LOCALAPPDATA%\AppPackager`. Workbench profiles, builds and drafts are in `%LOCALAPPDATA%\AppPackager\Workbench`. The environment variable `APP_PACKAGER_DATA_ROOT` moves both.
-- Packr has no telemetry. It connects to vendor sites for version checks and downloads, to GitHub for the icon pack and for definitions that read GitHub releases, and to the systems that you set up.
+- App Packager Desktop has no telemetry. It connects to vendor sites for version checks and downloads, to GitHub for the icon pack and for definitions that read GitHub releases, and to the systems that you set up.
 - The Intune client secret is stored encrypted for the current Windows user.
 
 ## Validation
@@ -143,7 +150,7 @@ ConfigMgr packaging and deployment, WSUS publishing with a client update, and si
 
 ## Relationship to app-packager
 
-Packr is the C# counterpart of [app-packager](https://github.com/jasonulbright/app-packager), the PowerShell packager. A feature is released in app-packager first and is then ported to Packr. The two products are MIT licensed.
+App Packager Desktop is the C# counterpart of [app-packager](https://github.com/jasonulbright/app-packager), the PowerShell packager. A feature is released in app-packager first and is then ported to App Packager Desktop. The two products are MIT licensed.
 
 ## Build from source
 
