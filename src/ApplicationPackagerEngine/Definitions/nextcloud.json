@@ -4,7 +4,7 @@
     "IconSource":  "Installer",
   "Vendor": "Nextcloud GmbH",
   "Application": "Nextcloud Desktop Client (x64)",
-  "CMName": "Nextcloud",
+  "CMName": "Nextcloud Desktop Client",
   "Architecture": "x64",
   "VendorUrl": "https://nextcloud.com/",
   "InstallerType": "MSI",

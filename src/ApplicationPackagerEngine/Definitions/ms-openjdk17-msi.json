@@ -1,0 +1,37 @@
+{
+  "Schema": 1,
+  "Id": "91225127e59a53bf",
+  "IconSource": "Installer",
+  "Vendor": "Microsoft",
+  "Application": "Microsoft OpenJDK 17 (MSI)",
+  "CMName": "Microsoft OpenJDK 17 (MSI)",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/en-us/java/openjdk/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi",
+    "Pattern": "REDIR:(?i)/microsoft-jdk-(17(?:\\.\\d+){1,4})-windows-x64\\.msi(?:[?#].*)?$"
+  },
+  "DownloadUrl": "https://aka.ms/download-jdk/microsoft-jdk-{version}-windows-x64.msi",
+  "PayloadSha256Url": "{download_url}.sha256sum.txt",
+  "ExpandInstallArgs": true,
+  "InstallArgs": "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith INSTALLDIR=\"%ProgramW6432%\\Microsoft\\jdk-{ProductVersion}-hotspot\" /qn /norestart",
+  "UninstallArgs": "/qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{ProductVersion}",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "java",
+    "javaw"
+  ]
+}

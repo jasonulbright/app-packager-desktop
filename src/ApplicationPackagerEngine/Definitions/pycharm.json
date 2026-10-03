@@ -2,17 +2,18 @@
   "Schema": 1,
   "Id": "b1a2c3d4e5f60004",
   "Vendor": "JetBrains",
-  "Application": "PyCharm Community (x64)",
-  "CMName": "PyCharm Community",
+  "Application": "PyCharm (x64)",
+  "CMName": "PyCharm",
   "Architecture": "x64",
   "VendorUrl": "https://www.jetbrains.com/pycharm/",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},
   "VersionScraper": {
-    "Type": "HttpRegex",
-    "Url": "https://data.services.jetbrains.com/products/releases?code=PCC&latest=true&type=release",
-    "Pattern": "\"version\":\"(\\d+\\.\\d+(?:\\.\\d+)?)\""
+    "Type": "JsonQuery",
+    "Url": "https://data.services.jetbrains.com/products/releases?code=PCP&latest=true&type=release",
+    "Pattern": "PCP[0].version",
+    "DownloadUrlQuery": "PCP[0].downloads.windows.link"
   },
   "DownloadUrl": "https://download.jetbrains.com/python/pycharm-{version}.exe",
   "InstallArgs": "/S",

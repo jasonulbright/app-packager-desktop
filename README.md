@@ -18,7 +18,7 @@ Packr does that chore for you. For each application it knows about, it:
 4. Works out a detection rule — the check that tells MECM or Intune whether the app is present on a machine — by reading the installer itself.
 5. Creates the application in MECM (or an Intune Win32 app), with the deployment type, detection rule, and content already filled in.
 
-You pick applications from a list and press a button. 295 applications ship with it already described, so common software is covered out of the box.
+You pick applications from a list and press a button. 319 applications ship with it already described, so common software is covered out of the box.
 
 ## Who it's for
 
@@ -42,7 +42,7 @@ Packr is the C# sibling of [app-packager](https://github.com/jasonulbright/app-p
 
 ## Status
 
-**v2.2.0-alpha9** — 296 application definitions. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 installer verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation.
+**v2.2.0-alpha9** — 319 application definitions. Engine features: multi-deployment-type applications with requirement rules (architecture, OS language, network), per-app command overrides, Intune Win32 publishing via Graph, MSIX provisioned packages with signature verification, SHA256 installer verification, script and compound detection rules, chained and version-max scrapers, bootstrapper layout staging, extract-then-setup installers, drop-to-package analysis, SQLite version history, PSADT wrapper generation.
 
 The alpha9 review passes 1,091 C# tests and 70 Windows PowerShell 5.1 checks; all five Release projects build without warnings or errors. Live MECM/Intune publication and complete UI deployment workflows await lab validation. WinRAR and PostgreSQL 13 to 17 have reopened lab verdicts because their detection rules changed. See [REGRESSION-STATUS.md](REGRESSION-STATUS.md) for per-application pipeline status and [CHANGELOG.md](CHANGELOG.md) for staging guidance.
 
@@ -61,7 +61,7 @@ ApplicationPackagerUI (WPF)          ← user interface (WPF-UI 4.2.0 Fluent)
        ├─ Services/                  ← Download, MSI inspection, 7z extraction, installer ID,
        │                                staging, MECM packaging, PSADT wrappers, SQLite history
        ├─ Models/                    ← AppDefinition, StageManifest, InstallerMetadata, InstallerParameter
-       └─ Definitions/              ← JSON app definitions (295 apps, one per file)
+       └─ Definitions/              ← JSON app definitions (319 apps, one per file)
 ```
 
 ## Scraper Types

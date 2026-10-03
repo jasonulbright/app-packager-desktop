@@ -360,6 +360,8 @@ public sealed class MecmTarget
             }
             sb.Append($" -EstimatedRuntimeMins {estRuntime} -MaximumRuntimeMins {maxRuntime}");
             sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
+            if (!string.IsNullOrWhiteSpace(manifest.PostExecutionBehavior))
+                sb.Append($" -RebootBehavior {StagingService.NormalizePostExecutionBehavior(manifest.PostExecutionBehavior)}");
             if (isScriptDetection)
             {
                 var lang = string.IsNullOrWhiteSpace(spec.Detection.ScriptLanguage)
@@ -482,7 +484,9 @@ public sealed class MecmTarget
     /// GroupSizes passes only the second clause run to -GroupDetectionClauses;
     /// the cmdlet builds the expression left-associatively, so the first run is
     /// already parenthesized on its own and -GroupDetectionClauses holds one
-    /// group. OR then attaches to the first clause of the second run.
+    /// group. OR then attaches to the first clause of the second run. A group
+    /// holds two or more clauses: a one-clause second run takes the OR
+    /// connector alone.
     /// </summary>
     public static string BuildDetectionClauseConnectorArgs(StageDetection det)
     {
@@ -500,8 +504,8 @@ public sealed class MecmTarget
             var secondStart = groupSizes[0];
             var group = string.Join(", ", Enumerable.Range(secondStart, clauses.Length - secondStart)
                 .Select(i => $"$clause{i}.Setting.LogicalName"));
-            return $" -GroupDetectionClauses @({group})"
-                 + $" -DetectionClauseConnector @(@{{LogicalName=$clause{secondStart}.Setting.LogicalName;Connector='OR'}})";
+            var connector = $" -DetectionClauseConnector @(@{{LogicalName=$clause{secondStart}.Setting.LogicalName;Connector='OR'}})";
+            return groupSizes[1] >= 2 ? $" -GroupDetectionClauses @({group})" + connector : connector;
         }
 
         if (!"Or".Equals(det.Connector, StringComparison.OrdinalIgnoreCase)) return "";

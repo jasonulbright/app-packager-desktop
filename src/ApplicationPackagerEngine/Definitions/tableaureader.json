@@ -1,35 +1,44 @@
-﻿{
-    "Schema":  1,
-    "Id":  "f1a2b3c4d5e60003",
-    "Vendor":  "Salesforce (Tableau)",
-    "Application":  "Tableau Reader (x64)",
-    "CMName":  "Tableau Reader",
-    "Architecture":  "x64",
-    "VendorUrl":  "https://www.tableau.com/",
-    "InstallerType":  "EXE",
-    "InstallerFramework":  "WixBurn",
-    "Acquisition":  {
-
-                    },
-    "VersionScraper":  {
-                           "Type":  "HttpRegex",
-                           "Url":  "https://www.tableau.com/support/releases",
-                           "Pattern":  "\\b(20\\d{2}\\.\\d+(?:\\.\\d+)?)\\b",
-                           "VersionTransform":  "regex_replace:^(\\d{4}\\.\\d+)$:$1.0|replace:.:-",
-                           "NoUserAgent":  true
-                       },
-    "DownloadUrl":  "https://downloads.tableau.com/tssoftware/TableauReader-64bit-{display_version}.exe",
-    "DisplayVersionOverride":  "{version}",
-    "InstallArgs":  "/install /quiet /norestart ACCEPTEULA=1 SENDTELEMETRY=0",
-    "UninstallArgs":  "/uninstall /quiet /norestart",
-    "Detection":  {
-                      "Type":  "RegistryKey",
-                      "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
-                      "Is64Bit":  true
-                  },
-    "RunningProcess":  [
-                           "tabreader"
-                       ],
-    "UninstallCommand":  "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"TableauReader-*.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /quiet /norestart\" -Wait -PassThru -NoNewWindow"
+{
+  "Schema": 1,
+  "Id": "f1a2b3c4d5e60003",
+  "IconSource": "Installer",
+  "Vendor": "Salesforce (Tableau)",
+  "Application": "Tableau Reader (x64)",
+  "CMName": "Tableau Reader",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.tableau.com/products/reader",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.tableau.com/support/releases",
+    "Pattern": "\\b(20\\d{2}\\.\\d+(?:\\.\\d+)?)\\b",
+    "SelectHighestVersion": true,
+    "VersionTransform": "regex_replace:^(\\d{4}\\.\\d+)$:$1.0",
+    "RequestHeaders": [
+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language: en-US,en;q=0.9",
+      "Referer: https://www.tableau.com/",
+      "Sec-Fetch-Dest: document",
+      "Sec-Fetch-Mode: navigate",
+      "Sec-Fetch-Site: same-site",
+      "Sec-Fetch-User: ?1",
+      "Upgrade-Insecure-Requests: 1"
+    ]
+  },
+  "DownloadUrl": "https://downloads.tableau.com/tssoftware/TableauReader-64bit-{display_version_dashed}.exe",
+  "RequireValidSignature": true,
+  "InstallArgs": "/install /quiet /norestart ACCEPTEULA=1 SENDTELEMETRY=0",
+  "UninstallArgs": "/uninstall /quiet /norestart",
+  "UninstallCommand": "$base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry32)\r\n$un = $base.OpenSubKey('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall')\r\n$bundles = @()\r\nif ($un) {\r\n    foreach ($name in $un.GetSubKeyNames()) {\r\n        $k = $un.OpenSubKey($name)\r\n        if (-not $k) { continue }\r\n        $entry = [pscustomobject]@{ DisplayName = [string]$k.GetValue('DisplayName'); DisplayVersion = [string]$k.GetValue('DisplayVersion'); QuietUninstall = [string]$k.GetValue('QuietUninstallString') }\r\n        $k.Close()\r\n        if ($entry.DisplayName -like 'Tableau Reader*' -and $entry.QuietUninstall) { $bundles += $entry }\r\n    }\r\n    $un.Close()\r\n}\r\nif ($bundles.Count -eq 0) { exit 0 }\r\n$exitCode = 0\r\nforeach ($b in $bundles) {\r\n    $exe = ($b.QuietUninstall -replace '^\\s*\"([^\"]+)\".*$', '$1').Trim()\r\n    if (-not $exe.EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $exe)) { Write-Error (\"Bundle uninstaller not found: \" + $b.QuietUninstall); $exitCode = 1; continue }\r\n    $proc = Start-Process -FilePath $exe -ArgumentList @('/uninstall', '/quiet', '/norestart') -Wait -PassThru -NoNewWindow\r\n    if ($proc.ExitCode -ne 0) { $exitCode = $proc.ExitCode }\r\n}\r\nexit $exitCode",
+  "Detection": {
+    "Type": "Script",
+    "ScriptLanguage": "PowerShell",
+    "ScriptText": "$base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry32)\r\n$un = $base.OpenSubKey('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall')\r\n$bundles = @()\r\nif ($un) {\r\n    foreach ($name in $un.GetSubKeyNames()) {\r\n        $k = $un.OpenSubKey($name)\r\n        if (-not $k) { continue }\r\n        $entry = [pscustomobject]@{ DisplayName = [string]$k.GetValue('DisplayName'); DisplayVersion = [string]$k.GetValue('DisplayVersion'); QuietUninstall = [string]$k.GetValue('QuietUninstallString') }\r\n        $k.Close()\r\n        if ($entry.DisplayName -like 'Tableau Reader*' -and $entry.QuietUninstall) { $bundles += $entry }\r\n    }\r\n    $un.Close()\r\n}\r\n$minimum = [version]'{ProductVersion}'\r\nforeach ($b in $bundles) {\r\n    $v = $null\r\n    if ([version]::TryParse($b.DisplayVersion, [ref]$v) -and $v -ge $minimum) { Write-Output 'Installed'; exit 0 }\r\n}\r\nexit 0"
+  },
+  "RunningProcess": [
+    "tabreader"
+  ]
 }

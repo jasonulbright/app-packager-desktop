@@ -1,0 +1,33 @@
+{
+  "Schema": 1,
+  "Id": "8e08481f031761bf",
+  "IconSource": "Installer",
+  "Vendor": "Jason Ulbright",
+  "Application": "Signing Suite (x64)",
+  "CMName": "Signing Suite",
+  "Architecture": "x64",
+  "VendorUrl": "https://github.com/jasonulbright/signing-suite",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/jasonulbright/signing-suite/releases/latest",
+    "Pattern": "\"name\":\\s*\"SigningSuiteSetup-(\\d+(?:\\.\\d+){3})\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+/SigningSuiteSetup-{version}\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/jasonulbright/signing-suite/releases/latest/download/SigningSuiteSetup-{version}.exe",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$key = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{6B7F2C1E-4D8A-4F3B-9E21-5A0C7D3B8E64}_is1'\r\nif (-not (Test-Path -LiteralPath $key)) { exit 0 }\r\n$cmd = (Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).UninstallString\r\nif (-not $cmd) { exit 0 }\r\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }\r\nif (-not (Test-Path -LiteralPath $exe)) { exit 0 }\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{6B7F2C1E-4D8A-4F3B-9E21-5A0C7D3B8E64}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

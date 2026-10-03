@@ -37,6 +37,7 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
             return (null, null);
 
         var ua = config.NoUserAgent ? null : UserAgent;
+        var headers = CurlHeaders.Arguments(config.RequestHeaders);
         var captures = new List<string>();
         string? version = null;
         string? downloadUrl = null;
@@ -54,7 +55,7 @@ public sealed class ChainedHttpRegexScraper : HttpRegexScraper
             url = ResolveUrl(currentUrl, url);
             if (url is null) return (null, null);
 
-            var content = await FetchViaIwrAsync(url, ct, ua);
+            var content = await FetchViaIwrAsync(url, ct, ua, headers);
             if (content is null) return (null, null);
 
             var match = SelectMatch(content, hop);

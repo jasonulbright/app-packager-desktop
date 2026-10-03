@@ -1,0 +1,34 @@
+{
+  "Schema": 1,
+  "Id": "62e2498d615ad31b",
+  "IconSource": "Installer",
+  "Vendor": "Jason Ulbright",
+  "Application": "AppPackager Suite (User)",
+  "CMName": "AppPackager Suite",
+  "Architecture": "x64",
+  "VendorUrl": "https://github.com/jasonulbright/app-packager-suite",
+  "InstallerType": "EXE",
+  "InstallerFramework": "NSIS",
+  "InstallContext": "User",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://api.github.com/repos/jasonulbright/app-packager-suite/releases/latest",
+    "Pattern": "\"name\":\\s*\"SuiteSetup-(\\d+(?:\\.\\d+){3})\\.exe\"",
+    "DownloadUrlQuery": "\"browser_download_url\":\\s*\"([^\"]+/SuiteSetup-{version}\\.exe)\""
+  },
+  "DownloadUrl": "https://github.com/jasonulbright/app-packager-suite/releases/latest/download/SuiteSetup-{version}.exe",
+  "InstallArgs": "/S",
+  "UninstallArgs": "/S",
+  "UninstallCommand": "$uninstaller = Join-Path $env:LOCALAPPDATA 'AppPackagerSuite\\Uninstall.exe'\r\nif (-not (Test-Path -LiteralPath $uninstaller)) { exit 0 }\r\n$proc = Start-Process -FilePath $uninstaller -ArgumentList @('/S') -Wait -PassThru -NoNewWindow\r\nwhile (Get-Process -Name 'Au_' -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 1 }",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKCU",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\AppPackagerSuite",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": []
+}

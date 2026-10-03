@@ -32,6 +32,11 @@ public class SettingsService
             settings.Intune ??= new IntuneSettings();
             settings.Intune.DeploymentTarget = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
             settings.FirstRunCompleted = FirstRunDecision.ResolveCompleted(settings.FirstRunCompleted, settingsFileExisted: true);
+            if (settings.CitrixSwitches is null && settings.Cwa is not null)
+                settings.CitrixSwitches = settings.Cwa.ToSwitches();
+            settings.Cwa = null;
+            settings.LocalSourceFolders ??= [];
+            settings.SideFiles ??= [];
             return settings;
         }
         catch

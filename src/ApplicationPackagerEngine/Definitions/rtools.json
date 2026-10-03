@@ -1,0 +1,46 @@
+{
+  "Schema": 1,
+  "Id": "c0aaef20b779bbff",
+  "IconSource": "None",
+  "Vendor": "The R Foundation",
+  "Application": "Rtools (x64)",
+  "CMName": "Rtools",
+  "Architecture": "x64",
+  "VendorUrl": "https://cran.r-project.org/bin/windows/Rtools/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "ChainedHttpRegex",
+    "Url": "https://cran.r-project.org/bin/windows/Rtools/",
+    "Pattern": "CHAINED",
+    "VersionTransform": "regex_replace:^rtools(\\d)(\\d+)-(\\d+)-(\\d+)$:$1.$2.$3.$4",
+    "DownloadUrlQuery": "CHAINED",
+    "Hops": [
+      {
+        "Pattern": "href=\"(?<capture>rtools\\d\\d+)/rtools\\.html\"",
+        "SelectHighestVersion": true
+      },
+      {
+        "Url": "{capture}/rtools.html",
+        "Pattern": "href=\"(?<url>files/(?<version>rtools\\d\\d+-\\d+-\\d+)\\.exe)\""
+      }
+    ]
+  },
+  "DownloadUrl": "",
+  "ExpectedPayloadVersion": "{version}",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "C:\\rtools{version_part:1}{version_part:2}\\unins000.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Rtools{version_part:1}{version_part:2}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{version_parts:3}",
+    "Is64Bit": true
+  },
+  "RunningProcess": []
+}

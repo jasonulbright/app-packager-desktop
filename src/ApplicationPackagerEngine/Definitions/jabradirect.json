@@ -1,0 +1,39 @@
+{
+  "Schema": 1,
+  "Id": "e28b431fabbf6eca",
+  "IconSource": "Installer",
+  "Vendor": "GN Audio A/S",
+  "Application": "Jabra Direct (x86)",
+  "CMName": "Jabra Direct",
+  "Architecture": "x86",
+  "VendorUrl": "https://www.jabra.com/software-and-services/jabra-direct",
+  "InstallerType": "EXE",
+  "InstallerFramework": "WixBurn",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.jabra.com/support/release-notes/release-note-jabra-direct",
+    "Pattern": "data-testid=\"release-version\"[^>]*>\\s*(\\d+\\.\\d+\\.\\d+)\\s*<",
+    "RequestHeaders": [
+      "User-Agent: Mozilla/5.0"
+    ]
+  },
+  "DownloadUrl": "https://jabraxpressonlineprdstor.blob.core.windows.net/jdo/JabraDirectSetup.exe",
+  "InstallerFileName": "JabraDirectSetup.exe",
+  "ExpectedPayloadVersion": "{version}",
+  "InstallArgs": "/install /quiet /norestart",
+  "UninstallArgs": "/uninstall /quiet /norestart",
+  "UninstallCommand": "$keys = @(\r\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}',\r\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}'\r\n)\r\n$hit = $null\r\nforeach ($key in $keys) {\r\n    if (-not (Test-Path -LiteralPath $key)) { continue }\r\n    $hit = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue\r\n    if ($hit) { break }\r\n}\r\nif (-not $hit) { exit 0 }\r\n$cmd = if ($hit.QuietUninstallString) { $hit.QuietUninstallString } else { $hit.UninstallString }\r\nif (-not $cmd) { exit 0 }\r\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = ($cmd -split '\\s+/')[0].Trim() }\r\nif (-not (Test-Path -LiteralPath $exe)) { exit 0 }\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/uninstall', '/quiet', '/norestart') -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "jabra-direct"
+  ]
+}

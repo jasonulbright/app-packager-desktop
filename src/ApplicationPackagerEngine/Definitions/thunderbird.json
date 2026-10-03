@@ -4,7 +4,7 @@
     "IconSource":  "External",
     "Vendor":  "Mozilla",
     "Application":  "Mozilla Thunderbird (x64)",
-    "CMName":  "Thunderbird",
+    "CMName":  "Mozilla Thunderbird (x64 en-US)",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.thunderbird.net/",
     "InstallerType":  "MSI",

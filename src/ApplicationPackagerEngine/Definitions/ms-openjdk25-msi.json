@@ -1,0 +1,37 @@
+{
+  "Schema": 1,
+  "Id": "9bea4573e4785fa4",
+  "IconSource": "Installer",
+  "Vendor": "Microsoft",
+  "Application": "Microsoft OpenJDK 25 (MSI)",
+  "CMName": "Microsoft OpenJDK 25 (MSI)",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/en-us/java/openjdk/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://aka.ms/download-jdk/microsoft-jdk-25-windows-x64.msi",
+    "Pattern": "REDIR:(?i)/microsoft-jdk-(25(?:\\.\\d+){1,4})-windows-x64\\.msi(?:[?#].*)?$"
+  },
+  "DownloadUrl": "https://aka.ms/download-jdk/microsoft-jdk-{version}-windows-x64.msi",
+  "PayloadSha256Url": "{download_url}.sha256sum.txt",
+  "ExpandInstallArgs": true,
+  "InstallArgs": "ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith INSTALLDIR=\"%ProgramW6432%\\Microsoft\\jdk-{ProductVersion}-hotspot\" /qn /norestart",
+  "UninstallArgs": "/qn /norestart",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{ProductCode}",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{ProductVersion}",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "java",
+    "javaw"
+  ]
+}

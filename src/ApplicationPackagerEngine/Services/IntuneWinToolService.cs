@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace ApplicationPackagerEngine.Services;
@@ -60,7 +59,7 @@ public sealed class IntuneWinToolService
     /// </summary>
     public static void VerifyMicrosoftSignature(string filePath)
     {
-        var status = WinTrust.VerifyAuthenticode(filePath);
+        var status = AuthenticodeVerifier.Verify(filePath);
         if (status != 0)
         {
             throw new InvalidOperationException(
@@ -194,83 +193,5 @@ public sealed class IntuneWinToolService
     {
         using var stream = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(stream));
-    }
-
-    private static class WinTrust
-    {
-        private static readonly Guid GenericVerifyV2 = new("00AAC56B-CD44-11d0-8CC2-00C04FC295EE");
-
-        /// <summary>Returns 0 when the Authenticode signature verifies, otherwise the WinVerifyTrust status.</summary>
-        internal static int VerifyAuthenticode(string filePath)
-        {
-            var fileInfo = new WINTRUST_FILE_INFO
-            {
-                cbStruct = Marshal.SizeOf<WINTRUST_FILE_INFO>(),
-                pcwszFilePath = Marshal.StringToCoTaskMemUni(filePath),
-                hFile = IntPtr.Zero,
-                pgKnownSubject = IntPtr.Zero
-            };
-            var pFile = Marshal.AllocCoTaskMem(Marshal.SizeOf<WINTRUST_FILE_INFO>());
-            var pGuid = Marshal.AllocCoTaskMem(Marshal.SizeOf<Guid>());
-            try
-            {
-                Marshal.StructureToPtr(fileInfo, pFile, false);
-                Marshal.StructureToPtr(GenericVerifyV2, pGuid, false);
-
-                var data = new WINTRUST_DATA
-                {
-                    cbStruct = Marshal.SizeOf<WINTRUST_DATA>(),
-                    pPolicyCallbackData = IntPtr.Zero,
-                    pSIPClientData = IntPtr.Zero,
-                    dwUIChoice = 2,           // WTD_UI_NONE
-                    fdwRevocationChecks = 0,  // WTD_REVOKE_NONE
-                    dwUnionChoice = 1,        // WTD_CHOICE_FILE
-                    pFile = pFile,
-                    dwStateAction = 0,
-                    hWVTStateData = IntPtr.Zero,
-                    pwszURLReference = IntPtr.Zero,
-                    dwProvFlags = 0x00000010, // WTD_SAFER_FLAG
-                    dwUIContext = 0,
-                    pSignatureSettings = IntPtr.Zero
-                };
-                return WinVerifyTrust(IntPtr.Zero, pGuid, ref data);
-            }
-            finally
-            {
-                Marshal.FreeCoTaskMem(fileInfo.pcwszFilePath);
-                Marshal.FreeCoTaskMem(pFile);
-                Marshal.FreeCoTaskMem(pGuid);
-            }
-        }
-
-        [DllImport("wintrust.dll", ExactSpelling = true, SetLastError = false)]
-        private static extern int WinVerifyTrust(IntPtr hwnd, IntPtr pgActionID, ref WINTRUST_DATA pWVTData);
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct WINTRUST_FILE_INFO
-        {
-            public int cbStruct;
-            public IntPtr pcwszFilePath;
-            public IntPtr hFile;
-            public IntPtr pgKnownSubject;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct WINTRUST_DATA
-        {
-            public int cbStruct;
-            public IntPtr pPolicyCallbackData;
-            public IntPtr pSIPClientData;
-            public int dwUIChoice;
-            public int fdwRevocationChecks;
-            public int dwUnionChoice;
-            public IntPtr pFile;
-            public int dwStateAction;
-            public IntPtr hWVTStateData;
-            public IntPtr pwszURLReference;
-            public int dwProvFlags;
-            public int dwUIContext;
-            public IntPtr pSignatureSettings;
-        }
     }
 }
