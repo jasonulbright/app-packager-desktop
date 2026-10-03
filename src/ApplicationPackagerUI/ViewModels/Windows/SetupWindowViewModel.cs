@@ -106,7 +106,8 @@ public partial class SetupWindowViewModel : ObservableObject
         }
 
         s.FirstRunCompleted = true;
-        _settingsService.Save(s);
+        if (ShowMecmFields) _settingsService.SaveOperatorEdit(s);
+        else _settingsService.Save(s);
 
         _settingsViewModel.ReloadFromStore();
         _packagesViewModel.RefreshDeploymentTargetState();

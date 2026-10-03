@@ -16,7 +16,7 @@ public sealed class DeploymentTargetStateTests
         Assert.True(state.CheckMecmEnabled);
         Assert.False(state.SkipMecmPreflight);
         Assert.Equal("Package", state.PackageLabel);
-        Assert.Contains("MECM Application", state.PackageToolTip);
+        Assert.Contains("ConfigMgr Application", state.PackageToolTip);
         Assert.Contains("currently deployed version", state.CheckMecmToolTip);
     }
 

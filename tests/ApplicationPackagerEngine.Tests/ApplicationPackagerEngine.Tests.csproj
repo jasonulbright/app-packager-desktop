@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -17,10 +18,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ApplicationPackagerEngine\ApplicationPackagerEngine.csproj" />
+    <ProjectReference Include="..\..\src\ApplicationPackagerUI\ApplicationPackagerUI.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="System.Net.Http" />
+    <Using Include="System.IO" />
   </ItemGroup>
 
   <ItemGroup>

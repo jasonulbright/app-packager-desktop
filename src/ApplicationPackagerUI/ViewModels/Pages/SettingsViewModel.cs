@@ -35,6 +35,14 @@ public partial class SettingsViewModel : ObservableObject
     // Deployment Type defaults
     [ObservableProperty] private double? _estimatedRuntimeMins = 15;
     [ObservableProperty] private double? _maximumRuntimeMins = 30;
+    [ObservableProperty] private string _contentFallback = DeploymentTypeContentOptions.Allow;
+    [ObservableProperty] private string _slowNetworkDeploymentMode = DeploymentTypeContentOptions.Download;
+
+    /// <summary>The global application title defaults.</summary>
+    public ApplicationTitleOptions TitleOptions { get; } = new();
+
+    /// <summary>The Script Signing section; written to the store only by Save Settings.</summary>
+    public ScriptSigningEditor Signing { get; } = new();
 
     // Acquisition
     [ObservableProperty] private string _acquisitionMethod = "StaticUrl";
@@ -294,7 +302,7 @@ public partial class SettingsViewModel : ObservableObject
         var module = string.IsNullOrWhiteSpace(adminUi) ? null : Path.GetFullPath(Path.Combine(adminUi, "..", "ConfigurationManager.psd1"));
         ConsoleStatus = module is not null && File.Exists(module)
             ? $"Found: {module}"
-            : "Not found. Install the Configuration Manager console; MECM packaging runs its PowerShell module.";
+            : "Not found. Install the Configuration Manager console; ConfigMgr packaging runs its PowerShell module.";
 
         var sevenZip = ArchiveExtractionService.FindSevenZip();
         SevenZipStatus = sevenZip is not null
@@ -431,6 +439,10 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Discards every unsaved edit on the page by reading the store again.</summary>
+    [RelayCommand]
+    private void DiscardChanges() => LoadSettings();
+
     /// <summary>Re-reads the store after another surface (the setup window) has written to it.</summary>
     public void ReloadFromStore() => LoadSettings();
 
@@ -487,6 +499,11 @@ public partial class SettingsViewModel : ObservableObject
         PackagersRoot = s.PackagersRoot;
         EstimatedRuntimeMins = s.EstimatedRuntimeMins;
         MaximumRuntimeMins = s.MaximumRuntimeMins;
+        var content = DeploymentTypeContentOptions.Resolve(s.ContentFallback, s.SlowNetworkDeploymentMode);
+        ContentFallback = content.ContentFallback ? DeploymentTypeContentOptions.Allow : DeploymentTypeContentOptions.Deny;
+        SlowNetworkDeploymentMode = content.SlowNetworkDeploymentMode;
+        TitleOptions.Load(s.IncludeVersionInTitle, s.RemoveVersionFromTitle);
+        Signing.Load(s.ScriptSigning);
         AcquisitionMethod = s.AcquisitionMethod;
         M365Channel = s.M365Channel;
 
@@ -525,6 +542,7 @@ public partial class SettingsViewModel : ObservableObject
     private void SaveSettings()
     {
         var s = _settingsService.Load();
+        var siteBefore = SiteIdentity.Key(s.SiteCode, s.ProviderMachine);
 
         s.CompanyName = CompanyName;
         s.SiteCode = SiteCode;
@@ -534,6 +552,10 @@ public partial class SettingsViewModel : ObservableObject
         s.PackagersRoot = PackagersRoot;
         s.EstimatedRuntimeMins = (int)(EstimatedRuntimeMins ?? 15);
         s.MaximumRuntimeMins = (int)(MaximumRuntimeMins ?? 30);
+        s.ContentFallback = ContentFallback == DeploymentTypeContentOptions.Deny ? DeploymentTypeContentOptions.Deny : DeploymentTypeContentOptions.Allow;
+        s.SlowNetworkDeploymentMode = SlowNetworkDeploymentMode == DeploymentTypeContentOptions.DoNothing ? DeploymentTypeContentOptions.DoNothing : DeploymentTypeContentOptions.Download;
+        (s.IncludeVersionInTitle, s.RemoveVersionFromTitle) = TitleOptions.ToSettings();
+        s.ScriptSigning = Signing.ToPolicy();
         s.M365Channel = M365Channel;
         s.AcquisitionMethod = AcquisitionMethod;
         s.Theme = CurrentTheme.ToString();
@@ -583,9 +605,12 @@ public partial class SettingsViewModel : ObservableObject
         }
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 
-        _settingsService.Save(s);
+        _settingsService.SaveOperatorEdit(s);
 
         _packagesViewModel.RefreshDeploymentTargetState();
+        // ConfigMgr versions and compare results describe one site.
+        if (SiteIdentity.Key(s.SiteCode, s.ProviderMachine) != siteBefore)
+            PackagesViewModel.ClearSiteResults(_packagesViewModel.Packagers);
 
         // Sync to PS1 packager JSON files
         _prefsSync.SyncPackagerPreferences(s.CompanyName, s.SideFiles);

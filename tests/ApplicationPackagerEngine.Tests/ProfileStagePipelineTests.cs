@@ -129,7 +129,7 @@ public sealed class ProfileStagePipelineTests : IDisposable
         Assert.Equal(90, manifest.Timing.MaximumMinutes);
         Assert.Equal(90, manifest.RunOverrides["MaximumMinutes"]!.GetValue<int>());
         Assert.Equal("IncludeVersion", manifest.TitleMode);
-        Assert.Equal("Widget (x64) - 1.2.3", manifest.AppName);
+        Assert.Equal("Widget - 1.2.3 (x64)", manifest.AppName);
         Assert.Equal("install.bat", manifest.SetupFile);
         Assert.Equal(["InstallBefore", "InstallAfter", "InstallOrchestrator", "SourceFile"], manifest.CustomAssets.Select(a => a.Category));
         var source = manifest.CustomAssets.Single(a => a.Category == "SourceFile");

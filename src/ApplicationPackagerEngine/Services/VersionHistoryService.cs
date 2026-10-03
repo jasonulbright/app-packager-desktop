@@ -12,9 +12,7 @@ public sealed class VersionHistoryService : IDisposable
 
     public VersionHistoryService(string? dbPath = null)
     {
-        dbPath ??= Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SRLPackr", "history.db");
+        dbPath ??= Path.Combine(AppDataPaths.LegacyRoot, "history.db");
 
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 

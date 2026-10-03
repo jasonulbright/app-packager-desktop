@@ -43,7 +43,7 @@
                             <TextBlock Text="CM Display Name (optional)" />
                             <ui:TextBox Text="{Binding CmName, UpdateSourceTrigger=PropertyChanged}"
                                         PlaceholderText="Leave blank to use Application Name"
-                                        ToolTip="Name shown in MECM console and Software Center. If blank, uses Application Name." />
+                                        ToolTip="Name shown in ConfigMgr console and Software Center. If blank, uses Application Name." />
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />

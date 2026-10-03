@@ -35,7 +35,7 @@
                        Icon="{ui:SymbolIcon ArrowDownload24}"
                        Command="{Binding CheckLatestCommand}"
                        Margin="0,0,4,0" />
-            <ui:Button Content="Check MECM"
+            <ui:Button Content="Check ConfigMgr"
                        Icon="{ui:SymbolIcon Search24}"
                        Command="{Binding CheckMecmCommand}"
                        ToolTip="{Binding CheckMecmToolTip}"
@@ -163,7 +163,7 @@
 
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" IsReadOnly="True" />
                 <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="170" IsReadOnly="True" />
-                <DataGridTextColumn Header="Current (MECM)" Binding="{Binding CurrentVersion}" Width="*" IsReadOnly="True" />
+                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="*" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="*" IsReadOnly="True" />
 
                 <!-- Status with color coding -->
@@ -231,7 +231,7 @@
             <TextBlock Grid.Column="0" FontSize="11" VerticalAlignment="Center">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
-                        <Setter Property="Text" Value="● MECM" />
+                        <Setter Property="Text" Value="● ConfigMgr" />
                         <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding MecmConnectionStatus}" Value="Connected">

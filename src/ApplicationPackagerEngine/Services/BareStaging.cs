@@ -22,8 +22,8 @@ public sealed class BareStaging
         {
             var vendorFolder = MecmTarget.SanitizeFolderNamePublic(manifest.Publisher);
             var appFolder = manifest.DisplayName ?? manifest.AppName;
-            var networkRoot = Path.Combine(fileServerPath, "Applications", vendorFolder, appFolder);
-            var networkContentPath = Path.Combine(networkRoot, manifest.SoftwareVersion);
+            var networkContentPath = Models.ContentLayouts.ContentPath(
+                fileServerPath, Models.ContentLayouts.Nested, vendorFolder, appFolder, manifest.SoftwareVersion);
 
             onProgress?.Invoke($"Staging to: {networkContentPath}");
             Directory.CreateDirectory(networkContentPath);
