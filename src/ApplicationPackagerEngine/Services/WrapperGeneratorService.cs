@@ -20,10 +20,10 @@ public sealed class WrapperGeneratorService
         // msiexec does not expand %NAME% in a property value, so the wrapper
         // expands it in the deployment's own context.
         var msiArgsExpression = expandEnvironment
-            ? $"[Environment]::ExpandEnvironmentVariables('{msiArgs}')"
-            : $"'{msiArgs}'";
+            ? $"[Environment]::ExpandEnvironmentVariables('{EscapePsLiteral(msiArgs)}')"
+            : $"'{EscapePsLiteral(msiArgs)}'";
         var installPs1 = $"""
-            $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
+            $msiPath = Join-Path $PSScriptRoot '{EscapePsLiteral(msiFileName)}'
             $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", {msiArgsExpression}) -Wait -PassThru -NoNewWindow
             $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
@@ -51,7 +51,7 @@ public sealed class WrapperGeneratorService
                 if ($productCode) {
                     $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', $productCode, '/qn', '/norestart') -Wait -PassThru -NoNewWindow
                 } else {
-                    $msiPath = Join-Path $PSScriptRoot '{{msiFileName}}'
+                    $msiPath = Join-Path $PSScriptRoot '{{EscapePsLiteral(msiFileName)}}'
                     $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/x', "`"$msiPath`"", '/qn', '/norestart') -Wait -PassThru -NoNewWindow
                 }
                 $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
@@ -59,7 +59,7 @@ public sealed class WrapperGeneratorService
                 """;
         }
 
-        WriteWrappers(outputPath, installPs1, uninstallPs1);
+        WriteWrappers(outputPath, GuardNullProcess(installPs1), GuardNullProcess(uninstallPs1));
     }
 
     /// <summary>
@@ -98,8 +98,8 @@ public sealed class WrapperGeneratorService
         }
 
         WriteWrappers(outputPath,
-            ApplyRebootExitCodes(installPs1, rebootExitCodes),
-            ApplyRebootExitCodes(uninstallPs1, rebootExitCodes));
+            ApplyRebootExitCodes(GuardNullProcess(installPs1), rebootExitCodes),
+            ApplyRebootExitCodes(GuardNullProcess(uninstallPs1), rebootExitCodes));
     }
 
     private const string ExitCodeFileLine = "$proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline";
@@ -121,10 +121,10 @@ public sealed class WrapperGeneratorService
         string? postInstallScript = null, IReadOnlyList<string>? postInstallKillProcesses = null)
     {
         var kill = postInstallKillProcesses?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList() ?? [];
-        var lines = new List<string> { $"$exePath = Join-Path $PSScriptRoot '{exeFileName}'" };
+        var lines = new List<string> { $"$exePath = Join-Path $PSScriptRoot '{EscapePsLiteral(exeFileName)}'" };
         if (kill.Count > 0)
         {
-            lines.Add($"$proc = Start-Process -FilePath $exePath -ArgumentList '{installArgs}' -PassThru -NoNewWindow");
+            lines.Add($"$proc = Start-Process -FilePath $exePath{ArgumentList(installArgs)} -PassThru -NoNewWindow");
             lines.Add("$null = $proc.Handle");
             lines.Add("$proc.WaitForExit()");
             lines.Add("Start-Sleep -Seconds 3");
@@ -133,7 +133,7 @@ public sealed class WrapperGeneratorService
         }
         else
         {
-            lines.Add($"$proc = Start-Process -FilePath $exePath -ArgumentList '{installArgs}' -Wait -PassThru -NoNewWindow");
+            lines.Add($"$proc = Start-Process -FilePath $exePath{ArgumentList(installArgs)} -Wait -PassThru -NoNewWindow");
         }
         lines.Add(ExitCodeFileLine);
 
@@ -206,7 +206,7 @@ public sealed class WrapperGeneratorService
             "NSIS" => "exit 1",
             _ => $$"""
                 $exePath = Join-Path $PSScriptRoot '{{EscapePsLiteral(exeFileName)}}'
-                $proc = Start-Process -FilePath $exePath -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                $proc = Start-Process -FilePath $exePath{{ArgumentList(uninstallArgs)}} -Wait -PassThru -NoNewWindow
                 $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                 exit $proc.ExitCode
                 """
@@ -246,7 +246,7 @@ public sealed class WrapperGeneratorService
             if ($match) {
                 $uninstaller = Get-UninstallerPath $match.UninstallString
                 if (Test-Path -LiteralPath $uninstaller) {
-                    $proc = Start-Process -FilePath $uninstaller -ArgumentList '{{uninstallArgs}}' -Wait -PassThru -NoNewWindow
+                    $proc = Start-Process -FilePath $uninstaller{{ArgumentList(uninstallArgs)}} -Wait -PassThru -NoNewWindow
                     $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
                     exit $proc.ExitCode
                 }
@@ -270,7 +270,7 @@ public sealed class WrapperGeneratorService
             switch (c)
             {
                 case '*': case '?': case '[': case ']': sb.Append('[').Append(c).Append(']'); break;
-                case '\'': sb.Append("''"); break;
+                case var q when PowerShellLiteral.IsSingleQuote(q): sb.Append(q).Append(q); break;
                 default: sb.Append(c); break;
             }
         }
@@ -411,6 +411,7 @@ public sealed class WrapperGeneratorService
             $"$setupPath = Join-Path $PSScriptRoot '{file}'",
             "if (-not (Test-Path -LiteralPath $setupPath)) { Write-Error \"Bootstrapper not found: $setupPath\"; Exit-Wrapper 1 }",
             $"$proc = Start-Process -FilePath $setupPath -ArgumentList @({FormatPsArgs(installArgs)}) -Wait -PassThru -NoNewWindow",
+            "if (-not $proc) { Exit-Wrapper 1 }",
             "Exit-Wrapper $proc.ExitCode");
 
         // Content already removed from the client cache leaves nothing to
@@ -420,6 +421,7 @@ public sealed class WrapperGeneratorService
             $"$setupPath = Join-Path $PSScriptRoot '{file}'",
             "if (-not (Test-Path -LiteralPath $setupPath)) { Exit-Wrapper 0 }",
             $"$proc = Start-Process -FilePath $setupPath -ArgumentList @({FormatPsArgs([layout.QuietSwitch, layout.UninstallSwitch])}) -Wait -PassThru -NoNewWindow",
+            "if (-not $proc) { Exit-Wrapper 1 }",
             "Exit-Wrapper $proc.ExitCode");
 
         WriteWrappers(outputPath, install, uninstall);
@@ -459,6 +461,7 @@ public sealed class WrapperGeneratorService
             $"$extractRoot = Join-Path $env:SystemDrive '{extractDir}'",
             "if (Test-Path -LiteralPath $extractRoot) { Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue }",
             $"$box = Start-Process -FilePath $mediaPath -ArgumentList @({extractArgList}) -Wait -PassThru -NoNewWindow",
+            "if (-not $box) { Exit-Wrapper 1 }",
             "if ($box.ExitCode -ne 0) { Exit-Wrapper $box.ExitCode }",
             $"$setup = Join-Path $extractRoot '{innerSetup}'",
             "if (-not (Test-Path -LiteralPath $setup)) { Write-Error \"Inner setup not found: $setup\"; Exit-Wrapper 2 }"
@@ -466,7 +469,7 @@ public sealed class WrapperGeneratorService
 
         var cleanup = new[]
         {
-            "$code = $proc.ExitCode",
+            "$code = if ($proc) { $proc.ExitCode } else { 1 }",
             "Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue",
             "Exit-Wrapper $code"
         };
@@ -667,8 +670,27 @@ public sealed class WrapperGeneratorService
     private const string ExitHelper =
         "function Exit-Wrapper([int]$code) { $code | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit $code }";
 
-    /// <summary>A bare apostrophe would terminate the single-quoted literal early.</summary>
-    private static string EscapePsLiteral(string value) => value.Replace("'", "''");
+    /// <summary>A bare quote character would terminate the single-quoted literal early.</summary>
+    private static string EscapePsLiteral(string value) => PowerShellLiteral.EscapeSingleQuoted(value);
+
+    /// <summary>
+    /// The -ArgumentList clause for one argument string, with its leading
+    /// space. Windows PowerShell refuses an empty -ArgumentList, Start-Process
+    /// then starts nothing, so an empty string emits no clause.
+    /// </summary>
+    private static string ArgumentList(string? arguments) =>
+        string.IsNullOrWhiteSpace(arguments) ? "" : $" -ArgumentList '{EscapePsLiteral(arguments)}'";
+
+    private const string NullProcessGuard = "if (-not $proc) { exit 1 }";
+
+    /// <summary>
+    /// Inserts an exit 1 before every exit-code write. A Start-Process that
+    /// fails leaves $proc null, and exit $null reports success.
+    /// </summary>
+    public static string GuardNullProcess(string script) =>
+        System.Text.RegularExpressions.Regex.Replace(script,
+            @"(?m)^([ \t]*)(?=" + System.Text.RegularExpressions.Regex.Escape(ExitCodeFileLine) + ")",
+            m => m.Groups[1].Value + NullProcessGuard + "\r\n" + m.Groups[1].Value);
 
     /// <summary>
     /// True when deployment scripts are signed: the .bat launchers then carry

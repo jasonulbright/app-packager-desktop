@@ -172,7 +172,15 @@ public static class WorkbenchJson
     /// Replaces the file atomically: the new content lands in a side file and
     /// File.Replace swaps it in, so a crash leaves either the old or the new file.
     /// </summary>
-    public static void WriteText(string path, string text)
+    public static void WriteText(string path, string text) => WriteText(path, text, File.Replace);
+
+    /// <summary>
+    /// ReplaceFile can fail after it has renamed the original to the backup
+    /// name and before the new content takes the original name. The backup is
+    /// then the only copy of the original, so it is moved back, and neither it
+    /// nor the side file is deleted while the target name is empty.
+    /// </summary>
+    internal static void WriteText(string path, string text, Action<string, string, string> replace)
     {
         var folder = Path.GetDirectoryName(Path.GetFullPath(path));
         if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
@@ -182,17 +190,44 @@ public static class WorkbenchJson
         File.WriteAllText(temp, text, Utf8NoBom);
         try
         {
-            if (File.Exists(path)) File.Replace(temp, path, backup);
+            if (File.Exists(path)) replace(temp, path, backup);
             else File.Move(temp, path);
         }
         catch
         {
-            TryDelete(temp);
+            if (!File.Exists(path) && File.Exists(backup))
+            {
+                try { File.Move(backup, path); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+            if (File.Exists(path)) TryDelete(temp);
             throw;
         }
         finally
         {
-            TryDelete(backup);
+            if (File.Exists(path)) TryDelete(backup);
+        }
+    }
+
+    /// <summary>
+    /// Writes a new file and never replaces one: false when the path already
+    /// exists, including when another writer created it first.
+    /// </summary>
+    public static bool TryWriteNew<T>(string path, T value)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(path));
+        if (!string.IsNullOrEmpty(folder)) Directory.CreateDirectory(folder);
+        var temp = $"{path}.{Guid.NewGuid():N}.tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(value, FileOptions), Utf8NoBom);
+        try
+        {
+            File.Move(temp, path, overwrite: false);
+            return true;
+        }
+        catch (IOException) when (File.Exists(path))
+        {
+            TryDelete(temp);
+            return false;
         }
     }
 

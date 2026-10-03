@@ -35,15 +35,7 @@ public static class SigningPolicySwitches
     public static readonly IReadOnlyList<string> Names =
         ["SignDetection", "SignRequirements", "SignDeployment", "RequireDetection", "RequireRequirements", "RequireDeployment"];
 
-    /// <summary>True when any Sign or Require switch is on.</summary>
-    public static bool IsSigningRequested(JsonNode? policy)
-    {
-        if (!WorkbenchJson.IsTruthy(policy)) return false;
-        foreach (var name in Names)
-        {
-            var member = WorkbenchJson.Get(policy, name);
-            if (member.Found && WorkbenchJson.IsTruthy(member.Value)) return true;
-        }
-        return false;
-    }
+    /// <summary>True when any Sign or Require switch is on, read as the signing policy reads it.</summary>
+    public static bool IsSigningRequested(JsonNode? policy) =>
+        policy is JsonObject && Names.Any(name => Models.Signing.SigningPolicy.ReadSwitch(policy, name));
 }

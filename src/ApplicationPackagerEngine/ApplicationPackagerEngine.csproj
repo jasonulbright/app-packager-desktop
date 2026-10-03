@@ -13,6 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="ApplicationPackagerEngine.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Definitions\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Definitions\Icons\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

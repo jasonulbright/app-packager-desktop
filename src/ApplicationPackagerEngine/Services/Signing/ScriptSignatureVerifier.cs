@@ -55,13 +55,13 @@ public static class ScriptSignatureVerifier
             var timestampVerified = timestamper is not null;
             var timestamped = timestampVerified || HasCounterSignature(path);
 
-            // A hash or content failure reports its own status, so UnknownError
-            // with a signer present is a chain-policy failure; rebuilding the
-            // chain with trust ignored separates an untrusted signer from a
-            // broken signature.
+            // Only an untrusted-root or chaining result is a trust question; every other
+            // failure (wrong usage, expiry, a bad signature) stays broken. Rebuilding the
+            // chain with trust ignored then separates an untrusted signer from one whose
+            // chain is unusable for code signing.
             var trusted = status == SignatureStatusName.Valid;
             var intact = trusted;
-            if (!intact && signer is not null && status == SignatureStatusName.UnknownError)
+            if (!intact && signer is not null && IsUntrustedChainError(error))
                 intact = ChainIgnoringTrust(signer);
 
             return new ScriptSignatureVerification
@@ -105,10 +105,24 @@ public static class ScriptSignatureVerifier
         }
     }
 
+    /// <summary>CERT_E_UNTRUSTEDROOT: the chain ends in a root this host does not trust.</summary>
+    public const uint CertUntrustedRoot = 0x800B0109;
+
+    /// <summary>CERT_E_CHAINING: the chain does not reach a root this host holds.</summary>
+    public const uint CertChaining = 0x800B010A;
+
+    /// <summary>The code-signing extended key usage.</summary>
+    public const string CodeSigningOid = "1.3.6.1.5.5.7.3.3";
+
+    /// <summary>True for the trust results that leave the signature itself in question only through host trust.</summary>
+    public static bool IsUntrustedChainError(uint error) => error is CertUntrustedRoot or CertChaining;
+
     /// <summary>
-    /// Builds the signer chain with an unknown authority allowed and no
-    /// revocation lookup: a self-signed or privately issued signer passes, an
-    /// expired signer or an explicitly distrusted one does not.
+    /// Builds the signer chain with an unknown authority allowed, no
+    /// revocation lookup and the code-signing application policy: a
+    /// self-signed or privately issued code-signing signer passes; an expired
+    /// signer, an explicitly distrusted one, or one whose chain is not valid
+    /// for code signing does not.
     /// </summary>
     public static bool ChainIgnoringTrust(X509Certificate2 certificate)
     {
@@ -117,6 +131,7 @@ public static class ScriptSignatureVerifier
             using var chain = new X509Chain();
             chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
             chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+            chain.ChainPolicy.ApplicationPolicy.Add(new Oid(CodeSigningOid));
             return chain.Build(certificate);
         }
         catch (CryptographicException)
@@ -219,8 +234,8 @@ public static class ScriptSignatureVerifier
         _ => new UTF8Encoding(false)
     };
 
-    public static Encoding AnsiEncoding() =>
-        Encoding.GetEncoding(CultureInfo.CurrentCulture.TextInfo.ANSICodePage);
+    /// <summary>The system ANSI code page; with the code-pages provider registered, code page 0 resolves to it.</summary>
+    public static Encoding AnsiEncoding() => Encoding.GetEncoding(0);
 
     public static string Sha256Hex(byte[] bytes) =>
         Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();

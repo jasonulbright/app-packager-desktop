@@ -196,6 +196,7 @@ public sealed class DefinitionEngineFieldTests : IDisposable
         Assert.Equal(
             "$msiPath = Join-Path $PSScriptRoot 'app.msi'\n" +
             "$proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', \"`\"$msiPath`\"\", '/qn /norestart ALLUSERS=1') -Wait -PassThru -NoNewWindow\n" +
+            "if (-not $proc) { exit 1 }\n" +
             "$proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline\n" +
             "exit $proc.ExitCode",
             File.ReadAllText(Path.Combine(_dir, "install.ps1")).Replace("\r\n", "\n"));
@@ -235,6 +236,7 @@ public sealed class DefinitionEngineFieldTests : IDisposable
         Assert.Equal(
             "$exePath = Join-Path $PSScriptRoot 'widget-1.2.3.exe'\r\n" +
             "$proc = Start-Process -FilePath $exePath -ArgumentList '/S' -Wait -PassThru -NoNewWindow\r\n" +
+            "if (-not $proc) { exit 1 }\r\n" +
             "$proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline\r\n" +
             "exit $proc.ExitCode",
             File.ReadAllText(Path.Combine(result.ContentPath, "install.ps1")));

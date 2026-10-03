@@ -144,7 +144,7 @@ public sealed class ExtractSetupWrapperTests : IDisposable
         var (install, uninstall) = Generate();
 
         var cleanup = string.Join("\r\n",
-            "$code = $proc.ExitCode",
+            "$code = if ($proc) { $proc.ExitCode } else { 1 }",
             "Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue",
             "Exit-Wrapper $code");
 
