@@ -5,6 +5,8 @@
   "Vendor": "Salesforce (Tableau)",
   "Application": "Tableau Reader (x64)",
   "CMName": "Tableau Reader",
+  "AppName": "Tableau Reader",
+  "Publisher": "Salesforce",
   "Architecture": "x64",
   "VendorUrl": "https://www.tableau.com/products/reader",
   "InstallerType": "EXE",

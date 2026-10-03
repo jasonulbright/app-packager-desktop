@@ -205,6 +205,7 @@ public partial class PackagesViewModel : ObservableObject
         // After the cadence gate and the version check: a matching vendor version alone does
         // not skip an application whose profile or signing policy changed since its last build.
         var plans = new Dictionary<PackagerInfo, PackagerExecutionService.OneClickBuildPlan>();
+        var versionUpdates = new HashSet<PackagerInfo>(updates);
         if (action != OneClickActions.Report)
         {
             var policyDigest = settings.ScriptSigning.PolicyDigest;
@@ -249,13 +250,17 @@ public partial class PackagesViewModel : ObservableObject
         }
         if (action != OneClickActions.StageAndPackage) return;
 
-        var staged = updates.Where(p => p.Status == "Staged").ToList();
+        var staged = OneClickPublishSelection.Publishable(updates, versionUpdates).ToList();
+        foreach (var p in updates.Where(p => p.Status == "Staged" && !versionUpdates.Contains(p)))
+            AddLogLine($"One Click: {p.Application} {p.LatestVersion} restaged; ConfigMgr already carries this version, so it is not published.");
         foreach (var p in Packagers) p.IsSelected = staged.Contains(p);
         if (staged.Count == 0)
         {
             // Nothing to package because staging did not produce anything, which is a
             // different thing from there having been nothing to do.
-            StatusText = $"One Click: nothing staged to package. {stageTally.Describe(updates.Count, "staged")}.";
+            StatusText = versionUpdates.Count == 0 && stageTally.AllSucceeded(updates.Count)
+                ? $"One Click: {updates.Count} build(s) restaged; nothing new to publish."
+                : $"One Click: nothing staged to package. {stageTally.Describe(updates.Count, "staged")}.";
             return;
         }
         _skipCommentPrompt = true;

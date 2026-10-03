@@ -15,6 +15,14 @@ public sealed class AppDefinition
     public string Vendor { get; set; } = "";
     public string Application { get; set; } = "";
     public string CMName { get; set; } = "";
+    /// <summary>
+    /// The staged application name; {version} is the staged version. When set, the name
+    /// and publisher no longer come from metadata read out of an extracted EXE, which only
+    /// a machine with 7-Zip can read.
+    /// </summary>
+    public string? AppName { get; set; }
+    /// <summary>The staged publisher when <see cref="AppName"/> is set; Vendor otherwise.</summary>
+    public string? Publisher { get; set; }
     public string Architecture { get; set; } = "x64";
     public string VendorUrl { get; set; } = "";
     public string InstallerType { get; set; } = "MSI"; // MSI, EXE, ODT, ZIP, MSIX
@@ -305,6 +313,14 @@ public sealed class VersionScraperConfig
     public int MaxVersionHops { get; set; }
 
     /// <summary>
+    /// FileVersion only: the oldest build number the Url's {build} placeholder may take.
+    /// The HeadProbe walk moves up from it while the host answers 200, and the newest
+    /// answering URL names the file whose version resource is read. A floor the host no
+    /// longer serves fails the scrape.
+    /// </summary>
+    public string? ProbeFloor { get; set; }
+
+    /// <summary>
     /// "Name: value" request headers sent with the version request and the
     /// payload download, for vendors whose pages or CDN refuse a request
     /// without browser headers. A User-Agent entry replaces the default one.
@@ -559,6 +575,10 @@ public sealed class InstallerParameter
     /// A value absent from the named table substitutes itself.
     /// </summary>
     public Dictionary<string, Dictionary<string, string>>? ValueMaps { get; set; }
+    /// <summary>
+    /// LocaleList only: the code every non-empty selection carries, whether checked or not.
+    /// </summary>
+    public string? AlwaysInclude { get; set; }
 }
 
 /// <summary>

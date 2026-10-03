@@ -12,14 +12,10 @@
   "Acquisition": {},
   "VersionScraper": {
     "Type": "FileVersion",
-    "Url": "https://www.ccleaner.com/defraggler/builds",
+    "Url": "https://download.ccleaner.com/dfsetup{build}.exe",
     "Pattern": "FileVersion",
-    "Hops": [
-      {
-        "Pattern": "(?<url>https://download\\.ccleaner\\.com/dfsetup(?<capture>\\d{3,4})\\.exe)",
-        "SelectHighestVersion": true
-      }
-    ],
+    "ProbeFloor": "222",
+    "MaxVersionHops": 12,
     "DownloadUrlQuery": "CHAINED",
     "VersionTransform": "regex_replace:^(\\d+)\\.(\\d+)\\.\\d+\\.(\\d+)$:$1.$2.$3"
   },

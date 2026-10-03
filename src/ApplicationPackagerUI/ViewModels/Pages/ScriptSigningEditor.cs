@@ -17,7 +17,9 @@ public sealed record SigningCertificateOption(string Thumbprint, string Label, C
 public partial class ScriptSigningEditor : ObservableObject
 {
     public static readonly string[] StoreLocations = [SigningPolicy.CurrentUser, SigningPolicy.LocalMachine];
-    public static readonly string[] HashAlgorithms = ["SHA256", "SHA384", "SHA512"];
+
+    /// <summary>The digest every signature uses; Settings offers no other.</summary>
+    public const string FixedHashAlgorithm = "SHA256";
 
     private readonly Func<SigningCertificateService> _certificates;
     private readonly Func<SigningPolicy, SigningConfigurationTestResult> _test;
@@ -33,7 +35,6 @@ public partial class ScriptSigningEditor : ObservableObject
     [ObservableProperty] private string _storeLocation = SigningPolicy.CurrentUser;
     [ObservableProperty] private string _timestampServer = "";
     [ObservableProperty] private bool _timestampRequired;
-    [ObservableProperty] private string _hashAlgorithm = "SHA256";
     [ObservableProperty] private SigningCertificateOption? _selectedCertificate;
     [ObservableProperty] private string _certificateDetail = "";
     [ObservableProperty] private string _testResult = "";
@@ -41,7 +42,6 @@ public partial class ScriptSigningEditor : ObservableObject
 
     public ObservableCollection<SigningCertificateOption> Certificates { get; } = [];
     public IReadOnlyList<string> StoreLocationOptions => StoreLocations;
-    public IReadOnlyList<string> HashAlgorithmOptions => HashAlgorithms;
 
     public bool TestIdle => !TestBusy;
     partial void OnTestBusyChanged(bool value) => OnPropertyChanged(nameof(TestIdle));
@@ -69,7 +69,6 @@ public partial class ScriptSigningEditor : ObservableObject
             StoreLocation = policy.StoreLocation;
             TimestampServer = policy.TimestampServer;
             TimestampRequired = policy.TimestampRequired;
-            HashAlgorithm = HashAlgorithms.Contains(policy.HashAlgorithm) ? policy.HashAlgorithm : "SHA256";
             _thumbprint = policy.CertificateThumbprint;
         }
         finally
@@ -93,7 +92,7 @@ public partial class ScriptSigningEditor : ObservableObject
         StoreLocation = StoreLocation,
         TimestampServer = TimestampServer,
         TimestampRequired = TimestampRequired,
-        HashAlgorithm = HashAlgorithm
+        HashAlgorithm = FixedHashAlgorithm
     });
 
     partial void OnStoreLocationChanged(string value)

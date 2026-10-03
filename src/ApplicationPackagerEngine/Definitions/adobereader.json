@@ -24,6 +24,20 @@
     "DisplayVersionOverride":  "{version}",
     "InstallArgs":  "/sAll /rs /rps /msi /qn /norestart",
     "UninstallArgs":  "/x /qn /norestart",
+    "InstallerSettings":  [
+                              {
+                                  "Key":  "Languages",
+                                  "Label":  "Languages",
+                                  "Tooltip":  "Installs the languages checked here; English is always included, and the Reader UI follows the language of the operating system. All installs every language the installer carries (LANG_LIST=ALL). None checked keeps the installer's own language behavior.",
+                                  "ControlType":  "LocaleList",
+                                  "DefaultValue":  "",
+                                  "Options":  [ "ca_ES", "cs_CZ", "da_DK", "de_DE", "es_ES", "eu_ES", "fi_FI", "fr_FR", "hr_HR", "hu_HU", "it_IT", "ja_JP", "ko_KR", "nb_NO", "nl_NL", "pl_PL", "pt_BR", "ro_RO", "ru_RU", "sk_SK", "sl_SI", "sv_SE", "tr_TR", "uk_UA", "zh_CN", "zh_TW" ],
+                                  "AlwaysInclude":  "en_US",
+                                  "ValueMap":  { "All":  "ALL" },
+                                  "CommandFragment":  "LANG_LIST=\"{value}\" SUPPRESSLANGSELECTION=1",
+                                  "Group":  "Language"
+                              }
+                          ],
     "Detection":  {
                       "Type":  "File",
                       "FilePath":  "C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat",
