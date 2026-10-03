@@ -1,13 +1,40 @@
+# Build output
 bin/
 obj/
+publish/
+tempap/
+tools/TestHarness/publish/
+
+# IDE and editor state
+.vs/
+.vscode/
+.idea/
+.claude/
 *.user
 *.suo
-.vs/
 *.DotSettings.user
+*.swp
+*.swo
+
+# Logs
 *.log
-tools/TestHarness/publish/
-tools/TestHarness/bin/
-tools/TestHarness/obj/
-tempap/
-publish/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Icon pack content; downloaded at run time, distributed as its own release
 src/ApplicationPackagerEngine/Definitions/Icons/
+
+# Internal planning and working documents (not part of the public release)
+ROADMAP.md
+roadmap.md
+punchlist.md
+*-audit.md
+*-notes.md
+CLAUDE.md
+AGENTS.md
+*.local.*
+*.local/
+local-wip/
