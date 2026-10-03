@@ -20,7 +20,7 @@ public class SettingsService
     public AppSettings Load()
     {
         if (!File.Exists(SettingsPath))
-            return new AppSettings { FirstRunCompleted = false };
+            return new AppSettings { FirstRunCompleted = false, Systems = new SystemsInUse() };
 
         try
         {
@@ -37,11 +37,13 @@ public class SettingsService
             settings.LocalSourceFolders ??= [];
             settings.SideFiles ??= [];
             settings.ScriptSigning = ApplicationPackagerEngine.Models.Signing.SigningPolicy.FromSettings(settings.ScriptSigning);
+            settings.Systems = SystemsInUse.Resolve(settings.Systems, settings.Intune.TenantId, settings.Wsus?.ServerName);
+            settings.Wsus = WsusSettings.FromStored(settings.Wsus);
             return settings;
         }
         catch
         {
-            return new AppSettings { FirstRunCompleted = false };
+            return new AppSettings { FirstRunCompleted = false, Systems = new SystemsInUse() };
         }
     }
 

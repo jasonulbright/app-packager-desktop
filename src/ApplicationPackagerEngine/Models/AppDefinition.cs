@@ -626,4 +626,11 @@ public sealed class DetectionConfig
     /// Must be exactly two non-zero sizes summing to the clause count.
     /// </summary>
     public int[]? GroupSizes { get; set; }
+
+    /// <summary>
+    /// The product's Add/Remove Programs entry when Type is "ArpEntry". The stage
+    /// writes it as the ConfigMgr and Intune script detection and as the
+    /// manifest's WsusDetection. Version takes the same tokens as ExpectedValue.
+    /// </summary>
+    public ArpEntryDetection? ArpEntry { get; set; }
 }

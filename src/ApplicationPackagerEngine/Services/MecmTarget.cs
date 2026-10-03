@@ -59,20 +59,24 @@ public sealed class MecmTarget
             }
 
             // 0b. Title collision, decided before anything is written. A Skip
-            // run that finds the title must leave no copied content behind.
-            if (onExisting == OnExistingBehavior.Skip)
+            // or Fail run that finds the title must leave the share content of
+            // the existing application unchanged.
+            if (ProbesBeforeContentCopy(onExisting))
             {
                 var conflicted = false;
+                var siteVersion = "";
                 void WatchProbe(string line)
                 {
-                    if (OnExistingConflict.TryParse(line, out _, out _, out _)) conflicted = true;
+                    if (OnExistingConflict.TryParse(line, out _, out var found, out _)) { conflicted = true; siteVersion = found; }
                     onProgress?.Invoke(line);
                 }
 
-                var probe = await RunWindowsPowerShellAsync(
+                var probe = await WindowsPowerShellHost.RunAsync(
                     BuildExistingProbeScript(appName, version, siteCode, providerMachine), WatchProbe, ct);
                 if (probe.ExitCode != 0)
                     return new PackagingResult { Success = false, ErrorMessage = probe.StdErr };
+                if (conflicted && onExisting == OnExistingBehavior.Fail)
+                    return new PackagingResult { Success = false, ErrorMessage = ExistingApplicationFailMessage(appName, siteVersion) };
                 if (conflicted)
                     return new PackagingResult { Success = true, AlreadyExists = true, ApplicationName = appName };
             }
@@ -124,7 +128,7 @@ public sealed class MecmTarget
                     onExisting, scriptSigning);
 
             // 3. Execute via Windows PowerShell 5.1
-            var result = await RunWindowsPowerShellAsync(psScript, onProgress, ct);
+            var result = await WindowsPowerShellHost.RunAsync(psScript, onProgress, ct);
 
             if (result.ExitCode == 0)
             {
@@ -150,6 +154,17 @@ public sealed class MecmTarget
             return new PackagingResult { Success = false, ErrorMessage = ex.Message };
         }
     }
+
+    /// <summary>
+    /// True for the behaviors that leave an existing application alone; their
+    /// existing-application probe runs before any content reaches the share.
+    /// </summary>
+    public static bool ProbesBeforeContentCopy(OnExistingBehavior onExisting) =>
+        onExisting is OnExistingBehavior.Skip or OnExistingBehavior.Fail;
+
+    /// <summary>The refusal of a Fail run that found the title on the site.</summary>
+    public static string ExistingApplicationFailMessage(string appName, string siteVersion) =>
+        $"Existing ConfigMgr application '{appName}' already exists at version {siteVersion} and OnExisting=Fail was requested.";
 
     /// <summary>
     /// Builds the CM PowerShell that reports whether the site already holds an
@@ -717,59 +732,6 @@ public sealed class MecmTarget
         };
     }
 
-    private static async Task<(int ExitCode, string StdOut, string StdErr)> RunWindowsPowerShellAsync(
-        string script, Action<string>? onProgress, CancellationToken ct)
-    {
-        // Write script to temp file to avoid argument escaping issues
-        var scriptPath = Path.Combine(Path.GetTempPath(), $"ap-mecm-{Guid.NewGuid():N}.ps1");
-        await File.WriteAllTextAsync(scriptPath, script, Encoding.UTF8, ct);
-
-        try
-        {
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            // A PSModulePath inherited from PowerShell 7 makes Windows PowerShell
-            // load the 7.x security module, and the read-back's
-            // Get-AuthenticodeSignature is then missing. The machine and user
-            // values are what a logon session starts with, and the machine value
-            // carries the console's module folder.
-            var modulePath = string.Join(";", new[]
-            {
-                Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.User),
-                Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.Machine)
-            }.Where(p => !string.IsNullOrWhiteSpace(p)));
-            if (modulePath.Length > 0) process.StartInfo.Environment["PSModulePath"] = modulePath;
-            else process.StartInfo.Environment.Remove("PSModulePath");
-
-            process.Start();
-
-            var outLines = new List<string>();
-            string? line;
-            while ((line = await process.StandardOutput.ReadLineAsync(ct)) is not null)
-            {
-                outLines.Add(line);
-                onProgress?.Invoke(line);
-            }
-
-            var stderr = await process.StandardError.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
-
-            return (process.ExitCode, string.Join(Environment.NewLine, outLines), stderr);
-        }
-        finally
-        {
-            try { File.Delete(scriptPath); } catch { }
-        }
-    }
-
     /// <summary>
     /// Builds the PowerShell script for creating an MSIX deployment type in MECM.
     /// CM handles detection, provisioning, and per-user registration natively for MSIX.
@@ -851,7 +813,7 @@ public sealed class MecmTarget
         Action<string>? onProgress = null, string? providerMachine = null,
         CancellationToken ct = default)
     {
-        var result = await RunWindowsPowerShellAsync(
+        var result = await WindowsPowerShellHost.RunAsync(
             BuildDistributionScript(appName, siteCode, dpGroupName, providerMachine), onProgress, ct);
         if (result.ExitCode != 0)
             onProgress?.Invoke($"Distribution failed: {result.StdErr}");
@@ -885,7 +847,7 @@ public sealed class MecmTarget
         Action<string>? onProgress = null, string? providerMachine = null,
         CancellationToken ct = default)
     {
-        var result = await RunWindowsPowerShellAsync(
+        var result = await WindowsPowerShellHost.RunAsync(
             BuildTestCollectionDeploymentScript(appName, siteCode, collectionName, createIfMissing, providerMachine), onProgress, ct);
         if (result.ExitCode != 0)
             onProgress?.Invoke($"Test deployment failed: {result.StdErr}");
@@ -947,7 +909,7 @@ public sealed class MecmTarget
         sb.AppendLine(" -ErrorAction Stop | Out-Null");
         sb.AppendLine($"Write-Host 'Deployed: {Esc(appName)} to {Esc(collectionName)} ({purpose})'");
 
-        var result = await RunWindowsPowerShellAsync(sb.ToString(), onProgress, ct);
+        var result = await WindowsPowerShellHost.RunAsync(sb.ToString(), onProgress, ct);
         if (result.ExitCode != 0)
             onProgress?.Invoke($"Deployment failed: {result.StdErr}");
         return result.ExitCode == 0;
