@@ -1,0 +1,49 @@
+{
+  "Schema": 1,
+  "Id": "4df45193e8156b85",
+  "IconSource": "Installer",
+  "Vendor": "MuleSoft",
+  "Application": "Anypoint Studio (x64)",
+  "CMName": "Anypoint Studio",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.mulesoft.com/platform/studio",
+  "InstallerType": "EXE",
+  "InstallerFramework": "ZIP",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://www.mulesoft.com/downloads/manifest.json",
+    "Pattern": "[?name=studio,version=latest,os=windows].source",
+    "VersionTransform": "regex_replace:^.*/AnypointStudio-(\\d+\\.\\d+\\.\\d+)-win64\\.zip$:$1",
+    "DownloadUrlQuery": "[?name=studio,version=latest,os=windows].source",
+    "PayloadHashQuery": "[?name=studio,version=latest,os=windows].integrity",
+    "RequestHeaders": [
+      "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+      "Referer: https://www.mulesoft.com/lp/dl/anypoint-mule-studio"
+    ]
+  },
+  "DownloadUrl": "",
+  "RequirePayloadHash": true,
+  "ZipPayload": {
+    "InstallDir": "C:\\AnypointStudio",
+    "RequiredEntries": [
+      "AnypointStudio/AnypointStudio.exe"
+    ],
+    "IconEntry": "AnypointStudio/AnypointStudio.exe",
+    "EntryTokens": {
+      "StudioBuild": "^AnypointStudio/features/org\\.mule\\.tooling\\.studio_([^/]+)/feature\\.xml$"
+    }
+  },
+  "InstallArgs": "",
+  "UninstallArgs": "",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\AnypointStudio\\features\\org.mule.tooling.studio_{zip:StudioBuild}",
+    "FileName": "feature.xml",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "AnypointStudio"
+  ]
+}

@@ -64,8 +64,25 @@ public sealed class AppSettings
     // Per-app: M365
     public string M365Channel { get; set; } = "MonthlyEnterprise";
 
-    // Per-app: Citrix Workspace
-    public CwaInstallSettings Cwa { get; set; } = new();
+    /// <summary>
+    /// Citrix Workspace switch settings in the citrix-workspace-switches.json
+    /// shape. Null in a file written before the shape existed; SettingsService
+    /// fills it from the legacy Cwa block on load.
+    /// </summary>
+    public CitrixWorkspaceSwitches? CitrixSwitches { get; set; }
+
+    /// <summary>
+    /// Legacy flat Citrix settings, read so an older settings.json keeps its
+    /// choices. Dropped from the file on the next save.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public LegacyCwaInstallSettings? Cwa { get; set; }
+
+    /// <summary>Local installer source folder per definition (definition Id → folder).</summary>
+    public Dictionary<string, string> LocalSourceFolders { get; set; } = [];
+
+    /// <summary>Chosen side-file paths by side-file key, such as BeyondCompareKeyFile.</summary>
+    public Dictionary<string, string> SideFiles { get; set; } = [];
 
     // Intune / deployment target
     public IntuneSettings Intune { get; set; } = new();
@@ -210,25 +227,4 @@ public sealed class AppCheckState
     public DateTime? LastChecked { get; set; }
     public string LatestVersion { get; set; } = "";
     public string CurrentVersion { get; set; } = "";
-}
-
-public sealed class CwaInstallSettings
-{
-    public string StoreName { get; set; } = "";
-    public string StoreUrl { get; set; } = "";
-    public bool Clean { get; set; }
-    public bool SingleSignOn { get; set; }
-    public bool AppProtection { get; set; }
-    public bool PreLaunch { get; set; }
-    public bool SelfService { get; set; }
-    public bool PluginTeams { get; set; }
-    public bool PluginZoom { get; set; }
-    public bool PluginWebEx { get; set; }
-    public bool PluginUber { get; set; }
-    public bool PluginUberSkip { get; set; }
-    public bool PluginEpa { get; set; }
-    public bool PluginStorageResync { get; set; }
-    public string AutoUpdate { get; set; } = "Auto";
-    public string AddStorePolicy { get; set; } = "None";
-    public string SavePassword { get; set; } = "None";
 }

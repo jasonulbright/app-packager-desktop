@@ -1,0 +1,38 @@
+{
+  "Schema": 1,
+  "Id": "c5d5edb610009f59",
+  "IconSource": "Installer",
+  "Vendor": "Microsoft",
+  "Application": "Microsoft OpenJDK 17 (EXE, per user)",
+  "CMName": "Microsoft OpenJDK 17 (EXE, per user)",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/en-us/java/openjdk/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "InstallContext": "User",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi",
+    "Pattern": "REDIR:(?i)/microsoft-jdk-(17(?:\\.\\d+){1,4})-windows-x64\\.msi(?:[?#].*)?$"
+  },
+  "DownloadUrl": "https://aka.ms/download-jdk/microsoft-jdk-{version}-windows-x64.exe",
+  "PayloadSha256Url": "{download_url}.sha256sum.txt",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /CURRENTUSER /TASKS=\"FeatureEnvironment,FeatureJarFileRunWith\"",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$key = 'HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{65A75ED2-4165-6FAA-277E-7647F7E2F3EA}_is1'\r\nif (-not (Test-Path -LiteralPath $key)) { exit 0 }\r\n$cmd = (Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).UninstallString\r\nif (-not $cmd) { exit 0 }\r\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }\r\nif (-not (Test-Path -LiteralPath $exe)) { exit 0 }\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKCU",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{65A75ED2-4165-6FAA-277E-7647F7E2F3EA}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{HeaderDisplayVersion}",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "java",
+    "javaw"
+  ]
+}

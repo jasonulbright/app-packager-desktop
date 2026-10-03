@@ -218,27 +218,31 @@ public sealed class IconExtractionService
     // ---- Stage-time icon placement ----
 
     /// <summary>
-    /// Places app-icon.* in a stage folder per the definition's IconSource and
-    /// records the file name on the manifest so packaging can find it inside
-    /// the content folder.
+    /// Places app-icon.* in a stage folder and records the file name on the
+    /// manifest so packaging can find it inside the content folder.
     ///
-    /// Installer extracts from the staged installer the manifest names.
-    /// External copies Definitions\Icons\&lt;definition id&gt;.ico|png. None is a
-    /// no-op. Never throws: an icon is decoration, and a failed extraction must
-    /// not fail a stage.
+    /// An icon pack entry Definitions\Icons\&lt;definition file name&gt;.ico|png
+    /// wins for every IconSource: pack icons are at least 256x256, extracted
+    /// installer icons are often 64x64 or 128x128. Without one, Installer
+    /// extracts from the staged installer the manifest names (from the
+    /// ZipPayload icon entry for a ZIP payload), External reports the missing
+    /// file, and None is a no-op. Never throws: an icon is decoration, and a
+    /// failed extraction must not fail a stage.
     /// </summary>
     public static void StageIcon(
         Models.AppDefinition definition, string stageRoot,
         Models.StageManifest manifest, Action<string>? onLog = null)
     {
         var iconSource = NormalizeIconSource(definition.IconSource);
-        if (iconSource == "None") return;
 
         try
         {
+            if (StagePackIcon(definition, stageRoot, manifest, onLog)) return;
+            if (iconSource == "None") return;
+
             if (iconSource == "External")
             {
-                StageExternalIcon(definition, stageRoot, manifest, onLog);
+                onLog?.Invoke($"IconSource External but no Definitions\\Icons\\{ExternalIconBaseName(definition)}.ico|png found; continuing without an icon.");
                 return;
             }
 
@@ -255,6 +259,14 @@ public sealed class IconExtractionService
                 return;
             }
 
+            var iconEntry = definition.ZipPayload?.IconEntry;
+            if (!string.IsNullOrWhiteSpace(iconEntry)
+                && installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                StageZipEntryIcon(installerPath, iconEntry, stageRoot, manifest, onLog);
+                return;
+            }
+
             var result = ExtractInstallerIcon(installerPath, Path.Combine(stageRoot, "app-icon.ico"), MinimumDimension, onLog);
             if (result is null) return;
             manifest.Icon = Path.GetFileName(result.Path);
@@ -265,7 +277,37 @@ public sealed class IconExtractionService
         }
     }
 
-    private static void StageExternalIcon(
+    /// <summary>
+    /// The ZIP is not an executable, so the icon comes from the launcher
+    /// inside it, extracted to a temporary file that is always removed.
+    /// </summary>
+    private static void StageZipEntryIcon(
+        string zipPath, string entryName, string stageRoot,
+        Models.StageManifest manifest, Action<string>? onLog)
+    {
+        var temp = Path.Combine(Path.GetTempPath(), $"packr-zipicon-{Guid.NewGuid():N}.exe");
+        try
+        {
+            if (!ZipPayload.ExtractEntry(zipPath, entryName, temp))
+            {
+                onLog?.Invoke($"IconSource Installer but the ZIP has no {entryName}; continuing without an icon.");
+                return;
+            }
+            var result = ExtractInstallerIcon(temp, Path.Combine(stageRoot, "app-icon.ico"), MinimumDimension, onLog);
+            if (result is not null) manifest.Icon = Path.GetFileName(result.Path);
+        }
+        finally
+        {
+            try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>
+    /// Copies the icon pack entry named after the definition file, .ico before
+    /// .png. Only an exact base-name match counts, so a pack entry for a
+    /// longer name that shares the prefix is not taken.
+    /// </summary>
+    private static bool StagePackIcon(
         Models.AppDefinition definition, string stageRoot,
         Models.StageManifest manifest, Action<string>? onLog)
     {
@@ -274,17 +316,13 @@ public sealed class IconExtractionService
         var candidate = new[] { ".ico", ".png" }
             .Select(ext => Path.Combine(iconsDirectory, baseName + ext))
             .FirstOrDefault(File.Exists);
-
-        if (candidate is null)
-        {
-            onLog?.Invoke($"IconSource External but no Definitions\\Icons\\{baseName}.ico|png found; continuing without an icon.");
-            return;
-        }
+        if (candidate is null) return false;
 
         var destination = Path.Combine(stageRoot, "app-icon" + Path.GetExtension(candidate).ToLowerInvariant());
         File.Copy(candidate, destination, true);
         manifest.Icon = Path.GetFileName(destination);
-        onLog?.Invoke($"Staged external icon         : {manifest.Icon}");
+        onLog?.Invoke($"Staged icon pack icon        : {manifest.Icon}");
+        return true;
     }
 
     /// <summary>

@@ -54,6 +54,9 @@ public sealed class StageManifest
     public StageCommandOverrides? CommandOverrides { get; set; }
     /// <summary>Package identity and signer read from an MSIX container at stage time.</summary>
     public StageMsixPackage? MsixPackage { get; set; }
+    /// <summary>ConfigMgr deployment-type post-installation behavior; absent leaves the cmdlet default.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PostExecutionBehavior { get; set; }
 
     // Schema v4. Every field below carries its default on an unprofiled build, so a
     // reader never has to tell "unprofiled" apart from "written before v4".

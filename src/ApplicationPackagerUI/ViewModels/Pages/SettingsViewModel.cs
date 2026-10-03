@@ -42,24 +42,14 @@ public partial class SettingsViewModel : ObservableObject
     // Per-app: M365
     [ObservableProperty] private string _m365Channel = "MonthlyEnterprise";
 
-    // Per-app: CWA
-    [ObservableProperty] private string _cwaStoreName = "";
-    [ObservableProperty] private string _cwaStoreUrl = "";
-    [ObservableProperty] private bool _cwaClean;
-    [ObservableProperty] private bool _cwaSingleSignOn;
-    [ObservableProperty] private bool _cwaAppProtection;
-    [ObservableProperty] private bool _cwaPreLaunch;
-    [ObservableProperty] private bool _cwaSelfService;
-    [ObservableProperty] private bool _cwaPluginTeams;
-    [ObservableProperty] private bool _cwaPluginZoom;
-    [ObservableProperty] private bool _cwaPluginWebEx;
-    [ObservableProperty] private bool _cwaPluginUber;
-    [ObservableProperty] private bool _cwaPluginUberSkip;
-    [ObservableProperty] private bool _cwaPluginEpa;
-    [ObservableProperty] private bool _cwaPluginStorageResync;
-    [ObservableProperty] private string _cwaAutoUpdate = "Auto";
-    [ObservableProperty] private string _cwaAddStorePolicy = "None";
-    [ObservableProperty] private string _cwaSavePassword = "None";
+    // Per-app: Citrix Workspace switches. The controls bind into this object;
+    // an indeterminate box or an empty choice is "not set".
+    [ObservableProperty] private CitrixWorkspaceSwitches _cwaSwitches = CompleteSwitches(null);
+    [ObservableProperty] private string _cwaPreview = "";
+
+    // Local installer folders and side files, one row per definition or key
+    public ObservableCollection<PathSettingRow> LocalSourceRows { get; } = [];
+    public ObservableCollection<PathSettingRow> SideFileRows { get; } = [];
 
     // Intune
     [ObservableProperty] private string _deploymentTarget = DeploymentTargets.Mecm;
@@ -180,6 +170,103 @@ public partial class SettingsViewModel : ObservableObject
         InstallParameterSummary = InstallParameterGroups.Count == 0
             ? "No definition declares install parameters."
             : $"{InstallParameterGroups.Count} applications carry install parameters.";
+
+        LoadPathRows(definitions);
+    }
+
+    /// <summary>
+    /// One folder row per definition with a local installer source and one
+    /// file row per side-file key, each starting from the saved path.
+    /// </summary>
+    private void LoadPathRows(IReadOnlyList<AppDefinition> definitions)
+    {
+        var s = _settingsService.Load();
+        LocalSourceRows.Clear();
+        foreach (var def in definitions.Where(d => d.LocalSource is not null)
+                                       .OrderBy(d => d.Application, StringComparer.OrdinalIgnoreCase))
+        {
+            LocalSourceRows.Add(new PathSettingRow
+            {
+                Key = def.Id,
+                Label = def.Application,
+                Hint = def.LocalSource!.IsRequired
+                    ? $"Required. Stage takes the newest {def.LocalSource.Filter} from this folder."
+                    : $"Optional. With a folder set, Stage takes the newest {def.LocalSource.Filter} from it instead of downloading.",
+                IsFolder = true,
+                Path = s.LocalSourceFolders.TryGetValue(def.Id, out var folder) ? folder : ""
+            });
+        }
+
+        SideFileRows.Clear();
+        foreach (var group in definitions.SelectMany(d => (d.SideFiles ?? []).Select(f => (Definition: d, File: f)))
+                                         .GroupBy(x => x.File.Key, StringComparer.OrdinalIgnoreCase)
+                                         .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var first = group.First();
+            SideFileRows.Add(new PathSettingRow
+            {
+                Key = first.File.Key,
+                Label = $"{string.Join(", ", group.Select(x => x.Definition.Application).Distinct())} - {first.File.Label}",
+                Hint = $"Copied beside the installer as {first.File.FileName}. Stage refuses to run without it.",
+                FileFilter = $"{first.File.FileName}|{first.File.FileName}|All files (*.*)|*.*",
+                Path = s.SideFiles.TryGetValue(first.File.Key, out var file) ? file : ""
+            });
+        }
+    }
+
+    private static void SetOrRemove(Dictionary<string, string> map, string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) map.Remove(key);
+        else map[key] = value.Trim();
+    }
+
+    /// <summary>A copy with every section present and empty strings for unset choices, so the controls can bind.</summary>
+    private static CitrixWorkspaceSwitches CompleteSwitches(CitrixWorkspaceSwitches? source)
+    {
+        var copy = source is null
+            ? new CitrixWorkspaceSwitches()
+            : System.Text.Json.JsonSerializer.Deserialize<CitrixWorkspaceSwitches>(
+                System.Text.Json.JsonSerializer.Serialize(source))!;
+        copy.Store ??= new CwaStore();
+        copy.Installation ??= new CwaInstallation();
+        copy.Plugins ??= new CwaPlugins();
+        copy.UpdateAndTelemetry ??= new CwaUpdateAndTelemetry();
+        copy.StorePolicy ??= new CwaStorePolicy();
+        copy.Components ??= new CwaComponents();
+        copy.Store.Name ??= "";
+        copy.Store.Url ??= "";
+        copy.UpdateAndTelemetry.AutoUpdateCheck ??= "";
+        copy.StorePolicy.AllowAddStore ??= "";
+        copy.StorePolicy.AllowSavePwd ??= "";
+        return copy;
+    }
+
+    /// <summary>The stored form: empty strings become null, which the builder and the PS1 packagers read as not set.</summary>
+    private static CitrixWorkspaceSwitches TrimSwitches(CitrixWorkspaceSwitches edited)
+    {
+        var copy = CompleteSwitches(edited);
+        static string? Text(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        copy.Store!.Name = Text(copy.Store.Name);
+        copy.Store.Url = Text(copy.Store.Url);
+        copy.UpdateAndTelemetry!.AutoUpdateCheck = Text(copy.UpdateAndTelemetry.AutoUpdateCheck);
+        copy.StorePolicy!.AllowAddStore = Text(copy.StorePolicy.AllowAddStore);
+        copy.StorePolicy.AllowSavePwd = Text(copy.StorePolicy.AllowSavePwd);
+        return copy;
+    }
+
+    /// <summary>Shows the Current and LTSR command lines the current choices produce, with each skipped setting.</summary>
+    [RelayCommand]
+    private void PreviewCwa()
+    {
+        var switches = TrimSwitches(CwaSwitches);
+        var lines = new List<string>();
+        foreach (var stream in new[] { CitrixInstallArguments.Current, CitrixInstallArguments.Ltsr })
+        {
+            var built = CitrixInstallArguments.Build(switches, stream);
+            lines.Add($"{stream}: {string.Join(" ", built.Arguments)}");
+            lines.AddRange(built.Warnings.Select(w => $"  {stream} warning: {w}"));
+        }
+        CwaPreview = string.Join(Environment.NewLine, lines);
     }
 
     private void RefreshIconPackStatus() =>
@@ -417,23 +504,12 @@ public partial class SettingsViewModel : ObservableObject
         RefreshOneClickRows();
         SkipConfigReview = s.SkipConfigReview;
 
-        CwaStoreName = s.Cwa.StoreName;
-        CwaStoreUrl = s.Cwa.StoreUrl;
-        CwaClean = s.Cwa.Clean;
-        CwaSingleSignOn = s.Cwa.SingleSignOn;
-        CwaAppProtection = s.Cwa.AppProtection;
-        CwaPreLaunch = s.Cwa.PreLaunch;
-        CwaSelfService = s.Cwa.SelfService;
-        CwaPluginTeams = s.Cwa.PluginTeams;
-        CwaPluginZoom = s.Cwa.PluginZoom;
-        CwaPluginWebEx = s.Cwa.PluginWebEx;
-        CwaPluginUber = s.Cwa.PluginUber;
-        CwaPluginUberSkip = s.Cwa.PluginUberSkip;
-        CwaPluginEpa = s.Cwa.PluginEpa;
-        CwaPluginStorageResync = s.Cwa.PluginStorageResync;
-        CwaAutoUpdate = s.Cwa.AutoUpdate;
-        CwaAddStorePolicy = s.Cwa.AddStorePolicy;
-        CwaSavePassword = s.Cwa.SavePassword;
+        CwaSwitches = CompleteSwitches(s.CitrixSwitches);
+        CwaPreview = "";
+        foreach (var row in LocalSourceRows)
+            row.Path = s.LocalSourceFolders.TryGetValue(row.Key, out var folder) ? folder : "";
+        foreach (var row in SideFileRows)
+            row.Path = s.SideFiles.TryGetValue(row.Key, out var file) ? file : "";
 
         DeploymentTarget = DeploymentTargets.Normalize(s.Intune.DeploymentTarget);
         IntuneTenantId = s.Intune.TenantId;
@@ -489,27 +565,12 @@ public partial class SettingsViewModel : ObservableObject
                 .ToDictionary(r => r.Uid, r => r.CadenceOverride!.Value)
         };
 
-        s.Cwa = new CwaInstallSettings
-        {
-            StoreName = CwaStoreName,
-            StoreUrl = CwaStoreUrl,
-            Clean = CwaClean,
-            SingleSignOn = CwaSingleSignOn,
-            AppProtection = CwaAppProtection,
-            PreLaunch = CwaPreLaunch,
-            SelfService = CwaSelfService,
-            PluginTeams = CwaPluginTeams,
-            PluginZoom = CwaPluginZoom,
-            PluginWebEx = CwaPluginWebEx,
-            PluginUber = CwaPluginUber,
-            PluginUberSkip = CwaPluginUberSkip,
-            PluginEpa = CwaPluginEpa,
-            PluginStorageResync = CwaPluginStorageResync,
-            AutoUpdate = CwaAutoUpdate,
-            AddStorePolicy = CwaAddStorePolicy,
-            SavePassword = CwaSavePassword,
-        };
-
+        s.CitrixSwitches = TrimSwitches(CwaSwitches);
+        s.Cwa = null;
+        foreach (var row in LocalSourceRows)
+            SetOrRemove(s.LocalSourceFolders, row.Key, row.Path);
+        foreach (var row in SideFileRows)
+            SetOrRemove(s.SideFiles, row.Key, row.Path);
         s.Intune.DeploymentTarget = DeploymentTargets.Normalize(DeploymentTarget);
         s.Intune.TenantId = IntuneTenantId.Trim();
         s.Intune.ClientId = IntuneClientId.Trim();
@@ -527,8 +588,8 @@ public partial class SettingsViewModel : ObservableObject
         _packagesViewModel.RefreshDeploymentTargetState();
 
         // Sync to PS1 packager JSON files
-        _prefsSync.SyncCompanyName(s.CompanyName);
-        _prefsSync.SyncCwaSettings(s.Cwa);
+        _prefsSync.SyncPackagerPreferences(s.CompanyName, s.SideFiles);
+        _prefsSync.SyncCwaSettings(s.CitrixSwitches);
 
         _snackbarService.Show("Settings", "Settings saved.", Wpf.Ui.Controls.ControlAppearance.Success,
             new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));

@@ -4,7 +4,7 @@
     "IconSource":  "Installer",
   "Vendor": "DBeaver Corp",
   "Application": "DBeaver Community (x64)",
-  "CMName": "DBeaver Community",
+  "CMName": "DBeaver",
   "Architecture": "x64",
   "VendorUrl": "https://dbeaver.io/",
   "InstallerType": "EXE",

@@ -190,11 +190,21 @@ public sealed class IconPackService
         var mappings = new List<IconPackMapping>();
         var unmatched = new List<IconPackEntry>();
 
-        foreach (var entry in entries)
+        static string PackagerName(IconPackEntry entry) => string.IsNullOrWhiteSpace(entry.Packager)
+            ? Path.GetFileNameWithoutExtension(entry.File ?? "")
+            : entry.Packager;
+
+        // A definition one entry names exactly takes no fanned-out icon from
+        // another entry, whatever order the manifest lists them in.
+        var entryList = entries.ToList();
+        var claimed = new HashSet<string>(
+            entryList.Select(PackagerName).Where(n => !string.IsNullOrWhiteSpace(n) && byExact.ContainsKey(n))
+                     .Select(n => byExact[n]),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in entryList)
         {
-            var packagerName = string.IsNullOrWhiteSpace(entry.Packager)
-                ? Path.GetFileNameWithoutExtension(entry.File ?? "")
-                : entry.Packager;
+            var packagerName = PackagerName(entry);
 
             if (!string.IsNullOrWhiteSpace(packagerName) && byExact.TryGetValue(packagerName, out var exact))
             {
@@ -207,7 +217,7 @@ public sealed class IconPackService
 
             if (key.Length > 0 && byNormalized.TryGetValue(key, out var matches))
             {
-                foreach (var match in matches)
+                foreach (var match in matches.Where(m => !claimed.Contains(m)))
                     mappings.Add(new IconPackMapping(entry, match, Exact: false));
                 continue;
             }

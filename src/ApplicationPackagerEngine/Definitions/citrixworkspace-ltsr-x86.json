@@ -1,0 +1,56 @@
+{
+  "Schema": 1,
+  "Id": "eeb5d667d67b4c09",
+  "IconSource": "Installer",
+  "Vendor": "Cloud Software Group",
+  "Application": "Citrix Workspace LTSR (x86)",
+  "CMName": "Citrix Workspace LTSR x86",
+  "Architecture": "x86",
+  "VendorUrl": "https://www.citrix.com/downloads/workspace-app/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InstallShield",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://downloadplugins.citrix.com/ReceiverUpdates/Prod/catalog_win.xml",
+    "Pattern": "<DownloadURL>[^<]+</DownloadURL><Hash>[0-9A-Fa-f]{64}</Hash>(?:(?!</Installer>).)*?<Stream>LTSR</Stream><Version>(\\d+(?:\\.\\d+){1,3})</Version>",
+    "SelectHighestVersion": true,
+    "DownloadUrlQuery": "<DownloadURL>/?([^<]+)</DownloadURL><Hash>[0-9A-Fa-f]{64}</Hash>(?:(?!</Installer>).)*?<Stream>LTSR</Stream><Version>{version}</Version>",
+    "PayloadHashQuery": "<Hash>([0-9A-Fa-f]{64})</Hash>(?:(?!</Installer>).)*?<Stream>LTSR</Stream><Version>{version}</Version>"
+  },
+  "DownloadUrl": "https://downloadplugins.citrix.com/ReceiverUpdates/Prod/Receiver/Win/CitrixWorkspaceApp{version}.exe",
+  "InstallerFileName": "CitrixWorkspaceApp-LTSR-x86-{version}.exe",
+  "LocalSource": {
+    "Mode": "Optional",
+    "Filter": "CitrixWorkspace*.exe",
+    "Exclude": [
+      "*_x64*",
+      "*_ARM64*"
+    ],
+    "StagedNames": [
+      {
+        "Match": "*FullInstaller*",
+        "FileName": "CitrixWorkspaceFullInstaller-LTSR-x86-{version}.exe"
+      }
+    ]
+  },
+  "RequirePayloadHash": true,
+  "CitrixSwitchStream": "LTSR",
+  "InstallArgs": "/silent",
+  "UninstallArgs": "/silent /uninstall",
+  "UninstallCommand": "$exe = Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'CitrixWorkspace*-LTSR-x86-*.exe' | Select-Object -First 1\r\nif (-not $exe) { exit 1 }\r\n$proc = Start-Process -FilePath $exe.FullName -ArgumentList @('/silent', '/uninstall') -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CitrixOnlinePluginPackWeb",
+    "ValueName": "DisplayVersion",
+    "Operator": "GreaterEquals",
+    "PropertyType": "Version",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "SelfService",
+    "AuthManSvr",
+    "Receiver"
+  ]
+}
