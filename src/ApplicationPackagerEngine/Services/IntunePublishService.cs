@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Signing;
+using ApplicationPackagerEngine.Services.Signing;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -66,10 +68,11 @@ public sealed class IntunePublishService : IDisposable
         StageManifest manifest,
         IntunePublishOptions options,
         Action<string>? onProgress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IntuneScriptRuleContext? scriptSigning = null)
     {
         var meta = _reader.ReadMetadata(intuneWinPath);
-        var rules = BuildRules(manifest.Detection);
+        var rules = BuildRules(manifest.Detection, scriptSigning);
 
         var installCommand = FirstNonBlank(manifest.CommandOverrides?.Install, "install.bat");
         var uninstallCommand = FirstNonBlank(manifest.CommandOverrides?.Uninstall, "uninstall.bat");
@@ -353,10 +356,38 @@ public sealed class IntunePublishService : IDisposable
             : (resolved, null);
     }
 
-    public static JsonArray BuildRules(StageDetection detection)
+    /// <summary>
+    /// enforceSignatureCheck and runAs32Bit for a PowerShell script rule. The
+    /// check is set when the detection category produced a valid signature or
+    /// the policy requires one; a required signature that was not produced
+    /// refuses the publish instead of shipping an unenforced rule. Signature
+    /// enforcement only asks the client to verify; it never signs.
+    /// </summary>
+    public static (bool EnforceSignatureCheck, bool RunAs32Bit) ScriptRuleSettings(IntuneScriptRuleContext? context)
+    {
+        if (context is null) return (false, false);
+        var status = context.DetectionStatus ?? "";
+        var signed = SigningStatus.IsSigned(status);
+        if (context.RequireDetection && !signed)
+            throw new InvalidOperationException(
+                $"Valid detection script signatures are required, but the staged detection reports status '{(status.Length > 0 ? status : "none")}'; re-stage with signing enabled before publishing to Intune.");
+        return (signed || context.RequireDetection,
+            string.Equals(context.ScriptHost, DeploymentLauncher.HostX86, StringComparison.Ordinal));
+    }
+
+    public static JsonArray BuildRules(StageDetection detection) => BuildRules(detection, null);
+
+    /// <summary>
+    /// The Graph detection rules for a manifest detection. With a signing
+    /// context, script rules carry the resolved signature settings, and a
+    /// Script detection with a finalized file publishes that file's exact
+    /// bytes, because re-encoding the text reproduces signed bytes only for an
+    /// ASCII or BOM-less UTF-8 original.
+    /// </summary>
+    public static JsonArray BuildRules(StageDetection detection, IntuneScriptRuleContext? signing)
     {
         if (!string.Equals(detection.Type, "Compound", StringComparison.OrdinalIgnoreCase))
-            return new JsonArray(MapOne(detection));
+            return new JsonArray(MapOne(detection, signing, signing?.DetectionScriptFile));
 
         // Graph ANDs every detection rule it is given, so an OR-connected
         // compound would publish as a narrower rule than the definition states.
@@ -369,7 +400,7 @@ public sealed class IntunePublishService : IDisposable
         if (clauses.Length < 2)
             throw new InvalidOperationException("A Compound detection requires at least two Clauses.");
 
-        var rules = clauses.Select(MapOne).ToArray();
+        var rules = clauses.Select(c => MapOne(c, signing, null)).ToArray();
         if (rules.Length > 1 && rules.Any(IsScriptRule))
             throw new InvalidOperationException(
                 "A prefix, suffix, or substring clause maps to a script rule, which this mapping does not combine with other clauses; use a Script detection for this app.");
@@ -380,7 +411,7 @@ public sealed class IntunePublishService : IDisposable
     private static bool IsScriptRule(JsonNode rule) =>
         string.Equals((string?)rule["@odata.type"], "#microsoft.graph.win32LobAppPowerShellScriptRule", StringComparison.Ordinal);
 
-    private static JsonNode MapOne(StageDetection d)
+    private static JsonNode MapOne(StageDetection d, IntuneScriptRuleContext? signing, string? scriptFile)
     {
         var type = string.IsNullOrWhiteSpace(d.Type) ? "RegistryKeyValue" : d.Type;
         var check32 = !d.Is64Bit;
@@ -395,7 +426,7 @@ public sealed class IntunePublishService : IDisposable
                 // clause builder defaults it.
                 var opName = string.IsNullOrWhiteSpace(d.Operator) ? "IsEquals" : d.Operator!;
                 if (ScriptOperators.Contains(opName, StringComparer.OrdinalIgnoreCase))
-                    return RegistryValueScriptRule(d, valueName, expected, opName);
+                    return RegistryValueScriptRule(d, valueName, expected, opName, signing);
                 var operationType = Version.TryParse(expected, out _) ? "version" : "string";
                 return new JsonObject
                 {
@@ -467,13 +498,26 @@ public sealed class IntunePublishService : IDisposable
                     && !d.ScriptLanguage.Equals("PowerShell", StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException(
                         $"Detection script language '{d.ScriptLanguage}' has no Intune rule mapping; Graph runs a Win32 detection script as PowerShell.");
+                var (enforce, runAs32Bit) = ScriptRuleSettings(signing);
+                byte[] content;
+                if (!string.IsNullOrWhiteSpace(scriptFile))
+                {
+                    if (!File.Exists(scriptFile))
+                        throw new InvalidOperationException(
+                            $"The manifest names detection script file '{scriptFile}' but it is missing under the content root; re-run the Stage phase so the finalized script is written before publishing.");
+                    content = File.ReadAllBytes(scriptFile);
+                }
+                else
+                {
+                    content = Encoding.UTF8.GetBytes(scriptText);
+                }
                 return new JsonObject
                 {
                     ["@odata.type"] = "#microsoft.graph.win32LobAppPowerShellScriptRule",
                     ["ruleType"] = "detection",
-                    ["enforceSignatureCheck"] = false,
-                    ["runAs32Bit"] = false,
-                    ["scriptContent"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(scriptText)),
+                    ["enforceSignatureCheck"] = enforce,
+                    ["runAs32Bit"] = runAs32Bit,
+                    ["scriptContent"] = Convert.ToBase64String(content),
                     ["operationType"] = "notConfigured",
                     ["operator"] = "notConfigured"
                 };
@@ -512,7 +556,8 @@ public sealed class IntunePublishService : IDisposable
     /// comparison keeps its meaning through a script that reads the value from
     /// the requested registry view.
     /// </summary>
-    private static JsonNode RegistryValueScriptRule(StageDetection d, string valueName, string expected, string op)
+    private static JsonNode RegistryValueScriptRule(StageDetection d, string valueName, string expected, string op,
+        IntuneScriptRuleContext? signing)
     {
         var hive = d.IsCurrentUserHive ? "CurrentUser" : "LocalMachine";
         var view = d.Is64Bit ? "Registry64" : "Registry32";
@@ -534,12 +579,13 @@ public sealed class IntunePublishService : IDisposable
             "}",
             "exit 1");
 
+        var (enforce, runAs32Bit) = ScriptRuleSettings(signing);
         return new JsonObject
         {
             ["@odata.type"] = "#microsoft.graph.win32LobAppPowerShellScriptRule",
             ["ruleType"] = "detection",
-            ["enforceSignatureCheck"] = false,
-            ["runAs32Bit"] = false,
+            ["enforceSignatureCheck"] = enforce,
+            ["runAs32Bit"] = runAs32Bit,
             ["scriptContent"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(script)),
             ["operationType"] = "notConfigured",
             ["operator"] = "notConfigured"

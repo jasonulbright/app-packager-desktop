@@ -1,5 +1,6 @@
 using System.Text;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services.Signing;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -667,27 +668,25 @@ public sealed class WrapperGeneratorService
     /// <summary>A bare apostrophe would terminate the single-quoted literal early.</summary>
     private static string EscapePsLiteral(string value) => value.Replace("'", "''");
 
-    private static void WriteWrappers(string outputPath, string installPs1Content, string uninstallPs1Content)
+    /// <summary>
+    /// True when deployment scripts are signed: the .bat launchers then carry
+    /// no execution-policy argument and the endpoint's policy governs.
+    /// </summary>
+    public bool SignedLaunchers { get; init; }
+
+    /// <summary>x64 or x86; x86 launches the SysWOW64 Windows PowerShell host.</summary>
+    public string ScriptHost { get; init; } = DeploymentLauncher.HostX64;
+
+    private void WriteWrappers(string outputPath, string installPs1Content, string uninstallPs1Content)
     {
         var encoding = new UTF8Encoding(false); // ASCII-compatible, no BOM
 
-        // The wrapper returns the exit code of the PowerShell process: with
-        // -File, an "exit N" in the script is the process exit code. It does
-        // not read exitcode.txt back. Windows PowerShell writes that file as
-        // UTF-16 with a byte order mark, which "set /p" reads as non-numeric
-        // text, and "exit /b" with non-numeric text returns 0.
-        var batTemplate = """
-            @echo off
-            powershell.exe -NonInteractive -ExecutionPolicy Bypass -File "%~dp0{0}"
-            set "PSCODE=%ERRORLEVEL%"
-            del /q "%~dp0exitcode.txt" >nul 2>&1
-            exit /b %PSCODE%
-            """;
-
         WriteIfMissing(Path.Combine(outputPath, "install.ps1"), installPs1Content, encoding);
         WriteIfMissing(Path.Combine(outputPath, "uninstall.ps1"), uninstallPs1Content, encoding);
-        WriteIfMissing(Path.Combine(outputPath, "install.bat"), string.Format(batTemplate, "install.ps1"), encoding);
-        WriteIfMissing(Path.Combine(outputPath, "uninstall.bat"), string.Format(batTemplate, "uninstall.ps1"), encoding);
+        WriteIfMissing(Path.Combine(outputPath, "install.bat"),
+            DeploymentLauncher.Build("install.ps1", SignedLaunchers, ScriptHost).BatBody, encoding);
+        WriteIfMissing(Path.Combine(outputPath, "uninstall.bat"),
+            DeploymentLauncher.Build("uninstall.ps1", SignedLaunchers, ScriptHost).BatBody, encoding);
     }
 
     private static void WriteIfMissing(string path, string content, Encoding encoding)

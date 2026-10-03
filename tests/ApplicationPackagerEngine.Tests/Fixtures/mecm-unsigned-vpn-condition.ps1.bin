@@ -1,0 +1,118 @@
+$ErrorActionPreference = 'Stop'
+$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\ConfigurationManager.psd1'
+if (Test-Path $cmModule) { Import-Module $cmModule }
+else { Import-Module ConfigurationManager }
+if (-not (Get-PSDrive -Name 'P01' -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name 'P01' -PSProvider CMSite -Root $env:COMPUTERNAME | Out-Null
+}
+Set-Location 'P01:'
+Write-Host 'Connected to MECM'
+function Get-ApkgGlobalCondition {
+    param(
+        [string]$Name, [int]$PlatformType, [string]$Kind,
+        [string]$DataType, [string]$Namespace, [string]$Class,
+        [string]$Property, [string]$ScriptText, [string]$Description
+    )
+    $found = @(Get-CMGlobalCondition -Name $Name)
+    if ($PlatformType -gt 0 -and $found.Count -gt 1) {
+        $found = @($found | Where-Object { [int]$_.PlatformType -eq $PlatformType })
+    }
+    if ($found.Count -gt 1) {
+        throw "Global condition name '$Name' matches $($found.Count) site conditions; add a PlatformType to the template or rename to a unique condition."
+    }
+    if ($found.Count -eq 1) {
+        Write-Host "Global condition (existing)  : $Name"
+        return $found[0]
+    }
+    switch ($Kind) {
+        'BuiltIn' { throw "Built-in global condition '$Name' was not found on the site." }
+        'Wql' {
+            New-CMGlobalConditionWqlQuery -Name $Name -DataType $DataType -Namespace $Namespace -Class $Class -Property $Property -Description $Description | Out-Null
+        }
+        'Script' {
+            New-CMGlobalConditionScript -Name $Name -DataType $DataType -ScriptLanguage PowerShell -ScriptText $ScriptText -Description $Description | Out-Null
+        }
+        default { throw "Condition template for '$Name' has unsupported Kind '$Kind'." }
+    }
+    $created = @(Get-CMGlobalCondition -Name $Name)
+    if ($PlatformType -gt 0 -and $created.Count -gt 1) {
+        $created = @($created | Where-Object { [int]$_.PlatformType -eq $PlatformType })
+    }
+    if ($created.Count -ne 1) {
+        throw "Global condition '$Name' is not readable after creation; the provider refused the write."
+    }
+    Write-Host "Global condition (created)   : $Name"
+    return $created[0]
+}
+$expectedDts = @('App')
+$existing = @()
+try { $existing = @(Get-CMApplication -Name 'App' -DisableWildcardHandling -ErrorAction SilentlyContinue) } catch { }
+if ($existing.Count -gt 1) { throw "Multiple existing MECM applications matched 'App'; refusing to package until the duplicate names are resolved." }
+$app = $null
+$replaceExisting = $false
+$replaceDtNames = @()
+if ($existing.Count -eq 1) {
+    $app = $existing[0]
+    $currentDts = @(Get-CMDeploymentType -ApplicationName 'App' -ErrorAction Stop | ForEach-Object { [string]$_.LocalizedDisplayName })
+    $missingDts = @($expectedDts | Where-Object { $currentDts -notcontains $_ })
+    Write-Host 'On-existing behavior         : Skip'
+    if ($missingDts.Count -eq 0) {
+        Write-Host "Application already exists    : App (v$($app.SoftwareVersion), unchanged)"
+        Write-Host "Deployment type(s) validated : $($expectedDts -join ', ')"
+        Write-Host ('[APP_PACKAGER_CONFLICT] existing app=''App'' version=' + "'$($app.SoftwareVersion)'" + ' incoming=''1.0''')
+        Write-Host "CI_ID: $($app.CI_ID)"
+        exit 0
+    }
+    throw "Existing MECM application 'App' is missing deployment type(s): $($missingDts -join ', '). This looks like a partial prior package run; fix or remove the partial app before packaging again."
+    if ($replaceExisting) { $replaceDtNames = $currentDts }
+}
+$dt0_gc0 = Get-ApkgGlobalCondition -Name 'APKG - VPN Connected' -PlatformType 0 -Kind 'Script' -DataType 'Boolean' -Namespace '' -Class '' -Property '' -ScriptText '$patterns = @(''Zscaler'', ''Juniper'', ''PANGP'', ''Cisco AnyConnect'', ''Fortinet'')
+$found = $false
+foreach ($adapter in @(Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -Filter "IPEnabled=''True''" -ErrorAction SilentlyContinue)) {
+    foreach ($p in $patterns) {
+        if ($adapter.Description -like (''*'' + $p + ''*'')) { $found = $true }
+    }
+}
+if (-not $found) {
+    foreach ($ip in @(Get-CimInstance -ClassName MSFT_NetIPAddress -Namespace ''root/StandardCimv2'' -ErrorAction SilentlyContinue)) {
+        if ($ip.InterfaceAlias -like ''*vpn*'') { $found = $true }
+    }
+}
+$found' -Description 'True when an IP-enabled network adapter description matches a configured VPN client pattern or an interface alias contains the alias pattern.'
+$dt0_req0 = New-CMRequirementRuleBooleanValue -InputObject $dt0_gc0 -Value $true
+Write-Host "Requirement rule             : vpn-connected (APKG - VPN Connected)"
+if (-not $app) {
+    Write-Host 'Creating application...'
+    $app = New-CMApplication -Name 'App' -Publisher 'Vendor' -SoftwareVersion '1.0' -Description 'comment' -AutoInstall $true
+}
+Write-Host "CI_ID: $($app.CI_ID)"
+$dtName0 = 'App'
+$dtCreateName0 = if ($replaceDtNames.Count -gt 0) { "$dtName0 (staging)" } else { $dtName0 }
+Set-Location C:
+$clause = New-CMDetectionClauseRegistryKeyValue -Hive LocalMachine -KeyName 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\App' -ValueName 'DisplayVersion' -PropertyType String -Value -ExpressionOperator IsEquals -ExpectedValue '1.0' -Is64Bit
+$clauses = @($clause)
+Set-Location 'P01:'
+Write-Host "Adding deployment type       : $dtCreateName0"
+Add-CMScriptDeploymentType -ApplicationName 'App' -DeploymentTypeName $dtCreateName0 -ContentLocation '\\server\share\Apps\Vendor\App\1.0' -InstallCommand 'install.bat' -UninstallCommand 'uninstall.bat' -InstallationBehaviorType InstallForSystem -LogonRequirementType WhetherOrNotUserLoggedOn -EstimatedRuntimeMins 15 -MaximumRuntimeMins 30 -ContentFallback -SlowNetworkDeploymentMode Download -AddDetectionClause $clauses -AddRequirement @($dt0_req0) | Out-Null
+foreach ($oldDt in $replaceDtNames) {
+    Remove-CMDeploymentType -ApplicationName 'App' -DeploymentTypeName $oldDt -Force -ErrorAction Stop
+    Write-Host "Removed old deployment type  : $oldDt"
+}
+if ($dtCreateName0 -ne $dtName0) {
+    Set-CMDeploymentType -ApplicationName 'App' -DeploymentTypeName $dtCreateName0 -NewDeploymentTypeName $dtName0 -ErrorAction Stop
+    Write-Host "Renamed deployment type      : $dtName0"
+}
+if ($existing.Count -eq 1) {
+    Set-CMApplication -Name 'App' -SoftwareVersion '1.0' -Publisher 'Vendor' -Description 'comment' -ErrorAction Stop
+    Write-Host 'Updated application version  : 1.0'
+}
+try {
+  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop
+  if (@($revisions).Count -gt 1) {
+    @($revisions) | Sort-Object -Property @{Expression={if ($_.Revision) {$_.Revision} else {$_.CIVersion}}} -Descending | Select-Object -Skip 1 | ForEach-Object {
+      Remove-CMApplicationRevisionHistory -InputObject $_ -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host 'Cleaned revision history'
+  }
+} catch { Write-Host "Revision cleanup skipped: $($_.Exception.Message)" }
+Write-Host 'Application created successfully'
