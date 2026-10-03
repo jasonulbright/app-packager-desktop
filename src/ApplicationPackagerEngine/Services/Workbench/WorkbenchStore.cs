@@ -128,7 +128,7 @@ public sealed partial class WorkbenchStore
 
         if (Directory.Exists(ApplicationsRoot))
         {
-            foreach (var folder in Directory.GetDirectories(ApplicationsRoot)
+            foreach (var folder in Directory.GetDirectories(ApplicationsRoot, "*", new EnumerationOptions { AttributesToSkip = FileAttributes.ReparsePoint })
                          .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
             {
                 var key = Path.GetFileName(folder);

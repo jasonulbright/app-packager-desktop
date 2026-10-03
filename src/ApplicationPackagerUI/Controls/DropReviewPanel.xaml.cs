@@ -25,6 +25,7 @@ public partial class DropReviewPanel : UserControl
 
     private readonly List<ProposedFieldRow> _rows = [];
     private bool _loadingMode;
+    private (string Name, string Publisher)? _keptIdentity;
 
     public DropReviewPanel()
     {
@@ -33,6 +34,16 @@ public partial class DropReviewPanel : UserControl
 
     /// <summary>Raised when the acknowledgment toggles, so the host can re-gate its Stage button.</summary>
     public event EventHandler? ConfirmationChanged;
+
+    /// <summary>Raised by Save as Application; the host closes its dialog and persists the drop.</summary>
+    public event EventHandler? SaveAsApplicationRequested;
+
+    /// <summary>False hides Save as Application, for a review that is not a fresh drop.</summary>
+    public bool ShowSaveAsApplication
+    {
+        get => SaveApplicationRow.Visibility == Visibility.Visible;
+        set => SaveApplicationRow.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     public DroppedInstallerAnalysis? Analysis { get; private set; }
 
@@ -75,8 +86,8 @@ public partial class DropReviewPanel : UserControl
         var uninstallCommand = branch is null ? analysis.UninstallCommand : ProposedField.Confirmed(branch.SilentUninstallCommand, analysis.UninstallCommand.Source);
 
         _rows.Clear();
-        _rows.Add(ProposedFieldRow.From(AppNameLabel, analysis.AppName));
-        _rows.Add(ProposedFieldRow.From(PublisherLabel, analysis.Publisher));
+        _rows.Add(_keptIdentity is { } kept ? KeptRow(AppNameLabel, kept.Name) : ProposedFieldRow.From(AppNameLabel, analysis.AppName));
+        _rows.Add(_keptIdentity is { } keptPublisher ? KeptRow(PublisherLabel, keptPublisher.Publisher) : ProposedFieldRow.From(PublisherLabel, analysis.Publisher));
         _rows.Add(ProposedFieldRow.From(VersionLabel, analysis.SoftwareVersion));
         _rows.Add(ProposedFieldRow.From(InstallArgsLabel, installArgs));
         _rows.Add(ProposedFieldRow.From(UninstallArgsLabel, analysis.UninstallArgs));
@@ -107,11 +118,51 @@ public partial class DropReviewPanel : UserControl
     /// The dialog host hides a disabled footer button rather than greying it, so the gate is
     /// stated in the panel: without it the Stage button simply disappears with no reason given.
     /// </summary>
-    private void UpdateConfirmHint() =>
+    private void UpdateConfirmHint()
+    {
         ConfirmHintText.Text = IsConfirmed
-            ? "Confirmed. Stage and Save as definition are available."
-            : "Stage and Save as definition appear once this is confirmed. Staging a wrong silent switch "
-              + "produces a package that fails on every target device.";
+            ? _gatedActionsConfirmed
+            : _gatedActionsPending + " Staging a wrong silent switch produces a package that fails on every target device.";
+        SaveApplicationButton.IsEnabled = IsConfirmed;
+    }
+
+    private string _gatedActionsConfirmed = "Confirmed. Stage and Save as definition are available.";
+    private string _gatedActionsPending = "Stage and Save as definition appear once this is confirmed.";
+
+    /// <summary>Names the host's gated buttons in the confirmation hint.</summary>
+    public void SetGatedActionsText(string confirmed, string pending)
+    {
+        _gatedActionsConfirmed = confirmed;
+        _gatedActionsPending = pending;
+        UpdateConfirmHint();
+    }
+
+    /// <summary>
+    /// Shows the name and publisher an existing application keeps, read-only, in place of the
+    /// analysed values: a replacement installer adds a revision and does not rename the application.
+    /// </summary>
+    public void KeepIdentity(string name, string publisher)
+    {
+        _keptIdentity = (name, publisher);
+        if (Analysis is null) return;
+        var mode = SelectedInstallMode;
+        var branch = mode is not null && mode != Analysis.DefaultInstallMode && Analysis.ModeBranches.TryGetValue(mode, out var selected)
+            ? selected
+            : null;
+        BuildRows(Analysis, branch);
+    }
+
+    private static ProposedFieldRow KeptRow(string label, string value) => new()
+    {
+        Label = label,
+        Value = value,
+        Confidence = AnalysisConfidence.Confirmed,
+        Provenance = "kept by the application",
+        IsEditable = false
+    };
+
+    private void SaveApplicationButton_Click(object sender, RoutedEventArgs e) =>
+        SaveAsApplicationRequested?.Invoke(this, EventArgs.Empty);
 
     /// <summary>Operator edits, in the shape the engine's stage/definition builders accept.</summary>
     public DroppedInstallerOverrides ReadOverrides() => new()

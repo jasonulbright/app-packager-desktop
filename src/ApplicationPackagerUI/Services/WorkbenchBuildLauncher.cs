@@ -54,6 +54,7 @@ public sealed class WorkbenchBuildLauncher(
     {
         var package = request.Operation == WorkbenchBuildOperation.Package;
         var title = package ? "Publish" : "Stage";
+        if (ApplicationIds.IsByo(request.ApplicationId)) return LaunchByo(request, beforeRun, package, title);
         var row = packagesViewModel.Packagers.FirstOrDefault(p =>
             string.Equals(WorkbenchApplicationCatalog.ApplicationIdFor(p), request.ApplicationId, StringComparison.OrdinalIgnoreCase));
         if (row is null)
@@ -92,6 +93,54 @@ public sealed class WorkbenchBuildLauncher(
         beforeRun();
         navigationService.Navigate(typeof(PackagesPage));
         _ = packagesViewModel.RunWorkbenchBuildAsync(row, package, package ? request.Target : null, snapshot);
+        return null;
+    }
+
+    /// <summary>
+    /// A BYO application has no grid row and no packager script: Stage stages its newest
+    /// installer revision through the ad-hoc stage under a new run snapshot; Package uses
+    /// the selected build, else the prior stage, else stages first.
+    /// </summary>
+    private WorkbenchLaunchRefusal? LaunchByo(WorkbenchBuildRequest request, Action beforeRun, bool package, string title)
+    {
+        if (packagesViewModel.IsOperationRunning)
+            return new WorkbenchLaunchRefusal(title,
+                "Another operation is running on the Packages page. Wait for it to finish, then run this again.");
+        var settings = settingsService.Load();
+        var store = WorkbenchStore.Open();
+        RunSnapshot NewSnapshot() => store.CreateRunSnapshot(new RunSnapshotRequest
+        {
+            ApplicationId = request.ApplicationId,
+            ProfileId = request.ProfileId,
+            Target = request.Target,
+            SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
+            DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, request.ProfileId)
+        }, new ScriptSigningCertificateGate());
+
+        RunSnapshot? snapshot;
+        try
+        {
+            store.ResolveByoSource(request.ApplicationId);
+            snapshot = package
+                ? string.IsNullOrWhiteSpace(request.BuildId)
+                    ? null
+                    : WorkbenchStore.ReadRunSnapshot(Path.Combine(store.RunsRoot, request.BuildId + ".json"))
+                      ?? throw new FileNotFoundException($"Run snapshot for build '{request.BuildId}' was not found.")
+                : NewSnapshot();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException
+                                   or UnauthorizedAccessException or JsonException)
+        {
+            return new WorkbenchLaunchRefusal(title, ex is InvalidOperationException or FileNotFoundException
+                ? ex.Message
+                : "Run snapshot not available: " + ex.Message);
+        }
+
+        beforeRun();
+        navigationService.Navigate(typeof(PackagesPage));
+        _ = package
+            ? packagesViewModel.RunByoPackageAsync(request.ApplicationId, request.Target, snapshot, NewSnapshot)
+            : packagesViewModel.RunByoStageAsync(request.ApplicationId, snapshot!);
         return null;
     }
 

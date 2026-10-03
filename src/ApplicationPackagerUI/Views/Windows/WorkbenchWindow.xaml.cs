@@ -101,6 +101,10 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
 
     private void SiteCondition_LostFocus(object sender, RoutedEventArgs e) => _viewModel.SaveSiteConditions();
 
+    private void ExportBundle_Click(object sender, RoutedEventArgs e) => _viewModel.ExportBundleCommand.Execute(null);
+
+    private void ImportBundle_Click(object sender, RoutedEventArgs e) => _viewModel.ImportBundleCommand.Execute(null);
+
     // ── IWorkbenchPrompts ───────────────────────────────────────
 
     private async Task<ContentDialogResult> ShowAsync(ContentDialog dialog)
@@ -181,5 +185,40 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
     {
         var dialog = new OpenFolderDialog { Title = title };
         return dialog.ShowDialog(this) == true ? dialog.FolderName : null;
+    }
+
+    public string? PickSaveFile(string title, string filter, string fileName)
+    {
+        var dialog = new SaveFileDialog { Title = title, Filter = filter, FileName = fileName, OverwritePrompt = true };
+        return dialog.ShowDialog(this) == true ? dialog.FileName : null;
+    }
+
+    public async Task<ByoReplacementReview?> ReviewReplacementAsync(
+        ApplicationPackagerEngine.Services.DroppedInstallerAnalysis analysis,
+        IReadOnlyList<ApplicationPackagerEngine.Models.Workbench.ByoIdentityChange> changes,
+        int revision, int previousRevision, string displayName, string publisher)
+    {
+        var panel = new Controls.ByoReplacementPanel();
+        panel.Load(analysis, changes, revision, previousRevision, displayName, publisher);
+        var review = panel.ReviewPanel;
+        var dialog = new ContentDialog
+        {
+            Title = "Replace Installer",
+            Content = panel,
+            PrimaryButtonText = "Add revision",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+            IsPrimaryButtonEnabled = review.IsConfirmed,
+            DialogMaxWidth = 720
+        };
+        review.ConfirmationChanged += (_, _) => dialog.IsPrimaryButtonEnabled = review.IsConfirmed;
+        if (await ShowAsync(dialog) != ContentDialogResult.Primary) return null;
+        var problem = review.Validate();
+        if (problem is not null)
+        {
+            await InfoAsync("Missing Value", problem);
+            return null;
+        }
+        return new ByoReplacementReview(review.ReadOverrides(), review.IsConfirmed);
     }
 }
