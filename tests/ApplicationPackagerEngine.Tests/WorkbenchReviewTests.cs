@@ -56,6 +56,25 @@ public sealed class WorkbenchReviewTests : IDisposable
     }
 
     [Fact]
+    public void TheDiff_ListsScriptAndHookTextAsALineCount()
+    {
+        var session = new WorkbenchEditorSession(_t.Store, App, WorkbenchInheritedSettings.Build("Review App", "Contoso", "", 15, 30));
+        session.Load();
+        session.SetValue("Install.Mode", "Extend");
+        session.SetText("Install.BeforeText", "New-Item C:\\LabTest\r\nSet-Content C:\\LabTest\\a.txt 1");
+        session.SetText("Uninstall.AfterText", "exit 0");
+
+        var rows = WorkbenchReview.Diff(session);
+
+        Assert.Equal(
+        [
+            new WorkbenchDiffRow("Install.Mode", "Generated", "Extend"),
+            new WorkbenchDiffRow("Install.BeforeText", "(none)", "2 line(s)"),
+            new WorkbenchDiffRow("Uninstall.AfterText", "(none)", "1 line(s)")
+        ], rows);
+    }
+
+    [Fact]
     public void ABridgeForAnExistingSnapshot_UsesThatSnapshotsProfileNotTheActiveOne()
     {
         var active = _t.NewProfile(App, "Active");

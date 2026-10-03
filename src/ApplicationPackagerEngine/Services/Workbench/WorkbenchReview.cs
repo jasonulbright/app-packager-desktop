@@ -14,12 +14,16 @@ public static class WorkbenchReview
     public static readonly IReadOnlyList<string> DiffPaths =
     [
         "Application.DisplayName", "Application.Publisher", "Application.Description", "Application.TitleMode",
-        "Install.Mode", "Install.Command", "Uninstall.Mode", "Uninstall.Command",
+        "Install.Mode", "Install.Command", "Install.ScriptText", "Install.BeforeText", "Install.AfterText",
+        "Uninstall.Mode", "Uninstall.Command", "Uninstall.ScriptText", "Uninstall.BeforeText", "Uninstall.AfterText",
         "Detection.Mode", "InstallMode", "Timing.EstimatedMinutes", "Timing.MaximumMinutes",
         "Execution.Context", "Execution.ScriptHost"
     ];
 
-    /// <summary>Every overridden field with its inherited and custom value; source files as a count.</summary>
+    /// <summary>
+    /// Every overridden field with its inherited and custom value; script and hook
+    /// text as a line count, source files as a count.
+    /// </summary>
     public static IReadOnlyList<WorkbenchDiffRow> Diff(WorkbenchEditorSession session)
     {
         var rows = new List<WorkbenchDiffRow>();
@@ -27,6 +31,13 @@ public static class WorkbenchReview
         {
             if (!session.IsOverridden(path)) continue;
             var custom = session.Get(path).Value;
+            if (path.EndsWith("Text", StringComparison.Ordinal))
+            {
+                var text = WorkbenchJson.AsText(custom);
+                if (!string.IsNullOrWhiteSpace(text))
+                    rows.Add(new WorkbenchDiffRow(path, "(none)", $"{text.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n').Length} line(s)"));
+                continue;
+            }
             rows.Add(new WorkbenchDiffRow(path, session.Inherited.ForPath(path),
                 custom is null ? "(removed)" : WorkbenchJson.AsText(custom) ?? ""));
         }

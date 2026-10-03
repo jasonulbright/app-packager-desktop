@@ -197,13 +197,23 @@ public sealed class StageFinalizer
             var lower = section.ToLowerInvariant();
             var target = lower + ".ps1";
 
+            // A script step is a managed asset id (Script, Before, After) or text
+            // stored in the profile (ScriptText, BeforeText, AfterText); the asset wins.
+            (string? AssetId, string Text)? StepSource(string field)
+            {
+                var assetId = WorkbenchJson.Get(block, field).Text;
+                if (!string.IsNullOrWhiteSpace(assetId)) return (assetId, File.ReadAllText(ResolveAsset(assetId)));
+                var inline = WorkbenchJson.Get(block, field + "Text").Text;
+                if (string.IsNullOrWhiteSpace(inline)) return null;
+                return (null, inline);
+            }
+
             if (string.Equals(mode, "Custom", StringComparison.OrdinalIgnoreCase))
             {
-                var assetId = WorkbenchJson.Get(block, "Script").Text;
-                if (string.IsNullOrWhiteSpace(assetId)) throw new InvalidOperationException($"{section}.Mode Custom requires a script asset.");
-                var text = WorkbenchTokens.Resolve(File.ReadAllText(ResolveAsset(assetId)), manifest, TokenContext.Script);
+                var source = StepSource("Script") ?? throw new InvalidOperationException($"{section}.Mode Custom requires a script.");
+                var text = WorkbenchTokens.Resolve(source.Text, manifest, TokenContext.Script);
                 File.WriteAllText(Path.Combine(stageRoot, target), text, Utf8NoBom);
-                customAssets.Add(new StageCustomAsset { Category = section, RelativePath = target, Asset = assetId });
+                customAssets.Add(new StageCustomAsset { Category = section, RelativePath = target, Asset = source.AssetId });
             }
             else if (string.Equals(mode, "Extend", StringComparison.OrdinalIgnoreCase))
             {
@@ -216,13 +226,12 @@ public sealed class StageFinalizer
                 var steps = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var hook in new[] { "Before", "After" })
                 {
-                    var assetId = WorkbenchJson.Get(block, hook).Text;
-                    if (string.IsNullOrWhiteSpace(assetId)) continue;
+                    if (StepSource(hook) is not { } source) continue;
                     var name = $"{lower}-{hook.ToLowerInvariant()}.ps1";
-                    var text = WorkbenchTokens.Resolve(File.ReadAllText(ResolveAsset(assetId)), manifest, TokenContext.Script);
+                    var text = WorkbenchTokens.Resolve(source.Text, manifest, TokenContext.Script);
                     File.WriteAllText(Path.Combine(stageRoot, name), text, Utf8NoBom);
                     steps[hook] = name;
-                    customAssets.Add(new StageCustomAsset { Category = section + hook, RelativePath = name, Asset = assetId });
+                    customAssets.Add(new StageCustomAsset { Category = section + hook, RelativePath = name, Asset = source.AssetId });
                 }
 
                 var orchestrator = ExtendOrchestrator.Build(
