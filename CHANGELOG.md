@@ -1,5 +1,95 @@
 # Changelog
 
+## [2.2.0-alpha10] - 2026-10-03
+
+### Added
+
+- Added the Application Workbench: named profiles per application with inherited, custom and reset fields.
+- Added install and uninstall script modes: generated, extended with before and after hooks, or custom.
+- Added custom detection, requirement operations, variant overrides, timing and source files to profiles.
+- Added build records, a plan digest and stage manifest schema 4.
+- Added script signing for detection, requirement and deployment scripts, with Sign and Require switches.
+- Added a Script Signing section to Settings with a certificate list and a signing test.
+- Added WSUS publishing with approval, supersedence, decline, expire and remove.
+- Added the WSUS Updates window and catalog import.
+- Added Publish to ConfigMgr, Publish to Intune and Publish to WSUS buttons.
+- Added One Click per destination with a plan window, refusal memory and run reports.
+- Added Systems in use to Setup and Settings.
+- Added Save as Application for dropped installers, with numbered installer revisions.
+- Added bundle export and import for applications.
+- Added AppPackagerBuild, a command-line build for scripts and scheduled tasks.
+- Added local installer folders for applications whose download needs a sign-in.
+- Added a license key file setting for Beyond Compare 5.
+- Added a language selection install parameter for Adobe Acrobat.
+- Added Intune compatibility findings; a blocking finding stops the publish.
+- Added settings to include or remove the version in application names.
+- Added deployment type content options for fallback and slow networks.
+- Added PowerShell parse diagnostics to the Workbench script editors.
+- Added a Stage check of the detection key against the installer for NSIS, Inno Setup and Burn.
+- Added Beyond Compare 5, GitHub Desktop, Rtools, Slido, Jabra Direct and MuleSoft Anypoint Studio.
+- Added Citrix Workspace LTSR for x86, x64 and ARM64.
+- Added ASP.NET Core 10 Hosting Bundle, Signing Suite and AppPackager Suite.
+- Added Microsoft Build of OpenJDK 17, 21 and 25 as MSI and EXE, per machine and per user.
+
+### Changed
+
+- Changed the product name in the interface from MECM to ConfigMgr.
+- Moved Deployment Conditions into the Application Workbench.
+- Changed Stage and Publish to use the active Workbench profile.
+- Changed staged versions to follow the vendor version on every packaging machine.
+- Changed deployment types to take the reboot behavior from the exit code.
+- Changed the .intunewin build to the Stage step.
+- Changed icon pack icons to take priority over extracted icons.
+- Changed One Click cadence to apply to Report runs only.
+- Changed seven applications to fixed registry key detection: AnyBurn, Bulk Rename Utility, ocenaudio, OpenShot, PicPick, Pidgin, TeraCopy.
+- Changed Brave to the system-level installer in the machine context.
+- Changed Visual C++ runtime detection, console names and reboot behavior.
+- Changed PyCharm to the unified product.
+- Changed Citrix Workspace install arguments to the saved switch settings.
+- Changed Tableau downloads, detection and uninstall.
+- Changed ASP.NET Core 8 Hosting Bundle detection to the bundle's own uninstall entry.
+- Changed console names for Corretto, Git, Node.js, Thunderbird, Webex, DBeaver and Nextcloud.
+
+### Removed
+
+- Removed BurnAware Free.
+- Removed the Deployment Target setting; the publish buttons choose the destination.
+- Removed the Create .intunewin during Package option.
+
+### Fixed
+
+- Fixed install and uninstall wrappers returning success for every installer exit code.
+- Fixed uninstall for TeraCopy, PSPad, Rainmeter, Postman, CutePDF Writer and Dell Command Update.
+- Fixed PicPick, HashTools and Windows Admin Center installs waiting on the launched application.
+- Fixed TreeSize Free asking for the install mode during a silent install.
+- Fixed Oh My Posh detection.
+- Fixed version checks for Git, IrfanView, UltraVNC and Defraggler.
+- Fixed staging failures for installers that 7-Zip lists with short rows.
+- Fixed comparison of single-number versions.
+- Fixed the ConfigMgr name lookup matching longer application names.
+- Fixed grouped detection with a one-clause second group.
+- Fixed share content changing before the existing-application decision.
+- Fixed a cancelled run leaving its PowerShell process running.
+- Fixed settings loss when the settings file cannot be read.
+- Fixed applications that require user interaction failing at the deployment type.
+- Fixed the grid row context menu.
+- Fixed version checks reporting no version when GitHub limits requests.
+
+### Security
+
+- Fixed input handling in generated scripts, download commands and update rules.
+- Fixed path handling for archives, source files, profiles and stale-file cleanup.
+- Fixed signature and integrity checks that accepted content they did not cover.
+
+### Validation and lab follow-up
+
+- All Release projects build without errors; 3,277 C# tests pass.
+- Lab runs on the ConfigMgr site, the WSUS server and two clients cover install, detection and uninstall for the changed definitions, ConfigMgr packaging and deployment, WSUS publishing and a client update, and signed builds on a client that enforces AllSigned.
+- Intune publishing is tested against mocked Graph calls only; no tenant validation has run.
+- Windows Admin Center, CutePDF Writer and Jabra Direct carry detection rules the lab proved wrong; they wait for the PowerShell packager. Jabra Direct is refused at Stage.
+- GitHub Desktop and Postman can report not detected immediately after install; the registry key appears later or not at all.
+- TreeSize Free per-user mode is not lab-tested.
+
 ## [2.2.0-alpha9] - 2026-09-09
 
 ### Added
