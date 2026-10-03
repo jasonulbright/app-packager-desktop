@@ -20,7 +20,7 @@ namespace ApplicationPackagerEngine.Services.Workbench;
 /// formatter: a member line is indented four columns past its container's opening
 /// bracket, a colon is followed by two spaces, an empty container spans a blank
 /// line, and lines end in CRLF. Strings are escaped as JavaScriptSerializer does.
-/// Number tokens keep their JSON text. Objects nested deeper than twelve levels are
+/// Number tokens take the text of the .NET type ConvertFrom-Json gives them. Objects nested deeper than twelve levels are
 /// not reproduced; a stage manifest does not reach that depth.
 /// </remarks>
 public static class PowerShellJson
@@ -114,8 +114,39 @@ public static class PowerShellJson
             JsonValueKind.True => "true",
             JsonValueKind.False => "false",
             JsonValueKind.Null => "null",
+            JsonValueKind.Number => NumberText(value.ToJsonString()),
             _ => value.ToJsonString()
         };
+    }
+
+    /// <summary>
+    /// A number token as Windows PowerShell 5.1 writes it back after
+    /// ConvertFrom-Json: a token without a decimal point or exponent becomes
+    /// Int32, then Int64; one without an exponent becomes Decimal, which keeps
+    /// its scale; anything else becomes Double, written in .NET Framework
+    /// round-trip form (15 significant digits when they round-trip, otherwise
+    /// 17) with negative zero as 0.
+    /// </summary>
+    internal static string NumberText(string token)
+    {
+        var invariant = CultureInfo.InvariantCulture;
+        if (token.IndexOf('e', StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            if (token.IndexOf('.') < 0)
+            {
+                if (int.TryParse(token, NumberStyles.Integer, invariant, out var i)) return i.ToString(invariant);
+                if (long.TryParse(token, NumberStyles.Integer, invariant, out var l)) return l.ToString(invariant);
+            }
+            if (decimal.TryParse(token, NumberStyles.Number, invariant, out var m))
+            {
+                var text = m.ToString(invariant);
+                return m == 0m ? text.TrimStart('-') : text;
+            }
+        }
+        if (!double.TryParse(token, NumberStyles.Float, invariant, out var d) || double.IsInfinity(d)) return token;
+        if (d == 0) return "0";
+        var shortForm = d.ToString("G15", invariant);
+        return double.Parse(shortForm, NumberStyles.Float, invariant) == d ? shortForm : d.ToString("G17", invariant);
     }
 
     /// <summary>JavaScriptSerializer string escaping (HttpUtility.JavaScriptStringEncode).</summary>

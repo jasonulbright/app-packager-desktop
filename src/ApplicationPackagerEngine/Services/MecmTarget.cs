@@ -87,6 +87,9 @@ public sealed class MecmTarget
                     ErrorMessage = $"Staged content does not match its manifest: {string.Join("; ", localProblems)}"
                 };
 
+            if (scriptSigning is not null)
+                VerifyRequiredDeploymentSigning(scriptSigning.Policy, scriptSigning.Record, stagedContentPath);
+
             var sync = ContentSyncService.Sync(stagedContentPath, networkContentPath, manifest, onProgress, ct);
             if (sync.UsedSourceHashes)
                 onProgress?.Invoke("Content integrity: manifest carries no FileHashes; compared against the staged files.");
@@ -158,7 +161,7 @@ public sealed class MecmTarget
         var sb = new StringBuilder();
         AppendCmPreamble(sb, siteCode, providerMachine);
         sb.AppendLine($"$existing = @(Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction Stop | Where-Object {{ $_.LocalizedDisplayName -eq '{Esc(appName)}' -or $_.Name -eq '{Esc(appName)}' }})");
-        sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple applications have the exact title '{Esc(appName)}'; resolve duplicates before packaging.\" }}");
+        sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple applications have the exact title '{EscDq(appName)}'; resolve duplicates before packaging.\" }}");
         sb.AppendLine("if ($existing.Count -eq 1) {");
         AppendConflictMarker(sb, appName, incomingVersion, "    ", "$existing[0]");
         sb.AppendLine("}");
@@ -215,6 +218,7 @@ public sealed class MecmTarget
         var signingPolicy = SigningPolicy.Normalize(scriptSigning?.Policy);
         var signingRecord = scriptSigning?.Record;
         CheckResolvedDeploymentCommands(specs, signingPolicy, signingRecord);
+        VerifyRequiredDeploymentSigning(signingPolicy, signingRecord, null);
 
         var templates = conditionTemplates ?? ConditionTemplateService.Defaults();
         var resolvedRules = specs
@@ -265,7 +269,7 @@ public sealed class MecmTarget
         sb.AppendLine($"$expectedDts = @({string.Join(", ", specs.Select(s => $"'{Esc(s.DtName)}'"))})");
         sb.AppendLine("$existing = @()");
         sb.AppendLine($"try {{ $existing = @(Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction SilentlyContinue) }} catch {{ }}");
-        sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple existing MECM applications matched '{Esc(appName)}'; refusing to package until the duplicate names are resolved.\" }}");
+        sb.AppendLine($"if ($existing.Count -gt 1) {{ throw \"Multiple existing MECM applications matched '{EscDq(appName)}'; refusing to package until the duplicate names are resolved.\" }}");
         sb.AppendLine("$app = $null");
         sb.AppendLine("$replaceExisting = $false");
         sb.AppendLine("$replaceDtNames = @()");
@@ -277,13 +281,13 @@ public sealed class MecmTarget
         switch (onExisting)
         {
             case OnExistingBehavior.Fail:
-                sb.AppendLine($"    throw \"Existing MECM application '{Esc(appName)}' already exists at version $($app.SoftwareVersion) and OnExisting=Fail was requested.\"");
+                sb.AppendLine($"    throw \"Existing MECM application '{EscDq(appName)}' already exists at version $($app.SoftwareVersion) and OnExisting=Fail was requested.\"");
                 break;
 
             case OnExistingBehavior.Overwrite:
                 // The application object and its deployments survive; only the
                 // deployment types and the version are replaced.
-                sb.AppendLine("    Write-Host \"Application already exists    : replacing deployment types (v$($app.SoftwareVersion) -> v" + Esc(manifest.SoftwareVersion) + ", operator choice)\"");
+                sb.AppendLine("    Write-Host \"Application already exists    : replacing deployment types (v$($app.SoftwareVersion) -> v" + EscDq(manifest.SoftwareVersion) + ", operator choice)\"");
                 sb.AppendLine("    $replaceExisting = $true");
                 break;
 
@@ -295,7 +299,7 @@ public sealed class MecmTarget
                     // earlier run, even when its deployment types are retained.
                     AppendTaskSequenceRepair(sb, appName, "        ");
                 }
-                sb.AppendLine($"        Write-Host \"Application already exists    : {Esc(appName)} (v$($app.SoftwareVersion), unchanged)\"");
+                sb.AppendLine($"        Write-Host \"Application already exists    : {EscDq(appName)} (v$($app.SoftwareVersion), unchanged)\"");
                 sb.AppendLine("        Write-Host \"Deployment type(s) validated : $($expectedDts -join ', ')\"");
                 // Machine-readable companion to the line above: the GUI parses
                 // it to offer the operator an overwrite re-run.
@@ -313,7 +317,7 @@ public sealed class MecmTarget
                 sb.AppendLine("        Write-Host \"CI_ID: $($app.CI_ID)\"");
                 sb.AppendLine("        exit 0");
                 sb.AppendLine("    }");
-                sb.AppendLine($"    throw \"Existing MECM application '{Esc(appName)}' is missing deployment type(s): $($missingDts -join ', '). This looks like a partial prior package run; fix or remove the partial app before packaging again.\"");
+                sb.AppendLine($"    throw \"Existing MECM application '{EscDq(appName)}' is missing deployment type(s): $($missingDts -join ', '). This looks like a partial prior package run; fix or remove the partial app before packaging again.\"");
                 break;
         }
         // One replacement path: the same-version Overwrite branch and the
@@ -370,6 +374,8 @@ public sealed class MecmTarget
                 if (!fileTransport && detectionSigned)
                     throw new InvalidOperationException(
                         "The detection script is signed but the manifest names no Detection.ScriptFile; a signed script cannot be imported as script text. Re-run the Stage phase so the finalized script is written to the content folder.");
+                if (signingPolicy.RequireDetection && !detectionSigned)
+                    throw new InvalidOperationException(SigningStatus.RefusalMessage(SigningCategory.Detection, detectionStatus));
 
                 if (fileTransport)
                 {
@@ -399,7 +405,7 @@ public sealed class MecmTarget
                 // interferes with their parameter binding.
                 sb.AppendLine("Set-Location C:");
                 sb.AppendLine(BuildDetectionClauseBlockPs(spec.Detection));
-                sb.AppendLine($"Set-Location '{siteCode}:'");
+                sb.AppendLine($"Set-Location '{Esc(siteCode)}:'");
             }
 
             sb.AppendLine($"Write-Host \"Adding deployment type       : $dtCreateName{i}\"");
@@ -531,6 +537,46 @@ public sealed class MecmTarget
     }
 
     /// <summary>
+    /// The RequireDeployment check: a missing record or a Deployment status
+    /// other than SignedAndVerified or ExistingSignatureValid is refused. With
+    /// a stage root, every recorded deployment file is verified there: it
+    /// exists, its signature is intact, its SHA-256 equals the recorded hash
+    /// and its signer equals the recorded thumbprint.
+    /// </summary>
+    public static void VerifyRequiredDeploymentSigning(SigningPolicy? policy, ScriptSigningRecord? record, string? stageRoot)
+    {
+        if (!SigningPolicy.Normalize(policy).RequireDeployment) return;
+        var status = record?.Deployment.Status;
+        if (!SigningStatus.IsSigned(status))
+            throw new InvalidOperationException(SigningStatus.RefusalMessage(SigningCategory.Deployment, status));
+        if (stageRoot is null) return;
+
+        foreach (var file in record!.Deployment.Files)
+        {
+            var path = Path.Combine(stageRoot, file.RelativePath);
+            string? problem = null;
+            if (!File.Exists(path))
+            {
+                problem = "is missing from the staged content";
+            }
+            else
+            {
+                var verify = ScriptSignatureVerifier.Verify(path);
+                var hash = ScriptSignatureVerifier.FileSha256Hex(path);
+                if (!verify.SignatureIntact)
+                    problem = $"does not carry an intact signature ({verify.Status})";
+                else if (!string.Equals(hash, file.Sha256, StringComparison.OrdinalIgnoreCase))
+                    problem = $"has hash {hash}, not the recorded {file.Sha256}";
+                else if (file.Thumbprint.Length > 0 && !string.Equals(verify.Thumbprint, file.Thumbprint, StringComparison.OrdinalIgnoreCase))
+                    problem = $"is signed by {verify.Thumbprint}, not by the recorded {file.Thumbprint}";
+            }
+            if (problem is not null)
+                throw new InvalidOperationException(
+                    $"RequireDeployment is set but deployment script '{file.RelativePath}' {problem}; refusing to publish.");
+        }
+    }
+
+    /// <summary>
     /// Emits the detection script into a single-quoted here-string, which
     /// passes the body through with no interpolation. A line that is exactly
     /// the here-string terminator would end it early, so it is refused.
@@ -538,7 +584,7 @@ public sealed class MecmTarget
     private static string BuildDetectionScriptPs(StageDetection det, int index)
     {
         var text = (det.ScriptText ?? "").Replace("\r\n", "\n").TrimEnd('\n');
-        if (text.Split('\n').Any(l => l.TrimEnd() == "'@"))
+        if (text.Split('\n').Any(l => l.Length >= 2 && PowerShellLiteral.IsSingleQuote(l[0]) && l[1] == '@'))
             throw new InvalidOperationException(
                 "Detection script contains a here-string terminator line and cannot be embedded.");
 
@@ -716,10 +762,10 @@ public sealed class MecmTarget
         sb.AppendLine("else { Import-Module ConfigurationManager }");
 
         // Create PSDrive if needed
-        sb.AppendLine($"if (-not (Get-PSDrive -Name '{siteCode}' -ErrorAction SilentlyContinue)) {{");
-        sb.AppendLine($"    New-PSDrive -Name '{siteCode}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
+        sb.AppendLine($"if (-not (Get-PSDrive -Name '{Esc(siteCode)}' -ErrorAction SilentlyContinue)) {{");
+        sb.AppendLine($"    New-PSDrive -Name '{Esc(siteCode)}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
         sb.AppendLine("}");
-        sb.AppendLine($"Set-Location '{siteCode}:'");
+        sb.AppendLine($"Set-Location '{Esc(siteCode)}:'");
         sb.AppendLine("Write-Host 'Connected to MECM'");
 
         // Check for existing app
@@ -887,10 +933,10 @@ public sealed class MecmTarget
         sb.AppendLine("$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\\ConfigurationManager.psd1'");
         sb.AppendLine("if (Test-Path $cmModule) { Import-Module $cmModule }");
         sb.AppendLine("else { Import-Module ConfigurationManager }");
-        sb.AppendLine($"if (-not (Get-PSDrive -Name '{siteCode}' -ErrorAction SilentlyContinue)) {{");
-        sb.AppendLine($"    New-PSDrive -Name '{siteCode}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
+        sb.AppendLine($"if (-not (Get-PSDrive -Name '{Esc(siteCode)}' -ErrorAction SilentlyContinue)) {{");
+        sb.AppendLine($"    New-PSDrive -Name '{Esc(siteCode)}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
         sb.AppendLine("}");
-        sb.AppendLine($"Set-Location '{siteCode}:'");
+        sb.AppendLine($"Set-Location '{Esc(siteCode)}:'");
     }
 
     /// <summary>
@@ -916,7 +962,9 @@ public sealed class MecmTarget
         sb.AppendLine($"{indent}}}");
     }
 
-    private static string Esc(string value) => value.Replace("'", "''");
+    private static string Esc(string value) => PowerShellLiteral.EscapeSingleQuoted(value);
+
+    private static string EscDq(string value) => PowerShellLiteral.EscapeDoubleQuoted(value);
 
     /// <summary>
     /// Sanitizes a string for use as a filesystem folder name.

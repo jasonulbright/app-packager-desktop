@@ -109,23 +109,31 @@ public sealed class SigningPolicy
         return FromJsonNode(JsonNode.Parse(json));
     }
 
+    /// <summary>
+    /// One switch of a JSON policy, read the way <see cref="FromJsonNode"/>
+    /// reads it, without normalizing the rest of the policy.
+    /// </summary>
+    public static bool ReadSwitch(JsonNode? node, string key) => ToBoolean(ReadText(node as JsonObject, key));
+
+    private static string? ReadText(JsonObject? obj, string key)
+    {
+        if (obj is null) return null;
+        var match = obj.FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (match.Value is null) return null;
+        return match.Value.GetValueKind() switch
+        {
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            JsonValueKind.String => match.Value.GetValue<string>(),
+            JsonValueKind.Number => match.Value.ToJsonString(),
+            _ => null
+        };
+    }
+
     public static SigningPolicy FromJsonNode(JsonNode? node)
     {
         var obj = node as JsonObject;
-        string? Read(string key)
-        {
-            if (obj is null) return null;
-            var match = obj.FirstOrDefault(p => string.Equals(p.Key, key, StringComparison.OrdinalIgnoreCase));
-            if (match.Value is null) return null;
-            return match.Value.GetValueKind() switch
-            {
-                JsonValueKind.True => "true",
-                JsonValueKind.False => "false",
-                JsonValueKind.String => match.Value.GetValue<string>(),
-                JsonValueKind.Number => match.Value.ToJsonString(),
-                _ => null
-            };
-        }
+        string? Read(string key) => ReadText(obj, key);
 
         return Normalize(new SigningPolicy
         {

@@ -59,7 +59,16 @@ public static partial class ApplicationIds
     };
 
     public static bool IsValid(string? applicationId) =>
-        applicationId is not null && ApplicationIdPattern().IsMatch(applicationId);
+        applicationId is not null && ApplicationIdPattern().IsMatch(applicationId)
+        && IsPlainFolderName(applicationId[(applicationId.IndexOf(':') + 1)..]);
+
+    /// <summary>
+    /// True for a name Windows stores under exactly that name: a name of dots
+    /// alone names the folder itself or its parent, and Windows strips a
+    /// trailing dot or space, so two ids would share one folder.
+    /// </summary>
+    public static bool IsPlainFolderName(string name) =>
+        name.Length > 0 && name.Trim('.').Length > 0 && !name.EndsWith('.') && !name.EndsWith(' ');
 
     /// <summary>Converts an ApplicationId into its folder-safe storage key.</summary>
     public static string ToKey(string applicationId)
@@ -93,7 +102,7 @@ public static partial class ApplicationIds
     /// <summary>Throws for a profile id that is not a safe folder name.</summary>
     public static void AssertProfileId(string profileId)
     {
-        if (!ProfileIdPattern().IsMatch(profileId ?? ""))
+        if (!ProfileIdPattern().IsMatch(profileId ?? "") || !IsPlainFolderName(profileId!))
             throw new ArgumentException($"Invalid ProfileId '{profileId}'.");
     }
 }

@@ -65,7 +65,7 @@ public sealed class RebootExitCodeTests : IDisposable
         Assert.DoesNotContain("3010", install + uninstall);
         Assert.Equal(install, installEmpty);
         Assert.Equal(uninstall, uninstallEmpty);
-        Assert.Equal(WrapperGeneratorService.BuildExeInstallScript("setup.exe", "/s"), install);
+        Assert.Equal(WrapperGeneratorService.GuardNullProcess(WrapperGeneratorService.BuildExeInstallScript("setup.exe", "/s")), install);
     }
 
     [Fact]

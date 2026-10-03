@@ -29,7 +29,9 @@ public sealed partial class WorkbenchStore
         var applicationId = request.ApplicationId;
         var profileId = string.IsNullOrWhiteSpace(request.ProfileId) ? ApplicationIds.DefaultProfileId : request.ProfileId;
         var buildId = string.IsNullOrWhiteSpace(request.BuildId) ? NewBuildId() : request.BuildId;
-        if (!BuildIdPattern().IsMatch(buildId)) throw new ArgumentException($"Invalid BuildId '{buildId}'.");
+        if (!BuildIdPattern().IsMatch(buildId) || !ApplicationIds.IsPlainFolderName(buildId)) throw new ArgumentException($"Invalid BuildId '{buildId}'.");
+        var path = WorkbenchPaths.CombineUnder(RunsRoot, buildId + ".json");
+        if (File.Exists(path)) throw new InvalidOperationException(BuildIdTaken(buildId));
         var target = RunTargets.Normalize(request.Target)
             ?? throw new ArgumentException($"Unknown run target '{request.Target}'; expected {string.Join(", ", RunTargets.All)}.");
 
@@ -72,11 +74,13 @@ public sealed partial class WorkbenchStore
             PackagerScriptPath = request.PackagerScriptPath
         };
 
-        var path = Path.Combine(RunsRoot, buildId + ".json");
-        WorkbenchJson.Write(path, snapshot);
+        if (!WorkbenchJson.TryWriteNew(path, snapshot)) throw new InvalidOperationException(BuildIdTaken(buildId));
         snapshot.Path = path;
         return snapshot;
     }
+
+    private static string BuildIdTaken(string buildId) =>
+        $"A run snapshot for BuildId '{buildId}' already exists; a snapshot is immutable once written.";
 
     /// <summary>
     /// Reads a run snapshot. With no path, APP_PACKAGER_RUN_SNAPSHOT names it; with
@@ -122,7 +126,7 @@ public sealed partial class WorkbenchStore
     public string GetDraftPath(string applicationId, string profileId)
     {
         ApplicationIds.AssertProfileId(profileId);
-        return Path.Combine(DraftsRoot, ApplicationIds.ToKey(applicationId), profileId + ".draft.json");
+        return WorkbenchPaths.CombineUnder(DraftsRoot, ApplicationIds.ToKey(applicationId), profileId + ".draft.json");
     }
 
     /// <summary>

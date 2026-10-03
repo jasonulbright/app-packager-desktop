@@ -100,6 +100,12 @@ public static class ScriptSigningOrchestrator
     {
         var normalized = SigningPolicy.Normalize(policy);
         signer ??= new ScriptSigningService();
+
+        // scripts\ is regenerated from the current input; a previous build's detector or
+        // requirement script left there would otherwise be signed and shipped.
+        var scriptsFolder = Path.Combine(stageRoot, "scripts");
+        if (Directory.Exists(scriptsFolder)) Directory.Delete(scriptsFolder, recursive: true);
+
         X509Certificate2? cert = normalized.AnySign ? signer.Certificates.Resolve(normalized) : null;
 
         var record = new ScriptSigningRecord { PolicyDigest = normalized.PolicyDigest };
@@ -189,6 +195,17 @@ public static class ScriptSigningOrchestrator
             if (!SigningStatus.IsSigned(status))
                 throw new InvalidOperationException(
                     $"Require{category} is set but the {category} category status is '{status}'; refusing to publish.");
+        }
+
+        // The launchers were generated without an execution-policy argument, so an unsigned
+        // deployment script cannot run on an AllSigned endpoint.
+        if (normalized.SignDeployment && record.Deployment.Status == SigningStatus.Failed)
+        {
+            var reason = string.Join("; ", record.Deployment.Files
+                .Where(f => f.Status == SigningStatus.Failed)
+                .Select(f => $"{f.RelativePath}: {f.Reason}"));
+            throw new InvalidOperationException(
+                $"Deployment script signing failed and the launchers carry no execution-policy relaxation: {reason}");
         }
 
         return record;

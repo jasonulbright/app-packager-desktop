@@ -19,7 +19,8 @@ public sealed class PlanDigestTests
 
     public static TheoryData<string> AllFixtures => new()
     {
-        "plain-msi.json", "multi-deployment-type.json", "script-detection-unicode.json", "canonicalization-edge-cases.json"
+        "plain-msi.json", "multi-deployment-type.json", "script-detection-unicode.json", "canonicalization-edge-cases.json",
+        "number-tokens.json"
     };
 
     public static TheoryData<string> ManifestFixtures => new()

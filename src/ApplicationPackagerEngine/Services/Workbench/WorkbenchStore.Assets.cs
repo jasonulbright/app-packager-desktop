@@ -84,9 +84,15 @@ public sealed partial class WorkbenchStore
         }
         if (string.IsNullOrWhiteSpace(assetId))
             throw new InvalidOperationException("Asset reference carries neither an asset id nor a linked path.");
-        var folder = Path.Combine(GetProfileFolder(applicationId, profileId), "assets", assetId);
+        if (!AssetIdPattern().IsMatch(assetId)) throw new ArgumentException($"Invalid AssetId '{assetId}'.");
+        var folder = WorkbenchPaths.CombineUnder(GetProfileFolder(applicationId, profileId), "assets", assetId);
         var file = Directory.Exists(folder) ? Directory.GetFiles(folder).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).FirstOrDefault() : null;
-        return file ?? throw new FileNotFoundException($"Managed asset '{assetId}' is missing from profile '{profileId}'.");
+        if (file is null) throw new FileNotFoundException($"Managed asset '{assetId}' is missing from profile '{profileId}'.");
+        // The asset id is the content hash, so content that no longer hashes to it was changed after it was added.
+        if (!WorkbenchJson.FileSha256(file).StartsWith(assetId, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Managed asset '{assetId}' in profile '{profileId}' no longer matches its content hash; re-add the file.");
+        return file;
     }
 
     public string ResolveAssetPath(string applicationId, string profileId, string assetId) =>

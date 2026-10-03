@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using ApplicationPackagerEngine.Models.Signing;
@@ -103,23 +104,36 @@ public sealed class ScriptSigningService
 
         var cert = certificate ?? _certificates.Resolve(normalized);
         var timestampConfigured = !string.IsNullOrWhiteSpace(normalized.TimestampServer);
-        try
-        {
-            SignFile(path, cert, normalized.HashAlgorithm, timestampConfigured ? normalized.TimestampServer : null);
-        }
-        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException
-                                       or System.Security.Cryptography.CryptographicException)
+
+        ScriptSigningResult SigningFailed(string reason, Exception? inner = null)
         {
             if (normalized.TimestampRequired)
                 throw new InvalidOperationException(
-                    $"Signing {category} script '{path}' failed and a timestamp is required: {ex.Message}", ex);
+                    $"Signing {category} script '{path}' failed and a timestamp is required: {reason}", inner);
             result.Status = SigningStatus.Failed;
-            result.Reason = ex.Message;
+            result.Reason = reason;
             result.Sha256 = ScriptSignatureVerifier.FileSha256Hex(path);
             return result;
         }
 
+        uint error;
+        try
+        {
+            error = SignFile(path, cert, normalized.HashAlgorithm, timestampConfigured ? normalized.TimestampServer : null);
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException
+                                       or System.Security.Cryptography.CryptographicException)
+        {
+            return SigningFailed(ex.Message, ex);
+        }
+        if (error != 0)
+            return SigningFailed($"The operating system signer returned 0x{error:X8}: {new Win32Exception(unchecked((int)error)).Message}");
+
         var verify = ScriptSignatureVerifier.Verify(path);
+        var (status, reason) = Classify(verify, cert.Thumbprint);
+        if (verify.SignatureIntact && status == SigningStatus.Failed)
+            return SigningFailed(reason);
+
         result.Thumbprint = verify.Thumbprint;
         result.Timestamped = verify.Timestamped;
         result.TimestampVerified = verify.TimestampVerified;
@@ -129,18 +143,27 @@ public sealed class ScriptSigningService
             throw new InvalidOperationException(
                 $"TimestampRequired is set but the {category} script '{path}' carries no timestamp counter-signature (server '{normalized.TimestampServer}').");
 
-        if (verify.SignatureIntact)
-        {
-            result.Status = SigningStatus.SignedAndVerified;
-            if (!verify.TrustedOnThisHost)
-                result.Reason = "Signature is intact; the signer chain is not trusted on this host, which says nothing about endpoint trust.";
-        }
-        else
-        {
-            result.Status = SigningStatus.Failed;
-            result.Reason = $"Signature verification returned {verify.Status}. {verify.Reason}";
-        }
+        result.Status = status;
+        result.Reason = reason;
         return result;
+    }
+
+    /// <summary>
+    /// The status a signing attempt earns from the verification that follows
+    /// it: SignedAndVerified only for an intact signature by the certificate
+    /// the policy resolved. An intact signature by any other certificate is
+    /// one the signer did not replace.
+    /// </summary>
+    internal static (string Status, string Reason) Classify(ScriptSignatureVerification verify, string expectedThumbprint)
+    {
+        if (!verify.SignatureIntact)
+            return (SigningStatus.Failed, $"Signature verification returned {verify.Status}. {verify.Reason}");
+        if (!string.Equals(verify.Thumbprint, expectedThumbprint, StringComparison.OrdinalIgnoreCase))
+            return (SigningStatus.Failed,
+                $"The file carries a signature by {verify.Thumbprint}, not by the selected certificate {expectedThumbprint.ToUpperInvariant()}; the signer did not replace it.");
+        return (SigningStatus.SignedAndVerified, verify.TrustedOnThisHost
+            ? ""
+            : "Signature is intact; the signer chain is not trusted on this host, which says nothing about endpoint trust.");
     }
 
     /// <summary>
