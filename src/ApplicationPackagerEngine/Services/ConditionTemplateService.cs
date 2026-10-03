@@ -131,7 +131,7 @@ public sealed class ConditionTemplateService
     {
         var quoted = adapterPatterns
             .Where(p => !string.IsNullOrWhiteSpace(p))
-            .Select(p => "'" + p.Replace("'", "''") + "'");
+            .Select(PowerShellLiteral.SingleQuoted);
 
         var lines = new List<string>
         {
@@ -146,7 +146,7 @@ public sealed class ConditionTemplateService
 
         if (!string.IsNullOrWhiteSpace(aliasPattern))
         {
-            var aliasLike = "*" + aliasPattern.Replace("'", "''") + "*";
+            var aliasLike = "*" + PowerShellLiteral.EscapeSingleQuoted(aliasPattern) + "*";
             lines.AddRange(
             [
                 "if (-not $found) {",

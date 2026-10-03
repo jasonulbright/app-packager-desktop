@@ -11,6 +11,10 @@ public sealed class IntuneScriptRuleContext
     public bool RequireDetection { get; init; }
     /// <summary>x64 or x86.</summary>
     public string ScriptHost { get; init; } = DeploymentLauncher.HostX64;
+    /// <summary>ScriptSigning.Detection.Sha256: the hash of the finalized detection bytes.</summary>
+    public string DetectionSha256 { get; init; } = "";
+    /// <summary>ScriptSigning.Detection.Thumbprint: the signer of the finalized detection.</summary>
+    public string DetectionThumbprint { get; init; } = "";
     /// <summary>Absolute path of the finalized detection script; null when the stage carries none.</summary>
     public string? DetectionScriptFile { get; init; }
 
@@ -28,6 +32,8 @@ public sealed class IntuneScriptRuleContext
         string stageFolder, string scriptHost = DeploymentLauncher.HostX64) => new()
     {
         DetectionStatus = record?.Detection.Status ?? "",
+        DetectionSha256 = record?.Detection.Sha256 ?? "",
+        DetectionThumbprint = record?.Detection.Thumbprint ?? "",
         RequireDetection = SigningPolicy.Normalize(policy).RequireDetection,
         ScriptHost = scriptHost,
         DetectionScriptFile = string.IsNullOrWhiteSpace(record?.Detection.File)

@@ -11,7 +11,7 @@ public sealed partial class WorkbenchStore
         if (ApplicationIds.IsDefaultProfile(profileId))
             throw new InvalidOperationException("The default profile is virtual and has no storage folder.");
         ApplicationIds.AssertProfileId(profileId);
-        var folder = Path.Combine(GetApplicationFolder(applicationId), "profiles", profileId);
+        var folder = WorkbenchPaths.CombineUnder(GetApplicationFolder(applicationId), "profiles", profileId);
         if (create) Directory.CreateDirectory(folder);
         return folder;
     }
@@ -89,28 +89,59 @@ public sealed partial class WorkbenchStore
                 $"Profile schema {schema} is newer than this build supports ({WorkbenchProfile.CurrentSchemaVersion}).");
         if (string.IsNullOrWhiteSpace(WorkbenchJson.AsText(data["Name"]))) throw new InvalidOperationException("A profile requires a Name.");
 
-        var path = Path.Combine(GetProfileFolder(applicationId, profileId), "profile.json");
+        var folder = GetProfileFolder(applicationId, profileId, create: true);
+        var path = Path.Combine(folder, "profile.json");
         var incoming = WorkbenchJson.AsInt(data["Revision"]) ?? 0;
-        if (WorkbenchJson.Read(path) is JsonObject existing)
+        using (AcquireProfileLock(folder, profileId))
         {
-            var storedRevision = WorkbenchJson.AsInt(existing["Revision"]) ?? 0;
-            if (storedRevision != incoming)
+            if (WorkbenchJson.Read(path) is JsonObject existing)
+            {
+                var storedRevision = WorkbenchJson.AsInt(existing["Revision"]) ?? 0;
+                if (storedRevision != incoming)
+                    throw new InvalidOperationException(
+                        $"Profile '{profileId}' changed on disk (stored revision {storedRevision}, this editor loaded {incoming}); reload before saving.");
+            }
+            else if (incoming > 0)
+            {
                 throw new InvalidOperationException(
-                    $"Profile '{profileId}' changed on disk (stored revision {storedRevision}, this editor loaded {incoming}); reload before saving.");
-        }
-        else if (incoming > 0)
-        {
-            throw new InvalidOperationException(
-                $"Profile '{profileId}' carries revision {incoming} but has no stored profile; save it as a new profile instead.");
-        }
+                    $"Profile '{profileId}' carries revision {incoming} but has no stored profile; save it as a new profile instead.");
+            }
 
-        WorkbenchProfileValidator.Validate(data);
-        data["Revision"] = incoming + 1;
-        data["SavedAt"] = WorkbenchJson.NowRoundTrip();
-        WorkbenchJson.Write(path, data);
+            WorkbenchProfileValidator.Validate(data);
+            data["Revision"] = incoming + 1;
+            data["SavedAt"] = WorkbenchJson.NowRoundTrip();
+            WorkbenchJson.Write(path, data);
+        }
 
         if (setActive) SetActiveProfile(applicationId, profileId);
         return GetProfile(applicationId, profileId);
+    }
+
+    /// <summary>
+    /// An exclusive lock beside the profile, held across the revision read,
+    /// the check and the write: without it two saves from one revision both
+    /// pass the check and the later write silently discards the earlier one.
+    /// Another process holding the lock is waited for, up to a bound.
+    /// </summary>
+    private static FileStream AcquireProfileLock(string folder, string profileId)
+    {
+        var lockPath = Path.Combine(folder, "profile.json.lock");
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(25);
+            }
+            catch (IOException ex)
+            {
+                throw new InvalidOperationException($"Profile '{profileId}' is being saved by another writer; try again.", ex);
+            }
+        }
     }
 
     /// <summary>Records which profile a build uses for the application.</summary>
