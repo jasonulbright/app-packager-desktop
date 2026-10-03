@@ -74,15 +74,8 @@ public sealed class WorkbenchBuildLauncher(
             snapshot = package
                 ? WorkbenchStore.ReadRunSnapshot(Path.Combine(store.RunsRoot, request.BuildId + ".json"))
                   ?? throw new FileNotFoundException($"Run snapshot for build '{request.BuildId}' was not found.")
-                : store.CreateRunSnapshot(new RunSnapshotRequest
-                {
-                    ApplicationId = request.ApplicationId,
-                    ProfileId = request.ProfileId,
-                    Target = request.Target,
-                    SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
-                    PackagerScriptPath = row.IsJsonDefined ? row.DefinitionPath : row.FullPath,
-                    DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, request.ProfileId)
-                }, new ScriptSigningCertificateGate());
+                : WorkbenchRunSnapshots.Create(store, settings, request.ApplicationId, request.ProfileId, request.Target,
+                    row.IsJsonDefined ? row.DefinitionPath : row.FullPath);
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException
                                    or UnauthorizedAccessException or JsonException)
@@ -108,14 +101,8 @@ public sealed class WorkbenchBuildLauncher(
                 "Another operation is running on the Packages page. Wait for it to finish, then run this again.");
         var settings = settingsService.Load();
         var store = WorkbenchStore.Open();
-        RunSnapshot NewSnapshot() => store.CreateRunSnapshot(new RunSnapshotRequest
-        {
-            ApplicationId = request.ApplicationId,
-            ProfileId = request.ProfileId,
-            Target = request.Target,
-            SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
-            DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, request.ProfileId)
-        }, new ScriptSigningCertificateGate());
+        RunSnapshot NewSnapshot() =>
+            WorkbenchRunSnapshots.Create(store, settings, request.ApplicationId, request.ProfileId, request.Target, packagerScriptPath: null);
 
         RunSnapshot? snapshot;
         try

@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ApplicationPackagerEngine\ApplicationPackagerEngine.csproj" />
     <ProjectReference Include="..\..\src\ApplicationPackagerUI\ApplicationPackagerUI.csproj" />
+    <ProjectReference Include="..\..\src\ApplicationPackagerBuild\ApplicationPackagerBuild.csproj" />
   </ItemGroup>
 
   <ItemGroup>

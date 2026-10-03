@@ -41,38 +41,12 @@ public partial class App : Application
                 services.AddSingleton<ISnackbarService, SnackbarService>();
                 services.AddSingleton<IContentDialogService, ContentDialogService>();
 
-                // App services
-                services.AddSingleton<SettingsService>();
-                services.AddSingleton<PackagerDiscoveryService>();
-                services.AddSingleton<PackagerExecutionService>();
-                services.AddSingleton<MecmQueryService>();
-                services.AddSingleton<PackagerPreferencesService>();
-                services.AddSingleton<IntuneDeploymentService>();
-                services.AddSingleton<DeploymentConditionsService>();
-                services.AddSingleton<WorkbenchApplicationCatalog>();
+                // App and engine services, shared with the command-line build
+                services.AddPackagerServices();
                 services.AddSingleton<IWorkbenchBuildLauncher, WorkbenchBuildLauncher>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient>(_ => new ApplicationPackagerEngine.Services.Wsus.WsusAdminClient());
-                services.AddSingleton<ApplicationPackagerEngine.Services.Wsus.IWsusPublisher>(_ => new ApplicationPackagerEngine.Services.Wsus.WsusPublishService());
                 services.AddSingleton<PublishDialogs>();
                 services.AddSingleton<IPublishDialogs>(sp => sp.GetRequiredService<PublishDialogs>());
                 services.AddSingleton<IWsusPrompts>(sp => sp.GetRequiredService<PublishDialogs>());
-
-                // Engine services (v2.1)
-                services.AddSingleton<ApplicationPackagerEngine.Scrapers.ScraperRegistry>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.DownloadService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.MsiInspectionService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.WrapperGeneratorService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.ManifestService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.VersionHistoryService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.ArchiveExtractionService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.InstallerIdentificationService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.IconExtractionService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.StagingService>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.MecmTarget>();
-                services.AddSingleton<ApplicationPackagerEngine.Services.ConditionTemplateService>();
-                services.AddSingleton(sp => new ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService(
-                    sp.GetRequiredService<ApplicationPackagerEngine.Services.MsiInspectionService>(),
-                    sp.GetRequiredService<ApplicationPackagerEngine.Services.InstallerIdentificationService>()));
 
                 // Windows
                 services.AddSingleton<MainWindow>();

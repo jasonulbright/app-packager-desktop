@@ -162,26 +162,29 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
 
                 if (hidden is not null && hidden.Contains(def.Id)) continue;
 
-                results.Add(new PackagerInfo
-                {
-                    Uid = def.Id,
-                    Vendor = def.Vendor,
-                    Application = def.Application,
-                    CMName = def.CMName,
-                    Script = Path.GetFileName(jsonPath),
-                    FullPath = jsonPath,
-                    VendorUrl = def.VendorUrl,
-                    Description = $"{def.InstallerType} ({def.Architecture})",
-                    IsJsonDefined = true,
-                    DefinitionPath = jsonPath,
-                    Status = "Ready"
-                });
+                results.Add(DefinitionRow(def, jsonPath));
             }
             catch { }
         }
 
         return results;
     }
+
+    /// <summary>The run row of one JSON definition file, as the Packages grid lists it.</summary>
+    public static PackagerInfo DefinitionRow(AppDefinition def, string jsonPath) => new()
+    {
+        Uid = def.Id,
+        Vendor = def.Vendor,
+        Application = def.Application,
+        CMName = def.CMName,
+        Script = Path.GetFileName(jsonPath),
+        FullPath = jsonPath,
+        VendorUrl = def.VendorUrl,
+        Description = $"{def.InstallerType} ({def.Architecture})",
+        IsJsonDefined = true,
+        DefinitionPath = jsonPath,
+        Status = "Ready"
+    };
 
     /// <summary>
     /// Discovers ALL packager scripts without filtering hidden apps.

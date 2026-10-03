@@ -1,0 +1,172 @@
+using ApplicationPackagerBuild;
+using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
+
+namespace ApplicationPackagerEngine.Tests.CommandLine;
+
+public sealed class BuildArgumentsTests
+{
+    private static BuildOptions Parsed(params string[] args)
+    {
+        var parsed = BuildArguments.Parse(args);
+        Assert.True(parsed.Ok, parsed.Error);
+        return parsed.Options!;
+    }
+
+    private static string Refused(params string[] args)
+    {
+        var parsed = BuildArguments.Parse(args);
+        Assert.False(parsed.Ok);
+        return parsed.Error!;
+    }
+
+    [Theory]
+    [InlineData("--help")]
+    [InlineData("-h")]
+    [InlineData("-?")]
+    [InlineData("--HELP")]
+    public void HelpNeedsNoOtherArgument(string arg) => Assert.True(Parsed(arg).Help);
+
+    [Fact]
+    public void UsageNamesEveryOptionTheParserAccepts()
+    {
+        foreach (var option in new[]
+                 {
+                     "--application", "--profile", "--version", "--target", "--stage", "--package", "--download-root",
+                     "--estimated-minutes", "--maximum-minutes", "--packagers-root", "--log-folder", "--site-code",
+                     "--provider-machine-name", "--file-server-path", "--comment", "--wsus-server", "--wsus-port",
+                     "--wsus-use-ssl", "--wsus-classification", "--wsus-approval-group", "--wsus-decline-superseded",
+                     "--on-existing", "--local-source-folder", "--data-root", "--help"
+                 })
+            Assert.Contains(option, BuildArguments.Usage);
+    }
+
+    [Fact]
+    public void ApplicationIsRequired() =>
+        Assert.Equal("--application is required. Run AppPackagerBuild --help for usage.", Refused("--stage"));
+
+    [Fact]
+    public void APhaseIsRequired() =>
+        Assert.Equal("Specify --stage, --package, or both.", Refused("--application", "putty"));
+
+    [Fact]
+    public void AMecmAndWsusPackageNeedsTheStageOfTheSameRun()
+    {
+        Assert.Equal("A MECMAndWSUS package publishes the build staged in the same run; pass --stage together with --package.",
+            Refused("--application", "putty", "--target", "MECMAndWSUS", "--package"));
+        Assert.True(Parsed("--application", "putty", "--target", "MECMAndWSUS", "--package", "--stage").Package);
+    }
+
+    [Fact]
+    public void AWsusOnlyPackageMayRunAlone() =>
+        Assert.Equal(RunTargets.WsusOnly, Parsed("--application", "putty", "--target", "wsusonly", "--package").Target);
+
+    [Fact]
+    public void EveryTargetNameParsesToItsCanonicalSpelling()
+    {
+        foreach (var target in RunTargets.All)
+            Assert.Equal(target, Parsed("--application", "a", "--stage", "--target", target.ToLowerInvariant()).Target);
+        Assert.Equal(RunTargets.Mecm, Parsed("--application", "a", "--stage").Target);
+    }
+
+    [Fact]
+    public void AnUnknownTargetListsTheKnownOnes() =>
+        Assert.Equal("Unknown target 'Sccm'; expected ContentOnly, MECM, MECMAndIntune, IntuneOnly, MECMAndWSUS, WSUSOnly.",
+            Refused("--application", "a", "--stage", "--target", "Sccm"));
+
+    [Fact]
+    public void MalformedCommandLinesAreRefusedWithTheReason()
+    {
+        Assert.Equal("Unknown option '--bogus'. Run AppPackagerBuild --help for usage.", Refused("--application", "a", "--stage", "--bogus"));
+        Assert.Equal("Option '--profile' is given more than once.", Refused("--application", "a", "--stage", "--profile", "x", "--profile", "y"));
+        Assert.Equal("Option '--stage' is given more than once.", Refused("--application", "a", "--stage", "--stage"));
+        Assert.Equal("Option '--profile' needs a value.", Refused("--application", "a", "--stage", "--profile"));
+        Assert.Equal("Option '--profile' needs a value.", Refused("--application", "a", "--profile", "--stage"));
+        Assert.Equal("Unexpected argument 'putty'. Run AppPackagerBuild --help for usage.", Refused("putty", "--stage"));
+        Assert.Equal("Option '--stage' takes no value, or =true or =false.", Refused("--application", "a", "--stage=maybe"));
+    }
+
+    [Fact]
+    public void EveryOptionMapsToItsField()
+    {
+        var o = Parsed("--application", "catalog:7zip", "--profile=Managed", "--version", "1.2", "--target", "MECMAndIntune",
+            "--stage", "--package", "--download-root", @"D:\ap", "--estimated-minutes", "10", "--maximum-minutes", "25",
+            "--packagers-root", @"D:\pk", "--log-folder", @"D:\logs", "--site-code", "LAB", "--provider-machine-name", "cm01.lab",
+            "--file-server-path", @"\\fs\sccm$", "--comment", "CHG0001", "--wsus-server", "wsus01.lab", "--wsus-port", "8531",
+            "--wsus-use-ssl", "--wsus-classification", "SecurityUpdates", "--wsus-approval-group", "Pilot",
+            "--wsus-decline-superseded", "--on-existing", "overwrite", "--local-source-folder", @"D:\src", "--data-root", @"D:\data");
+
+        Assert.Equal("catalog:7zip", o.Application);
+        Assert.Equal("Managed", o.Profile);
+        Assert.Equal("1.2", o.Version);
+        Assert.Equal(RunTargets.MecmAndIntune, o.Target);
+        Assert.True(o.Stage);
+        Assert.True(o.Package);
+        Assert.Equal(@"D:\ap", o.DownloadRoot);
+        Assert.Equal(10, o.EstimatedMinutes);
+        Assert.Equal(25, o.MaximumMinutes);
+        Assert.Equal(@"D:\pk", o.PackagersRoot);
+        Assert.Equal(@"D:\logs", o.LogFolder);
+        Assert.Equal("LAB", o.SiteCode);
+        Assert.Equal("cm01.lab", o.ProviderMachineName);
+        Assert.Equal(@"\\fs\sccm$", o.FileServerPath);
+        Assert.Equal("CHG0001", o.Comment);
+        Assert.Equal("wsus01.lab", o.WsusServer);
+        Assert.Equal(8531, o.WsusPort);
+        Assert.True(o.WsusUseSsl);
+        Assert.Equal("SecurityUpdates", o.WsusClassification);
+        Assert.Equal("Pilot", o.WsusApprovalGroup);
+        Assert.True(o.WsusDeclineSuperseded);
+        Assert.Equal(OnExistingBehavior.Overwrite, o.OnExisting);
+        Assert.Equal(@"D:\src", o.LocalSourceFolder);
+        Assert.Equal(@"D:\data", o.DataRoot);
+    }
+
+    [Fact]
+    public void OmittedOptionsInheritAndAWsusSwitchCanTurnAStoredChoiceOff()
+    {
+        var o = Parsed("--application", "a", "--stage");
+        Assert.Equal(ApplicationIds.DefaultProfileId, o.Profile);
+        Assert.Null(o.WsusUseSsl);
+        Assert.Null(o.WsusDeclineSuperseded);
+        Assert.Null(o.WsusPort);
+        Assert.Null(o.SiteCode);
+        Assert.Equal("", o.Comment);
+        Assert.Equal(OnExistingBehavior.Skip, o.OnExisting);
+
+        var off = Parsed("--application", "a", "--stage", "--wsus-use-ssl=false", "--wsus-decline-superseded=FALSE");
+        Assert.False(off.WsusUseSsl);
+        Assert.False(off.WsusDeclineSuperseded);
+    }
+
+    [Fact]
+    public void AnEmptyCommentIsAValue() =>
+        Assert.Equal("", Parsed("--application", "a", "--package", "--comment", "").Comment);
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("65536")]
+    [InlineData("85x")]
+    [InlineData("-1")]
+    public void TheWsusPortIsAPortNumber(string port) =>
+        Assert.Equal("Option '--wsus-port' takes a port number from 1 to 65535.", Refused("--application", "a", "--stage", "--wsus-port", port));
+
+    [Fact]
+    public void MinutesAreWholeNumbers() =>
+        Assert.Equal("Option '--estimated-minutes' takes a whole number of minutes.", Refused("--application", "a", "--stage", "--estimated-minutes", "1.5"));
+
+    [Theory]
+    [InlineData("Skip", OnExistingBehavior.Skip)]
+    [InlineData("OVERWRITE", OnExistingBehavior.Overwrite)]
+    [InlineData("fail", OnExistingBehavior.Fail)]
+    public void OnExistingTakesTheEngineBehaviors(string value, OnExistingBehavior expected) =>
+        Assert.Equal(expected, Parsed("--application", "a", "--package", "--on-existing", value).OnExisting);
+
+    [Theory]
+    [InlineData("Ask")]
+    [InlineData("1")]
+    [InlineData("Skip,Overwrite")]
+    public void OnExistingRefusesAnythingElse(string value) =>
+        Assert.Equal($"Unknown --on-existing value '{value}'; expected Skip, Overwrite or Fail.",
+            Refused("--application", "a", "--package", "--on-existing", value));
+}

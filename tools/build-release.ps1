@@ -3,8 +3,9 @@
     Builds the release artifacts: a published zip, the installer and a checksums file.
 
 .DESCRIPTION
-    Publishes ApplicationPackagerUI as a self-contained, single-file win-x64 Release build
-    into a stage folder, compiles the installer from it (tools\build-installer.ps1, when
+    Publishes ApplicationPackagerUI and the command-line build (ApplicationPackagerBuild,
+    AppPackagerBuild.exe) as self-contained, single-file win-x64 Release builds into one
+    stage folder, compiles the installer from it (tools\build-installer.ps1, when
     makensis is installed), then zips the stage into <OutputRoot>\AppPackagerDesktop-<version>.zip
     and writes checksums.txt covering the zip and the installer.
 
@@ -46,6 +47,10 @@ $projectPath = Join-Path $repoRoot 'src\ApplicationPackagerUI\ApplicationPackage
 if (-not (Test-Path $projectPath)) {
     throw "UI project not found at $projectPath"
 }
+$buildProjectPath = Join-Path $repoRoot 'src\ApplicationPackagerBuild\ApplicationPackagerBuild.csproj'
+if (-not (Test-Path $buildProjectPath)) {
+    throw "Command-line build project not found at $buildProjectPath"
+}
 
 if (-not $OutputRoot) { $OutputRoot = Join-Path $repoRoot 'publish' }
 $stageDir = Join-Path $OutputRoot 'release-stage'
@@ -60,6 +65,7 @@ $version = "$version".Trim()
 $zipPath = Join-Path $OutputRoot "AppPackagerDesktop-$version.zip"
 $checksumPath = Join-Path $OutputRoot 'checksums.txt'
 $exePath = Join-Path $stageDir 'ApplicationPackagerUI.exe'
+$buildExePath = Join-Path $stageDir 'AppPackagerBuild.exe'
 
 Write-Host "App Packager Desktop $version -> $OutputRoot"
 
@@ -67,19 +73,23 @@ if (-not $PackageOnly) {
     if (Test-Path $stageDir) { Remove-Item -LiteralPath $stageDir -Recurse -Force }
     New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
-    & dotnet publish $projectPath `
-        --configuration $Configuration `
-        --runtime win-x64 `
-        --self-contained true `
-        -p:PublishSingleFile=true `
-        -p:IncludeNativeLibrariesForSelfExtract=true `
-        --output $stageDir
-    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
+    foreach ($project in @($projectPath, $buildProjectPath)) {
+        & dotnet publish $project `
+            --configuration $Configuration `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            --output $stageDir
+        if ($LASTEXITCODE -ne 0) { throw "dotnet publish of $(Split-Path -Leaf $project) failed with exit code $LASTEXITCODE" }
+    }
 
     # Symbols are build output, not release content.
     Get-ChildItem -LiteralPath $stageDir -Filter *.pdb -Recurse | Remove-Item -Force
 
-    if (-not (Test-Path $exePath)) { throw "Published executable missing: $exePath" }
+    foreach ($published in @($exePath, $buildExePath)) {
+        if (-not (Test-Path $published)) { throw "Published executable missing: $published" }
+    }
 
     if ($PublishOnly) {
         Write-Host ''
@@ -102,7 +112,7 @@ if (-not $PackageOnly) {
     }
 }
 
-if (-not (Test-Path $exePath)) { throw "No published stage to package at $stageDir; run without -PackageOnly first." }
+if (-not (Test-Path $exePath) -or -not (Test-Path $buildExePath)) { throw "No published stage to package at $stageDir; run without -PackageOnly first." }
 
 if (Test-Path $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $zipPath -CompressionLevel Optimal

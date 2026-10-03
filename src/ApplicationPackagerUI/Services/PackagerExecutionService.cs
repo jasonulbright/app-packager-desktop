@@ -162,7 +162,7 @@ public class PackagerExecutionService(
         void Report(string line)
         {
             if (onOutputLine is not null)
-                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+                OutputLineDispatch.Post(onOutputLine, line);
         }
         var note = await IntuneDeploymentService.BuildAtStageAsync(manifest, Path.GetDirectoryName(manifestPath)!, Report, ct);
         if (note.Length > 0) Report($"Intunewin: {note}");
@@ -252,7 +252,7 @@ public class PackagerExecutionService(
         void Report(string line)
         {
             if (onOutputLine is not null)
-                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+                OutputLineDispatch.Post(onOutputLine, line);
         }
         var settings = settingsService.Load();
         var supportUrl = string.IsNullOrWhiteSpace(packager.VendorUrl) ? null : packager.VendorUrl;
@@ -275,7 +275,7 @@ public class PackagerExecutionService(
             message = "No build record sealed: " + ex.Message;
         }
         if (onOutputLine is not null)
-            System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(message));
+            OutputLineDispatch.Post(onOutputLine, message);
     }
 
     /// <summary>
@@ -337,7 +337,7 @@ public class PackagerExecutionService(
             {
                 conflicts.Observe(line);
                 if (onOutputLine is not null)
-                    System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+                    OutputLineDispatch.Post(onOutputLine, line);
             }
 
             var mecmSucceeded = true;
@@ -520,7 +520,7 @@ public class PackagerExecutionService(
         {
             var line = $"Run snapshot not created for {Path.GetFileNameWithoutExtension(packager.Script)}: {ex.Message}";
             if (onOutputLine is not null)
-                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+                OutputLineDispatch.Post(onOutputLine, line);
             return null;
         }
     }
@@ -718,7 +718,7 @@ public class PackagerExecutionService(
         {
             conflicts.Observe(line);
             if (onOutputLine is not null)
-                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+                OutputLineDispatch.Post(onOutputLine, line);
         }
 
         var mecmSucceeded = true;
@@ -882,8 +882,7 @@ public class PackagerExecutionService(
                 outLines.Add(line);
                 if (onOutputLine is not null)
                 {
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(
-                        () => onOutputLine(line));
+                    await OutputLineDispatch.SendAsync(onOutputLine, line);
                 }
             }
 
