@@ -64,6 +64,42 @@ public sealed class HeadProbeScraper : IVersionScraper
         return Format(current.Value);
     }
 
+    /// <summary>
+    /// The newest build number the host serves for a template with a {build} placeholder,
+    /// starting from <paramref name="floor"/>. Each hop tries the next three numbers, so a
+    /// withdrawn build or two does not end the walk. Null when the floor is not a whole
+    /// number or the host no longer serves it.
+    /// </summary>
+    public static async Task<int?> WalkBuildNumberAsync(string template, string floor, int maxHops,
+        Func<string, CancellationToken, Task<bool>>? isPublished = null, CancellationToken ct = default)
+    {
+        if (!int.TryParse(floor?.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var current))
+            return null;
+        isPublished ??= IsUrlPublishedAsync;
+        if (!await isPublished(BuildNumberUrl(template, current), ct)) return null;
+
+        for (var hop = 0; hop < (maxHops > 0 ? maxHops : DefaultMaxHops); hop++)
+        {
+            int? next = null;
+            for (var step = 1; step <= 3; step++)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (await isPublished(BuildNumberUrl(template, current + step), ct))
+                {
+                    next = current + step;
+                    break;
+                }
+            }
+            if (next is null) break;
+            current = next.Value;
+        }
+        return current;
+    }
+
+    /// <summary>The template with {build} replaced by the build number.</summary>
+    public static string BuildNumberUrl(string template, int build) =>
+        template.Replace("{build}", build.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.OrdinalIgnoreCase);
+
     private static string Format((int Major, int Minor, int Patch) v)
         => $"{v.Major}.{v.Minor}.{v.Patch}";
 
@@ -88,10 +124,11 @@ public sealed class HeadProbeScraper : IVersionScraper
     /// Header-only request; the payload runs to megabytes and the walk issues
     /// one request per candidate.
     /// </summary>
-    private static async Task<bool> IsPublishedAsync(string template, string version, CancellationToken ct)
-    {
-        var url = BuildUrl(template, version);
+    private static Task<bool> IsPublishedAsync(string template, string version, CancellationToken ct) =>
+        IsUrlPublishedAsync(BuildUrl(template, version), ct);
 
+    private static async Task<bool> IsUrlPublishedAsync(string url, CancellationToken ct)
+    {
         using var process = CurlProcess.Start(
             $"-L --silent --show-error --head --max-time 20 -o NUL -w \"%{{http_code}}\" \"{url}\"", url);
 

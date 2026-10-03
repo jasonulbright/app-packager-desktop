@@ -249,17 +249,11 @@ public sealed class IntunePublishService : IDisposable
     }
 
     /// <summary>
-    /// The installExperience.deviceRestartBehavior for a ConfigMgr post-execution behavior:
-    /// ForceReboot is force, NoAction and ProgramReboot are allow (Intune takes no action on
-    /// a restart code), and BasedOnExitCode or none is basedOnReturnCode.
+    /// The installExperience.deviceRestartBehavior for every published app. The restart
+    /// decision follows the installer's return code whatever the ConfigMgr post-execution
+    /// behavior is; the return code table carries the soft and hard reboot codes.
     /// </summary>
-    public static string DeviceRestartBehavior(string? postExecutionBehavior) =>
-        StagingService.NormalizePostExecutionBehavior(postExecutionBehavior) switch
-        {
-            "ForceReboot" => "force",
-            "NoAction" or "ProgramReboot" => "allow",
-            _ => "basedOnReturnCode"
-        };
+    public static string DeviceRestartBehavior(string? postExecutionBehavior) => "basedOnReturnCode";
 
     /// <summary>
     /// The existing Win32 app this publish updates. notes is not a filterable property, so

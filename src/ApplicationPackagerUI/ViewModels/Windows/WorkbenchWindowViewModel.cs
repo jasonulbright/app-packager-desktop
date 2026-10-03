@@ -22,7 +22,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     private const string UnsavedText = "Unsaved changes. Save writes the profile; nothing is deployed.";
     private const string CleanText = "No unsaved changes.";
     private const string NoSealedBuilds = "No sealed builds";
-    private const string SigningLine = "policy from preferences, applied at build time";
 
     private readonly SettingsService _settingsService;
     private readonly WorkbenchApplicationCatalog _catalog;
@@ -32,6 +31,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     private WorkbenchStore? _store;
     private WorkbenchEditorSession? _session;
     private AppSettings _settings = new();
+    private IReadOnlyList<JsonObject> _buildRecords = [];
     private bool _loading;
 
     public WorkbenchWindowViewModel(
@@ -103,9 +103,8 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private string _scriptTarget = "Install";
     [ObservableProperty] private string _installModeDisplay = "Generated";
     [ObservableProperty] private string _installModeSource = "";
-    [ObservableProperty] private string _commandOverride = "";
+    [ObservableProperty] private string _effectiveCommand = "";
     [ObservableProperty] private string _commandSource = "";
-    [ObservableProperty] private string _inheritedCommand = "";
     [ObservableProperty] private string _returnCodes = "";
     [ObservableProperty] private string _rebootPolicy = "Inherit";
     [ObservableProperty] private string _workingDirectory = "";
@@ -291,16 +290,23 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         IReadOnlyList<JsonObject> records;
         try { records = BuildRecords.List(_store.DataRoot, _session.ApplicationId, _session.ProfileId); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException) { records = []; }
+        _buildRecords = records;
         PriorBuilds.Clear();
         foreach (var record in records)
             PriorBuilds.Add(new PriorBuildRow(
                 WorkbenchJson.AsText(record["BuildId"]) ?? "", WorkbenchJson.AsText(record["SoftwareVersion"]) ?? "",
-                WorkbenchJson.AsText(record["ProfileRevision"]) ?? "", "Sealed " + (WorkbenchJson.AsText(record["SealedAt"]) ?? "")));
+                WorkbenchJson.AsText(record["ProfileRevision"]) ?? "", "Sealed " + SealedAtText(WorkbenchJson.AsText(record["SealedAt"]))));
         Builds = PriorBuilds.Count == 0
             ? new ObservableCollection<string>([NoSealedBuilds])
             : new ObservableCollection<string>(PriorBuilds.Select(b => b.BuildId));
         SelectedBuild = Builds[0];
     }
+
+    /// <summary>The seal time in local minutes; an unparseable value is shown as stored.</summary>
+    private static string SealedAtText(string? sealedAt) =>
+        DateTimeOffset.TryParse(sealedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
+            ? at.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+            : sealedAt ?? "";
 
     /// <summary>Re-reads every editor from the session.</summary>
     private void RefreshAll()
@@ -370,8 +376,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         try
         {
             InstallModeDisplay = WorkbenchFieldMapping.ScriptModeToDisplay(mode);
-            CommandOverride = s.Get(target + ".Command").Text ?? "";
-            InheritedCommand = s.Inherited.ForPath(target + ".Command");
+            EffectiveCommand = s.Get(target + ".Command").Text is { Length: > 0 } command ? command : s.Inherited.ForPath(target + ".Command");
             ReturnCodes = s.Get(target + ".ReturnCodes").Text ?? "";
             WorkingDirectory = s.Get(target + ".WorkingDirectory").Text ?? "";
             RebootPolicy = s.Get(target + ".RebootPolicy").Text is { Length: > 0 } reboot ? reboot : "Inherit";
@@ -476,7 +481,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     {
         if (_session is null) return;
         DiffRows = new ObservableCollection<WorkbenchDiffRow>(WorkbenchReview.Diff(_session));
-        ResolvedPlan = WorkbenchReview.Plan(_session, SigningLine);
+        ResolvedPlan = WorkbenchReview.Plan(_session, WorkbenchReview.SigningLine(_settingsService.Load().ScriptSigning));
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -535,7 +540,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         AfterEdit();
     }
 
-    partial void OnCommandOverrideChanged(string value) => EditText(ScriptTarget + ".Command", value);
     partial void OnReturnCodesChanged(string value) => EditText(ScriptTarget + ".ReturnCodes", value);
     partial void OnWorkingDirectoryChanged(string value) => EditText(ScriptTarget + ".WorkingDirectory", value);
     partial void OnHookBeforeChanged(string value) => EditText(ScriptTarget + ".BeforeText", value);
@@ -544,6 +548,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     partial void OnScriptTextChanged(string value)
     {
         ScriptGutter = WorkbenchFieldMapping.LineNumbers(value);
+        ScheduleParse();
         EditText(ScriptTarget + ".ScriptText", value);
     }
 
@@ -600,6 +605,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     partial void OnDetectScriptChanged(string value)
     {
         DetectGutter = WorkbenchFieldMapping.LineNumbers(value);
+        ScheduleParse();
         WriteDetectionRule();
     }
 
@@ -786,9 +792,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         RefreshAll();
         AfterEdit();
     }
-
-    [RelayCommand]
-    private void ResetCommandOverride() => ResetField(ScriptTarget + ".Command");
 
     [RelayCommand]
     private void ResetInstallSection()
@@ -997,23 +1000,78 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Validate()
+    private async Task ValidateAsync()
     {
-        RunValidation();
+        await RunValidationAsync();
         SelectedSectionIndex = ReviewSectionIndex;
         SaveStateText = "Validation inspected the profile without running anything. Results are per target.";
     }
 
-    private IReadOnlyList<WorkbenchFinding> RunValidation()
+    /// <summary>
+    /// Local findings, the parse of a custom detection script, and the Intune compatibility
+    /// findings of the selected sealed build, which is what a publish of this profile reads.
+    /// </summary>
+    private async Task<IReadOnlyList<WorkbenchFinding>> RunValidationAsync()
     {
         if (_session is null) return [];
-        var findings = WorkbenchFindings.Local(_session.Profile, _session.Inherited).ToList();
-        findings.Add(new WorkbenchFinding(WorkbenchFinding.Info, WorkbenchFindings.AdapterNotLoadedCode,
-            "The Intune compatibility check is not loaded; only local validation ran."));
+        ScriptInspection? detection = null;
+        if (WorkbenchFindings.HasCustomDetectionScript(_session.Profile))
+            detection = await PowerShellScriptInspector.InspectAsync(_session.Get("Detection.Rule.ScriptText").Text);
+        var findings = WorkbenchFindings.Local(_session.Profile, _session.Inherited, detection).ToList();
+        findings.AddRange(WorkbenchIntuneFindings.ForBuild(SelectedBuildRecord()));
         Findings = new ObservableCollection<WorkbenchFinding>(findings);
         SetValidatedState(true, findings);
         RefreshReview();
+        await RefreshDiagnosticsAsync();
         return findings;
+    }
+
+    private JsonObject? SelectedBuildRecord() =>
+        _buildRecords.FirstOrDefault(r => string.Equals(WorkbenchJson.AsText(r["BuildId"]), SelectedBuild, StringComparison.OrdinalIgnoreCase));
+
+    // ── Parse diagnostics ───────────────────────────────────────
+
+    private static readonly TimeSpan ParseDelay = TimeSpan.FromMilliseconds(500);
+    private CancellationTokenSource? _parseCts;
+
+    public ObservableCollection<string> ScriptDiagnostics { get; } = [];
+    public ObservableCollection<string> DetectDiagnostics { get; } = [];
+
+    /// <summary>Restarts the parse delay, so the parser runs once typing stops rather than on every keystroke.</summary>
+    private void ScheduleParse()
+    {
+        _parseCts?.Cancel();
+        var cts = _parseCts = new CancellationTokenSource();
+        _ = ParseAfterDelayAsync(cts.Token);
+    }
+
+    private async Task ParseAfterDelayAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(ParseDelay, ct);
+            await RefreshDiagnosticsAsync(ct);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>Parses both editors' scripts with Windows PowerShell 5.1 and lists what the parser reports.</summary>
+    public async Task RefreshDiagnosticsAsync(CancellationToken ct = default)
+    {
+        var scriptText = ScriptText;
+        var detectText = DetectScript;
+        var results = await Task.WhenAll(
+            PowerShellScriptInspector.InspectAsync(scriptText, ct),
+            PowerShellScriptInspector.InspectAsync(detectText, ct));
+        ct.ThrowIfCancellationRequested();
+        Fill(ScriptDiagnostics, WorkbenchScriptDiagnostics.ForScript(scriptText, results[0]));
+        Fill(DetectDiagnostics, WorkbenchScriptDiagnostics.ForDetection(detectText, results[1]));
+    }
+
+    private static void Fill(ObservableCollection<string> target, IEnumerable<string> lines)
+    {
+        target.Clear();
+        foreach (var line in lines) target.Add(line);
     }
 
     private void SetValidatedState(bool validated, IEnumerable<WorkbenchFinding>? findings = null)
@@ -1045,7 +1103,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         if (_session.IsDirty && !await ConfirmDiscardAsync("Save the profile before this run? A run uses the saved profile revision.")) return;
 
         var target = WorkbenchBuildLauncher.TargetFor(operation, publishTarget, _settingsService.Load().Intune.DeploymentTarget);
-        var blocking = WorkbenchFindings.BlockingFor(RunValidation(), target);
+        var blocking = WorkbenchFindings.BlockingFor(await RunValidationAsync(), target);
         if (blocking.Count > 0)
         {
             await Prompts.InfoAsync("Blocked", "This profile has blocking findings: " + blocking[0].Message);

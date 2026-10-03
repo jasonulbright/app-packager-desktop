@@ -69,13 +69,26 @@ public class PackagerExecutionService(
         {
             var def = LoadDefinition(packager.DefinitionPath);
             var appSettings = settingsService.Load();
+            // A grid run builds from the application's active profile; the default
+            // profile runs without a snapshot, as every grid run did before profiles.
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+            if (snapshot is null && source.ActiveProfileId is { } activeProfile)
+            {
+                snapshot = CreateProfileSnapshot(source.ApplicationId, activeProfile, appSettings, out var snapshotRefusal, out var failure);
+                if (snapshotRefusal is not null || failure is not null)
+                    return new PackagerExecutionResult { ExitCode = 1, StdErr = snapshotRefusal ?? $"Run snapshot not created for profile {activeProfile}: {failure}" };
+                if (snapshot is not null)
+                    onOutputLine?.Invoke($"Workbench profile             : {WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? activeProfile} (revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
+            }
             // Reuse version from Check Latest to avoid redundant API calls (GitHub rate limiting)
             var knownVersion = !string.IsNullOrEmpty(packager.LatestVersion) ? packager.LatestVersion : null;
-            // The operator's Install for choice reaches staging here; an entry
-            // for a definition that no longer declares the modes is ignored.
-            var installMode = def.OffersInstallModes
-                ? deploymentConditionsService.GetConditions(def.Id)?.InstallMode
-                : null;
+            // The Install for choice comes from the build's profile; the saved per-app
+            // entry applies only where the legacy maps still apply. An entry for a
+            // definition that no longer declares the modes is ignored.
+            var installMode = !def.OffersInstallModes ? null
+                : snapshot is not null && !ApplicationIds.IsDefaultProfile(snapshot.ProfileId)
+                    ? WorkbenchJson.Get(snapshot.Profile, "InstallMode").Text
+                    : source.LegacyMapsApply ? deploymentConditionsService.GetConditions(def.Id)?.InstallMode : null;
             if (string.IsNullOrWhiteSpace(installMode)) installMode = null;
             // Saved install parameters apply when the caller brought none (no review
             // dialog); the M365 channel from Settings rides along for ODT definitions.
@@ -110,7 +123,28 @@ public class PackagerExecutionService(
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildStageArgs(packager, settings, bridge?.DownloadRoot);
-        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
+        var staged = await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
+        if (staged.ExitCode == 0 && bridge is not null)
+            SealPackagerStage(bridge, staged.StdOut, settings.DownloadRoot, onOutputLine);
+        return staged;
+    }
+
+    /// <summary>Seals the build record of a PS1 stage that ran with a run snapshot; the outcome goes to the run log.</summary>
+    private static void SealPackagerStage(PackagerChildLaunch bridge, string stdout, string downloadRoot, Action<string>? onOutputLine)
+    {
+        string message;
+        try
+        {
+            var searchRoot = string.IsNullOrWhiteSpace(bridge.DownloadRoot) ? downloadRoot : bridge.DownloadRoot;
+            PackagerStageSeal.Seal(bridge.Snapshot, PackagerStageSeal.ManifestPathFromOutput(stdout), searchRoot, out message);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                   or InvalidOperationException or JsonException)
+        {
+            message = "No build record sealed: " + ex.Message;
+        }
+        if (onOutputLine is not null)
+            System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(message));
     }
 
     /// <summary>
@@ -132,7 +166,9 @@ public class PackagerExecutionService(
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
-            var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId),
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+            // A grid publish packages the stage of the active profile, under that profile's root.
+            var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId ?? source.ActiveProfileId),
                 $"{def.Application.Replace(" ", "")}-{def.Architecture}");
             var manifestPath = Path.Combine(appRoot, packager.LatestVersion, "stage-manifest.json");
             if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
@@ -170,9 +206,10 @@ public class PackagerExecutionService(
             // Operator selections resolve before any target runs: a variant split rewrites
             // the manifest into gated deployment types, a plain selection stays flat rules
             // on the single deployment type.
-            // A build finalized from a run snapshot already carries its profile's
-            // conditions, commands and title mode; the saved per-app settings do not apply.
-            var profiled = StageFinalizer.CarriesBuild(manifest);
+            // A build of a non-default profile already carries its profile's conditions,
+            // commands and title mode; the saved per-app settings apply only where
+            // ProfileSource leaves them in force.
+            var profiled = !ProfileSource.LegacyMapsApplyTo(manifest, source);
             var conditions = profiled ? null : deploymentConditionsService.GetConditions(def.Id);
             DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, stagedContentPath, Report);
             var requirements = DeploymentConditionsService.BuildRequirements(conditions);
@@ -322,11 +359,14 @@ public class PackagerExecutionService(
         {
             string? manifestPath = packager.StagedManifestPath;
             AppDefinition? def = null;
+            ProfileSource? source = null;
             if (manifestPath is null && packager.IsJsonDefined && packager.DefinitionPath is not null)
             {
                 def = LoadDefinition(packager.DefinitionPath);
                 var settings = settingsService.Load();
-                var appRoot = Path.Combine(settings.DownloadRoot, $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+                source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id);
+                var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
+                    $"{def.Application.Replace(" ", "")}-{def.Architecture}");
                 manifestPath = Path.Combine(appRoot, packager.LatestVersion ?? "", "stage-manifest.json");
                 if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
                     manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
@@ -334,7 +374,7 @@ public class PackagerExecutionService(
             if (manifestPath is null || !File.Exists(manifestPath)) return null;
 
             var manifest = new ManifestService().Read(manifestPath);
-            if (def is null || StageFinalizer.CarriesBuild(manifest))
+            if (def is null || source is null || !ProfileSource.LegacyMapsApplyTo(manifest, source))
                 return IntuneCompatibilityFindings.Build(manifest);
             var conditions = deploymentConditionsService.GetConditions(def.Id);
             DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, Path.GetDirectoryName(manifestPath)!);
@@ -380,16 +420,42 @@ public class PackagerExecutionService(
     {
         refusal = null;
         if (!packager.IsJsonDefined) return null;
-        var settings = settingsService.Load();
+        return CreateProfileSnapshot(plan.ApplicationId, plan.ProfileId, settingsService.Load(), out refusal, plan.DataRoot);
+    }
+
+    /// <summary>The workbench store of a snapshot's data root, else the configured one; null when it cannot be opened.</summary>
+    private static WorkbenchStore? WorkbenchStoreOrNull(RunSnapshot? snapshot)
+    {
+        try { return string.IsNullOrWhiteSpace(snapshot?.DataRoot) ? WorkbenchStore.Open() : WorkbenchStore.Open(snapshot.DataRoot); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Writes the run snapshot of one profile of a JSON definition. The signing certificate
+    /// resolves here; a policy the certificate cannot meet is the refusal and no snapshot
+    /// exists. Any other failure returns null and the run goes on without a profile.
+    /// </summary>
+    private static RunSnapshot? CreateProfileSnapshot(string applicationId, string profileId, AppSettings settings,
+        out string? refusal, string? dataRoot = null) => CreateProfileSnapshot(applicationId, profileId, settings, out refusal, out _, dataRoot);
+
+    private static RunSnapshot? CreateProfileSnapshot(string applicationId, string profileId, AppSettings settings,
+        out string? refusal, out string? failure, string? dataRoot = null)
+    {
+        refusal = null;
+        failure = null;
         try
         {
-            return WorkbenchStore.Open(plan.DataRoot).CreateRunSnapshot(new RunSnapshotRequest
+            var store = string.IsNullOrWhiteSpace(dataRoot) ? WorkbenchStore.Open() : WorkbenchStore.Open(dataRoot);
+            return store.CreateRunSnapshot(new RunSnapshotRequest
             {
-                ApplicationId = plan.ApplicationId,
-                ProfileId = plan.ProfileId,
+                ApplicationId = applicationId,
+                ProfileId = profileId,
                 Target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget),
                 SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
-                DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, plan.ProfileId)
+                DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, profileId)
             }, new ScriptSigningCertificateGate());
         }
         catch (Exception ex) when (ex.Message.Contains("SigningCertificateUnavailable", StringComparison.Ordinal)
@@ -401,6 +467,7 @@ public class PackagerExecutionService(
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
                                    or ArgumentException or JsonException)
         {
+            failure = ex.Message;
             return null;
         }
     }

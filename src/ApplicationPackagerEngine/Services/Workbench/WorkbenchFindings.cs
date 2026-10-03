@@ -24,10 +24,18 @@ public sealed record WorkbenchChipState(string Content, string ConfigMgr, string
 /// </summary>
 public static class WorkbenchFindings
 {
-    public const string AdapterNotLoadedCode = "INTUNE-ADAPTER";
+    /// <summary>True when the profile's custom detection is a script, whose text <see cref="Local"/> needs inspected.</summary>
+    public static bool HasCustomDetectionScript(WorkbenchProfile profile) =>
+        string.Equals(profile.Get("Detection.Mode").Text, "Custom", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(profile.Get("Detection.Rule.Type").Text, "Script", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The profile's own findings, before any target adapter adds its own.</summary>
-    public static IReadOnlyList<WorkbenchFinding> Local(WorkbenchProfile profile, WorkbenchInheritedSettings inherited)
+    /// <summary>
+    /// The profile's own findings, before any target adapter adds its own. A custom script
+    /// detection is judged on <paramref name="detectionScript"/>, the parser's inspection of
+    /// its text; without one the script findings are not produced.
+    /// </summary>
+    public static IReadOnlyList<WorkbenchFinding> Local(WorkbenchProfile profile, WorkbenchInheritedSettings inherited,
+        ScriptInspection? detectionScript = null)
     {
         var findings = new List<WorkbenchFinding>();
         void Add(string severity, string code, string message) => findings.Add(new WorkbenchFinding(severity, code, message));
@@ -49,6 +57,14 @@ public static class WorkbenchFindings
 
         if (string.Equals(profile.Get("Detection.Mode").Text, "Custom", StringComparison.OrdinalIgnoreCase))
         {
+            if (detectionScript is not null && HasCustomDetectionScript(profile))
+            {
+                if (!detectionScript.WritesOutput)
+                    Add(WorkbenchFinding.Blocking, "DETECT-NO-OUTPUT",
+                        "The detection script writes nothing to STDOUT, so an installed endpoint still reports not installed.");
+                if (detectionScript.Diagnostics.Count > 0)
+                    Add(WorkbenchFinding.Blocking, "DETECT-PARSE", "The detection script does not parse: " + detectionScript.Diagnostics[0]);
+            }
             var logic = profile.Get("Detection.Rule.Logic").Text ?? "";
             var conversion = WorkbenchJson.IsTruthy(profile.Get("Detection.IntuneScriptConversion").Value);
             if ((logic.Equals("Or", StringComparison.OrdinalIgnoreCase) || logic.Equals("TwoGroup", StringComparison.OrdinalIgnoreCase)) && !conversion)

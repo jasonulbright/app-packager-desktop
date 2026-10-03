@@ -211,9 +211,9 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
     [Theory]
     [InlineData(null, "basedOnReturnCode")]
     [InlineData("BasedOnExitCode", "basedOnReturnCode")]
-    [InlineData("NoAction", "allow")]
-    [InlineData("ProgramReboot", "allow")]
-    [InlineData("ForceReboot", "force")]
-    public void ThePostExecutionBehaviorMapsOntoTheRestartBehavior(string? behavior, string expected) =>
+    [InlineData("NoAction", "basedOnReturnCode")]
+    [InlineData("ProgramReboot", "basedOnReturnCode")]
+    [InlineData("ForceReboot", "basedOnReturnCode")]
+    public void EveryPostExecutionBehaviorPublishesBasedOnReturnCode(string? behavior, string expected) =>
         Assert.Equal(expected, IntunePublishService.DeviceRestartBehavior(behavior));
 }

@@ -44,9 +44,11 @@ public sealed class WorkbenchTestRoot : IDisposable
     }
 }
 
-/// <summary>Tests that read or write the process environment run one at a time.</summary>
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class WorkbenchEnvironmentCollection
+/// <summary>
+/// Tests that read or write the process environment run one at a time, in the same
+/// collection as every other test that sets APP_PACKAGER_DATA_ROOT or the workbench root.
+/// </summary>
+public static class WorkbenchEnvironmentCollection
 {
-    public const string Name = "Workbench process environment";
+    public const string Name = ProcessEnvironmentCollection.Name;
 }
