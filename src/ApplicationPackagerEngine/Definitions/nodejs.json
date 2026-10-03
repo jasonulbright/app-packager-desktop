@@ -4,7 +4,7 @@
     "IconSource":  "Installer",
     "Vendor":  "OpenJS Foundation",
     "Application":  "Node.js LTS (x64)",
-    "CMName":  "Node.js LTS",
+    "CMName":  "Node.js",
     "Architecture":  "x64",
     "VendorUrl":  "https://nodejs.org/",
     "InstallerType":  "MSI",

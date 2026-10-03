@@ -4,7 +4,7 @@
     "IconSource":  "None",
     "Vendor":  "Microsoft",
     "Application":  "Visual C++ v14 Redistributable (x64)",
-    "CMName":  "Visual C++ v14 Redistributable x64",
+    "CMName":  "Microsoft Visual C++ v14 Redistributable (x64)",
     "Architecture":  "x64",
     "VendorUrl":  "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist",
     "InstallerType":  "EXE",
@@ -22,10 +22,15 @@
     "InstallerFileName":  "vc_redist.x64-{version}.exe",
     "InstallArgs":  "/install /quiet /norestart",
     "UninstallArgs":  "/uninstall /quiet /norestart",
+    "UninstallCommand":  "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter 'vc_redist.x64*.exe' | Select-Object -First 1).Name\r\n$proc = Start-Process -FilePath $exePath -ArgumentList @('/uninstall', '/quiet', '/norestart') -Wait -PassThru -NoNewWindow\r\nif ($proc.ExitCode -eq 0) { '3010' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit 3010 }",
+    "PostInstallScript":  {
+                              "Script":  "'3010' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline\r\nexit 3010"
+                          },
+    "PostExecutionBehavior":  "ForceReboot",
     "Detection":  {
                       "Type":  "File",
-                      "FilePath":  "C:\\Windows\\System32",
-                      "FileName":  "msvcp140.dll",
+                      "FilePath":  "%SystemRoot%\\System32",
+                      "FileName":  "vcruntime140.dll",
                       "PropertyType":  "Version",
                       "Operator":  "GreaterEquals",
                       "Is64Bit":  true

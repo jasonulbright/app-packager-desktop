@@ -1,0 +1,40 @@
+{
+  "Schema": 1,
+  "Id": "b07c432a3dd3cc16",
+  "IconSource": "Installer",
+  "Vendor": "GitHub",
+  "Application": "GitHub Desktop (User)",
+  "CMName": "GitHub Desktop",
+  "Architecture": "x64",
+  "VendorUrl": "https://desktop.github.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "Squirrel",
+  "InstallContext": "User",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://central.github.com/deployments/desktop/desktop/latest/win32",
+    "Pattern": "REDIR:/releases/(\\d+(?:\\.\\d+){1,3})-[0-9A-Za-z]+/GitHubDesktopSetup-x64\\.exe$",
+    "DownloadUrlQuery": "^(https://\\S+/releases/{version}-[0-9A-Za-z]+/GitHubDesktopSetup-x64\\.exe)$"
+  },
+  "DownloadUrl": "https://central.github.com/deployments/desktop/desktop/latest/win32",
+  "InstallerFileName": "GitHubDesktopSetup-x64.exe",
+  "InstallArgs": "-s",
+  "UninstallArgs": "--uninstall -s",
+  "UninstallCommand": "Get-Process GitHubDesktop -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue\r\nStart-Sleep -Seconds 2\r\n$updateExe = Join-Path $env:LOCALAPPDATA 'GitHubDesktop\\Update.exe'\r\nif (-not (Test-Path -LiteralPath $updateExe)) { exit 0 }\r\n$proc = Start-Process -FilePath $updateExe -ArgumentList @('--uninstall', '-s') -Wait -PassThru -NoNewWindow",
+  "PostInstallScript": {
+    "Script": "$installedExe = Join-Path $env:LOCALAPPDATA 'GitHubDesktop\\GitHubDesktop.exe'\r\n$deadline = (Get-Date).AddMinutes(5)\r\nwhile (-not (Test-Path -LiteralPath $installedExe)) {\r\n    if ((Get-Date) -gt $deadline) {\r\n        Write-Error \"GitHub Desktop install did not produce $installedExe within 5 minutes\"\r\n        exit 4\r\n    }\r\n    Start-Sleep -Seconds 5\r\n}\r\nStart-Sleep -Seconds 3\r\ntry { Stop-Process -Name GitHubDesktop -Force -ErrorAction SilentlyContinue } catch { }"
+  },
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKCU",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\GitHubDesktop",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
+  },
+  "RunningProcess": [
+    "GitHubDesktop"
+  ]
+}

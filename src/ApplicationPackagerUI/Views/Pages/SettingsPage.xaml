@@ -433,12 +433,54 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Local installer sources and packager files -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Local Installer Sources" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Folders that hold an installer whose download needs a sign-in. Stage takes the highest file version found in the folder, and the installer must carry a valid signature."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding LocalSourceRows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="{Binding Label}" Style="{StaticResource FieldLabel}" />
+                            <DockPanel>
+                                <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
+                                <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No folder chosen" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="Packager Files" Style="{StaticResource SectionHeader}" Margin="0,8,0,12" />
+            <TextBlock Text="Files an installer reads from its own folder, such as a license key. The file is copied beside the installer at Stage and is never read."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding SideFileRows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="{Binding Label}" Style="{StaticResource FieldLabel}" />
+                            <DockPanel>
+                                <ui:Button DockPanel.Dock="Right" Content="Browse..." Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
+                                <ui:TextBox Text="{Binding Path, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="No file chosen" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding Hint}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
             <!-- Citrix Workspace App Install Params -->
             <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Citrix Workspace App — Install Parameters" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Used by the Current Release and LTSR definitions. A shaded box or an empty choice is not set: no switch is passed and the installer default applies."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <TextBlock Text="Store" Style="{StaticResource SubHeader}" />
-
             <Grid Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -447,49 +489,61 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Store Name" Style="{StaticResource FieldLabel}" />
-                    <ui:TextBox Text="{Binding CwaStoreName, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="MyStore" />
+                    <ui:TextBox Text="{Binding CwaSwitches.Store.Name, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="MyStore" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="Store URL" Style="{StaticResource FieldLabel}" />
-                    <ui:TextBox Text="{Binding CwaStoreUrl, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="https://storefront.contoso.com" />
+                    <TextBlock Text="Store URL (passed as typed)" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding CwaSwitches.Store.Url, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="https://storefront.contoso.com/Citrix/Store/discovery" />
                 </StackPanel>
             </Grid>
 
-            <!-- Install Options + Plugins side by side -->
             <Grid Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="24" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-
-                <!-- Install Options column -->
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Install Options" Style="{StaticResource SubHeader}" />
-                    <CheckBox Content="Clean Install" IsChecked="{Binding CwaClean}" Margin="0,0,0,4" />
-                    <CheckBox Content="Single Sign-On" IsChecked="{Binding CwaSingleSignOn}" Margin="0,0,0,4" />
-                    <CheckBox Content="App Protection" IsChecked="{Binding CwaAppProtection}" Margin="0,0,0,4" />
-                    <CheckBox Content="Pre-Launch" IsChecked="{Binding CwaPreLaunch}" Margin="0,0,0,4" />
-                    <CheckBox Content="Self-Service" IsChecked="{Binding CwaSelfService}" Margin="0,0,0,4" />
+                    <TextBlock Text="Installation" Style="{StaticResource SubHeader}" />
+                    <CheckBox Content="Clean install" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.CleanInstall}" Margin="0,0,0,4" />
+                    <CheckBox Content="Include SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.IncludeSSON}" Margin="0,0,0,4" />
+                    <CheckBox Content="Enable SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.EnableSSON}" Margin="16,0,0,4"
+                              ToolTip="ENABLE_SSON is passed only together with Include SSON." />
+                    <CheckBox Content="startAppProtection" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.AppProtection}" Margin="0,0,0,4" />
+                    <CheckBox Content="Session pre-launch" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SessionPreLaunch}" Margin="0,0,0,4" />
+                    <CheckBox Content="Self-service mode" IsThreeState="True" IsChecked="{Binding CwaSwitches.Installation.SelfServiceMode}" Margin="0,0,0,4" />
                 </StackPanel>
-
-                <!-- Plugins column -->
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Plugins" Style="{StaticResource SubHeader}" />
-                    <CheckBox Content="Teams" IsChecked="{Binding CwaPluginTeams}" Margin="0,0,0,4" />
-                    <CheckBox Content="Zoom" IsChecked="{Binding CwaPluginZoom}" Margin="0,0,0,4" />
-                    <CheckBox Content="WebEx" IsChecked="{Binding CwaPluginWebEx}" Margin="0,0,0,4" />
-                    <CheckBox Content="Uber" IsChecked="{Binding CwaPluginUber}" Margin="0,0,0,4" />
-                    <CheckBox Content="  Skip Uber Agent" IsChecked="{Binding CwaPluginUberSkip}" Margin="16,0,0,4" />
-                    <CheckBox Content="EPA" IsChecked="{Binding CwaPluginEpa}" Margin="0,0,0,4" />
-                    <CheckBox Content="Storage Resync" IsChecked="{Binding CwaPluginStorageResync}" Margin="0,0,0,4" />
+                    <CheckBox Content="Microsoft Teams" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.MSTeamsPlugin}" Margin="0,0,0,4"
+                              ToolTip="Current Release only: /InstallMSTeamsPlugin=Y|N. LTSR documents no switch and ignores it." />
+                    <CheckBox Content="Zoom" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.ZoomPlugin}" Margin="0,0,0,4"
+                              ToolTip="Current Release: cleared passes Installzoomplugin=N. LTSR: checked adds ZoomVDIPlugin to ADDONS." />
+                    <CheckBox Content="Webex" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.WebExPlugin}" Margin="0,0,0,4" />
+                    <CheckBox Content="uberAgent" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.UberAgent}" Margin="0,0,0,4" />
+                    <CheckBox Content="Skip uberAgent upgrade" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.UberAgentSkipUpgrade}" Margin="16,0,0,4" />
+                    <CheckBox Content="EPA client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.EPAClient}" Margin="0,0,0,4" />
+                    <CheckBox Content="Session recording" IsThreeState="True" IsChecked="{Binding CwaSwitches.Plugins.SessionRecording}" Margin="0,0,0,4"
+                              ToolTip="Current Release only: /InstallSRAgent. LTSR documents no switch and ignores it." />
+                </StackPanel>
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Components" Style="{StaticResource SubHeader}" />
+                    <CheckBox Content="Customize (ADDLOCAL)" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.Customize}" Margin="0,0,0,4" />
+                    <CheckBox Content="ReceiverInside" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ReceiverInside}" Margin="16,0,0,4" />
+                    <CheckBox Content="ICA_Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.ICA_Client}" Margin="16,0,0,4" />
+                    <CheckBox Content="AM" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.AM}" Margin="16,0,0,4" />
+                    <CheckBox Content="SelfService" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SelfService}" Margin="16,0,0,4" />
+                    <CheckBox Content="DesktopViewer" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.DesktopViewer}" Margin="16,0,0,4" />
+                    <CheckBox Content="WebHelper" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.WebHelper}" Margin="16,0,0,4" />
+                    <CheckBox Content="BCR_Client" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.BCR_Client}" Margin="16,0,0,4" />
+                    <CheckBox Content="USB" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.USB}" Margin="16,0,0,4" />
+                    <CheckBox Content="SSON" IsThreeState="True" IsChecked="{Binding CwaSwitches.Components.SSON}" Margin="16,0,0,4" />
                 </StackPanel>
             </Grid>
 
-            <TextBlock Text="Policies" Style="{StaticResource SubHeader}" />
-
+            <TextBlock Text="Updates, telemetry and store policy" Style="{StaticResource SubHeader}" />
             <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -499,36 +553,42 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="Auto Update" Style="{StaticResource FieldLabel}" />
-                    <ComboBox SelectedValue="{Binding CwaAutoUpdate}"
-                              SelectedValuePath="Content"
-                              HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="Auto" />
-                        <ComboBoxItem Content="Manual" />
-                        <ComboBoxItem Content="Disabled" />
+                    <TextBlock Text="AutoUpdateCheck" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaSwitches.UpdateAndTelemetry.AutoUpdateCheck}" SelectedValuePath="Tag" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="(not set)" Tag="" />
+                        <ComboBoxItem Content="auto" Tag="auto" />
+                        <ComboBoxItem Content="manual" Tag="manual" />
+                        <ComboBoxItem Content="disabled" Tag="disabled" />
                     </ComboBox>
+                    <CheckBox Content="EnableCEIP" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableCEIP}" Margin="0,8,0,4" />
+                    <CheckBox Content="EnableTracing" IsThreeState="True" IsChecked="{Binding CwaSwitches.UpdateAndTelemetry.EnableTracing}" Margin="0,0,0,4" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Text="Add Store Policy" Style="{StaticResource FieldLabel}" />
-                    <ComboBox SelectedValue="{Binding CwaAddStorePolicy}"
-                              SelectedValuePath="Content"
-                              HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="None" />
-                        <ComboBoxItem Content="Admin" />
-                        <ComboBoxItem Content="User" />
+                    <TextBlock Text="ALLOWADDSTORE" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowAddStore}" SelectedValuePath="Tag" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="(not set)" Tag="" />
+                        <ComboBoxItem Content="S - secure stores only" Tag="S" />
+                        <ComboBoxItem Content="A - secure and non-secure stores" Tag="A" />
+                        <ComboBoxItem Content="N - never" Tag="N" />
                     </ComboBox>
                 </StackPanel>
                 <StackPanel Grid.Column="4">
-                    <TextBlock Text="Save Password" Style="{StaticResource FieldLabel}" />
-                    <ComboBox SelectedValue="{Binding CwaSavePassword}"
-                              SelectedValuePath="Content"
-                              HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="None" />
-                        <ComboBoxItem Content="On" />
-                        <ComboBoxItem Content="Off" />
+                    <TextBlock Text="ALLOWSAVEPWD" Style="{StaticResource FieldLabel}" />
+                    <ComboBox SelectedValue="{Binding CwaSwitches.StorePolicy.AllowSavePwd}" SelectedValuePath="Tag" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="(not set)" Tag="" />
+                        <ComboBoxItem Content="S - secure stores only" Tag="S" />
+                        <ComboBoxItem Content="A - all stores" Tag="A" />
+                        <ComboBoxItem Content="N - never" Tag="N" />
                     </ComboBox>
                 </StackPanel>
             </Grid>
+
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Left" Content="Preview" Command="{Binding PreviewCwaCommand}" VerticalAlignment="Top"
+                           ToolTip="Shows the Current Release and LTSR install arguments these choices produce." />
+                <TextBlock Text="{Binding CwaPreview}" Margin="12,0,0,0" TextWrapping="Wrap" FontFamily="Consolas"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </DockPanel>
 
             <Border Style="{StaticResource SectionDivider}" />
 

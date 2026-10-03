@@ -3,7 +3,7 @@
 **Lab:** CM01 + CLIENT01 (Hyper-V, CM 2509)
 **Test method:** psexec -s \\CLIENT01 install.bat / uninstall.bat (SYSTEM context, identical to MECM)
 **Clean VM:** CLIENT01 rebuilt 2026-04-05, 150GB disk, prereqs: 7-Zip, MSVC x64/x86, .NET 8/9/10
-**Total definitions:** 121 with a recorded verdict (295 in the catalog)
+**Total definitions:** 121 with a recorded verdict (319 in the catalog)
 **Staged via:** Packr UI on host -> C:\temp\ap -> copied to CLIENT01 -> psexec -s install.bat
 **Reboots:** After every install and every uninstall, detection checked post-reboot
 

@@ -13,12 +13,18 @@ public sealed class WrapperGeneratorService
     /// <summary>
     /// Generates all 4 wrapper files for an MSI installer.
     /// </summary>
-    public void GenerateMsiWrappers(string outputPath, string msiFileName, string? uninstallCommand = null, string? installArgs = null)
+    public void GenerateMsiWrappers(string outputPath, string msiFileName, string? uninstallCommand = null, string? installArgs = null,
+        bool expandEnvironment = false)
     {
         var msiArgs = string.IsNullOrEmpty(installArgs) ? "/qn /norestart" : installArgs;
+        // msiexec does not expand %NAME% in a property value, so the wrapper
+        // expands it in the deployment's own context.
+        var msiArgsExpression = expandEnvironment
+            ? $"[Environment]::ExpandEnvironmentVariables('{msiArgs}')"
+            : $"'{msiArgs}'";
         var installPs1 = $"""
             $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
-            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", '{msiArgs}') -Wait -PassThru -NoNewWindow
+            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", {msiArgsExpression}) -Wait -PassThru -NoNewWindow
             $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
@@ -658,10 +664,6 @@ public sealed class WrapperGeneratorService
     private static string FormatPsArgs(IEnumerable<string> tokens, Func<string, string?>? expression = null) =>
         string.Join(", ", tokens.Select(t => expression?.Invoke(t) ?? $"'{EscapePsLiteral(t)}'"));
 
-    /// <summary>
-    /// The .bat wrapper reads the real exit code back from exitcode.txt because
-    /// powershell.exe only surfaces 0 or 1 to cmd.exe.
-    /// </summary>
     private const string ExitHelper =
         "function Exit-Wrapper([int]$code) { $code | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit $code }";
 
@@ -677,7 +679,7 @@ public sealed class WrapperGeneratorService
     /// <summary>x64 or x86; x86 launches the SysWOW64 Windows PowerShell host.</summary>
     public string ScriptHost { get; init; } = DeploymentLauncher.HostX64;
 
-    private void WriteWrappers(string outputPath, string installPs1Content, string uninstallPs1Content)
+    internal void WriteWrappers(string outputPath, string installPs1Content, string uninstallPs1Content)
     {
         var encoding = new UTF8Encoding(false); // ASCII-compatible, no BOM
 

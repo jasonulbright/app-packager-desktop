@@ -16,8 +16,10 @@ public sealed class DownloadService
         string url, string outFile,
         int retryCount = 1, int retryDelaySec = 5,
         Action<string>? onProgress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlyList<string>? headers = null)
     {
+        var headerArguments = CurlHeaders.Arguments(headers);
         var dir = Path.GetDirectoryName(outFile);
         if (dir is not null && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
@@ -37,7 +39,7 @@ public sealed class DownloadService
             try
             {
                 using var process = CurlProcess.Start(
-                    $"-L --fail --silent --show-error -o \"{partFile}\" \"{url}\"", url);
+                    $"-L --fail --silent --show-error{headerArguments} -o \"{partFile}\" \"{url}\"", url);
 
                 // Read without the caller's token: an abandoned read leaves the child
                 // blocked on a full pipe, and terminating it is what ends the stream.

@@ -147,6 +147,73 @@ public sealed class AppDefinition
     /// </summary>
     public string[]? SupportsInstallModes { get; set; }
 
+    /// <summary>
+    /// Local installer folder for a product whose vendor download needs a
+    /// sign-in, or whose catalog serves one build only. Absent means the
+    /// payload always comes from DownloadUrl.
+    /// </summary>
+    public LocalSourceConfig? LocalSource { get; set; }
+
+    /// <summary>
+    /// Operator-chosen files staged beside the installer, such as a license
+    /// key file the setup reads from its own folder. Stage refuses to run
+    /// while one is not chosen or no longer exists.
+    /// </summary>
+    public SideFileConfig[]? SideFiles { get; set; }
+
+    /// <summary>
+    /// Current or LTSR: the install arguments are built from the Citrix
+    /// Workspace switch settings for that stream instead of InstallArgs.
+    /// </summary>
+    public string? CitrixSwitchStream { get; set; }
+
+    /// <summary>
+    /// ConfigMgr deployment-type post-installation behavior: BasedOnExitCode,
+    /// NoAction, ProgramReboot or ForceReboot. Absent leaves the cmdlet default.
+    /// </summary>
+    public string? PostExecutionBehavior { get; set; }
+
+    /// <summary>
+    /// The version the payload must report: the MSI ProductVersion, or the
+    /// FileVersion of an EXE. Takes {version}, {version_parts:N} and
+    /// {version_part:N}. Guards an unversioned download URL that still serves
+    /// an older build than the version source names.
+    /// </summary>
+    public string? ExpectedPayloadVersion { get; set; }
+
+    /// <summary>
+    /// URL of a vendor checksum file listing the payload SHA-256 as
+    /// "&lt;hash&gt; [*]&lt;file name&gt;" lines. {download_url} is the resolved
+    /// payload URL, {version} the scraped version.
+    /// </summary>
+    public string? PayloadSha256Url { get; set; }
+
+    /// <summary>
+    /// When true, staging refuses a payload for which no SHA256 was found:
+    /// a feed that dropped the hash for one release would otherwise stage it
+    /// unverified.
+    /// </summary>
+    public bool RequirePayloadHash { get; set; }
+
+    /// <summary>
+    /// When true, the MSI install wrapper expands %NAME% environment
+    /// references in InstallArgs on the client, so a per-machine or per-user
+    /// folder resolves in the context the deployment runs in.
+    /// </summary>
+    public bool ExpandInstallArgs { get; set; }
+
+    /// <summary>
+    /// When true, a downloaded payload must carry a valid Authenticode
+    /// signature. A local-source installer is always checked.
+    /// </summary>
+    public bool RequireValidSignature { get; set; }
+
+    /// <summary>
+    /// The ZIP is the payload: the install wrapper extracts it to a folder
+    /// instead of running an installer from inside it.
+    /// </summary>
+    public ZipPayloadConfig? ZipPayload { get; set; }
+
     /// <summary>True when both modes are declared and an operator choice applies.</summary>
     [JsonIgnore]
     public bool OffersInstallModes =>
@@ -236,6 +303,81 @@ public sealed class VersionScraperConfig
     /// Zero or absent uses the scraper's default.
     /// </summary>
     public int MaxVersionHops { get; set; }
+
+    /// <summary>
+    /// "Name: value" request headers sent with the version request and the
+    /// payload download, for vendors whose pages or CDN refuse a request
+    /// without browser headers. A User-Agent entry replaces the default one.
+    /// </summary>
+    public string[]? RequestHeaders { get; set; }
+}
+
+/// <summary>Where a local-source installer comes from and how it is named.</summary>
+public sealed class LocalSourceConfig
+{
+    /// <summary>
+    /// Required: the payload always comes from the folder and is never
+    /// downloaded. Optional: the folder wins when one is set, the download
+    /// runs otherwise.
+    /// </summary>
+    public string Mode { get; set; } = "Optional";
+
+    /// <summary>File-name wildcard the installer must match.</summary>
+    public string Filter { get; set; } = "*.exe";
+
+    /// <summary>Wildcards that disqualify a file the filter matched.</summary>
+    public string[] Exclude { get; set; } = [];
+
+    /// <summary>
+    /// Staged file name per source-name wildcard, first match wins. {version}
+    /// is the installer's file version. No match stages under InstallerFileName.
+    /// </summary>
+    public LocalSourceStagedName[] StagedNames { get; set; } = [];
+
+    [JsonIgnore]
+    public bool IsRequired => Mode.Equals("Required", StringComparison.OrdinalIgnoreCase);
+}
+
+public sealed class LocalSourceStagedName
+{
+    public string Match { get; set; } = "";
+    public string FileName { get; set; } = "";
+}
+
+/// <summary>One operator-chosen file copied beside the installer at stage time.</summary>
+public sealed class SideFileConfig
+{
+    /// <summary>Settings key the chosen path is stored under; shared by every definition naming it.</summary>
+    public string Key { get; set; } = "";
+
+    /// <summary>File name the copy takes in the content folder.</summary>
+    public string FileName { get; set; } = "";
+
+    /// <summary>What the file is, in lower case, for the settings row and the refusal message.</summary>
+    public string Label { get; set; } = "";
+}
+
+/// <summary>A ZIP extracted on the client as the installed product.</summary>
+public sealed class ZipPayloadConfig
+{
+    /// <summary>
+    /// Folder the product occupies after extraction. The ZIP's own top folder
+    /// must carry this folder's name, because extraction targets its parent.
+    /// </summary>
+    public string InstallDir { get; set; } = "";
+
+    /// <summary>Entries the ZIP must hold; staging refuses a ZIP without one.</summary>
+    public string[] RequiredEntries { get; set; } = [];
+
+    /// <summary>EXE entry whose icon is the application icon.</summary>
+    public string? IconEntry { get; set; }
+
+    /// <summary>
+    /// Named tokens read from entry names: each regex runs over every entry
+    /// path and group 1 of the last match becomes {zip:Name}. A token whose
+    /// regex matches no entry refuses the stage.
+    /// </summary>
+    public Dictionary<string, string> EntryTokens { get; set; } = [];
 }
 
 /// <summary>
@@ -445,6 +587,14 @@ public sealed class DetectionConfig
     public string? FileName { get; set; }
     public string? PropertyType { get; set; }
     public bool Is64Bit { get; set; } = true;
+
+    /// <summary>
+    /// Value a RegistryKeyValue or File rule compares against, replacing the
+    /// one derived from the scraped version. Takes {version},
+    /// {version_parts:N}, {version_part:N}, {ProductVersion} and
+    /// {HeaderDisplayVersion}.
+    /// </summary>
+    public string? ExpectedValue { get; set; }
 
     /// <summary>
     /// Detection script language when Type is "Script": PowerShell (default),
