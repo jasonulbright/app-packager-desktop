@@ -1,9 +1,10 @@
-# Packr Regression Test Status — 2026-04-10
+# Packr Regression Test Status — 2026-10-03
 
 **Lab:** CM01 + CLIENT01 (Hyper-V, CM 2509)
 **Test method:** psexec -s \\CLIENT01 install.bat / uninstall.bat (SYSTEM context, identical to MECM)
 **Clean VM:** CLIENT01 rebuilt 2026-04-05, 150GB disk, prereqs: 7-Zip, MSVC x64/x86, .NET 8/9/10
-**Total definitions:** 121 with a recorded verdict (319 in the catalog)
+**Total definitions:** 319 in the catalog; recorded verdicts are counted in the Summary
+**Lab runs 2026-10-03:** staged on CM01, SYSTEM runs on CLIENT01 and CLIENT02 through a scheduled task (see "Validated in the lab — 2026-10-03")
 **Staged via:** Packr UI on host -> C:\temp\ap -> copied to CLIENT01 -> psexec -s install.bat
 **Reboots:** After every install and every uninstall, detection checked post-reboot
 
@@ -13,15 +14,20 @@
 
 | Status | Count |
 |--------|-------|
-| **FULL PASS** | 109 |
-| **Reopened (Detection edited)** | 6 |
+| **FULL PASS** | 132 |
+| **Reopened (definition edited)** | 10 |
 | **Needs Retest (interactive)** | 4 |
-| **Excluded/Deferred** | 16 |
-| **Total** | **135** |
+| **Excluded/Deferred** | 13 |
+| **Open findings from the 2026-10-03 lab runs** | 3 |
+| **Total** | **162** |
+
+Counts changed on 2026-10-03: 27 new FULL PASS rows (4 more rows re-verify an existing verdict), 4 verdicts reopened (Tableau Desktop, Tableau Prep Builder, Visual C++ Redistributable x64 and x86), 3 applications moved from Excluded to FULL PASS (Brave Browser, PyCharm, TreeSize Free), 3 open findings (Windows Admin Center, Jabra Direct, GitHub Desktop; CutePDF Writer and Postman stay in Excluded with their findings).
 
 ---
 
-## Reopened — Detection rule changed (6 apps)
+## Reopened — definition changed (10 apps; 6 from 2026-09-09, 4 from 2026-10-03)
+
+Reopened on 2026-10-03: Tableau Desktop (x64) and Tableau Prep Builder (x64) (download path, script detection and uninstall changed; only Tableau Reader was run again), Visual C++ Redistributable (x64) and (x86) (detection file, forced reboot and the 3010 return changed; install and detect re-verified, uninstall not run). The six below are from 2026-09-09.
 
 The signed-off rule in MAINTENANCE.md reopens a verdict when a definition's
 `Detection` changes. These six moved to a String `BeginsWith` comparison on the
@@ -213,6 +219,71 @@ Not verified in this run (the wrapper repair applies to them too):
 | Calibrite PROFILER (x64) | Install TIMEOUT (900 s) | `/S` did not return; the product folder and its ARP key were present afterwards, so the installer finished its copy and then waited on something. Uninstall not exercised. |
 | Windows Admin Center (v2) | WinRM session lost | The install reconfigures WinRM and drops the harness session. Needs a psexec or interactive run. |
 
+## Validated in the lab — 2026-10-03 (builds b113f63, 6b632b2, 937dba6)
+
+Method: staged on CM01 with `tools\TestHarness --stage-only`; `install.bat` and
+`uninstall.bat` run as SYSTEM on CLIENT01 or CLIENT02 through a one-time scheduled
+task; the staged manifest's detection rule evaluated on the client before install,
+after install and after uninstall; reboot when a flag or exit 3010 required one.
+Per-user definitions ran in an interactive session on CM01. Both clients matched
+their baseline after each run.
+
+| # | App | Change verified | Result |
+|---|-----|-----------------|--------|
+| 116 | AnyBurn (x64) | fixed ARP key, 32-bit view | **FULL PASS** |
+| 117 | ocenaudio (x64) | fixed ARP key, 32-bit view | **FULL PASS** (vendor uninstall leaves 7 plugin files) |
+| 118 | PicPick | fixed ARP key, 32-bit view; launched process stopped after install | **FULL PASS** |
+| 119 | Pidgin | fixed ARP key, 32-bit view | **FULL PASS** |
+| 120 | Bulk Rename Utility (x64) | fixed ARP key, 64-bit view | **FULL PASS** |
+| 121 | OpenShot Video Editor (x64) | fixed ARP key, 64-bit view | **FULL PASS** |
+| 122 | TeraCopy (x64) | product key detection; uninstall through `msiexec /x` with the entry's product code | **FULL PASS** (second run, after the uninstall fix; first run uninstall removed nothing) |
+| 123 | Oh My Posh (x64) | provisioning-store key detection; computed package name equals the one Windows reports | **FULL PASS** |
+| 124 | HashTools (x64) | launched process stopped after install | **FULL PASS** |
+| 125 | Brave Browser (x64) | system-level installer, machine context, file version detection | **FULL PASS** (moved from Excluded) |
+| 126 | Dell Command Update | exit 2 reported as 3010; uninstall with `/passthrough` | **FULL PASS** (vendor uninstall leaves Dell Core Services) |
+| 127 | PSPad (x64) | uninstaller under `Uninst\` | **FULL PASS** |
+| 128 | Rainmeter (x64) | uninstaller `uninst.exe` | **FULL PASS** |
+| 129 | TreeSize Free | all-users switches; no mode prompt under SYSTEM | **FULL PASS** (moved from Excluded; per-user mode not tested: the vendor refuses Windows Server and the clients have no interactive session) |
+| 130 | Citrix Workspace LTSR (x86) | new definition; catalog download | **FULL PASS** (vendor uninstall leaves the Teams and Zoom VDI plugins and .NET x86 runtimes) |
+| 131 | Citrix Workspace CR | staged arguments `/silent` without `/noreboot` | **FULL PASS** |
+| 132 | Tableau Reader (x64) | script detection over the 32-bit bundle entry; quiet uninstall string | **FULL PASS** |
+| 133 | ASP.NET Core 10 Hosting Bundle | new definition; script detects only its own bundle | **FULL PASS** |
+| 134 | ASP.NET Core 8 Hosting Bundle | detection by the bundle's own ARP entry | **FULL PASS** |
+| 135 | Signing Suite | new definition | **FULL PASS** (vendor uninstall leaves Azure CLI and Windows SDK signing tools) |
+| 136 | Microsoft Build of OpenJDK 21 (MSI) | new definition | **FULL PASS** |
+| 137 | Microsoft Build of OpenJDK 21 (EXE) | new definition | **FULL PASS** |
+| 138 | Microsoft Build of OpenJDK 21 (MSI, per user) | new definition; file detection under `%LOCALAPPDATA%` | **FULL PASS** (interactive session on CM01, elevated) |
+| 139 | Microsoft Build of OpenJDK 21 (EXE, per user) | new definition; HKCU key | **FULL PASS** (interactive session on CM01) |
+| 140 | Rtools | new definition | **FULL PASS** |
+| 141 | Slido for Windows | new definition | **FULL PASS** |
+| 142 | MuleSoft Anypoint Studio | new definition; ZIP payload extracted to `C:\AnypointStudio` | **FULL PASS** |
+| 143 | PyCharm (x64) | unified product; key existence detection | **FULL PASS** (moved from Excluded) |
+| 144 | AppPackager Suite (per user) | new definition | **FULL PASS** (interactive session on CM01) |
+| 145 | Beyond Compare 5 (x64) | new definition; license key file staged beside the installer | **FULL PASS** (placeholder key file; setup copies it and does not validate it) |
+| 146 | Adobe Acrobat (64-bit) | Languages install parameter: `LANG_LIST="de_DE,en_US,fr_FR" SUPPRESSLANGSELECTION=1`; default command line unchanged | **FULL PASS** (three languages in the registry and the locale folders) |
+
+Stage-only comparison: Microsoft Build of OpenJDK 17 and 25 manifests have the same
+shape as 21 (MSI and EXE); they were not installed.
+
+Not a full pass:
+
+| App | Result | Reason |
+|-----|--------|--------|
+| Visual C++ v14 Redistributable (x64, x86) | Install and Detect PASS | `install.bat` returns 3010; `vcruntime140.dll` version matches. Not uninstalled: the ConfigMgr client and other products on the clients use the runtimes. |
+| GitHub Desktop (per user) | PASS with a timing defect | Detection is false when `install.bat` returns and true within 30 s. The management agent evaluates at return. |
+| Windows Admin Center (v2) | Detect FAIL | Install and uninstall exit 0. The detection file is under `...\WindowsAdminCenter\Service`, not the folder the rule names; file version `2.7.21.5` against staged `2.7.5.21`. The uninstall key `9B27DF2F-5386-41DF-B52B-5DF81914B043_is1` carries `DisplayVersion 2.7.5.21`. The PowerShell packager has the same rule. |
+| CutePDF Writer | Detect FAIL | `DisplayVersion` on the machine is ` 4.0`; the rule compares it with `4.0.1.5`. Uninstall through `unInstcpw64.exe` removes the product. The PowerShell packager has the same rule. |
+| Jabra Direct | Stage refused | The installer's bundle id is `{28E98351-A452-4868-9B5F-A1AD2ACE66E8}`; the definition names `{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}`. Before the Stage check existed the build installed, was never detected and its uninstall removed nothing. The PowerShell packager has the same id. |
+| Postman (per user) | Detect FAIL | The HKCU uninstall key was not written in four runs on Windows Server 2025 (it was written in an earlier run of the same version); `Postman.exe` existed each time; uninstall then exits -1. Cause not found. |
+| Citrix Workspace LTSR (x64, ARM64) | Stage refusal verified only | The download needs a vendor sign-in. Stage refuses without a local installer folder and refuses an unsigned installer in that folder. |
+
+Engine paths verified on the site and the WSUS server the same day (not per-application
+verdicts): ConfigMgr packaging and a Required deployment to CLIENT01 with exit codes 0,
+1603 and 3010 reaching the client agent; existing-application Skip, Overwrite and Fail;
+WSUS publish, repeat publish, supersedence with decline, refusals, a client update
+through the Windows Update Agent, decline, expire and remove; signed builds on CLIENT01
+under AllSigned (signed installs and detects, unsigned and tampered builds are refused).
+
 ## Needs Retest — Interactive Session Required (4 apps)
 
 These apps install with exit 0 via WinRM but do not actually lay down files (InnoSetup/custom installers need an interactive desktop session). Retest via RDP session on CLIENT01 with manual psexec or direct execution.
@@ -226,21 +297,18 @@ These apps install with exit 0 via WinRM but do not actually lay down files (Inn
 
 ---
 
-## Excluded / Deferred (16 apps)
+## Excluded / Deferred (13 apps)
 
 | # | App | Reason |
 |---|-----|--------|
-| 1 | Brave Browser (x64) | No MSI. Squirrel fails under SYSTEM. Per-user/Interactive only. |
 | 2 | CPU-Z | Download gate/CAPTCHA on cpuid.com. No automation-friendly download URL. |
-| 3 | CutePDF Writer | Install works, uninstall uses custom unInstcpw64.exe (printer driver, non-standard) |
+| 3 | CutePDF Writer | Install and uninstall (through unInstcpw64.exe) verified 2026-10-03; the detection rule never matches (see the 2026-10-03 table) |
 | 4 | FileZilla Client (x64) | PUP/adware in installer |
 | 5 | Foxit Reader (x64) | CDN throttling |
 | 6 | Microsoft Teams (x64) | MSIX deployment type needed |
 | 7 | Obsidian (x64) | Per-user NSIS install |
 | 8 | Opera Browser (x64) | Per-user/Available/Interactive only. No GPO, no silent SYSTEM uninstall. |
-| 9 | Postman (x64) | Per-user Squirrel install |
-| 10 | PyCharm Community (x64) | NSIS hangs under SYSTEM context |
-| 11 | TreeSize Free | InnoSetup hangs under SYSTEM context |
+| 9 | Postman (x64) | Per-user Squirrel install; the HKCU uninstall key was not written in the 2026-10-03 runs (see that table) |
 | 12 | Visual Studio 2026 Community | Too large for lab VM |
 | 13 | Visual Studio 2026 Enterprise | Too large for lab VM |
 | 14 | Visual Studio Code (x64) | Per-user/Interactive. InnoSetup user setup. |

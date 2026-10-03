@@ -62,10 +62,22 @@ view), sharex (x64 asset). Verdicts in REGRESSION-STATUS.md.
   trusted.
 - **filezilla.json / foxitreader.json** — on the harness skip list for
   installer behavior (not download walls); unchanged.
-- **tableaudesktop/prep/reader, vmwaretools** — behind vendor
-  login/EULA walls; not auto-packagable. Citrix Workspace CR, XenCenter,
-  and XenServer VM Tools are NOT walled (verified staged 2026-08-31);
-  only Citrix LTSR variants are.
+- **vmwaretools** — behind a vendor login wall; not auto-packagable.
+  Citrix Workspace CR, XenCenter, and XenServer VM Tools are NOT walled
+  (verified staged 2026-08-31). Tableau Desktop, Prep Builder and Reader
+  download without a sign-in (Reader staged and installed in the lab
+  2026-10-03). Citrix Workspace LTSR x86 downloads from the vendor
+  catalog; LTSR x64 and ARM64 need a sign-in and stage from a local
+  installer folder (Settings, Local Installer Sources).
+- **jabradirect.json** — refused at Stage since 2026-10-03: the Burn
+  bundle id changes per release and the definition names an old one.
+  Waits for the PowerShell packager.
+- **windowsadmincenter.json, cutepdfwriter.json** — detection rules the
+  lab proved wrong on 2026-10-03 (REGRESSION-STATUS.md). Wait for the
+  PowerShell packager.
+- **GitHub API budget** — a catalog sweep from a machine without a token
+  stops resolving GitHub definitions after 60 requests in an hour; the
+  error names the limit.
 
 ## Catalog-port definitions: known gaps (177 added, 2026-09-01)
 
