@@ -1,0 +1,83 @@
+﻿{
+  "SchemaVersion": 4,
+  "AppName": "\u00D1and\u00FA Editor \u2013 Gr\u00F6\u00DFe 2.0",
+  "DisplayName": null,
+  "Publisher": "Soci\u00E9t\u00E9 G\u00E9n\u00E9rale d\u0027\u00C9dition \u003CSGE\u003E \u0026 Partners",
+  "SoftwareVersion": "2.0.1",
+  "InstallerFile": "nandu.exe",
+  "InstallerType": "EXE",
+  "Architecture": "x64",
+  "InstallContext": "User",
+  "InstallMode": "CurrentUser",
+  "InstallArgs": "/VERYSILENT /CURRENTUSER",
+  "UninstallArgs": "",
+  "ProductCode": null,
+  "RunningProcess": null,
+  "Detection": {
+    "Type": "Script",
+    "RegistryKeyRelative": null,
+    "ValueName": null,
+    "ExpectedValue": null,
+    "Operator": null,
+    "PropertyType": null,
+    "FilePath": null,
+    "FileName": null,
+    "Is64Bit": true,
+    "Hive": null,
+    "ScriptLanguage": "PowerShell",
+    "ScriptText": "$p = \u0022$env:LOCALAPPDATA\\\u00D1and\u00FA\\editor.exe\u0022\r\nif ((Test-Path $p) -and ((Get-Item $p).VersionInfo.ProductVersion -ge \u00272.0.1\u0027)) {\r\n\tWrite-Output \u0027Installed \u2713 \u65E5\u672C\u8A9E\u0027\r\n}\r\n# \u201Equoted\u201C \u2014 \u003Ctag\u003E \u0026 \u0022q\u0022 \u2028 end",
+    "Connector": null,
+    "Clauses": null,
+    "GroupSizes": null
+  },
+  "StagedAt": "2026-10-03T07:15:25.8601013-04:00",
+  "FileHashes": [
+    {
+      "RelativePath": "nandu.exe",
+      "Sha256": "239F59ED55E737C77147CF55AD0C1B030B6D7EE748A7426952F9B852D5A935E5",
+      "Size": 7
+    }
+  ],
+  "Icon": null,
+  "UninstallCommand": null,
+  "DetectedEngine": null,
+  "AdHocSource": null,
+  "DeploymentTypes": null,
+  "CommandOverrides": null,
+  "MsixPackage": null,
+  "BuildId": "",
+  "ApplicationId": "",
+  "ProfileId": "default",
+  "ProfileRevision": 0,
+  "Timing": {
+    "EstimatedMinutes": null,
+    "MaximumMinutes": null
+  },
+  "Execution": {
+    "Context": null,
+    "LogonRequirement": null,
+    "UserInteraction": null,
+    "ScriptHost": null
+  },
+  "DetectionSource": "Default",
+  "CustomAssets": [],
+  "RunOverrides": {},
+  "ScriptSigning": {
+    "PolicyDigest": "",
+    "Detection": {
+      "Status": "NotRequested",
+      "File": null,
+      "Reason": "signing module not loaded"
+    },
+    "Requirements": {
+      "Status": "NotRequested",
+      "Items": []
+    },
+    "Deployment": {
+      "Status": "NotRequested",
+      "Files": [],
+      "LaunchersBypassFree": true
+    }
+  },
+  "PlanDigest": "62CB923B85DAA2AD67CFD86E967D4A779216205AAB51BCB9D0328CEA2AC02CFF"
+}

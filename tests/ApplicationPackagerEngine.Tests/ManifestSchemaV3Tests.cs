@@ -34,7 +34,7 @@ public sealed class ManifestSchemaV3Tests : IDisposable
         _service.Write(manifestPath, new StageManifest { AppName = "A" });
 
         var read = _service.Read(manifestPath);
-        Assert.Equal(3, read.SchemaVersion);
+        Assert.Equal(4, read.SchemaVersion);
         Assert.NotNull(read.FileHashes);
         Assert.Equal(2, read.FileHashes!.Length);
         Assert.Contains(read.FileHashes, h => h.RelativePath.Replace('\\', '/') == "arm64/installer-arm64.exe");

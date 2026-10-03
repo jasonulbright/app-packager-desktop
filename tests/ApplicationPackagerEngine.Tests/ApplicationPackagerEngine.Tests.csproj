@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <Content Include="Fixtures\*.bin" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Fixtures\PlanDigest\*.json;Fixtures\PlanDigest\*.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
