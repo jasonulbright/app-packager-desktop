@@ -38,9 +38,7 @@ public class PackagerExecutionService(
 
         // The shared runner drains both streams and terminates the child on cancellation
         // or timeout, including when stderr would otherwise fill its pipe.
-        var run = await BoundedProcessRunner.RunAsync(
-            new ProcessStartInfo { FileName = "powershell.exe", Arguments = args },
-            GetLatestTimeout, ct);
+        var run = await BoundedProcessRunner.RunAsync(ChildStartInfo(args, null), GetLatestTimeout, ct);
         ct.ThrowIfCancellationRequested();
 
         if (run.TimedOut || run.ExitCode != 0)
@@ -117,6 +115,7 @@ public class PackagerExecutionService(
             if (result.Success)
             {
                 packager.StagedVersion = Path.GetFileName(result.ContentPath);
+                packager.LocalSourceStagedVersion = result.FromLocalSource ? packager.StagedVersion : null;
                 await BuildIntuneWinAtStageAsync(result.ManifestPath, onOutputLine, ct);
             }
             return new PackagerExecutionResult
@@ -131,7 +130,7 @@ public class PackagerExecutionService(
         var settings = settingsService.Load();
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, runTarget);
         if (refusal is not null) return refusal;
-        var (args, logPaths) = BuildStageArgs(packager, settings, bridge?.DownloadRoot);
+        var (args, logPaths) = StageArguments(packager, settings, bridge?.DownloadRoot, bridge?.Snapshot?.BuildId);
         var staged = await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
         if (staged.ExitCode != 0) return staged;
 
@@ -193,11 +192,21 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
-    /// The stage a publish may reuse without staging: with a latest version known, only the
-    /// manifest of that version, and for a build sealed under a profile only while its build
-    /// record is current (same version, profile revision and signing policy); with none
-    /// known, the last staged version. Null when the row has none, the build is stale, or
-    /// the row is a PS1 packager whose stage location only its own run reports.
+    /// The version folder a publish of the row uses: the version a local installer staged
+    /// under in this session, else the latest version, else the last staged version. An
+    /// older staged version is never published in place of a known latest version.
+    /// </summary>
+    public static string PublishVersion(PackagerInfo packager) =>
+        !string.IsNullOrWhiteSpace(packager.LocalSourceStagedVersion) ? packager.LocalSourceStagedVersion
+        : !string.IsNullOrWhiteSpace(packager.LatestVersion) ? packager.LatestVersion
+        : packager.StagedVersion ?? "";
+
+    /// <summary>
+    /// The stage a publish may reuse without staging: the manifest of the
+    /// <see cref="PublishVersion"/> folder, and for a build sealed under a profile only while
+    /// its build record is current (same version, profile revision and signing policy).
+    /// Null when the row has none, the build is stale, or the row is a PS1 packager whose
+    /// stage location only its own run reports.
     /// </summary>
     public string? ExistingStageManifest(PackagerInfo packager)
     {
@@ -211,18 +220,15 @@ public class PackagerExecutionService(
             if (source.Failure is not null) return null;
             var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
                 $"{def.Application.Replace(" ", "")}-{def.Architecture}");
-            if (string.IsNullOrWhiteSpace(packager.LatestVersion))
-            {
-                if (string.IsNullOrWhiteSpace(packager.StagedVersion)) return null;
-                var staged = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
-                return File.Exists(staged) ? staged : null;
-            }
-            var path = Path.Combine(appRoot, packager.LatestVersion, "stage-manifest.json");
+            var version = PublishVersion(packager);
+            if (version.Length == 0) return null;
+            var path = Path.Combine(appRoot, version, "stage-manifest.json");
             if (!File.Exists(path)) return null;
+            if (string.IsNullOrWhiteSpace(packager.LatestVersion) && string.IsNullOrWhiteSpace(packager.LocalSourceStagedVersion)) return path;
             var manifest = new ManifestService().Read(path);
             if (!StageFinalizer.CarriesBuild(manifest)) return path;
             return ResolveBuildPlan(packager) is { } plan
-                   && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, packager.LatestVersion,
+                   && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, version,
                        plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == true
                 ? path
                 : null;
@@ -305,9 +311,10 @@ public class PackagerExecutionService(
             // A grid publish packages the stage of the active profile, under that profile's root.
             var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId ?? source.ActiveProfileId),
                 $"{def.Application.Replace(" ", "")}-{def.Architecture}");
-            // With a latest version known, only its stage publishes: an older staged version
-            // published as the latest would carry the wrong release to every endpoint.
-            var version = !string.IsNullOrWhiteSpace(packager.LatestVersion) ? packager.LatestVersion : packager.StagedVersion ?? "";
+            // With a latest version known, only its stage publishes, or the stage a local
+            // installer made in this session: an older staged version published as the
+            // latest would carry the wrong release to every endpoint.
+            var version = PublishVersion(packager);
             var manifestPath = Path.Combine(appRoot, version, "stage-manifest.json");
             // A snapshot build packages exactly the stage that carries its BuildId, or nothing.
             if (snapshot is not null)
@@ -449,7 +456,7 @@ public class PackagerExecutionService(
 
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, target);
         if (refusal is not null) return refusal;
-        var (args, logPaths) = BuildPackageArgs(packager, settings, comment, bridge?.DownloadRoot);
+        var (args, logPaths) = PackageArguments(packager, settings, comment, bridge?.DownloadRoot, bridge?.Snapshot?.BuildId);
         var environment = new Dictionary<string, string>(ChildEnvironment(bridge, settings), StringComparer.OrdinalIgnoreCase)
         {
             [OnExistingVariable] = onExisting.ToString()
@@ -544,7 +551,7 @@ public class PackagerExecutionService(
                 source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id);
                 var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
                     $"{def.Application.Replace(" ", "")}-{def.Architecture}");
-                manifestPath = Path.Combine(appRoot, packager.LatestVersion ?? "", "stage-manifest.json");
+                manifestPath = Path.Combine(appRoot, PublishVersion(packager), "stage-manifest.json");
                 if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
                     manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
             }
@@ -843,28 +850,35 @@ public class PackagerExecutionService(
 
     // ── Process helpers ──────────────────────────────────────────
 
-    private static Process CreateProcess(string arguments, IReadOnlyDictionary<string, string>? environment)
+    /// <summary>
+    /// The start of one PS1 packager child. Every argument goes through ArgumentList, so a
+    /// value with quotes or a trailing backslash arrives as one intact argument. Standard
+    /// input is redirected and closed at start: a packager that prompts reads end of input
+    /// and fails instead of waiting on a console nobody watches.
+    /// </summary>
+    public static ProcessStartInfo ChildStartInfo(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string>? environment)
     {
-        var process = new Process();
-        process.StartInfo = new ProcessStartInfo
+        var startInfo = new ProcessStartInfo
         {
             FileName = "powershell.exe",
-            Arguments = arguments,
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        PackagerChildBridge.Apply(process.StartInfo, environment);
-        return process;
+        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+        PackagerChildBridge.Apply(startInfo, environment);
+        return startInfo;
     }
 
     private async Task<PackagerExecutionResult> RunStreamingAsync(
-        string arguments, LogPaths logPaths, Action<string>? onOutputLine, CancellationToken ct,
+        IReadOnlyList<string> arguments, LogPaths logPaths, Action<string>? onOutputLine, CancellationToken ct,
         IReadOnlyDictionary<string, string>? environment = null)
     {
-        using var process = CreateProcess(arguments, environment);
+        using var process = new Process { StartInfo = ChildStartInfo(arguments, environment) };
         process.Start();
+        process.StandardInput.Close();
 
         // Read stderr without the caller's token: abandoning it leaves the child blocked
         // on a full pipe, and terminating the child is what ends the stream.
@@ -924,16 +938,20 @@ public class PackagerExecutionService(
 
     // ── Argument builders ────────────────────────────────────────
 
-    private string BuildGetLatestArgs(PackagerInfo packager, AppSettings settings)
+    private static List<string> BuildGetLatestArgs(PackagerInfo packager, AppSettings settings)
     {
-        var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{packager.FullPath}\" -SiteCode \"{PackagerSiteCode(settings.SiteCode)}\" -GetLatestVersionOnly";
+        var args = new List<string>
+        {
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", packager.FullPath,
+            "-SiteCode", PackagerSiteCode(settings.SiteCode), "-GetLatestVersionOnly"
+        };
 
         if (SupportsFileServerPath(packager))
-            args += $" -FileServerPath \"{settings.FileShareRoot}\"";
+            args.AddRange(["-FileServerPath", settings.FileShareRoot ?? ""]);
         if (!string.IsNullOrEmpty(settings.DownloadRoot))
-            args += $" -DownloadRoot \"{settings.DownloadRoot}\"";
+            args.AddRange(["-DownloadRoot", settings.DownloadRoot]);
         if (!string.IsNullOrEmpty(settings.M365Channel))
-            args += $" -M365Channel \"{settings.M365Channel}\"";
+            args.AddRange(["-M365Channel", settings.M365Channel]);
 
         return args;
     }
@@ -945,44 +963,49 @@ public class PackagerExecutionService(
     /// </summary>
     public static string PackagerSiteCode(string? siteCode) => string.IsNullOrWhiteSpace(siteCode) ? "MCM" : siteCode.Trim();
 
-    private (string args, LogPaths logs) BuildStageArgs(PackagerInfo packager, AppSettings settings, string? profileDownloadRoot)
+    /// <summary>The -StageOnly arguments of a PS1 packager child and its log paths, named with the build id when there is one.</summary>
+    public static (IReadOnlyList<string> Arguments, LogPaths Logs) StageArguments(
+        PackagerInfo packager, AppSettings settings, string? profileDownloadRoot, string? buildId)
     {
-        var logs = CreateLogPaths(packager, "stage", settings.DownloadRoot);
+        var logs = CreateLogPaths(packager, "stage", settings.DownloadRoot, buildId);
         var downloadRoot = profileDownloadRoot ?? settings.DownloadRoot;
 
-        var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{packager.FullPath}\" -StageOnly -LogPath \"{logs.StructuredLog}\"";
+        var args = new List<string> { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", packager.FullPath, "-StageOnly", "-LogPath", logs.StructuredLog };
 
         if (!string.IsNullOrEmpty(downloadRoot))
-            args += $" -DownloadRoot \"{downloadRoot}\"";
+            args.AddRange(["-DownloadRoot", downloadRoot]);
         if (!string.IsNullOrEmpty(settings.M365Channel))
-            args += $" -M365Channel \"{settings.M365Channel}\"";
+            args.AddRange(["-M365Channel", settings.M365Channel]);
 
         return (args, logs);
     }
 
-    private (string args, LogPaths logs) BuildPackageArgs(PackagerInfo packager, AppSettings settings, string comment, string? profileDownloadRoot)
+    /// <summary>The -PackageOnly arguments of a PS1 packager child and its log paths, named with the build id when there is one.</summary>
+    public static (IReadOnlyList<string> Arguments, LogPaths Logs) PackageArguments(
+        PackagerInfo packager, AppSettings settings, string comment, string? profileDownloadRoot, string? buildId)
     {
-        var logs = CreateLogPaths(packager, "package", settings.DownloadRoot);
+        var logs = CreateLogPaths(packager, "package", settings.DownloadRoot, buildId);
         var downloadRoot = profileDownloadRoot ?? settings.DownloadRoot;
 
-        var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{packager.FullPath}\" -PackageOnly";
-        args += $" -SiteCode \"{settings.SiteCode}\"";
-        args += $" -Comment \"{comment}\"";
-        args += $" -LogPath \"{logs.StructuredLog}\"";
+        var args = new List<string>
+        {
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", packager.FullPath, "-PackageOnly",
+            "-SiteCode", settings.SiteCode ?? "", "-Comment", comment ?? "", "-LogPath", logs.StructuredLog
+        };
 
         if (SupportsFileServerPath(packager))
-            args += $" -FileServerPath \"{settings.FileShareRoot}\"";
+            args.AddRange(["-FileServerPath", settings.FileShareRoot ?? ""]);
         // Only the non-default layout is passed, so a script without the parameter still runs.
         if (ContentLayouts.IsFlat(settings.ContentLayout))
-            args += " -ContentLayout Flat";
+            args.AddRange(["-ContentLayout", "Flat"]);
         if (!string.IsNullOrEmpty(downloadRoot))
-            args += $" -DownloadRoot \"{downloadRoot}\"";
+            args.AddRange(["-DownloadRoot", downloadRoot]);
         if (!string.IsNullOrEmpty(settings.M365Channel))
-            args += $" -M365Channel \"{settings.M365Channel}\"";
+            args.AddRange(["-M365Channel", settings.M365Channel]);
         if (settings.EstimatedRuntimeMins > 0)
-            args += $" -EstimatedRuntimeMins {settings.EstimatedRuntimeMins}";
+            args.AddRange(["-EstimatedRuntimeMins", settings.EstimatedRuntimeMins.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
         if (settings.MaximumRuntimeMins > 0)
-            args += $" -MaximumRuntimeMins {settings.MaximumRuntimeMins}";
+            args.AddRange(["-MaximumRuntimeMins", settings.MaximumRuntimeMins.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
 
         return (args, logs);
     }
@@ -1006,20 +1029,28 @@ public class PackagerExecutionService(
         return false;
     }
 
-    private sealed record LogPaths(string OutLog, string ErrLog, string StructuredLog);
+    public sealed record LogPaths(string OutLog, string ErrLog, string StructuredLog);
 
-    private static LogPaths CreateLogPaths(PackagerInfo packager, string phase, string downloadRoot)
+    /// <summary>
+    /// The log files of one child run. Two runs of one script and phase in the same second
+    /// would share a name, so the name carries the build id, or a random suffix for a run
+    /// without one.
+    /// </summary>
+    private static LogPaths CreateLogPaths(PackagerInfo packager, string phase, string downloadRoot, string? buildId)
     {
         var logDir = Path.Combine(
             string.IsNullOrEmpty(downloadRoot) ? Path.GetTempPath() : downloadRoot,
             "Logs");
-        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
-        var baseName = Path.GetFileNameWithoutExtension(packager.Script);
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        var run = !string.IsNullOrWhiteSpace(buildId) && ApplicationIds.IsPlainFolderName(buildId) && buildId.IndexOfAny(Path.GetInvalidFileNameChars()) < 0
+            ? buildId
+            : Guid.NewGuid().ToString("N")[..8];
+        var baseName = $"{Path.GetFileNameWithoutExtension(packager.Script)}-{phase}-{stamp}-{run}";
 
         return new LogPaths(
-            OutLog: Path.Combine(logDir, $"{baseName}-{phase}-{stamp}.out.log"),
-            ErrLog: Path.Combine(logDir, $"{baseName}-{phase}-{stamp}.err.log"),
-            StructuredLog: Path.Combine(logDir, $"{baseName}-{phase}-{stamp}.structured.log")
+            OutLog: Path.Combine(logDir, $"{baseName}.out.log"),
+            ErrLog: Path.Combine(logDir, $"{baseName}.err.log"),
+            StructuredLog: Path.Combine(logDir, $"{baseName}.structured.log")
         );
     }
 

@@ -49,6 +49,7 @@
 - Changed Tableau downloads, detection and uninstall.
 - Changed ASP.NET Core 8 Hosting Bundle detection to the bundle's own uninstall entry.
 - Changed console names for Corretto, Git, Node.js, Thunderbird, Webex, DBeaver and Nextcloud.
+- Changed AppPackagerBuild to refuse an empty path, root, server or site option.
 
 ### Removed
 

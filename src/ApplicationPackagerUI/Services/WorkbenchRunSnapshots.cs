@@ -30,15 +30,23 @@ public static class WorkbenchRunSnapshots
         }, new ScriptSigningCertificateGate());
 
     /// <summary>The run row of one staged BYO build: Package reads its stage manifest directly.</summary>
-    public static PackagerInfo ByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId) => new()
+    public static PackagerInfo ByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId) =>
+        ByoRow(manifest, manifestPath, applicationId, analysis.FileName, analysis.Path, analysis.Engine);
+
+    /// <summary>The run row of one sealed BYO build, from its staged manifest alone.</summary>
+    public static PackagerInfo ByoRow(StageManifest manifest, string manifestPath, string applicationId) =>
+        ByoRow(manifest, manifestPath, applicationId, manifest.InstallerFile, manifest.AdHocSource ?? manifestPath, manifest.DetectedEngine ?? "");
+
+    private static PackagerInfo ByoRow(StageManifest manifest, string manifestPath, string applicationId,
+        string installerName, string installerPath, string engine) => new()
     {
         Uid = "byo-" + ApplicationIds.ToKey(applicationId),
         Vendor = manifest.Publisher,
         Application = manifest.AppName,
         CMName = manifest.AppName,
-        Script = analysis.FileName,
-        FullPath = analysis.Path,
-        Description = $"Bring your own installer: {manifest.InstallerType} ({analysis.Engine})",
+        Script = installerName,
+        FullPath = installerPath,
+        Description = $"Bring your own installer: {manifest.InstallerType} ({engine})",
         StagedManifestPath = manifestPath,
         LatestVersion = manifest.SoftwareVersion,
         Status = "Staged",

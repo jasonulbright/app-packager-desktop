@@ -290,13 +290,18 @@ public sealed class ByoApplicationTests : IDisposable
         foreach (var (relative, hash) in directFiles)
             if (relative != "stage-manifest.json") Assert.Equal(hash, byoFiles[relative]);
 
-        // The manifest differs only where the installer was read from, and in the plan digest that covers that path.
+        // The manifest differs only where the installer was read from, in the BYO source it records, and in the plan digest that covers both.
         var directJson = WorkbenchTestRoot.Json(File.ReadAllText(direct.ManifestPath));
         var byoJson = WorkbenchTestRoot.Json(File.ReadAllText(byo.ManifestPath));
         Assert.Equal(dropped, WorkbenchJson.AsText(directJson["AdHocSource"]));
         Assert.Equal(plan.InstallerPath, WorkbenchJson.AsText(byoJson["AdHocSource"]));
+        Assert.False(directJson.ContainsKey("ByoSource"));
+        Assert.Equal(saved.ApplicationId, WorkbenchJson.Get(byoJson, "ByoSource.ApplicationId").Text);
+        Assert.Equal(1, WorkbenchJson.AsInt(WorkbenchJson.Get(byoJson, "ByoSource.Revision").Value));
+        Assert.Equal(saved.Source.Sha256, WorkbenchJson.Get(byoJson, "ByoSource.Sha256").Text);
         foreach (var json in new[] { directJson, byoJson })
         {
+            json.Remove("ByoSource");
             json.Remove("AdHocSource");
             json.Remove("StagedAt");
             json.Remove("PlanDigest");
@@ -351,7 +356,8 @@ public sealed class ByoApplicationTests : IDisposable
         });
 
         var plan = await ByoStaging.PlanAsync(Store, analyzer, saved.ApplicationId);
-        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profile.ProfileId));
+        var current = Current(saved.ApplicationId, profile.ProfileId);
+        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profile.ProfileId, null, current));
         var result = await ByoStaging.StageAsync(Staging(), plan, downloadRoot, inputs: new StageInputs { RunSnapshot = snapshot });
         Assert.True(result.Success, result.ErrorMessage);
 
@@ -362,9 +368,188 @@ public sealed class ByoApplicationTests : IDisposable
         Assert.Equal(result.ManifestPath,
             BuildRecords.ResolveStageManifestForBuild(snapshot.BuildId, ByoStaging.ApplicationStageRoot(plan.Manifest, downloadRoot, profile.ProfileId)).ManifestPath);
 
-        Assert.Equal(result.ManifestPath, ByoStaging.FindPriorStageManifest(plan, downloadRoot, profile.ProfileId, RunTargets.Mecm));
-        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profile.ProfileId, RunTargets.WsusOnly));
-        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, ApplicationIds.DefaultProfileId));
+        Assert.Equal(result.ManifestPath, ByoStaging.FindPriorStageManifest(plan, downloadRoot, profile.ProfileId, RunTargets.Mecm, current));
+        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profile.ProfileId, RunTargets.WsusOnly, current));
+        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, ApplicationIds.DefaultProfileId, null, current));
+    }
+
+    // ── Package without Stage: which prior stage is reused ─────
+
+    private async Task<(string ApplicationId, string ProfileId, DroppedInstallerAnalysisService Analyzer)> StagedByoAsync(
+        string downloadRoot, string name = "Test App", string? dropped = null)
+    {
+        dropped ??= Fixture("nsis-u-none.bin", "TestApp-Setup-1.2.3.exe");
+        var analyzer = ExeAnalyzer();
+        var analysis = await analyzer.AnalyzeAsync(dropped);
+        var saved = Store.SaveByoApplication(dropped, ByoInstallerIdentity.From(analysis), name, "Test Co", "1.2.3",
+            new ByoStageValues { InstallArgs = "/S", Confirmed = true });
+        var profile = _t.NewProfile(saved.ApplicationId, "Pilot");
+        var plan = await ByoStaging.PlanAsync(Store, analyzer, saved.ApplicationId);
+        var result = await ByoStaging.StageAsync(Staging(), plan, downloadRoot, inputs: new StageInputs { RunSnapshot = Snapshot(saved.ApplicationId, profile.ProfileId, downloadRoot) });
+        Assert.True(result.Success, result.ErrorMessage);
+        return (saved.ApplicationId, profile.ProfileId, analyzer);
+    }
+
+    private RunSnapshot Snapshot(string applicationId, string profileId, string downloadRoot) =>
+        Store.CreateRunSnapshot(new RunSnapshotRequest
+        {
+            ApplicationId = applicationId, ProfileId = profileId, Target = RunTargets.Mecm, DownloadRoot = downloadRoot
+        });
+
+    private ByoStageCurrency Current(string applicationId, string profileId) =>
+        new(Store.GetProfile(applicationId, profileId).Revision, Models.Signing.SigningPolicy.Normalize(null).PolicyDigest);
+
+    [Fact]
+    public async Task PackageWithoutStage_AfterAReplacementOfTheSameVersion_DoesNotReuseThePreviousRevisionsStage()
+    {
+        var downloadRoot = _t.NewFolder("downloads");
+        var (id, profileId, analyzer) = await StagedByoAsync(downloadRoot);
+        var replacement = Fixture("nsis-u-none.bin", "TestApp-Setup-1.2.3.exe");
+        File.AppendAllText(replacement, "revision 2");
+        var analysis = await analyzer.AnalyzeAsync(replacement);
+        Store.UpdateByoSource(id, replacement, ByoInstallerIdentity.From(analysis), "1.2.3", new ByoStageValues { InstallArgs = "/S", Confirmed = true });
+
+        var plan = await ByoStaging.PlanAsync(Store, analyzer, id);
+        Assert.Equal(2, plan.Source.Revision);
+        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profileId, RunTargets.Mecm, Current(id, profileId)));
+    }
+
+    [Fact]
+    public async Task PackageWithoutStage_NeverReusesTheStageOfAnotherApplicationWithTheSameNameAndVersion()
+    {
+        var downloadRoot = _t.NewFolder("downloads");
+        var (first, profileId, analyzer) = await StagedByoAsync(downloadRoot);
+        var second = Store.SaveByoApplication(Fixture("nsis-u-none.bin", "TestApp-Setup-1.2.3.exe"),
+            ByoInstallerIdentity.From(await analyzer.AnalyzeAsync(Fixture("nsis-u-none.bin", "TestApp-Setup-1.2.3.exe"))),
+            "Test App", "Test Co", "1.2.3", new ByoStageValues { InstallArgs = "/S", Confirmed = true });
+        Store.SaveProfile(WorkbenchProfile.CreateNew(second.ApplicationId, profileId, "Pilot"), setActive: true);
+
+        var plan = await ByoStaging.PlanAsync(Store, analyzer, second.ApplicationId);
+        Assert.Equal(ByoStaging.StageFolder(plan.Manifest, downloadRoot, profileId),
+            ByoStaging.StageFolder((await ByoStaging.PlanAsync(Store, analyzer, first)).Manifest, downloadRoot, profileId));
+        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profileId, RunTargets.Mecm, Current(second.ApplicationId, profileId)));
+    }
+
+    [Fact]
+    public async Task PackageWithoutStage_ReusesTheStageOnlyWhileTheProfileRevisionAndSigningPolicyAreCurrent()
+    {
+        var downloadRoot = _t.NewFolder("downloads");
+        var (id, profileId, analyzer) = await StagedByoAsync(downloadRoot);
+        var plan = await ByoStaging.PlanAsync(Store, analyzer, id);
+        var current = Current(id, profileId);
+
+        var manifest = ByoStaging.FindPriorStageManifest(plan, downloadRoot, profileId, RunTargets.Mecm, current);
+        Assert.NotNull(manifest);
+        var staged = new ManifestService().Read(manifest!);
+        Assert.Equal(id, staged.ByoSource!.ApplicationId);
+        Assert.Equal(1, staged.ByoSource.Revision);
+        Assert.Equal(plan.Source.Sha256, staged.ByoSource.Sha256);
+
+        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profileId, RunTargets.Mecm, current with { ProfileRevision = current.ProfileRevision + 1 }));
+        Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, profileId, RunTargets.Mecm, current with { PolicyDigest = new string('0', 64) }));
+    }
+
+    [Fact]
+    public async Task AnInstallerThatChangesAfterItsHashCheck_DoesNotStage()
+    {
+        var dropped = Fixture("nsis-u-none.bin", "TestApp-Setup-1.2.3.exe");
+        var analyzer = ExeAnalyzer();
+        var saved = Store.SaveByoApplication(dropped, ByoInstallerIdentity.From(await analyzer.AnalyzeAsync(dropped)), "Test App", "Test Co", "1.2.3",
+            new ByoStageValues { InstallArgs = "/S", Confirmed = true });
+        var plan = await ByoStaging.PlanAsync(Store, analyzer, saved.ApplicationId);
+        File.AppendAllText(plan.InstallerPath, "changed after the check");
+
+        var result = await ByoStaging.StageAsync(Staging(), plan, _t.NewFolder("downloads"));
+
+        Assert.False(result.Success);
+        Assert.Contains("does not match source revision 1", result.ErrorMessage);
+        Assert.False(File.Exists(Path.Combine(ByoStaging.StageFolder(plan.Manifest, _t.Root + "\\downloads", null), "stage-manifest.json")));
+    }
+
+    [Fact]
+    public async Task ASealedBuildResolvesFromItsRecord_WithoutTheNewestRevisionsInstaller()
+    {
+        var downloadRoot = _t.NewFolder("downloads");
+        var (id, profileId, analyzer) = await StagedByoAsync(downloadRoot);
+        var built = Assert.Single(BuildRecords.List(Store.DataRoot, id, profileId));
+        var buildId = WorkbenchJson.AsText(built["BuildId"])!;
+        var replacement = Fixture("nsis-u-none.bin", "TestApp-Setup-2.0.exe");
+        File.AppendAllText(replacement, "revision 2");
+        var update = Store.UpdateByoSource(id, replacement, ByoInstallerIdentity.From(await analyzer.AnalyzeAsync(replacement)), "2.0",
+            new ByoStageValues { InstallArgs = "/S", Confirmed = true });
+        File.Delete(Store.GetByoInstallerPath(id, update.Source));
+
+        var sealedBuild = ByoStaging.SealedBuild(Store, id, profileId, buildId);
+
+        Assert.Equal(buildId, sealedBuild.Manifest.BuildId);
+        Assert.Equal(1, sealedBuild.Manifest.ByoSource!.Revision);
+        Assert.Equal(WorkbenchJson.AsText(built["StageRoot"]), sealedBuild.StageRoot);
+        Assert.Throws<FileNotFoundException>(() => Store.ResolveByoSource(id));
+    }
+
+    [Theory]
+    [InlineData(ApplicationPackagerUI.Services.WorkbenchBuildOperation.Stage, null, true)]
+    [InlineData(ApplicationPackagerUI.Services.WorkbenchBuildOperation.Package, null, true)]
+    [InlineData(ApplicationPackagerUI.Services.WorkbenchBuildOperation.Package, "20261003-120000-abcdef01", false)]
+    public void OnlyARunThatCanStageReadsTheCurrentInstallerRevision(ApplicationPackagerUI.Services.WorkbenchBuildOperation operation, string? buildId, bool expected) =>
+        Assert.Equal(expected, ApplicationPackagerUI.Services.WorkbenchBuildLauncher.ByoNeedsCurrentSource(
+            new ApplicationPackagerUI.Services.WorkbenchBuildRequest("byo:0123456789abcdef0123456789abcdef", "default", operation, RunTargets.Mecm, buildId)));
+
+    // ── Concurrent replacements ────────────────────────────────
+
+    [Fact]
+    public void ConcurrentReplacements_KeepEveryRevisionAndItsInstaller()
+    {
+        var created = Store.SaveByoApplication(Installer("tool.exe", "v0"), Identity(), "Tool");
+        const int writers = 8;
+        const int rounds = 5;
+        var failures = new System.Collections.Concurrent.ConcurrentBag<Exception>();
+        Parallel.For(0, writers * rounds, new ParallelOptions { MaxDegreeOfParallelism = writers }, i =>
+        {
+            try { Store.UpdateByoSource(created.ApplicationId, Installer("tool.exe", "content " + i), Identity()); }
+            catch (Exception ex) { failures.Add(ex); }
+        });
+
+        Assert.Empty(failures);
+        var sources = Store.GetByoSources(created.ApplicationId);
+        Assert.Equal(Enumerable.Range(1, writers * rounds + 1), sources.Select(s => s.Revision));
+        foreach (var source in sources)
+            Assert.Equal(source.Sha256, WorkbenchJson.FileSha256(Store.GetByoInstallerPath(created.ApplicationId, source)));
+        Assert.Equal(sources.Count, Directory.GetDirectories(Path.Combine(Store.GetApplicationFolder(created.ApplicationId), "sources")).Length);
+        Assert.DoesNotContain(Directory.GetFiles(Store.GetApplicationFolder(created.ApplicationId), "*", SearchOption.AllDirectories),
+            f => f.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".claim", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void AReplacementWhoseSaveFails_RemovesTheRevisionFolderItCreated_AndKeepsTheOthers()
+    {
+        var created = Store.SaveByoApplication(Installer("tool.exe", "v1"), Identity(), "Tool");
+        var definition = Path.Combine(Store.GetApplicationFolder(created.ApplicationId), "application.json");
+        File.SetAttributes(definition, FileAttributes.ReadOnly);
+        try
+        {
+            Assert.ThrowsAny<Exception>(() => Store.UpdateByoSource(created.ApplicationId, Installer("tool.exe", "v2"), Identity()));
+        }
+        finally
+        {
+            File.SetAttributes(definition, FileAttributes.Normal);
+        }
+
+        var sources = Path.Combine(Store.GetApplicationFolder(created.ApplicationId), "sources");
+        Assert.Equal(["1"], Directory.GetDirectories(sources).Select(Path.GetFileName));
+        Assert.Equal("v1", File.ReadAllText(Store.GetByoInstallerPath(created.ApplicationId, Assert.Single(Store.GetByoSources(created.ApplicationId)))));
+    }
+
+    [Fact]
+    public void ARevisionFolderAnotherWriterCreated_IsNeverRemoved()
+    {
+        var created = Store.SaveByoApplication(Installer("tool.exe", "v1"), Identity(), "Tool");
+        var sources = Path.Combine(Store.GetApplicationFolder(created.ApplicationId), "sources");
+        var foreign = _t.NewFile(Path.Combine(sources, "2", "tool.exe"), "another writer");
+
+        Assert.Throws<InvalidOperationException>(() => Store.UpdateByoSource(created.ApplicationId, Installer("tool.exe", "v2"), Identity()));
+
+        Assert.Equal("another writer", File.ReadAllText(foreign));
     }
 
     private static Dictionary<string, string> Tree(string root) =>

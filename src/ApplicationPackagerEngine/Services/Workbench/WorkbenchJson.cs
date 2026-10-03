@@ -159,8 +159,11 @@ public static class WorkbenchJson
     public static JsonNode? Read(string path)
     {
         if (!File.Exists(path)) return null;
-        return Parse(File.ReadAllText(path));
+        return Parse(ReadText(path));
     }
+
+    /// <summary>The whole file; a sharing violation from a writer or reader holding it for a moment is retried briefly.</summary>
+    public static string ReadText(string path) => FileRetry.ReadAllText(path);
 
     public static void Write(string path, JsonNode? node) =>
         WriteText(path, node is null ? "null" : node.ToJsonString(FileOptions));
@@ -169,10 +172,12 @@ public static class WorkbenchJson
         WriteText(path, JsonSerializer.Serialize(value, FileOptions));
 
     /// <summary>
-    /// Replaces the file atomically: the new content lands in a side file and
-    /// File.Replace swaps it in, so a crash leaves either the old or the new file.
+    /// Replaces the file atomically: the new content lands in a side file and one rename
+    /// moves it over the target, so a crash leaves either the old or the new file and a
+    /// reader in another process never finds the name absent.
     /// </summary>
-    public static void WriteText(string path, string text) => WriteText(path, text, File.Replace);
+    public static void WriteText(string path, string text) =>
+        WriteText(path, text, (temp, target, _) => FileRetry.MoveReplacing(temp, target));
 
     /// <summary>
     /// ReplaceFile can fail after it has renamed the original to the backup

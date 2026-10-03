@@ -72,6 +72,37 @@ public sealed class ProfileSourceTests : IDisposable
     }
 
     [Fact]
+    public async Task AnApplicationFileHeldForAMomentByASaveIsReadOnceItIsReleased()
+    {
+        var profile = _t.NewProfile(ApplicationId, "Pilot Ring");
+        var path = Path.Combine(_t.Store.GetApplicationFolder(ApplicationId), "application.json");
+        var held = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        var release = Task.Run(async () =>
+        {
+            await Task.Delay(300);
+            held.Dispose();
+        });
+
+        var source = ProfileSource.Resolve(_t.Store, DefinitionId);
+        await release;
+
+        Assert.Null(source.Failure);
+        Assert.Equal(profile.ProfileId, source.ActiveProfileId);
+    }
+
+    [Fact]
+    public void AnApplicationFileHeldPastTheBoundStillReportsTheFailure()
+    {
+        _t.NewProfile(ApplicationId, "Pilot Ring");
+        var path = Path.Combine(_t.Store.GetApplicationFolder(ApplicationId), "application.json");
+        using var held = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        var source = ProfileSource.Resolve(_t.Store, DefinitionId);
+
+        Assert.NotNull(source.Failure);
+    }
+
+    [Fact]
     public void ADeletedMigratedProfileTurnsTheLegacyMapsOnAgainAsBeforeMigration()
     {
         Migrate();
@@ -241,5 +272,101 @@ public sealed class MainGridProfileStageTests : IDisposable
         Assert.Equal(Manifest(direct.ManifestPath!).ToJsonString(), gridManifest.ToJsonString());
         Assert.Equal(File.ReadAllBytes(Path.Combine(direct.ContentPath!, "install.ps1")), gridBytes);
         Assert.Empty(Directory.Exists(_t.Store.RunsRoot) ? Directory.GetFiles(_t.Store.RunsRoot) : []);
+    }
+}
+
+/// <summary>
+/// A grid Package after a grid Stage of a local-source definition: the local installer
+/// stages under its own file version, and that stage is the one the publish uses.
+/// </summary>
+[Collection(ProcessEnvironmentCollection.Name)]
+public sealed class LocalSourceGridPublishTests : IDisposable
+{
+    private readonly WorkbenchTestRoot _t = new();
+    private readonly Dictionary<string, string?> _saved = [];
+    private readonly string _downloadRoot;
+    private readonly string _sourceFolder;
+
+    public LocalSourceGridPublishTests()
+    {
+        foreach (var name in new[] { AppDataPaths.DataRootVariable, WorkbenchPaths.DataRootVariable })
+            _saved[name] = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _t.NewFolder("appdata"));
+        Environment.SetEnvironmentVariable(WorkbenchPaths.DataRootVariable, _t.Store.DataRoot);
+        _downloadRoot = _t.NewFolder("downloads");
+        _sourceFolder = _t.NewFolder("local-installers");
+        var settings = new SettingsService();
+        var s = settings.Load();
+        s.DownloadRoot = _downloadRoot;
+        s.LocalSourceFolders["localsourcetest"] = _sourceFolder;
+        settings.SaveOperatorEdit(s);
+    }
+
+    public void Dispose()
+    {
+        foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
+        _t.Dispose();
+    }
+
+    private static PackagerExecutionService Service()
+    {
+        var settings = new SettingsService();
+        return new PackagerExecutionService(settings, ProfileStageFixture.Service(),
+            new IntuneDeploymentService(settings), new DeploymentConditionsService(settings));
+    }
+
+    private PackagerInfo Row()
+    {
+        var definition = new AppDefinition
+        {
+            Id = "localsourcetest",
+            Vendor = "Contoso",
+            Application = "Widget",
+            Architecture = "x64",
+            InstallerType = "EXE",
+            InstallArgs = "/silent",
+            VersionScraper = new VersionScraperConfig { Type = "HttpRegex", Url = "http://127.0.0.1:9/never", Pattern = "(x)" },
+            DownloadUrl = "http://127.0.0.1:9/never.exe",
+            InstallerFileName = "Widget-{version}.exe",
+            LocalSource = new LocalSourceConfig { Mode = "Required", Filter = "Widget*.exe" },
+            Detection = new DetectionConfig
+            {
+                Type = "RegistryKeyValue",
+                RegistryKeyTemplate = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Widget",
+                PropertyType = "Version",
+                Operator = "GreaterEquals"
+            }
+        };
+        var path = Path.Combine(_t.NewFolder("defs"), "localsourcetest.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(definition));
+        return new PackagerInfo { Uid = "localsourcetest", Application = "Widget", IsJsonDefined = true, DefinitionPath = path, LatestVersion = "999.0.0" };
+    }
+
+    [Fact]
+    public async Task APackageAfterALocalSourceStage_UsesTheStageOfTheLocalInstallersVersion()
+    {
+        File.Copy(typeof(object).Assembly.Location, Path.Combine(_sourceFolder, "Widget-setup.exe"));
+        var row = Row();
+        var service = Service();
+
+        var staged = await service.StageAsync(row);
+
+        Assert.Equal(0, staged.ExitCode);
+        Assert.NotEqual("999.0.0", Path.GetFileName(Path.GetDirectoryName(staged.OutLogPath)));
+        Assert.Equal(staged.OutLogPath, service.ExistingStageManifest(row));
+        Assert.Equal(Path.GetFileName(Path.GetDirectoryName(staged.OutLogPath)), PackagerExecutionService.PublishVersion(row));
+    }
+
+    [Fact]
+    public void WithoutALocalSourceStage_AnOlderStagedVersionIsNotPublishedAsTheLatest()
+    {
+        var row = Row();
+        row.StagedVersion = "1.0.0";
+        var older = Path.Combine(_downloadRoot, "Widget-x64", "1.0.0", "stage-manifest.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(older)!);
+        new ManifestService().Write(older, new StageManifest { AppName = "Widget", SoftwareVersion = "1.0.0" });
+
+        Assert.Null(Service().ExistingStageManifest(row));
+        Assert.Equal("999.0.0", PackagerExecutionService.PublishVersion(row));
     }
 }

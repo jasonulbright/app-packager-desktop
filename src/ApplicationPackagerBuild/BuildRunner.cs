@@ -113,8 +113,11 @@ public sealed class BuildRunner(
         _options = options;
         var result = new BuildResult { Target = options.Target };
         settingsService.ApplyRunOverrides(s => ApplyOverrides(s, _options, _localSourceDefinitionId));
+        settingsService.ReadFileOncePerRun();
         try
         {
+            settingsService.Load();
+            if (settingsService.TakeLoadWarning() is { } warning) output.Error(warning);
             await RunCoreAsync(result, ct);
         }
         catch (BuildRefusal ex)
@@ -233,26 +236,36 @@ public sealed class BuildRunner(
     /// </summary>
     private void CheckGates(IReadOnlyList<string> destinations, AppSettings settings)
     {
+        if (GateRefusal(destinations, settings, WsusProbe) is { } refusal) throw new BuildRefusal(refusal);
+    }
+
+    /// <summary>Reads whether this computer has the WSUS administration API; replaceable so the gate is testable either way.</summary>
+    public Func<WsusApiStatus> WsusProbe { get; set; } = WsusApiProbe.Probe;
+
+    /// <summary>The first destination gate that refuses, or null when every destination may run.</summary>
+    public static string? GateRefusal(IReadOnlyList<string> destinations, AppSettings settings, Func<WsusApiStatus> wsusProbe)
+    {
         foreach (var destination in destinations)
         {
             switch (destination)
             {
                 case ConfigMgr:
-                    if (PublishRunService.RunGate(PublishRunTargets.ConfigMgr, settings) is { } mecmBlocked) throw new BuildRefusal(mecmBlocked);
+                    if (PublishRunService.RunGate(PublishRunTargets.ConfigMgr, settings) is { } mecmBlocked) return mecmBlocked;
                     break;
                 case Intune:
-                    if (PublishRunService.RunGate(PublishRunTargets.IntuneOnly, settings) is { } intuneBlocked) throw new BuildRefusal(intuneBlocked);
+                    if (PublishRunService.RunGate(PublishRunTargets.IntuneOnly, settings) is { } intuneBlocked) return intuneBlocked;
                     break;
                 default:
                     if (!settings.Wsus.IsConfigured)
-                        throw new BuildRefusal("No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing.");
+                        return "No WSUS server: pass --wsus-server or set the server in Settings, WSUS Publishing.";
                     try { settings.Wsus.Normalize(); }
-                    catch (WsusSettingsException ex) { throw new BuildRefusal(ex.Message); }
-                    var api = WsusApiProbe.Probe();
-                    if (!api.Available) throw new BuildRefusal($"WSUS publishing is unavailable: {api.Reason}");
+                    catch (WsusSettingsException ex) { return ex.Message; }
+                    var api = wsusProbe();
+                    if (!api.Available) return $"WSUS publishing is unavailable: {api.Reason}";
                     break;
             }
         }
+        return null;
     }
 
     // ── Stage ─────────────────────────────────────────────────────
@@ -328,12 +341,29 @@ public sealed class BuildRunner(
                 : $"No sealed build of version '{_options.Version}' exists for this profile. Stage it first; Package consumes an exact build id, not the newest manifest on disk.");
 
         var buildId = WorkbenchJson.Get(record, "BuildId").Text ?? "";
+        RefuseTimingOverride(buildId, record["Timing"]?.Deserialize<StageTiming>());
         var snapshot = Refuse(() => WorkbenchStore.ReadRunSnapshot(Path.Combine(store.RunsRoot, buildId + ".json"))
                                     ?? throw new FileNotFoundException($"Run snapshot for build '{buildId}' was not found."));
         result.BuildId = snapshot.BuildId;
         result.Snapshot = snapshot.Path ?? "";
         output.Info($"Package: build {buildId} ({WorkbenchJson.Get(record, "SoftwareVersion").Text}, sealed {WorkbenchJson.Get(record, "SealedAt").Text})");
         return snapshot;
+    }
+
+    /// <summary>
+    /// A sealed build publishes with the runtime minutes its manifest records, which win
+    /// over any caller value. A package-only run that passes minutes for such a build is
+    /// refused, so the minutes are never dropped without notice.
+    /// </summary>
+    private void RefuseTimingOverride(string buildId, StageTiming? timing)
+    {
+        if (_options.EstimatedMinutes is null && _options.MaximumMinutes is null) return;
+        if (timing is null || (timing.EstimatedMinutes is null && timing.MaximumMinutes is null)) return;
+        throw new BuildRefusal(
+            $"--estimated-minutes and --maximum-minutes do not apply to build {buildId}: its sealed manifest records " +
+            $"estimated {Minutes(timing.EstimatedMinutes)} and maximum {Minutes(timing.MaximumMinutes)} minutes. Stage with them, or leave them out.");
+
+        static string Minutes(int? value) => value?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "no";
     }
 
     /// <summary>The newest record of the list (newest BuildId first), or the newest whose SoftwareVersion is <paramref name="version"/>.</summary>
@@ -343,19 +373,21 @@ public sealed class BuildRunner(
             : records.FirstOrDefault(r => string.Equals(WorkbenchJson.Get(r, "SoftwareVersion").Text, version, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// A BYO package without Stage reuses the manifest the last stage left in this
-    /// revision's folder, and stages first when there is none.
+    /// A BYO package without Stage reuses the manifest the last stage of this revision
+    /// left while it is still current, and stages first otherwise.
     /// </summary>
     private async Task<(RunSnapshot? Snapshot, PackagerInfo? Row)> ByoPackageSourceAsync(
         WorkbenchStore store, string applicationId, string profileId, BuildResult result, CancellationToken ct)
     {
         var settings = settingsService.Load();
         var plan = await RefuseAsync(() => ByoStaging.PlanAsync(store, dropAnalysisService, applicationId, _options.Version, deepInspect: true, ct), "Package refused: ");
-        var manifestPath = ByoStaging.FindPriorStageManifest(plan, settings.DownloadRoot, profileId, _options.Target);
+        var current = new ByoStageCurrency(Refuse(() => store.GetProfile(applicationId, profileId)).Revision, settings.ScriptSigning.PolicyDigest);
+        var manifestPath = ByoStaging.FindPriorStageManifest(plan, settings.DownloadRoot, profileId, _options.Target, current);
         if (manifestPath is not null)
         {
             output.Info($"Package: {plan.Manifest.AppName} reuses the prior stage {manifestPath}");
             var manifest = new ManifestService().Read(manifestPath);
+            RefuseTimingOverride(manifest.BuildId ?? "", manifest.Timing);
             result.BuildId = manifest.BuildId ?? "";
             return (null, WorkbenchRunSnapshots.ByoRow(plan.Manifest, plan.Analysis, manifestPath, applicationId));
         }

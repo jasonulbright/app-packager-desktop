@@ -30,10 +30,6 @@ public static class Program
             return 0;
         }
 
-        // Set before any service resolves a path: settings, the workbench and the logs all read it.
-        if (options.DataRoot is not null)
-            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, Path.GetFullPath(options.DataRoot));
-
         using var output = new ConsoleBuildOutput();
         using var cancel = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) =>
@@ -44,6 +40,10 @@ public static class Program
 
         try
         {
+            // Set before any service resolves a path: settings, the workbench and the logs all read it.
+            if (options.DataRoot is not null)
+                Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, Path.GetFullPath(options.DataRoot));
+
             output.OpenLog(options.LogFolder ?? Path.Combine(AppDataPaths.LegacyRoot, "Logs"));
             if (output.LogPath is not null) output.Info($"Run log: {output.LogPath}");
 
