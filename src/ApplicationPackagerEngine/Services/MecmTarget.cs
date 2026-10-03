@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Signing;
+using ApplicationPackagerEngine.Services.Signing;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -27,7 +29,8 @@ public sealed class MecmTarget
         OnExistingBehavior onExisting = OnExistingBehavior.Skip,
         CancellationToken ct = default,
         string? contentLayout = null,
-        string? applicationTitle = null)
+        string? applicationTitle = null,
+        MecmScriptSigningContext? scriptSigning = null)
     {
         try
         {
@@ -112,7 +115,7 @@ public sealed class MecmTarget
                 : BuildPackageScript(manifest, appName, networkContentPath,
                     siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
                     conditionTemplates, commandOverrides, onProgress, requirements, providerMachine,
-                    onExisting);
+                    onExisting, scriptSigning);
 
             // 3. Execute via Windows PowerShell 5.1
             var result = await RunWindowsPowerShellAsync(psScript, onProgress, ct);
@@ -197,7 +200,8 @@ public sealed class MecmTarget
         Action<string>? onLog = null,
         IReadOnlyList<StageRequirement>? requirements = null,
         string? providerMachine = null,
-        OnExistingBehavior onExisting = OnExistingBehavior.Skip)
+        OnExistingBehavior onExisting = OnExistingBehavior.Skip,
+        MecmScriptSigningContext? scriptSigning = null)
     {
         var specs = DeploymentTypeSpecResolver.Resolve(manifest, networkContentPath, appName);
         var isMultiDt = DeploymentTypeSpecResolver.IsMultiDeploymentType(specs, appName);
@@ -208,16 +212,46 @@ public sealed class MecmTarget
             specs, commandOverrides ?? manifest.CommandOverrides, appName, onLog);
         DeploymentTypeSpecResolver.ApplyRequirements(specs, requirements, appName, onLog);
 
+        var signingPolicy = SigningPolicy.Normalize(scriptSigning?.Policy);
+        var signingRecord = scriptSigning?.Record;
+        CheckResolvedDeploymentCommands(specs, signingPolicy, signingRecord);
+
         var templates = conditionTemplates ?? ConditionTemplateService.Defaults();
         var resolvedRules = specs
             .Select(s => RequirementRuleBuilder.Resolve(s.Requirements, templates))
             .ToList();
+
+        // One identity per template per run: a timestamped signature differs on
+        // every signing, and two deployment types must reference one condition.
+        var identities = new Dictionary<string, ConditionScriptIdentity>(StringComparer.OrdinalIgnoreCase);
+        ConditionScriptIdentity ScriptIdentity(ConditionTemplate template)
+        {
+            if (!identities.TryGetValue(template.Id, out var identity))
+            {
+                identity = ConditionScriptIdentity.Resolve(template, signingPolicy, scriptSigning?.Signer);
+                identities[template.Id] = identity;
+            }
+            return identity;
+        }
+
+        var detectionStatus = signingRecord?.Detection.Status ?? "";
+        var detectionSigned = SigningStatus.IsSigned(detectionStatus);
+        var detectionThumbprint = detectionSigned ? signingRecord!.Detection.Thumbprint : "";
+        var finalizedDetectionFile = signingRecord?.Detection.File;
+        var hasScriptDetection = specs.Any(s => s.Detection.Type.Equals("Script", StringComparison.OrdinalIgnoreCase));
+        var hasScriptConditions = RequirementRuleBuilder.UsesScriptConditions(resolvedRules);
 
         var sb = new StringBuilder();
         AppendCmPreamble(sb, siteCode, providerMachine);
         sb.AppendLine("Write-Host 'Connected to MECM'");
         if (resolvedRules.Any(r => r.Count > 0))
             sb.AppendLine(RequirementRuleBuilder.BuildGlobalConditionFunction());
+        if (hasScriptDetection || hasScriptConditions)
+            sb.AppendLine(MecmScriptSigningPs.ReadBackHelpers());
+        if (hasScriptDetection)
+            sb.AppendLine(MecmScriptSigningPs.DetectionFunctions());
+        if (hasScriptConditions)
+            sb.AppendLine(MecmScriptSigningPs.ScriptGlobalConditionFunctions());
 
         // Task-sequence installation is application-wide, so it is offered only
         // when the deployment types all run as system without a logged-on user.
@@ -292,7 +326,7 @@ public sealed class MecmTarget
         // never leaves a half-built application behind.
         var ruleVars = new List<List<string>>();
         for (var i = 0; i < specs.Count; i++)
-            ruleVars.Add(RequirementRuleBuilder.AppendRules(sb, resolvedRules[i], $"dt{i}"));
+            ruleVars.Add(RequirementRuleBuilder.AppendRules(sb, resolvedRules[i], $"dt{i}", ScriptIdentity));
 
         // Clear the incompatible flag before the replacement deployment types
         // are added. An operator's own setting on a compatible application is
@@ -326,12 +360,38 @@ public sealed class MecmTarget
             // Script detection is a deployment-type parameter, not a clause
             // object, and the two parameter sets are mutually exclusive.
             var isScriptDetection = spec.Detection.Type.Equals("Script", StringComparison.OrdinalIgnoreCase);
+            var fileTransport = false;
             if (isScriptDetection)
             {
-                if (string.IsNullOrWhiteSpace(spec.Detection.ScriptText))
+                // Only the manifest's own detection has a finalized file; a
+                // deployment type that carries its own detection travels as text.
+                fileTransport = !string.IsNullOrWhiteSpace(finalizedDetectionFile)
+                    && ReferenceEquals(spec.Detection, manifest.Detection);
+                if (!fileTransport && detectionSigned)
                     throw new InvalidOperationException(
-                        $"Deployment type '{spec.DtName}' declares Script detection with no ScriptText.");
-                sb.AppendLine(BuildDetectionScriptPs(spec.Detection, i));
+                        "The detection script is signed but the manifest names no Detection.ScriptFile; a signed script cannot be imported as script text. Re-run the Stage phase so the finalized script is written to the content folder.");
+
+                if (fileTransport)
+                {
+                    // The finalized file sits at the stage root, which is the
+                    // network content root, whatever the deployment type's subpath.
+                    var absolute = Path.IsPathRooted(finalizedDetectionFile!)
+                        ? finalizedDetectionFile!
+                        : Path.Combine(networkContentPath, finalizedDetectionFile!);
+                    sb.Append($"$detectTransport{i} = {MecmScriptSigningPs.DetectionFileFunction}");
+                    sb.Append($" -Path '{Esc(absolute)}'");
+                    sb.Append($" -ScriptFile '{Esc(finalizedDetectionFile!)}'");
+                    sb.Append($" -ContentLocation '{Esc(networkContentPath)}'");
+                    sb.AppendLine($" -Signed ${(detectionSigned ? "true" : "false")}");
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(spec.Detection.ScriptText))
+                        throw new InvalidOperationException(
+                            $"Deployment type '{spec.DtName}' declares Script detection with no ScriptText.");
+                    sb.AppendLine(BuildDetectionScriptPs(spec.Detection, i));
+                    sb.AppendLine($"$detectTransport{i} = [pscustomobject]@{{ Transport = 'Text'; Path = ''; TempPath = ''; Text = $detectScript{i}; Bytes = [System.Text.Encoding]::UTF8.GetBytes($detectScript{i}); Signed = $false }}");
+                }
             }
             else
             {
@@ -364,7 +424,9 @@ public sealed class MecmTarget
             {
                 var lang = string.IsNullOrWhiteSpace(spec.Detection.ScriptLanguage)
                     ? "PowerShell" : spec.Detection.ScriptLanguage!;
-                sb.Append($" -ScriptLanguage {ValidateScriptLanguage(lang)} -ScriptText $detectScript{i}");
+                sb.Append(fileTransport
+                    ? $" -ScriptLanguage {ValidateScriptLanguage(lang)} -ScriptFile $detectTransport{i}.Path"
+                    : $" -ScriptLanguage {ValidateScriptLanguage(lang)} -ScriptText $detectScript{i}");
             }
             else
             {
@@ -374,6 +436,14 @@ public sealed class MecmTarget
             if (ruleVars[i].Count > 0)
                 sb.Append($" -AddRequirement @({string.Join(", ", ruleVars[i])})");
             sb.AppendLine(" | Out-Null");
+
+            if (isScriptDetection)
+            {
+                sb.Append($"{MecmScriptSigningPs.DetectionReadBackFunction} -ApplicationName '{Esc(appName)}'");
+                sb.Append($" -DeploymentTypeName $dtCreateName{i} -Transport $detectTransport{i}");
+                sb.Append($" -ExpectedThumbprint '{Esc(fileTransport ? detectionThumbprint : "")}'");
+                sb.AppendLine($" -RequireDetection ${(signingPolicy.RequireDetection ? "true" : "false")}");
+            }
         }
 
         sb.AppendLine("foreach ($oldDt in $replaceDtNames) {");
@@ -428,6 +498,34 @@ public sealed class MecmTarget
         sb.AppendLine("Write-Host 'Application created successfully'");
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Re-checks the resolved deployment-type commands for execution-policy
+    /// relaxation before the first site write. Operator overrides and
+    /// per-variant commands resolve after the stage was audited. Enforcement
+    /// follows the manifest's own signed state as well as the policy, so a
+    /// signed build is refused even when no policy is in scope.
+    /// </summary>
+    public static LauncherChainResult? CheckResolvedDeploymentCommands(
+        IReadOnlyList<DeploymentTypeSpec> specs, SigningPolicy policy, ScriptSigningRecord? record)
+    {
+        var signed = SigningStatus.IsSigned(record?.Deployment.Status);
+        var normalized = SigningPolicy.Normalize(policy);
+        if (!signed && !normalized.SignDeployment && !normalized.RequireDeployment) return null;
+
+        var effective = signed
+            ? new SigningPolicy { SignDeployment = true, RequireDeployment = true }
+            : normalized;
+        var commands = specs.SelectMany((s, i) => new[]
+        {
+            new LauncherCommand($"DeploymentTypes[{i + 1}].InstallCommand", s.InstallCommand),
+            new LauncherCommand($"DeploymentTypes[{i + 1}].UninstallCommand", s.UninstallCommand)
+        });
+        // The stage tree was audited at stage time; a root that cannot exist
+        // limits this pass to the commands.
+        var commandsOnlyRoot = Path.Combine(Path.GetTempPath(), "ap-commands-only-" + Guid.NewGuid().ToString("N"));
+        return DeploymentLauncher.AuditChain(commandsOnlyRoot, commands, effective);
     }
 
     /// <summary>
@@ -562,6 +660,18 @@ public sealed class MecmTarget
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+            // A PSModulePath inherited from PowerShell 7 makes Windows PowerShell
+            // load the 7.x security module, and the read-back's
+            // Get-AuthenticodeSignature is then missing. The machine and user
+            // values are what a logon session starts with, and the machine value
+            // carries the console's module folder.
+            var modulePath = string.Join(";", new[]
+            {
+                Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.User),
+                Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.Machine)
+            }.Where(p => !string.IsNullOrWhiteSpace(p)));
+            if (modulePath.Length > 0) process.StartInfo.Environment["PSModulePath"] = modulePath;
+            else process.StartInfo.Environment.Remove("PSModulePath");
 
             process.Start();
 

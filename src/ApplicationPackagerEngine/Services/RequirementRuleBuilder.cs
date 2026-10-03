@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services.Signing;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -140,13 +141,23 @@ public static class RequirementRuleBuilder
         }
         """;
 
+    /// <summary>True when any resolved rule binds a Script-kind condition.</summary>
+    public static bool UsesScriptConditions(IEnumerable<IReadOnlyList<ResolvedRequirement>> resolved) =>
+        resolved.Any(r => r.Any(i => IsScriptKind(i.Template)));
+
+    private static bool IsScriptKind(ConditionTemplate template) =>
+        string.Equals(template.Kind, "Script", StringComparison.Ordinal);
+
     /// <summary>
     /// Emits the global condition lookups and rule objects for one
     /// deployment type, and returns the PowerShell variable names holding
-    /// the rules.
+    /// the rules. A Script-kind condition resolves through the content-versioned
+    /// resolver with the identity <paramref name="scriptIdentity"/> returns;
+    /// null resolves the unsigned identity.
     /// </summary>
     public static List<string> AppendRules(
-        StringBuilder sb, IReadOnlyList<ResolvedRequirement> resolved, string variablePrefix)
+        StringBuilder sb, IReadOnlyList<ResolvedRequirement> resolved, string variablePrefix,
+        Func<ConditionTemplate, ConditionScriptIdentity>? scriptIdentity = null)
     {
         var names = new List<string>();
         for (var i = 0; i < resolved.Count; i++)
@@ -156,20 +167,32 @@ public static class RequirementRuleBuilder
             var gcVar = $"${variablePrefix}_gc{i}";
             var ruleVar = $"${variablePrefix}_req{i}";
 
-            var scriptText = string.Equals(template.Kind, "Script", StringComparison.Ordinal)
-                ? ConditionTemplateService.ResolveScriptText(template)
-                : "";
-
-            sb.Append($"{gcVar} = {GlobalConditionFunctionName}");
-            sb.Append($" -Name '{Esc(template.GlobalConditionName)}'");
-            sb.Append($" -PlatformType {template.PlatformType ?? 0}");
-            sb.Append($" -Kind '{Esc(template.Kind)}'");
-            sb.Append($" -DataType '{Esc(template.DataType ?? "")}'");
-            sb.Append($" -Namespace '{Esc(template.Namespace ?? "")}'");
-            sb.Append($" -Class '{Esc(template.Class ?? "")}'");
-            sb.Append($" -Property '{Esc(template.Property ?? "")}'");
-            sb.Append($" -ScriptText '{Esc(scriptText)}'");
-            sb.AppendLine($" -Description '{Esc(template.Description ?? "")}'");
+            if (IsScriptKind(template))
+            {
+                var identity = scriptIdentity?.Invoke(template) ?? ConditionScriptIdentity.Resolve(template);
+                sb.Append($"{gcVar} = {MecmScriptSigningPs.ScriptGlobalConditionFunction}");
+                sb.Append($" -Name '{Esc(template.GlobalConditionName)}'");
+                sb.Append($" -PlatformType {template.PlatformType ?? 0}");
+                sb.Append($" -DataType '{Esc(template.DataType ?? "")}'");
+                sb.Append($" -Description '{Esc(template.Description ?? "")}'");
+                sb.Append($" -ScriptText '{Esc(identity.Text)}'");
+                sb.Append($" -SignedBase64 '{(identity.Signed ? Convert.ToBase64String(identity.Bytes) : "")}'");
+                sb.Append($" -ContentHash '{identity.ContentHash}'");
+                sb.AppendLine($" -ExpectedThumbprint '{Esc(identity.Signed ? identity.Thumbprint : "")}'");
+            }
+            else
+            {
+                sb.Append($"{gcVar} = {GlobalConditionFunctionName}");
+                sb.Append($" -Name '{Esc(template.GlobalConditionName)}'");
+                sb.Append($" -PlatformType {template.PlatformType ?? 0}");
+                sb.Append($" -Kind '{Esc(template.Kind)}'");
+                sb.Append($" -DataType '{Esc(template.DataType ?? "")}'");
+                sb.Append($" -Namespace '{Esc(template.Namespace ?? "")}'");
+                sb.Append($" -Class '{Esc(template.Class ?? "")}'");
+                sb.Append($" -Property '{Esc(template.Property ?? "")}'");
+                sb.Append(" -ScriptText ''");
+                sb.AppendLine($" -Description '{Esc(template.Description ?? "")}'");
+            }
 
             switch (template.RuleType)
             {
