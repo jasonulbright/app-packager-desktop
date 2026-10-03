@@ -60,6 +60,7 @@ jobs:
           $version = (($proj.Project.PropertyGroup.Version | Where-Object { $_ }) | Select-Object -First 1).Trim()
           if (-not $version) { throw 'No <Version> in the UI project.' }
           $tag = "v$version"
+          & tools/test-release-version.ps1 -Version $version -ExistingTag @(git tag -l)
           if (git tag -l $tag) { throw "Tag $tag already exists; bump <Version> before releasing." }
           $existing = gh release view $tag --json tagName 2>$null
           if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists." }
@@ -200,7 +201,6 @@ jobs:
 
       # Assets upload onto a draft; the release goes public only once every
       # upload succeeded, so a half-uploaded release is never downloadable.
-      # A version with a pre-release suffix (2.2.0-alpha2) is flagged as such.
       - name: Publish the GitHub release
         shell: pwsh
         env:
@@ -211,9 +211,7 @@ jobs:
           $installer = Get-ChildItem "$env:RUNNER_TEMP\publish" -Filter 'AppPackagerDesktop-Setup-*.exe' -File | Select-Object -First 1
           if (-not $installer) { throw 'Installer missing.' }
           $checksums = "$env:RUNNER_TEMP\publish\checksums.txt"
-          $flags = @('--draft')
-          if ("${{ steps.meta.outputs.tag }}" -match '-') { $flags += '--prerelease' }
-          gh release create "${{ steps.meta.outputs.tag }}" @flags --title "${{ steps.meta.outputs.tag }}" --notes-file "${{ steps.meta.outputs.notes }}" $installer.FullName $zip.FullName $checksums
+          gh release create "${{ steps.meta.outputs.tag }}" --draft --title "${{ steps.meta.outputs.tag }}" --notes-file "${{ steps.meta.outputs.notes }}" $installer.FullName $zip.FullName $checksums
           if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
           gh release edit "${{ steps.meta.outputs.tag }}" --draft=false
           if ($LASTEXITCODE -ne 0) { throw 'gh release edit failed' }

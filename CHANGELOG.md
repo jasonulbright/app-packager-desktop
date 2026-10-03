@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.2.0-alpha10] - 2026-10-03
+## [2026.1003.16] - 2026-10-03
 
 ### Added
 
@@ -33,6 +33,7 @@
 
 ### Changed
 
+- Changed the version format to year, month and day, and release number.
 - Changed the product name in the interface from MECM to ConfigMgr.
 - Moved Deployment Conditions into the Application Workbench.
 - Changed Stage and Publish to use the active Workbench profile.
