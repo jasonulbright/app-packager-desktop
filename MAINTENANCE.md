@@ -32,6 +32,8 @@ vendor's schedule, not ours.
   the app's verdict; anything touching InstallArgs, Detection, or the
   payload does.
 
+- **Isolated UI runs:** set `APP_PACKAGER_DATA_ROOT` to a scratch folder to move `settings.json`, `condition-templates.json` and the default Workbench root out of `%LOCALAPPDATA%\AppPackager`.
+
 ## Piggybacking on app-packager
 
 The PowerShell sibling (C:\projects\app-packager) checks the same

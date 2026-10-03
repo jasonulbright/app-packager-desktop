@@ -1,0 +1,890 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.WorkbenchWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    Title="Application Workbench"
+    Width="1280" Height="820"
+    MinWidth="1024" MinHeight="700"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <helpers:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <helpers:StepVisibilityConverter x:Key="SectionVisibility" />
+        <helpers:PathToImageConverter x:Key="PathToImage" />
+        <helpers:InverseBooleanConverter x:Key="InverseBool" />
+
+        <Style x:Key="WbLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,12,8" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="WbSource" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="10,0,10,8" />
+            <Setter Property="MaxWidth" Value="320" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="WbHeading" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,10,0,6" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        </Style>
+        <Style x:Key="WbNote" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="WbField" TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="ClearButtonEnabled" Value="False" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="WbCombo" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+        </Style>
+        <Style x:Key="WbInlineButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+            <Setter Property="MinWidth" Value="90" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="WbFooterButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+            <Setter Property="MinWidth" Value="96" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style x:Key="WbCode" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, Courier New" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="AcceptsTab" Value="True" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="Padding" Value="6,4" />
+        </Style>
+        <Style x:Key="WbGutter" TargetType="TextBox" BasedOn="{StaticResource WbCode}">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Width" Value="48" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="WbChip" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+        <Style x:Key="WbGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="RowHeaderWidth" Value="0" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Application Workbench" />
+
+        <!-- Header: application, profile, source type, build -->
+        <Grid Grid.Row="1" Margin="16,4,16,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="200" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="Application" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
+            <ComboBox Grid.Column="1" x:Name="cboApplication" IsEditable="True" IsTextSearchEnabled="True"
+                      StaysOpenOnEdit="True" Margin="0,0,14,0"
+                      ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
+                      DisplayMemberPath="DisplayLabel" TextSearch.TextPath="DisplayLabel"
+                      ToolTip="Catalog packagers, user-authored scripts, and saved bring-your-own applications." />
+
+            <TextBlock Grid.Column="2" Text="Profile" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
+            <ComboBox Grid.Column="3" x:Name="cboProfile" Margin="0,0,8,0"
+                      ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name"
+                      ToolTip="Packager default is read-only. Save as creates a named profile; one profile is active per application." />
+            <ui:Button Grid.Column="4" x:Name="btnProfileRename" Content="Rename" MinWidth="90"
+                       Command="{Binding RenameProfileCommand}" ToolTip="Rename the selected custom profile." />
+            <TextBlock Grid.Column="5" x:Name="txtSourceType" Text="{Binding SourceTypeText}" Style="{StaticResource WbSource}"
+                       Margin="12,0,0,0" ToolTip="Where this application definition comes from." />
+
+            <TextBlock Grid.Column="7" Text="Build" Style="{StaticResource WbLabel}" Margin="0,0,8,0" />
+            <ComboBox Grid.Column="8" x:Name="cboBuild" ItemsSource="{Binding Builds}" SelectedItem="{Binding SelectedBuild}"
+                      ToolTip="Sealed builds for this application and profile. Package consumes the selected build." />
+        </Grid>
+
+        <Border Grid.Row="2" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
+
+        <!-- Body: section list + editor pane -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="210" />
+                <ColumnDefinition Width="1" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ListBox Grid.Column="0" x:Name="lstSections" BorderThickness="0" Padding="0,8,0,0" Background="Transparent"
+                     ItemsSource="{Binding Sections}" SelectedIndex="{Binding SelectedSectionIndex}">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="FontSize" Value="14" />
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Setter Property="AutomationProperties.Name" Value="{Binding}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Chrome" Margin="6,2" CornerRadius="4" Background="Transparent">
+                                        <Grid>
+                                            <Border x:Name="Marker" Width="3" Height="16" CornerRadius="1.5" HorizontalAlignment="Left"
+                                                    Background="{DynamicResource AccentFillColorDefaultBrush}" Visibility="Collapsed" />
+                                            <ContentPresenter Margin="14,9,10,9" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                            <Setter TargetName="Marker" Property="Visibility" Value="Visible" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+
+            <Border Grid.Column="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
+
+            <Grid Grid.Column="2" Margin="18,14,18,10">
+
+                <!-- ================= Application ================= -->
+                <ScrollViewer x:Name="pnlApplication" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=0}">
+                    <Grid Margin="0,0,16,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="150" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" MinWidth="160" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Display name" Style="{StaticResource WbLabel}" />
+                        <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="txtDisplayName" Style="{StaticResource WbField}"
+                                    Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" x:Name="lblDisplayNameSrc" Text="{Binding DisplayNameSource}" Style="{StaticResource WbSource}" />
+                        <ui:Button Grid.Row="0" Grid.Column="3" x:Name="btnDisplayNameReset" Content="Reset" Style="{StaticResource WbInlineButton}"
+                                   Command="{Binding ResetFieldCommand}" CommandParameter="Application.DisplayName" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Publisher" Style="{StaticResource WbLabel}" />
+                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtPublisher" Style="{StaticResource WbField}"
+                                    Text="{Binding Publisher, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="lblPublisherSrc" Text="{Binding PublisherSource}" Style="{StaticResource WbSource}" />
+                        <ui:Button Grid.Row="1" Grid.Column="3" x:Name="btnPublisherReset" Content="Reset" Style="{StaticResource WbInlineButton}"
+                                   Command="{Binding ResetFieldCommand}" CommandParameter="Application.Publisher" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Description" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,6,12,8" />
+                        <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtDescription" Height="72" Margin="0,0,0,8"
+                                    AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                    ClearButtonEnabled="False"
+                                    Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Row="2" Grid.Column="2" x:Name="lblDescriptionSrc" Text="{Binding DescriptionSource}" Style="{StaticResource WbSource}"
+                                   VerticalAlignment="Top" Margin="10,8,10,8" />
+                        <ui:Button Grid.Row="2" Grid.Column="3" x:Name="btnDescriptionReset" Content="Reset" Style="{StaticResource WbInlineButton}"
+                                   VerticalAlignment="Top" Command="{Binding ResetFieldCommand}" CommandParameter="Application.Description" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Application title" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Row="3" Grid.Column="1" x:Name="cboTitleMode" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding TitleModeOptions}" SelectedItem="{Binding TitleMode}"
+                                  ToolTip="Versioned titles create one ConfigMgr application per release; a perpetual title updates the same application." />
+                        <TextBlock Grid.Row="3" Grid.Column="2" x:Name="lblTitleModeSrc" Text="{Binding TitleModeSource}" Style="{StaticResource WbSource}" />
+                        <ui:Button Grid.Row="3" Grid.Column="3" x:Name="btnTitleModeReset" Content="Reset" Style="{StaticResource WbInlineButton}"
+                                   Command="{Binding ResetFieldCommand}" CommandParameter="Application.TitleMode" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Profile name" Style="{StaticResource WbLabel}" />
+                        <ui:TextBox Grid.Row="4" Grid.Column="1" x:Name="txtProfileName" Style="{StaticResource WbField}"
+                                    Text="{Binding ProfileName, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Stable identity" Style="{StaticResource WbLabel}" VerticalAlignment="Top" />
+                        <TextBlock Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtIdentity" Text="{Binding IdentityText}"
+                                   Style="{StaticResource WbNote}" />
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Source provenance" Style="{StaticResource WbLabel}" VerticalAlignment="Top" />
+                        <TextBlock Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtProvenance" Text="{Binding ProvenanceText}"
+                                   Style="{StaticResource WbNote}" />
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Icon" Style="{StaticResource WbLabel}" VerticalAlignment="Top" Margin="0,6,12,8" />
+                        <Grid Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="64" Height="64" Margin="0,0,12,0" VerticalAlignment="Top" CornerRadius="4"
+                                    BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                                <Image x:Name="imgIcon" Stretch="Uniform" Margin="4"
+                                       Source="{Binding IconPreviewPath, Converter={StaticResource PathToImage}}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:Button x:Name="btnIconChoose" Content="Choose file..." Style="{StaticResource WbInlineButton}" MinWidth="110"
+                                               Command="{Binding ChooseIconCommand}" />
+                                    <ui:Button x:Name="btnIconReset" Content="Reset" Style="{StaticResource WbInlineButton}"
+                                               Command="{Binding ResetIconCommand}" />
+                                    <ui:Button x:Name="btnIconRemove" Content="Remove" Style="{StaticResource WbInlineButton}"
+                                               Command="{Binding RemoveIconCommand}"
+                                               ToolTip="Explicitly publish no icon, rather than inheriting the packager's icon." />
+                                </StackPanel>
+                                <TextBlock x:Name="txtIconState" Text="{Binding IconStateText}" Style="{StaticResource WbNote}" Margin="0" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="4" x:Name="txtAppNote" Style="{StaticResource WbNote}" Margin="0,10,0,0"
+                                   Text="The displayed title is separate from the stable identity: renaming a profile never renames an existing site application, and the output folder keeps the packager name." />
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- ================= Install and uninstall ================= -->
+                <Grid x:Name="pnlInstall"
+                      Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=1}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="190" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Editing" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Column="1" x:Name="cboScriptTarget" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding ScriptTargetOptions}" SelectedItem="{Binding ScriptTarget}"
+                                  ToolTip="Install and uninstall are configured independently." />
+                        <TextBlock Grid.Column="2" Text="Mode" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
+                        <ComboBox Grid.Column="3" x:Name="cboInstallMode" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding InstallModeOptions}" SelectedItem="{Binding InstallModeDisplay}"
+                                  ToolTip="Generated keeps the packager wrapper. Extend generated runs before/after hooks around it as separate processes. Custom replaces the entry command entirely." />
+                        <TextBlock Grid.Column="4" x:Name="lblInstallModeSrc" Text="{Binding InstallModeSource}" Style="{StaticResource WbSource}" />
+                        <ui:Button Grid.Column="5" x:Name="btnInstallReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
+                                   HorizontalAlignment="Left" Margin="12,0,8,8" Command="{Binding ResetInstallSectionCommand}" />
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="170" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Effective command" Style="{StaticResource WbLabel}" />
+                        <ui:TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" x:Name="txtEffectiveCommand" Style="{StaticResource WbField}"
+                                    FontFamily="Cascadia Code, Consolas, Courier New"
+                                    Text="{Binding CommandOverride, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="{Binding InheritedCommand}"
+                                    ToolTip="The entry command the build writes for this target. Needs staging until the packager resolves its installer." />
+                        <TextBlock Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2" x:Name="lblCommandSrc" Text="{Binding CommandSource}" Style="{StaticResource WbSource}" />
+                        <ui:Button Grid.Row="0" Grid.Column="5" x:Name="btnCommandReset" Content="Reset" Style="{StaticResource WbInlineButton}"
+                                   HorizontalAlignment="Left" Command="{Binding ResetCommandOverrideCommand}" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Return codes" Style="{StaticResource WbLabel}" />
+                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtReturnCodes" Style="{StaticResource WbField}"
+                                    Text="{Binding ReturnCodes, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="inherit (e.g. 0,3010=SoftReboot,1641=HardReboot)" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Reboot" Style="{StaticResource WbLabel}" Margin="14,0,12,8" />
+                        <ComboBox Grid.Row="1" Grid.Column="3" x:Name="cboRebootPolicy" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding RebootPolicyOptions}" SelectedItem="{Binding RebootPolicy}" />
+                        <TextBlock Grid.Row="1" Grid.Column="4" Text="Working dir" Style="{StaticResource WbLabel}" Margin="14,0,12,8" />
+                        <ui:TextBox Grid.Row="1" Grid.Column="5" x:Name="txtWorkingDirectory" Style="{StaticResource WbField}"
+                                    Text="{Binding WorkingDirectory, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="inherit" />
+                    </Grid>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="320" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" Grid.Column="0" LastChildFill="False" Margin="0,4,0,4">
+                            <TextBlock DockPanel.Dock="Left" x:Name="lblScriptCaption" Text="{Binding ScriptCaption}" Style="{StaticResource WbHeading}"
+                                       Margin="0,0,12,0" VerticalAlignment="Center" />
+                            <StackPanel DockPanel.Dock="Right" x:Name="pnlFind" Orientation="Horizontal" Visibility="Collapsed">
+                                <ui:TextBox x:Name="txtFind" Width="180" Margin="0,0,6,0" PlaceholderText="Find" KeyDown="FindBox_KeyDown" />
+                                <ui:Button x:Name="btnFindNext" Content="Next" MinWidth="70" Margin="0,0,6,0" Click="FindNext_Click" />
+                                <ui:Button x:Name="btnFindClose" Content="Close" MinWidth="70" Click="FindClose_Click" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Border Grid.Row="1" Grid.Column="0" BorderThickness="1" CornerRadius="4"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                            <DockPanel>
+                                <TextBox DockPanel.Dock="Left" x:Name="txtScriptGutter" Style="{StaticResource WbGutter}" Text="{Binding ScriptGutter, Mode=OneWay}" />
+                                <TextBox x:Name="txtScript" Style="{StaticResource WbCode}" BorderThickness="0"
+                                         IsReadOnly="{Binding IsScriptReadOnly}"
+                                         Text="{Binding ScriptText, UpdateSourceTrigger=PropertyChanged}"
+                                         ScrollViewer.ScrollChanged="Script_ScrollChanged" />
+                            </DockPanel>
+                        </Border>
+
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Hooks" Style="{StaticResource WbHeading}" Margin="0,4,0,4" />
+                        <Grid Grid.Row="1" Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Before" Style="{StaticResource WbNote}" Margin="0,0,0,3" />
+                            <TextBox Grid.Row="1" x:Name="txtHookBefore" Style="{StaticResource WbCode}" Margin="0,0,0,8"
+                                     IsEnabled="{Binding HooksEnabled}" Text="{Binding HookBefore, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock Grid.Row="2" Text="After" Style="{StaticResource WbNote}" Margin="0,0,0,3" />
+                            <TextBox Grid.Row="3" x:Name="txtHookAfter" Style="{StaticResource WbCode}" Margin="0,0,0,6"
+                                     IsEnabled="{Binding HooksEnabled}" Text="{Binding HookAfter, UpdateSourceTrigger=PropertyChanged}" />
+                            <CheckBox Grid.Row="4" x:Name="chkAfterOnFailure" IsEnabled="{Binding HooksEnabled}"
+                                      IsChecked="{Binding AfterRunsOnFailure}">
+                                <TextBlock Text="After hook runs even when the generated step fails" TextWrapping="Wrap" />
+                            </CheckBox>
+                        </Grid>
+                    </Grid>
+
+                    <TextBlock Grid.Row="3" x:Name="txtScriptNote" Text="{Binding ScriptNote}" Style="{StaticResource WbNote}" Margin="0,8,0,4" />
+
+                </Grid>
+
+                <!-- ================= Detection ================= -->
+                <Grid x:Name="pnlDetection"
+                      Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=2}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="180" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Detection" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Column="1" x:Name="cboDetectionMode" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding DetectionModeOptions}" SelectedItem="{Binding DetectionMode}"
+                                  ToolTip="Inherit uses the packager's validated native rule. Custom takes ownership of the whole rule." />
+                        <TextBlock Grid.Column="2" Text="Type" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
+                        <ComboBox Grid.Column="3" x:Name="cboDetectionType" Style="{StaticResource WbCombo}" IsEnabled="{Binding IsDetectionCustom}"
+                                  ItemsSource="{Binding DetectionTypeOptions}" SelectedItem="{Binding DetectionType}" />
+                        <TextBlock Grid.Column="4" x:Name="lblDetectionSrc" Text="{Binding DetectionSource}" Style="{StaticResource WbSource}" />
+                        <ui:Button Grid.Column="5" x:Name="btnDetectionReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
+                                   HorizontalAlignment="Left" Margin="12,0,8,8" Command="{Binding ResetDetectionSectionCommand}" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="1" x:Name="txtDetectionInherited" Text="{Binding DetectionInheritedText}" Style="{StaticResource WbNote}" Margin="0,4,0,6" />
+
+                    <Grid Grid.Row="2">
+                        <!-- Typed native editor -->
+                        <ScrollViewer x:Name="pnlDetectionTyped" VerticalScrollBarVisibility="Auto"
+                                      Visibility="{Binding IsDetectionScript, Converter={StaticResource InverseBoolToVisibility}}">
+                            <Grid IsEnabled="{Binding IsDetectionCustom}" Margin="0,0,16,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="130" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" MinWidth="120" />
+                                    <ColumnDefinition Width="220" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Registry hive" Style="{StaticResource WbLabel}" />
+                                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="cboDetHive" Style="{StaticResource WbCombo}"
+                                          ItemsSource="{Binding HiveOptions}" SelectedItem="{Binding DetHive}" />
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Registry view" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
+                                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="cboDetView" Style="{StaticResource WbCombo}"
+                                          ItemsSource="{Binding ViewOptions}" SelectedItem="{Binding DetView}" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Key" Style="{StaticResource WbLabel}" />
+                                <ui:TextBox Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" x:Name="txtDetKey" Style="{StaticResource WbField}"
+                                            FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetKey, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Value name" Style="{StaticResource WbLabel}" />
+                                <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtDetValueName" Style="{StaticResource WbField}"
+                                            FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetValueName, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Row="2" Grid.Column="2" Text="Operator" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
+                                <ComboBox Grid.Row="2" Grid.Column="3" x:Name="cboDetOperator" Style="{StaticResource WbCombo}"
+                                          ItemsSource="{Binding OperatorOptions}" SelectedItem="{Binding DetOperator}" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Expected value" Style="{StaticResource WbLabel}" />
+                                <ui:TextBox Grid.Row="3" Grid.Column="1" x:Name="txtDetExpected" Style="{StaticResource WbField}"
+                                            FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetExpected, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Row="3" Grid.Column="2" Text="Version binding" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
+                                <ComboBox Grid.Row="3" Grid.Column="3" x:Name="cboDetVersionBinding" Style="{StaticResource WbCombo}"
+                                          ItemsSource="{Binding VersionBindingOptions}" SelectedItem="{Binding DetVersionBinding}"
+                                          ToolTip="Follows staged version updates the expected value at every build; Pinned keeps the literal value. Vendor version strings do not all compare as numeric versions." />
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="File path" Style="{StaticResource WbLabel}" />
+                                <ui:TextBox Grid.Row="4" Grid.Column="1" x:Name="txtDetFilePath" Style="{StaticResource WbField}"
+                                            FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetFilePath, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Row="4" Grid.Column="2" Text="File name" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
+                                <ui:TextBox Grid.Row="4" Grid.Column="3" x:Name="txtDetFileName" Style="{StaticResource WbField}"
+                                            FontFamily="Cascadia Code, Consolas, Courier New" Text="{Binding DetFileName, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="File property" Style="{StaticResource WbLabel}" />
+                                <ComboBox Grid.Row="5" Grid.Column="1" x:Name="cboDetFileProperty" Style="{StaticResource WbCombo}"
+                                          ItemsSource="{Binding FilePropertyOptions}" SelectedItem="{Binding DetFileProperty}" />
+                                <TextBlock Grid.Row="5" Grid.Column="2" Text="Clause logic" Style="{StaticResource WbLabel}" Margin="12,0,12,8" />
+                                <ComboBox Grid.Row="5" Grid.Column="3" x:Name="cboDetLogic" Style="{StaticResource WbCombo}"
+                                          ItemsSource="{Binding LogicOptions}" SelectedItem="{Binding DetLogic}"
+                                          ToolTip="The existing schema supports flat AND, flat OR, and two groups. Nested expressions are not flattened silently." />
+
+                                <DockPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4" Margin="0,8,0,4">
+                                    <TextBlock DockPanel.Dock="Left" Text="Clauses" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <ui:Button x:Name="btnDetClauseAdd" Content="Add clause" Style="{StaticResource WbInlineButton}" Command="{Binding AddClauseCommand}" />
+                                        <ui:Button x:Name="btnDetClauseRemove" Content="Remove" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveClauseCommand}" />
+                                    </StackPanel>
+                                </DockPanel>
+
+                                <DataGrid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="4" x:Name="dgDetClauses" MinHeight="140" Style="{StaticResource WbGrid}"
+                                          ItemsSource="{Binding Clauses}" SelectedItem="{Binding SelectedClause}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Group" Width="70" Binding="{Binding Group, UpdateSourceTrigger=PropertyChanged}" />
+                                        <DataGridTextColumn Header="Type" Width="100" Binding="{Binding Type, UpdateSourceTrigger=PropertyChanged}" />
+                                        <DataGridTextColumn Header="Subject" Width="*" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" />
+                                        <DataGridTextColumn Header="Operator" Width="120" Binding="{Binding Operator, UpdateSourceTrigger=PropertyChanged}" />
+                                        <DataGridTextColumn Header="Expected" Width="160" Binding="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </ScrollViewer>
+
+                        <!-- PowerShell detection editor -->
+                        <Grid x:Name="pnlDetectionScript"
+                              Visibility="{Binding IsDetectionScript, Converter={StaticResource BoolToVisibility}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" x:Name="txtIntuneContract" Style="{StaticResource WbNote}"
+                                       Text="Intune reads the detection result from the script: exit code 0 plus output on STDOUT means installed. Any output on STDERR is a negative result, and exit 0 with no output means not installed. A detector that only exits successfully is rejected here." />
+                            <Border Grid.Row="1" BorderThickness="1" CornerRadius="4" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                                <DockPanel>
+                                    <TextBox DockPanel.Dock="Left" x:Name="txtDetectGutter" Style="{StaticResource WbGutter}" Text="{Binding DetectGutter, Mode=OneWay}" />
+                                    <TextBox x:Name="txtDetectScript" Style="{StaticResource WbCode}" BorderThickness="0"
+                                             IsEnabled="{Binding IsDetectionCustom}"
+                                             Text="{Binding DetectScript, UpdateSourceTrigger=PropertyChanged}"
+                                             ScrollViewer.ScrollChanged="DetectScript_ScrollChanged" />
+                                </DockPanel>
+                            </Border>
+                            <CheckBox Grid.Row="2" x:Name="chkIntuneScriptConversion" Margin="0,8,0,6" IsEnabled="{Binding IsDetectionCustom}"
+                                      IsChecked="{Binding IntuneScriptConversion}"
+                                      Content="Allow Intune to publish this rule as a converted detection script"
+                                      ToolTip="Native clauses without an Intune mapping stay blocked until this is chosen explicitly." />
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <!-- ================= Requirements and variants ================= -->
+                <ScrollViewer x:Name="pnlRequirements" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=3}">
+                    <Grid Margin="0,0,16,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Style="{StaticResource WbNote}"
+                                   Text="Requirements decide eligibility; detection decides installed state. Operations are keyed by rule id so adding an application-wide rule cannot silently gate a variant fallback." />
+
+                        <DockPanel Grid.Row="1" Margin="0,0,0,6">
+                            <TextBlock DockPanel.Dock="Left" Text="Requirement operations" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <ComboBox x:Name="cboReqTemplate" Width="200" Margin="0,0,8,8"
+                                          ItemsSource="{Binding RequirementTemplates}" SelectedItem="{Binding SelectedRequirementTemplate}"
+                                          ToolTip="Site conditions, named below; a rule attaches one to this application." />
+                                <ui:Button x:Name="btnReqAdd" Content="Add" Style="{StaticResource WbInlineButton}" MinWidth="70" Command="{Binding AddRequirementCommand}" />
+                                <ui:Button x:Name="btnReqReplace" Content="Replace" Style="{StaticResource WbInlineButton}" Command="{Binding ReplaceRequirementCommand}" />
+                                <ui:Button x:Name="btnReqRemove" Content="Remove" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveRequirementCommand}" />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <DataGrid Grid.Row="2" x:Name="dgRequirements" Style="{StaticResource WbGrid}" MinHeight="120" MaxHeight="220"
+                                  ItemsSource="{Binding Requirements}" SelectedItem="{Binding SelectedRequirement}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Operation" Width="100" Binding="{Binding Op}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Rule id" Width="140" Binding="{Binding RuleId}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Rule" Width="*" Binding="{Binding Summary}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Value" Width="180" Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Applies to" Width="130" Binding="{Binding AppliesTo, UpdateSourceTrigger=PropertyChanged}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <Grid Grid.Row="3" Margin="0,12,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Variant split" Style="{StaticResource WbLabel}" />
+                            <ComboBox Grid.Column="1" x:Name="cboVariantSplit" Style="{StaticResource WbCombo}"
+                                      ItemsSource="{Binding VariantSplitOptions}" SelectedItem="{Binding VariantSplit}" IsEnabled="{Binding VariantSplitEnabled}"
+                                      ToolTip="Stage one application with several deployment types. Offered only where the packager declares support." />
+                            <TextBlock Grid.Column="2" Text="Install for" Style="{StaticResource WbLabel}" Margin="16,0,12,8" />
+                            <ComboBox Grid.Column="3" x:Name="cboInstallForMode" Style="{StaticResource WbCombo}"
+                                      ItemsSource="{Binding InstallForOptions}" SelectedItem="{Binding InstallFor}" IsEnabled="{Binding InstallForEnabled}"
+                                      ToolTip="System installs for all users; User installs for the signed-in user. Arguments, uninstall command, detection hive and view follow this choice." />
+                            <TextBlock Grid.Column="4" x:Name="lblVariantSrc" Text="{Binding VariantSource}" Style="{StaticResource WbSource}" />
+                            <ui:Button Grid.Column="5" x:Name="btnInstallForReset" Content="Reset" Style="{StaticResource WbInlineButton}" HorizontalAlignment="Left"
+                                       Command="{Binding ResetFieldCommand}" CommandParameter="InstallMode" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="4" Text="Variant overrides" Style="{StaticResource WbHeading}" />
+
+                        <DataGrid Grid.Row="5" x:Name="dgVariants" Style="{StaticResource WbGrid}" MinHeight="90" MaxHeight="180"
+                                  ItemsSource="{Binding Variants}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Variant" Width="150" Binding="{Binding Suffix}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Install command" Width="*" Binding="{Binding InstallCommand, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Detection" Width="200" Binding="{Binding Detection, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Estimated" Width="90" Binding="{Binding Estimated, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Maximum" Width="90" Binding="{Binding Maximum, UpdateSourceTrigger=PropertyChanged}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock Grid.Row="6" Text="Site condition names" Style="{StaticResource WbHeading}" Margin="0,14,0,4" />
+                        <TextBlock Grid.Row="7" Style="{StaticResource WbNote}"
+                                   Text="Shared by every application. A rule attaches to the site global condition with this name, creating it on first use; change a name to reuse a condition your site already has. Saved when a field loses focus." />
+                        <Grid Grid.Row="8" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="200" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="CPU architecture condition" Style="{StaticResource WbLabel}" />
+                            <ui:TextBox Grid.Row="0" Grid.Column="1" x:Name="txtSiteArchGc" Style="{StaticResource WbField}"
+                                        IsEnabled="{Binding HasArchTemplate}" Text="{Binding SiteArchGc}" LostFocus="SiteCondition_LostFocus"
+                                        ToolTip="Site global condition name for the WQL query on Win32_Processor.Architecture (9 = x64, 12 = ARM64)" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="OS language condition" Style="{StaticResource WbLabel}" />
+                            <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtSiteLangGc" Style="{StaticResource WbField}"
+                                        IsEnabled="{Binding HasLangTemplate}" Text="{Binding SiteLangGc}" LostFocus="SiteCondition_LostFocus"
+                                        ToolTip="Name of the built-in Operating System Language site condition. Must already exist on the site." />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="VPN condition" Style="{StaticResource WbLabel}" />
+                            <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtSiteVpnGc" Style="{StaticResource WbField}"
+                                        IsEnabled="{Binding HasVpnTemplate}" Text="{Binding SiteVpnGc}" LostFocus="SiteCondition_LostFocus"
+                                        ToolTip="Site global condition name for the script that reports whether a VPN adapter is active" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="VPN adapter patterns" Style="{StaticResource WbLabel}" />
+                            <ui:TextBox Grid.Row="3" Grid.Column="1" x:Name="txtSiteVpnPatterns" Style="{StaticResource WbField}"
+                                        IsEnabled="{Binding HasVpnTemplate}" Text="{Binding SiteVpnPatterns}" LostFocus="SiteCondition_LostFocus"
+                                        ToolTip="Comma-separated adapter description substrings that identify a VPN client. Applied when the condition is next created; an existing site condition keeps its script." />
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- ================= Timing and execution ================= -->
+                <ScrollViewer x:Name="pnlTiming" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=4}">
+                    <Grid Margin="0,0,16,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="280" />
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="4" Style="{StaticResource WbNote}"
+                                   Text="Both values describe endpoint deployment behavior, not download or staging time. They inherit independently." />
+
+                        <CheckBox Grid.Row="1" Grid.Column="0" x:Name="chkEstimatedDefault" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  Content="Use default estimated install duration" IsChecked="{Binding EstimatedUseDefault}" />
+                        <ui:TextBox Grid.Row="1" Grid.Column="1" x:Name="txtEstimatedMinutes" Style="{StaticResource WbField}"
+                                    IsEnabled="{Binding EstimatedUseDefault, Converter={StaticResource InverseBool}}"
+                                    Text="{Binding EstimatedMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="minutes" Style="{StaticResource WbLabel}" Margin="8,0,12,8" />
+                        <TextBlock Grid.Row="1" Grid.Column="3" x:Name="lblEstimatedEffective" Text="{Binding EstimatedEffective}" Style="{StaticResource WbSource}" HorizontalAlignment="Left" />
+
+                        <CheckBox Grid.Row="2" Grid.Column="0" x:Name="chkMaximumDefault" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  Content="Use default maximum runtime" IsChecked="{Binding MaximumUseDefault}" />
+                        <ui:TextBox Grid.Row="2" Grid.Column="1" x:Name="txtMaximumMinutes" Style="{StaticResource WbField}"
+                                    IsEnabled="{Binding MaximumUseDefault, Converter={StaticResource InverseBool}}"
+                                    Text="{Binding MaximumMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="minutes" Style="{StaticResource WbLabel}" Margin="8,0,12,8" />
+                        <TextBlock Grid.Row="2" Grid.Column="3" x:Name="lblMaximumEffective" Text="{Binding MaximumEffective}" Style="{StaticResource WbSource}" HorizontalAlignment="Left" />
+
+                        <TextBlock Grid.Row="3" Grid.ColumnSpan="4" x:Name="txtTimingTargets" Style="{StaticResource WbNote}" Margin="0,4,0,10"
+                                   Text="ConfigMgr receives both values on the deployment type. The Intune publisher sends neither; the values stay in the definition and the review pane reports the gap." />
+
+                        <TextBlock Grid.Row="4" Grid.ColumnSpan="4" Text="Execution" Style="{StaticResource WbHeading}" />
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Install context" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecContext" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding ExecContextOptions}" SelectedItem="{Binding ExecContext}" />
+                        <TextBlock Grid.Row="5" Grid.Column="3" x:Name="lblExecContextSrc" Text="{Binding ExecContextSource}" Style="{StaticResource WbSource}" HorizontalAlignment="Left" />
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Logon requirement" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" x:Name="cboExecLogon" Style="{StaticResource WbCombo}" HorizontalAlignment="Left" MinWidth="300"
+                                  ItemsSource="{Binding ExecLogonOptions}" SelectedItem="{Binding ExecLogon}" />
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="User interaction" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecInteraction" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding ExecInteractionOptions}" SelectedItem="{Binding ExecInteraction}" />
+
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Script host" Style="{StaticResource WbLabel}" />
+                        <ComboBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" x:Name="cboExecScriptHost" Style="{StaticResource WbCombo}"
+                                  ItemsSource="{Binding ExecScriptHostOptions}" SelectedItem="{Binding ExecScriptHost}"
+                                  ToolTip="Detection and requirement scripts run in the host selected here; Intune maps this to the 32-bit flag." />
+                        <ui:Button Grid.Row="8" Grid.Column="3" x:Name="btnTimingReset" Content="Reset section" Style="{StaticResource WbInlineButton}"
+                                   HorizontalAlignment="Left" Margin="12,0,8,8" Command="{Binding ResetTimingSectionCommand}" />
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- ================= Source files ================= -->
+                <Grid x:Name="pnlSources"
+                      Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=5}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Style="{StaticResource WbNote}"
+                               Text="Bundled files travel inside the package content. A file only reaches the endpoint when the install script copies it there; destinations are relative to the content root." />
+
+                    <DockPanel Grid.Row="1" Margin="0,0,0,6">
+                        <TextBlock DockPanel.Dock="Left" Text="Custom source files" Style="{StaticResource WbHeading}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:Button x:Name="btnSourceAddFile" Content="Add file..." Style="{StaticResource WbInlineButton}" Command="{Binding AddSourceFileCommand}" />
+                            <ui:Button x:Name="btnSourceAddFolder" Content="Add folder..." Style="{StaticResource WbInlineButton}" Command="{Binding AddSourceFolderCommand}" />
+                            <ui:Button x:Name="btnSourceReplace" Content="Replace..." Style="{StaticResource WbInlineButton}" Command="{Binding ReplaceSourceFileCommand}" />
+                            <ui:Button x:Name="btnSourceRemove" Content="Remove" Style="{StaticResource WbInlineButton}" Margin="0,0,0,8" Command="{Binding RemoveSourceFileCommand}" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <DataGrid Grid.Row="2" x:Name="dgSourceFiles" Style="{StaticResource WbGrid}"
+                              ItemsSource="{Binding SourceFiles}" SelectedItem="{Binding SelectedSourceFile}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Source" Width="*" Binding="{Binding Provenance}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Destination" Width="220" Binding="{Binding Destination, UpdateSourceTrigger=PropertyChanged}" />
+                            <DataGridTextColumn Header="Size" Width="110" Binding="{Binding SizeText}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="SHA-256" Width="160" Binding="{Binding ShortHash}" IsReadOnly="True" />
+                            <DataGridCheckBoxColumn Header="Linked" Width="70" Binding="{Binding Linked, UpdateSourceTrigger=PropertyChanged}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Grid.Row="3" x:Name="txtSourceNote" Style="{StaticResource WbNote}" Margin="0,8,0,0"
+                               Text="Bundling a file places it inside the package content. Copying it onto the endpoint is the install script's job; a detector must not depend on package cache content." />
+                </Grid>
+
+                <!-- ================= Review and build ================= -->
+                <Grid x:Name="pnlReview"
+                      Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=6}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Default versus custom" Style="{StaticResource WbHeading}" Margin="0,0,0,6" />
+                    <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dgDiff" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding DiffRows}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Field" Width="190" Binding="{Binding Field}" />
+                            <DataGridTextColumn Header="Default" Width="*" Binding="{Binding Default}" />
+                            <DataGridTextColumn Header="Custom" Width="*" Binding="{Binding Custom}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Compatibility findings" Style="{StaticResource WbHeading}" Margin="0,0,0,6" />
+                    <DataGrid Grid.Row="1" Grid.Column="2" x:Name="dgFindings" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding Findings}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Severity" Width="80" Binding="{Binding Severity}" />
+                            <DataGridTextColumn Header="Code" Width="150" Binding="{Binding Code}" />
+                            <DataGridTemplateColumn Header="Message" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="4,2" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Resolved plan" Style="{StaticResource WbHeading}" />
+                    <TextBox Grid.Row="3" Grid.Column="0" x:Name="txtResolvedPlan" Style="{StaticResource WbCode}" IsReadOnly="True" TextWrapping="Wrap"
+                             BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                             Text="{Binding ResolvedPlan, Mode=OneWay}" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Prior builds" Style="{StaticResource WbHeading}" />
+                    <DataGrid Grid.Row="3" Grid.Column="2" x:Name="dgBuilds" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding PriorBuilds}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Build id" Width="180" Binding="{Binding BuildId}" />
+                            <DataGridTextColumn Header="Version" Width="110" Binding="{Binding Version}" />
+                            <DataGridTextColumn Header="Revision" Width="80" Binding="{Binding Revision}" />
+                            <DataGridTextColumn Header="Result" Width="*" Binding="{Binding Result}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="4" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
+
+        <!-- Footer: status chips, save state, actions -->
+        <Grid Grid.Row="5" Margin="16,10,16,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Style="{StaticResource WbChip}">
+                    <TextBlock x:Name="chipContent" FontSize="12" Text="{Binding ChipContent}" />
+                </Border>
+                <Border Style="{StaticResource WbChip}">
+                    <TextBlock x:Name="chipMecm" FontSize="12" Text="{Binding ChipConfigMgr}" />
+                </Border>
+                <Border Style="{StaticResource WbChip}">
+                    <TextBlock x:Name="chipIntune" FontSize="12" Text="{Binding ChipIntune}" />
+                </Border>
+            </StackPanel>
+            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="txtSaveState" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" Margin="8,0,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SaveStateText}" />
+
+            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,10,0,0">
+                <ui:Button x:Name="btnUseDefaults" Content="Use defaults" Style="{StaticResource WbFooterButton}" MinWidth="106"
+                           Command="{Binding UseDefaultsCommand}"
+                           ToolTip="Clear every override in this profile and inherit the packager defaults." />
+                <ui:Button x:Name="btnSave" Content="Save" Style="{StaticResource WbFooterButton}" Command="{Binding SaveCommand}" />
+                <ui:Button x:Name="btnSaveAs" Content="Save as..." Style="{StaticResource WbFooterButton}" Command="{Binding SaveAsCommand}" />
+                <ui:Button x:Name="btnValidate" Content="Validate" Style="{StaticResource WbFooterButton}" Command="{Binding ValidateCommand}" />
+                <ui:Button x:Name="btnStage" Content="Stage" Style="{StaticResource WbFooterButton}" Command="{Binding StageCommand}" />
+                <TextBlock Text="Publish to:" FontSize="13" VerticalAlignment="Center" Margin="8,0,8,0"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <ui:Button x:Name="btnPublishMecm" Content="ConfigMgr" Appearance="Primary" Style="{StaticResource WbFooterButton}"
+                           Command="{Binding PublishConfigMgrCommand}" ToolTip="Build a ConfigMgr Application from the selected build" />
+                <ui:Button x:Name="btnPublishIntune" Content="Intune" Appearance="Primary" Style="{StaticResource WbFooterButton}" Margin="0"
+                           Command="{Binding PublishIntuneCommand}" ToolTip="Stage this profile, build its .intunewin, and publish it to Intune" />
+            </StackPanel>
+        </Grid>
+
+        <ui:ContentDialogHost x:Name="WorkbenchDialogHost" Grid.Row="0" Grid.RowSpan="6" />
+    </Grid>
+</ui:FluentWindow>

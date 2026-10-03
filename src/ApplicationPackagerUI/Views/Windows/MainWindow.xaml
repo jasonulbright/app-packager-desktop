@@ -47,9 +47,11 @@
                     Icon="{ui:SymbolIcon Add24}"
                     TargetPageType="{x:Type pages:AddAppPage}" />
                 <ui:NavigationViewItem
-                    Content="Deployment Conditions"
-                    Icon="{ui:SymbolIcon Filter24}"
-                    TargetPageType="{x:Type pages:DeploymentConditionsPage}" />
+                    x:Name="WorkbenchNavItem"
+                    Content="Application Workbench"
+                    Icon="{ui:SymbolIcon Wrench24}"
+                    Click="WorkbenchNavItem_Click"
+                    PreviewMouseLeftButtonDown="WorkbenchNavItem_PreviewMouseLeftButtonDown" />
             </ui:NavigationView.MenuItems>
 
             <ui:NavigationView.FooterMenuItems>

@@ -1,5 +1,6 @@
 using System.IO;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerUI.Controls;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
@@ -341,6 +342,9 @@ public partial class PackagesViewModel : ObservableObject
         "SRLPackr", "packr.log");
 
     private static bool _logInitialized;
+
+    /// <summary>Writes one line to the operation log for work that runs outside this page.</summary>
+    public void AppendLog(string message) => AddLogLine(message);
 
     private void AddLogLine(string message)
     {
@@ -708,10 +712,28 @@ public partial class PackagesViewModel : ObservableObject
 
     private async Task StageAsync() => await RunStageAsync();
 
-    /// <summary>Stages the selection and reports what actually happened to each item.</summary>
-    private async Task<PackagingRunTally> RunStageAsync()
+    /// <summary>
+    /// Stages or packages one row for the Application Workbench through the same per-row
+    /// flow the buttons use, with the workbench's run snapshot and, for a publish, its target.
+    /// The grid selection is left as it is.
+    /// </summary>
+    public async Task RunWorkbenchBuildAsync(PackagerInfo row, bool package, string? target, RunSnapshot snapshot)
     {
-        var selected = SelectedPackagers.ToList();
+        if (IsOperationRunning)
+        {
+            AddLogLine($"Workbench run skipped: another operation is running. {row.Application} was not {(package ? "packaged" : "staged")}.");
+            return;
+        }
+        var profileName = ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? snapshot.ProfileId;
+        AddLogLine($"Workbench {(package ? "Package" : "Stage")}: {row.Application} (profile {profileName}, revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
+        if (package) await PackageAsync([row], target, snapshot);
+        else await RunStageAsync([row], snapshot);
+    }
+
+    /// <summary>Stages the selection, or the given rows, and reports what actually happened to each item.</summary>
+    private async Task<PackagingRunTally> RunStageAsync(IReadOnlyList<PackagerInfo>? rows = null, RunSnapshot? snapshot = null)
+    {
+        var selected = rows?.ToList() ?? SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Stage"); return new PackagingRunTally(); }
 
         IsOperationRunning = true;
@@ -782,7 +804,7 @@ public partial class PackagesViewModel : ObservableObject
                     }
 
                     var result = await _executionService.StageAsync(
-                        p, line => AddLogLine($"  {line}"), _operationCts.Token, settingsValues);
+                        p, line => AddLogLine($"  {line}"), _operationCts.Token, settingsValues, snapshot);
 
                     if (result.ExitCode == 0)
                     {
@@ -836,14 +858,19 @@ public partial class PackagesViewModel : ObservableObject
 
     // ── Package ──────────────────────────────────────────────────
 
-    private async Task PackageAsync()
+    private Task PackageAsync() => PackageAsync(null, null, null);
+
+    /// <summary>Packages the selection, or the given rows; a target override replaces the configured deployment target for this run.</summary>
+    private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot)
     {
         var settings = _settingsService.Load();
+        var target = targetOverride ?? settings.Intune.DeploymentTarget;
+        var label = targetOverride is null ? PackageLabel : DeploymentTargetActionState.For(targetOverride).PackageLabel;
 
         // MECM targets need the site fields; an Intune-only run needs Intune credentials instead,
         // so a console-less workstation can still publish.
         var blocked = DeploymentTargetGate.Validate(
-            settings.Intune.DeploymentTarget,
+            target,
             settings.SiteCode,
             settings.FileShareRoot,
             settings.Intune.TenantId,
@@ -852,9 +879,9 @@ public partial class PackagesViewModel : ObservableObject
 
         if (blocked is not null)
         {
-            _snackbarService.Show(PackageLabel, blocked,
+            _snackbarService.Show(label, blocked,
                 Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
-            AddLogLine($"{PackageLabel} blocked: {blocked}");
+            AddLogLine($"{label} blocked: {blocked}");
             return;
         }
 
@@ -873,7 +900,7 @@ public partial class PackagesViewModel : ObservableObject
                 return;
         }
 
-        var selected = SelectedPackagers.ToList();
+        var selected = rows?.ToList() ?? SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
 
         IsOperationRunning = true;
@@ -904,7 +931,8 @@ public partial class PackagesViewModel : ObservableObject
                 try
                 {
                     var result = await _executionService.PackageAsync(
-                        p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token);
+                        p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
+                        targetOverride: targetOverride, snapshot: snapshot);
 
                     if (result.Conflict is not null)
                     {
@@ -926,7 +954,8 @@ public partial class PackagesViewModel : ObservableObject
                             AddLogLine($"Overwriting existing: {result.Conflict.ApplicationName} v{result.Conflict.Version}");
                             result = await _executionService.PackageAsync(
                                 p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
-                                ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite);
+                                ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite,
+                                snapshot, targetOverride);
                         }
                         else
                         {

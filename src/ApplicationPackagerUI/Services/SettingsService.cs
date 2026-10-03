@@ -1,17 +1,16 @@
 using System.IO;
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
 
 public class SettingsService
 {
-    private static readonly string SettingsDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AppPackager");
+    private static readonly string SettingsDir = AppDataPaths.Root;
 
-    private static readonly string SettingsPath = Path.Combine(SettingsDir, "settings.json");
+    public static readonly string SettingsPath = Path.Combine(SettingsDir, "settings.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
