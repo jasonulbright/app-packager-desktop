@@ -81,6 +81,27 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Systems in use -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Systems in use" Style="{StaticResource SectionHeader}"
+                       ToolTip="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
+            <TextBlock Text="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <CheckBox Content="ConfigMgr" IsChecked="{Binding UseConfigMgr}" Margin="0,0,24,0"
+                          AutomationProperties.AutomationId="chkSystemsConfigMgr"
+                          ToolTip="ConfigMgr applications. Needs the ConfigMgr console, a site and a content share." />
+                <CheckBox Content="Intune" IsChecked="{Binding UseIntune}" Margin="0,0,24,0"
+                          AutomationProperties.AutomationId="chkSystemsIntune"
+                          ToolTip="Intune Win32 apps published through Microsoft Graph. Needs an app registration." />
+                <CheckBox Content="WSUS" IsChecked="{Binding UseWsus}"
+                          AutomationProperties.AutomationId="chkSystemsWsus"
+                          ToolTip="Locally published WSUS updates for computers that have an older version. Needs a WSUS server." />
+            </StackPanel>
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
             <!-- MECM Site Settings -->
             <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="ConfigMgr Site Settings" Style="{StaticResource SectionHeader}" />
@@ -161,8 +182,8 @@
             <!-- ═══════════════════════════════════════════════════ -->
             <!-- One Click -->
             <!-- ═══════════════════════════════════════════════════ -->
-            <TextBlock Text="One Click" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="One Click on the Packages page checks the applications tracked here and, per the action, stages or stages and packages the ones with a newer version. An application checked within its cadence is skipped unless the run is forced."
+            <TextBlock Text="One Click Settings" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. The publish buttons on the Packages page choose their own destination per run."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <Grid Margin="0,0,0,8">
@@ -174,10 +195,11 @@
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Action on update" Style="{StaticResource FieldLabel}" />
                     <ComboBox SelectedValue="{Binding OneClickAction}" SelectedValuePath="Tag" HorizontalAlignment="Stretch"
-                              ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Package also creates the applications, using the comment on the Packages page.">
+                              AutomationProperties.Name="Action on update" AutomationProperties.AutomationId="cboOneClickAction"
+                              ToolTip="Report only lists the newer versions. Stage downloads and prepares them. Stage and Publish also publishes each application to its destinations, using the comment on the Packages page.">
                         <ComboBoxItem Content="Report only" Tag="Report" />
                         <ComboBoxItem Content="Stage" Tag="Stage" />
-                        <ComboBoxItem Content="Stage and Package" Tag="StageAndPackage" />
+                        <ComboBoxItem Content="Stage and Publish" Tag="StageAndPackage" />
                     </ComboBox>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
@@ -185,12 +207,29 @@
                     <ui:NumberBox Value="{Binding OneClickCadenceDays, Mode=TwoWay}"
                                   Minimum="1" Maximum="365" SmallChange="1" LargeChange="7"
                                   SpinButtonPlacementMode="Compact" Width="140" HorizontalAlignment="Left"
-                                  ToolTip="Days a version check stays fresh. A tracked application checked more recently than this is skipped." />
+                                  ToolTip="Days a version check stays fresh. A Report only run skips a tracked application checked more recently than this." />
                 </StackPanel>
             </Grid>
 
             <CheckBox Content="Force on launch (ignore cadence)" IsChecked="{Binding OneClickForce}" Margin="0,0,0,8"
-                      ToolTip="Every tracked application is checked on each run, whatever its last check time." />
+                      AutomationProperties.AutomationId="chkOneClickForce"
+                      ToolTip="The plan opens with Force set: the cadence, the refusal memory and the already-published guard are ignored." />
+
+            <TextBlock Text="Default destinations" Style="{StaticResource FieldLabel}" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12"
+                        ToolTip="The destinations of every tracked app that has no selection of its own in the grid.">
+                <CheckBox Content="ConfigMgr" IsChecked="{Binding OneClickDefaultConfigMgr}" Margin="0,0,24,0" AutomationProperties.AutomationId="chkOneClickMecm" />
+                <CheckBox Content="WSUS" IsChecked="{Binding OneClickDefaultWsus}" Margin="0,0,24,0" AutomationProperties.AutomationId="chkOneClickWsus" />
+                <CheckBox Content="Intune" IsChecked="{Binding OneClickDefaultIntune}" AutomationProperties.AutomationId="chkOneClickIntune" />
+            </StackPanel>
+
+            <TextBlock Text="Existing ConfigMgr app" Style="{StaticResource FieldLabel}" />
+            <ComboBox SelectedValue="{Binding OneClickOnExisting}" SelectedValuePath="Tag" Width="240" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      AutomationProperties.Name="Existing ConfigMgr app" AutomationProperties.AutomationId="cboOneClickOnExisting"
+                      ToolTip="What a run does when the ConfigMgr application already exists with another version. One Click never asks during the run.">
+                <ComboBoxItem Content="Skip the application" Tag="Skip" />
+                <ComboBoxItem Content="Overwrite it" Tag="Overwrite" />
+            </ComboBox>
 
             <DockPanel Margin="0,0,0,8">
                 <ui:Button DockPanel.Dock="Right" Content="Track none" Command="{Binding TrackNoneOneClickCommand}" Margin="8,0,0,0" />
@@ -206,9 +245,10 @@
             <DataGrid ItemsSource="{Binding OneClickRows}" AutoGenerateColumns="False" CanUserAddRows="False"
                       CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" BorderThickness="1"
                       BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" GridLinesVisibility="Horizontal"
-                      Height="280" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application">
+                      Height="280" Margin="0,0,0,8" IsTextSearchEnabled="True" TextSearch.TextPath="Application"
+                      AutomationProperties.AutomationId="dgOneClickApps">
                 <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="Track" Width="64">
+                    <DataGridTemplateColumn Header="Track" Width="60">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding Tracked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" />
@@ -216,8 +256,32 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Application" Width="*" MinWidth="130" Binding="{Binding Application}" IsReadOnly="True" />
-                    <DataGridTextColumn Header="Vendor" Width="150" Binding="{Binding Vendor}" IsReadOnly="True" />
-                    <DataGridTemplateColumn Header="Cadence (days)" Width="120">
+                    <DataGridTextColumn Header="Vendor" Width="100" Binding="{Binding Vendor}" IsReadOnly="True" />
+                    <DataGridTemplateColumn Header="ConfigMgr" Width="100" SortMemberPath="ConfigMgr">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding ConfigMgr, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                          AutomationProperties.Name="ConfigMgr" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="WSUS" Width="64" SortMemberPath="Wsus">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding Wsus, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                          AutomationProperties.Name="WSUS" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Intune" Width="72" SortMemberPath="Intune">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding Intune, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                          AutomationProperties.Name="Intune" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="Cadence (days)" Width="122">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBox Text="{Binding CadenceDisplay, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
@@ -309,15 +373,6 @@
             <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Intune" Style="{StaticResource SectionHeader}" />
 
-            <TextBlock Text="Deployment Target" Style="{StaticResource FieldLabel}" />
-            <ComboBox SelectedValue="{Binding DeploymentTarget}"
-                      SelectedValuePath="Tag"
-                      Width="320" HorizontalAlignment="Left" Margin="0,0,0,4"
-                      ToolTip="Where Package creates applications. ConfigMgr only: today's flow. ConfigMgr + Intune: the ConfigMgr application plus a Graph publish of the .intunewin. Intune only: stage, build the .intunewin, and publish via Graph — no site connection and no share copy. Repeat publishes update the existing Intune app.">
-                <ComboBoxItem Content="ConfigMgr only" Tag="MECM" />
-                <ComboBoxItem Content="ConfigMgr + Intune" Tag="MECMAndIntune" />
-                <ComboBoxItem Content="Intune only" Tag="IntuneOnly" />
-            </ComboBox>
             <TextBlock Text="Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
 
@@ -333,13 +388,82 @@
             <ui:PasswordBox Password="{Binding IntuneClientSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="{Binding IntuneSecretHint}" Margin="0,0,0,4" />
             <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret."
-                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
-
-            <CheckBox Content="Create .intunewin during Package" IsChecked="{Binding CreateIntuneWin}"
-                      IsEnabled="{Binding CreateIntuneWinApplies}" Margin="0,0,0,4"
-                      ToolTip="Under ConfigMgr only, a successful Package also builds the .intunewin from the staged content and stores it beside the network content version folder. Targets that publish to Intune build it regardless." />
-            <TextBlock Text="Applies to the ConfigMgr only target; the other targets build the .intunewin as part of publishing."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <TextBlock Text="Stage builds the .intunewin when the Win32 Content Prep Tool is on this computer; Publish to ConfigMgr stores it beside the network content."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- WSUS Publishing -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="WSUS Publishing" Style="{StaticResource SectionHeader}" />
+            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap"
+                       Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the Packages page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
+
+            <TextBlock Text="Server" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding Wsus.ServerName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="wsus01.contoso.com" Margin="0,0,0,12"
+                        AutomationProperties.Name="WSUS server" AutomationProperties.AutomationId="txtWsusServer"
+                        ToolTip="Host name of the WSUS server. With ConfigMgr, the WSUS server of the top-level software update point." />
+            <TextBlock Text="Port" Style="{StaticResource FieldLabel}" />
+            <DockPanel Margin="0,0,0,6">
+                <ui:Button DockPanel.Dock="Right" Content="Cancel" Command="{Binding Wsus.CancelCommand}" Margin="8,0,0,0" VerticalAlignment="Center"
+                           Visibility="{Binding Wsus.Busy, Converter={StaticResource BooleanToVisibilityConverter}}"
+                           AutomationProperties.AutomationId="btnWsusCancel" />
+                <ui:Button DockPanel.Dock="Right" Content="Test connection" Command="{Binding Wsus.TestConnectionCommand}" Margin="8,0,0,0"
+                           VerticalAlignment="Center" AutomationProperties.AutomationId="btnWsusTest" ToolTipService.ShowOnDisabled="True"
+                           ToolTip="Connects with the values in the boxes and reads the server version, the account role and the signing certificate." />
+                <StackPanel Orientation="Horizontal">
+                    <ui:TextBox Text="{Binding Wsus.Port, UpdateSourceTrigger=PropertyChanged}" Width="100" MaxLength="5"
+                                AutomationProperties.Name="WSUS port" AutomationProperties.AutomationId="txtWsusPort"
+                                ToolTip="8530 for HTTP and 8531 for HTTPS on a default WSUS install." />
+                    <CheckBox Content="Use SSL" IsChecked="{Binding Wsus.UseSsl}" Margin="16,0,0,0" VerticalAlignment="Center"
+                              AutomationProperties.AutomationId="chkWsusSsl" ToolTip="Connect to the WSUS administration API over HTTPS." />
+                </StackPanel>
+            </DockPanel>
+            <TextBlock Text="{Binding Wsus.StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"
+                       AutomationProperties.AutomationId="txtWsusStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+            <TextBlock Text="Signing certificate" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="{Binding Wsus.CertificateText}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8"
+                       AutomationProperties.AutomationId="txtWsusCert" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <WrapPanel Margin="0,0,0,8">
+                <ui:Button Content="Create self-signed..." Command="{Binding Wsus.CreateSelfSignedCommand}" Margin="0,0,8,4"
+                           AutomationProperties.AutomationId="btnWsusCertCreate" ToolTipService.ShowOnDisabled="True"
+                           ToolTip="Has the WSUS server create and use a self-signed signing certificate." />
+                <ui:Button Content="Import PFX..." Command="{Binding Wsus.ImportPfxCommand}" Margin="0,0,8,4"
+                           AutomationProperties.AutomationId="btnWsusCertImport" ToolTipService.ShowOnDisabled="True"
+                           ToolTip="Sets a code-signing certificate with its private key from a PFX file, for example one issued by your PKI." />
+                <ui:Button Content="Export certificate..." Command="{Binding Wsus.ExportCertificateCommand}" Margin="0,0,8,4"
+                           AutomationProperties.AutomationId="btnWsusCertExport" ToolTipService.ShowOnDisabled="True"
+                           ToolTip="Saves the public signing certificate (.cer) for distribution to clients by Group Policy." />
+            </WrapPanel>
+            <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                       AutomationProperties.AutomationId="txtWsusClientTrust"
+                       Text="Clients install locally published updates only when the signing certificate is in their Trusted Publishers store (and Trusted Root Certification Authorities when it is self-signed) and the policy Allow signed updates from an intranet Microsoft update service location is enabled: HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate, AcceptTrustedPublisherCerts = 1 (DWORD)." />
+
+            <TextBlock Text="Publishing" Style="{StaticResource SubHeader}" />
+            <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="txtWsusPolicy"
+                       Text="Each update installs only where an older version of the application is installed. A computer without the application does not get the update." />
+            <TextBlock Text="Classification" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding Wsus.ClassificationOptions}" DisplayMemberPath="Label" SelectedValuePath="Name"
+                      SelectedValue="{Binding Wsus.Classification}" Width="320" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      AutomationProperties.Name="Classification" AutomationProperties.AutomationId="cboWsusClassification"
+                      ToolTip="WSUS classification of every published update. With ConfigMgr, the software update point must synchronize it." />
+            <TextBlock Text="Approve for group" Style="{StaticResource FieldLabel}" />
+            <DockPanel Margin="0,0,0,8">
+                <ui:Button DockPanel.Dock="Right" Content="Load groups" Command="{Binding Wsus.LoadGroupsCommand}" Margin="8,0,0,0"
+                           VerticalAlignment="Center" AutomationProperties.AutomationId="btnWsusGroups" ToolTipService.ShowOnDisabled="True"
+                           ToolTip="Lists the computer groups of the server in the box." />
+                <ComboBox IsEditable="True" ItemsSource="{Binding Wsus.Groups}" Text="{Binding Wsus.ApprovalGroup, UpdateSourceTrigger=PropertyChanged}"
+                          AutomationProperties.Name="Approve for group" AutomationProperties.AutomationId="cboWsusGroup"
+                          ToolTip="Computer group the update is approved for right after it publishes. Leave empty to approve later from WSUS Updates on the Packages page: the WSUS console does not list locally published updates." />
+            </DockPanel>
+            <CheckBox Content="Decline earlier versions of the same application after publishing" IsChecked="{Binding Wsus.DeclineSuperseded}" Margin="0,0,0,8"
+                      AutomationProperties.AutomationId="chkWsusDecline"
+                      ToolTip="Declines the AppPackager updates of the same application that have a lower version. Approving one again reverses it." />
 
             <Border Style="{StaticResource SectionDivider}" />
 
@@ -692,9 +816,14 @@
                            Icon="{ui:SymbolIcon Open24}"
                            Command="{Binding OpenReleasesCommand}"
                            Margin="8,0,0,0" VerticalAlignment="Center" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap">
-                    <Run Text="App Packager Desktop " /><Run Text="{Binding AppVersion, Mode=OneWay}" /><Run Text=" - MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." />
-                </TextBlock>
+                <StackPanel>
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,4"
+                               AutomationProperties.AutomationId="txtAboutDescription"
+                               Text="Automated application packaging for ConfigMgr, Intune and WSUS: vendor version checks, silent install wrappers, detection rules, and a publish button per destination." />
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap">
+                        <Run Text="App Packager Desktop " /><Run Text="{Binding AppVersion, Mode=OneWay}" /><Run Text=" - MIT License. Settings are stored under %LOCALAPPDATA%\AppPackager." />
+                    </TextBlock>
+                </StackPanel>
             </DockPanel>
 
             <!-- Bottom spacer -->

@@ -9,7 +9,7 @@ using Wpf.Ui.Appearance;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
-public partial class SettingsViewModel : ObservableObject
+public partial class SettingsViewModel : ObservableObject, ISettingsReload
 {
     private readonly SettingsService _settingsService;
     private readonly PackagerPreferencesService _prefsSync;
@@ -59,8 +59,15 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<PathSettingRow> LocalSourceRows { get; } = [];
     public ObservableCollection<PathSettingRow> SideFileRows { get; } = [];
 
+    // Systems in use: a publish button whose system is not in use stays disabled.
+    [ObservableProperty] private bool _useConfigMgr = true;
+    [ObservableProperty] private bool _useIntune;
+    [ObservableProperty] private bool _useWsus;
+
+    /// <summary>The WSUS Publishing section; written to the store only by Save Settings.</summary>
+    public WsusPublishingEditor Wsus { get; }
+
     // Intune
-    [ObservableProperty] private string _deploymentTarget = DeploymentTargets.Mecm;
     [ObservableProperty] private string _intuneTenantId = "";
     [ObservableProperty] private string _intuneClientId = "";
 
@@ -98,20 +105,23 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _deployToTestCollection;
     [ObservableProperty] private string _testCollectionName = "";
     [ObservableProperty] private bool _createTestCollectionIfMissing;
-    [ObservableProperty] private bool _createIntuneWin;
 
     /// <summary>The test deployment needs distributed content, so its fields follow the auto-distribute switch.</summary>
     public bool TestDeploymentAvailable => AutoDistribute;
     partial void OnAutoDistributeChanged(bool value) => OnPropertyChanged(nameof(TestDeploymentAvailable));
 
-    /// <summary>Targets that publish to Intune build the .intunewin regardless, so the switch only matters for MECM only.</summary>
-    public bool CreateIntuneWinApplies => !DeploymentTargets.PublishesToIntune(DeploymentTarget);
-    partial void OnDeploymentTargetChanged(string value) => OnPropertyChanged(nameof(CreateIntuneWinApplies));
-
     // One Click
     [ObservableProperty] private string _oneClickAction = OneClickActions.Report;
     [ObservableProperty] private bool _oneClickForce;
     [ObservableProperty] private double? _oneClickCadenceDays = 7;
+    [ObservableProperty] private bool _oneClickDefaultConfigMgr = true;
+    [ObservableProperty] private bool _oneClickDefaultWsus;
+    [ObservableProperty] private bool _oneClickDefaultIntune;
+    /// <summary>Skip or Overwrite.</summary>
+    [ObservableProperty] private string _oneClickOnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Skip;
+
+    /// <summary>The per-application destinations of applications the grid does not list; a save keeps them.</summary>
+    private Dictionary<string, DestinationSet> _unlistedDestinations = new(StringComparer.OrdinalIgnoreCase);
     public ObservableCollection<OneClickRow> OneClickRows { get; } = [];
     public int OneClickTrackedCount => OneClickRows.Count(r => r.Tracked);
     /// <summary>Size of the application list the grid mirrors.</summary>
@@ -134,13 +144,15 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnHasStoredIntuneSecretChanged(bool value) => OnPropertyChanged(nameof(IntuneSecretHint));
 
     public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService,
-        PackagesViewModel packagesViewModel, PackagerDiscoveryService discoveryService)
+        PackagesViewModel packagesViewModel, PackagerDiscoveryService discoveryService,
+        ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient wsusClient, IWsusPrompts wsusPrompts)
     {
         _settingsService = settingsService;
         _prefsSync = prefsSync;
         _snackbarService = snackbarService;
         _packagesViewModel = packagesViewModel;
         _discoveryService = discoveryService;
+        Wsus = new WsusPublishingEditor(wsusClient, prompts: wsusPrompts);
 
         // Migrate from PS1 GUI preferences on first launch
         prefsSync.MigrateFromPs1IfNeeded();
@@ -453,18 +465,26 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public void RefreshOneClickRows()
     {
-        var oneClick = _settingsService.Load().OneClick;
+        var stored = _settingsService.Load();
+        var oneClick = stored.OneClick;
         var tracked = new HashSet<string>(oneClick.TrackedApplications, StringComparer.OrdinalIgnoreCase);
+        var planSettings = OneClickSettingsMap.PlanSettings(stored, consoleFound: true);
         OneClickRows.Clear();
+        var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in _packagesViewModel.Packagers.OrderBy(p => p.Application, StringComparer.OrdinalIgnoreCase))
         {
+            listed.Add(p.Uid);
+            var (set, _) = ApplicationPackagerEngine.Services.OneClick.OneClickPlanner.DestinationsFor(planSettings, p.Uid);
             var row = new OneClickRow
             {
                 Uid = p.Uid,
                 Application = p.Application,
                 Vendor = p.Vendor,
                 Tracked = tracked.Contains(p.Uid),
-                CadenceDisplay = oneClick.CadenceOverrides.TryGetValue(p.Uid, out var days) ? days.ToString() : ""
+                CadenceDisplay = oneClick.CadenceOverrides.TryGetValue(p.Uid, out var days) ? days.ToString() : "",
+                ConfigMgr = set.ConfigMgr,
+                Wsus = set.Wsus,
+                Intune = set.Intune
             };
             row.PropertyChanged += (_, e) =>
             {
@@ -472,8 +492,13 @@ public partial class SettingsViewModel : ObservableObject
             };
             OneClickRows.Add(row);
         }
+        _unlistedDestinations = oneClick.Destinations.Where(kv => !listed.Contains(kv.Key))
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
         OnPropertyChanged(nameof(OneClickTrackedCount));
     }
+
+    /// <summary>The One Click default destinations the boxes hold.</summary>
+    public DestinationSet OneClickDefaultDestinations => new(OneClickDefaultConfigMgr, OneClickDefaultWsus, OneClickDefaultIntune);
 
     [RelayCommand]
     private void TrackAllOneClick()
@@ -513,11 +538,21 @@ public partial class SettingsViewModel : ObservableObject
         DeployToTestCollection = s.ContentDistribution.DeployToTestCollection;
         TestCollectionName = s.ContentDistribution.TestCollectionName;
         CreateTestCollectionIfMissing = s.ContentDistribution.CreateTestCollectionIfMissing;
-        CreateIntuneWin = s.Intune.CreateIntuneWin;
+
+        var systems = s.Systems ?? new SystemsInUse();
+        UseConfigMgr = systems.ConfigMgr;
+        UseIntune = systems.Intune;
+        UseWsus = systems.Wsus;
+        Wsus.Load(s.Wsus);
 
         OneClickAction = OneClickActions.Normalize(s.OneClick.Action);
         OneClickForce = s.OneClick.ForceOnLaunch;
         OneClickCadenceDays = s.OneClick.DefaultCadenceDays > 0 ? s.OneClick.DefaultCadenceDays : 7;
+        var defaults = s.OneClick.DefaultDestinations ?? DestinationSet.FromTarget(s.Intune.DeploymentTarget);
+        OneClickDefaultConfigMgr = defaults.ConfigMgr;
+        OneClickDefaultWsus = defaults.Wsus;
+        OneClickDefaultIntune = defaults.Intune;
+        OneClickOnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(s.OneClick.OnExisting);
         RefreshOneClickRows();
         SkipConfigReview = s.SkipConfigReview;
 
@@ -528,7 +563,6 @@ public partial class SettingsViewModel : ObservableObject
         foreach (var row in SideFileRows)
             row.Path = s.SideFiles.TryGetValue(row.Key, out var file) ? file : "";
 
-        DeploymentTarget = DeploymentTargets.Normalize(s.Intune.DeploymentTarget);
         IntuneTenantId = s.Intune.TenantId;
         IntuneClientId = s.Intune.ClientId;
         IntuneClientSecret = "";
@@ -569,13 +603,18 @@ public partial class SettingsViewModel : ObservableObject
             TestCollectionName = TestCollectionName.Trim(),
             CreateTestCollectionIfMissing = CreateTestCollectionIfMissing,
         };
-        s.Intune.CreateIntuneWin = CreateIntuneWin;
+
+        s.Systems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
+        s.Wsus = Wsus.ToSettings();
 
         s.SkipConfigReview = SkipConfigReview;
         foreach (var group in InstallParameterGroups)
             s.InstallerSettingValues[group.DefinitionId] = new Dictionary<string, string>(group.Values);
 
         var defaultCadence = (int)(OneClickCadenceDays ?? 7);
+        var defaults = OneClickDefaultDestinations;
+        var destinations = OneClickSettingsMap.RowsThatDiffer(OneClickRows.Select(r => (r.Uid, r.Destinations)), defaults);
+        foreach (var (key, set) in _unlistedDestinations) destinations.TryAdd(key, set);
         s.OneClick = new OneClickSettings
         {
             Action = OneClickActions.Normalize(OneClickAction),
@@ -584,8 +623,13 @@ public partial class SettingsViewModel : ObservableObject
             TrackedApplications = OneClickRows.Where(r => r.Tracked).Select(r => r.Uid).ToArray(),
             CadenceOverrides = OneClickRows
                 .Where(r => r.CadenceOverride is { } days && days != defaultCadence)
-                .ToDictionary(r => r.Uid, r => r.CadenceOverride!.Value)
+                .ToDictionary(r => r.Uid, r => r.CadenceOverride!.Value),
+            Destinations = destinations,
+            DefaultDestinations = defaults,
+            OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(OneClickOnExisting)
         };
+        // The nearest single target, for the code paths that still read one.
+        s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
 
         s.CitrixSwitches = TrimSwitches(CwaSwitches);
         s.Cwa = null;
@@ -593,7 +637,6 @@ public partial class SettingsViewModel : ObservableObject
             SetOrRemove(s.LocalSourceFolders, row.Key, row.Path);
         foreach (var row in SideFileRows)
             SetOrRemove(s.SideFiles, row.Key, row.Path);
-        s.Intune.DeploymentTarget = DeploymentTargets.Normalize(DeploymentTarget);
         s.Intune.TenantId = IntuneTenantId.Trim();
         s.Intune.ClientId = IntuneClientId.Trim();
         // An empty box keeps the stored secret; a typed value replaces it, DPAPI-protected for
@@ -607,7 +650,7 @@ public partial class SettingsViewModel : ObservableObject
 
         _settingsService.SaveOperatorEdit(s);
 
-        _packagesViewModel.RefreshDeploymentTargetState();
+        _packagesViewModel.RefreshPublishActionState();
         // ConfigMgr versions and compare results describe one site.
         if (SiteIdentity.Key(s.SiteCode, s.ProviderMachine) != siteBefore)
             PackagesViewModel.ClearSiteResults(_packagesViewModel.Packagers);

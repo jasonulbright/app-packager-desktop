@@ -1,25 +1,30 @@
+using System.Globalization;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerUI.Services;
-using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
 /// <summary>
-/// First-run setup. Step one picks the deployment target, step two shows only the fields that
-/// target needs. Save writes through the same settings persistence the Settings page uses, so it
-/// applies without a restart.
+/// First-run setup. Step one picks the systems in use, step two shows the fields those
+/// systems need. Save writes through the same settings persistence the Settings page uses,
+/// so it applies without a restart, and every selected system becomes a default One Click
+/// destination.
 /// </summary>
 public partial class SetupWindowViewModel : ObservableObject
 {
     private readonly SettingsService _settingsService;
-    private readonly PackagesViewModel _packagesViewModel;
-    private readonly SettingsViewModel _settingsViewModel;
+    private readonly IPublishActionHost _packagesViewModel;
+    private readonly ISettingsReload _settingsViewModel;
+    private bool _portAuto = true;
+    private bool _settingPort;
 
     [ObservableProperty] private int _currentStep = 1;
-    [ObservableProperty] private string _deploymentTarget = DeploymentTargets.Mecm;
+    [ObservableProperty] private bool _useConfigMgr = true;
+    [ObservableProperty] private bool _useIntune;
+    [ObservableProperty] private bool _useWsus;
     [ObservableProperty] private bool _dontShowAgain;
 
-    // MECM
+    // ConfigMgr
     [ObservableProperty] private string _siteCode = "";
     [ObservableProperty] private string _providerMachine = "";
     [ObservableProperty] private string _fileShareRoot = "";
@@ -34,8 +39,15 @@ public partial class SetupWindowViewModel : ObservableObject
 
     [ObservableProperty] private bool _hasStoredIntuneSecret;
 
-    public bool ShowMecmFields => !DeploymentTargets.SkipsMecm(DeploymentTarget);
-    public bool ShowIntuneFields => DeploymentTargets.PublishesToIntune(DeploymentTarget);
+    // WSUS
+    [ObservableProperty] private string _wsusServerName = "";
+    [ObservableProperty] private string _wsusPort = WsusSettings.HttpPort.ToString(CultureInfo.InvariantCulture);
+    [ObservableProperty] private bool _wsusUseSsl;
+
+    public bool ShowMecmFields => UseConfigMgr;
+    public bool ShowIntuneFields => UseIntune;
+    public bool ShowWsusFields => UseWsus;
+    public bool ShowNoFields => !UseConfigMgr && !UseIntune && !UseWsus;
 
     public string IntuneSecretHint => HasStoredIntuneSecret
         ? "Stored — leave empty to keep it"
@@ -46,15 +58,18 @@ public partial class SetupWindowViewModel : ObservableObject
 
     public SetupWindowViewModel(
         SettingsService settingsService,
-        PackagesViewModel packagesViewModel,
-        SettingsViewModel settingsViewModel)
+        IPublishActionHost packagesViewModel,
+        ISettingsReload settingsViewModel)
     {
         _settingsService = settingsService;
         _packagesViewModel = packagesViewModel;
         _settingsViewModel = settingsViewModel;
 
         var s = _settingsService.Load();
-        DeploymentTarget = DeploymentTargets.Normalize(s.Intune.DeploymentTarget);
+        var systems = s.Systems ?? new SystemsInUse();
+        UseConfigMgr = systems.ConfigMgr;
+        UseIntune = systems.Intune;
+        UseWsus = systems.Wsus;
         SiteCode = s.SiteCode;
         ProviderMachine = s.ProviderMachine;
         FileShareRoot = s.FileShareRoot;
@@ -62,15 +77,45 @@ public partial class SetupWindowViewModel : ObservableObject
         IntuneTenantId = s.Intune.TenantId;
         IntuneClientId = s.Intune.ClientId;
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
+        _settingPort = true;
+        try
+        {
+            WsusServerName = s.Wsus.ServerName;
+            WsusPort = s.Wsus.PortNumber.ToString(CultureInfo.InvariantCulture);
+            _portAuto = WsusPort is "8530" or "8531";
+            WsusUseSsl = s.Wsus.UseSsl;
+        }
+        finally { _settingPort = false; }
     }
 
-    partial void OnDeploymentTargetChanged(string value)
+    partial void OnUseConfigMgrChanged(bool value) => NotifyGroups();
+    partial void OnUseIntuneChanged(bool value) => NotifyGroups();
+    partial void OnUseWsusChanged(bool value) => NotifyGroups();
+
+    private void NotifyGroups()
     {
         OnPropertyChanged(nameof(ShowMecmFields));
         OnPropertyChanged(nameof(ShowIntuneFields));
+        OnPropertyChanged(nameof(ShowWsusFields));
+        OnPropertyChanged(nameof(ShowNoFields));
     }
 
     partial void OnHasStoredIntuneSecretChanged(bool value) => OnPropertyChanged(nameof(IntuneSecretHint));
+
+    /// <summary>The port follows the SSL box until the operator types a port of their own.</summary>
+    partial void OnWsusUseSslChanged(bool value)
+    {
+        if (!_portAuto) return;
+        _settingPort = true;
+        try { WsusPort = (value ? WsusSettings.SslPort : WsusSettings.HttpPort).ToString(CultureInfo.InvariantCulture); }
+        finally { _settingPort = false; }
+    }
+
+    partial void OnWsusPortChanged(string value)
+    {
+        if (_settingPort) return;
+        _portAuto = (value ?? "").Trim() is "" or "8530" or "8531";
+    }
 
     [RelayCommand]
     private void Next() => CurrentStep = 2;
@@ -83,17 +128,21 @@ public partial class SetupWindowViewModel : ObservableObject
     {
         var s = _settingsService.Load();
 
-        s.Intune.DeploymentTarget = DeploymentTargets.Normalize(DeploymentTarget);
-
-        if (ShowMecmFields)
+        s.Systems = new SystemsInUse { ConfigMgr = UseConfigMgr, Intune = UseIntune, Wsus = UseWsus };
+        if (UseConfigMgr)
         {
             s.SiteCode = SiteCode.Trim();
             s.ProviderMachine = ProviderMachine.Trim();
             s.FileShareRoot = FileShareRoot.Trim();
             s.DownloadRoot = DownloadRoot.Trim();
         }
+        else
+        {
+            // The built-in default would otherwise persist as a site code the operator never entered.
+            s.SiteCode = "";
+        }
 
-        if (ShowIntuneFields)
+        if (UseIntune)
         {
             s.Intune.TenantId = IntuneTenantId.Trim();
             s.Intune.ClientId = IntuneClientId.Trim();
@@ -105,12 +154,27 @@ public partial class SetupWindowViewModel : ObservableObject
             }
         }
 
+        if (UseWsus)
+        {
+            s.Wsus.ServerName = WsusServerName.Trim();
+            if (int.TryParse(WsusPort.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var port) && port is >= 1 and <= 65535)
+                s.Wsus.PortNumber = port;
+            s.Wsus.UseSsl = WsusUseSsl;
+        }
+
+        // One Click runs unattended: every selected system becomes a default destination;
+        // the publish buttons choose per run.
+        var defaults = new DestinationSet(UseConfigMgr, UseWsus, UseIntune);
+        s.OneClick.DefaultDestinations = defaults;
+        s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
+
         s.FirstRunCompleted = true;
-        if (ShowMecmFields) _settingsService.SaveOperatorEdit(s);
+        if (UseConfigMgr) _settingsService.SaveOperatorEdit(s);
         else _settingsService.Save(s);
 
         _settingsViewModel.ReloadFromStore();
-        _packagesViewModel.RefreshDeploymentTargetState();
+        _packagesViewModel.RefreshPublishActionState();
+        _packagesViewModel.AppendLog(OneClickSettingsMap.SetupCompleteLine(defaults));
 
         CloseRequested?.Invoke(this, true);
     }

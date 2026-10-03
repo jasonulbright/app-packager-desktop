@@ -17,6 +17,8 @@ public partial class PackagesViewModel : ObservableObject
     private readonly IContentDialogService _contentDialogService;
     private readonly ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService _dropAnalysisService;
     private readonly ApplicationPackagerEngine.Services.StagingService _stagingService;
+    private readonly ApplicationPackagerEngine.Services.Wsus.IWsusPublisher _wsusPublisher;
+    private readonly IPublishDialogs _publishDialogs;
 
     [ObservableProperty] private ObservableCollection<PackagerInfo> _packagers = [];
     [ObservableProperty] private ObservableCollection<PackagerInfo> _filteredPackagers = [];
@@ -32,19 +34,27 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private bool _showProgress;
     [ObservableProperty] private string _mecmConnectionStatus = "Unknown";
 
-    // Deployment-target-aware action bar. Written only by RefreshDeploymentTargetState.
+    // Publish buttons per destination. Written only by RefreshPublishActionState.
     [ObservableProperty] private bool _isCheckMecmAvailable = true;
     [ObservableProperty] private string _checkMecmToolTip = "";
-    [ObservableProperty] private string _packageLabel = "Package";
-    [ObservableProperty] private string _packageToolTip = "";
-    [ObservableProperty] private bool _isIntuneOnlyTarget;
+    [ObservableProperty] private bool _isPublishConfigMgrAvailable;
+    [ObservableProperty] private string _publishConfigMgrToolTip = "";
+    [ObservableProperty] private bool _isPublishIntuneAvailable;
+    [ObservableProperty] private string _publishIntuneToolTip = "";
+    [ObservableProperty] private bool _isPublishWsusAvailable;
+    [ObservableProperty] private string _publishWsusToolTip = "";
+    [ObservableProperty] private bool _isWsusUpdatesAvailable;
+    [ObservableProperty] private string _wsusUpdatesToolTip = "";
     private bool _skipMecmPreflight;
 
     public IAsyncRelayCommand LoadPackagersCommand { get; }
     public IAsyncRelayCommand CheckLatestCommand { get; }
     public IAsyncRelayCommand CheckMecmCommand { get; }
     public IAsyncRelayCommand StageCommand { get; }
-    public IAsyncRelayCommand PackageCommand { get; }
+    public IAsyncRelayCommand PublishConfigMgrCommand { get; }
+    public IAsyncRelayCommand PublishIntuneCommand { get; }
+    public IAsyncRelayCommand PublishWsusCommand { get; }
+    public IRelayCommand WsusUpdatesCommand { get; }
     public IAsyncRelayCommand OneClickCommand { get; }
 
     private CancellationTokenSource? _operationCts;
@@ -57,7 +67,9 @@ public partial class PackagesViewModel : ObservableObject
         ISnackbarService snackbarService,
         IContentDialogService contentDialogService,
         ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService dropAnalysisService,
-        ApplicationPackagerEngine.Services.StagingService stagingService)
+        ApplicationPackagerEngine.Services.StagingService stagingService,
+        ApplicationPackagerEngine.Services.Wsus.IWsusPublisher wsusPublisher,
+        IPublishDialogs publishDialogs)
     {
         _dropAnalysisService = dropAnalysisService;
         _stagingService = stagingService;
@@ -67,36 +79,67 @@ public partial class PackagesViewModel : ObservableObject
         _settingsService = settingsService;
         _snackbarService = snackbarService;
         _contentDialogService = contentDialogService;
+        _wsusPublisher = wsusPublisher;
+        _publishDialogs = publishDialogs;
 
         LoadPackagersCommand = new AsyncRelayCommand(LoadPackagersAsync);
         CheckLatestCommand = new AsyncRelayCommand(CheckLatestAsync, CanRunOperation);
         CheckMecmCommand = new AsyncRelayCommand(CheckMecmAsync, CanRunCheckMecm);
         StageCommand = new AsyncRelayCommand(StageAsync, CanRunOperation);
-        PackageCommand = new AsyncRelayCommand(PackageAsync, CanRunOperation);
+        PublishConfigMgrCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.ConfigMgr), () => CanRunOperation() && IsPublishConfigMgrAvailable);
+        PublishIntuneCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.IntuneOnly), () => CanRunOperation() && IsPublishIntuneAvailable);
+        PublishWsusCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.WsusOnly), () => CanRunOperation() && IsPublishWsusAvailable);
+        WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
 
-        RefreshDeploymentTargetState();
+        RefreshPublishActionState();
 
         _ = InitializeAsync();
     }
 
+    /// <summary>The settings the publish buttons depend on, as stored now.</summary>
+    public static PublishReadiness ReadinessOf(AppSettings settings) => new(
+        settings.Systems ?? new SystemsInUse(),
+        ApplicationPackagerEngine.Services.ConfigMgrConsole.IsInstalled(),
+        settings.SiteCode, settings.FileShareRoot,
+        settings.Intune.TenantId, settings.Intune.ClientId, !string.IsNullOrWhiteSpace(settings.Intune.ClientSecretProtected),
+        settings.Wsus.ServerName);
+
     /// <summary>
-    /// Applies the deployment target to the action bar. The only writer of these bound
-    /// properties; called at launch, after a Settings save, and after the setup window saves.
+    /// Applies Systems in use and the stored settings to the publish buttons: a button
+    /// whose system is not ready is disabled with a tooltip naming the missing setting,
+    /// and one whose setting was saved since is enabled again. The only writer of these
+    /// bound properties; called at launch, after a Settings save, and after Setup saves.
     /// </summary>
-    public void RefreshDeploymentTargetState()
+    public void RefreshPublishActionState()
     {
-        var target = _settingsService.Load().Intune.DeploymentTarget;
-        var state = DeploymentTargetActionState.For(target);
+        var state = PublishActionState.For(ReadinessOf(_settingsService.Load()));
 
         IsCheckMecmAvailable = state.CheckMecmEnabled;
         CheckMecmToolTip = state.CheckMecmToolTip;
-        PackageLabel = state.PackageLabel;
-        PackageToolTip = state.PackageToolTip;
+        IsPublishConfigMgrAvailable = state.MecmEnabled;
+        PublishConfigMgrToolTip = state.MecmToolTip;
+        IsPublishIntuneAvailable = state.IntuneEnabled;
+        PublishIntuneToolTip = state.IntuneToolTip;
+        IsPublishWsusAvailable = state.WsusEnabled;
+        PublishWsusToolTip = state.WsusToolTip;
+        IsWsusUpdatesAvailable = state.WsusUpdatesEnabled;
+        WsusUpdatesToolTip = state.WsusUpdatesToolTip;
         _skipMecmPreflight = state.SkipMecmPreflight;
-        IsIntuneOnlyTarget = DeploymentTargets.SkipsMecm(target);
 
+        NotifyActionCommands();
+    }
+
+    private void NotifyActionCommands()
+    {
+        CheckLatestCommand.NotifyCanExecuteChanged();
         CheckMecmCommand.NotifyCanExecuteChanged();
+        StageCommand.NotifyCanExecuteChanged();
+        PublishConfigMgrCommand.NotifyCanExecuteChanged();
+        PublishIntuneCommand.NotifyCanExecuteChanged();
+        PublishWsusCommand.NotifyCanExecuteChanged();
+        WsusUpdatesCommand.NotifyCanExecuteChanged();
+        OneClickCommand.NotifyCanExecuteChanged();
     }
 
     private async Task InitializeAsync()
@@ -112,163 +155,10 @@ public partial class PackagesViewModel : ObservableObject
 
     private bool CanRunOperation() => !IsOperationRunning;
 
-    /// <summary>Disabled rather than hidden under an Intune-only target: the tooltip states why.</summary>
+    /// <summary>Disabled rather than hidden when ConfigMgr is not ready: the tooltip states why.</summary>
     private bool CanRunCheckMecm() => CanRunOperation() && IsCheckMecmAvailable;
 
-    partial void OnIsOperationRunningChanged(bool value)
-    {
-        CheckLatestCommand.NotifyCanExecuteChanged();
-        CheckMecmCommand.NotifyCanExecuteChanged();
-        StageCommand.NotifyCanExecuteChanged();
-        PackageCommand.NotifyCanExecuteChanged();
-        OneClickCommand.NotifyCanExecuteChanged();
-    }
-
-    // ── One Click ────────────────────────────────────────────────
-
-    /// <summary>
-    /// Checks the tracked applications, skipping any checked within its cadence unless
-    /// the run is forced, then hands the ones with a newer version to Stage and, for the
-    /// full action, Package. Selection is rewritten to those applications so the three
-    /// phases share one code path with the buttons.
-    /// </summary>
-    private async Task OneClickAsync()
-    {
-        var settings = _settingsService.Load();
-        var oneClick = settings.OneClick;
-        var action = OneClickActions.Normalize(oneClick.Action);
-        var tracked = new HashSet<string>(oneClick.TrackedApplications, StringComparer.OrdinalIgnoreCase);
-        var targets = Packagers.Where(p => p.IsRunnable && tracked.Contains(p.Uid)).ToList();
-
-        if (targets.Count == 0)
-        {
-            AddLogLine("One Click: no tracked applications. Choose them under Settings, One Click.");
-            _snackbarService.Show("One Click", "No applications are tracked. Choose them under Settings.",
-                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Info24), TimeSpan.FromSeconds(4));
-            return;
-        }
-
-        if (action == OneClickActions.StageAndPackage)
-        {
-            var blocked = DeploymentTargetGate.Validate(
-                settings.Intune.DeploymentTarget, settings.SiteCode, settings.FileShareRoot,
-                settings.Intune.TenantId, settings.Intune.ClientId,
-                !string.IsNullOrWhiteSpace(settings.Intune.ClientSecretProtected));
-            if (blocked is not null)
-            {
-                AddLogLine($"One Click blocked: {blocked}");
-                _snackbarService.Show("One Click", blocked,
-                    Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
-                return;
-            }
-        }
-
-        var defaultCadence = oneClick.DefaultCadenceDays > 0 ? oneClick.DefaultCadenceDays : 7;
-        var due = new List<PackagerInfo>();
-        foreach (var p in targets)
-        {
-            var cadence = oneClick.CadenceOverrides.TryGetValue(p.Uid, out var days) && days > 0 ? days : defaultCadence;
-            if (!oneClick.ForceOnLaunch && p.LastChecked is { } last && (DateTime.Now - last).TotalDays < cadence)
-            {
-                AddLogLine($"One Click: {p.Application} checked {(int)(DateTime.Now - last).TotalDays}d ago, within its {cadence}d cadence; skipped.");
-                continue;
-            }
-            due.Add(p);
-        }
-
-        AddLogLine($"One Click: {targets.Count} tracked, {due.Count} due, action {action}{(oneClick.ForceOnLaunch ? ", forced" : "")}.");
-        if (due.Count == 0)
-        {
-            StatusText = "One Click: nothing due.";
-            return;
-        }
-
-        // A cancelled phase ends the run. Whatever the check already recorded stays on the
-        // rows; One Click does not go on to stage or package after the operator stopped it.
-        var checkTally = await RunCheckLatestOnList(due, "One Click: checking versions...", "One Click");
-        if (checkTally.Cancelled)
-        {
-            AddLogLine("One Click: cancelled during the version check; nothing staged or packaged.");
-            return;
-        }
-
-        // A newer version is one the site does not carry yet; an application never checked
-        // against the site counts as new.
-        var updates = due.Where(p => !string.IsNullOrEmpty(p.LatestVersion)
-                                     && p.Status != "Error"
-                                     && !string.Equals(p.LatestVersion, p.CurrentVersion, StringComparison.OrdinalIgnoreCase))
-                         .ToList();
-        foreach (var p in updates)
-            AddLogLine($"One Click: {p.Application} {p.LatestVersion} available" +
-                       (string.IsNullOrEmpty(p.CurrentVersion) ? "" : $" (site has {p.CurrentVersion})"));
-
-        // After the cadence gate and the version check: a matching vendor version alone does
-        // not skip an application whose profile or signing policy changed since its last build.
-        var plans = new Dictionary<PackagerInfo, PackagerExecutionService.OneClickBuildPlan>();
-        var versionUpdates = new HashSet<PackagerInfo>(updates);
-        if (action != OneClickActions.Report)
-        {
-            var policyDigest = settings.ScriptSigning.PolicyDigest;
-            foreach (var p in due)
-            {
-                if (_executionService.ResolveBuildPlan(p) is not { } plan) continue;
-                plans[p] = plan;
-                if (updates.Contains(p) || p.Status == "Error" || string.IsNullOrEmpty(p.LatestVersion)) continue;
-                if (ApplicationPackagerEngine.Services.Workbench.BuildRecords.IsCurrent(
-                        plan.DataRoot, plan.ApplicationId, plan.ProfileId, p.LatestVersion, plan.ProfileRevision, policyDigest) == false)
-                {
-                    updates.Add(p);
-                    AddLogLine($"One Click: {p.Application} {p.LatestVersion} rebuilds: the last build differs in version, profile revision or signing policy.");
-                }
-            }
-        }
-
-        if (updates.Count == 0)
-        {
-            // A batch whose lookups failed has not established that anything is current.
-            StatusText = checkTally.AllSucceeded(due.Count)
-                ? "One Click: everything current."
-                : $"One Click: no newer versions found. {checkTally.Describe(due.Count, "checked")}.";
-            AddLogLine("One Click: no newer versions.");
-            return;
-        }
-        if (action == OneClickActions.Report)
-        {
-            var reported = $"One Click: {updates.Count} newer version(s) reported.";
-            StatusText = checkTally.AllSucceeded(due.Count)
-                ? reported
-                : $"{reported} {checkTally.Describe(due.Count, "checked")}.";
-            return;
-        }
-
-        foreach (var p in Packagers) p.IsSelected = updates.Contains(p);
-        var stageTally = await RunStageAsync(oneClickPlans: plans);
-        if (stageTally.Cancelled)
-        {
-            AddLogLine("One Click: cancelled during staging; nothing packaged.");
-            return;
-        }
-        if (action != OneClickActions.StageAndPackage) return;
-
-        var staged = OneClickPublishSelection.Publishable(updates, versionUpdates).ToList();
-        foreach (var p in updates.Where(p => p.Status == "Staged" && !versionUpdates.Contains(p)))
-            AddLogLine($"One Click: {p.Application} {p.LatestVersion} restaged; ConfigMgr already carries this version, so it is not published.");
-        foreach (var p in Packagers) p.IsSelected = staged.Contains(p);
-        if (staged.Count == 0)
-        {
-            // Nothing to package because staging did not produce anything, which is a
-            // different thing from there having been nothing to do.
-            StatusText = versionUpdates.Count == 0 && stageTally.AllSucceeded(updates.Count)
-                ? $"One Click: {updates.Count} build(s) restaged; nothing new to publish."
-                : $"One Click: nothing staged to package. {stageTally.Describe(updates.Count, "staged")}.";
-            return;
-        }
-        _skipCommentPrompt = true;
-        try { await PackageAsync(); }
-        finally { _skipCommentPrompt = false; }
-    }
-
-    private bool _skipCommentPrompt;
+    partial void OnIsOperationRunningChanged(bool value) => NotifyActionCommands();
 
     private IEnumerable<PackagerInfo> SelectedPackagers =>
         Packagers.Where(p => p.IsSelected && p.IsRunnable);
@@ -466,11 +356,11 @@ public partial class PackagesViewModel : ObservableObject
     {
         var settings = _settingsService.Load();
 
-        // Skipped before it can open a provider connection: an Intune-only workstation has no site.
+        // Skipped before it can open a provider connection: a workstation without ConfigMgr has no site.
         if (_skipMecmPreflight)
         {
             MecmConnectionStatus = "Not used";
-            AddLogLine("ConfigMgr: pre-flight version query skipped — Deployment Target is Intune only.");
+            AddLogLine("ConfigMgr: pre-flight version query skipped; ConfigMgr is not in use (Settings, Systems in use).");
             return;
         }
 
@@ -748,7 +638,8 @@ public partial class PackagesViewModel : ObservableObject
         }
         var profileName = ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? snapshot.ProfileId;
         AddLogLine($"Workbench {(package ? "Package" : "Stage")}: {row.Application} (profile {profileName}, revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
-        if (package) await PackageAsync([row], target, snapshot);
+        if (package && target == PublishRunTargets.WsusOnly) await PublishWsusRunAsync([row], snapshot);
+        else if (package) await PackageAsync([row], target, snapshot);
         else await RunStageAsync([row], snapshot);
     }
 
@@ -897,24 +788,16 @@ public partial class PackagesViewModel : ObservableObject
 
     // ── Package ──────────────────────────────────────────────────
 
-    private Task PackageAsync() => PackageAsync(null, null, null);
-
-    /// <summary>Packages the selection, or the given rows; a target override replaces the configured deployment target for this run.</summary>
+    /// <summary>Packages the selection, or the given rows, for one publish target: ConfigMgr or Intune only.</summary>
     private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot)
     {
         var settings = _settingsService.Load();
-        var target = targetOverride ?? settings.Intune.DeploymentTarget;
-        var label = targetOverride is null ? PackageLabel : DeploymentTargetActionState.For(targetOverride).PackageLabel;
+        var target = targetOverride ?? PublishRunTargets.ConfigMgr;
+        var label = PublishLabel(target);
 
-        // MECM targets need the site fields; an Intune-only run needs Intune credentials instead,
-        // so a console-less workstation can still publish.
-        var blocked = DeploymentTargetGate.Validate(
-            target,
-            settings.SiteCode,
-            settings.FileShareRoot,
-            settings.Intune.TenantId,
-            settings.Intune.ClientId,
-            !string.IsNullOrWhiteSpace(settings.Intune.ClientSecretProtected));
+        // The site gates apply only to a ConfigMgr run; an Intune-only run needs its
+        // credentials instead, so a console-less workstation can still publish.
+        var blocked = PublishActionState.RunGate(target, ReadinessOf(settings));
 
         if (blocked is not null)
         {
@@ -924,7 +807,7 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(Comment) && !_skipCommentPrompt)
+        if (string.IsNullOrWhiteSpace(Comment))
         {
             var dialog = new ContentDialog
             {
@@ -943,7 +826,7 @@ public partial class PackagesViewModel : ObservableObject
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
         selected = ConfirmLocalSourceFolders(selected);
         if (selected.Count == 0) return;
-        if (DeploymentTargets.PublishesToIntune(settings.Intune.DeploymentTarget) && !await ReviewIntuneCompatibilityAsync(selected))
+        if (DeploymentTargets.PublishesToIntune(target) && !await ReviewIntuneCompatibilityAsync(selected))
         {
             AddLogLine("Intune review: run cancelled.");
             return;
@@ -1015,7 +898,7 @@ public partial class PackagesViewModel : ObservableObject
 
                     if (result.ExitCode == 0)
                     {
-                        p.Status = "Packaged";
+                        p.Status = RowStatus(target, result.ExitCode);
                         p.IsSelected = false;
                         tally.RecordSuccess();
                         var pkgRef = string.IsNullOrEmpty(result.OutLogPath) ? result.StdOut : $"Log: {System.IO.Path.GetFileName(result.OutLogPath)}";
@@ -1027,7 +910,7 @@ public partial class PackagesViewModel : ObservableObject
                         // comes back as an ordinary failed result. The caller's token is what
                         // tells the two apart.
                         var stopped = tally.RecordInterruptedOrFailed(_operationCts.Token);
-                        p.Status = stopped ? "Cancelled" : "Package error";
+                        p.Status = stopped ? "Cancelled" : RowStatus(target, result.ExitCode);
                         if (!stopped)
                         {
                             p.IsSelected = false;
@@ -1051,12 +934,12 @@ public partial class PackagesViewModel : ObservableObject
                         p.Status = "Cancelled";
                         break;
                     }
-                    p.Status = "Package error";
+                    p.Status = RowStatus(target, 1);
                     AddLogLine($"ERROR: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
-                    p.Status = "Package error";
+                    p.Status = RowStatus(target, 1);
                     tally.RecordFailure();
                     AddLogLine($"ERROR: {ex.Message}");
                 }
@@ -1065,7 +948,9 @@ public partial class PackagesViewModel : ObservableObject
             // Keeping an existing application with Cancel remaining cancels the token and
             // leaves the loop normally, so completion is not what happened.
             tally.Finish(_operationCts.Token);
-            StatusText = tally.Summarize("Package", ProgressTotal, "packaged");
+            StatusText = PublishRunTargets.SkipsSite(target)
+                ? tally.Summarize("Publish", ProgressTotal, "published")
+                : tally.Summarize("Package", ProgressTotal, "packaged");
         }
         finally
         {
@@ -1415,7 +1300,7 @@ public partial class PackagesViewModel : ObservableObject
                     lines.Add($"{p.Application}: [{f.Severity}] {f.Code} - {f.Message}");
             }
         }
-        if (lines.Count == 0 || _skipCommentPrompt) return true;
+        if (lines.Count == 0) return true;
 
         var dialog = new ContentDialog
         {
@@ -1496,12 +1381,12 @@ public partial class PackagesViewModel : ObservableObject
         var s = _settingsService.Load();
         foreach (var p in Packagers)
         {
-            s.AppStates[p.Uid] = new AppCheckState
-            {
-                LastChecked = p.LastChecked,
-                LatestVersion = p.LatestVersion,
-                CurrentVersion = p.CurrentVersion
-            };
+            // The publish and refusal records live on the same entry and outlast a check.
+            if (!s.AppStates.TryGetValue(p.Uid, out var state) || state is null)
+                s.AppStates[p.Uid] = state = new AppCheckState();
+            state.LastChecked = p.LastChecked;
+            state.LatestVersion = p.LatestVersion;
+            state.CurrentVersion = p.CurrentVersion;
         }
         _settingsService.Save(s);
     }

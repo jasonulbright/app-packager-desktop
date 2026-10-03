@@ -153,19 +153,12 @@ public sealed class IntuneSettings
     /// The plaintext secret is never persisted and never logged.
     /// </summary>
     public string ClientSecretProtected { get; set; } = "";
-
-    /// <summary>
-    /// Under an MECM-only target, a successful Package also builds the .intunewin and
-    /// stores it beside the network content version folder. Targets that publish to
-    /// Intune build it regardless.
-    /// </summary>
-    public bool CreateIntuneWin { get; set; }
 }
 
 /// <summary>
-/// One Click runs a version check over the tracked applications and, per the
-/// action, stages or stages and packages the ones with a newer version. An
-/// application checked within its cadence is skipped unless the run forces it.
+/// One Click opens a plan of the tracked applications, then checks them and, per
+/// the action, stages or stages and publishes each to its own destinations. A
+/// Report run skips an application checked within its cadence unless forced.
 /// </summary>
 public sealed class OneClickSettings
 {
@@ -177,6 +170,18 @@ public sealed class OneClickSettings
     public string[] TrackedApplications { get; set; } = [];
     /// <summary>Per-application cadence in days where it differs from the default (id → days).</summary>
     public Dictionary<string, int> CadenceOverrides { get; set; } = [];
+
+    /// <summary>Applications with destinations of their own (id → set). Any other application follows the default.</summary>
+    public Dictionary<string, DestinationSet> Destinations { get; set; } = [];
+
+    /// <summary>
+    /// Null in a file written before the default existed; the planner then
+    /// reads the saved deployment target.
+    /// </summary>
+    public DestinationSet? DefaultDestinations { get; set; }
+
+    /// <summary>Skip or Overwrite: a run decides an existing ConfigMgr application by this, without a prompt.</summary>
+    public string OnExisting { get; set; } = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Skip;
 }
 
 /// <summary>Stored tokens for the One Click action.</summary>
@@ -262,4 +267,13 @@ public sealed class AppCheckState
     public DateTime? LastChecked { get; set; }
     public string LatestVersion { get; set; } = "";
     public string CurrentVersion { get; set; } = "";
+
+    /// <summary>The last One Click stage of this application.</summary>
+    public DateTime? LastStaged { get; set; }
+
+    /// <summary>The version last published to each destination (ConfigMgr, WSUS, Intune).</summary>
+    public Dictionary<string, ApplicationPackagerEngine.Services.OneClick.OneClickPublishRecord> Published { get; set; } = [];
+
+    /// <summary>The version each destination last refused; a publish to that destination clears it.</summary>
+    public Dictionary<string, ApplicationPackagerEngine.Services.OneClick.OneClickRefusalRecord> NotSupported { get; set; } = [];
 }

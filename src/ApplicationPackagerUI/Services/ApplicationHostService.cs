@@ -13,6 +13,11 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        // The resource dictionary starts Dark; the stored theme applies before the first window renders.
+        if (Enum.TryParse<Wpf.Ui.Appearance.ApplicationTheme>(serviceProvider.GetRequiredService<SettingsService>().Load().Theme, out var theme)
+            && theme is Wpf.Ui.Appearance.ApplicationTheme.Light or Wpf.Ui.Appearance.ApplicationTheme.Dark)
+            Wpf.Ui.Appearance.ApplicationThemeManager.Apply(theme);
+
         var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
         mainWindow.Show();
 
