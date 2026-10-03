@@ -48,14 +48,14 @@
                     <TextBlock Text="This sets the Deployment Target. You can change it later in Settings."
                                Style="{StaticResource HintText}" />
 
-                    <RadioButton Content="MECM only" Margin="0,0,0,4"
+                    <RadioButton Content="ConfigMgr only" Margin="0,0,0,4"
                                  IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=MECM}" />
-                    <TextBlock Text="Package creates the MECM Application and Deployment Type."
+                    <TextBlock Text="Package creates the ConfigMgr Application and Deployment Type."
                                Style="{StaticResource HintText}" Margin="24,0,0,10" />
 
-                    <RadioButton Content="MECM + Intune" Margin="0,0,0,4"
+                    <RadioButton Content="ConfigMgr + Intune" Margin="0,0,0,4"
                                  IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=MECMAndIntune}" />
-                    <TextBlock Text="The MECM application plus a Graph publish of the .intunewin."
+                    <TextBlock Text="The ConfigMgr application plus a Graph publish of the .intunewin."
                                Style="{StaticResource HintText}" Margin="24,0,0,10" />
 
                     <RadioButton Content="Intune only" Margin="0,0,0,4"

@@ -44,7 +44,8 @@ public static class PackagerChildBridge
         string target = RunTargets.Mecm,
         JsonNode? signingPolicy = null,
         ISigningCertificateGate? signingGate = null,
-        bool includeVersionInTitle = false)
+        bool includeVersionInTitle = false,
+        bool removeVersionFromTitle = false)
     {
         var applicationId = ApplicationIds.New(ApplicationOrigin.Catalog, path: packagerScriptPath);
         var profileId = store.GetApplicationDefinition(applicationId).ActiveProfileId;
@@ -61,7 +62,7 @@ public static class PackagerChildBridge
             DownloadRoot = effectiveDownloadRoot
         }, signingGate);
 
-        return FromSnapshot(store, snapshot, downloadRoot, includeVersionInTitle);
+        return FromSnapshot(store, snapshot, downloadRoot, includeVersionInTitle, removeVersionFromTitle);
     }
 
     /// <summary>
@@ -70,7 +71,7 @@ public static class PackagerChildBridge
     /// is scoped to the snapshot's profile the same way <see cref="Prepare"/> scopes it.
     /// </summary>
     public static PackagerChildLaunch FromSnapshot(WorkbenchStore store, RunSnapshot snapshot, string downloadRoot,
-        bool includeVersionInTitle = false)
+        bool includeVersionInTitle = false, bool removeVersionFromTitle = false)
     {
         if (string.IsNullOrWhiteSpace(snapshot.Path))
             throw new InvalidOperationException("The run snapshot has no file; a packager child reads it from APP_PACKAGER_RUN_SNAPSHOT.");
@@ -84,7 +85,7 @@ public static class PackagerChildBridge
         };
         if (!string.IsNullOrWhiteSpace(effectiveDownloadRoot)) environment[DownloadRootVariable] = effectiveDownloadRoot;
         var profile = new WorkbenchProfile(WorkbenchJson.CloneObject(snapshot.Profile), ApplicationIds.IsDefaultProfile(profileId));
-        foreach (var (name, value) in BuildLegacyVariables(profile, includeVersionInTitle))
+        foreach (var (name, value) in BuildLegacyVariables(profile, includeVersionInTitle, removeVersionFromTitle))
             environment[name] = value;
 
         return new PackagerChildLaunch(snapshot.ApplicationId, profileId, effectiveDownloadRoot, snapshot, environment);
@@ -94,10 +95,11 @@ public static class PackagerChildBridge
     /// The legacy variables for one profile. Only a variable with a value is returned:
     /// requirements from Add and Replace operations that apply to every deployment type,
     /// the variant split document, the install and uninstall commands, the install mode,
-    /// and the title mode (falling back to IncludeVersion when the global preference
-    /// asks for it and the profile sets none).
+    /// and the title mode (falling back to the global IncludeVersion, then NoVersion,
+    /// preference when the profile sets none).
     /// </summary>
-    public static IReadOnlyDictionary<string, string> BuildLegacyVariables(WorkbenchProfile profile, bool includeVersionInTitle = false)
+    public static IReadOnlyDictionary<string, string> BuildLegacyVariables(WorkbenchProfile profile, bool includeVersionInTitle = false,
+        bool removeVersionFromTitle = false)
     {
         var variables = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -129,7 +131,7 @@ public static class PackagerChildBridge
         if (!string.IsNullOrEmpty(installMode)) variables[InstallModeVariable] = installMode;
 
         var titleMode = NormalizeTitleMode(profile.Get("Application.TitleMode").Text);
-        if (string.IsNullOrEmpty(titleMode) && includeVersionInTitle) titleMode = "IncludeVersion";
+        if (string.IsNullOrEmpty(titleMode)) titleMode = ApplicationTitle.DefaultModeToken(includeVersionInTitle, removeVersionFromTitle);
         if (!string.IsNullOrEmpty(titleMode)) variables[TitleModeVariable] = titleMode;
 
         return variables;

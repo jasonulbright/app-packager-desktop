@@ -200,6 +200,27 @@ public partial class PackagesViewModel : ObservableObject
         foreach (var p in updates)
             AddLogLine($"One Click: {p.Application} {p.LatestVersion} available" +
                        (string.IsNullOrEmpty(p.CurrentVersion) ? "" : $" (site has {p.CurrentVersion})"));
+
+        // After the cadence gate and the version check: a matching vendor version alone does
+        // not skip an application whose profile or signing policy changed since its last build.
+        var plans = new Dictionary<PackagerInfo, PackagerExecutionService.OneClickBuildPlan>();
+        if (action != OneClickActions.Report)
+        {
+            var policyDigest = settings.ScriptSigning.PolicyDigest;
+            foreach (var p in due)
+            {
+                if (_executionService.ResolveBuildPlan(p) is not { } plan) continue;
+                plans[p] = plan;
+                if (updates.Contains(p) || p.Status == "Error" || string.IsNullOrEmpty(p.LatestVersion)) continue;
+                if (ApplicationPackagerEngine.Services.Workbench.BuildRecords.IsCurrent(
+                        plan.DataRoot, plan.ApplicationId, plan.ProfileId, p.LatestVersion, plan.ProfileRevision, policyDigest) == false)
+                {
+                    updates.Add(p);
+                    AddLogLine($"One Click: {p.Application} {p.LatestVersion} rebuilds: the last build differs in version, profile revision or signing policy.");
+                }
+            }
+        }
+
         if (updates.Count == 0)
         {
             // A batch whose lookups failed has not established that anything is current.
@@ -219,7 +240,7 @@ public partial class PackagesViewModel : ObservableObject
         }
 
         foreach (var p in Packagers) p.IsSelected = updates.Contains(p);
-        var stageTally = await RunStageAsync();
+        var stageTally = await RunStageAsync(plans);
         if (stageTally.Cancelled)
         {
             AddLogLine("One Click: cancelled during staging; nothing packaged.");
@@ -301,7 +322,7 @@ public partial class PackagesViewModel : ObservableObject
         {
             var lines = new System.Collections.Generic.List<string>
             {
-                "Application,Vendor,CMName,Current (MECM),Latest,Status,Last Checked,Script"
+                "Application,Vendor,CMName,Current (ConfigMgr),Latest,Status,Last Checked,Script"
             };
             foreach (var p in FilteredPackagers)
             {
@@ -328,17 +349,13 @@ public partial class PackagesViewModel : ObservableObject
 
     // ── Log helper ───────────────────────────────────────────────
 
-    private static readonly string LogDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "SRLPackr", "Logs");
+    private static readonly string LogDir = Path.Combine(ApplicationPackagerEngine.Services.AppDataPaths.LegacyRoot, "Logs");
 
     private static readonly string SessionLogPath = Path.Combine(
         LogDir, $"packr-{DateTime.Now:yyyyMMdd-HHmmss}.log");
 
     // Legacy path kept for backward compat — new sessions write to timestamped files
-    private static readonly string PersistentLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "SRLPackr", "packr.log");
+    private static readonly string PersistentLogPath = Path.Combine(ApplicationPackagerEngine.Services.AppDataPaths.LegacyRoot, "packr.log");
 
     private static bool _logInitialized;
 
@@ -444,19 +461,19 @@ public partial class PackagesViewModel : ObservableObject
         if (_skipMecmPreflight)
         {
             MecmConnectionStatus = "Not used";
-            AddLogLine("MECM: pre-flight version query skipped — Deployment Target is Intune only.");
+            AddLogLine("ConfigMgr: pre-flight version query skipped — Deployment Target is Intune only.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(settings.SiteCode))
         {
             MecmConnectionStatus = "Not configured";
-            AddLogLine("MECM: Site code not configured. Open Settings.");
+            AddLogLine("ConfigMgr: Site code not configured. Open Settings.");
             return;
         }
 
         MecmConnectionStatus = "Testing...";
-        AddLogLine($"MECM: Testing connection to site {settings.SiteCode}...");
+        AddLogLine($"ConfigMgr: Testing connection to site {settings.SiteCode}...");
 
         try
         {
@@ -464,13 +481,13 @@ public partial class PackagesViewModel : ObservableObject
             var result = await _mecmQueryService.QueryVersionAsync("__CONNECTION_TEST__", CancellationToken.None);
             // If we get here (even NotFound), the connection works
             MecmConnectionStatus = "Connected";
-            AddLogLine($"MECM: Connected to site {settings.SiteCode}");
+            AddLogLine($"ConfigMgr: Connected to site {settings.SiteCode}");
         }
         catch (Exception ex)
         {
             MecmConnectionStatus = "Failed";
-            AddLogLine($"MECM: Connection failed — {ex.Message}");
-            _snackbarService.Show("MECM Connection",
+            AddLogLine($"ConfigMgr: Connection failed — {ex.Message}");
+            _snackbarService.Show("ConfigMgr Connection",
                 $"Could not connect to site {settings.SiteCode}. Check Settings and ensure the CM console is available.",
                 Wpf.Ui.Controls.ControlAppearance.Danger,
                 new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(5));
@@ -600,19 +617,19 @@ public partial class PackagesViewModel : ObservableObject
     private async Task CheckMecmAsync()
     {
         var selected = SelectedPackagers.ToList();
-        if (selected.Count == 0) { ShowNoneSelected("Check MECM"); return; }
+        if (selected.Count == 0) { ShowNoneSelected("Check ConfigMgr"); return; }
 
         var settings = _settingsService.Load();
         if (string.IsNullOrWhiteSpace(settings.SiteCode))
         {
-            _snackbarService.Show("Check MECM", "SiteCode is required. Open Settings.",
+            _snackbarService.Show("Check ConfigMgr", "SiteCode is required. Open Settings.",
                 Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(3));
             return;
         }
 
         IsOperationRunning = true;
         _operationCts = new CancellationTokenSource();
-        StatusText = "Querying MECM...";
+        StatusText = "Querying ConfigMgr...";
         var tally = new PackagingRunTally();
 
         try
@@ -621,8 +638,8 @@ public partial class PackagesViewModel : ObservableObject
             {
                 if (_operationCts.IsCancellationRequested) { tally.MarkCancelled(); break; }
 
-                p.Status = "Querying MECM...";
-                AddLogLine($"MECM: {p.Application}");
+                p.Status = "Querying ConfigMgr...";
+                AddLogLine($"ConfigMgr: {p.Application}");
 
                 try
                 {
@@ -663,7 +680,7 @@ public partial class PackagesViewModel : ObservableObject
                         }
                         else
                         {
-                            p.Status = "MECM version retrieved";
+                            p.Status = "ConfigMgr version retrieved";
                         }
 
                         AddLogLine($"  {result.MatchCount} match(es), version: {result.SoftwareVersion}");
@@ -671,8 +688,8 @@ public partial class PackagesViewModel : ObservableObject
                     else
                     {
                         p.CurrentVersion = "";
-                        p.Status = "Not in MECM";
-                        AddLogLine($"  Not in MECM");
+                        p.Status = "Not found in ConfigMgr";
+                        AddLogLine($"  Not found in ConfigMgr");
                     }
                 }
                 catch (OperationCanceledException ex)
@@ -694,7 +711,7 @@ public partial class PackagesViewModel : ObservableObject
             }
 
             tally.Finish(_operationCts.Token);
-            StatusText = tally.Summarize("MECM query", selected.Count, "checked");
+            StatusText = tally.Summarize("ConfigMgr query", selected.Count, "checked");
         }
         finally
         {
@@ -709,10 +726,13 @@ public partial class PackagesViewModel : ObservableObject
     private async Task StageAsync() => await RunStageAsync();
 
     /// <summary>Stages the selection and reports what actually happened to each item.</summary>
-    private async Task<PackagingRunTally> RunStageAsync()
+    private async Task<PackagingRunTally> RunStageAsync(
+        IReadOnlyDictionary<PackagerInfo, PackagerExecutionService.OneClickBuildPlan>? oneClickPlans = null)
     {
         var selected = SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Stage"); return new PackagingRunTally(); }
+        selected = ConfirmLocalSourceFolders(selected);
+        if (selected.Count == 0) return new PackagingRunTally();
 
         IsOperationRunning = true;
         ShowProgress = true;
@@ -781,8 +801,22 @@ public partial class PackagesViewModel : ObservableObject
                         }
                     }
 
+                    ApplicationPackagerEngine.Models.Workbench.RunSnapshot? snapshot = null;
+                    if (oneClickPlans is not null && oneClickPlans.TryGetValue(p, out var plan))
+                    {
+                        snapshot = _executionService.CreateOneClickSnapshot(p, plan, out var refusal);
+                        if (refusal is not null)
+                        {
+                            p.Status = "Stage error";
+                            p.IsSelected = false;
+                            tally.RecordFailure();
+                            AddLogLine($"Stage FAILED: {p.Application}: {refusal}");
+                            continue;
+                        }
+                    }
+
                     var result = await _executionService.StageAsync(
-                        p, line => AddLogLine($"  {line}"), _operationCts.Token, settingsValues);
+                        p, line => AddLogLine($"  {line}"), _operationCts.Token, settingsValues, snapshot);
 
                     if (result.ExitCode == 0)
                     {
@@ -863,7 +897,7 @@ public partial class PackagesViewModel : ObservableObject
             var dialog = new ContentDialog
             {
                 Title = "No Comment Provided",
-                Content = "Package without a work order / comment? The comment field will be empty in the MECM Application description.",
+                Content = "Package without a work order / comment? The comment field will be empty in the ConfigMgr Application description.",
                 PrimaryButtonText = "Continue",
                 CloseButtonText = "Cancel",
                 DefaultButton = ContentDialogButton.Close
@@ -875,6 +909,13 @@ public partial class PackagesViewModel : ObservableObject
 
         var selected = SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Package"); return; }
+        selected = ConfirmLocalSourceFolders(selected);
+        if (selected.Count == 0) return;
+        if (DeploymentTargets.PublishesToIntune(settings.Intune.DeploymentTarget) && !await ReviewIntuneCompatibilityAsync(selected))
+        {
+            AddLogLine("Intune review: run cancelled.");
+            return;
+        }
 
         IsOperationRunning = true;
         ShowProgress = true;
@@ -1291,6 +1332,68 @@ public partial class PackagesViewModel : ObservableObject
         return cleaned.ToLowerInvariant();
     }
 
+    // ── Run preparation ──────────────────────────────────────────
+
+    /// <summary>Prompts for missing local installer folders; returns the rows the run keeps.</summary>
+    private List<PackagerInfo> ConfirmLocalSourceFolders(List<PackagerInfo> selected)
+    {
+        var settings = _settingsService.Load();
+        var kept = LocalSourceFolderPrompt.Confirm(selected, LoadDefinitionOrNull, settings, description =>
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog { Title = description };
+            return dialog.ShowDialog() == true ? dialog.FolderName : null;
+        }, AddLogLine, out var changed);
+        if (changed) _settingsService.Save(settings);
+        foreach (var p in selected.Except(kept)) p.Status = "Skipped";
+        return kept;
+    }
+
+    private static AppDefinition? LoadDefinitionOrNull(PackagerInfo p)
+    {
+        if (!p.IsJsonDefined || string.IsNullOrEmpty(p.DefinitionPath) || !File.Exists(p.DefinitionPath)) return null;
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(p.DefinitionPath),
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The Intune review step: the compatibility findings of each selected stage, in the log
+    /// and, when any finding blocks or needs a decision, in a dialog. A blocked application is
+    /// refused by its own publish; Cancel stops the whole run. One Click logs and continues.
+    /// </summary>
+    private async Task<bool> ReviewIntuneCompatibilityAsync(List<PackagerInfo> selected)
+    {
+        var lines = new List<string>();
+        foreach (var p in selected)
+        {
+            var findings = _executionService.ReviewIntuneCompatibility(p);
+            if (findings is null) continue;
+            foreach (var f in findings)
+            {
+                AddLogLine($"{p.Application}: {ApplicationPackagerEngine.Services.IntuneCompatibilityFindings.LogLine(f)}");
+                if (f.Severity != ApplicationPackagerEngine.Services.IntuneCompatibilityFindings.Info)
+                    lines.Add($"{p.Application}: [{f.Severity}] {f.Code} - {f.Message}");
+            }
+        }
+        if (lines.Count == 0 || _skipCommentPrompt) return true;
+
+        var dialog = new ContentDialog
+        {
+            Title = "Intune review",
+            Content = new TextBlock { Text = string.Join("\n\n", lines), TextWrapping = System.Windows.TextWrapping.Wrap },
+            PrimaryButtonText = "Continue",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        return await _contentDialogService.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────
 
     private void ShowNoneSelected(string operation)
@@ -1337,12 +1440,22 @@ public partial class PackagesViewModel : ObservableObject
         _ => channel
     };
 
-    private static int CompareVersions(string a, string b)
+    /// <summary>
+    /// Clears the ConfigMgr version and the compare status of every row after a site
+    /// change. The vendor version, the last check and the selection describe the vendor
+    /// and the operator, not the site, and stay.
+    /// </summary>
+    public static void ClearSiteResults(IEnumerable<PackagerInfo> rows)
     {
-        if (Version.TryParse(a, out var va) && Version.TryParse(b, out var vb))
-            return va.CompareTo(vb);
-        return string.Compare(a, b, StringComparison.OrdinalIgnoreCase);
+        foreach (var p in rows)
+        {
+            p.CurrentVersion = "";
+            p.Status = "Ready";
+        }
     }
+
+    public static int CompareVersions(string a, string b) =>
+        ApplicationPackagerEngine.Services.VersionCompare.Compare(a, b);
 
     private void SaveAppStates()
     {

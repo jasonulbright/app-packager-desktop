@@ -22,9 +22,7 @@ public sealed class ConditionTemplateService
 
     public ConditionTemplateService(string? path = null)
     {
-        _path = path ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AppPackager", "condition-templates.json");
+        _path = path ?? Path.Combine(AppDataPaths.Root, "condition-templates.json");
     }
 
     public string TemplatesPath => _path;

@@ -249,7 +249,7 @@ public sealed class IntunePublishServiceTests : IDisposable
 
         await svc.PublishAsync(package, Manifest("Contoso's App"), Options());
 
-        var filterRequest = handler.Requests.First(r => r.Uri.Contains("filter="));
+        var filterRequest = handler.Requests.First(r => Uri.UnescapeDataString(r.Uri).Contains("displayName eq"));
         Assert.Contains("Contoso''s%20App", Uri.UnescapeDataString(filterRequest.Uri).Replace(" ", "%20"));
     }
 

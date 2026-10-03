@@ -31,7 +31,8 @@ public sealed class MecmTarget
         string? contentLayout = null,
         string? applicationTitle = null,
         MecmScriptSigningContext? scriptSigning = null,
-        Workbench.ProfileContentScope? contentScope = null)
+        Workbench.ProfileContentScope? contentScope = null,
+        DeploymentTypeContentOptions? contentOptions = null)
     {
         try
         {
@@ -112,16 +113,16 @@ public sealed class MecmTarget
                 onProgress?.Invoke($"Content integrity verified: {manifest.FileHashes.Length} file(s).");
 
             // 2. Build the PowerShell script for CM app creation
-            onProgress?.Invoke("Connecting to MECM...");
+            onProgress?.Invoke("Connecting to ConfigMgr...");
             // Only a manifest asking for CM's native Appx deployment type takes
             // that path. An MSIX staged with wrappers and a Script detection is
             // a script deployment type like every other product.
             var psScript = manifest.Detection?.Type.Equals("MSIX", StringComparison.OrdinalIgnoreCase) == true
-                ? BuildMsixMecmScript(manifest, appName, networkContentPath, siteCode, comment, providerMachine)
+                ? BuildMsixMecmScript(manifest, appName, networkContentPath, siteCode, comment, providerMachine, contentOptions)
                 : BuildPackageScript(manifest, appName, networkContentPath,
                     siteCode, comment, estimatedRuntimeMins, maximumRuntimeMins,
                     conditionTemplates, commandOverrides, onProgress, requirements, providerMachine,
-                    onExisting, scriptSigning);
+                    onExisting, scriptSigning, contentOptions);
 
             // 3. Execute via Windows PowerShell 5.1
             var result = await RunWindowsPowerShellAsync(psScript, onProgress, ct);
@@ -207,8 +208,11 @@ public sealed class MecmTarget
         IReadOnlyList<StageRequirement>? requirements = null,
         string? providerMachine = null,
         OnExistingBehavior onExisting = OnExistingBehavior.Skip,
-        MecmScriptSigningContext? scriptSigning = null)
+        MecmScriptSigningContext? scriptSigning = null,
+        DeploymentTypeContentOptions? contentOptions = null)
     {
+        var content = contentOptions ?? DeploymentTypeContentOptions.Default;
+        onLog?.Invoke(content.LogLine);
         var specs = DeploymentTypeSpecResolver.Resolve(manifest, networkContentPath, appName);
         var isMultiDt = DeploymentTypeSpecResolver.IsMultiDeploymentType(specs, appName);
         if (isMultiDt)
@@ -431,9 +435,8 @@ public sealed class MecmTarget
             sb.Append($" -EstimatedRuntimeMins {timing.EstimatedRuntimeMins} -MaximumRuntimeMins {timing.MaximumRuntimeMins}");
             if (manifest.RequireUserInteraction == true)
                 sb.Append(" -RequireUserInteraction $true");
-            sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
-            if (!string.IsNullOrWhiteSpace(manifest.PostExecutionBehavior))
-                sb.Append($" -RebootBehavior {StagingService.NormalizePostExecutionBehavior(manifest.PostExecutionBehavior)}");
+            sb.Append(content.CmdletArguments);
+            sb.Append($" -RebootBehavior {ResolveRebootBehavior(manifest.PostExecutionBehavior)}");
             if (isScriptDetection)
             {
                 var lang = string.IsNullOrWhiteSpace(spec.Detection.ScriptLanguage)
@@ -777,7 +780,8 @@ public sealed class MecmTarget
     /// </summary>
     private static string BuildMsixMecmScript(
         StageManifest manifest, string appName, string networkContentPath,
-        string siteCode, string comment, string? providerMachine = null)
+        string siteCode, string comment, string? providerMachine = null,
+        DeploymentTypeContentOptions? contentOptions = null)
     {
         var sb = new StringBuilder();
 
@@ -820,7 +824,7 @@ public sealed class MecmTarget
         sb.Append($"Add-CMWindowsAppxDeploymentType -ApplicationName '{Esc(appName)}'");
         sb.Append($" -DeploymentTypeName '{Esc(appName)}'");
         sb.Append(" -ContentLocation $msixFile.FullName");
-        sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
+        sb.Append((contentOptions ?? DeploymentTypeContentOptions.Default).CmdletArguments);
         sb.Append(" -Force");
         sb.AppendLine(" | Out-Null");
 
@@ -998,6 +1002,13 @@ public sealed class MecmTarget
     /// and other problematic characters. Only allows alphanumeric, space, dot, hyphen, underscore.
     /// </summary>
     /// <summary>Public accessor for BareStaging and other services that need sanitized folder names.</summary>
+    /// <summary>
+    /// The -RebootBehavior a script deployment type is created with. A manifest that
+    /// names none takes BasedOnExitCode, so a 3010 exit reaches the client as a restart.
+    /// </summary>
+    public static string ResolveRebootBehavior(string? postExecutionBehavior) =>
+        StagingService.NormalizePostExecutionBehavior(postExecutionBehavior) ?? "BasedOnExitCode";
+
     internal static string SanitizeFolderNamePublic(string name) => SanitizeFolderName(name);
 
     private static string SanitizeFolderName(string name)

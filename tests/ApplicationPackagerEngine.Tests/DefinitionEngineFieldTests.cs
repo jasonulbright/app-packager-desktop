@@ -128,8 +128,9 @@ public sealed class DefinitionEngineFieldTests : IDisposable
         var without = MecmTarget.BuildPackageScript(manifest, "VC++", @"\\s\c", "MCM", "", 15, 30);
 
         Assert.Contains(" -RebootBehavior ForceReboot", withBehavior);
-        Assert.DoesNotContain("RebootBehavior", without);
-        Assert.Equal(without, withBehavior.Replace(" -RebootBehavior ForceReboot", ""));
+        // A manifest that names no behavior takes BasedOnExitCode, so a 3010 exit reaches the client.
+        Assert.Contains(" -RebootBehavior BasedOnExitCode", without);
+        Assert.Equal(without.Replace(" -RebootBehavior BasedOnExitCode", ""), withBehavior.Replace(" -RebootBehavior ForceReboot", ""));
     }
 
     // ── Grouped detection ───────────────────────────────────────

@@ -122,11 +122,11 @@ public partial class PackagesPage
 
         var menu = new System.Windows.Controls.ContextMenu();
 
-        var mecm = new System.Windows.Controls.MenuItem { Header = "MECM", Icon = new SymbolIcon(SymbolRegular.Server24) };
+        var mecm = new System.Windows.Controls.MenuItem { Header = "ConfigMgr", Icon = new SymbolIcon(SymbolRegular.Server24) };
         mecm.Click += (_, _) => _ = vm.PackageCommand.ExecuteAsync(null);
         menu.Items.Add(mecm);
 
-        var psadt = new System.Windows.Controls.MenuItem { Header = "MECM + PSADT", IsEnabled = false, Icon = new SymbolIcon(SymbolRegular.WindowConsole20) };
+        var psadt = new System.Windows.Controls.MenuItem { Header = "ConfigMgr + PSADT", IsEnabled = false, Icon = new SymbolIcon(SymbolRegular.WindowConsole20) };
         menu.Items.Add(psadt);
 
         menu.Items.Add(new System.Windows.Controls.Separator());

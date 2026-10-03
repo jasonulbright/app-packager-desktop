@@ -69,25 +69,33 @@ public sealed class IntunePublishService : IDisposable
         IntunePublishOptions options,
         Action<string>? onProgress = null,
         CancellationToken ct = default,
-        IntuneScriptRuleContext? scriptSigning = null)
+        IntuneScriptRuleContext? scriptSigning = null,
+        IReadOnlyList<IntuneCompatibilityFinding>? findings = null)
     {
         var meta = _reader.ReadMetadata(intuneWinPath);
+
+        // Decided before the first Graph call: a blocking gap must not leave a
+        // half-created app in the tenant. Findings a caller passes were already logged.
+        if (findings is null)
+        {
+            findings = IntuneCompatibilityFindings.Build(manifest);
+            foreach (var finding in findings) onProgress?.Invoke(IntuneCompatibilityFindings.LogLine(finding));
+        }
+        if (IntuneCompatibilityFindings.RefusalMessage(findings) is { } refusal)
+            throw new InvalidOperationException(refusal);
+
         var rules = BuildRules(manifest.Detection, scriptSigning);
 
         var installCommand = FirstNonBlank(manifest.CommandOverrides?.Install, "install.bat");
         var uninstallCommand = FirstNonBlank(manifest.CommandOverrides?.Uninstall, "uninstall.bat");
+        var identityTag = IdentityTag(manifest);
 
         var token = await GetTokenAsync(options, ct).ConfigureAwait(false);
         var graph = options.GraphBase.TrimEnd('/');
 
         // Repeat publishes update the existing app (a new content version on the same app
         // identity) instead of stacking duplicates in the console.
-        var filterName = manifest.AppName.Replace("'", "''");
-        var listUri = $"{graph}/deviceAppManagement/mobileApps?$filter=displayName eq '{filterName}'";
-        var existing = await GraphJsonAsync(HttpMethod.Get, listUri, token, null, ct).ConfigureAwait(false);
-        var existingApp = existing?["value"] as JsonArray;
-        var match = existingApp?.FirstOrDefault(n =>
-            (string?)n?["@odata.type"] == "#microsoft.graph.win32LobApp");
+        var match = await FindExistingAppAsync(graph, token, identityTag, manifest.AppName, ct).ConfigureAwait(false);
 
         // applicableArchitectures has no arm64 member; arm64 is expressed through
         // allowedArchitectures, and Graph forces applicableArchitectures to none whenever
@@ -110,6 +118,7 @@ public sealed class IntunePublishService : IDisposable
             ["setupFilePath"] = FirstNonBlank(manifest.SetupFile, meta.SetupFile),
             ["installCommandLine"] = installCommand,
             ["uninstallCommandLine"] = uninstallCommand,
+            ["notes"] = identityTag,
             ["minimumSupportedWindowsRelease"] = options.MinimumSupportedWindowsRelease,
             ["installExperience"] = new JsonObject
             {
@@ -118,7 +127,7 @@ public sealed class IntunePublishService : IDisposable
                 ["runAsAccount"] = (manifest.InstallationBehaviorType is { } behavior
                     ? behavior.Equals("InstallForUser", StringComparison.OrdinalIgnoreCase)
                     : manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase)) ? "user" : "system",
-                ["deviceRestartBehavior"] = "basedOnReturnCode"
+                ["deviceRestartBehavior"] = DeviceRestartBehavior(manifest.PostExecutionBehavior)
             },
             ["rules"] = rules,
             ["returnCodes"] = new JsonArray(
@@ -223,6 +232,66 @@ public sealed class IntunePublishService : IDisposable
         {
             try { File.Delete(payloadPath); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
+    }
+
+    /// <summary>
+    /// The notes value that identifies an Intune app as this build's target:
+    /// AppPackager:&lt;ApplicationId&gt;/&lt;ProfileId&gt;. A manifest with no ApplicationId takes
+    /// a legacy key derived from its title, and no ProfileId reads as default.
+    /// </summary>
+    public static string IdentityTag(StageManifest manifest)
+    {
+        var applicationId = manifest.ApplicationId;
+        if (string.IsNullOrWhiteSpace(applicationId))
+            applicationId = "legacy:" + System.Text.RegularExpressions.Regex.Replace(manifest.AppName ?? "", @"[^\w.-]", "-");
+        var profileId = string.IsNullOrWhiteSpace(manifest.ProfileId) ? "default" : manifest.ProfileId;
+        return $"AppPackager:{applicationId}/{profileId}";
+    }
+
+    /// <summary>
+    /// The installExperience.deviceRestartBehavior for a ConfigMgr post-execution behavior:
+    /// ForceReboot is force, NoAction and ProgramReboot are allow (Intune takes no action on
+    /// a restart code), and BasedOnExitCode or none is basedOnReturnCode.
+    /// </summary>
+    public static string DeviceRestartBehavior(string? postExecutionBehavior) =>
+        StagingService.NormalizePostExecutionBehavior(postExecutionBehavior) switch
+        {
+            "ForceReboot" => "force",
+            "NoAction" or "ProgramReboot" => "allow",
+            _ => "basedOnReturnCode"
+        };
+
+    /// <summary>
+    /// The existing Win32 app this publish updates. notes is not a filterable property, so
+    /// every Win32 app is paged and matched on the identity tag first; with no tagged app the
+    /// display name decides. More than one candidate on either path refuses the publish.
+    /// </summary>
+    public async Task<JsonNode?> FindExistingAppAsync(string graph, string token, string identityTag, string displayName, CancellationToken ct = default)
+    {
+        const string Win32Type = "#microsoft.graph.win32LobApp";
+        var tagged = new List<JsonNode>();
+        string? uri = $"{graph}/deviceAppManagement/mobileApps?$filter=isof('microsoft.graph.win32LobApp')";
+        while (!string.IsNullOrEmpty(uri))
+        {
+            var page = await GraphJsonAsync(HttpMethod.Get, uri, token, null, ct).ConfigureAwait(false);
+            foreach (var app in page?["value"] as JsonArray ?? [])
+                if (app is not null && (string?)app["@odata.type"] == Win32Type && (string?)app["notes"] == identityTag)
+                    tagged.Add(app);
+            uri = (string?)page?["@odata.nextLink"];
+        }
+        if (tagged.Count > 1)
+            throw new InvalidOperationException(
+                $"Multiple Intune apps carry the identity tag '{identityTag}' (ids: {string.Join(", ", tagged.Select(a => (string?)a["id"]))}); resolve the duplicates before publishing.");
+        if (tagged.Count == 1) return tagged[0];
+
+        var filterName = displayName.Replace("'", "''");
+        var existing = await GraphJsonAsync(HttpMethod.Get,
+            $"{graph}/deviceAppManagement/mobileApps?$filter=displayName eq '{filterName}'", token, null, ct).ConfigureAwait(false);
+        var candidates = (existing?["value"] as JsonArray ?? []).Where(n => (string?)n?["@odata.type"] == Win32Type).ToList();
+        if (candidates.Count > 1)
+            throw new InvalidOperationException(
+                $"Multiple Intune apps are named '{displayName}' and none carries this application's identity tag (ids: {string.Join(", ", candidates.Select(a => (string?)a?["id"]))}); rename or tag the intended app before publishing.");
+        return candidates.FirstOrDefault();
     }
 
     /// <summary>Acquires an app-only Graph token via the client-credentials flow.</summary>

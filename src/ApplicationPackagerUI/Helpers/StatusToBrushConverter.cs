@@ -18,10 +18,10 @@ public class StatusToBrushConverter : IValueConverter
 
         return status switch
         {
-            "Staged" or "Packaged" or "Up to date" or "Latest retrieved" or "MECM version retrieved" => Green,
+            "Staged" or "Packaged" or "Up to date" or "Latest retrieved" or "ConfigMgr version retrieved" => Green,
             "Update available" => Amber,
-            "Not in MECM" or "Current newer" => Blue,
-            "Staging..." or "Packaging..." or "Checking latest..." or "Querying MECM..." => Gray,
+            "Not found in ConfigMgr" or "Current newer" => Blue,
+            "Staging..." or "Packaging..." or "Checking latest..." or "Querying ConfigMgr..." => Gray,
             var s when s.Contains("error", StringComparison.OrdinalIgnoreCase) => Red,
             "Ready" or "Missing metadata (Vendor/App)" => Gray,
             _ => Gray

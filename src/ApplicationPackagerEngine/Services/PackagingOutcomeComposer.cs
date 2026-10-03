@@ -39,7 +39,7 @@ public static class PackagingOutcomeComposer
         // exit code tells the operator nothing.
         if (mecm == MecmStepStatus.Failed)
             return new PackagingExitOutcome(1,
-                string.IsNullOrWhiteSpace(mecmError) ? "MECM packaging failed." : mecmError);
+                string.IsNullOrWhiteSpace(mecmError) ? "ConfigMgr packaging failed." : mecmError);
 
         // Only a published app satisfies a requested Intune target. Treating "did not run"
         // as acceptable is how a skipped step passes for a success.
@@ -60,8 +60,8 @@ public static class PackagingOutcomeComposer
         // run only found one that already did.
         var prefix = mecm switch
         {
-            MecmStepStatus.Created => "MECM application created or updated. ",
-            MecmStepStatus.AlreadyExisted => "Existing MECM application kept. ",
+            MecmStepStatus.Created => "ConfigMgr application created or updated. ",
+            MecmStepStatus.AlreadyExisted => "Existing ConfigMgr application kept. ",
             _ => ""
         };
 

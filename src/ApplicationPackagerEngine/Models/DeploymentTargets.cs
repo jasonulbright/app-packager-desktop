@@ -44,7 +44,7 @@ public sealed record DeploymentTargetActionState
             return new DeploymentTargetActionState
             {
                 CheckMecmEnabled = false,
-                CheckMecmToolTip = "Check MECM needs a ConfigMgr site. The Deployment Target is Intune only — change it in Settings, Intune, to use this.",
+                CheckMecmToolTip = "Check ConfigMgr needs a ConfigMgr site. The Deployment Target is Intune only — change it in Settings, Intune, to use this.",
                 PackageLabel = "Publish",
                 PackageToolTip = "Stage each selected app, build the .intunewin, and publish it to Intune",
                 SkipMecmPreflight = true
@@ -54,9 +54,9 @@ public sealed record DeploymentTargetActionState
         return new DeploymentTargetActionState
         {
             CheckMecmEnabled = true,
-            CheckMecmToolTip = "Query MECM for the currently deployed version of each selected app",
+            CheckMecmToolTip = "Query ConfigMgr for the currently deployed version of each selected app",
             PackageLabel = "Package",
-            PackageToolTip = "Build MECM Application + Deployment Type for every selected app",
+            PackageToolTip = "Build ConfigMgr Application + Deployment Type for every selected app",
             SkipMecmPreflight = false
         };
     }

@@ -10,8 +10,7 @@ public static class WorkbenchPaths
     /// The per-user default: a Workbench folder beside the desktop's settings.json,
     /// never under the install folder.
     /// </summary>
-    public static string DefaultDataRoot => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager", "Workbench");
+    public static string DefaultDataRoot => Path.Combine(AppDataPaths.Root, "Workbench");
 
     /// <summary>
     /// Resolves the data root: APP_PACKAGER_WORKBENCH_ROOT, then the preference, then

@@ -101,6 +101,34 @@ public static class BuildRecords
         List(dataRoot, applicationId, profileId).FirstOrDefault();
 
     /// <summary>
+    /// One Click freshness: true when the newest sealed build of the profile carries this
+    /// vendor version, this profile revision and this signing-policy digest; false when any
+    /// differs or no build was sealed; null when the records cannot be read, which leaves
+    /// the caller's version-only decision in place. Versions compare as versions when both
+    /// parse, so "1.2.3.0" equals "1.2.3"; otherwise as text, ignoring case.
+    /// </summary>
+    public static bool? IsCurrent(string dataRoot, string applicationId, string profileId,
+        string version, int profileRevision, string policyDigest)
+    {
+        JsonObject? record;
+        try { record = Latest(dataRoot, applicationId, profileId); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                   or InvalidOperationException or JsonException)
+        {
+            return null;
+        }
+        if (record is null) return false;
+
+        var recorded = WorkbenchJson.Get(record, "SoftwareVersion").Text ?? "";
+        var sameVersion = VersionCompare.TryParse(recorded, out _) && VersionCompare.TryParse(version, out _)
+            ? VersionCompare.Compare(recorded, version) == 0
+            : string.Equals(recorded, version, StringComparison.OrdinalIgnoreCase);
+        if (!sameVersion) return false;
+        if ((WorkbenchJson.AsInt(record["ProfileRevision"]) ?? 0) != profileRevision) return false;
+        return string.Equals(WorkbenchJson.Get(record, "PolicyDigest").Text ?? "", policyDigest ?? "", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The staged manifest that carries exactly <paramref name="buildId"/>, newest file
     /// first. A manifest with another BuildId is never taken in its place: Package
     /// consumes the build the operator chose or refuses it as stale.

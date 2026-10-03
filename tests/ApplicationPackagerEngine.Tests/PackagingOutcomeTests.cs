@@ -70,7 +70,7 @@ public class PackagingOutcomeTests
         Assert.Equal(1, outcome.ExitCode);
         Assert.Contains("Intune package build failed", outcome.StdErr);
         Assert.Contains("tool download blocked", outcome.StdErr);
-        Assert.DoesNotContain("MECM application created", outcome.StdErr);
+        Assert.DoesNotContain("ConfigMgr application created", outcome.StdErr);
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public class PackagingOutcomeTests
             IntuneRunOutcome.PublishFailed("built Contoso.intunewin", "publish failed: 429 Too Many Requests"));
 
         Assert.Equal(1, outcome.ExitCode);
-        Assert.StartsWith("MECM application created or updated.", outcome.StdErr);
+        Assert.StartsWith("ConfigMgr application created or updated.", outcome.StdErr);
         Assert.Contains("Intune publish failed", outcome.StdErr);
         Assert.Contains("429", outcome.StdErr);
     }
@@ -138,7 +138,7 @@ public class PackagingOutcomeTests
             IntuneRunOutcome.BuildFailed("build failed: staged content missing"));
 
         Assert.Equal(1, outcome.ExitCode);
-        Assert.StartsWith("MECM application created or updated.", outcome.StdErr);
+        Assert.StartsWith("ConfigMgr application created or updated.", outcome.StdErr);
         Assert.Contains("Intune package build failed", outcome.StdErr);
     }
 
@@ -209,8 +209,8 @@ public class PackagingOutcomeTests
             mecmAlreadyExists: true);
 
         Assert.Equal(1, outcome.ExitCode);
-        Assert.DoesNotContain("MECM application created", outcome.StdErr);
-        Assert.StartsWith("Existing MECM application kept.", outcome.StdErr);
+        Assert.DoesNotContain("ConfigMgr application created", outcome.StdErr);
+        Assert.StartsWith("Existing ConfigMgr application kept.", outcome.StdErr);
         Assert.Contains("Intune publish failed", outcome.StdErr);
     }
 

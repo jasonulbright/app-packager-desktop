@@ -48,7 +48,7 @@ public sealed class ApplicationTitleTests
         Assert.Equal(expected, ApplicationTitle.Resolve(appName, version, TitleMode.NoVersion));
 
     [Theory]
-    [InlineData("Audacity 3.7.9 (x64)", "3.7.9", "Audacity (x64) - 3.7.9")]
+    [InlineData("Audacity (x64)", "3.7.9", "Audacity (x64) - 3.7.9")]
     [InlineData("Google Chrome", "141.0.7390.55", "Google Chrome - 141.0.7390.55")]
     [InlineData("Audacity - 3.7.9", "3.7.9", "Audacity - 3.7.9")]
     public void IncludeVersionAppendsExactlyOneVersion(string appName, string version, string expected) =>
@@ -81,9 +81,32 @@ public sealed class ApplicationTitleTests
         // The result would be empty and collide with every other release.
         Assert.Throws<InvalidOperationException>(
             () => ApplicationTitle.Resolve("1.0", "1.0", TitleMode.NoVersion));
-        Assert.Throws<InvalidOperationException>(
-            () => ApplicationTitle.Resolve("v1.0", "1.0", TitleMode.IncludeVersion));
     }
+
+    [Theory]
+    // A name that already carries the exact version keeps its own order.
+    [InlineData("Audacity 3.7.9 (x64)", "3.7.9")]
+    [InlineData("Audacity v3.7.9 (x64)", "3.7.9")]
+    [InlineData("App - 1.2.3 (x64)", "1.2.3")]
+    [InlineData("v1.0", "1.0")]
+    public void IncludeVersionKeepsANameThatAlreadyCarriesTheVersion(string appName, string version) =>
+        Assert.Equal(appName, ApplicationTitle.Resolve(appName, version, TitleMode.IncludeVersion));
+
+    [Fact]
+    public void IncludeVersionStillAppendsWhenOnlyAPrefixOfTheVersionIsPresent() =>
+        Assert.Equal("Audacity 3.7 - 3.7.9", ApplicationTitle.Resolve("Audacity 3.7", "3.7.9", TitleMode.IncludeVersion));
+
+    [Theory]
+    // Profile, then the per-application entry, then Include, then Remove, then the packager default.
+    [InlineData("NoVersion", "IncludeVersion", true, false, TitleMode.NoVersion)]
+    [InlineData("No version", "", true, false, TitleMode.NoVersion)]
+    [InlineData(null, "IncludeVersion", false, true, TitleMode.IncludeVersion)]
+    [InlineData("", "", true, true, TitleMode.IncludeVersion)]
+    [InlineData("", "", false, true, TitleMode.NoVersion)]
+    [InlineData("", "Packager default", false, false, TitleMode.Default)]
+    [InlineData(null, null, false, false, TitleMode.Default)]
+    public void TheTitleModeResolvesMostSpecificFirst(string? profile, string? perApplication, bool include, bool remove, TitleMode expected) =>
+        Assert.Equal(expected, ApplicationTitle.ResolveMode(profile, perApplication, include, remove));
 
     [Fact]
     public void AnEmptyVersionLeavesTheNameIntact() =>
