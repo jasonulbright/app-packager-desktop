@@ -49,6 +49,8 @@ public partial class App : Application
                 services.AddSingleton<PackagerPreferencesService>();
                 services.AddSingleton<IntuneDeploymentService>();
                 services.AddSingleton<DeploymentConditionsService>();
+                services.AddSingleton<WorkbenchApplicationCatalog>();
+                services.AddSingleton<IWorkbenchBuildLauncher, WorkbenchBuildLauncher>();
 
                 // Engine services (v2.1)
                 services.AddSingleton<ApplicationPackagerEngine.Scrapers.ScraperRegistry>();
@@ -75,6 +77,10 @@ public partial class App : Application
                 services.AddTransient<SetupWindow>();
                 services.AddTransient<SetupWindowViewModel>();
 
+                // Workbench window: transient so every open starts from the stored profiles.
+                services.AddTransient<WorkbenchWindow>();
+                services.AddTransient<WorkbenchWindowViewModel>();
+
                 // Pages
                 services.AddSingleton<PackagesPage>();
                 services.AddSingleton<PackagesViewModel>();
@@ -84,8 +90,6 @@ public partial class App : Application
                 services.AddSingleton<SettingsViewModel>();
                 services.AddSingleton<AddAppPage>();
                 services.AddSingleton<AddAppViewModel>();
-                services.AddSingleton<DeploymentConditionsPage>();
-                services.AddSingleton<DeploymentConditionsViewModel>();
 
                 // Hosted service
                 services.AddHostedService<ApplicationHostService>();

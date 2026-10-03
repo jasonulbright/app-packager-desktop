@@ -144,6 +144,54 @@ public partial class PackagesPage
     private PackagerInfo? GetSelectedPackager() =>
         PackagerGrid.SelectedItem as PackagerInfo;
 
+    /// <summary>The grid row the operator last selected, for the Application Workbench entry point.</summary>
+    public PackagerInfo? SelectedPackager => GetSelectedPackager();
+
+    private void OpenWorkbenchForSelection()
+    {
+        var p = GetSelectedPackager();
+        if (Window.GetWindow(this) is Views.Windows.MainWindow main)
+            main.OpenWorkbench(p is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(p));
+    }
+
+    private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
+
+    /// <summary>
+    /// The theme gives every cell a Copy/Cut/Paste menu, which hides the grid's own menu
+    /// on any row. A right-click on a row selects it and opens the grid's menu instead.
+    /// </summary>
+    private void PackagerGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source || FindAncestor<DataGridRow>(source) is not { } row) return;
+        if (PackagerGrid.ContextMenu is not { } menu) return;
+        e.Handled = true;
+        PackagerGrid.SelectedItem = row.Item;
+        menu.PlacementTarget = PackagerGrid;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+        menu.IsOpen = true;
+    }
+
+    private void PackagerGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        // A double-click inside an editable cell (the selection checkbox) belongs to that cell, not to the row.
+        if (e.OriginalSource is DependencyObject source
+            && (FindAncestor<System.Windows.Controls.Primitives.ToggleButton>(source) is not null
+                || FindAncestor<System.Windows.Controls.Primitives.DataGridColumnHeader>(source) is not null
+                || FindAncestor<DataGridRow>(source) is null))
+            return;
+        if (GetSelectedPackager() is null) return;
+        OpenWorkbenchForSelection();
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? node) where T : DependencyObject
+    {
+        while (node is not null and not T)
+            node = node is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D
+                ? System.Windows.Media.VisualTreeHelper.GetParent(node)
+                : LogicalTreeHelper.GetParent(node);
+        return node as T;
+    }
+
     private void ContextMenu_OpenLogFolder(object sender, RoutedEventArgs e)
     {
         var settings = App.Services.GetRequiredService<SettingsService>().Load();

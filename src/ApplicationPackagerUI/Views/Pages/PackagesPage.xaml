@@ -86,10 +86,18 @@
                   RowHeaderWidth="0"
                   GridLinesVisibility="Horizontal"
                   HeadersVisibility="Column"
-                  FrozenColumnCount="1">
+                  FrozenColumnCount="1"
+                  MouseDoubleClick="PackagerGrid_MouseDoubleClick"
+                  ContextMenuOpening="PackagerGrid_ContextMenuOpening">
 
             <DataGrid.ContextMenu>
                 <ContextMenu>
+                    <MenuItem Header="Edit application..." Click="ContextMenu_EditApplication">
+                        <MenuItem.Icon>
+                            <ui:SymbolIcon Symbol="Wrench24" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
                     <MenuItem Header="Open Log Folder" Click="ContextMenu_OpenLogFolder">
                         <MenuItem.Icon>
                             <ui:SymbolIcon Symbol="Folder24" />

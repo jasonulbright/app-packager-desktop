@@ -35,6 +35,38 @@ public partial class MainWindow
 
     public Wpf.Ui.Controls.NavigationView GetNavigation() => RootNavigation;
 
+    /// <summary>Opens the Application Workbench on an application, or on the first one listed.</summary>
+    public void OpenWorkbench(string? applicationId)
+    {
+        var workbench = _serviceProvider.GetRequiredService<WorkbenchWindow>();
+        workbench.Owner = this;
+        workbench.PreselectApplicationId = applicationId;
+        workbench.ShowDialog();
+    }
+
+    private void WorkbenchNavItem_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        OpenWorkbenchForGridSelection();
+    }
+
+    /// <summary>
+    /// The navigation view raises no Click for the item it already treats as current, so a
+    /// second mouse click on this entry would do nothing. The mouse opens the window here
+    /// and the item never becomes current; keyboard and automation invoke reach Click.
+    /// </summary>
+    private void WorkbenchNavItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        Dispatcher.BeginInvoke(OpenWorkbenchForGridSelection);
+    }
+
+    private void OpenWorkbenchForGridSelection()
+    {
+        var selected = _serviceProvider.GetRequiredService<Views.Pages.PackagesPage>().SelectedPackager;
+        OpenWorkbench(selected is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(selected));
+    }
+
     private void FluentWindow_Loaded(object sender, RoutedEventArgs e)
     {
         var settingsService = _serviceProvider.GetRequiredService<SettingsService>();

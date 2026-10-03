@@ -120,13 +120,13 @@ public class PackagerExecutionService(
     public async Task<PackagerExecutionResult> PackageAsync(
         PackagerInfo packager, string comment, Action<string>? onOutputLine = null,
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
-        RunSnapshot? snapshot = null)
+        RunSnapshot? snapshot = null, string? targetOverride = null)
     {
         if (packager.StagedManifestPath is not null)
             return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting, snapshot);
 
         var settings = settingsService.Load();
-        var target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
+        var target = DeploymentTargets.Normalize(targetOverride ?? settings.Intune.DeploymentTarget);
 
         // Route JSON-defined apps through the engine's MecmTarget
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
