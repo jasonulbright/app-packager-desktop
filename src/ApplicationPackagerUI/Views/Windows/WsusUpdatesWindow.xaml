@@ -1,0 +1,78 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.WsusUpdatesWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="WSUS Updates"
+    Width="1240" Height="620"
+    MinWidth="1040" MinHeight="420"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="WSUS Updates" ShowMinimize="False" />
+
+        <DockPanel Grid.Row="1" Margin="16,4,16,8">
+            <CheckBox x:Name="chkOtherPublishers" DockPanel.Dock="Right" Content="Show updates from other publishers" VerticalAlignment="Center"
+                      IsChecked="{Binding ShowOtherPublishers}" Margin="12,0,0,0" AutomationProperties.AutomationId="chkOtherPublishers"
+                      ToolTip="Lists every locally published update on the server, not only the ones AppPackager published." />
+            <TextBlock x:Name="txtSummary" Text="{Binding SummaryText}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+                       AutomationProperties.AutomationId="txtSummary" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        </DockPanel>
+
+        <DataGrid Grid.Row="2" x:Name="gridUpdates" ItemsSource="{Binding Updates}" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Extended" CanUserAddRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
+                  GridLinesVisibility="Horizontal" Margin="16,0,16,8" SelectionChanged="Grid_SelectionChanged"
+                  AutomationProperties.AutomationId="gridUpdates">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*" MinWidth="280" />
+                <DataGridTextColumn Header="Type" Binding="{Binding PackageType}" Width="80" />
+                <DataGridTextColumn Header="Created" Binding="{Binding CreatedText}" Width="125" />
+                <DataGridTextColumn Header="Approved for" Binding="{Binding ApprovedGroups}" Width="150" />
+                <DataGridTextColumn Header="Declined" Binding="{Binding Declined}" Width="95" />
+                <DataGridTextColumn Header="Superseded" Binding="{Binding Superseded}" Width="115" />
+                <DataGridTextColumn Header="Expired" Binding="{Binding Expired}" Width="85" />
+                <DataGridTextColumn Header="Package ID" Binding="{Binding PackageId}" Width="290" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+            <DockPanel>
+                <ui:Button x:Name="btnClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" IsCancel="True" Click="Close_Click"
+                           AutomationProperties.AutomationId="btnClose" />
+                <ui:Button x:Name="btnCatalog" DockPanel.Dock="Right" Content="Catalog Import" MinWidth="120" Margin="0,0,8,0"
+                           Command="{Binding CatalogImportCommand}" AutomationProperties.AutomationId="btnCatalog"
+                           ToolTip="Import Microsoft updates that do not synchronize automatically, by catalog update ID or link." />
+                <StackPanel Orientation="Horizontal">
+                    <ComboBox x:Name="cboGroup" IsEditable="True" Width="200" Margin="0,0,8,0" VerticalAlignment="Center"
+                              ItemsSource="{Binding Groups}" Text="{Binding GroupText, UpdateSourceTrigger=PropertyChanged}"
+                              AutomationProperties.Name="Computer group" AutomationProperties.AutomationId="cboGroup"
+                              ToolTip="Computer group for Approve. The list loads from the server." />
+                    <ui:Button x:Name="btnApprove" Content="Approve for group" Appearance="Primary" MinWidth="130" Margin="0,0,8,0"
+                               Command="{Binding ApproveCommand}" AutomationProperties.AutomationId="btnApprove" />
+                    <ui:Button x:Name="btnDecline" Content="Decline" MinWidth="90" Margin="0,0,8,0" Command="{Binding DeclineCommand}"
+                               AutomationProperties.AutomationId="btnDecline"
+                               ToolTip="Declined updates are not offered to any client. Approving again reverses it." />
+                    <ui:Button x:Name="btnExpire" Content="Expire" MinWidth="90" Margin="0,0,8,0" Command="{Binding ExpireCommand}"
+                               AutomationProperties.AutomationId="btnExpire"
+                               ToolTip="Expires the update on the server permanently. Clients stop seeing it; it cannot be approved again." />
+                    <ui:Button x:Name="btnRemove" Content="Remove" MinWidth="90" Margin="0,0,8,0" Command="{Binding RemoveCommand}"
+                               AutomationProperties.AutomationId="btnRemove"
+                               ToolTip="Declines the update and deletes it from the WSUS database. It cannot be undone." />
+                    <ui:Button x:Name="btnRefresh" Content="Refresh" MinWidth="90" Command="{Binding RefreshCommand}"
+                               AutomationProperties.AutomationId="btnRefresh" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ui:ContentDialogHost x:Name="PromptHost" Grid.Row="0" Grid.RowSpan="4" />
+    </Grid>
+</ui:FluentWindow>

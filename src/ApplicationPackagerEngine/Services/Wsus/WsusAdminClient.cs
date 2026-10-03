@@ -55,7 +55,7 @@ public sealed record WsusUpdateCandidate(
 /// Every WSUS server operation the application performs, each through one
 /// adapter call. Settings are normalized before any call.
 /// </summary>
-public sealed class WsusAdminClient(IWsusAdapterRunner? runner = null, Func<DateTimeOffset>? clock = null)
+public sealed class WsusAdminClient(IWsusAdapterRunner? runner = null, Func<DateTimeOffset>? clock = null) : IWsusAdminClient
 {
     private readonly IWsusAdapterRunner _runner = runner ?? new WsusAdapterRunner();
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);

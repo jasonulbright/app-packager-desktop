@@ -206,6 +206,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     public async Task InitializeAsync(string? preselectApplicationId = null)
     {
         _settings = _settingsService.Load();
+        ApplyPublishState(ApplicationPackagerEngine.Models.PublishActionState.For(Pages.PackagesViewModel.ReadinessOf(_settings)));
         _store = WorkbenchStore.Open();
         var applications = await _catalog.LoadAsync(_store);
         if (applications.Count == 0)
@@ -236,13 +237,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
             _settings.EstimatedRuntimeMins, _settings.MaximumRuntimeMins);
         _session = new WorkbenchEditorSession(_store!, application.ApplicationId, inherited);
         _session.Load(profileId);
-        if (_session.PendingDraft is not null)
-        {
-            var recover = Prompts is not null && await Prompts.YesNoAsync("Recover Draft",
-                $"Unsaved changes to \"{_session.Profile.Name}\" were found from an earlier session. Recover them?");
-            if (recover) _session.RecoverDraft();
-            else _session.DiscardPendingDraft();
-        }
 
         _loading = true;
         try
@@ -264,6 +258,18 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         RefreshAll();
         SetValidatedState(false);
         SaveStateText = _session.IsDirty ? UnsavedText : CleanText;
+
+        // The fields show this application's saved profile while the prompt is open, not the
+        // application shown before it.
+        if (_session.PendingDraft is not null)
+        {
+            var recover = Prompts is not null && await Prompts.YesNoAsync("Recover Draft",
+                $"Unsaved changes to \"{_session.Profile.Name}\" were found from an earlier session. Recover them?");
+            if (recover) _session.RecoverDraft();
+            else _session.DiscardPendingDraft();
+            RefreshAll();
+            SaveStateText = _session.IsDirty ? UnsavedText : CleanText;
+        }
     }
 
     private void LoadProfileList()
@@ -1086,11 +1092,33 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [RelayCommand]
     private Task StageAsync() => RunAsync(WorkbenchBuildOperation.Stage, null);
 
-    [RelayCommand]
+    // Footer publish buttons: enabled by the same readiness rule as the Packages page buttons.
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(PublishConfigMgrCommand))] private bool _canPublishConfigMgr = true;
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(PublishIntuneCommand))] private bool _canPublishIntune = true;
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(PublishWsusCommand))] private bool _canPublishWsus = true;
+    [ObservableProperty] private string _publishConfigMgrToolTip = "Build a ConfigMgr Application from the selected build";
+    [ObservableProperty] private string _publishIntuneToolTip = "Stage this profile, build its .intunewin, and publish it to Intune";
+    [ObservableProperty] private string _publishWsusToolTip = "Stage this profile and publish its installer to WSUS";
+
+    /// <summary>Applies the publish readiness of the stored settings to the footer buttons.</summary>
+    public void ApplyPublishState(ApplicationPackagerEngine.Models.PublishActionState state)
+    {
+        CanPublishConfigMgr = state.MecmEnabled;
+        CanPublishIntune = state.IntuneEnabled;
+        CanPublishWsus = state.WsusEnabled;
+        PublishConfigMgrToolTip = state.MecmEnabled ? "Build a ConfigMgr Application from the selected build" : state.MecmToolTip;
+        PublishIntuneToolTip = state.IntuneEnabled ? "Stage this profile, build its .intunewin, and publish it to Intune" : state.IntuneToolTip;
+        PublishWsusToolTip = state.WsusEnabled ? "Stage this profile and publish its installer to WSUS" : state.WsusToolTip;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanPublishConfigMgr))]
     private Task PublishConfigMgrAsync() => RunAsync(WorkbenchBuildOperation.Package, RunTargets.Mecm);
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanPublishIntune))]
     private Task PublishIntuneAsync() => RunAsync(WorkbenchBuildOperation.Package, RunTargets.IntuneOnly);
+
+    [RelayCommand(CanExecute = nameof(CanPublishWsus))]
+    private Task PublishWsusAsync() => RunAsync(WorkbenchBuildOperation.Package, RunTargets.WsusOnly);
 
     /// <summary>
     /// A run uses the saved profile: unsaved edits are saved or discarded first, blocking
