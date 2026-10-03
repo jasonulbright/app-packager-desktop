@@ -15,7 +15,10 @@
     "SelectHighestVersion": true,
     "Url": "https://www.irfanview.info/64bit.htm",
     "Pattern": "iview(\\d{3,4})_x64\\.zip",
-    "VersionTransform": "insert_dot:1"
+    "VersionTransform": "insert_dot:1",
+    "RequestHeaders": [
+      "Referer: https://www.irfanview.info/64bit.htm"
+    ]
   },
   "DownloadUrl": "https://www.irfanview.info/files/iview{version}_x64_setup.exe",
   "InstallArgs": "/silent /allusers=1 /desktop=1 /group=1 /assoc=1",

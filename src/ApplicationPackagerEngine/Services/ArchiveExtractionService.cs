@@ -57,26 +57,8 @@ public sealed class ArchiveExtractionService
         if (exitCode != 0)
             return new ArchiveListResult { Success = false, ErrorMessage = $"7z exit code {exitCode}" };
 
-        // Parse 7z list output to detect installer type hints
         var lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var entries = new List<string>();
-        bool inFileList = false;
-
-        foreach (var line in lines)
-        {
-            if (line.TrimStart().StartsWith("---"))
-            {
-                inFileList = !inFileList;
-                continue;
-            }
-            if (inFileList && line.Length > 25)
-            {
-                // 7z list format: Date Time Attr Size Compressed Name
-                var name = line.Substring(53).Trim();
-                if (!string.IsNullOrEmpty(name))
-                    entries.Add(name);
-            }
-        }
+        var entries = ParseListEntries(stdout);
 
         // Detect archive subtype from 7z output header
         string? subType = null;
@@ -94,6 +76,33 @@ public sealed class ArchiveExtractionService
             Entries = entries.ToArray(),
             DetectedSubType = subType
         };
+    }
+
+    /// <summary>
+    /// Entry names from "7z l" output. The name column starts at a fixed
+    /// offset; a row of a PE listing can end before that column, and such a
+    /// row carries no name.
+    /// </summary>
+    public static List<string> ParseListEntries(string listOutput)
+    {
+        const int NameColumn = 53;
+        var entries = new List<string>();
+        var inFileList = false;
+
+        foreach (var line in listOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.TrimStart().StartsWith("---"))
+            {
+                inFileList = !inFileList;
+                continue;
+            }
+            if (!inFileList || line.Length <= NameColumn) continue;
+
+            var name = line.Substring(NameColumn).Trim();
+            if (!string.IsNullOrEmpty(name))
+                entries.Add(name);
+        }
+        return entries;
     }
 
     /// <summary>
