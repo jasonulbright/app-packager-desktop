@@ -84,7 +84,31 @@ public sealed class PublishRunServiceTests : IDisposable
 
         Assert.True(run.Step!.Refused);
         Assert.Equal(PublishRowOutcomeKind.NotSupported, run.Outcome!.Kind);
-        Assert.Equal("WSUS: not supported", row.Status);
+        Assert.Equal("not supported: CustomInstall", row.Status);
+        Assert.Equal(run.Step.Message, row.StatusDetail);
+        Assert.Contains("install.ps1 runs extra steps", row.StatusDetail);
+    }
+
+    [Fact]
+    public async Task AWsusRepeatPublishSaysAlreadyOnTheServer()
+    {
+        var id = Guid.NewGuid();
+        var publisher = new FakePublisher(() => new WsusPublishResult(id, "Tool 1.0", WsusPublishOutcome.AlreadyPublished, "", [], [], [],
+            "already on the server " + id, WsusRuleSource.Detection, []));
+        var row = StagedRow();
+
+        var run = await Service(publisher).PublishWsusRowAsync(row, null, _ => { }, CancellationToken.None);
+
+        Assert.Equal((PublishRowOutcomeKind.Success, "Already on the server"), (run.Outcome!.Kind, row.Status));
+        Assert.Null(row.StatusDetail);
+    }
+
+    [Fact]
+    public void ANewStatusClearsTheDetailOfTheOldOne()
+    {
+        var row = new PackagerInfo { Status = "not supported: CustomInstall", StatusDetail = "full text" };
+        row.Status = "Staging...";
+        Assert.Null(row.StatusDetail);
     }
 
     [Fact]

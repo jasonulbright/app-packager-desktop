@@ -650,6 +650,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
         _settingsService.SaveOperatorEdit(s);
 
+        ThemeApplier.Apply(s.Theme);
         _packagesViewModel.RefreshPublishActionState();
         // ConfigMgr versions and compare results describe one site.
         if (SiteIdentity.Key(s.SiteCode, s.ProviderMachine) != siteBefore)
@@ -666,10 +667,10 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [RelayCommand]
     private void ChangeTheme(string themeParameter)
     {
-        if (Enum.TryParse<ApplicationTheme>(themeParameter, out var theme))
+        if (ThemeApplier.Resolve(themeParameter) is { } theme)
         {
             CurrentTheme = theme;
-            ApplicationThemeManager.Apply(theme);
+            ThemeApplier.Apply(theme);
         }
     }
 

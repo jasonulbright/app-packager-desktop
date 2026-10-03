@@ -7,7 +7,11 @@ public partial class PackagerInfo : ObservableObject
     [ObservableProperty] private string _currentVersion = "";
     [ObservableProperty] private string _latestVersion = "";
     [ObservableProperty] private string _status = "Ready";
+    /// <summary>The full text behind a short status, shown as the status tooltip; null when the status says it all.</summary>
+    [ObservableProperty] private string? _statusDetail;
     [ObservableProperty] private DateTime? _lastChecked;
+
+    partial void OnStatusChanged(string value) => StatusDetail = null;
 
     /// <summary>Intune build and publish outcome for the most recent Package run.</summary>
     [ObservableProperty] private string _intuneNote = "";

@@ -46,6 +46,8 @@ public partial class PackagesViewModel : ObservableObject
     [ObservableProperty] private string _publishWsusToolTip = "";
     [ObservableProperty] private bool _isWsusUpdatesAvailable;
     [ObservableProperty] private string _wsusUpdatesToolTip = "";
+    /// <summary>The Intune note column shows only while Intune is a system in use.</summary>
+    [ObservableProperty] private bool _showIntuneColumn;
     private bool _skipMecmPreflight;
 
     public IAsyncRelayCommand LoadPackagersCommand { get; }
@@ -111,8 +113,10 @@ public partial class PackagesViewModel : ObservableObject
     /// </summary>
     public void RefreshPublishActionState()
     {
-        var state = PublishActionState.For(ReadinessOf(_settingsService.Load()));
+        var readiness = ReadinessOf(_settingsService.Load());
+        var state = PublishActionState.For(readiness);
 
+        ShowIntuneColumn = readiness.Systems.Intune;
         IsCheckMecmAvailable = state.CheckMecmEnabled;
         CheckMecmToolTip = state.CheckMecmToolTip;
         IsPublishConfigMgrAvailable = state.MecmEnabled;
@@ -1069,7 +1073,7 @@ public partial class PackagesViewModel : ObservableObject
         if (analysis.RequiresConfirmation)
             AddLogLine("  Predicted values present. Confirm them in the review dialog before staging.");
 
-        var panel = new DropReviewPanel();
+        var panel = new DropReviewPanel { FitToWindow = true };
         panel.Load(analysis);
 
         var dialog = new ContentDialog

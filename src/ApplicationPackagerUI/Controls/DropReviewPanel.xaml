@@ -12,94 +12,102 @@
                    Margin="0,4,0,12"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-        <Grid x:Name="InstallModeRow" Margin="0,0,0,10" Visibility="Collapsed">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="150" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Install for" VerticalAlignment="Center" Margin="0,0,12,0" />
-            <StackPanel Grid.Column="1">
-                <ComboBox x:Name="InstallModeBox" Width="200" HorizontalAlignment="Left"
-                          AutomationProperties.AutomationId="DropReviewInstallMode"
-                          SelectionChanged="InstallModeBox_SelectionChanged"
-                          ToolTip="The installer accepts a mode switch. System installs to Program Files and registers under HKLM; User installs into the profile and registers under HKCU. Arguments, uninstaller, detection key and context change together.">
-                    <ComboBoxItem Content="System" Tag="AllUsers" />
-                    <ComboBoxItem Content="User" Tag="CurrentUser" />
-                </ComboBox>
-                <TextBlock x:Name="InstallModeHint" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-            </StackPanel>
-        </Grid>
-
-        <ItemsControl x:Name="FieldList" AutomationProperties.AutomationId="DropReviewFields">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="150" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Grid.Column="0"
-                                   Text="{Binding Label}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,12,0" />
-
-                        <ui:TextBox Grid.Row="0" Grid.Column="1"
-                                    Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                    IsReadOnly="{Binding IsReadOnlyValue}"
-                                    AutomationProperties.Name="{Binding Label}"
-                                    TextWrapping="Wrap" />
-
-                        <Border Grid.Row="0" Grid.Column="2"
-                                Margin="8,0,0,0"
-                                Padding="8,2"
-                                CornerRadius="4"
-                                VerticalAlignment="Center">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#1F2D7D46" />
-                                    <Setter Property="BorderBrush" Value="#2D7D46" />
-                                    <Setter Property="BorderThickness" Value="1" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsPredicted}" Value="True">
-                                            <Setter Property="Background" Value="#26E8A317" />
-                                            <Setter Property="BorderBrush" Value="#E8A317" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <TextBlock Text="{Binding BadgeText}"
-                                       FontSize="11"
-                                       AutomationProperties.AutomationId="DropReviewBadge">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#2D7D46" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsPredicted}" Value="True">
-                                                <Setter Property="Foreground" Value="#E8A317" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Border>
-
-                        <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                   Text="{Binding ProvenanceText}"
-                                   FontSize="11"
-                                   Margin="0,2,0,0"
-                                   TextWrapping="Wrap"
+        <!-- The dialog scrolls its whole content, so Save as Application falls below the dialog edge
+             unless FitToWindow caps this part and only the fields scroll. -->
+        <ui:PassiveScrollViewer x:Name="FieldsScroller"
+                                VerticalScrollBarVisibility="Auto"
+                                HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,12,0">
+                <Grid x:Name="InstallModeRow" Margin="0,0,0,10" Visibility="Collapsed">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Install for" VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <StackPanel Grid.Column="1">
+                        <ComboBox x:Name="InstallModeBox" Width="200" HorizontalAlignment="Left"
+                                  AutomationProperties.AutomationId="DropReviewInstallMode"
+                                  SelectionChanged="InstallModeBox_SelectionChanged"
+                                  ToolTip="The installer accepts a mode switch. System installs to Program Files and registers under HKLM; User installs into the profile and registers under HKCU. Arguments, uninstaller, detection key and context change together.">
+                            <ComboBoxItem Content="System" Tag="AllUsers" />
+                            <ComboBoxItem Content="User" Tag="CurrentUser" />
+                        </ComboBox>
+                        <TextBlock x:Name="InstallModeHint" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                    </Grid>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                    </StackPanel>
+                </Grid>
+
+                <ItemsControl x:Name="FieldList" AutomationProperties.AutomationId="DropReviewFields">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                           Text="{Binding Label}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,12,0" />
+
+                                <ui:TextBox Grid.Row="0" Grid.Column="1"
+                                            Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                            IsReadOnly="{Binding IsReadOnlyValue}"
+                                            AutomationProperties.Name="{Binding Label}"
+                                            TextWrapping="Wrap" />
+
+                                <Border Grid.Row="0" Grid.Column="2"
+                                        Margin="8,0,0,0"
+                                        Padding="8,2"
+                                        CornerRadius="4"
+                                        VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#1F2D7D46" />
+                                            <Setter Property="BorderBrush" Value="#2D7D46" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPredicted}" Value="True">
+                                                    <Setter Property="Background" Value="#26E8A317" />
+                                                    <Setter Property="BorderBrush" Value="#E8A317" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding BadgeText}"
+                                               FontSize="11"
+                                               AutomationProperties.AutomationId="DropReviewBadge">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="#2D7D46" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPredicted}" Value="True">
+                                                        <Setter Property="Foreground" Value="#E8A317" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+
+                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                           Text="{Binding ProvenanceText}"
+                                           FontSize="11"
+                                           Margin="0,2,0,0"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ui:PassiveScrollViewer>
 
         <CheckBox x:Name="ConfirmCheckBox"
                   Margin="0,8,0,0"
