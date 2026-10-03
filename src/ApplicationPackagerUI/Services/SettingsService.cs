@@ -54,6 +54,17 @@ public class SettingsService
                 settings.ScriptSigning = ApplicationPackagerEngine.Models.Signing.SigningPolicy.FromSettings(settings.ScriptSigning);
                 settings.Systems = SystemsInUse.Resolve(settings.Systems, settings.Intune.TenantId, settings.Wsus?.ServerName);
                 settings.Wsus = WsusSettings.FromStored(settings.Wsus);
+                settings.OneClick ??= new OneClickSettings();
+                settings.OneClick.Destinations = (settings.OneClick.Destinations ?? [])
+                    .Where(kv => kv.Value is not null)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+                settings.OneClick.OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(settings.OneClick.OnExisting);
+                settings.AppStates ??= [];
+                foreach (var state in settings.AppStates.Values.Where(s => s is not null))
+                {
+                    state.Published ??= [];
+                    state.NotSupported ??= [];
+                }
                 // A file written before the flag existed saved its site code with every save.
                 settings.SiteCodeSaved ??= JsonNode.Parse(json) is JsonObject root && root.ContainsKey(nameof(AppSettings.SiteCode));
             }

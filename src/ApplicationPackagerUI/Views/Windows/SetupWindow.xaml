@@ -23,7 +23,7 @@
         </Style>
         <Style x:Key="HintText" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="0,0,0,12" />
         </Style>
@@ -43,25 +43,29 @@
 
                 <!-- Step 1: environment -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
-                    <TextBlock Text="Where do you deploy?" FontSize="22" FontWeight="Bold"
+                    <TextBlock Text="Welcome to AppPackager" FontSize="22" FontWeight="Bold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,4" />
-                    <TextBlock Text="This sets the Deployment Target. You can change it later in Settings."
+                    <TextBlock Text="Select the systems you publish to, then fill in their settings. The Packages page has a publish button for each system. Everything here can be changed later in Settings."
                                Style="{StaticResource HintText}" />
 
-                    <RadioButton Content="ConfigMgr only" Margin="0,0,0,4"
-                                 IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=MECM}" />
-                    <TextBlock Text="Package creates the ConfigMgr Application and Deployment Type."
-                               Style="{StaticResource HintText}" Margin="24,0,0,10" />
+                    <TextBlock Text="Systems in use" Style="{StaticResource FieldLabel}" />
+                    <CheckBox Content="ConfigMgr" IsChecked="{Binding UseConfigMgr}" Margin="0,0,0,4"
+                              AutomationProperties.AutomationId="chkSetupConfigMgr"
+                              ToolTip="ConfigMgr applications. Needs the ConfigMgr console, a site and a content share." />
+                    <TextBlock Text="ConfigMgr applications. Needs the ConfigMgr console, a site and a content share."
+                               Style="{StaticResource HintText}" Margin="28,0,0,10" />
 
-                    <RadioButton Content="ConfigMgr + Intune" Margin="0,0,0,4"
-                                 IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=MECMAndIntune}" />
-                    <TextBlock Text="The ConfigMgr application plus a Graph publish of the .intunewin."
-                               Style="{StaticResource HintText}" Margin="24,0,0,10" />
+                    <CheckBox Content="Intune" IsChecked="{Binding UseIntune}" Margin="0,0,0,4"
+                              AutomationProperties.AutomationId="chkSetupIntune"
+                              ToolTip="Intune Win32 apps published through Microsoft Graph. Needs an app registration." />
+                    <TextBlock Text="Intune Win32 apps published through Microsoft Graph. Needs an app registration."
+                               Style="{StaticResource HintText}" Margin="28,0,0,10" />
 
-                    <RadioButton Content="Intune only" Margin="0,0,0,4"
-                                 IsChecked="{Binding DeploymentTarget, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=IntuneOnly}" />
-                    <TextBlock Text="Stage, build the .intunewin, and publish via Graph. No site connection, no share copy."
-                               Style="{StaticResource HintText}" Margin="24,0,0,10" />
+                    <CheckBox Content="WSUS" IsChecked="{Binding UseWsus}" Margin="0,0,0,4"
+                              AutomationProperties.AutomationId="chkSetupWsus"
+                              ToolTip="Locally published WSUS updates for computers that have an older version. Needs a WSUS server." />
+                    <TextBlock Text="Locally published WSUS updates for computers that have an older version. Needs a WSUS server."
+                               Style="{StaticResource HintText}" Margin="28,0,0,10" />
                 </StackPanel>
 
                 <!-- Step 2: the fields that target needs -->
@@ -70,6 +74,8 @@
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,12" />
 
                     <StackPanel Visibility="{Binding ShowMecmFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="ConfigMgr" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="MCM" Margin="0,0,0,12" />
@@ -88,6 +94,8 @@
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding ShowIntuneFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="Intune" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         <TextBlock Text="Tenant ID" Style="{StaticResource FieldLabel}" />
                         <ui:TextBox Text="{Binding IntuneTenantId, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="contoso.onmicrosoft.com or a GUID" Margin="0,0,0,12" />
@@ -102,6 +110,29 @@
                         <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved secret. Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
                                    Style="{StaticResource HintText}" />
                     </StackPanel>
+
+                    <StackPanel Visibility="{Binding ShowWsusFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="WSUS" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <TextBlock Text="WSUS server" Style="{StaticResource FieldLabel}" />
+                        <ui:TextBox Text="{Binding WsusServerName, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="wsus01.contoso.com" Margin="0,0,0,12"
+                                    AutomationProperties.Name="WSUS server" AutomationProperties.AutomationId="txtSetupWsusServer"
+                                    ToolTip="WSUS server name. For ConfigMgr, the top-level software update point." />
+                        <TextBlock Text="Port" Style="{StaticResource FieldLabel}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <ui:TextBox Text="{Binding WsusPort, UpdateSourceTrigger=PropertyChanged}" Width="100" MaxLength="5"
+                                        AutomationProperties.Name="WSUS port" AutomationProperties.AutomationId="txtSetupWsusPort"
+                                        ToolTip="8530 for HTTP, 8531 for HTTPS on a default WSUS install." />
+                            <CheckBox Content="Use SSL" IsChecked="{Binding WsusUseSsl}" Margin="16,0,0,0" VerticalAlignment="Center"
+                                      AutomationProperties.AutomationId="chkSetupWsusSsl"
+                                      ToolTip="Connect to the WSUS administration API over HTTPS." />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="No system is selected. Save stores that, and the publish buttons stay disabled until a system is selected in Settings."
+                               Style="{StaticResource HintText}"
+                               Visibility="{Binding ShowNoFields, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 </StackPanel>
 
             </StackPanel>

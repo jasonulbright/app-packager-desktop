@@ -906,9 +906,12 @@
                 <TextBlock Text="Publish to:" FontSize="13" VerticalAlignment="Center" Margin="8,0,8,0"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                 <ui:Button x:Name="btnPublishMecm" Content="ConfigMgr" Appearance="Primary" Style="{StaticResource WbFooterButton}"
-                           Command="{Binding PublishConfigMgrCommand}" ToolTip="Build a ConfigMgr Application from the selected build" />
-                <ui:Button x:Name="btnPublishIntune" Content="Intune" Appearance="Primary" Style="{StaticResource WbFooterButton}" Margin="0"
-                           Command="{Binding PublishIntuneCommand}" ToolTip="Stage this profile, build its .intunewin, and publish it to Intune" />
+                           Command="{Binding PublishConfigMgrCommand}" ToolTip="{Binding PublishConfigMgrToolTip}" ToolTipService.ShowOnDisabled="True" />
+                <ui:Button x:Name="btnPublishIntune" Content="Intune" Appearance="Primary" Style="{StaticResource WbFooterButton}"
+                           Command="{Binding PublishIntuneCommand}" ToolTip="{Binding PublishIntuneToolTip}" ToolTipService.ShowOnDisabled="True" />
+                <ui:Button x:Name="btnPublishWsus" Content="WSUS" Appearance="Primary" Style="{StaticResource WbFooterButton}" Margin="0"
+                           Command="{Binding PublishWsusCommand}" ToolTip="{Binding PublishWsusToolTip}" ToolTipService.ShowOnDisabled="True"
+                           AutomationProperties.AutomationId="btnPublishWsus" />
             </StackPanel>
         </Grid>
 

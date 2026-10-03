@@ -109,7 +109,11 @@ public class PackagerExecutionService(
                 SigningPolicy = appSettings.ScriptSigning
             };
             var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues, installMode, inputs);
-            if (result.Success) packager.StagedVersion = Path.GetFileName(result.ContentPath);
+            if (result.Success)
+            {
+                packager.StagedVersion = Path.GetFileName(result.ContentPath);
+                await BuildIntuneWinAtStageAsync(result.ManifestPath, onOutputLine, ct);
+            }
             return new PackagerExecutionResult
             {
                 ExitCode = result.Success ? 0 : 1,
@@ -124,9 +128,120 @@ public class PackagerExecutionService(
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildStageArgs(packager, settings, bridge?.DownloadRoot);
         var staged = await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
-        if (staged.ExitCode == 0 && bridge is not null)
+        if (staged.ExitCode != 0) return staged;
+
+        var manifestPath = PackagerStageOutput.ExistingManifest(staged.StdOut);
+        if (manifestPath is null)
+            return new PackagerExecutionResult
+            {
+                ExitCode = 1,
+                StdOut = staged.StdOut,
+                StdErr = PackagerStageOutput.NoManifestMessage,
+                OutLogPath = staged.OutLogPath,
+                ErrLogPath = staged.ErrLogPath,
+                StructuredLogPath = staged.StructuredLogPath
+            };
+        if (bridge is not null)
             SealPackagerStage(bridge, staged.StdOut, settings.DownloadRoot, onOutputLine);
+        await BuildIntuneWinAtStageAsync(manifestPath, onOutputLine, ct);
         return staged;
+    }
+
+    /// <summary>The .intunewin of a stage, built when the content prep tool is on this computer; the note goes to the run log.</summary>
+    private static async Task BuildIntuneWinAtStageAsync(string? manifestPath, Action<string>? onOutputLine, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath) || IntuneDeploymentService.InstalledToolPath() is null) return;
+        StageManifest manifest;
+        try { manifest = new ManifestService().Read(manifestPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException) { return; }
+        void Report(string line)
+        {
+            if (onOutputLine is not null)
+                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+        }
+        var note = await IntuneDeploymentService.BuildAtStageAsync(manifest, Path.GetDirectoryName(manifestPath)!, Report, ct);
+        if (note.Length > 0) Report($"Intunewin: {note}");
+    }
+
+    /// <summary>
+    /// The stage manifest a stage run produced: the JSON stage's own manifest, the one
+    /// a PS1 packager logged, else the stage that carries the snapshot's BuildId.
+    /// </summary>
+    public string? StagedManifestPath(PackagerInfo packager, PackagerExecutionResult stageResult, RunSnapshot? snapshot)
+    {
+        if (packager.StagedManifestPath is { } dropped && File.Exists(dropped)) return dropped;
+        if (!string.IsNullOrWhiteSpace(stageResult.OutLogPath) && stageResult.OutLogPath.EndsWith(PackagerStageOutput.ManifestFileName, StringComparison.OrdinalIgnoreCase)
+            && File.Exists(stageResult.OutLogPath))
+            return stageResult.OutLogPath;
+        if (!packager.IsJsonDefined && PackagerStageOutput.ExistingManifest(stageResult.StdOut) is { } logged) return logged;
+        if (snapshot is null) return null;
+        try
+        {
+            var settings = settingsService.Load();
+            var root = string.IsNullOrWhiteSpace(snapshot.DownloadRoot) ? settings.DownloadRoot : snapshot.DownloadRoot;
+            return BuildRecords.ResolveStageManifestForBuild(snapshot.BuildId, root).ManifestPath;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or DirectoryNotFoundException or IOException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The stage manifest of the row's latest version under its active profile, or of
+    /// its last staged version; null when the row has none, or is a PS1 packager whose
+    /// stage location only its own run reports.
+    /// </summary>
+    public string? ExistingStageManifest(PackagerInfo packager)
+    {
+        if (packager.StagedManifestPath is { } dropped) return File.Exists(dropped) ? dropped : null;
+        if (!packager.IsJsonDefined || packager.DefinitionPath is null) return null;
+        try
+        {
+            var settings = settingsService.Load();
+            var def = LoadDefinition(packager.DefinitionPath);
+            var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id);
+            var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
+                $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+            foreach (var version in new[] { packager.LatestVersion, packager.StagedVersion })
+            {
+                if (string.IsNullOrWhiteSpace(version)) continue;
+                var path = Path.Combine(appRoot, version, "stage-manifest.json");
+                if (File.Exists(path)) return path;
+            }
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Publishes the stage a run produced to WSUS. A refusal, a failed server call and
+    /// a missing manifest come back as the step result; cancellation propagates.
+    /// </summary>
+    public async Task<WsusStepResult> PublishWsusAsync(PackagerInfo packager, PackagerExecutionResult stageResult, RunSnapshot? snapshot,
+        ApplicationPackagerEngine.Services.Wsus.IWsusPublisher publisher, Action<string>? onOutputLine, CancellationToken ct)
+    {
+        var manifestPath = StagedManifestPath(packager, stageResult, snapshot);
+        if (manifestPath is null)
+            return new WsusStepResult(WsusStepStatus.Failed, "No stage manifest was found for this stage. Run Stage again.", [], []);
+        StageManifest manifest;
+        try { manifest = new ManifestService().Read(manifestPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return new WsusStepResult(WsusStepStatus.Failed, $"The stage manifest {manifestPath} could not be read: {ex.Message}", [], []);
+        }
+        void Report(string line)
+        {
+            if (onOutputLine is not null)
+                System.Windows.Application.Current.Dispatcher.InvokeAsync(() => onOutputLine(line));
+        }
+        var settings = settingsService.Load();
+        var supportUrl = string.IsNullOrWhiteSpace(packager.VendorUrl) ? null : packager.VendorUrl;
+        return await ApplicationPackagerEngine.Services.Wsus.WsusPublishStep.RunAsync(
+            publisher, manifest, Path.GetDirectoryName(manifestPath)!, settings.Wsus, Report, ct, supportUrl);
     }
 
     /// <summary>Seals the build record of a PS1 stage that ran with a run snapshot; the outcome goes to the run log.</summary>
@@ -308,8 +423,30 @@ public class PackagerExecutionService(
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildPackageArgs(packager, settings, comment, bridge?.DownloadRoot);
-        return await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
+        var environment = new Dictionary<string, string>(ChildEnvironment(bridge, settings), StringComparer.OrdinalIgnoreCase)
+        {
+            [OnExistingVariable] = onExisting.ToString()
+        };
+        var packaged = await RunStreamingAsync(args, logPaths, onOutputLine, ct, environment);
+        foreach (var line in packaged.StdOut.Split('\n'))
+        {
+            if (!OnExistingConflict.TryParse(line.Trim(), out var app, out var version, out var incoming)) continue;
+            return new PackagerExecutionResult
+            {
+                ExitCode = packaged.ExitCode,
+                StdOut = packaged.StdOut,
+                StdErr = packaged.StdErr,
+                OutLogPath = packaged.OutLogPath,
+                ErrLogPath = packaged.ErrLogPath,
+                StructuredLogPath = packaged.StructuredLogPath,
+                Conflict = new ExistingApplicationConflict(app, version, incoming)
+            };
+        }
+        return packaged;
     }
+
+    /// <summary>The variable a PS1 packager's common module reads for the existing-application behavior; Skip when unset.</summary>
+    public const string OnExistingVariable = "APP_PACKAGER_ON_EXISTING";
 
     /// <summary>
     /// Writes the run snapshot for a PS1 packager's active workbench profile and returns the
@@ -421,6 +558,42 @@ public class PackagerExecutionService(
         refusal = null;
         if (!packager.IsJsonDefined) return null;
         return CreateProfileSnapshot(plan.ApplicationId, plan.ProfileId, settingsService.Load(), out refusal, plan.DataRoot);
+    }
+
+    /// <summary>
+    /// The run snapshot one One Click row stages from and then publishes from, for a
+    /// JSON definition and for a PS1 packager alike. A snapshot that cannot be created
+    /// is the row's refusal, with the reason; the row neither stages nor publishes.
+    /// </summary>
+    public RunSnapshot? CreateRowSnapshot(PackagerInfo packager, OneClickBuildPlan plan, string target, out string? refusal)
+    {
+        refusal = null;
+        var settings = settingsService.Load();
+        try
+        {
+            var store = WorkbenchStore.Open(plan.DataRoot);
+            return store.CreateRunSnapshot(new RunSnapshotRequest
+            {
+                ApplicationId = plan.ApplicationId,
+                ProfileId = plan.ProfileId,
+                Target = RunTargets.Normalize(target) ?? RunTargets.Mecm,
+                SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
+                PackagerScriptPath = packager.IsJsonDefined ? packager.DefinitionPath : packager.FullPath,
+                DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, plan.ProfileId)
+            }, new ScriptSigningCertificateGate());
+        }
+        catch (Exception ex) when (ex.Message.Contains("SigningCertificateUnavailable", StringComparison.Ordinal)
+                                   || ex.Message == NoSigningServiceGate.NotLoadedMessage)
+        {
+            refusal = ex.Message;
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                                   or ArgumentException or JsonException)
+        {
+            refusal = $"Run snapshot not created for profile {plan.ProfileId}: {ex.Message}";
+            return null;
+        }
     }
 
     /// <summary>The workbench store of a snapshot's data root, else the configured one; null when it cannot be opened.</summary>
@@ -588,10 +761,11 @@ public class PackagerExecutionService(
     /// <summary>
     /// The optional steps that follow a new MECM application: content distribution to
     /// the configured DP group, a test-collection deployment once the content is
-    /// targeted, and, for an MECM-only target that asked for it, a .intunewin stored
-    /// beside the network content. Each step reports its own outcome and none of
-    /// them fails the run, because the application already exists. Returns the
-    /// .intunewin note, or an empty string when none was built.
+    /// targeted, and, for a run that does not publish to Intune, the stage's
+    /// .intunewin stored beside the network content when the content prep tool is
+    /// present. Each step reports its own outcome and none of them fails the run,
+    /// because the application already exists. Returns the .intunewin note, or an
+    /// empty string when none was stored.
     /// </summary>
     private async Task<string> RunPostPackageStepsAsync(
         MecmTarget mecmTarget, PackagingResult result, StageManifest manifest, string stagedContentPath,
@@ -618,7 +792,7 @@ public class PackagerExecutionService(
             }
         }
 
-        if (settings.Intune.CreateIntuneWin && !DeploymentTargets.PublishesToIntune(target))
+        if (!DeploymentTargets.PublishesToIntune(target))
             return await intuneDeploymentService.BuildBesideContentAsync(manifest, stagedContentPath, result.NetworkContentPath, report, ct);
 
         return "";
@@ -727,7 +901,7 @@ public class PackagerExecutionService(
 
     private string BuildGetLatestArgs(PackagerInfo packager, AppSettings settings)
     {
-        var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{packager.FullPath}\" -SiteCode \"{settings.SiteCode}\" -GetLatestVersionOnly";
+        var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{packager.FullPath}\" -SiteCode \"{PackagerSiteCode(settings.SiteCode)}\" -GetLatestVersionOnly";
 
         if (SupportsFileServerPath(packager))
             args += $" -FileServerPath \"{settings.FileShareRoot}\"";
@@ -738,6 +912,13 @@ public class PackagerExecutionService(
 
         return args;
     }
+
+    /// <summary>
+    /// The site code handed to a PS1 packager's version check. The packagers bind
+    /// -SiteCode as a mandatory string, which refuses an empty value; a check
+    /// never reads the site, so a workstation without ConfigMgr passes the default.
+    /// </summary>
+    public static string PackagerSiteCode(string? siteCode) => string.IsNullOrWhiteSpace(siteCode) ? "MCM" : siteCode.Trim();
 
     private (string args, LogPaths logs) BuildStageArgs(PackagerInfo packager, AppSettings settings, string? profileDownloadRoot)
     {

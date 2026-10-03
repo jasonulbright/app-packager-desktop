@@ -30,18 +30,10 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         IReadOnlyList<StageRequirement>? untranslatedRequirements = null)
     {
         string intuneWinPath;
+        bool reused;
         try
         {
-            var toolPath = await EnsureToolAsync(log, ct).ConfigureAwait(false);
-            var outputFolder = Path.GetDirectoryName(stagedContentPath.TrimEnd(Path.DirectorySeparatorChar))
-                ?? throw new InvalidOperationException($"Staged content folder has no parent: {stagedContentPath}");
-
-            var toolService = new IntuneWinToolService();
-            var build = await toolService.BuildAsync(
-                toolPath, stagedContentPath, SetupFileOf(manifest), outputFolder,
-                OutputName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
-
-            intuneWinPath = build.IntuneWinPath;
+            (intuneWinPath, reused) = await BuildOrReuseAsync(manifest, stagedContentPath, log, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -52,7 +44,7 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             return IntuneRunOutcome.BuildFailed($"build failed: {ex.Message}");
         }
 
-        var winNote = $"built {Path.GetFileName(intuneWinPath)}";
+        var winNote = $"{(reused ? "reused" : "built")} {Path.GetFileName(intuneWinPath)}";
 
         // Reading settings and resolving options can both fail on stored data; neither is
         // a published app, so both answer through the same failure path.
@@ -100,9 +92,40 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
     }
 
     /// <summary>
-    /// Builds the .intunewin without publishing and stores a copy beside the network
-    /// content version folder, which is where an operator who packages for MECM only
-    /// expects to pick it up. Failures ride back as the note.
+    /// Builds the .intunewin of a fresh stage when the content prep tool is already
+    /// on this computer; the tool is never downloaded here. Returns the note, or an
+    /// empty string when the tool is absent. A failed build does not fail the stage.
+    /// </summary>
+    public static async Task<string> BuildAtStageAsync(
+        StageManifest manifest,
+        string stagedContentPath,
+        Action<string>? log = null,
+        CancellationToken ct = default)
+    {
+        var toolPath = InstalledToolPath();
+        if (toolPath is null) return "";
+        try
+        {
+            var build = await new IntuneWinToolService().BuildAsync(
+                toolPath, stagedContentPath, SetupFileOf(manifest), IntuneWinArtifact.OutputFolder(stagedContentPath),
+                IntuneWinArtifact.FileName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
+            return $"built {Path.GetFileName(build.IntuneWinPath)}";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return $"build failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Stores the stage's .intunewin beside the network content version folder of a
+    /// ConfigMgr run: the one Stage built when it is newer than the manifest, else a
+    /// fresh build. Runs only when the content prep tool is on this computer; the
+    /// note is empty otherwise. Failures ride back as the note.
     /// </summary>
     public async Task<string> BuildBesideContentAsync(
         StageManifest manifest,
@@ -111,24 +134,20 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         Action<string>? log = null,
         CancellationToken ct = default)
     {
+        if (InstalledToolPath() is null && IntuneWinArtifact.Reusable(manifest, stagedContentPath) is null) return "";
         try
         {
-            var toolPath = await EnsureToolAsync(log, ct).ConfigureAwait(false);
-            var outputFolder = Path.GetDirectoryName(stagedContentPath.TrimEnd(Path.DirectorySeparatorChar))
-                ?? throw new InvalidOperationException($"Staged content folder has no parent: {stagedContentPath}");
-
-            var build = await new IntuneWinToolService().BuildAsync(
-                toolPath, stagedContentPath, SetupFileOf(manifest), outputFolder,
-                OutputName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
+            var (intuneWinPath, reused) = await BuildOrReuseAsync(manifest, stagedContentPath, log, ct).ConfigureAwait(false);
+            var verb = reused ? "reused" : "built";
 
             var networkParent = Path.GetDirectoryName(networkContentPath.TrimEnd(Path.DirectorySeparatorChar));
             if (string.IsNullOrEmpty(networkParent))
-                return $"built {Path.GetFileName(build.IntuneWinPath)}; no network folder to copy beside";
+                return $"{verb} {Path.GetFileName(intuneWinPath)}; no network folder to copy beside";
 
-            var target = Path.Combine(networkParent, Path.GetFileName(build.IntuneWinPath));
-            File.Copy(build.IntuneWinPath, target, overwrite: true);
+            var target = Path.Combine(networkParent, Path.GetFileName(intuneWinPath));
+            File.Copy(intuneWinPath, target, overwrite: true);
             log?.Invoke($"Intunewin stored: {target}");
-            return $"built {Path.GetFileName(build.IntuneWinPath)}, stored beside the content";
+            return $"{verb} {Path.GetFileName(intuneWinPath)}, stored beside the content";
         }
         catch (OperationCanceledException)
         {
@@ -199,11 +218,19 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
     private static string SetupFileOf(StageManifest manifest) =>
         string.IsNullOrWhiteSpace(manifest.SetupFile) ? SetupFile : manifest.SetupFile;
 
-    private static string OutputName(StageManifest manifest)
+    /// <summary>The stage's .intunewin when it is newer than the manifest, else a fresh build (downloading the tool on first use).</summary>
+    private static async Task<(string Path, bool Reused)> BuildOrReuseAsync(
+        StageManifest manifest, string stagedContentPath, Action<string>? log, CancellationToken ct)
     {
-        var raw = $"{manifest.AppName}-{manifest.SoftwareVersion}";
-        foreach (var c in Path.GetInvalidFileNameChars())
-            raw = raw.Replace(c, '_');
-        return raw.Replace(' ', '_') + ".intunewin";
+        if (IntuneWinArtifact.Reusable(manifest, stagedContentPath) is { } existing)
+        {
+            log?.Invoke($"Intunewin reused: {existing}");
+            return (existing, true);
+        }
+        var toolPath = await EnsureToolAsync(log, ct).ConfigureAwait(false);
+        var build = await new IntuneWinToolService().BuildAsync(
+            toolPath, stagedContentPath, SetupFileOf(manifest), IntuneWinArtifact.OutputFolder(stagedContentPath),
+            IntuneWinArtifact.FileName(manifest), onProgress: log, ct: ct).ConfigureAwait(false);
+        return (build.IntuneWinPath, false);
     }
 }

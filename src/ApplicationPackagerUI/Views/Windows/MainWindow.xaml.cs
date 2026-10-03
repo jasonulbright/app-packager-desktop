@@ -7,8 +7,10 @@ using ApplicationPackagerUI.ViewModels.Windows;
 
 namespace ApplicationPackagerUI.Views.Windows;
 
-public partial class MainWindow
+public partial class MainWindow : IDialogHostWindow
 {
+    public ContentDialogHost DialogHost => RootContentDialog;
+
     private readonly IServiceProvider _serviceProvider;
 
     public MainWindow(
@@ -83,11 +85,18 @@ public partial class MainWindow
             WindowState = WindowState.Maximized;
         RootNavigation.IsPaneOpen = settings.PaneOpen;
 
+        // Setup opens once the main window has rendered: opened from Loaded, it shows over
+        // an empty frame and the main window paints only after Setup closes.
         if (FirstRunDecision.IsWizardDue(settings.FirstRunCompleted))
         {
-            var setup = _serviceProvider.GetRequiredService<SetupWindow>();
-            setup.Owner = this;
-            setup.ShowDialog();
+            void ShowSetup(object? sender, EventArgs args)
+            {
+                ContentRendered -= ShowSetup;
+                var setup = _serviceProvider.GetRequiredService<SetupWindow>();
+                setup.Owner = this;
+                setup.ShowDialog();
+            }
+            ContentRendered += ShowSetup;
         }
 
         Closing += (_, _) =>
