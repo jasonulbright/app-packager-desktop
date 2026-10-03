@@ -12,6 +12,8 @@ using ApplicationPackagerEngine.Scrapers;
 //                    CSV report of resolved versions and scraper failures.
 //                    This is the Phase 4 definitions-maintenance sweep.
 //   --app <name>     Test a single app (partial match on filename)
+//   --install-mode <mode>  Stage with an install mode (CurrentUser or AllUsers) for a
+//                    definition that declares SupportsInstallModes
 //   --timeout <sec>  Per-app install timeout in seconds (default 300)
 
 var defsDir = args.Length > 0 && !args[0].StartsWith("--") ? args[0] : @"C:\temp\test-harness\Definitions";
@@ -20,6 +22,7 @@ var stageOnly = args.Contains("--stage-only");
 var testOnly = args.Contains("--test-only");
 var checkOnly = args.Contains("--check-only");
 var appFilter = args.Contains("--app") ? args[Array.IndexOf(args, "--app") + 1] : null;
+var installMode = args.Contains("--install-mode") ? args[Array.IndexOf(args, "--install-mode") + 1] : null;
 var timeoutSec = args.Contains("--timeout") ? int.Parse(args[Array.IndexOf(args, "--timeout") + 1]) : 300;
 
 Console.WriteLine($"Packr Test Harness");
@@ -167,7 +170,7 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
         try
         {
             using var stageCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
-            var stageResult = await stagingService.StageAsync(def, downloadRoot, msg => { }, stageCts.Token);
+            var stageResult = await stagingService.StageAsync(def, downloadRoot, msg => { }, stageCts.Token, installMode: installMode);
             if (!stageResult.Success)
             {
                 Console.WriteLine($"FAIL — {stageResult.ErrorMessage}");
