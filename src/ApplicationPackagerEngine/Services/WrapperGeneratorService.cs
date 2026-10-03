@@ -145,9 +145,9 @@ public sealed class WrapperGeneratorService
 
     /// <summary>
     /// Reports each reboot exit code as 3010 at every point a wrapper writes
-    /// exitcode.txt. The .bat wrapper returns the file's value, not the
-    /// PowerShell exit code, so the remapped value has to reach the file.
-    /// A script with no codes is returned unchanged.
+    /// exitcode.txt: the script exits 3010 there, and the .bat wrapper
+    /// returns the script's exit code. A script with no codes is returned
+    /// unchanged.
     /// </summary>
     public static string ApplyRebootExitCodes(string script, IReadOnlyList<int>? rebootExitCodes)
     {
@@ -671,18 +671,17 @@ public sealed class WrapperGeneratorService
     {
         var encoding = new UTF8Encoding(false); // ASCII-compatible, no BOM
 
-        // PowerShell only returns 0 or 1 to cmd.exe. The ps1 writes the real
-        // exit code to exitcode.txt, and the bat reads it back for the true value.
+        // The wrapper returns the exit code of the PowerShell process: with
+        // -File, an "exit N" in the script is the process exit code. It does
+        // not read exitcode.txt back. Windows PowerShell writes that file as
+        // UTF-16 with a byte order mark, which "set /p" reads as non-numeric
+        // text, and "exit /b" with non-numeric text returns 0.
         var batTemplate = """
             @echo off
-            del /q "%~dp0exitcode.txt" >nul 2>&1
             powershell.exe -NonInteractive -ExecutionPolicy Bypass -File "%~dp0{0}"
-            if exist "%~dp0exitcode.txt" (
-                set /p REALCODE=<"%~dp0exitcode.txt"
-                del /q "%~dp0exitcode.txt" >nul 2>&1
-                exit /b %REALCODE%
-            )
-            exit /b %ERRORLEVEL%
+            set "PSCODE=%ERRORLEVEL%"
+            del /q "%~dp0exitcode.txt" >nul 2>&1
+            exit /b %PSCODE%
             """;
 
         WriteIfMissing(Path.Combine(outputPath, "install.ps1"), installPs1Content, encoding);
