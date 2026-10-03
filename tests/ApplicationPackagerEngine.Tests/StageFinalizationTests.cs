@@ -410,6 +410,80 @@ public sealed class StageFinalizationTests : IDisposable
     }
 
     [Fact]
+    public void ExtendModeStagesHookTextStoredInTheProfile()
+    {
+        const string id = "catalog:package-extend-text";
+        var saved = Update(_t.NewProfile(id), p => p.Set("Install", new JsonObject
+        {
+            ["Mode"] = "Extend",
+            ["BeforeText"] = "Set-Content -Path C:\\LabTest\\before.txt -Value '{{InstallerFile}}'",
+            ["AfterText"] = "exit 0"
+        }));
+        var stage = NewStage();
+        var manifest = NewManifest();
+
+        Finalizer(Snapshot(id, saved.ProfileId)).Apply(stage, manifest);
+
+        Assert.Equal("Set-Content -Path C:\\LabTest\\before.txt -Value 'setup.exe'", File.ReadAllText(Path.Combine(stage, "install-before.ps1")));
+        Assert.Equal("exit 0", File.ReadAllText(Path.Combine(stage, "install-after.ps1")));
+        var orchestrator = File.ReadAllText(Path.Combine(stage, "install.ps1"));
+        var before = orchestrator.IndexOf("Invoke-Step -Name 'install-before.ps1'", StringComparison.Ordinal);
+        var generated = orchestrator.IndexOf("Invoke-Step -Name 'install-generated.ps1'", StringComparison.Ordinal);
+        var after = orchestrator.IndexOf("Invoke-Step -Name 'install-after.ps1'", StringComparison.Ordinal);
+        Assert.True(before >= 0 && before < generated && generated < after);
+        Assert.Contains(manifest.CustomAssets, a => a.Category == "InstallBefore" && a.RelativePath == "install-before.ps1" && a.Asset is null);
+        Assert.Contains(manifest.CustomAssets, a => a.Category == "InstallAfter" && a.RelativePath == "install-after.ps1" && a.Asset is null);
+    }
+
+    [Fact]
+    public void AHookAssetWinsOverHookTextForTheSameStep()
+    {
+        const string id = "catalog:package-extend-both";
+        var profile = _t.NewProfile(id);
+        var asset = _t.Store.AddAsset(id, profile.ProfileId, _t.NewFile(Path.Combine(_t.NewFolder(), "before.ps1"), "# from asset"));
+        var saved = Update(profile, p => p.Set("Uninstall", new JsonObject
+        {
+            ["Mode"] = "Extend", ["Before"] = asset.AssetId, ["BeforeText"] = "# from text"
+        }));
+        var stage = NewStage();
+
+        Finalizer(Snapshot(id, saved.ProfileId)).Apply(stage, NewManifest());
+
+        Assert.Equal("# from asset", File.ReadAllText(Path.Combine(stage, "uninstall-before.ps1")));
+    }
+
+    [Fact]
+    public void CustomInstallModeStagesScriptTextStoredInTheProfile()
+    {
+        const string id = "catalog:package-custom-text";
+        var saved = Update(_t.NewProfile(id), p => p.Set("Install", new JsonObject
+        {
+            ["Mode"] = "Custom", ["ScriptText"] = "Start-Process (Join-Path {{ContentRoot}} '{{InstallerFile}}')"
+        }));
+        var stage = NewStage();
+        var manifest = NewManifest();
+
+        Finalizer(Snapshot(id, saved.ProfileId)).Apply(stage, manifest);
+
+        Assert.Equal("Start-Process (Join-Path $PSScriptRoot 'setup.exe')", File.ReadAllText(Path.Combine(stage, "install.ps1")));
+        Assert.Contains(manifest.CustomAssets, a => a.Category == "Install" && a.RelativePath == "install.ps1" && a.Asset is null);
+    }
+
+    [Fact]
+    public void CustomModeWithNeitherAScriptAssetNorScriptTextIsRefused()
+    {
+        const string id = "catalog:package-custom-empty";
+        var saved = Update(_t.NewProfile(id), p => p.Set("Install", new JsonObject { ["Mode"] = "Custom", ["ScriptText"] = "  " }));
+        var stage = NewStage();
+        var before = TreeHashes(stage);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Finalizer(Snapshot(id, saved.ProfileId)).Apply(stage, NewManifest()));
+
+        Assert.Equal("Install.Mode Custom requires a script.", ex.Message);
+        Assert.Equal(before, TreeHashes(stage));
+    }
+
+    [Fact]
     public void ExtendModeWithoutAGeneratedScriptIsRefused()
     {
         const string id = "catalog:package-extend-missing";
