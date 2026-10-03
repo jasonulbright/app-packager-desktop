@@ -1,0 +1,23 @@
+{
+  "SchemaVersion": 4,
+  "StagedAt": "2026-10-03T00:00:00Z",
+  "FileHashes": [ { "RelativePath": "a.txt", "Sha256": "00", "Size": 1 } ],
+  "PlanDigest": "IGNORED",
+  "zeta": 1,
+  "Alpha": "first",
+  "a_b": "underscore",
+  "ab": "plain",
+  "a-c": "hyphen",
+  "it's": "apostrophe",
+  "Item10": 10,
+  "Item9": 9,
+  "EmptyArray": [],
+  "SingleArray": [ "only" ],
+  "SingleObjectArray": [ { "K": "v" } ],
+  "NestedArrays": [ [ 1, 2 ], "z", [], null, [ [ "deep" ] ], { "In": [ ] } ],
+  "EmptyObject": {},
+  "Numbers": { "Int": 42, "Negative": -7, "Large": 5000000000, "Decimal": 1.50, "Zero": 0 },
+  "Flags": { "T": true, "F": false, "N": null },
+  "Text": "quote \" backslash \\ slash / tab \t cr \r lf \n bell \u0007 bs \b ff \f apos ' lt < gt > amp & nel \u0085 ls   ps   rubout \u007f e-acute é euro € emoji 😀",
+  "Deep": { "L1": { "L2": { "L3": { "L4": [ { "L5": { "L6": "bottom" } } ] } } } }
+}
