@@ -5,6 +5,8 @@
   "Vendor": "Microsoft",
   "Application": "ASP.NET 8 Server Hosting Bundle (x64)",
   "CMName": "Microsoft .NET 8",
+  "AppName": "Microsoft .NET {version} - Windows Server Hosting",
+  "Publisher": "Microsoft Corporation",
   "Architecture": "x64",
   "VendorUrl": "https://dotnet.microsoft.com/download/dotnet/8.0",
   "InstallerType": "EXE",

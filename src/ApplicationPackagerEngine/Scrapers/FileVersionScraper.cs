@@ -21,6 +21,10 @@ namespace ApplicationPackagerEngine.Scrapers;
 /// links the current build but publishes no version string. Staging reads the
 /// same URL through ResolveDownloadUrlAsync; DownloadUrlQuery must be
 /// non-empty ("CHAINED") for staging to ask.
+///
+/// With ProbeFloor set, Url carries a {build} placeholder and the HeadProbe build
+/// walk names the file instead, for a vendor whose only published fact is which
+/// numbered setup the download host still serves.
 /// </summary>
 public sealed class FileVersionScraper : IVersionScraper
 {
@@ -64,14 +68,24 @@ public sealed class FileVersionScraper : IVersionScraper
     /// The URL whose file carries the version: the configured URL, or with
     /// Hops the "url" capture of the crawl. Null when a hop fails to match.
     /// </summary>
-    public static async Task<string?> ResolveDownloadUrlAsync(VersionScraperConfig config, CancellationToken ct = default)
+    public static async Task<string?> ResolveDownloadUrlAsync(VersionScraperConfig config, CancellationToken ct = default,
+        Func<string, CancellationToken, Task<bool>>? isPublished = null)
     {
+        if (!string.IsNullOrWhiteSpace(config.ProbeFloor))
+        {
+            var build = await HeadProbeScraper.WalkBuildNumberAsync(config.Url, config.ProbeFloor, config.MaxVersionHops, isPublished, ct);
+            return build is null ? null : HeadProbeScraper.BuildNumberUrl(config.Url, build.Value);
+        }
         if (config.Hops is not { Count: > 0 })
             return string.IsNullOrWhiteSpace(config.Url) ? null : config.Url;
 
         var (_, url) = await ChainedHttpRegexScraper.CrawlAsync(config, ct);
         return string.IsNullOrWhiteSpace(url) ? null : url;
     }
+
+    /// <summary>True when the download URL is discovered (hops or a build probe) rather than fixed.</summary>
+    public static bool DiscoversUrl(VersionScraperConfig config) =>
+        config.Hops is { Count: > 0 } || !string.IsNullOrWhiteSpace(config.ProbeFloor);
 
     /// <summary>
     /// Returns the cached installer path if the file exists, or null.

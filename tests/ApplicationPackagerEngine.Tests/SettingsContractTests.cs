@@ -140,7 +140,7 @@ public sealed class SettingsContractTests : IDisposable
         Assert.False(editor.SignDetection || editor.SignRequirements || editor.SignDeployment
                      || editor.RequireDetection || editor.RequireRequirements || editor.RequireDeployment || editor.TimestampRequired);
         Assert.Equal(SigningPolicy.CurrentUser, editor.StoreLocation);
-        Assert.Equal("SHA256", editor.HashAlgorithm);
+        Assert.Equal("SHA256", editor.ToPolicy().HashAlgorithm);
         Assert.Equal(SigningCertificateOption.NoneLabel, editor.SelectedCertificate?.Label);
     }
 
@@ -172,7 +172,6 @@ public sealed class SettingsContractTests : IDisposable
         editor.RequireRequirements = true;
         editor.TimestampServer = "  http://timestamp.example.test  ";
         editor.TimestampRequired = true;
-        editor.HashAlgorithm = "SHA384";
         editor.SelectedCertificate = editor.Certificates.Single(c => c.Thumbprint == signer.Thumbprint.ToUpperInvariant());
 
         var s = service.Load();
@@ -184,7 +183,7 @@ public sealed class SettingsContractTests : IDisposable
         Assert.False(stored.SignRequirements);
         Assert.True(stored.RequireRequirements);
         Assert.Equal("http://timestamp.example.test", stored.TimestampServer);
-        Assert.Equal("SHA384", stored.HashAlgorithm);
+        Assert.Equal("SHA256", stored.HashAlgorithm);
         Assert.Equal(signer.Thumbprint.ToUpperInvariant(), stored.CertificateThumbprint);
         Assert.Equal(editor.ToPolicy().PolicyDigest, stored.PolicyDigest);
 
@@ -205,12 +204,22 @@ public sealed class SettingsContractTests : IDisposable
                      () => editor.SignDetection = true, () => editor.SignRequirements = true, () => editor.SignDeployment = true,
                      () => editor.RequireDetection = true, () => editor.RequireRequirements = true, () => editor.RequireDeployment = true,
                      () => editor.TimestampServer = "http://ts.example", () => editor.TimestampRequired = true,
-                     () => editor.HashAlgorithm = "SHA512", () => editor.StoreLocation = SigningPolicy.LocalMachine
+                     () => editor.StoreLocation = SigningPolicy.LocalMachine
                  })
         {
             change();
             Assert.True(digests.Add(editor.ToPolicy().PolicyDigest));
         }
+    }
+
+    [Fact]
+    public void SettingsOfferNoHashAlgorithmAndASaveStoresSha256()
+    {
+        var editor = Editor();
+        editor.Load(new SigningPolicy { SignDetection = true, HashAlgorithm = "SHA384" });
+        Assert.Null(typeof(ScriptSigningEditor).GetProperty("HashAlgorithmOptions"));
+        Assert.Null(typeof(ScriptSigningEditor).GetProperty("HashAlgorithm"));
+        Assert.Equal("SHA256", editor.ToPolicy().HashAlgorithm);
     }
 
     [Fact]

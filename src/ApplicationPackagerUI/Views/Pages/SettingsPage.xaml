@@ -390,11 +390,6 @@
             <CheckBox Content="Timestamp required" IsChecked="{Binding Signing.TimestampRequired}" Margin="0,0,0,12"
                       ToolTip="With this on, a timestamp server failure fails the signed build instead of producing an untimestamped signature." />
 
-            <TextBlock Text="Hash algorithm" Style="{StaticResource FieldLabel}" />
-            <ComboBox ItemsSource="{Binding Signing.HashAlgorithmOptions}" SelectedItem="{Binding Signing.HashAlgorithm}"
-                      AutomationProperties.Name="Hash algorithm" AutomationProperties.AutomationId="SigningHash"
-                      Width="160" HorizontalAlignment="Left" Margin="0,0,0,12" />
-
             <ui:Button Content="Test signing configuration" Command="{Binding Signing.TestConfigurationCommand}"
                        IsEnabled="{Binding Signing.TestIdle}" HorizontalAlignment="Left" Margin="0,0,0,8"
                        ToolTip="Signs and verifies a temporary file with the selected certificate. Nothing is published." />

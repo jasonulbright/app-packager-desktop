@@ -40,6 +40,36 @@ public class HeadProbeScraperTests
     }
 
     [Fact]
+    public async Task BuildWalk_SkipsUpToTwoMissingBuildsAndStopsAfterThree()
+    {
+        var served = new HashSet<int> { 10, 11, 14, 18 };
+        var probed = new List<string>();
+        Task<bool> Probe(string url, CancellationToken _)
+        {
+            probed.Add(url);
+            return Task.FromResult(served.Contains(int.Parse(url["https://host.test/s".Length..^4])));
+        }
+
+        Assert.Equal(14, await HeadProbeScraper.WalkBuildNumberAsync("https://host.test/s{build}.exe", "10", 12, Probe));
+        Assert.DoesNotContain("https://host.test/s18.exe", probed);
+    }
+
+    [Fact]
+    public async Task BuildWalk_StopsAtTheHopLimit()
+    {
+        Assert.Equal(5, await HeadProbeScraper.WalkBuildNumberAsync("https://host.test/s{build}.exe", "2", 3, (_, _) => Task.FromResult(true)));
+    }
+
+    [Theory]
+    [InlineData("2.22")]
+    [InlineData("-1")]
+    [InlineData("")]
+    public async Task BuildWalk_RejectsAFloorThatIsNotAWholeNumber(string floor)
+    {
+        Assert.Null(await HeadProbeScraper.WalkBuildNumberAsync("https://host.test/s{build}.exe", floor, 3, (_, _) => Task.FromResult(true)));
+    }
+
+    [Fact]
     public void Registry_ResolvesHeadProbe()
     {
         Assert.IsType<HeadProbeScraper>(new ScraperRegistry().Get("HeadProbe"));
