@@ -38,7 +38,7 @@ public sealed class SharedDownloadCacheLockTests : IDisposable
         var part = $"{cached}.{Guid.NewGuid():N}.part";
         var downloading = Task.Run(async () =>
         {
-            for (var i = 0; i < 12; i++)
+            for (var i = 0; i < 25; i++)
             {
                 await File.AppendAllTextAsync(part, new string('x', 1024));
                 await Task.Delay(100);
@@ -47,7 +47,7 @@ public sealed class SharedDownloadCacheLockTests : IDisposable
             holder.Dispose();
         });
 
-        await using (await SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None, TimeSpan.FromMilliseconds(400)))
+        await using (await SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None, TimeSpan.FromMilliseconds(1500)))
             Assert.True(File.Exists(cached));
         await downloading;
     }
