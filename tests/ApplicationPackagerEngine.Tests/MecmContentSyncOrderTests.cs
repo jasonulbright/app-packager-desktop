@@ -64,8 +64,8 @@ public sealed class MecmContentSyncOrderTests : IDisposable
     }
 
     /// <summary>
-    /// The destination is verified after the copy and before the application is created,
-    /// so an unexpected file on the share stops the run rather than being deployed.
+    /// An unexpected file on the share stops the run before the copy and before the
+    /// application is created, rather than being deployed.
     /// </summary>
     [Fact]
     public async Task AnUnexpectedFileOnTheShareStopsTheRunBeforeTheCmWrite()
@@ -80,15 +80,14 @@ public sealed class MecmContentSyncOrderTests : IDisposable
         var result = await Package(manifest);
 
         Assert.False(result.Success);
-        Assert.Contains("Network content verification failed", result.ErrorMessage);
-        Assert.Contains("leftover.ps1", result.ErrorMessage);
+        Assert.Contains("unexpected file: leftover.ps1", result.ErrorMessage);
         // Reported, never removed.
         Assert.True(File.Exists(Path.Combine(contentPath, "leftover.ps1")));
     }
 
-    /// <summary>The copy still happens before the destination is judged.</summary>
+    /// <summary>A refusal the verification would reach is decided before the first write to the share.</summary>
     [Fact]
-    public async Task TheChangedWrapperReachesTheShareEvenWhenVerificationThenFails()
+    public async Task TheShareIsNotWrittenWhenAnUnexpectedFileWouldFailVerification()
     {
         File.WriteAllText(Path.Combine(Local, "install.ps1"), "new body");
         var manifest = Manifest();
@@ -101,6 +100,6 @@ public sealed class MecmContentSyncOrderTests : IDisposable
         var result = await Package(manifest);
 
         Assert.False(result.Success);
-        Assert.Equal("new body", File.ReadAllText(Path.Combine(contentPath, "install.ps1")));
+        Assert.Equal("old body", File.ReadAllText(Path.Combine(contentPath, "install.ps1")));
     }
 }

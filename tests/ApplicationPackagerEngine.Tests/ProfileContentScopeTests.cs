@@ -30,16 +30,26 @@ public sealed class ProfileContentScopeTests : IDisposable
     }
 
     [Theory]
-    [InlineData("Lab Build", "LabBuild")]
-    [InlineData("v2.", "v2")]
-    [InlineData("Ünïcode only ✓", "ncodeonly")]
+    [InlineData("Lab Build", "LabBuild-4f1c2d3e")]
+    [InlineData("v2.", "v2-4f1c2d3e")]
+    [InlineData("Ünïcode only ✓", "ncodeonly-4f1c2d3e")]
     [InlineData("✓✓", "4f1c2d3e")]
     [InlineData("", "4f1c2d3e")]
-    public void Scope_DerivesTheSuffixFromTheProfileName(string name, string suffix)
+    public void Scope_DerivesTheSuffixFromTheProfileNameAndId(string name, string suffix)
     {
         var scope = ProfileContentScope.FromValues("4f1c2d3e5a6b7c8d", name);
         Assert.Equal(suffix, scope.Suffix);
         Assert.Equal($"1.2.3-{suffix}", scope.ScopedVersionFolder("1.2.3"));
+    }
+
+    [Fact]
+    public void Scope_TwoProfilesWhoseNamesReduceToOneTextGetDifferentFolders()
+    {
+        var spaced = ProfileContentScope.FromValues("aaaa1111bbbb2222cccc3333dddd4444", "Pilot A").ScopedVersionFolder("1.0");
+        var joined = ProfileContentScope.FromValues("eeee5555ffff6666aaaa7777bbbb8888", "PilotA").ScopedVersionFolder("1.0");
+
+        Assert.Equal("1.0-PilotA-aaaa1111", spaced);
+        Assert.Equal("1.0-PilotA-eeee5555", joined);
     }
 
     [Fact]
@@ -64,7 +74,7 @@ public sealed class ProfileContentScopeTests : IDisposable
         var alphaFolder = ProfileContentScope.FromSnapshot(alphaSnapshot.Path).ScopedVersionFolder("1.0.0");
         var betaFolder = ProfileContentScope.FromSnapshot(betaSnapshot).ScopedVersionFolder("1.0.0");
 
-        Assert.Equal("1.0.0-Alpha", alphaFolder);
-        Assert.Equal("1.0.0-Beta", betaFolder);
+        Assert.Equal($"1.0.0-Alpha-{alpha.ProfileId[..8]}", alphaFolder);
+        Assert.Equal($"1.0.0-Beta-{beta.ProfileId[..8]}", betaFolder);
     }
 }

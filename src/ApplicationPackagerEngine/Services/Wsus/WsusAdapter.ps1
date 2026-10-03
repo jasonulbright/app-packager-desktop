@@ -250,6 +250,14 @@ function Resolve-WsusPayloadPath {
     return $full
 }
 
+function Get-WsusFileSha256 {
+    param([Parameter(Mandatory)][string]$Path)
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($Path)
+    try { return ([System.BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '') }
+    finally { $stream.Dispose(); $algorithm.Dispose() }
+}
+
 function New-WsusSoftwareDistributionPackageFile {
     # Builds the Software Distribution Package through the API class, which
     # computes the file digests and writes schema-valid XML.
@@ -320,8 +328,10 @@ function Invoke-WsusPublisher {
 
 function Read-WsusPfxPassword {
     # The password is the first line of standard input; it is never written
-    # to the request file or the command line.
-    $line = [Console]::In.ReadLine()
+    # to the request file or the command line. The parent writes UTF-8, and
+    # [Console]::In decodes with the console input code page instead.
+    $reader = New-Object System.IO.StreamReader -ArgumentList ([Console]::OpenStandardInput()), (New-Object System.Text.UTF8Encoding -ArgumentList $false)
+    $line = $reader.ReadLine()
     $secure = New-Object System.Security.SecureString
     if ($null -ne $line) { foreach ($character in $line.ToCharArray()) { $secure.AppendChar($character) } }
     $secure.MakeReadOnly()
@@ -460,8 +470,9 @@ function Invoke-WsusPublishPrepare {
     try { $data.SigningCertificate = ConvertTo-WsusCertificateInfo -Certificate (Get-WsusSigningCertificateObject -Server $server) }
     catch { $data.CertificateReadable = $false; $data.CertificateError = Get-WsusErrorMessage -ErrorRecord $_ }
     try { $data.CabLimitMegabytes = [int]$server.GetConfiguration().LocalPublishingMaxCabSize } catch { $data.CabLimitMegabytes = 0 }
+    $tags = @(@($identity) + @(Get-InputValue $Request 'FormerIdentityTags' @()) | ForEach-Object { [string]$_ } | Where-Object { $_ })
     $data.Candidates = @(Get-WsusLocallyPublishedUpdateObjects -Server $server |
-        Where-Object { $identity -and ([string]$_.Description).Contains($identity) } |
+        Where-Object { $description = [string]$_.Description; $identity -and @($tags | Where-Object { $description.Contains($_) }).Count -gt 0 } |
         ForEach-Object { Get-WsusUpdateRow -Update $_ })
     return $data
 }
@@ -484,10 +495,22 @@ function Invoke-WsusPublishCommit {
         $source = [System.IO.Path]::Combine($work, 'content')
         [void](New-Item -ItemType Directory -Path $source -Force)
         try {
-            foreach ($file in @(Get-InputValue $Request 'PayloadFiles' @())) {
-                $target = Resolve-WsusPayloadPath -ContentFolder $source -RelativePath ([string]$file)
+            # The stage files can change between the client's integrity check and
+            # this copy, so the private copy is what is checked against the hashes.
+            $files = @(Get-InputValue $Request 'PayloadFiles' @())
+            $hashes = @(Get-InputValue $Request 'PayloadSha256' @())
+            for ($index = 0; $index -lt $files.Count; $index++) {
+                $file = [string]$files[$index]
+                $target = Resolve-WsusPayloadPath -ContentFolder $source -RelativePath $file
                 [void](New-Item -ItemType Directory -Path ([System.IO.Path]::GetDirectoryName($target)) -Force)
-                Copy-Item -LiteralPath (Resolve-WsusPayloadPath -ContentFolder $contentFolder -RelativePath ([string]$file)) -Destination $target -Force -ErrorAction Stop
+                Copy-Item -LiteralPath (Resolve-WsusPayloadPath -ContentFolder $contentFolder -RelativePath $file) -Destination $target -Force -ErrorAction Stop
+                $expected = $(if ($index -lt $hashes.Count) { [string]$hashes[$index] } else { '' })
+                if ([string]::IsNullOrWhiteSpace($expected)) {
+                    throw [WsusAdapterError]::new('Input', ("The request carries no SHA-256 for '{0}'." -f $file))
+                }
+                if ((Get-WsusFileSha256 -Path $target) -ne $expected.ToUpperInvariant()) {
+                    throw [WsusAdapterError]::new('Input', ("'{0}' changed after it was staged (SHA-256 mismatch); re-run the Stage phase." -f $file))
+                }
             }
             $sdpPath = [System.IO.Path]::Combine($work, 'package.xml')
             New-WsusSoftwareDistributionPackageFile -Plan $plan -SourceFolder $source -Path $sdpPath

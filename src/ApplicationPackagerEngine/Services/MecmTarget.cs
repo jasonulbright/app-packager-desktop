@@ -11,7 +11,7 @@ namespace ApplicationPackagerEngine.Services;
 /// Shells out to Windows PowerShell 5.1 (powershell.exe) because the CM module
 /// requires .NET Framework — it cannot run in a .NET 10 hosted runspace.
 /// </summary>
-public sealed class MecmTarget
+public sealed partial class MecmTarget
 {
     public async Task<PackagingResult> PackageAsync(
         StageManifest manifest,
@@ -98,6 +98,16 @@ public sealed class MecmTarget
             if (scriptSigning is not null)
                 VerifyRequiredDeploymentSigning(scriptSigning.Policy, scriptSigning.Record, stagedContentPath);
 
+            // A file on the share that the manifest does not list fails the verification
+            // below; it is refused here, before the first write to the share.
+            var unexpected = ContentSyncService.UnexpectedFiles(networkContentPath, manifest);
+            if (unexpected.Count > 0)
+                return new PackagingResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Network content folder holds files the stage manifest does not list; nothing was written to the share: {string.Join("; ", unexpected.Select(f => "unexpected file: " + f))}"
+                };
+
             var sync = ContentSyncService.Sync(stagedContentPath, networkContentPath, manifest, onProgress, ct);
             if (sync.UsedSourceHashes)
                 onProgress?.Invoke("Content integrity: manifest carries no FileHashes; compared against the staged files.");
@@ -138,7 +148,8 @@ public sealed class MecmTarget
                 {
                     Success = true,
                     ApplicationName = appName,
-                    NetworkContentPath = networkContentPath
+                    NetworkContentPath = networkContentPath,
+                    CiId = ReadCiId(result.StdOut)
                 };
             }
             else
@@ -452,6 +463,7 @@ public sealed class MecmTarget
                 sb.Append(" -RequireUserInteraction $true");
             sb.Append(content.CmdletArguments);
             sb.Append($" -RebootBehavior {ResolveRebootBehavior(manifest.PostExecutionBehavior)}");
+            sb.Append(" -UserInteractionMode Hidden");
             if (isScriptDetection)
             {
                 var lang = string.IsNullOrWhiteSpace(spec.Detection.ScriptLanguage)
@@ -527,9 +539,32 @@ public sealed class MecmTarget
         sb.AppendLine("  }");
         sb.AppendLine("} catch { Write-Host \"Revision cleanup skipped: $($_.Exception.Message)\" }");
 
+        AppendFinalCiId(sb, appName);
         sb.AppendLine("Write-Host 'Application created successfully'");
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Re-reads the application after the revision cleanup and prints its CI_ID: every
+    /// revision carries its own CI_ID, so the one printed at creation is not the one the
+    /// site keeps.
+    /// </summary>
+    private static void AppendFinalCiId(System.Text.StringBuilder sb, string appName)
+    {
+        sb.AppendLine($"$finalApp = @(Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction SilentlyContinue) | Select-Object -First 1");
+        sb.AppendLine("if ($finalApp) { Write-Host \"Final CI_ID: $($finalApp.CI_ID)\" }");
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^(?:Final )?CI_ID: (\d+)\s*$", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    private static partial System.Text.RegularExpressions.Regex CiIdLine();
+
+    /// <summary>The CI_ID the script printed last: the final re-read when present, the creation line otherwise; empty when none.</summary>
+    public static string ReadCiId(string? output)
+    {
+        var lines = CiIdLine().Matches(output ?? "");
+        var final = lines.LastOrDefault(m => m.Value.StartsWith("Final", StringComparison.Ordinal));
+        return (final ?? lines.LastOrDefault())?.Groups[1].Value ?? "";
     }
 
     private const string InstallForUser = "InstallForUser";
@@ -801,6 +836,7 @@ public sealed class MecmTarget
         sb.AppendLine("  }");
         sb.AppendLine("} catch { Write-Host \"Revision cleanup skipped: $($_.Exception.Message)\" }");
 
+        AppendFinalCiId(sb, appName);
         sb.AppendLine("Write-Host 'Application created successfully'");
 
         return sb.ToString();

@@ -98,7 +98,7 @@ public static class GitHubApiStatusService
     private static async Task<string?> FetchAsync(string url, CancellationToken ct)
     {
         using var process = CurlProcess.Start(
-            $"-L --silent --show-error --max-time 20 -A \"packr\" \"{url}\"", url);
+            ["-L", "--silent", "--show-error", "--max-time", "20", "-A", "packr"], url);
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
         var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(25), ct));

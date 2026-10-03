@@ -33,23 +33,20 @@ public class CachedDownloadRefreshTests : IDisposable
     [Fact]
     public void FirstDownload_IsUnconditionalAndKeepsTheRemoteTimestamp()
     {
-        var args = FileVersionScraper.BuildDownloadArguments(
-            "https://vendor.example/setup.exe", @"C:\cache\setup.exe", null);
+        var args = string.Join(" ", FileVersionScraper.BuildDownloadArguments(@"C:\cache\setup.exe", null));
 
         Assert.DoesNotContain(" -z ", args);
         Assert.Contains(" -R ", args);
-        Assert.Contains(@"-o ""C:\cache\setup.exe""", args);
-        Assert.EndsWith("\"https://vendor.example/setup.exe\"", args);
+        Assert.Contains(@"-o C:\cache\setup.exe", args);
     }
 
     [Fact]
     public void RefreshRequest_IsConditionalOnTheCachedFile()
     {
-        var args = FileVersionScraper.BuildDownloadArguments(
-            "https://vendor.example/setup.exe", @"C:\cache\setup.exe.refresh", @"C:\cache\setup.exe");
+        var args = string.Join(" ", FileVersionScraper.BuildDownloadArguments(@"C:\cache\setup.exe.refresh", @"C:\cache\setup.exe"));
 
-        Assert.Contains(@"-z ""C:\cache\setup.exe""", args);
-        Assert.Contains(@"-o ""C:\cache\setup.exe.refresh""", args);
+        Assert.Contains(@"-z C:\cache\setup.exe ", args);
+        Assert.Contains(@"-o C:\cache\setup.exe.refresh", args);
     }
 
     // -- Outcomes ----------------------------------------------------------

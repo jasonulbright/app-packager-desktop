@@ -13,7 +13,7 @@ public static class ZipPayload
 {
     /// <summary>
     /// Checks the ZIP against the definition and returns the entry tokens.
-    /// Every entry must sit under the InstallDir folder name: extraction
+    /// Every entry must resolve under the InstallDir folder: extraction
     /// targets the parent folder, so an entry outside it would land beside
     /// the product and survive uninstall.
     /// </summary>
@@ -23,7 +23,8 @@ public static class ZipPayload
         using var zip = ZipFile.OpenRead(zipPath);
         var names = zip.Entries.Select(e => e.FullName.Replace('\\', '/')).ToList();
 
-        var outside = names.FirstOrDefault(n => !n.StartsWith(top + "/", StringComparison.OrdinalIgnoreCase));
+        var parent = Path.GetDirectoryName(config.InstallDir.TrimEnd('\\', '/'))!;
+        var outside = names.FirstOrDefault(n => !IsContained(parent, top, n));
         if (outside is not null)
             throw new InvalidOperationException($"ZIP entry '{outside}' is outside the {top} folder the install extracts: {Path.GetFileName(zipPath)}");
 
@@ -60,16 +61,35 @@ public static class ZipPayload
 
     public static void GenerateWrappers(WrapperGeneratorService wrappers, string outputPath, string zipFileName, ZipPayloadConfig config)
     {
-        var installDir = Literal(config.InstallDir.TrimEnd('\\'));
-        // An earlier version is removed first: extracting over it would leave
-        // its plugins beside the new ones.
+        var installDir = PowerShellLiteral.EscapeSingleQuoted(config.InstallDir.TrimEnd('\\'));
+        // Every entry is checked before anything is removed or extracted: the
+        // extraction root is the parent folder, and Windows PowerShell 5.1 keeps
+        // entries inside that root only. An earlier version is removed first:
+        // extracting over it would leave its plugins beside the new ones.
         var install = string.Join("\r\n",
             "$ErrorActionPreference = 'Stop'",
-            $"$zipPath = Join-Path $PSScriptRoot '{Literal(zipFileName)}'",
+            $"$zipPath = Join-Path $PSScriptRoot '{PowerShellLiteral.EscapeSingleQuoted(zipFileName)}'",
             $"$installDir = '{installDir}'",
             "try {",
-            "    if (Test-Path -LiteralPath $installDir) { Remove-Item -LiteralPath $installDir -Recurse -Force }",
             "    Add-Type -AssemblyName System.IO.Compression.FileSystem",
+            "    $parent = [System.IO.Path]::GetFullPath((Split-Path -Path $installDir -Parent)).TrimEnd('\\') + '\\'",
+            "    $root = [System.IO.Path]::GetFullPath($installDir).TrimEnd('\\') + '\\'",
+            "    $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)",
+            "    try {",
+            "        foreach ($entry in $zip.Entries) {",
+            "            $name = $entry.FullName.Replace('/', '\\')",
+            "            $full = $null",
+            "            if (-not ($name.Contains(':') -or $name.StartsWith('\\') -or ($name.Split('\\') -contains '..'))) {",
+            "                $full = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($parent, $name))",
+            "            }",
+            "            if ($null -eq $full -or -not $full.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase)) {",
+            "                [Console]::Error.WriteLine(\"ZIP entry '$($entry.FullName)' is outside $installDir; nothing was changed.\")",
+            "                exit 1",
+            "            }",
+            "        }",
+            "    }",
+            "    finally { $zip.Dispose() }",
+            "    if (Test-Path -LiteralPath $installDir) { Remove-Item -LiteralPath $installDir -Recurse -Force }",
             "    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, (Split-Path -Path $installDir -Parent))",
             "    exit 0",
             "}",
@@ -103,5 +123,17 @@ public static class ZipPayload
         return leaf;
     }
 
-    private static string Literal(string value) => value.Replace("'", "''");
+    /// <summary>
+    /// True when the entry resolves under &lt;parent&gt;\&lt;top&gt;\. A rooted name, a ".."
+    /// segment or a colon (drive or alternate data stream) is refused before it is resolved.
+    /// </summary>
+    public static bool IsContained(string parent, string top, string entryName)
+    {
+        var name = entryName.Replace('/', '\\');
+        if (name.Length == 0 || name.Contains(':') || name.StartsWith('\\') || name.Split('\\').Contains(".."))
+            return false;
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.Combine(parent, top))) + "\\";
+        var full = Path.GetFullPath(Path.Combine(parent, name));
+        return full.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+    }
 }

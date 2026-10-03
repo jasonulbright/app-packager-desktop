@@ -119,7 +119,38 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         var legacy = Manifest();
         legacy.AppName = "Contoso App (x64) 1.0";
         legacy.ProfileId = "";
-        Assert.Equal("AppPackager:legacy:Contoso-App--x64--1.0/default", IntunePublishService.IdentityTag(legacy));
+        Assert.Equal("AppPackager:legacy:Contoso-App--x64-/default", IntunePublishService.IdentityTag(legacy));
+        Assert.Equal(["AppPackager:legacy:Contoso-App--x64--1.0/default"], IntunePublishService.FormerIdentityTags(legacy));
+    }
+
+    [Fact]
+    public void TwoReleasesOfALegacyTitleShareOneTag()
+    {
+        var first = Manifest();
+        first.AppName = "7-Zip (x64) - 25.01 (x64)";
+        first.SoftwareVersion = "25.01";
+        var second = Manifest();
+        second.AppName = "7-Zip (x64) - 26.03 (x64)";
+        second.SoftwareVersion = "26.03";
+        Assert.Equal(IntunePublishService.IdentityTag(first), IntunePublishService.IdentityTag(second));
+        Assert.DoesNotContain("26", IntunePublishService.IdentityTag(second));
+    }
+
+    [Fact]
+    public async Task AnAppOnTheFormerVersionedTagIsUpdatedAndRetagged()
+    {
+        var manifest = Manifest();
+        manifest.AppName = "Contoso App 1.0";
+        const string former = "AppPackager:legacy:Contoso-App-1.0/default";
+        var handler = Graph(uri => uri.Contains("isof(")
+            ? $$"""{"value":[{"id":"app-former","@odata.type":"#microsoft.graph.win32LobApp","notes":"{{former}}"}]}"""
+            : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), manifest, Options());
+
+        var update = handler.Requests.First(r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/mobileApps/app-former"));
+        Assert.Contains("\"notes\":\"AppPackager:legacy:Contoso-App/default\"", update.Body);
     }
 
     private static FakeGraphHandler Graph(Func<string, string?> list)
@@ -206,6 +237,56 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
 
         Assert.Contains(handler.Requests, r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/mobileApps/named"));
+    }
+
+    [Fact]
+    public async Task AnAppWithTheNameButAnotherApplicationsTagIsNeverAdopted()
+    {
+        var handler = Graph(uri => uri.Contains("displayName eq")
+            ? """{"value":[{"id":"other-profile","@odata.type":"#microsoft.graph.win32LobApp","notes":"AppPackager:legacy:Contoso-App/pilot001"}]}"""
+            : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        Assert.DoesNotContain(handler.Requests, r => r.Uri.Contains("/mobileApps/other-profile"));
+        var create = handler.Requests.Single(r => r.Method == HttpMethod.Post && r.Uri.EndsWith("/deviceAppManagement/mobileApps"));
+        Assert.Contains("\"notes\":\"AppPackager:legacy:Contoso-App/default\"", create.Body);
+    }
+
+    [Fact]
+    public async Task OperatorTextInNotesIsKeptAndTheTagIsMatchedOnItsOwnLine()
+    {
+        const string tag = "AppPackager:legacy:Contoso-App/default";
+        var handler = Graph(uri => uri.Contains("isof(")
+            ? $$"""{"value":[{"id":"app-tagged","@odata.type":"#microsoft.graph.win32LobApp","notes":"Owner: desktop team\r\nTicket 4411\r\n{{tag}}"}]}"""
+            : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        var update = handler.Requests.First(r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/mobileApps/app-tagged"));
+        Assert.Contains($"\"notes\":\"Owner: desktop team\\r\\nTicket 4411\\r\\n{tag}\"", update.Body);
+        Assert.DoesNotContain(handler.Requests, r => Uri.UnescapeDataString(r.Uri).Contains("displayName eq"));
+    }
+
+    [Theory]
+    [InlineData(null, "T")]
+    [InlineData("", "T")]
+    [InlineData("note", "note\nT")]
+    [InlineData("note\r\nAppPackager:old/default\r\n", "note\r\nT")]
+    [InlineData("AppPackager:old/default", "T")]
+    public void TheTagReplacesAnyEarlierTagLineAndKeepsTheRest(string? notes, string expected)
+    {
+        Assert.Equal(expected.Replace("T", "AppPackager:x/default"), IntunePublishService.NotesWithTag(notes, "AppPackager:x/default"));
+    }
+
+    [Fact]
+    public void ATagInsideALongerLineIsNotAMatch()
+    {
+        Assert.False(IntunePublishService.CarriesTag("see AppPackager:x/default for details", "AppPackager:x/default"));
+        Assert.True(IntunePublishService.CarriesTag("text\n AppPackager:x/default ", "AppPackager:x/default"));
+        Assert.False(IntunePublishService.CarriesAnyTag("text only"));
     }
 
     [Theory]

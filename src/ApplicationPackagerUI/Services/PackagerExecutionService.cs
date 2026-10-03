@@ -413,14 +413,19 @@ public class PackagerExecutionService(
     /// <summary>
     /// The run snapshot a One Click stage of a JSON definition builds from. The signing
     /// certificate is resolved here, per application; a policy the certificate cannot meet
-    /// is returned as the refusal and nothing is staged. A PS1 packager gets its snapshot
-    /// from the child bridge, which refuses the same way.
+    /// is returned as the refusal and nothing is staged; so is a store that cannot write the
+    /// snapshot. A PS1 packager gets its snapshot from the child bridge, which refuses the
+    /// same way.
     /// </summary>
     public RunSnapshot? CreateOneClickSnapshot(PackagerInfo packager, OneClickBuildPlan plan, out string? refusal)
     {
         refusal = null;
         if (!packager.IsJsonDefined) return null;
-        return CreateProfileSnapshot(plan.ApplicationId, plan.ProfileId, settingsService.Load(), out refusal, plan.DataRoot);
+        var snapshot = CreateProfileSnapshot(plan.ApplicationId, plan.ProfileId, settingsService.Load(), out refusal, out var failure, plan.DataRoot);
+        // Staging without the snapshot would build the unprofiled stage under another folder.
+        if (refusal is null && failure is not null)
+            refusal = $"Run snapshot not created for profile {plan.ProfileId}: {failure}";
+        return snapshot;
     }
 
     /// <summary>The workbench store of a snapshot's data root, else the configured one; null when it cannot be opened.</summary>
@@ -436,11 +441,8 @@ public class PackagerExecutionService(
     /// <summary>
     /// Writes the run snapshot of one profile of a JSON definition. The signing certificate
     /// resolves here; a policy the certificate cannot meet is the refusal and no snapshot
-    /// exists. Any other failure returns null and the run goes on without a profile.
+    /// exists. Any other failure returns null with its message; the caller decides.
     /// </summary>
-    private static RunSnapshot? CreateProfileSnapshot(string applicationId, string profileId, AppSettings settings,
-        out string? refusal, string? dataRoot = null) => CreateProfileSnapshot(applicationId, profileId, settings, out refusal, out _, dataRoot);
-
     private static RunSnapshot? CreateProfileSnapshot(string applicationId, string profileId, AppSettings settings,
         out string? refusal, out string? failure, string? dataRoot = null)
     {

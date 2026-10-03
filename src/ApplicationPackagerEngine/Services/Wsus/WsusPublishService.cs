@@ -89,11 +89,13 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
 
         var version = manifest.SoftwareVersion ?? "";
         var identity = WsusIdentity.IdentityTag(manifest);
+        var formerIdentities = WsusIdentity.FormerIdentityTags(manifest);
         var title = WsusIdentity.Title(manifest);
         var installerType = (manifest.InstallerType ?? "").Equals("MSI", StringComparison.OrdinalIgnoreCase) ? "MSI" : "EXE";
 
         var prepareRequest = WsusAdminClient.Request(normalized);
         prepareRequest["IdentityTag"] = identity;
+        prepareRequest["FormerIdentityTags"] = new JsonArray(formerIdentities.Select(f => (JsonNode)JsonValue.Create(f)!).ToArray());
         var prepared = WsusAdminClient.Data(await _runner.RunAsync("PublishPrepare", prepareRequest, null, onProgress, ct), normalized);
         var serverName = WsusAdminClient.Str(prepared, "ServerName");
 
@@ -119,7 +121,7 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         if (cabLimit > 0 && payloadMegabytes > cabLimit)
             onProgress?.Invoke($"WSUS cab size                 : payload {payloadMegabytes:N0} MB exceeds LocalPublishingMaxCabSize {cabLimit} MB on the server");
 
-        var decision = WsusSupersedence.Decide(WsusAdminClient.ReadCandidates(prepared["Candidates"] as JsonArray), identity, version);
+        var decision = WsusSupersedence.Decide(WsusAdminClient.ReadCandidates(prepared["Candidates"] as JsonArray), identity, version, formerIdentities);
         foreach (var (update, reason) in decision.LeftAlone)
             onProgress?.Invoke($"WSUS supersedence             : {update.Title} left as is; {reason}");
 
@@ -147,6 +149,9 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         {
             commit["ContentFolder"] = Path.GetFullPath(contentFolder);
             commit["PayloadFiles"] = new JsonArray(payload.Select(f => (JsonNode)JsonValue.Create(f)!).ToArray());
+            // The adapter copies the live stage files later; it checks its private copy
+            // against these, so a file changed after AssertIntegrity is never published.
+            commit["PayloadSha256"] = new JsonArray(WsusPayload.RecordedHashes(manifest, payload).Select(h => (JsonNode)JsonValue.Create(h)!).ToArray());
             commit["Plan"] = BuildPlan(manifest, packageId, title, normalized.Classification, rules, decision.Earlier, installerType, payload[0], supportUrl);
             onProgress?.Invoke($"Publishing to WSUS            : {title} ({packageId}) on {serverName}");
         }
