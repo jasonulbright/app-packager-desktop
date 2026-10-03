@@ -19,8 +19,8 @@ on:
   workflow_dispatch:
     inputs:
       headline:
-        description: "Release notes headline: one concrete outcome metric (becomes the ## line)"
-        required: true
+        description: "Release notes headline: one concrete outcome metric (becomes the ## line). Not used when the changelog section is 'Initial release'."
+        required: false
         type: string
 
 permissions:
@@ -74,9 +74,14 @@ jobs:
           if (-not $body) { throw "The '## [$version]' section of CHANGELOG.md is empty." }
 
           $headline = ([string]$env:HEADLINE).Trim()
-          if (-not $headline) { throw 'A headline is required.' }
           $notes = Join-Path $env:RUNNER_TEMP 'release-notes.md'
-          $text = "## $headline`n`n$body`n`nFull changelog: CHANGELOG.md`n"
+          if ($body -eq 'Initial release') {
+            $text = "Initial release`n"
+          }
+          else {
+            if (-not $headline) { throw 'A headline is required.' }
+            $text = "## $headline`n`n$body`n`nFull changelog: CHANGELOG.md`n"
+          }
           [IO.File]::WriteAllText($notes, $text, [Text.UTF8Encoding]::new($false))
 
           "version=$version" >> $env:GITHUB_OUTPUT
