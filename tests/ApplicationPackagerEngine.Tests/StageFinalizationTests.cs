@@ -334,7 +334,7 @@ public sealed class StageFinalizationTests : IDisposable
     }
 
     [Theory]
-    [InlineData("IncludeVersion", "IncludeVersion", "App (x64) - 1.2.3")]
+    [InlineData("IncludeVersion", "IncludeVersion", "App - 1.2.3 (x64)")]
     [InlineData("No version", "NoVersion", "App (x64)")]
     public void TheProfileTitleModeIsRecordedAndApplied(string stored, string recorded, string title)
     {

@@ -17,9 +17,10 @@ public sealed class DownloadService
         int retryCount = 1, int retryDelaySec = 5,
         Action<string>? onProgress = null,
         CancellationToken ct = default,
-        IReadOnlyList<string>? headers = null)
+        IReadOnlyList<string>? headers = null,
+        string extraArguments = "")
     {
-        var headerArguments = CurlHeaders.Arguments(headers);
+        var headerArguments = CurlHeaders.Arguments(headers) + extraArguments;
         var dir = Path.GetDirectoryName(outFile);
         if (dir is not null && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);

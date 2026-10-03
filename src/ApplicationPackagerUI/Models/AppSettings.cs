@@ -10,6 +10,13 @@ public sealed class AppSettings
 
     // MECM Site
     public string SiteCode { get; set; } = "MCM";
+
+    /// <summary>
+    /// True once the operator saved the site code. Null in a file written before the
+    /// flag existed; SettingsService reads such a file's stored SiteCode as saved.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? SiteCodeSaved { get; set; }
     /// <summary>
     /// SMS provider / site server host for the generated CMSite drive.
     /// Empty falls back to the local machine, which only reaches the site
@@ -28,6 +35,18 @@ public sealed class AppSettings
     // Deployment Type defaults
     public int EstimatedRuntimeMins { get; set; } = 15;
     public int MaximumRuntimeMins { get; set; } = 30;
+
+    /// <summary>Allow or Deny: the deployment type's fallback to the site default boundary group.</summary>
+    public string ContentFallback { get; set; } = DeploymentTypeContentOptions.Allow;
+
+    /// <summary>Download or DoNothing for a client on a neighbor or default boundary group.</summary>
+    public string SlowNetworkDeploymentMode { get; set; } = DeploymentTypeContentOptions.Download;
+
+    /// <summary>The default title mode IncludeVersion for an application whose profile and per-app entry set none.</summary>
+    public bool IncludeVersionInTitle { get; set; }
+
+    /// <summary>The default title mode NoVersion; applies only while IncludeVersionInTitle is off.</summary>
+    public bool RemoveVersionFromTitle { get; set; }
 
     // Steps after the MECM application exists
     public ContentDistributionSettings ContentDistribution { get; set; } = new();

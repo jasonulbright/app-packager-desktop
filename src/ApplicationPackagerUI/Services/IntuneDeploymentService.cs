@@ -16,9 +16,7 @@ namespace ApplicationPackagerUI.Services;
 /// </summary>
 public sealed class IntuneDeploymentService(SettingsService settingsService)
 {
-    private static readonly string ToolFolder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "SRLPackr", "Tools");
+    private static readonly string ToolFolder = Path.Combine(AppDataPaths.LegacyRoot, "Tools");
 
     private const string SetupFile = "install.bat";
 
@@ -28,7 +26,8 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         Action<string>? log = null,
         string description = "",
         CancellationToken ct = default,
-        SigningPolicy? signingPolicy = null)
+        SigningPolicy? signingPolicy = null,
+        IReadOnlyList<StageRequirement>? untranslatedRequirements = null)
     {
         string intuneWinPath;
         try
@@ -76,15 +75,16 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             return IntuneRunOutcome.PublishRefused(winNote,
                 "Intune credentials not configured; set Tenant ID, Client ID, and Client Secret in Settings.");
 
-        if (manifest.DeploymentTypes is { Length: > 0 })
-            return IntuneRunOutcome.PublishRefused(winNote,
-                "variant-split app; publish skipped (single-payload apps only for now).");
+        var findings = IntuneCompatibilityFindings.Build(manifest, untranslatedRequirements);
+        foreach (var finding in findings) log?.Invoke(IntuneCompatibilityFindings.LogLine(finding));
+        if (IntuneCompatibilityFindings.RefusalMessage(findings) is { } refusal)
+            return IntuneRunOutcome.PublishRefused(winNote, refusal);
 
         try
         {
             using var publisher = new IntunePublishService();
             var appId = await publisher.PublishAsync(intuneWinPath, manifest, options, log, ct,
-                IntuneScriptRuleContext.FromManifest(manifest, signingPolicy, stagedContentPath)).ConfigureAwait(false);
+                IntuneScriptRuleContext.FromManifest(manifest, signingPolicy, stagedContentPath), findings).ConfigureAwait(false);
             PublicationRecords.TryAppend(manifest, PublicationRecords.Intune, PublicationRecords.Succeeded, appId, options.TenantId, onLog: log);
             return IntuneRunOutcome.Published(winNote, $"published (app id {appId})");
         }

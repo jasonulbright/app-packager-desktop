@@ -107,9 +107,7 @@ public sealed class IconExtractionService
     public IconExtractionService(ArchiveExtractionService archiveService, string? cacheDir = null)
     {
         _archiveService = archiveService;
-        _cacheDir = cacheDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SRLPackr", "icons");
+        _cacheDir = cacheDir ?? Path.Combine(AppDataPaths.LegacyRoot, "icons");
         Directory.CreateDirectory(_cacheDir);
     }
 

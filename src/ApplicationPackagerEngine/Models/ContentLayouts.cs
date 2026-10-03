@@ -21,6 +21,13 @@ public static class ContentLayouts
     /// </summary>
     public static string ContentPath(string fileServerPath, string layout, string vendorFolder, string appFolder, string version) =>
         IsFlat(layout)
-            ? Path.Combine(fileServerPath, "Applications", $"{vendorFolder}-{appFolder}-{version}")
-            : Path.Combine(fileServerPath, "Applications", vendorFolder, appFolder, version);
+            ? Path.Combine(fileServerPath, "Applications", TrimSegment($"{vendorFolder}-{appFolder}-{version}"))
+            : Path.Combine(fileServerPath, "Applications", TrimSegment(vendorFolder), TrimSegment(appFolder), version);
+
+    /// <summary>
+    /// A folder segment without trailing dots and spaces. Windows strips them when it
+    /// creates a directory, but the site resolves the stored path through \\?\UNC\,
+    /// which does not, and the deployment type then distributes as 0x80070003.
+    /// </summary>
+    public static string TrimSegment(string segment) => segment.TrimEnd('.', ' ');
 }

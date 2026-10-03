@@ -45,6 +45,11 @@
                            Icon="{ui:SymbolIcon Save24}"
                            Command="{Binding SaveSettingsCommand}"
                            VerticalAlignment="Center" />
+                <ui:Button DockPanel.Dock="Right" Content="Discard changes"
+                           Icon="{ui:SymbolIcon ArrowUndo24}"
+                           Command="{Binding DiscardChangesCommand}"
+                           Margin="0,0,8,0" VerticalAlignment="Center"
+                           ToolTip="Reloads every setting on this page from the saved settings. Unsaved edits are lost." />
                 <TextBlock Text="Settings" FontSize="28" FontWeight="Bold"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                            VerticalAlignment="Center" />
@@ -78,7 +83,7 @@
             <!-- ═══════════════════════════════════════════════════ -->
             <!-- MECM Site Settings -->
             <!-- ═══════════════════════════════════════════════════ -->
-            <TextBlock Text="MECM Site Settings" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="ConfigMgr Site Settings" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
             <ui:TextBox Text="{Binding SiteCode, UpdateSourceTrigger=PropertyChanged}"
@@ -127,7 +132,7 @@
             <!-- After Package: distribution and test deployment -->
             <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="After Package" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="Optional steps once the MECM application exists. Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted."
+            <TextBlock Text="Optional steps once the ConfigMgr application exists. Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <CheckBox Content="Distribute content after Package" IsChecked="{Binding AutoDistribute}" Margin="0,0,0,8"
@@ -308,9 +313,9 @@
             <ComboBox SelectedValue="{Binding DeploymentTarget}"
                       SelectedValuePath="Tag"
                       Width="320" HorizontalAlignment="Left" Margin="0,0,0,4"
-                      ToolTip="Where Package creates applications. MECM only: today's flow. MECM + Intune: the MECM application plus a Graph publish of the .intunewin. Intune only: stage, build the .intunewin, and publish via Graph — no site connection and no share copy. Repeat publishes update the existing Intune app.">
-                <ComboBoxItem Content="MECM only" Tag="MECM" />
-                <ComboBoxItem Content="MECM + Intune" Tag="MECMAndIntune" />
+                      ToolTip="Where Package creates applications. ConfigMgr only: today's flow. ConfigMgr + Intune: the ConfigMgr application plus a Graph publish of the .intunewin. Intune only: stage, build the .intunewin, and publish via Graph — no site connection and no share copy. Repeat publishes update the existing Intune app.">
+                <ComboBoxItem Content="ConfigMgr only" Tag="MECM" />
+                <ComboBoxItem Content="ConfigMgr + Intune" Tag="MECMAndIntune" />
                 <ComboBoxItem Content="Intune only" Tag="IntuneOnly" />
             </ComboBox>
             <TextBlock Text="Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
@@ -332,8 +337,71 @@
 
             <CheckBox Content="Create .intunewin during Package" IsChecked="{Binding CreateIntuneWin}"
                       IsEnabled="{Binding CreateIntuneWinApplies}" Margin="0,0,0,4"
-                      ToolTip="Under MECM only, a successful Package also builds the .intunewin from the staged content and stores it beside the network content version folder. Targets that publish to Intune build it regardless." />
-            <TextBlock Text="Applies to the MECM only target; the other targets build the .intunewin as part of publishing."
+                      ToolTip="Under ConfigMgr only, a successful Package also builds the .intunewin from the staged content and stores it beside the network content version folder. Targets that publish to Intune build it regardless." />
+            <TextBlock Text="Applies to the ConfigMgr only target; the other targets build the .intunewin as part of publishing."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- Script Signing -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Script Signing" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Authenticode signing for the scripts AppPackager generates. Signing a detection script does not sign install wrappers, and signing deployment scripts does not sign requirement scripts. A local signature check does not prove the certificate is trusted on your clients."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap" />
+
+            <TextBlock Text="Sign" Style="{StaticResource SubHeader}" />
+            <CheckBox Content="Sign detection scripts" IsChecked="{Binding Signing.SignDetection}" Margin="0,0,0,4"
+                      ToolTip="Signs generated and custom detection scripts. An unchanged import carrying a valid third-party signature is left alone." />
+            <CheckBox Content="Sign requirement scripts and script global conditions" IsChecked="{Binding Signing.SignRequirements}" Margin="0,0,0,4"
+                      ToolTip="Covers script-based requirement rules including the VPN predicate. WQL and native rules need no signature." />
+            <CheckBox Content="Sign install and uninstall PowerShell scripts" IsChecked="{Binding Signing.SignDeployment}" Margin="0,0,0,12"
+                      ToolTip="Signs the deployment execution chain and removes the execution-policy argument from its generated launchers, letting the configured endpoint policy govern. A vendor script that already carries an intact signature is left alone; an unsigned one is signed with this certificate." />
+
+            <TextBlock Text="Require valid signatures" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="A publishing constraint, not a change to client execution policy. When a required category fails verification the build stops; there is no unsigned fallback."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6" />
+            <CheckBox Content="Require valid detection signatures" IsChecked="{Binding Signing.RequireDetection}" Margin="0,0,0,4" />
+            <CheckBox Content="Require valid requirement signatures" IsChecked="{Binding Signing.RequireRequirements}" Margin="0,0,0,4" />
+            <CheckBox Content="Require valid deployment script signatures" IsChecked="{Binding Signing.RequireDeployment}" Margin="0,0,0,12" />
+
+            <TextBlock Text="Signing identity" Style="{StaticResource SubHeader}" />
+            <TextBlock Text="Certificate store" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding Signing.StoreLocationOptions}" SelectedItem="{Binding Signing.StoreLocation}"
+                      AutomationProperties.Name="Certificate store" AutomationProperties.AutomationId="SigningStore"
+                      Width="320" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      ToolTip="CurrentUser\My is the supported identity. LocalMachine\My needs an explicit choice and tested private-key access." />
+
+            <TextBlock Text="Certificate" Style="{StaticResource FieldLabel}" />
+            <DockPanel Margin="0,0,0,4">
+                <ui:Button DockPanel.Dock="Right" Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}"
+                           Command="{Binding Signing.RefreshCertificatesCommand}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                <ComboBox ItemsSource="{Binding Signing.Certificates}" SelectedItem="{Binding Signing.SelectedCertificate}"
+                          DisplayMemberPath="Label" AutomationProperties.Name="Certificate" AutomationProperties.AutomationId="SigningCertificate"
+                          ToolTip="Selected by thumbprint. A renewed certificate is a new thumbprint and needs reselecting here." />
+            </DockPanel>
+            <TextBlock Text="{Binding Signing.CertificateDetail}" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                       FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <TextBlock Text="Timestamp server" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding Signing.TimestampServer, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="none"
+                        AutomationProperties.Name="Timestamp server" AutomationProperties.AutomationId="SigningTimestamp" Margin="0,0,0,4"
+                        ToolTip="A timestamped signature stays valid after the certificate expires. A signature that exists is not the same as a verified timestamp." />
+            <CheckBox Content="Timestamp required" IsChecked="{Binding Signing.TimestampRequired}" Margin="0,0,0,12"
+                      ToolTip="With this on, a timestamp server failure fails the signed build instead of producing an untimestamped signature." />
+
+            <TextBlock Text="Hash algorithm" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding Signing.HashAlgorithmOptions}" SelectedItem="{Binding Signing.HashAlgorithm}"
+                      AutomationProperties.Name="Hash algorithm" AutomationProperties.AutomationId="SigningHash"
+                      Width="160" HorizontalAlignment="Left" Margin="0,0,0,12" />
+
+            <ui:Button Content="Test signing configuration" Command="{Binding Signing.TestConfigurationCommand}"
+                       IsEnabled="{Binding Signing.TestIdle}" HorizontalAlignment="Left" Margin="0,0,0,8"
+                       ToolTip="Signs and verifies a temporary file with the selected certificate. Nothing is published." />
+            <TextBlock Text="{Binding Signing.TestResult}" TextWrapping="Wrap" Margin="0,0,0,8"
+                       AutomationProperties.AutomationId="SigningTestResult"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="Private keys are never exported and never reach profiles, manifests, logs or command lines. A key held on a hardware token may require a PIN and can prevent unattended runs."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
 
             <Border Style="{StaticResource SectionDivider}" />
@@ -355,7 +423,7 @@
                                   Minimum="1" Maximum="120" SmallChange="5" LargeChange="15"
                                   SpinButtonPlacementMode="Compact"
                                   Width="140" HorizontalAlignment="Left"
-                                  ToolTip="Estimated time for the installer to complete. Used by MECM for deployment scheduling." />
+                                  ToolTip="Estimated time for the installer to complete. Used by ConfigMgr for deployment scheduling." />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="Maximum Runtime (mins)" Style="{StaticResource FieldLabel}" />
@@ -363,9 +431,37 @@
                                   Minimum="1" Maximum="720" SmallChange="5" LargeChange="30"
                                   SpinButtonPlacementMode="Compact"
                                   Width="140" HorizontalAlignment="Left"
-                                  ToolTip="Maximum time before MECM considers the install as failed. Default 30 minutes." />
+                                  ToolTip="Maximum time before ConfigMgr considers the install as failed. Default 30 minutes." />
                 </StackPanel>
             </Grid>
+
+            <TextBlock Text="Fallback DPs" Style="{StaticResource FieldLabel}"
+                       ToolTip="Deployment type content option. Applies to deployment types created by future Package runs." />
+            <ComboBox SelectedValue="{Binding ContentFallback}" SelectedValuePath="Tag"
+                      AutomationProperties.Name="Fallback DPs" AutomationProperties.AutomationId="ContentFallback"
+                      Width="360" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      ToolTip="Allow: when no distribution point in the current or neighbor boundary groups has the content, the client can use the site default boundary group.">
+                <ComboBoxItem Content="Allow - use the site default boundary group" Tag="Allow" />
+                <ComboBoxItem Content="Deny - current and neighbor groups only" Tag="Deny" />
+            </ComboBox>
+
+            <TextBlock Text="Neighbor/default DP" Style="{StaticResource FieldLabel}"
+                       ToolTip="Deployment type content option. Applies to deployment types created by future Package runs." />
+            <ComboBox SelectedValue="{Binding SlowNetworkDeploymentMode}" SelectedValuePath="Tag"
+                      AutomationProperties.Name="Neighbor/default DP" AutomationProperties.AutomationId="SlowNetworkDeploymentMode"
+                      Width="360" HorizontalAlignment="Left" Margin="0,0,0,12"
+                      ToolTip="Deployment option when the client uses a distribution point in a neighbor boundary group or the site default boundary group.">
+                <ComboBoxItem Content="Download content and install" Tag="Download" />
+                <ComboBoxItem Content="Do not download content" Tag="DoNothing" />
+            </ComboBox>
+
+            <TextBlock Text="Application title" Style="{StaticResource FieldLabel}"
+                       ToolTip="Default application naming for every Package run." />
+            <CheckBox Content="Include version in application name" IsChecked="{Binding TitleOptions.IncludeVersionInTitle}" Margin="0,0,0,4"
+                      ToolTip="Adds the version to every application name, creating one ConfigMgr application per release. A per-application choice in the Application Workbench overrides this. Existing applications are not renamed." />
+            <CheckBox Content="Remove version from application name" IsChecked="{Binding TitleOptions.RemoveVersionFromTitle}"
+                      IsEnabled="{Binding TitleOptions.RemoveVersionFromTitleAvailable}" Margin="0,0,0,8"
+                      ToolTip="Strips the release version from a vendor product name that carries it (7-Zip 26.03, Slido 2.3.1, Tableau 2026.2). Available while the version is not added to the name. A per-application choice in the Application Workbench overrides this." />
 
             <Border Style="{StaticResource SectionDivider}" />
 

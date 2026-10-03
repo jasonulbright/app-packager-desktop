@@ -1,20 +1,30 @@
 namespace ApplicationPackagerEngine.Services;
 
-/// <summary>The per-user folder that holds settings.json, condition-templates.json and the default Workbench root.</summary>
+/// <summary>
+/// Per-user data folders. APP_PACKAGER_DATA_ROOT replaces both the AppPackager folder
+/// (settings, templates, workbench) and the SRLPackr folder (logs, caches, tools), which
+/// then sits beneath it, so a process started with the variable writes nothing under
+/// %LOCALAPPDATA%.
+/// </summary>
 public static class AppDataPaths
 {
-    /// <summary>Moves the whole per-user folder, for isolated runs and tests.</summary>
-    public const string RootVariable = "APP_PACKAGER_DATA_ROOT";
+    public const string DataRootVariable = "APP_PACKAGER_DATA_ROOT";
 
-    /// <summary>APP_PACKAGER_DATA_ROOT when set, otherwise %LOCALAPPDATA%\AppPackager.</summary>
-    public static string Root
+    private static string? Override
     {
         get
         {
-            var overridden = Environment.GetEnvironmentVariable(RootVariable);
-            return string.IsNullOrWhiteSpace(overridden)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager")
-                : Path.GetFullPath(overridden);
+            var value = Environment.GetEnvironmentVariable(DataRootVariable);
+            return string.IsNullOrWhiteSpace(value) ? null : Path.GetFullPath(value.Trim());
         }
     }
+
+    /// <summary>The folder that holds settings.json, condition-templates.json and the default Workbench root.</summary>
+    public static string Root => Override ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager");
+
+    /// <summary>The folder that holds session logs, the icon cache, the history database and downloaded tools.</summary>
+    public static string LegacyRoot => Override is { } root
+        ? Path.Combine(root, "SRLPackr")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SRLPackr");
 }
