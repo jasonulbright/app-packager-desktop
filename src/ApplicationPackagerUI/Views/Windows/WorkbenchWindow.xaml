@@ -894,7 +894,7 @@
                             <DataGridTextColumn Header="Build id" Width="210" Binding="{Binding BuildId}" />
                             <DataGridTextColumn Header="Version" Width="80" Binding="{Binding Version}" />
                             <DataGridTextColumn Header="Revision" Width="90" Binding="{Binding Revision}" />
-                            <DataGridTextColumn Header="Result" Width="*" MinWidth="120" Binding="{Binding Result}" />
+                            <DataGridTextColumn Header="Result" Width="*" MinWidth="180" Binding="{Binding Result}" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
