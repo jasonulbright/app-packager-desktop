@@ -1,0 +1,43 @@
+{
+  "Schema": 1,
+  "Id": "0e160b420d8bd2d5",
+  "IconSource": "Installer",
+  "Vendor": "Scooter Software",
+  "Application": "Beyond Compare 5 (x64)",
+  "CMName": "Beyond Compare 5",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.scootersoftware.com/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://www.scootersoftware.com/kb/dl5_winalternate",
+    "Pattern": "/files/BCompareSetup-(\\d+(?:\\.\\d+){3})\\.zip",
+    "DownloadUrlQuery": "(/files/BCompareSetup-{version}\\.zip)"
+  },
+  "DownloadUrl": "https://www.scootersoftware.com/files/BCompareSetup-{version}.zip",
+  "InstallArgs": "/VERYSILENT /NORESTART /ALLUSERS /DISABLEUPDATES /SUPPRESSMSGBOXES",
+  "UninstallArgs": "/VERYSILENT /NORESTART /SUPPRESSMSGBOXES",
+  "UninstallCommand": "$base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)\r\n$entry = $base.OpenSubKey('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BeyondCompare5_is1')\r\nif (-not $entry) {\r\n    Write-Error 'Beyond Compare 5 uninstall entry not found.'\r\n    exit 1\r\n}\r\n$uninstallString = [string]$entry.GetValue('UninstallString')\r\n$entry.Close()\r\n$exe = ($uninstallString -replace '^\"([^\"]+)\".*$', '$1').Trim('\"')\r\nif (-not $exe -or -not (Test-Path -LiteralPath $exe)) {\r\n    Write-Error \"Beyond Compare 5 uninstaller not found: $uninstallString\"\r\n    exit 1\r\n}\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES') -Wait -PassThru -NoNewWindow",
+  "SideFiles": [
+    {
+      "Key": "BeyondCompareKeyFile",
+      "FileName": "BC5Key.txt",
+      "Label": "license key file"
+    }
+  ],
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\BeyondCompare5_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{HeaderDisplayVersion}",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "BCompare"
+  ]
+}

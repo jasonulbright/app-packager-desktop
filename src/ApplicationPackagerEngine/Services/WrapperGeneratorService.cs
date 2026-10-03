@@ -12,12 +12,18 @@ public sealed class WrapperGeneratorService
     /// <summary>
     /// Generates all 4 wrapper files for an MSI installer.
     /// </summary>
-    public void GenerateMsiWrappers(string outputPath, string msiFileName, string? uninstallCommand = null, string? installArgs = null)
+    public void GenerateMsiWrappers(string outputPath, string msiFileName, string? uninstallCommand = null, string? installArgs = null,
+        bool expandEnvironment = false)
     {
         var msiArgs = string.IsNullOrEmpty(installArgs) ? "/qn /norestart" : installArgs;
+        // msiexec does not expand %NAME% in a property value, so the wrapper
+        // expands it in the deployment's own context.
+        var msiArgsExpression = expandEnvironment
+            ? $"[Environment]::ExpandEnvironmentVariables('{msiArgs}')"
+            : $"'{msiArgs}'";
         var installPs1 = $"""
             $msiPath = Join-Path $PSScriptRoot '{msiFileName}'
-            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", '{msiArgs}') -Wait -PassThru -NoNewWindow
+            $proc = Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i', "`"$msiPath`"", {msiArgsExpression}) -Wait -PassThru -NoNewWindow
             $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
             exit $proc.ExitCode
             """;
@@ -667,7 +673,7 @@ public sealed class WrapperGeneratorService
     /// <summary>A bare apostrophe would terminate the single-quoted literal early.</summary>
     private static string EscapePsLiteral(string value) => value.Replace("'", "''");
 
-    private static void WriteWrappers(string outputPath, string installPs1Content, string uninstallPs1Content)
+    internal static void WriteWrappers(string outputPath, string installPs1Content, string uninstallPs1Content)
     {
         var encoding = new UTF8Encoding(false); // ASCII-compatible, no BOM
 

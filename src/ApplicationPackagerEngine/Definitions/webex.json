@@ -4,7 +4,7 @@
     "IconSource":  "Installer",
     "Vendor":  "Cisco",
     "Application":  "Cisco Webex (x64)",
-    "CMName":  "Cisco Webex",
+    "CMName":  "Webex",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.webex.com/downloads.html",
     "InstallerType":  "MSI",

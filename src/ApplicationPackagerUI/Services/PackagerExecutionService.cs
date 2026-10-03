@@ -85,7 +85,14 @@ public class PackagerExecutionService(
                 settingsValues ??= [];
                 settingsValues[StagingService.OdtChannelKey] = appSettings.M365Channel;
             }
-            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues, installMode);
+            var inputs = new StageInputs
+            {
+                LocalSourceFolder = appSettings.LocalSourceFolders.TryGetValue(def.Id, out var folder) ? folder : null,
+                SideFiles = appSettings.SideFiles,
+                CitrixSwitches = appSettings.CitrixSwitches
+            };
+            var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues, installMode, inputs);
+            if (result.Success) packager.StagedVersion = Path.GetFileName(result.ContentPath);
             return new PackagerExecutionResult
             {
                 ExitCode = result.Success ? 0 : 1,
@@ -120,9 +127,10 @@ public class PackagerExecutionService(
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
-            var manifestPath = Path.Combine(settings.DownloadRoot,
-                $"{def.Application.Replace(" ", "")}-{def.Architecture}",
-                packager.LatestVersion, "stage-manifest.json");
+            var appRoot = Path.Combine(settings.DownloadRoot, $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+            var manifestPath = Path.Combine(appRoot, packager.LatestVersion, "stage-manifest.json");
+            if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
+                manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
 
             if (!File.Exists(manifestPath))
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
@@ -588,7 +596,11 @@ public class PackagerExecutionService(
     private static AppDefinition LoadDefinition(string path)
     {
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<AppDefinition>(json, JsonOptions)
+        var def = JsonSerializer.Deserialize<AppDefinition>(json, JsonOptions)
             ?? throw new InvalidOperationException($"Failed to load definition: {path}");
+        // The icon pack names its files after the definition file, which the
+        // stage finds through SourcePath.
+        def.SourcePath = path;
+        return def;
     }
 }

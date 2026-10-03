@@ -4,7 +4,7 @@
     "IconSource":  "Installer",
     "Vendor":  "The Git Development Community",
     "Application":  "Git for Windows (x64)",
-    "CMName":  "Git for Windows",
+    "CMName":  "Git",
     "Architecture":  "x64",
     "VendorUrl":  "https://gitforwindows.org/",
     "InstallerType":  "EXE",

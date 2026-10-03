@@ -1,0 +1,35 @@
+{
+  "Schema": 1,
+  "Id": "172ac7b4b6635815",
+  "IconSource": "Installer",
+  "Vendor": "Microsoft",
+  "Application": "Microsoft OpenJDK 21 (MSI, per user)",
+  "CMName": "Microsoft OpenJDK 21 (MSI, per user)",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/en-us/java/openjdk/",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "InstallContext": "User",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://aka.ms/download-jdk/microsoft-jdk-21-windows-x64.msi",
+    "Pattern": "REDIR:(?i)/microsoft-jdk-(21(?:\\.\\d+){1,4})-windows-x64\\.msi(?:[?#].*)?$"
+  },
+  "DownloadUrl": "https://aka.ms/download-jdk/microsoft-jdk-{version}-windows-x64.msi",
+  "PayloadSha256Url": "{download_url}.sha256sum.txt",
+  "ExpandInstallArgs": true,
+  "InstallArgs": "ALLUSERS=2 MSIINSTALLPERUSER=1 ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJarFileRunWith INSTALLDIR=\"%LOCALAPPDATA%\\Programs\\Microsoft\\jdk-{ProductVersion}-hotspot\" /qn /norestart",
+  "UninstallArgs": "/qn /norestart",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "%LOCALAPPDATA%\\Programs\\Microsoft\\jdk-{ProductVersion}-hotspot\\bin",
+    "FileName": "java.exe",
+    "PropertyType": "Existence",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "java",
+    "javaw"
+  ]
+}

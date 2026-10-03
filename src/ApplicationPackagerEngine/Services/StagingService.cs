@@ -56,7 +56,7 @@ public sealed class StagingService
             MsixPackageReader.ValidateContainer(path);
             return;
         }
-        if (type is not ("EXE" or "MSI")) return;
+        if (type is not ("EXE" or "MSI" or "ZIP")) return;
         if (!File.Exists(path)) return;
 
         Span<byte> head = stackalloc byte[8];
@@ -66,9 +66,12 @@ public sealed class StagingService
             if (read < 8) throw new InvalidOperationException($"Downloaded installer is only {read} bytes: {Path.GetFileName(path)}");
         }
 
-        var ok = type == "EXE"
-            ? head[0] == (byte)'M' && head[1] == (byte)'Z'
-            : head[0] == 0xD0 && head[1] == 0xCF && head[2] == 0x11 && head[3] == 0xE0;
+        var ok = type switch
+        {
+            "EXE" => head[0] == (byte)'M' && head[1] == (byte)'Z',
+            "ZIP" => head[0] == (byte)'P' && head[1] == (byte)'K' && head[2] == 3 && head[3] == 4,
+            _ => head[0] == 0xD0 && head[1] == 0xCF && head[2] == 0x11 && head[3] == 0xE0
+        };
         if (!ok)
         {
             var preview = System.Text.Encoding.ASCII.GetString(head.ToArray()).Replace('\0', '.');
@@ -131,8 +134,11 @@ public sealed class StagingService
         if (string.IsNullOrWhiteSpace(config.Url)) return null;
 
         using var request = new HttpRequestMessage(HttpMethod.Get, config.Url);
-        if (!config.NoUserAgent)
+        var headers = (config.RequestHeaders ?? []).Select(Scrapers.CurlHeaders.Split).ToList();
+        if (!config.NoUserAgent && !headers.Any(h => h.Name.Equals("User-Agent", StringComparison.OrdinalIgnoreCase)))
             request.Headers.TryAddWithoutValidation("User-Agent", HashFeedUserAgent);
+        foreach (var (name, value) in headers)
+            request.Headers.TryAddWithoutValidation(name, value);
 
         using var response = await HashFeedClient.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
@@ -240,7 +246,8 @@ public sealed class StagingService
         CancellationToken ct = default,
         string? knownVersion = null,
         Dictionary<string, string>? settingsValues = null,
-        string? installMode = null)
+        string? installMode = null,
+        StageInputs? inputs = null)
     {
         // A run already cancelled does no work and reports cancellation, rather than
         // starting a download whose result nobody wants.
@@ -255,6 +262,14 @@ public sealed class StagingService
 
         try
         {
+            // 0. Operator inputs the stage cannot do without refuse it before any download.
+            var postExecutionBehavior = NormalizePostExecutionBehavior(def.PostExecutionBehavior);
+            var sideFiles = ResolveSideFiles(def, inputs?.SideFiles);
+            string? localInstaller = null;
+            if (def.LocalSource is not null
+                && (def.LocalSource.IsRequired || !string.IsNullOrWhiteSpace(inputs?.LocalSourceFolder)))
+                localInstaller = LocalSourceResolver.Resolve(inputs?.LocalSourceFolder, def.LocalSource, def.Application);
+
             // 1. Get version — reuse from Check Latest if available to avoid redundant API calls.
             //    Must re-scrape when a VersionTransform exists, since knownVersion is the display
             //    version and we need the raw version for download URL substitution.
@@ -280,6 +295,19 @@ public sealed class StagingService
                 displayVersion = def.DisplayVersionOverride
                     .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
 
+            // A local installer stages under its own file version, which can
+            // trail the version the vendor publishes.
+            if (localInstaller is not null)
+            {
+                onProgress?.Invoke($"Local installer              : {localInstaller}");
+                AuthenticodeVerifier.RequireValid(localInstaller, onProgress);
+                var localVersion = LocalSourceResolver.ReadVersion(localInstaller);
+                if (System.Version.TryParse(localVersion, out var local) && System.Version.TryParse(displayVersion, out var published)
+                    && local < published)
+                    onProgress?.Invoke($"Local installer {localVersion} is older than the published {displayVersion}; staging it as found.");
+                version = rawVersion = displayVersion = localVersion;
+            }
+
             onProgress?.Invoke($"Version: {displayVersion}");
 
             // 2. Set up versioned content folder (uses display version)
@@ -290,74 +318,42 @@ public sealed class StagingService
 
             // 3. Resolve download URL — either from API query or template substitution
             string downloadUrl;
-            if (!string.IsNullOrEmpty(def.VersionScraper.DownloadUrlQuery))
+            string installerFileName;
+            string installerPath;
+            if (localInstaller is not null)
             {
-                var apiUrl = await ResolveDownloadUrlFromApiAsync(def.VersionScraper, ct);
-                downloadUrl = apiUrl ?? def.DownloadUrl
-                    .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
-                    .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
-            }
-            else
-            {
-                downloadUrl = def.DownloadUrl
-                    .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
-                    .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
-            }
-            var installerFileName = ResolveInstallerFileName(def, downloadUrl, version);
-            var installerPath = Path.Combine(contentPath, installerFileName);
-
-            if (!File.Exists(installerPath))
-            {
-                // Check if FileVersionScraper already downloaded this file during Check Latest.
-                // A hop-resolved scrape cached the file under the resolved URL's name.
-                var cachedPath = def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase)
-                    ? Scrapers.FileVersionScraper.GetCachedPath(
-                        def.VersionScraper.Hops is { Count: > 0 } ? downloadUrl : def.VersionScraper.Url)
-                    : null;
-
-                if (cachedPath is not null)
+                downloadUrl = "";
+                installerFileName = LocalSourceResolver.StagedName(def.LocalSource!, localInstaller, displayVersion,
+                    def.InstallerFileName ?? Path.GetFileName(localInstaller));
+                installerPath = Path.Combine(contentPath, installerFileName);
+                if (!File.Exists(installerPath))
                 {
-                    File.Copy(cachedPath, installerPath);
-                    onProgress?.Invoke($"Copied from version cache: {installerFileName}");
+                    File.Copy(localInstaller, installerPath);
+                    onProgress?.Invoke($"Copied local installer: {installerFileName}");
                 }
                 else
                 {
-                    await _downloadService.DownloadAsync(downloadUrl, installerPath,
-                        onProgress: onProgress, ct: ct);
-                    ValidateInstallerMagic(installerPath, def.InstallerType);
+                    onProgress?.Invoke($"Installer already staged: {installerFileName}");
                 }
             }
             else
             {
-                onProgress?.Invoke($"Installer already cached: {installerFileName}");
+                (downloadUrl, installerFileName, installerPath) =
+                    await AcquireDownloadAsync(def, contentPath, version, rawVersion, onProgress, ct);
             }
 
-            // 3b. Payload integrity. A pinned hash wins over the feed value:
-            // it is the stronger statement, and a definition carrying both is
-            // asserting the pin. A cached payload is verified too, so a bad
-            // prior download does not stage on a later run.
-            var expectedHash = def.PayloadSha256;
-            if (string.IsNullOrWhiteSpace(expectedHash))
-                expectedHash = await ResolveFeedHashAsync(def.VersionScraper, rawVersion, ct);
-            try
+            // 4. If downloaded file is a ZIP, extract and find the real installer inside.
+            // A ZIP payload stays whole: the wrapper extracts it on the client.
+            IReadOnlyDictionary<string, string> zipTokens = new Dictionary<string, string>();
+            if (def.ZipPayload is not null)
             {
-                VerifyPayloadHash(installerPath, expectedHash, onProgress);
+                if (!installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"ZipPayload needs a .zip payload, got {installerFileName}.");
+                zipTokens = ZipPayload.Inspect(installerPath, def.ZipPayload);
+                foreach (var (name, value) in zipTokens)
+                    onProgress?.Invoke($"ZIP entry token {name}: {value}");
             }
-            catch (InvalidOperationException) when (!string.IsNullOrWhiteSpace(expectedHash))
-            {
-                // A torn download (a CDN once served a short body) fails the
-                // hash on every later run while the file sits in the cache.
-                // One fresh download separates that from a vendor-side change.
-                onProgress?.Invoke($"Payload SHA256 mismatch; discarding the cached file and downloading once more: {installerFileName}");
-                File.Delete(installerPath);
-                await _downloadService.DownloadAsync(downloadUrl, installerPath,
-                    onProgress: onProgress, ct: ct);
-                ValidateInstallerMagic(installerPath, def.InstallerType);
-                VerifyPayloadHash(installerPath, expectedHash, onProgress);
-            }
-
-            // 4. If downloaded file is a ZIP, extract and find the real installer inside
-            if (installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
+            else if (installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
             {
                 onProgress?.Invoke("Extracting ZIP archive...");
                 var extractDir = Path.Combine(contentPath, "_zip_extract");
@@ -377,6 +373,8 @@ public sealed class StagingService
                     installerPath = destPath;
                     installerFileName = innerName;
                     onProgress?.Invoke($"Extracted installer: {innerName}");
+                    ValidateInstallerMagic(installerPath,
+                        innerName.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) ? "MSI" : "EXE");
                 }
 
                 // Clean up extract dir and original ZIP
@@ -446,7 +444,7 @@ public sealed class StagingService
 
             // 4c. For non-MSI installers, extract metadata via InstallerIdentificationService
             InstallerMetadata? installerMetadata = null;
-            if (productCode is null && _installerIdService is not null && !isMsix &&
+            if (productCode is null && _installerIdService is not null && !isMsix && def.ZipPayload is null &&
                 !def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
             {
                 onProgress?.Invoke("Identifying installer framework...");
@@ -477,7 +475,7 @@ public sealed class StagingService
             }
 
             // 4d. Extract icon from installer
-            if (_iconService is not null)
+            if (_iconService is not null && def.ZipPayload is null)
             {
                 onProgress?.Invoke("Extracting application icon...");
                 var iconResult = await _iconService.ExtractAsync(installerPath, def.Id, ct);
@@ -494,6 +492,16 @@ public sealed class StagingService
                 def.InstallerSettings, settingsValues);
             var uninstallCommand = ApplySettingTokens(def.UninstallCommand, def.InstallerSettings, settingsValues);
 
+            var isMsiPayload = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase)
+                || installerPath.EndsWith(".msi", StringComparison.OrdinalIgnoreCase);
+            VerifyPayloadVersion(def, installerPath, isMsiPayload ? productVersion : null, isMsiPayload, displayVersion, onProgress);
+            var tokens = BuildStageTokens(def, installerPath, displayVersion, isMsiPayload ? productVersion : null, zipTokens);
+
+            if (!string.IsNullOrWhiteSpace(def.CitrixSwitchStream))
+                installArgs = BuildCitrixInstallArgs(def.CitrixSwitchStream, inputs?.CitrixSwitches, onProgress);
+            installArgs = tokens.Apply(installArgs)!;
+            uninstallCommand = tokens.Apply(uninstallCommand);
+
             // 6. Build detection config
             // If the definition's detection references {ProductCode} but we have no ProductCode,
             // and we have installer metadata with detection data, use the metadata instead.
@@ -501,7 +509,7 @@ public sealed class StagingService
             // Add/Remove Programs lookup hints from the resolved detection rule.
             var detection = msixPackage is not null
                 ? BuildMsixDetection(def.Detection, msixPackage)
-                : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues);
+                : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues, tokens);
 
             // 6a. Install mode. A definition that declares both modes lets the
             // operator pick System or User; the staged installer's compiled
@@ -525,9 +533,14 @@ public sealed class StagingService
                 _wrapperService.GenerateMsixWrappers(contentPath, installerFileName,
                     msixPackage!.SignerThumbprint, msixPackage.Provisioned);
             }
+            else if (def.ZipPayload is not null)
+            {
+                ZipPayload.GenerateWrappers(contentPath, installerFileName, def.ZipPayload);
+            }
             else if (def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase))
             {
-                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, uninstallCommand, installArgs);
+                _wrapperService.GenerateMsiWrappers(contentPath, installerFileName, uninstallCommand, installArgs,
+                    def.ExpandInstallArgs);
             }
             else if (def.ExtractSetup is not null)
             {
@@ -606,8 +619,15 @@ public sealed class StagingService
                 ProductCode = productCode,
                 RunningProcess = def.RunningProcess,
                 Detection = detection,
-                MsixPackage = msixPackage
+                MsixPackage = msixPackage,
+                PostExecutionBehavior = postExecutionBehavior
             };
+            foreach (var (sideFile, source) in sideFiles)
+            {
+                // The file is copied as it is; its contents are never read.
+                File.Copy(source, Path.Combine(contentPath, sideFile.FileName), overwrite: true);
+                onProgress?.Invoke($"Placed {sideFile.Label} beside installer: {sideFile.FileName}");
+            }
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
             _manifestService.Write(manifestPath, manifest);
             onProgress?.Invoke($"Manifest written: {manifestPath}");
@@ -632,6 +652,252 @@ public sealed class StagingService
         {
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
+    }
+
+    /// <summary>
+    /// Resolves the download URL, downloads the payload into the content
+    /// folder unless it is already there, and verifies it: magic bytes, the
+    /// SHA256 the definition, feed or vendor checksum file names, and the
+    /// Authenticode signature when the definition requires one.
+    /// </summary>
+    private async Task<(string DownloadUrl, string InstallerFileName, string InstallerPath)> AcquireDownloadAsync(
+        AppDefinition def, string contentPath, string version, string rawVersion,
+        Action<string>? onProgress, CancellationToken ct)
+    {
+        string downloadUrl;
+        if (!string.IsNullOrEmpty(def.VersionScraper.DownloadUrlQuery))
+        {
+            var apiUrl = await ResolveDownloadUrlFromApiAsync(def.VersionScraper, ct);
+            downloadUrl = apiUrl ?? def.DownloadUrl
+                .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+        }
+        else
+        {
+            downloadUrl = def.DownloadUrl
+                .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
+                .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+        }
+        downloadUrl = ApplyDashedVersion(downloadUrl, version);
+        var installerFileName = ResolveInstallerFileName(def, downloadUrl, version);
+        var installerPath = Path.Combine(contentPath, installerFileName);
+        var headers = def.VersionScraper.RequestHeaders;
+        var magicType = MagicTypeFor(installerPath, def.InstallerType);
+
+        if (!File.Exists(installerPath))
+        {
+            // Check if FileVersionScraper already downloaded this file during Check Latest.
+            // A hop-resolved scrape cached the file under the resolved URL's name.
+            var cachedPath = def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase)
+                ? Scrapers.FileVersionScraper.GetCachedPath(
+                    def.VersionScraper.Hops is { Count: > 0 } ? downloadUrl : def.VersionScraper.Url)
+                : null;
+
+            if (cachedPath is not null)
+            {
+                File.Copy(cachedPath, installerPath);
+                onProgress?.Invoke($"Copied from version cache: {installerFileName}");
+            }
+            else
+            {
+                await _downloadService.DownloadAsync(downloadUrl, installerPath,
+                    onProgress: onProgress, ct: ct, headers: headers);
+                ValidateInstallerMagic(installerPath, magicType);
+            }
+        }
+        else
+        {
+            onProgress?.Invoke($"Installer already cached: {installerFileName}");
+        }
+
+        // 3b. Payload integrity. A pinned hash wins over the feed value:
+        // it is the stronger statement, and a definition carrying both is
+        // asserting the pin. A cached payload is verified too, so a bad
+        // prior download does not stage on a later run.
+        var expectedHash = def.PayloadSha256;
+        if (string.IsNullOrWhiteSpace(expectedHash))
+            expectedHash = await ResolveFeedHashAsync(def.VersionScraper, rawVersion, ct);
+        if (string.IsNullOrWhiteSpace(expectedHash) && !string.IsNullOrWhiteSpace(def.PayloadSha256Url))
+            expectedHash = await ResolveChecksumFileHashAsync(def, downloadUrl, rawVersion, installerFileName, onProgress, ct);
+        if (def.RequirePayloadHash && string.IsNullOrWhiteSpace(expectedHash))
+            throw new InvalidOperationException($"The version source carries no SHA256 for {installerFileName}; the payload cannot be verified.");
+        try
+        {
+            VerifyPayloadHash(installerPath, expectedHash, onProgress);
+        }
+        catch (InvalidOperationException) when (!string.IsNullOrWhiteSpace(expectedHash))
+        {
+            // A torn download (a CDN once served a short body) fails the
+            // hash on every later run while the file sits in the cache.
+            // One fresh download separates that from a vendor-side change.
+            onProgress?.Invoke($"Payload SHA256 mismatch; discarding the cached file and downloading once more: {installerFileName}");
+            File.Delete(installerPath);
+            await _downloadService.DownloadAsync(downloadUrl, installerPath,
+                onProgress: onProgress, ct: ct, headers: headers);
+            ValidateInstallerMagic(installerPath, magicType);
+            VerifyPayloadHash(installerPath, expectedHash, onProgress);
+        }
+
+        if (def.RequireValidSignature)
+            AuthenticodeVerifier.RequireValid(installerPath, onProgress);
+
+        return (downloadUrl, installerFileName, installerPath);
+    }
+
+    /// <summary>
+    /// The magic-byte check a download takes: a .zip file is checked as a ZIP
+    /// whatever installer it carries, because the installer inside it is
+    /// checked after extraction.
+    /// </summary>
+    public static string MagicTypeFor(string path, string installerType) =>
+        path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? "ZIP" : installerType;
+
+    private static readonly string[] PostExecutionBehaviors = ["BasedOnExitCode", "NoAction", "ProgramReboot", "ForceReboot"];
+
+    /// <summary>The cmdlet spelling of a post-execution behavior; null when absent; throws on any other value.</summary>
+    public static string? NormalizePostExecutionBehavior(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return PostExecutionBehaviors.FirstOrDefault(b => b.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"PostExecutionBehavior '{value}' is not one of {string.Join(", ", PostExecutionBehaviors)}.");
+    }
+
+    public const string SideFilesLocation = "Settings > Packager Files";
+
+    /// <summary>
+    /// Pairs each side file the definition declares with the chosen path.
+    /// Throws when one is not chosen or the chosen file no longer exists.
+    /// </summary>
+    public static List<(SideFileConfig Config, string Source)> ResolveSideFiles(
+        AppDefinition def, IReadOnlyDictionary<string, string>? chosen)
+    {
+        var resolved = new List<(SideFileConfig, string)>();
+        foreach (var sideFile in def.SideFiles ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(sideFile.Key) || string.IsNullOrWhiteSpace(sideFile.FileName)
+                || sideFile.FileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                throw new InvalidOperationException($"{def.Application} declares a side file without a Key or a plain FileName.");
+            if (chosen is null || !chosen.TryGetValue(sideFile.Key, out var path) || string.IsNullOrWhiteSpace(path))
+                throw new InvalidOperationException(
+                    $"{def.Application} requires a {sideFile.Label}. Choose {sideFile.FileName} in {SideFilesLocation}.");
+            if (!File.Exists(path))
+                throw new InvalidOperationException($"{def.Application} {sideFile.Label} not found: {path}");
+            resolved.Add((sideFile, path));
+        }
+        return resolved;
+    }
+
+    /// <summary>
+    /// Refuses a payload whose own version differs from ExpectedPayloadVersion:
+    /// the MSI ProductVersion for an MSI, the FileVersion string otherwise.
+    /// </summary>
+    public static void VerifyPayloadVersion(AppDefinition def, string installerPath, string? msiProductVersion,
+        bool isMsi, string displayVersion, Action<string>? onProgress = null)
+    {
+        if (string.IsNullOrWhiteSpace(def.ExpectedPayloadVersion)) return;
+
+        var expected = StageTokens.ApplyVersionParts(def.ExpectedPayloadVersion, displayVersion)!
+            .Replace("{version}", displayVersion, StringComparison.OrdinalIgnoreCase);
+        var actual = isMsi
+            ? msiProductVersion?.Trim() ?? ""
+            : (System.Diagnostics.FileVersionInfo.GetVersionInfo(installerPath).FileVersion ?? "").Trim();
+        if (!string.Equals(actual, expected, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Payload version '{actual}' does not match the expected version '{expected}': {Path.GetFileName(installerPath)}");
+        onProgress?.Invoke($"Payload version verified     : {actual}");
+    }
+
+    /// <summary>
+    /// The stage tokens for one payload. The EXE ProductVersion and the
+    /// compiled-script DisplayVersion are read only when the definition
+    /// names their token.
+    /// </summary>
+    public static StageTokens BuildStageTokens(AppDefinition def, string installerPath, string displayVersion,
+        string? msiProductVersion, IReadOnlyDictionary<string, string> zipTokens)
+    {
+        var text = System.Text.Json.JsonSerializer.Serialize(def);
+        var productVersion = msiProductVersion;
+        if (productVersion is null && text.Contains(StageTokens.ProductVersionToken, StringComparison.OrdinalIgnoreCase)
+            && File.Exists(installerPath))
+            productVersion = System.Diagnostics.FileVersionInfo.GetVersionInfo(installerPath).ProductVersion?.Trim();
+
+        string? header = null;
+        if (text.Contains(StageTokens.HeaderDisplayVersionToken, StringComparison.OrdinalIgnoreCase) && File.Exists(installerPath))
+            header = CompiledScriptFacts.TryRead(InstallerSignatureScanner.Identify(installerPath), installerPath)?.DisplayVersion;
+
+        return new StageTokens
+        {
+            Version = displayVersion,
+            ProductVersion = string.IsNullOrWhiteSpace(productVersion) ? null : productVersion,
+            HeaderDisplayVersion = header,
+            Zip = zipTokens
+        };
+    }
+
+    /// <summary>
+    /// The Citrix Workspace install arguments for a stream, with each skipped
+    /// setting reported. The EXE wrapper carries the arguments inside a
+    /// single-quoted literal, so an apostrophe refuses the stage.
+    /// </summary>
+    public static string BuildCitrixInstallArgs(string stream, CitrixWorkspaceSwitches? switches, Action<string>? onProgress)
+    {
+        var built = CitrixInstallArguments.Build(switches, stream);
+        foreach (var warning in built.Warnings)
+            onProgress?.Invoke($"WARNING: {warning}");
+        var offending = built.Arguments.FirstOrDefault(a => a.Contains('\''));
+        if (offending is not null)
+            throw new InvalidOperationException($"Citrix install argument contains an apostrophe, which the install wrapper cannot carry: {offending}");
+        var args = string.Join(" ", built.Arguments);
+        onProgress?.Invoke($"Install arguments            : {args}");
+        return args;
+    }
+
+    /// <summary>{display_version_dashed} is the display version with every dot replaced by a hyphen.</summary>
+    public static string ApplyDashedVersion(string text, string version) =>
+        text.Replace("{display_version_dashed}", version.Replace('.', '-'), StringComparison.OrdinalIgnoreCase);
+
+    private static readonly System.Text.RegularExpressions.Regex ChecksumLine =
+        new(@"^\s*(?<hash>[0-9A-Fa-f]{64})(?:\s+\*?(?<name>\S.*?))?\s*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// The lower-case SHA256 a checksum file lists for <paramref name="fileName"/>,
+    /// or null when no line names it. A line carrying a hash and no file name
+    /// matches any file.
+    /// </summary>
+    public static string? ParseChecksumFile(string content, string fileName)
+    {
+        foreach (var line in content.Split('\n'))
+        {
+            var m = ChecksumLine.Match(line.TrimEnd('\r'));
+            if (!m.Success) continue;
+            var name = m.Groups["name"].Value;
+            if (name.Length == 0 || name.Equals(fileName, StringComparison.OrdinalIgnoreCase))
+                return m.Groups["hash"].Value.ToLowerInvariant();
+        }
+        return null;
+    }
+
+    private static async Task<string> ResolveChecksumFileHashAsync(
+        AppDefinition def, string downloadUrl, string rawVersion, string installerFileName,
+        Action<string>? onProgress, CancellationToken ct)
+    {
+        var url = def.PayloadSha256Url!
+            .Replace("{download_url}", downloadUrl, StringComparison.OrdinalIgnoreCase)
+            .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+        onProgress?.Invoke($"Checksum file                : {url}");
+
+        using var process = Scrapers.CurlProcess.Start(
+            $"-L --fail --silent --show-error --max-time 60{Scrapers.CurlHeaders.Arguments(def.VersionScraper.RequestHeaders)} \"{url}\"", url);
+        var stdout = process.StandardOutput.ReadToEndAsync(ct);
+        var stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        await process.WaitForExitAsync(ct);
+        var content = await stdout;
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"Failed to download checksum file: {url} ({(await stderr).Trim()})");
+
+        return ParseChecksumFile(content, installerFileName)
+            ?? throw new InvalidOperationException($"Checksum file names no hash for {installerFileName}: {url}");
     }
 
     // ── Bootstrapper /layout staging pipeline ────────────────────
@@ -1478,9 +1744,11 @@ public sealed class StagingService
 
     public static StageDetection BuildDetection(AppDefinition def, string? productCode, string version,
         string? rawVersion = null, InstallerMetadata? metadata = null,
-        Dictionary<string, string>? settingsValues = null)
+        Dictionary<string, string>? settingsValues = null, StageTokens? tokens = null)
     {
         var det = ApplySettingTokens(def.Detection, def.InstallerSettings, settingsValues);
+        if (StageTokens.HasTokens(det))
+            det = tokens is null ? StageTokens.ApplyVersionParts(det, version) : tokens.Apply(det);
 
         // If detection references {ProductCode} but we have no ProductCode, and metadata has detection data,
         // use metadata-derived detection instead of the definition's detection config.
@@ -1600,6 +1868,8 @@ public sealed class StagingService
             // ("723" for a release displayed as 7.23.0).
             else if (det.Operator?.Equals("BeginsWith", StringComparison.OrdinalIgnoreCase) == true)
                 detValue = version;
+            if (!string.IsNullOrEmpty(det.ExpectedValue))
+                detValue = det.ExpectedValue.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
 
             return new StageDetection
             {
@@ -1626,6 +1896,8 @@ public sealed class StagingService
             {
                 detVersion = rawVersion;
             }
+            if (!string.IsNullOrEmpty(det.ExpectedValue))
+                detVersion = det.ExpectedValue.Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
 
             return new StageDetection
             {
@@ -1946,6 +2218,7 @@ public sealed class StagingService
             FileName = ApplySettingTokens(det.FileName, parameters, values),
             PropertyType = det.PropertyType,
             Is64Bit = det.Is64Bit,
+            ExpectedValue = ApplySettingTokens(det.ExpectedValue, parameters, values),
             ScriptLanguage = det.ScriptLanguage,
             ScriptText = ApplySettingTokens(det.ScriptText, parameters, values),
             Connector = det.Connector,
@@ -1959,5 +2232,6 @@ public sealed class StagingService
         || det.FilePath?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
         || det.FileName?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
         || det.ScriptText?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
+        || det.ExpectedValue?.Contains("{setting:", StringComparison.OrdinalIgnoreCase) == true
         || det.Clauses?.Any(HasSettingToken) == true;
 }

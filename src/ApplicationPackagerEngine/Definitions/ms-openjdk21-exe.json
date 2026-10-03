@@ -1,0 +1,37 @@
+{
+  "Schema": 1,
+  "Id": "61f9c9c16971e426",
+  "IconSource": "Installer",
+  "Vendor": "Microsoft",
+  "Application": "Microsoft OpenJDK 21 (EXE)",
+  "CMName": "Microsoft OpenJDK 21 (EXE)",
+  "Architecture": "x64",
+  "VendorUrl": "https://learn.microsoft.com/en-us/java/openjdk/",
+  "InstallerType": "EXE",
+  "InstallerFramework": "InnoSetup",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "HttpRegex",
+    "Url": "https://aka.ms/download-jdk/microsoft-jdk-21-windows-x64.msi",
+    "Pattern": "REDIR:(?i)/microsoft-jdk-(21(?:\\.\\d+){1,4})-windows-x64\\.msi(?:[?#].*)?$"
+  },
+  "DownloadUrl": "https://aka.ms/download-jdk/microsoft-jdk-{version}-windows-x64.exe",
+  "PayloadSha256Url": "{download_url}.sha256sum.txt",
+  "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /ALLUSERS /TASKS=\"FeatureEnvironment,FeatureJarFileRunWith\"",
+  "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$key = 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{11F8EC6C-68A4-9099-96F9-E81566D319CC}_is1'\r\nif (-not (Test-Path -LiteralPath $key)) { exit 0 }\r\n$cmd = (Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).UninstallString\r\nif (-not $cmd) { exit 0 }\r\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }\r\nif (-not (Test-Path -LiteralPath $exe)) { exit 0 }\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -NoNewWindow",
+  "Detection": {
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{11F8EC6C-68A4-9099-96F9-E81566D319CC}_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{HeaderDisplayVersion}",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "java",
+    "javaw"
+  ]
+}

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
@@ -17,10 +18,11 @@ public class PackagerPreferencesService(SettingsService settingsService, Package
     };
 
     /// <summary>
-    /// Writes CompanyName from app settings to packager-preferences.json
-    /// in the Packagers folder (for PS1 scripts to read).
+    /// Writes CompanyName and the chosen side files (BeyondCompareKeyFile and
+    /// the like, under the same key names) from app settings to
+    /// packager-preferences.json in the Packagers folder (for PS1 scripts to read).
     /// </summary>
-    public void SyncCompanyName(string companyName)
+    public void SyncPackagerPreferences(string companyName, IReadOnlyDictionary<string, string>? sideFiles = null)
     {
         var root = discoveryService.ResolvePackagersRoot();
         if (root is null) return;
@@ -36,16 +38,19 @@ public class PackagerPreferencesService(SettingsService settingsService, Package
                 if (existing is not null) prefs = existing;
             }
             prefs["CompanyName"] = companyName;
+            foreach (var (key, value) in sideFiles ?? new Dictionary<string, string>())
+                prefs[key] = value;
             File.WriteAllText(path, JsonSerializer.Serialize(prefs, JsonOptions));
         }
         catch { }
     }
 
     /// <summary>
-    /// Writes CWA install settings to citrix-workspace-switches.json
-    /// in the Packagers folder (for PS1 Citrix packager scripts to read).
+    /// Writes the Citrix Workspace switch settings to citrix-workspace-switches.json
+    /// in the Packagers folder, in the nested shape the PS1 Citrix packagers read.
+    /// A setting left unset is written as null, which the packagers skip.
     /// </summary>
-    public void SyncCwaSettings(CwaInstallSettings cwa)
+    public void SyncCwaSettings(CitrixWorkspaceSwitches? switches)
     {
         var root = discoveryService.ResolvePackagersRoot();
         if (root is null) return;
@@ -53,7 +58,7 @@ public class PackagerPreferencesService(SettingsService settingsService, Package
         var path = Path.Combine(root, "citrix-workspace-switches.json");
         try
         {
-            var json = JsonSerializer.Serialize(cwa, JsonOptions);
+            var json = JsonSerializer.Serialize(switches ?? new CitrixWorkspaceSwitches(), JsonOptions);
             File.WriteAllText(path, json);
         }
         catch { }

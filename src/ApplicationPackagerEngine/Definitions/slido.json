@@ -1,0 +1,36 @@
+{
+  "Schema": 1,
+  "Id": "d5711305610c0d07",
+  "IconSource": "None",
+  "Vendor": "Slido",
+  "Application": "Slido for Windows (x64)",
+  "CMName": "Slido for Windows",
+  "Architecture": "x64",
+  "VendorUrl": "https://www.slido.com/powerpoint-polling",
+  "InstallerType": "MSI",
+  "InstallerFramework": "NativeMSI",
+  "Acquisition": {},
+  "VersionScraper": {
+    "Type": "JsonQuery",
+    "Url": "https://api.slido.com/eu1/api/v0.5/switcher/packages/powerpoint-win-admin64/latest",
+    "Pattern": "version",
+    "DownloadUrlQuery": "publicUrl"
+  },
+  "DownloadUrl": "https://www.slido.com/api/download?application=powerpoint-win-admin64",
+  "ExpectedPayloadVersion": "{version_parts:3}",
+  "InstallArgs": "/qn /norestart DISABLE_UPDATE_CHECKS=1",
+  "UninstallArgs": "/qn /norestart",
+  "Detection": {
+    "Type": "File",
+    "FilePath": "C:\\Program Files (x86)\\Slido\\Slido for Windows",
+    "FileName": "Slido.exe",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "ExpectedValue": "{version}",
+    "Is64Bit": true
+  },
+  "RunningProcess": [
+    "Slido",
+    "POWERPNT"
+  ]
+}

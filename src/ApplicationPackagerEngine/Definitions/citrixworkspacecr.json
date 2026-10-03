@@ -17,7 +17,8 @@
   },
   "DownloadUrl": "https://downloadplugins.citrix.com/Windows/CitrixWorkspaceApp.exe",
   "InstallerFileName": "CitrixWorkspaceApp-CR-{version}.exe",
-  "InstallArgs": "/silent /noreboot",
+  "CitrixSwitchStream": "Current",
+  "InstallArgs": "/silent",
   "UninstallArgs": "/silent /uninstall",
   "Detection": {
     "Type": "RegistryKeyValue",

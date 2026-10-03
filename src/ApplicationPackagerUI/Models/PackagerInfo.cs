@@ -34,6 +34,13 @@ public partial class PackagerInfo : ObservableObject
     /// </summary>
     public string? StagedManifestPath { get; set; }
 
+    /// <summary>
+    /// Version folder of the last successful definition stage. A local
+    /// installer stages under its own file version, which can differ from
+    /// LatestVersion; Package falls back to it when LatestVersion has no stage.
+    /// </summary>
+    public string? StagedVersion { get; set; }
+
     public bool IsRunnable => true;
 
     /// <summary>
