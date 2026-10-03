@@ -197,7 +197,15 @@
                 </DataGridTemplateColumn>
 
                 <!-- A star column without MinWidth shrinks below its header text in a narrow window. -->
-                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True" />
+                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Margin" Value="2,0" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" IsReadOnly="True" />
                 <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="170" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" IsReadOnly="True" />
