@@ -1,0 +1,134 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.OneClickPlanWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="One Click"
+    Width="1280" Height="720"
+    MinWidth="1100" MinHeight="480"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="WrapCell" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="4,2" />
+        </Style>
+        <Style x:Key="PlanLine" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="One Click" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="16,4,16,8">
+            <TextBlock x:Name="txtPlanSummary" Text="{Binding SummaryText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtPlanSummary"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock x:Name="txtPlanAction" Text="{Binding ActionText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanAction" />
+            <TextBlock x:Name="txtPlanScope" Text="{Binding ScopeText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanScope"
+                       Visibility="{Binding HasScope, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock x:Name="txtPlanBlocking" Text="{Binding BlockingText}" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanBlocking"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                       Visibility="{Binding HasBlocking, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock x:Name="txtPlanHint" Style="{StaticResource PlanLine}" AutomationProperties.AutomationId="txtPlanHint"
+                       Text="Include and the destination boxes apply to this run only; One Click Settings holds the saved values. Run asks nothing after it starts." />
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" CanUserAddRows="False"
+                  CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single"
+                  GridLinesVisibility="Horizontal" Margin="16,0,16,8" AutomationProperties.AutomationId="gridPlan">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn x:Name="colInclude" Header="Include" Width="72">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Include, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      IsEnabled="{Binding DataContext.CanPlanOnly, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                      AutomationProperties.Name="Include" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="*" MinWidth="160" IsReadOnly="True"
+                                    ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="90" IsReadOnly="True" ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTemplateColumn x:Name="colMecm" Header="ConfigMgr" Width="96">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding ConfigMgr, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      AutomationProperties.Name="ConfigMgr" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn x:Name="colWsus" Header="WSUS" Width="72">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Wsus, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      AutomationProperties.Name="WSUS" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn x:Name="colIntune" Header="Intune" Width="76">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Intune, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      AutomationProperties.Name="Intune" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn x:Name="colLast" Header="Last published" Binding="{Binding LastPublished}" Width="150" IsReadOnly="True"
+                                    ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn x:Name="colPlanned" Header="Planned" Binding="{Binding Planned}" Width="280" IsReadOnly="True"
+                                    ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn x:Name="colStep" Header="Step" Binding="{Binding Step}" Width="130" IsReadOnly="True" Visibility="Collapsed"
+                                    ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn x:Name="colResultMecm" Header="ConfigMgr result" Binding="{Binding ResultConfigMgr}" Width="1.2*" MinWidth="180"
+                                    IsReadOnly="True" Visibility="Collapsed" ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn x:Name="colResultWsus" Header="WSUS result" Binding="{Binding ResultWsus}" Width="1.2*" MinWidth="180"
+                                    IsReadOnly="True" Visibility="Collapsed" ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn x:Name="colResultIntune" Header="Intune result" Binding="{Binding ResultIntune}" Width="1.2*" MinWidth="180"
+                                    IsReadOnly="True" Visibility="Collapsed" ElementStyle="{StaticResource WrapCell}" />
+                <DataGridTextColumn x:Name="colReason" Header="Reason" Binding="{Binding Reason}" Width="230" IsReadOnly="True"
+                                    ElementStyle="{StaticResource WrapCell}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+            <DockPanel>
+                <ui:Button x:Name="btnClose" DockPanel.Dock="Right" Content="Close" MinWidth="90" Click="Close_Click"
+                           IsEnabled="{Binding CanClose}" AutomationProperties.AutomationId="btnClose" />
+                <ui:Button x:Name="btnOpenReport" DockPanel.Dock="Right" Content="Open report" MinWidth="110" Margin="0,0,8,0" Click="OpenReport_Click"
+                           IsEnabled="{Binding CanOpenReport}" AutomationProperties.AutomationId="btnOpenReport" />
+                <ui:Button x:Name="btnHistory" DockPanel.Dock="Right" Content="Run history" MinWidth="110" Margin="0,0,8,0" Click="History_Click"
+                           ToolTip="Opens the folder with the reports of earlier runs." AutomationProperties.AutomationId="btnHistory" />
+                <ui:Button x:Name="btnCancelRun" DockPanel.Dock="Right" Content="Cancel" Appearance="Danger" MinWidth="90" Margin="0,0,8,0"
+                           Command="{Binding CancelCommand}" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}"
+                           AutomationProperties.AutomationId="btnCancelRun" />
+                <StackPanel Orientation="Horizontal">
+                    <ui:Button x:Name="btnRun" Content="Run" Appearance="Primary" MinWidth="110" Margin="0,0,8,0"
+                               Command="{Binding RunCommand}" AutomationProperties.AutomationId="btnRun" />
+                    <ui:Button x:Name="btnPlanOnly" Content="Plan only" MinWidth="110" Margin="0,0,16,0"
+                               Command="{Binding PlanOnlyCommand}" ToolTip="Writes the plan as a report without running anything."
+                               AutomationProperties.AutomationId="btnPlanOnly" />
+                    <CheckBox x:Name="chkForce" Content="Force: ignore the cadence and publish again" VerticalAlignment="Center"
+                              IsChecked="{Binding Force}" IsEnabled="{Binding CanPlanOnly}" AutomationProperties.AutomationId="chkForce" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ui:ContentDialogHost x:Name="PromptHost" Grid.Row="0" Grid.RowSpan="4" />
+    </Grid>
+</ui:FluentWindow>

@@ -53,7 +53,7 @@ public sealed record WsusPublishResult(
 /// declined when the settings ask for it. After a successful publish a
 /// failed approval or decline is a warning, not an exception.
 /// </summary>
-public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRuleBuilder? rules = null, Func<DateTimeOffset>? clock = null)
+public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRuleBuilder? rules = null, Func<DateTimeOffset>? clock = null) : IWsusPublisher
 {
     private readonly IWsusAdapterRunner _runner = runner ?? new WsusAdapterRunner();
     private readonly WsusRuleBuilder _rules = rules ?? new WsusRuleBuilder(new MsiInspectionService());

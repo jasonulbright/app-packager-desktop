@@ -51,6 +51,11 @@ public partial class App : Application
                 services.AddSingleton<DeploymentConditionsService>();
                 services.AddSingleton<WorkbenchApplicationCatalog>();
                 services.AddSingleton<IWorkbenchBuildLauncher, WorkbenchBuildLauncher>();
+                services.AddSingleton<ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient>(_ => new ApplicationPackagerEngine.Services.Wsus.WsusAdminClient());
+                services.AddSingleton<ApplicationPackagerEngine.Services.Wsus.IWsusPublisher>(_ => new ApplicationPackagerEngine.Services.Wsus.WsusPublishService());
+                services.AddSingleton<PublishDialogs>();
+                services.AddSingleton<IPublishDialogs>(sp => sp.GetRequiredService<PublishDialogs>());
+                services.AddSingleton<IWsusPrompts>(sp => sp.GetRequiredService<PublishDialogs>());
 
                 // Engine services (v2.1)
                 services.AddSingleton<ApplicationPackagerEngine.Scrapers.ScraperRegistry>();
@@ -88,6 +93,8 @@ public partial class App : Application
                 services.AddSingleton<ApplicationsViewModel>();
                 services.AddSingleton<SettingsPage>();
                 services.AddSingleton<SettingsViewModel>();
+                services.AddSingleton<IPublishActionHost>(sp => sp.GetRequiredService<PackagesViewModel>());
+                services.AddSingleton<ISettingsReload>(sp => sp.GetRequiredService<SettingsViewModel>());
                 services.AddSingleton<AddAppPage>();
                 services.AddSingleton<AddAppViewModel>();
 

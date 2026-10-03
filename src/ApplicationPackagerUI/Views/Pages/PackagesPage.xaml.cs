@@ -107,38 +107,6 @@ public partial class PackagesPage
         }
     }
 
-    // ── Package dropdown ───────────────────────────────────────────
-
-    private void PackageButton_Click(object sender, RoutedEventArgs e)
-    {
-        var vm = (PackagesViewModel)DataContext!;
-
-        // Intune only: there is no MECM branch to choose, so the button runs the publish directly.
-        if (vm.IsIntuneOnlyTarget)
-        {
-            _ = vm.PackageCommand.ExecuteAsync(null);
-            return;
-        }
-
-        var menu = new System.Windows.Controls.ContextMenu();
-
-        var mecm = new System.Windows.Controls.MenuItem { Header = "ConfigMgr", Icon = new SymbolIcon(SymbolRegular.Server24) };
-        mecm.Click += (_, _) => _ = vm.PackageCommand.ExecuteAsync(null);
-        menu.Items.Add(mecm);
-
-        var psadt = new System.Windows.Controls.MenuItem { Header = "ConfigMgr + PSADT", IsEnabled = false, Icon = new SymbolIcon(SymbolRegular.WindowConsole20) };
-        menu.Items.Add(psadt);
-
-        menu.Items.Add(new System.Windows.Controls.Separator());
-
-        var intune = new System.Windows.Controls.MenuItem { Header = "Intune", IsEnabled = false, Icon = new SymbolIcon(SymbolRegular.Cloud24) };
-        menu.Items.Add(intune);
-
-        menu.PlacementTarget = sender as UIElement;
-        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-        menu.IsOpen = true;
-    }
-
     // ── Context menu handlers ────────────────────────────────────
 
     private PackagerInfo? GetSelectedPackager() =>
