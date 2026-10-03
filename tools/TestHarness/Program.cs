@@ -15,6 +15,33 @@ using ApplicationPackagerEngine.Scrapers;
 //   --install-mode <mode>  Stage with an install mode (CurrentUser or AllUsers) for a
 //                    definition that declares SupportsInstallModes
 //   --timeout <sec>  Per-app install timeout in seconds (default 300)
+//
+// Lab modes (no definitions directory; each exits 0 on success, 1 otherwise):
+//   TestHarness.exe --wsus <operation> --server <name> [--port <n>] [--ssl]
+//                    [--classification <name>] [--approval-group <group>] [--decline-superseded]
+//     operations:
+//       status                       Connection, API, account role, signing certificate
+//       groups                       Computer group names
+//       publish --content <folder>   Publish the staged folder's stage-manifest.json
+//               [--support-url <url>]
+//       list [--all]                 Locally published updates; --all adds other publishers
+//       setstate --package <id>[,<id>] --action Approve|Decline|Expire|Remove [--group <group>]
+//       catalog-import --ids <text>  Update ids or catalog links, one import each
+//       create-selfsigned            Server creates a self-signed signing certificate
+//       export-cer --out <file.cer>  Server signing certificate, DER
+//       import-pfx --pfx <file.pfx>  Signing certificate from a PFX; the password is read
+//                                    from the console (or the first line of redirected input)
+//   TestHarness.exe --package-mecm <stagedContentFolder> --site <code> --provider <fqdn>
+//                    --share <uncRoot> [--on-existing Skip|Overwrite|Fail] [--comment <text>]
+//     ConfigMgr application for an already staged folder with the settings the UI passes:
+//     title from the manifest's title mode, the manifest's command overrides, default
+//     condition templates, Nested content layout, 15/30 runtime minutes, signing off.
+
+if (LabModes.Handles(args))
+{
+    Environment.ExitCode = await LabModes.RunAsync(args);
+    return;
+}
 
 var defsDir = args.Length > 0 && !args[0].StartsWith("--") ? args[0] : @"C:\temp\test-harness\Definitions";
 var downloadRoot = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : @"C:\temp\ap";

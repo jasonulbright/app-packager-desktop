@@ -640,6 +640,7 @@ public sealed class StagingService
                 ProductCode = productCode,
                 RunningProcess = def.RunningProcess,
                 Detection = detection,
+                WsusDetection = msixPackage is null ? BuildWsusDetection(def, displayVersion, settingsValues, tokens) : null,
                 MsixPackage = msixPackage,
                 PostExecutionBehavior = postExecutionBehavior
             };
@@ -1823,11 +1824,38 @@ public sealed class StagingService
         if (det.Type.Equals("Script", StringComparison.OrdinalIgnoreCase))
             return BuildScriptDetection(det, productCode, version);
 
+        if (det.Type.Equals(ArpEntryDetection.TypeName, StringComparison.OrdinalIgnoreCase))
+            return new StageDetection
+            {
+                Type = "Script",
+                ScriptLanguage = "PowerShell",
+                ScriptText = ArpEntryDetectionScript.Build(ResolveArpEntry(det, version))
+            };
+
         if (det.Type.Equals("Compound", StringComparison.OrdinalIgnoreCase))
             return BuildCompoundDetection(det, productCode, version, rawVersion);
 
         return BuildSingleDetection(det, productCode, version, rawVersion);
     }
+
+    /// <summary>
+    /// The manifest's WsusDetection: the definition's Add/Remove Programs entry
+    /// with the staged version, the same entry the detection script reads.
+    /// Null for a definition whose detection is not of type ArpEntry.
+    /// </summary>
+    public static ArpEntryDetection? BuildWsusDetection(AppDefinition def, string version,
+        Dictionary<string, string>? settingsValues = null, StageTokens? tokens = null)
+    {
+        if (!def.Detection.Type.Equals(ArpEntryDetection.TypeName, StringComparison.OrdinalIgnoreCase)) return null;
+        var det = ApplySettingTokens(def.Detection, def.InstallerSettings, settingsValues);
+        if (StageTokens.HasTokens(det))
+            det = tokens is null ? StageTokens.ApplyVersionParts(det, version) : tokens.Apply(det);
+        return ResolveArpEntry(det, version);
+    }
+
+    private static ArpEntryDetection ResolveArpEntry(DetectionConfig det, string version) =>
+        (det.ArpEntry ?? throw new InvalidOperationException("Detection type 'ArpEntry' requires an ArpEntry block."))
+            .With(text => text?.Replace("{version}", version, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Materializes a definition's Script detection, substituting the staged
@@ -2289,7 +2317,8 @@ public sealed class StagingService
             ScriptText = ApplySettingTokens(det.ScriptText, parameters, values),
             Connector = det.Connector,
             Clauses = det.Clauses?.Select(c => ApplySettingTokens(c, parameters, values)).ToArray(),
-            GroupSizes = det.GroupSizes
+            GroupSizes = det.GroupSizes,
+            ArpEntry = det.ArpEntry?.With(text => ApplySettingTokens(text, parameters, values))
         };
     }
 

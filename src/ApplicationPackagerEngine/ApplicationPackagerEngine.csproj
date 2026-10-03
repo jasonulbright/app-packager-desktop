@@ -21,5 +21,9 @@
     <Content Include="Definitions\Icons\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Services\Wsus\WsusAdapter.ps1" LogicalName="ApplicationPackagerEngine.Services.Wsus.WsusAdapter.ps1" />
+  </ItemGroup>
+
 
 </Project>

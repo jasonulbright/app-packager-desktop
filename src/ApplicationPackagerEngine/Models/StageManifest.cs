@@ -37,6 +37,12 @@ public sealed class StageManifest
     public string? ProductCode { get; set; }
     public string[]? RunningProcess { get; set; }
     public StageDetection Detection { get; set; } = new();
+    /// <summary>
+    /// The product's Add/Remove Programs entry, read by WSUS in place of
+    /// Detection; ConfigMgr and Intune keep Detection. Absent for most products.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArpEntryDetection? WsusDetection { get; set; }
     public DateTimeOffset StagedAt { get; set; } = DateTimeOffset.Now;
     public StageFileHash[]? FileHashes { get; set; }
     /// <summary>
