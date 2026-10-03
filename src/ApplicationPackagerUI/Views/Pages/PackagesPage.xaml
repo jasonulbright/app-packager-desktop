@@ -199,8 +199,7 @@
                 <!-- A star column without MinWidth shrinks below its header text in a narrow window. -->
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True">
                     <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Margin" Value="2,0" />
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
                             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                             <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
                         </Style>
