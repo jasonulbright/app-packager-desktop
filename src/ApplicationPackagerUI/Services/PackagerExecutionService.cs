@@ -373,8 +373,9 @@ public class PackagerExecutionService(
     /// <summary>
     /// The run snapshot a One Click stage of a JSON definition builds from. The signing
     /// certificate is resolved here, per application; a policy the certificate cannot meet
-    /// is returned as the refusal and nothing is staged. A PS1 packager gets its snapshot
-    /// from the child bridge, which refuses the same way.
+    /// is returned as the refusal and nothing is staged; so is a store that cannot write the
+    /// snapshot. A PS1 packager gets its snapshot from the child bridge, which refuses the
+    /// same way.
     /// </summary>
     public RunSnapshot? CreateOneClickSnapshot(PackagerInfo packager, OneClickBuildPlan plan, out string? refusal)
     {
@@ -401,6 +402,8 @@ public class PackagerExecutionService(
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
                                    or ArgumentException or JsonException)
         {
+            // Staging without the snapshot would build the unprofiled stage under another folder.
+            refusal = $"Run snapshot not created for profile {plan.ProfileId}: {ex.Message}";
             return null;
         }
     }

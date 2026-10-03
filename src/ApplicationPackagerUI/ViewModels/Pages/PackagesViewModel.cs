@@ -241,7 +241,8 @@ public partial class PackagesViewModel : ObservableObject
         }
 
         foreach (var p in Packagers) p.IsSelected = updates.Contains(p);
-        var stageTally = await RunStageAsync(oneClickPlans: plans);
+        var stagedSnapshots = new Dictionary<PackagerInfo, RunSnapshot>();
+        var stageTally = await RunStageAsync(oneClickPlans: plans, stagedSnapshots: stagedSnapshots);
         if (stageTally.Cancelled)
         {
             AddLogLine("One Click: cancelled during staging; nothing packaged.");
@@ -259,7 +260,7 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
         _skipCommentPrompt = true;
-        try { await PackageAsync(); }
+        try { await PackageAsync(null, null, null, stagedSnapshots); }
         finally { _skipCommentPrompt = false; }
     }
 
@@ -749,7 +750,8 @@ public partial class PackagesViewModel : ObservableObject
 
     /// <summary>Stages the selection, or the given rows, and reports what actually happened to each item.</summary>
     private async Task<PackagingRunTally> RunStageAsync(IReadOnlyList<PackagerInfo>? rows = null, RunSnapshot? workbenchSnapshot = null,
-        IReadOnlyDictionary<PackagerInfo, PackagerExecutionService.OneClickBuildPlan>? oneClickPlans = null)
+        IReadOnlyDictionary<PackagerInfo, PackagerExecutionService.OneClickBuildPlan>? oneClickPlans = null,
+        IDictionary<PackagerInfo, RunSnapshot>? stagedSnapshots = null)
     {
         var selected = rows?.ToList() ?? SelectedPackagers.ToList();
         if (selected.Count == 0) { ShowNoneSelected("Stage"); return new PackagingRunTally(); }
@@ -843,6 +845,7 @@ public partial class PackagesViewModel : ObservableObject
                     if (result.ExitCode == 0)
                     {
                         p.Status = "Staged";
+                        if (snapshot is not null && stagedSnapshots is not null) stagedSnapshots[p] = snapshot;
                         tally.RecordSuccess();
                         AddLogLine($"Staged: {result.StdOut}");
                     }
@@ -894,8 +897,28 @@ public partial class PackagesViewModel : ObservableObject
 
     private Task PackageAsync() => PackageAsync(null, null, null);
 
-    /// <summary>Packages the selection, or the given rows; a target override replaces the configured deployment target for this run.</summary>
-    private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot)
+    /// <summary>
+    /// Packages the selection, or the given rows; a target override replaces the configured
+    /// deployment target for this run. A row in <paramref name="rowSnapshots"/> packages with the
+    /// snapshot it was staged with.
+    /// </summary>
+    private async Task PackageAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot,
+        IReadOnlyDictionary<PackagerInfo, RunSnapshot>? rowSnapshots = null)
+    {
+        // The comment and review dialogs await the operator; the flag is raised before them
+        // so no other operation starts while they are open.
+        if (IsOperationRunning)
+        {
+            AddLogLine("Package skipped: another operation is running.");
+            return;
+        }
+        IsOperationRunning = true;
+        try { await PackageCoreAsync(rows, targetOverride, snapshot, rowSnapshots); }
+        finally { IsOperationRunning = false; }
+    }
+
+    private async Task PackageCoreAsync(IReadOnlyList<PackagerInfo>? rows, string? targetOverride, RunSnapshot? snapshot,
+        IReadOnlyDictionary<PackagerInfo, RunSnapshot>? rowSnapshots)
     {
         var settings = _settingsService.Load();
         var target = targetOverride ?? settings.Intune.DeploymentTarget;
@@ -969,11 +992,12 @@ public partial class PackagesViewModel : ObservableObject
                 p.Status = "Packaging...";
                 AddLogLine($"Package: {p.Application} ({p.Script})");
 
+                var rowSnapshot = SnapshotForRow(p, snapshot, rowSnapshots);
                 try
                 {
                     var result = await _executionService.PackageAsync(
                         p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
-                        targetOverride: targetOverride, snapshot: snapshot);
+                        targetOverride: targetOverride, snapshot: rowSnapshot);
 
                     if (result.Conflict is not null)
                     {
@@ -996,7 +1020,7 @@ public partial class PackagesViewModel : ObservableObject
                             result = await _executionService.PackageAsync(
                                 p, Comment, line => AddLogLine($"  {line}"), _operationCts.Token,
                                 ApplicationPackagerEngine.Services.OnExistingBehavior.Overwrite,
-                                snapshot, targetOverride);
+                                rowSnapshot, targetOverride);
                         }
                         else
                         {
@@ -1070,6 +1094,11 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts = null;
         }
     }
+
+    /// <summary>The snapshot a row packages with: the one it was staged with, else the run's.</summary>
+    public static RunSnapshot? SnapshotForRow(PackagerInfo row, RunSnapshot? runSnapshot,
+        IReadOnlyDictionary<PackagerInfo, RunSnapshot>? rowSnapshots) =>
+        rowSnapshots is not null && rowSnapshots.TryGetValue(row, out var staged) ? staged : runSnapshot;
 
     /// <summary>Operator answer to one existing-application conflict.</summary>
     private sealed record ConflictAnswer(string Behavior, bool ApplyToAll)

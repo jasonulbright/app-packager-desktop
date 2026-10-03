@@ -104,6 +104,25 @@ public static class ContentSyncService
         return result;
     }
 
+    /// <summary>
+    /// The files under <paramref name="root"/> that the manifest does not list, with the
+    /// same exclusion <see cref="Verify"/> applies; empty for a manifest without
+    /// FileHashes or a folder that does not exist. A sync never removes them, so the
+    /// verification after the sync would refuse them after the share was written.
+    /// </summary>
+    public static List<string> UnexpectedFiles(string root, StageManifest? manifest)
+    {
+        if (manifest?.FileHashes is not { Length: > 0 } || !Directory.Exists(root)) return [];
+        var expected = BuildExpectedMap(manifest);
+        var rootFull = Path.GetFullPath(root);
+        return Directory.EnumerateFiles(rootFull, "*", SearchOption.AllDirectories)
+            .Where(f => !string.Equals(Path.GetFileName(f), ManifestFileName, StringComparison.OrdinalIgnoreCase))
+            .Select(f => Path.GetRelativePath(rootFull, f))
+            .Where(relative => !expected.ContainsKey(relative))
+            .OrderBy(relative => relative, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static Dictionary<string, string> BuildExpectedMap(StageManifest? manifest)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

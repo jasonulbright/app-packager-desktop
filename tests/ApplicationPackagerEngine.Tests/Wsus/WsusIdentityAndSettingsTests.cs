@@ -149,25 +149,27 @@ public class WsusIdentityTests
     }
 
     [Fact]
-    public void KeepsOneLegacyIdentityAcrossTheReleasesOfOneMajorWhenTheTitleCarriesTheVersion()
+    public void KeepsOneLegacyIdentityAcrossReleasesWhenTheTitleCarriesTheVersion()
     {
-        var a = WsusIdentity.IdentityTag(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip 26.03 (x64 edition)"; m.SoftwareVersion = "26.03"; }));
-        var b = WsusIdentity.IdentityTag(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip 26.04 (x64 edition)"; m.SoftwareVersion = "26.04"; }));
-        Assert.Equal("AppPackager:legacy:Contoso:7-Zip-26-x64-edition/default", a);
+        var a = WsusIdentity.IdentityTag(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 25.01 (x64)"; m.SoftwareVersion = "25.01"; }));
+        var b = WsusIdentity.IdentityTag(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 26.03 (x64)"; m.SoftwareVersion = "26.03"; }));
+        Assert.Equal("AppPackager:legacy:Contoso:7-Zip-x64-x64/default", a);
         Assert.Equal(a, b);
+        Assert.Equal(["AppPackager:legacy:Contoso:7-Zip-x64-26-x64/default"],
+            WsusIdentity.FormerIdentityTags(Manifest(m => { m.ApplicationId = ""; m.AppName = "7-Zip (x64) - 26.03 (x64)"; m.SoftwareVersion = "26.03"; })));
     }
 
     [Fact]
-    public void KeepsSideBySideMajorsApartWhenTheTitleDiffersOnlyByTheVersion()
+    public void KeepsSideBySideLinesApartThroughTheirApplicationIds()
     {
-        string Tag(string name, string version) => WsusIdentity.IdentityTag(Manifest(m =>
+        string Tag(string applicationId, string name, string version) => WsusIdentity.IdentityTag(Manifest(m =>
         {
-            m.ApplicationId = ""; m.AppName = name; m.Publisher = "Microsoft Corporation"; m.SoftwareVersion = version;
+            m.ApplicationId = applicationId; m.AppName = name; m.Publisher = "Microsoft Corporation"; m.SoftwareVersion = version;
         }));
-        var net8 = Tag("Microsoft .NET 8.0.31 - Windows Server Hosting", "8.0.31");
-        Assert.Equal("AppPackager:legacy:Microsoft-Corporation:Microsoft-.NET-8-Windows-Server-Hosting/default", net8);
-        Assert.Equal(net8, Tag("Microsoft .NET 8.0.30 - Windows Server Hosting", "8.0.30"));
-        Assert.NotEqual(net8, Tag("Microsoft .NET 10.0.12 - Windows Server Hosting", "10.0.12"));
+        var net8 = Tag("catalog:aspnethostingbundle8", "Microsoft .NET 8.0.31 - Windows Server Hosting", "8.0.31");
+        Assert.Equal("AppPackager:catalog:aspnethostingbundle8/default", net8);
+        Assert.Equal(net8, Tag("catalog:aspnethostingbundle8", "Microsoft .NET 8.0.30 - Windows Server Hosting", "8.0.30"));
+        Assert.NotEqual(net8, Tag("catalog:aspnethostingbundle10", "Microsoft .NET 10.0.12 - Windows Server Hosting", "10.0.12"));
     }
 
     [Fact]

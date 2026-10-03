@@ -95,7 +95,7 @@ public sealed class IntunePublishService : IDisposable
 
         // Repeat publishes update the existing app (a new content version on the same app
         // identity) instead of stacking duplicates in the console.
-        var match = await FindExistingAppAsync(graph, token, identityTag, manifest.AppName, ct).ConfigureAwait(false);
+        var match = await FindExistingAppAsync(graph, token, identityTag, manifest.AppName, ct, FormerIdentityTags(manifest)).ConfigureAwait(false);
 
         // applicableArchitectures has no arm64 member; arm64 is expressed through
         // allowedArchitectures, and Graph forces applicableArchitectures to none whenever
@@ -118,7 +118,7 @@ public sealed class IntunePublishService : IDisposable
             ["setupFilePath"] = FirstNonBlank(manifest.SetupFile, meta.SetupFile),
             ["installCommandLine"] = installCommand,
             ["uninstallCommandLine"] = uninstallCommand,
-            ["notes"] = identityTag,
+            ["notes"] = NotesWithTag((string?)match?["notes"], identityTag),
             ["minimumSupportedWindowsRelease"] = options.MinimumSupportedWindowsRelease,
             ["installExperience"] = new JsonObject
             {
@@ -242,10 +242,37 @@ public sealed class IntunePublishService : IDisposable
     public static string IdentityTag(StageManifest manifest)
     {
         var applicationId = manifest.ApplicationId;
-        if (string.IsNullOrWhiteSpace(applicationId))
-            applicationId = "legacy:" + System.Text.RegularExpressions.Regex.Replace(manifest.AppName ?? "", @"[^\w.-]", "-");
-        var profileId = string.IsNullOrWhiteSpace(manifest.ProfileId) ? "default" : manifest.ProfileId;
-        return $"AppPackager:{applicationId}/{profileId}";
+        if (string.IsNullOrWhiteSpace(applicationId)) applicationId = LegacyKey(manifest, withVersion: false);
+        return $"AppPackager:{applicationId}/{ProfileOf(manifest)}";
+    }
+
+    /// <summary>
+    /// The title-derived tag with the version left in the title. An app carrying it is
+    /// this application's and is updated and retagged, not duplicated.
+    /// </summary>
+    public static IReadOnlyList<string> FormerIdentityTags(StageManifest manifest)
+    {
+        var former = $"AppPackager:{LegacyKey(manifest, withVersion: true)}/{ProfileOf(manifest)}";
+        return former == IdentityTag(manifest) ? [] : [former];
+    }
+
+    private static string ProfileOf(StageManifest manifest) =>
+        string.IsNullOrWhiteSpace(manifest.ProfileId) ? "default" : manifest.ProfileId;
+
+    /// <summary>
+    /// legacy: and the title with every character outside [\w.-] replaced by a hyphen.
+    /// Without the version, the title's copy of the version text is removed first, so one
+    /// application keeps one tag across releases.
+    /// </summary>
+    private static string LegacyKey(StageManifest manifest, bool withVersion)
+    {
+        var title = manifest.AppName ?? "";
+        var version = (manifest.SoftwareVersion ?? "").Trim();
+        if (!withVersion && version.Length > 0)
+            title = System.Text.RegularExpressions.Regex.Replace(title,
+                @"(?<![\w.])v?" + System.Text.RegularExpressions.Regex.Escape(version) + @"(?![\w.])", "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+        return "legacy:" + System.Text.RegularExpressions.Regex.Replace(title, @"[^\w.-]", "-");
     }
 
     /// <summary>
@@ -264,34 +291,76 @@ public sealed class IntunePublishService : IDisposable
     /// <summary>
     /// The existing Win32 app this publish updates. notes is not a filterable property, so
     /// every Win32 app is paged and matched on the identity tag first; with no tagged app the
-    /// display name decides. More than one candidate on either path refuses the publish.
+    /// display name decides among apps that carry no identity tag at all, so an app tagged
+    /// for another application or profile is never adopted. More than one candidate on
+    /// either path refuses the publish. With no app on the identity tag, an app on one of
+    /// <paramref name="formerTags"/> is this application's and is the match.
     /// </summary>
-    public async Task<JsonNode?> FindExistingAppAsync(string graph, string token, string identityTag, string displayName, CancellationToken ct = default)
+    public async Task<JsonNode?> FindExistingAppAsync(string graph, string token, string identityTag, string displayName, CancellationToken ct = default,
+        IReadOnlyCollection<string>? formerTags = null)
     {
         const string Win32Type = "#microsoft.graph.win32LobApp";
         var tagged = new List<JsonNode>();
+        var formerTagged = new List<JsonNode>();
         string? uri = $"{graph}/deviceAppManagement/mobileApps?$filter=isof('microsoft.graph.win32LobApp')";
         while (!string.IsNullOrEmpty(uri))
         {
             var page = await GraphJsonAsync(HttpMethod.Get, uri, token, null, ct).ConfigureAwait(false);
             foreach (var app in page?["value"] as JsonArray ?? [])
-                if (app is not null && (string?)app["@odata.type"] == Win32Type && (string?)app["notes"] == identityTag)
-                    tagged.Add(app);
+                if (app is not null && (string?)app["@odata.type"] == Win32Type)
+                {
+                    if (CarriesTag((string?)app["notes"], identityTag)) tagged.Add(app);
+                    else if (formerTags?.Any(f => CarriesTag((string?)app["notes"], f)) == true) formerTagged.Add(app);
+                }
             uri = (string?)page?["@odata.nextLink"];
         }
         if (tagged.Count > 1)
             throw new InvalidOperationException(
                 $"Multiple Intune apps carry the identity tag '{identityTag}' (ids: {string.Join(", ", tagged.Select(a => (string?)a["id"]))}); resolve the duplicates before publishing.");
         if (tagged.Count == 1) return tagged[0];
+        if (formerTagged.Count > 1)
+            throw new InvalidOperationException(
+                $"Multiple Intune apps carry an earlier identity tag of this application (ids: {string.Join(", ", formerTagged.Select(a => (string?)a["id"]))}); resolve the duplicates before publishing.");
+        if (formerTagged.Count == 1) return formerTagged[0];
 
         var filterName = displayName.Replace("'", "''");
         var existing = await GraphJsonAsync(HttpMethod.Get,
             $"{graph}/deviceAppManagement/mobileApps?$filter=displayName eq '{filterName}'", token, null, ct).ConfigureAwait(false);
-        var candidates = (existing?["value"] as JsonArray ?? []).Where(n => (string?)n?["@odata.type"] == Win32Type).ToList();
+        var candidates = (existing?["value"] as JsonArray ?? [])
+            .Where(n => (string?)n?["@odata.type"] == Win32Type && !CarriesAnyTag((string?)n?["notes"])).ToList();
         if (candidates.Count > 1)
             throw new InvalidOperationException(
                 $"Multiple Intune apps are named '{displayName}' and none carries this application's identity tag (ids: {string.Join(", ", candidates.Select(a => (string?)a?["id"]))}); rename or tag the intended app before publishing.");
         return candidates.FirstOrDefault();
+    }
+
+    private const string IdentityTagPrefix = "AppPackager:";
+
+    private static IEnumerable<string> NoteLines(string? notes) =>
+        (notes ?? "").Split('\n').Select(line => line.Trim());
+
+    /// <summary>True when one line of <paramref name="notes"/> is exactly the identity tag.</summary>
+    public static bool CarriesTag(string? notes, string identityTag) =>
+        NoteLines(notes).Any(line => line == identityTag);
+
+    /// <summary>True when one line of <paramref name="notes"/> is an identity tag of any application.</summary>
+    public static bool CarriesAnyTag(string? notes) =>
+        NoteLines(notes).Any(line => line.StartsWith(IdentityTagPrefix, StringComparison.Ordinal));
+
+    /// <summary>
+    /// The notes an app is written with: the operator's lines as they were, without any
+    /// identity tag line, then the identity tag on its own line.
+    /// </summary>
+    public static string NotesWithTag(string? notes, string identityTag)
+    {
+        if (string.IsNullOrWhiteSpace(notes)) return identityTag;
+        var newline = notes.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var kept = notes.Split('\n').Select(line => line.TrimEnd('\r'))
+            .Where(line => !line.Trim().StartsWith(IdentityTagPrefix, StringComparison.Ordinal))
+            .ToList();
+        while (kept.Count > 0 && string.IsNullOrWhiteSpace(kept[^1])) kept.RemoveAt(kept.Count - 1);
+        kept.Add(identityTag);
+        return string.Join(newline, kept);
     }
 
     /// <summary>Acquires an app-only Graph token via the client-credentials flow.</summary>

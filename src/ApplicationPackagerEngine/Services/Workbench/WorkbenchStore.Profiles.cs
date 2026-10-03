@@ -236,6 +236,7 @@ public static class WorkbenchProfileValidator
             if (string.IsNullOrWhiteSpace(destination)) throw new InvalidOperationException("Every SourceFiles entry needs a Destination.");
             if (Path.IsPathRooted(destination))
                 throw new InvalidOperationException($"SourceFiles destination '{destination}' must be relative to the content root.");
+            StageFileCopier.AssertPlainDestination(destination);
         }
     }
 

@@ -8,10 +8,11 @@ namespace ApplicationPackagerEngine.Tests;
 /// The Extend-mode orchestrator runs under Windows PowerShell 5.1 with stand-in
 /// step scripts: exit codes propagate, 3010 folds through to the end, each step
 /// runs in its own process, and a signed deployment passes no execution policy.
+/// The stage folder path carries a space and an apostrophe, as a content path can.
 /// </summary>
 public sealed class ExtendOrchestratorTests : IDisposable
 {
-    private readonly string _dir = Path.Combine(Path.GetTempPath(), "apwb-extend-" + Guid.NewGuid().ToString("N"));
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "apwb extend it's " + Guid.NewGuid().ToString("N"));
 
     public ExtendOrchestratorTests() => Directory.CreateDirectory(_dir);
 
@@ -61,7 +62,7 @@ public sealed class ExtendOrchestratorTests : IDisposable
         var stage = Stage(
             ("install-before.ps1", "exit 0"),
             ("install-generated.ps1", "exit 1603"),
-            ("install-after.ps1", $"Set-Content -LiteralPath '{marker}' -Value 'ran'; exit 0"));
+            ("install-after.ps1", $"Set-Content -LiteralPath '{marker.Replace("'", "''")}' -Value 'ran'; exit 0"));
 
         Assert.Equal(1603, Run(stage, ExtendOrchestrator.Build("install-before.ps1", "install-generated.ps1", "install-after.ps1")));
         Assert.False(File.Exists(marker));
@@ -73,7 +74,7 @@ public sealed class ExtendOrchestratorTests : IDisposable
         var marker = Path.Combine(_dir, "generated-" + Guid.NewGuid().ToString("N") + ".txt");
         var stage = Stage(
             ("install-before.ps1", "exit 4"),
-            ("install-generated.ps1", $"Set-Content -LiteralPath '{marker}' -Value 'ran'; exit 0"));
+            ("install-generated.ps1", $"Set-Content -LiteralPath '{marker.Replace("'", "''")}' -Value 'ran'; exit 0"));
 
         Assert.Equal(4, Run(stage, ExtendOrchestrator.Build("install-before.ps1", "install-generated.ps1", null)));
         Assert.False(File.Exists(marker));
@@ -93,7 +94,7 @@ public sealed class ExtendOrchestratorTests : IDisposable
         var stage = Stage(
             ("install-before.ps1", "exit 0"),
             ("install-generated.ps1", "exit 3010"),
-            ("install-after.ps1", $"Set-Content -LiteralPath '{marker}' -Value 'ran'; exit 0"));
+            ("install-after.ps1", $"Set-Content -LiteralPath '{marker.Replace("'", "''")}' -Value 'ran'; exit 0"));
 
         Assert.Equal(3010, Run(stage, ExtendOrchestrator.Build("install-before.ps1", "install-generated.ps1", "install-after.ps1")));
         Assert.True(File.Exists(marker));
@@ -106,7 +107,7 @@ public sealed class ExtendOrchestratorTests : IDisposable
         var stage = Stage(
             ("install-before.ps1", "[Environment]::Exit(0)"),
             ("install-generated.ps1", "exit 0"),
-            ("install-after.ps1", $"Set-Content -LiteralPath '{marker}' -Value 'ran'; exit 0"));
+            ("install-after.ps1", $"Set-Content -LiteralPath '{marker.Replace("'", "''")}' -Value 'ran'; exit 0"));
 
         Assert.Equal(0, Run(stage, ExtendOrchestrator.Build("install-before.ps1", "install-generated.ps1", "install-after.ps1")));
         Assert.True(File.Exists(marker));
@@ -118,7 +119,7 @@ public sealed class ExtendOrchestratorTests : IDisposable
         var marker = Path.Combine(_dir, "cleanup-" + Guid.NewGuid().ToString("N") + ".txt");
         var stage = Stage(
             ("install-generated.ps1", "exit 5"),
-            ("install-after.ps1", $"Set-Content -LiteralPath '{marker}' -Value 'ran'; exit 0"));
+            ("install-after.ps1", $"Set-Content -LiteralPath '{marker.Replace("'", "''")}' -Value 'ran'; exit 0"));
 
         Assert.Equal(5, Run(stage, ExtendOrchestrator.Build(null, "install-generated.ps1", "install-after.ps1", afterRunsOnFailure: true)));
         Assert.True(File.Exists(marker));

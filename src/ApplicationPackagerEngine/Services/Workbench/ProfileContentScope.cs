@@ -41,19 +41,19 @@ public sealed partial record ProfileContentScope(string ProfileId, string Name, 
 
     /// <summary>
     /// The suffix is the profile name reduced to [A-Za-z0-9._-] with trailing dots and
-    /// spaces removed; a name that reduces to nothing falls back to the first eight
-    /// characters of the reduced profile id.
+    /// spaces removed, then a hyphen and the first eight characters of the reduced
+    /// profile id; a name that reduces to nothing gives the id fragment alone. Names
+    /// that reduce to the same text (Pilot A and PilotA) would otherwise share one
+    /// network folder, and a publish of one would mirror over the other's content.
     /// </summary>
     public static ProfileContentScope FromValues(string? profileId, string? profileName)
     {
         if (string.IsNullOrWhiteSpace(profileId) || ApplicationIds.IsDefaultProfile(profileId)) return Default;
         var name = profileName ?? "";
-        var suffix = UnsafeCharacters().Replace(name, "").TrimEnd('.', ' ');
-        if (string.IsNullOrWhiteSpace(suffix))
-        {
-            suffix = UnsafeCharacters().Replace(profileId, "");
-            if (suffix.Length > 8) suffix = suffix[..8];
-        }
+        var idFragment = UnsafeCharacters().Replace(profileId, "");
+        if (idFragment.Length > 8) idFragment = idFragment[..8];
+        var reducedName = UnsafeCharacters().Replace(name, "").TrimEnd('.', ' ');
+        var suffix = string.IsNullOrWhiteSpace(reducedName) ? idFragment : $"{reducedName}-{idFragment}";
         return new ProfileContentScope(profileId, name, suffix);
     }
 

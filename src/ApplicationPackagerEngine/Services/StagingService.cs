@@ -327,7 +327,7 @@ public sealed class StagingService
             // 2. Set up versioned content folder (uses display version)
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
-            var contentPath = Path.Combine(baseRoot, displayVersion);
+            var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(displayVersion));
             Directory.CreateDirectory(contentPath);
 
             // 3. Resolve download URL — either from API query or template substitution
@@ -337,18 +337,11 @@ public sealed class StagingService
             if (localInstaller is not null)
             {
                 downloadUrl = "";
-                installerFileName = LocalSourceResolver.StagedName(def.LocalSource!, localInstaller, displayVersion,
-                    def.InstallerFileName ?? Path.GetFileName(localInstaller));
-                installerPath = Path.Combine(contentPath, installerFileName);
-                if (!File.Exists(installerPath))
-                {
-                    File.Copy(localInstaller, installerPath);
-                    onProgress?.Invoke($"Copied local installer: {installerFileName}");
-                }
-                else
-                {
-                    onProgress?.Invoke($"Installer already staged: {installerFileName}");
-                }
+                installerFileName = AssertPlainFileName(LocalSourceResolver.StagedName(def.LocalSource!, localInstaller, displayVersion,
+                    def.InstallerFileName ?? Path.GetFileName(localInstaller)));
+                installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
+                StageLocalInstaller(localInstaller, installerPath, onProgress);
+                AuthenticodeVerifier.RequireValid(installerPath, onProgress);
             }
             else
             {
@@ -625,6 +618,7 @@ public sealed class StagingService
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             var manifest = new StageManifest
             {
+                ApplicationId = CatalogApplicationId(def),
                 AppName = cmAppName,
                 DisplayName = cmDisplayName,
                 Publisher = publisher,
@@ -644,10 +638,13 @@ public sealed class StagingService
                 MsixPackage = msixPackage,
                 PostExecutionBehavior = postExecutionBehavior
             };
+            var sideFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (sideFile, source) in sideFiles)
             {
-                // The file is copied as it is; its contents are never read.
-                File.Copy(source, Path.Combine(contentPath, sideFile.FileName), overwrite: true);
+                AssertSideFileName(sideFile.FileName, installerFileName, sideFileNames);
+                // The file is copied as it is; its contents are never read. A copy from an
+                // earlier stage of this version is replaced.
+                Workbench.StageFileCopier.Copy(contentPath, source, sideFile.FileName, allowOverwrite: true);
                 onProgress?.Invoke($"Placed {sideFile.Label} beside installer: {sideFile.FileName}");
             }
             IconExtractionService.StageIcon(def, contentPath, manifest, onProgress);
@@ -677,6 +674,86 @@ public sealed class StagingService
     }
 
     /// <summary>
+    /// The workbench id of a catalog definition, catalog:&lt;Id&gt;, which every build of the
+    /// definition carries with or without a run snapshot: the WSUS and Intune identities
+    /// derive from it and stay the same across versions. Empty for a definition without
+    /// a usable Id.
+    /// </summary>
+    public static string CatalogApplicationId(AppDefinition def)
+    {
+        if (string.IsNullOrWhiteSpace(def.Id)) return "";
+        try
+        {
+            var id = Models.Workbench.ApplicationIds.New(Models.Workbench.ApplicationOrigin.Catalog, name: def.Id);
+            return Models.Workbench.ApplicationIds.IsValid(id) ? id : "";
+        }
+        catch (ArgumentException) { return ""; }
+    }
+
+    /// <summary>
+    /// Throws when a side file would replace the payload, a file the stage generates, the
+    /// manifest, or another side file: the manifest would then seal the replacement.
+    /// </summary>
+    public static void AssertSideFileName(string sideFileName, string installerFileName, ISet<string> placed)
+    {
+        var generated = Wsus.WsusPayload.GeneratedContentNames.Contains(sideFileName, StringComparer.OrdinalIgnoreCase)
+            || sideFileName.Equals(Wsus.WsusPayload.GeneratedContentFolder, StringComparison.OrdinalIgnoreCase)
+            || sideFileName.Equals("exitcode.txt", StringComparison.OrdinalIgnoreCase);
+        if (generated || sideFileName.Equals(installerFileName, StringComparison.OrdinalIgnoreCase) || !placed.Add(sideFileName))
+            throw new InvalidOperationException(
+                $"Side file '{sideFileName}' has the name of the installer, a generated file, the manifest or another side file.");
+    }
+
+    /// <summary>
+    /// Copies the verified local installer to its staged path. A file already there is
+    /// kept only when its bytes equal the source's; any other file is replaced, so the
+    /// stage never carries an installer other than the one whose signature was checked.
+    /// </summary>
+    public static void StageLocalInstaller(string localInstaller, string installerPath, Action<string>? onProgress)
+    {
+        var name = Path.GetFileName(installerPath);
+        if (!File.Exists(installerPath))
+        {
+            File.Copy(localInstaller, installerPath);
+            onProgress?.Invoke($"Copied local installer: {name}");
+            return;
+        }
+        if (string.Equals(ComputeSha256(installerPath), ComputeSha256(localInstaller), StringComparison.Ordinal))
+        {
+            onProgress?.Invoke($"Installer already staged: {name}");
+            return;
+        }
+        File.Copy(localInstaller, installerPath, overwrite: true);
+        onProgress?.Invoke($"Staged installer differed from the local source; replaced: {name}");
+    }
+
+    /// <summary>
+    /// Returns the version when it is one safe folder name: no separator, no "..", no
+    /// drive or other character a file name cannot carry, and no trailing dot or space,
+    /// which Windows strips and which would merge two versions into one folder.
+    /// </summary>
+    public static string AssertVersionSegment(string version)
+    {
+        if (string.IsNullOrWhiteSpace(version)
+            || version.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || version.Contains("..", StringComparison.Ordinal)
+            || version.EndsWith('.') || version.EndsWith(' '))
+            throw new InvalidOperationException($"Version '{version}' is not usable as a folder name.");
+        return version;
+    }
+
+    /// <summary>Returns the name when it is a plain file name: no folder part, no "..", no character a file name cannot carry.</summary>
+    public static string AssertPlainFileName(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)
+            || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || fileName is "." or ".."
+            || fileName.EndsWith('.') || fileName.EndsWith(' '))
+            throw new InvalidOperationException($"Installer file name '{fileName}' is not a plain file name.");
+        return fileName;
+    }
+
+    /// <summary>
     /// Resolves the download URL, downloads the payload into the content
     /// folder unless it is already there, and verifies it: magic bytes, the
     /// SHA256 the definition, feed or vendor checksum file names, and the
@@ -701,8 +778,8 @@ public sealed class StagingService
                 .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
         }
         downloadUrl = ApplyDashedVersion(downloadUrl, version);
-        var installerFileName = ResolveInstallerFileName(def, downloadUrl, version);
-        var installerPath = Path.Combine(contentPath, installerFileName);
+        var installerFileName = AssertPlainFileName(ResolveInstallerFileName(def, downloadUrl, version));
+        var installerPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, installerFileName);
         var headers = def.VersionScraper.RequestHeaders;
         var magicType = MagicTypeFor(installerPath, def.InstallerType);
         var sharedCacheRoot = SharedCacheRootFor(def, downloadRoot, onProgress);
@@ -723,7 +800,8 @@ public sealed class StagingService
             }
             else if (sharedCacheRoot is not null)
             {
-                await SharedDownloadCache.FetchAsync(_downloadService, downloadUrl, installerPath, sharedCacheRoot, headers, onProgress, ct);
+                await SharedDownloadCache.FetchAsync(_downloadService, downloadUrl, installerPath, sharedCacheRoot, headers, onProgress, ct,
+                    keepCachedOnFailedRefresh: def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase));
                 ValidateInstallerMagic(installerPath, magicType);
             }
             else
@@ -945,7 +1023,7 @@ public sealed class StagingService
         onProgress?.Invoke($"Checksum file                : {url}");
 
         using var process = Scrapers.CurlProcess.Start(
-            $"-L --fail --silent --show-error --max-time 60{Scrapers.CurlHeaders.Arguments(def.VersionScraper.RequestHeaders)} \"{url}\"", url);
+            ["-L", "--fail", "--silent", "--show-error", "--max-time", "60", .. Scrapers.CurlHeaders.Arguments(def.VersionScraper.RequestHeaders)], url);
         var stdout = process.StandardOutput.ReadToEndAsync(ct);
         var stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
         await process.WaitForExitAsync(ct);
@@ -1077,6 +1155,7 @@ public sealed class StagingService
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             var manifest = new StageManifest
             {
+                ApplicationId = CatalogApplicationId(def),
                 AppName = $"{def.Application} - {version} ({def.Architecture})",
                 DisplayName = $"{def.Application} ({def.Architecture})",
                 Publisher = publisher,
@@ -1374,6 +1453,7 @@ public sealed class StagingService
             var publisher = def.Vendor;
             var manifest = new StageManifest
             {
+                ApplicationId = CatalogApplicationId(def),
                 AppName = $"{def.Application} - {version} ({def.Architecture})",
                 DisplayName = $"{def.Application} ({def.Architecture})",
                 Publisher = publisher,

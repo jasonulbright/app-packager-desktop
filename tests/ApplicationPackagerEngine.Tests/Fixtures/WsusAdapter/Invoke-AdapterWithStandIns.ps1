@@ -79,6 +79,13 @@ function Invoke-WsusUpdateDeletion {
     $global:StandInLog.Add('delete ' + $UpdateId)
 }
 function Remove-WsusPackageFolder { param($Server, $PackageId) throw 'Access is denied' }
+function New-WsusSoftwareDistributionPackageFile {
+    param($Plan, $SourceFolder, $Path)
+    foreach ($file in @(Get-ChildItem -LiteralPath $SourceFolder -File -Recurse)) {
+        $global:StandInLog.Add(('package {0} {1}' -f $file.Name, [System.IO.File]::ReadAllText($file.FullName)))
+    }
+}
+function Invoke-WsusPublisher { param($Server, $SdpPath, $SourceFolder, $PackageId) $global:StandInLog.Add('publish') }
 function Invoke-WsusCatalogImport {
     param($Server, $UpdateId)
     if ([string]$UpdateId -eq '00000000-0000-0000-0000-00000000dead') { throw 'Update not found in the catalog' }

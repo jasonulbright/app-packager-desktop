@@ -184,11 +184,11 @@ public sealed class FileVersionScraper : IVersionScraper
     /// release answers 304 and writes no output file. The remote timestamp is
     /// kept on the downloaded file so the next condition stays exact.
     /// </summary>
-    public static string BuildDownloadArguments(string url, string outFile, string? ifModifiedSincePath)
+    public static IReadOnlyList<string> BuildDownloadArguments(string outFile, string? ifModifiedSincePath)
     {
-        var condition = string.IsNullOrEmpty(ifModifiedSincePath) ? "" : $"-z \"{ifModifiedSincePath}\" ";
-        return $"-L --fail --silent --show-error --max-time 120 -R -o \"{outFile}\" {condition}" +
-               $"-A \"Mozilla/5.0 (Windows NT 10.0; Win64; x64)\" \"{url}\"";
+        string[] condition = string.IsNullOrEmpty(ifModifiedSincePath) ? [] : ["-z", ifModifiedSincePath];
+        return ["-L", "--fail", "--silent", "--show-error", "--max-time", "120", "-R", "-o", outFile, .. condition,
+            "-A", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"];
     }
 
     /// <summary>
@@ -220,7 +220,7 @@ public sealed class FileVersionScraper : IVersionScraper
         // 304 keeps whatever is on disk.
         if (!File.Exists(outFile) || new FileInfo(outFile).Length == 0)
         {
-            if (!await RunCurlAsync(BuildDownloadArguments(url, outFile, null), url, ct))
+            if (!await RunCurlAsync(BuildDownloadArguments(outFile, null), url, ct))
                 TryDelete(outFile);
             return;
         }
@@ -229,11 +229,11 @@ public sealed class FileVersionScraper : IVersionScraper
         // cache, and a 304 leaves no side file at all.
         var refreshPath = outFile + ".refresh";
         TryDelete(refreshPath);
-        var succeeded = await RunCurlAsync(BuildDownloadArguments(url, refreshPath, outFile), url, ct);
+        var succeeded = await RunCurlAsync(BuildDownloadArguments(refreshPath, outFile), url, ct);
         ApplyRefresh(outFile, refreshPath, succeeded);
     }
 
-    private static async Task<bool> RunCurlAsync(string arguments, string url, CancellationToken ct)
+    private static async Task<bool> RunCurlAsync(IReadOnlyList<string> arguments, string url, CancellationToken ct)
     {
         using var process = CurlProcess.Start(arguments, url);
 
