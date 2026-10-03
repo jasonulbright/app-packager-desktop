@@ -26,6 +26,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly WorkbenchApplicationCatalog _catalog;
     private readonly IWorkbenchBuildLauncher _launcher;
+    private readonly DroppedInstallerAnalysisService _analyzer;
     private readonly ConditionTemplateService _templateService = new();
     private ConditionTemplateDocument _templates = ConditionTemplateService.Defaults();
     private WorkbenchStore? _store;
@@ -35,11 +36,13 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     private bool _loading;
 
     public WorkbenchWindowViewModel(
-        SettingsService settingsService, WorkbenchApplicationCatalog catalog, IWorkbenchBuildLauncher launcher)
+        SettingsService settingsService, WorkbenchApplicationCatalog catalog, IWorkbenchBuildLauncher launcher,
+        DroppedInstallerAnalysisService analyzer)
     {
         _settingsService = settingsService;
         _catalog = catalog;
         _launcher = launcher;
+        _analyzer = analyzer;
     }
 
     /// <summary>Set by the window before <see cref="InitializeAsync"/>.</summary>
@@ -261,6 +264,7 @@ public partial class WorkbenchWindowViewModel : ObservableObject
 
         LoadProfileList();
         LoadBuilds();
+        LoadByoSources();
         RefreshAll();
         SetValidatedState(false);
         SaveStateText = _session.IsDirty ? UnsavedText : CleanText;
@@ -1109,7 +1113,8 @@ public partial class WorkbenchWindowViewModel : ObservableObject
             await Prompts.InfoAsync("Blocked", "This profile has blocking findings: " + blocking[0].Message);
             return;
         }
-        if (!SelectedApplication.Runnable || string.IsNullOrWhiteSpace(SelectedApplication.SourcePath))
+        if (!ApplicationIds.IsByo(SelectedApplication.ApplicationId)
+            && (!SelectedApplication.Runnable || string.IsNullOrWhiteSpace(SelectedApplication.SourcePath)))
         {
             await Prompts.InfoAsync(title, "This application has no packager script. Bring-your-own applications run through the installer intake flow.");
             return;

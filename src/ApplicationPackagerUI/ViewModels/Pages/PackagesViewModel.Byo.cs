@@ -1,0 +1,210 @@
+using System.IO;
+using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Workbench;
+using ApplicationPackagerUI.Controls;
+using ApplicationPackagerUI.Models;
+
+namespace ApplicationPackagerUI.ViewModels.Pages;
+
+/// <summary>Bring-your-own applications: keeping a drop as an application, and its Workbench stage and publish.</summary>
+public partial class PackagesViewModel
+{
+    /// <summary>
+    /// Persists the reviewed drop as a BYO application. No download script is written and
+    /// nothing is staged or deployed; the installer becomes source revision 1.
+    /// </summary>
+    private async Task SaveDroppedInstallerAsApplicationAsync(DroppedInstallerAnalysis analysis, DropReviewPanel panel)
+    {
+        var problem = panel.Validate();
+        if (problem is not null)
+        {
+            AddLogLine($"Drop rejected: {problem}");
+            _snackbarService.Show("Missing Value", problem,
+                Wpf.Ui.Controls.ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(3));
+            return;
+        }
+
+        var overrides = panel.ReadOverrides();
+        var stageValues = ByoStageValues.From(overrides, panel.IsConfirmed);
+        ByoSourceUpdate saved;
+        try
+        {
+            saved = await Task.Run(() => WorkbenchStore.Open().SaveByoApplication(
+                analysis.Path, ByoInstallerIdentity.From(analysis), overrides.AppName, overrides.Publisher,
+                overrides.SoftwareVersion, stageValues));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            AddLogLine($"Save as Application failed: {ex.Message}");
+            _snackbarService.Show("Save as Application", ex.Message,
+                Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.ErrorCircle24), TimeSpan.FromSeconds(5));
+            return;
+        }
+
+        AddLogLine($"Saved as application {saved.ApplicationId}. It appears in the workbench with manual updates; nothing was staged or deployed.");
+        var answer = await _contentDialogService.ShowAsync(new ContentDialog
+        {
+            Title = "Saved",
+            Content = $"\"{overrides.AppName}\" is saved as an application. Open it in the Application Workbench now?",
+            PrimaryButtonText = "Yes",
+            CloseButtonText = "No",
+            DefaultButton = ContentDialogButton.Primary
+        }, CancellationToken.None);
+        if (answer == ContentDialogResult.Primary
+            && System.Windows.Application.Current?.MainWindow is Views.Windows.MainWindow main)
+        {
+            main.OpenWorkbench(saved.ApplicationId);
+        }
+    }
+
+    /// <summary>
+    /// Stages a BYO application from its newest installer revision through the ad-hoc
+    /// stage, under the run snapshot the Workbench created, and lists the staged result
+    /// in the grid so Package continues from it.
+    /// </summary>
+    public async Task RunByoStageAsync(string applicationId, RunSnapshot snapshot)
+    {
+        if (IsOperationRunning)
+        {
+            AddLogLine($"Workbench run skipped: another operation is running. {applicationId} was not staged.");
+            return;
+        }
+        var settings = _settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.DownloadRoot))
+        {
+            AddLogLine("Stage: DownloadRoot is not configured. Open Settings.");
+            return;
+        }
+
+        IsOperationRunning = true;
+        try
+        {
+            var profileName = WorkbenchJson.AsText(snapshot.Profile["Name"]) ?? snapshot.ProfileId;
+            var displayName = WorkbenchStore.Open(snapshot.DataRoot).GetApplicationDefinition(applicationId).DisplayName ?? applicationId;
+            AddLogLine($"Workbench Stage: {displayName} ({applicationId}, profile {profileName}, revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
+            await StageByoCoreAsync(applicationId, snapshot, settings);
+        }
+        finally
+        {
+            IsOperationRunning = false;
+        }
+    }
+
+    /// <summary>
+    /// Publishes a BYO application. A selected build packages the stage that carries its
+    /// BuildId; without one, Package reuses the manifest the last stage left in this
+    /// revision's folder, and stages first when there is none.
+    /// </summary>
+    public async Task RunByoPackageAsync(string applicationId, string target, RunSnapshot? buildSnapshot, Func<RunSnapshot> newSnapshot)
+    {
+        if (IsOperationRunning)
+        {
+            AddLogLine($"Workbench run skipped: another operation is running. {applicationId} was not packaged.");
+            return;
+        }
+        var settings = _settingsService.Load();
+        if (string.IsNullOrWhiteSpace(settings.DownloadRoot))
+        {
+            AddLogLine("Package: DownloadRoot is not configured. Open Settings.");
+            return;
+        }
+
+        PackagerInfo? row = null;
+        RunSnapshot? snapshot = buildSnapshot;
+        IsOperationRunning = true;
+        try
+        {
+            var plan = await ByoStaging.PlanAsync(WorkbenchStore.Open(), _dropAnalysisService, applicationId, deepInspect: true);
+            string? manifestPath;
+            if (buildSnapshot is not null)
+            {
+                manifestPath = BuildRecords.ResolveStageManifestForBuild(buildSnapshot.BuildId,
+                    ByoStaging.ApplicationStageRoot(plan.Manifest, settings.DownloadRoot, buildSnapshot.ProfileId)).ManifestPath;
+                AddLogLine($"Workbench Package: {plan.Manifest.AppName} build {buildSnapshot.BuildId}");
+            }
+            else
+            {
+                var profileId = WorkbenchStore.Open().GetApplicationDefinition(applicationId).ActiveProfileId;
+                manifestPath = ByoStaging.FindPriorStageManifest(plan, settings.DownloadRoot, profileId, target);
+                if (manifestPath is not null)
+                    AddLogLine($"Workbench Package: {plan.Manifest.AppName} reuses the prior stage {manifestPath}");
+                else
+                {
+                    snapshot = newSnapshot();
+                    row = await StageByoCoreAsync(applicationId, snapshot, settings);
+                    if (row is null) return;
+                    manifestPath = row.StagedManifestPath;
+                }
+            }
+            row ??= AddByoRow(plan.Manifest, plan.Analysis, manifestPath!, applicationId);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            AddLogLine($"Package refused: {ex.Message}");
+            StatusText = "Package refused.";
+            return;
+        }
+        finally
+        {
+            IsOperationRunning = false;
+        }
+        await PackageAsync([row!], target, snapshot);
+    }
+
+    private async Task<PackagerInfo?> StageByoCoreAsync(string applicationId, RunSnapshot snapshot, AppSettings settings)
+    {
+        ByoStagePlan plan;
+        try
+        {
+            plan = await ByoStaging.PlanAsync(WorkbenchStore.Open(snapshot.DataRoot), _dropAnalysisService, applicationId, deepInspect: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            AddLogLine($"Stage refused: {ex.Message}");
+            StatusText = "Stage refused.";
+            return null;
+        }
+
+        StatusText = $"Staging bring-your-own application: {plan.Manifest.AppName}";
+        AddLogLine($"Stage: {plan.Manifest.AppName} {plan.Manifest.SoftwareVersion} (source revision {plan.Source.Revision}, {plan.Source.FileName})");
+        var inputs = new StageInputs { RunSnapshot = snapshot, SigningPolicy = settings.ScriptSigning };
+        var result = await ByoStaging.StageAsync(_stagingService, plan, settings.DownloadRoot, line => AddLogLine($"  {line}"), CancellationToken.None, inputs);
+        if (!result.Success)
+        {
+            AddLogLine($"Stage FAILED: {result.ErrorMessage}");
+            StatusText = "Stage failed.";
+            return null;
+        }
+
+        AddLogLine($"Staged: {result.ContentPath}");
+        var row = AddByoRow(plan.Manifest, plan.Analysis, result.ManifestPath, applicationId);
+        StatusText = $"Staged {plan.Manifest.AppName}. Select the row and Package to continue.";
+        return row;
+    }
+
+    /// <summary>Lists one staged BYO build in the grid as a normal run row; an earlier row of the same application is replaced.</summary>
+    private PackagerInfo AddByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId)
+    {
+        var uid = "byo-" + ApplicationIds.ToKey(applicationId);
+        foreach (var existing in Packagers.Where(p => p.Uid == uid).ToList()) Packagers.Remove(existing);
+        var row = new PackagerInfo
+        {
+            Uid = uid,
+            Vendor = manifest.Publisher,
+            Application = manifest.AppName,
+            CMName = manifest.AppName,
+            Script = analysis.FileName,
+            FullPath = analysis.Path,
+            Description = $"Bring your own installer: {manifest.InstallerType} ({analysis.Engine})",
+            StagedManifestPath = manifestPath,
+            LatestVersion = manifest.SoftwareVersion,
+            Status = "Staged",
+            IsSelected = true
+        };
+        Packagers.Add(row);
+        ApplyFilter();
+        return row;
+    }
+}
