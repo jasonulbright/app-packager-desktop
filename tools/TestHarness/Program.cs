@@ -20,6 +20,7 @@ using ApplicationPackagerEngine.Scrapers;
 //                      "InstallerSettings": { "<definition Id>": { "<key>": "<value>" } },
 //                      "SigningPolicy": { <script signing policy fields> } }
 //   --timeout <sec>  Per-app install timeout in seconds (default 300)
+//   Exit code: 1 when any definition failed in any mode, 0 otherwise.
 //
 // Lab modes (no definitions directory; each exits 0 on success, 1 otherwise):
 //   TestHarness.exe --wsus <operation> --server <name> [--port <n>] [--ssl]
@@ -148,6 +149,7 @@ if (checkOnly)
     }
     Console.WriteLine();
     Console.WriteLine($"Check complete: {okCount} OK, {failCount} FAIL. Report: {checkCsv}");
+    Environment.ExitCode = failCount > 0 ? 1 : 0;
     return;
 }
 
@@ -325,6 +327,7 @@ Console.WriteLine($"TOTAL: {defFiles.Length} | PASSED: {passed} | FAILED: {faile
 Console.WriteLine($"Results: {resultsPath}");
 
 historyService.Dispose();
+Environment.ExitCode = failed > 0 ? 1 : 0;
 
 static bool IsRebootPending()
 {

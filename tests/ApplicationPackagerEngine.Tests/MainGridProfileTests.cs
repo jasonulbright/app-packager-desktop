@@ -49,8 +49,41 @@ public sealed class ProfileSourceTests : IDisposable
     }
 
     [Fact]
-    public void AStoreThatCannotBeReadKeepsTheLegacyMaps() =>
-        Assert.Equal(new ProfileSource(ApplicationId, null, true), ProfileSource.Resolve(null, DefinitionId));
+    public void AStoreThatCannotBeOpenedCarriesTheReason()
+    {
+        var source = ProfileSource.Resolve(null, DefinitionId);
+
+        Assert.Equal(ApplicationId, source.ApplicationId);
+        Assert.Null(source.ActiveProfileId);
+        Assert.NotNull(source.Failure);
+        Assert.Contains("could not be read for catalog:widget", source.RefusalMessage());
+    }
+
+    [Fact]
+    public void AnApplicationFileThatCannotBeParsedCarriesTheReasonInsteadOfTheLegacyMaps()
+    {
+        var folder = _t.Store.GetApplicationFolder(ApplicationId, create: true);
+        File.WriteAllText(Path.Combine(folder, "application.json"), "{ not json");
+
+        var source = ProfileSource.Resolve(_t.Store, DefinitionId);
+
+        Assert.NotNull(source.Failure);
+        Assert.Null(source.ActiveProfileId);
+    }
+
+    [Fact]
+    public void ADeletedMigratedProfileTurnsTheLegacyMapsOnAgainAsBeforeMigration()
+    {
+        Migrate();
+        var migrated = _t.Store.GetApplicationDefinition(ApplicationId).ActiveProfileId;
+        _t.Store.SetActiveProfile(ApplicationId, ApplicationIds.DefaultProfileId);
+        Directory.Delete(_t.Store.GetProfileFolder(ApplicationId, migrated), recursive: true);
+
+        var source = ProfileSource.Resolve(_t.Store, DefinitionId);
+
+        Assert.Null(source.Failure);
+        Assert.True(source.LegacyMapsApply);
+    }
 
     [Fact]
     public void TheMigratedProfileActiveBuildsFromItAndNotFromTheMaps()

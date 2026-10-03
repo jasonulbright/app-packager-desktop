@@ -59,10 +59,12 @@ public class PackagerExecutionService(
 
     /// <summary>
     /// Runs a packager with -StageOnly, streaming stdout line-by-line via the callback.
+    /// A snapshot this call creates records <paramref name="runTarget"/>, else the stored
+    /// deployment target.
     /// </summary>
     public async Task<PackagerExecutionResult> StageAsync(
         PackagerInfo packager, Action<string>? onOutputLine = null, CancellationToken ct = default,
-        Dictionary<string, string>? settingsValues = null, RunSnapshot? snapshot = null)
+        Dictionary<string, string>? settingsValues = null, RunSnapshot? snapshot = null, string? runTarget = null)
     {
         // Route JSON-defined apps through the engine DLL
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
@@ -72,9 +74,12 @@ public class PackagerExecutionService(
             // A grid run builds from the application's active profile; the default
             // profile runs without a snapshot, as every grid run did before profiles.
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+            if (snapshot is null && source.Failure is not null)
+                return new PackagerExecutionResult { ExitCode = 1, StdErr = source.RefusalMessage() };
             if (snapshot is null && source.ActiveProfileId is { } activeProfile)
             {
-                snapshot = CreateProfileSnapshot(source.ApplicationId, activeProfile, appSettings, out var snapshotRefusal, out var failure);
+                snapshot = CreateProfileSnapshot(source.ApplicationId, activeProfile, appSettings, out var snapshotRefusal, out var failure,
+                    target: runTarget);
                 if (snapshotRefusal is not null || failure is not null)
                     return new PackagerExecutionResult { ExitCode = 1, StdErr = snapshotRefusal ?? $"Run snapshot not created for profile {activeProfile}: {failure}" };
                 if (snapshot is not null)
@@ -124,7 +129,7 @@ public class PackagerExecutionService(
         }
 
         var settings = settingsService.Load();
-        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
+        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, runTarget);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildStageArgs(packager, settings, bridge?.DownloadRoot);
         var staged = await RunStreamingAsync(args, logPaths, onOutputLine, ct, ChildEnvironment(bridge, settings));
@@ -188,9 +193,11 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
-    /// The stage manifest of the row's latest version under its active profile, or of
-    /// its last staged version; null when the row has none, or is a PS1 packager whose
-    /// stage location only its own run reports.
+    /// The stage a publish may reuse without staging: with a latest version known, only the
+    /// manifest of that version, and for a build sealed under a profile only while its build
+    /// record is current (same version, profile revision and signing policy); with none
+    /// known, the last staged version. Null when the row has none, the build is stale, or
+    /// the row is a PS1 packager whose stage location only its own run reports.
     /// </summary>
     public string? ExistingStageManifest(PackagerInfo packager)
     {
@@ -201,15 +208,24 @@ public class PackagerExecutionService(
             var settings = settingsService.Load();
             var def = LoadDefinition(packager.DefinitionPath);
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(null), def.Id);
+            if (source.Failure is not null) return null;
             var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, source.ActiveProfileId),
                 $"{def.Application.Replace(" ", "")}-{def.Architecture}");
-            foreach (var version in new[] { packager.LatestVersion, packager.StagedVersion })
+            if (string.IsNullOrWhiteSpace(packager.LatestVersion))
             {
-                if (string.IsNullOrWhiteSpace(version)) continue;
-                var path = Path.Combine(appRoot, version, "stage-manifest.json");
-                if (File.Exists(path)) return path;
+                if (string.IsNullOrWhiteSpace(packager.StagedVersion)) return null;
+                var staged = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
+                return File.Exists(staged) ? staged : null;
             }
-            return null;
+            var path = Path.Combine(appRoot, packager.LatestVersion, "stage-manifest.json");
+            if (!File.Exists(path)) return null;
+            var manifest = new ManifestService().Read(path);
+            if (!StageFinalizer.CarriesBuild(manifest)) return path;
+            return ResolveBuildPlan(packager) is { } plan
+                   && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, packager.LatestVersion,
+                       plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == true
+                ? path
+                : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException)
         {
@@ -263,31 +279,36 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
-    /// Runs the Package phase for the configured deployment target: the MECM application,
-    /// an Intune Win32 publish, or both.
+    /// Runs the Package phase for the run's target: the MECM application, an Intune Win32
+    /// publish, or both. Without a target the run publishes to ConfigMgr; the stored
+    /// deployment target never decides a publish.
     /// </summary>
     public async Task<PackagerExecutionResult> PackageAsync(
         PackagerInfo packager, string comment, Action<string>? onOutputLine = null,
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
         RunSnapshot? snapshot = null, string? targetOverride = null)
     {
+        var target = DeploymentTargets.Normalize(targetOverride ?? DeploymentTargets.Mecm);
+        if (WsusTargetRefusal(target) is { } wsusRefusal) return wsusRefusal;
         if (packager.StagedManifestPath is not null)
-            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting, snapshot);
+            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting, snapshot, target);
 
         var settings = settingsService.Load();
-        var target = DeploymentTargets.Normalize(targetOverride ?? settings.Intune.DeploymentTarget);
 
         // Route JSON-defined apps through the engine's MecmTarget
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
+            if (snapshot is null && source.Failure is not null)
+                return new PackagerExecutionResult { ExitCode = 1, StdErr = source.RefusalMessage() };
             // A grid publish packages the stage of the active profile, under that profile's root.
             var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId ?? source.ActiveProfileId),
                 $"{def.Application.Replace(" ", "")}-{def.Architecture}");
-            var manifestPath = Path.Combine(appRoot, packager.LatestVersion, "stage-manifest.json");
-            if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
-                manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
+            // With a latest version known, only its stage publishes: an older staged version
+            // published as the latest would carry the wrong release to every endpoint.
+            var version = !string.IsNullOrWhiteSpace(packager.LatestVersion) ? packager.LatestVersion : packager.StagedVersion ?? "";
+            var manifestPath = Path.Combine(appRoot, version, "stage-manifest.json");
             // A snapshot build packages exactly the stage that carries its BuildId, or nothing.
             if (snapshot is not null)
             {
@@ -299,7 +320,13 @@ public class PackagerExecutionService(
             }
 
             if (!File.Exists(manifestPath))
-                return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
+                return new PackagerExecutionResult
+                {
+                    ExitCode = 1,
+                    StdErr = version.Length > 0
+                        ? $"Stage manifest not found: {manifestPath}. Run Stage for {def.Application} {version} first."
+                        : $"Stage manifest not found: {manifestPath}. Run Stage first."
+                };
 
             var manifestService = new ApplicationPackagerEngine.Services.ManifestService();
             var manifest = manifestService.Read(manifestPath);
@@ -420,7 +447,7 @@ public class PackagerExecutionService(
         if (DeploymentTargets.PublishesToIntune(target))
             onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the ConfigMgr flow only.");
 
-        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
+        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, target);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildPackageArgs(packager, settings, comment, bridge?.DownloadRoot);
         var environment = new Dictionary<string, string>(ChildEnvironment(bridge, settings), StringComparer.OrdinalIgnoreCase)
@@ -445,6 +472,19 @@ public class PackagerExecutionService(
         return packaged;
     }
 
+    /// <summary>
+    /// A target that publishes to WSUS is refused here: this path builds the ConfigMgr
+    /// application and the Intune app only, and the WSUS publish service carries WSUS.
+    /// </summary>
+    private static PackagerExecutionResult? WsusTargetRefusal(string target) =>
+        DeploymentTargets.PublishesToWsus(target)
+            ? new PackagerExecutionResult
+            {
+                ExitCode = 1,
+                StdErr = $"Target {target} publishes to WSUS, which runs through Publish to WSUS; nothing was packaged."
+            }
+            : null;
+
     /// <summary>The variable a PS1 packager's common module reads for the existing-application behavior; Skip when unset.</summary>
     public const string OnExistingVariable = "APP_PACKAGER_ON_EXISTING";
 
@@ -455,7 +495,7 @@ public class PackagerExecutionService(
     /// </summary>
     private static PackagerChildLaunch? PrepareChildBridge(
         PackagerInfo packager, AppSettings settings, Action<string>? onOutputLine, out PackagerExecutionResult? refusal,
-        RunSnapshot? snapshot = null)
+        RunSnapshot? snapshot = null, string? target = null)
     {
         refusal = null;
         try
@@ -465,7 +505,7 @@ public class PackagerExecutionService(
                     settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle);
             return PackagerChildBridge.Prepare(
                 WorkbenchStore.Open(), packager.FullPath, settings.DownloadRoot,
-                DeploymentTargets.Normalize(settings.Intune.DeploymentTarget),
+                DeploymentTargets.Normalize(target ?? settings.Intune.DeploymentTarget),
                 JsonSerializer.SerializeToNode(settings.ScriptSigning), new ScriptSigningCertificateGate(),
                 settings.IncludeVersionInTitle, settings.RemoveVersionFromTitle);
         }
@@ -548,24 +588,6 @@ public class PackagerExecutionService(
     }
 
     /// <summary>
-    /// The run snapshot a One Click stage of a JSON definition builds from. The signing
-    /// certificate is resolved here, per application; a policy the certificate cannot meet
-    /// is returned as the refusal and nothing is staged; so is a store that cannot write the
-    /// snapshot. A PS1 packager gets its snapshot from the child bridge, which refuses the
-    /// same way.
-    /// </summary>
-    public RunSnapshot? CreateOneClickSnapshot(PackagerInfo packager, OneClickBuildPlan plan, out string? refusal)
-    {
-        refusal = null;
-        if (!packager.IsJsonDefined) return null;
-        var snapshot = CreateProfileSnapshot(plan.ApplicationId, plan.ProfileId, settingsService.Load(), out refusal, out var failure, plan.DataRoot);
-        // Staging without the snapshot would build the unprofiled stage under another folder.
-        if (refusal is null && failure is not null)
-            refusal = $"Run snapshot not created for profile {plan.ProfileId}: {failure}";
-        return snapshot;
-    }
-
-    /// <summary>
     /// The run snapshot one One Click row stages from and then publishes from, for a
     /// JSON definition and for a PS1 packager alike. A snapshot that cannot be created
     /// is the row's refusal, with the reason; the row neither stages nor publishes.
@@ -617,7 +639,7 @@ public class PackagerExecutionService(
     /// exists. Any other failure returns null with its message; the caller decides.
     /// </summary>
     private static RunSnapshot? CreateProfileSnapshot(string applicationId, string profileId, AppSettings settings,
-        out string? refusal, out string? failure, string? dataRoot = null)
+        out string? refusal, out string? failure, string? dataRoot = null, string? target = null)
     {
         refusal = null;
         failure = null;
@@ -628,7 +650,7 @@ public class PackagerExecutionService(
             {
                 ApplicationId = applicationId,
                 ProfileId = profileId,
-                Target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget),
+                Target = DeploymentTargets.Normalize(target ?? settings.Intune.DeploymentTarget),
                 SigningPolicy = JsonSerializer.SerializeToNode(settings.ScriptSigning),
                 DownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(settings.DownloadRoot, profileId)
             }, new ScriptSigningCertificateGate());
@@ -673,18 +695,20 @@ public class PackagerExecutionService(
     /// <summary>
     /// Packages an already-staged content folder from its stage manifest. A dropped installer
     /// has no definition and no acquisition version, so the manifest path is the only handle
-    /// on its staged content; everything downstream is the same per-target flow.
+    /// on its staged content; everything downstream is the same per-target flow. The run's
+    /// <paramref name="target"/> decides ConfigMgr, Intune or both; without one it is ConfigMgr.
     /// </summary>
     public async Task<PackagerExecutionResult> PackageStagedManifestAsync(
         string manifestPath, string comment, Action<string>? onOutputLine = null,
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
-        RunSnapshot? snapshot = null)
+        RunSnapshot? snapshot = null, string? target = null)
     {
+        target = DeploymentTargets.Normalize(target ?? DeploymentTargets.Mecm);
+        if (WsusTargetRefusal(target) is { } wsusRefusal) return wsusRefusal;
         if (!File.Exists(manifestPath))
             return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
 
         var settings = settingsService.Load();
-        var target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
         var manifest = new ManifestService().Read(manifestPath);
         var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
         var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
@@ -795,7 +819,7 @@ public class PackagerExecutionService(
         }
 
         if (!DeploymentTargets.PublishesToIntune(target))
-            return await intuneDeploymentService.BuildBesideContentAsync(manifest, stagedContentPath, result.NetworkContentPath, report, ct);
+            return await intuneDeploymentService.BuildBesideContentAsync(manifest, stagedContentPath, result.NetworkContentPath, report, ct, settings.ContentLayout);
 
         return "";
     }

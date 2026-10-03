@@ -68,14 +68,53 @@ public class SettingsService
                 // A file written before the flag existed saved its site code with every save.
                 settings.SiteCodeSaved ??= JsonNode.Parse(json) is JsonObject root && root.ContainsKey(nameof(AppSettings.SiteCode));
             }
-            catch
+            catch (Exception ex)
             {
+                MarkUnreadable(ex.Message);
                 settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse() };
+                ApplyLauncherDefaults(settings);
+                return settings;
             }
         }
 
+        lock (_gate) _unreadableReason = null;
         ApplyLauncherDefaults(settings);
         return settings;
+    }
+
+    // Set while the file on disk failed to load: an automatic save would replace the
+    // operator's One Click history and refusal memory with defaults.
+    private string? _unreadableReason;
+    private string? _pendingWarning;
+    private bool _warned;
+
+    /// <summary>True while the settings file on disk failed to load; no automatic save writes it.</summary>
+    public bool IsFileUnreadable
+    {
+        get { lock (_gate) return _unreadableReason is not null; }
+    }
+
+    private void MarkUnreadable(string reason)
+    {
+        lock (_gate)
+        {
+            _unreadableReason = reason;
+            if (_warned) return;
+            _warned = true;
+            _pendingWarning = $"Settings file could not be read: {SettingsPath} ({reason}). Defaults are in use and nothing is written to that file " +
+                              "until Settings is saved; that save first keeps the unreadable file as " + Path.GetFileName(SettingsPath) + ".unreadable-<timestamp>.";
+        }
+    }
+
+    /// <summary>The unreadable-file notice, once per process; null when there is none or it was taken.</summary>
+    public string? TakeLoadWarning()
+    {
+        lock (_gate)
+        {
+            var warning = _pendingWarning;
+            _pendingWarning = null;
+            return warning;
+        }
     }
 
     /// <summary>
@@ -116,12 +155,23 @@ public class SettingsService
         Write(settings, operatorEdit: true);
     }
 
+    /// <summary>
+    /// Replaces the file atomically. While the file on disk failed to load, an automatic
+    /// save writes nothing; an operator save first copies the unreadable file to
+    /// settings.json.unreadable-&lt;timestamp&gt;, then replaces it.
+    /// </summary>
     private void Write(AppSettings settings, bool operatorEdit)
     {
         Directory.CreateDirectory(SettingsDir);
         var node = JsonSerializer.SerializeToNode(settings, JsonOptions)!.AsObject();
         lock (_gate)
         {
+            if (_unreadableReason is not null)
+            {
+                if (!operatorEdit) return;
+                if (File.Exists(SettingsPath)) PreserveUnreadable();
+                _unreadableReason = null;
+            }
             if (operatorEdit)
             {
                 _launcherSite = null;
@@ -134,7 +184,15 @@ public class SettingsService
                 if (_launcherProvider is { } provider && settings.ProviderMachine == provider.Applied)
                     node[nameof(AppSettings.ProviderMachine)] = provider.Original;
             }
+            ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.WriteText(SettingsPath, node.ToJsonString(JsonOptions));
         }
-        File.WriteAllText(SettingsPath, node.ToJsonString(JsonOptions));
+    }
+
+    private static void PreserveUnreadable()
+    {
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        var copy = $"{SettingsPath}.unreadable-{stamp}";
+        for (var n = 2; File.Exists(copy); n++) copy = $"{SettingsPath}.unreadable-{stamp}-{n}";
+        File.Copy(SettingsPath, copy);
     }
 }

@@ -132,7 +132,8 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
         string stagedContentPath,
         string networkContentPath,
         Action<string>? log = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? contentLayout = null)
     {
         if (InstalledToolPath() is null && IntuneWinArtifact.Reusable(manifest, stagedContentPath) is null) return "";
         try
@@ -140,11 +141,10 @@ public sealed class IntuneDeploymentService(SettingsService settingsService)
             var (intuneWinPath, reused) = await BuildOrReuseAsync(manifest, stagedContentPath, log, ct).ConfigureAwait(false);
             var verb = reused ? "reused" : "built";
 
-            var networkParent = Path.GetDirectoryName(networkContentPath.TrimEnd(Path.DirectorySeparatorChar));
-            if (string.IsNullOrEmpty(networkParent))
+            var target = IntuneWinArtifact.NetworkPathFor(manifest, networkContentPath, contentLayout);
+            if (target is null)
                 return $"{verb} {Path.GetFileName(intuneWinPath)}; no network folder to copy beside";
 
-            var target = Path.Combine(networkParent, Path.GetFileName(intuneWinPath));
             File.Copy(intuneWinPath, target, overwrite: true);
             log?.Invoke($"Intunewin stored: {target}");
             return $"{verb} {Path.GetFileName(intuneWinPath)}, stored beside the content";

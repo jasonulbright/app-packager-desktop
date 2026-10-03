@@ -128,7 +128,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                     else
                     {
                         p.Status = "Staging...";
-                        stage = await _executionService.StageAsync(p, line => AddLogLine($"  {line}"), _operationCts.Token, null, workbenchSnapshot);
+                        stage = await _executionService.StageAsync(p, line => AddLogLine($"  {line}"), _operationCts.Token, null, workbenchSnapshot,
+                            PublishRunTargets.WsusOnly);
                         if (stage.ExitCode != 0)
                         {
                             if (tally.RecordInterruptedOrFailed(_operationCts.Token)) { p.Status = "Cancelled"; break; }
@@ -264,6 +265,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
                     canceled = true;
+                    if (item.Outcome.Length == 0) FinishOneClickRow(item, OneClickOutcomes.Skipped, "run canceled before any publish");
                     item.Step = "Canceled";
                     if (item.Row is not null) item.Row.Status = "Cancelled";
                     break;
@@ -295,232 +297,11 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         item.Step = outcome;
     }
 
-    private async Task RunOneClickRowAsync(OneClickPlanItem item, OneClickRunOptions options, CancellationToken ct)
-    {
-        var p = item.Row;
-        if (p is null) { FinishOneClickRow(item, OneClickOutcomes.Skipped, "not in the grid"); return; }
-        var action = OneClickActionNames.Normalize(options.Action);
-        var log = (string line) => AddLogLine($"  {line}");
-        var settings = _settingsService.Load();
-        var entry = settings.AppStates.TryGetValue(p.Uid, out var state) && state is not null ? OneClickSettingsMap.Entry(state) : null;
-        var lastKnown = entry?.LastKnownVersion ?? "";
-
-        // 1. Check latest
-        item.Step = "checking " + p.Application;
-        p.Status = "Checking latest...";
-        AddLogLine($"One Click: {p.Application} ({p.Script})");
-        string? latest;
-        try { latest = await _executionService.GetLatestVersionAsync(p, ct); }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+    private Task RunOneClickRowAsync(OneClickPlanItem item, OneClickRunOptions options, CancellationToken ct) =>
+        new OneClickRowRunner(new OneClickExecution(_executionService, _wsusPublisher), _settingsService, AddLogLine)
         {
-            latest = null;
-            AddLogLine($"Latest check failed: {ex.Message}");
-        }
-        ct.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(latest))
-        {
-            p.Status = "Check error";
-            FinishOneClickRow(item, OneClickOutcomes.Failed, "check failed");
-            return;
-        }
-        p.LatestVersion = latest;
-        p.LastChecked = DateTime.Now;
-        item.Version = latest;
-        AddLogLine("Latest: " + latest);
-        SaveAppStates();
-        var versionChanged = lastKnown.Length == 0 || !string.Equals(lastKnown, latest, StringComparison.OrdinalIgnoreCase);
-
-        if (action == OneClickActionNames.Report)
-        {
-            p.Status = versionChanged ? "Update available" : "Up to date";
-            FinishOneClickRow(item, OneClickOutcomes.Checked, versionChanged ? "update available" : "up to date");
-            return;
-        }
-
-        // 2. Which destinations still need this version, and whether the build is stale.
-        var plan = _executionService.ResolveBuildPlan(p);
-        var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, latest,
-            plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
-        var wanted = item.Destinations.Names;
-        var decision = OneClickPlanner.Decide(action, wanted, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
-            staged: entry?.LastStaged is not null);
-        foreach (var (destination, cell) in decision.GuardResults) item.SetResult(destination, cell);
-        if (!decision.Stage)
-        {
-            p.Status = "Up to date";
-            AddLogLine($"No change - skipping: {p.Application}");
-            FinishOneClickRow(item, OneClickOutcomes.Skipped, decision.SkipReason);
-            return;
-        }
-        if (buildStale && !versionChanged && decision.PublishTo.Count == 0)
-            AddLogLine($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. Its destinations carry this version, so it is not published.");
-
-        // 3. One run snapshot for the stage and every publish of this row.
-        RunSnapshot? snapshot = null;
-        if (plan is null)
-        {
-            p.Status = "Stage error";
-            AddLogLine($"Run snapshot not created for {p.Application}: the workbench could not resolve its application or profile.");
-            FinishOneClickRow(item, OneClickOutcomes.Failed, "run snapshot not created");
-            return;
-        }
-        snapshot = _executionService.CreateRowSnapshot(p, plan, OneClickTarget(decision.PublishTo), out var refusal);
-        if (snapshot is null)
-        {
-            p.Status = "Stage error";
-            AddLogLine($"Run snapshot refused for {p.Application}: {refusal}");
-            FinishOneClickRow(item, OneClickOutcomes.Failed, "run snapshot refused: " + refusal);
-            return;
-        }
-        AddLogLine($"  Workbench profile {snapshot.ProfileId} (revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
-
-        // 4. Stage, with the saved install parameters and no review dialog.
-        item.Step = "staging " + p.Application;
-        p.Status = "Staging...";
-        AddLogLine("Stage: " + p.Application);
-        var stage = await _executionService.StageAsync(p, log, ct, null, snapshot);
-        ct.ThrowIfCancellationRequested();
-        if (stage.ExitCode != 0)
-        {
-            p.Status = "Stage error";
-            AddLogLine($"Stage FAILED (exit {stage.ExitCode})");
-            LogStdErr(stage.StdErr);
-            FinishOneClickRow(item, OneClickOutcomes.Failed, "stage failed");
-            return;
-        }
-        p.Status = "Staged";
-        UpdateAppState(p.Uid, s => s.LastStaged = DateTime.Now);
-
-        if (action == OneClickActionNames.Stage || decision.PublishTo.Count == 0)
-        {
-            FinishOneClickRow(item, OneClickOutcomes.Staged, string.Join("; ", decision.SkipReasons));
-            return;
-        }
-
-        // 5. Publish per destination, ConfigMgr first: it is the only one that reads the network copy.
-        var reasons = decision.SkipReasons.ToList();
-        int published = 0, failed = 0, notSupported = 0;
-        foreach (var destination in decision.PublishTo)
-        {
-            item.Step = $"publishing {p.Application} to {destination}";
-            p.Status = $"Publishing to {destination}...";
-            string cell, id = "", detail = "";
-            var ok = false;
-            var present = false;
-            switch (destination)
-            {
-                case OneClickDestinations.ConfigMgr:
-                {
-                    var onExisting = OneClickOnExisting.Normalize(options.OnExisting) == OneClickOnExisting.Overwrite
-                        ? OnExistingBehavior.Overwrite : OnExistingBehavior.Skip;
-                    var result = await _executionService.PackageAsync(p, options.Comment, log, ct, onExisting, snapshot, PublishRunTargets.ConfigMgr);
-                    id = ApplicationName(result.StdOut);
-                    if (result.Conflict is { } conflict)
-                    {
-                        cell = $"skipped: application {conflict.ApplicationName} already exists";
-                        reasons.Add($"ConfigMgr: application exists, policy {OneClickOnExisting.Normalize(options.OnExisting)}");
-                    }
-                    else if (result.ExitCode != 0)
-                    {
-                        LogStdErr(result.StdErr);
-                        cell = $"failed: exit code {result.ExitCode}";
-                        detail = result.StdErr.Trim();
-                    }
-                    else
-                    {
-                        ok = true;
-                        cell = "published " + id;
-                    }
-                    LogIntuneNotes(p, result);
-                    break;
-                }
-                case OneClickDestinations.Wsus:
-                {
-                    var step = await _executionService.PublishWsusAsync(p, stage, snapshot, _wsusPublisher, log, ct);
-                    AddLogLine("WSUS publish: " + step.Message);
-                    var mapped = OneClickPlanner.WsusResult(step);
-                    (cell, detail, id, ok, present) = (mapped.Cell, mapped.Detail, mapped.Id, mapped.Ok, mapped.AlreadyPresent);
-                    if (present) reasons.Add($"WSUS: {latest} already on the server");
-                    if (step.Refused)
-                    {
-                        notSupported++;
-                        reasons.Add("WSUS: not supported");
-                        UpdateAppState(p.Uid, s => OneClickHistory.SetNotSupported(s.NotSupported, OneClickDestinations.Wsus, latest, mapped.Cell, DateTimeOffset.Now));
-                    }
-                    break;
-                }
-                default:
-                {
-                    var result = await _executionService.PackageAsync(p, options.Comment, log, ct, OnExistingBehavior.Skip, snapshot, PublishRunTargets.IntuneOnly);
-                    LogIntuneNotes(p, result);
-                    if (result.ExitCode == 0)
-                    {
-                        ok = true;
-                        id = IntuneAppId(result.IntunePublishNote);
-                        cell = "published " + id;
-                    }
-                    else
-                    {
-                        cell = string.IsNullOrWhiteSpace(result.IntunePublishNote) ? $"failed: exit code {result.ExitCode}" : result.IntunePublishNote;
-                        detail = result.StdErr.Trim();
-                    }
-                    break;
-                }
-            }
-            ct.ThrowIfCancellationRequested();
-
-            item.SetResult(destination, cell, id, detail);
-            if (ok)
-            {
-                if (!present) published++;
-                UpdateAppState(p.Uid, s => OneClickHistory.SetPublished(s.Published, s.NotSupported, destination, latest, id, DateTimeOffset.Now));
-            }
-            else if (!OneClickPlanner.IsSkipOrRefusal(cell))
-            {
-                failed++;
-            }
-        }
-
-        var (outcome, status) = OneClickPlanner.Conclude(published, failed, notSupported);
-        p.Status = status;
-        FinishOneClickRow(item, outcome, string.Join("; ", reasons));
-    }
-
-    /// <summary>The run target the snapshot records for the destinations a row publishes to.</summary>
-    private static string OneClickTarget(IReadOnlyList<string> publishTo) =>
-        new DestinationSet(publishTo.Contains(OneClickDestinations.ConfigMgr), publishTo.Contains(OneClickDestinations.Wsus),
-            publishTo.Contains(OneClickDestinations.Intune)) is { Any: true } set ? set.ToTargetName() : RunTargets.ContentOnly;
-
-    /// <summary>The ConfigMgr application a package run named in "Packaged: &lt;name&gt;".</summary>
-    private static string ApplicationName(string stdOut)
-    {
-        foreach (var line in stdOut.Split('\n'))
-        {
-            var trimmed = line.Trim();
-            if (trimmed.StartsWith("Packaged: ", StringComparison.Ordinal)) return trimmed["Packaged: ".Length..];
-        }
-        return "";
-    }
-
-    /// <summary>The app id an Intune publish note names in "(app id &lt;id&gt;)".</summary>
-    private static string IntuneAppId(string note)
-    {
-        var start = note.IndexOf("app id ", StringComparison.Ordinal);
-        if (start < 0) return "";
-        var id = note[(start + "app id ".Length)..];
-        var end = id.IndexOf(')');
-        return end < 0 ? id.Trim() : id[..end].Trim();
-    }
-
-    /// <summary>Writes one application's stored check state, creating it when absent.</summary>
-    private void UpdateAppState(string uid, Action<AppCheckState> change)
-    {
-        var s = _settingsService.Load();
-        if (!s.AppStates.TryGetValue(uid, out var state) || state is null)
-            s.AppStates[uid] = state = new AppCheckState();
-        state.Published ??= [];
-        state.NotSupported ??= [];
-        change(state);
-        _settingsService.Save(s);
-    }
+            VersionChecked = SaveAppStates,
+            IntuneNotes = LogIntuneNotes,
+            StdErr = LogStdErr
+        }.RunAsync(item, options, ct);
 }

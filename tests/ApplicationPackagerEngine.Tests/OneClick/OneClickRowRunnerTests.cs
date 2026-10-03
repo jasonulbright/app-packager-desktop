@@ -1,0 +1,267 @@
+using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.OneClick;
+using ApplicationPackagerUI.Models;
+using ApplicationPackagerUI.Services;
+using ApplicationPackagerUI.ViewModels.Windows;
+
+namespace ApplicationPackagerEngine.Tests.OneClick;
+
+/// <summary>
+/// The per-row One Click run through an execution seam: one snapshot for Stage and every
+/// publish, a per-row refusal for a snapshot that cannot be created, history only for a
+/// real publish, refusal memory only for a real refusal, a finished publish kept on
+/// cancel, the plan's not-ready destinations skipped, and a row restaged only for a stale
+/// build left unpublished. Each test has its own data root.
+/// </summary>
+[Collection(ProcessEnvironmentCollection.Name)]
+public sealed class OneClickRowRunnerTests : IDisposable
+{
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-oneclick-row-" + Guid.NewGuid().ToString("N"));
+    private readonly Dictionary<string, string?> _saved = [];
+    private readonly List<string> _log = [];
+
+    public OneClickRowRunnerTests()
+    {
+        foreach (var name in new[] { AppDataPaths.DataRootVariable, SettingsService.LauncherSiteCodeVariable, SettingsService.LauncherProviderVariable })
+            _saved[name] = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, Path.Combine(_root, "appdata"));
+        Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
+        Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
+        Directory.CreateDirectory(Path.Combine(_root, "workbench"));
+    }
+
+    public void Dispose()
+    {
+        foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
+        try { Directory.Delete(_root, true); } catch (IOException) { }
+    }
+
+    private sealed class FakeExecution(string root) : IOneClickExecution
+    {
+        public string Latest { get; set; } = "2.0";
+        public RunSnapshot? Snapshot { get; set; } = new() { ApplicationId = "catalog:widget", ProfileId = "default", BuildId = "20261003-120000-abcdef01" };
+        public string? SnapshotRefusal { get; set; }
+        public string? SnapshotTarget { get; private set; }
+        public int StageExit { get; set; }
+        public Func<string, PackagerExecutionResult> Package { get; set; } = target => new PackagerExecutionResult
+        {
+            StdOut = target == PublishRunTargets.ConfigMgr ? "Packaged: Widget 2.0" : "Staged content ready",
+            IntunePublishNote = target == PublishRunTargets.IntuneOnly ? "published (app id intune-1)" : ""
+        };
+        public WsusStepResult Wsus { get; set; } = new(WsusStepStatus.Published, "published", [], [], "wsus-1");
+        public Action<string>? OnPublish { get; set; }
+        public List<(string Step, RunSnapshot? Snapshot, string Target)> Calls { get; } = [];
+
+        public Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct) => Task.FromResult<string?>(Latest);
+
+        public PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row) => new(root, "catalog:widget", "default", 0);
+
+        public RunSnapshot? CreateRowSnapshot(PackagerInfo row, PackagerExecutionService.OneClickBuildPlan plan, string target, out string? refusal)
+        {
+            SnapshotTarget = target;
+            refusal = SnapshotRefusal;
+            return SnapshotRefusal is null ? Snapshot : null;
+        }
+
+        public Task<PackagerExecutionResult> StageAsync(PackagerInfo row, Action<string> log, RunSnapshot snapshot, CancellationToken ct)
+        {
+            Calls.Add(("Stage", snapshot, ""));
+            return Task.FromResult(new PackagerExecutionResult { ExitCode = StageExit, StdErr = StageExit == 0 ? "" : "stage broke" });
+        }
+
+        public Task<PackagerExecutionResult> PackageAsync(PackagerInfo row, string comment, Action<string> log, OnExistingBehavior onExisting,
+            RunSnapshot snapshot, string target, CancellationToken ct)
+        {
+            Calls.Add(("Package", snapshot, target));
+            OnPublish?.Invoke(target);
+            return Task.FromResult(Package(target));
+        }
+
+        public Task<WsusStepResult> PublishWsusAsync(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot snapshot, Action<string> log, CancellationToken ct)
+        {
+            Calls.Add(("WSUS", snapshot, PublishRunTargets.WsusOnly));
+            OnPublish?.Invoke(PublishRunTargets.WsusOnly);
+            return Task.FromResult(Wsus);
+        }
+    }
+
+    private OneClickRowRunner Runner(FakeExecution execution) => new(execution, new SettingsService(), _log.Add);
+
+    private static OneClickPlanItem Item(bool configMgr, bool wsus, bool intune, IReadOnlyDictionary<string, string>? notReady = null) => new()
+    {
+        Key = "widget",
+        Application = "Widget",
+        Row = new PackagerInfo { Uid = "widget", Application = "Widget", Script = "widget.json" },
+        ConfigMgr = configMgr,
+        Wsus = wsus,
+        Intune = intune,
+        Include = true,
+        NotReady = notReady ?? new Dictionary<string, string>()
+    };
+
+    private static OneClickRunOptions Publish => new(OneClickActionNames.StageAndPackage, false, OneClickOnExisting.Skip, "");
+
+    private static AppCheckState? Stored() =>
+        new SettingsService().Load().AppStates.TryGetValue("widget", out var state) ? state : null;
+
+    [Fact]
+    public async Task OneSnapshotReachesTheStageAndEveryDestination()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(true, true, true);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage", "Package", "WSUS", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.All(execution.Calls, c => Assert.Same(execution.Snapshot, c.Snapshot));
+        Assert.Equal([PublishRunTargets.ConfigMgr, PublishRunTargets.WsusOnly, PublishRunTargets.IntuneOnly], execution.Calls.Skip(1).Select(c => c.Target));
+        Assert.Equal(OneClickOutcomes.Published, item.Outcome);
+        Assert.Equal(["ConfigMgr", "Intune", "WSUS"], Stored()!.Published.Keys.Order());
+    }
+
+    [Fact]
+    public async Task ARowForWsusAndIntunePublishesToBoth()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(false, true, true);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage", "WSUS", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.Equal(PublishRunTargets.IntuneOnly, execution.Calls[2].Target);
+        Assert.Equal(RunTargets.WsusOnly, execution.SnapshotTarget);
+        Assert.Equal("published intune-1", item.ResultIntune);
+    }
+
+    [Fact]
+    public async Task ASnapshotThatCannotBeCreatedRefusesTheRowAndNothingStages()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { SnapshotRefusal = "SigningCertificateUnavailable: no certificate" };
+        var item = Item(true, false, false);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Empty(execution.Calls);
+        Assert.Equal(OneClickOutcomes.Failed, item.Outcome);
+        Assert.Equal("run snapshot refused: SigningCertificateUnavailable: no certificate", item.Reason);
+    }
+
+    [Fact]
+    public async Task AFailedDestinationIsNotRecordedAsPublished()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"))
+        {
+            Package = _ => new PackagerExecutionResult { ExitCode = 1, StdErr = "site unreachable" }
+        };
+        var item = Item(true, true, false);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal("failed: exit code 1", item.ResultConfigMgr);
+        Assert.Equal(["WSUS"], Stored()!.Published.Keys);
+        Assert.Equal(OneClickOutcomes.Failed, item.Outcome);
+    }
+
+    [Fact]
+    public async Task RefusalMemoryIsWrittenOnlyForARealRefusal()
+    {
+        var failing = new FakeExecution(Path.Combine(_root, "workbench")) { Wsus = new(WsusStepStatus.Failed, "server unreachable", [], []) };
+        await Runner(failing).RunAsync(Item(false, true, false), Publish, CancellationToken.None);
+        Assert.Empty(Stored()!.NotSupported);
+
+        var refusing = new FakeExecution(Path.Combine(_root, "workbench"))
+        {
+            Latest = "3.0",
+            Wsus = new(WsusStepStatus.Refused, "not supported: CustomInstall. text", ["CustomInstall"], [])
+        };
+        var item = Item(false, true, false);
+        await Runner(refusing).RunAsync(item, Publish, CancellationToken.None);
+        Assert.Equal("3.0", Stored()!.NotSupported["WSUS"].Version);
+        Assert.Equal(OneClickOutcomes.NotSupported, item.Outcome);
+    }
+
+    [Fact]
+    public async Task ACancelAfterAPublishKeepsItsResultAndHistoryAndTheReasonSaysWhatWasPublished()
+    {
+        using var cts = new CancellationTokenSource();
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"))
+        {
+            OnPublish = target => { if (target == PublishRunTargets.ConfigMgr) cts.Cancel(); }
+        };
+        var item = Item(true, true, false);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Runner(execution).RunAsync(item, Publish, cts.Token));
+
+        Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.Equal("published Widget 2.0", item.ResultConfigMgr);
+        Assert.Equal("2.0", Stored()!.Published["ConfigMgr"].Version);
+        Assert.Equal(OneClickOutcomes.Published, item.Outcome);
+        Assert.Equal("run canceled after publishing to ConfigMgr", item.Reason);
+    }
+
+    [Fact]
+    public async Task ADestinationThePlanMarkedNotReadyIsSkippedWithThePlansReason()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(true, true, false, new Dictionary<string, string> { ["ConfigMgr"] = "ConfigMgr console not detected" });
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage", "WSUS"], execution.Calls.Select(c => c.Step));
+        Assert.Equal("skipped: ConfigMgr console not detected", item.ResultConfigMgr);
+        Assert.Contains("ConfigMgr: ConfigMgr console not detected", item.Reason);
+        Assert.DoesNotContain("ConfigMgr", Stored()!.Published.Keys);
+    }
+
+    [Fact]
+    public async Task ForceDoesNotPublishToANotReadyDestination()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(true, false, false, new Dictionary<string, string> { ["ConfigMgr"] = "site code not set" });
+
+        await Runner(execution).RunAsync(item, Publish with { Force = true }, CancellationToken.None);
+
+        Assert.DoesNotContain(execution.Calls, c => c.Step == "Package");
+    }
+
+    [Fact]
+    public async Task ARowRestagedOnlyForAStaleBuildIsNotRepublished()
+    {
+        var service = new SettingsService();
+        var s = service.Load();
+        var state = new AppCheckState { LatestVersion = "2.0", LastStaged = DateTime.Now.AddDays(-1) };
+        OneClickHistory.SetPublished(state.Published, state.NotSupported, "ConfigMgr", "2.0", "Widget 2.0", DateTimeOffset.Now);
+        s.AppStates["widget"] = state;
+        service.Save(s);
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(true, false, false);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage"], execution.Calls.Select(c => c.Step));
+        Assert.Equal(OneClickOutcomes.Staged, item.Outcome);
+    }
+
+    [Fact]
+    public void ThePlanCarriesTheNotReadyDestinationsOfARowThatWaitsForTheCheck()
+    {
+        var settings = new OneClickPlanSettings
+        {
+            Tracked = ["widget"],
+            DefaultDestinations = new DestinationSet(true, true, false),
+            Readiness = new Dictionary<string, OneClickReadiness>
+            {
+                ["ConfigMgr"] = new(false, "ConfigMgr console not detected"),
+                ["WSUS"] = OneClickReadiness.Yes
+            }
+        };
+
+        var row = Assert.Single(OneClickPlanner.Plan([new OneClickApp("widget", "Widget", "Contoso")], settings,
+            new Dictionary<string, OneClickHistoryEntry>(), OneClickActionNames.StageAndPackage, false, DateTime.Now));
+
+        Assert.Equal("ConfigMgr console not detected", row.NotReady["ConfigMgr"]);
+        Assert.Equal(["WSUS"], row.PublishTo);
+    }
+}

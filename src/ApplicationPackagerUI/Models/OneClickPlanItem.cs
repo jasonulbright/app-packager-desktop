@@ -35,6 +35,9 @@ public partial class OneClickPlanItem : ObservableObject
 
     public IReadOnlyList<string> PublishTo { get; set; } = [];
 
+    /// <summary>The checked destinations the plan left out as not ready, with the plan's reason.</summary>
+    public IReadOnlyDictionary<string, string> NotReady { get; set; } = new Dictionary<string, string>();
+
     public Dictionary<string, string> Ids { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> Details { get; } = new(StringComparer.OrdinalIgnoreCase);
 

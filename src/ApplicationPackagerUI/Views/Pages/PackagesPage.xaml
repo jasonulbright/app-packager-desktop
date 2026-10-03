@@ -198,7 +198,7 @@
 
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" IsReadOnly="True" />
                 <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="170" IsReadOnly="True" />
-                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="*" IsReadOnly="True" />
+                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="*" MinWidth="160" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="*" IsReadOnly="True" />
 
                 <!-- Status with color coding -->

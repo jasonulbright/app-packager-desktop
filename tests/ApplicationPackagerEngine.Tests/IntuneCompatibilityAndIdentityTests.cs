@@ -119,27 +119,53 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         var legacy = Manifest();
         legacy.AppName = "Contoso App (x64) 1.0";
         legacy.ProfileId = "";
-        Assert.Equal("AppPackager:legacy:Contoso-App--x64-/default", IntunePublishService.IdentityTag(legacy));
-        Assert.Equal(["AppPackager:legacy:Contoso-App--x64--1.0/default"], IntunePublishService.FormerIdentityTags(legacy));
+        Assert.Equal("AppPackager:legacy:Contoso-App--x64--1.0/default", IntunePublishService.IdentityTag(legacy));
+        Assert.Empty(IntunePublishService.FormerIdentityTags(legacy));
     }
 
     [Fact]
-    public void TwoReleasesOfALegacyTitleShareOneTag()
+    public void TwoMajorLinesOfALegacyTitleKeepTheirOwnTags()
     {
-        var first = Manifest();
-        first.AppName = "7-Zip (x64) - 25.01 (x64)";
-        first.SoftwareVersion = "25.01";
-        var second = Manifest();
-        second.AppName = "7-Zip (x64) - 26.03 (x64)";
-        second.SoftwareVersion = "26.03";
-        Assert.Equal(IntunePublishService.IdentityTag(first), IntunePublishService.IdentityTag(second));
-        Assert.DoesNotContain("26", IntunePublishService.IdentityTag(second));
+        var net8 = Manifest();
+        net8.AppName = "Microsoft .NET Runtime 8.0.6 (x64)";
+        net8.SoftwareVersion = "8.0.6";
+        var net6 = Manifest();
+        net6.AppName = "Microsoft .NET Runtime 6.0.31 (x64)";
+        net6.SoftwareVersion = "6.0.31";
+        Assert.NotEqual(IntunePublishService.IdentityTag(net8), IntunePublishService.IdentityTag(net6));
     }
 
     [Fact]
-    public async Task AnAppOnTheFormerVersionedTagIsUpdatedAndRetagged()
+    public void TheFormerTagOfACatalogManifestIsExactlyTheLegacyTagOfThatManifest()
+    {
+        var m = Manifest();
+        m.ApplicationId = "catalog:dotnet8";
+        m.ProfileId = "";
+        m.AppName = "Microsoft .NET Runtime 8.0.6 (x64)";
+        m.SoftwareVersion = "8.0.6";
+        var former = Assert.Single(IntunePublishService.FormerIdentityTags(m));
+        var legacy = Manifest();
+        legacy.AppName = m.AppName;
+        legacy.SoftwareVersion = m.SoftwareVersion;
+        legacy.ProfileId = "";
+        Assert.Equal(IntunePublishService.IdentityTag(legacy), former);
+    }
+
+    [Fact]
+    public void AnAppTaggedForAnotherApplicationIsNotAdoptedThroughAFormerTag()
+    {
+        const string former = "AppPackager:legacy:Contoso-1.0/default";
+        Assert.True(IntunePublishService.CarriesOnlyTagsOf("operator note\n" + former, [former]));
+        Assert.False(IntunePublishService.CarriesOnlyTagsOf(former + "\nAppPackager:catalog:other/default", [former]));
+        Assert.False(IntunePublishService.CarriesOnlyTagsOf("operator note", [former]));
+    }
+
+    [Fact]
+    public async Task AnAppOnTheFormerLegacyTagOfACatalogManifestIsUpdatedAndRetagged()
     {
         var manifest = Manifest();
+        manifest.ApplicationId = "catalog:contoso";
+        manifest.ProfileId = "";
         manifest.AppName = "Contoso App 1.0";
         const string former = "AppPackager:legacy:Contoso-App-1.0/default";
         var handler = Graph(uri => uri.Contains("isof(")
@@ -150,7 +176,25 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         await svc.PublishAsync(IntuneWinFixture.Create(_dir), manifest, Options());
 
         var update = handler.Requests.First(r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/mobileApps/app-former"));
-        Assert.Contains("\"notes\":\"AppPackager:legacy:Contoso-App/default\"", update.Body);
+        Assert.Contains("\"notes\":\"AppPackager:catalog:contoso/default\"", update.Body);
+    }
+
+    [Fact]
+    public async Task AnAppThatAlsoCarriesAnotherApplicationsTagIsNotAdoptedThroughTheFormerTag()
+    {
+        var manifest = Manifest();
+        manifest.ApplicationId = "catalog:contoso";
+        manifest.ProfileId = "";
+        manifest.AppName = "Contoso App 1.0";
+        const string notes = "AppPackager:legacy:Contoso-App-1.0/default\\nAppPackager:catalog:fabrikam/default";
+        var handler = Graph(uri => uri.Contains("isof(")
+            ? $$"""{"value":[{"id":"app-other","@odata.type":"#microsoft.graph.win32LobApp","notes":"{{notes}}"}]}"""
+            : null);
+        using var svc = new IntunePublishService(handler);
+
+        await svc.PublishAsync(IntuneWinFixture.Create(_dir), manifest, Options());
+
+        Assert.DoesNotContain(handler.Requests, r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/mobileApps/app-other"));
     }
 
     private static FakeGraphHandler Graph(Func<string, string?> list)

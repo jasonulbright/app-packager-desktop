@@ -88,6 +88,8 @@ public sealed record OneClickPlanRow
     public string Source { get; init; } = "Default";
     public IReadOnlyDictionary<string, string> LastPublished { get; init; } = new Dictionary<string, string>();
     public IReadOnlyList<string> PublishTo { get; init; } = [];
+    /// <summary>The selected destinations the plan leaves out as not ready, with the reason; the run skips them too.</summary>
+    public IReadOnlyDictionary<string, string> NotReady { get; init; } = new Dictionary<string, string>();
     public string Planned { get; init; } = "";
     public string Reason { get; init; } = "";
     public bool Include { get; init; }
@@ -196,6 +198,7 @@ public static class OneClickPlanner
 
             var reasons = new List<string>();
             var publishTo = new List<string>();
+            var notReady = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var selected = destinations.Names;
             string planned;
             var include = true;
@@ -233,7 +236,7 @@ public static class OneClickPlanner
                         foreach (var d in selected)
                         {
                             var ready = ReadinessOf(settings, d);
-                            if (!ready.Ready) { reasons.Add($"{d}: {ready.Reason}"); continue; }
+                            if (!ready.Ready) { reasons.Add($"{d}: {ready.Reason}"); notReady[d] = ready.Reason; continue; }
                             if (!force && latest.Length > 0 && entry?.RefusedVersion(d) == latest) { reasons.Add($"{d}: not supported"); continue; }
                             if (!force && latest.Length > 0 && lastPublished[d] == latest) { reasons.Add($"{d}: {latest} already published"); continue; }
                             publishTo.Add(d);
@@ -256,6 +259,7 @@ public static class OneClickPlanner
                 Source = source,
                 LastPublished = lastPublished,
                 PublishTo = publishTo,
+                NotReady = notReady,
                 Planned = planned,
                 Reason = string.Join("; ", reasons),
                 Include = include
@@ -345,8 +349,10 @@ public static class OneClickPlanner
     /// <param name="versionChanged">The check found a version other than the last known one.</param>
     /// <param name="buildStale">The newest sealed build differs in version, profile revision or signing policy, or none exists.</param>
     /// <param name="staged">A stage of this application exists.</param>
+    /// <param name="notReady">The plan's not-ready destinations with their reason; each is skipped, Force or not.</param>
     public static OneClickRunDecision Decide(string action, IReadOnlyList<string> wanted, OneClickHistoryEntry? entry, string latest,
-        string siteVersion, bool force, bool versionChanged, bool buildStale, bool staged)
+        string siteVersion, bool force, bool versionChanged, bool buildStale, bool staged,
+        IReadOnlyDictionary<string, string>? notReady = null)
     {
         action = OneClickActionNames.Normalize(action);
         var publishTo = new List<string>();
@@ -357,6 +363,12 @@ public static class OneClickPlanner
         {
             foreach (var d in OneClickDestinations.All.Where(wanted.Contains))
             {
+                if (notReady is not null && notReady.TryGetValue(d, out var why))
+                {
+                    reasons.Add($"{d}: {why}");
+                    guard[d] = "skipped: " + why;
+                    continue;
+                }
                 if (!force && CarriedVersion(entry, d, siteVersion) == latest && latest.Length > 0)
                 {
                     reasons.Add($"{d}: {latest} already published");

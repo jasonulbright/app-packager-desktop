@@ -15,13 +15,17 @@ internal sealed class LoopbackFileServer : IDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _serving;
     private readonly IReadOnlyDictionary<string, byte[]> _files;
+    private readonly IReadOnlyDictionary<string, (string StatusAndHeaders, byte[] Body)> _responses;
 
     public ConcurrentQueue<string> Requests { get; } = new();
     public string BaseUrl { get; }
 
-    public LoopbackFileServer(IReadOnlyDictionary<string, byte[]> files)
+    /// <param name="responses">Paths answered with a status line and header lines of their own, then the body.</param>
+    public LoopbackFileServer(IReadOnlyDictionary<string, byte[]> files,
+        IReadOnlyDictionary<string, (string StatusAndHeaders, byte[] Body)>? responses = null)
     {
         _files = files;
+        _responses = responses ?? new Dictionary<string, (string, byte[])>();
         _listener = new TcpListener(IPAddress.Loopback, 0);
         _listener.Start();
         BaseUrl = $"http://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}";
@@ -55,7 +59,13 @@ internal sealed class LoopbackFileServer : IDisposable
                     Requests.Enqueue(text);
 
                     var path = text.Split(' ', 3) is { Length: >= 2 } parts ? parts[1].Split('?')[0].TrimStart('/') : "";
-                    if (_files.TryGetValue(path, out var body))
+                    if (_responses.TryGetValue(path, out var custom))
+                    {
+                        await stream.WriteAsync(Encoding.ASCII.GetBytes(
+                            $"{custom.StatusAndHeaders.TrimEnd()}\r\nContent-Length: {custom.Body.Length}\r\nConnection: close\r\n\r\n"), _stop.Token);
+                        await stream.WriteAsync(custom.Body, _stop.Token);
+                    }
+                    else if (_files.TryGetValue(path, out var body))
                     {
                         await stream.WriteAsync(Encoding.ASCII.GetBytes(
                             $"HTTP/1.1 200 OK\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n"), _stop.Token);
