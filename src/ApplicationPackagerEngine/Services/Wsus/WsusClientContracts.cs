@@ -46,7 +46,7 @@ public static class WsusPublishStep
         catch (Exception ex) when (ex is WsusOperationException or WsusPayloadException or WsusRuleException
                                    or IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            return new WsusStepResult(WsusStepStatus.Failed, ex.Message, [], []);
+            return new WsusStepResult(WsusStepStatus.Failed, WsusMessages.PublishFailure(ex.Message), [], []);
         }
     }
 }

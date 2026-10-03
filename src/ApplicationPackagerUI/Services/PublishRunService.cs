@@ -66,6 +66,7 @@ public sealed class PublishRunService(PackagerExecutionService executionService,
         var step = await executionService.PublishWsusAsync(p, stage, workbenchSnapshot, wsusPublisher, line => log($"  {line}"), ct);
         var outcome = PublishRowOutcome.For(PublishRunTargets.WsusOnly, 0, wsus: step);
         p.Status = outcome.Status;
+        p.StatusDetail = outcome.Detail.Length > 0 ? outcome.Detail : null;
         log("WSUS publish: " + step.Message);
         return new WsusRowRun(stage, step, outcome);
     }

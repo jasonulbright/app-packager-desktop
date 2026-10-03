@@ -75,9 +75,11 @@ public enum PublishRowOutcomeKind
 /// <summary>
 /// The row status after one application's publish run. An Intune or WSUS run
 /// succeeds only when its publish succeeds; a ConfigMgr run that also
-/// publishes to WSUS carries the WSUS result as a status suffix.
+/// publishes to WSUS carries the WSUS result as a status suffix. A WSUS run
+/// states its result in the words of the One Click result cell, and Detail
+/// holds the full server or refusal text behind a short status.
 /// </summary>
-public sealed record PublishRowOutcome(PublishRowOutcomeKind Kind, string Status, bool Published)
+public sealed record PublishRowOutcome(PublishRowOutcomeKind Kind, string Status, bool Published, string Detail = "")
 {
     public static PublishRowOutcome For(
         string? target, int exitCode, PackageRunEnd end = PackageRunEnd.Completed,
@@ -97,9 +99,15 @@ public sealed record PublishRowOutcome(PublishRowOutcomeKind Kind, string Status
             return new(PublishRowOutcomeKind.Failed, PublishRunTargets.SkipsSite(target) ? "Publish error" : "Package error", false);
         if (target == PublishRunTargets.WsusOnly)
         {
-            if (wsus.Ok) return new(PublishRowOutcomeKind.Success, wsusWarned ? "Published, warning" : "Published", true);
-            if (wsus.Refused) return new(PublishRowOutcomeKind.NotSupported, "WSUS: not supported", false);
-            return new(PublishRowOutcomeKind.Failed, "Publish error", false);
+            if (wsus.Ok)
+            {
+                var status = wsus.Status == WsusStepStatus.AlreadyPublished ? "Already on the server" : "Published";
+                return wsusWarned
+                    ? new(PublishRowOutcomeKind.Success, status + ", warning", true, wsus.Message)
+                    : new(PublishRowOutcomeKind.Success, status, true);
+            }
+            if (wsus.Refused) return new(PublishRowOutcomeKind.NotSupported, wsus.NotSupportedReason, false, wsus.Message);
+            return new(PublishRowOutcomeKind.Failed, "Publish error", false, wsus.Message);
         }
         if (target == PublishRunTargets.IntuneOnly)
         {

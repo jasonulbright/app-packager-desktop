@@ -332,7 +332,7 @@
                             <DataGrid x:Name="gridByoSources" Style="{StaticResource WbGrid}" ItemsSource="{Binding ByoSources}"
                                       IsReadOnly="True" MaxHeight="190" Margin="0,0,0,10">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Revision" Width="70" Binding="{Binding Revision}" />
+                                    <DataGridTextColumn Header="Revision" Width="90" Binding="{Binding Revision}" />
                                     <DataGridTextColumn Header="Installer" Width="1.2*" MinWidth="140" Binding="{Binding FileName}" />
                                     <DataGridTextColumn Header="Version" Width="90" Binding="{Binding Version}" />
                                     <DataGridTextColumn Header="Type" Width="60" Binding="{Binding InstallerType}" />
@@ -585,7 +585,7 @@
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Group" Width="70" Binding="{Binding Group, UpdateSourceTrigger=PropertyChanged}" />
                                         <DataGridTextColumn Header="Type" Width="100" Binding="{Binding Type, UpdateSourceTrigger=PropertyChanged}" />
-                                        <DataGridTextColumn Header="Subject" Width="*" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" />
+                                        <DataGridTextColumn Header="Subject" Width="*" MinWidth="120" Binding="{Binding Subject, UpdateSourceTrigger=PropertyChanged}" />
                                         <DataGridTextColumn Header="Operator" Width="120" Binding="{Binding Operator, UpdateSourceTrigger=PropertyChanged}" />
                                         <DataGridTextColumn Header="Expected" Width="160" Binding="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" />
                                     </DataGrid.Columns>
@@ -662,7 +662,7 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Operation" Width="100" Binding="{Binding Op}" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Rule id" Width="140" Binding="{Binding RuleId}" IsReadOnly="True" />
-                                <DataGridTextColumn Header="Rule" Width="*" Binding="{Binding Summary}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Rule" Width="*" MinWidth="120" Binding="{Binding Summary}" IsReadOnly="True" />
                                 <DataGridTextColumn Header="Value" Width="180" Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Applies to" Width="130" Binding="{Binding AppliesTo, UpdateSourceTrigger=PropertyChanged}" />
                             </DataGrid.Columns>
@@ -696,7 +696,7 @@
                                   ItemsSource="{Binding Variants}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Variant" Width="150" Binding="{Binding Suffix}" IsReadOnly="True" />
-                                <DataGridTextColumn Header="Install command" Width="*" Binding="{Binding InstallCommand, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Install command" Width="*" MinWidth="160" Binding="{Binding InstallCommand, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Detection" Width="200" Binding="{Binding Detection, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Estimated" Width="90" Binding="{Binding Estimated, UpdateSourceTrigger=PropertyChanged}" />
                                 <DataGridTextColumn Header="Maximum" Width="90" Binding="{Binding Maximum, UpdateSourceTrigger=PropertyChanged}" />
@@ -832,7 +832,7 @@
                     <DataGrid Grid.Row="2" x:Name="dgSourceFiles" Style="{StaticResource WbGrid}"
                               ItemsSource="{Binding SourceFiles}" SelectedItem="{Binding SelectedSourceFile}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Source" Width="*" Binding="{Binding Provenance}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Source" Width="*" MinWidth="120" Binding="{Binding Provenance}" IsReadOnly="True" />
                             <DataGridTextColumn Header="Destination" Width="220" Binding="{Binding Destination, UpdateSourceTrigger=PropertyChanged}" />
                             <DataGridTextColumn Header="Size" Width="110" Binding="{Binding SizeText}" IsReadOnly="True" />
                             <DataGridTextColumn Header="SHA-256" Width="160" Binding="{Binding ShortHash}" IsReadOnly="True" />
@@ -863,8 +863,8 @@
                     <DataGrid Grid.Row="1" Grid.Column="0" x:Name="dgDiff" Style="{StaticResource WbGrid}" IsReadOnly="True" ItemsSource="{Binding DiffRows}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Field" Width="190" Binding="{Binding Field}" />
-                            <DataGridTextColumn Header="Default" Width="*" Binding="{Binding Default}" />
-                            <DataGridTextColumn Header="Custom" Width="*" Binding="{Binding Custom}" />
+                            <DataGridTextColumn Header="Default" Width="*" MinWidth="120" Binding="{Binding Default}" />
+                            <DataGridTextColumn Header="Custom" Width="*" MinWidth="120" Binding="{Binding Custom}" />
                         </DataGrid.Columns>
                     </DataGrid>
 
@@ -873,7 +873,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Severity" Width="80" Binding="{Binding Severity}" />
                             <DataGridTextColumn Header="Code" Width="150" Binding="{Binding Code}" />
-                            <DataGridTemplateColumn Header="Message" Width="*">
+                            <DataGridTemplateColumn Header="Message" Width="*" MinWidth="160">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="4,2" />
@@ -893,8 +893,8 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Build id" Width="210" Binding="{Binding BuildId}" />
                             <DataGridTextColumn Header="Version" Width="80" Binding="{Binding Version}" />
-                            <DataGridTextColumn Header="Revision" Width="64" Binding="{Binding Revision}" />
-                            <DataGridTextColumn Header="Result" Width="*" Binding="{Binding Result}" />
+                            <DataGridTextColumn Header="Revision" Width="90" Binding="{Binding Revision}" />
+                            <DataGridTextColumn Header="Result" Width="*" MinWidth="120" Binding="{Binding Result}" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

@@ -19,6 +19,7 @@ public partial class PackagesPage
         InitializeComponent();
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        ColIntune.Visibility = viewModel.ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
 
         KeyDown += OnPageKeyDown;
         Loaded += (_, _) => Focus();
@@ -95,6 +96,10 @@ public partial class PackagesPage
             var vis = show ? Visibility.Visible : Visibility.Collapsed;
             ColCMName.Visibility = vis;
             ColScript.Visibility = vis;
+        }
+        else if (e.PropertyName == nameof(PackagesViewModel.ShowIntuneColumn))
+        {
+            ColIntune.Visibility = ((PackagesViewModel)DataContext!).ShowIntuneColumn ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 

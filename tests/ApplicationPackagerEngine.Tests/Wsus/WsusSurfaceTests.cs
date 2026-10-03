@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services.OneClick;
 using ApplicationPackagerEngine.Services.Wsus;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
@@ -384,7 +385,46 @@ public sealed class WsusSurfaceTests
         Assert.Equal(["CustomInstall"], step.RefusalCodes);
         Assert.Equal("not supported: CustomInstall", step.NotSupportedReason);
         Assert.Equal("not supported: CustomInstall. This application cannot be published to WSUS: CustomInstall: install.ps1 runs extra steps", step.Message);
-        Assert.Equal("WSUS: not supported", PublishRowOutcome.For(PublishRunTargets.WsusOnly, 0, wsus: step).Status);
+        Assert.Equal("not supported: CustomInstall", PublishRowOutcome.For(PublishRunTargets.WsusOnly, 0, wsus: step).Status);
+    }
+
+    private const string SqlTimeout = "Execution Timeout Expired. The timeout period elapsed prior to completion of the operation or the server is not responding. Operation cancelled by user. The statement has been terminated.";
+
+    [Fact]
+    public async Task ADatabaseTimeoutEndsWithTheCauseAndTheRemedy()
+    {
+        var rejected = WsusMessages.PublishRejected(SqlTimeout, 100, 384);
+        var failed = await WsusPublishStep.RunAsync(new FakePublisher(() => throw new WsusOperationException(WsusErrorKinds.PublishRejected, rejected)),
+            new StageManifest(), "c:\\x", new WsusSettings());
+
+        Assert.Equal(WsusStepStatus.Failed, failed.Status);
+        Assert.StartsWith("WSUS rejected the package: Execution Timeout Expired.", failed.Message);
+        Assert.EndsWith(" " + WsusMessages.DatabaseTimeoutHint, failed.Message);
+        Assert.Equal(1, CountOf(failed.Message, WsusMessages.DatabaseTimeoutHint));
+        Assert.EndsWith(WsusMessages.DatabaseTimeoutHint, OneClickPlanner.WsusResult(failed).Cell);
+    }
+
+    [Fact]
+    public async Task ADatabaseTimeoutOutsideTheCommitStepGetsTheSameSentence()
+    {
+        var failed = await WsusPublishStep.RunAsync(new FakePublisher(() => throw new WsusOperationException(WsusErrorKinds.Failed, SqlTimeout)),
+            new StageManifest(), "c:\\x", new WsusSettings());
+        Assert.Equal(SqlTimeout + " " + WsusMessages.DatabaseTimeoutHint, failed.Message);
+    }
+
+    [Fact]
+    public void TheDatabaseTimeoutSentenceNamesTheCauseAndTheRemedy()
+    {
+        Assert.Equal("The WSUS database did not answer in time; run WSUS database maintenance (rebuild indexes, update statistics) and publish again.",
+            WsusMessages.DatabaseTimeoutHint);
+        Assert.Equal("no route", WsusMessages.PublishFailure("no route"));
+    }
+
+    private static int CountOf(string text, string part)
+    {
+        var count = 0;
+        for (var i = text.IndexOf(part, StringComparison.Ordinal); i >= 0; i = text.IndexOf(part, i + part.Length, StringComparison.Ordinal)) count++;
+        return count;
     }
 
     [Fact]
