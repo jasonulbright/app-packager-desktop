@@ -105,7 +105,9 @@ public sealed class IntunePublishService : IDisposable
             ["description"] = string.IsNullOrWhiteSpace(options.Description) ? manifest.AppName : options.Description,
             ["publisher"] = manifest.Publisher,
             ["fileName"] = Path.GetFileName(intuneWinPath),
-            ["setupFilePath"] = meta.SetupFile,
+            // The real entry the package runs; the prep tool's own setup reference is
+            // only correct for the generic install.bat layout.
+            ["setupFilePath"] = FirstNonBlank(manifest.SetupFile, meta.SetupFile),
             ["installCommandLine"] = installCommand,
             ["uninstallCommandLine"] = uninstallCommand,
             ["minimumSupportedWindowsRelease"] = options.MinimumSupportedWindowsRelease,
@@ -113,7 +115,9 @@ public sealed class IntunePublishService : IDisposable
             {
                 // A per-user deployment runs its installer in the user's session; a
                 // machine install under the user account has no rights to Program Files.
-                ["runAsAccount"] = manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase) ? "user" : "system",
+                ["runAsAccount"] = (manifest.InstallationBehaviorType is { } behavior
+                    ? behavior.Equals("InstallForUser", StringComparison.OrdinalIgnoreCase)
+                    : manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase)) ? "user" : "system",
                 ["deviceRestartBehavior"] = "basedOnReturnCode"
             },
             ["rules"] = rules,
@@ -128,14 +132,18 @@ public sealed class IntunePublishService : IDisposable
         // largeIcon is a mimeContent (type + base64 bytes) on the app entity,
         // not a separate upload. An unresolvable icon leaves the property unset
         // rather than failing the publish.
-        if (!string.IsNullOrWhiteSpace(manifest.Icon))
+        // A custom icon chosen in a profile outranks the extracted or icon-pack image.
+        var iconName = FirstNonBlank(
+            manifest.CustomAssets?.FirstOrDefault(a => string.Equals(a.Category, "Icon", StringComparison.OrdinalIgnoreCase))?.RelativePath,
+            manifest.Icon ?? "");
+        if (!string.IsNullOrWhiteSpace(iconName))
         {
-            var iconPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(intuneWinPath))!, manifest.Icon);
+            var iconPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(intuneWinPath))!, iconName);
             var largeIcon = BuildIconMimeContent(iconPath);
             if (largeIcon is not null)
             {
                 appBody["largeIcon"] = largeIcon;
-                onProgress?.Invoke($"Intune app icon              : {manifest.Icon} ({(string?)largeIcon["type"]})");
+                onProgress?.Invoke($"Intune app icon              : {iconName} ({(string?)largeIcon["type"]})");
             }
             else
             {
@@ -386,8 +394,10 @@ public sealed class IntunePublishService : IDisposable
     /// </summary>
     public static JsonArray BuildRules(StageDetection detection, IntuneScriptRuleContext? signing)
     {
+        // A manifest staged before the opt-in existed carries no value and keeps converting.
+        var conversionAllowed = detection.IntuneScriptConversion != false;
         if (!string.Equals(detection.Type, "Compound", StringComparison.OrdinalIgnoreCase))
-            return new JsonArray(MapOne(detection, signing, signing?.DetectionScriptFile));
+            return new JsonArray(MapOne(detection, signing, signing?.DetectionScriptFile, conversionAllowed));
 
         // Graph ANDs every detection rule it is given, so an OR-connected
         // compound would publish as a narrower rule than the definition states.
@@ -400,7 +410,7 @@ public sealed class IntunePublishService : IDisposable
         if (clauses.Length < 2)
             throw new InvalidOperationException("A Compound detection requires at least two Clauses.");
 
-        var rules = clauses.Select(c => MapOne(c, signing, null)).ToArray();
+        var rules = clauses.Select(c => MapOne(c, signing, null, conversionAllowed)).ToArray();
         if (rules.Length > 1 && rules.Any(IsScriptRule))
             throw new InvalidOperationException(
                 "A prefix, suffix, or substring clause maps to a script rule, which this mapping does not combine with other clauses; use a Script detection for this app.");
@@ -411,7 +421,7 @@ public sealed class IntunePublishService : IDisposable
     private static bool IsScriptRule(JsonNode rule) =>
         string.Equals((string?)rule["@odata.type"], "#microsoft.graph.win32LobAppPowerShellScriptRule", StringComparison.Ordinal);
 
-    private static JsonNode MapOne(StageDetection d, IntuneScriptRuleContext? signing, string? scriptFile)
+    private static JsonNode MapOne(StageDetection d, IntuneScriptRuleContext? signing, string? scriptFile, bool conversionAllowed)
     {
         var type = string.IsNullOrWhiteSpace(d.Type) ? "RegistryKeyValue" : d.Type;
         var check32 = !d.Is64Bit;
@@ -426,7 +436,12 @@ public sealed class IntunePublishService : IDisposable
                 // clause builder defaults it.
                 var opName = string.IsNullOrWhiteSpace(d.Operator) ? "IsEquals" : d.Operator!;
                 if (ScriptOperators.Contains(opName, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (!conversionAllowed)
+                        throw new InvalidOperationException(
+                            $"Detection operator '{opName}' on registry value '{valueName}' has no native Intune rule; converting it to a PowerShell detection script is an explicit profile choice (Detection.IntuneScriptConversion). Set it in the workbench, or publish this application to ConfigMgr only.");
                     return RegistryValueScriptRule(d, valueName, expected, opName, signing);
+                }
                 var operationType = Version.TryParse(expected, out _) ? "version" : "string";
                 return new JsonObject
                 {

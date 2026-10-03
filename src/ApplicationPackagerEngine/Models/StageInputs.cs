@@ -1,3 +1,8 @@
+using ApplicationPackagerEngine.Models.Signing;
+using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services.Signing;
+using ApplicationPackagerEngine.Services.Workbench;
+
 namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
@@ -14,4 +19,16 @@ public sealed class StageInputs
 
     /// <summary>Citrix Workspace switch settings for a definition that names a switch stream.</summary>
     public CitrixWorkspaceSwitches? CitrixSwitches { get; init; }
+
+    /// <summary>The run snapshot whose profile this build applies; null builds without a profile.</summary>
+    public RunSnapshot? RunSnapshot { get; init; }
+
+    /// <summary>The global signing policy; a policy in the run snapshot takes its place.</summary>
+    public SigningPolicy? SigningPolicy { get; init; }
+
+    /// <summary>Resolves the signing certificate before any content is written; null uses the signing service.</summary>
+    public ISigningCertificateGate? SigningGate { get; init; }
+
+    /// <summary>Signs the stage; null uses a service over the current user's certificate stores.</summary>
+    public ScriptSigningService? Signer { get; init; }
 }

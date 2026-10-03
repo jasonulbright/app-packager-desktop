@@ -248,7 +248,7 @@ public sealed class DefinitionEngineFieldTests : IDisposable
              "InstallContext", "InstallMode", "InstallArgs", "UninstallArgs", "ProductCode", "RunningProcess", "Detection", "StagedAt",
              "FileHashes", "Icon", "UninstallCommand", "DetectedEngine", "AdHocSource", "DeploymentTypes", "CommandOverrides", "MsixPackage",
              "BuildId", "ApplicationId", "ProfileId", "ProfileRevision", "Timing", "Execution", "DetectionSource", "CustomAssets",
-             "RunOverrides", "PlanDigest"],
+             "RunOverrides", "ScriptSigning", "PlanDigest"],
             names);
         Assert.Equal("1.2.3", doc.RootElement.GetProperty("Detection").GetProperty("ExpectedValue").GetString());
         Assert.Equal("/S", doc.RootElement.GetProperty("InstallArgs").GetString());

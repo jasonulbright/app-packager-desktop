@@ -1,0 +1,60 @@
+namespace ApplicationPackagerEngine.Services.Workbench;
+
+/// <summary>Copies a profile file into a stage root under the containment, collision and reparse-point rules.</summary>
+public static class StageFileCopier
+{
+    /// <summary>
+    /// Copies <paramref name="sourcePath"/> to <paramref name="destination"/> under
+    /// the stage root and returns the written path. A file already at the destination
+    /// is replaced only when its SHA-256 equals <paramref name="expectedSha256"/>:
+    /// that is this profile's own copy from an earlier stage of the same version,
+    /// which the build-record prune misses when no record was written. Anything
+    /// else there is a real collision with generated or third-party content.
+    /// </summary>
+    public static string Copy(string stageRoot, string sourcePath, string destination,
+        string? expectedSha256 = null, bool allowOverwrite = false)
+    {
+        if (Path.IsPathRooted(destination))
+            throw new InvalidOperationException($"Source file destination '{destination}' must be relative to the content root.");
+        var rootFull = Path.GetFullPath(stageRoot).TrimEnd('\\');
+        var targetFull = Path.GetFullPath(Path.Combine(rootFull, destination));
+        if (!targetFull.StartsWith(rootFull + "\\", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"Source file destination '{destination}' escapes the content root.");
+        if (!allowOverwrite && (File.Exists(targetFull) || Directory.Exists(targetFull)))
+        {
+            var replaceable = !string.IsNullOrWhiteSpace(expectedSha256) && File.Exists(targetFull)
+                && string.Equals(WorkbenchJson.FileSha256(targetFull), expectedSha256, StringComparison.OrdinalIgnoreCase);
+            if (!replaceable)
+                throw new InvalidOperationException($"Source file destination '{destination}' collides with a file already in the stage root.");
+        }
+        if (!File.Exists(sourcePath))
+            throw new InvalidOperationException($"Source file '{sourcePath}' is missing; the build cannot snapshot it.");
+        if (WorkbenchJson.IsReparsePoint(sourcePath))
+            throw new InvalidOperationException($"Source file '{sourcePath}' is a reparse point; copy the real file into the profile instead.");
+        AssertNoReparsePoint(rootFull, targetFull);
+
+        var folder = Path.GetDirectoryName(targetFull)!;
+        Directory.CreateDirectory(folder);
+        AssertNoReparsePoint(rootFull, folder);
+        File.Copy(sourcePath, targetFull, overwrite: true);
+        return targetFull;
+    }
+
+    /// <summary>
+    /// Throws when any existing element between the root and the path, or the root
+    /// itself, is a reparse point, so a staged file is never written through a link.
+    /// </summary>
+    public static void AssertNoReparsePoint(string root, string path)
+    {
+        var rootFull = Path.GetFullPath(root).TrimEnd('\\');
+        var current = Path.GetFullPath(path);
+        while (!string.IsNullOrEmpty(current) && current.TrimEnd('\\').Length > rootFull.Length)
+        {
+            if (WorkbenchJson.IsReparsePoint(current))
+                throw new InvalidOperationException($"Source file destination '{path}' resolves through a reparse point at '{current}'.");
+            current = Path.GetDirectoryName(current);
+        }
+        if (WorkbenchJson.IsReparsePoint(rootFull))
+            throw new InvalidOperationException($"Stage root '{rootFull}' is a reparse point.");
+    }
+}

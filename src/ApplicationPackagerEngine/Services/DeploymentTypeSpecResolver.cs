@@ -15,6 +15,10 @@ public sealed class DeploymentTypeSpec
     /// fallback, never inherited rules.
     /// </summary>
     public StageRequirement[] Requirements { get; set; } = [];
+    /// <summary>The entry's own InstallationBehaviorType; null takes the manifest's.</summary>
+    public string? InstallationBehaviorType { get; set; }
+    /// <summary>The entry's own LogonRequirementType; null takes the manifest's.</summary>
+    public string? LogonRequirementType { get; set; }
 }
 
 /// <summary>
@@ -48,7 +52,7 @@ public static class DeploymentTypeSpecResolver
                     InstallCommand = DefaultInstallCommand,
                     UninstallCommand = DefaultUninstallCommand,
                     Detection = manifest.Detection,
-                    Requirements = []
+                    Requirements = (manifest.Requirements ?? []).Where(r => r is not null).ToArray()
                 }
             ];
         }
@@ -90,7 +94,9 @@ public static class DeploymentTypeSpecResolver
                 // inheriting the base rules here would gate the fallback by
                 // accident. Nulls inside the array are dropped so a rule-less
                 // entry carries zero rules, not one phantom rule.
-                Requirements = (entry.Requirements ?? []).Where(r => r is not null).ToArray()
+                Requirements = (entry.Requirements ?? []).Where(r => r is not null).ToArray(),
+                InstallationBehaviorType = entry.InstallationBehaviorType,
+                LogonRequirementType = entry.LogonRequirementType
             });
         }
 

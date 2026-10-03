@@ -30,7 +30,8 @@ public sealed class MecmTarget
         CancellationToken ct = default,
         string? contentLayout = null,
         string? applicationTitle = null,
-        MecmScriptSigningContext? scriptSigning = null)
+        MecmScriptSigningContext? scriptSigning = null,
+        Workbench.ProfileContentScope? contentScope = null)
     {
         try
         {
@@ -42,7 +43,9 @@ public sealed class MecmTarget
             var publisher = manifest.Publisher;
             var vendorFolder = SanitizeFolderName(publisher);
             var appFolder = manifest.DisplayName ?? manifest.AppName;
-            var networkContentPath = ContentLayouts.ContentPath(fileServerPath, contentLayout ?? ContentLayouts.Nested, vendorFolder, appFolder, version);
+            // Two profiles of one application at one version never share a network folder.
+            var versionFolder = (contentScope ?? Workbench.ProfileContentScope.Default).ScopedVersionFolder(version);
+            var networkContentPath = ContentLayouts.ContentPath(fileServerPath, contentLayout ?? ContentLayouts.Nested, vendorFolder, appFolder, versionFolder);
 
             // 0. Validate content share accessibility
             var shareRoot = Path.GetPathRoot(fileServerPath) ?? fileServerPath;
@@ -259,7 +262,9 @@ public sealed class MecmTarget
 
         // Task-sequence installation is application-wide, so it is offered only
         // when the deployment types all run as system without a logged-on user.
-        var isUserInstall = manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase);
+        var isUserInstall = manifest.InstallationBehaviorType is { } manifestBehavior
+            ? string.Equals(manifestBehavior, InstallForUser, StringComparison.OrdinalIgnoreCase)
+            : manifest.InstallContext.Equals("User", StringComparison.OrdinalIgnoreCase);
         var allowTaskSequence = !isUserInstall;
 
         // Existing application: every title collision takes the operator's
@@ -414,17 +419,18 @@ public sealed class MecmTarget
             sb.Append($" -ContentLocation '{Esc(spec.ContentLocation)}'");
             sb.Append($" -InstallCommand '{Esc(spec.InstallCommand)}'");
             sb.Append($" -UninstallCommand '{Esc(spec.UninstallCommand)}'");
-            if (isUserInstall)
-            {
-                sb.Append(" -InstallationBehaviorType InstallForUser");
-                // LogonRequirementType cannot be set when InstallationBehaviorType is InstallForUser
-            }
-            else
-            {
-                sb.Append(" -InstallationBehaviorType InstallForSystem");
-                sb.Append(" -LogonRequirementType WhetherOrNotUserLoggedOn");
-            }
-            sb.Append($" -EstimatedRuntimeMins {estRuntime} -MaximumRuntimeMins {maxRuntime}");
+            var behavior = ValidateBehavior(spec.InstallationBehaviorType ?? manifest.InstallationBehaviorType
+                ?? (isUserInstall ? InstallForUser : "InstallForSystem"));
+            sb.Append($" -InstallationBehaviorType {behavior}");
+            // LogonRequirementType cannot be set when InstallationBehaviorType is InstallForUser
+            if (behavior != InstallForUser)
+                sb.Append($" -LogonRequirementType {ValidateLogonRequirement(spec.LogonRequirementType ?? manifest.LogonRequirementType ?? "WhetherOrNotUserLoggedOn")}");
+            var timing = DeploymentTypeTiming.Resolve(manifest.Timing, estRuntime, maxRuntime, $"deployment type '{spec.DtName}'", onLog);
+            if (timing.Source == "manifest")
+                onLog?.Invoke($"Runtime minutes (manifest)   : estimated {timing.EstimatedRuntimeMins}, maximum {timing.MaximumRuntimeMins}");
+            sb.Append($" -EstimatedRuntimeMins {timing.EstimatedRuntimeMins} -MaximumRuntimeMins {timing.MaximumRuntimeMins}");
+            if (manifest.RequireUserInteraction == true)
+                sb.Append(" -RequireUserInteraction $true");
             sb.Append(" -ContentFallback -SlowNetworkDeploymentMode Download");
             if (!string.IsNullOrWhiteSpace(manifest.PostExecutionBehavior))
                 sb.Append($" -RebootBehavior {StagingService.NormalizePostExecutionBehavior(manifest.PostExecutionBehavior)}");
@@ -507,6 +513,26 @@ public sealed class MecmTarget
 
         return sb.ToString();
     }
+
+    private const string InstallForUser = "InstallForUser";
+
+    private static readonly string[] InstallationBehaviors =
+        [InstallForUser, "InstallForSystem", "InstallForSystemIfResourceIsDeviceOtherwiseInstallForUser"];
+
+    private static readonly string[] LogonRequirements =
+        ["OnlyWhenUserLoggedOn", "WhetherOrNotUserLoggedOn", "OnlyWhenNoUserLoggedOn"];
+
+    /// <summary>The cmdlet spelling of an InstallationBehaviorType; anything else is refused before it reaches the script.</summary>
+    public static string ValidateBehavior(string value) =>
+        InstallationBehaviors.FirstOrDefault(b => string.Equals(b, value?.Trim(), StringComparison.OrdinalIgnoreCase))
+        ?? throw new InvalidOperationException(
+            $"Unsupported InstallationBehaviorType '{value}'; use {string.Join(", ", InstallationBehaviors)}.");
+
+    /// <summary>The cmdlet spelling of a LogonRequirementType; anything else is refused before it reaches the script.</summary>
+    public static string ValidateLogonRequirement(string value) =>
+        LogonRequirements.FirstOrDefault(l => string.Equals(l, value?.Trim(), StringComparison.OrdinalIgnoreCase))
+        ?? throw new InvalidOperationException(
+            $"Unsupported LogonRequirementType '{value}'; use {string.Join(", ", LogonRequirements)}.");
 
     /// <summary>
     /// Re-checks the resolved deployment-type commands for execution-policy

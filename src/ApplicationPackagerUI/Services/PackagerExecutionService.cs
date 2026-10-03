@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Signing;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Models;
 
@@ -60,7 +62,7 @@ public class PackagerExecutionService(
     /// </summary>
     public async Task<PackagerExecutionResult> StageAsync(
         PackagerInfo packager, Action<string>? onOutputLine = null, CancellationToken ct = default,
-        Dictionary<string, string>? settingsValues = null)
+        Dictionary<string, string>? settingsValues = null, RunSnapshot? snapshot = null)
     {
         // Route JSON-defined apps through the engine DLL
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
@@ -89,7 +91,9 @@ public class PackagerExecutionService(
             {
                 LocalSourceFolder = appSettings.LocalSourceFolders.TryGetValue(def.Id, out var folder) ? folder : null,
                 SideFiles = appSettings.SideFiles,
-                CitrixSwitches = appSettings.CitrixSwitches
+                CitrixSwitches = appSettings.CitrixSwitches,
+                RunSnapshot = snapshot,
+                SigningPolicy = appSettings.ScriptSigning
             };
             var result = await stagingService.StageAsync(def, appSettings.DownloadRoot, onOutputLine, ct, knownVersion, settingsValues, installMode, inputs);
             if (result.Success) packager.StagedVersion = Path.GetFileName(result.ContentPath);
@@ -103,7 +107,7 @@ public class PackagerExecutionService(
         }
 
         var settings = settingsService.Load();
-        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal);
+        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildStageArgs(packager, settings, bridge?.DownloadRoot);
         return await RunStreamingAsync(args, logPaths, onOutputLine, ct, bridge?.Environment);
@@ -115,10 +119,11 @@ public class PackagerExecutionService(
     /// </summary>
     public async Task<PackagerExecutionResult> PackageAsync(
         PackagerInfo packager, string comment, Action<string>? onOutputLine = null,
-        CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip)
+        CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
+        RunSnapshot? snapshot = null)
     {
         if (packager.StagedManifestPath is not null)
-            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting);
+            return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting, snapshot);
 
         var settings = settingsService.Load();
         var target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
@@ -127,10 +132,20 @@ public class PackagerExecutionService(
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
-            var appRoot = Path.Combine(settings.DownloadRoot, $"{def.Application.Replace(" ", "")}-{def.Architecture}");
+            var appRoot = Path.Combine(ProfileContentScope.LocalDownloadRoot(settings.DownloadRoot, snapshot?.ProfileId),
+                $"{def.Application.Replace(" ", "")}-{def.Architecture}");
             var manifestPath = Path.Combine(appRoot, packager.LatestVersion, "stage-manifest.json");
             if (!File.Exists(manifestPath) && !string.IsNullOrWhiteSpace(packager.StagedVersion))
                 manifestPath = Path.Combine(appRoot, packager.StagedVersion, "stage-manifest.json");
+            // A snapshot build packages exactly the stage that carries its BuildId, or nothing.
+            if (snapshot is not null)
+            {
+                try { manifestPath = BuildRecords.ResolveStageManifestForBuild(snapshot.BuildId, appRoot).ManifestPath; }
+                catch (Exception ex) when (ex is InvalidOperationException or DirectoryNotFoundException)
+                {
+                    return new PackagerExecutionResult { ExitCode = 1, StdErr = ex.Message };
+                }
+            }
 
             if (!File.Exists(manifestPath))
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
@@ -155,16 +170,20 @@ public class PackagerExecutionService(
             // Operator selections resolve before any target runs: a variant split rewrites
             // the manifest into gated deployment types, a plain selection stays flat rules
             // on the single deployment type.
-            var conditions = deploymentConditionsService.GetConditions(def.Id);
+            // A build finalized from a run snapshot already carries its profile's
+            // conditions, commands and title mode; the saved per-app settings do not apply.
+            var profiled = StageFinalizer.CarriesBuild(manifest);
+            var conditions = profiled ? null : deploymentConditionsService.GetConditions(def.Id);
             DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, stagedContentPath, Report);
             var requirements = DeploymentConditionsService.BuildRequirements(conditions);
             // Recorded on the manifest, not just handed to MECM: the Intune publish reads
             // its command lines from the manifest, so a saved override that never lands
             // there publishes install.bat and uninstall.bat instead.
             var commandOverrides = ApplicationPackagerEngine.Services.DeploymentTypeSpecResolver
-                .ResolveCommandOverrides(manifest, deploymentConditionsService.GetCommandOverrides(def.Id));
+                .ResolveCommandOverrides(manifest, profiled ? null : deploymentConditionsService.GetCommandOverrides(def.Id));
             var applicationTitle = ApplicationTitle.Resolve(
-                manifest.AppName, manifest.SoftwareVersion, ApplicationTitle.Parse(conditions?.TitleMode));
+                manifest.AppName, manifest.SoftwareVersion, ApplicationTitle.Parse(manifest.TitleMode ?? conditions?.TitleMode));
+            var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
             if (applicationTitle != manifest.AppName)
                 Report($"Application title            : {applicationTitle}");
 
@@ -186,12 +205,15 @@ public class PackagerExecutionService(
                     onExisting: onExisting,
                     ct: ct,
                     contentLayout: settings.ContentLayout,
-                    applicationTitle: applicationTitle);
+                    applicationTitle: applicationTitle,
+                    scriptSigning: MecmScriptSigningContext.FromManifest(manifest, signingPolicy),
+                    contentScope: ProfileContentScope.ForManifest(manifest));
 
                 mecmSucceeded = result.Success;
                 mecmAlreadyExists = result.AlreadyExists;
                 stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
                 stdErr = result.ErrorMessage ?? "";
+                RecordMecmPublication(manifest, result, settings, Report);
                 if (result.Success && !result.AlreadyExists)
                     afterMecm = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
             }
@@ -210,7 +232,7 @@ public class PackagerExecutionService(
                 // content location has already run.
                 manifest.AppName = applicationTitle;
                 notes = await intuneDeploymentService.BuildAndPublishAsync(
-                    manifest, stagedContentPath, Report, comment, ct);
+                    manifest, stagedContentPath, Report, comment, ct, signingPolicy);
             }
 
             var outcome = PackagingOutcomeComposer.Compose(
@@ -244,7 +266,7 @@ public class PackagerExecutionService(
         if (DeploymentTargets.PublishesToIntune(target))
             onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the MECM flow only.");
 
-        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal);
+        var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot);
         if (refusal is not null) return refusal;
         var (args, logPaths) = BuildPackageArgs(packager, settings, comment, bridge?.DownloadRoot);
         return await RunStreamingAsync(args, logPaths, onOutputLine, ct, bridge?.Environment);
@@ -256,14 +278,18 @@ public class PackagerExecutionService(
     /// failure runs the child without the bridge, as it ran before profiles existed.
     /// </summary>
     private static PackagerChildLaunch? PrepareChildBridge(
-        PackagerInfo packager, AppSettings settings, Action<string>? onOutputLine, out PackagerExecutionResult? refusal)
+        PackagerInfo packager, AppSettings settings, Action<string>? onOutputLine, out PackagerExecutionResult? refusal,
+        RunSnapshot? snapshot = null)
     {
         refusal = null;
         try
         {
+            if (snapshot is not null)
+                return PackagerChildBridge.FromSnapshot(WorkbenchStore.Open(snapshot.DataRoot), snapshot, settings.DownloadRoot);
             return PackagerChildBridge.Prepare(
                 WorkbenchStore.Open(), packager.FullPath, settings.DownloadRoot,
-                DeploymentTargets.Normalize(settings.Intune.DeploymentTarget));
+                DeploymentTargets.Normalize(settings.Intune.DeploymentTarget),
+                JsonSerializer.SerializeToNode(settings.ScriptSigning), new ScriptSigningCertificateGate());
         }
         catch (Exception ex) when (ex.Message.Contains("SigningCertificateUnavailable", StringComparison.Ordinal)
                                    || ex.Message == NoSigningServiceGate.NotLoadedMessage)
@@ -290,7 +316,8 @@ public class PackagerExecutionService(
     /// </summary>
     public async Task<PackagerExecutionResult> PackageStagedManifestAsync(
         string manifestPath, string comment, Action<string>? onOutputLine = null,
-        CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip)
+        CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
+        RunSnapshot? snapshot = null)
     {
         if (!File.Exists(manifestPath))
             return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
@@ -299,6 +326,7 @@ public class PackagerExecutionService(
         var target = DeploymentTargets.Normalize(settings.Intune.DeploymentTarget);
         var manifest = new ManifestService().Read(manifestPath);
         var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
+        var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
 
         var conflicts = new ConflictWatch();
         void Report(string line)
@@ -325,12 +353,15 @@ public class PackagerExecutionService(
                 providerMachine: settings.ProviderMachine,
                 onExisting: onExisting,
                 ct: ct,
-                contentLayout: settings.ContentLayout);
+                contentLayout: settings.ContentLayout,
+                scriptSigning: MecmScriptSigningContext.FromManifest(manifest, signingPolicy),
+                contentScope: ProfileContentScope.ForManifest(manifest));
 
             mecmSucceeded = result.Success;
             mecmAlreadyExists = result.AlreadyExists;
             stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
             stdErr = result.ErrorMessage ?? "";
+            RecordMecmPublication(manifest, result, settings, Report);
             if (result.Success && !result.AlreadyExists)
                 afterMecm = await RunPostPackageStepsAsync(mecmTarget, result, manifest, stagedContentPath, settings, target, Report, ct);
         }
@@ -343,7 +374,7 @@ public class PackagerExecutionService(
         var intuneRequested = DeploymentTargets.PublishesToIntune(target);
         var notes = IntuneRunOutcome.NotRun;
         if (intuneRequested && mecmSucceeded)
-            notes = await intuneDeploymentService.BuildAndPublishAsync(manifest, stagedContentPath, Report, comment, ct);
+            notes = await intuneDeploymentService.BuildAndPublishAsync(manifest, stagedContentPath, Report, comment, ct, signingPolicy);
 
         var outcome = PackagingOutcomeComposer.Compose(
             PackagingOutcomeComposer.MecmStatus(
@@ -360,6 +391,12 @@ public class PackagerExecutionService(
             Conflict = conflicts.Result
         };
     }
+
+    /// <summary>Appends the ConfigMgr publication record of a snapshot build; other builds record nothing.</summary>
+    private static void RecordMecmPublication(StageManifest manifest, PackagingResult result, AppSettings settings, Action<string> report) =>
+        PublicationRecords.TryAppend(manifest, PublicationRecords.Mecm,
+            !result.Success ? PublicationRecords.Failed : result.AlreadyExists ? PublicationRecords.Skipped : PublicationRecords.Succeeded,
+            result.ApplicationName, settings.SiteCode, result.Success ? null : result.ErrorMessage, report);
 
     /// <summary>
     /// The optional steps that follow a new MECM application: content distribution to

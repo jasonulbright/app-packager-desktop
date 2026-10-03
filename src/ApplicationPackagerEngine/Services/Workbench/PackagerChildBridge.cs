@@ -61,6 +61,22 @@ public static class PackagerChildBridge
             DownloadRoot = effectiveDownloadRoot
         }, signingGate);
 
+        return FromSnapshot(store, snapshot, downloadRoot, includeVersionInTitle);
+    }
+
+    /// <summary>
+    /// The child environment for a run snapshot that already exists, such as one a
+    /// caller created to stage and then package the same build. The download root
+    /// is scoped to the snapshot's profile the same way <see cref="Prepare"/> scopes it.
+    /// </summary>
+    public static PackagerChildLaunch FromSnapshot(WorkbenchStore store, RunSnapshot snapshot, string downloadRoot,
+        bool includeVersionInTitle = false)
+    {
+        if (string.IsNullOrWhiteSpace(snapshot.Path))
+            throw new InvalidOperationException("The run snapshot has no file; a packager child reads it from APP_PACKAGER_RUN_SNAPSHOT.");
+        var profileId = string.IsNullOrWhiteSpace(snapshot.ProfileId) ? ApplicationIds.DefaultProfileId : snapshot.ProfileId;
+        var effectiveDownloadRoot = WorkbenchPaths.GetProfileDownloadRoot(downloadRoot, profileId);
+
         var environment = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             [RunSnapshotVariable] = snapshot.Path!,
@@ -71,7 +87,7 @@ public static class PackagerChildBridge
         foreach (var (name, value) in BuildLegacyVariables(profile, includeVersionInTitle))
             environment[name] = value;
 
-        return new PackagerChildLaunch(applicationId, profileId, effectiveDownloadRoot, snapshot, environment);
+        return new PackagerChildLaunch(snapshot.ApplicationId, profileId, effectiveDownloadRoot, snapshot, environment);
     }
 
     /// <summary>
