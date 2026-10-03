@@ -22,17 +22,27 @@ public class ScriptDetectionIntunePortTests
         return (JsonObject)IntunePublishService.BuildRules(staged)[0]!;
     }
 
-    [Theory]
-    [InlineData("ocenaudio.json", "3.14.5")]
-    [InlineData("anyburn.json", "5.9")]
-    [InlineData("teracopy.json", "3.17")]
-    [InlineData("picpick.json", "7.3.2")]
-    [InlineData("pidgin.json", "2.14.13")]
-    [InlineData("openshot.json", "3.3.0")]
-    [InlineData("bulkrenameutility.json", "4.0.0.2")]
-    public void AShippedScriptDefinitionSurvivesStagingIntoTheGraphRule(string fileName, string version)
+    /// <summary>An ARP-key scan across both registry views, the shape a definition script takes.</summary>
+    private static AppDefinition ArpScanDefinition() => new()
     {
-        var def = DefinitionFixture.Load(fileName);
+        Application = "Test App",
+        CMName = "Test App",
+        InstallerType = "EXE",
+        Detection = new DetectionConfig
+        {
+            Type = "Script",
+            ScriptLanguage = "PowerShell",
+            ScriptText = "$keys = @(\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio'\n)\n$wanted = [version]'{version}'\nforeach ($key in $keys) {\n    if (-not (Test-Path -LiteralPath $key)) { continue }\n    $entry = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue\n    if (-not $entry) { continue }\n    $found = $null\n    if (-not [version]::TryParse([string]$entry.DisplayVersion, [ref]$found)) { continue }\n    if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }\n}\nexit 0"
+        }
+    };
+
+    [Theory]
+    [InlineData("3.14.5")]
+    [InlineData("5.9")]
+    [InlineData("4.0.0.2")]
+    public void AScriptDefinitionSurvivesStagingIntoTheGraphRule(string version)
+    {
+        var def = ArpScanDefinition();
         var staged = StagingService.BuildDetection(def, null, version);
 
         // Staging is what puts the body in ScriptText; ExpectedValue stays empty for
@@ -53,7 +63,7 @@ public class ScriptDetectionIntunePortTests
     [Fact]
     public void TheStagedVersionReachesThePublishedScript()
     {
-        var rule = MapStaged(DefinitionFixture.Load("ocenaudio.json"), "3.14.5");
+        var rule = MapStaged(ArpScanDefinition(), "3.14.5");
         var script = ScriptOf(rule);
 
         Assert.Contains("$wanted = [version]'3.14.5'", script);
@@ -66,7 +76,7 @@ public class ScriptDetectionIntunePortTests
     [Fact]
     public void ThePublishedScriptIsTheDefinitionBodyWithTheTokenSubstituted()
     {
-        var def = DefinitionFixture.Load("ocenaudio.json");
+        var def = ArpScanDefinition();
         var expected = def.Detection.ScriptText!.Replace("{version}", "3.14.5", StringComparison.OrdinalIgnoreCase);
 
         Assert.Equal(expected, ScriptOf(MapStaged(def, "3.14.5")));
@@ -134,7 +144,7 @@ public class ScriptDetectionIntunePortTests
     [Fact]
     public void ANonMsixScriptDefinitionWithNoBodyIsRefusedAtStaging()
     {
-        var def = DefinitionFixture.Load("ocenaudio.json");
+        var def = ArpScanDefinition();
         def.Detection.ScriptText = "   ";
 
         var ex = Assert.Throws<InvalidOperationException>(

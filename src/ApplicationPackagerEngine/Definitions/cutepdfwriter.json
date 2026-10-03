@@ -33,5 +33,5 @@
     "RunningProcess":  [
 
                        ],
-    "UninstallCommand":  "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"CuteWriter*.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART\" -Wait -PassThru -NoNewWindow"
+    "UninstallCommand":  "$uninstaller = Join-Path ${env:ProgramFiles(x86)} 'CutePDF Writer\\unInstcpw64.exe'; if (-not (Test-Path -LiteralPath $uninstaller)) { exit 0 }; $proc = Start-Process -FilePath $uninstaller -ArgumentList @('/uninstall', '/s') -Wait -PassThru -NoNewWindow"
 }

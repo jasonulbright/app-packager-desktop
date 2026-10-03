@@ -21,9 +21,13 @@
   "UninstallArgs": "/AllUsers /S",
   "UninstallCommand": "$keys = @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio'); foreach ($k in $keys) { if (-not (Test-Path -LiteralPath $k)) { continue }; $e = Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue; if (-not $e -or -not $e.UninstallString) { continue }; $exe = ($e.UninstallString -replace '^\"([^\"]+)\".*$', '$1').Trim('\"'); if (-not (Test-Path -LiteralPath $exe)) { continue }; $proc = Start-Process -FilePath $exe -ArgumentList '/AllUsers','/S' -Wait -PassThru -NoNewWindow; exit $proc.ExitCode }; exit 0",
   "Detection": {
-    "Type": "Script",
-    "ScriptLanguage": "PowerShell",
-    "ScriptText": "$keys = @(\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio'\n)\n$wanted = [version]'{version}'\nforeach ($key in $keys) {\n    if (-not (Test-Path -LiteralPath $key)) { continue }\n    $entry = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue\n    if (-not $entry) { continue }\n    $found = $null\n    if (-not [version]::TryParse([string]$entry.DisplayVersion, [ref]$found)) { continue }\n    if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }\n}\nexit 0"
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ocenaudio",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": false
   },
   "RunningProcess": [
     "ocenaudio"

@@ -500,7 +500,7 @@ public sealed class StagingService
             // Built ahead of the wrappers: the EXE uninstall wrapper takes its
             // Add/Remove Programs lookup hints from the resolved detection rule.
             var detection = msixPackage is not null
-                ? BuildMsixScriptDetection(msixPackage)
+                ? BuildMsixDetection(def.Detection, msixPackage)
                 : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues);
 
             // 6a. Install mode. A definition that declares both modes lets the
@@ -539,7 +539,8 @@ public sealed class StagingService
                 var (arpKeyName, installFolder) = WrapperGeneratorService.ResolveUninstallHints(detection);
                 _wrapperService.GenerateExeWrappers(contentPath, installerFileName,
                     installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand,
-                    ResolvePostInstallScript(def, settingsValues), arpKeyName, installFolder);
+                    ResolvePostInstallScript(def, settingsValues), arpKeyName, installFolder,
+                    def.PostInstallKillProcesses, def.RebootExitCodes);
             }
 
             // 6b. Detection conformance check — log if definition's detection differs from metadata-derived
@@ -1190,6 +1191,42 @@ public sealed class StagingService
         var safeName = def.Application.Replace(" ", "").Replace("(", "").Replace(")", "");
         var ext = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ? ".msi" : ".exe";
         return $"{safeName}-{version}{ext}";
+    }
+
+    private const string AllUserStoreApplications =
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Applications";
+
+    /// <summary>
+    /// Detection for a staged MSIX. A definition whose Detection.Type is
+    /// RegistryKey detects the provisioning store's key for the package full
+    /// name; any other type keeps the provisioned-package script.
+    /// </summary>
+    public static StageDetection BuildMsixDetection(DetectionConfig? definitionDetection, StageMsixPackage package) =>
+        definitionDetection?.Type.Equals("RegistryKey", StringComparison.OrdinalIgnoreCase) == true
+            ? BuildMsixProvisioningKeyDetection(package)
+            : BuildMsixScriptDetection(package);
+
+    /// <summary>
+    /// Existence detection on the all-user provisioning store key named by the
+    /// package full name. The name carries the exact version and
+    /// deprovisioning removes the key, so its presence is the installed state
+    /// of this build. The key lives in the native registry view.
+    /// </summary>
+    public static StageDetection BuildMsixProvisioningKeyDetection(StageMsixPackage package)
+    {
+        if (string.IsNullOrWhiteSpace(package.Name) || string.IsNullOrWhiteSpace(package.Version)
+            || string.IsNullOrWhiteSpace(package.ProcessorArchitecture) || string.IsNullOrWhiteSpace(package.Publisher))
+            throw new InvalidOperationException(
+                "MSIX identity is missing Name, Version, ProcessorArchitecture or Publisher; the package full name for detection cannot be built.");
+
+        var fullName = $"{package.Name}_{package.Version}_{package.ProcessorArchitecture}__{MsixPackageReader.PublisherHash(package.Publisher)}";
+        return new StageDetection
+        {
+            Type = "RegistryKey",
+            RegistryKeyRelative = $@"{AllUserStoreApplications}\{fullName}",
+            Is64Bit = true,
+            Hive = "LocalMachine"
+        };
     }
 
     /// <summary>

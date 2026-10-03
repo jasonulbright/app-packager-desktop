@@ -20,9 +20,13 @@
   "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
   "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
   "Detection": {
-    "Type": "Script",
-    "ScriptLanguage": "PowerShell",
-    "ScriptText": "$roots = @(\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall'\n)\n$wanted = [version]'{version}'\nforeach ($root in $roots) {\n    if (-not (Test-Path -LiteralPath $root)) { continue }\n    foreach ($sub in Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue) {\n        $entry = Get-ItemProperty -LiteralPath $sub.PSPath -ErrorAction SilentlyContinue\n        if (-not $entry -or [string]$entry.DisplayName -notlike 'Bulk Rename Utility*') { continue }\n        $found = $null\n        if (-not [version]::TryParse([string]$entry.DisplayVersion, [ref]$found)) { continue }\n        if ($found -ge $wanted) { Write-Output 'Installed'; exit 0 }\n    }\n}\nexit 0"
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Bulk Rename Utility Installation_is1",
+    "ValueName": "DisplayVersion",
+    "PropertyType": "Version",
+    "Operator": "GreaterEquals",
+    "Is64Bit": true
   },
   "RunningProcess": [
     "BulkRenameUtility"

@@ -65,29 +65,11 @@ public sealed class WrapperGeneratorService
     public void GenerateExeWrappers(string outputPath, string exeFileName,
         string installArgs, string uninstallArgs, string? installerFramework = null,
         string? applicationName = null, string? uninstallCommand = null,
-        string? postInstallScript = null, string? arpKeyName = null, string? installFolder = null)
+        string? postInstallScript = null, string? arpKeyName = null, string? installFolder = null,
+        IReadOnlyList<string>? postInstallKillProcesses = null, IReadOnlyList<int>? rebootExitCodes = null)
     {
         uninstallCommand = NormalizeUninstallCommand(uninstallCommand);
-        var installPs1 = $"""
-            $exePath = Join-Path $PSScriptRoot '{exeFileName}'
-            $proc = Start-Process -FilePath $exePath -ArgumentList '{installArgs}' -Wait -PassThru -NoNewWindow
-            $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-            exit $proc.ExitCode
-            """;
-
-        if (!string.IsNullOrWhiteSpace(postInstallScript))
-        {
-            // Post-install configuration runs only after a successful install and
-            // reports 0, so a configuration step never masks the installer's code.
-            installPs1 = $$"""
-                $exePath = Join-Path $PSScriptRoot '{{exeFileName}}'
-                $proc = Start-Process -FilePath $exePath -ArgumentList '{{installArgs}}' -Wait -PassThru -NoNewWindow
-                $proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline
-                if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }
-                {{postInstallScript!.Trim().Replace("\r\n", "\n").Replace("\n", "\r\n")}}
-                exit 0
-                """;
-        }
+        var installPs1 = BuildExeInstallScript(exeFileName, installArgs, postInstallScript, postInstallKillProcesses);
 
         // Framework-aware uninstall script
         string uninstallPs1;
@@ -108,7 +90,82 @@ public sealed class WrapperGeneratorService
                 applicationName, arpKeyName, installFolder);
         }
 
-        WriteWrappers(outputPath, installPs1, uninstallPs1);
+        WriteWrappers(outputPath,
+            ApplyRebootExitCodes(installPs1, rebootExitCodes),
+            ApplyRebootExitCodes(uninstallPs1, rebootExitCodes));
+    }
+
+    private const string ExitCodeFileLine = "$proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline";
+
+    /// <summary>
+    /// The EXE install body. With processes to stop, the installer is started
+    /// without -Wait: -Wait also waits for every descendant, and an installer
+    /// that launches its application never returns under a system-context
+    /// deployment. The wait then covers the installer process alone and the
+    /// launched instances are stopped before the exit code is reported. A
+    /// Process returned by Start-Process -PassThru without -Wait holds no
+    /// handle, and in Windows PowerShell its ExitCode reads null once the
+    /// process has exited, which the wrapper reports as 0; reading Handle
+    /// while the installer runs keeps the exit code.
+    /// Post-install configuration runs only after a successful install and
+    /// reports 0, so a configuration step never masks the installer's code.
+    /// </summary>
+    public static string BuildExeInstallScript(string exeFileName, string installArgs,
+        string? postInstallScript = null, IReadOnlyList<string>? postInstallKillProcesses = null)
+    {
+        var kill = postInstallKillProcesses?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList() ?? [];
+        var lines = new List<string> { $"$exePath = Join-Path $PSScriptRoot '{exeFileName}'" };
+        if (kill.Count > 0)
+        {
+            lines.Add($"$proc = Start-Process -FilePath $exePath -ArgumentList '{installArgs}' -PassThru -NoNewWindow");
+            lines.Add("$null = $proc.Handle");
+            lines.Add("$proc.WaitForExit()");
+            lines.Add("Start-Sleep -Seconds 3");
+            var names = string.Join(", ", kill.Select(p => "'" + EscapePsLiteral(p.Trim()) + "'"));
+            lines.Add($"foreach ($pn in @({names})) {{ Get-Process -Name $pn -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }}");
+        }
+        else
+        {
+            lines.Add($"$proc = Start-Process -FilePath $exePath -ArgumentList '{installArgs}' -Wait -PassThru -NoNewWindow");
+        }
+        lines.Add(ExitCodeFileLine);
+
+        if (!string.IsNullOrWhiteSpace(postInstallScript))
+        {
+            lines.Add("if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }");
+            lines.Add(postInstallScript.Trim().Replace("\r\n", "\n").Replace("\n", "\r\n"));
+            lines.Add("exit 0");
+        }
+        else
+        {
+            lines.Add("exit $proc.ExitCode");
+        }
+        return string.Join("\r\n", lines);
+    }
+
+    /// <summary>
+    /// Reports each reboot exit code as 3010 at every point a wrapper writes
+    /// exitcode.txt. The .bat wrapper returns the file's value, not the
+    /// PowerShell exit code, so the remapped value has to reach the file.
+    /// A script with no codes is returned unchanged.
+    /// </summary>
+    public static string ApplyRebootExitCodes(string script, IReadOnlyList<int>? rebootExitCodes)
+    {
+        var codes = rebootExitCodes?.Where(c => c != 0 && c != 3010).Distinct().ToList() ?? [];
+        if (codes.Count == 0) return script;
+
+        return System.Text.RegularExpressions.Regex.Replace(script,
+            @"(?m)^([ \t]*)" + System.Text.RegularExpressions.Regex.Escape(ExitCodeFileLine),
+            m =>
+            {
+                var indent = m.Groups[1].Value;
+                var sb = new StringBuilder();
+                foreach (var code in codes)
+                    sb.Append(indent)
+                      .Append($"if ($proc.ExitCode -eq {code}) {{ '3010' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit 3010 }}")
+                      .Append("\r\n");
+                return sb.Append(m.Value).ToString();
+            });
     }
 
     /// <summary>

@@ -28,5 +28,6 @@
     "Operator": "GreaterEquals",
     "Is64Bit": true
   },
-  "RunningProcess": ["HashTools"]
+  "RunningProcess": ["HashTools"],
+  "PostInstallKillProcesses": ["HashTools"]
 }

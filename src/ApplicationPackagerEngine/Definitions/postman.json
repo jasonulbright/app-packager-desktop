@@ -22,6 +22,7 @@
     "InstallerFileName":  "Postman-win64-Setup.exe",
     "InstallArgs":  "-s",
     "UninstallArgs":  "--uninstall -s",
+    "UninstallCommand":  "Get-Process Postman -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; $updateExe = Join-Path $env:LOCALAPPDATA 'Postman\\Update.exe'; if (-not (Test-Path -LiteralPath $updateExe)) { exit 0 }; $proc = Start-Process -FilePath $updateExe -ArgumentList @('--uninstall', '-s') -Wait -PassThru -NoNewWindow",
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKCU",
