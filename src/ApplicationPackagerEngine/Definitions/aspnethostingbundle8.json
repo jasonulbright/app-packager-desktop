@@ -19,9 +19,14 @@
   "InstallArgs": "/install /quiet /norestart",
   "UninstallArgs": "/uninstall /quiet /norestart",
   "Detection": {
-    "Type": "Script",
-    "ScriptLanguage": "PowerShell",
-    "ScriptText": "$minimum = [version]'{version_parts:4}'\r\nforeach ($view in @([Microsoft.Win32.RegistryView]::Registry32)) {\r\n    $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $view)\r\n    $uninstall = $base.OpenSubKey('SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall')\r\n    if (-not $uninstall) { continue }\r\n    foreach ($name in $uninstall.GetSubKeyNames()) {\r\n        $key = $null\r\n        try {\r\n            $key = $uninstall.OpenSubKey($name)\r\n            if (-not $key) { continue }\r\n            $displayName = [string]$key.GetValue('DisplayName')\r\n            $publisher = [string]$key.GetValue('Publisher')\r\n            $displayVersion = [string]$key.GetValue('DisplayVersion')\r\n            $windowsInstaller = $key.GetValue('WindowsInstaller')\r\n        }\r\n        catch { continue }\r\n        finally { if ($key) { $key.Close() } }\r\n        if (-not $displayName.StartsWith('Microsoft .NET 8.0.', [StringComparison]::OrdinalIgnoreCase)) { continue }\r\n        if (-not $displayName.EndsWith(' - Windows Server Hosting', [StringComparison]::OrdinalIgnoreCase)) { continue }\r\n        if (-not [string]::Equals($publisher, 'Microsoft Corporation', [StringComparison]::OrdinalIgnoreCase)) { continue }\r\n        $parts = @($displayVersion.Trim().Split('.'))\r\n        if ($parts.Count -gt 4) { continue }\r\n        $numbers = @(foreach ($part in $parts) { $n = 0; if ([int]::TryParse($part, [ref]$n) -and $n -ge 0) { $n } })\r\n        if ($numbers.Count -ne $parts.Count) { continue }\r\n        while ($numbers.Count -lt 4) { $numbers += 0 }\r\n        if ((New-Object System.Version $numbers[0], $numbers[1], $numbers[2], $numbers[3]) -ge $minimum) { Write-Output 'Installed'; exit 0 }\r\n    }\r\n    $uninstall.Close()\r\n}\r\nexit 0"
+    "Type": "ArpEntry",
+    "ArpEntry": {
+      "View": "32",
+      "DisplayNamePrefix": "Microsoft .NET 8.0.",
+      "DisplayNameSuffix": " - Windows Server Hosting",
+      "Publisher": "Microsoft Corporation",
+      "Version": "{version}"
+    }
   },
   "RunningProcess": [],
   "UninstallCommand": "$exePath = Join-Path $PSScriptRoot (Get-ChildItem $PSScriptRoot -Filter \"dotnet-hosting-*.exe\" | Select-Object -First 1).Name; $proc = Start-Process -FilePath $exePath -ArgumentList \"/uninstall /quiet /norestart\" -Wait -PassThru -NoNewWindow"

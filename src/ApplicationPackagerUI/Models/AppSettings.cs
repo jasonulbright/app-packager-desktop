@@ -106,6 +106,16 @@ public sealed class AppSettings
     // Intune / deployment target
     public IntuneSettings Intune { get; set; } = new();
 
+    /// <summary>The WSUS server for local publishing; an empty server name means not configured.</summary>
+    public WsusSettings Wsus { get; set; } = new();
+
+    /// <summary>
+    /// The systems the operator publishes to. Null in a file written before the
+    /// setting existed; SettingsService infers it on load from the Intune
+    /// tenant and the WSUS server.
+    /// </summary>
+    public SystemsInUse? Systems { get; set; }
+
     /// <summary>
     /// The global script-signing policy, every switch off by default. A run
     /// snapshot's own policy takes its place for that build.

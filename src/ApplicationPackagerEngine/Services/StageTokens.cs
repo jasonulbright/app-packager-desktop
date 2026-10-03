@@ -110,7 +110,8 @@ public sealed partial class StageTokens
         ScriptText = apply(det.ScriptText),
         Connector = det.Connector,
         Clauses = det.Clauses?.Select(c => Rewrite(c, apply)).ToArray(),
-        GroupSizes = det.GroupSizes
+        GroupSizes = det.GroupSizes,
+        ArpEntry = det.ArpEntry?.With(apply)
     };
 
     /// <summary>True when any detection text field carries a token this class owns.</summary>
@@ -123,6 +124,8 @@ public sealed partial class StageTokens
                 || s.Contains("{zip:", StringComparison.Ordinal));
         return Has(det.RegistryKeyTemplate) || Has(det.FilePath) || Has(det.FileName)
             || Has(det.ExpectedValue) || Has(det.ScriptText)
+            || Has(det.ArpEntry?.Version) || Has(det.ArpEntry?.DisplayName)
+            || Has(det.ArpEntry?.DisplayNamePrefix) || Has(det.ArpEntry?.DisplayNameSuffix)
             || det.Clauses?.Any(HasTokens) == true;
     }
 }

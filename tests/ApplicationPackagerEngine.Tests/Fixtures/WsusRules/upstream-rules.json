@@ -1,0 +1,283 @@
+[
+    {
+        "Name":  "registry-displayversion",
+        "IsInstalled":  "\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "registry-32bit-view",
+        "IsInstalled":  "\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" RegType32=\"true\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "registry-greaterthan",
+        "IsInstalled":  "\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" Value=\"DisplayVersion\" Comparison=\"GreaterThan\" Data=\"5.4.2.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" Value=\"DisplayVersion\" Comparison=\"LessThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "registry-greaterequals-version",
+        "IsInstalled":  "\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Classes\\Installer\\Dependencies\\Dotnet_CLI_SharedHost_8.0_x64\" Value=\"Version\" Comparison=\"GreaterThanOrEqualTo\" Data=\"64.124.0.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Classes\\Installer\\Dependencies\\Dotnet_CLI_SharedHost_8.0_x64\" Value=\"Version\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Classes\\Installer\\Dependencies\\Dotnet_CLI_SharedHost_8.0_x64\" Value=\"Version\" Comparison=\"LessThan\" Data=\"64.124.0.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "registry-xml-escape",
+        "IsInstalled":  "\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\A\u0026amp;B \u0026lt;\u0026quot;x\u0026quot;\u0026gt;\" Value=\"V\u0026apos;1\" Comparison=\"GreaterThanOrEqualTo\" Data=\"1.0.0.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\A\u0026amp;B \u0026lt;\u0026quot;x\u0026quot;\u0026gt;\" Value=\"V\u0026apos;1\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\A\u0026amp;B \u0026lt;\u0026quot;x\u0026quot;\u0026gt;\" Value=\"V\u0026apos;1\" Comparison=\"LessThan\" Data=\"1.0.0.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "registry-trims-subkey",
+        "IsInstalled":  "\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" Value=\"Version\" Comparison=\"GreaterThanOrEqualTo\" Data=\"65535.0.1.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" Value=\"Version\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Contoso\\Tool\" Value=\"Version\" Comparison=\"LessThan\" Data=\"65535.0.1.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "registry-part-above-65535",
+        "Error":  "The detection compares registry value \u0027Version\u0027 with \u002765536.0\u0027, which is not a version of up to four numbers. WSUS cannot compare it with the installed version. Change the detection to a numeric version."
+    },
+    {
+        "Name":  "registry-text-beginswith",
+        "Error":  "The detection compares registry value \u0027DisplayVersion\u0027 as text (BeginsWith \u00275.4\u0027). WSUS can only tell an older installed version from a newer one with a version comparison. Change the detection to compare the value as a version."
+    },
+    {
+        "Name":  "registry-not-a-version",
+        "Error":  "The detection compares registry value \u0027Edition\u0027 with \u0027Pro \u0026 Team\u0027, which is not a version of up to four numbers. WSUS cannot compare it with the installed version. Change the detection to a numeric version."
+    },
+    {
+        "Name":  "registry-dashed-version",
+        "Error":  "The detection compares registry value \u0027DisplayVersion\u0027 with \u00272026.08.2-200\u0027, which is not a version of up to four numbers. WSUS cannot compare it with the installed version. Change the detection to a numeric version."
+    },
+    {
+        "Name":  "registry-less-than-operator",
+        "Error":  "Detection operator \u0027LessThan\u0027 on registry value \u0027DisplayVersion\u0027 has no WSUS applicability mapping."
+    },
+    {
+        "Name":  "registry-integer-property",
+        "Error":  "Registry value \u0027Build\u0027 is compared as Integer; the WSUS publisher maps version comparisons only."
+    },
+    {
+        "Name":  "registry-product-code-key",
+        "Error":  "The detection reads the Windows Installer product key \u0027SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{23170F69-40C1-2702-2408-000001000000}\u0027. An MSI registers a new product key for each version, so WSUS cannot find an older installed version under that key. Change the detection to a file version, or to a version value under a registry key that every version uses, or add a WsusDetection block that names the product\u0027s Add/Remove Programs entry."
+    },
+    {
+        "Name":  "registry-current-user",
+        "Error":  "The detection reads HKEY_CURRENT_USER. WSUS evaluates applicability as SYSTEM, which has no signed-in user hive."
+    },
+    {
+        "Name":  "registry-no-key",
+        "Error":  "The detection names no registry key."
+    },
+    {
+        "Name":  "registrykey-existence",
+        "Error":  "The detection only checks that a file or registry key exists, which says nothing about the installed version. Add a file version or a registry version comparison to the detection, or a WsusDetection block that names the product\u0027s Add/Remove Programs entry. A new installation belongs to a Configuration Manager or Intune deployment."
+    },
+    {
+        "Name":  "registrykey-product-code",
+        "Error":  "The detection reads the Windows Installer product key \u0027SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{23170F69-40C1-2702-2408-000001000000}\u0027. An MSI registers a new product key for each version, so WSUS cannot find an older installed version under that key. Change the detection to a file version, or to a version value under a registry key that every version uses, or add a WsusDetection block that names the product\u0027s Add/Remove Programs entry."
+    },
+    {
+        "Name":  "file-version-programfiles-32bit",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"42\" Comparison=\"GreaterThanOrEqualTo\" Version=\"5.4.2.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\tool.exe\" Csidl=\"42\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"42\" Comparison=\"LessThan\" Version=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-programfiles-64bit",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"GreaterThanOrEqualTo\" Version=\"5.4.2.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\tool.exe\" Csidl=\"38\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"LessThan\" Version=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-literal-program-files",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"GreaterThanOrEqualTo\" Version=\"5.4.2.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\tool.exe\" Csidl=\"38\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"LessThan\" Version=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-program-files-x86",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"Contoso\\Tool\\tool.exe\" Csidl=\"42\" Comparison=\"GreaterThanOrEqualTo\" Version=\"5.4.2.17\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\Tool\\tool.exe\" Csidl=\"42\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\Tool\\tool.exe\" Csidl=\"42\" Comparison=\"LessThan\" Version=\"5.4.2.17\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-common-files",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"Common Files\\Contoso\\shared.dll\" Csidl=\"42\" Comparison=\"GreaterThanOrEqualTo\" Version=\"2.0.0.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Common Files\\Contoso\\shared.dll\" Csidl=\"42\" /\u003e\u003cbar:FileVersion Path=\"Common Files\\Contoso\\shared.dll\" Csidl=\"42\" Comparison=\"LessThan\" Version=\"2.0.0.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-system32",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"vcruntime140.dll\" Csidl=\"37\" Comparison=\"GreaterThanOrEqualTo\" Version=\"14.51.36247.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"vcruntime140.dll\" Csidl=\"37\" /\u003e\u003cbar:FileVersion Path=\"vcruntime140.dll\" Csidl=\"37\" Comparison=\"LessThan\" Version=\"14.51.36247.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-syswow64",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"SysWOW64\\vcruntime140.dll\" Csidl=\"36\" Comparison=\"GreaterThanOrEqualTo\" Version=\"14.51.36247.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"SysWOW64\\vcruntime140.dll\" Csidl=\"36\" /\u003e\u003cbar:FileVersion Path=\"SysWOW64\\vcruntime140.dll\" Csidl=\"36\" Comparison=\"LessThan\" Version=\"14.51.36247.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-programdata",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"Contoso\\agent.exe\" Csidl=\"35\" Comparison=\"GreaterThan\" Version=\"3.1.0.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\agent.exe\" Csidl=\"35\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\agent.exe\" Csidl=\"35\" Comparison=\"LessThanOrEqualTo\" Version=\"3.1.0.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-other-drive",
+        "IsInstalled":  "\u003cbar:FileVersion Path=\"D:\\Tools\\Contoso\\tool.exe\" Comparison=\"GreaterThanOrEqualTo\" Version=\"5.4.2.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"D:\\Tools\\Contoso\\tool.exe\" /\u003e\u003cbar:FileVersion Path=\"D:\\Tools\\Contoso\\tool.exe\" Comparison=\"LessThan\" Version=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "file-version-not-numeric",
+        "Error":  "The file detection compares a version that is not numeric."
+    },
+    {
+        "Name":  "file-existence",
+        "Error":  "The detection only checks that a file or registry key exists, which says nothing about the installed version. Add a file version or a registry version comparison to the detection, or a WsusDetection block that names the product\u0027s Add/Remove Programs entry. A new installation belongs to a Configuration Manager or Intune deployment."
+    },
+    {
+        "Name":  "file-size",
+        "Error":  "The file detection compares Size; the WSUS publisher maps file versions and existence only."
+    },
+    {
+        "Name":  "file-per-user-path",
+        "Error":  "The file detection reads the per-user path \u0027%LOCALAPPDATA%\\Contoso\u0027. WSUS evaluates applicability as SYSTEM, which resolves no signed-in user profile."
+    },
+    {
+        "Name":  "file-unresolved-variable",
+        "Error":  "The file detection path \u0027%APP_PACKAGER_NO_SUCH_VARIABLE%\\Contoso\u0027 carries an unresolved variable."
+    },
+    {
+        "Name":  "file-relative-path",
+        "Error":  "The file detection path \u0027Contoso\\Tool\u0027 is not an absolute local path."
+    },
+    {
+        "Name":  "file-no-name",
+        "Error":  "The file detection names no folder or file."
+    },
+    {
+        "Name":  "script",
+        "Error":  "Script detection has no WSUS equivalent: applicability rules cannot run a script."
+    },
+    {
+        "Name":  "unknown-type",
+        "Error":  "Detection type \u0027MSIX\u0027 has no WSUS applicability mapping."
+    },
+    {
+        "Name":  "compound-and-presence-and-version",
+        "IsInstalled":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\tool.exe\" Csidl=\"38\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\tool.exe\" Csidl=\"38\" /\u003e\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "compound-and-key-and-host-version",
+        "IsInstalled":  "\u003clar:And\u003e\u003cbar:RegKeyExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\WOW6432Node\\Microsoft\\dotnet\\host\\options\\8.0\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Classes\\Installer\\Dependencies\\Dotnet_CLI_SharedHost_8.0_x64\" Value=\"Version\" Comparison=\"GreaterThanOrEqualTo\" Data=\"64.124.0.0\" /\u003e\u003c/lar:And\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegKeyExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\WOW6432Node\\Microsoft\\dotnet\\host\\options\\8.0\" /\u003e\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Classes\\Installer\\Dependencies\\Dotnet_CLI_SharedHost_8.0_x64\" Value=\"Version\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Classes\\Installer\\Dependencies\\Dotnet_CLI_SharedHost_8.0_x64\" Value=\"Version\" Comparison=\"LessThan\" Data=\"64.124.0.0\" /\u003e\u003c/lar:And\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "compound-and-two-versions",
+        "IsInstalled":  "\u003clar:And\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"GreaterThanOrEqualTo\" Version=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003clar:Or\u003e\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003c/lar:Or\u003e\u003clar:Or\u003e\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\tool.exe\" Csidl=\"38\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"LessThan\" Version=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"GreaterThanOrEqualTo\" Version=\"5.4.2.0\" /\u003e\u003c/lar:Or\u003e\u003clar:Or\u003e\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003clar:And\u003e\u003cbar:FileExists Path=\"Contoso\\tool.exe\" Csidl=\"38\" /\u003e\u003cbar:FileVersion Path=\"Contoso\\tool.exe\" Csidl=\"38\" Comparison=\"LessThan\" Version=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/lar:Or\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "compound-or-two-views",
+        "IsInstalled":  "\u003clar:Or\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003c/lar:Or\u003e",
+        "IsInstallable":  "\u003clar:Or\u003e\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" RegType32=\"true\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ContosoTool\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/lar:Or\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "compound-or-with-existence",
+        "Error":  "The detection joins its clauses with OR, and at least one clause only checks that a file or registry key exists, which says nothing about the installed version. Add a file version or a registry version comparison to the detection, or a WsusDetection block that names the product\u0027s Add/Remove Programs entry. A new installation belongs to a Configuration Manager or Intune deployment."
+    },
+    {
+        "Name":  "compound-and-presence-only",
+        "Error":  "The detection only checks that a file or registry key exists, which says nothing about the installed version. Add a file version or a registry version comparison to the detection, or a WsusDetection block that names the product\u0027s Add/Remove Programs entry. A new installation belongs to a Configuration Manager or Intune deployment."
+    },
+    {
+        "Name":  "compound-grouped",
+        "Error":  "Grouped compound detections have no single AND or OR connector the WSUS publisher can map."
+    },
+    {
+        "Name":  "compound-no-clauses",
+        "Error":  "The compound detection carries no clauses."
+    },
+    {
+        "Name":  "arp-hosting-bundle-8",
+        "IsInstalled":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" RegType32=\"true\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Microsoft .NET 8.0.\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"EndsWith\" Data=\" - Windows Server Hosting\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Microsoft Corporation\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"8.0.31.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "IsInstallable":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" RegType32=\"true\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Microsoft .NET 8.0.\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"EndsWith\" Data=\" - Windows Server Hosting\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Microsoft Corporation\" /\u003e\u003cbar:RegValueExists Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"8.0.31.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "Source":  "WsusDetection"
+    },
+    {
+        "Name":  "arp-both-views-prefix",
+        "IsInstalled":  "\u003clar:Or\u003e\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" RegType32=\"true\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Contoso Tool \" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Contoso Tool \" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e\u003c/lar:Or\u003e",
+        "IsInstallable":  "\u003clar:Or\u003e\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" RegType32=\"true\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Contoso Tool \" /\u003e\u003cbar:RegValueExists Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Contoso Tool \" /\u003e\u003cbar:RegValueExists Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e\u003c/lar:Or\u003e",
+        "Source":  "WsusDetection"
+    },
+    {
+        "Name":  "arp-exact-name-windows-installer-64",
+        "IsInstalled":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"EqualTo\" Data=\"Google Chrome\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Google LLC\" /\u003e\u003cbar:RegDword Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"WindowsInstaller\" Comparison=\"EqualTo\" Data=\"1\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"131.0.6778.86\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "IsInstallable":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"EqualTo\" Data=\"Google Chrome\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Google LLC\" /\u003e\u003cbar:RegDword Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"WindowsInstaller\" Comparison=\"EqualTo\" Data=\"1\" /\u003e\u003cbar:RegValueExists Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"131.0.6778.86\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "Source":  "WsusDetection"
+    },
+    {
+        "Name":  "arp-xml-escape",
+        "IsInstalled":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" RegType32=\"true\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Tom \u0026amp; Jerry\u0026apos;s \u0026lt;\u0026quot;Tool\u0026quot;\u0026gt; \" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"A\u0026amp;B\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"1.2.0.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "IsInstallable":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" RegType32=\"true\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Tom \u0026amp; Jerry\u0026apos;s \u0026lt;\u0026quot;Tool\u0026quot;\u0026gt; \" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"A\u0026amp;B\" /\u003e\u003cbar:RegValueExists Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" RegType32=\"true\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"1.2.0.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "Source":  "WsusDetection"
+    },
+    {
+        "Name":  "arp-wins-over-unmappable-detection",
+        "IsInstalled":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Contoso Tool\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Contoso\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "IsInstallable":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"Contoso Tool\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Contoso\" /\u003e\u003cbar:RegValueExists Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"5.4.2.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "Source":  "WsusDetection"
+    },
+    {
+        "Name":  "arp-unknown-type",
+        "Error":  "WsusDetection type \u0027File\u0027 is not supported; the WSUS publisher reads type ArpEntry."
+    },
+    {
+        "Name":  "arp-no-name",
+        "Error":  "WsusDetection names no DisplayName or DisplayNamePrefix, so it cannot find the Add/Remove Programs entry."
+    },
+    {
+        "Name":  "arp-unknown-view",
+        "Error":  "WsusDetection view \u0027x86\u0027 is not 32, 64 or Both."
+    },
+    {
+        "Name":  "arp-version-not-numeric",
+        "Error":  "WsusDetection compares DisplayVersion with \u0027latest\u0027, which is not a version of up to four numbers."
+    },
+    {
+        "Name":  "msi-entry-from-staged-msi",
+        "IsInstalled":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"7-Zip \" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"EndsWith\" Data=\" (x64 edition)\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Igor Pavlov\" /\u003e\u003cbar:RegDword Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"WindowsInstaller\" Comparison=\"EqualTo\" Data=\"1\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"GreaterThanOrEqualTo\" Data=\"24.8.0.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "IsInstallable":  "\u003cbar:RegKeyLoop Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\" TrueIf=\"Any\"\u003e\u003clar:And\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"BeginsWith\" Data=\"7-Zip \" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayName\" Comparison=\"EndsWith\" Data=\" (x64 edition)\" /\u003e\u003cbar:RegSz Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"Publisher\" Comparison=\"EqualTo\" Data=\"Igor Pavlov\" /\u003e\u003cbar:RegDword Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"WindowsInstaller\" Comparison=\"EqualTo\" Data=\"1\" /\u003e\u003cbar:RegValueExists Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOOP_TARGET\" Subkey=\"\\\" Value=\"DisplayVersion\" Comparison=\"LessThan\" Data=\"24.8.0.0\" /\u003e\u003c/lar:And\u003e\u003c/bar:RegKeyLoop\u003e",
+        "Source":  "MsiEntry",
+        "Entry":  {
+                      "Type":  "ArpEntry",
+                      "View":  "64",
+                      "Publisher":  "Igor Pavlov",
+                      "WindowsInstaller":  "True",
+                      "Version":  "24.08.00.0",
+                      "DisplayNamePrefix":  "7-Zip ",
+                      "DisplayNameSuffix":  " (x64 edition)"
+                  }
+    },
+    {
+        "Name":  "msi-entry-keeps-mappable-detection",
+        "IsInstalled":  "\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\7-Zip\" Value=\"Version\" Comparison=\"GreaterThanOrEqualTo\" Data=\"24.8.0.0\" /\u003e",
+        "IsInstallable":  "\u003clar:And\u003e\u003cbar:RegValueExists Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\7-Zip\" Value=\"Version\" Type=\"REG_SZ\" /\u003e\u003cbar:RegSzToVersion Key=\"HKEY_LOCAL_MACHINE\" Subkey=\"SOFTWARE\\7-Zip\" Value=\"Version\" Comparison=\"LessThan\" Data=\"24.8.0.0\" /\u003e\u003c/lar:And\u003e",
+        "Source":  "Detection"
+    },
+    {
+        "Name":  "msi-entry-not-for-exe",
+        "Error":  "The detection reads the Windows Installer product key \u0027SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{23170F69-40C1-2702-2408-000001000000}\u0027. An MSI registers a new product key for each version, so WSUS cannot find an older installed version under that key. Change the detection to a file version, or to a version value under a registry key that every version uses, or add a WsusDetection block that names the product\u0027s Add/Remove Programs entry."
+    }
+]

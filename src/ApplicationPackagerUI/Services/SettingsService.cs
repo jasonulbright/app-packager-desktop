@@ -33,7 +33,7 @@ public class SettingsService
         AppSettings settings;
         if (!File.Exists(SettingsPath))
         {
-            settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false };
+            settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse() };
         }
         else
         {
@@ -52,12 +52,14 @@ public class SettingsService
                 settings.LocalSourceFolders ??= [];
                 settings.SideFiles ??= [];
                 settings.ScriptSigning = ApplicationPackagerEngine.Models.Signing.SigningPolicy.FromSettings(settings.ScriptSigning);
+                settings.Systems = SystemsInUse.Resolve(settings.Systems, settings.Intune.TenantId, settings.Wsus?.ServerName);
+                settings.Wsus = WsusSettings.FromStored(settings.Wsus);
                 // A file written before the flag existed saved its site code with every save.
                 settings.SiteCodeSaved ??= JsonNode.Parse(json) is JsonObject root && root.ContainsKey(nameof(AppSettings.SiteCode));
             }
             catch
             {
-                settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false };
+                settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse() };
             }
         }
 
