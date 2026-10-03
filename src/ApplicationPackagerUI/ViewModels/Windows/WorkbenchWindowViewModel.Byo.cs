@@ -143,7 +143,9 @@ public partial class WorkbenchWindowViewModel
 
     /// <summary>
     /// Imports a bundle after its schema and every entry hash are verified. An application
-    /// already stored under the bundle's id is replaced only when the operator confirms.
+    /// already stored under the bundle's id is replaced only when the operator confirms a
+    /// prompt that names what the replacement removes. Drafts of the replaced application
+    /// are kept; a draft is offered only for a profile the import left in place.
     /// </summary>
     [RelayCommand]
     private async Task ImportBundleAsync()
@@ -159,8 +161,7 @@ public partial class WorkbenchWindowViewModel
             var force = false;
             if (Directory.Exists(_store.GetApplicationFolder(applicationId)))
             {
-                if (!await Prompts.YesNoAsync("Import Bundle",
-                        $"Application '{applicationId}' already exists in this data root. Replace it with the bundle's definition, profiles and assets?"))
+                if (!await Prompts.YesNoAsync("Import Bundle", WorkbenchBundles.ReplacePrompt(applicationId, manifest)))
                     return;
                 force = true;
             }

@@ -116,9 +116,20 @@ public sealed class StageManifest
     /// <summary>The signing outcome as the signing service records it; every stage writes it, absent on older manifests.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public JsonNode? ScriptSigning { get; set; }
+    /// <summary>The BYO application and installer revision this stage was built from; absent on every other stage.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public StageByoSource? ByoSource { get; set; }
     /// <summary>SHA-256 over the canonical plan; see <c>StageManifestPlanDigest</c>.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PlanDigest { get; set; }
+}
+
+/// <summary>The identity of the installer a BYO stage copied: application, source revision and SHA-256.</summary>
+public sealed class StageByoSource
+{
+    public string ApplicationId { get; set; } = "";
+    public int Revision { get; set; }
+    public string Sha256 { get; set; } = "";
 }
 
 /// <summary>Resolved runtime minutes for the build (schema v4).</summary>

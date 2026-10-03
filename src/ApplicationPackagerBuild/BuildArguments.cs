@@ -62,6 +62,17 @@ public static class BuildArguments
         "local-source-folder", "data-root"
     };
 
+    /// <summary>
+    /// Options that name a path, a root, a server or a site. An empty value, such as an unset
+    /// variable in a scheduled task, would otherwise fall back to the saved setting and run
+    /// against the real profile and site.
+    /// </summary>
+    private static readonly string[] NonEmpty =
+    [
+        "data-root", "download-root", "packagers-root", "log-folder", "local-source-folder", "file-server-path",
+        "site-code", "provider-machine-name", "wsus-server"
+    ];
+
     public static ParsedArguments Parse(IReadOnlyList<string> args)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -98,6 +109,12 @@ public static class BuildArguments
         }
 
         if (Flag(values, "help") == true) return new ParsedArguments(new BuildOptions { Help = true }, null);
+
+        foreach (var name in NonEmpty)
+        {
+            if (values.TryGetValue(name, out var given) && string.IsNullOrWhiteSpace(given))
+                return Fail($"Option '--{name}' was given an empty value; pass a value or leave the option out.");
+        }
 
         if (!values.TryGetValue("application", out var application) || string.IsNullOrWhiteSpace(application))
             return Fail($"--application is required. {HelpHint}");

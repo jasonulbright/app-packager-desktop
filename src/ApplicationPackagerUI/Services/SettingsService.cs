@@ -37,10 +37,43 @@ public class SettingsService
     /// </summary>
     public void ApplyRunOverrides(Action<AppSettings> overrides) => _runOverrides = overrides;
 
+    /// <summary>
+    /// The longest a load waits for settings.json while another writer's replace side file
+    /// shows the name is only briefly absent, or while the file is held without read sharing.
+    /// </summary>
+    public static readonly TimeSpan MissingFileWait = TimeSpan.FromSeconds(2);
+
+    private bool _readOnce;
+    private (bool Read, string? Text, string? Error) _onceRead;
+
+    /// <summary>
+    /// Reads settings.json at the first Load and serves that read to every later Load of
+    /// this instance, so one command-line run uses one set of values even when another
+    /// process saves the file during the run. Each Load still returns a new object.
+    /// </summary>
+    public void ReadFileOncePerRun()
+    {
+        lock (_gate) _readOnce = true;
+    }
+
     public AppSettings Load()
     {
+        bool readOnce;
+        (bool Read, string? Text, string? Error) cached;
+        lock (_gate) (readOnce, cached) = (_readOnce, _onceRead);
+        var (json, readError) = cached.Read ? (cached.Text, cached.Error) : ReadSettingsText();
+        if (readOnce && !cached.Read)
+        {
+            lock (_gate)
+            {
+                if (_onceRead.Read) (json, readError) = (_onceRead.Text, _onceRead.Error);
+                else _onceRead = (true, json, readError);
+            }
+        }
+
         AppSettings settings;
-        if (!File.Exists(SettingsPath))
+        var unreadable = false;
+        if (readError is null && json is null)
         {
             settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse() };
         }
@@ -48,8 +81,8 @@ public class SettingsService
         {
             try
             {
-                var json = File.ReadAllText(SettingsPath);
-                settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                if (readError is not null) throw new IOException(readError);
+                settings = JsonSerializer.Deserialize<AppSettings>(json!, JsonOptions) ?? new AppSettings();
                 // Settings written before the Intune target existed carry no section, or a section
                 // with no target; both resolve to MECM only.
                 settings.Intune ??= new IntuneSettings();
@@ -75,21 +108,68 @@ public class SettingsService
                     state.NotSupported ??= [];
                 }
                 // A file written before the flag existed saved its site code with every save.
-                settings.SiteCodeSaved ??= JsonNode.Parse(json) is JsonObject root && root.ContainsKey(nameof(AppSettings.SiteCode));
+                settings.SiteCodeSaved ??= JsonNode.Parse(json!) is JsonObject root && root.ContainsKey(nameof(AppSettings.SiteCode));
             }
             catch (Exception ex)
             {
                 MarkUnreadable(ex.Message);
+                unreadable = true;
                 settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse() };
-                ApplyLauncherDefaults(settings);
-                return settings;
             }
         }
 
-        lock (_gate) _unreadableReason = null;
+        if (!unreadable)
+            lock (_gate) _unreadableReason = null;
         ApplyLauncherDefaults(settings);
         _runOverrides?.Invoke(settings);
         return settings;
+    }
+
+    /// <summary>
+    /// The text of settings.json; null text and null error when there is no file. A writer
+    /// that replaces the file through a side file can leave the name absent for a moment,
+    /// and a writer or reader without read sharing holds it for a moment: both are retried
+    /// up to <see cref="MissingFileWait"/>. An absent file with no side file beside it is a
+    /// first run and returns at once.
+    /// </summary>
+    private static (string? Text, string? Error) ReadSettingsText()
+    {
+        var deadline = DateTime.UtcNow + MissingFileWait;
+        while (true)
+        {
+            try
+            {
+                return (File.ReadAllText(SettingsPath), null);
+            }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+            {
+                if (!ReplaceSideFilePresent() || DateTime.UtcNow >= deadline) return (null, null);
+            }
+            catch (IOException ex) when (FileRetry.IsSharingViolation(ex))
+            {
+                if (DateTime.UtcNow >= deadline) return (null, ex.Message);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return (null, ex.Message);
+            }
+            Thread.Sleep(10);
+        }
+    }
+
+    private static bool ReplaceSideFilePresent()
+    {
+        try
+        {
+            var name = Path.GetFileName(SettingsPath);
+            return Directory.Exists(SettingsDir)
+                   && Directory.EnumerateFiles(SettingsDir, name + ".*")
+                       .Any(f => f.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".bak", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     // Set while the file on disk failed to load: an automatic save would replace the

@@ -343,6 +343,173 @@ public sealed class WorkbenchBundleTests : IDisposable
         Assert.False(AnyApplication(Store));
     }
 
+    // ── Bounds and identity ────────────────────────────────────
+
+    [Fact]
+    public void AnArchiveEntryLargerThanItsListedSize_IsRefusedBeforeExtraction()
+    {
+        var bundle = HostileBundle(Payload(("application/profiles/p1/assets/0123456789abcdef/big.bin", new string('x', 4096))),
+            listed: ["application.json", @"profiles\p1\assets\0123456789abcdef\big.bin"]);
+        RewriteManifestSize(bundle, @"profiles\p1\assets\0123456789abcdef\big.bin", 16);
+
+        var error = Assert.Throws<InvalidOperationException>(() => WorkbenchBundles.Import(Store, bundle));
+        Assert.Contains("differs from the size its manifest lists", error.Message);
+        Assert.False(AnyApplication(Store));
+    }
+
+    [Fact]
+    public void ABundleOverTheEntryOrSizeLimit_IsRefusedBeforeExtraction()
+    {
+        var bundle = HostileBundle(Payload(("application/profiles/p1/profile.json", """{"ProfileId":"p1","Name":"P"}"""),
+            ("application/profiles/p1/assets/0123456789abcdef/a.txt", "abc")));
+
+        var count = Assert.Throws<InvalidOperationException>(() =>
+            WorkbenchBundles.Import(Store, bundle, null, false, new WorkbenchBundleLimits(MaxEntries: 2, MaxTotalBytes: 1 << 20, MaxManifestBytes: 1 << 20)));
+        Assert.Contains("more than 2 entries", count.Message);
+        var size = Assert.Throws<InvalidOperationException>(() =>
+            WorkbenchBundles.Import(Store, bundle, null, false, new WorkbenchBundleLimits(MaxEntries: 100, MaxTotalBytes: 32, MaxManifestBytes: 1 << 20)));
+        Assert.Contains("more than 32 bytes", size.Message);
+        var manifest = Assert.Throws<InvalidOperationException>(() =>
+            WorkbenchBundles.Import(Store, bundle, null, false, new WorkbenchBundleLimits(MaxEntries: 100, MaxTotalBytes: 1 << 20, MaxManifestBytes: 8)));
+        Assert.Contains("bundle.json is larger than", manifest.Message);
+        Assert.False(AnyApplication(Store));
+    }
+
+    [Fact]
+    public void AnEntryWhoseDataRunsPastItsRecordedSize_IsRefused()
+    {
+        var bundle = HostileBundle(Payload(("application/profiles/p1/assets/0123456789abcdef/big.bin", new string('y', 4096))),
+            listed: ["application.json", @"profiles\p1\assets\0123456789abcdef\big.bin"]);
+        RewriteManifestSize(bundle, @"profiles\p1\assets\0123456789abcdef\big.bin", 16);
+        PatchUncompressedSize(bundle, "application/profiles/p1/assets/0123456789abcdef/big.bin", 16);
+
+        Assert.ThrowsAny<Exception>(() => WorkbenchBundles.Import(Store, bundle));
+        Assert.False(AnyApplication(Store));
+    }
+
+    [Fact]
+    public void AManifestOnlyBundle_DoesNotReplaceAnExistingApplication()
+    {
+        Store.SaveApplicationDefinition(new WorkbenchApplicationDefinition { ApplicationId = "catalog:package-hostile", DisplayName = "Keep me" });
+        var bundle = HostileBundle(new Dictionary<string, string>(), listed: []);
+
+        var error = Assert.Throws<InvalidOperationException>(() => WorkbenchBundles.Import(Store, bundle, force: true));
+        Assert.Contains("application.json", error.Message);
+        Assert.Equal("Keep me", Store.GetApplicationDefinition("catalog:package-hostile").DisplayName);
+    }
+
+    [Theory]
+    [InlineData("""{"SchemaVersion":1,"ApplicationId":"catalog:package-other","DisplayName":"Other"}""")]
+    [InlineData("""{"SchemaVersion":1,"ApplicationId":"catalog:package-hostile","Origin":"byo","DisplayName":"Mislabeled"}""")]
+    [InlineData("""[1,2,3]""")]
+    public void AnApplicationFileThatIsNotTheManifestsApplication_IsRefused(string definition)
+    {
+        var bundle = HostileBundle(new Dictionary<string, string> { ["application/application.json"] = definition });
+        var error = Assert.Throws<InvalidOperationException>(() => WorkbenchBundles.Import(Store, bundle));
+        Assert.Contains("application.json", error.Message);
+        Assert.False(AnyApplication(Store));
+    }
+
+    [Theory]
+    [InlineData("p1", "p2")]
+    [InlineData("default", "default")]
+    public void AProfileWhoseIdIsNotItsFolderOrIsTheDefault_IsRefused(string folder, string profileId)
+    {
+        var bundle = HostileBundle(Payload(($"application/profiles/{folder}/profile.json", $$"""{"ProfileId":"{{profileId}}","Name":"P","Revision":1}""")));
+        var error = Assert.Throws<InvalidOperationException>(() => WorkbenchBundles.Import(Store, bundle));
+        Assert.Contains("profile", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(AnyApplication(Store));
+    }
+
+    [Fact]
+    public void AReplacingImport_RemovesTheReplacedApplicationsBuildRecords_AndKeepsItsDrafts()
+    {
+        const string id = "catalog:package-bundle-builds";
+        var profile = _t.NewProfile(id);
+        var bundle = BundlePath();
+        WorkbenchBundles.Export(Store, id, bundle);
+        BuildRecords.Write(Store.DataRoot, _t.NewFolder("stage"), new Models.StageManifest
+        {
+            AppName = "Built", SoftwareVersion = "1.0", ApplicationId = id, ProfileId = profile.ProfileId,
+            ProfileRevision = profile.Revision, BuildId = "20261003-120000-0badf00d"
+        });
+        Store.SaveDraft(id, profile.ProfileId, new JsonObject { ["Name"] = "draft" });
+        Assert.Single(BuildRecords.List(Store.DataRoot, id));
+
+        WorkbenchBundles.Import(Store, bundle, force: true);
+
+        Assert.Empty(BuildRecords.List(Store.DataRoot, id));
+        Assert.Equal(false, BuildRecords.IsCurrent(Store.DataRoot, id, profile.ProfileId, "1.0", profile.Revision, ""));
+        Assert.NotNull(Store.GetDraft(id, profile.ProfileId));
+        Assert.DoesNotContain(Directory.GetDirectories(Path.Combine(Store.DataRoot, "builds")), d => Path.GetFileName(d).StartsWith('.'));
+    }
+
+    [Fact]
+    public void AFileChangedAfterVerificationAndBeforeTheSwap_RollsTheImportBack()
+    {
+        const string id = "catalog:package-bundle-tamper";
+        Store.SaveApplicationDefinition(new WorkbenchApplicationDefinition { ApplicationId = id, DisplayName = "From bundle" });
+        var bundle = BundlePath();
+        WorkbenchBundles.Export(Store, id, bundle);
+        Store.SaveApplicationDefinition(new WorkbenchApplicationDefinition { ApplicationId = id, DisplayName = "Kept" });
+        BuildRecords.Write(Store.DataRoot, _t.NewFolder("stage"), new Models.StageManifest
+        {
+            AppName = "Built", SoftwareVersion = "1.0", ApplicationId = id, BuildId = "20261003-120000-0badf00e"
+        });
+
+        var error = Assert.Throws<InvalidOperationException>(() => WorkbenchBundles.Import(Store, bundle, null, true, WorkbenchBundleLimits.Default,
+            beforeSwap: incoming => File.AppendAllText(Path.Combine(incoming, "application.json"), " ")));
+
+        Assert.Contains("changed", error.Message);
+        Assert.Equal("Kept", Store.GetApplicationDefinition(id).DisplayName);
+        Assert.Single(BuildRecords.List(Store.DataRoot, id));
+        Assert.DoesNotContain(Directory.GetDirectories(Store.ApplicationsRoot), d => Path.GetFileName(d).StartsWith('.'));
+    }
+
+    [Fact]
+    public void TheReplacePrompt_SaysWhatTheImportRemoves_AndShowsAnIncompleteSource()
+    {
+        var incomplete = new WorkbenchBundleManifest { ApplicationId = "byo:0123456789abcdef0123456789abcdef", SourceStatus = "IncompleteSource" };
+        var complete = new WorkbenchBundleManifest { ApplicationId = "byo:0123456789abcdef0123456789abcdef", SourceStatus = "Complete", SourcesIncluded = true };
+
+        var text = WorkbenchBundles.ReplacePrompt(incomplete.ApplicationId!, incomplete);
+        Assert.Contains("Profiles, assets and installer revisions that are not in the bundle are removed", text);
+        Assert.Contains("IncompleteSource", text);
+        Assert.DoesNotContain("IncompleteSource", WorkbenchBundles.ReplacePrompt(complete.ApplicationId!, complete));
+    }
+
+    private static void RewriteManifestSize(string bundle, string relative, long size)
+    {
+        using var zip = ZipFile.Open(bundle, ZipArchiveMode.Update);
+        var entry = zip.GetEntry("bundle.json")!;
+        JsonObject manifest;
+        using (var reader = new StreamReader(entry.Open())) manifest = JsonNode.Parse(reader.ReadToEnd())!.AsObject();
+        foreach (var item in manifest["Entries"]!.AsArray())
+            if ((string?)item!["RelativePath"] == relative) item["Size"] = size;
+        entry.Delete();
+        using var stream = zip.CreateEntry("bundle.json").Open();
+        stream.Write(Encoding.UTF8.GetBytes(manifest.ToJsonString()));
+    }
+
+    /// <summary>Rewrites the uncompressed size of one entry in its local header and its central directory record.</summary>
+    private static void PatchUncompressedSize(string bundle, string name, uint size)
+    {
+        var bytes = File.ReadAllBytes(bundle);
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        for (var i = 0; i + 46 < bytes.Length; i++)
+        {
+            var signature = BitConverter.ToUInt32(bytes, i);
+            if (signature == 0x04034b50 && Matches(bytes, i + 30, nameBytes, BitConverter.ToUInt16(bytes, i + 26)))
+                BitConverter.GetBytes(size).CopyTo(bytes, i + 22);
+            else if (signature == 0x02014b50 && Matches(bytes, i + 46, nameBytes, BitConverter.ToUInt16(bytes, i + 28)))
+                BitConverter.GetBytes(size).CopyTo(bytes, i + 24);
+        }
+        File.WriteAllBytes(bundle, bytes);
+
+        static bool Matches(byte[] bytes, int offset, byte[] name, int length) =>
+            length == name.Length && offset + length <= bytes.Length && bytes.AsSpan(offset, length).SequenceEqual(name);
+    }
+
     // ── Junctions ──────────────────────────────────────────────
 
     [Fact]

@@ -107,7 +107,7 @@ public sealed class WorkbenchBuildLauncher(
         RunSnapshot? snapshot;
         try
         {
-            store.ResolveByoSource(request.ApplicationId);
+            if (ByoNeedsCurrentSource(request)) store.ResolveByoSource(request.ApplicationId);
             snapshot = package
                 ? string.IsNullOrWhiteSpace(request.BuildId)
                     ? null
@@ -130,6 +130,14 @@ public sealed class WorkbenchBuildLauncher(
             : packagesViewModel.RunByoStageAsync(request.ApplicationId, snapshot!);
         return null;
     }
+
+    /// <summary>
+    /// True when the BYO run can stage, so it needs the current installer revision: Stage,
+    /// and Package without a selected build. A selected sealed build publishes from its
+    /// build record and stage alone.
+    /// </summary>
+    public static bool ByoNeedsCurrentSource(WorkbenchBuildRequest request) =>
+        request.Operation == WorkbenchBuildOperation.Stage || string.IsNullOrWhiteSpace(request.BuildId);
 
     /// <summary>The run target a footer button stands for; Stage records the configured deployment target.</summary>
     public static string TargetFor(WorkbenchBuildOperation operation, string? publishTarget, string configuredTarget) =>

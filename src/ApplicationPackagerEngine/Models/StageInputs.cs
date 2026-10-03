@@ -9,6 +9,9 @@ namespace ApplicationPackagerEngine.Models;
 /// Operator settings a definition stage reads besides its install parameters.
 /// A definition that declares none of the matching fields ignores them.
 /// </summary>
+/// <summary>The SHA-256 a staged installer copy must have, and the source it is recorded for.</summary>
+public sealed record ExpectedInstaller(string Sha256, string Source);
+
 public sealed class StageInputs
 {
     /// <summary>The folder chosen for this definition's local installer source.</summary>

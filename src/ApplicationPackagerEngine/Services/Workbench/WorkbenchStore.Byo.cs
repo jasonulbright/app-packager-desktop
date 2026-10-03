@@ -78,7 +78,8 @@ public sealed partial class WorkbenchStore
     /// folder and hash-verified; an existing revision is never overwritten. Identity
     /// is compared with the previous revision: InstallerType and Architecture changes
     /// are Blocking and recorded as incompatible overrides, ProductCode, AppName and
-    /// Publisher changes are Review.
+    /// Publisher changes are Review. The application lock is held from the read of the
+    /// stored revisions to the save, so two replacements never take one revision number.
     /// </summary>
     public ByoSourceUpdate UpdateByoSource(
         string applicationId, string installerPath, ByoInstallerIdentity? identity,
@@ -88,7 +89,17 @@ public sealed partial class WorkbenchStore
         if (!File.Exists(installerPath)) throw new FileNotFoundException($"Installer not found: {installerPath}", installerPath);
         if (WorkbenchJson.IsReparsePoint(installerPath))
             throw new InvalidOperationException($"Installer '{installerPath}' is a reparse point; copy the real file instead.");
+        var applicationFolder = GetApplicationFolder(applicationId);
+        if (!Directory.Exists(applicationFolder))
+            throw new InvalidOperationException($"BYO application '{applicationId}' is not stored in this data root.");
+        using (AcquireApplicationLock(applicationFolder, applicationId))
+            return UpdateByoSourceLocked(applicationId, applicationFolder, installerPath, identity, softwareVersion, stageValues);
+    }
 
+    private ByoSourceUpdate UpdateByoSourceLocked(
+        string applicationId, string applicationFolder, string installerPath, ByoInstallerIdentity? identity,
+        string? softwareVersion, ByoStageValues? stageValues)
+    {
         var definition = GetApplicationDefinition(applicationId);
         if (!definition.Persisted) throw new InvalidOperationException($"BYO application '{applicationId}' is not stored in this data root.");
         var sources = ReadSources(definition).ToList();
@@ -98,7 +109,6 @@ public sealed partial class WorkbenchStore
 
         var fileName = Path.GetFileName(Path.GetFullPath(installerPath));
         AssertSafeSegment(fileName, "Installer file name");
-        var applicationFolder = GetApplicationFolder(applicationId);
         var sourcesRoot = WorkbenchPaths.CombineUnder(applicationFolder, "sources");
         var revisionName = revision.ToString(CultureInfo.InvariantCulture);
         var revisionFolder = WorkbenchPaths.CombineUnder(sourcesRoot, revisionName);
@@ -107,6 +117,7 @@ public sealed partial class WorkbenchStore
                 $"Source revision folder '{revisionFolder}' already exists; a stored revision is never overwritten.");
 
         var expected = WorkbenchJson.FileSha256(installerPath);
+        var claim = ClaimRevisionFolder(revisionFolder);
         string stored;
         try
         {
@@ -118,7 +129,7 @@ public sealed partial class WorkbenchStore
         }
         catch
         {
-            if (Directory.Exists(revisionFolder) && !WorkbenchJson.IsReparsePoint(revisionFolder)) Directory.Delete(revisionFolder, recursive: true);
+            RemoveClaimedRevision(revisionFolder, claim);
             throw;
         }
 
@@ -156,10 +167,67 @@ public sealed partial class WorkbenchStore
         catch
         {
             // An unrecorded revision folder would block every later replacement as an existing revision.
-            if (Directory.Exists(revisionFolder) && !WorkbenchJson.IsReparsePoint(revisionFolder)) Directory.Delete(revisionFolder, recursive: true);
+            RemoveClaimedRevision(revisionFolder, claim);
             throw;
         }
+        File.Delete(claim);
         return new ByoSourceUpdate(applicationId, revision, source, changes);
+    }
+
+    private const string RevisionClaimName = ".revision.claim";
+
+    /// <summary>
+    /// Creates the revision folder's claim marker with create-new semantics and returns its
+    /// path. A marker that already exists means another writer took this revision, and
+    /// nothing of its folder is touched.
+    /// </summary>
+    private static string ClaimRevisionFolder(string revisionFolder)
+    {
+        Directory.CreateDirectory(revisionFolder);
+        var claim = Path.Combine(revisionFolder, RevisionClaimName);
+        try
+        {
+            using (new FileStream(claim, FileMode.CreateNew, FileAccess.Write, FileShare.None)) { }
+        }
+        catch (IOException ex) when (File.Exists(claim))
+        {
+            throw new InvalidOperationException(
+                $"Source revision folder '{revisionFolder}' is being written by another replacement; a stored revision is never overwritten.", ex);
+        }
+        return claim;
+    }
+
+    /// <summary>Removes a revision folder only while it still carries the claim this call created.</summary>
+    private static void RemoveClaimedRevision(string revisionFolder, string claim)
+    {
+        if (!File.Exists(claim) || WorkbenchJson.IsReparsePoint(revisionFolder)) return;
+        Directory.Delete(revisionFolder, recursive: true);
+    }
+
+    /// <summary>
+    /// An exclusive lock in the application folder, held across a read-modify-write of
+    /// application.json: without it two writers read the same revisions and the later
+    /// save drops the earlier one. Another holder is waited for, up to a bound.
+    /// </summary>
+    private static FileStream AcquireApplicationLock(string applicationFolder, string applicationId)
+    {
+        var lockPath = Path.Combine(applicationFolder, "application.json.lock");
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (true)
+        {
+            try
+            {
+                return new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(25);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"Application '{applicationId}' is being changed by another writer; try again.", ex);
+            }
+        }
     }
 
     /// <summary>

@@ -81,8 +81,12 @@ public static class SharedDownloadCache
         return age.TotalDays >= 1 ? $"{(int)age.TotalDays} days old" : $"{Math.Max(0, (int)age.TotalHours)} hours old";
     }
 
-    /// <summary>The longest wait for a cache entry another stage holds before the stage fails.</summary>
-    public static readonly TimeSpan EntryLockWait = TimeSpan.FromMinutes(30);
+    /// <summary>
+    /// The longest wait for a cache entry another stage holds while that stage shows no
+    /// download progress. A holder whose download keeps writing is waited for as long as it
+    /// writes.
+    /// </summary>
+    public static readonly TimeSpan EntryLockStallWait = TimeSpan.FromMinutes(10);
 
     private const int SharingViolation = unchecked((int)0x80070020);
     private const int LockViolation = unchecked((int)0x80070021);
@@ -92,14 +96,17 @@ public static class SharedDownloadCache
     /// The lock file is deleted when the last holder closes it. A delete-pending lock file
     /// answers access denied for a moment, so that answer is retried a bounded number of times.
     /// Only a sharing or lock violation means another holder; any other I/O error, such as a
-    /// cache share that went offline, fails at once, and a holder that keeps the entry past
-    /// <paramref name="maxWait"/> fails the stage, each with a message naming the entry.
+    /// cache share that went offline, fails at once. The holder counts as making progress
+    /// while the entry or one of its download or refresh side files changes size or time;
+    /// a holder with no progress for <paramref name="stallWait"/> fails the stage. Each
+    /// failure names the entry.
     /// </summary>
-    internal static async Task<FileStream> AcquireEntryLockAsync(string cached, CancellationToken ct, TimeSpan? maxWait = null)
+    internal static async Task<FileStream> AcquireEntryLockAsync(string cached, CancellationToken ct, TimeSpan? stallWait = null)
     {
         var lockPath = cached + ".lock";
-        var limit = maxWait ?? EntryLockWait;
-        var waited = System.Diagnostics.Stopwatch.StartNew();
+        var limit = stallWait ?? EntryLockStallWait;
+        var sinceProgress = System.Diagnostics.Stopwatch.StartNew();
+        var progress = ProgressMark(cached);
         var denied = 0;
         while (true)
         {
@@ -110,9 +117,15 @@ public static class SharedDownloadCache
             }
             catch (IOException ex) when (ex.HResult is SharingViolation or LockViolation)
             {
-                if (waited.Elapsed >= limit)
+                var mark = ProgressMark(cached);
+                if (mark != progress)
+                {
+                    progress = mark;
+                    sinceProgress.Restart();
+                }
+                else if (sinceProgress.Elapsed >= limit)
                     throw new InvalidOperationException(
-                        $"The shared download cache entry {cached} stayed locked by another stage for {limit.TotalMinutes:0.#} minutes; this stage stopped waiting.", ex);
+                        $"The shared download cache entry {cached} stayed locked by another stage with no download progress for {Describe(limit)}; this stage stopped waiting.", ex);
                 await Task.Delay(100, ct);
             }
             catch (IOException ex)
@@ -125,6 +138,38 @@ public static class SharedDownloadCache
             }
         }
     }
+
+    /// <summary>
+    /// The sizes and write times of the entry and of its side files (the download's
+    /// <c>.part</c> and the refresh's <c>.refresh</c>), the lock file excluded; any change
+    /// between two reads is progress. Each file is queried by path: a directory listing can
+    /// report a stale size for a file another process still has open for writing.
+    /// </summary>
+    private static string ProgressMark(string cached)
+    {
+        try
+        {
+            var folder = Path.GetDirectoryName(cached)!;
+            var name = Path.GetFileName(cached);
+            if (!Directory.Exists(folder)) return "";
+            var parts = Directory.EnumerateFiles(folder, name + "*")
+                .Where(f => !f.EndsWith(".lock", StringComparison.OrdinalIgnoreCase))
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .Select(f => new FileInfo(f))
+                .Where(f => f.Exists)
+                .Select(f => $"{f.Name}|{f.Length}|{f.LastWriteTimeUtc.Ticks}");
+            return string.Join(";", parts);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return "";
+        }
+    }
+
+    private static string Describe(TimeSpan span) =>
+        span.TotalMinutes >= 1
+            ? $"{span.TotalMinutes.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} minutes"
+            : $"{span.TotalSeconds.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)} seconds";
 
     /// <summary>
     /// Copies a cached file and gives the copy the cached file's last-write time: a later

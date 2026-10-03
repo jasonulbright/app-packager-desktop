@@ -93,9 +93,10 @@ public partial class PackagesViewModel
     }
 
     /// <summary>
-    /// Publishes a BYO application. A selected build packages the stage that carries its
-    /// BuildId; without one, Package reuses the manifest the last stage left in this
-    /// revision's folder, and stages first when there is none.
+    /// Publishes a BYO application. A selected build packages the stage its build record
+    /// names, without reading the current installer revision; without one, Package reuses
+    /// the manifest the last stage of this revision left when it is still current, and
+    /// stages first otherwise.
     /// </summary>
     public async Task RunByoPackageAsync(string applicationId, string target, RunSnapshot? buildSnapshot, Func<RunSnapshot> newSnapshot)
     {
@@ -116,29 +117,31 @@ public partial class PackagesViewModel
         IsOperationRunning = true;
         try
         {
-            var plan = await ByoStaging.PlanAsync(WorkbenchStore.Open(), _dropAnalysisService, applicationId, deepInspect: true);
-            string? manifestPath;
+            var store = WorkbenchStore.Open();
             if (buildSnapshot is not null)
             {
-                manifestPath = BuildRecords.ResolveStageManifestForBuild(buildSnapshot.BuildId,
-                    ByoStaging.ApplicationStageRoot(plan.Manifest, settings.DownloadRoot, buildSnapshot.ProfileId)).ManifestPath;
-                AddLogLine($"Workbench Package: {plan.Manifest.AppName} build {buildSnapshot.BuildId}");
+                var sealedBuild = ByoStaging.SealedBuild(store, applicationId, buildSnapshot.ProfileId, buildSnapshot.BuildId);
+                AddLogLine($"Workbench Package: {sealedBuild.Manifest.AppName} build {buildSnapshot.BuildId}");
+                row = AddByoRow(Services.WorkbenchRunSnapshots.ByoRow(sealedBuild.Manifest, sealedBuild.ManifestPath, applicationId));
             }
             else
             {
-                var profileId = WorkbenchStore.Open().GetApplicationDefinition(applicationId).ActiveProfileId;
-                manifestPath = ByoStaging.FindPriorStageManifest(plan, settings.DownloadRoot, profileId, target);
+                var plan = await ByoStaging.PlanAsync(store, _dropAnalysisService, applicationId, deepInspect: true);
+                var profileId = store.GetApplicationDefinition(applicationId).ActiveProfileId;
+                var current = new ByoStageCurrency(store.GetProfile(applicationId, profileId).Revision, settings.ScriptSigning.PolicyDigest);
+                var manifestPath = ByoStaging.FindPriorStageManifest(plan, settings.DownloadRoot, profileId, target, current);
                 if (manifestPath is not null)
+                {
                     AddLogLine($"Workbench Package: {plan.Manifest.AppName} reuses the prior stage {manifestPath}");
+                    row = AddByoRow(plan.Manifest, plan.Analysis, manifestPath, applicationId);
+                }
                 else
                 {
                     snapshot = newSnapshot();
                     row = await StageByoCoreAsync(applicationId, snapshot, settings);
                     if (row is null) return;
-                    manifestPath = row.StagedManifestPath;
                 }
             }
-            row ??= AddByoRow(plan.Manifest, plan.Analysis, manifestPath!, applicationId);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
@@ -186,9 +189,11 @@ public partial class PackagesViewModel
     }
 
     /// <summary>Lists one staged BYO build in the grid as a normal run row; an earlier row of the same application is replaced.</summary>
-    private PackagerInfo AddByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId)
+    private PackagerInfo AddByoRow(StageManifest manifest, DroppedInstallerAnalysis analysis, string manifestPath, string applicationId) =>
+        AddByoRow(Services.WorkbenchRunSnapshots.ByoRow(manifest, analysis, manifestPath, applicationId));
+
+    private PackagerInfo AddByoRow(PackagerInfo row)
     {
-        var row = Services.WorkbenchRunSnapshots.ByoRow(manifest, analysis, manifestPath, applicationId);
         foreach (var existing in Packagers.Where(p => p.Uid == row.Uid).ToList()) Packagers.Remove(existing);
         Packagers.Add(row);
         ApplyFilter();

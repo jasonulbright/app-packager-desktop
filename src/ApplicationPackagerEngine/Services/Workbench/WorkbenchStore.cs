@@ -182,7 +182,7 @@ public sealed partial class WorkbenchStore
     private static T? ReadJson<T>(string path) where T : class
     {
         if (!File.Exists(path)) return null;
-        var text = File.ReadAllText(path);
+        var text = WorkbenchJson.ReadText(path);
         if (string.IsNullOrWhiteSpace(text)) return null;
         return JsonSerializer.Deserialize<T>(text, WorkbenchJson.FileOptions);
     }

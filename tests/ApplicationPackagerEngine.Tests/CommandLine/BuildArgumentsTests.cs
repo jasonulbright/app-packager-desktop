@@ -169,4 +169,37 @@ public sealed class BuildArgumentsTests
     public void OnExistingRefusesAnythingElse(string value) =>
         Assert.Equal($"Unknown --on-existing value '{value}'; expected Skip, Overwrite or Fail.",
             Refused("--application", "a", "--package", "--on-existing", value));
+
+    [Theory]
+    [InlineData("data-root")]
+    [InlineData("download-root")]
+    [InlineData("packagers-root")]
+    [InlineData("log-folder")]
+    [InlineData("local-source-folder")]
+    [InlineData("file-server-path")]
+    [InlineData("site-code")]
+    [InlineData("provider-machine-name")]
+    [InlineData("wsus-server")]
+    public void AnEmptyPathRootServerOrSiteIsRefused(string option)
+    {
+        Assert.Equal($"Option '--{option}' was given an empty value; pass a value or leave the option out.",
+            Refused("--application", "a", "--stage", "--" + option, ""));
+        Assert.Equal($"Option '--{option}' was given an empty value; pass a value or leave the option out.",
+            Refused("--application", "a", "--stage", $"--{option}=  "));
+    }
+}
+
+[Collection(ProcessEnvironmentCollection.Name)]
+public sealed class BuildProgramTests
+{
+    [Fact]
+    public async Task AnInvalidDataRootEndsWithAnErrorAndExitCodeOne()
+    {
+        var before = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
+
+        var exitCode = await Program.Main(["--application", "a", "--stage", "--data-root", "C:\\bad\0root"]);
+
+        Assert.Equal(1, exitCode);
+        Assert.Equal(before, Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable));
+    }
 }

@@ -59,7 +59,9 @@ public sealed class BuildRunnerTests : IDisposable
         void IBuildOutput.Error(string line) => Errors.Add(line);
     }
 
-    private async Task<BuildResult> RunAsync(params string[] args)
+    private Task<BuildResult> RunAsync(params string[] args) => RunAsync(null, null, args);
+
+    private async Task<BuildResult> RunAsync(Action<BuildRunner>? configure, Action<IServiceProvider>? afterRun, params string[] args)
     {
         var parsed = BuildArguments.Parse(args);
         Assert.True(parsed.Ok, parsed.Error);
@@ -68,8 +70,15 @@ public sealed class BuildRunnerTests : IDisposable
             .AddSingleton<IBuildOutput>(_output)
             .AddSingleton<BuildRunner>()
             .BuildServiceProvider();
-        return await services.GetRequiredService<BuildRunner>().RunAsync(parsed.Options!, CancellationToken.None);
+        var runner = services.GetRequiredService<BuildRunner>();
+        configure?.Invoke(runner);
+        var result = await runner.RunAsync(parsed.Options!, CancellationToken.None);
+        afterRun?.Invoke(services);
+        return result;
     }
+
+    private static readonly WsusApiStatus ApiMissing = new(false, "", "", WsusApiProbe.NotInstalledMessage);
+    private static readonly WsusApiStatus ApiPresent = new(true, "10.0", @"C:\Program Files\Update Services\Api\" + WsusApiProbe.AssemblyFileName, "");
 
     private string WorkbenchRoot => Path.Combine(_root, "Workbench");
 
@@ -120,12 +129,22 @@ public sealed class BuildRunnerTests : IDisposable
     [Fact]
     public async Task WithoutTheWsusApiAWsusTargetIsRefusedBeforeItStages()
     {
-        // A computer with the WSUS console would go on to stage; the refusal under test needs it absent.
-        if (WsusApiProbe.Probe().Available) return;
-        var result = await RunAsync("--application", "putty", "--package", "--target", "WSUSOnly", "--wsus-server", "wsus01.contoso.com");
+        var result = await RunAsync(runner => runner.WsusProbe = () => ApiMissing, null,
+            "--application", "putty", "--package", "--target", "WSUSOnly", "--wsus-server", "wsus01.contoso.com");
         Assert.Equal(1, result.ExitCode);
         Assert.Equal("WSUS publishing is unavailable: " + WsusApiProbe.NotInstalledMessage, Assert.Single(_output.Errors));
         Assert.True(NothingStaged);
+    }
+
+    [Fact]
+    public void TheWsusGateFollowsTheProbeEitherWay()
+    {
+        var settings = new SettingsService().Load();
+        settings.Wsus.ServerName = "wsus01.contoso.com";
+
+        Assert.Equal("WSUS publishing is unavailable: " + WsusApiProbe.NotInstalledMessage,
+            BuildRunner.GateRefusal(["WSUS"], settings, () => ApiMissing));
+        Assert.Null(BuildRunner.GateRefusal(["WSUS"], settings, () => ApiPresent));
     }
 
     [Fact]
@@ -216,15 +235,52 @@ public sealed class BuildRunnerTests : IDisposable
     [Fact]
     public async Task RunOverridesAreNeverWrittenToTheSettingsFile()
     {
-        await RunAsync("--application", "putty", "--package", "--target", "MECM", "--site-code", "LAB", "--file-server-path", @"\\fs\sccm$",
+        SettingsService? used = null;
+        await RunAsync(null, services => used = services.GetRequiredService<SettingsService>(),
+            "--application", "putty", "--package", "--target", "MECM", "--site-code", "LAB", "--file-server-path", @"\\fs\sccm$",
             "--wsus-server", "wsus01.lab", "--download-root", Path.Combine(_root, "other"));
-        Assert.Equal(_settingsJson, File.ReadAllText(SettingsService.SettingsPath));
 
-        var service = new SettingsService();
-        service.ApplyRunOverrides(s => s.SiteCode = "LAB");
-        Assert.Equal("LAB", service.Load().SiteCode);
-        Assert.Throws<InvalidOperationException>(() => service.Save(service.Load()));
+        // The run's own settings instance is the one every service of the run saves through.
+        var loaded = used!.Load();
+        Assert.Equal("LAB", loaded.SiteCode);
+        Assert.Equal(Path.Combine(_root, "other"), loaded.DownloadRoot);
+        Assert.Throws<InvalidOperationException>(() => used.Save(loaded));
+        Assert.Throws<InvalidOperationException>(() => used.SaveOperatorEdit(loaded));
         Assert.Equal(_settingsJson, File.ReadAllText(SettingsService.SettingsPath));
+    }
+
+    [Fact]
+    public async Task AnUnreadableSettingsFileIsReportedAndTheDownloadRootArgumentStillApplies()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, "{ not json");
+
+        var result = await RunAsync("--application", "putty", "--package", "--target", "ContentOnly", "--download-root", Path.Combine(_root, "dl2"));
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(_output.Errors, e => e.StartsWith("Settings file could not be read: ", StringComparison.Ordinal));
+        Assert.Equal(Path.Combine(_root, "dl2"), result.DownloadRoot);
+    }
+
+    [Fact]
+    public async Task APackageOnlyTimingOverrideIsRefusedWhenTheSealedBuildCarriesTiming()
+    {
+        var settings = JsonNode.Parse(_settingsJson)!.AsObject();
+        settings["Intune"] = new JsonObject { ["TenantId"] = "t", ["ClientId"] = "c", ["ClientSecretProtected"] = "not-a-secret" };
+        File.WriteAllText(SettingsService.SettingsPath, settings.ToJsonString());
+        var store = WorkbenchStore.Open();
+        var snapshot = store.CreateRunSnapshot(new RunSnapshotRequest { ApplicationId = Putty, Target = RunTargets.IntuneOnly });
+        BuildRecords.Write(store.DataRoot, Path.Combine(_root, "stage"), new StageManifest
+        {
+            AppName = "PuTTY", SoftwareVersion = "0.83", ApplicationId = Putty, BuildId = snapshot.BuildId,
+            Timing = new StageTiming { EstimatedMinutes = 10, MaximumMinutes = 30 }
+        });
+
+        var result = await RunAsync("--application", "putty", "--package", "--target", "IntuneOnly", "--estimated-minutes", "5");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.Equal($"--estimated-minutes and --maximum-minutes do not apply to build {snapshot.BuildId}: its sealed manifest records estimated 10 and maximum 30 minutes. Stage with them, or leave them out.",
+            Assert.Single(_output.Errors));
+        Assert.Empty(result.Phases);
     }
 
     [Fact]

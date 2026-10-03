@@ -659,7 +659,8 @@ public sealed class StagingService
                 Success = true,
                 Version = version,
                 ContentPath = contentPath,
-                ManifestPath = manifestPath
+                ManifestPath = manifestPath,
+                FromLocalSource = localInstaller is not null
             };
         }
         // Cancellation is not a staging failure. Returning it as one lets a caller read an
@@ -2210,13 +2211,17 @@ public sealed class StagingService
     /// <summary>
     /// Stages an already-analysed local installer into the same versioned content
     /// layout the definition pipeline produces, so packaging consumes it unchanged.
-    /// There is no version scrape or download — the file on disk is the source.
+    /// There is no version scrape or download — the file on disk is the source. With
+    /// <paramref name="expected"/>, the copy lands under a side name and replaces the staged
+    /// installer only when its SHA-256 matches; otherwise the stage fails before anything
+    /// is finalized.
     /// </summary>
     public Task<StagingResult> StageDroppedInstallerAsync(
         StageManifest manifest, string sourceInstallerPath, string downloadRoot,
         Action<string>? onProgress = null,
         CancellationToken ct = default,
-        StageInputs? inputs = null)
+        StageInputs? inputs = null,
+        ExpectedInstaller? expected = null)
     {
         try
         {
@@ -2251,7 +2256,31 @@ public sealed class StagingService
             ct.ThrowIfCancellationRequested();
 
             var stagedInstaller = Path.Combine(contentPath, manifest.InstallerFile);
-            File.Copy(sourceInstallerPath, stagedInstaller, true);
+            if (expected is null)
+            {
+                File.Copy(sourceInstallerPath, stagedInstaller, true);
+            }
+            else
+            {
+                var copy = $"{stagedInstaller}.{Guid.NewGuid():N}.partial";
+                try
+                {
+                    File.Copy(sourceInstallerPath, copy, false);
+                    var actual = ComputeSha256(copy);
+                    if (!string.Equals(actual, expected.Sha256, StringComparison.OrdinalIgnoreCase))
+                        return Task.FromResult(new StagingResult
+                        {
+                            Success = false,
+                            ErrorMessage = $"The installer copied from {sourceInstallerPath} does not match {expected.Source}: its SHA-256 is {actual}, " +
+                                           $"the recorded one is {expected.Sha256}. Nothing was staged."
+                        });
+                    File.Move(copy, stagedInstaller, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(copy)) File.Delete(copy);
+                }
+            }
             onProgress?.Invoke($"Staged installer: {stagedInstaller}");
 
             onProgress?.Invoke("Generating install/uninstall wrappers...");

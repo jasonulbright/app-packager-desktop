@@ -7,4 +7,6 @@ public sealed class StagingResult
     public string ContentPath { get; init; } = "";
     public string ManifestPath { get; init; } = "";
     public string? ErrorMessage { get; init; }
+    /// <summary>True when the installer came from a local source folder instead of a download.</summary>
+    public bool FromLocalSource { get; init; }
 }

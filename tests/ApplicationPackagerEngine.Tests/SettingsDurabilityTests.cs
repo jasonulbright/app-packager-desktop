@@ -96,6 +96,120 @@ public sealed class SettingsDurabilityTests : IDisposable
     }
 
     [Fact]
+    public async Task ALoadDuringAnotherInstancesSavesNeverReturnsFirstRunDefaults()
+    {
+        var writer = new SettingsService();
+        var s = writer.Load();
+        s.DownloadRoot = @"C:\kept";
+        s.FirstRunCompleted = true;
+        writer.SaveOperatorEdit(s);
+
+        var reader = new SettingsService();
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        var saving = Task.Run(() =>
+        {
+            var n = 0;
+            while (!stop.IsCancellationRequested)
+            {
+                s.M365Channel = "channel-" + n++;
+                writer.Save(s);
+            }
+        });
+        var defaults = 0;
+        var loads = 0;
+        while (!saving.IsCompleted)
+        {
+            var loaded = reader.Load();
+            loads++;
+            if (loaded.DownloadRoot != @"C:\kept" || reader.IsFileUnreadable) defaults++;
+        }
+        await saving;
+
+        Assert.True(loads > 0);
+        Assert.Equal(0, defaults);
+    }
+
+    [Fact]
+    public async Task AMissingFileWithAReplaceSideFilePresentIsWaitedFor()
+    {
+        var backup = Path.Combine(_root, "settings.json." + Guid.NewGuid().ToString("N") + ".bak");
+        File.WriteAllText(backup, """{ "DownloadRoot": "C:\\old" }""");
+        var appear = Task.Run(async () =>
+        {
+            await Task.Delay(200);
+            File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
+            File.Delete(backup);
+        });
+
+        var loaded = new SettingsService().Load();
+        await appear;
+
+        Assert.Equal(@"C:\new", loaded.DownloadRoot);
+    }
+
+    [Fact]
+    public void AGenuineFirstRunLoadsDefaultsWithoutWaiting()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var loaded = new SettingsService().Load();
+        watch.Stop();
+
+        Assert.False(loaded.FirstRunCompleted);
+        Assert.True(watch.Elapsed < SettingsService.MissingFileWait, $"first-run load took {watch.Elapsed}");
+    }
+
+    [Fact]
+    public void AnUnreadableFileStillTakesTheRunOverrides()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, Unreadable);
+        var service = new SettingsService();
+        service.ApplyRunOverrides(s => s.DownloadRoot = @"D:\override");
+
+        var loaded = service.Load();
+
+        Assert.Equal(@"D:\override", loaded.DownloadRoot);
+        Assert.True(service.IsFileUnreadable);
+        Assert.NotNull(service.TakeLoadWarning());
+    }
+
+    [Fact]
+    public void AnInstanceThatReadsTheFileOncePerRunKeepsTheFirstRead()
+    {
+        File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\first", "FirstRunCompleted": true }""");
+        var service = new SettingsService();
+        service.ReadFileOncePerRun();
+        Assert.Equal(@"C:\first", service.Load().DownloadRoot);
+
+        File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\second", "FirstRunCompleted": true }""");
+        var again = service.Load();
+
+        Assert.Equal(@"C:\first", again.DownloadRoot);
+        Assert.NotSame(service.Load(), again);
+    }
+
+    [Fact]
+    public async Task ASaveKeepsTheFileNamePresentWhileAReaderHoldsIt()
+    {
+        var service = new SettingsService();
+        var s = service.Load();
+        s.DownloadRoot = @"C:\one";
+        service.Save(s);
+
+        var release = Task.Run(async () =>
+        {
+            using var held = new FileStream(SettingsService.SettingsPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            await Task.Delay(300);
+        });
+        await Task.Delay(50);
+        s.DownloadRoot = @"C:\two";
+        service.Save(s);
+        await release;
+
+        Assert.Equal(@"C:\two", new SettingsService().Load().DownloadRoot);
+        Assert.Equal(["settings.json"], Directory.GetFiles(_root).Select(Path.GetFileName));
+    }
+
+    [Fact]
     public void ASaveWithAnEmptyGridKeepsTheTrackedListAndTheCadenceOverrides()
     {
         var stored = new OneClickSettings
