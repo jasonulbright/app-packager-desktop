@@ -11,6 +11,7 @@ public static partial class WsusMessages
 {
     public const string ConsoleVersionHint = "The WSUS console on this computer must match the server version.";
     public const string TlsHint = "For SSL, this computer must trust the server certificate and use TLS 1.2 (SchUseStrongCrypto = 1 under HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319).";
+    public const string DatabaseTimeoutHint = "The WSUS database did not answer in time; run WSUS database maintenance (rebuild indexes, update statistics) and publish again.";
 
     [GeneratedRegex("SSL|TLS|secure channel|trust relationship", RegexOptions.IgnoreCase)]
     private static partial Regex SecureChannelFailure();
@@ -64,6 +65,18 @@ public static partial class WsusMessages
         if (hint.Length == 0 && cabLimitMegabytes > 0 && payloadMegabytes > cabLimitMegabytes)
             hint = $"The payload is {payloadMegabytes:N0} MB and the server allows {cabLimitMegabytes} MB per cab: raise LocalPublishingMaxCabSize on the server (at most 2047).";
         return $"WSUS rejected the package: {message}{(hint.Length > 0 ? " " + hint : "")}";
+    }
+
+    /// <summary>
+    /// The text of a failed WSUS publish as the row log, the One Click report and the
+    /// command-line build show it: a SQL timeout from the server ends with its cause and remedy.
+    /// </summary>
+    public static string PublishFailure(string message)
+    {
+        if (!message.Contains("Execution Timeout Expired", StringComparison.OrdinalIgnoreCase)
+            || message.EndsWith(DatabaseTimeoutHint, StringComparison.Ordinal))
+            return message;
+        return message.TrimEnd() + " " + DatabaseTimeoutHint;
     }
 
     /// <summary>The message of one failed state change, with the fix for the refusals whose cause is known.</summary>
