@@ -1025,11 +1025,13 @@ public sealed class StagingService
                 "$setupPath = Join-Path $PSScriptRoot 'setup.exe'",
                 "$configPath = Join-Path $PSScriptRoot 'install.xml'",
                 "$proc = Start-Process -FilePath $setupPath -ArgumentList @('/configure', $configPath) -Wait -PassThru -NoNewWindow -WorkingDirectory $PSScriptRoot",
+                "if (-not $proc) { exit 1 }",
                 "exit $proc.ExitCode");
             var uninstallPs1 = string.Join("\r\n",
                 "$setupPath = Join-Path $PSScriptRoot 'setup.exe'",
                 "$configPath = Join-Path $PSScriptRoot 'uninstall.xml'",
                 "$proc = Start-Process -FilePath $setupPath -ArgumentList @('/configure', $configPath) -Wait -PassThru -NoNewWindow -WorkingDirectory $PSScriptRoot",
+                "if (-not $proc) { exit 1 }",
                 "exit $proc.ExitCode");
             var installBat = "@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0install.ps1\"\r\nexit /b %ERRORLEVEL%";
             var uninstallBat = "@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%~dp0uninstall.ps1\"\r\nexit /b %ERRORLEVEL%";
@@ -1238,8 +1240,8 @@ public sealed class StagingService
     /// </summary>
     public static StageDetection BuildMsixScriptDetection(StageMsixPackage package)
     {
-        var name = package.Name.Replace("'", "''");
-        var version = package.Version.Replace("'", "''");
+        var name = PowerShellLiteral.EscapeSingleQuoted(package.Name);
+        var version = PowerShellLiteral.EscapeSingleQuoted(package.Version);
 
         var script = string.Join("\r\n",
             $"$wanted = [version]'{version}'",

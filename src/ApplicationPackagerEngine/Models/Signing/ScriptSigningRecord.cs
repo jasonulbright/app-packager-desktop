@@ -16,6 +16,10 @@ public static class SigningStatus
     public static bool IsSigned(string? status) =>
         status is SignedAndVerified or ExistingSignatureValid;
 
+    /// <summary>The refusal a Require switch raises for a category status that does not satisfy it; a missing status reads 'none'.</summary>
+    public static string RefusalMessage(SigningCategory category, string? status) =>
+        $"Require{category} is set but the {category} category status is '{(string.IsNullOrEmpty(status) ? "none" : status)}'; refusing to publish.";
+
     /// <summary>
     /// Category status from its members: Failed outranks SignedAndVerified,
     /// which outranks ExistingSignatureValid, then NotRequested; no members

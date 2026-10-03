@@ -208,7 +208,7 @@ public static class RequirementRuleBuilder
                     sb.AppendLine($"{ruleVar} = New-CMRequirementRuleBooleanValue -InputObject {gcVar} -Value ${(item.BooleanValue ? "true" : "false")}");
                     break;
             }
-            sb.AppendLine($"Write-Host \"Requirement rule             : {Esc(template.Id)} ({Esc(template.GlobalConditionName)})\"");
+            sb.AppendLine($"Write-Host \"Requirement rule             : {PowerShellLiteral.EscapeDoubleQuoted(template.Id)} ({PowerShellLiteral.EscapeDoubleQuoted(template.GlobalConditionName)})\"");
             names.Add(ruleVar);
         }
         return names;
@@ -240,5 +240,5 @@ public static class RequirementRuleBuilder
             $"Condition '{conditionId}' requires a boolean Value (got '{text}').");
     }
 
-    private static string Esc(string value) => value.Replace("'", "''");
+    private static string Esc(string value) => PowerShellLiteral.EscapeSingleQuoted(value);
 }

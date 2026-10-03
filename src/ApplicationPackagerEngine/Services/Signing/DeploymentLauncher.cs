@@ -60,22 +60,29 @@ public static class DeploymentLauncher
     /// <summary>
     /// Token-level findings for one line of text. PowerShell binds a
     /// parameter by unique prefix, so -e, -ex and -executionpo all reach
-    /// -ExecutionPolicy and -e and -enc reach -EncodedCommand. A bare policy
-    /// name counts only on a line that also names the execution policy: a
-    /// comment or a string that merely contains the word is not a launcher.
+    /// -ExecutionPolicy and -e and -enc reach -EncodedCommand; -ep and -ec
+    /// are aliases. powershell.exe accepts an en dash, em dash or horizontal
+    /// bar as the parameter dash, cmd removes carets and quotes before
+    /// powershell.exe sees the line, and an -ArgumentList string carries
+    /// its first parameter behind a quote, so the line is normalized for all
+    /// four before tokens are matched. A bare policy name counts only on a
+    /// line that also names the execution policy: a comment or a string that
+    /// merely contains the word is not a launcher.
     /// </summary>
     public static IReadOnlyList<(string Code, string Token)> TokenFindings(string text)
     {
         var findings = new List<(string, string)>();
+        text = Regex.Replace(text.Replace("^", "", StringComparison.Ordinal), "[–—―]", "-");
         foreach (var raw in Regex.Split(text, @"[\s=:]+"))
         {
-            if (string.IsNullOrWhiteSpace(raw)) continue;
-            if (raw[0] != '-' && raw[0] != '/') continue;
-            var name = raw.TrimStart('-', '/').Trim('"', '\'').ToLowerInvariant();
+            var token = raw.TrimStart('"', '\'', '‘', '’', '‚', '‛', '“', '”', '„');
+            if (string.IsNullOrWhiteSpace(token)) continue;
+            if (token[0] != '-' && token[0] != '/') continue;
+            var name = token.TrimStart('-', '/').Trim('"', '\'').ToLowerInvariant();
             if (name.Length == 0) continue;
             if ("executionpolicy".StartsWith(name, StringComparison.Ordinal) || name == "ep")
                 findings.Add((CodeExecutionPolicy, raw));
-            if ("encodedcommand".StartsWith(name, StringComparison.Ordinal))
+            if ("encodedcommand".StartsWith(name, StringComparison.Ordinal) || name == "ec")
                 findings.Add((CodeEncodedCommand, raw));
         }
         if (Regex.IsMatch(text, "(?i)executionpolicy"))
@@ -86,29 +93,51 @@ public static class DeploymentLauncher
         return findings;
     }
 
+    /// <summary>The launchers the stage writes at its root; always AppPackager-owned and always audited.</summary>
+    public static readonly IReadOnlyList<string> GeneratedLaunchers = ["install.bat", "uninstall.bat", "install.ps1", "uninstall.ps1"];
+
+    private static readonly string[] ToolkitEntryScripts = ["Invoke-AppDeployToolkit.ps1", "Deploy-Application.ps1"];
+
+    /// <summary>The folders a PSADT v3 or v4 layout carries beside its entry script.</summary>
+    private static readonly string[] ToolkitFolders =
+        ["AppDeployToolkit", "PSAppDeployToolkit", "PSAppDeployToolkit.Extensions", "Assets", "Config", "Strings", "Files", "SupportFiles"];
+
     /// <summary>
-    /// Folders holding vendor toolkit content: every folder that carries a
-    /// PSADT entry script (Invoke-AppDeployToolkit.ps1 or
+    /// Vendor toolkit content: every folder below the stage root that carries
+    /// a PSADT entry script (Invoke-AppDeployToolkit.ps1 or
     /// Deploy-Application.ps1), plus manifest-declared third-party scripts by
-    /// stage-relative path.
+    /// stage-relative path. The stage root itself is never a root: a toolkit
+    /// there contributes its entry script and its own folders, so the
+    /// generated launchers and scripts\ beside it stay owned.
     /// </summary>
     public static (IReadOnlyList<string> Roots, IReadOnlyList<string> Declared) ThirdPartyRoots(
         string stageRoot, IEnumerable<string>? declaredThirdPartyScripts)
     {
         var roots = new List<string>();
+        var declared = declaredThirdPartyScripts?.Where(d => !string.IsNullOrWhiteSpace(d)).ToList() ?? [];
         if (Directory.Exists(stageRoot))
         {
-            roots.AddRange(Directory.EnumerateFiles(stageRoot, "*", SearchOption.AllDirectories)
-                .Where(f => Path.GetFileName(f).Equals("Invoke-AppDeployToolkit.ps1", StringComparison.OrdinalIgnoreCase)
-                         || Path.GetFileName(f).Equals("Deploy-Application.ps1", StringComparison.OrdinalIgnoreCase))
-                .Select(f => Path.GetDirectoryName(Path.GetFullPath(f))!.TrimEnd('\\')));
+            var rootFull = Path.GetFullPath(stageRoot).TrimEnd('\\');
+            foreach (var entry in Directory.EnumerateFiles(rootFull, "*", SearchOption.AllDirectories)
+                         .Where(f => ToolkitEntryScripts.Contains(Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)))
+            {
+                var folder = Path.GetDirectoryName(entry)!.TrimEnd('\\');
+                if (!string.Equals(folder, rootFull, StringComparison.OrdinalIgnoreCase))
+                {
+                    roots.Add(folder);
+                    continue;
+                }
+                declared.Add(Path.GetFileName(entry));
+                roots.AddRange(ToolkitFolders.Select(f => Path.Combine(rootFull, f)).Where(Directory.Exists));
+            }
         }
-        return (roots, declaredThirdPartyScripts?.Where(d => !string.IsNullOrWhiteSpace(d)).ToList() ?? []);
+        return (roots.Distinct(StringComparer.OrdinalIgnoreCase).ToList(), declared);
     }
 
     public static bool IsThirdPartyFile(string fullName, string relativePath,
         (IReadOnlyList<string> Roots, IReadOnlyList<string> Declared) thirdParty)
     {
+        if (GeneratedLaunchers.Contains(relativePath, StringComparer.OrdinalIgnoreCase)) return false;
         foreach (var root in thirdParty.Roots)
             if (fullName.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return true;
         foreach (var name in thirdParty.Declared)

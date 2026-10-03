@@ -204,7 +204,9 @@ public sealed class SignedTargetScriptTests(SigningCertificateFixture fixture)
         File.WriteAllText(file, "Write-Output 'Installed caf\u00e9'\r\nexit 0", new UnicodeEncoding(false, true));
         ScriptSigningService.SignFile(file, fixture.Signer, "SHA256", null);
 
-        var context = IntuneScriptRuleContext.From(Record("SignedAndVerified"), new SigningPolicy(), dir, "x86");
+        var record = Record("SignedAndVerified", thumbprint: fixture.Thumbprint);
+        record.Detection.Sha256 = ScriptSignatureVerifier.FileSha256Hex(file);
+        var context = IntuneScriptRuleContext.From(record, new SigningPolicy(), dir, "x86");
         var rule = IntunePublishService.BuildRules(ScriptManifest().Detection, context)[0]!;
 
         Assert.True((bool)rule["enforceSignatureCheck"]!);

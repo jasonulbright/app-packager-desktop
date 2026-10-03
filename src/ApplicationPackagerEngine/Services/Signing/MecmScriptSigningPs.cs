@@ -97,11 +97,13 @@ public static class MecmScriptSigningPs
             if ($null -ne $sig.SignerCertificate) { $thumb = $sig.SignerCertificate.Thumbprint.ToUpperInvariant() }
             $trusted = ([string]$sig.Status -eq 'Valid')
             $intact = $trusted
-            if (-not $intact -and $null -ne $sig.SignerCertificate -and [string]$sig.Status -eq 'UnknownError') {
+            $untrustedChain = @(-2146762487, -2146762486) | ForEach-Object { [System.ComponentModel.Win32Exception]::new($_).Message }
+            if (-not $intact -and $null -ne $sig.SignerCertificate -and [string]$sig.Status -eq 'UnknownError' -and $untrustedChain -contains [string]$sig.StatusMessage) {
                 $chain = New-Object System.Security.Cryptography.X509Certificates.X509Chain
                 try {
                     $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
                     $chain.ChainPolicy.VerificationFlags = [System.Security.Cryptography.X509Certificates.X509VerificationFlags]::AllowUnknownCertificateAuthority
+                    $null = $chain.ChainPolicy.ApplicationPolicy.Add((New-Object System.Security.Cryptography.Oid '1.3.6.1.5.5.7.3.3'))
                     $intact = [bool]$chain.Build($sig.SignerCertificate)
                 }
                 catch { $intact = $false }
@@ -247,13 +249,22 @@ public static class MecmScriptSigningPs
             if (-not $created) {
                 throw "Global condition '$Name' is not readable after creation; the provider refused the write."
             }
-            $stored = Get-ApkgGlobalConditionScriptBody -GlobalCondition $created
+            Test-ApkgGlobalConditionStoredScript -GlobalCondition $created -Name $Name -ScriptText $ScriptText -SignedBytes $signedBytes -ExpectedThumbprint $ExpectedThumbprint
+            return $created
+        }
+        function Test-ApkgGlobalConditionStoredScript {
+            param($GlobalCondition, [string]$Name, [string]$ScriptText, [AllowNull()][byte[]]$SignedBytes, [AllowEmptyString()][string]$ExpectedThumbprint = '')
+            $signed = $null -ne $SignedBytes
+            $stored = Get-ApkgGlobalConditionScriptBody -GlobalCondition $GlobalCondition
             if ($null -eq $stored) {
+                if ($signed) {
+                    throw ("Global condition '{0}' stored no readable script body, so its signature cannot be verified." -f $Name)
+                }
                 Write-Host ("Global condition read-back   : '{0}' stored no readable script body; the site copy could not be compared." -f $Name)
-                return $created
+                return
             }
             if ($signed) {
-                if (-not (Compare-ApkgBytes -Left $stored.Bytes -Right $signedBytes)) {
+                if (-not (Compare-ApkgBytes -Left $stored.Bytes -Right $SignedBytes)) {
                     throw ("Global condition '{0}' read back different script bytes than were sent; the site did not store the signed script." -f $Name)
                 }
                 Test-ApkgStoredScriptSignature -Bytes $stored.Bytes -Context ("global condition '$Name'") -ExpectedThumbprint $ExpectedThumbprint
@@ -262,7 +273,6 @@ public static class MecmScriptSigningPs
                 throw ("Global condition '{0}' read back different script content than was sent; the site did not store the finalized script." -f $Name)
             }
             Write-Host ("Global condition read-back   : {0} verified" -f $Name)
-            return $created
         }
         function Get-ApkgScriptGlobalCondition {
             param([string]$Name, [int]$PlatformType, [string]$DataType, [string]$Description,
@@ -284,6 +294,9 @@ public static class MecmScriptSigningPs
             $versioned = Find-ApkgGlobalConditionByName -Name $versionedName -PlatformType $PlatformType
             if ($versioned) {
                 Write-Host "Global condition (existing)  : $versionedName"
+                $expectedBytes = $null
+                if ($signed) { $expectedBytes = [Convert]::FromBase64String($SignedBase64) }
+                Test-ApkgGlobalConditionStoredScript -GlobalCondition $versioned -Name $versionedName -ScriptText $ScriptText -SignedBytes $expectedBytes -ExpectedThumbprint $ExpectedThumbprint
                 return $versioned
             }
             if ($base) {

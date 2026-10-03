@@ -36,7 +36,7 @@ public sealed partial class WorkbenchStore
 
     public string GetApplicationFolder(string applicationId, bool create = false)
     {
-        var folder = Path.Combine(ApplicationsRoot, ApplicationIds.ToKey(applicationId));
+        var folder = WorkbenchPaths.CombineUnder(ApplicationsRoot, ApplicationIds.ToKey(applicationId));
         if (create) Directory.CreateDirectory(folder);
         return folder;
     }

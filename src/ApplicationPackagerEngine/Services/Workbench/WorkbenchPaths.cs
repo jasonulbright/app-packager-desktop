@@ -55,6 +55,21 @@ public static class WorkbenchPaths
         if (string.IsNullOrWhiteSpace(profileId) || ApplicationPackagerEngine.Models.Workbench.ApplicationIds.IsDefaultProfile(profileId))
             return downloadRoot;
         if (string.IsNullOrWhiteSpace(downloadRoot)) return downloadRoot;
-        return Path.Combine(downloadRoot, "profiles", profileId);
+        ApplicationPackagerEngine.Models.Workbench.ApplicationIds.AssertProfileId(profileId);
+        return CombineUnder(downloadRoot, "profiles", profileId);
+    }
+
+    /// <summary>
+    /// Path.Combine that refuses a result outside <paramref name="parent"/>:
+    /// a rooted part discards everything before it and a dot segment climbs
+    /// out, so the combined path is checked after it is resolved.
+    /// </summary>
+    public static string CombineUnder(string parent, params string[] parts)
+    {
+        var combined = Path.Combine([parent, .. parts]);
+        var root = Path.GetFullPath(parent).TrimEnd('\\') + '\\';
+        if (!Path.GetFullPath(combined).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"The path '{combined}' resolves outside '{parent}'.");
+        return combined;
     }
 }

@@ -17,6 +17,11 @@ public sealed class SigningCertificateFixture : IDisposable
 {
     public X509Certificate2 Signer { get; }
     public string Thumbprint => Signer.Thumbprint.ToUpperInvariant();
+    /// <summary>A second usable code-signing certificate.</summary>
+    public X509Certificate2 SecondSigner { get; }
+    public string SecondThumbprint => SecondSigner.Thumbprint.ToUpperInvariant();
+    /// <summary>A certificate with a private key whose only EKU is server authentication.</summary>
+    public X509Certificate2 ServerAuthOnly { get; }
     public string ExpiredThumbprint { get; }
     public string PublicOnlyThumbprint { get; }
     public string Root { get; }
@@ -30,6 +35,9 @@ public sealed class SigningCertificateFixture : IDisposable
         try
         {
             Signer = AddWithKey("CN=AppPackager Desktop Unit Test Signing", DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(2));
+            SecondSigner = AddWithKey("CN=AppPackager Desktop Unit Test Second Signing", DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(2));
+            ServerAuthOnly = AddWithKey("CN=AppPackager Desktop Unit Test Server Auth", DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(2),
+                ServerAuthenticationOid);
             ExpiredThumbprint = AddWithKey("CN=AppPackager Desktop Unit Test Expired", DateTimeOffset.Now.AddDays(-30), DateTimeOffset.Now.AddDays(-1)).Thumbprint;
             using var keyless = CreateSelfSigned("CN=AppPackager Desktop Unit Test Keyless", DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddDays(2));
             var publicOnly = X509CertificateLoader.LoadCertificate(keyless.RawData);
@@ -60,18 +68,23 @@ public sealed class SigningCertificateFixture : IDisposable
         return dir;
     }
 
-    private static X509Certificate2 CreateSelfSigned(string subject, DateTimeOffset notBefore, DateTimeOffset notAfter)
+    private const string CodeSigningOid = "1.3.6.1.5.5.7.3.3";
+    private const string ServerAuthenticationOid = "1.3.6.1.5.5.7.3.1";
+
+    private static X509Certificate2 CreateSelfSigned(string subject, DateTimeOffset notBefore, DateTimeOffset notAfter,
+        string usageOid = CodeSigningOid)
     {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest(subject, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
-        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.3")], false));
+        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid(usageOid)], false));
         return request.CreateSelfSigned(notBefore, notAfter);
     }
 
-    private X509Certificate2 AddWithKey(string subject, DateTimeOffset notBefore, DateTimeOffset notAfter)
+    private X509Certificate2 AddWithKey(string subject, DateTimeOffset notBefore, DateTimeOffset notAfter,
+        string usageOid = CodeSigningOid)
     {
-        using var ephemeral = CreateSelfSigned(subject, notBefore, notAfter);
+        using var ephemeral = CreateSelfSigned(subject, notBefore, notAfter, usageOid);
         var pfx = ephemeral.Export(X509ContentType.Pfx, "fixture");
         var persisted = X509CertificateLoader.LoadPkcs12(pfx, "fixture",
             X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.UserKeySet);

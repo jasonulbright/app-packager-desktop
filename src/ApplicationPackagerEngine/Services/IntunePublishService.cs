@@ -511,6 +511,7 @@ public sealed class IntunePublishService : IDisposable
                 {
                     content = Encoding.UTF8.GetBytes(scriptText);
                 }
+                VerifyPublishedDetection(content, signing);
                 return new JsonObject
                 {
                     ["@odata.type"] = "#microsoft.graph.win32LobAppPowerShellScriptRule",
@@ -580,20 +581,44 @@ public sealed class IntunePublishService : IDisposable
             "exit 1");
 
         var (enforce, runAs32Bit) = ScriptRuleSettings(signing);
+        var content = Encoding.UTF8.GetBytes(script);
+        VerifyPublishedDetection(content, signing);
         return new JsonObject
         {
             ["@odata.type"] = "#microsoft.graph.win32LobAppPowerShellScriptRule",
             ["ruleType"] = "detection",
             ["enforceSignatureCheck"] = enforce,
             ["runAs32Bit"] = runAs32Bit,
-            ["scriptContent"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(script)),
+            ["scriptContent"] = Convert.ToBase64String(content),
             ["operationType"] = "notConfigured",
             ["operator"] = "notConfigured"
         };
     }
 
-    /// <summary>A single-quoted PowerShell string literal; an apostrophe doubles.</summary>
-    private static string PsLiteral(string value) => "'" + value.Replace("'", "''") + "'";
+    /// <summary>
+    /// Verifies the exact bytes a script rule publishes when the detection is
+    /// recorded as signed or RequireDetection is set: the signature is intact,
+    /// the SHA-256 equals the recorded hash and the signer equals the recorded
+    /// thumbprint. Anything else refuses before the first Graph call.
+    /// </summary>
+    public static void VerifyPublishedDetection(byte[] content, IntuneScriptRuleContext? context)
+    {
+        if (context is null || (!SigningStatus.IsSigned(context.DetectionStatus) && !context.RequireDetection)) return;
+        var verify = ScriptSignatureVerifier.VerifyBytes(content);
+        string? problem = null;
+        if (!verify.SignatureIntact)
+            problem = $"does not carry an intact signature ({verify.Status})";
+        else if (!string.Equals(verify.Sha256, context.DetectionSha256, StringComparison.OrdinalIgnoreCase))
+            problem = $"has hash {verify.Sha256}, not the recorded {(context.DetectionSha256.Length > 0 ? context.DetectionSha256 : "none")}";
+        else if (context.DetectionThumbprint.Length > 0
+                 && !string.Equals(verify.Thumbprint, context.DetectionThumbprint, StringComparison.OrdinalIgnoreCase))
+            problem = $"is signed by {verify.Thumbprint}, not by the recorded {context.DetectionThumbprint}";
+        if (problem is not null)
+            throw new InvalidOperationException($"The detection script encoded into scriptContent {problem}; refusing to publish.");
+    }
+
+    /// <summary>A single-quoted PowerShell string literal.</summary>
+    private static string PsLiteral(string value) => PowerShellLiteral.SingleQuoted(value);
 
     private async Task<string> WaitForStorageUriAsync(string fileUri, string token, IntunePublishOptions options, CancellationToken ct)
     {
