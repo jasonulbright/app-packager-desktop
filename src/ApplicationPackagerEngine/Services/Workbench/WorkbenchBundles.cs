@@ -34,7 +34,10 @@ public sealed class WorkbenchBundleEntry
 
 public sealed record WorkbenchBundleExport(string Path, string ApplicationId, bool SourcesIncluded, int EntryCount);
 
-public sealed record WorkbenchBundleImport(string ApplicationId, int EntryCount, bool SourcesIncluded, string SourceStatus);
+public sealed record WorkbenchBundleImport(string ApplicationId, int EntryCount, bool SourcesIncluded, string SourceStatus)
+{
+    public int ExternalPathsRemoved { get; init; }
+}
 
 /// <summary>What one bundle import accepts before it extracts anything.</summary>
 public sealed record WorkbenchBundleLimits(int MaxEntries, long MaxTotalBytes, long MaxManifestBytes)
@@ -258,6 +261,7 @@ public static class WorkbenchBundles
             Directory.CreateDirectory(store.ApplicationsRoot);
             var incoming = WorkbenchPaths.CombineUnder(store.ApplicationsRoot, ".import-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(incoming);
+            var externalPathsRemoved = 0;
             try
             {
                 var expected = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -268,7 +272,8 @@ public static class WorkbenchBundles
                         throw new InvalidOperationException($"Bundle entry '{relative}' changed while it was imported.");
                     expected[relative] = entry.Sha256;
                 }
-                foreach (var (relative, hash) in Rebind(incoming, targetId, target)) expected[relative] = hash;
+                foreach (var (relative, hash) in Rebind(incoming, targetId, target, out externalPathsRemoved))
+                    expected[relative] = hash;
                 beforeSwap?.Invoke(incoming);
                 Swap(store, incoming, target, targetId, expected);
             }
@@ -278,7 +283,10 @@ public static class WorkbenchBundles
             }
 
             return new WorkbenchBundleImport(targetId, manifest.Entries.Count, manifest.SourcesIncluded,
-                manifest.SourceStatus ?? (manifest.SourcesIncluded ? WorkbenchBundleManifest.Complete : WorkbenchBundleManifest.IncompleteSource));
+                manifest.SourceStatus ?? (manifest.SourcesIncluded ? WorkbenchBundleManifest.Complete : WorkbenchBundleManifest.IncompleteSource))
+            {
+                ExternalPathsRemoved = externalPathsRemoved
+            };
         }
         finally
         {
@@ -504,8 +512,10 @@ public static class WorkbenchBundles
     /// each profile.json, and each BYO revision's stored path. Returns the SHA-256 of each
     /// file it rewrote, taken from the text it wrote.
     /// </summary>
-    private static Dictionary<string, string> Rebind(string folder, string applicationId, string finalFolder)
+    private static Dictionary<string, string> Rebind(string folder, string applicationId, string finalFolder,
+        out int externalPathsRemoved)
     {
+        externalPathsRemoved = 0;
         var rewritten = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         void Write(string relative, JsonNode node)
         {
@@ -539,6 +549,27 @@ public static class WorkbenchBundles
             var relative = Path.Combine("profiles", Path.GetFileName(profileFolder), "profile.json");
             if (WorkbenchJson.Read(Path.Combine(folder, relative)) is not JsonObject profile) continue;
             profile["ApplicationId"] = applicationId;
+            if (profile["Application"] is JsonObject application
+                && application["Icon"] is JsonObject icon
+                && !string.IsNullOrWhiteSpace(WorkbenchJson.AsText(icon["Path"])))
+            {
+                // ImportProfileAssets would otherwise copy this host-local path on the next save.
+                icon["Path"] = null;
+                externalPathsRemoved++;
+            }
+
+            foreach (var sourceFile in WorkbenchProfileValidator.Items(profile["SourceFiles"]))
+            {
+                if (sourceFile is not JsonObject entry) continue;
+                var linked = WorkbenchJson.IsTruthy(entry["Linked"]);
+                var hasPath = !string.IsNullOrWhiteSpace(WorkbenchJson.AsText(entry["Provenance"]));
+                // Bundle hashes establish archive integrity, not trust in a path on this machine.
+                // Keep any bundled managed asset reference, but remove host paths before later
+                // profile saves can import them or builds can resolve them as linked sources.
+                if (linked) entry["Linked"] = false;
+                if (hasPath) entry["Provenance"] = null;
+                if (hasPath) externalPathsRemoved++;
+            }
             Write(relative, profile);
         }
         return rewritten;

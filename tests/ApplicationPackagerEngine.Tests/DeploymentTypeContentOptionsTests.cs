@@ -81,6 +81,28 @@ public sealed class DeploymentTypeContentOptionsTests
     public void TrailingDotsAndSpacesNeverReachAFolderSegment(string layout, string vendor, string app, string version, string expected) =>
         Assert.Equal(expected, ContentLayouts.ContentPath(@"\\fs\sccm$", layout, vendor, app, version));
 
+    [Theory]
+    [InlineData(ContentLayouts.Nested, "Contoso", @"..\..\outside", "1.0")]
+    [InlineData(ContentLayouts.Nested, "Contoso", "Widget", @"..\..\outside")]
+    [InlineData(ContentLayouts.Nested, @"..\..\outside", "Widget", "1.0")]
+    [InlineData(ContentLayouts.Flat, "Contoso", @"Widget\..\..\outside", "1.0")]
+    [InlineData(ContentLayouts.Flat, "Contoso", "Widget", @"..\..\outside")]
+    [InlineData(ContentLayouts.Nested, "Contoso", @"\\other\share", "1.0")]
+    [InlineData(ContentLayouts.Nested, "Contoso", "Widget:stream", "1.0")]
+    [InlineData(ContentLayouts.Nested, "Contoso", "Widget", "CON")]
+    [InlineData(ContentLayouts.Flat, "Contoso", "/rooted", "1.0")]
+    [InlineData(ContentLayouts.Nested, "Contoso", ".", "1.0")]
+    [InlineData(ContentLayouts.Nested, "Contoso", "..", "1.0")]
+    [InlineData(ContentLayouts.Nested, "Contoso", "Widget", "..")]
+    public void ContentPath_RejectsRootedOrTraversingSegments(string layout, string vendor, string app, string version) =>
+        Assert.Throws<ArgumentException>(() => ContentLayouts.ContentPath(@"\\fs\sccm$", layout, vendor, app, version));
+
+    [Theory]
+    [InlineData(ContentLayouts.Nested, "COM0", "Widget", "1.0", @"\\fs\sccm$\Applications\COM0\Widget\1.0")]
+    [InlineData(ContentLayouts.Flat, "Contoso", "LPT0", "1.0", @"\\fs\sccm$\Applications\Contoso-LPT0-1.0")]
+    public void ContentPath_PreservesWindowsFolderNamesThatAreNotReserved(string layout, string vendor, string app, string version, string expected) =>
+        Assert.Equal(expected, ContentLayouts.ContentPath(@"\\fs\sccm$", layout, vendor, app, version));
+
     [Fact]
     public async Task BareStagingTrimsTheApplicationFolder()
     {

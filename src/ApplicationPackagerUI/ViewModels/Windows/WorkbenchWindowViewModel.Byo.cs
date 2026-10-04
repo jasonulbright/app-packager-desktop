@@ -167,8 +167,11 @@ public partial class WorkbenchWindowViewModel
             }
             var result = await Task.Run(() => WorkbenchBundles.Import(_store, path, applicationId, force));
             await ReloadApplicationsAsync(result.ApplicationId);
+            var relinkNote = result.ExternalPathsRemoved == 0
+                ? ""
+                : $" {result.ExternalPathsRemoved} host-local file path(s) were removed. Select replacements only if those files are needed for staging.";
             await Prompts.InfoAsync("Import Bundle",
-                $"Imported {result.EntryCount} file(s) as {result.ApplicationId}. Source status: {result.SourceStatus}.");
+                $"Imported {result.EntryCount} file(s) as {result.ApplicationId}. Source status: {result.SourceStatus}.{relinkNote}");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException
                                        or System.Text.Json.JsonException or InvalidDataException)

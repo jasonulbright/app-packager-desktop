@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
+using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services.Workbench;
 
@@ -112,6 +113,82 @@ public sealed class WorkbenchBundleTests : IDisposable
         var copied = Store.GetProfile(targetId, profile.ProfileId);
         Assert.Equal(targetId, copied.ApplicationId);
         Assert.Equal(profile.Revision, copied.Revision);
+    }
+
+    [Fact]
+    public void Import_DetachesLinkedSourcePathsAndRequiresRelinkingBeforeStage()
+    {
+        const string applicationId = "catalog:package-hostile";
+        var profileId = Guid.NewGuid().ToString("N");
+        var secret = _t.NewFile(Path.Combine(_t.NewFolder(), "private.txt"), "host machine data");
+        var profile = new JsonObject
+        {
+            ["SchemaVersion"] = 1,
+            ["ProfileId"] = profileId,
+            ["ApplicationId"] = applicationId,
+            ["Name"] = "Imported",
+            ["Revision"] = 1,
+            ["Application"] = new JsonObject { ["Icon"] = new JsonObject { ["Asset"] = "", ["Path"] = secret } },
+            ["SourceFiles"] = new JsonArray(
+                new JsonObject
+                {
+                    ["Destination"] = "package/private.txt",
+                    ["Asset"] = "",
+                    ["Linked"] = true,
+                    ["Provenance"] = secret,
+                    ["Sha256"] = WorkbenchJson.FileSha256(secret),
+                    ["Size"] = new FileInfo(secret).Length
+                },
+                new JsonObject
+                {
+                    ["Destination"] = "package/private-copy.txt",
+                    ["Asset"] = "",
+                    ["Linked"] = false,
+                    ["Provenance"] = secret
+                })
+        };
+        var bundle = HostileBundle(Payload(($"application/profiles/{profileId}/profile.json", profile.ToJsonString())));
+
+        var imported = WorkbenchBundles.Import(_second, bundle);
+
+        var saved = _second.GetProfile(applicationId, profileId);
+        var sourceFiles = Assert.IsType<JsonArray>(saved.Data["SourceFiles"]);
+        var source = Assert.IsType<JsonObject>(sourceFiles[0]);
+        var unresolved = Assert.IsType<JsonObject>(sourceFiles[1]);
+        Assert.Equal(applicationId, imported.ApplicationId);
+        Assert.Equal(3, imported.ExternalPathsRemoved);
+        Assert.False(WorkbenchJson.IsTruthy(source["Linked"]));
+        Assert.Null(WorkbenchJson.AsText(source["Provenance"]));
+        Assert.False(WorkbenchJson.IsTruthy(unresolved["Linked"]));
+        Assert.Null(WorkbenchJson.AsText(unresolved["Provenance"]));
+        Assert.Null(WorkbenchJson.AsText(WorkbenchJson.Get(saved.Data, "Application.Icon.Path").Value));
+        _second.ImportProfileAssets(saved);
+        Assert.Empty(WorkbenchStore.GetAssetReferences(saved));
+
+        var stage = _t.NewFolder("imported-stage");
+        var snapshot = _second.CreateRunSnapshot(new RunSnapshotRequest { ApplicationId = applicationId, ProfileId = profileId });
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            StageFinalizer.Begin(new StageInputs { RunSnapshot = snapshot }).Apply(stage, new StageManifest()));
+        Assert.Contains("neither an asset id nor a linked path", error.Message);
+        Assert.False(File.Exists(Path.Combine(stage, "package", "private.txt")));
+
+        var selected = _t.NewFile(Path.Combine(_t.NewFolder(), "selected.txt"), "operator-selected content");
+        var local = WorkbenchProfile.CreateNew(applicationId, name: "Local link");
+        local.Data["SourceFiles"] = new JsonArray(new JsonObject
+        {
+            ["Destination"] = "package/selected.txt",
+            ["Linked"] = true,
+            ["Provenance"] = selected
+        });
+        local = _second.SaveProfile(local);
+        var localSnapshot = _second.CreateRunSnapshot(new RunSnapshotRequest
+        {
+            ApplicationId = applicationId,
+            ProfileId = local.ProfileId
+        });
+        var localStage = _t.NewFolder("local-link-stage");
+        StageFinalizer.Begin(new StageInputs { RunSnapshot = localSnapshot }).Apply(localStage, new StageManifest());
+        Assert.Equal("operator-selected content", File.ReadAllText(Path.Combine(localStage, "package", "selected.txt")));
     }
 
     [Fact]
