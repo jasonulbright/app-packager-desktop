@@ -53,7 +53,7 @@ The release is self-contained. A separate .NET runtime is not necessary.
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
 
-![The Application Workbench](docs/images/workbench.png)
+![The Application Workbench review and build page](docs/images/workbench.png)
 
 - **Application**: display name, publisher, description, application title, icon.
 - **Install & uninstall**: the generated script, the generated script with a before hook and an after hook, or a custom script.
@@ -82,8 +82,6 @@ App Packager Desktop refuses an application that installs for the signed-in user
 ## One Click
 
 One Click checks the applications that you track. It stages and publishes each application that has a new version, to the destinations of that application. The plan window shows the work before it starts. After you select **Run**, One Click asks no more questions. When a destination refuses an application, One Click remembers the refusal until the version changes. Each run writes a report with a rollback section.
-
-![The One Click plan](docs/images/one-click.png)
 
 ## Command-line build
 
