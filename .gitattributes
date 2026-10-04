@@ -1,0 +1,9 @@
+* text=auto
+*.png binary
+*.ico binary
+*.bin binary
+*.msi binary
+*.exe binary
+*.cab binary
+# Upstream license text keeps its trailing whitespace.
+licenses/* whitespace=-blank-at-eol,-blank-at-eof
