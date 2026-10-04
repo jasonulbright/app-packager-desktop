@@ -191,7 +191,7 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         {
             Apps = rows.Select(p => (new OneClickApp(p.Uid, p.Application, p.Vendor, p.LatestVersion, p.CurrentVersion), (PackagerInfo?)p)).ToList(),
             Settings = () => OneClickSettingsMap.PlanSettings(_settingsService.Load(), consoleFound),
-            History = OneClickSettingsMap.History(settings),
+            History = _inventoryProjection.History(rows, settings, _executionService.ResolveBuildPlan),
             Action = action,
             Force = settings.OneClick.ForceOnLaunch,
             OnExisting = settings.OneClick.OnExisting,
@@ -255,7 +255,6 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
                     FinishOneClickRow(item, OneClickOutcomes.Failed, "failed: " + ex.Message);
                 }
             }
-            SaveAppStates();
             StatusText = canceled ? "One Click: canceled." : "One Click: run complete.";
             return canceled;
         }
@@ -275,9 +274,9 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
     }
 
     private Task RunOneClickRowAsync(OneClickPlanItem item, OneClickRunOptions options, CancellationToken ct) =>
-        new OneClickRowRunner(new OneClickExecution(_executionService, _wsusPublisher), _settingsService, AddLogLine)
+        new OneClickRowRunner(new OneClickExecution(_executionService, _wsusPublisher), _settingsService,
+            _inventory, _inventoryProjection, AddLogLine)
         {
-            VersionChecked = SaveAppStates,
             IntuneNotes = LogIntuneNotes,
             StdErr = LogStdErr
         }.RunAsync(item, options, ct);

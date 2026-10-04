@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
@@ -49,11 +50,11 @@ public sealed class PublishTargetTests : IDisposable
         settings.SaveOperatorEdit(s);
     }
 
-    private static PackagerExecutionService Service()
+    private static PackagerExecutionService Service(ApplicationInventoryService? inventory = null)
     {
         var settings = new SettingsService();
         return new PackagerExecutionService(settings, ProfileStageFixture.Service(),
-            new IntuneDeploymentService(settings), new DeploymentConditionsService(settings));
+            new IntuneDeploymentService(settings), new DeploymentConditionsService(settings), inventory);
     }
 
     private PackagerInfo Row(LoopbackFileServer server)
@@ -97,6 +98,105 @@ public sealed class PublishTargetTests : IDisposable
         _t.Store.SaveProfile(edit);
 
         Assert.Null(service.ExistingStageManifest(row));
+    }
+
+    [Fact]
+    public async Task SharedExecutionRecordsTheSealedBuildAndAnIntuneRefusalForItsTenant()
+    {
+        var profile = _t.NewProfile(ProfileStageFixture.ApplicationId, "Pilot Ring");
+        using var server = ProfileStageFixture.Server();
+        var inventory = new ApplicationInventoryService();
+        var row = Row(server);
+        var service = Service(inventory);
+
+        var stage = await service.StageAsync(row);
+        Assert.Equal(0, stage.ExitCode);
+        var manifest = new ManifestService().Read(stage.OutLogPath!);
+        var reopenedInventory = new ApplicationInventoryService();
+        var package = Assert.IsType<InventoryPackageState>(reopenedInventory.GetPackageState(ProfileStageFixture.ApplicationId, profile.ProfileId));
+        Assert.Equal(manifest.BuildId, package.BuildId);
+        Assert.Equal(stage.OutLogPath, package.ManifestPath);
+        Assert.True(File.Exists(package.BuildRecordPath));
+
+        var settings = new SettingsService();
+        var appSettings = settings.Load();
+        appSettings.Intune.TenantId = "tenant-a";
+        settings.SaveOperatorEdit(appSettings);
+        var intuneEnvironment = InventoryEnvironmentIdentity.Intune("tenant-a");
+        inventory.RecordDestinationOutcome(new InventoryDestinationOutcome(row.Uid, null, intuneEnvironment,
+            "Publish", "1.0", InventoryOutcome.Succeeded, "old-app", DateTimeOffset.UtcNow.AddMinutes(-1)));
+        var publish = await service.PackageAsync(row, "", targetOverride: PublishRunTargets.IntuneOnly);
+
+        Assert.NotEqual(0, publish.ExitCode);
+        var destination = Assert.IsType<InventoryDestinationState>(reopenedInventory.GetDestinationState(
+            row.Uid, intuneEnvironment, "Publish"));
+        Assert.Equal(InventoryOutcome.Refused, destination.LastAttemptOutcome);
+        Assert.Equal("1.0", destination.LastSuccessVersion);
+        Assert.Contains(reopenedInventory.GetEvents(row.Uid, 20), item =>
+            item.Kind == "Publish" && item.Outcome == InventoryOutcome.Refused && item.BuildId == manifest.BuildId);
+
+        appSettings.Intune.TenantId = "tenant-b";
+        settings.SaveOperatorEdit(appSettings);
+        var secondPublish = await service.PackageAsync(row, "", targetOverride: PublishRunTargets.IntuneOnly);
+
+        Assert.NotEqual(0, secondPublish.ExitCode);
+        var afterTenantB = new ApplicationInventoryService();
+        var tenantBDestination = Assert.IsType<InventoryDestinationState>(afterTenantB.GetDestinationState(
+            row.Uid, InventoryEnvironmentIdentity.Intune("tenant-b"), "Publish"));
+        var tenantADestination = Assert.IsType<InventoryDestinationState>(afterTenantB.GetDestinationState(
+            row.Uid, intuneEnvironment, "Publish"));
+        Assert.Equal(InventoryOutcome.Refused, tenantBDestination.LastAttemptOutcome);
+        Assert.Null(tenantBDestination.LastSuccessVersion);
+        Assert.Equal("1.0", tenantADestination.LastSuccessVersion);
+        Assert.Equal(InventoryOutcome.Refused, tenantADestination.LastAttemptOutcome);
+
+        var tenantBProjection = new ApplicationInventoryProjection(afterTenantB).Entry(row, appSettings);
+        Assert.DoesNotContain("Intune", tenantBProjection.Published.Keys);
+        Assert.Contains("Intune", tenantBProjection.NotSupported.Keys);
+    }
+
+    [Fact]
+    public async Task ACancelledSharedStageIsRetainedAsACancelledOperation()
+    {
+        using var server = ProfileStageFixture.Server();
+        var row = Row(server);
+        var inventory = new ApplicationInventoryService();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Service(inventory).StageAsync(row, ct: cancellation.Token));
+
+        var operation = Assert.Single(new ApplicationInventoryService().GetOperations(row.Uid));
+        Assert.Equal("Stage", operation.Kind);
+        Assert.Equal(InventoryOutcome.Cancelled, operation.Outcome);
+        Assert.Equal("Stage cancelled.", operation.Detail);
+        Assert.NotNull(operation.FinishedAt);
+    }
+
+    [Fact]
+    public async Task ACancelledSharedPackageRetainsItsOperationAndDestinationAttempt()
+    {
+        var settings = new SettingsService();
+        var appSettings = settings.Load();
+        appSettings.Intune.TenantId = "cancel-tenant";
+        settings.SaveOperatorEdit(appSettings);
+        var inventory = new ApplicationInventoryService();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Service(inventory).PackageAsync(new PackagerInfo { Uid = "cancel-package", Application = "Widget" }, "",
+                ct: cancellation.Token, targetOverride: PublishRunTargets.IntuneOnly));
+
+        var reopenedInventory = new ApplicationInventoryService();
+        var operation = Assert.Single(reopenedInventory.GetOperations("cancel-package"));
+        Assert.Equal(InventoryOutcome.Cancelled, operation.Outcome);
+        Assert.Equal("Package cancelled.", operation.Detail);
+        var destination = Assert.IsType<InventoryDestinationState>(reopenedInventory.GetDestinationState(
+            "cancel-package", InventoryEnvironmentIdentity.Intune("cancel-tenant"), "Publish"));
+        Assert.Equal(InventoryOutcome.Cancelled, destination.LastAttemptOutcome);
+        Assert.Null(destination.LastSuccessVersion);
     }
 
     [Fact]

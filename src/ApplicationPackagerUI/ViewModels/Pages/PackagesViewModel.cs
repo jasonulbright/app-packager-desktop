@@ -1,5 +1,6 @@
 using System.IO;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerUI.Controls;
 using ApplicationPackagerUI.Models;
@@ -13,6 +14,8 @@ public partial class PackagesViewModel : ObservableObject
     private readonly PackagerExecutionService _executionService;
     private readonly MecmQueryService _mecmQueryService;
     private readonly SettingsService _settingsService;
+    private readonly ApplicationPackagerEngine.Services.ApplicationInventoryService _inventory;
+    private readonly ApplicationInventoryProjection _inventoryProjection;
     private readonly ISnackbarService _snackbarService;
     private readonly IContentDialogService _contentDialogService;
     private readonly ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService _dropAnalysisService;
@@ -73,7 +76,9 @@ public partial class PackagesViewModel : ObservableObject
         ApplicationPackagerEngine.Services.StagingService stagingService,
         ApplicationPackagerEngine.Services.Wsus.IWsusPublisher wsusPublisher,
         IPublishDialogs publishDialogs,
-        PublishRunService publishRuns)
+        PublishRunService publishRuns,
+        ApplicationPackagerEngine.Services.ApplicationInventoryService inventory,
+        ApplicationInventoryProjection inventoryProjection)
     {
         _publishRuns = publishRuns;
         _dropAnalysisService = dropAnalysisService;
@@ -82,6 +87,8 @@ public partial class PackagesViewModel : ObservableObject
         _executionService = executionService;
         _mecmQueryService = mecmQueryService;
         _settingsService = settingsService;
+        _inventory = inventory;
+        _inventoryProjection = inventoryProjection;
         _snackbarService = snackbarService;
         _contentDialogService = contentDialogService;
         _wsusPublisher = wsusPublisher;
@@ -309,14 +316,11 @@ public partial class PackagesViewModel : ObservableObject
         var settings = _settingsService.Load();
         foreach (var p in results)
         {
-            if (settings.AppStates.TryGetValue(p.Uid, out var state))
-            {
-                p.LastChecked = state.LastChecked;
-                p.LatestVersion = state.LatestVersion;
-                p.CurrentVersion = state.CurrentVersion;
-                if (!string.IsNullOrEmpty(state.LatestVersion))
-                    p.Status = "Cached";
-            }
+            var vendor = _inventoryProjection.Vendor(p);
+            p.LastChecked = vendor?.LastSucceededAt?.LocalDateTime;
+            p.LatestVersion = vendor?.LatestVersion ?? "";
+            p.CurrentVersion = _inventoryProjection.Environment(p, settings)?.LatestObservedVersion ?? "";
+            if (!string.IsNullOrEmpty(vendor?.LatestVersion)) p.Status = "Cached";
         }
 
         Packagers = new ObservableCollection<PackagerInfo>(results);
@@ -414,13 +418,18 @@ public partial class PackagesViewModel : ObservableObject
                 StatusText = $"{logPrefix}: {ProgressCurrent} of {ProgressTotal} — {p.Application}";
                 p.Status = "Checking latest...";
                 AddLogLine($"Latest: {p.Application} ({p.Script})");
+                var operationId = Guid.NewGuid().ToString("N");
+                var source = _executionService.VersionSource(p);
+                var at = DateTimeOffset.UtcNow;
 
                 try
                 {
+                    _inventory.BeginOperation(new InventoryOperation(operationId, "CheckLatest", p.Uid, null, source, at));
                     var version = await _executionService.GetLatestVersionAsync(p, _operationCts.Token);
 
                     if (version is not null)
                     {
+                        PersistVendorCheck(p, operationId, source, version, InventoryOutcome.Succeeded, null);
                         p.LatestVersion = version;
                         p.LastChecked = DateTime.Now;
                         p.Status = "Latest retrieved";
@@ -436,9 +445,11 @@ public partial class PackagesViewModel : ObservableObject
                         // not a version that could not be found.
                         if (tally.RecordInterruptedOrFailed(_operationCts.Token))
                         {
+                            PersistVendorCheck(p, operationId, source, null, InventoryOutcome.Cancelled, "Check cancelled.");
                             p.Status = "Cancelled";
                             break;
                         }
+                        PersistVendorCheck(p, operationId, source, null, InventoryOutcome.Failed, "Could not determine the latest version.");
                         p.Status = "Error";
                         p.IsSelected = false;
                         AddLogLine($"ERROR: Could not determine latest version for {p.Application}");
@@ -449,23 +460,25 @@ public partial class PackagesViewModel : ObservableObject
                     // The row that was in flight has no verdict and is not "not attempted".
                     if (tally.RecordInterruptedOrFailed(_operationCts.Token))
                     {
+                        PersistVendorCheck(p, operationId, source, null, InventoryOutcome.Cancelled, ex.Message);
                         p.Status = "Cancelled";
                         break;
                     }
                     // A timeout inside the service throws the same type; that is this item
                     // failing, not the operator stopping the batch.
                     p.Status = "Error";
+                    PersistVendorCheck(p, operationId, source, null, InventoryOutcome.Failed, ex.Message);
                     AddLogLine($"ERROR: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
                     p.Status = "Error";
                     tally.RecordFailure();
+                    PersistVendorCheck(p, operationId, source, null, InventoryOutcome.Failed, ex.Message);
                     AddLogLine($"ERROR: {ex.Message}");
                 }
             }
 
-            SaveAppStates();
             // A lookup can finish successfully after the operator cancelled, so the run's
             // state is settled here rather than only when an item was interrupted.
             tally.Finish(_operationCts.Token);
@@ -493,6 +506,7 @@ public partial class PackagesViewModel : ObservableObject
                 Wpf.Ui.Controls.ControlAppearance.Danger, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(3));
             return;
         }
+        var environment = InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine);
 
         IsOperationRunning = true;
         _operationCts = new CancellationTokenSource();
@@ -507,9 +521,13 @@ public partial class PackagesViewModel : ObservableObject
 
                 p.Status = "Querying ConfigMgr...";
                 AddLogLine($"ConfigMgr: {p.Application}");
+                var operationId = Guid.NewGuid().ToString("N");
+                var startedAt = DateTimeOffset.UtcNow;
 
                 try
                 {
+                    _inventory.BeginOperation(new InventoryOperation(operationId, "CheckEnvironment", p.Uid,
+                        ApplicationInventoryProjection.ReferenceFor(p), environment.Key, startedAt));
                     var result = await _mecmQueryService.QueryVersionAsync(p.CMName, _operationCts.Token);
 
                     // A query that never reached an answer establishes nothing, so the last
@@ -520,9 +538,11 @@ public partial class PackagesViewModel : ObservableObject
                         // item; the site was never given a chance to answer.
                         if (tally.RecordInterruptedOrFailed(_operationCts.Token))
                         {
+                            PersistEnvironmentObservation(p, environment, operationId, null, InventoryOutcome.Cancelled, result.FailureReason);
                             p.Status = "Cancelled";
                             break;
                         }
+                        PersistEnvironmentObservation(p, environment, operationId, null, InventoryOutcome.Failed, result.FailureReason);
                         p.Status = "Error";
                         AddLogLine($"ERROR: {result.FailureReason}");
                         continue;
@@ -531,6 +551,9 @@ public partial class PackagesViewModel : ObservableObject
                     // The site answered either way. An application it does not carry is a
                     // completed check, not a failed one.
                     tally.RecordSuccess();
+                    PersistEnvironmentObservation(p, environment, operationId,
+                        result.Found ? result.SoftwareVersion : null,
+                        result.Found ? InventoryOutcome.Succeeded : InventoryOutcome.NotFound, null);
 
                     if (result.Found)
                     {
@@ -563,9 +586,11 @@ public partial class PackagesViewModel : ObservableObject
                 {
                     if (tally.RecordInterruptedOrFailed(_operationCts.Token))
                     {
+                        PersistEnvironmentObservation(p, environment, operationId, null, InventoryOutcome.Cancelled, ex.Message);
                         p.Status = "Cancelled";
                         break;
                     }
+                    PersistEnvironmentObservation(p, environment, operationId, null, InventoryOutcome.Failed, ex.Message);
                     p.Status = "Error";
                     AddLogLine($"ERROR: {ex.Message}");
                 }
@@ -573,6 +598,7 @@ public partial class PackagesViewModel : ObservableObject
                 {
                     p.Status = "Error";
                     tally.RecordFailure();
+                    PersistEnvironmentObservation(p, environment, operationId, null, InventoryOutcome.Failed, ex.Message);
                     AddLogLine($"ERROR: {ex.Message}");
                 }
             }
@@ -1330,18 +1356,23 @@ public partial class PackagesViewModel : ObservableObject
     public static int CompareVersions(string a, string b) =>
         ApplicationPackagerEngine.Services.VersionCompare.Compare(a, b);
 
-    private void SaveAppStates()
+    private void PersistVendorCheck(PackagerInfo row, string operationId, string source, string? version,
+        InventoryOutcome outcome, string? detail)
     {
-        var s = _settingsService.Load();
-        foreach (var p in Packagers)
-        {
-            // The publish and refusal records live on the same entry and outlast a check.
-            if (!s.AppStates.TryGetValue(p.Uid, out var state) || state is null)
-                s.AppStates[p.Uid] = state = new AppCheckState();
-            state.LastChecked = p.LastChecked;
-            state.LatestVersion = p.LatestVersion;
-            state.CurrentVersion = p.CurrentVersion;
-        }
-        _settingsService.Save(s);
+        var at = DateTimeOffset.UtcNow;
+        _inventory.RecordVendorCheck(new InventoryVendorCheck(row.Uid, row.Application, version, source, outcome, at,
+            operationId, detail));
+        _inventory.CompleteOperation(operationId, outcome, at, detail);
     }
+
+    private void PersistEnvironmentObservation(PackagerInfo row, InventoryEnvironmentIdentity environment,
+        string operationId, string? version, InventoryOutcome outcome, string? detail)
+    {
+        var at = DateTimeOffset.UtcNow;
+        _inventory.RecordEnvironmentObservation(new InventoryEnvironmentObservation(row.Uid,
+            ApplicationInventoryProjection.ReferenceFor(row), environment, version, "ConfigMgrQuery", outcome, at,
+            operationId, detail));
+        _inventory.CompleteOperation(operationId, outcome, at, detail);
+    }
+
 }

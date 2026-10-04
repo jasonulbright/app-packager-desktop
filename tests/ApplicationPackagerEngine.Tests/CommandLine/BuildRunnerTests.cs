@@ -1,10 +1,12 @@
 using System.Text.Json.Nodes;
 using ApplicationPackagerBuild;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerEngine.Services.Wsus;
+using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -220,6 +222,48 @@ public sealed class BuildRunnerTests : IDisposable
         Assert.Equal("Sign-in Tool stages from a local installer folder, and no folder exists for it: pass --local-source-folder <folder>, or set the folder in Settings.", Assert.Single(_output.Errors));
         Assert.Contains("Skipped Sign-in Tool: no installer source folder chosen.", _output.Info);
         Assert.True(NothingStaged);
+    }
+
+    [Fact]
+    public async Task UiAndCliStageOperationsShareInventoryAfterRunnerRestart()
+    {
+        var uiSettings = new SettingsService();
+        var uiExecution = new PackagerExecutionService(uiSettings, ProfileStageFixture.Service(),
+            new IntuneDeploymentService(uiSettings), new DeploymentConditionsService(uiSettings),
+            new ApplicationInventoryService());
+        uiExecution.RecordExternalStage(new PackagerInfo { Uid = "signintool", Application = "Sign-in Tool" },
+            new PackagerExecutionResult { ExitCode = 1, StdErr = "UI stage refused." },
+            new RunSnapshot { ApplicationId = "custom:signintool" });
+
+        var definitions = Path.Combine(WorkbenchRoot, "definitions");
+        Directory.CreateDirectory(definitions);
+        File.WriteAllText(Path.Combine(definitions, "signin-tool.json"), new JsonObject
+        {
+            ["Schema"] = 1,
+            ["Id"] = "signintool",
+            ["Vendor"] = "Contoso",
+            ["Application"] = "Sign-in Tool",
+            ["Architecture"] = "x64",
+            ["InstallerType"] = "MSI",
+            ["LocalSource"] = new JsonObject { ["Mode"] = "Required" }
+        }.ToJsonString());
+        var localSource = Path.Combine(_root, "local-source");
+        Directory.CreateDirectory(localSource);
+        File.WriteAllBytes(Path.Combine(localSource, "setup.msi"), [1, 2, 3, 4]);
+
+        var result = await RunAsync("--application", "signin-tool.json", "--stage", "--local-source-folder", localSource);
+
+        Assert.Equal(1, result.ExitCode);
+        var reopenedOperations = new ApplicationInventoryService().GetOperations("signintool");
+        Assert.Equal(2, reopenedOperations.Count);
+        Assert.All(reopenedOperations, operation =>
+        {
+            Assert.Equal("Stage", operation.Kind);
+            Assert.Equal(InventoryOutcome.Failed, operation.Outcome);
+            Assert.NotNull(operation.FinishedAt);
+        });
+        Assert.Contains(reopenedOperations, operation => operation.Detail == "UI stage refused.");
+        Assert.Contains(reopenedOperations, operation => operation.Detail?.StartsWith("No installer matching", StringComparison.Ordinal) == true);
     }
 
     [Fact]

@@ -1,6 +1,8 @@
+using ApplicationPackagerEngine.Models;
+
 namespace ApplicationPackagerUI.Models;
 
-public partial class PackagerInfo : ObservableObject
+public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
 {
     [ObservableProperty] private bool _isSelected;
     [ObservableProperty] private string _currentVersion = "";

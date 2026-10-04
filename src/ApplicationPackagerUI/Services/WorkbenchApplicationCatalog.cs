@@ -50,7 +50,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
     };
 
     /// <summary>The workbench application id of a Packages grid row.</summary>
-    public static string ApplicationIdFor(PackagerInfo packager) => packager.IsJsonDefined
+    public static string ApplicationIdFor(IPackagerExecutionRequest packager) => packager.IsJsonDefined
         ? ApplicationIds.New(ApplicationOrigin.Catalog, name: packager.Uid)
         : ApplicationIds.New(ApplicationOrigin.Catalog, path: packager.FullPath);
 

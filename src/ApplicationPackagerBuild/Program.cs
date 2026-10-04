@@ -52,6 +52,7 @@ public static class Program
                 .AddSingleton<IBuildOutput>(output)
                 .AddSingleton<BuildRunner>()
                 .BuildServiceProvider();
+            services.GetRequiredService<LegacyInventoryMigration>().Run();
             var result = await services.GetRequiredService<BuildRunner>().RunAsync(options, cancel.Token);
             foreach (var line in result.SummaryLines()) output.Info(line);
             return result.ExitCode;

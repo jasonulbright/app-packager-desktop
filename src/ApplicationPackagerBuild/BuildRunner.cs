@@ -56,7 +56,7 @@ public sealed class BuildResult
 /// naming the argument.
 /// </summary>
 public sealed class BuildRunner(
-    SettingsService settingsService,
+    IRunSettingsReader<AppSettings> settingsService,
     PackagerDiscoveryService discoveryService,
     WorkbenchApplicationCatalog applicationCatalog,
     PackagerExecutionService executionService,
@@ -309,17 +309,22 @@ public sealed class BuildRunner(
         output.Info($"Stage: {plan.Manifest.AppName} {plan.Manifest.SoftwareVersion} (source revision {plan.Source.Revision}, {plan.Source.FileName})");
         var inputs = new StageInputs { RunSnapshot = snapshot, SigningPolicy = settings.ScriptSigning };
         var staged = await ByoStaging.StageAsync(stagingService, plan, settings.DownloadRoot, line => output.Info($"  {line}"), ct, inputs);
+        var pendingRow = WorkbenchRunSnapshots.ByoRow(plan.Manifest, plan.Analysis, "", applicationId);
         if (!staged.Success)
         {
             output.Error($"Stage FAILED: {staged.ErrorMessage}");
             result.Phases.Add(new BuildPhase("Stage", 1, staged.ErrorMessage ?? ""));
             result.ExitCode = 1;
+            executionService.RecordExternalStage(pendingRow,
+                new PackagerExecutionResult { ExitCode = 1, StdErr = staged.ErrorMessage ?? "Stage failed." }, snapshot, output.Info);
             return (null, new PackagerExecutionResult { ExitCode = 1, StdErr = staged.ErrorMessage ?? "" });
         }
         output.Info($"Staged: {staged.ContentPath}");
         result.Phases.Add(new BuildPhase("Stage", 0, staged.ContentPath));
         var row = WorkbenchRunSnapshots.ByoRow(plan.Manifest, plan.Analysis, staged.ManifestPath, applicationId);
-        return (row, new PackagerExecutionResult { ExitCode = 0, StdOut = $"Staged to: {staged.ContentPath}", OutLogPath = staged.ManifestPath });
+        var stageResult = new PackagerExecutionResult { ExitCode = 0, StdOut = $"Staged to: {staged.ContentPath}", OutLogPath = staged.ManifestPath };
+        executionService.RecordExternalStage(row, stageResult, snapshot, output.Info);
+        return (row, stageResult);
     }
 
     /// <summary>
