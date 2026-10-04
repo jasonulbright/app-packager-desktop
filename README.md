@@ -10,8 +10,6 @@
 
 App Packager Desktop packages third-party Windows applications and publishes them to ConfigMgr, Intune and WSUS. It is a Windows desktop application. It is free and MIT licensed.
 
-[Support development — Buy Me a Coffee](https://buymeacoffee.com/ulbright)
-
 ![The Packages page](docs/images/packages.png)
 
 ## What it does
