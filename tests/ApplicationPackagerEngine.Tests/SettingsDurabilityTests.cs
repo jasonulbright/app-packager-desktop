@@ -130,6 +130,24 @@ public sealed class SettingsDurabilityTests : IDisposable
     }
 
     [Fact]
+    public async Task AMissingFileWithoutASideFileThatReappearsIsWaitedFor()
+    {
+        using var started = new ManualResetEventSlim();
+        var appear = Task.Run(async () =>
+        {
+            started.Set();
+            await Task.Delay(50);
+            File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
+        });
+        started.Wait();
+
+        var loaded = new SettingsService().Load();
+        await appear;
+
+        Assert.Equal(@"C:\new", loaded.DownloadRoot);
+    }
+
+    [Fact]
     public async Task AMissingFileWithAReplaceSideFilePresentIsWaitedFor()
     {
         var backup = Path.Combine(_root, "settings.json." + Guid.NewGuid().ToString("N") + ".bak");

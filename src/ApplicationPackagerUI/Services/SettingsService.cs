@@ -43,6 +43,8 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     /// </summary>
     public static readonly TimeSpan MissingFileWait = TimeSpan.FromSeconds(2);
 
+    private static readonly TimeSpan MissingFileQuietPeriod = TimeSpan.FromMilliseconds(100);
+
     private bool _readOnce;
     private (bool Read, string? Text, string? Error) _onceRead;
 
@@ -129,12 +131,14 @@ public class SettingsService : IRunSettingsReader<AppSettings>
     /// The text of settings.json; null text and null error when there is no file. A writer
     /// that replaces the file through a side file can leave the name absent for a moment,
     /// and a writer or reader without read sharing holds it for a moment: both are retried
-    /// up to <see cref="MissingFileWait"/>. An absent file with no side file beside it is a
-    /// first run and returns at once.
+    /// up to <see cref="MissingFileWait"/>. A missing file with no visible side file must
+    /// stay absent for a short quiet period before it is treated as a first run; a replace
+    /// can briefly hide both names while the filesystem completes the rename.
     /// </summary>
     private static (string? Text, string? Error) ReadSettingsText()
     {
         var deadline = DateTime.UtcNow + MissingFileWait;
+        var missingQuietDeadline = DateTime.UtcNow + MissingFileQuietPeriod;
         while (true)
         {
             try
@@ -143,7 +147,10 @@ public class SettingsService : IRunSettingsReader<AppSettings>
             }
             catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
             {
-                if (!ReplaceSideFilePresent() || DateTime.UtcNow >= deadline) return (null, null);
+                var now = DateTime.UtcNow;
+                if (now >= deadline) return (null, null);
+                if (ReplaceSideFilePresent()) missingQuietDeadline = now + MissingFileQuietPeriod;
+                else if (now >= missingQuietDeadline) return (null, null);
             }
             catch (IOException ex) when (FileRetry.IsSharingViolation(ex))
             {
