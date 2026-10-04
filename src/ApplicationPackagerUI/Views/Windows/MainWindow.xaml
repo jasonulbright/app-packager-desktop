@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.Views.Pages"
-    Title="Application Packager"
+    Title="App Packager Desktop"
     Width="1200"
     Height="800"
     MinWidth="900"
@@ -23,7 +23,7 @@
         <ui:TitleBar
             x:Name="TitleBar"
             Grid.Row="0"
-            Title="Application Packager" />
+            Title="App Packager Desktop" />
 
         <ui:NavigationView
             x:Name="RootNavigation"

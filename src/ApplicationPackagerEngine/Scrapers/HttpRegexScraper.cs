@@ -178,33 +178,4 @@ public class HttpRegexScraper : IVersionScraper
 
         return null;
     }
-
-    private static async Task<string?> RunPowerShellScriptAsync(string scriptPath, CancellationToken ct)
-    {
-        using var process = new Process();
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        process.Start();
-
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(30), ct));
-
-        if (completed != exitTask)
-        {
-            try { process.Kill(true); } catch { }
-            return null;
-        }
-
-        var stdout = await stdoutTask;
-        return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
-    }
 }

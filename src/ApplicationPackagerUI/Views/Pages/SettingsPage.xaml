@@ -322,7 +322,7 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="GitHub API" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from PACKR_GITHUB_TOKEN, GITHUB_TOKEN or gh auth login raises that to 5,000."
+            <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN or gh auth login raises that to 5,000."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <DockPanel Margin="0,0,0,8">

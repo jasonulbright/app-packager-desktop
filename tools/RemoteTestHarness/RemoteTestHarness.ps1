@@ -105,7 +105,7 @@ $defs = Get-ChildItem $DefsDir -Filter '*.json' |
     Where-Object { $_.Name -notin $skipDefs } |
     Sort-Object { Get-Priority $_.Name }, Name
 
-Write-Host "Packr Remote Test Harness"
+Write-Host "App Packager Desktop remote test harness"
 Write-Host "  Target: $ComputerName"
 Write-Host "  Definitions: $($defs.Count)"
 Write-Host "  Timeout: ${TimeoutSec}s per app"

@@ -42,7 +42,7 @@
             <StackPanel Margin="28,8,28,8">
 
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
-                    <TextBlock Text="Welcome to AppPackager" FontSize="22" FontWeight="Bold"
+                    <TextBlock Text="Welcome to App Packager Desktop" FontSize="22" FontWeight="Bold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,4" />
                     <TextBlock Text="Select the systems you publish to, then fill in their settings. The Packages page has a publish button for each system. Everything here can be changed later in Settings."
                                Style="{StaticResource HintText}" />

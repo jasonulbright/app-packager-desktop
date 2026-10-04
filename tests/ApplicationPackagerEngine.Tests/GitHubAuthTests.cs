@@ -15,7 +15,7 @@ public class GitHubAuthTests
     public void ResolveToken_PrefersPackrVariable()
     {
         var token = GitHubAuth.ResolveToken(
-            Env(("PACKR_GITHUB_TOKEN", "packr-token"), ("GITHUB_TOKEN", "generic-token")),
+            Env(("APP_PACKAGER_GITHUB_TOKEN", "packr-token"), ("GITHUB_TOKEN", "generic-token")),
             () => "gh-token");
 
         Assert.Equal("packr-token", token);
@@ -49,7 +49,7 @@ public class GitHubAuthTests
     public void ResolveToken_BlankVariableIsSkipped(string blank)
     {
         Assert.Equal("gh-token", GitHubAuth.ResolveToken(
-            Env(("PACKR_GITHUB_TOKEN", blank), ("GITHUB_TOKEN", blank)),
+            Env(("APP_PACKAGER_GITHUB_TOKEN", blank), ("GITHUB_TOKEN", blank)),
             () => "gh-token"));
     }
 

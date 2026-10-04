@@ -47,7 +47,7 @@ jobs:
           Write-Error "Release runs from main only; this run is on ${{ github.ref }}."
           exit 1
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
 
@@ -92,7 +92,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEADLINE: ${{ inputs.headline }}
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
 
@@ -120,7 +120,7 @@ jobs:
       # OIDC: no client secret exists; the federated credential named in the
       # header is what authorizes this job.
       - name: Azure login (federated)
-        uses: azure/login@v3
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -131,7 +131,7 @@ jobs:
       # The timestamp keeps the signature valid after the short-lived signing
       # certificate expires.
       - name: Sign the published files
-        uses: azure/artifact-signing-action@v2
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
         with:
           endpoint: ${{ env.SIGN_ENDPOINT }}
           signing-account-name: ${{ env.SIGN_ACCOUNT }}
@@ -162,7 +162,7 @@ jobs:
       # Non-recursive on purpose: the publish root holds the installer, and the
       # already signed stage sits in a subfolder.
       - name: Sign the installer
-        uses: azure/artifact-signing-action@v2
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2
         with:
           endpoint: ${{ env.SIGN_ENDPOINT }}
           signing-account-name: ${{ env.SIGN_ACCOUNT }}

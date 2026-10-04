@@ -50,24 +50,4 @@ public partial class PackagerInfo : ObservableObject
     public string? LocalSourceStagedVersion { get; set; }
 
     public bool IsRunnable => true;
-
-    /// <summary>
-    /// Priority for auto-check ordering. Lower = checked first.
-    /// Browsers and security-critical apps get priority 0.
-    /// Apps with no LastChecked or oldest LastChecked come next.
-    /// </summary>
-    public int CheckPriority
-    {
-        get
-        {
-            var name = Application.ToLowerInvariant();
-            if (name.Contains("chrome") || name.Contains("edge") || name.Contains("firefox") ||
-                name.Contains("brave") || name.Contains("acrobat") || name.Contains("reader"))
-                return 0;
-
-            if (LastChecked is null) return 1;
-
-            return 2 + (int)(DateTime.Now - LastChecked.Value).TotalDays;
-        }
-    }
 }

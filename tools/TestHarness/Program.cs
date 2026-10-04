@@ -59,7 +59,7 @@ var installMode = args.Contains("--install-mode") ? args[Array.IndexOf(args, "--
 var stageInputsFile = args.Contains("--stage-inputs") ? HarnessStageInputs.Load(args[Array.IndexOf(args, "--stage-inputs") + 1]) : null;
 var timeoutSec = args.Contains("--timeout") ? int.Parse(args[Array.IndexOf(args, "--timeout") + 1]) : 300;
 
-Console.WriteLine($"Packr Test Harness");
+Console.WriteLine($"App Packager Desktop test harness");
 Console.WriteLine($"Definitions: {defsDir}");
 Console.WriteLine($"Download root: {downloadRoot}");
 Console.WriteLine($"Mode: {(stageOnly ? "stage-only" : testOnly ? "test-only" : "full")}");
