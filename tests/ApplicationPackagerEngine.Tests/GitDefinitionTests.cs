@@ -34,6 +34,6 @@ public sealed class GitDefinitionTests
     {
         var def = DefinitionFixture.Load("git.json");
 
-        Assert.False(Regex.IsMatch($"\"name\": \"{asset}\"", def.VersionScraper.Pattern!));
+        Assert.DoesNotMatch(def.VersionScraper.Pattern!, $"\"name\": \"{asset}\"");
     }
 }
