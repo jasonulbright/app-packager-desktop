@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Signing;
@@ -11,10 +12,11 @@ using ApplicationPackagerUI.Models;
 namespace ApplicationPackagerUI.Services;
 
 public class PackagerExecutionService(
-    SettingsService settingsService,
+    ISettingsReader<AppSettings> settingsService,
     StagingService stagingService,
     IntuneDeploymentService intuneDeploymentService,
-    DeploymentConditionsService deploymentConditionsService)
+    DeploymentConditionsService deploymentConditionsService,
+    ApplicationInventoryService? inventory = null)
 {
     private static readonly TimeSpan GetLatestTimeout = TimeSpan.FromSeconds(30);
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
@@ -23,7 +25,7 @@ public class PackagerExecutionService(
     /// Runs a packager with -GetLatestVersionOnly. Routes JSON apps to engine DLL.
     /// </summary>
     public async Task<string?> GetLatestVersionAsync(
-        PackagerInfo packager, CancellationToken ct = default)
+        IPackagerExecutionRequest packager, CancellationToken ct = default)
     {
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
@@ -52,14 +54,75 @@ public class PackagerExecutionService(
         return null;
     }
 
+    /// <summary>The configured source that produced a latest-version lookup.</summary>
+    public string VersionSource(IPackagerExecutionRequest packager)
+    {
+        if (packager.IsJsonDefined && packager.DefinitionPath is not null)
+        {
+            try
+            {
+                var scraper = LoadDefinition(packager.DefinitionPath).VersionScraper;
+                return string.IsNullOrWhiteSpace(scraper.Url)
+                    ? $"{scraper.Type}:{packager.Uid}"
+                    : $"{scraper.Type}:{scraper.Url}";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+            {
+                // Keep a stable source label even when a definition became unreadable.
+            }
+        }
+        return "packager:" + packager.Uid;
+    }
+
     /// <summary>
     /// Runs a packager with -StageOnly, streaming stdout line-by-line via the callback.
     /// A snapshot this call creates records <paramref name="runTarget"/>, else the stored
     /// deployment target.
     /// </summary>
     public async Task<PackagerExecutionResult> StageAsync(
-        PackagerInfo packager, Action<string>? onOutputLine = null, CancellationToken ct = default,
-        Dictionary<string, string>? settingsValues = null, RunSnapshot? snapshot = null, string? runTarget = null)
+        IPackagerExecutionRequest packager, Action<string>? onOutputLine = null, CancellationToken ct = default,
+        Dictionary<string, string>? settingsValues = null, RunSnapshot? snapshot = null, string? runTarget = null,
+        string? operationId = null, bool recordInventory = true)
+    {
+        if (!recordInventory)
+            return await StageCoreAsync(packager, onOutputLine, ct, settingsValues, snapshot, runTarget);
+
+        var ownsOperation = operationId is null;
+        operationId ??= Guid.NewGuid().ToString("N");
+        var startedAt = DateTimeOffset.UtcNow;
+        var identity = InventoryIdentity(packager, snapshot, ReadInventoryManifest(packager, null, snapshot, out _));
+        if (ownsOperation && inventory is not null)
+            inventory.BeginOperation(new InventoryOperation(operationId, "Stage", packager.Uid, identity, runTarget, startedAt));
+
+        var outcome = InventoryOutcome.Failed;
+        string? detail = null;
+        try
+        {
+            var result = await StageCoreAsync(packager, onOutputLine, ct, settingsValues, snapshot, runTarget);
+            if (result.ExitCode == 0)
+            {
+                outcome = InventoryOutcome.Succeeded;
+                RecordStagedBuild(packager, result, snapshot, operationId, onOutputLine);
+            }
+            else detail = result.StdErr;
+            return result;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            outcome = InventoryOutcome.Cancelled;
+            detail = "Stage cancelled.";
+            throw;
+        }
+        finally
+        {
+            if (ownsOperation && inventory is not null)
+                CompleteInventoryOperation(operationId, outcome, detail, onOutputLine);
+        }
+    }
+
+    private async Task<PackagerExecutionResult> StageCoreAsync(
+        IPackagerExecutionRequest packager, Action<string>? onOutputLine, CancellationToken ct,
+        Dictionary<string, string>? settingsValues, RunSnapshot? snapshot, string? runTarget)
     {
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
@@ -167,7 +230,7 @@ public class PackagerExecutionService(
     /// The stage manifest a stage run produced: the JSON stage's own manifest, the one
     /// a PS1 packager logged, else the stage that carries the snapshot's BuildId.
     /// </summary>
-    public string? StagedManifestPath(PackagerInfo packager, PackagerExecutionResult stageResult, RunSnapshot? snapshot)
+    public string? StagedManifestPath(IPackagerExecutionRequest packager, PackagerExecutionResult stageResult, RunSnapshot? snapshot)
     {
         if (packager.StagedManifestPath is { } dropped && File.Exists(dropped)) return dropped;
         if (!string.IsNullOrWhiteSpace(stageResult.OutLogPath) && stageResult.OutLogPath.EndsWith(PackagerStageOutput.ManifestFileName, StringComparison.OrdinalIgnoreCase)
@@ -192,7 +255,7 @@ public class PackagerExecutionService(
     /// under in this session, else the latest version, else the last staged version. An
     /// older staged version is never published in place of a known latest version.
     /// </summary>
-    public static string PublishVersion(PackagerInfo packager) =>
+    public static string PublishVersion(IPackagerExecutionRequest packager) =>
         !string.IsNullOrWhiteSpace(packager.LocalSourceStagedVersion) ? packager.LocalSourceStagedVersion
         : !string.IsNullOrWhiteSpace(packager.LatestVersion) ? packager.LatestVersion
         : packager.StagedVersion ?? "";
@@ -204,7 +267,7 @@ public class PackagerExecutionService(
     /// Null when the row has none, the build is stale, or the row is a PS1 packager whose
     /// stage location only its own run reports.
     /// </summary>
-    public string? ExistingStageManifest(PackagerInfo packager)
+    public string? ExistingStageManifest(IPackagerExecutionRequest packager)
     {
         if (packager.StagedManifestPath is { } dropped) return File.Exists(dropped) ? dropped : null;
         if (!packager.IsJsonDefined || packager.DefinitionPath is null) return null;
@@ -239,7 +302,49 @@ public class PackagerExecutionService(
     /// Publishes the stage a run produced to WSUS. A refusal, a failed server call and
     /// a missing manifest come back as the step result; cancellation propagates.
     /// </summary>
-    public async Task<WsusStepResult> PublishWsusAsync(PackagerInfo packager, PackagerExecutionResult stageResult, RunSnapshot? snapshot,
+    public async Task<WsusStepResult> PublishWsusAsync(IPackagerExecutionRequest packager, PackagerExecutionResult stageResult, RunSnapshot? snapshot,
+        ApplicationPackagerEngine.Services.Wsus.IWsusPublisher publisher, Action<string>? onOutputLine, CancellationToken ct,
+        string? operationId = null, bool recordInventory = true)
+    {
+        if (!recordInventory)
+            return await PublishWsusCoreAsync(packager, stageResult, snapshot, publisher, onOutputLine, ct);
+
+        var ownsOperation = operationId is null;
+        operationId ??= Guid.NewGuid().ToString("N");
+        var startedAt = DateTimeOffset.UtcNow;
+        var identity = InventoryIdentity(packager, snapshot, ReadInventoryManifest(packager, stageResult, snapshot, out _));
+        var settings = settingsService.Load();
+        if (ownsOperation && inventory is not null)
+            inventory.BeginOperation(new InventoryOperation(operationId, "Publish", packager.Uid, identity, "WSUS", startedAt));
+
+        var outcome = InventoryOutcome.Failed;
+        string? detail = null;
+        try
+        {
+            var step = await PublishWsusCoreAsync(packager, stageResult, snapshot, publisher, onOutputLine, ct);
+            outcome = RecordWsusOutcome(packager, stageResult, snapshot, settings, step, operationId, startedAt, onOutputLine);
+            detail = step.Message;
+            return step;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            outcome = InventoryOutcome.Cancelled;
+            detail = "WSUS publish cancelled.";
+            var manifest = ReadInventoryManifest(packager, stageResult, snapshot, out _);
+            RecordDestination(packager, InventoryIdentity(packager, snapshot, manifest), settings, "WSUS",
+                FirstNonBlank(manifest?.SoftwareVersion, PublishVersion(packager), packager.StagedVersion, "unknown"),
+                InventoryOutcome.Cancelled, null, FirstNonBlank(manifest?.BuildId, snapshot?.BuildId),
+                operationId, startedAt, detail, onOutputLine);
+            throw;
+        }
+        finally
+        {
+            if (ownsOperation && inventory is not null)
+                CompleteInventoryOperation(operationId, outcome, detail, onOutputLine);
+        }
+    }
+
+    private async Task<WsusStepResult> PublishWsusCoreAsync(IPackagerExecutionRequest packager, PackagerExecutionResult stageResult, RunSnapshot? snapshot,
         ApplicationPackagerEngine.Services.Wsus.IWsusPublisher publisher, Action<string>? onOutputLine, CancellationToken ct)
     {
         var manifestPath = StagedManifestPath(packager, stageResult, snapshot);
@@ -261,6 +366,210 @@ public class PackagerExecutionService(
         return await ApplicationPackagerEngine.Services.Wsus.WsusPublishStep.RunAsync(
             publisher, manifest, Path.GetDirectoryName(manifestPath)!, settings.Wsus, Report, ct, supportUrl);
     }
+
+    private void RecordStagedBuild(IPackagerExecutionRequest row, PackagerExecutionResult result, RunSnapshot? snapshot,
+        string operationId, Action<string>? onOutputLine)
+    {
+        if (inventory is null) return;
+        try
+        {
+            var manifest = ReadInventoryManifest(row, result, snapshot, out var manifestPath);
+            if (manifest is null || string.IsNullOrWhiteSpace(manifestPath)
+                || string.IsNullOrWhiteSpace(manifest.BuildId) || string.IsNullOrWhiteSpace(manifest.ApplicationId)) return;
+
+            var profileId = string.IsNullOrWhiteSpace(manifest.ProfileId) ? ApplicationIds.DefaultProfileId : manifest.ProfileId;
+            var dataRoot = !string.IsNullOrWhiteSpace(snapshot?.DataRoot)
+                ? snapshot.DataRoot
+                : WorkbenchStoreOrNull(null)?.DataRoot ?? WorkbenchPaths.ResolveDataRoot(create: false);
+            var buildRecordPath = Path.Combine(BuildRecords.GetBuildFolder(dataRoot, manifest.ApplicationId, profileId, manifest.BuildId), BuildRecords.FileName);
+            if (!File.Exists(buildRecordPath)) return;
+
+            var identity = new InventoryApplicationIdentity(row.Uid, manifest.ApplicationId, profileId, manifest.ProfileRevision);
+            inventory.RecordStagedBuild(new InventoryStagedBuild(identity, manifest.SoftwareVersion, manifest.BuildId,
+                buildRecordPath, manifestPath, DateTimeOffset.UtcNow, operationId));
+        }
+        catch (Exception ex)
+        {
+            onOutputLine?.Invoke("Inventory stage record failed: " + ex.Message);
+        }
+    }
+
+    /// <summary>Records a successful stage performed by a caller that must use a specialized staging pipeline.</summary>
+    public void RecordExternalStage(IPackagerExecutionRequest row, PackagerExecutionResult result, RunSnapshot snapshot,
+        Action<string>? onOutputLine = null)
+    {
+        if (inventory is null) return;
+        var operationId = Guid.NewGuid().ToString("N");
+        var at = DateTimeOffset.UtcNow;
+        var identity = InventoryIdentity(row, snapshot, ReadInventoryManifest(row, result, snapshot, out _));
+        var began = false;
+        try
+        {
+            inventory.BeginOperation(new InventoryOperation(operationId, "Stage", row.Uid, identity, snapshot.Target, at));
+            began = true;
+            if (result.ExitCode == 0)
+                RecordStagedBuild(row, result, snapshot, operationId, onOutputLine);
+            CompleteInventoryOperation(operationId, result.ExitCode == 0 ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
+                result.StdErr, onOutputLine);
+        }
+        catch (Exception ex)
+        {
+            if (began)
+            {
+                CompleteInventoryOperation(operationId, InventoryOutcome.Failed, ex.Message, onOutputLine);
+            }
+            onOutputLine?.Invoke("Inventory stage record failed: " + ex.Message);
+        }
+    }
+
+    private void PersistPackageOutcomes(IPackagerExecutionRequest row, RunSnapshot? snapshot, string target,
+        PackagerExecutionResult result, string operationId, DateTimeOffset at, Action<string>? onOutputLine)
+    {
+        if (inventory is null) return;
+        var settings = settingsService.Load();
+        var manifest = ReadInventoryManifest(row, null, snapshot, out _);
+        var version = FirstNonBlank(result.PublishedVersion, manifest?.SoftwareVersion, PublishVersion(row), row.StagedVersion, "unknown");
+        var buildId = FirstNonBlank(result.PublishedBuildId, manifest?.BuildId, snapshot?.BuildId);
+        var identity = InventoryIdentity(row, snapshot, manifest);
+
+        if (!DeploymentTargets.SkipsMecm(target))
+        {
+            var status = result.ConfigMgrOutcome ?? (result.Conflict is not null && result.ExitCode == 0 ? InventoryOutcome.Skipped
+                : result.ExitCode == 0 ? InventoryOutcome.Succeeded : InventoryOutcome.Failed);
+            RecordDestination(row, identity, settings, "ConfigMgr", version, status,
+                result.ConfigMgrObjectId ?? (result.Conflict is null ? ObjectId(result.StdOut, "Packaged: ") : result.Conflict.ApplicationName),
+                buildId, operationId, at, result.ConfigMgrDetail ?? result.StdErr, onOutputLine);
+        }
+
+        if (DeploymentTargets.PublishesToIntune(target))
+        {
+            var status = result.IntuneOutcome ?? (result.ExitCode == 0 ? InventoryOutcome.Succeeded : InventoryOutcome.Failed);
+            RecordDestination(row, identity, settings, "Intune", version, status,
+                result.IntuneObjectId ?? IntuneAppId(result.IntunePublishNote), buildId, operationId, at,
+                result.IntuneDetail ?? result.IntunePublishNote ?? result.StdErr, onOutputLine);
+        }
+    }
+
+    private void RecordPackageAttemptOutcomes(IPackagerExecutionRequest row, RunSnapshot? snapshot, string target,
+        string operationId, DateTimeOffset at, InventoryOutcome outcome, string detail)
+    {
+        if (inventory is null) return;
+        var settings = settingsService.Load();
+        var manifest = ReadInventoryManifest(row, null, snapshot, out _);
+        var version = FirstNonBlank(manifest?.SoftwareVersion, PublishVersion(row), row.StagedVersion, "unknown");
+        var buildId = FirstNonBlank(manifest?.BuildId, snapshot?.BuildId);
+        var identity = InventoryIdentity(row, snapshot, manifest);
+        if (!DeploymentTargets.SkipsMecm(target))
+            RecordDestination(row, identity, settings, "ConfigMgr", version, outcome, null, buildId, operationId, at, detail, null);
+        if (DeploymentTargets.PublishesToIntune(target))
+            RecordDestination(row, identity, settings, "Intune", version, outcome, null, buildId, operationId, at, detail, null);
+    }
+
+    private InventoryOutcome RecordWsusOutcome(IPackagerExecutionRequest row, PackagerExecutionResult stageResult, RunSnapshot? snapshot,
+        AppSettings settings, WsusStepResult step, string operationId, DateTimeOffset at, Action<string>? onOutputLine)
+    {
+        var manifest = ReadInventoryManifest(row, stageResult, snapshot, out _);
+        var outcome = step.Status switch
+        {
+            WsusStepStatus.Published => InventoryOutcome.Succeeded,
+            WsusStepStatus.AlreadyPublished => InventoryOutcome.AlreadyPresent,
+            WsusStepStatus.Refused => InventoryOutcome.Refused,
+            WsusStepStatus.NotRun => InventoryOutcome.Skipped,
+            _ => InventoryOutcome.Failed
+        };
+        var identity = InventoryIdentity(row, snapshot, manifest);
+        RecordDestination(row, identity, settings, "WSUS",
+            FirstNonBlank(manifest?.SoftwareVersion, PublishVersion(row), row.StagedVersion, "unknown"), outcome,
+            step.PackageId, FirstNonBlank(manifest?.BuildId, snapshot?.BuildId), operationId, at, step.Message, onOutputLine);
+        return outcome;
+    }
+
+    private void RecordDestination(IPackagerExecutionRequest row, InventoryApplicationIdentity? identity, AppSettings settings,
+        string destination, string version, InventoryOutcome outcome, string? objectId, string? buildId,
+        string operationId, DateTimeOffset at, string? detail, Action<string>? onOutputLine)
+    {
+        if (inventory is null) return;
+        try
+        {
+            var environment = ApplicationInventoryProjection.Environments(settings)
+                .First(item => string.Equals(item.Destination, destination, StringComparison.OrdinalIgnoreCase)).Environment;
+            inventory.RecordDestinationOutcome(new InventoryDestinationOutcome(row.Uid, identity, environment, "Publish",
+                version, outcome, objectId, at, buildId, operationId, detail));
+        }
+        catch (Exception ex)
+        {
+            onOutputLine?.Invoke($"Inventory {destination} record failed: {ex.Message}");
+        }
+    }
+
+    private void CompleteInventoryOperation(string operationId, InventoryOutcome outcome, string? detail, Action<string>? onOutputLine)
+    {
+        try { inventory?.CompleteOperation(operationId, outcome, DateTimeOffset.UtcNow, detail); }
+        catch (Exception ex) { onOutputLine?.Invoke($"Inventory operation completion failed: {ex.Message}"); }
+    }
+
+    private InventoryApplicationIdentity InventoryIdentity(IPackagerExecutionRequest row, RunSnapshot? snapshot, StageManifest? manifest)
+    {
+        if (manifest is not null && !string.IsNullOrWhiteSpace(manifest.ApplicationId))
+            return new InventoryApplicationIdentity(row.Uid, manifest.ApplicationId,
+                string.IsNullOrWhiteSpace(manifest.ProfileId) ? ApplicationIds.DefaultProfileId : manifest.ProfileId,
+                manifest.ProfileRevision);
+        if (snapshot is not null)
+            return new InventoryApplicationIdentity(row.Uid, snapshot.ApplicationId, snapshot.ProfileId, snapshot.ProfileRevision);
+        return ApplicationInventoryProjection.IdentityFor(row, ResolveBuildPlan(row));
+    }
+
+    private StageManifest? ReadInventoryManifest(IPackagerExecutionRequest row, PackagerExecutionResult? result,
+        RunSnapshot? snapshot, out string? manifestPath)
+    {
+        manifestPath = result is not null ? StagedManifestPath(row, result, snapshot)
+            : snapshot is not null ? StagedManifestPath(row, new PackagerExecutionResult { ExitCode = 0 }, snapshot)
+            : row.StagedManifestPath is { } dropped && File.Exists(dropped) ? dropped : ExistingStageManifest(row);
+        if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath)) return null;
+        try { return new ManifestService().Read(manifestPath); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static InventoryOutcome DestinationSummary(PackagerExecutionResult result, string target)
+    {
+        var outcomes = new List<InventoryOutcome>();
+        if (!DeploymentTargets.SkipsMecm(target)) outcomes.Add(result.ConfigMgrOutcome ?? InventoryOutcome.Failed);
+        if (DeploymentTargets.PublishesToIntune(target)) outcomes.Add(result.IntuneOutcome ?? InventoryOutcome.Failed);
+        if (outcomes.Any(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)
+            && outcomes.Any(value => value is InventoryOutcome.Failed or InventoryOutcome.Refused)) return InventoryOutcome.Partial;
+        if (outcomes.Any(value => value == InventoryOutcome.Refused)) return InventoryOutcome.Refused;
+        if (outcomes.All(value => value is InventoryOutcome.Succeeded or InventoryOutcome.AlreadyPresent)) return InventoryOutcome.Succeeded;
+        if (outcomes.All(value => value == InventoryOutcome.Skipped)) return InventoryOutcome.Skipped;
+        return InventoryOutcome.Failed;
+    }
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+
+    private static string? ObjectId(string text, string prefix) =>
+        text.Split('\n').Select(line => line.Trim()).FirstOrDefault(line => line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))?[prefix.Length..].Trim();
+
+    private static string? IntuneAppId(string? note)
+    {
+        if (string.IsNullOrWhiteSpace(note)) return null;
+        var marker = "app id ";
+        var index = note.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (index < 0) return null;
+        var id = note[(index + marker.Length)..].Trim();
+        var end = id.IndexOfAny([')', ' ', '\r', '\n']);
+        return end < 0 ? id : id[..end];
+    }
+
+    private static InventoryOutcome IntuneOutcome(IntuneRunOutcome outcome) => outcome.Status switch
+    {
+        IntuneStepStatus.Published => InventoryOutcome.Succeeded,
+        IntuneStepStatus.PublishRefused => InventoryOutcome.Refused,
+        IntuneStepStatus.BuildFailed or IntuneStepStatus.PublishFailed => InventoryOutcome.Failed,
+        _ => InventoryOutcome.Skipped
+    };
 
     /// <summary>Seals the build record of a PS1 stage that ran with a run snapshot; the outcome goes to the run log.</summary>
     private static void SealPackagerStage(PackagerChildLaunch bridge, string stdout, string downloadRoot, Action<string>? onOutputLine)
@@ -286,11 +595,60 @@ public class PackagerExecutionService(
     /// deployment target never decides a publish.
     /// </summary>
     public async Task<PackagerExecutionResult> PackageAsync(
-        PackagerInfo packager, string comment, Action<string>? onOutputLine = null,
+        IPackagerExecutionRequest packager, string comment, Action<string>? onOutputLine = null,
         CancellationToken ct = default, OnExistingBehavior onExisting = OnExistingBehavior.Skip,
-        RunSnapshot? snapshot = null, string? targetOverride = null)
+        RunSnapshot? snapshot = null, string? targetOverride = null, string? operationId = null, bool recordInventory = true)
     {
+        if (!recordInventory)
+            return await PackageCoreAsync(packager, comment, onOutputLine, ct, onExisting, snapshot,
+                DeploymentTargets.Normalize(targetOverride ?? DeploymentTargets.Mecm));
+
         var target = DeploymentTargets.Normalize(targetOverride ?? DeploymentTargets.Mecm);
+        var ownsOperation = operationId is null;
+        operationId ??= Guid.NewGuid().ToString("N");
+        var startedAt = DateTimeOffset.UtcNow;
+        var identity = InventoryIdentity(packager, snapshot, ReadInventoryManifest(packager, null, snapshot, out _));
+        if (ownsOperation && inventory is not null)
+            inventory.BeginOperation(new InventoryOperation(operationId, "Package", packager.Uid, identity, target, startedAt));
+
+        var outcome = InventoryOutcome.Failed;
+        string? detail = null;
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            var result = await PackageCoreAsync(packager, comment, onOutputLine, ct, onExisting, snapshot, target);
+            PersistPackageOutcomes(packager, snapshot, target, result, operationId, startedAt, onOutputLine);
+            outcome = result.Conflict is not null && result.ExitCode == 0 ? InventoryOutcome.Skipped
+                : result.ExitCode == 0 ? InventoryOutcome.Succeeded
+                : DestinationSummary(result, target);
+            detail = result.StdErr;
+            return result;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            outcome = InventoryOutcome.Cancelled;
+            detail = "Package cancelled.";
+            RecordPackageAttemptOutcomes(packager, snapshot, target, operationId, startedAt, InventoryOutcome.Cancelled, detail);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            outcome = InventoryOutcome.Failed;
+            detail = ex.Message;
+            RecordPackageAttemptOutcomes(packager, snapshot, target, operationId, startedAt, InventoryOutcome.Failed, detail);
+            throw;
+        }
+        finally
+        {
+            if (ownsOperation && inventory is not null)
+                CompleteInventoryOperation(operationId, outcome, detail, onOutputLine);
+        }
+    }
+
+    private async Task<PackagerExecutionResult> PackageCoreAsync(
+        IPackagerExecutionRequest packager, string comment, Action<string>? onOutputLine,
+        CancellationToken ct, OnExistingBehavior onExisting, RunSnapshot? snapshot, string target)
+    {
         if (WsusTargetRefusal(target) is { } wsusRefusal) return wsusRefusal;
         if (packager.StagedManifestPath is not null)
             return await PackageStagedManifestAsync(packager.StagedManifestPath, comment, onOutputLine, ct, onExisting, snapshot, target);
@@ -430,7 +788,17 @@ public class PackagerExecutionService(
                 StdErr = outcome.StdErr,
                 IntuneWinNote = notes.BuildNote.Length > 0 ? notes.BuildNote : afterMecm,
                 IntunePublishNote = notes.PublishNote,
-                Conflict = conflicts.Result
+                Conflict = conflicts.Result,
+                ConfigMgrOutcome = DeploymentTargets.SkipsMecm(target) ? null
+                    : mecmAlreadyExists ? InventoryOutcome.AlreadyPresent
+                    : mecmSucceeded ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
+                ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
+                ConfigMgrDetail = stdErr,
+                IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
+                IntuneObjectId = IntuneAppId(notes.PublishNote),
+                IntuneDetail = FirstNonBlank(notes.FailureNote, outcome.StdErr),
+                PublishedVersion = manifest.SoftwareVersion,
+                PublishedBuildId = manifest.BuildId
             };
         }
 
@@ -443,7 +811,9 @@ public class PackagerExecutionService(
             {
                 ExitCode = 1,
                 StdErr = "Deployment target is Intune only, and Intune publishing applies to JSON-defined apps. This PS1 packager was not run.",
-                IntunePublishNote = "skipped; PS1 packagers publish to ConfigMgr only."
+                IntunePublishNote = "skipped; PS1 packagers publish to ConfigMgr only.",
+                IntuneOutcome = InventoryOutcome.Refused,
+                IntuneDetail = "PS1 packagers publish to ConfigMgr only."
             };
         }
         if (DeploymentTargets.PublishesToIntune(target))
@@ -468,10 +838,32 @@ public class PackagerExecutionService(
                 OutLogPath = packaged.OutLogPath,
                 ErrLogPath = packaged.ErrLogPath,
                 StructuredLogPath = packaged.StructuredLogPath,
-                Conflict = new ExistingApplicationConflict(app, version, incoming)
+                Conflict = new ExistingApplicationConflict(app, version, incoming),
+                ConfigMgrOutcome = packaged.ExitCode == 0 ? InventoryOutcome.Skipped : InventoryOutcome.Failed,
+                ConfigMgrObjectId = app,
+                ConfigMgrDetail = packaged.StdErr,
+                IntuneOutcome = DeploymentTargets.PublishesToIntune(target) ? InventoryOutcome.Refused : null,
+                IntuneDetail = DeploymentTargets.PublishesToIntune(target) ? "PS1 packagers publish to ConfigMgr only." : null,
+                PublishedVersion = PublishVersion(packager),
+                PublishedBuildId = bridge?.Snapshot?.BuildId ?? snapshot?.BuildId
             };
         }
-        return packaged;
+        return new PackagerExecutionResult
+        {
+            ExitCode = packaged.ExitCode,
+            StdOut = packaged.StdOut,
+            StdErr = packaged.StdErr,
+            OutLogPath = packaged.OutLogPath,
+            ErrLogPath = packaged.ErrLogPath,
+            StructuredLogPath = packaged.StructuredLogPath,
+            ConfigMgrOutcome = packaged.ExitCode == 0 ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
+            ConfigMgrObjectId = ObjectId(packaged.StdOut, "Packaged: "),
+            ConfigMgrDetail = packaged.StdErr,
+            IntuneOutcome = DeploymentTargets.PublishesToIntune(target) ? InventoryOutcome.Refused : null,
+            IntuneDetail = DeploymentTargets.PublishesToIntune(target) ? "PS1 packagers publish to ConfigMgr only." : null,
+            PublishedVersion = PublishVersion(packager),
+            PublishedBuildId = bridge?.Snapshot?.BuildId ?? snapshot?.BuildId
+        };
     }
 
     /// <summary>
@@ -496,7 +888,7 @@ public class PackagerExecutionService(
     /// failure runs the child without the bridge.
     /// </summary>
     private static PackagerChildLaunch? PrepareChildBridge(
-        PackagerInfo packager, AppSettings settings, Action<string>? onOutputLine, out PackagerExecutionResult? refusal,
+        IPackagerExecutionRequest packager, AppSettings settings, Action<string>? onOutputLine, out PackagerExecutionResult? refusal,
         RunSnapshot? snapshot = null, string? target = null)
     {
         refusal = null;
@@ -532,7 +924,7 @@ public class PackagerExecutionService(
     /// the operator's variant split and requirement selections applied as the run applies
     /// them. Null when the row has no readable staged manifest.
     /// </summary>
-    public IReadOnlyList<IntuneCompatibilityFinding>? ReviewIntuneCompatibility(PackagerInfo packager)
+    public IReadOnlyList<IntuneCompatibilityFinding>? ReviewIntuneCompatibility(IPackagerExecutionRequest packager)
     {
         try
         {
@@ -569,7 +961,7 @@ public class PackagerExecutionService(
     public sealed record OneClickBuildPlan(string DataRoot, string ApplicationId, string ProfileId, int ProfileRevision);
 
     /// <summary>The row's application, active profile and its revision; null when the workbench cannot resolve them.</summary>
-    public OneClickBuildPlan? ResolveBuildPlan(PackagerInfo packager)
+    public OneClickBuildPlan? ResolveBuildPlan(IPackagerExecutionRequest packager)
     {
         try
         {
@@ -594,7 +986,7 @@ public class PackagerExecutionService(
     /// JSON definition and for a PS1 packager alike. A snapshot that cannot be created
     /// is the row's refusal, with the reason; the row neither stages nor publishes.
     /// </summary>
-    public RunSnapshot? CreateRowSnapshot(PackagerInfo packager, OneClickBuildPlan plan, string target, out string? refusal)
+    public RunSnapshot? CreateRowSnapshot(IPackagerExecutionRequest packager, OneClickBuildPlan plan, string target, out string? refusal)
     {
         refusal = null;
         var settings = settingsService.Load();
@@ -774,7 +1166,17 @@ public class PackagerExecutionService(
             StdErr = outcome.StdErr,
             IntuneWinNote = notes.BuildNote.Length > 0 ? notes.BuildNote : afterMecm,
             IntunePublishNote = notes.PublishNote,
-            Conflict = conflicts.Result
+            Conflict = conflicts.Result,
+            ConfigMgrOutcome = DeploymentTargets.SkipsMecm(target) ? null
+                : mecmAlreadyExists ? InventoryOutcome.AlreadyPresent
+                : mecmSucceeded ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
+            ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
+            ConfigMgrDetail = stdErr,
+            IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
+            IntuneObjectId = IntuneAppId(notes.PublishNote),
+            IntuneDetail = FirstNonBlank(notes.FailureNote, outcome.StdErr),
+            PublishedVersion = manifest.SoftwareVersion,
+            PublishedBuildId = manifest.BuildId
         };
     }
 
@@ -925,7 +1327,7 @@ public class PackagerExecutionService(
         };
     }
 
-    private static List<string> BuildGetLatestArgs(PackagerInfo packager, AppSettings settings)
+    private static List<string> BuildGetLatestArgs(IPackagerExecutionRequest packager, AppSettings settings)
     {
         var args = new List<string>
         {
@@ -952,7 +1354,7 @@ public class PackagerExecutionService(
 
     /// <summary>The -StageOnly arguments of a PS1 packager child and its log paths, named with the build id when there is one.</summary>
     public static (IReadOnlyList<string> Arguments, LogPaths Logs) StageArguments(
-        PackagerInfo packager, AppSettings settings, string? profileDownloadRoot, string? buildId)
+        IPackagerExecutionRequest packager, AppSettings settings, string? profileDownloadRoot, string? buildId)
     {
         var logs = CreateLogPaths(packager, "stage", settings.DownloadRoot, buildId);
         var downloadRoot = profileDownloadRoot ?? settings.DownloadRoot;
@@ -969,7 +1371,7 @@ public class PackagerExecutionService(
 
     /// <summary>The -PackageOnly arguments of a PS1 packager child and its log paths, named with the build id when there is one.</summary>
     public static (IReadOnlyList<string> Arguments, LogPaths Logs) PackageArguments(
-        PackagerInfo packager, AppSettings settings, string comment, string? profileDownloadRoot, string? buildId)
+        IPackagerExecutionRequest packager, AppSettings settings, string comment, string? profileDownloadRoot, string? buildId)
     {
         var logs = CreateLogPaths(packager, "package", settings.DownloadRoot, buildId);
         var downloadRoot = profileDownloadRoot ?? settings.DownloadRoot;
@@ -1000,7 +1402,7 @@ public class PackagerExecutionService(
     /// <summary>
     /// Checks if a packager script accepts -FileServerPath by scanning the first 120 lines.
     /// </summary>
-    private static bool SupportsFileServerPath(PackagerInfo packager)
+    private static bool SupportsFileServerPath(IPackagerExecutionRequest packager)
     {
         try
         {
@@ -1023,7 +1425,7 @@ public class PackagerExecutionService(
     /// would share a name, so the name carries the build id, or a random suffix for a run
     /// without one.
     /// </summary>
-    private static LogPaths CreateLogPaths(PackagerInfo packager, string phase, string downloadRoot, string? buildId)
+    private static LogPaths CreateLogPaths(IPackagerExecutionRequest packager, string phase, string downloadRoot, string? buildId)
     {
         var logDir = Path.Combine(
             string.IsNullOrEmpty(downloadRoot) ? Path.GetTempPath() : downloadRoot,

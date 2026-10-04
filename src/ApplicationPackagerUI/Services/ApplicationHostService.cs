@@ -13,6 +13,21 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            serviceProvider.GetRequiredService<LegacyInventoryMigration>().Run();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"The saved application inventory could not be moved from settings.json into the local database. The settings file was kept unchanged.\n\n{ex.Message}",
+                "Application inventory migration failed",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+            System.Windows.Application.Current.Shutdown();
+            return Task.CompletedTask;
+        }
+
         // The resource dictionary starts Dark; the stored theme applies before the first window renders.
         ThemeApplier.Apply(serviceProvider.GetRequiredService<SettingsService>().Load().Theme);
 

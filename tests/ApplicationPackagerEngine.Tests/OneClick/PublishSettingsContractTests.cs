@@ -105,24 +105,6 @@ public sealed class PublishSettingsContractTests : IDisposable
     }
 
     [Fact]
-    public void ThePublishHistoryOutlastsAVersionCheckSave()
-    {
-        var service = new SettingsService();
-        var s = service.Load();
-        var state = new AppCheckState { LatestVersion = "1.0" };
-        OneClickHistory.SetPublished(state.Published, state.NotSupported, "WSUS", "1.0", "guid", DateTimeOffset.Now);
-        s.AppStates["package-a"] = state;
-        service.Save(s);
-
-        var again = service.Load();
-        again.AppStates["package-a"].LastChecked = DateTime.Now;
-        service.Save(again);
-        var entry = OneClickSettingsMap.History(new SettingsService().Load())["package-a"];
-        Assert.Equal("1.0", entry.PublishedVersion("WSUS"));
-        Assert.Equal("1.0", entry.LastKnownVersion);
-    }
-
-    [Fact]
     public void ASettingsFileWithoutSystemsInfersThemFromTheTenantAndTheServer()
     {
         Directory.CreateDirectory(_root);

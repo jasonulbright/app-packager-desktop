@@ -174,16 +174,22 @@ public partial class PackagesViewModel
         StatusText = $"Staging bring-your-own application: {plan.Manifest.AppName}";
         AddLogLine($"Stage: {plan.Manifest.AppName} {plan.Manifest.SoftwareVersion} (source revision {plan.Source.Revision}, {plan.Source.FileName})");
         var inputs = new StageInputs { RunSnapshot = snapshot, SigningPolicy = settings.ScriptSigning };
+        var pendingRow = Services.WorkbenchRunSnapshots.ByoRow(plan.Manifest, plan.Analysis, "", applicationId);
         var result = await ByoStaging.StageAsync(_stagingService, plan, settings.DownloadRoot, line => AddLogLine($"  {line}"), CancellationToken.None, inputs);
         if (!result.Success)
         {
             AddLogLine($"Stage FAILED: {result.ErrorMessage}");
             StatusText = "Stage failed.";
+            _executionService.RecordExternalStage(pendingRow,
+                new PackagerExecutionResult { ExitCode = 1, StdErr = result.ErrorMessage ?? "Stage failed." }, snapshot, AddLogLine);
             return null;
         }
 
         AddLogLine($"Staged: {result.ContentPath}");
         var row = AddByoRow(plan.Manifest, plan.Analysis, result.ManifestPath, applicationId);
+        _executionService.RecordExternalStage(row,
+            new PackagerExecutionResult { ExitCode = 0, StdOut = $"Staged to: {result.ContentPath}", OutLogPath = result.ManifestPath },
+            snapshot, AddLogLine);
         StatusText = $"Staged {plan.Manifest.AppName}. Select the row and Package to continue.";
         return row;
     }

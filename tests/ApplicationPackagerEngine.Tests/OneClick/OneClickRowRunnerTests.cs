@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
@@ -56,7 +57,11 @@ public sealed class OneClickRowRunnerTests : IDisposable
 
         public Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct) => Task.FromResult<string?>(Latest);
 
+        public string VersionSource(PackagerInfo row) => "test-feed";
+
         public PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row) => new(root, "catalog:widget", "default", 0);
+
+        public string? StagedManifestPath(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot? snapshot) => null;
 
         public RunSnapshot? CreateRowSnapshot(PackagerInfo row, PackagerExecutionService.OneClickBuildPlan plan, string target, out string? refusal)
         {
@@ -87,7 +92,11 @@ public sealed class OneClickRowRunnerTests : IDisposable
         }
     }
 
-    private OneClickRowRunner Runner(FakeExecution execution) => new(execution, new SettingsService(), _log.Add);
+    private OneClickRowRunner Runner(FakeExecution execution)
+    {
+        var inventory = new ApplicationInventoryService();
+        return new OneClickRowRunner(execution, new SettingsService(), inventory, new ApplicationInventoryProjection(inventory), _log.Add);
+    }
 
     private static OneClickPlanItem Item(bool configMgr, bool wsus, bool intune, IReadOnlyDictionary<string, string>? notReady = null) => new()
     {
@@ -103,8 +112,36 @@ public sealed class OneClickRowRunnerTests : IDisposable
 
     private static OneClickRunOptions Publish => new(OneClickActionNames.StageAndPackage, false, OneClickOnExisting.Skip, "");
 
-    private static AppCheckState? Stored() =>
-        new SettingsService().Load().AppStates.TryGetValue("widget", out var state) ? state : null;
+    private static AppCheckState Stored()
+    {
+        var inventory = new ApplicationInventoryService();
+        var settings = new SettingsService().Load();
+        var state = new AppCheckState();
+        if (inventory.GetVendorState("widget") is { } vendor)
+        {
+            state.LatestVersion = vendor.LatestVersion ?? "";
+            state.LastChecked = vendor.LastSucceededAt?.LocalDateTime;
+        }
+        foreach (var (destination, environment) in ApplicationInventoryProjection.Environments(settings))
+        {
+            var published = inventory.GetDestinationState("widget", environment, "Publish");
+            if (!string.IsNullOrWhiteSpace(published?.LastSuccessVersion))
+                state.Published[destination] = new OneClickPublishRecord
+                {
+                    Version = published.LastSuccessVersion,
+                    Id = published.LastSuccessObjectId ?? "",
+                    At = OneClickHistory.Stamp(published.LastSuccessAt ?? DateTimeOffset.MinValue)
+                };
+            if (inventory.GetLatestRefusal("widget", environment, "Publish") is { } refusal)
+                state.NotSupported[destination] = new OneClickRefusalRecord
+                {
+                    Version = refusal.Version,
+                    Reason = refusal.Detail ?? "",
+                    At = OneClickHistory.Stamp(refusal.At ?? DateTimeOffset.MinValue)
+                };
+        }
+        return state;
+    }
 
     [Fact]
     public async Task OneSnapshotReachesTheStageAndEveryDestination()
@@ -118,7 +155,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
         Assert.All(execution.Calls, c => Assert.Same(execution.Snapshot, c.Snapshot));
         Assert.Equal([PublishRunTargets.ConfigMgr, PublishRunTargets.WsusOnly, PublishRunTargets.IntuneOnly], execution.Calls.Skip(1).Select(c => c.Target));
         Assert.Equal(OneClickOutcomes.Published, item.Outcome);
-        Assert.Equal(["ConfigMgr", "Intune", "WSUS"], Stored()!.Published.Keys.Order());
+        Assert.Equal(["ConfigMgr", "Intune", "WSUS"], Stored().Published.Keys.Order());
     }
 
     [Fact]
@@ -160,8 +197,29 @@ public sealed class OneClickRowRunnerTests : IDisposable
         await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
 
         Assert.Equal("failed: exit code 1", item.ResultConfigMgr);
-        Assert.Equal(["WSUS"], Stored()!.Published.Keys);
+        Assert.Equal(["WSUS"], Stored().Published.Keys);
         Assert.Equal(OneClickOutcomes.Failed, item.Outcome);
+    }
+
+    [Fact]
+    public async Task ARowThatPublishesToOneDestinationAndFailsAnotherIsRecordedAsPartial()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"))
+        {
+            Wsus = new(WsusStepStatus.Failed, "server unreachable", [], [])
+        };
+        var item = Item(true, true, false);
+        var inventory = new ApplicationInventoryService();
+        var runner = new OneClickRowRunner(execution, new SettingsService(), inventory,
+            new ApplicationInventoryProjection(inventory), _log.Add);
+
+        await runner.RunAsync(item, Publish, CancellationToken.None);
+
+        var check = Assert.Single(inventory.GetEvents("widget", 20), record => record.Kind == "VendorCheck");
+        var operation = Assert.IsType<InventoryOperationState>(inventory.GetOperation(check.OperationId!));
+        Assert.Equal(InventoryOutcome.Partial, operation.Outcome);
+        Assert.Equal("published Widget 2.0", item.ResultConfigMgr);
+        Assert.StartsWith("failed:", item.ResultWsus);
     }
 
     [Fact]
@@ -169,7 +227,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
     {
         var failing = new FakeExecution(Path.Combine(_root, "workbench")) { Wsus = new(WsusStepStatus.Failed, "server unreachable", [], []) };
         await Runner(failing).RunAsync(Item(false, true, false), Publish, CancellationToken.None);
-        Assert.Empty(Stored()!.NotSupported);
+        Assert.Empty(Stored().NotSupported);
 
         var refusing = new FakeExecution(Path.Combine(_root, "workbench"))
         {
@@ -178,7 +236,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
         };
         var item = Item(false, true, false);
         await Runner(refusing).RunAsync(item, Publish, CancellationToken.None);
-        Assert.Equal("3.0", Stored()!.NotSupported["WSUS"].Version);
+        Assert.Equal("3.0", Stored().NotSupported["WSUS"].Version);
         Assert.Equal(OneClickOutcomes.NotSupported, item.Outcome);
     }
 
@@ -196,7 +254,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
 
         Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
         Assert.Equal("published Widget 2.0", item.ResultConfigMgr);
-        Assert.Equal("2.0", Stored()!.Published["ConfigMgr"].Version);
+        Assert.Equal("2.0", Stored().Published["ConfigMgr"].Version);
         Assert.Equal(OneClickOutcomes.Published, item.Outcome);
         Assert.Equal("run canceled after publishing to ConfigMgr", item.Reason);
     }
@@ -212,7 +270,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
         Assert.Equal(["Stage", "WSUS"], execution.Calls.Select(c => c.Step));
         Assert.Equal("skipped: ConfigMgr console not detected", item.ResultConfigMgr);
         Assert.Contains("ConfigMgr: ConfigMgr console not detected", item.Reason);
-        Assert.DoesNotContain("ConfigMgr", Stored()!.Published.Keys);
+        Assert.DoesNotContain("ConfigMgr", Stored().Published.Keys);
     }
 
     [Fact]
@@ -229,12 +287,15 @@ public sealed class OneClickRowRunnerTests : IDisposable
     [Fact]
     public async Task ARowRestagedOnlyForAStaleBuildIsNotRepublished()
     {
-        var service = new SettingsService();
-        var s = service.Load();
-        var state = new AppCheckState { LatestVersion = "2.0", LastStaged = DateTime.Now.AddDays(-1) };
-        OneClickHistory.SetPublished(state.Published, state.NotSupported, "ConfigMgr", "2.0", "Widget 2.0", DateTimeOffset.Now);
-        s.AppStates["widget"] = state;
-        service.Save(s);
+        var inventory = new ApplicationInventoryService();
+        var settings = new SettingsService().Load();
+        var identity = new InventoryApplicationIdentity("widget", "catalog:widget", "default", 0);
+        var at = DateTimeOffset.UtcNow.AddDays(-1);
+        inventory.RecordVendorCheck(new InventoryVendorCheck("widget", "Widget", "2.0", "test-feed", InventoryOutcome.Succeeded, at));
+        inventory.RecordStagedBuild(new InventoryStagedBuild(identity, "2.0", "old-build", "build.json", "manifest.json", at));
+        inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("widget", identity,
+            InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine), "Publish", "2.0",
+            InventoryOutcome.Succeeded, "Widget 2.0", at, "old-build"));
         var execution = new FakeExecution(Path.Combine(_root, "workbench"));
         var item = Item(true, false, false);
 

@@ -7,7 +7,7 @@ using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
 
-public class SettingsService
+public class SettingsService : IRunSettingsReader<AppSettings>
 {
     public const string LauncherSiteCodeVariable = "SUITE_CM_SITECODE";
     public const string LauncherProviderVariable = "SUITE_CM_PROVIDER";

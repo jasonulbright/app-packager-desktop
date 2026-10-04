@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
@@ -6,6 +7,8 @@ using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerEngine.Services.Wsus;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.ViewModels.Windows;
+using System.IO;
+using System.Text.Json;
 
 namespace ApplicationPackagerUI.Services;
 
@@ -13,7 +16,9 @@ namespace ApplicationPackagerUI.Services;
 public interface IOneClickExecution
 {
     Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct);
+    string VersionSource(PackagerInfo row);
     PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row);
+    string? StagedManifestPath(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot? snapshot);
     RunSnapshot? CreateRowSnapshot(PackagerInfo row, PackagerExecutionService.OneClickBuildPlan plan, string target, out string? refusal);
     Task<PackagerExecutionResult> StageAsync(PackagerInfo row, Action<string> log, RunSnapshot snapshot, CancellationToken ct);
     Task<PackagerExecutionResult> PackageAsync(PackagerInfo row, string comment, Action<string> log, OnExistingBehavior onExisting,
@@ -26,20 +31,25 @@ public sealed class OneClickExecution(PackagerExecutionService execution, IWsusP
 {
     public Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct) => execution.GetLatestVersionAsync(row, ct);
 
+    public string VersionSource(PackagerInfo row) => execution.VersionSource(row);
+
     public PackagerExecutionService.OneClickBuildPlan? ResolveBuildPlan(PackagerInfo row) => execution.ResolveBuildPlan(row);
+
+    public string? StagedManifestPath(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot? snapshot) =>
+        execution.StagedManifestPath(row, stage, snapshot);
 
     public RunSnapshot? CreateRowSnapshot(PackagerInfo row, PackagerExecutionService.OneClickBuildPlan plan, string target, out string? refusal) =>
         execution.CreateRowSnapshot(row, plan, target, out refusal);
 
     public Task<PackagerExecutionResult> StageAsync(PackagerInfo row, Action<string> log, RunSnapshot snapshot, CancellationToken ct) =>
-        execution.StageAsync(row, log, ct, null, snapshot);
+        execution.StageAsync(row, log, ct, null, snapshot, recordInventory: false);
 
     public Task<PackagerExecutionResult> PackageAsync(PackagerInfo row, string comment, Action<string> log, OnExistingBehavior onExisting,
         RunSnapshot snapshot, string target, CancellationToken ct) =>
-        execution.PackageAsync(row, comment, log, ct, onExisting, snapshot, target);
+        execution.PackageAsync(row, comment, log, ct, onExisting, snapshot, target, recordInventory: false);
 
     public Task<WsusStepResult> PublishWsusAsync(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot snapshot, Action<string> log, CancellationToken ct) =>
-        execution.PublishWsusAsync(row, stage, snapshot, wsusPublisher, log, ct);
+        execution.PublishWsusAsync(row, stage, snapshot, wsusPublisher, log, ct, recordInventory: false);
 }
 
 /// <summary>
@@ -48,7 +58,8 @@ public sealed class OneClickExecution(PackagerExecutionService execution, IWsusP
 /// from that same snapshot, ConfigMgr first. A destination's result and its history are
 /// recorded before a cancellation stops the row.
 /// </summary>
-public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsService settingsService, Action<string> log)
+public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsReader<AppSettings> settingsService,
+    ApplicationInventoryService inventory, ApplicationInventoryProjection projection, Action<string> log)
 {
     /// <summary>Called after the check wrote the row's latest version.</summary>
     public Action? VersionChecked { get; init; }
@@ -63,44 +74,65 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
     {
         var p = item.Row;
         if (p is null) { Finish(item, OneClickOutcomes.Skipped, "not in the grid"); return; }
-        var action = OneClickActionNames.Normalize(options.Action);
-        var stepLog = (string line) => log($"  {line}");
         var settings = settingsService.Load();
-        var entry = settings.AppStates.TryGetValue(p.Uid, out var state) && state is not null ? OneClickSettingsMap.Entry(state) : null;
-        var lastKnown = entry?.LastKnownVersion ?? "";
-
-        item.Step = "checking " + p.Application;
-        p.Status = "Checking latest...";
-        log($"One Click: {p.Application} ({p.Script})");
-        string? latest;
-        try { latest = await execution.GetLatestVersionAsync(p, ct); }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            latest = null;
-            log($"Latest check failed: {ex.Message}");
-        }
-        ct.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(latest))
-        {
-            p.Status = "Check error";
-            Finish(item, OneClickOutcomes.Failed, "check failed");
-            return;
-        }
-        p.LatestVersion = latest;
-        p.LastChecked = DateTime.Now;
-        item.Version = latest;
-        log("Latest: " + latest);
-        VersionChecked?.Invoke();
-        var versionChanged = lastKnown.Length == 0 || !string.Equals(lastKnown, latest, StringComparison.OrdinalIgnoreCase);
-
-        if (action == OneClickActionNames.Report)
-        {
-            p.Status = versionChanged ? "Update available" : "Up to date";
-            Finish(item, OneClickOutcomes.Checked, versionChanged ? "update available" : "up to date");
-            return;
-        }
-
         var plan = execution.ResolveBuildPlan(p);
+        var identity = ApplicationInventoryProjection.IdentityFor(p, plan);
+        var entry = projection.Entry(p, settings, plan);
+        var lastKnown = entry?.LastKnownVersion ?? "";
+        var operationId = Guid.NewGuid().ToString("N");
+        var startedAt = DateTimeOffset.UtcNow;
+        inventory.BeginOperation(new InventoryOperation(operationId, "OneClickRow", p.Uid, identity,
+            Target(item.Destinations.Names), startedAt));
+
+        try
+        {
+            var action = OneClickActionNames.Normalize(options.Action);
+            var stepLog = (string line) => log($"  {line}");
+
+            item.Step = "checking " + p.Application;
+            p.Status = "Checking latest...";
+            log($"One Click: {p.Application} ({p.Script})");
+            var source = execution.VersionSource(p);
+            string? latest;
+            try { latest = await execution.GetLatestVersionAsync(p, ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                inventory.RecordVendorCheck(new InventoryVendorCheck(p.Uid, p.Application, null, source,
+                    InventoryOutcome.Cancelled, DateTimeOffset.UtcNow, operationId, "Check cancelled."));
+                Finish(item, OneClickOutcomes.Skipped, "check cancelled");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                latest = null;
+                log($"Latest check failed: {ex.Message}");
+            }
+
+            if (string.IsNullOrWhiteSpace(latest))
+            {
+                inventory.RecordVendorCheck(new InventoryVendorCheck(p.Uid, p.Application, null, source,
+                    InventoryOutcome.Failed, DateTimeOffset.UtcNow, operationId, "Check failed."));
+                p.Status = "Check error";
+                Finish(item, OneClickOutcomes.Failed, "check failed");
+                return;
+            }
+            var checkedAt = DateTimeOffset.UtcNow;
+            inventory.RecordVendorCheck(new InventoryVendorCheck(p.Uid, p.Application, latest, source,
+                InventoryOutcome.Succeeded, checkedAt, operationId));
+            p.LatestVersion = latest;
+            p.LastChecked = checkedAt.LocalDateTime;
+            item.Version = latest;
+            log("Latest: " + latest);
+            VersionChecked?.Invoke();
+            var versionChanged = lastKnown.Length == 0 || !string.Equals(lastKnown, latest, StringComparison.OrdinalIgnoreCase);
+
+            if (action == OneClickActionNames.Report)
+            {
+                p.Status = versionChanged ? "Update available" : "Up to date";
+                Finish(item, OneClickOutcomes.Checked, versionChanged ? "update available" : "up to date");
+                return;
+            }
+
         var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, latest,
             plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
         var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
@@ -149,7 +181,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
             return;
         }
         p.Status = "Staged";
-        UpdateAppState(p.Uid, s => s.LastStaged = DateTime.Now);
+        PersistStagedBuild(p, stage, snapshot, identity, operationId);
 
         if (action == OneClickActionNames.Stage || decision.PublishTo.Count == 0)
         {
@@ -169,6 +201,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
             string cell, id = "", detail = "";
             var ok = false;
             var present = false;
+            var destinationOutcome = InventoryOutcome.Failed;
             try
             {
                 switch (destination)
@@ -181,17 +214,20 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
                         id = ApplicationName(result.StdOut);
                         if (result.Conflict is { } conflict)
                         {
+                            destinationOutcome = InventoryOutcome.Skipped;
                             cell = $"skipped: application {conflict.ApplicationName} already exists";
                             reasons.Add($"ConfigMgr: application exists, policy {OneClickOnExisting.Normalize(options.OnExisting)}");
                         }
                         else if (result.ExitCode != 0)
                         {
+                            destinationOutcome = InventoryOutcome.Failed;
                             StdErr?.Invoke(result.StdErr);
                             cell = $"failed: exit code {result.ExitCode}";
                             detail = result.StdErr.Trim();
                         }
                         else
                         {
+                            destinationOutcome = InventoryOutcome.Succeeded;
                             ok = true;
                             cell = "published " + id;
                         }
@@ -204,12 +240,14 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
                         log("WSUS publish: " + step.Message);
                         var mapped = OneClickPlanner.WsusResult(step);
                         (cell, detail, id, ok, present) = (mapped.Cell, mapped.Detail, mapped.Id, mapped.Ok, mapped.AlreadyPresent);
+                        destinationOutcome = step.Refused ? InventoryOutcome.Refused
+                            : mapped.Ok && mapped.AlreadyPresent ? InventoryOutcome.AlreadyPresent
+                            : mapped.Ok ? InventoryOutcome.Succeeded : InventoryOutcome.Failed;
                         if (present) reasons.Add($"WSUS: {latest} already on the server");
                         if (step.Refused)
                         {
                             notSupported++;
                             reasons.Add("WSUS: not supported");
-                            UpdateAppState(p.Uid, s => OneClickHistory.SetNotSupported(s.NotSupported, OneClickDestinations.Wsus, latest, mapped.Cell, DateTimeOffset.Now));
                         }
                         break;
                     }
@@ -219,12 +257,14 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
                         IntuneNotes?.Invoke(p, result);
                         if (result.ExitCode == 0)
                         {
+                            destinationOutcome = InventoryOutcome.Succeeded;
                             ok = true;
                             id = IntuneAppId(result.IntunePublishNote);
                             cell = "published " + id;
                         }
                         else
                         {
+                            destinationOutcome = InventoryOutcome.Failed;
                             cell = string.IsNullOrWhiteSpace(result.IntunePublishNote) ? $"failed: exit code {result.ExitCode}" : result.IntunePublishNote;
                             detail = result.StdErr.Trim();
                         }
@@ -234,16 +274,18 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                RecordDestination(p, identity, settings, destination, latest, id, InventoryOutcome.Cancelled,
+                    detail.Length == 0 ? "Publish cancelled." : detail, snapshot.BuildId, operationId);
                 StopCanceled(item, p, publishedTo);
                 throw;
             }
 
+            RecordDestination(p, identity, settings, destination, latest, id, destinationOutcome, detail, snapshot.BuildId, operationId);
             item.SetResult(destination, cell, id, detail);
             if (ok)
             {
                 if (!present) published++;
                 publishedTo.Add(destination);
-                UpdateAppState(p.Uid, s => OneClickHistory.SetPublished(s.Published, s.NotSupported, destination, latest, id, DateTimeOffset.Now));
             }
             else if (!OneClickPlanner.IsSkipOrRefusal(cell))
             {
@@ -253,6 +295,12 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
         var (outcome, status) = OneClickPlanner.Conclude(published, failed, notSupported);
         p.Status = status;
         Finish(item, outcome, string.Join("; ", reasons));
+        }
+        finally
+        {
+            var outcome = InventoryOperationOutcome(item, ct.IsCancellationRequested);
+            inventory.CompleteOperation(operationId, outcome, DateTimeOffset.UtcNow, item.Reason);
+        }
     }
 
     /// <summary>Ends a canceled row with what it published; throws the cancellation.</summary>
@@ -271,6 +319,24 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
         item.Outcome = outcome;
         if (reason.Length > 0) item.Reason = reason;
         item.Step = outcome;
+    }
+
+    private static InventoryOutcome InventoryOperationOutcome(OneClickPlanItem item, bool cancelled)
+    {
+        var results = item.Results.Values.Where(value => !string.IsNullOrWhiteSpace(value)).ToArray();
+        var hasSuccess = results.Any(value => value.StartsWith("published ", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("already on the server ", StringComparison.OrdinalIgnoreCase));
+        var hasFailureOrRefusal = results.Any(value => value.StartsWith("failed", StringComparison.OrdinalIgnoreCase)
+            || value.StartsWith("not supported", StringComparison.OrdinalIgnoreCase));
+        if (hasSuccess && (hasFailureOrRefusal || cancelled)) return InventoryOutcome.Partial;
+        if (cancelled) return InventoryOutcome.Cancelled;
+        return item.Outcome switch
+        {
+            OneClickOutcomes.Published or OneClickOutcomes.Staged or OneClickOutcomes.Checked => InventoryOutcome.Succeeded,
+            OneClickOutcomes.NotSupported => InventoryOutcome.Refused,
+            OneClickOutcomes.Skipped => InventoryOutcome.Skipped,
+            _ => InventoryOutcome.Failed
+        };
     }
 
     /// <summary>
@@ -303,15 +369,55 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
         return end < 0 ? id.Trim() : id[..end].Trim();
     }
 
-    /// <summary>Writes one application's stored check state, creating it when absent.</summary>
-    private void UpdateAppState(string uid, Action<AppCheckState> change)
+    private void PersistStagedBuild(PackagerInfo row, PackagerExecutionResult stage, RunSnapshot snapshot,
+        InventoryApplicationIdentity identity, string operationId)
     {
-        var s = settingsService.Load();
-        if (!s.AppStates.TryGetValue(uid, out var state) || state is null)
-            s.AppStates[uid] = state = new AppCheckState();
-        state.Published ??= [];
-        state.NotSupported ??= [];
-        change(state);
-        settingsService.Save(s);
+        try
+        {
+            var manifestPath = execution.StagedManifestPath(row, stage, snapshot);
+            if (string.IsNullOrWhiteSpace(manifestPath) || !File.Exists(manifestPath))
+            {
+                log("  Inventory: the stage did not expose its manifest; no sealed build reference was recorded.");
+                return;
+            }
+
+            var dataRoot = string.IsNullOrWhiteSpace(snapshot.DataRoot) ? WorkbenchPaths.ResolveDataRoot() : snapshot.DataRoot;
+            var buildRecord = BuildRecords.List(dataRoot, snapshot.ApplicationId, snapshot.ProfileId)
+                .FirstOrDefault(record => string.Equals(WorkbenchJson.Get(record, "BuildId").Text, snapshot.BuildId, StringComparison.OrdinalIgnoreCase));
+            if (buildRecord is null)
+            {
+                log("  Inventory: the stage has no matching sealed build record; no package reference was recorded.");
+                return;
+            }
+
+            var manifest = JsonSerializer.Deserialize<StageManifest>(File.ReadAllText(manifestPath),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (manifest is null || !string.Equals(manifest.BuildId, snapshot.BuildId, StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(manifest.SoftwareVersion))
+            {
+                log("  Inventory: the manifest does not match this run snapshot; no package reference was recorded.");
+                return;
+            }
+
+            var buildRecordPath = WorkbenchJson.Get(buildRecord, "Path").Text
+                ?? Path.Combine(BuildRecords.GetBuildFolder(dataRoot, snapshot.ApplicationId, snapshot.ProfileId, snapshot.BuildId), BuildRecords.FileName);
+            inventory.RecordStagedBuild(new InventoryStagedBuild(
+                identity with { ApplicationId = snapshot.ApplicationId, ProfileId = snapshot.ProfileId, ProfileRevision = snapshot.ProfileRevision },
+                manifest.SoftwareVersion, snapshot.BuildId, buildRecordPath, manifestPath, DateTimeOffset.UtcNow, operationId));
+        }
+        catch (Exception ex)
+        {
+            log($"  Inventory: could not record the sealed build reference: {ex.Message}");
+        }
+    }
+
+    private void RecordDestination(PackagerInfo row, InventoryApplicationIdentity identity, AppSettings settings,
+        string destination, string version, string? objectId, InventoryOutcome outcome, string? detail,
+        string buildId, string operationId)
+    {
+        var environment = ApplicationInventoryProjection.Environments(settings)
+            .First(item => string.Equals(item.Destination, destination, StringComparison.OrdinalIgnoreCase)).Environment;
+        inventory.RecordDestinationOutcome(new InventoryDestinationOutcome(row.Uid, identity, environment, "Publish",
+            version, outcome, objectId, DateTimeOffset.UtcNow, buildId, operationId, detail));
     }
 }

@@ -4,7 +4,7 @@ using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
 
-/// <summary>The One Click planner's view of the stored settings and per-application history.</summary>
+/// <summary>Maps saved One Click configuration into planner inputs.</summary>
 public static class OneClickSettingsMap
 {
     public static PublishReadiness Readiness(AppSettings s, bool consoleFound) => new(
@@ -25,19 +25,6 @@ public static class OneClickSettingsMap
             s.ContentDistribution.DeployToTestCollection, s.ContentDistribution.TestCollectionName,
             s.Wsus.ApprovalGroup)
     };
-
-    public static OneClickHistoryEntry Entry(AppCheckState state) => new()
-    {
-        LastChecked = state.LastChecked,
-        LastKnownVersion = state.LatestVersion ?? "",
-        LastStaged = state.LastStaged,
-        Published = new Dictionary<string, OneClickPublishRecord>(state.Published ?? [], StringComparer.OrdinalIgnoreCase),
-        NotSupported = new Dictionary<string, OneClickRefusalRecord>(state.NotSupported ?? [], StringComparer.OrdinalIgnoreCase)
-    };
-
-    public static IReadOnlyDictionary<string, OneClickHistoryEntry> History(AppSettings s) =>
-        s.AppStates.Where(kv => kv.Value is not null)
-            .ToDictionary(kv => kv.Key, kv => Entry(kv.Value), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// The destinations a settings save stores per application: only the rows that

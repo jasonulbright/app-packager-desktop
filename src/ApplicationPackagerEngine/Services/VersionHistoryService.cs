@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+using System.Data.SQLite;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -8,7 +8,7 @@ namespace ApplicationPackagerEngine.Services;
 /// </summary>
 public sealed class VersionHistoryService : IDisposable
 {
-    private readonly SqliteConnection _db;
+    private readonly SQLiteConnection _db;
 
     public VersionHistoryService(string? dbPath = null)
     {
@@ -16,7 +16,7 @@ public sealed class VersionHistoryService : IDisposable
 
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 
-        _db = new SqliteConnection($"Data Source={dbPath}");
+        _db = new SQLiteConnection($"Data Source={dbPath}");
         _db.Open();
         InitializeSchema();
     }
@@ -119,7 +119,7 @@ public sealed class VersionHistoryService : IDisposable
         return cmd.ExecuteScalar() as string;
     }
 
-    private List<HistoryEntry> ReadEntries(SqliteCommand cmd)
+    private List<HistoryEntry> ReadEntries(SQLiteCommand cmd)
     {
         var entries = new List<HistoryEntry>();
         using var reader = cmd.ExecuteReader();

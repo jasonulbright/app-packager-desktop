@@ -1,3 +1,5 @@
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Models;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ApplicationPackagerUI.Services;
@@ -11,6 +13,11 @@ public static class PackagerServiceRegistration
     public static IServiceCollection AddPackagerServices(this IServiceCollection services)
     {
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<ISettingsReader<AppSettings>>(sp => sp.GetRequiredService<SettingsService>());
+        services.AddSingleton<IRunSettingsReader<AppSettings>>(sp => sp.GetRequiredService<SettingsService>());
+        services.AddSingleton<ApplicationPackagerEngine.Services.ApplicationInventoryService>();
+        services.AddSingleton<LegacyInventoryMigration>();
+        services.AddSingleton<ApplicationInventoryProjection>();
         services.AddSingleton<PackagerDiscoveryService>();
         services.AddSingleton<PackagerExecutionService>();
         services.AddSingleton<MecmQueryService>();
