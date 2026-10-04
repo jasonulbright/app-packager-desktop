@@ -11,6 +11,10 @@
 
     <Page.Resources>
         <helpers:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+        <Style x:Key="TrimCell" TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+        </Style>
     </Page.Resources>
 
     <Grid Margin="16,12,16,12" Background="Transparent" AllowDrop="True">
@@ -187,15 +191,8 @@
                 </DataGridTemplateColumn>
 
                 <!-- A star column without MinWidth shrinks below its header text in a narrow window. -->
-                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
-                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" IsReadOnly="True" />
+                <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
                 <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="170" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" IsReadOnly="True" />
 
