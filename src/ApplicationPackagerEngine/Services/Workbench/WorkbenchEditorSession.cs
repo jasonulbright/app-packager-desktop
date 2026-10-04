@@ -70,8 +70,6 @@ public sealed class WorkbenchEditorSession
     /// <summary>True when the working copy differs from the last load or save. Empty objects do not count.</summary>
     public bool IsDirty => Canonical(Profile.Data) != _baseline;
 
-    // ── Loading ─────────────────────────────────────────────────
-
     /// <summary>
     /// Loads a profile; null or empty loads the application's active profile. A profile
     /// that cannot be read falls back to the packager default. A stored draft for a
@@ -124,8 +122,6 @@ public sealed class WorkbenchEditorSession
         Load(ProfileId);
         PendingDraft = null;
     }
-
-    // ── Field state ─────────────────────────────────────────────
 
     public WorkbenchMember Get(string path) => Profile.Get(path);
 
@@ -261,8 +257,6 @@ public sealed class WorkbenchEditorSession
         ? "The packager default profile cannot be renamed. Use Save as to create a named profile."
         : null;
 
-    // ── Save ────────────────────────────────────────────────────
-
     /// <summary>
     /// Save (no name) updates the active saved profile; Save as (a name) copies the
     /// working copy, and its managed assets, under a new profile id. Saving the packager
@@ -321,8 +315,6 @@ public sealed class WorkbenchEditorSession
         return new WorkbenchSaveResult(WorkbenchSaveStatus.Saved,
             $"Saved \"{saved.Name}\" at revision {saved.Revision}. Existing builds are now stale relative to this profile; nothing was deployed.");
     }
-
-    // ── Internals ───────────────────────────────────────────────
 
     /// <summary>
     /// Keeps the draft in step with the working copy: a dirty saved profile is written to

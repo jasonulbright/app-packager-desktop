@@ -13,7 +13,7 @@ namespace ApplicationPackagerEngine.Services.Workbench;
 /// <item>Default profile active and a profile migrated from this definition exists: the operator chose the default
 /// after migration; no snapshot and the maps do not apply.</item>
 /// <item>Default profile active and no migrated profile (no store entry, migration not yet run, or the migrated
-/// profile was deleted): no snapshot and the maps apply, as before profiles existed.</item>
+/// profile was deleted): no snapshot and the maps apply.</item>
 /// <item>The store cannot be opened or read: <see cref="Failure"/> carries the reason and the run does not start,
 /// because the active profile it would build from is unknown.</item>
 /// </list>

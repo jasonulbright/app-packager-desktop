@@ -5,7 +5,6 @@ namespace ApplicationPackagerEngine.Models;
 
 /// <summary>
 /// JSON app definition — one file per application.
-/// Replaces the per-app PS1 packager script.
 /// </summary>
 public sealed class AppDefinition
 {
@@ -109,7 +108,7 @@ public sealed class AppDefinition
     /// Where the application icon comes from at stage time:
     /// "Installer" extracts it from the staged payload, "External" copies
     /// Definitions\Icons\&lt;definition id&gt;.ico|png, "None" stages no icon.
-    /// Absent is None, which keeps every untagged definition on the pre-icon path.
+    /// Absent is None.
     /// </summary>
     public string? IconSource { get; set; }
 
@@ -249,7 +248,7 @@ public sealed class AcquisitionConfig
 
     /// <summary>Whether this app has a static URL source available (VersionScraper + DownloadUrl).</summary>
     [JsonIgnore]
-    public bool HasStaticUrl => true; // Always true if the definition exists with VersionScraper
+    public bool HasStaticUrl => true;
 }
 
 public sealed class VersionScraperConfig

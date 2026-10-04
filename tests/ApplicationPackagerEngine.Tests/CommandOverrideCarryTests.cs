@@ -6,11 +6,10 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// Saved operator commands reached MECM through a call argument and never touched the
-/// manifest, and the Intune publish reads its command lines from the manifest. An
-/// operator who set a custom install command therefore got it on one target and
-/// install.bat on the other. Resolution now lands on the manifest before either target
-/// runs, so these tests read the request body the publish actually sends.
+/// The Intune publish reads its command lines from the manifest, so saved operator
+/// commands resolve onto the manifest before either target runs. A command that reaches
+/// MECM only as a call argument gives the Intune app install.bat instead. These tests read
+/// the request body the publish actually sends.
 /// </summary>
 public sealed class CommandOverrideCarryTests : IDisposable
 {
@@ -103,8 +102,6 @@ public sealed class CommandOverrideCarryTests : IDisposable
         return (JsonObject)JsonNode.Parse(create.Body)!;
     }
 
-    // ── The published command lines ─────────────────────────────
-
     [Fact]
     public async Task SavedInstallAndUninstallOverridesBothReachTheIntuneRequest()
     {
@@ -178,11 +175,9 @@ public sealed class CommandOverrideCarryTests : IDisposable
 
         Assert.Equal("saved-install.cmd", (string?)body["installCommandLine"]);
         // The saved record replaces the manifest's outright rather than merging field by
-        // field, which is what the MECM argument already did.
+        // field, as the MECM argument does.
         Assert.Equal("uninstall.bat", (string?)body["uninstallCommandLine"]);
     }
-
-    // ── Resolution in isolation ─────────────────────────────────
 
     [Fact]
     public void ResolutionRecordsTheSavedOverrideOnTheManifest()
@@ -216,8 +211,6 @@ public sealed class CommandOverrideCarryTests : IDisposable
         Assert.Null(DeploymentTypeSpecResolver.ResolveCommandOverrides(manifest, null));
         Assert.Null(manifest.CommandOverrides);
     }
-
-    // ── Variant manifests ───────────────────────────────────────
 
     /// <summary>
     /// A variant-split manifest carries per-deployment-type commands, so the flat

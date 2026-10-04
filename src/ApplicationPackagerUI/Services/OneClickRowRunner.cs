@@ -69,7 +69,6 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
         var entry = settings.AppStates.TryGetValue(p.Uid, out var state) && state is not null ? OneClickSettingsMap.Entry(state) : null;
         var lastKnown = entry?.LastKnownVersion ?? "";
 
-        // 1. Check latest
         item.Step = "checking " + p.Application;
         p.Status = "Checking latest...";
         log($"One Click: {p.Application} ({p.Script})");
@@ -101,7 +100,6 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
             return;
         }
 
-        // 2. Which destinations still need this version, and whether the build is stale.
         var plan = execution.ResolveBuildPlan(p);
         var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, latest,
             plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
@@ -118,7 +116,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
         if (buildStale && !versionChanged && decision.PublishTo.Count == 0)
             log($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. Its destinations carry this version, so it is not published.");
 
-        // 3. One run snapshot for the stage and every publish of this row.
+        // One run snapshot serves the stage and every publish of this row.
         if (plan is null)
         {
             p.Status = "Stage error";
@@ -136,7 +134,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
         }
         log($"  Workbench profile {snapshot.ProfileId} (revision {snapshot.ProfileRevision}, build {snapshot.BuildId})");
 
-        // 4. Stage, with the saved install parameters and no review dialog.
+        // The stage uses the saved install parameters and shows no review dialog.
         item.Step = "staging " + p.Application;
         p.Status = "Staging...";
         log("Stage: " + p.Application);
@@ -159,7 +157,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, SettingsServ
             return;
         }
 
-        // 5. Publish per destination, ConfigMgr first: it is the only one that reads the network copy.
+        // ConfigMgr publishes first: it is the only destination that reads the network copy.
         var reasons = decision.SkipReasons.ToList();
         var publishedTo = new List<string>();
         int published = 0, failed = 0, notSupported = 0;

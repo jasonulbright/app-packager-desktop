@@ -81,7 +81,6 @@ public class PackagerPreferencesService(SettingsService settingsService, Package
 
         var migrated = false;
 
-        // Seed CompanyName from packager-preferences.json
         var prefsPath = Path.Combine(root, "packager-preferences.json");
         if (File.Exists(prefsPath))
         {
@@ -102,8 +101,7 @@ public class PackagerPreferencesService(SettingsService settingsService, Package
             catch { }
         }
 
-        // Seed from old AppPackager.preferences.json (PS1 GUI prefs)
-        // Look in the parent of Packagers folder (where start-apppackager.ps1 lives)
+        // AppPackager.preferences.json sits in the parent of the Packagers folder.
         var oldPrefsPath = Path.Combine(Path.GetDirectoryName(root) ?? root, "AppPackager.preferences.json");
         if (File.Exists(oldPrefsPath))
         {

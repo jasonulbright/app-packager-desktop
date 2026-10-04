@@ -402,7 +402,6 @@ $out = $OutputDirectory
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $p = { param($name) Join-Path $out $name }
 
-# NSIS synthetic
 New-NsisFixture -Path (& $p 'nsis-u-none.bin')
 New-NsisFixture -Path (& $p 'nsis-a-pf64-hklm-view64.bin') -Unicode $false -InstallDirPrefix 'PROGRAMFILES64' -ArpRoot 'HKLM' -SetRegView64 $true
 New-NsisFixture -Path (& $p 'nsis-u-pf-hklm-wow.bin') -InstallDirPrefix 'PROGRAMFILES' -ArpRoot 'HKLM'
@@ -426,7 +425,6 @@ $marker = [byte[]](0xEF, 0xBE, 0xAD, 0xDE) + [System.Text.Encoding]::ASCII.GetBy
 [Array]::Copy($marker, 0, $markerInStub, 100, $marker.Length)
 [System.IO.File]::WriteAllBytes((& $p 'nsis-marker-in-stub.bin'), $markerInStub)
 
-# Inno synthetic
 New-InnoFixture -Path (& $p 'inno-admin-670.bin')
 New-InnoFixture -Path (& $p 'inno-lowest-670.bin') -Privileges 3 -Overrides 3 -AppId '{{771FD6B0-FA20-440A-A002-3B3BAC16DC50}' -DefaultDirName '{autopf}\Code'
 New-InnoFixture -Path (& $p 'inno-lowest-modes.bin') -Privileges 3 -Overrides 1 -AppId 'Tree' -DefaultDirName '{autopf}\Tree'
@@ -450,7 +448,6 @@ foreach ($ver in '6.0.0', '6.2.2', '6.3.3', '6.4.3', '6.5.4', '6.6.0') {
     New-InnoFixture -Path (& $p ('inno-admin-' + ($ver -replace '\.', '') + '.bin')) -DataVersion $ver
 }
 
-# NSIS real builds
 $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
 if (Test-Path -LiteralPath $makensis) {
     $work = Join-Path ([System.IO.Path]::GetTempPath()) ('nsis-fixtures-' + [guid]::NewGuid().ToString('N'))

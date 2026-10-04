@@ -136,7 +136,6 @@
 
         <ui:TitleBar Grid.Row="0" Title="Application Workbench" />
 
-        <!-- Header: application, profile, source type, build -->
         <Grid Grid.Row="1" Margin="16,4,16,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -184,7 +183,6 @@
 
         <Border Grid.Row="2" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
-        <!-- Body: section list + editor pane -->
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="210" />
@@ -230,7 +228,6 @@
 
             <Grid Grid.Column="2" Margin="18,14,18,10">
 
-                <!-- ================= Application ================= -->
                 <ScrollViewer x:Name="pnlApplication" VerticalScrollBarVisibility="Auto"
                               Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=0}">
                     <Grid Margin="0,0,16,0">
@@ -349,7 +346,6 @@
                     </Grid>
                 </ScrollViewer>
 
-                <!-- ================= Install and uninstall ================= -->
                 <Grid x:Name="pnlInstall"
                       Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=1}">
                     <Grid.RowDefinitions>
@@ -477,7 +473,6 @@
                     </DockPanel>
                 </Grid>
 
-                <!-- ================= Detection ================= -->
                 <Grid x:Name="pnlDetection"
                       Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=2}">
                     <Grid.RowDefinitions>
@@ -510,7 +505,6 @@
                     <TextBlock Grid.Row="1" x:Name="txtDetectionInherited" Text="{Binding DetectionInheritedText}" Style="{StaticResource WbNote}" Margin="0,4,0,6" />
 
                     <Grid Grid.Row="2">
-                        <!-- Typed native editor -->
                         <ScrollViewer x:Name="pnlDetectionTyped" VerticalScrollBarVisibility="Auto"
                                       Visibility="{Binding IsDetectionScript, Converter={StaticResource InverseBoolToVisibility}}">
                             <Grid IsEnabled="{Binding IsDetectionCustom}" Margin="0,0,16,0">
@@ -593,7 +587,6 @@
                             </Grid>
                         </ScrollViewer>
 
-                        <!-- PowerShell detection editor -->
                         <Grid x:Name="pnlDetectionScript"
                               Visibility="{Binding IsDetectionScript, Converter={StaticResource BoolToVisibility}}">
                             <Grid.RowDefinitions>
@@ -626,7 +619,6 @@
                     </Grid>
                 </Grid>
 
-                <!-- ================= Requirements and variants ================= -->
                 <ScrollViewer x:Name="pnlRequirements" VerticalScrollBarVisibility="Auto"
                               Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=3}">
                     <Grid Margin="0,0,16,0">
@@ -737,7 +729,6 @@
                     </Grid>
                 </ScrollViewer>
 
-                <!-- ================= Timing and execution ================= -->
                 <ScrollViewer x:Name="pnlTiming" VerticalScrollBarVisibility="Auto"
                               Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=4}">
                     <Grid Margin="0,0,16,0">
@@ -806,7 +797,6 @@
                     </Grid>
                 </ScrollViewer>
 
-                <!-- ================= Source files ================= -->
                 <Grid x:Name="pnlSources"
                       Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=5}">
                     <Grid.RowDefinitions>
@@ -844,7 +834,6 @@
                                Text="Bundling a file places it inside the package content. Copying it onto the endpoint is the install script's job; a detector must not depend on package cache content." />
                 </Grid>
 
-                <!-- ================= Review and build ================= -->
                 <Grid x:Name="pnlReview"
                       Visibility="{Binding SelectedSectionIndex, Converter={StaticResource SectionVisibility}, ConverterParameter=6}">
                     <Grid.ColumnDefinitions>
@@ -910,7 +899,6 @@
 
         <Border Grid.Row="4" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
-        <!-- Footer: status chips, save state, actions -->
         <Grid Grid.Row="5" Margin="16,10,16,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />

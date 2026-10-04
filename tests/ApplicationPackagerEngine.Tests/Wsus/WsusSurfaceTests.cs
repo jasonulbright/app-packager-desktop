@@ -83,8 +83,6 @@ public sealed class WsusSurfaceTests
     private static WsusServerStatus Connected(WsusCertificateInfo? cert = null, string message = "", bool expired = false) =>
         new(true, "wsus01", "10.0.17763.1", "Administrator", false, cert, expired, message, Api);
 
-    // ── WSUS Publishing ─────────────────────────────────────────
-
     [Fact]
     public void TheDefaultsAreAnUnsetServerOnPort8530WithTheUpdatesClassification()
     {
@@ -234,8 +232,6 @@ public sealed class WsusSurfaceTests
         Assert.Equal("2 computer group(s) loaded.", editor.StatusText);
     }
 
-    // ── WSUS Updates ────────────────────────────────────────────
-
     private static WsusPublishedUpdate Update(string title, Guid id) =>
         new(id.ToString(), title, "Update", "AppPackager:catalog:x/default", "1.0", DateTimeOffset.Now, "2026-10-03 10:00", "", false, false, false);
 
@@ -310,8 +306,6 @@ public sealed class WsusSurfaceTests
         Assert.Equal("Approve: 1 of 2 update(s) done. Bad one: referenced by another update", vm.SummaryText);
     }
 
-    // ── Catalog Import ──────────────────────────────────────────
-
     [Fact]
     public async Task OneImportPerIdWithAResultLineEach()
     {
@@ -342,8 +336,6 @@ public sealed class WsusSurfaceTests
         vm.OpenCatalogCommand.Execute(null);
         Assert.Equal([WsusCatalogImportViewModel.CatalogUrl], prompts.Opened);
     }
-
-    // ── API probe and the publish step ──────────────────────────
 
     [Fact]
     public void TheProbeReadsTheFirstAssemblyThatExistsAndElseGivesTheAdaptersInstallHint()

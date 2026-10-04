@@ -42,8 +42,6 @@ public sealed class ScriptAndCompoundDetectionTests
             Is64Bit = is64Bit
         };
 
-    // ── Script detection ────────────────────────────────────────────
-
     [Fact]
     public void ScriptDetection_SubstitutesTheVersionPlaceholder()
     {
@@ -120,8 +118,6 @@ public sealed class ScriptAndCompoundDetectionTests
         Assert.Contains("-ScriptLanguage PowerShell -ScriptText $detectScript0", script);
         Assert.DoesNotContain("-AddDetectionClause", script);
     }
-
-    // ── Compound detection ──────────────────────────────────────────
 
     [Fact]
     public void CompoundDetection_ResolvesEachClauseWithVersionSubstitution()
@@ -233,8 +229,6 @@ public sealed class ScriptAndCompoundDetectionTests
         var ex = Assert.Throws<InvalidOperationException>(() => StagingService.BuildDetection(def, null, "1.0"));
         Assert.Contains("GroupSizes", ex.Message);
     }
-
-    // ── Compound clause script generation ───────────────────────────
 
     [Fact]
     public void SingleClause_StillBindsThroughTheClausesArray()
@@ -370,8 +364,6 @@ public sealed class ScriptAndCompoundDetectionTests
 
         Assert.Throws<InvalidOperationException>(() => MecmTarget.BuildDetectionClauseConnectorArgs(det));
     }
-
-    // ── Restored definitions ────────────────────────────────────────
 
     [Theory]
     [InlineData("nomachine.json")]

@@ -23,9 +23,6 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 0: Comment + action buttons -->
-        <!-- ═══════════════════════════════════════════════════ -->
         <WrapPanel Grid.Row="0" Margin="0,0,0,8" VerticalAlignment="Center">
             <ui:TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="Administrative Comments"
@@ -90,18 +87,12 @@
                        Visibility="{Binding IsOperationRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
         </WrapPanel>
 
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 1: Search bar -->
-        <!-- ═══════════════════════════════════════════════════ -->
         <ui:TextBox Grid.Row="1"
                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                     PlaceholderText="Search applications..."
                     Icon="{ui:SymbolIcon Search24}"
                     Margin="0,0,0,8" />
 
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 2: DataGrid -->
-        <!-- ═══════════════════════════════════════════════════ -->
         <ui:DataGrid Grid.Row="2"
                   x:Name="PackagerGrid"
                   ItemsSource="{Binding FilteredPackagers}"
@@ -155,7 +146,6 @@
             </DataGrid.ContextMenu>
 
             <DataGrid.Columns>
-                <!-- Select checkbox -->
                 <DataGridTemplateColumn Width="48" CanUserResize="False" CanUserReorder="False" MinWidth="48" MaxWidth="48">
                     <DataGridTemplateColumn.HeaderStyle>
                         <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
@@ -209,7 +199,6 @@
                 <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="170" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" IsReadOnly="True" />
 
-                <!-- Status with color coding -->
                 <DataGridTemplateColumn Header="Status" Width="170" SortMemberPath="Status">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -233,9 +222,6 @@
             </DataGrid.Columns>
         </ui:DataGrid>
 
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 2: Select helpers + debug toggle -->
-        <!-- ═══════════════════════════════════════════════════ -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,6">
             <ui:Button Content="Select Update Available"
                        Icon="{ui:SymbolIcon CheckboxChecked24}"
@@ -247,9 +233,6 @@
                       VerticalAlignment="Center" />
         </StackPanel>
 
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 3: Log output -->
-        <!-- ═══════════════════════════════════════════════════ -->
         <TextBox Grid.Row="4"
                  Text="{Binding LogText, Mode=OneWay}"
                  IsReadOnly="True"
@@ -264,9 +247,6 @@
                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                  TextChanged="LogTextBox_TextChanged" />
 
-        <!-- ═══════════════════════════════════════════════════ -->
-        <!-- Row 5: Status bar + progress -->
-        <!-- ═══════════════════════════════════════════════════ -->
         <Grid Grid.Row="5" Margin="0,4,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />

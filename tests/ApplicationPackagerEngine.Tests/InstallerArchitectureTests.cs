@@ -22,8 +22,6 @@ public sealed class InstallerArchitectureTests : IDisposable
         try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
     }
 
-    // ── Resolution ──────────────────────────────────────────────
-
     [Theory]
     [InlineData("x64", "x64")]
     [InlineData("X64", "x64")]
@@ -36,8 +34,8 @@ public sealed class InstallerArchitectureTests : IDisposable
         Assert.Equal(expected, InstallerArchitectures.Resolve(declared));
 
     /// <summary>
-    /// A stage written before the field existed carries no architecture. The chosen
-    /// policy reads it as x64, the default the publish options already applied.
+    /// A stage manifest without the field carries no architecture. It reads as x64,
+    /// the publish options default.
     /// </summary>
     [Theory]
     [InlineData(null)]
@@ -62,11 +60,9 @@ public sealed class InstallerArchitectureTests : IDisposable
         Assert.Contains("Unsupported installer architecture", ex.Message);
     }
 
-    // ── The registry view is not the architecture ───────────────
-
     /// <summary>
-    /// The regression case. vscode-user declares x64 and detects through the 32-bit view,
-    /// so the old expression published it as x86.
+    /// vscode-user declares x64 and detects through the 32-bit view, so an architecture
+    /// derived from the detection view publishes it as x86.
     /// </summary>
     [Fact]
     public void TheRealVsCodeUserDefinitionPublishesAsX64DespiteItsThirtyTwoBitView()
@@ -96,8 +92,6 @@ public sealed class InstallerArchitectureTests : IDisposable
 
         Assert.Equal(expected, InstallerArchitectures.Resolve(manifest));
     }
-
-    // ── Production manifest construction ────────────────────────
 
     private string WriteInstaller(string name)
     {
@@ -136,8 +130,6 @@ public sealed class InstallerArchitectureTests : IDisposable
         Assert.Equal(expected, InstallerArchitectures.Resolve(manifest));
     }
 
-    // ── Serialization ───────────────────────────────────────────
-
     [Theory]
     [InlineData("x64")]
     [InlineData("x86")]
@@ -164,7 +156,7 @@ public sealed class InstallerArchitectureTests : IDisposable
         Assert.Equal(architecture, InstallerArchitectures.Resolve(read));
     }
 
-    /// <summary>A manifest staged before the field existed has no Architecture key at all.</summary>
+    /// <summary>A schema version 2 manifest has no Architecture key at all.</summary>
     [Fact]
     public void AManifestWithNoArchitectureKeyReadsAsX64()
     {

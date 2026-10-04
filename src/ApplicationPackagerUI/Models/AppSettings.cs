@@ -5,10 +5,8 @@ namespace ApplicationPackagerUI.Models;
 
 public sealed class AppSettings
 {
-    // Organization
     public string CompanyName { get; set; } = "";
 
-    // MECM Site
     public string SiteCode { get; set; } = "MCM";
 
     /// <summary>
@@ -32,7 +30,6 @@ public sealed class AppSettings
     public string DownloadRoot { get; set; } = @"C:\temp\ap";
     public string PackagersRoot { get; set; } = "";
 
-    // Deployment Type defaults
     public int EstimatedRuntimeMins { get; set; } = 15;
     public int MaximumRuntimeMins { get; set; } = 30;
 
@@ -48,25 +45,19 @@ public sealed class AppSettings
     /// <summary>The default title mode NoVersion; applies only while IncludeVersionInTitle is off.</summary>
     public bool RemoveVersionFromTitle { get; set; }
 
-    // Steps after the MECM application exists
     public ContentDistributionSettings ContentDistribution { get; set; } = new();
 
-    // One Click: tracked applications and what a run does with an update
     public OneClickSettings OneClick { get; set; } = new();
 
-    // Application visibility
     public string[] HiddenApplications { get; set; } = [];
 
     // Per-app version check state (Script name → last checked + latest version)
     public Dictionary<string, AppCheckState> AppStates { get; set; } = [];
 
-    // Acquisition preference
     public string AcquisitionMethod { get; set; } = "StaticUrl"; // "StaticUrl" or "Winget"
 
-    // Auto-check on launch
     public bool AutoCheckLatestOnLaunch { get; set; } = true;
 
-    // Staging behavior
     /// <summary>
     /// When true, skip the installer settings review dialog before staging.
     /// Individual apps with ReviewBeforeStage=true will still prompt.
@@ -80,7 +71,6 @@ public sealed class AppSettings
     /// </summary>
     public Dictionary<string, Dictionary<string, string>> InstallerSettingValues { get; set; } = [];
 
-    // Per-app: M365
     public string M365Channel { get; set; } = "MonthlyEnterprise";
 
     /// <summary>
@@ -103,7 +93,6 @@ public sealed class AppSettings
     /// <summary>Chosen side-file paths by side-file key, such as BeyondCompareKeyFile.</summary>
     public Dictionary<string, string> SideFiles { get; set; } = [];
 
-    // Intune / deployment target
     public IntuneSettings Intune { get; set; } = new();
 
     /// <summary>The WSUS server for local publishing; an empty server name means not configured.</summary>
@@ -126,7 +115,6 @@ public sealed class AppSettings
     public Dictionary<string, DeploymentConditionEntry> DeploymentConditions { get; set; } = [];
     public Dictionary<string, CommandOverrideEntry> CommandOverrides { get; set; } = [];
 
-    // UI
     public string Theme { get; set; } = "Dark";
     public double WindowLeft { get; set; } = -1;
     public double WindowTop { get; set; } = -1;

@@ -27,8 +27,6 @@ public sealed class PublishSigningEnforcementTests(SigningCertificateFixture fix
         MecmTarget.BuildPackageScript(manifest, manifest.AppName, Content, "P01", "comment", 15, 30,
             ConditionTemplateService.Defaults(), null, null, null, null, OnExistingBehavior.Skip, signing);
 
-    // ── ConfigMgr detection ────────────────────────────────────
-
     [Theory]
     [InlineData("NotRequested")]
     [InlineData("Failed")]
@@ -64,8 +62,6 @@ public sealed class PublishSigningEnforcementTests(SigningCertificateFixture fix
             Record = new ScriptSigningRecord { Detection = new DetectionSigningRecord { Status = "NotRequested" } }
         }));
     }
-
-    // ── ConfigMgr deployment ───────────────────────────────────
 
     [Theory]
     [InlineData(null)]
@@ -146,8 +142,6 @@ public sealed class PublishSigningEnforcementTests(SigningCertificateFixture fix
         MecmTarget.VerifyRequiredDeploymentSigning(new SigningPolicy(), record, stage);
         MecmTarget.VerifyRequiredDeploymentSigning(new SigningPolicy { SignDeployment = true }, null, stage);
     }
-
-    // ── ConfigMgr script conditions ────────────────────────────
 
     private static string EncodedBody(byte[] bytes) =>
         "preview&#xD;\n# ENCODEDSCRIPT # Begin Configuration Manager encoded script block #" + Convert.ToBase64String(bytes) +
@@ -252,8 +246,6 @@ public sealed class PublishSigningEnforcementTests(SigningCertificateFixture fix
     [Fact]
     public void ACreatedUnsignedCondition_WhoseReadBackHasNoBody_StaysAWarning() =>
         Assert.Equal("RESULT=ACCEPTED", RunResolver(new(), null, "$true", null, "aaaaaaaa", ""));
-
-    // ── Intune ─────────────────────────────────────────────────
 
     private (string Stage, ScriptSigningRecord Record) SignedDetectionStage()
     {

@@ -45,8 +45,6 @@ public sealed class SettingsContractTests : IDisposable
 
     private static JsonObject Stored() => JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!.AsObject();
 
-    // ── Data root ───────────────────────────────────────────────
-
     [Fact]
     public void TheDataRootVariableMovesSettingsAndTheSrlPackrFolder()
     {
@@ -60,8 +58,6 @@ public sealed class SettingsContractTests : IDisposable
         service.Save(s);
         Assert.Equal("Contoso", new SettingsService().Load().CompanyName);
     }
-
-    // ── Launcher handoff ────────────────────────────────────────
 
     [Fact]
     public void LauncherValuesFillANeverSavedSiteAndAnEmptyProviderInMemoryOnly()
@@ -118,8 +114,6 @@ public sealed class SettingsContractTests : IDisposable
         Assert.Equal("OLD", loaded.SiteCode);
         Assert.Equal("cm01", loaded.ProviderMachine);
     }
-
-    // ── Script Signing ──────────────────────────────────────────
 
     private static ScriptSigningEditor Editor(params X509Certificate2[] certificates) =>
         new(() => new SigningCertificateService(_ => certificates));
@@ -268,8 +262,6 @@ public sealed class SettingsContractTests : IDisposable
         Assert.False(editor.TestBusy);
     }
 
-    // ── Title checkboxes ────────────────────────────────────────
-
     [Fact]
     public void IncludeClearsAndDisablesRemove()
     {
@@ -301,8 +293,6 @@ public sealed class SettingsContractTests : IDisposable
             ApplicationTitle.Resolve("Tool 2.3.1", "2.3.1", ApplicationTitle.ResolveMode(null, "", s.IncludeVersionInTitle, s.RemoveVersionFromTitle)));
     }
 
-    // ── Site change ─────────────────────────────────────────────
-
     [Fact]
     public void ASiteChangeClearsOnlyTheSiteResults()
     {
@@ -322,8 +312,6 @@ public sealed class SettingsContractTests : IDisposable
         Assert.True(row.IsSelected);
         Assert.Equal(checkedAt, row.LastChecked);
     }
-
-    // ── Local installer folders ─────────────────────────────────
 
     [Fact]
     public void ARequiredFolderIsAskedForSavedAndACancelSkipsTheApplication()

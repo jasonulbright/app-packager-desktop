@@ -6,7 +6,7 @@ using ApplicationPackagerEngine.Scrapers;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// Definitions whose vendor changed the download shape (installer type, asset
+/// Definitions that read a vendor's current download shape (installer type, asset
 /// name, page layout), run against canned response fragments so the patterns
 /// and the definition files are guarded together without the network.
 /// </summary>
@@ -30,7 +30,7 @@ public class VendorSourceChangeTests
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    // ── Slack: machine-wide MSI withdrawn, MSIX is the enterprise install ──
+    // Slack publishes no machine-wide MSI; the MSIX is the enterprise install.
 
     private const string SlackRelease =
         """{"ok":true,"version":"4.52.155","download_url":"https:\/\/downloads.slack-edge.com\/desktop-releases\/windows\/x64\/4.52.155\/Slack.msix","platform":"win32","arch":"x64"}""";
@@ -52,7 +52,7 @@ public class VendorSourceChangeTests
             Path.Combine(AppContext.BaseDirectory, "Definitions", "slack.json")));
     }
 
-    // ── Audacity: 4.0 ships an MSI, the Inno EXE asset is gone ──
+    // Audacity 4.0 ships an MSI and no Inno Setup EXE asset.
 
     private const string AudacityRelease =
         """{"tag_name":"Audacity-4.0.0","assets":[{"name":"audacity-win-4.0.0-arm64.msi"},{"name":"audacity-win-4.0.0-x86_64.msi"}]}""";
@@ -75,7 +75,7 @@ public class VendorSourceChangeTests
         Assert.True(def.Detection.Is64Bit);
     }
 
-    // ── ShareX: 21.0 splits the setup by architecture ──
+    // ShareX 21.0 and later split the setup by architecture.
 
     private const string ShareXRelease = """
         {"tag_name":"v21.0.0","assets":[
@@ -112,7 +112,7 @@ public class VendorSourceChangeTests
             def.DownloadUrl.Replace("{version}", "18.0.1"));
     }
 
-    // ── Apache NetBeans: Windows installer from the codelerity packages ──
+    // The Apache NetBeans Windows installer is a codelerity/netbeans-packages release asset.
 
     private const string NetBeansRelease = """
         {"tag_name":"v31-build1","assets":[
@@ -135,7 +135,7 @@ public class VendorSourceChangeTests
         Assert.True(def.Detection.Is64Bit);
     }
 
-    // ── Defraggler: the builds page is gone, the download host names the build, the resource carries the version ──
+    // Defraggler has no builds page: the download host names the build and the version resource carries the version.
 
     [Fact]
     public void Defraggler_ProbesTheDownloadHostNotTheRemovedBuildsPage()
@@ -198,7 +198,7 @@ public class VendorSourceChangeTests
         Assert.Null(await FileVersionScraper.ResolveDownloadUrlAsync(empty));
     }
 
-    // ── Obsidian: the release tagged latest can be mobile-only ──
+    // The Obsidian release tagged latest can be mobile-only.
 
     private const string ObsidianReleases = """
         [{"tag_name":"v1.13.8","prerelease":false,"assets":[{"name":"obsidian-1.13.8.apk","browser_download_url":"https://github.com/obsidianmd/obsidian-releases/releases/download/v1.13.8/obsidian-1.13.8.apk"}]},
@@ -218,7 +218,7 @@ public class VendorSourceChangeTests
             def.DownloadUrl.Replace("{version}", "1.13.7"));
     }
 
-    // ── WizTree: the file host moved and the page quotes an old name in prose ──
+    // The WizTree download page quotes an old installer name in prose.
 
     private const string WizTreeDownloadPage = """
         <p>The installer is named like <samp>wiztree_4_14_setup.exe</samp>.</p>
@@ -236,8 +236,6 @@ public class VendorSourceChangeTests
         Assert.Equal("https://diskanalyzer.com/files/wiztree_4_32_setup.exe", def.DownloadUrl.Replace("{version}", "4_32"));
         Assert.Equal("InnoSetup", def.InstallerFramework);
     }
-
-    // ── Registry view corrections from real installs ──
 
     [Theory]
     [InlineData("gpg4win.json", true)]

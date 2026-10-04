@@ -6,8 +6,7 @@ namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
 /// Reads and writes stage-manifest.json files (schema v4).
-/// Compatible with manifests produced by PS1 packagers; v2 manifests
-/// read cleanly and simply carry no hash list, and a manifest newer
+/// A v2 manifest reads cleanly and carries no hash list; a manifest newer
 /// than v4 is refused.
 /// </summary>
 public sealed class ManifestService

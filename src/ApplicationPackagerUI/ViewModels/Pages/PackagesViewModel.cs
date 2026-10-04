@@ -187,8 +187,6 @@ public partial class PackagesViewModel : ObservableObject
             : $"Showing {FilteredPackagers.Count} of {Packagers.Count} packager(s).";
     }
 
-    // ── Selection helpers ────────────────────────────────────────
-
     [RelayCommand]
     private void ToggleSelectAll()
     {
@@ -245,14 +243,12 @@ public partial class PackagesViewModel : ObservableObject
         AddLogLine("Operation cancelled by user.");
     }
 
-    // ── Log helper ───────────────────────────────────────────────
-
     private static readonly string LogDir = Path.Combine(ApplicationPackagerEngine.Services.AppDataPaths.LegacyRoot, "Logs");
 
     private static readonly string SessionLogPath = Path.Combine(
         LogDir, $"packr-{DateTime.Now:yyyyMMdd-HHmmss}.log");
 
-    // Legacy path kept for backward compat — new sessions write to timestamped files
+    // Every session also appends to this one rolling log beside the per-session files.
     private static readonly string PersistentLogPath = Path.Combine(ApplicationPackagerEngine.Services.AppDataPaths.LegacyRoot, "packr.log");
 
     private static bool _logInitialized;
@@ -265,7 +261,6 @@ public partial class PackagesViewModel : ObservableObject
         var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  {message}";
         LogText = LogText.Length > 0 ? LogText + Environment.NewLine + line : line;
 
-        // Write to both session log and rolling log
         try
         {
             if (!_logInitialized)
@@ -276,7 +271,6 @@ public partial class PackagesViewModel : ObservableObject
                 File.AppendAllText(PersistentLogPath, Environment.NewLine + header);
                 _logInitialized = true;
 
-                // Prune old session logs (keep last 30)
                 try
                 {
                     var oldLogs = Directory.GetFiles(LogDir, "packr-*.log")
@@ -295,8 +289,6 @@ public partial class PackagesViewModel : ObservableObject
         catch { }
     }
 
-    // ── Load ─────────────────────────────────────────────────────
-
     private async Task LoadPackagersAsync()
     {
         var root = _discoveryService.ResolvePackagersRoot();
@@ -314,7 +306,6 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
-        // Restore persisted per-app state (LastChecked, versions)
         var settings = _settingsService.Load();
         foreach (var p in results)
         {
@@ -332,11 +323,9 @@ public partial class PackagesViewModel : ObservableObject
         SearchText = "";
         ApplyFilter();
 
-        // Test MECM connection on launch
         _ = TestMecmConnectionAsync();
 
-        // Auto-check on launch (background, priority-ordered)
-        // TODO: re-enable after testing. Disabled to allow manual JSON validation.
+        // The constant false disables the launch auto-check: AutoCheckLatestOnLaunch has no effect.
         if (false && settings.AutoCheckLatestOnLaunch)
             _ = AutoCheckLatestAsync();
     }
@@ -380,9 +369,8 @@ public partial class PackagesViewModel : ObservableObject
 
         try
         {
-            // Test by querying a known non-existent app — if it doesn't throw, connection works
+            // A query for an application that does not exist proves the connection when it returns, NotFound included.
             var result = await _mecmQueryService.QueryVersionAsync("__CONNECTION_TEST__", CancellationToken.None);
-            // If we get here (even NotFound), the connection works
             MecmConnectionStatus = "Connected";
             AddLogLine($"ConfigMgr: Connected to site {settings.SiteCode}");
         }
@@ -396,8 +384,6 @@ public partial class PackagesViewModel : ObservableObject
                 new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(5));
         }
     }
-
-    // ── Check Latest ─────────────────────────────────────────────
 
     private async Task CheckLatestAsync()
     {
@@ -515,8 +501,6 @@ public partial class PackagesViewModel : ObservableObject
         }
     }
 
-    // ── Check MECM ───────────────────────────────────────────────
-
     private async Task CheckMecmAsync()
     {
         var selected = SelectedPackagers.ToList();
@@ -623,8 +607,6 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts = null;
         }
     }
-
-    // ── Stage ────────────────────────────────────────────────────
 
     private async Task StageAsync() => await RunStageAsync();
 
@@ -774,8 +756,6 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts = null;
         }
     }
-
-    // ── Package ──────────────────────────────────────────────────
 
     /// <summary>
     /// Packages the selection, or the given rows, for one publish target: ConfigMgr or Intune only.
@@ -1016,8 +996,6 @@ public partial class PackagesViewModel : ObservableObject
         };
         return new ConflictAnswer(behavior, applyToAll.IsChecked == true);
     }
-
-    // ── Drop-to-package intake ───────────────────────────────────
 
     private static readonly string[] DroppableExtensions = [".msi", ".exe"];
 
@@ -1266,8 +1244,6 @@ public partial class PackagesViewModel : ObservableObject
         return cleaned.ToLowerInvariant();
     }
 
-    // ── Run preparation ──────────────────────────────────────────
-
     /// <summary>Prompts for missing local installer folders; returns the rows the run keeps.</summary>
     private List<PackagerInfo> ConfirmLocalSourceFolders(List<PackagerInfo> selected)
     {
@@ -1327,8 +1303,6 @@ public partial class PackagesViewModel : ObservableObject
         };
         return await _contentDialogService.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
     }
-
-    // ── Helpers ───────────────────────────────────────────────────
 
     private void ShowNoneSelected(string operation)
     {

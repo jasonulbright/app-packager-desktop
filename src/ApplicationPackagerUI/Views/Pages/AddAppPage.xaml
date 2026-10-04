@@ -19,16 +19,13 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
             <TextBlock Text="Add New Application" FontSize="24" FontWeight="SemiBold" />
             <TextBlock Text="{Binding StepTitle}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" />
         </StackPanel>
 
-        <!-- Step content -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <Grid>
-                <!-- Step 1: Basic Info -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
                     <ui:CardExpander Header="Basic Information" IsExpanded="True" Icon="{ui:SymbolIcon Info24}">
                         <StackPanel Margin="8">
@@ -67,7 +64,6 @@
                     </ui:CardExpander>
                 </StackPanel>
 
-                <!-- Step 2: Version Source -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
                     <ui:CardExpander Header="Version Scraper" IsExpanded="True" Icon="{ui:SymbolIcon Search24}">
                         <StackPanel Margin="8">
@@ -98,7 +94,6 @@
                     </ui:CardExpander>
                 </StackPanel>
 
-                <!-- Step 3: Download -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=3}">
                     <ui:CardExpander Header="Download Configuration" IsExpanded="True" Icon="{ui:SymbolIcon ArrowDownload24}">
                         <StackPanel Margin="8">
@@ -133,7 +128,6 @@
                     </ui:CardExpander>
                 </StackPanel>
 
-                <!-- Step 4: Install/Uninstall -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=4}">
                     <ui:CardExpander Header="Install &amp; Uninstall" IsExpanded="True" Icon="{ui:SymbolIcon WrenchScrewdriver24}">
                         <StackPanel Margin="8">
@@ -153,7 +147,6 @@
                     </ui:CardExpander>
                 </StackPanel>
 
-                <!-- Step 5: Review -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=5}">
                     <ui:CardExpander Header="Review" IsExpanded="True" Icon="{ui:SymbolIcon Checkmark24}">
                         <ui:TextBox Text="{Binding ReviewSummary, Mode=OneWay}"
@@ -165,7 +158,6 @@
             </Grid>
         </ScrollViewer>
 
-        <!-- Navigation buttons -->
         <DockPanel Grid.Row="2" Margin="0,16,0,0" LastChildFill="False">
             <ui:Button DockPanel.Dock="Left" Content="Back"
                        Command="{Binding PreviousStepCommand}"

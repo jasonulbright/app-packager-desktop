@@ -41,8 +41,6 @@ public sealed class ExtractSetupWrapperTests : IDisposable
                 File.ReadAllText(Path.Combine(_dir, "uninstall.ps1")));
     }
 
-    // ── Extraction preamble ─────────────────────────────────────
-
     [Fact]
     public void BothWrappers_ExtractToASpacelessDriveRootPath()
     {
@@ -110,8 +108,6 @@ public sealed class ExtractSetupWrapperTests : IDisposable
         Assert.Contains("$setup = Join-Path $extractRoot 'media\\setup.exe'", install);
     }
 
-    // ── Setup invocation and cleanup ────────────────────────────
-
     [Fact]
     public void Install_RunsInnerSetupWithTheDefinitionsInstallArgs()
     {
@@ -177,8 +173,6 @@ public sealed class ExtractSetupWrapperTests : IDisposable
             Assert.True(File.Exists(Path.Combine(_dir, name)), name);
     }
 
-    // ── Config validation ───────────────────────────────────────
-
     [Fact]
     public void ValidConfig_Passes()
     {
@@ -235,8 +229,6 @@ public sealed class ExtractSetupWrapperTests : IDisposable
             Assert.Throws<InvalidOperationException>(() => WrapperGeneratorService.ValidateExtractSetup(config)).Message);
     }
 
-    // ── Tokenizer ───────────────────────────────────────────────
-
     [Fact]
     public void Tokenizer_SplitsOnWhitespaceOutsideQuotes()
     {
@@ -256,8 +248,6 @@ public sealed class ExtractSetupWrapperTests : IDisposable
     {
         Assert.Empty(WrapperGeneratorService.Tokenize("   "));
     }
-
-    // ── Shipped definition ──────────────────────────────────────
 
     [Fact]
     public void SqlDefinition_BindsAValidExtractSetupConfig()

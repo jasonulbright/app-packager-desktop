@@ -24,13 +24,11 @@ public partial class SetupWindowViewModel : ObservableObject
     [ObservableProperty] private bool _useWsus;
     [ObservableProperty] private bool _dontShowAgain;
 
-    // ConfigMgr
     [ObservableProperty] private string _siteCode = "";
     [ObservableProperty] private string _providerMachine = "";
     [ObservableProperty] private string _fileShareRoot = "";
     [ObservableProperty] private string _downloadRoot = "";
 
-    // Intune
     [ObservableProperty] private string _intuneTenantId = "";
     [ObservableProperty] private string _intuneClientId = "";
 
@@ -39,7 +37,6 @@ public partial class SetupWindowViewModel : ObservableObject
 
     [ObservableProperty] private bool _hasStoredIntuneSecret;
 
-    // WSUS
     [ObservableProperty] private string _wsusServerName = "";
     [ObservableProperty] private string _wsusPort = WsusSettings.HttpPort.ToString(CultureInfo.InvariantCulture);
     [ObservableProperty] private bool _wsusUseSsl;

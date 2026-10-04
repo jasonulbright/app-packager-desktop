@@ -66,7 +66,7 @@ public sealed record OneClickPlanSettings
     public IReadOnlyCollection<string> Tracked { get; init; } = [];
     /// <summary>Rows with a selection of their own; any other row uses the default.</summary>
     public IReadOnlyDictionary<string, DestinationSet> Destinations { get; init; } = new Dictionary<string, DestinationSet>();
-    /// <summary>Null in a file written before the default existed; the legacy target then decides.</summary>
+    /// <summary>Null when the settings file carries no default; <see cref="LegacyTarget"/> then decides.</summary>
     public DestinationSet? DefaultDestinations { get; init; }
     public string? LegacyTarget { get; init; }
     public int DefaultCadenceDays { get; init; } = 7;

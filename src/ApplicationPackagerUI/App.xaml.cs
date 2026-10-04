@@ -36,19 +36,16 @@ public partial class App : Application
             {
                 services.AddNavigationViewPageProvider();
 
-                // WPF-UI services
                 services.AddSingleton<INavigationService, NavigationService>();
                 services.AddSingleton<ISnackbarService, SnackbarService>();
                 services.AddSingleton<IContentDialogService, ContentDialogService>();
 
-                // App and engine services, shared with the command-line build
                 services.AddPackagerServices();
                 services.AddSingleton<IWorkbenchBuildLauncher, WorkbenchBuildLauncher>();
                 services.AddSingleton<PublishDialogs>();
                 services.AddSingleton<IPublishDialogs>(sp => sp.GetRequiredService<PublishDialogs>());
                 services.AddSingleton<IWsusPrompts>(sp => sp.GetRequiredService<PublishDialogs>());
 
-                // Windows
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainWindowViewModel>();
 
@@ -60,7 +57,6 @@ public partial class App : Application
                 services.AddTransient<WorkbenchWindow>();
                 services.AddTransient<WorkbenchWindowViewModel>();
 
-                // Pages
                 services.AddSingleton<PackagesPage>();
                 services.AddSingleton<PackagesViewModel>();
                 services.AddSingleton<ApplicationsPage>();
@@ -72,7 +68,6 @@ public partial class App : Application
                 services.AddSingleton<AddAppPage>();
                 services.AddSingleton<AddAppViewModel>();
 
-                // Hosted service
                 services.AddHostedService<ApplicationHostService>();
             })
             .Build();

@@ -6,7 +6,6 @@ namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
 /// Generates install.bat/ps1 and uninstall.bat/ps1 wrapper files.
-/// Matches the PS1 Write-ContentWrappers + New-MsiWrapperContent output exactly.
 /// </summary>
 public sealed class WrapperGeneratorService
 {
@@ -78,7 +77,6 @@ public sealed class WrapperGeneratorService
         uninstallCommand = NormalizeUninstallCommand(uninstallCommand);
         var installPs1 = BuildExeInstallScript(exeFileName, installArgs, postInstallScript, postInstallKillProcesses);
 
-        // Framework-aware uninstall script
         string uninstallPs1;
         if (!string.IsNullOrEmpty(uninstallCommand))
         {

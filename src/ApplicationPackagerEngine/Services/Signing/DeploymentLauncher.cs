@@ -12,7 +12,7 @@ public sealed record DeploymentLauncherCommand(
 /// Builds the launcher that runs a staged .ps1 and audits a staged tree for
 /// launchers that relax the endpoint's execution policy.
 ///
-/// Unsigned mode is the historical string, byte for byte:
+/// Unsigned mode emits this string, byte for byte:
 ///   powershell.exe -NonInteractive -ExecutionPolicy Bypass -File "%~dp0install.ps1"
 /// Signed mode carries no execution-policy argument in any spelling and no
 /// encoded command, so the endpoint's configured policy governs:

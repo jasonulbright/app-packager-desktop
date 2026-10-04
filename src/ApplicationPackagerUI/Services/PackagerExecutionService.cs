@@ -25,7 +25,6 @@ public class PackagerExecutionService(
     public async Task<string?> GetLatestVersionAsync(
         PackagerInfo packager, CancellationToken ct = default)
     {
-        // Route JSON-defined apps through the engine DLL
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
@@ -44,7 +43,6 @@ public class PackagerExecutionService(
         if (run.TimedOut || run.ExitCode != 0)
             return null;
 
-        // First non-empty line is the version
         foreach (var line in run.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var trimmed = line.Trim();
@@ -64,13 +62,12 @@ public class PackagerExecutionService(
         PackagerInfo packager, Action<string>? onOutputLine = null, CancellationToken ct = default,
         Dictionary<string, string>? settingsValues = null, RunSnapshot? snapshot = null, string? runTarget = null)
     {
-        // Route JSON-defined apps through the engine DLL
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
             var appSettings = settingsService.Load();
             // A grid run builds from the application's active profile; the default
-            // profile runs without a snapshot, as every grid run did before profiles.
+            // profile runs without a snapshot.
             var source = ProfileSource.Resolve(WorkbenchStoreOrNull(snapshot), def.Id);
             if (snapshot is null && source.Failure is not null)
                 return new PackagerExecutionResult { ExitCode = 1, StdErr = source.RefusalMessage() };
@@ -301,7 +298,6 @@ public class PackagerExecutionService(
 
         var settings = settingsService.Load();
 
-        // Route JSON-defined apps through the engine's MecmTarget
         if (packager.IsJsonDefined && packager.DefinitionPath is not null)
         {
             var def = LoadDefinition(packager.DefinitionPath);
@@ -498,7 +494,7 @@ public class PackagerExecutionService(
     /// <summary>
     /// Writes the run snapshot for a PS1 packager's active workbench profile and returns the
     /// child environment. A signing refusal stops the run before the child starts; any other
-    /// failure runs the child without the bridge, as it ran before profiles existed.
+    /// failure runs the child without the bridge.
     /// </summary>
     private static PackagerChildLaunch? PrepareChildBridge(
         PackagerInfo packager, AppSettings settings, Action<string>? onOutputLine, out PackagerExecutionResult? refusal,
@@ -697,8 +693,6 @@ public class PackagerExecutionService(
         return environment;
     }
 
-    // ── Ad-hoc drop: manifest-direct packaging ───────────────────
-
     /// <summary>
     /// Packages an already-staged content folder from its stage manifest. A dropped installer
     /// has no definition and no acquisition version, so the manifest path is the only handle
@@ -848,8 +842,6 @@ public class PackagerExecutionService(
         }
     }
 
-    // ── Process helpers ──────────────────────────────────────────
-
     /// <summary>
     /// The start of one PS1 packager child. Every argument goes through ArgumentList, so a
     /// value with quotes or a trailing backslash arrives as one intact argument. Standard
@@ -888,7 +880,6 @@ public class PackagerExecutionService(
         string stderr;
         try
         {
-            // Stream stdout line-by-line
             string? line;
             while ((line = await process.StandardOutput.ReadLineAsync(ct)) is not null)
             {
@@ -912,7 +903,6 @@ public class PackagerExecutionService(
             throw;
         }
 
-        // Write log files
         try
         {
             var logDir = Path.GetDirectoryName(logPaths.OutLog);
@@ -935,8 +925,6 @@ public class PackagerExecutionService(
             StructuredLogPath = logPaths.StructuredLog
         };
     }
-
-    // ── Argument builders ────────────────────────────────────────
 
     private static List<string> BuildGetLatestArgs(PackagerInfo packager, AppSettings settings)
     {

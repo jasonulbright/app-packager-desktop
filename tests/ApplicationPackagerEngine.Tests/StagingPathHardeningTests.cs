@@ -64,8 +64,6 @@ public sealed class StagingPathHardeningTests : IDisposable
         return (source, FileVersionInfo.GetVersionInfo(signed).FileVersion!.Trim());
     }
 
-    // ── Local installer ─────────────────────────────────────────
-
     [Fact]
     public async Task AFileAlreadyAtTheStagedNameIsReplacedByTheVerifiedSource()
     {
@@ -100,8 +98,6 @@ public sealed class StagingPathHardeningTests : IDisposable
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Contains($"Installer already staged: Widget-{version}.exe", logs);
     }
-
-    // ── Side files ──────────────────────────────────────────────
 
     [Theory]
     [InlineData("install.ps1")]
@@ -171,8 +167,6 @@ public sealed class StagingPathHardeningTests : IDisposable
         Assert.True(second.Success, second.ErrorMessage);
         Assert.Equal("second", File.ReadAllText(Path.Combine(second.ContentPath, "license.lic")));
     }
-
-    // ── Path segments ───────────────────────────────────────────
 
     [Theory]
     [InlineData(@"..\..\Windows")]

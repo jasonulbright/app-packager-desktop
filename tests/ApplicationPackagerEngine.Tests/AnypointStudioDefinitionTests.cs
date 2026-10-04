@@ -206,8 +206,6 @@ public sealed class AnypointStudioDefinitionTests : IDisposable
         Assert.True(File.Exists(Path.Combine(stage, "app-icon.ico")));
     }
 
-    // ── Staging ─────────────────────────────────────────────────
-
     private static StagingService Service() =>
         new(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
             new WrapperGeneratorService(), new ManifestService());

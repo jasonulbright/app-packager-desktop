@@ -25,8 +25,6 @@ public sealed class VendorPageDefinitionTests : IDisposable
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
             .Invoke(null, [raw, transform]) as string;
 
-    // ── Jabra Direct ────────────────────────────────────────────
-
     [Fact]
     public void JabraReadsTheFirstReleaseVersionElement()
     {
@@ -61,8 +59,6 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.Equal(["jabra-direct"], def.RunningProcess);
     }
 
-    // ── Rtools ──────────────────────────────────────────────────
-
     [Fact]
     public void RtoolsTakesTheHighestLineAndTheX64Installer()
     {
@@ -93,8 +89,6 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.Equal("{version}", def.ExpectedPayloadVersion);
     }
 
-    // ── Slido ───────────────────────────────────────────────────
-
     [Fact]
     public void SlidoReadsTheAdminMsiFromThePackageApi()
     {
@@ -118,9 +112,7 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.True(staged.Is64Bit);
     }
 
-    // ── ASP.NET Core hosting bundles ────────────────────────────
-
-    /// <summary>The script New-ArpEntryDetectionScript writes for one ArpEntry, line for line.</summary>
+    /// <summary>The expected detection script for one ArpEntry, line for line.</summary>
     private static string ArpEntryScript(string prefix, string suffix, string publisher, string minimum)
     {
         var lines = new List<string>
@@ -183,8 +175,6 @@ public sealed class VendorPageDefinitionTests : IDisposable
             DefinitionFixture.Load("aspnethostingbundle10.json").VersionScraper.Pattern);
     }
 
-    // ── Visual C++ runtimes ─────────────────────────────────────
-
     [Theory]
     [InlineData("msvcruntimesx64.json", "x64", @"%SystemRoot%\System32")]
     [InlineData("msvcruntimesx86.json", "x86", @"%SystemRoot%\SysWOW64")]
@@ -222,8 +212,6 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.Contains("if ($proc.ExitCode -eq 0) { '3010' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit 3010 }", uninstall);
         Assert.True(uninstall.IndexOf("exit 3010", StringComparison.Ordinal) < uninstall.IndexOf("exit $proc.ExitCode", StringComparison.Ordinal));
     }
-
-    // ── Tableau ─────────────────────────────────────────────────
 
     public static TheoryData<string, string, bool, string, string> TableauCases() => new()
     {
@@ -272,8 +260,6 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.DoesNotContain("Registry64", def.UninstallCommand);
     }
 
-    // ── PyCharm ─────────────────────────────────────────────────
-
     [Fact]
     public void PyCharmReadsTheUnifiedProductFromTheReleasesApi()
     {
@@ -287,8 +273,6 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.Equal("https://download.jetbrains.com/python/pycharm-2026.2.3.exe",
             StagingService.ExtractFeedHash(json, new VersionScraperConfig { Type = "JsonQuery", PayloadHashQuery = def.VersionScraper.DownloadUrlQuery }, null));
     }
-
-    // ── Console names ───────────────────────────────────────────
 
     [Theory]
     [InlineData("corretto-jdk8-x64.json", "Amazon Corretto 8 (x64)")]

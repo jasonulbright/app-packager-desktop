@@ -449,7 +449,6 @@ public sealed class IntunePublishService : IDisposable
         onProgress?.Invoke($"Uploaded payload             : {blockIds.Count} block(s)");
     }
 
-    /// <summary>Maps a stage-manifest detection onto Graph win32LobApp detection rules.</summary>
     /// <summary>
     /// Builds a win32LobApp.largeIcon mimeContent for an icon file: a content
     /// mime type plus the raw bytes, which Graph JSON carries base64-encoded.
@@ -529,7 +528,7 @@ public sealed class IntunePublishService : IDisposable
     /// </summary>
     public static JsonArray BuildRules(StageDetection detection, IntuneScriptRuleContext? signing)
     {
-        // A manifest staged before the opt-in existed carries no value and keeps converting.
+        // A manifest that carries no value converts; only an explicit false opts out.
         var conversionAllowed = detection.IntuneScriptConversion != false;
         if (!string.Equals(detection.Type, "Compound", StringComparison.OrdinalIgnoreCase))
             return new JsonArray(MapOne(detection, signing, signing?.DetectionScriptFile, conversionAllowed));

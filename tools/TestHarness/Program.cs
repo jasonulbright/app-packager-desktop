@@ -3,14 +3,13 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Scrapers;
 
-// Packr Definition Test Harness
+// Definition test harness
 // Usage:
 //   TestHarness.exe [definitionsDir] [downloadRoot] [options]
 //   --stage-only     Stage all definitions without testing
 //   --test-only      Test already-staged definitions without re-staging
 //   --check-only     Run version scrapers only (no downloads/installs);
 //                    CSV report of resolved versions and scraper failures.
-//                    This is the Phase 4 definitions-maintenance sweep.
 //   --app <name>     Test a single app (partial match on filename)
 //   --install-mode <mode>  Stage with an install mode (CurrentUser or AllUsers) for a
 //                    definition that declares SupportsInstallModes
@@ -22,7 +21,7 @@ using ApplicationPackagerEngine.Scrapers;
 //   --timeout <sec>  Per-app install timeout in seconds (default 300)
 //   Exit code: 1 when any definition failed in any mode, 0 otherwise.
 //
-// Lab modes (no definitions directory; each exits 0 on success, 1 otherwise):
+// Server modes (no definitions directory; each exits 0 on success, 1 otherwise):
 //   TestHarness.exe --wsus <operation> --server <name> [--port <n>] [--ssl]
 //                    [--classification <name>] [--approval-group <group>] [--decline-superseded]
 //     operations:
@@ -68,7 +67,6 @@ Console.WriteLine($"Per-app timeout: {timeoutSec}s");
 if (appFilter != null) Console.WriteLine($"Filter: {appFilter}");
 Console.WriteLine();
 
-// Initialize engine services
 var scrapers = new ScraperRegistry();
 var downloadService = new DownloadService();
 var msiService = new MsiInspectionService();
@@ -89,19 +87,18 @@ var historyService = new VersionHistoryService();
 var stagingService = new StagingService(scrapers, downloadService, msiService, wrapperService, manifestService, installerIdService, iconService);
 var testRunner = new DefinitionTestRunner(historyService);
 
-// Load definitions
 var defFiles = Directory.GetFiles(defsDir, "*.json");
 if (appFilter != null)
     defFiles = defFiles.Where(f => Path.GetFileName(f).Contains(appFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
 
-// Sort with prereqs first: MSVC runtimes → .NET runtimes → ASP.NET → everything else
+// Runtimes install first: later installers fail without them.
 int PrereqPriority(string path)
 {
     var name = Path.GetFileName(path).ToLowerInvariant();
-    if (name.Contains("msvcruntimes")) return 0; // VC++ runtimes first
-    if (name.Contains("dotnet8") || name.Contains("dotnet9")) return 1; // .NET runtimes
-    if (name.Contains("aspnet")) return 2; // ASP.NET hosting
-    return 10; // everything else
+    if (name.Contains("msvcruntimes")) return 0;
+    if (name.Contains("dotnet8") || name.Contains("dotnet9")) return 1;
+    if (name.Contains("aspnet")) return 2;
+    return 10;
 }
 defFiles = defFiles.OrderBy(PrereqPriority).ThenBy(f => Path.GetFileName(f)).ToArray();
 
@@ -153,16 +150,15 @@ if (checkOnly)
     return;
 }
 
-// Skip list
 var skipList = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 {
     "teams.json", "foxitreader.json", "filezilla.json", "vmwaretools.json",
-    "Dotnet10x64.json", // Defer to last
+    "Dotnet10x64.json",
     "vs2026.json", "vs2026community.json",
     "7zip.json" // Harness dependency — 7z.exe must remain installed for other apps to stage
 };
 
-// Results file — write incrementally
+// One row is appended per phase, so an interrupted run keeps the rows it wrote.
 var resultsPath = Path.Combine(downloadRoot, $"test-results-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
 Directory.CreateDirectory(downloadRoot);
 await File.WriteAllTextAsync(resultsPath, "App,Phase,Result,DurationMs\n");
@@ -198,7 +194,6 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
 
     Console.WriteLine($"=== {def.Application} ({fileName}) ===");
 
-    // Stage
     string? stagedContentPath = null;
     if (!testOnly)
     {
@@ -242,10 +237,8 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
         continue;
     }
 
-    // Find staged content — use path from staging if available, otherwise search
     if (stagedContentPath == null)
     {
-        // Search all subdirectories for stage-manifest.json matching this app
         var manifests = Directory.GetFiles(downloadRoot, "stage-manifest.json", SearchOption.AllDirectories);
         foreach (var m in manifests)
         {
@@ -272,12 +265,10 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
         continue;
     }
 
-    // Load manifest
     var manifest = JsonSerializer.Deserialize<StageManifest>(
         File.ReadAllText(Path.Combine(stagedContentPath, "stage-manifest.json")),
         new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
-    // Test with timeout
     Console.Write("  Test: ");
     try
     {
@@ -311,7 +302,6 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
         failed++;
     }
 
-    // Check for pending reboot after each app
     if (IsRebootPending())
     {
         Console.WriteLine("  *** REBOOT PENDING — subsequent installs may fail with 1603 ***");
@@ -321,7 +311,6 @@ foreach (var defFile in defFiles.OrderBy(f => Path.GetFileName(f)))
     Console.WriteLine();
 }
 
-// Summary
 Console.WriteLine("═══════════════════════════════════════════════");
 Console.WriteLine($"TOTAL: {defFiles.Length} | PASSED: {passed} | FAILED: {failed} | SKIPPED: {skipped}");
 Console.WriteLine($"Results: {resultsPath}");

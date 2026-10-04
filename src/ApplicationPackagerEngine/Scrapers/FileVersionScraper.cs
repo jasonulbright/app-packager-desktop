@@ -42,7 +42,6 @@ public sealed class FileVersionScraper : IVersionScraper
 
         Directory.CreateDirectory(CacheDir);
 
-        // Derive a stable filename from the URL
         var fileName = ResolveFileName(url);
         var cachedPath = Path.Combine(CacheDir, fileName);
 
@@ -58,7 +57,7 @@ public sealed class FileVersionScraper : IVersionScraper
             "PRODUCTVERSION" => ReadExeVersion(cachedPath, useFileVersion: false),
             "MSIPRODUCTVERSION" => ReadMsiVersion(cachedPath),
             "MSIXMANIFEST" => ReadMsixManifestVersion(cachedPath),
-            _ => ReadExeVersion(cachedPath, useFileVersion: false) // default to ProductVersion
+            _ => ReadExeVersion(cachedPath, useFileVersion: false)
         };
 
         return string.IsNullOrWhiteSpace(version) ? null : version.Trim();
@@ -176,7 +175,6 @@ public sealed class FileVersionScraper : IVersionScraper
         }
         catch { }
 
-        // Fallback: hash-based filename
         var hash = Math.Abs(url.GetHashCode()).ToString("x8");
         return $"download-{hash}.tmp";
     }

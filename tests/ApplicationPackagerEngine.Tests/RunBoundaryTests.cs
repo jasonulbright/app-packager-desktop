@@ -6,9 +6,9 @@ using ApplicationPackagerEngine.Scrapers;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// The summaries the operator reads are only as honest as the results feeding them.
-/// Staging turned a cancelled run into an ordinary failure, so the loop above it saw a
-/// failed item, finished the batch and let One Click carry on into the next phase.
+/// Staging reports a cancelled run as a cancellation, never as an ordinary failure. A
+/// failed item lets the loop above it finish the batch, and One Click then carries on
+/// into the next phase.
 ///
 /// These drive the production helpers the loops call and the staging entry point itself.
 /// The loops in the view model are not exercised here; the test project references only
@@ -30,8 +30,6 @@ public sealed class RunBoundaryTests : IDisposable
         new(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
             new WrapperGeneratorService(), new ManifestService());
 
-    // ── Staging cancellation ────────────────────────────────────
-
     /// <summary>
     /// A token already cancelled stops at the entry check, before any pipeline runs.
     /// </summary>
@@ -51,8 +49,8 @@ public sealed class RunBoundaryTests : IDisposable
     /// <summary>
     /// Cancelled from inside the pipeline body. The callback cancels and then throws, so
     /// the cancellation is raised from within the try before any scraper or download can
-    /// start. That is precisely the catch that used to convert cancellation into a failed
-    /// result, and it does not depend on a scraper checking the token.
+    /// start. A catch in the pipeline body that converts cancellation into a failed result
+    /// fails this test, which does not depend on a scraper checking the token.
     /// </summary>
     [Fact]
     public async Task ACancellationRaisedInsideThePipelineStillThrows()
@@ -89,8 +87,6 @@ public sealed class RunBoundaryTests : IDisposable
 
         Assert.IsAssignableFrom<OperationCanceledException>(thrown);
     }
-
-    // ── Classifying an item that produced no result ─────────────
 
     /// <summary>
     /// A null or failed result while the operator's token is cancelled is an interrupted
@@ -143,8 +139,6 @@ public sealed class RunBoundaryTests : IDisposable
         Assert.Equal("Latest check complete. 0 of 3 checked, 3 failed.",
             tally.Finish(cts.Token).Summarize("Latest check", 3, "checked"));
     }
-
-    // ── Finalizing the run ──────────────────────────────────────
 
     /// <summary>
     /// The last item can succeed after the operator cancelled, especially on a cached or
@@ -212,8 +206,6 @@ public sealed class RunBoundaryTests : IDisposable
         Assert.Equal("Stage cancelled. 2 of 3 staged, 1 interrupted.", tally.Summarize("Stage", 3, "staged"));
     }
 
-    // ── The gate One Click reads ────────────────────────────────
-
     /// <summary>
     /// One Click replaces the footer with a conclusion of its own only when the run earned
     /// it. A batch whose lookups all failed has established nothing about currency.
@@ -255,8 +247,6 @@ public sealed class RunBoundaryTests : IDisposable
 
         Assert.False(tally.AllSucceeded(3));
     }
-
-    // ── Bounded child processes ─────────────────────────────────
 
     private static ProcessStartInfo PowerShell(string command)
     {
@@ -393,8 +383,8 @@ public sealed class RunBoundaryTests : IDisposable
     }
 
     /// <summary>
-    /// Disposing the process handle ends the wait but not curl, which carried on filling
-    /// the file after the caller had given up. Observe this transfer's socket closing,
+    /// Disposing the process handle ends the wait but not curl, which carries on filling
+    /// the file after the caller gives up. Observe this transfer's socket closing,
     /// without counting unrelated curl processes or relying only on a deleted fragment.
     /// </summary>
     [Fact]
