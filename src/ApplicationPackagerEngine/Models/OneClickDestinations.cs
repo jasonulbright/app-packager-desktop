@@ -71,7 +71,7 @@ public sealed class DestinationSet : IEquatable<DestinationSet>
     };
 
     /// <summary>
-    /// The nearest single target for the code paths that still read one. All
+    /// The nearest single target for the code paths that read one. All
     /// three, or WSUS with Intune, have no name of their own and map to their
     /// ConfigMgr or WSUS part.
     /// </summary>

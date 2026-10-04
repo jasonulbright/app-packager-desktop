@@ -3,7 +3,7 @@ namespace ApplicationPackagerEngine.Models;
 /// <summary>
 /// The content options every ConfigMgr deployment type is created with: fallback to
 /// the site default boundary group, and the behavior on a neighbor or default boundary
-/// group. Allow and Download produce the arguments the deployment type always carried.
+/// group. Allow and Download is the default.
 /// </summary>
 public sealed record DeploymentTypeContentOptions(bool ContentFallback, string SlowNetworkDeploymentMode)
 {

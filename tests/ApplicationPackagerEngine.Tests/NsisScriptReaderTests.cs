@@ -153,8 +153,6 @@ public class NsisScriptReaderTests
         Assert.False(Read("nsis-marker-in-stub.bin").HeaderAvailable);
     }
 
-    // ── Detection key resolution ────────────────────────────────────
-
     [Fact]
     public void KeyHeldInAUserVariable_ResolvesToItsLastLiteral()
     {
@@ -204,8 +202,6 @@ public class NsisScriptReaderTests
         Assert.Equal(@"HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\TestApp", m.UninstallRegistryKey);
     }
 
-    // ── makensis builds ─────────────────────────────────────────────
-
     [Fact]
     public void SolidLzmaUnicodeBuild_Decodes()
     {
@@ -251,8 +247,6 @@ public class NsisScriptReaderTests
         Assert.Equal("bzip2", m.Compression);
         Assert.False(m.HeaderAvailable);
     }
-
-    // ── Paths and manifests ─────────────────────────────────────────
 
     [Fact]
     public void WindowsPath_ExpandsInstDirThenFolderConstants()

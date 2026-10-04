@@ -6,7 +6,7 @@ namespace ApplicationPackagerEngine.Tests.Wsus;
 
 /// <summary>
 /// Stage and Package output without WSUS: a definition that declares no
-/// Add/Remove Programs entry stages the manifest it staged before, and the
+/// Add/Remove Programs entry stages a manifest with no WsusDetection field, and the
 /// settings a file without a WSUS section loads leave WSUS off.
 /// </summary>
 public class WsusAbsentTests

@@ -16,7 +16,6 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header row -->
         <DockPanel Grid.Row="0" Margin="0,0,0,12">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <ui:Button Content="Show All" Command="{Binding ShowAllCommand}"
@@ -40,7 +39,6 @@
             </StackPanel>
         </DockPanel>
 
-        <!-- Vendor groups -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding VendorGroups}">
                 <ItemsControl.ItemTemplate>

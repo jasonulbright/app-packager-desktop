@@ -32,11 +32,9 @@ public sealed class CdnCabScraper : IVersionScraper
         var cabPath = Path.Combine(CacheDir, cabFileName);
         var extractDir = Path.Combine(CacheDir, Path.GetFileNameWithoutExtension(cabFileName));
 
-        // Download CAB
         await DownloadAsync(config.Url, cabPath, ct);
         if (!File.Exists(cabPath)) return null;
 
-        // Extract VersionDescriptor.xml using expand.exe
         if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
         Directory.CreateDirectory(extractDir);
 
@@ -49,7 +47,6 @@ public sealed class CdnCabScraper : IVersionScraper
         var vdPath = Path.Combine(extractDir, "VersionDescriptor.xml");
         if (!File.Exists(vdPath)) return null;
 
-        // Parse XML and extract version
         try
         {
             var xml = XDocument.Load(vdPath);
@@ -76,7 +73,6 @@ public sealed class CdnCabScraper : IVersionScraper
         }
         finally
         {
-            // Cleanup
             try { if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true); } catch { }
             try { if (File.Exists(cabPath)) File.Delete(cabPath); } catch { }
         }

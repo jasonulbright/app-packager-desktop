@@ -7,7 +7,7 @@ namespace ApplicationPackagerEngine.Services.Workbench;
 /// <summary>
 /// The profile-scoped suffix for network content version folders. Two profiles of
 /// one application at one vendor version write to &lt;version&gt;-&lt;suffix&gt; instead of
-/// sharing &lt;version&gt;. The default profile has no suffix and keeps today's paths.
+/// sharing &lt;version&gt;. The default profile has no suffix and writes to &lt;version&gt;.
 /// </summary>
 public sealed partial record ProfileContentScope(string ProfileId, string Name, string Suffix)
 {

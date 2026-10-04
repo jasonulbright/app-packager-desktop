@@ -21,8 +21,6 @@ public sealed class IconPackServiceTests : IDisposable
     private static IconPackEntry Entry(string packager, string? file = null)
         => new() { Packager = packager, File = file ?? packager + ".png", SourceKind = "Installer", PixelSize = 256 };
 
-    // ---- checksums ----
-
     [Fact]
     public void ParseChecksum_ReadsBinaryMarkerForm()
     {
@@ -94,8 +92,6 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.False(IconPackService.VerifyChecksum(Path.Combine(_dir, "absent.bin"), new string('a', 64)));
     }
 
-    // ---- manifest ----
-
     [Fact]
     public void ReadManifest_ReadsVersionsAndIcons()
     {
@@ -146,8 +142,6 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.Null(IconPackService.ReadManifest(Path.Combine(_dir, "absent.json")));
     }
 
-    // ---- version gate ----
-
     [Theory]
     [InlineData("1.0.0", "2.0.0", true)]
     [InlineData("2.0.0", "2.0.0", true)]
@@ -169,8 +163,6 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.True(IconPackService.SatisfiesAppVersion(min, current));
     }
 
-    // ---- name normalization ----
-
     [Theory]
     [InlineData("Dotnet10x64", "dotnet10")]
     [InlineData("dotnet8-x86", "dotnet8")]
@@ -182,8 +174,6 @@ public sealed class IconPackServiceTests : IDisposable
     {
         Assert.Equal(expected, IconPackService.NormalizeName(input));
     }
-
-    // ---- mapping ----
 
     [Fact]
     public void MapEntries_ExactNameWins()
@@ -256,8 +246,6 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.Single(result.Unmatched);
     }
 
-    // ---- release assets ----
-
     [Fact]
     public void SelectAssets_ReadsBothDownloadUrls()
     {
@@ -294,8 +282,6 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.Null(sums);
     }
 
-    // ---- status ----
-
     [Fact]
     public void ReadStatus_ReportsVersionAndInstalledIconCount()
     {
@@ -322,8 +308,6 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.Contains("Not installed", IconPackService.StatusText(status));
     }
 
-    // ---- install failure paths ----
-
     [Fact]
     public async Task InstallAsync_MissingDefinitionsFolderReturnsAMessage()
     {
@@ -332,8 +316,6 @@ public sealed class IconPackServiceTests : IDisposable
         Assert.False(result.Installed);
         Assert.Contains("Definitions folder not found", result.Message);
     }
-
-    // ---- install from file ----
 
     /// <summary>A definitions folder holding one definition, plus a pack zip carrying its icon.</summary>
     private (string Definitions, string Zip) BuildPack(string subfolder, string definitionName = "7zip")

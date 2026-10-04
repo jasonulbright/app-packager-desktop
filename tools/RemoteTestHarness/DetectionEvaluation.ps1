@@ -1,6 +1,6 @@
 # Detection rule evaluation for the remote test harness.
 #
-# Mirrors ApplicationPackagerEngine DetectionEvaluator. A rule is read with its own hive,
+# The semantics equal those of the engine's DetectionEvaluator. A rule is read with its own hive,
 # registry view, property type and declared comparison operator. The verdict is one of
 # 'Detected', 'NotDetected' or 'Error'; Error is distinct on purpose, because the
 # post-uninstall clean check negates the verdict and negating a read failure or an

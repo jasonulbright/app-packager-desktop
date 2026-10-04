@@ -36,9 +36,6 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="32,24,32,32" MaxWidth="760" HorizontalAlignment="Left">
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Title row: Settings + Save button -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <DockPanel Margin="0,0,0,16">
                 <ui:Button DockPanel.Dock="Right" Content="Save Settings"
                            Appearance="Primary"
@@ -55,9 +52,6 @@
                            VerticalAlignment="Center" />
             </DockPanel>
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Appearance (directly below title) -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <RadioButton Content="Dark" Margin="0,0,16,0"
                              IsChecked="{Binding CurrentTheme, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Dark}"
@@ -69,9 +63,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Organization -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Organization" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />
@@ -80,9 +71,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Systems in use -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Systems in use" Style="{StaticResource SectionHeader}"
                        ToolTip="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled." />
             <TextBlock Text="The Packages page has a publish button for each system. A system that is not in use keeps its buttons disabled."
@@ -101,9 +89,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- MECM Site Settings -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="ConfigMgr Site Settings" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Site Code" Style="{StaticResource FieldLabel}" />
@@ -149,9 +134,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- After Package: distribution and test deployment -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="After Package" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Optional steps once the ConfigMgr application exists. Content goes to a distribution point group first; the test deployment is created only after that distribution is targeted."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -179,9 +161,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- One Click -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="One Click Settings" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="One Click opens a plan of the apps you track here, then runs Check (and optionally Stage / Publish) without further prompts. Each row publishes to its own destinations; a row with no box checked is skipped. Rows that keep the default follow it when the default changes. The publish buttons on the Packages page choose their own destination per run."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -295,9 +274,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Detected tools -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Detected Tools" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Configuration Manager console" Style="{StaticResource FieldLabel}" />
@@ -323,9 +299,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Packager Icon Pack -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Packager Icon Pack" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Application icons for definitions tagged IconSource External. Downloaded from the icon pack release and installed into Definitions\Icons."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -348,9 +321,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- GitHub API -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="GitHub API" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="About a third of the catalog reads api.github.com. Anonymous requests share 60 per hour per address; a token from PACKR_GITHUB_TOKEN, GITHUB_TOKEN or gh auth login raises that to 5,000."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -368,9 +338,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Intune -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Intune" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Publishing needs an Entra app registration with the application permission DeviceManagementApps.ReadWrite.All, admin-consented."
@@ -394,9 +361,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- WSUS Publishing -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="WSUS Publishing" Style="{StaticResource SectionHeader}" />
             <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap"
                        Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the Packages page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />
@@ -467,9 +431,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Script Signing -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Script Signing" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Authenticode signing for the scripts AppPackager generates. Signing a detection script does not sign install wrappers, and signing deployment scripts does not sign requirement scripts. A local signature check does not prove the certificate is trusted on your clients."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap" />
@@ -525,9 +486,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Application Deployment Type Variables -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Deployment Type Defaults" Style="{StaticResource SectionHeader}" />
 
             <Grid Margin="0,0,0,8">
@@ -584,9 +542,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Acquisition Method -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Acquisition Method" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="How the engine downloads installers and checks versions for JSON-defined apps. PS1 scripts always use their built-in logic."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -602,9 +557,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- M365 Channel Selector -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="M365 Apps — Channel" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Update channel for M365 Apps, Project, and Visio packagers."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" />
@@ -619,9 +571,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Install parameters per application -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Install Parameters" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Switches and choices each installer takes, saved per application. Stage starts from these values: the review dialog shows them first unless it is skipped, in which case they apply as they are."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -647,9 +596,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Local installer sources and packager files -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Local Installer Sources" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Folders that hold an installer whose download needs a sign-in. Stage takes the highest file version found in the folder, and the installer must carry a valid signature."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -688,9 +634,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- Citrix Workspace App Install Params -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="Citrix Workspace App — Install Parameters" Style="{StaticResource SectionHeader}" />
             <TextBlock Text="Used by the Current Release and LTSR definitions. A shaded box or an empty choice is not set: no switch is passed and the installer default applies."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
@@ -807,9 +750,6 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
-            <!-- ═══════════════════════════════════════════════════ -->
-            <!-- About -->
-            <!-- ═══════════════════════════════════════════════════ -->
             <TextBlock Text="About" Style="{StaticResource SectionHeader}" />
             <DockPanel Margin="0,0,0,8">
                 <ui:Button DockPanel.Dock="Right" Content="Releases"
@@ -826,7 +766,6 @@
                 </StackPanel>
             </DockPanel>
 
-            <!-- Bottom spacer -->
             <Border Height="32" />
 
         </StackPanel>

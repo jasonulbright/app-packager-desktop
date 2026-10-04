@@ -7,9 +7,9 @@ namespace ApplicationPackagerEngine.Tests;
 /// loops that decide which outcome each item gets are covered at their own boundaries
 /// (see MecmQueryClassifierTests and RunBoundaryTests), not here.
 ///
-/// The completion lines were built from the loop index, which counts attempts. A run where
-/// applications failed, were skipped, or were interrupted therefore claimed every one of
-/// them succeeded, and a loop that broke on cancellation went on to say it had completed.
+/// The completion lines count recorded verdicts, not the loop index. The loop index counts
+/// attempts, so a line built from it claims that failed, skipped and interrupted
+/// applications succeeded, and a loop that broke on cancellation says it completed.
 ///
 /// This is the helper the Latest check, MECM check, Stage and Package loops all report
 /// through, and the flag One Click reads to decide whether to start its next phase.
@@ -28,9 +28,7 @@ public class PackagingRunTallyTests
         return tally;
     }
 
-    // ── Counting ────────────────────────────────────────────────
-
-    /// <summary>A clean run reads the way it always did.</summary>
+    /// <summary>A clean run names no other category.</summary>
     [Fact]
     public void AllSucceededReadsAsBefore() =>
         Assert.Equal("5 of 5 packaged", Tally(succeeded: 5).Describe(5, "packaged"));
@@ -69,8 +67,6 @@ public class PackagingRunTallyTests
     [Fact]
     public void AnEmptyRunClaimsNothing() =>
         Assert.Equal("0 of 0 checked", new PackagingRunTally().Describe(0, "checked"));
-
-    // ── Cancellation ────────────────────────────────────────────
 
     /// <summary>Cancelled before the first item: nothing was attempted and nothing interrupted.</summary>
     [Fact]
@@ -122,10 +118,7 @@ public class PackagingRunTallyTests
         Assert.Equal(1, tally.Interrupted);
     }
 
-    /// <summary>
-    /// The whole point of the summary: a run that stopped early says so instead of
-    /// claiming it finished.
-    /// </summary>
+    /// <summary>A run that stopped early says so instead of claiming it finished.</summary>
     [Fact]
     public void ACancelledRunDoesNotClaimCompletion()
     {
@@ -150,8 +143,6 @@ public class PackagingRunTallyTests
         Assert.Equal("Package complete. 1 of 3 packaged, 2 failed.",
             tally.Summarize("Package", 3, "packaged"));
     }
-
-    // ── The flag One Click reads ────────────────────────────────
 
     /// <summary>
     /// One Click starts its next phase only when the previous one was not cancelled, so
@@ -179,8 +170,6 @@ public class PackagingRunTallyTests
         Assert.True(tally.Cancelled);
         Assert.Equal(1, tally.Attempted);
     }
-
-    // ── Per-loop wording ────────────────────────────────────────
 
     /// <summary>The wording the MECM loop passes in. Which results count as successes is
     /// decided by the classifier, not here.</summary>

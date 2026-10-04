@@ -17,22 +17,18 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     private readonly PackagesViewModel _packagesViewModel;
     private readonly PackagerDiscoveryService _discoveryService;
 
-    // Install parameters per definition
     public ObservableCollection<InstallParameterGroup> InstallParameterGroups { get; } = [];
     [ObservableProperty] private bool _skipConfigReview;
     [ObservableProperty] private string _installParameterSummary = "";
 
-    // Organization
     [ObservableProperty] private string _companyName = "";
 
-    // MECM Site
     [ObservableProperty] private string _siteCode = "MCM";
     [ObservableProperty] private string _providerMachine = "";
     [ObservableProperty] private string _fileShareRoot = @"\\fileserver\sccm$";
     [ObservableProperty] private string _downloadRoot = @"C:\temp\ap";
     [ObservableProperty] private string _packagersRoot = "";
 
-    // Deployment Type defaults
     [ObservableProperty] private double? _estimatedRuntimeMins = 15;
     [ObservableProperty] private double? _maximumRuntimeMins = 30;
     [ObservableProperty] private string _contentFallback = DeploymentTypeContentOptions.Allow;
@@ -44,10 +40,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>The Script Signing section; written to the store only by Save Settings.</summary>
     public ScriptSigningEditor Signing { get; } = new();
 
-    // Acquisition
     [ObservableProperty] private string _acquisitionMethod = "StaticUrl";
 
-    // Per-app: M365
     [ObservableProperty] private string _m365Channel = "MonthlyEnterprise";
 
     // Per-app: Citrix Workspace switches. The controls bind into this object;
@@ -67,7 +61,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>The WSUS Publishing section; written to the store only by Save Settings.</summary>
     public WsusPublishingEditor Wsus { get; }
 
-    // Intune
     [ObservableProperty] private string _intuneTenantId = "";
     [ObservableProperty] private string _intuneClientId = "";
 
@@ -79,7 +72,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     [ObservableProperty] private bool _hasStoredIntuneSecret;
 
-    // Icon pack
     [ObservableProperty] private string _iconPackStatus = "";
     [ObservableProperty] private bool _iconPackBusy;
 
@@ -87,7 +79,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     partial void OnIconPackBusyChanged(bool value) => OnPropertyChanged(nameof(IconPackIdle));
 
-    // GitHub API
     [ObservableProperty] private string _gitHubApiStatus = "Checking...";
     [ObservableProperty] private bool _gitHubApiBusy;
 
@@ -95,10 +86,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     partial void OnGitHubApiBusyChanged(bool value) => OnPropertyChanged(nameof(GitHubApiIdle));
 
-    // UI
     [ObservableProperty] private ApplicationTheme _currentTheme = ApplicationTheme.Dark;
 
-    // Content layout and the steps after the MECM application exists
     [ObservableProperty] private string _contentLayout = ContentLayouts.Nested;
     [ObservableProperty] private bool _autoDistribute;
     [ObservableProperty] private string _dpGroupName = "";
@@ -110,7 +99,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     public bool TestDeploymentAvailable => AutoDistribute;
     partial void OnAutoDistributeChanged(bool value) => OnPropertyChanged(nameof(TestDeploymentAvailable));
 
-    // One Click
     [ObservableProperty] private string _oneClickAction = OneClickActions.Report;
     [ObservableProperty] private bool _oneClickForce;
     [ObservableProperty] private double? _oneClickCadenceDays = 7;
@@ -127,7 +115,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>Size of the application list the grid mirrors.</summary>
     public int PackagerCount => _packagesViewModel.Packagers.Count;
 
-    // Detected tools
     [ObservableProperty] private string _consoleStatus = "";
     [ObservableProperty] private string _sevenZipStatus = "";
     [ObservableProperty] private string _contentPrepStatus = "";
@@ -154,7 +141,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         _discoveryService = discoveryService;
         Wsus = new WsusPublishingEditor(wsusClient, prompts: wsusPrompts);
 
-        // Migrate from PS1 GUI preferences on first launch
         prefsSync.MigrateFromPs1IfNeeded();
         LoadSettings();
         RefreshIconPackStatus();
@@ -628,7 +614,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             DefaultDestinations = defaults,
             OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(OneClickOnExisting)
         };
-        // The nearest single target, for the code paths that still read one.
+        // The nearest single target, for the code paths that read one target.
         s.Intune.DeploymentTarget = DeploymentTargets.Normalize(defaults.ToTargetName());
 
         s.CitrixSwitches = TrimSwitches(CwaSwitches);
@@ -656,7 +642,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         if (SiteIdentity.Key(s.SiteCode, s.ProviderMachine) != siteBefore)
             PackagesViewModel.ClearSiteResults(_packagesViewModel.Packagers);
 
-        // Sync to PS1 packager JSON files
         _prefsSync.SyncPackagerPreferences(s.CompanyName, s.SideFiles);
         _prefsSync.SyncCwaSettings(s.CitrixSwitches);
 

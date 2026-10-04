@@ -91,7 +91,7 @@ public sealed class StageFinalizer
 
     /// <summary>
     /// The .bat body ODT staging writes for one script. Unsigned on the x64 host it
-    /// is the historical ODT launcher; otherwise it is the deployment launcher.
+    /// is the fixed ODT launcher; otherwise it is the deployment launcher.
     /// </summary>
     public string OdtLauncher(string script) =>
         !Policy.SignDeployment && ScriptHost == DeploymentLauncher.HostX64
@@ -105,7 +105,7 @@ public sealed class StageFinalizer
     /// orchestrator or signatures. The generated launchers are removed so they are
     /// written fresh; under an all-off policy a previous build's scripts\ goes too.
     /// A build with no profile and no signing over a folder that never carried
-    /// either keeps today's behavior.
+    /// either leaves the stage root unchanged.
     /// </summary>
     public void PrepareStageRoot(string stageRoot)
     {
@@ -346,7 +346,7 @@ public sealed class StageFinalizer
             manifest.Icon = null;
         }
 
-        // Older profiles store the title combo display text instead of the mode name.
+        // A stored TitleMode can hold the title combo display text instead of the mode name.
         var titleMode = PackagerChildBridge.NormalizeTitleMode(WorkbenchJson.AsText(settings["TitleMode"].Value));
         var canonicalTitle = new[] { ApplicationTitle.IncludeVersionToken, ApplicationTitle.NoVersionToken }
             .FirstOrDefault(t => string.Equals(t, titleMode, StringComparison.OrdinalIgnoreCase));

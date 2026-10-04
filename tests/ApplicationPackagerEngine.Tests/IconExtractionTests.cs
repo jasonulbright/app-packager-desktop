@@ -70,8 +70,6 @@ public sealed class IconExtractionTests : IDisposable
         return ico;
     }
 
-    // ── group-icon directory parsing ─────────────────────────────
-
     [Fact]
     public void BuildIcoFromGroup_SelectsTheLargestFrame()
     {
@@ -137,8 +135,6 @@ public sealed class IconExtractionTests : IDisposable
         Assert.Equal(0, IconExtractionService.GetIconBytesDimension([1, 2, 3]));
         Assert.Equal(0, IconExtractionService.GetIconBytesDimension(PngBytes(64)));
     }
-
-    // ── size floor and the 256 KB cap ────────────────────────────
 
     [Fact]
     public void MaterializeIcon_RejectsAnImageUnderTheFloor()
@@ -214,8 +210,6 @@ public sealed class IconExtractionTests : IDisposable
         Assert.True(result.PixelSize < 512);
         Assert.False(File.Exists(Path.Combine(_dir, "app-icon.ico")));
     }
-
-    // ── IconSource verdicts and staging ──────────────────────────
 
     [Theory]
     [InlineData("Installer", "Installer")]
@@ -319,8 +313,6 @@ public sealed class IconExtractionTests : IDisposable
         var round = new ManifestService().Read(Path.Combine(stage, "stage-manifest.json"));
         Assert.Equal("app-icon.png", round.Icon);
     }
-
-    // ── live extraction against a real PE ────────────────────────
 
     [Fact]
     public void ExtractInstallerIcon_ReadsTheTrueResourceSizeFromARealModule()

@@ -1,38 +1,42 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Remote test harness for Packr definitions.
-    Runs on HOST, executes install/detect/uninstall on CLIENT01 via PSRemoting.
-    Automatically reboots CLIENT01 when pending reboot detected or exit 3010.
+    Installs, detects and uninstalls staged catalog definitions on a test machine through
+    PowerShell remoting.
+    Runs on the controller. Reboots the test machine when a reboot is pending or an
+    installer exits 3010.
 
 .PARAMETER ComputerName
-    Target VM name. Default: CLIENT01
+    Test machine name. The machine must accept PowerShell remoting from the controller.
+
+.PARAMETER Credential
+    Administrator account on the test machine.
 
 .PARAMETER DefsDir
-    Path to JSON definitions on HOST. Default: C:\projects\packr\src\ApplicationPackagerEngine\Definitions
+    Path to the JSON definitions on the controller. Default: the Definitions folder of this
+    repository.
 
 .PARAMETER StagedRoot
-    Path on CLIENT01 where staged content lives. Default: C:\temp\ap
+    Path on the test machine where staged content lives. Default: C:\temp\ap
 
 .PARAMETER ResultsPath
-    CSV output path on HOST. Default: C:\temp\remote-test-results.csv
+    CSV output path on the controller. Default: C:\temp\remote-test-results-<timestamp>.csv
 #>
 
 param(
-    [string]$ComputerName = 'CLIENT01',
-    [string]$DefsDir = 'C:\projects\packr\src\ApplicationPackagerEngine\Definitions',
+    [Parameter(Mandatory)][string]$ComputerName,
+    [Parameter(Mandatory)][PSCredential]$Credential,
+    [string]$DefsDir = (Join-Path $PSScriptRoot '..\..\src\ApplicationPackagerEngine\Definitions'),
     [string]$StagedRoot = 'C:\temp\ap',
     [string]$ResultsPath = "C:\temp\remote-test-results-$(Get-Date -Format 'yyyyMMdd-HHmmss').csv",
     [int]$TimeoutSec = 300
 )
 
-$pass = ConvertTo-SecureString "P@ssw0rd!" -AsPlainText -Force
-$cred = New-Object System.Management.Automation.PSCredential("contoso\LabAdmin", $pass)
+$cred = $Credential
 
-# Skip list
 $skipDefs = @(
-    '7zip.json'          # Harness dependency
-    'Dotnet10x64.json'   # Test last
+    '7zip.json'          # 7z.exe stages the other definitions; uninstalling it breaks them
+    'Dotnet10x64.json'
     'teams.json'         # MSIX
     'foxitreader.json'   # CDN throttle
     'filezilla.json'     # PUP
@@ -41,7 +45,7 @@ $skipDefs = @(
     'vs2026community.json'
 )
 
-# Prereq order
+# Runtimes install first: later installers fail without them.
 function Get-Priority($fileName) {
     $n = $fileName.ToLower()
     if ($n -match 'msvcruntimes') { return 0 }
@@ -70,7 +74,6 @@ function Invoke-RebootAndWait {
     Invoke-Command -ComputerName $Computer -Credential $Credential -ScriptBlock { Restart-Computer -Force }
     Start-Sleep -Seconds 15
 
-    # Wait for VM to go down
     $attempts = 0
     while ($attempts -lt 12) {
         if (-not (Test-Connection $Computer -Count 1 -Quiet -ErrorAction SilentlyContinue)) { break }
@@ -78,7 +81,6 @@ function Invoke-RebootAndWait {
         $attempts++
     }
 
-    # Wait for VM to come back
     Write-Host "    Waiting for $Computer to come back online..." -ForegroundColor Yellow
     $attempts = 0
     while ($attempts -lt 60) {
@@ -97,10 +99,8 @@ function Invoke-RebootAndWait {
     return $false
 }
 
-# Initialize results
 "App,Phase,Result,DurationMs" | Out-File $ResultsPath -Encoding UTF8
 
-# Load definitions
 $defs = Get-ChildItem $DefsDir -Filter '*.json' |
     Where-Object { $_.Name -notin $skipDefs } |
     Sort-Object { Get-Priority $_.Name }, Name
@@ -128,7 +128,6 @@ foreach ($defFile in $defs) {
 
     Write-Host "=== $appName ($fileName) ===" -ForegroundColor Cyan
 
-    # Check for pending reboot before starting
     if (Test-PendingReboot -Computer $ComputerName -Credential $cred) {
         Write-Host "  Pending reboot detected before install" -ForegroundColor Yellow
         if (-not (Invoke-RebootAndWait -Computer $ComputerName -Credential $cred)) {
@@ -139,8 +138,7 @@ foreach ($defFile in $defs) {
         }
     }
 
-    # Stage: copy the harness definition to CLIENT01 and run staging
-    # The harness on CLIENT01 has all definitions — we just need to trigger stage+test for this one app
+    # The job does not stage: content must already be staged under StagedRoot on the test machine.
     Write-Host "  Stage+Test..." -NoNewline
 
     try {
@@ -153,7 +151,6 @@ foreach ($defFile in $defs) {
 
             $def = $AppJson | ConvertFrom-Json
 
-            # Find or create staged content
             $appFolder = ($def.Application -replace ' ','') + "-$($def.Architecture)"
             $stagedDir = Get-ChildItem $StagedRoot -Directory -Filter "$appFolder*" -ErrorAction SilentlyContinue |
                 ForEach-Object { Get-ChildItem $_.FullName -Directory | Select-Object -First 1 } |
@@ -166,7 +163,6 @@ foreach ($defFile in $defs) {
             $contentPath = $stagedDir.FullName
             $results = @()
 
-            # Install
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             $ps1 = Join-Path $contentPath 'install.ps1'
             $proc = Start-Process powershell.exe -ArgumentList "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$ps1`"" `
@@ -179,7 +175,6 @@ foreach ($defFile in $defs) {
                 return $results
             }
 
-            # Detect
             $manifestJson = Get-Content (Join-Path $contentPath 'stage-manifest.json') -Raw | ConvertFrom-Json
             $det = $manifestJson.Detection
             $scriptRunner = { param($text) Invoke-DetectionScript -ScriptText $text -TimeoutSeconds $TimeoutSec }
@@ -194,7 +189,6 @@ foreach ($defFile in $defs) {
 
             if ($verdict -ne 'Detected') { return $results }
 
-            # Uninstall
             $unPs1 = Join-Path $contentPath 'uninstall.ps1'
             if (Test-Path $unPs1) {
                 $sw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -220,7 +214,6 @@ foreach ($defFile in $defs) {
             return $results
         } -ArgumentList ($def | ConvertTo-Json -Depth 10), $StagedRoot, $TimeoutSec, $evaluationSource -ErrorAction Stop
 
-        # Wait for job with timeout
         $completed = Wait-Job $job -Timeout $TimeoutSec
         if (-not $completed) {
             Write-Host " TIMEOUT (${TimeoutSec}s)" -ForegroundColor Red
@@ -228,7 +221,6 @@ foreach ($defFile in $defs) {
             Remove-Job $job -Force
             "`"$appName`",`"Test`",`"TIMEOUT`",$($TimeoutSec * 1000)" | Out-File $ResultsPath -Append -Encoding UTF8
             $failed++
-            # Kill any stuck processes on CLIENT01
             Invoke-Command -ComputerName $ComputerName -Credential $cred -ScriptBlock {
                 Get-Process -Name msiexec, cmd, powershell -ErrorAction SilentlyContinue |
                     Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-10) } |
@@ -239,7 +231,6 @@ foreach ($defFile in $defs) {
         $result = Receive-Job $job
         Remove-Job $job -Force
 
-        # Process results
         $needsReboot = $false
         if ($result -is [System.Collections.Hashtable]) { $result = @($result) }
 
@@ -259,7 +250,6 @@ foreach ($defFile in $defs) {
         $allPass = ($result | Where-Object { $_.Result -like 'PASS*' }).Count -eq $result.Count
         if ($allPass) { $passed++ } else { $failed++ }
 
-        # Reboot if needed
         if ($needsReboot) {
             Write-Host "    Exit 3010 or reboot required" -ForegroundColor Yellow
             "`"$appName`",`"Reboot`",`"Triggered`",0" | Out-File $ResultsPath -Append -Encoding UTF8
@@ -275,7 +265,6 @@ foreach ($defFile in $defs) {
     Write-Host ""
 }
 
-# Summary
 Write-Host "═══════════════════════════════════════════════" -ForegroundColor White
 Write-Host "TOTAL: $($defs.Count) | PASSED: $passed | FAILED: $failed | SKIPPED: $skipped"
 Write-Host "Results: $ResultsPath"

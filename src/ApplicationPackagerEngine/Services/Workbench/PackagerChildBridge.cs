@@ -137,7 +137,7 @@ public static class PackagerChildBridge
         return variables;
     }
 
-    /// <summary>Older profiles store the title combo text instead of the mode token.</summary>
+    /// <summary>Maps a stored title mode to its token; a profile can store the title combo text instead of the token.</summary>
     public static string? NormalizeTitleMode(string? stored)
     {
         if (string.Equals(stored, "Include version", StringComparison.OrdinalIgnoreCase)) return "IncludeVersion";

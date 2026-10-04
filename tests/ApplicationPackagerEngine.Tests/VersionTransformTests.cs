@@ -4,21 +4,15 @@ using ApplicationPackagerEngine.Scrapers;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// Tests for ScraperRegistry.ApplyTransform (exposed via GetLatestVersionWithTransformAsync).
-/// Since ApplyTransform is private, we test through the public API with a mock config.
-/// These exercise the version transform pipeline: insert_dot, replace, strip_prefix, regex_replace.
+/// The version transform pipeline (insert_dot, replace, strip_prefix, regex_replace) in
+/// the private ScraperRegistry.ApplyTransform, invoked through reflection.
 /// </summary>
 public class VersionTransformTests
 {
     private readonly ScraperRegistry _registry = new();
 
-    // Helper to test transform by round-tripping through a stub scraper that returns the given raw version
     private async Task<string?> ApplyTransform(string rawVersion, string transform)
     {
-        // Use HttpRegex scraper with a config that would return rawVersion
-        // Since we can't easily inject the raw version, test the transform logic indirectly
-        // by inspecting the registry's behavior.
-        // For pure transform tests, we'll use reflection to access the private method.
         var method = typeof(ScraperRegistry).GetMethod("ApplyTransform",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 
@@ -68,7 +62,6 @@ public class VersionTransformTests
     [Fact]
     public async Task PipelinedTransforms_ApplyInOrder()
     {
-        // strip_prefix:v then insert_dot:2
         var result = await ApplyTransform("v2600", "strip_prefix:v|insert_dot:2");
         Assert.Equal("26.00", result);
     }
@@ -76,7 +69,6 @@ public class VersionTransformTests
     [Fact]
     public async Task EmptyTransform_ReturnsOriginal()
     {
-        // Empty steps should be no-ops
         var result = await ApplyTransform("1.2.3", "");
         Assert.Equal("1.2.3", result);
     }

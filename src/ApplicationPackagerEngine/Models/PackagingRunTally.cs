@@ -72,7 +72,7 @@ public sealed class PackagingRunTally
 
     /// <summary>
     /// The outcome clause for a completion line, naming only the categories that occurred.
-    /// A run with nothing but successes reads the way it always did.
+    /// A run with nothing but successes reads "N of M {verb}" alone.
     /// </summary>
     public string Describe(int total, string successVerb)
     {

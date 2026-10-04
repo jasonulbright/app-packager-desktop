@@ -49,8 +49,6 @@ public class MaxVersionSelectionTests
         Assert.Equal("2.4", HttpRegexScraper.ExtractVersion(html, @"build-(.+?)\.msi", selectHighest: true));
     }
 
-    // ── JsonQuery [max:field] ───────────────────────────────────────
-
     private const string ReleasesJson = """
         [
           { "version": "21.0.12+10",  "downloadUrl": "https://example.test/a.msi" },

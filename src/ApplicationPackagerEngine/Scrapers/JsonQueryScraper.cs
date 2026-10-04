@@ -200,8 +200,6 @@ public sealed class JsonQueryScraper : IVersionScraper
         };
     }
 
-    // ── Query parser ────────────────────────────────────────────────
-
     private static List<QuerySegment> ParseSegments(string query)
     {
         var segments = new List<QuerySegment>();
@@ -209,7 +207,6 @@ public sealed class JsonQueryScraper : IVersionScraper
 
         while (remaining.Length > 0)
         {
-            // Skip leading dot separator
             if (remaining[0] == '.')
                 remaining = remaining[1..];
 
@@ -218,7 +215,6 @@ public sealed class JsonQueryScraper : IVersionScraper
             string? property = null;
             IArrayAccess? arrayAccess = null;
 
-            // Property name (up to next '.', '[', or end)
             if (remaining[0] != '[')
             {
                 var end = remaining.IndexOfAny(['.', '[']);
@@ -227,11 +223,10 @@ public sealed class JsonQueryScraper : IVersionScraper
                 remaining = remaining[end..];
             }
 
-            // Array accessor immediately following property (or standalone)
             if (remaining.Length > 0 && remaining[0] == '[')
             {
                 var close = remaining.IndexOf(']');
-                if (close < 0) break; // malformed
+                if (close < 0) break;
 
                 var inner = remaining[1..close].ToString();
                 remaining = remaining[(close + 1)..];
@@ -271,16 +266,12 @@ public sealed class JsonQueryScraper : IVersionScraper
         return new FilterAccess(conditions);
     }
 
-    // ── Types ───────────────────────────────────────────────────────
-
     private record QuerySegment(string? Property, IArrayAccess? ArrayAccess);
     private interface IArrayAccess;
     private record IndexAccess(int Index) : IArrayAccess;
     private record FilterAccess(List<FilterCondition> Conditions) : IArrayAccess;
     private record MaxVersionAccess(string Field) : IArrayAccess;
     private record FilterCondition(string Key, string Value, bool IsNegated);
-
-    // ── HTTP fetch ──────────────────────────────────────────────────
 
     private static async Task<string?> FetchJsonAsync(string url, bool noUserAgent, CancellationToken ct, IReadOnlyList<string>? headers = null)
     {

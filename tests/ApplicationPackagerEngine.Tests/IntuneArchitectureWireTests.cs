@@ -103,8 +103,6 @@ public sealed class IntuneArchitectureWireTests : IDisposable
         return AppBody(handler);
     }
 
-    // ── The published body ──────────────────────────────────────
-
     [Theory]
     [InlineData("x64")]
     [InlineData("x86")]
@@ -138,8 +136,6 @@ public sealed class IntuneArchitectureWireTests : IDisposable
         Assert.NotEqual("ARM64", (string?)body["allowedArchitectures"]);
     }
 
-    // ── Updating an existing app between architectures ──────────
-
     [Fact]
     public async Task UpdatingAnExistingAppToX64ClearsAnyAllowedArchitectures()
     {
@@ -158,8 +154,6 @@ public sealed class IntuneArchitectureWireTests : IDisposable
         Assert.Equal("none", (string?)body["applicableArchitectures"]);
         Assert.Equal("arm64", (string?)body["allowedArchitectures"]);
     }
-
-    // ── Mapping in isolation ────────────────────────────────────
 
     [Theory]
     [InlineData("x64", "x64", null)]

@@ -118,8 +118,6 @@ public sealed class MsixWrapperAndDetectionTests : IDisposable
             Assert.True(File.Exists(Path.Combine(_dir, name)), name);
     }
 
-    // ── Script detection ────────────────────────────────────────
-
     private static StageMsixPackage Package() => new()
     {
         Name = "ohmyposh.cli",

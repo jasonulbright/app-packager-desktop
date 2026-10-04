@@ -60,7 +60,6 @@ public sealed class ArchiveExtractionService
         var lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         var entries = ParseListEntries(stdout);
 
-        // Detect archive subtype from 7z output header
         string? subType = null;
         var typeHeader = lines.FirstOrDefault(l => l.Contains("SubType =") || l.Contains("Type ="));
         if (typeHeader is not null)
@@ -119,7 +118,7 @@ public sealed class ArchiveExtractionService
 
     /// <summary>
     /// Identifies the installer framework by examining archive contents.
-    /// Returns: NSIS, InnoSetup, WixBurn, MSIX, ZIP, or null if unknown.
+    /// Returns: NSIS, InnoSetup, WixBurn, MSIX, WrappedMSI, ZIP, or null if unknown.
     /// </summary>
     public async Task<string?> IdentifyFrameworkAsync(string installerPath, CancellationToken ct = default)
     {
@@ -129,34 +128,28 @@ public sealed class ArchiveExtractionService
 
         var entries = listResult.Entries ?? [];
 
-        // Check 7z's own subtype detection first
         if (listResult.DetectedSubType == "NSIS")
             return "NSIS";
 
-        // NSIS indicators: $PLUGINSDIR, $INSTDIR, or NSIS in subtype
         if (entries.Any(e => e.StartsWith("$PLUGINSDIR", StringComparison.OrdinalIgnoreCase)
                          || e.StartsWith("$INSTDIR", StringComparison.OrdinalIgnoreCase)))
             return "NSIS";
 
-        // InnoSetup indicators: {app}/ prefix, unins000.exe
         if (entries.Any(e => e.StartsWith("{app}", StringComparison.OrdinalIgnoreCase))
             || (entries.Any(e => e.EndsWith("unins000.exe", StringComparison.OrdinalIgnoreCase))
                 && entries.Any(e => e.EndsWith("unins000.dat", StringComparison.OrdinalIgnoreCase))))
             return "InnoSetup";
 
-        // WiX Burn indicators: .msi files + BootstrapperCore.dll or engine manifest
         if (entries.Any(e => e.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
             && (entries.Any(e => e.Contains("BootstrapperCore", StringComparison.OrdinalIgnoreCase))
                 || entries.Any(e => e.EndsWith(".wixburn", StringComparison.OrdinalIgnoreCase))
                 || entries.Any(e => e.Contains("WixBundleManifest", StringComparison.OrdinalIgnoreCase))))
             return "WixBurn";
 
-        // MSIX indicators: AppxManifest.xml
         if (entries.Any(e => e.Equals("AppxManifest.xml", StringComparison.OrdinalIgnoreCase)
                          || e.EndsWith("AppxManifest.xml", StringComparison.OrdinalIgnoreCase)))
             return "MSIX";
 
-        // Wrapped MSI (self-extracting): contains .msi but no Burn indicators
         if (entries.Any(e => e.EndsWith(".msi", StringComparison.OrdinalIgnoreCase)))
             return "WrappedMSI";
 

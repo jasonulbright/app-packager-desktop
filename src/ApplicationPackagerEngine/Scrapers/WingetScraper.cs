@@ -3,9 +3,8 @@ using ApplicationPackagerEngine.Models;
 namespace ApplicationPackagerEngine.Scrapers;
 
 /// <summary>
-/// Queries winget for the latest version of a package.
-/// Requires winget.exe installed and repository access (Microsoft Store GPO or standalone).
-/// Non-functional stub — implementation pending.
+/// Scraper type "Winget". It starts no process and returns null for every package, so a
+/// caller that tries it first falls back to the definition's VersionScraper.
 /// </summary>
 public sealed class WingetScraper : IVersionScraper
 {
@@ -13,9 +12,6 @@ public sealed class WingetScraper : IVersionScraper
 
     public Task<string?> GetLatestVersionAsync(VersionScraperConfig config, CancellationToken ct = default)
     {
-        // TODO: implement winget show --id <WingetId> --source winget
-        // Parse version from output
-        // For now, return null (caller falls back to static URL scraper)
         return Task.FromResult<string?>(null);
     }
 }

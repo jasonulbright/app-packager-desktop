@@ -7,10 +7,10 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// The optional definition fields added for request headers, post-execution
+/// The optional definition fields for request headers, post-execution
 /// behavior, payload version checks, checksum files, MSI argument expansion
 /// and ZIP payloads. Each is inert when absent: a definition that declares
-/// none of them stages what it staged before.
+/// none of them stages the same output as a definition without the fields.
 /// </summary>
 public sealed class DefinitionEngineFieldTests : IDisposable
 {
@@ -26,8 +26,6 @@ public sealed class DefinitionEngineFieldTests : IDisposable
     private static StagingService Service() =>
         new(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
             new WrapperGeneratorService(), new ManifestService());
-
-    // ── Request headers ─────────────────────────────────────────
 
     [Fact]
     public void NoHeadersAddNoCurlArguments()
@@ -84,8 +82,6 @@ public sealed class DefinitionEngineFieldTests : IDisposable
         Assert.DoesNotContain("Chrome", request);
     }
 
-    // ── Post-execution behavior ─────────────────────────────────
-
     [Theory]
     [InlineData("forcereboot", "ForceReboot")]
     [InlineData("BasedOnExitCode", "BasedOnExitCode")]
@@ -133,8 +129,6 @@ public sealed class DefinitionEngineFieldTests : IDisposable
         Assert.Equal(without.Replace(" -RebootBehavior BasedOnExitCode", ""), withBehavior.Replace(" -RebootBehavior ForceReboot", ""));
     }
 
-    // ── Grouped detection ───────────────────────────────────────
-
     [Fact]
     public void AOneClauseSecondGroupTakesTheOrConnectorAlone()
     {
@@ -155,8 +149,6 @@ public sealed class DefinitionEngineFieldTests : IDisposable
         Assert.DoesNotContain("-GroupDetectionClauses", args);
         Assert.Equal(" -DetectionClauseConnector @(@{LogicalName=$clause2.Setting.LogicalName;Connector='OR'})", args);
     }
-
-    // ── Payload version ─────────────────────────────────────────
 
     [Fact]
     public void NoExpectedPayloadVersionChecksNothing()
@@ -187,8 +179,6 @@ public sealed class DefinitionEngineFieldTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => StagingService.VerifyPayloadVersion(def, "slido.msi", "1.22.0", true, "1.23.0.8116"));
     }
 
-    // ── MSI argument expansion ──────────────────────────────────
-
     [Fact]
     public void WithoutExpansionTheMsiWrapperPassesTheArgumentsAsOneLiteral()
     {
@@ -202,8 +192,6 @@ public sealed class DefinitionEngineFieldTests : IDisposable
             "exit $proc.ExitCode",
             File.ReadAllText(Path.Combine(_dir, "install.ps1")).Replace("\r\n", "\n"));
     }
-
-    // ── A definition with none of the new fields ────────────────
 
     [Fact]
     public async Task APlainDefinitionStagesTheSameFilesAndManifestFieldsAsBefore()

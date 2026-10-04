@@ -9,9 +9,8 @@ public class MecmQueryService(SettingsService settingsService)
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
-    // Replicates Get-MecmCurrentVersionByCMName from start-apppackager.ps1. Run from a
-    // file with the site code and name passed as parameters, so neither is ever spliced
-    // into executable text.
+    // Runs from a file with the site code and name passed as parameters, so neither is
+    // ever spliced into executable text.
     public const string QueryScript = """
         param($SiteCode, $CMName)
         if (-not (Get-Command -Name Get-CMApplication -ErrorAction SilentlyContinue)) {

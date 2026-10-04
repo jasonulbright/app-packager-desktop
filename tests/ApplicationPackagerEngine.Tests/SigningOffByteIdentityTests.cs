@@ -102,7 +102,7 @@ public sealed class SigningOffByteIdentityTests
     /// </summary>
     private const string DefaultReboot = " -RebootBehavior BasedOnExitCode -UserInteractionMode Hidden";
 
-    /// <summary>The two lines that re-read the application's CI_ID after the revision cleanup, which the recorded hashes also predate.</summary>
+    /// <summary>The two lines that re-read the application's CI_ID after the revision cleanup, which the recorded hashes also exclude.</summary>
     private static readonly System.Text.RegularExpressions.Regex FinalCiIdLines = new(
         @"^\$finalApp = @\(Get-CMApplication [^\r\n]*\r?\n^if \(\$finalApp\) \{ Write-Host ""Final CI_ID: [^\r\n]*\r?\n",
         System.Text.RegularExpressions.RegexOptions.Multiline);
@@ -183,7 +183,7 @@ public sealed class SigningOffByteIdentityTests
         var current = WithoutDefaultReboot(Build(Registry(), [new StageRequirement { ConditionId = "vpn-connected", Value = true }]));
         var before = Fixture("mecm-unsigned-vpn-condition.ps1.bin");
 
-        // The body still travels inline, now with its content hash.
+        // The body travels inline with its content hash.
         var template = ConditionTemplateService.Defaults().Conditions.Single(c => c.Id == "vpn-connected");
         var text = ConditionTemplateService.ResolveScriptText(template).Replace("'", "''");
         var description = template.Description!.Replace("'", "''");

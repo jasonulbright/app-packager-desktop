@@ -4,9 +4,9 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// A run answers for every target the operator selected. Deriving the exit code from the
-/// MECM result alone reported an Intune-only build or publish failure as a success, and
-/// reported a created MECM application with a failed Intune publish as fully packaged.
+/// A run answers for every target the operator selected. An exit code derived from the
+/// MECM result alone reports an Intune-only build or publish failure as a success, and
+/// reports a created MECM application with a failed Intune publish as fully packaged.
 /// The composition here is driven with the real deployment target strings.
 /// </summary>
 public class PackagingOutcomeTests
@@ -23,8 +23,6 @@ public class PackagingOutcomeTests
 
     private static IntuneRunOutcome Published() =>
         IntuneRunOutcome.Published("built Contoso.intunewin", "published (app id app-100)");
-
-    // ── Success ─────────────────────────────────────────────────
 
     [Fact]
     public void IntuneOnlyPublishSucceeds()
@@ -58,8 +56,6 @@ public class PackagingOutcomeTests
     public void BothTargetsSucceeding() =>
         Assert.Equal(0, Compose(DeploymentTargets.MecmAndIntune, true, "", Published()).ExitCode);
 
-    // ── Intune failures ─────────────────────────────────────────
-
     [Fact]
     public void AnIntuneOnlyBuildFailureFailsTheRun()
     {
@@ -92,7 +88,7 @@ public class PackagingOutcomeTests
         var outcome = Compose(
             DeploymentTargets.IntuneOnly, true, "",
             IntuneRunOutcome.PublishRefused("built Contoso.intunewin",
-                "variant-split app; publish skipped (single-payload apps only for now)."));
+                "variant-split app; publish skipped (single-payload apps only)."));
 
         Assert.Equal(1, outcome.ExitCode);
         Assert.Contains("Intune publish did not run", outcome.StdErr);
@@ -110,8 +106,6 @@ public class PackagingOutcomeTests
         Assert.Equal(1, outcome.ExitCode);
         Assert.Contains("credentials not configured", outcome.StdErr);
     }
-
-    // ── Partial success ─────────────────────────────────────────
 
     /// <summary>
     /// The MECM application exists and stays reported, so an operator is not sent looking
@@ -142,8 +136,6 @@ public class PackagingOutcomeTests
         Assert.Contains("Intune package build failed", outcome.StdErr);
     }
 
-    // ── MECM failure ────────────────────────────────────────────
-
     [Fact]
     public void AMecmFailureFailsTheRunAndKeepsItsOwnError()
     {
@@ -163,8 +155,6 @@ public class PackagingOutcomeTests
         Assert.Equal(1, outcome.ExitCode);
         Assert.False(string.IsNullOrWhiteSpace(outcome.StdErr));
     }
-
-    // ── A requested step must actually publish ──────────────────
 
     /// <summary>
     /// A requested Intune step that never ran is not a success. Passing it because it is
@@ -193,8 +183,6 @@ public class PackagingOutcomeTests
 
         Assert.Equal(1, outcome.ExitCode);
     }
-
-    // ── What MECM actually did ──────────────────────────────────
 
     /// <summary>
     /// Skip finds a title already on the site and succeeds without creating anything, so
@@ -231,8 +219,6 @@ public class PackagingOutcomeTests
         bool succeeded, bool alreadyExists, MecmStepStatus expected) =>
         Assert.Equal(expected, PackagingOutcomeComposer.MecmStatus(true, succeeded, alreadyExists));
 
-    // ── Status drives the decision, not note text ───────────────
-
     /// <summary>A published app whose note happens to contain "failed" is still a success.</summary>
     [Fact]
     public void TheDecisionReadsTheStatusRatherThanTheNoteText()
@@ -262,8 +248,6 @@ public class PackagingOutcomeTests
         Assert.Equal("publish failed: y",
             IntuneRunOutcome.PublishFailed("built z", "publish failed: y").FailureNote);
     }
-
-    // ── Cancellation ────────────────────────────────────────────
 
     /// <summary>
     /// Cancellation is not an outcome status: it propagates out of the publish instead, so

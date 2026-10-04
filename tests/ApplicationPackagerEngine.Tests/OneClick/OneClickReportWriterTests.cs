@@ -33,7 +33,7 @@ public sealed class OneClickReportWriterTests : IDisposable
         var run = new OneClickReportRun
         {
             Started = new DateTime(2026, 4, 1, 10, 0, 0), Ended = new DateTime(2026, 4, 1, 10, 12, 30),
-            Operator = @"CONTOSO\jason", Computer = "WS01", Action = "Stage and Publish",
+            Operator = @"CONTOSO\operator", Computer = "WS01", Action = "Stage and Publish",
             Scope = new Dictionary<string, string> { ["ConfigMgr"] = "deploy to collection Pilot Devices", ["WSUS"] = "approved for group Pilot", ["Intune"] = "app created, not assigned" }
         };
         var rows = new[]
@@ -56,7 +56,7 @@ public sealed class OneClickReportWriterTests : IDisposable
         var data = JsonNode.Parse(File.ReadAllText(json))!.AsObject();
         Assert.Equal(3, data["Applications"]!.AsArray().Count);
         Assert.Equal("1111-2222", (string?)data["Applications"]![0]!["WSUS"]!["Id"]);
-        Assert.Equal(@"CONTOSO\jason", (string?)data["Operator"]);
+        Assert.Equal(@"CONTOSO\operator", (string?)data["Operator"]);
 
         var list = OneClickReportWriter.List(folder);
         Assert.Single(list);

@@ -5,10 +5,9 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// The EXE uninstall wrapper has to run the product's own uninstaller. An
-/// earlier body ran the first non-msiexec Add/Remove Programs entry it met,
-/// which on a machine with two Inno Setup products removed whichever one
-/// enumerated first.
+/// The EXE uninstall wrapper has to run the product's own uninstaller. A body
+/// that runs the first non-msiexec Add/Remove Programs entry it meets removes,
+/// on a machine with two Inno Setup products, whichever one enumerates first.
 /// </summary>
 public sealed class ArpLookupUninstallTests : IDisposable
 {

@@ -4,8 +4,8 @@ using ApplicationPackagerEngine.Models;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// The hop patterns of the definitions that replaced pinned vendor values, run
-/// against canned response fragments. Guards the regexes and the definitions
+/// The hop patterns of multi-hop scraper definitions, run against canned
+/// response fragments. Guards the regexes and the definitions
 /// together without touching the network.
 /// </summary>
 public class CatalogPortScraperTests
@@ -23,8 +23,6 @@ public class CatalogPortScraperTests
         Assert.True(match.Success, $"Pattern did not match: {hop.Pattern}");
         return match;
     }
-
-    // ── Omnissa Horizon Client ──────────────────────────────────────
 
     private const string OmnissaDlgList =
         """{"dlgEditionsLists":[{"name":"Omnissa Horizon Client for Windows","dlgList":[{"name":"Omnissa Horizon Client for Windows","code":"CART27FQ2_WIN_2606","releaseDate":"2026-08-24 15:00:00.0","productId":"1616"}]}]}""";
@@ -56,8 +54,6 @@ public class CatalogPortScraperTests
             Path.Combine(AppContext.BaseDirectory, "Definitions", "omnissahorizonclient.json"));
         Assert.DoesNotContain("CART27FQ2_WIN_2606", json);
     }
-
-    // ── MariaDB Server ──────────────────────────────────────────────
 
     private const string MariaDbIndex =
         """{"major_releases": [{"release_id": "13.1", "release_status": "Preview", "release_support_type": null}, {"release_id": "13.0", "release_status": "RC", "release_support_type": "Rolling"}, {"release_id": "12.3", "release_status": "Stable", "release_support_type": "Long Term Support"}, {"release_id": "11.8", "release_status": "Stable", "release_support_type": "Long Term Support"}, {"release_id": "10.6", "release_status": "Stable", "release_support_type": "Short Term Support"}]}""";
@@ -94,8 +90,6 @@ public class CatalogPortScraperTests
         Assert.Equal("https://downloads.mariadb.org/rest-api/mariadb/", config.Url);
     }
 
-    // ── Agent Ransack ───────────────────────────────────────────────
-
     private const string AgentRansackPage =
         """<a href="//download.mythicsoft.com/flp/3562/X4aef2vyu.bzx/agentransack_x86_msi_3562.zip">x86</a><a href="//download.mythicsoft.com/flp/3562/X4aef2vyu.bzx/agentransack_x64_msi_3562.zip">x64</a>""";
 
@@ -121,8 +115,6 @@ public class CatalogPortScraperTests
             resolved);
     }
 
-    // ── PDF Studio Viewer ───────────────────────────────────────────
-
     [Fact]
     public void PdfStudioViewer_YearTokenAgreesAcrossEveryFieldThatCarriesIt()
     {
@@ -140,16 +132,12 @@ public class CatalogPortScraperTests
         Assert.Single(years.Distinct());
     }
 
-    // ── Salesforce CLI ──────────────────────────────────────────────
-
     [Fact]
     public void SalesforceCli_KeepsTheNoUserAgentFeedFlag()
     {
         // The feed answers an HTML error page to a browser User-Agent.
         Assert.True(DefinitionFixture.Load("salesforcecli.json").VersionScraper.NoUserAgent);
     }
-
-    // ── RVTools ─────────────────────────────────────────────────────
 
     [Fact]
     public void RvTools_ProbesTheDownloadHostFromAFloorVersion()

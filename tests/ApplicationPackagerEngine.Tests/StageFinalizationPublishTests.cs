@@ -26,8 +26,6 @@ public sealed class StageFinalizationPublishTests : IDisposable
 
     private static JsonNode Ops(string json) => WorkbenchJson.Parse(json)!;
 
-    // ── Requirement operations ──────────────────────────────────
-
     [Fact]
     public void AddReplaceAndRemoveMatchByRuleIdOrConditionId()
     {
@@ -70,8 +68,6 @@ public sealed class StageFinalizationPublishTests : IDisposable
         Assert.Equal("cpu-arch", Assert.Single(spec.Requirements).ConditionId);
     }
 
-    // ── Setup file ──────────────────────────────────────────────
-
     [Theory]
     [InlineData(null, new string[0], "install.bat")]
     [InlineData("\"%~dp0Deploy-Application.exe\" -DeploymentType Install", new[] { "Deploy-Application.exe" }, "Deploy-Application.exe")]
@@ -102,8 +98,6 @@ public sealed class StageFinalizationPublishTests : IDisposable
         };
         Assert.Equal(@"arm64\go.bat", SetupFileResolver.Resolve(stage, manifest));
     }
-
-    // ── Deployment type timing and execution ────────────────────
 
     [Fact]
     public void ManifestTimingOutranksTheCallerDefaults()
@@ -227,8 +221,6 @@ public sealed class StageFinalizationPublishTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => Script(manifest));
     }
 
-    // ── Intune script conversion opt-in ─────────────────────────
-
     private static StageDetection PrefixDetection(bool? conversion) => new()
     {
         Type = "RegistryKeyValue",
@@ -274,8 +266,6 @@ public sealed class StageFinalizationPublishTests : IDisposable
         };
         Assert.Throws<InvalidOperationException>(() => IntunePublishService.BuildRules(compound));
     }
-
-    // ── Intune setup file and custom icon ───────────────────────
 
     private static IntunePublishOptions Options() => new()
     {
@@ -331,8 +321,6 @@ public sealed class StageFinalizationPublishTests : IDisposable
 
         Assert.Equal("image/png", (string?)body["largeIcon"]!["type"]);
     }
-
-    // ── Stored signing policy and the network folder scope ─────
 
     [Fact]
     public void AStoredPolicyWithAMalformedThumbprintIsNotAdopted()

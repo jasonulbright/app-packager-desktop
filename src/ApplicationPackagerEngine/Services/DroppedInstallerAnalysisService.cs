@@ -491,8 +491,6 @@ public sealed class DroppedInstallerAnalysisService
         };
     }
 
-    // ── identity resolution ──────────────────────────────────────
-
     private static ProposedField ResolveIdentity(
         string? msiValue, string? metadataValue, string? versionInfoValue, bool isMsi, string? metadataSource,
         string? scriptValue = null, string? scriptSource = null)
@@ -559,8 +557,6 @@ public sealed class DroppedInstallerAnalysisService
             : template.Equals("Arm64", StringComparison.OrdinalIgnoreCase)
                 ? "ARM64"
                 : "x64";
-
-    // ── ARP key prediction ───────────────────────────────────────
 
     /// <summary>
     /// Predicts the Add/Remove Programs key the installer writes. Returns null when the

@@ -6,11 +6,10 @@ using ApplicationPackagerEngine.Models;
 namespace ApplicationPackagerEngine.Scrapers;
 
 /// <summary>
-/// Scrapes a web page via HTTP GET and extracts a version string
-/// using a regex pattern. Covers ~80% of apps.
-///
-/// Uses powershell.exe Invoke-WebRequest via temp script file to avoid
-/// argument escaping issues with URLs containing &amp; characters.
+/// Scrapes a web page via HTTP GET with curl.exe and extracts a version string
+/// using a regex pattern. Pattern LAST_MODIFIED reads the Last-Modified header as
+/// a date version; a REDIR: prefix matches against the final redirect URL instead
+/// of the page body.
 /// </summary>
 public class HttpRegexScraper : IVersionScraper
 {
@@ -41,7 +40,6 @@ public class HttpRegexScraper : IVersionScraper
     private async Task<(string? Version, string? DownloadUrl)> FetchVersionAndUrlAsync(
         VersionScraperConfig config, CancellationToken ct)
     {
-        // LAST_MODIFIED mode: extract version from HTTP Last-Modified header as date
         if (config.Pattern.Equals("LAST_MODIFIED", StringComparison.OrdinalIgnoreCase))
         {
             var dateVersion = await FetchLastModifiedVersionAsync(config.Url, ct);
@@ -64,7 +62,7 @@ public class HttpRegexScraper : IVersionScraper
         if (!string.IsNullOrEmpty(config.DownloadUrlQuery))
         {
             // {version} lets the URL pattern target the same release the version came from,
-            // which matters once max-by-version selection can pick a later match.
+            // which matters when max-by-version selection picks a later match.
             var urlPattern = version is not null
                 ? config.DownloadUrlQuery.Replace("{version}", Regex.Escape(version))
                 : config.DownloadUrlQuery;
@@ -124,13 +122,13 @@ public class HttpRegexScraper : IVersionScraper
         }
 
         var stdout = await stdoutTask;
-        // Exit 0 = success, exit 63 = --max-filesize exceeded (expected — we only need the URL)
+        // Exit 63 is --max-filesize exceeded, which is expected: only the effective URL is read.
         return (process.ExitCode == 0 || process.ExitCode == 63) && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 
     protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null, IReadOnlyList<string>? headers = null)
     {
-        // Use curl.exe: handles 308 redirects, avoids PS5.1 IWR quirks, better WAF compatibility
+        // curl.exe follows a 308 redirect, which Invoke-WebRequest under Windows PowerShell 5.1 does not.
         var headerFile = GitHubRateLimit.NewHeaderFile();
         using var process = CurlProcess.Start(
             ["-L", "--silent", "--show-error", "--max-time", "25", .. GitHubRateLimit.HeaderArguments(headerFile), .. UserAgentArguments(userAgent), .. headers ?? []], url);

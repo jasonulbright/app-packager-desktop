@@ -54,8 +54,6 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
         });
     }
 
-    // ── Script editors ──────────────────────────────────────────
-
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
@@ -104,8 +102,6 @@ public partial class WorkbenchWindow : IWorkbenchPrompts
     private void ExportBundle_Click(object sender, RoutedEventArgs e) => _viewModel.ExportBundleCommand.Execute(null);
 
     private void ImportBundle_Click(object sender, RoutedEventArgs e) => _viewModel.ImportBundleCommand.Execute(null);
-
-    // ── IWorkbenchPrompts ───────────────────────────────────────
 
     private async Task<ContentDialogResult> ShowAsync(ContentDialog dialog)
     {

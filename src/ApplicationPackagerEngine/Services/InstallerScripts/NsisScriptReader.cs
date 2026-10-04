@@ -82,8 +82,6 @@ public static class NsisScriptReader
 
     private static readonly Encoding Latin1 = Encoding.Latin1;
 
-    // ── Header location and expansion ───────────────────────────────
-
     /// <summary>
     /// File offset of the firstheader, or -1. It is flags (4) + 0xDEADBEEF (4)
     /// + "NullsoftInst" (12) + header length (4) + total length (4) at a
@@ -259,8 +257,6 @@ public static class NsisScriptReader
         return result;
     }
 
-    // ── Header table ────────────────────────────────────────────────
-
     /// <summary>The decoded header block with its string table and language strings.</summary>
     public sealed class HeaderTable
     {
@@ -386,8 +382,6 @@ public static class NsisScriptReader
         result.LangStrings = langStrings;
         return result;
     }
-
-    // ── Strings ─────────────────────────────────────────────────────
 
     /// <summary>
     /// Decodes one string-table entry into script notation. Escape codes 1
@@ -516,8 +510,6 @@ public static class NsisScriptReader
         return p;
     }
 
-    // ── Registry roots ──────────────────────────────────────────────
-
     private static string RootKeyName(uint root) => root switch
     {
         0x80000000 => "HKCR",
@@ -544,8 +536,6 @@ public static class NsisScriptReader
         };
         return (RootKeyName(u & 0x9FFFFFFF), view);
     }
-
-    // ── Metadata ────────────────────────────────────────────────────
 
     /// <summary>
     /// Decompresses the header block and walks the entry list for

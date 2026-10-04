@@ -131,8 +131,6 @@ public sealed class PublishSettingsContractTests : IDisposable
         Assert.True(systems.ConfigMgr && systems.Intune && systems.Wsus);
     }
 
-    // ── Setup ───────────────────────────────────────────────────
-
     [Fact]
     public void SetupWithoutConfigMgrStoresAnEmptySiteCodeAndNamesEveryDefaultDestination()
     {
@@ -173,8 +171,6 @@ public sealed class PublishSettingsContractTests : IDisposable
         Assert.Equal("Setup complete. One Click publishes to no destination; change it in Settings, One Click Settings.",
             OneClickSettingsMap.SetupCompleteLine(new DestinationSet()));
     }
-
-    // ── Stage outputs ───────────────────────────────────────────
 
     [Fact]
     public void APs1StageNamesItsManifestByTheWrittenLineOrTheStageCompleteFolder()
