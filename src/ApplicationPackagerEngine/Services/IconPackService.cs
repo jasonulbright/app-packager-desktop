@@ -63,7 +63,7 @@ public sealed class IconPackService
     public const string Repository = "jasonulbright/app-packager-icons";
     public const string PackAssetName = "icon-pack.zip";
     public const string ChecksumAssetName = "checksums.txt";
-    private const string UserAgent = "packr-icon-pack";
+    private const string UserAgent = "app-packager-desktop-icon-pack";
 
     private static readonly JsonSerializerOptions ManifestOptions = new()
     {
@@ -403,7 +403,7 @@ public sealed class IconPackService
 
         var warning = SatisfiesAppVersion(manifest.MinAppVersion, appVersion)
             ? ""
-            : $" Pack targets packr {manifest.MinAppVersion} or newer; installed anyway.";
+            : $" Pack targets App Packager Desktop {manifest.MinAppVersion} or newer; installed anyway.";
 
         var message = $"Icon pack {sourceLabel} installed: {copied} icons for {map.MatchedEntries} packagers, "
                     + $"{map.Unmatched.Count} without a matching definition.{warning}";

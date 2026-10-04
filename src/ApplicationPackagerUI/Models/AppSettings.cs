@@ -56,8 +56,6 @@ public sealed class AppSettings
 
     public string AcquisitionMethod { get; set; } = "StaticUrl"; // "StaticUrl" or "Winget"
 
-    public bool AutoCheckLatestOnLaunch { get; set; } = true;
-
     /// <summary>
     /// When true, skip the installer settings review dialog before staging.
     /// Individual apps with ReviewBeforeStage=true will still prompt.

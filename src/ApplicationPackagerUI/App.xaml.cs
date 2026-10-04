@@ -25,7 +25,7 @@ public partial class App : Application
         {
             System.Windows.MessageBox.Show(
                 $"Error: {args.Exception.Message}\n\n{args.Exception.StackTrace?[..Math.Min(500, args.Exception.StackTrace?.Length ?? 0)]}",
-                "Application Packager",
+                "App Packager Desktop",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
             args.Handled = true;

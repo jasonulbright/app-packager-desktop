@@ -60,8 +60,8 @@ public class GitHubApiStatusTests
     [Fact]
     public void MissingUserBody_LeavesTheAccountBlank()
     {
-        var status = GitHubApiStatusService.Parse(AuthenticatedRateLimit, null, true, "PACKR_GITHUB_TOKEN");
-        Assert.Equal("Authenticated - PACKR_GITHUB_TOKEN (5,000 requests/hour, 4,991 remaining)", status.StatusText());
+        var status = GitHubApiStatusService.Parse(AuthenticatedRateLimit, null, true, "APP_PACKAGER_GITHUB_TOKEN");
+        Assert.Equal("Authenticated - APP_PACKAGER_GITHUB_TOKEN (5,000 requests/hour, 4,991 remaining)", status.StatusText());
     }
 
     [Fact]
@@ -70,8 +70,8 @@ public class GitHubApiStatusTests
         static Func<string, string?> Env(params (string Name, string? Value)[] pairs) =>
             name => pairs.FirstOrDefault(p => p.Name == name).Value;
 
-        Assert.Equal(("a", "PACKR_GITHUB_TOKEN"),
-            GitHubAuth.ResolveTokenWithSource(Env(("PACKR_GITHUB_TOKEN", "a"), ("GITHUB_TOKEN", "b")), () => "c"));
+        Assert.Equal(("a", "APP_PACKAGER_GITHUB_TOKEN"),
+            GitHubAuth.ResolveTokenWithSource(Env(("APP_PACKAGER_GITHUB_TOKEN", "a"), ("GITHUB_TOKEN", "b")), () => "c"));
         Assert.Equal(("b", "GITHUB_TOKEN"),
             GitHubAuth.ResolveTokenWithSource(Env(("GITHUB_TOKEN", "b")), () => "c"));
         Assert.Equal(("c", "gh auth login"),

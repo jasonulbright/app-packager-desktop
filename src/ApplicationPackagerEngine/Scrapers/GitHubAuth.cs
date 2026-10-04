@@ -9,7 +9,7 @@ namespace ApplicationPackagerEngine.Scrapers;
 /// Anonymous api.github.com requests share a 60/hour budget per source address,
 /// which a full-catalog sweep exhausts. A token raises the budget to 5000/hour.
 ///
-/// Resolution order: PACKR_GITHUB_TOKEN, GITHUB_TOKEN, then `gh auth token`.
+/// Resolution order: APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, then `gh auth token`.
 /// No token resolves to null and every request stays anonymous.
 /// </summary>
 public static class GitHubAuth
@@ -59,7 +59,7 @@ public static class GitHubAuth
 
     /// <summary>
     /// Token resolution with injected lookups. Returns the first non-empty of
-    /// PACKR_GITHUB_TOKEN, GITHUB_TOKEN, or the gh CLI, else null.
+    /// APP_PACKAGER_GITHUB_TOKEN, GITHUB_TOKEN, or the gh CLI, else null.
     /// </summary>
     public static string? ResolveToken(Func<string, string?> readEnv, Func<string?> readGhCli)
         => ResolveTokenWithSource(readEnv, readGhCli).Token;
@@ -72,7 +72,7 @@ public static class GitHubAuth
     public static (string? Token, string? Source) ResolveTokenWithSource(
         Func<string, string?> readEnv, Func<string?> readGhCli)
     {
-        foreach (var name in new[] { "PACKR_GITHUB_TOKEN", "GITHUB_TOKEN" })
+        foreach (var name in new[] { "APP_PACKAGER_GITHUB_TOKEN", "GITHUB_TOKEN" })
         {
             var value = readEnv(name)?.Trim();
             if (!string.IsNullOrEmpty(value)) return (Sanitize(value), name);

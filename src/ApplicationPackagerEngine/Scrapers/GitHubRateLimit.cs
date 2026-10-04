@@ -67,7 +67,7 @@ public static partial class GitHubRateLimit
             reset = $"; it resets at {DateTimeOffset.FromUnixTimeSeconds(epoch).ToLocalTime():yyyy-MM-dd HH:mm}";
         var who = string.IsNullOrEmpty(GitHubAuth.TokenSource) ? "anonymous requests" : "the token from " + GitHubAuth.TokenSource;
         return $"GitHub API rate limit reached for {url} (HTTP {status}, {who}){reset}. " +
-               "Set PACKR_GITHUB_TOKEN or GITHUB_TOKEN, or run gh auth login, to raise the limit; Settings shows the current budget.";
+               "Set APP_PACKAGER_GITHUB_TOKEN or GITHUB_TOKEN, or run gh auth login, to raise the limit; Settings shows the current budget.";
     }
 
     /// <summary>The lines of the last header block in a curl -D file: the final hop after redirects.</summary>

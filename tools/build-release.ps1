@@ -91,6 +91,12 @@ if (-not $PackageOnly) {
         if (-not (Test-Path $published)) { throw "Published executable missing: $published" }
     }
 
+    # The license of the product and the notices of the bundled components ship with the binaries.
+    foreach ($notice in 'LICENSE', 'THIRD-PARTY-NOTICES.md') {
+        Copy-Item -LiteralPath (Join-Path $repoRoot $notice) -Destination $stageDir -Force
+    }
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'licenses') -Destination $stageDir -Recurse -Force
+
     if ($PublishOnly) {
         Write-Host ''
         Write-Host "stage      : $stageDir"

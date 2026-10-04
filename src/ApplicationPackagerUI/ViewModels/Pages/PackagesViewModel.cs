@@ -266,7 +266,7 @@ public partial class PackagesViewModel : ObservableObject
             if (!_logInitialized)
             {
                 Directory.CreateDirectory(LogDir);
-                var header = $"--- SRL Packr session started {DateTime.Now:yyyy-MM-dd HH:mm:ss} ---{Environment.NewLine}";
+                var header = $"--- App Packager Desktop session started {DateTime.Now:yyyy-MM-dd HH:mm:ss} ---{Environment.NewLine}";
                 File.WriteAllText(SessionLogPath, header);
                 File.AppendAllText(PersistentLogPath, Environment.NewLine + header);
                 _logInitialized = true;
@@ -324,10 +324,6 @@ public partial class PackagesViewModel : ObservableObject
         ApplyFilter();
 
         _ = TestMecmConnectionAsync();
-
-        // The constant false disables the launch auto-check: AutoCheckLatestOnLaunch has no effect.
-        if (false && settings.AutoCheckLatestOnLaunch)
-            _ = AutoCheckLatestAsync();
     }
 
     /// <summary>
@@ -391,22 +387,6 @@ public partial class PackagesViewModel : ObservableObject
         if (selected.Count == 0) { ShowNoneSelected("Check Latest"); return; }
 
         await RunCheckLatestOnList(selected, "Checking latest versions...", "Latest check");
-    }
-
-    /// <summary>
-    /// Auto-check on launch: checks ALL packagers in priority order (browsers first, then oldest).
-    /// Runs in background without requiring selection.
-    /// </summary>
-    private async Task AutoCheckLatestAsync()
-    {
-        // Small delay to let UI finish rendering
-        await Task.Delay(500);
-
-        var ordered = Packagers.OrderBy(p => p.CheckPriority).ToList();
-        if (ordered.Count == 0) return;
-
-        AddLogLine("Auto-check: starting background version check (priority order)...");
-        await RunCheckLatestOnList(ordered, "Auto-checking latest versions...", "Auto-check");
     }
 
     private async Task<PackagingRunTally> RunCheckLatestOnList(
