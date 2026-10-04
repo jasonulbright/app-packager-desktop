@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Services;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -62,5 +63,54 @@ public class VsCodeDefinitionTests
         Assert.NotEqual(system.Id, user.Id);
         Assert.NotEqual(system.CMName, user.CMName);
         Assert.NotEqual(system.Application, user.Application);
+    }
+
+    [Theory]
+    [InlineData("vscode.json", "Machine", "InstallForSystem")]
+    [InlineData("vscode-user.json", "User", "InstallForUser")]
+    public void PackagedInstallScopeAndDetectionFollowTheSelectedDefinition(
+        string definitionFile, string installContext, string installBehavior)
+    {
+        var definition = DefinitionFixture.Load(definitionFile);
+        const string version = "1.2.3";
+        var detection = StagingService.BuildDetection(definition, null, version, version);
+        var manifest = new StageManifest
+        {
+            AppName = definition.CMName!,
+            DisplayName = definition.Application,
+            Publisher = definition.Vendor,
+            SoftwareVersion = version,
+            InstallerFile = definition.InstallerFileName!.Replace("{version}", version, StringComparison.OrdinalIgnoreCase),
+            InstallerType = definition.InstallerType,
+            Architecture = definition.Architecture,
+            InstallContext = definition.InstallContext,
+            InstallArgs = definition.InstallArgs,
+            UninstallArgs = definition.UninstallArgs,
+            UninstallCommand = definition.UninstallCommand,
+            Detection = detection
+        };
+
+        var script = MecmTarget.BuildPackageScript(manifest, manifest.AppName,
+            @"\\server\share\Applications\Microsoft\Visual Studio Code\1.2.3", "P01", "", 15, 30,
+            ConditionTemplateService.Defaults());
+
+        Assert.Equal(installContext, manifest.InstallContext);
+        Assert.Equal("1.2.3", detection.ExpectedValue);
+        Assert.Contains($"-InstallationBehaviorType {installBehavior}", script);
+        if (installContext == "User")
+        {
+            Assert.Equal("CurrentUser", detection.Hive);
+            Assert.Equal(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{771FD6B0-FA20-440A-A002-3B3BAC16DC50}_is1",
+                detection.RegistryKeyRelative);
+            Assert.Contains("-Hive CurrentUser", script);
+            Assert.DoesNotContain("-LogonRequirementType", script);
+            Assert.StartsWith(@"""%LOCALAPPDATA%\Programs\Microsoft VS Code\unins000.exe""", manifest.UninstallCommand);
+        }
+        else
+        {
+            Assert.Equal(@"C:\Program Files\Microsoft VS Code", detection.FilePath);
+            Assert.Contains("New-CMDetectionClauseFile", script);
+            Assert.Contains("-LogonRequirementType WhetherOrNotUserLoggedOn", script);
+        }
     }
 }
