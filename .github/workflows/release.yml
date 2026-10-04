@@ -3,18 +3,17 @@ name: Release
 # Run by hand from main once the csproj <Version> and the matching CHANGELOG
 # section are committed. The run tests, publishes, signs the published
 # executables (the application and AppPackagerBuild.exe) with Azure Artifact
-# Signing, compiles the installer from the
-# signed stage and signs that too, verifies both signatures, zips, tags
-# v<version> and publishes the GitHub release with the installer, the zip
-# and their checksums.
+# Signing, compiles the installer from the signed stage and signs that too,
+# verifies both signatures, zips, tags v<version> and publishes the GitHub
+# release with the installer, the zip and their checksums.
 #
 # The Azure login exchanges this job's OIDC token for the signing identity.
 # The federated credential on the app registration must carry this run's
 # subject. The repository presents the immutable form, so for a manual run
 # from main that is
-#   repo:jasonulbright@263023789/app-packager-desktop@1196436128:ref:refs/heads/main
-# A private repository on the Free plan has no environments, so the
-# environment-scoped subject form is not available here.
+#   repo:<owner>@<owner id>/<repository>@<repository id>:ref:refs/heads/main
+# The job declares no environment, so the subject has the ref form, not the
+# environment form.
 on:
   workflow_dispatch:
     inputs:
@@ -105,8 +104,7 @@ jobs:
         shell: pwsh
         run: ./tools/build-release.ps1 -PublishOnly -OutputRoot "$env:RUNNER_TEMP\publish"
 
-      # The current runner image carries no NSIS; the package manager on the
-      # image installs it in well under a minute.
+      # The runner image carries no NSIS; the image's package manager installs it.
       - name: Install NSIS
         shell: pwsh
         run: |
@@ -129,8 +127,9 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # The two single-file publishes leave two executables, the application
-      # and AppPackagerBuild.exe; any loose DLL beside them is signed as well. The timestamp is what keeps the signature valid
-      # after the short-lived signing certificate expires.
+      # and AppPackagerBuild.exe; any loose DLL beside them is signed as well.
+      # The timestamp keeps the signature valid after the short-lived signing
+      # certificate expires.
       - name: Sign the published files
         uses: azure/artifact-signing-action@v2
         with:

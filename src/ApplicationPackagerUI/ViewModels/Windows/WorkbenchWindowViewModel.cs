@@ -53,8 +53,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     public WorkbenchEditorSession? Session => _session;
     public bool IsDirty => _session?.IsDirty == true;
 
-    // ── Static option lists ──────────────────────────────────────
-
     public IReadOnlyList<string> Sections { get; } =
         ["Application", "Install & uninstall", "Detection", "Requirements & variants", "Timing & execution", "Source files", "Review & build"];
     public IReadOnlyList<string> TitleModeOptions => WorkbenchFieldMapping.TitleModeOptions;
@@ -74,8 +72,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     public IReadOnlyList<string> ExecInteractionOptions { get; } = ["Hidden", "Normal", "Minimized", "Maximized"];
     public IReadOnlyList<string> ExecScriptHostOptions { get; } = ["x64", "x86"];
 
-    // ── Header ───────────────────────────────────────────────────
-
     [ObservableProperty] private ObservableCollection<WorkbenchApplicationItem> _applications = [];
     [ObservableProperty] private WorkbenchApplicationItem? _selectedApplication;
     [ObservableProperty] private ObservableCollection<WorkbenchProfileChoice> _profiles = [];
@@ -84,8 +80,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<string> _builds = ["No sealed builds"];
     [ObservableProperty] private string _selectedBuild = "No sealed builds";
     [ObservableProperty] private int _selectedSectionIndex;
-
-    // ── Application ──────────────────────────────────────────────
 
     [ObservableProperty] private string _displayName = "";
     [ObservableProperty] private string _displayNameSource = "";
@@ -100,8 +94,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private string _provenanceText = "";
     [ObservableProperty] private string _iconPreviewPath = "";
     [ObservableProperty] private string _iconStateText = "";
-
-    // ── Install & uninstall ─────────────────────────────────────
 
     [ObservableProperty] private string _scriptTarget = "Install";
     [ObservableProperty] private string _installModeDisplay = "Generated";
@@ -120,8 +112,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private string _hookAfter = "";
     [ObservableProperty] private bool _afterRunsOnFailure;
     [ObservableProperty] private string _scriptNote = "";
-
-    // ── Detection ───────────────────────────────────────────────
 
     [ObservableProperty] private string _detectionMode = "Inherit";
     [ObservableProperty] private string _detectionType = "Registry";
@@ -146,8 +136,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private DetectionClauseRow? _selectedClause;
     public ObservableCollection<DetectionClauseRow> Clauses { get; } = [];
 
-    // ── Requirements & variants ─────────────────────────────────
-
     [ObservableProperty] private ObservableCollection<string> _requirementTemplates = [];
     [ObservableProperty] private string? _selectedRequirementTemplate;
     [ObservableProperty] private RequirementOperationRow? _selectedRequirement;
@@ -168,8 +156,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private bool _hasLangTemplate;
     [ObservableProperty] private bool _hasVpnTemplate;
 
-    // ── Timing & execution ──────────────────────────────────────
-
     [ObservableProperty] private bool _estimatedUseDefault = true;
     [ObservableProperty] private string _estimatedMinutes = "";
     [ObservableProperty] private string _estimatedEffective = "";
@@ -182,28 +168,18 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     [ObservableProperty] private string _execInteraction = "Hidden";
     [ObservableProperty] private string _execScriptHost = "x64";
 
-    // ── Source files ────────────────────────────────────────────
-
     [ObservableProperty] private SourceFileRow? _selectedSourceFile;
     public ObservableCollection<SourceFileRow> SourceFiles { get; } = [];
-
-    // ── Review & build ──────────────────────────────────────────
 
     [ObservableProperty] private ObservableCollection<WorkbenchDiffRow> _diffRows = [];
     [ObservableProperty] private ObservableCollection<WorkbenchFinding> _findings = [];
     [ObservableProperty] private string _resolvedPlan = "";
     public ObservableCollection<PriorBuildRow> PriorBuilds { get; } = [];
 
-    // ── Footer ──────────────────────────────────────────────────
-
     [ObservableProperty] private string _chipContent = "Content build: Not validated";
     [ObservableProperty] private string _chipConfigMgr = "ConfigMgr: Not validated";
     [ObservableProperty] private string _chipIntune = "Intune: Not validated";
     [ObservableProperty] private string _saveStateText = CleanText;
-
-    // ═════════════════════════════════════════════════════════════
-    // Loading
-    // ═════════════════════════════════════════════════════════════
 
     /// <summary>Lists the applications and opens the preselected one, or the first.</summary>
     public async Task InitializeAsync(string? preselectApplicationId = null)
@@ -494,10 +470,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         ResolvedPlan = WorkbenchReview.Plan(_session, WorkbenchReview.SigningLine(_settingsService.Load().ScriptSigning));
     }
 
-    // ═════════════════════════════════════════════════════════════
-    // Edits
-    // ═════════════════════════════════════════════════════════════
-
     /// <summary>Every edit ends here: labels, review, chips and the save-state line follow the session.</summary>
     private void AfterEdit()
     {
@@ -740,8 +712,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         if (value == ReviewSectionIndex) RefreshReview();
     }
 
-    // ── Header selection ────────────────────────────────────────
-
     partial void OnSelectedApplicationChanged(WorkbenchApplicationItem? oldValue, WorkbenchApplicationItem? newValue)
     {
         if (_loading || newValue is null || _session is null) return;
@@ -789,10 +759,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
         }
         finally { _loading = false; }
     }
-
-    // ═════════════════════════════════════════════════════════════
-    // Commands
-    // ═════════════════════════════════════════════════════════════
 
     [RelayCommand]
     private void ResetField(string? path)
@@ -1039,8 +1005,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
     private JsonObject? SelectedBuildRecord() =>
         _buildRecords.FirstOrDefault(r => string.Equals(WorkbenchJson.AsText(r["BuildId"]), SelectedBuild, StringComparison.OrdinalIgnoreCase));
 
-    // ── Parse diagnostics ───────────────────────────────────────
-
     private static readonly TimeSpan ParseDelay = TimeSpan.FromMilliseconds(500);
     private CancellationTokenSource? _parseCts;
 
@@ -1173,8 +1137,6 @@ public partial class WorkbenchWindowViewModel : ObservableObject
                 return false;
         }
     }
-
-    // ── Site condition names ────────────────────────────────────
 
     private void LoadSiteConditions()
     {

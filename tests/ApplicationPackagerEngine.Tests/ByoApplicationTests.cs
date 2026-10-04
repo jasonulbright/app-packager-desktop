@@ -35,8 +35,6 @@ public sealed class ByoApplicationTests : IDisposable
     private static StagingService Staging() => new(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
         new WrapperGeneratorService(), new ManifestService());
 
-    // ── Item 32: persistence ───────────────────────────────────
-
     [Fact]
     public void Save_PersistsTheDroppedInstallerAndItsFirstSourceRevision()
     {
@@ -89,8 +87,6 @@ public sealed class ByoApplicationTests : IDisposable
         Assert.Equal("uninst.exe /S", source.StageValues.UninstallCommand);
         Assert.True(source.StageValues.Confirmed);
     }
-
-    // ── Item 33: source revisions ──────────────────────────────
 
     [Fact]
     public void AReplacementWithAnotherArchitectureAndInstallerType_IsRevision2_AndFlagsBothAsBlocking()
@@ -190,8 +186,6 @@ public sealed class ByoApplicationTests : IDisposable
         Assert.ThrowsAny<Exception>(() => Store.SaveByoApplication(host + ":payload", Identity(), "Tool"));
         Assert.DoesNotContain(Store.DiscoverApplications(), a => a.Origin == ApplicationOrigin.Byo);
     }
-
-    // ── Item 40: resolving the revision a build stages ─────────
 
     [Fact]
     public void ABuildOfAByoApplicationWithNoRevision_ReportsTheByoError()
@@ -373,8 +367,6 @@ public sealed class ByoApplicationTests : IDisposable
         Assert.Null(ByoStaging.FindPriorStageManifest(plan, downloadRoot, ApplicationIds.DefaultProfileId, null, current));
     }
 
-    // ── Package without Stage: which prior stage is reused ─────
-
     private async Task<(string ApplicationId, string ProfileId, DroppedInstallerAnalysisService Analyzer)> StagedByoAsync(
         string downloadRoot, string name = "Test App", string? dropped = null)
     {
@@ -494,8 +486,6 @@ public sealed class ByoApplicationTests : IDisposable
     public void OnlyARunThatCanStageReadsTheCurrentInstallerRevision(ApplicationPackagerUI.Services.WorkbenchBuildOperation operation, string? buildId, bool expected) =>
         Assert.Equal(expected, ApplicationPackagerUI.Services.WorkbenchBuildLauncher.ByoNeedsCurrentSource(
             new ApplicationPackagerUI.Services.WorkbenchBuildRequest("byo:0123456789abcdef0123456789abcdef", "default", operation, RunTargets.Mecm, buildId)));
-
-    // ── Concurrent replacements ────────────────────────────────
 
     [Fact]
     public void ConcurrentReplacements_KeepEveryRevisionAndItsInstaller()

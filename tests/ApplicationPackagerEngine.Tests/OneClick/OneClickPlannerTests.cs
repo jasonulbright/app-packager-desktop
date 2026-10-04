@@ -41,8 +41,6 @@ public sealed class OneClickPlannerTests
         Dictionary<string, OneClickHistoryEntry>? history = null, string action = OneClickActionNames.StageAndPackage, bool force = false, DateTime? now = null) =>
         OneClickPlanner.Plan(apps, settings, history ?? new Dictionary<string, OneClickHistoryEntry>(), action, force, now ?? DateTime.UtcNow);
 
-    // ── Destination sets ────────────────────────────────────────
-
     [Theory]
     [InlineData("MECM", true, false, false)]
     [InlineData("MECMAndWSUS", true, true, false)]
@@ -93,8 +91,6 @@ public sealed class OneClickPlannerTests
         Assert.Equal("Default", OneClickPlanner.DestinationsFor(settings, "package-b").Source);
     }
 
-    // ── Readiness and scope ─────────────────────────────────────
-
     [Fact]
     public void ADestinationIsReadyWhenInUseAndConfigured()
     {
@@ -116,8 +112,6 @@ public sealed class OneClickPlannerTests
         Assert.Equal("app created, not assigned", OneClickPlanner.Scope("Intune", scope));
         Assert.Equal("application only, no distribution, no deployment", OneClickPlanner.Scope("ConfigMgr", new OneClickScopeSettings()));
     }
-
-    // ── Plan ────────────────────────────────────────────────────
 
     [Fact]
     public void OnlyTrackedApplicationsArePlanned()
@@ -257,8 +251,6 @@ public sealed class OneClickPlannerTests
         Assert.True(Plan(Settings(), [App("package-a")], history, OneClickActionNames.Stage)[0].Include);
     }
 
-    // ── Summary ─────────────────────────────────────────────────
-
     [Fact]
     public void TheCountLineCountsThePublishesPerDestinationAndTheSkippedRows()
     {
@@ -286,8 +278,6 @@ public sealed class OneClickPlannerTests
         Assert.Equal("Action: check only. Existing ConfigMgr application: skip.", OneClickPlanner.ActionLine("Report", "Skip"));
         Assert.Equal("Action: check, stage and publish. Existing ConfigMgr application: overwrite.", OneClickPlanner.ActionLine("StageAndPackage", "Overwrite"));
     }
-
-    // ── Run decisions ───────────────────────────────────────────
 
     [Fact]
     public void TheRunGuardSkipsADestinationThatHasTheVersionTheCheckFound()

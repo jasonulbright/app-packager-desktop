@@ -12,8 +12,6 @@ public sealed class WorkbenchStoreHardeningTests : IDisposable
 
     public void Dispose() => _root.Dispose();
 
-    // ── W1: ids ────────────────────────────────────────────────
-
     [Theory]
     [InlineData("..")]
     [InlineData(".")]
@@ -64,8 +62,6 @@ public sealed class WorkbenchStoreHardeningTests : IDisposable
         Assert.Equal(Path.Combine(parent, "a", "b"), WorkbenchPaths.CombineUnder(parent, "a", "b"));
     }
 
-    // ── W2: asset ids ──────────────────────────────────────────
-
     [Theory]
     [InlineData(@"C:\Windows\System32")]
     [InlineData(@"..\..\..")]
@@ -89,8 +85,6 @@ public sealed class WorkbenchStoreHardeningTests : IDisposable
         Assert.Contains(asset.AssetId, ex.Message);
     }
 
-    // ── W3: build ids ──────────────────────────────────────────
-
     [Fact]
     public void ASnapshotWithAnExistingBuildId_IsRefused()
     {
@@ -109,8 +103,6 @@ public sealed class WorkbenchStoreHardeningTests : IDisposable
     [InlineData("build.")]
     public void ABuildIdThatIsNotAPlainFileName_IsRejected(string buildId) =>
         Assert.Throws<ArgumentException>(() => Store.CreateRunSnapshot(new RunSnapshotRequest { ApplicationId = App, BuildId = buildId }));
-
-    // ── W4: revision guard ─────────────────────────────────────
 
     [Fact]
     public void TwoSavesFromTheSameRevision_OneSucceedsAndOneIsRefused()
@@ -139,8 +131,6 @@ public sealed class WorkbenchStoreHardeningTests : IDisposable
             Assert.Equal(loaded.Revision + 1, Store.GetProfile(App, saved.ProfileId).Revision);
         }
     }
-
-    // ── W5: atomic replace ─────────────────────────────────────
 
     [Fact]
     public void AReplaceThatFailsAfterMovingTheOriginal_LeavesTheOriginalInPlace()

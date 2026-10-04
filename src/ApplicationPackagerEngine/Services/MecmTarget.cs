@@ -48,7 +48,6 @@ public sealed partial class MecmTarget
             var versionFolder = (contentScope ?? Workbench.ProfileContentScope.Default).ScopedVersionFolder(version);
             var networkContentPath = ContentLayouts.ContentPath(fileServerPath, contentLayout ?? ContentLayouts.Nested, vendorFolder, appFolder, versionFolder);
 
-            // 0. Validate content share accessibility
             var shareRoot = Path.GetPathRoot(fileServerPath) ?? fileServerPath;
             if (fileServerPath.StartsWith(@"\\") && !Directory.Exists(fileServerPath))
             {
@@ -59,7 +58,7 @@ public sealed partial class MecmTarget
                 };
             }
 
-            // 0b. Title collision, decided before anything is written. A Skip
+            // Title collision, decided before anything is written. A Skip
             // or Fail run that finds the title must leave the share content of
             // the existing application unchanged.
             if (ProbesBeforeContentCopy(onExisting))
@@ -82,7 +81,6 @@ public sealed partial class MecmTarget
                     return new PackagingResult { Success = true, AlreadyExists = true, ApplicationName = appName };
             }
 
-            // 1. Mirror content to the network, refreshing files whose content changed.
             onProgress?.Invoke($"Network content path: {networkContentPath}");
 
             // The local stage is the source of the copy, so a stage that no longer
@@ -126,7 +124,6 @@ public sealed partial class MecmTarget
             if (manifest.FileHashes is { Length: > 0 })
                 onProgress?.Invoke($"Content integrity verified: {manifest.FileHashes.Length} file(s).");
 
-            // 2. Build the PowerShell script for CM app creation
             onProgress?.Invoke("Connecting to ConfigMgr...");
             // Only a manifest asking for CM's native Appx deployment type takes
             // that path. An MSIX staged with wrappers and a Script detection is
@@ -138,7 +135,6 @@ public sealed partial class MecmTarget
                     conditionTemplates, commandOverrides, onProgress, requirements, providerMachine,
                     onExisting, scriptSigning, contentOptions);
 
-            // 3. Execute via Windows PowerShell 5.1
             var result = await WindowsPowerShellHost.RunAsync(psScript, onProgress, ct);
 
             if (result.ExitCode == 0)
@@ -341,8 +337,8 @@ public sealed partial class MecmTarget
                 AppendConflictMarker(sb, appName, manifest.SoftwareVersion, "        ", "$app");
                 if (!string.IsNullOrWhiteSpace(manifest.Icon))
                 {
-                    // An idempotent rerun still applies the icon, so a package created
-                    // before icon support gains one without a version change.
+                    // An idempotent rerun still applies the icon, so an application
+                    // without one gains it without a version change.
                     var idemIconPath = Path.Combine(networkContentPath, manifest.Icon);
                     sb.AppendLine($"        $idemIcon = '{Esc(idemIconPath)}'");
                     sb.AppendLine("        if (Test-Path -LiteralPath \"FileSystem::$idemIcon\" -PathType Leaf) {");
@@ -783,25 +779,21 @@ public sealed partial class MecmTarget
     {
         var sb = new StringBuilder();
 
-        // Import CM module
         sb.AppendLine("$ErrorActionPreference = 'Stop'");
         sb.AppendLine("$cmModule = Join-Path $env:SMS_ADMIN_UI_PATH '..\\ConfigurationManager.psd1'");
         sb.AppendLine("if (Test-Path $cmModule) { Import-Module $cmModule }");
         sb.AppendLine("else { Import-Module ConfigurationManager }");
 
-        // Create PSDrive if needed
         sb.AppendLine($"if (-not (Get-PSDrive -Name '{Esc(siteCode)}' -ErrorAction SilentlyContinue)) {{");
         sb.AppendLine($"    New-PSDrive -Name '{Esc(siteCode)}' -PSProvider CMSite -Root {CmSiteRoot(providerMachine)} | Out-Null");
         sb.AppendLine("}");
         sb.AppendLine($"Set-Location '{Esc(siteCode)}:'");
         sb.AppendLine("Write-Host 'Connected to MECM'");
 
-        // Check for existing app
         sb.AppendLine("$existing = $null");
         sb.AppendLine($"try {{ $existing = Get-CMApplication -Name '{Esc(appName)}' -Fast -ErrorAction SilentlyContinue }} catch {{ }}");
         sb.AppendLine("if ($existing) { Write-Host 'Application already exists'; exit 0 }");
 
-        // Create application
         sb.AppendLine("Write-Host 'Creating application...'");
         sb.Append($"$app = New-CMApplication -Name '{Esc(appName)}'");
         sb.Append($" -Publisher '{Esc(manifest.Publisher)}'");
@@ -812,7 +804,6 @@ public sealed partial class MecmTarget
 
         sb.AppendLine("Write-Host \"CI_ID: $($app.CI_ID)\"");
 
-        // Find the MSIX file in the content path
         sb.AppendLine($"$msixFile = Get-ChildItem -Path '{Esc(networkContentPath)}' -Filter '*.msix' -ErrorAction SilentlyContinue | Select-Object -First 1");
         sb.AppendLine("if (-not $msixFile) { $msixFile = Get-ChildItem -Path '" + Esc(networkContentPath) + "' -Filter '*.appx' -ErrorAction SilentlyContinue | Select-Object -First 1 }");
         sb.AppendLine("if (-not $msixFile) { throw 'No .msix or .appx file found in content path' }");
@@ -826,7 +817,6 @@ public sealed partial class MecmTarget
         sb.Append(" -Force");
         sb.AppendLine(" | Out-Null");
 
-        // Clean up revision history
         sb.AppendLine("try {");
         sb.AppendLine($"  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop");
         sb.AppendLine("  if (@($revisions).Count -gt 1) {");
@@ -996,12 +986,6 @@ public sealed partial class MecmTarget
     private static string EscDq(string value) => PowerShellLiteral.EscapeDoubleQuoted(value);
 
     /// <summary>
-    /// Sanitizes a string for use as a filesystem folder name.
-    /// Strips trailing dots/spaces (Windows silently removes these), replaces commas
-    /// and other problematic characters. Only allows alphanumeric, space, dot, hyphen, underscore.
-    /// </summary>
-    /// <summary>Public accessor for BareStaging and other services that need sanitized folder names.</summary>
-    /// <summary>
     /// The -RebootBehavior a script deployment type is created with. A manifest that
     /// names none takes BasedOnExitCode, so a 3010 exit reaches the client as a restart.
     /// </summary>
@@ -1010,11 +994,14 @@ public sealed partial class MecmTarget
 
     internal static string SanitizeFolderNamePublic(string name) => SanitizeFolderName(name);
 
+    /// <summary>
+    /// Sanitizes a string for use as a filesystem folder name.
+    /// Strips trailing dots/spaces (Windows silently removes these), replaces commas
+    /// and other problematic characters. Only allows alphanumeric, space, dot, hyphen, underscore.
+    /// </summary>
     private static string SanitizeFolderName(string name)
     {
-        // Replace commas and other special chars with nothing
         var sanitized = System.Text.RegularExpressions.Regex.Replace(name, @"[^a-zA-Z0-9 .\-_]", "");
-        // Collapse multiple spaces
         sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"\s{2,}", " ");
         // Trim trailing dots and spaces (Windows strips these silently, causing path mismatches)
         sanitized = sanitized.TrimEnd('.', ' ');

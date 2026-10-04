@@ -194,8 +194,6 @@ public sealed class BuildRunner(
         }
     }
 
-    // ── Resolution ────────────────────────────────────────────────
-
     private async Task<PackagerInfo> FindRowAsync(string applicationId, IReadOnlyList<WorkbenchApplication> discovered, CancellationToken ct)
     {
         var source = ApplicationResolver.Source(applicationId, discovered);
@@ -268,8 +266,6 @@ public sealed class BuildRunner(
         return null;
     }
 
-    // ── Stage ─────────────────────────────────────────────────────
-
     private async Task<(RunSnapshot? Snapshot, PackagerInfo? Row, PackagerExecutionResult Stage)> StageAsync(
         WorkbenchStore store, string applicationId, string profileId, PackagerInfo? row, BuildResult result, CancellationToken ct)
     {
@@ -325,8 +321,6 @@ public sealed class BuildRunner(
         var row = WorkbenchRunSnapshots.ByoRow(plan.Manifest, plan.Analysis, staged.ManifestPath, applicationId);
         return (row, new PackagerExecutionResult { ExitCode = 0, StdOut = $"Staged to: {staged.ContentPath}", OutLogPath = staged.ManifestPath });
     }
-
-    // ── Package without Stage ─────────────────────────────────────
 
     /// <summary>
     /// The snapshot of the newest sealed build of the profile, or of the newest one of
@@ -394,8 +388,6 @@ public sealed class BuildRunner(
         var (snapshot, row, stage) = await StageAsync(store, applicationId, profileId, null, result, ct);
         return stage.ExitCode == 0 ? (snapshot, row) : (snapshot, null);
     }
-
-    // ── Publish ───────────────────────────────────────────────────
 
     private async Task<int> PackageAsync(PackagerInfo row, string destination, RunSnapshot? snapshot, BuildResult result, CancellationToken ct)
     {

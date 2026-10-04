@@ -67,8 +67,6 @@ public sealed class StageFinalizationTests : IDisposable
         Directory.GetFiles(root, "*", SearchOption.AllDirectories)
             .ToDictionary(f => Path.GetRelativePath(root, f), WorkbenchJson.FileSha256, StringComparer.OrdinalIgnoreCase);
 
-    // ── Without a snapshot ──────────────────────────────────────
-
     [Fact]
     public void WithoutASnapshot_OnlyTheSigningRecordIsAdded()
     {
@@ -143,8 +141,6 @@ public sealed class StageFinalizationTests : IDisposable
         }));
         Assert.Contains("SigningCertificateUnavailable", ex.Message);
     }
-
-    // ── With a profile ──────────────────────────────────────────
 
     [Fact]
     public void AppliesCommandsTimingExecutionDetectionAndRequirements()
@@ -505,8 +501,6 @@ public sealed class StageFinalizationTests : IDisposable
         Assert.True(manifest.Detection.IntuneScriptConversion);
     }
 
-    // ── Stale-artifact pruning ──────────────────────────────────
-
     [Fact]
     public void ASourceFileTheProfileNoLongerCarriesIsRemovedOnTheNextBuild()
     {
@@ -607,8 +601,6 @@ public sealed class StageFinalizationTests : IDisposable
         Assert.Contains("collides with a file already in the stage root", ex.Message);
     }
 
-    // ── Signing hand-off ────────────────────────────────────────
-
     [Fact]
     public void TheSigningRecordCarriesTheLauncherFindingsArray()
     {
@@ -623,8 +615,6 @@ public sealed class StageFinalizationTests : IDisposable
         Assert.All(findings, f => Assert.Equal("install.bat", f!["File"]!.GetValue<string>()));
         Assert.False(manifest.ScriptSigning!["LaunchersBypassFree"]!.GetValue<bool>());
     }
-
-    // ── Launcher regeneration ───────────────────────────────────
 
     [Fact]
     public void AStageRootAPreviousSnapshotBuildUsedGetsFreshLaunchers()

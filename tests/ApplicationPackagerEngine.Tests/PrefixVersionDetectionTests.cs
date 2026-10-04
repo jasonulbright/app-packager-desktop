@@ -35,8 +35,6 @@ public class PrefixVersionDetectionTests
     /// The staged expectation is the short vendor version and the installed ARP value
     /// carries an extra part. A detection compares the installed value against the
     /// expectation, so the ordering comparison reads 7.23.0 against 7.23 and matches.
-    /// The prefix rule is upstream's shape for these six apps; it is not a repair for a
-    /// WinRAR release the old rule missed.
     /// </summary>
     [Fact]
     public void TheOrderingComparisonWouldAlsoHaveMatchedTheInstalledWinRarRelease()

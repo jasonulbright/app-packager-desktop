@@ -122,8 +122,6 @@ public sealed class LocalSourceTests : IDisposable
         Assert.Contains("no numeric file version", ex.Message);
     }
 
-    // ── Staging ─────────────────────────────────────────────────
-
     private static StagingService Service() =>
         new(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
             new WrapperGeneratorService(), new ManifestService());

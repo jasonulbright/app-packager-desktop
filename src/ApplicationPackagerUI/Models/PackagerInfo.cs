@@ -2,7 +2,6 @@ namespace ApplicationPackagerUI.Models;
 
 public partial class PackagerInfo : ObservableObject
 {
-    // Mutable — bound to DataGrid, updated during operations
     [ObservableProperty] private bool _isSelected;
     [ObservableProperty] private string _currentVersion = "";
     [ObservableProperty] private string _latestVersion = "";
@@ -16,7 +15,6 @@ public partial class PackagerInfo : ObservableObject
     /// <summary>Intune build and publish outcome for the most recent Package run.</summary>
     [ObservableProperty] private string _intuneNote = "";
 
-    // Immutable metadata — set once during discovery
     /// <summary>Internal unique identifier. Never displayed to user.</summary>
     public string Uid { get; init; } = "";
     public string Vendor { get; init; } = "";
@@ -62,16 +60,13 @@ public partial class PackagerInfo : ObservableObject
     {
         get
         {
-            // Priority 0: Browsers and security-critical
             var name = Application.ToLowerInvariant();
             if (name.Contains("chrome") || name.Contains("edge") || name.Contains("firefox") ||
                 name.Contains("brave") || name.Contains("acrobat") || name.Contains("reader"))
                 return 0;
 
-            // Priority 1: Never checked
             if (LastChecked is null) return 1;
 
-            // Priority 2+: Oldest checked first (days since last check)
             return 2 + (int)(DateTime.Now - LastChecked.Value).TotalDays;
         }
     }

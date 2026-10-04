@@ -40,13 +40,9 @@ public sealed class StagingService
     }
 
     /// <summary>
-    /// Gets the latest version for a JSON-defined app without downloading.
-    /// Routes through winget or static URL based on preference and availability.
-    /// </summary>
-    /// <summary>
     /// A vendor endpoint that answers HTTP 200 with an HTML interstitial
-    /// would otherwise stage a web page as the installer (seen live with
-    /// CPU-Z). EXE payloads must start MZ; MSI payloads must start with
+    /// would otherwise stage a web page as the installer (CPU-Z's endpoint
+    /// does this). EXE payloads must start MZ; MSI payloads must start with
     /// the OLE compound-file magic.
     /// </summary>
     public static void ValidateInstallerMagic(string path, string installerType)
@@ -175,10 +171,13 @@ public sealed class StagingService
         return match.Groups.Count > 1 ? match.Groups[1].Value : match.Value;
     }
 
+    /// <summary>
+    /// Gets the latest version for a JSON-defined app without downloading.
+    /// Routes through winget or static URL based on preference and availability.
+    /// </summary>
     public async Task<string?> GetLatestVersionAsync(
         AppDefinition def, string acquisitionMethod = "StaticUrl", CancellationToken ct = default)
     {
-        // If user prefers winget and this app has a WingetId, try winget first
         if (acquisitionMethod == "Winget" && def.Acquisition.HasWinget)
         {
             var wingetConfig = new Models.VersionScraperConfig
@@ -267,7 +266,6 @@ public sealed class StagingService
             return new StagingResult { Success = false, ErrorMessage = ex.Message };
         }
 
-        // Route ODT apps to dedicated pipeline
         if (def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
             return await StageOdtAsync(def, downloadRoot, onProgress, ct, knownVersion, settingsValues, finalizer);
 
@@ -276,7 +274,7 @@ public sealed class StagingService
 
         try
         {
-            // 0. Operator inputs the stage cannot do without refuse it before any download.
+            // Operator inputs the stage cannot do without refuse it before any download.
             var postExecutionBehavior = NormalizePostExecutionBehavior(def.PostExecutionBehavior);
             var sideFiles = ResolveSideFiles(def, inputs?.SideFiles);
             string? localInstaller = null;
@@ -284,9 +282,8 @@ public sealed class StagingService
                 && (def.LocalSource.IsRequired || !string.IsNullOrWhiteSpace(inputs?.LocalSourceFolder)))
                 localInstaller = LocalSourceResolver.Resolve(inputs?.LocalSourceFolder, def.LocalSource, def.Application);
 
-            // 1. Get version — reuse from Check Latest if available to avoid redundant API calls.
-            //    Must re-scrape when a VersionTransform exists, since knownVersion is the display
-            //    version and we need the raw version for download URL substitution.
+            // A version from Check Latest is reused, except under a VersionTransform: knownVersion
+            // is then the display version, and the download URL needs the raw version.
             string? rawVersion, version;
             if (!string.IsNullOrEmpty(knownVersion) && string.IsNullOrEmpty(def.VersionScraper.VersionTransform))
             {
@@ -302,8 +299,8 @@ public sealed class StagingService
             if (string.IsNullOrEmpty(version) || string.IsNullOrEmpty(rawVersion))
                 return new StagingResult { Success = false, ErrorMessage = "Could not determine latest version" };
 
-            // Apply DisplayVersionOverride for UI/folder/detection display
-            // version = transformed (for URL {display_version}), displayVersion = what user sees
+            // version stays the transformed value the download URL substitutes; displayVersion
+            // names the folder and the detection and is the version the operator sees.
             var displayVersion = version;
             if (!string.IsNullOrEmpty(def.DisplayVersionOverride))
                 displayVersion = def.DisplayVersionOverride
@@ -324,13 +321,11 @@ public sealed class StagingService
 
             onProgress?.Invoke($"Version: {displayVersion}");
 
-            // 2. Set up versioned content folder (uses display version)
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Workbench.WorkbenchPaths.CombineUnder(baseRoot, AssertVersionSegment(displayVersion));
             Directory.CreateDirectory(contentPath);
 
-            // 3. Resolve download URL — either from API query or template substitution
             string downloadUrl;
             string installerFileName;
             string installerPath;
@@ -349,7 +344,6 @@ public sealed class StagingService
                     await AcquireDownloadAsync(def, contentPath, version, rawVersion, onProgress, ct, downloadRoot);
             }
 
-            // 4. If downloaded file is a ZIP, extract and find the real installer inside.
             // A ZIP payload stays whole: the wrapper extracts it on the client.
             IReadOnlyDictionary<string, string> zipTokens = new Dictionary<string, string>();
             if (def.ZipPayload is not null)
@@ -367,7 +361,6 @@ public sealed class StagingService
                 if (Directory.Exists(extractDir)) Directory.Delete(extractDir, true);
                 System.IO.Compression.ZipFile.ExtractToDirectory(installerPath, extractDir);
 
-                // Find the MSI or EXE inside
                 var innerInstaller = Directory.GetFiles(extractDir, "*.msi", SearchOption.AllDirectories).FirstOrDefault()
                     ?? Directory.GetFiles(extractDir, "*.exe", SearchOption.AllDirectories).FirstOrDefault();
 
@@ -384,7 +377,6 @@ public sealed class StagingService
                         innerName.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) ? "MSI" : "EXE");
                 }
 
-                // Clean up extract dir and original ZIP
                 try { Directory.Delete(extractDir, true); } catch { }
                 var originalZip = Path.Combine(contentPath, ResolveInstallerFileName(def, downloadUrl, displayVersion));
                 try { if (File.Exists(originalZip) && originalZip != installerPath) File.Delete(originalZip); } catch { }
@@ -392,7 +384,6 @@ public sealed class StagingService
 
             var isMsix = def.InstallerType.Equals("MSIX", StringComparison.OrdinalIgnoreCase);
 
-            // 4b. Inspect installer (MSI only for now)
             string? productCode = null;
             string? productVersion = null;
             string publisher = def.Vendor;
@@ -449,7 +440,6 @@ public sealed class StagingService
                 onProgress?.Invoke($"ProductVersion: {productVersion}");
             }
 
-            // 4c. For non-MSI installers, extract metadata via InstallerIdentificationService
             InstallerMetadata? installerMetadata = null;
             if (productCode is null && _installerIdService is not null && !isMsix && def.ZipPayload is null &&
                 !def.InstallerType.Equals("ODT", StringComparison.OrdinalIgnoreCase))
@@ -496,7 +486,6 @@ public sealed class StagingService
                     $"{def.Application} resolves {{ProductCode}} from the installer, and no ProductCode could be read from {installerFileName}. " +
                     "Reading it from an EXE needs 7-Zip on this machine.");
 
-            // 4d. Extract icon from installer
             if (_iconService is not null && def.ZipPayload is null)
             {
                 onProgress?.Invoke("Extracting application icon...");
@@ -505,7 +494,6 @@ public sealed class StagingService
                     onProgress?.Invoke($"Icon cached: {iconResult.CachedPath}");
             }
 
-            // 5. Generate wrappers
             // InstallerSettings are the single source for the switches they own: the
             // definition's InstallArgs carries only the switches no parameter covers.
             var installArgs = ResolveInstallerArgs(def.InstallArgs, def.InstallerSettings, settingsValues);
@@ -524,16 +512,13 @@ public sealed class StagingService
             installArgs = tokens.Apply(installArgs)!;
             uninstallCommand = tokens.Apply(uninstallCommand);
 
-            // 6. Build detection config
-            // If the definition's detection references {ProductCode} but we have no ProductCode,
-            // and we have installer metadata with detection data, use the metadata instead.
             // Built ahead of the wrappers: the EXE uninstall wrapper takes its
             // Add/Remove Programs lookup hints from the resolved detection rule.
             var detection = msixPackage is not null
                 ? BuildMsixDetection(def.Detection, msixPackage)
                 : BuildDetection(def, productCode, displayVersion, productVersion ?? rawVersion, installerMetadata, settingsValues, tokens);
 
-            // 6a. Install mode. A definition that declares both modes lets the
+            // A definition that declares both modes lets the
             // operator pick System or User; the staged installer's compiled
             // script supplies that branch, and switch, uninstaller, detection
             // and context move together with it.
@@ -585,7 +570,6 @@ public sealed class StagingService
                     def.PostInstallKillProcesses, def.RebootExitCodes);
             }
 
-            // 6b. Detection conformance check — log if definition's detection differs from metadata-derived
             if (installerMetadata?.HasDetectionData == true && detection.Type != "Unknown")
             {
                 var metaDerived = BuildDetectionFromMetadata(installerMetadata, displayVersion, def.Detection.Is64Bit);
@@ -609,7 +593,6 @@ public sealed class StagingService
                 }
             }
 
-            // 7. Write manifest
             var stageIdentity = ResolveStageIdentity(def, displayVersion, publisher, installerMetadata, onProgress);
             var cmAppName = stageIdentity.AppName;
             var cmDisplayName = stageIdentity.DisplayName;
@@ -788,7 +771,7 @@ public sealed class StagingService
 
         if (!File.Exists(installerPath))
         {
-            // Check if FileVersionScraper already downloaded this file during Check Latest.
+            // FileVersionScraper can download this file during Check Latest.
             // A hop-resolved scrape cached the file under the resolved URL's name.
             var cachedPath = def.VersionScraper.Type.Equals("FileVersion", StringComparison.OrdinalIgnoreCase)
                 ? Scrapers.FileVersionScraper.GetCachedPath(
@@ -818,7 +801,7 @@ public sealed class StagingService
             onProgress?.Invoke($"Installer already cached: {installerFileName}");
         }
 
-        // 3b. Payload integrity. A pinned hash wins over the feed value:
+        // A pinned hash wins over the feed value:
         // it is the stronger statement, and a definition carrying both is
         // asserting the pin. A cached payload is verified too, so a bad
         // prior download does not stage on a later run.
@@ -835,7 +818,7 @@ public sealed class StagingService
         }
         catch (InvalidOperationException) when (!string.IsNullOrWhiteSpace(expectedHash))
         {
-            // A torn download (a CDN once served a short body) fails the
+            // A torn download (a short body from a CDN) fails the
             // hash on every later run while the file sits in the cache.
             // One fresh download separates that from a vendor-side change.
             onProgress?.Invoke($"Payload SHA256 mismatch; discarding the cached file and downloading once more: {installerFileName}");
@@ -1037,8 +1020,6 @@ public sealed class StagingService
             ?? throw new InvalidOperationException($"Checksum file names no hash for {installerFileName}: {url}");
     }
 
-    // ── Bootstrapper /layout staging pipeline ────────────────────
-
     /// <summary>
     /// Stages a vendor bootstrapper as a complete offline layout: download the
     /// bootstrapper, run it with the layout switch, and ship the resulting tree
@@ -1108,8 +1089,8 @@ public sealed class StagingService
                 onProgress?.Invoke($"Bootstrapper already cached: {bootstrapperFileName}");
             }
 
-            // 2. Build the offline layout. The bundle re-verifies every payload
-            //    over an existing layout, so a complete one is left alone.
+            // The bundle re-verifies every payload over an existing layout,
+            // so a complete one is left alone.
             var layoutSetup = Path.Combine(contentPath, bootstrapperFileName);
             var layoutInstallers = Path.Combine(contentPath, "Installers");
             if (File.Exists(layoutSetup) && Directory.Exists(layoutInstallers))
@@ -1132,7 +1113,6 @@ public sealed class StagingService
                     return new StagingResult { Success = false, ErrorMessage = $"Layout completed but the Installers folder is missing from {contentPath}" };
             }
 
-            // 3. Derive detection from the layout's own feature MSI.
             var versionMsiPath = ResolveVersionSourceMsi(contentPath, layout.VersionSourceMsi);
             onProgress?.Invoke($"Version source MSI: {Path.GetFileName(versionMsiPath)}");
             var msiProps = _msiService.ReadProperties(versionMsiPath);
@@ -1276,8 +1256,6 @@ public sealed class StagingService
         };
     }
 
-    // ── ODT staging pipeline ─────────────────────────────────────
-
     private const string OdtSetupUrl = "https://officecdn.microsoft.com/pr/wsus/setup.exe";
 
     /// <summary>Setting keys the ODT pipeline reads from the chosen values.</summary>
@@ -1342,7 +1320,6 @@ public sealed class StagingService
             var online = odt.DeploymentMode.Equals("Online", StringComparison.OrdinalIgnoreCase);
             onProgress?.Invoke($"ODT channel {odt.Channel}, {(online ? "Online (CDN install)" : "Offline (source downloaded)")}, excluded: {(odt.ExcludeApps.Length == 0 ? "none" : string.Join(", ", odt.ExcludeApps))}");
 
-            // 1. Get version
             string? version;
             if (!string.IsNullOrEmpty(knownVersion))
             {
@@ -1362,14 +1339,12 @@ public sealed class StagingService
 
             onProgress?.Invoke($"Version: {version}");
 
-            // 2. Set up folders
             var edition = def.Architecture.Equals("x86", StringComparison.OrdinalIgnoreCase) ? "32" : "64";
             var appFolder = $"{def.Application.Replace(" ", "")}-{def.Architecture}";
             var baseRoot = Path.Combine(downloadRoot, appFolder);
             var contentPath = Path.Combine(baseRoot, version);
             Directory.CreateDirectory(contentPath);
 
-            // 3. Download ODT setup.exe
             var setupExe = Path.Combine(baseRoot, "setup.exe");
             if (!File.Exists(setupExe))
             {
@@ -1381,7 +1356,7 @@ public sealed class StagingService
                 onProgress?.Invoke("ODT setup.exe already cached.");
             }
 
-            // 4 and 5. Offline: download.xml and setup.exe /download bring the source into
+            // Offline: download.xml and setup.exe /download bring the source into
             // the content folder. Online: the client installs from the CDN, so the content
             // is setup.exe and the xml files only.
             if (!online)
@@ -1400,7 +1375,6 @@ public sealed class StagingService
                 onProgress?.Invoke("Office source download complete.");
             }
 
-            // 6. Copy setup.exe into content folder
             var contentSetupExe = Path.Combine(contentPath, "setup.exe");
             if (!File.Exists(contentSetupExe))
             {
@@ -1408,13 +1382,12 @@ public sealed class StagingService
                 onProgress?.Invoke("Copied setup.exe to content folder.");
             }
 
-            // 7. Generate install.xml: no SourcePath, so an offline install reads the source
+            // install.xml carries no SourcePath, so an offline install reads the source
             // beside it and an online install reads the CDN. Offline pins the downloaded
             // build; online takes the channel's current build.
             var installXml = GenerateOdtXml(edition, fullVersion, odt, sourcePath: null, pinVersion: !online);
             await File.WriteAllTextAsync(Path.Combine(contentPath, "install.xml"), installXml, System.Text.Encoding.ASCII, ct);
 
-            // 8. Generate uninstall.xml
             var uninstallProdId = odt.UninstallProductId ?? odt.ProductIds[^1];
             var uninstallXml = string.Join("\r\n",
                 "<Configuration>",
@@ -1426,7 +1399,6 @@ public sealed class StagingService
             await File.WriteAllTextAsync(Path.Combine(contentPath, "uninstall.xml"), uninstallXml, System.Text.Encoding.ASCII, ct);
             onProgress?.Invoke("Generated install.xml and uninstall.xml");
 
-            // 9. Generate ODT-specific wrappers (setup.exe /configure)
             var installPs1 = string.Join("\r\n",
                 "$setupPath = Join-Path $PSScriptRoot 'setup.exe'",
                 "$configPath = Join-Path $PSScriptRoot 'install.xml'",
@@ -1449,7 +1421,6 @@ public sealed class StagingService
             await File.WriteAllTextAsync(Path.Combine(contentPath, "uninstall.bat"), uninstallBat, System.Text.Encoding.ASCII, ct);
             onProgress?.Invoke("Generated install/uninstall wrappers.");
 
-            // 10. Write manifest
             var detection = BuildDetection(def, null, version);
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             var publisher = def.Vendor;
@@ -1579,25 +1550,21 @@ public sealed class StagingService
         return process.ExitCode;
     }
 
-    // ── Standard staging helpers ────────────────────────────────
-
     /// <summary>
     /// Determines the installer filename: explicit override → URL path → constructed fallback.
     /// </summary>
     private static string ResolveInstallerFileName(AppDefinition def, string downloadUrl, string version)
     {
-        // 1. Explicit override in definition (required for fwlinks, query-string URLs, etc.)
+        // fwlinks and query-string URLs need the definition's explicit file name.
         if (!string.IsNullOrEmpty(def.InstallerFileName))
             return def.InstallerFileName
                 .Replace("{display_version}", version, StringComparison.OrdinalIgnoreCase)
                 .Replace("{version}", version, StringComparison.OrdinalIgnoreCase);
 
-        // 2. Parse from URL path
         var urlFileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
         if (!string.IsNullOrEmpty(urlFileName) && urlFileName.Contains('.'))
             return urlFileName;
 
-        // 3. Fallback: construct from app name + installer type
         var safeName = def.Application.Replace(" ", "").Replace("(", "").Replace(")", "");
         var ext = def.InstallerType.Equals("MSI", StringComparison.OrdinalIgnoreCase) ? ".msi" : ".exe";
         return $"{safeName}-{version}{ext}";
@@ -1818,11 +1785,6 @@ public sealed class StagingService
     };
 
     /// <summary>
-    /// Definitions write literal Program Files paths where the script reader
-    /// writes environment form; the machine folders are expanded to their
-    /// literal x64-host values so the two can be compared.
-    /// </summary>
-    /// <summary>
     /// The spellings a definition may use for an uninstaller the script reader
     /// writes in environment form: the literal x64-host path, and the
     /// PowerShell $env: and ${env:} forms of the leading variable.
@@ -1841,6 +1803,11 @@ public sealed class StagingService
         }
     }
 
+    /// <summary>
+    /// Definitions write literal Program Files paths where the script reader
+    /// writes environment form; the machine folders are expanded to their
+    /// literal x64-host values so the two can be compared.
+    /// </summary>
     private static string ExpandKnownFolders(string path) => path
         .Replace("%ProgramW6432%", @"C:\Program Files", StringComparison.OrdinalIgnoreCase)
         .Replace("%ProgramFiles(x86)%", @"C:\Program Files (x86)", StringComparison.OrdinalIgnoreCase)
@@ -1937,8 +1904,6 @@ public sealed class StagingService
         if (StageTokens.HasTokens(det))
             det = tokens is null ? StageTokens.ApplyVersionParts(det, version) : tokens.Apply(det);
 
-        // If detection references {ProductCode} but we have no ProductCode, and metadata has detection data,
-        // use metadata-derived detection instead of the definition's detection config.
         if (det.RegistryKeyTemplate?.Contains("{ProductCode}", StringComparison.OrdinalIgnoreCase) == true
             && string.IsNullOrEmpty(productCode)
             && metadata?.HasDetectionData == true)
@@ -2043,9 +2008,6 @@ public sealed class StagingService
     }
 
     /// <summary>
-    /// Resolves one registry or file detection config into its staged form.
-    /// </summary>
-    /// <summary>
     /// Maps a definition's RegistryHive spelling (HKCU, HKEY_CURRENT_USER,
     /// CurrentUser) onto the manifest's two values. Anything else, including
     /// an absent value, is the machine hive.
@@ -2060,12 +2022,14 @@ public sealed class StagingService
             : "LocalMachine";
     }
 
+    /// <summary>
+    /// Resolves one registry or file detection config into its staged form.
+    /// </summary>
     private static StageDetection BuildSingleDetection(
         DetectionConfig det, string? productCode, string version, string? rawVersion)
     {
         if (det.Type.Equals("RegistryKeyValue", StringComparison.OrdinalIgnoreCase))
         {
-            // Substitute {ProductCode} and {version} in template
             var regKey = det.RegistryKeyTemplate?
                 .Replace("{ProductCode}", productCode ?? "", StringComparison.OrdinalIgnoreCase)
                 .Replace("{version}", version, StringComparison.OrdinalIgnoreCase) ?? "";
@@ -2152,7 +2116,6 @@ public sealed class StagingService
         if (metadata.DetectionType == "RegistryKeyValue" && !string.IsNullOrEmpty(metadata.DetectionKey))
         {
             var detValue = metadata.DetectionExpectedValue ?? version;
-            // Sanitize for Version comparison
             detValue = detValue.Replace("+", ".").Replace("-", ".");
 
             return new StageDetection
@@ -2202,11 +2165,8 @@ public sealed class StagingService
             };
         }
 
-        // Fallback: can't derive detection from metadata
         return new StageDetection { Type = "Unknown" };
     }
-
-    // ── ad-hoc (dropped installer) staging ───────────────────────
 
     /// <summary>
     /// Stages an already-analysed local installer into the same versioned content

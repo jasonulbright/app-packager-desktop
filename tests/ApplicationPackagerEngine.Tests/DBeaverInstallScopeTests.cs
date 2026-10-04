@@ -42,8 +42,6 @@ public sealed class DBeaverInstallScopeTests : IDisposable
         return File.ReadAllText(Path.Combine(dir, "install.ps1"));
     }
 
-    // ── Scope ───────────────────────────────────────────────────
-
     [Fact]
     public void SystemScope_IsTheDefault()
     {
@@ -93,8 +91,6 @@ public sealed class DBeaverInstallScopeTests : IDisposable
         }
     }
 
-    // ── Value maps ──────────────────────────────────────────────
-
     [Fact]
     public void UnmappedValue_SubstitutesItself()
     {
@@ -136,8 +132,6 @@ public sealed class DBeaverInstallScopeTests : IDisposable
         Assert.Equal(@"/allusers C:\Program Files\App",
             StagingService.ApplySettingTokens("{setting:Scope} {setting:Scope:Root}", parameters, null));
     }
-
-    // ── Post-install environment variable ───────────────────────
 
     [Fact]
     public void DisableAiOff_LeavesTheInstallWrapperWithoutThePostInstallBlock()

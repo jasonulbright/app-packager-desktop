@@ -11,7 +11,6 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private static readonly Regex FilePattern = new(@"^package-.*\.ps1$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    // Header tag patterns — match "Vendor: value" or "# Vendor: value"
     [GeneratedRegex(@"^\s*(?:#\s*)?Vendor\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex VendorRegex();
 
@@ -31,30 +30,23 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     private static partial Regex SynopsisRegex();
 
     /// <summary>
-    /// Resolves the Packagers folder using the priority chain:
-    /// 1. Settings override (if non-empty and exists)
-    /// 2. Co-located Packagers/ next to the exe
-    /// 3. Dev default: C:\projects\applicationpackager\Packagers
+    /// The first existing folder of <see cref="PackagersRootCandidates"/>, or null when
+    /// none exists.
     /// </summary>
-    public string? ResolvePackagersRoot()
+    public string? ResolvePackagersRoot() =>
+        PackagersRootCandidates(settingsService.Load().PackagersRoot, AppContext.BaseDirectory)
+            .FirstOrDefault(Directory.Exists);
+
+    /// <summary>
+    /// The Packagers folder candidates in priority order: the saved setting when it is not
+    /// empty, then the Packagers folder beside the executable.
+    /// </summary>
+    public static IReadOnlyList<string> PackagersRootCandidates(string? configuredRoot, string baseDirectory)
     {
-        var settings = settingsService.Load();
-
-        // 1. Settings override
-        if (!string.IsNullOrWhiteSpace(settings.PackagersRoot) && Directory.Exists(settings.PackagersRoot))
-            return settings.PackagersRoot;
-
-        // 2. Co-located
-        var coLocated = Path.Combine(AppContext.BaseDirectory, "Packagers");
-        if (Directory.Exists(coLocated))
-            return coLocated;
-
-        // 3. Dev default
-        var devDefault = @"C:\projects\applicationpackager\Packagers";
-        if (Directory.Exists(devDefault))
-            return devDefault;
-
-        return null;
+        var candidates = new List<string>(2);
+        if (!string.IsNullOrWhiteSpace(configuredRoot)) candidates.Add(configuredRoot);
+        candidates.Add(Path.Combine(baseDirectory, "Packagers"));
+        return candidates;
     }
 
     /// <summary>
@@ -95,15 +87,12 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                     var meta = ParseMetadata(filePath);
                     var scriptName = Path.GetFileName(filePath);
 
-                    // No UID = not displayed
                     if (string.IsNullOrEmpty(meta.Uid))
                         continue;
 
-                    // Skip by UID
                     if (hidden.Contains(meta.Uid))
                         continue;
 
-                    // Skip PS1 if a JSON definition exists for the same app
                     if (jsonAppNames.Contains(meta.Application ?? ""))
                         continue;
 
@@ -131,10 +120,8 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                 }
             }
 
-            // Add JSON-defined apps (already discovered above)
             results.AddRange(jsonResults);
 
-            // Sort combined list
             results.Sort((a, b) => string.Compare(a.Application, b.Application, StringComparison.OrdinalIgnoreCase));
 
             return results;
@@ -148,7 +135,6 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     {
         var results = new List<PackagerInfo>();
 
-        // Check Definitions folder alongside the exe
         var defsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
         if (!Directory.Exists(defsDir)) return results;
 

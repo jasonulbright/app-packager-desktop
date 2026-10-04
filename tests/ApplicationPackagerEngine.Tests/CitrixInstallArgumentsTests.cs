@@ -244,8 +244,6 @@ public sealed class CitrixInstallArgumentsTests
         Assert.Throws<InvalidOperationException>(() => CitrixInstallArguments.Build(null, "Beta"));
     }
 
-    // ── Definitions and staging ─────────────────────────────────
-
     [Theory]
     [InlineData("citrixworkspacecr.json", "Current")]
     [InlineData("citrixworkspace-ltsr-x86.json", "LTSR")]
@@ -276,8 +274,6 @@ public sealed class CitrixInstallArgumentsTests
             new CitrixWorkspaceSwitches { Store = new() { Name = "Bob's", Url = "https://sf.example.com/discovery" } }, null));
         Assert.Contains("apostrophe", ex.Message);
     }
-
-    // ── Legacy settings ─────────────────────────────────────────
 
     [Fact]
     public void UntouchedLegacySettingsMigrateToNothingBeyondSilent()

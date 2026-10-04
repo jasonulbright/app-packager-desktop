@@ -38,7 +38,6 @@ public sealed class DefinitionTestRunner
         onProgress?.Invoke($"Testing: {manifest.AppName}");
         onProgress?.Invoke($"Context: {(isUserInstall ? "User (standard)" : "SYSTEM (psexec -s)")}");
 
-        // 1. Install
         onProgress?.Invoke("Phase 1: Installing...");
         var installScript = Path.Combine(stagedContentPath, "install.bat");
         if (!File.Exists(installScript))
@@ -78,7 +77,6 @@ public sealed class DefinitionTestRunner
             return result;
         }
 
-        // 2. Detect
         onProgress?.Invoke("Phase 2: Evaluating detection...");
         var detection = DetectionEvaluator.Evaluate(manifest.Detection);
         result.DetectResult = detection switch
@@ -96,7 +94,6 @@ public sealed class DefinitionTestRunner
             return result;
         }
 
-        // 3. Uninstall
         if (!def.CanUninstall)
         {
             onProgress?.Invoke("Phase 3: Skipping uninstall (CanUninstall=false)");
@@ -128,7 +125,6 @@ public sealed class DefinitionTestRunner
         if (uninstallExit == 3010) result.UninstallResult = "PASS (reboot required)";
         onProgress?.Invoke($"  Uninstall: {result.UninstallResult}");
 
-        // 4. Verify clean
         onProgress?.Invoke("Phase 4: Verifying clean removal...");
         // Negating the verdict would turn a rule that could not be read into a clean
         // machine, so an evaluation error fails this phase rather than passing it.
@@ -201,7 +197,6 @@ public sealed class DefinitionTestRunner
     private static async Task<(int ExitCode, string StdOut, string StdErr)> RunAsSystemAsync(
         string batPath, string workingDir, CancellationToken ct)
     {
-        // If already running as SYSTEM, just run directly — no need for psexec
         var currentUser = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
         if (currentUser.Equals("NT AUTHORITY\\SYSTEM", StringComparison.OrdinalIgnoreCase))
             return await RunDirectAsync(batPath, workingDir, ct);

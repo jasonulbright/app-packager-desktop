@@ -59,8 +59,6 @@ public sealed class ArpDetectionKeyAssertionTests : IDisposable
 
     private static DetectionConfig Template(string key) => new() { Type = "RegistryKeyValue", RegistryKeyTemplate = key };
 
-    // ── The comparison ───────────────────────────────────────────
-
     [Fact]
     public void AMatchingKeyAndViewPass() =>
         ArpDetectionKeyAssertion.Assert(@"HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Contoso", "32", Arp + "Contoso", false);
@@ -102,8 +100,6 @@ public sealed class ArpDetectionKeyAssertionTests : IDisposable
     [InlineData(null, false)]
     public void OnlyALiteralUninstallKeyTakesPart(string? template, bool expected) =>
         Assert.Equal(expected, ArpDetectionKeyAssertion.IsLiteralUninstallKey(template));
-
-    // ── WiX Burn bundles ─────────────────────────────────────────
 
     [Fact]
     public void TheBundleIdIsReadFromTheWixburnSection()

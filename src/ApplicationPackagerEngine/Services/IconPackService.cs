@@ -53,7 +53,7 @@ public sealed record IconPackStatus(bool Installed, string PackVersion, int Icon
 /// Downloads the packager icon pack release, verifies it, and installs the PNGs
 /// into the external icons folder under a definition-name mapping.
 ///
-/// Pack files are named by PowerShell packager name; several packr definitions
+/// Pack files carry the pack's own application names; several definitions
 /// carry a different file name for the same application, and an arch-collapsed
 /// pack entry feeds every arch variant of the definition. Every failure path
 /// returns a message rather than throwing: the caller is a button.
@@ -80,8 +80,6 @@ public sealed class IconPackService
     /// <summary>The definitions folder shipped beside the executable.</summary>
     public static string DefaultDefinitionsDirectory()
         => Path.Combine(AppContext.BaseDirectory, "Definitions");
-
-    // ---- Pure helpers ----
 
     /// <summary>
     /// Reads the sha256 for one file out of sha256sum output
@@ -143,7 +141,7 @@ public sealed class IconPackService
     }
 
     /// <summary>
-    /// Comparison key for a packager or definition name: lower case, alphanumerics
+    /// Comparison key for a pack entry or definition name: lower case, alphanumerics
     /// only, one trailing architecture suffix removed.
     /// </summary>
     public static string NormalizeName(string? name)
@@ -249,8 +247,6 @@ public sealed class IconPackService
         var noun = status.IconCount == 1 ? "icon" : "icons";
         return $"Installed — pack {version}, {status.IconCount} {noun}.";
     }
-
-    // ---- Install ----
 
     /// <summary>
     /// Downloads the latest pack release, verifies it against checksums.txt, and

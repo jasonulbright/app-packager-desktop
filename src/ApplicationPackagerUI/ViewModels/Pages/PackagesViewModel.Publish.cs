@@ -155,8 +155,6 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         }
     }
 
-    // ── One Click ────────────────────────────────────────────────
-
     /// <summary>The folder of the One Click run reports.</summary>
     public static string OneClickReportFolder => OneClickReportWriter.Folder(LogDir);
 

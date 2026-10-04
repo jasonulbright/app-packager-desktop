@@ -60,7 +60,7 @@ public static partial class WsusIdentity
 
     /// <summary>
     /// For a manifest that carries an ApplicationId, the legacy tag the same manifest
-    /// carried before it had one; an update published under it is this application's,
+    /// yields without it; an update published under that tag is this application's,
     /// so supersedence and a repeat publish take it into account. Empty for a manifest
     /// without an ApplicationId, whose identity already is that legacy tag.
     /// </summary>

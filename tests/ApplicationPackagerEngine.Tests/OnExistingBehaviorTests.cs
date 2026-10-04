@@ -216,8 +216,6 @@ public sealed class OnExistingBehaviorTests
         Assert.False(OnExistingConflict.TryParse(line, out _, out _, out _));
     }
 
-    // ── Preflight probe ──────────────────────────────────────────
-
     [Fact]
     public void Probe_MatchesTheTitleExactlyAndRefusesDuplicates()
     {

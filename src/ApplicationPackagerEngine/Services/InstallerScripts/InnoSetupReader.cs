@@ -69,8 +69,6 @@ public static class InnoSetupReader
     private static readonly string[] PrivilegesNames = ["none", "poweruser", "admin", "lowest"];
     private static readonly string[] CompressionNames = ["none", "zip", "bzip", "lzma", "lzma2"];
 
-    // ── CRC and block chunks ────────────────────────────────────────
-
     private static readonly uint[] CrcTable = BuildCrcTable();
 
     private static uint[] BuildCrcTable()
@@ -123,8 +121,6 @@ public static class InnoSetupReader
         }
         return result;
     }
-
-    // ── Loader offsets ──────────────────────────────────────────────
 
     /// <summary>The setup-0 (header) and setup-1 (data) offsets from the SetupLdr table.</summary>
     public sealed class LoaderOffsets
@@ -220,8 +216,6 @@ public static class InnoSetupReader
         return null;
     }
 
-    // ── Data version ────────────────────────────────────────────────
-
     /// <summary>The parsed "Inno Setup Setup Data (x.y.z[.r])[ (u)]" signature.</summary>
     public sealed class DataVersion
     {
@@ -251,8 +245,6 @@ public static class InnoSetupReader
             Text = $"{major}.{minor}.{build}" + (rev != 0 ? $".{rev}" : "")
         };
     }
-
-    // ── Header block ────────────────────────────────────────────────
 
     private sealed class HeaderBlock
     {
@@ -340,8 +332,6 @@ public static class InnoSetupReader
         result.Bytes = LzmaDecoder.Decode(payload, 5, payload.Length - 5, props, dict, maxOutput, out _);
         return result;
     }
-
-    // ── TSetupHeader ────────────────────────────────────────────────
 
     private sealed class SetupHeader
     {
@@ -508,8 +498,6 @@ public static class InnoSetupReader
         return h;
     }
 
-    // ── Paths ───────────────────────────────────────────────────────
-
     /// <summary>
     /// Rewrites Inno Setup directory constants into Windows environment form
     /// for the context a deployment runs in. {autopf} and the other auto*
@@ -570,8 +558,6 @@ public static class InnoSetupReader
         text = Regex.Replace(text, @"\{([A-Za-z0-9]+)\}", m => map.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value);
         return text.Replace(braceMark, '{');
     }
-
-    // ── Metadata ────────────────────────────────────────────────────
 
     /// <summary>
     /// Extracts AppId, version, install directory, install mode and the

@@ -22,7 +22,6 @@ public sealed class InstallerIdentificationService
     /// </summary>
     public async Task<string> IdentifyAsync(string installerPath, string? knownFramework = null, CancellationToken ct = default)
     {
-        // If already known, trust it
         if (!string.IsNullOrEmpty(knownFramework) && knownFramework != "Unknown")
             return knownFramework;
 
@@ -76,7 +75,6 @@ public sealed class InstallerIdentificationService
 
     private async Task<InstallerMetadata> ExtractNsisMetadataAsync(string exePath, CancellationToken ct)
     {
-        // Extract to temp, look for product-info.json (JetBrains) or other metadata
         var tempDir = Path.Combine(Path.GetTempPath(), $"packr-nsis-{Guid.NewGuid():N}");
         try
         {
@@ -110,7 +108,6 @@ public sealed class InstallerIdentificationService
                 };
             }
 
-            // Fallback: look for primary EXE with version info
             var exes = Directory.GetFiles(tempDir, "*.exe", SearchOption.AllDirectories)
                 .Where(f => !f.Contains("unins", StringComparison.OrdinalIgnoreCase)
                          && !f.Contains("$PLUGINSDIR", StringComparison.OrdinalIgnoreCase))
@@ -143,9 +140,7 @@ public sealed class InstallerIdentificationService
 
     private async Task<InstallerMetadata> ExtractInnoSetupMetadataAsync(string exePath, CancellationToken ct)
     {
-        // InnoSetup detection: key pattern is always AppName_is1 or AppId_is1
-        // For now, extract and look for install_script.iss or unins000 metadata
-        // Full innoextract support is a future enhancement
+        // An Inno Setup uninstall key is <AppId>_is1, and AppId defaults to AppName.
         var tempDir = Path.Combine(Path.GetTempPath(), $"packr-inno-{Guid.NewGuid():N}");
         try
         {
@@ -153,7 +148,6 @@ public sealed class InstallerIdentificationService
             if (!result.Success)
                 return new InstallerMetadata { Framework = "InnoSetup" };
 
-            // Look for primary EXE in {app}/ directory
             var appDir = Path.Combine(tempDir, "{app}");
             if (Directory.Exists(appDir))
             {
@@ -172,7 +166,6 @@ public sealed class InstallerIdentificationService
                         ProductVersion = vi.ProductVersion,
                         Manufacturer = vi.CompanyName,
                         DetectionType = "RegistryKey",
-                        // InnoSetup standard pattern: AppName_is1
                         DetectionKey = $"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{vi.ProductName}_is1",
                         MetadataSource = "innosetup-app-exe"
                     };
@@ -222,7 +215,6 @@ public sealed class InstallerIdentificationService
                             if (permanent == "yes" || string.IsNullOrEmpty(productCode))
                                 continue;
 
-                            // Get publisher from Registration/Arp element
                             var arpNode = doc.SelectSingleNode("//burn:Registration/burn:Arp", nsMgr);
                             var publisher = arpNode?.Attributes?["Publisher"]?.Value;
                             var displayName = arpNode?.Attributes?["DisplayName"]?.Value;
@@ -276,7 +268,6 @@ public sealed class InstallerIdentificationService
 
     private async Task<InstallerMetadata> ExtractMsixMetadataAsync(string msixPath, CancellationToken ct)
     {
-        // MSIX: read AppxManifest.xml for Identity
         var tempDir = Path.Combine(Path.GetTempPath(), $"packr-msix-{Guid.NewGuid():N}");
         try
         {
@@ -316,7 +307,6 @@ public sealed class InstallerIdentificationService
 
     private async Task<InstallerMetadata> ExtractZipMetadataAsync(string zipPath, CancellationToken ct)
     {
-        // ZIP: list contents, find primary EXE, get version from it
         var tempDir = Path.Combine(Path.GetTempPath(), $"packr-zip-{Guid.NewGuid():N}");
         try
         {
@@ -327,7 +317,6 @@ public sealed class InstallerIdentificationService
             var exes = Directory.GetFiles(tempDir, "*.exe", SearchOption.AllDirectories);
             if (exes.Length > 0)
             {
-                // Pick well-known primary EXEs or the largest
                 var mainExe = exes.OrderByDescending(f => new FileInfo(f).Length).First();
                 var vi = System.Diagnostics.FileVersionInfo.GetVersionInfo(mainExe);
                 return new InstallerMetadata

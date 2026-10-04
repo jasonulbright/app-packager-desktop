@@ -30,8 +30,6 @@ public sealed class MecmPackageResultTests : IDisposable
         Detection = new StageDetection { Type = "File", FilePath = @"%ProgramFiles%\Widget", FileName = "widget.exe", ExpectedValue = "1.0" }
     };
 
-    // ── CI_ID ────────────────────────────────────────────────────
-
     [Fact]
     public void TheScriptReReadsTheCiIdAfterTheRevisionCleanup()
     {
@@ -49,8 +47,6 @@ public sealed class MecmPackageResultTests : IDisposable
     [InlineData("no id printed", "")]
     public void TheResultTakesTheFinalCiId(string output, string expected) =>
         Assert.Equal(expected, MecmTarget.ReadCiId(output));
-
-    // ── Unexpected files on the share ────────────────────────────
 
     [Fact]
     public async Task AnUnexpectedFileOnTheShareRefusesTheRunBeforeAnyWrite()
@@ -95,8 +91,6 @@ public sealed class MecmPackageResultTests : IDisposable
         Assert.Empty(ContentSyncService.UnexpectedFiles(root, Manifest()));
         Assert.Empty(ContentSyncService.UnexpectedFiles(Path.Combine(_dir, "absent"), manifest));
     }
-
-    // ── User interaction ─────────────────────────────────────────
 
     [Theory]
     [InlineData("InstallForUser")]

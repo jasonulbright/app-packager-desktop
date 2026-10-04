@@ -28,8 +28,6 @@ public class CachedDownloadRefreshTests : IDisposable
         return path;
     }
 
-    // -- Request shape -----------------------------------------------------
-
     [Fact]
     public void FirstDownload_IsUnconditionalAndKeepsTheRemoteTimestamp()
     {
@@ -48,8 +46,6 @@ public class CachedDownloadRefreshTests : IDisposable
         Assert.Contains(@"-z C:\cache\setup.exe ", args);
         Assert.Contains(@"-o C:\cache\setup.exe.refresh", args);
     }
-
-    // -- Outcomes ----------------------------------------------------------
 
     [Fact]
     public void NewRelease_ReplacesTheCacheWithTheDownloadedBody()
@@ -103,8 +99,6 @@ public class CachedDownloadRefreshTests : IDisposable
         Assert.Equal("cached payload", File.ReadAllText(cache));
         Assert.False(File.Exists(refresh));
     }
-
-    // -- Version resource fixed block --------------------------------------
 
     [Fact]
     public void FixedBlockVersion_FormatsTheFourProductParts()

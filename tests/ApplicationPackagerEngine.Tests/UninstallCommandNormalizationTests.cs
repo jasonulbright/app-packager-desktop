@@ -3,9 +3,9 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// A definition's UninstallCommand written as a plain command line used to
-/// be pasted into the uninstall wrapper as written, where PowerShell parses
-/// the quoted path as a string expression and stops at the first switch.
+/// A definition's UninstallCommand written as a plain command line becomes a
+/// Start-Process call in the uninstall wrapper. Pasted as written, PowerShell
+/// parses the quoted path as a string expression and stops at the first switch.
 /// </summary>
 public sealed class UninstallCommandNormalizationTests : IDisposable
 {

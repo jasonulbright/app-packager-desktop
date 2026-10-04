@@ -29,33 +29,27 @@ public partial class PackagesPage
     {
         var vm = (PackagesViewModel)DataContext!;
 
-        // Ctrl+A: toggle select all
         if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
         {
             vm.ToggleSelectAllCommand.Execute(null);
             e.Handled = true;
         }
-        // F5: refresh packager list
         else if (e.Key == Key.F5)
         {
             _ = vm.LoadPackagersCommand.ExecuteAsync(null);
             e.Handled = true;
         }
-        // Escape: cancel running operation
         else if (e.Key == Key.Escape && vm.IsOperationRunning)
         {
             vm.CancelOperationCommand.Execute(null);
             e.Handled = true;
         }
-        // Ctrl+E: export to CSV
         else if (e.Key == Key.E && Keyboard.Modifiers == ModifierKeys.Control)
         {
             vm.ExportCsvCommand.Execute(null);
             e.Handled = true;
         }
     }
-
-    // ── Drop-to-package intake ───────────────────────────────────
 
     private void Page_DragOver(object sender, DragEventArgs e)
     {
@@ -111,8 +105,6 @@ public partial class PackagesPage
             tb.ScrollToEnd();
         }
     }
-
-    // ── Context menu handlers ────────────────────────────────────
 
     private PackagerInfo? GetSelectedPackager() =>
         PackagerGrid.SelectedItem as PackagerInfo;

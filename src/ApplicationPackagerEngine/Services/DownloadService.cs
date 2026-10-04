@@ -3,7 +3,7 @@ using ApplicationPackagerEngine.Scrapers;
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
-/// Downloads files using curl.exe (fast, built into Windows 10+/Server 2019+).
+/// Downloads files using curl.exe (built into Windows 10+/Server 2019+).
 ///
 /// The transfer writes to a temporary sibling and is moved into place only once it has
 /// completed. Staging skips the download when the installer is already present, so a

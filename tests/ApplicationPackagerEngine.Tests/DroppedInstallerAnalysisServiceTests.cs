@@ -67,8 +67,6 @@ public class DroppedInstallerAnalysisServiceTests : IDisposable
     private static DroppedInstallerAnalysisService ExeService() =>
         new(new FakeMsiInspector { Throws = true });
 
-    // ── MSI path ────────────────────────────────────────────────
-
     [Fact]
     public async Task Analyze_Msi_IdentityIsConfirmed()
     {
@@ -212,8 +210,6 @@ public class DroppedInstallerAnalysisServiceTests : IDisposable
         var ex = Assert.Throws<InvalidOperationException>(() => service.BuildStageManifest(analysis));
         Assert.Contains("msp", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
-
-    // ── EXE path ────────────────────────────────────────────────
 
     [Fact]
     public async Task Analyze_NsisExe_IsPredictedAndNeedsConfirmation()
