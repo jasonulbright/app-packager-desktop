@@ -8,9 +8,8 @@
     number. No field has a leading zero and every field is below 65536, so the version
     is valid as a three-part numeric version and in a Windows version resource.
 
-    The release number of the first date version is 16: fifteen releases carry a
-    2.x version. Every later release number follows the newest date tag by one, and
-    its date is not earlier than the date of that tag.
+    The release number of the first release is 1. Every later release number follows
+    the newest date tag by one, and its date is not earlier than the date of that tag.
 
     Throws with the broken rule. Returns nothing when the version passes.
 
@@ -29,7 +28,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$firstReleaseNumber = 16
+$firstReleaseNumber = 1
 
 function ConvertFrom-DateVersion {
     param([string]$Text)
