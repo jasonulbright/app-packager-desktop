@@ -171,25 +171,9 @@ public sealed class StagingService
         return match.Groups.Count > 1 ? match.Groups[1].Value : match.Value;
     }
 
-    /// <summary>
-    /// Gets the latest version for a JSON-defined app without downloading.
-    /// Routes through winget or static URL based on preference and availability.
-    /// </summary>
-    public async Task<string?> GetLatestVersionAsync(
-        AppDefinition def, string acquisitionMethod = "StaticUrl", CancellationToken ct = default)
+    /// <summary>Gets the latest version for a JSON-defined app without downloading.</summary>
+    public async Task<string?> GetLatestVersionAsync(AppDefinition def, CancellationToken ct = default)
     {
-        if (acquisitionMethod == "Winget" && def.Acquisition.HasWinget)
-        {
-            var wingetConfig = new Models.VersionScraperConfig
-            {
-                Type = "Winget",
-                Url = def.Acquisition.WingetId ?? ""
-            };
-            var wingetVersion = await _scrapers.GetLatestVersionAsync(wingetConfig, ct);
-            if (wingetVersion is not null)
-                return wingetVersion;
-        }
-
         var (raw, display) = await _scrapers.GetLatestVersionWithTransformAsync(def.VersionScraper, ct);
 
         if (!string.IsNullOrEmpty(def.DisplayVersionOverride) && raw is not null)

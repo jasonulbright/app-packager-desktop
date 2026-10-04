@@ -38,7 +38,6 @@ public sealed class AppDefinition
     /// MSIX apps: context is determined by the MSIX manifest, this field is advisory for deployment targeting.
     /// </summary>
     public string InstallContext { get; set; } = "Machine";
-    public AcquisitionConfig Acquisition { get; set; } = new();
     public VersionScraperConfig VersionScraper { get; set; } = new();
     public string DownloadUrl { get; set; } = "";
     /// <summary>
@@ -231,24 +230,6 @@ public sealed class AppDefinition
     /// <summary>Path to the .json file this was loaded from.</summary>
     [JsonIgnore]
     public string SourcePath { get; set; } = "";
-}
-
-/// <summary>
-/// Dual acquisition paths. JSON definitions declare what's available.
-/// User preference decides which path to use at runtime.
-/// </summary>
-public sealed class AcquisitionConfig
-{
-    /// <summary>Winget package ID (e.g., "Google.Chrome"). Null = winget not available for this app.</summary>
-    public string? WingetId { get; set; }
-
-    /// <summary>Whether this app has a winget source available.</summary>
-    [JsonIgnore]
-    public bool HasWinget => !string.IsNullOrEmpty(WingetId);
-
-    /// <summary>Whether this app has a static URL source available (VersionScraper + DownloadUrl).</summary>
-    [JsonIgnore]
-    public bool HasStaticUrl => true;
 }
 
 public sealed class VersionScraperConfig
