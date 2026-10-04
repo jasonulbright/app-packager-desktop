@@ -99,8 +99,6 @@ public sealed class PayloadHashVerificationTests : IDisposable
             () => StagingService.VerifyPayloadHash(path, recorded));
     }
 
-    // ── Feed capture ────────────────────────────────────────────────
-
     [Fact]
     public void TeraCopyFeedShape_CapturesTheHashFromTheNamedGroup()
     {

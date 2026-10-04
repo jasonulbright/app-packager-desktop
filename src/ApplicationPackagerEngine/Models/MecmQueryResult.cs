@@ -39,9 +39,9 @@ public sealed class MecmQueryResult
 }
 
 /// <summary>
-/// Reads a query process's result. The query script suppressed its own errors and reported
-/// them as ordinary output, so a site that could not be reached looked exactly like a site
-/// that answered "no".
+/// Reads a query process's result. Only a lone NOT_FOUND record with exit code 0 is a
+/// NotFound; any other output is a failure, so an unreachable site never reads as a site
+/// that does not carry the application.
 /// </summary>
 public static class MecmQueryClassifier
 {

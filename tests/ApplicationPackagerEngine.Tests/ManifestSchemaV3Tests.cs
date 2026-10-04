@@ -77,7 +77,7 @@ public sealed class ManifestSchemaV3Tests : IDisposable
     [Fact]
     public void Read_PsV3Manifest_ParsesDeploymentTypesAndOverrides()
     {
-        // Shape produced by AppPackagerCommon 0.0.21 (PowerShell sibling).
+        // The schema version 3 shape a PS1 packager writes through AppPackagerCommon 0.0.21.
         var manifestPath = Path.Combine(_root, "stage-manifest.json");
         File.WriteAllText(manifestPath, """
         {

@@ -7,7 +7,7 @@ using ApplicationPackagerEngine.Services.Wsus;
 using ApplicationPackagerEngine.Services.Workbench;
 
 /// <summary>
-/// Headless lab modes: --wsus drives the WSUS engine services against a named
+/// Headless server modes: --wsus drives the WSUS engine services against a named
 /// server, --package-mecm drives ConfigMgr packaging of an already staged
 /// folder with the settings the UI passes. Each returns the process exit code.
 /// </summary>

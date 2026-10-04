@@ -5,8 +5,8 @@ namespace ApplicationPackagerEngine.Scrapers;
 
 /// <summary>
 /// Discovers and registers IVersionScraper implementations via reflection.
-/// Maps Type strings to scraper instances. Adding a new scraper = add a class
-/// implementing IVersionScraper, it's automatically available.
+/// Maps Type strings to scraper instances. Every non-abstract class in this assembly
+/// that implements IVersionScraper registers, and needs a parameterless constructor.
 /// </summary>
 public sealed class ScraperRegistry
 {
@@ -14,7 +14,6 @@ public sealed class ScraperRegistry
 
     public ScraperRegistry()
     {
-        // Discover all IVersionScraper implementations in this assembly
         var scraperTypes = Assembly.GetExecutingAssembly()
             .GetTypes()
             .Where(t => t is { IsClass: true, IsAbstract: false } && t.GetInterfaces().Contains(typeof(IVersionScraper)));

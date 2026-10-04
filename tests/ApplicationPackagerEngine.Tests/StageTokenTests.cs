@@ -5,8 +5,7 @@ namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
 /// Stage tokens resolve parts of the staged version and values read from the
-/// payload. Text that carries none of them comes back unchanged, which keeps
-/// every definition that uses none on its earlier output.
+/// payload. Text that carries none of them comes back unchanged.
 /// </summary>
 public sealed class StageTokenTests
 {

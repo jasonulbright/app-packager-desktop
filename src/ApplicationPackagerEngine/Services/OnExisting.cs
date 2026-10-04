@@ -19,8 +19,9 @@ public enum OnExistingBehavior
 }
 
 /// <summary>
-/// The machine-readable line a Skip run emits, and its parser. The format is
-/// shared with the PowerShell engine so one parser serves both.
+/// The machine-readable line a Skip run emits, and its parser. The generated
+/// ConfigMgr script and a PS1 packager child both write the line, so one parser
+/// reads both outputs.
 /// </summary>
 public static partial class OnExistingConflict
 {

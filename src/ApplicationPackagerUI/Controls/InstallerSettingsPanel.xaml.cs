@@ -64,7 +64,6 @@ public partial class InstallerSettingsPanel : UserControl
         if (parameters is null || parameters.Length == 0)
             return;
 
-        // Group parameters
         var groups = parameters.GroupBy(p => p.Group ?? "General").OrderBy(g => g.Key);
 
         foreach (var group in groups)

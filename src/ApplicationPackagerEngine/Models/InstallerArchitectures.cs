@@ -16,9 +16,8 @@ public static class InstallerArchitectures
     public const string Arm64 = "ARM64";
 
     /// <summary>
-    /// A manifest staged before the architecture field existed carries none. An absent
-    /// value reads as x64, matching the default the publish options and the PowerShell
-    /// publisher already apply, rather than being inferred from the detection view.
+    /// A manifest without the architecture field reads as x64, the default the publish
+    /// options apply. The value is never inferred from the detection view.
     /// </summary>
     public const string LegacyDefault = X64;
 

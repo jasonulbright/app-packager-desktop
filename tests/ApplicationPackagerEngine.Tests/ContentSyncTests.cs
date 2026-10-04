@@ -55,8 +55,6 @@ public sealed class ContentSyncTests : IDisposable
         FileHashes = ManifestService.ComputeFileHashes(Local, ContentSyncService.ManifestFileName)
     };
 
-    // ── Refresh ─────────────────────────────────────────────────
-
     [Fact]
     public void AChangedWrapperAtTheSameVersionIsRefreshed()
     {
@@ -113,8 +111,6 @@ public sealed class ContentSyncTests : IDisposable
         Assert.Equal(["install.ps1"], result.Copied);
     }
 
-    // ── Legacy manifests ────────────────────────────────────────
-
     /// <summary>
     /// A pre-v3 stage carries no FileHashes. The comparison falls back to hashing the
     /// staged file, so re-staging still refreshes a changed wrapper.
@@ -154,8 +150,6 @@ public sealed class ContentSyncTests : IDisposable
 
         Assert.Empty(ContentSyncService.Verify(Network, new StageManifest()));
     }
-
-    // ── Verification ────────────────────────────────────────────
 
     [Fact]
     public void AChangedLocalPayloadIsRejectedAgainstTheManifest()
@@ -206,8 +200,6 @@ public sealed class ContentSyncTests : IDisposable
 
         Assert.Empty(ContentSyncService.Verify(Network, manifest));
     }
-
-    // ── Cancellation ────────────────────────────────────────────
 
     [Fact]
     public void ACancelledSyncStopsRatherThanContinuing()

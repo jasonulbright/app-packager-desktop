@@ -132,7 +132,7 @@ public sealed class ScriptSigningOrchestratorTests(SigningCertificateFixture fix
         Assert.True(ScriptSignatureVerifier.Verify(staged).SignatureIntact);
         // The PowerShell subject interface package hashes the script text as its
         // byte-order mark decodes it, so a UTF-16LE original written back with a
-        // UTF-8 byte-order mark (the earlier candidate) verifies as well.
+        // UTF-8 byte-order mark verifies as well.
         if (encodingName != "UTF16LE")
             Assert.Equal(File.ReadAllBytes(source), File.ReadAllBytes(staged));
     }

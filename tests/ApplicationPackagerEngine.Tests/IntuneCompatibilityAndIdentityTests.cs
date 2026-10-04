@@ -36,8 +36,6 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
     private static string[] Codes(StageManifest m, IReadOnlyList<StageRequirement>? extra = null) =>
         IntuneCompatibilityFindings.Build(m, extra).Select(f => $"{f.Severity}:{f.Code}").ToArray();
 
-    // ── Findings ────────────────────────────────────────────────
-
     [Fact]
     public void APlainManifestCarriesNoFinding() => Assert.Empty(Codes(Manifest()));
 
@@ -105,8 +103,6 @@ public sealed class IntuneCompatibilityAndIdentityTests : IDisposable
         Assert.Contains(log, l => l.StartsWith("Intune compatibility         : [Blocking] InteractiveInstall - ", StringComparison.Ordinal));
         Assert.Empty(handler.Requests);
     }
-
-    // ── Identity tag ────────────────────────────────────────────
 
     [Fact]
     public void TheIdentityTagNamesTheApplicationAndProfile()

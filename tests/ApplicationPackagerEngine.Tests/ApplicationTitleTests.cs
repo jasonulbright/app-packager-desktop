@@ -112,8 +112,6 @@ public sealed class ApplicationTitleTests
     public void AnEmptyVersionLeavesTheNameIntact() =>
         Assert.Equal("Audacity", ApplicationTitle.Resolve("Audacity", "", TitleMode.NoVersion));
 
-    // ── The title reaches the generated script ───────────────────
-
     [Fact]
     public void TheResolvedTitleNamesTheApplicationAndItsDeploymentType()
     {

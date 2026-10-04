@@ -30,8 +30,6 @@ public sealed class BootstrapperLayoutTests : IDisposable
                 File.ReadAllText(Path.Combine(_dir, "uninstall.ps1")));
     }
 
-    // ── Wrapper text ────────────────────────────────────────────
-
     [Fact]
     public void Install_RunsTheLayoutCopyWithQuietInstallPathAndFeatures()
     {
@@ -119,8 +117,6 @@ public sealed class BootstrapperLayoutTests : IDisposable
             StagingService.BuildLayoutInstallArgs(Adk()));
     }
 
-    // ── Path-length guard ───────────────────────────────────────
-
     [Fact]
     public void LayoutPathWithinLimit_IsAccepted()
     {
@@ -147,8 +143,6 @@ public sealed class BootstrapperLayoutTests : IDisposable
 
         StagingService.AssertLayoutPathLength(path, 120);
     }
-
-    // ── Config validation ───────────────────────────────────────
 
     [Fact]
     public void ValidConfig_Passes()
@@ -185,8 +179,6 @@ public sealed class BootstrapperLayoutTests : IDisposable
         Assert.Contains("MaxLayoutPathLength",
             Assert.Throws<InvalidOperationException>(() => StagingService.ValidateBootstrapperLayout(layout)).Message);
     }
-
-    // ── Version-source MSI resolution ───────────────────────────
 
     private string MakeLayout(params string[] installerNames)
     {
@@ -264,8 +256,6 @@ public sealed class BootstrapperLayoutTests : IDisposable
             Assert.Throws<InvalidOperationException>(
                 () => StagingService.ResolveVersionSourceMsi(layout, "Installers\\Absent.msi")).Message);
     }
-
-    // ── Shipped definitions ─────────────────────────────────────
 
     [Theory]
     [InlineData("windowsadk.json", "adksetup.exe", "OptionId.DeploymentTools")]

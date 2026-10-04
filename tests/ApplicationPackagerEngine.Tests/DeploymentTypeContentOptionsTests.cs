@@ -5,8 +5,8 @@ namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
 /// The two deployment type content options reach Add-CMScriptDeploymentType. The
-/// defaults produce the arguments every deployment type carried before the options
-/// existed; an unknown stored value warns and takes the default.
+/// defaults produce the same script as no options at all (-ContentFallback and a
+/// Download slow-network mode); an unknown stored value warns and takes the default.
 /// </summary>
 public sealed class DeploymentTypeContentOptionsTests
 {
@@ -73,8 +73,6 @@ public sealed class DeploymentTypeContentOptionsTests
     [InlineData("forcereboot", "ForceReboot")]
     public void ADeploymentTypeWithoutABehaviorRestartsOnItsExitCode(string? behavior, string expected) =>
         Assert.Equal(expected, MecmTarget.ResolveRebootBehavior(behavior));
-
-    // ── Network content path ────────────────────────────────────
 
     [Theory]
     [InlineData(ContentLayouts.Nested, "Contoso Inc.", "App 2. ", "1.0", @"\\fs\sccm$\Applications\Contoso Inc\App 2\1.0")]

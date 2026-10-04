@@ -14,8 +14,6 @@ public class WsusCompatibilityTests : IDisposable
 
     public void Dispose() => _temp.Dispose();
 
-    // ── Payload files and paths ─────────────────────────────────
-
     [Fact]
     public void CarriesEveryRecordedStageFileWithTheInstallerFirstNeverAGeneratedFile()
     {
@@ -75,8 +73,6 @@ public class WsusCompatibilityTests : IDisposable
         Assert.Single(findings, f => f.Code == WsusRefusalCodes.PayloadOutsideStage);
         Assert.DoesNotContain(findings, f => f.Code is WsusRefusalCodes.InstallerMissing or WsusRefusalCodes.InstallerInSubfolder);
     }
-
-    // ── Install script check ────────────────────────────────────
 
     public static TheoryData<string, string> AcceptedScripts => new()
     {
@@ -151,8 +147,6 @@ public class WsusCompatibilityTests : IDisposable
         Assert.Contains(expected, WsusCompatibility.InstallScriptExtras(path));
         Assert.NotEmpty(name);
     }
-
-    // ── Findings ────────────────────────────────────────────────
 
     [Fact]
     public void ReportsNoBlockingFindingForAPlainSilentExe()

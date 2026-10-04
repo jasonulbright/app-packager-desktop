@@ -42,8 +42,6 @@ public sealed class WorkbenchReparseHardeningTests : IDisposable
         Assert.True(WorkbenchJson.IsReparsePoint(link), "the junction was not created");
     }
 
-    // ── Picked source folders ───────────────────────────────────
-
     [Fact]
     public void APickedFolderIsNotEnumeratedThroughAJunction()
     {
@@ -73,8 +71,6 @@ public sealed class WorkbenchReparseHardeningTests : IDisposable
             WorkbenchSourceFiles.AssertNoReparseAncestor(picked, Path.Combine(picked, "linked", "secret.txt")));
         Assert.Contains("reparse point", ex.Message);
     }
-
-    // ── Destinations ────────────────────────────────────────────
 
     [Theory]
     [InlineData("install.ps1:hidden")]
@@ -112,8 +108,6 @@ public sealed class WorkbenchReparseHardeningTests : IDisposable
             ["SourceFiles"] = new JsonArray(new JsonObject { ["Destination"] = destination, ["Asset"] = "x" })
         });
     }
-
-    // ── Stage prune ─────────────────────────────────────────────
 
     [Fact]
     public void ThePruneNeverDeletesThroughAFolderReplacedByAJunction()

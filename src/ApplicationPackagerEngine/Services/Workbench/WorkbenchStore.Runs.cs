@@ -121,8 +121,6 @@ public sealed partial class WorkbenchStore
             (estimated, maximum) => $"Run override EstimatedMinutes ({estimated}) cannot exceed MaximumMinutes ({maximum}).");
     }
 
-    // ── Drafts ──────────────────────────────────────────────────
-
     public string GetDraftPath(string applicationId, string profileId)
     {
         ApplicationIds.AssertProfileId(profileId);

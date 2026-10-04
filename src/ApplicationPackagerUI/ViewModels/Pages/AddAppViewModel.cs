@@ -47,7 +47,6 @@ public partial class AddAppViewModel : ObservableObject
     // Step 5: Review
     [ObservableProperty] private string _reviewSummary = "";
 
-    // Status
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private bool _isBusy;
 
@@ -205,12 +204,10 @@ public partial class AddAppViewModel : ObservableObject
             RunningProcess = []
         };
 
-        // Save to Definitions folder
         var settings = _settingsService.Load();
         var defsDir = Path.Combine(Path.GetDirectoryName(settings.PackagersRoot) ?? "", "Definitions");
         if (!Directory.Exists(defsDir))
         {
-            // Fallback: save next to the executable
             defsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
             Directory.CreateDirectory(defsDir);
         }

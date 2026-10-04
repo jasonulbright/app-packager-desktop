@@ -4,7 +4,6 @@ namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
 /// Extracts properties from MSI files using the Windows Installer COM API.
-/// Replaces the PS1 Get-MsiPropertyMap function.
 /// </summary>
 public sealed class MsiInspectionService : IMsiInspector
 {

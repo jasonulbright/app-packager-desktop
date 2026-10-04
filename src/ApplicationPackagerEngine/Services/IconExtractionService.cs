@@ -126,7 +126,6 @@ public sealed class IconExtractionService
 
         var ext = Path.GetExtension(installerPath).ToLowerInvariant();
 
-        // For standalone EXEs, read icon directly
         if (ext == ".exe")
         {
             var directResult = ExtractFromExe(installerPath, cachedPath);
@@ -134,7 +133,6 @@ public sealed class IconExtractionService
                 return directResult;
         }
 
-        // For archives (MSI wrapped in EXE, NSIS, InnoSetup, etc.), extract and find primary EXE
         var tempDir = Path.Combine(Path.GetTempPath(), $"packr-icon-{Guid.NewGuid():N}");
         try
         {
@@ -142,7 +140,6 @@ public sealed class IconExtractionService
             if (!extraction.Success)
                 return new IconResult { Success = false, ErrorMessage = "Failed to extract installer" };
 
-            // Find the best candidate EXE (largest non-utility EXE)
             var exes = Directory.GetFiles(tempDir, "*.exe", SearchOption.AllDirectories)
                 .Where(f => !Path.GetFileName(f).StartsWith("unins", StringComparison.OrdinalIgnoreCase)
                          && !f.Contains("$PLUGINSDIR", StringComparison.OrdinalIgnoreCase)
@@ -212,8 +209,6 @@ public sealed class IconExtractionService
         var path = Path.Combine(_cacheDir, $"{appId}.png");
         return File.Exists(path) ? path : null;
     }
-
-    // ---- Stage-time icon placement ----
 
     /// <summary>
     /// Places app-icon.* in a stage folder and records the file name on the
@@ -347,8 +342,8 @@ public sealed class IconExtractionService
             : Path.GetFileNameWithoutExtension(definition.SourcePath);
 
     /// <summary>
-    /// An absent, blank, or unrecognized IconSource is None, which keeps every
-    /// untagged definition on the pre-icon path.
+    /// An absent, blank, or unrecognized IconSource is None, so an untagged
+    /// definition extracts no icon from its installer.
     /// </summary>
     public static string NormalizeIconSource(string? value) =>
         value?.Trim() switch
@@ -357,8 +352,6 @@ public sealed class IconExtractionService
             "External" => "External",
             _ => "None"
         };
-
-    // ---- True-size installer icon extraction ----
 
     /// <summary>
     /// Smallest largest-frame size accepted. Setup-stub icons top out at 32px

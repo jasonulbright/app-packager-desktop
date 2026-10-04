@@ -41,8 +41,6 @@ public sealed partial class WorkbenchStore
         return folder;
     }
 
-    // ── Application definitions ─────────────────────────────────
-
     /// <summary>Reads application.json, or returns the unsaved default definition.</summary>
     public WorkbenchApplicationDefinition GetApplicationDefinition(string applicationId)
     {

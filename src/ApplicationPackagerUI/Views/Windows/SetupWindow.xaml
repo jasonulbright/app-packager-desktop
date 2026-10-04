@@ -41,7 +41,6 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="28,8,28,8">
 
-                <!-- Step 1: environment -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=1}">
                     <TextBlock Text="Welcome to AppPackager" FontSize="22" FontWeight="Bold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,4" />
@@ -68,7 +67,6 @@
                                Style="{StaticResource HintText}" Margin="28,0,0,10" />
                 </StackPanel>
 
-                <!-- Step 2: the fields that target needs -->
                 <StackPanel Visibility="{Binding CurrentStep, Converter={StaticResource StepVisibilityConverter}, ConverterParameter=2}">
                     <TextBlock Text="Connection details" FontSize="22" FontWeight="Bold"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" Margin="0,0,0,12" />

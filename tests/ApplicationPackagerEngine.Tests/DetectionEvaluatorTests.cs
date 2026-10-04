@@ -5,11 +5,11 @@ using Microsoft.Win32;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// The local runner hardcoded HKLM, so a staged per-user rule failed even where its key
-/// existed; a prefix comparison fell through to equality, so a real value carrying the
-/// expected prefix plus a suffix failed; and an operator the runner did not implement
-/// silently became a greater-or-equal comparison. An error also has to stay distinct from
-/// a genuine not-detected, because the post-uninstall check negates the verdict.
+/// The local runner reads the rule's own hive, so a per-user rule finds its key; a prefix
+/// comparison matches a value that carries the expected prefix plus a suffix; and an
+/// operator the runner does not implement is an error, not a greater-or-equal comparison.
+/// An error stays distinct from a genuine not-detected, because the post-uninstall check
+/// negates the verdict.
 /// </summary>
 public sealed class DetectionEvaluatorTests : IDisposable
 {
@@ -43,8 +43,6 @@ public sealed class DetectionEvaluatorTests : IDisposable
         Is64Bit = false
     };
 
-    // ── Comparison semantics ────────────────────────────────────
-
     [Theory]
     [InlineData("7.23.0", "7.23", "BeginsWith", DetectionEvaluation.Detected)]
     [InlineData("17.11-1", "17.11", "BeginsWith", DetectionEvaluation.Detected)]
@@ -62,7 +60,7 @@ public sealed class DetectionEvaluatorTests : IDisposable
             PropertyType = "String"
         }));
 
-    /// <summary>A prefix rule that fell through to equality failed a real installed value.</summary>
+    /// <summary>An equality comparison in place of the prefix rule fails an installed value that carries a suffix.</summary>
     [Fact]
     public void APrefixRuleIsNotAnEqualityComparison()
     {
@@ -97,8 +95,6 @@ public sealed class DetectionEvaluatorTests : IDisposable
         Assert.Equal(DetectionEvaluation.NotDetected, DetectionEvaluator.CompareValue("1.136.2",
             new StageDetection { ExpectedValue = "1.137.0", Operator = "GreaterEquals", PropertyType = "Version" }));
 
-    // ── Fail closed ─────────────────────────────────────────────
-
     [Theory]
     [InlineData("Matches")]
     [InlineData("OneOf")]
@@ -121,8 +117,6 @@ public sealed class DetectionEvaluatorTests : IDisposable
     [Fact]
     public void AnUnsupportedOperatorIsAnErrorEvenWhenTheRegistryKeyIsMissing() =>
         Assert.Equal(DetectionEvaluation.Error, DetectionEvaluator.Evaluate(UserRule("1.0", "Matches")));
-
-    // ── Deployment defaults ─────────────────────────────────────
 
     /// <summary>
     /// A registry value rule with no operator is an equality comparison, which is what the
@@ -184,8 +178,6 @@ public sealed class DetectionEvaluatorTests : IDisposable
         Assert.Equal(DetectionEvaluation.Detected,
             DetectionEvaluator.CompareValue("anything", new StageDetection { Operator = "IsEquals" }));
 
-    // ── The rule's own hive and view ────────────────────────────
-
     /// <summary>The per-user rule the VS Code user definition stages.</summary>
     [Fact]
     public void APerUserRuleReadsTheCurrentUserHive()
@@ -208,7 +200,7 @@ public sealed class DetectionEvaluatorTests : IDisposable
         Assert.Equal(DetectionEvaluation.Detected, DetectionEvaluator.Evaluate(det));
     }
 
-    /// <summary>The same rule pointed at the machine hive finds nothing, which is the bug.</summary>
+    /// <summary>The same rule pointed at the machine hive finds nothing, so a runner fixed to HKLM fails a per-user rule.</summary>
     [Fact]
     public void TheSameKeyIsAbsentFromTheMachineHive()
     {
@@ -251,8 +243,6 @@ public sealed class DetectionEvaluatorTests : IDisposable
         det.Hive = "LocalMachine";
         Assert.Equal(DetectionEvaluation.NotDetected, DetectionEvaluator.Evaluate(det));
     }
-
-    // ── File rules ──────────────────────────────────────────────
 
     /// <summary>
     /// Reading the attributes tells a missing path from an unreadable one, but a directory
@@ -349,8 +339,6 @@ public sealed class DetectionEvaluatorTests : IDisposable
         Assert.Equal(want, DetectionEvaluator.Evaluate(det));
     }
 
-    // ── Script rules ────────────────────────────────────────────
-
     /// <summary>
     /// A shipped detection body reports absence by exiting 0 with no output, so a nonzero
     /// exit is the script itself having failed and not a verdict about the application.
@@ -398,11 +386,9 @@ public sealed class DetectionEvaluatorTests : IDisposable
         Assert.Equal(DetectionEvaluation.Error, DetectionEvaluator.Evaluate(
             new StageDetection { Type = "Script", ScriptText = "exit 0", ScriptLanguage = "PowerShell" }));
 
-    // ── The post-uninstall clean reading ────────────────────────
-
     /// <summary>
     /// The clean phase negates the verdict. An error must not become a clean machine,
-    /// which is what negating a false reading produced.
+    /// which is what negating an error read as false produces.
     /// </summary>
     [Theory]
     [InlineData(DetectionEvaluation.NotDetected, true)]

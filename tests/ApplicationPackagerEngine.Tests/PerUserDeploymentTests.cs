@@ -9,8 +9,8 @@ namespace ApplicationPackagerEngine.Tests;
 /// A per-user product registers under HKCU and installs in the user's
 /// session. The hive travels from the definition through the stage manifest
 /// into the MECM detection clause and the Intune registry rule, and the
-/// Intune install runs as the user. Every manifest written before the field
-/// existed still reads as the machine hive.
+/// Intune install runs as the user. A manifest without the hive field reads
+/// as the machine hive.
 /// </summary>
 public class PerUserDeploymentTests
 {

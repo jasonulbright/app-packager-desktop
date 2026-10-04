@@ -198,8 +198,6 @@ public class IntuneRuleMappingTests
         Assert.Contains("no Intune rule mapping", ex.Message);
     }
 
-    // -- Operator table ------------------------------------------------
-
     [Theory]
     [InlineData("IsEquals", "equal")]
     [InlineData("NotEquals", "notEqual")]
@@ -267,8 +265,6 @@ public class IntuneRuleMappingTests
         Assert.Contains("'OneOf'", ex.Message);
         Assert.Contains(context, ex.Message);
     }
-
-    // -- Prefix, suffix and substring comparisons --------------------------
 
     private static string ScriptOf(JsonObject rule) =>
         Encoding.UTF8.GetString(Convert.FromBase64String((string)rule["scriptContent"]!));
@@ -350,8 +346,6 @@ public class IntuneRuleMappingTests
         Assert.Contains("[Microsoft.Win32.RegistryView]::Registry32", script);
         Assert.Contains(@"$key = $base.OpenSubKey('SOFTWARE\O''Vendor')", script);
     }
-
-    // -- Compound detections -----------------------------------------------
 
     [Fact]
     public void CompoundAnd_MapsOneRulePerClause()

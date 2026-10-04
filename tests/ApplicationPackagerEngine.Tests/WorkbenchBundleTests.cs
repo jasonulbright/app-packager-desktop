@@ -90,8 +90,6 @@ public sealed class WorkbenchBundleTests : IDisposable
     private bool AnyApplication(WorkbenchStore store) =>
         Directory.Exists(store.ApplicationsRoot) && Directory.EnumerateFileSystemEntries(store.ApplicationsRoot).Any();
 
-    // ── Round trip ─────────────────────────────────────────────
-
     [Fact]
     public void ExportThenImportUnderANewId_RecreatesTheApplication()
     {
@@ -182,8 +180,6 @@ public sealed class WorkbenchBundleTests : IDisposable
         Assert.Contains("has nothing stored to export", error.Message);
     }
 
-    // ── Existing application ───────────────────────────────────
-
     [Fact]
     public void ImportingOverAnExistingApplicationWithoutForce_IsRefused()
     {
@@ -222,8 +218,6 @@ public sealed class WorkbenchBundleTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => WorkbenchBundles.Import(Store, bundle, force: true));
         Assert.Equal("Keep me", Store.GetApplicationDefinition("catalog:package-hostile").DisplayName);
     }
-
-    // ── Hostile bundles ────────────────────────────────────────
 
     [Fact]
     public void ABundleSchemaNewerThanThisBuild_IsRefused()
@@ -342,8 +336,6 @@ public sealed class WorkbenchBundleTests : IDisposable
         Assert.Contains("Invalid ApplicationId", error.Message);
         Assert.False(AnyApplication(Store));
     }
-
-    // ── Bounds and identity ────────────────────────────────────
 
     [Fact]
     public void AnArchiveEntryLargerThanItsListedSize_IsRefusedBeforeExtraction()
@@ -509,8 +501,6 @@ public sealed class WorkbenchBundleTests : IDisposable
         static bool Matches(byte[] bytes, int offset, byte[] name, int length) =>
             length == name.Length && offset + length <= bytes.Length && bytes.AsSpan(offset, length).SequenceEqual(name);
     }
-
-    // ── Junctions ──────────────────────────────────────────────
 
     [Fact]
     public void Export_LeavesOutContentReachedThroughAJunction()

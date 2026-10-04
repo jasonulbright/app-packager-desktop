@@ -4,15 +4,15 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// Guards the de-duplication of InstallerSettings out of the shipped definitions'
-/// InstallArgs: resolving a definition's parameters with no user overrides must
-/// reproduce the switches those definitions used to spell out inline.
+/// Shipped definitions keep parameter-owned switches out of InstallArgs: resolving a
+/// definition's parameters with no user overrides must produce the full effective
+/// switch set, base arguments plus parameter defaults.
 /// </summary>
 public class InstallerSettingsResolutionTests
 {
-    // The effective install arguments each definition produced before its
-    // parameter-owned switches moved out of InstallArgs. Compared as a switch
-    // set, since the resolver appends parameter fragments after the base.
+    // The full effective install arguments of each definition with default parameters.
+    // Compared as a switch set, since the resolver appends parameter fragments after
+    // the base.
     private const string MariaDbArgsBeforeDedup = "/qn /norestart SERVICENAME=MariaDB PORT=3306";
 
     private const string WacArgsBeforeDedup = "/VERYSILENT /HTTPSPortNumber=443";

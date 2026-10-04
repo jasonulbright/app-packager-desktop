@@ -85,8 +85,6 @@ public sealed class BeyondCompare5DefinitionTests : IDisposable
         Assert.Equal("BC5Key.txt", side.FileName);
     }
 
-    // ── Side files ──────────────────────────────────────────────
-
     [Fact]
     public void NoChosenKeyFileRefusesTheStage()
     {

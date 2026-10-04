@@ -3,17 +3,15 @@ using ApplicationPackagerEngine.Models;
 namespace ApplicationPackagerEngine.Tests;
 
 /// <summary>
-/// The query script suppressed its own errors and reported them as ordinary output, and
-/// the service ignored the exit code, so a site that could not be reached was
-/// indistinguishable from one that answered "no". That absence then cleared the recorded
-/// version and counted as a completed check.
+/// A site that cannot be reached must stay distinct from one that answers that it does
+/// not carry the application: an absence clears the recorded version and counts as a
+/// completed check. Errors written as ordinary output, or a nonzero exit code, are
+/// failures, not absences.
 ///
 /// This drives the classifier the query service actually calls; no site is contacted.
 /// </summary>
 public class MecmQueryClassifierTests
 {
-    // ── A genuine answer ────────────────────────────────────────
-
     [Fact]
     public void AFoundApplicationCarriesItsVersionAndMatchCount()
     {
@@ -38,8 +36,6 @@ public class MecmQueryClassifierTests
         Assert.Equal("", result.SoftwareVersion);
         Assert.Equal(2, result.MatchCount);
     }
-
-    // ── Malformed records are not answers ───────────────────────
 
     /// <summary>
     /// The script writes one complete record. A short one is malformed, not a smaller
@@ -132,8 +128,6 @@ public class MecmQueryClassifierTests
         Assert.Equal(MecmQueryStatus.NotFound,
             MecmQueryClassifier.Classify(0, "  NOT_FOUND\r\n", "").Status);
 
-    // ── The query never reached an answer ───────────────────────
-
     [Theory]
     [InlineData("ERROR:CM_CMDLETS_NOT_AVAILABLE", 3)]
     [InlineData("ERROR:SITE_DRIVE_FAILED", 4)]
@@ -188,11 +182,9 @@ public class MecmQueryClassifierTests
         Assert.Contains("unexpected query result", result.FailureReason);
     }
 
-    // ── The exit code is not ignored ────────────────────────────
-
     /// <summary>
     /// A run that printed a result and then died is not a result. Ignoring the exit code
-    /// is how a partial run passed for an answer.
+    /// lets a partial run pass for an answer.
     /// </summary>
     [Fact]
     public void ANonzeroExitBesideAFoundLineIsAFailure()
@@ -211,8 +203,6 @@ public class MecmQueryClassifierTests
         Assert.Equal(MecmQueryStatus.Failed, result.Status);
         Assert.Contains("exited 255", result.FailureReason);
     }
-
-    // ── What the caller may conclude ────────────────────────────
 
     /// <summary>
     /// Only a completed check may clear a recorded version. The loop reads Failed to decide

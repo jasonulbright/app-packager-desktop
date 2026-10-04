@@ -185,8 +185,8 @@ public static class DeploymentTypeSpecResolver
 
     /// <summary>
     /// A detection is usable when it names a type and carries at least one
-    /// locator field. The C# model always materializes a Detection object,
-    /// so emptiness stands in for the PowerShell null check.
+    /// locator field. The model always materializes a Detection object,
+    /// so an empty one means no detection.
     /// </summary>
     private static bool IsUsable(StageDetection? det)
     {
