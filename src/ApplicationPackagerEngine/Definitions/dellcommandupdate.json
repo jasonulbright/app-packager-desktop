@@ -9,9 +9,6 @@
   "VendorUrl": "https://www.dell.com/",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
-  "Acquisition": {
-    "WingetId": "Dell.CommandUpdate"
-  },
   "VersionScraper": {
     "Type": "DellCatalog",
     "Url": "https://downloads.dell.com/catalog/CatalogPC.cab",

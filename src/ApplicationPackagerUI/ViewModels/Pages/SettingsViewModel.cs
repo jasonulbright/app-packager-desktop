@@ -40,7 +40,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>The Script Signing section; written to the store only by Save Settings.</summary>
     public ScriptSigningEditor Signing { get; } = new();
 
-    [ObservableProperty] private string _acquisitionMethod = "StaticUrl";
 
     [ObservableProperty] private string _m365Channel = "MonthlyEnterprise";
 
@@ -515,7 +514,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         SlowNetworkDeploymentMode = content.SlowNetworkDeploymentMode;
         TitleOptions.Load(s.IncludeVersionInTitle, s.RemoveVersionFromTitle);
         Signing.Load(s.ScriptSigning);
-        AcquisitionMethod = s.AcquisitionMethod;
         M365Channel = s.M365Channel;
 
         ContentLayout = ContentLayouts.Normalize(s.ContentLayout);
@@ -577,7 +575,6 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         (s.IncludeVersionInTitle, s.RemoveVersionFromTitle) = TitleOptions.ToSettings();
         s.ScriptSigning = Signing.ToPolicy();
         s.M365Channel = M365Channel;
-        s.AcquisitionMethod = AcquisitionMethod;
         s.Theme = CurrentTheme.ToString();
 
         s.ContentLayout = ContentLayouts.Normalize(ContentLayout);

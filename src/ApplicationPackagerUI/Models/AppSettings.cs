@@ -54,8 +54,6 @@ public sealed class AppSettings
     // Per-app version check state (Script name → last checked + latest version)
     public Dictionary<string, AppCheckState> AppStates { get; set; } = [];
 
-    public string AcquisitionMethod { get; set; } = "StaticUrl"; // "StaticUrl" or "Winget"
-
     /// <summary>
     /// When true, skip the installer settings review dialog before staging.
     /// Individual apps with ReviewBeforeStage=true will still prompt.
