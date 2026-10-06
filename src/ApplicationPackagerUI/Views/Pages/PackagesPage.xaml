@@ -84,6 +84,14 @@
                        AutomationProperties.AutomationId="btnOneClick"
                        ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings."
                        Margin="0,0,4,0" />
+            <ui:Button x:Name="btnOperationHistory"
+                       Content="Operation history"
+                       Icon="{ui:SymbolIcon TextBulletListSquare24}"
+                       Click="ViewHistory_Click"
+                       IsEnabled="False"
+                       ToolTip="View recorded operations for the selected application."
+                       AutomationProperties.AutomationId="btnOperationHistory"
+                       Margin="0,0,4,0" />
             <ui:Button Content="Cancel"
                        Icon="{ui:SymbolIcon Dismiss24}"
                        Appearance="Danger"
@@ -104,6 +112,7 @@
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
                   SelectionMode="Single"
+                  SelectionChanged="PackagerGrid_SelectionChanged"
                   IsReadOnly="False"
                   RowHeaderWidth="0"
                   GridLinesVisibility="Horizontal"
@@ -114,6 +123,12 @@
 
             <DataGrid.ContextMenu>
                 <ContextMenu>
+                    <MenuItem Header="View operation history..." Click="ContextMenu_ViewHistory">
+                        <MenuItem.Icon>
+                            <ui:SymbolIcon Symbol="TextBulletListSquare24" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
                     <MenuItem Header="Edit application..." Click="ContextMenu_EditApplication">
                         <MenuItem.Icon>
                             <ui:SymbolIcon Symbol="Wrench24" />
