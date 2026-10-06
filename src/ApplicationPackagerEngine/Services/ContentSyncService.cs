@@ -35,9 +35,14 @@ public static class ContentSyncService
     /// <summary>
     /// Verifies a tree against a manifest's integrity record. An empty list is a pass;
     /// a manifest with no FileHashes is a pre-v3 stage and passes without checking.
+    /// A payload the manifest records as vendor-verified must still carry that digest.
     /// </summary>
-    public static List<string> Verify(string root, StageManifest? manifest) =>
-        ManifestService.VerifyFileHashes(root, manifest?.FileHashes, ManifestFileName);
+    public static List<string> Verify(string root, StageManifest? manifest)
+    {
+        var problems = ManifestService.VerifyFileHashes(root, manifest?.FileHashes, ManifestFileName);
+        if (manifest is not null) problems.AddRange(ManifestService.VerifyVendorDigests(manifest));
+        return problems;
+    }
 
     /// <summary>
     /// Copies files the destination lacks and refreshes those whose content differs.

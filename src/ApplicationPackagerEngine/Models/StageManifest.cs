@@ -46,6 +46,12 @@ public sealed class StageManifest
     public DateTimeOffset StagedAt { get; set; } = DateTimeOffset.Now;
     public StageFileHash[]? FileHashes { get; set; }
     /// <summary>
+    /// Staged payloads whose bytes matched a vendor-published SHA-256 at download.
+    /// Each entry must equal the FileHashes record of the same path.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public StageVerifiedPayload[]? VerifiedPayloads { get; set; }
+    /// <summary>
     /// File name of the staged application icon inside the content folder.
     /// Null when the definition stages no icon.
     /// </summary>
@@ -57,6 +63,12 @@ public sealed class StageManifest
     /// <summary>Original path of an ad-hoc dropped installer (drop-to-package provenance).</summary>
     public string? AdHocSource { get; set; }
     public StageDeploymentType[]? DeploymentTypes { get; set; }
+    /// <summary>True when this definition has optional separately acquired architecture payloads.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? HasOptionalArchitecturePayloads { get; set; }
+    /// <summary>True when this stage includes all optional architecture payloads the definition declares.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? OptionalArchitecturePayloadsStaged { get; set; }
     public StageCommandOverrides? CommandOverrides { get; set; }
     /// <summary>Package identity and signer read from an MSIX container at stage time.</summary>
     public StageMsixPackage? MsixPackage { get; set; }
@@ -190,6 +202,13 @@ public sealed class StageFileHash
     public string RelativePath { get; set; } = "";
     public string Sha256 { get; set; } = "";
     public long Size { get; set; }
+}
+
+/// <summary>The vendor-published SHA-256 one staged payload was verified against.</summary>
+public sealed class StageVerifiedPayload
+{
+    public string RelativePath { get; set; } = "";
+    public string Sha256 { get; set; } = "";
 }
 
 /// <summary>

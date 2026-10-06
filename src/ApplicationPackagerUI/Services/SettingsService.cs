@@ -77,7 +77,7 @@ public class SettingsService : IRunSettingsReader<AppSettings>
         var unreadable = false;
         if (readError is null && json is null)
         {
-            settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse() };
+            settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse(), StagingRootMigrated = true };
         }
         else
         {
@@ -111,12 +111,13 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                 }
                 // A file written before the flag existed saved its site code with every save.
                 settings.SiteCodeSaved ??= JsonNode.Parse(json!) is JsonObject root && root.ContainsKey(nameof(AppSettings.SiteCode));
+                MigrateLegacyStagingRoot(settings);
             }
             catch (Exception ex)
             {
                 MarkUnreadable(ex.Message);
                 unreadable = true;
-                settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse() };
+                settings = new AppSettings { FirstRunCompleted = false, SiteCodeSaved = false, Systems = new SystemsInUse(), StagingRootMigrated = true };
             }
         }
 
@@ -203,7 +204,50 @@ public class SettingsService : IRunSettingsReader<AppSettings>
         }
     }
 
-    /// <summary>The unreadable-file notice, once per process; null when there is none or it was taken.</summary>
+    private bool _stagingNoticeGiven;
+
+    /// <summary>
+    /// Moves a DownloadRoot still at the staging default of earlier versions to the
+    /// per-user staging folder, once per settings file. A root the operator sets after
+    /// the flag is stored is kept as it is.
+    /// </summary>
+    private void MigrateLegacyStagingRoot(AppSettings settings)
+    {
+        if (settings.StagingRootMigrated == true) return;
+        settings.StagingRootMigrated = true;
+        if (!AppDataPaths.IsLegacyStagingRoot(settings.DownloadRoot)) return;
+
+        settings.DownloadRoot = AppDataPaths.DefaultStagingRoot;
+        lock (_gate)
+        {
+            if (_stagingNoticeGiven) return;
+            _stagingNoticeGiven = true;
+            _pendingWarning = $"The staging folder changed from {AppDataPaths.LegacyStagingRoot} to {settings.DownloadRoot}: other accounts can write under the old folder. " +
+                              "Content staged earlier stays in the old folder; stage again before the next publish.";
+            StoreStagingRootMove(settings.DownloadRoot);
+        }
+    }
+
+    /// <summary>
+    /// Writes the moved root and its flag into the stored file, leaving every other stored
+    /// value as it is. A run with overrides never saves, so without this write each such
+    /// run repeats the move and its notice.
+    /// </summary>
+    private static void StoreStagingRootMove(string downloadRoot)
+    {
+        try
+        {
+            if (JsonNode.Parse(File.ReadAllText(SettingsPath)) is not JsonObject stored) return;
+            stored[nameof(AppSettings.DownloadRoot)] = downloadRoot;
+            stored[nameof(AppSettings.StagingRootMigrated)] = true;
+            ApplicationPackagerEngine.Services.Workbench.WorkbenchJson.WriteText(SettingsPath, stored.ToJsonString(JsonOptions));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+        }
+    }
+
+    /// <summary>The unreadable-file or staging-folder notice, once per process; null when there is none or it was taken.</summary>
     public string? TakeLoadWarning()
     {
         lock (_gate)

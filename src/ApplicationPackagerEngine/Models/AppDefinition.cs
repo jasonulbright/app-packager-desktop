@@ -147,6 +147,15 @@ public sealed class AppDefinition
     public string[]? SupportsVariants { get; set; }
 
     /// <summary>
+    /// Additional architecture-specific payloads that can be staged beside
+    /// the base installer. These are acquired only when the operator enables
+    /// the Architecture split for a build. The base payload remains the
+    /// fallback architecture and each additional payload carries its own
+    /// installer commands, detection and content folder.
+    /// </summary>
+    public AppDefinitionPayloadVariant[]? PayloadVariants { get; set; }
+
+    /// <summary>
     /// Install modes the installer accepts through a command-line switch,
     /// from the set CurrentUser, AllUsers. Declared only where the compiled
     /// script offers both; the operator then chooses System or User per app
@@ -235,6 +244,28 @@ public sealed class AppDefinition
     /// <summary>Workbench identity namespace selected by discovery; never stored in the definition file.</summary>
     [JsonIgnore]
     public ApplicationOrigin SourceOrigin { get; set; } = ApplicationOrigin.Catalog;
+}
+
+/// <summary>One separately acquired architecture payload in a multi-payload stage.</summary>
+public sealed class AppDefinitionPayloadVariant
+{
+    public string NameSuffix { get; set; } = "";
+    public string Architecture { get; set; } = "";
+    /// <summary>A single stage-root folder name, such as "arm64".</summary>
+    public string ContentSubpath { get; set; } = "";
+    public string InstallerType { get; set; } = "EXE";
+    public string DownloadUrl { get; set; } = "";
+    public string? InstallerFileName { get; set; }
+    public string InstallArgs { get; set; } = "";
+    public string UninstallArgs { get; set; } = "";
+    public string? UninstallCommand { get; set; }
+    public DetectionConfig Detection { get; set; } = new();
+    /// <summary>Optional fixed SHA-256 pin; when absent, PayloadHashQuery supplies a release-specific digest.</summary>
+    public string? PayloadSha256 { get; set; }
+    /// <summary>Regex/JsonQuery capture for this exact payload in the shared version feed.</summary>
+    public string? PayloadHashQuery { get; set; }
+    public bool RequirePayloadHash { get; set; }
+    public bool RequireValidSignature { get; set; }
 }
 
 public sealed class VersionScraperConfig

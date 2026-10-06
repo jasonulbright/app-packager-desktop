@@ -6,6 +6,9 @@
     "Application":  "7-Zip (x64)",
     "CMName":  "7-Zip",
     "Architecture":  "x64",
+    "SupportsVariants":  [
+                           "Architecture"
+                       ],
     "VendorUrl":  "https://www.7-zip.org/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
@@ -21,6 +24,30 @@
                        },
     "DownloadUrl":  "https://github.com/ip7z/7zip/releases/download/{display_version}/7z{version}-x64.msi",
     "RequirePayloadHash":  true,
+    "PayloadVariants":  [
+                             {
+                                 "NameSuffix":  "ARM64",
+                                 "Architecture":  "ARM64",
+                                 "ContentSubpath":  "arm64",
+                                 "InstallerType":  "EXE",
+                                 "DownloadUrl":  "https://github.com/ip7z/7zip/releases/download/{display_version}/7z{version}-arm64.exe",
+                                 "InstallArgs":  "/S",
+                                 "UninstallArgs":  "/S",
+                                 "UninstallCommand":  "$proc = Start-Process -FilePath 'C:\\Program Files\\7-Zip\\Uninstall.exe' -ArgumentList '/S' -Wait -PassThru -NoNewWindow",
+                                 "Detection":  {
+                                                   "Type":  "RegistryKeyValue",
+                                                   "RegistryHive":  "HKLM",
+                                                   "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\7-Zip",
+                                                   "ValueName":  "DisplayVersion",
+                                                   "Operator":  "GreaterEquals",
+                                                   "PropertyType":  "Version",
+                                                   "Is64Bit":  true,
+                                                   "ExpectedValue":  "{version}"
+                                               },
+                                 "PayloadHashQuery":  "\"name\":\\s*\"7z{version}-arm64\\.exe\"[^{}]*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\"",
+                                 "RequirePayloadHash":  true
+                             }
+                         ],
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {

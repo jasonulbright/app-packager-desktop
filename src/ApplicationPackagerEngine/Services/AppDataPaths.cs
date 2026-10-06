@@ -25,6 +25,15 @@ public static class AppDataPaths
         ? ScopeRootToCurrentUser(root)
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager"));
 
+    /// <summary>The default staging folder. It inherits the per-user access list of <see cref="Root"/>.</summary>
+    public static string DefaultStagingRoot => Path.Combine(Root, "Staging");
+
+    /// <summary>The staging default of earlier versions; folders under it inherit the drive root's access list.</summary>
+    public const string LegacyStagingRoot = @"C:\temp\ap";
+
+    public static bool IsLegacyStagingRoot(string? root) =>
+        string.Equals((root ?? "").Trim().TrimEnd('\\', '/'), LegacyStagingRoot, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>User-authored definitions and icon overrides inside the per-user Workbench store.</summary>
     public static string UserDefinitionsRoot => Workbench.WorkbenchPaths.UserDefinitionsRoot;
 

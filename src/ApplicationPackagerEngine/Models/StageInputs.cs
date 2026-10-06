@@ -23,6 +23,9 @@ public sealed class StageInputs
     /// <summary>Citrix Workspace switch settings for a definition that names a switch stream.</summary>
     public CitrixWorkspaceSwitches? CitrixSwitches { get; init; }
 
+    /// <summary>Include optional additional architecture payloads declared by the definition.</summary>
+    public bool IncludeArchitectureVariants { get; init; }
+
     /// <summary>The run snapshot whose profile this build applies; null builds without a profile.</summary>
     public RunSnapshot? RunSnapshot { get; init; }
 

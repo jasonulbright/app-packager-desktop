@@ -71,10 +71,19 @@ public sealed class DeploymentConditionsService(SettingsService settingsService)
     /// </summary>
     public static void ApplyVariantSplit(
         StageManifest manifest, DeploymentConditionEntry? entry,
-        string stagedContentPath, Action<string>? onLog = null)
+        string stagedContentPath, Action<string>? onLog = null,
+        bool definitionDeclaresOptionalArchitecturePayloads = false)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         if (entry is null || !DeploymentConditionValues.IsSplit(entry.Split)) return;
+
+        var architectureSplit = string.Equals(entry.Split, "Architecture", StringComparison.OrdinalIgnoreCase);
+        var requiresOptionalPayloadStage = definitionDeclaresOptionalArchitecturePayloads
+            || manifest.HasOptionalArchitecturePayloads == true;
+        if (architectureSplit && requiresOptionalPayloadStage
+            && (manifest.HasOptionalArchitecturePayloads != true || manifest.OptionalArchitecturePayloadsStaged != true))
+            throw new InvalidOperationException(
+                "This stage was built without its optional architecture payloads. Re-stage with the Architecture split enabled before publishing.");
 
         // A manifest that already declares its own variants is authoritative.
         if (manifest.DeploymentTypes is { Length: > 0 })
