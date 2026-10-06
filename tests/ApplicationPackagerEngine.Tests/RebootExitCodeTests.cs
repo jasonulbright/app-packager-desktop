@@ -139,8 +139,12 @@ public sealed class RebootExitCodeTests : IDisposable
     {
         File.Copy(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe"),
             Path.Combine(_dir, "setup.exe"));
-        new WrapperGeneratorService().GenerateExeWrappers(_dir, "setup.exe", $"/c exit {installerCode}", "", "Unknown", "Probe",
-            $"$exePath = Join-Path $PSScriptRoot 'setup.exe'; $proc = Start-Process -FilePath $exePath -ArgumentList @('/c', 'exit {installerCode}') -Wait -PassThru -NoNewWindow",
+        // The stand-in runs for about a second before it exits. Windows PowerShell's
+        // Start-Process -NoNewWindow fails with "the process has exited" when the process
+        // ends before the cmdlet opens it, and the wrapper then exits 1.
+        var command = $"ping -n 2 127.0.0.1 >nul & exit {installerCode}";
+        new WrapperGeneratorService().GenerateExeWrappers(_dir, "setup.exe", $"/c {command}", "", "Unknown", "Probe",
+            $"$exePath = Join-Path $PSScriptRoot 'setup.exe'; $proc = Start-Process -FilePath $exePath -ArgumentList @('/c', '{command}') -Wait -PassThru -NoNewWindow",
             null, null, null, null, [2]);
 
         foreach (var name in new[] { "install.ps1", "uninstall.ps1" })
