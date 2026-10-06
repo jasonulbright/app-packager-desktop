@@ -121,6 +121,25 @@ public partial class PackagesPage
 
     private void ContextMenu_EditApplication(object sender, RoutedEventArgs e) => OpenWorkbenchForSelection();
 
+    private void PackagerGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        btnOperationHistory.IsEnabled = GetSelectedPackager() is not null;
+
+    private void ViewHistory_Click(object sender, RoutedEventArgs e) => OpenHistoryForSelection();
+
+    private void ContextMenu_ViewHistory(object sender, RoutedEventArgs e) => OpenHistoryForSelection();
+
+    private void OpenHistoryForSelection()
+    {
+        if (GetSelectedPackager() is not { } packager) return;
+
+        var inventory = App.Services.GetRequiredService<ApplicationPackagerEngine.Services.ApplicationInventoryService>();
+        var history = new Views.Windows.OperationHistoryWindow(packager, inventory)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        history.ShowDialog();
+    }
+
     /// <summary>
     /// The theme gives every cell a Copy/Cut/Paste menu, which hides the grid's own menu
     /// on any row. A right-click on a row selects it and opens the grid's menu instead.
