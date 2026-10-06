@@ -1,3 +1,6 @@
+using System.Runtime.InteropServices;
+using System.Text;
+
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
@@ -51,16 +54,39 @@ public static class AppDataPaths
 
     public static string EnsureOutsideProgramFiles(string path)
     {
+        RejectDeviceNamespacePath(path);
         var fullPath = Path.GetFullPath(path);
+        RejectDeviceNamespacePath(fullPath);
         foreach (var specialFolder in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
         {
             var protectedRoot = Environment.GetFolderPath(specialFolder);
             if (string.IsNullOrWhiteSpace(protectedRoot)) continue;
-            if (IsWithin(fullPath, protectedRoot) || ResolvesThroughReparsePointInto(fullPath, protectedRoot))
+            var shortProtectedRoot = GetShortPath(protectedRoot)
+                ?? throw new UnauthorizedAccessException("APD could not verify the Program Files path boundary.");
+            if (IsWithin(fullPath, protectedRoot)
+                || IsWithin(fullPath, shortProtectedRoot)
+                || ResolvesThroughReparsePointInto(fullPath, protectedRoot))
                 throw new UnauthorizedAccessException("APD user data cannot be stored under Program Files.");
         }
         return fullPath;
     }
+
+    private static void RejectDeviceNamespacePath(string path)
+    {
+        if (path.StartsWith(@"\\?\", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(@"\\.\", StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("APD user data cannot use a Windows device namespace path.");
+    }
+
+    private static string? GetShortPath(string path)
+    {
+        var buffer = new StringBuilder(32768);
+        var length = GetShortPathName(path, buffer, (uint)buffer.Capacity);
+        return length is 0 or >= 32768 ? null : buffer.ToString();
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetShortPathNameW")]
+    private static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint bufferLength);
 
     private static bool ResolvesThroughReparsePointInto(string path, string protectedRoot)
     {
