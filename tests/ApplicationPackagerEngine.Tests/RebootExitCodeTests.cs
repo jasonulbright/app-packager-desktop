@@ -146,8 +146,8 @@ public sealed class RebootExitCodeTests : IDisposable
         foreach (var name in new[] { "install.ps1", "uninstall.ps1" })
         {
             var (exitCode, file) = WrapperRun.Ps1(_dir, name);
-            Assert.Equal(expected, exitCode);
-            Assert.Equal(expected.ToString(), file);
+            Assert.True(expected == exitCode && expected.ToString() == file,
+                $"{name}: exit code {exitCode}, exitcode.txt '{file}', expected {expected}. Output: {WrapperRun.LastOutput}");
         }
     }
 }
@@ -163,9 +163,19 @@ internal static class WrapperRun
             $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{Path.Combine(dir, name)}\"")
         {
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
         })!;
+        // Both streams are read while the script runs: a full pipe would block it.
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
         Assert.True(process.WaitForExit(TimeSpan.FromSeconds(timeoutSeconds)), $"{name} did not return");
+        LastOutput = $"{stdout.Result}{stderr.Result}".Trim();
         return (process.ExitCode, File.Exists(exitFile) ? File.ReadAllText(exitFile) : null);
     }
+
+    /// <summary>What the last script run on this thread wrote, for a failed assertion's message.</summary>
+    [ThreadStatic]
+    public static string? LastOutput;
 }
