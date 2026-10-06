@@ -45,13 +45,15 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
 {
     public WorkbenchDiscoveryRoots Roots() => new()
     {
-        CatalogDefinitionsRoot = IconPackService.DefaultDefinitionsDirectory(),
+        CatalogDefinitionsRoot = IconPackService.BundledDefinitionsDirectory(),
+        CatalogOverridesRoot = AppDataPaths.UserDefinitionsRoot,
+        CustomDefinitionsRoot = AppDataPaths.UserDefinitionsRoot,
         PackagersRoot = discoveryService.ResolvePackagersRoot()
     };
 
     /// <summary>The workbench application id of a Packages grid row.</summary>
     public static string ApplicationIdFor(IPackagerExecutionRequest packager) => packager.IsJsonDefined
-        ? ApplicationIds.New(ApplicationOrigin.Catalog, name: packager.Uid)
+        ? ApplicationIds.New(packager.DefinitionOrigin, name: packager.Uid)
         : ApplicationIds.New(ApplicationOrigin.Catalog, path: packager.FullPath);
 
     public async Task<IReadOnlyList<WorkbenchApplicationItem>> LoadAsync(WorkbenchStore store, CancellationToken ct = default)
@@ -65,7 +67,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
         var definitionById = new Dictionary<string, AppDefinition>(StringComparer.OrdinalIgnoreCase);
         foreach (var definition in definitions)
         {
-            try { definitionById.TryAdd(ApplicationIds.New(ApplicationOrigin.Catalog, name: definition.Id), definition); }
+            try { definitionById.TryAdd(ApplicationIds.New(definition.SourceOrigin, name: definition.Id), definition); }
             catch (ArgumentException) { }
         }
         var scriptById = new Dictionary<string, PackagerInfo>(StringComparer.OrdinalIgnoreCase);
@@ -77,6 +79,7 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
             WorkbenchApplicationItem item;
             if (definitionById.TryGetValue(application.ApplicationId, out var definition))
             {
+                var iconPath = IconExtractionService.FindExternalIconPath(definition);
                 item = new WorkbenchApplicationItem
                 {
                     ApplicationId = application.ApplicationId,
@@ -88,7 +91,9 @@ public sealed class WorkbenchApplicationCatalog(SettingsService settingsService,
                     Runnable = true,
                     SupportsVariants = definition.SupportsVariants ?? [],
                     SupportsInstallModes = definition.SupportsInstallModes ?? [],
-                    IconPackDirectory = IconExtractionService.ExternalIconsDirectory(definition),
+                    IconPackDirectory = iconPath is null
+                        ? IconExtractionService.ExternalIconsDirectory(definition)
+                        : Path.GetDirectoryName(iconPath),
                     IconPackBaseName = IconExtractionService.ExternalIconBaseName(definition),
                     IconSource = definition.IconSource,
                     StageSearchRoot = string.IsNullOrWhiteSpace(settings.DownloadRoot)

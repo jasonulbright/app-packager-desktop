@@ -21,7 +21,7 @@ public sealed class PublishRunServiceTests : IDisposable
             _saved[name] = Environment.GetEnvironmentVariable(name);
         Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
         Environment.SetEnvironmentVariable(WorkbenchPaths.DataRootVariable, null);
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(AppDataPaths.Root);
         File.WriteAllText(SettingsService.SettingsPath, """{"SiteCode":"","SiteCodeSaved":true,"Wsus":{"ServerName":"wsus01.lab"}}""");
     }
 

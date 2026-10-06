@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
 
 namespace ApplicationPackagerEngine.Tests;
@@ -11,7 +12,7 @@ public sealed class WorkbenchTestRoot : IDisposable
     {
         Root = Path.Combine(Path.GetTempPath(), "apwb-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Root);
-        Store = new WorkbenchStore(Path.Combine(Root, "data"));
+        Store = new WorkbenchStore(AppDataPaths.ScopeRootToCurrentUser(Path.Combine(Root, "data")));
     }
 
     public string Root { get; }

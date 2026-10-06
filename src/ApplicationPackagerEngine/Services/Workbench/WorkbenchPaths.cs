@@ -12,17 +12,36 @@ public static class WorkbenchPaths
     /// </summary>
     public static string DefaultDataRoot => Path.Combine(AppDataPaths.Root, "Workbench");
 
+    /// <summary>User-authored JSON definitions and icon overrides alongside Workbench state.</summary>
+    public static string UserDefinitionsRoot => Path.Combine(ResolveDataRoot(create: false), "definitions");
+
     /// <summary>
     /// Resolves the data root: APP_PACKAGER_WORKBENCH_ROOT, then the preference, then
-    /// the per-user default. A child process launched with the variable resolves the
-    /// same root as the process that launched it.
+    /// the per-user default. Explicit roots outside AppDataPaths.Root are scoped beneath
+    /// Users\&lt;SID&gt;; a child process resolves an already-scoped root idempotently.
     /// </summary>
     public static string ResolveDataRoot(string? preference = null, bool create = true)
     {
         var root = Environment.GetEnvironmentVariable(DataRootVariable);
         if (string.IsNullOrWhiteSpace(root)) root = preference;
-        if (string.IsNullOrWhiteSpace(root)) root = DefaultDataRoot;
-        if (create) Directory.CreateDirectory(root);
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            root = DefaultDataRoot;
+        }
+        else
+        {
+            root = Path.GetFullPath(root);
+            if (!AppDataPaths.IsWithin(root, AppDataPaths.Root))
+                root = AppDataPaths.ScopeRootToCurrentUser(root);
+        }
+        root = AppDataPaths.EnsureOutsideProgramFiles(root);
+        if (create)
+        {
+            Directory.CreateDirectory(root);
+            if (AppDataPaths.IsWithin(root, AppDataPaths.Root))
+                AppDataPaths.EnsureDirectoryIsNotReparsePoint(AppDataPaths.Root);
+            AppDataPaths.EnsureDirectoryIsNotReparsePoint(root);
+        }
         return root;
     }
 

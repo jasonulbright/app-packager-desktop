@@ -50,7 +50,7 @@ public sealed class PublishSettingsContractTests : IDisposable
     [Fact]
     public void AStoredCreateIntuneWinValueIsIgnoredAndDroppedOnSave()
     {
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
         File.WriteAllText(SettingsService.SettingsPath, """{ "Intune": { "DeploymentTarget": "MECM", "CreateIntuneWin": true }, "SiteCode": "MCM" }""");
         var service = new SettingsService();
         var s = service.Load();
@@ -76,7 +76,7 @@ public sealed class PublishSettingsContractTests : IDisposable
         Assert.True(back.Destinations["PACKAGE-A"].Wsus);
         Assert.Equal("Overwrite", back.OnExisting);
 
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
         File.WriteAllText(SettingsService.SettingsPath, """{ "OneClick": { "OnExisting": "Ask", "Destinations": null } }""");
         var odd = new SettingsService().Load().OneClick;
         Assert.Equal("Skip", odd.OnExisting);
@@ -107,7 +107,7 @@ public sealed class PublishSettingsContractTests : IDisposable
     [Fact]
     public void ASettingsFileWithoutSystemsInfersThemFromTheTenantAndTheServer()
     {
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
         File.WriteAllText(SettingsService.SettingsPath, """{ "Intune": { "TenantId": "contoso" }, "Wsus": { "ServerName": "wsus01" } }""");
         var systems = new SettingsService().Load().Systems!;
         Assert.True(systems.ConfigMgr && systems.Intune && systems.Wsus);

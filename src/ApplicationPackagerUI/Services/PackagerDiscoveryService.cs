@@ -2,6 +2,9 @@ using System.IO;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
@@ -128,36 +131,78 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         }, ct);
     }
 
-    /// <summary>
-    /// Discovers JSON app definitions from the Definitions folder (engine DLL output).
-    /// </summary>
+    /// <summary>Discovers effective definitions: user files override shipped files with the same Id.</summary>
     private static List<PackagerInfo> DiscoverJsonDefinitions(HashSet<string>? hidden = null)
     {
         var results = new List<PackagerInfo>();
-
-        var defsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
-        if (!Directory.Exists(defsDir)) return results;
-
-        foreach (var jsonPath in Directory.GetFiles(defsDir, "*.json"))
+        foreach (var definition in LoadEffectiveDefinitions(
+                     IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot))
         {
-            try
-            {
-                var json = File.ReadAllText(jsonPath);
-                var def = JsonSerializer.Deserialize<AppDefinition>(json, JsonOptions);
-                if (def is null || string.IsNullOrEmpty(def.Id)) continue;
-
-                if (hidden is not null && hidden.Contains(def.Id)) continue;
-
-                results.Add(DefinitionRow(def, jsonPath));
-            }
-            catch { }
+            if (hidden is not null && hidden.Contains(definition.Id)) continue;
+            results.Add(DefinitionRow(definition, definition.SourcePath, definition.SourceOrigin));
         }
 
         return results;
     }
 
+    /// <summary>
+    /// Loads shipped definitions and user definitions. A user file with the same Id
+    /// overrides the shipped file while retaining its catalog identity; new user Ids
+    /// use the custom identity namespace.
+    /// </summary>
+    public static List<AppDefinition> LoadEffectiveDefinitions(
+        string catalogRoot,
+        string userRoot,
+        CancellationToken ct = default)
+    {
+        var catalogDefinitions = ReadDefinitions(catalogRoot, ApplicationOrigin.Catalog, ct);
+        var catalogIds = catalogDefinitions.Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var effective = new Dictionary<string, AppDefinition>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in catalogDefinitions) effective.TryAdd(definition.Id, definition);
+
+        var userIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in ReadDefinitions(userRoot, ApplicationOrigin.Custom, ct))
+        {
+            if (!userIds.Add(definition.Id)) continue;
+            if (catalogIds.Contains(definition.Id)) definition.SourceOrigin = ApplicationOrigin.Catalog;
+            effective[definition.Id] = definition;
+        }
+
+        return effective.Values.ToList();
+    }
+
+    private static List<AppDefinition> ReadDefinitions(
+        string root,
+        ApplicationOrigin origin,
+        CancellationToken ct)
+    {
+        var results = new List<AppDefinition>();
+        if (!Directory.Exists(root)) return results;
+        foreach (var jsonPath in Directory.GetFiles(root, "*.json")
+                     .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                var definition = JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(jsonPath), JsonOptions);
+                if (definition is null || string.IsNullOrWhiteSpace(definition.Id)) continue;
+                definition.SourcePath = Path.GetFullPath(jsonPath);
+                definition.SourceOrigin = origin;
+                results.Add(definition);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+            {
+                // A bad local definition is isolated; other definitions remain discoverable.
+            }
+        }
+        return results;
+    }
+
     /// <summary>The run row of one JSON definition file, as the Packages grid lists it.</summary>
-    public static PackagerInfo DefinitionRow(AppDefinition def, string jsonPath) => new()
+    public static PackagerInfo DefinitionRow(
+        AppDefinition def,
+        string jsonPath,
+        ApplicationOrigin? origin = null) => new()
     {
         Uid = def.Id,
         Vendor = def.Vendor,
@@ -169,6 +214,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         Description = $"{def.InstallerType} ({def.Architecture})",
         IsJsonDefined = true,
         DefinitionPath = jsonPath,
+        DefinitionOrigin = origin ?? def.SourceOrigin,
         Status = "Ready"
     };
 
@@ -229,23 +275,8 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     {
         return await Task.Run(() =>
         {
-            var results = new List<AppDefinition>();
-            var defsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
-            if (!Directory.Exists(defsDir)) return results;
-
-            foreach (var jsonPath in Directory.GetFiles(defsDir, "*.json"))
-            {
-                ct.ThrowIfCancellationRequested();
-                try
-                {
-                    var def = JsonSerializer.Deserialize<AppDefinition>(
-                        File.ReadAllText(jsonPath), JsonOptions);
-                    if (def is null || string.IsNullOrEmpty(def.Id)) continue;
-                    def.SourcePath = jsonPath;
-                    results.Add(def);
-                }
-                catch { }
-            }
+            var results = LoadEffectiveDefinitions(
+                IconPackService.BundledDefinitionsDirectory(), AppDataPaths.UserDefinitionsRoot, ct);
 
             results.Sort((a, b) =>
             {

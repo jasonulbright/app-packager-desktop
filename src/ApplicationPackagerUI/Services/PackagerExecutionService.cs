@@ -965,9 +965,7 @@ public class PackagerExecutionService(
     {
         try
         {
-            var applicationId = packager.IsJsonDefined && packager.DefinitionPath is not null
-                ? ApplicationIds.New(ApplicationOrigin.Catalog, name: LoadDefinition(packager.DefinitionPath).Id)
-                : ApplicationIds.New(ApplicationOrigin.Catalog, path: packager.FullPath);
+            var applicationId = WorkbenchApplicationCatalog.ApplicationIdFor(packager);
             if (!ApplicationIds.IsValid(applicationId)) return null;
             var store = WorkbenchStore.Open();
             var profileId = store.GetApplicationDefinition(applicationId).ActiveProfileId;

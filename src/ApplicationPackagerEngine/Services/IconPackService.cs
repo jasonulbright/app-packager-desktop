@@ -79,7 +79,14 @@ public sealed class IconPackService
 
     /// <summary>The definitions folder shipped beside the executable.</summary>
     public static string DefaultDefinitionsDirectory()
+        => BundledDefinitionsDirectory();
+
+    public static string BundledDefinitionsDirectory()
         => Path.Combine(AppContext.BaseDirectory, "Definitions");
+
+    /// <summary>The per-user writable definitions and icon-override folder.</summary>
+    public static string UserDefinitionsDirectory()
+        => AppDataPaths.UserDefinitionsRoot;
 
     /// <summary>
     /// Reads the sha256 for one file out of sha256sum output
@@ -172,7 +179,9 @@ public sealed class IconPackService
     /// </summary>
     public static IconPackMapResult MapEntries(IEnumerable<IconPackEntry> entries, IEnumerable<string> definitionBaseNames)
     {
-        var definitions = definitionBaseNames.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList();
+        var definitions = definitionBaseNames.Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         var byExact = definitions.ToDictionary(n => n, StringComparer.OrdinalIgnoreCase);
         var byNormalized = new Dictionary<string, List<string>>(StringComparer.Ordinal);
@@ -257,16 +266,21 @@ public sealed class IconPackService
         string? definitionsDirectory = null,
         string? appVersion = null,
         Action<string>? onLog = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlyCollection<string>? definitionSourceDirectories = null)
     {
         var definitions = string.IsNullOrWhiteSpace(definitionsDirectory)
-            ? DefaultDefinitionsDirectory()
+            ? UserDefinitionsDirectory()
             : definitionsDirectory;
+        var sources = ResolveDefinitionSourceDirectories(definitions, definitionSourceDirectories
+            ?? (string.IsNullOrWhiteSpace(definitionsDirectory)
+                ? [UserDefinitionsDirectory(), BundledDefinitionsDirectory()]
+                : [definitions]));
         var scratch = Path.Combine(Path.GetTempPath(), "packr-iconpack-" + Guid.NewGuid().ToString("N"));
 
         try
         {
-            if (!Directory.Exists(definitions))
+            if (!sources.Any(Directory.Exists))
                 return new IconPackInstallResult(false, $"Definitions folder not found: {definitions}");
 
             var releaseJson = await FetchReleaseAsync(ct);
@@ -289,7 +303,7 @@ public sealed class IconPackService
             if (!VerifyChecksum(zipPath, expected))
                 return new IconPackInstallResult(false, "Icon pack checksum did not match; nothing was installed.");
 
-            return CompleteInstall(zipPath, scratch, definitions, appVersion, tag, onLog);
+            return CompleteInstall(zipPath, scratch, definitions, sources, appVersion, tag, onLog);
         }
         catch (Exception ex)
         {
@@ -313,11 +327,16 @@ public sealed class IconPackService
         string? definitionsDirectory = null,
         string? appVersion = null,
         Action<string>? onLog = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlyCollection<string>? definitionSourceDirectories = null)
     {
         var definitions = string.IsNullOrWhiteSpace(definitionsDirectory)
-            ? DefaultDefinitionsDirectory()
+            ? UserDefinitionsDirectory()
             : definitionsDirectory;
+        var sources = ResolveDefinitionSourceDirectories(definitions, definitionSourceDirectories
+            ?? (string.IsNullOrWhiteSpace(definitionsDirectory)
+                ? [UserDefinitionsDirectory(), BundledDefinitionsDirectory()]
+                : [definitions]));
         var scratch = Path.Combine(Path.GetTempPath(), "packr-iconpack-" + Guid.NewGuid().ToString("N"));
 
         try
@@ -325,7 +344,7 @@ public sealed class IconPackService
             if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
                 return Task.FromResult(new IconPackInstallResult(false, $"Icon pack file not found: {zipPath}"));
 
-            if (!Directory.Exists(definitions))
+            if (!sources.Any(Directory.Exists))
                 return Task.FromResult(new IconPackInstallResult(false, $"Definitions folder not found: {definitions}"));
 
             ct.ThrowIfCancellationRequested();
@@ -345,7 +364,7 @@ public sealed class IconPackService
                 note = "";
             }
 
-            var result = CompleteInstall(localZip, scratch, definitions, appVersion, "from file", onLog);
+            var result = CompleteInstall(localZip, scratch, definitions, sources, appVersion, "from file", onLog);
             return Task.FromResult(result.Installed
                 ? result with { Message = result.Message + note }
                 : result);
@@ -368,10 +387,17 @@ public sealed class IconPackService
         string zipPath,
         string scratch,
         string definitions,
+        IReadOnlyCollection<string> definitionSourceDirectories,
         string? appVersion,
         string sourceLabel,
         Action<string>? onLog)
     {
+        definitions = AppDataPaths.EnsureOutsideProgramFiles(definitions);
+        Directory.CreateDirectory(definitions);
+        if (AppDataPaths.IsWithin(definitions, AppDataPaths.Root))
+            AppDataPaths.EnsureDirectoryIsNotReparsePoint(AppDataPaths.Root);
+        AppDataPaths.EnsureDirectoryIsNotReparsePoint(definitions);
+
         var extracted = Path.Combine(scratch, "extracted");
         ZipFile.ExtractToDirectory(zipPath, extracted, overwriteFiles: true);
 
@@ -379,16 +405,20 @@ public sealed class IconPackService
         if (manifest is null)
             return new IconPackInstallResult(false, "The icon pack carries no readable manifest.json.");
 
-        var definitionNames = Directory.GetFiles(definitions, "*.json")
+        var definitionNames = definitionSourceDirectories
+            .Where(Directory.Exists)
+            .SelectMany(root => Directory.GetFiles(root, "*.json"))
             .Select(Path.GetFileNameWithoutExtension)
             .Where(n => !string.IsNullOrWhiteSpace(n))
             .Select(n => n!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var map = MapEntries(manifest.Icons, definitionNames);
 
         var iconsDirectory = IconsDirectory(definitions);
         Directory.CreateDirectory(iconsDirectory);
+        AppDataPaths.EnsureDirectoryIsNotReparsePoint(iconsDirectory);
 
         var copied = 0;
         foreach (var mapping in map.Mappings)
@@ -411,6 +441,19 @@ public sealed class IconPackService
 
         return new IconPackInstallResult(true, message, manifest.PackVersion,
             map.MatchedEntries, copied, map.Unmatched.Count);
+    }
+
+    private static IReadOnlyCollection<string> ResolveDefinitionSourceDirectories(
+        string targetDirectory,
+        IReadOnlyCollection<string>? requestedDirectories)
+    {
+        IReadOnlyCollection<string> directories = requestedDirectories is { Count: > 0 }
+            ? requestedDirectories
+            : [targetDirectory];
+        return directories.Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     /// <summary>Release tag and the two asset download URLs; a missing asset yields null.</summary>

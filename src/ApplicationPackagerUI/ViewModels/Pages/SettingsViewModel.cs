@@ -276,7 +276,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     private void RefreshIconPackStatus() =>
         IconPackStatus = IconPackService.StatusText(
-            IconPackService.ReadStatus(IconPackService.DefaultDefinitionsDirectory()));
+            IconPackService.ReadStatus(IconPackService.UserDefinitionsDirectory()));
 
     private static string ReadAppVersion()
     {
@@ -384,7 +384,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         {
             var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
             var result = await new IconPackService().InstallAsync(
-                IconPackService.DefaultDefinitionsDirectory(), version);
+                IconPackService.UserDefinitionsDirectory(), version,
+                definitionSourceDirectories: [
+                    IconPackService.UserDefinitionsDirectory(),
+                    IconPackService.BundledDefinitionsDirectory()
+                ]);
 
             RefreshIconPackStatus();
 
@@ -420,7 +424,11 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         {
             var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
             var result = await new IconPackService().InstallFromFileAsync(
-                dialog.FileName, IconPackService.DefaultDefinitionsDirectory(), version);
+                dialog.FileName, IconPackService.UserDefinitionsDirectory(), version,
+                definitionSourceDirectories: [
+                    IconPackService.UserDefinitionsDirectory(),
+                    IconPackService.BundledDefinitionsDirectory()
+                ]);
 
             RefreshIconPackStatus();
 

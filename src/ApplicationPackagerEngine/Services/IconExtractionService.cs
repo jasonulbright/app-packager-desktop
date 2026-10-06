@@ -304,10 +304,9 @@ public sealed class IconExtractionService
         Models.AppDefinition definition, string stageRoot,
         Models.StageManifest manifest, Action<string>? onLog)
     {
-        var iconsDirectory = ExternalIconsDirectory(definition);
         var baseName = ExternalIconBaseName(definition);
-        var candidate = new[] { ".ico", ".png" }
-            .Select(ext => Path.Combine(iconsDirectory, baseName + ext))
+        var candidate = ExternalIconsDirectories(definition)
+            .SelectMany(directory => new[] { ".ico", ".png" }.Select(ext => Path.Combine(directory, baseName + ext)))
             .FirstOrDefault(File.Exists);
         if (candidate is null) return false;
 
@@ -319,16 +318,57 @@ public sealed class IconExtractionService
     }
 
     /// <summary>
-    /// The Icons folder beside the definition file, falling back to the
-    /// Definitions folder shipped next to the executable when the definition
-    /// carries no source path.
+    /// Writable user override folder for external icons.
     /// </summary>
     public static string ExternalIconsDirectory(Models.AppDefinition definition)
     {
-        var definitionDirectory = string.IsNullOrWhiteSpace(definition.SourcePath)
-            ? Path.Combine(AppContext.BaseDirectory, "Definitions")
-            : Path.GetDirectoryName(Path.GetFullPath(definition.SourcePath))!;
-        return Path.Combine(definitionDirectory, "Icons");
+        if (string.IsNullOrWhiteSpace(definition.SourcePath))
+            return IconPackService.IconsDirectory(IconPackService.UserDefinitionsDirectory());
+
+        var sourceDirectory = Path.GetDirectoryName(Path.GetFullPath(definition.SourcePath))!;
+        return IsUnder(sourceDirectory, IconPackService.BundledDefinitionsDirectory())
+            ? IconPackService.IconsDirectory(IconPackService.UserDefinitionsDirectory())
+            : Path.Combine(sourceDirectory, "Icons");
+    }
+
+    /// <summary>Icon lookup order: per-user overrides, definition-local icons, then shipped icons.</summary>
+    public static IReadOnlyList<string> ExternalIconsDirectories(Models.AppDefinition definition)
+    {
+        var userIcons = IconPackService.IconsDirectory(IconPackService.UserDefinitionsDirectory());
+        var bundledIcons = IconPackService.IconsDirectory(IconPackService.BundledDefinitionsDirectory());
+        var directories = new List<string>();
+        if (string.IsNullOrWhiteSpace(definition.SourcePath))
+        {
+            directories.Add(userIcons);
+        }
+        else
+        {
+            var sourceDirectory = Path.GetDirectoryName(Path.GetFullPath(definition.SourcePath))!;
+            if (IsUnder(sourceDirectory, IconPackService.BundledDefinitionsDirectory()))
+                directories.Add(userIcons);
+            directories.Add(Path.Combine(sourceDirectory, "Icons"));
+            if (!IsUnder(sourceDirectory, IconPackService.BundledDefinitionsDirectory()))
+                directories.Add(userIcons);
+        }
+        directories.Add(bundledIcons);
+        return directories.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    /// <summary>First user-first external icon path, if any.</summary>
+    public static string? FindExternalIconPath(Models.AppDefinition definition)
+    {
+        var baseName = ExternalIconBaseName(definition);
+        return ExternalIconsDirectories(definition)
+            .SelectMany(directory => new[] { ".ico", ".png" }.Select(ext => Path.Combine(directory, baseName + ext)))
+            .FirstOrDefault(File.Exists);
+    }
+
+    private static bool IsUnder(string path, string root)
+    {
+        var fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+        return string.Equals(fullPath, fullRoot, StringComparison.OrdinalIgnoreCase)
+               || fullPath.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

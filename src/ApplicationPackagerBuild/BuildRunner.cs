@@ -200,7 +200,7 @@ public sealed class BuildRunner(
         if (source?.SourcePath is null)
         {
             var roots = applicationCatalog.Roots();
-            var searched = string.Join(", ", new[] { roots.CatalogDefinitionsRoot, roots.PackagersRoot, WorkbenchStore.Open().CustomDefinitionsRoot }
+            var searched = string.Join(", ", new[] { roots.CatalogDefinitionsRoot, roots.CatalogOverridesRoot, roots.PackagersRoot, roots.CustomDefinitionsRoot ?? WorkbenchStore.Open().CustomDefinitionsRoot }
                 .Where(r => !string.IsNullOrWhiteSpace(r)));
             throw new BuildRefusal($"No definition or packager script for application '{applicationId}' under {searched}.");
         }
@@ -210,7 +210,9 @@ public sealed class BuildRunner(
         {
             var definition = Refuse(() => JsonSerializer.Deserialize<AppDefinition>(File.ReadAllText(source.SourcePath), DefinitionJson))
                              ?? throw new BuildRefusal($"Failed to load definition: {source.SourcePath}");
-            return PackagerDiscoveryService.DefinitionRow(definition, source.SourcePath);
+            definition.SourcePath = source.SourcePath;
+            definition.SourceOrigin = source.Origin;
+            return PackagerDiscoveryService.DefinitionRow(definition, source.SourcePath, source.Origin);
         }
 
         var scripts = await discoveryService.DiscoverAllAsync(ct);

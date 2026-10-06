@@ -369,6 +369,23 @@ public sealed class IconPackServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task InstallFromFileAsync_CanReadShippedDefinitionsAndWriteOnlyToTheUserIconRoot()
+    {
+        var (shippedDefinitions, zip) = BuildPack("user-target", "7zip");
+        var userDefinitions = Path.Combine(_dir, "user-target", "user-definitions");
+
+        var result = await new IconPackService().InstallFromFileAsync(
+            zip,
+            userDefinitions,
+            definitionSourceDirectories: [shippedDefinitions]);
+
+        Assert.True(result.Installed);
+        Assert.Equal(1, result.Copied);
+        Assert.True(File.Exists(Path.Combine(IconPackService.IconsDirectory(userDefinitions), "7zip.png")));
+        Assert.False(Directory.Exists(IconPackService.IconsDirectory(shippedDefinitions)));
+    }
+
+    [Fact]
     public async Task InstallFromFileAsync_NoChecksumsInstallsWithAnUnverifiedNote()
     {
         var (definitions, zip) = BuildPack("unverified");

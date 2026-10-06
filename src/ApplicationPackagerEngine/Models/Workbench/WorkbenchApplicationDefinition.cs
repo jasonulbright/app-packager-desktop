@@ -53,6 +53,9 @@ public sealed class WorkbenchDiscoveryRoots
     /// <summary>The shipped Definitions folder; each JSON file's Id becomes catalog:&lt;Id&gt;.</summary>
     public string? CatalogDefinitionsRoot { get; init; }
 
+    /// <summary>User definition files that replace a shipped definition with the same Id.</summary>
+    public string? CatalogOverridesRoot { get; init; }
+
     /// <summary>The PS1 packagers folder; each package-*.ps1 becomes catalog:&lt;script base name&gt;.</summary>
     public string? PackagersRoot { get; init; }
 

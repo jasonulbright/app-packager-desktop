@@ -111,9 +111,10 @@ public sealed class AppDataPathsTests
         {
             Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, root);
 
-            Assert.Equal(root, AppDataPaths.Root);
-            Assert.Equal(Path.Combine(root, "Workbench"), WorkbenchPaths.DefaultDataRoot);
-            Assert.Equal(Path.Combine(root, "condition-templates.json"), new ConditionTemplateService().TemplatesPath);
+            var scopedRoot = AppDataPaths.ScopeRootToCurrentUser(root);
+            Assert.Equal(scopedRoot, AppDataPaths.Root);
+            Assert.Equal(Path.Combine(scopedRoot, "Workbench"), WorkbenchPaths.DefaultDataRoot);
+            Assert.Equal(Path.Combine(scopedRoot, "condition-templates.json"), new ConditionTemplateService().TemplatesPath);
 
             Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, null);
             Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackager"), AppDataPaths.Root);

@@ -48,9 +48,10 @@ public sealed class SettingsContractTests : IDisposable
     [Fact]
     public void TheDataRootVariableMovesSettingsAndTheSrlPackrFolder()
     {
-        Assert.Equal(Path.Combine(_root, "settings.json"), SettingsService.SettingsPath);
-        Assert.Equal(Path.Combine(_root, "SRLPackr"), AppDataPaths.LegacyRoot);
-        Assert.Equal(Path.Combine(_root, "Workbench"), ApplicationPackagerEngine.Services.Workbench.WorkbenchPaths.DefaultDataRoot);
+        var scopedRoot = AppDataPaths.ScopeRootToCurrentUser(_root);
+        Assert.Equal(Path.Combine(scopedRoot, "settings.json"), SettingsService.SettingsPath);
+        Assert.Equal(Path.Combine(scopedRoot, "SRLPackr"), AppDataPaths.LegacyRoot);
+        Assert.Equal(Path.Combine(scopedRoot, "Workbench"), ApplicationPackagerEngine.Services.Workbench.WorkbenchPaths.DefaultDataRoot);
 
         var service = new SettingsService();
         var s = service.Load();
@@ -105,7 +106,7 @@ public sealed class SettingsContractTests : IDisposable
     [Fact]
     public void AFileWrittenBeforeTheFlagKeepsItsSiteCode()
     {
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
         File.WriteAllText(SettingsService.SettingsPath, """{ "SiteCode": "OLD", "ProviderMachine": "" }""");
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "PS1");
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, "cm01");
@@ -219,7 +220,7 @@ public sealed class SettingsContractTests : IDisposable
     [Fact]
     public void AMalformedStoredThumbprintIsNotAdopted()
     {
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
         File.WriteAllText(SettingsService.SettingsPath, """{ "ScriptSigning": { "SignDetection": true, "CertificateThumbprint": "not-a-thumbprint" } }""");
         var stored = new SettingsService().Load().ScriptSigning;
         Assert.True(stored.SignDetection);

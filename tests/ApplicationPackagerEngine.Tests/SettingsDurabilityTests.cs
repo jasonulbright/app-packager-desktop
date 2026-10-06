@@ -25,7 +25,7 @@ public sealed class SettingsDurabilityTests : IDisposable
         Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(AppDataPaths.Root);
     }
 
     public void Dispose()
@@ -75,7 +75,7 @@ public sealed class SettingsDurabilityTests : IDisposable
 
         service.SaveOperatorEdit(s);
 
-        var kept = Assert.Single(Directory.GetFiles(_root, "settings.json.unreadable-*"));
+        var kept = Assert.Single(Directory.GetFiles(AppDataPaths.Root, "settings.json.unreadable-*"));
         Assert.Equal(Unreadable, File.ReadAllText(kept));
         Assert.Equal(@"C:\dl", new SettingsService().Load().DownloadRoot);
         Assert.False(service.IsFileUnreadable);
@@ -92,7 +92,7 @@ public sealed class SettingsDurabilityTests : IDisposable
         service.Save(s);
 
         Assert.Equal(@"C:\two", (string?)JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!["DownloadRoot"]);
-        Assert.Equal(["settings.json"], Directory.GetFiles(_root).Select(Path.GetFileName));
+        Assert.Equal(["settings.json"], Directory.GetFiles(AppDataPaths.Root).Select(Path.GetFileName));
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class SettingsDurabilityTests : IDisposable
     [Fact]
     public async Task AMissingFileWithAReplaceSideFilePresentIsWaitedFor()
     {
-        var backup = Path.Combine(_root, "settings.json." + Guid.NewGuid().ToString("N") + ".bak");
+        var backup = Path.Combine(AppDataPaths.Root, "settings.json." + Guid.NewGuid().ToString("N") + ".bak");
         File.WriteAllText(backup, """{ "DownloadRoot": "C:\\old" }""");
         var appear = Task.Run(async () =>
         {
@@ -224,7 +224,7 @@ public sealed class SettingsDurabilityTests : IDisposable
         await release;
 
         Assert.Equal(@"C:\two", new SettingsService().Load().DownloadRoot);
-        Assert.Equal(["settings.json"], Directory.GetFiles(_root).Select(Path.GetFileName));
+        Assert.Equal(["settings.json"], Directory.GetFiles(AppDataPaths.Root).Select(Path.GetFileName));
     }
 
     [Fact]
