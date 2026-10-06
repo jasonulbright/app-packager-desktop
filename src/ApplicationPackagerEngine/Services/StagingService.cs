@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services.InstallerScripts;
 using ApplicationPackagerEngine.Services.Workbench;
@@ -111,6 +112,16 @@ public sealed class StagingService
                 $"Payload SHA256 '{actual}' does not match the expected value '{expected}': {Path.GetFileName(path)}");
 
         onProgress?.Invoke($"Payload SHA256 verified: {actual}");
+    }
+
+    /// <summary>Refuses a PE installer whose machine field does not match its declared payload architecture.</summary>
+    public static void VerifyPayloadArchitecture(string path, string expectedArchitecture)
+    {
+        var expected = InstallerArchitectures.Resolve(expectedArchitecture);
+        var actual = InstallerSignatureScanner.ReadPeArchitecture(path);
+        if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Payload architecture is '{actual}', expected '{expected}': {Path.GetFileName(path)}");
     }
 
     private static readonly HttpClient HashFeedClient = new() { Timeout = TimeSpan.FromSeconds(60) };
@@ -243,7 +254,7 @@ public sealed class StagingService
         try
         {
             finalizer = StageFinalizer.Begin(inputs);
-            downloadRoot = finalizer.ScopeDownloadRoot(downloadRoot);
+            downloadRoot = finalizer.ScopeDownloadRoot(StagingRootGuard.Prepare(downloadRoot));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -325,7 +336,7 @@ public sealed class StagingService
             else
             {
                 (downloadUrl, installerFileName, installerPath) =
-                    await AcquireDownloadAsync(def, contentPath, version, rawVersion, onProgress, ct, downloadRoot);
+                    await AcquireDownloadAsync(def, contentPath, version, rawVersion, onProgress, ct, downloadRoot, finalizer);
             }
 
             // A ZIP payload stays whole: the wrapper extracts it on the client.
@@ -364,6 +375,7 @@ public sealed class StagingService
                 try { Directory.Delete(extractDir, true); } catch { }
                 var originalZip = Path.Combine(contentPath, ResolveInstallerFileName(def, downloadUrl, displayVersion));
                 try { if (File.Exists(originalZip) && originalZip != installerPath) File.Delete(originalZip); } catch { }
+                if (!File.Exists(originalZip)) finalizer.ForgetVerifiedPayload(originalZip);
             }
 
             var isMsix = def.InstallerType.Equals("MSIX", StringComparison.OrdinalIgnoreCase);
@@ -554,6 +566,12 @@ public sealed class StagingService
                     def.PostInstallKillProcesses, def.RebootExitCodes);
             }
 
+            var hasOptionalArchitecturePayloads = def.PayloadVariants is { Length: > 0 };
+            var deploymentTypes = hasOptionalArchitecturePayloads
+                ? await StageOptionalArchitecturePayloadsAsync(def, contentPath, version, rawVersion, displayVersion,
+                    finalizer, onProgress, ct, inputs?.IncludeArchitectureVariants == true, downloadRoot)
+                : null;
+
             if (installerMetadata?.HasDetectionData == true && detection.Type != "Unknown")
             {
                 var metaDerived = BuildDetectionFromMetadata(installerMetadata, displayVersion, def.Detection.Is64Bit);
@@ -582,6 +600,11 @@ public sealed class StagingService
             var cmDisplayName = stageIdentity.DisplayName;
             publisher = stageIdentity.Publisher;
             var cmVersion = stageIdentity.SoftwareVersion;
+            if (deploymentTypes is { Length: > 1 })
+            {
+                cmAppName = string.IsNullOrWhiteSpace(def.CMName) ? def.Application : def.CMName;
+                cmDisplayName = cmAppName;
+            }
 
             var manifestPath = Path.Combine(contentPath, "stage-manifest.json");
             var manifest = new StageManifest
@@ -604,7 +627,12 @@ public sealed class StagingService
                 Detection = detection,
                 WsusDetection = msixPackage is null ? BuildWsusDetection(def, displayVersion, settingsValues, tokens) : null,
                 MsixPackage = msixPackage,
-                PostExecutionBehavior = postExecutionBehavior
+                PostExecutionBehavior = postExecutionBehavior,
+                DeploymentTypes = deploymentTypes,
+                HasOptionalArchitecturePayloads = hasOptionalArchitecturePayloads ? true : null,
+                OptionalArchitecturePayloadsStaged = hasOptionalArchitecturePayloads
+                    ? inputs?.IncludeArchitectureVariants == true
+                    : null
             };
             var sideFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (sideFile, source) in sideFiles)
@@ -657,6 +685,179 @@ public sealed class StagingService
             return Models.Workbench.ApplicationIds.IsValid(id) ? id : "";
         }
         catch (ArgumentException) { return ""; }
+    }
+
+    private async Task<StageDeploymentType[]?> StageOptionalArchitecturePayloadsAsync(
+        AppDefinition definition, string contentPath, string version, string rawVersion, string displayVersion,
+        Workbench.StageFinalizer finalizer, Action<string>? onProgress,
+        CancellationToken ct, bool includeVariants, string? downloadRoot)
+    {
+        var variants = definition.PayloadVariants ?? [];
+        if (variants.Length != 1)
+            throw new InvalidOperationException("An optional architecture payload set must declare exactly one additional architecture variant.");
+        if (definition.SupportsVariants?.Contains("Architecture", StringComparer.OrdinalIgnoreCase) != true)
+            throw new InvalidOperationException("PayloadVariants requires SupportsVariants to include Architecture.");
+        if (!string.Equals(InstallerArchitectures.Resolve(definition.Architecture), InstallerArchitectures.X64, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Optional architecture payloads currently require an x64 base installer.");
+
+        var variant = variants[0];
+        if (!string.Equals(variant.Architecture, InstallerArchitectures.Arm64, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(variant.NameSuffix, InstallerArchitectures.Arm64, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("The additional architecture payload must be the ARM64 deployment type.");
+        var contentSubpath = variant.ContentSubpath ?? "";
+        if (!Regex.IsMatch(contentSubpath, "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$", RegexOptions.CultureInvariant))
+            throw new InvalidOperationException($"Payload variant content subpath '{variant.ContentSubpath}' must be one plain folder name.");
+        if (!string.Equals(variant.InstallerType, "EXE", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Optional ARM64 architecture payloads currently support EXE installers only.");
+        if (string.IsNullOrWhiteSpace(variant.DownloadUrl)
+            || (string.IsNullOrWhiteSpace(variant.PayloadSha256) && string.IsNullOrWhiteSpace(variant.PayloadHashQuery))
+            || !variant.RequirePayloadHash)
+            throw new InvalidOperationException("An optional architecture payload requires an HTTPS download URL and a mandatory SHA256 verification source.");
+
+        var variantDefinition = BuildVariantDefinition(definition, variant);
+        var resolvedUrl = variant.DownloadUrl
+            .Replace("{display_version}", displayVersion, StringComparison.OrdinalIgnoreCase)
+            .Replace("{version}", rawVersion, StringComparison.OrdinalIgnoreCase);
+        if (!Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException("Optional architecture payload URLs must resolve to HTTPS.");
+
+        var variantPath = Workbench.WorkbenchPaths.CombineUnder(contentPath, contentSubpath);
+        var installerFileName = AssertPlainFileName(ResolveInstallerFileName(variantDefinition, resolvedUrl, displayVersion));
+        var ownedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            installerFileName, "install.ps1", "install.bat", "uninstall.ps1", "uninstall.bat", "exitcode.txt"
+        };
+
+        if (!includeVariants)
+        {
+            onProgress?.Invoke("Optional ARM64 payload         : not selected");
+            if (Directory.Exists(variantPath) && (File.GetAttributes(variantPath) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Optional architecture payload folder is a reparse point.");
+            RemoveOptionalVariantFiles(variantPath, ownedNames);
+            return null;
+        }
+
+        // A profile script replaces or wraps the generated script of the stage root only;
+        // the variant folder would run its generated script without the profile's steps.
+        if (finalizer.Snapshot is { } snapshot)
+            foreach (var section in new[] { "Install", "Uninstall" })
+            {
+                var mode = Workbench.WorkbenchJson.Get(snapshot.Profile, section + ".Mode").Text;
+                if (string.Equals(mode, "Custom", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(mode, "Extend", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException(
+                        $"The profile's {section} script mode {mode} applies to the base installer only. Turn off the Architecture split for this profile, or use the generated {section.ToLowerInvariant()} script.");
+            }
+
+        AssertOptionalVariantFolder(contentPath, variantPath, variantDefinition, resolvedUrl, displayVersion);
+        onProgress?.Invoke($"Downloading optional {variant.Architecture} payload...");
+        Directory.CreateDirectory(variantPath);
+        var (downloadUrl, fileName, installerPath) = await AcquireDownloadAsync(
+            variantDefinition, variantPath, version, rawVersion, onProgress, ct, downloadRoot, finalizer);
+        VerifyPayloadArchitecture(installerPath, variant.Architecture);
+
+        var variantTokens = BuildStageTokens(variantDefinition, installerPath, displayVersion, null, new Dictionary<string, string>());
+        var installArgs = variantTokens.Apply(variant.InstallArgs) ?? "";
+        var uninstallArgs = variantTokens.Apply(variant.UninstallArgs) ?? "";
+        var uninstallCommand = variantTokens.Apply(variant.UninstallCommand);
+        var detection = BuildDetection(variantDefinition, null, displayVersion, rawVersion, tokens: variantTokens);
+
+        RemoveOptionalVariantFiles(variantPath, new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "install.ps1", "install.bat", "uninstall.ps1", "uninstall.bat", "exitcode.txt"
+        });
+        finalizer.PrepareStageRoot(variantPath);
+        var wrappers = finalizer.Wrappers(_wrapperService);
+        wrappers.GenerateExeWrappers(variantPath, fileName, installArgs, uninstallArgs,
+            applicationName: definition.Application, uninstallCommand: uninstallCommand,
+            postInstallKillProcesses: definition.PostInstallKillProcesses, rebootExitCodes: definition.RebootExitCodes);
+
+        var result = new List<StageDeploymentType>
+        {
+            new()
+            {
+                NameSuffix = variant.NameSuffix,
+                ContentSubpath = variant.ContentSubpath,
+                InstallCommandLine = "install.bat",
+                UninstallCommandLine = "uninstall.bat",
+                Detection = detection,
+                Requirements = [new StageRequirement { ConditionId = "cpu-arch", Value = variant.Architecture }]
+            },
+            // No commands or detection of its own: the base entry follows the manifest's,
+            // so a profile's custom detection and command overrides reach it.
+            new()
+            {
+                NameSuffix = definition.Architecture,
+                Requirements = [new StageRequirement { ConditionId = "cpu-arch", Value = definition.Architecture }]
+            }
+        };
+        onProgress?.Invoke($"Optional architecture payload  : {downloadUrl}");
+        return [.. result];
+    }
+
+    private static AppDefinition BuildVariantDefinition(AppDefinition definition, AppDefinitionPayloadVariant variant) => new()
+    {
+        Id = definition.Id,
+        Vendor = definition.Vendor,
+        Application = definition.Application,
+        CMName = definition.CMName,
+        Architecture = variant.Architecture,
+        InstallerType = variant.InstallerType,
+        DownloadUrl = variant.DownloadUrl,
+        InstallerFileName = variant.InstallerFileName,
+        InstallArgs = variant.InstallArgs,
+        UninstallArgs = variant.UninstallArgs,
+        UninstallCommand = variant.UninstallCommand,
+        Detection = variant.Detection,
+        PayloadSha256 = variant.PayloadSha256,
+        RequirePayloadHash = variant.RequirePayloadHash,
+        RequireValidSignature = variant.RequireValidSignature,
+        RunningProcess = definition.RunningProcess,
+        VersionScraper = new VersionScraperConfig
+        {
+            Type = definition.VersionScraper.Type,
+            Url = definition.VersionScraper.Url,
+            RequestHeaders = definition.VersionScraper.RequestHeaders,
+            NoUserAgent = definition.VersionScraper.NoUserAgent,
+            PayloadHashQuery = variant.PayloadHashQuery
+        }
+    };
+
+    private static void AssertOptionalVariantFolder(string stageRoot, string variantPath,
+        AppDefinition variantDefinition, string resolvedUrl, string displayVersion)
+    {
+        var root = Path.GetFullPath(stageRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var folder = Path.GetFullPath(variantPath);
+        if (!folder.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Optional architecture payload folder escapes the stage content root.");
+        if (!Directory.Exists(folder)) return;
+        if ((File.GetAttributes(folder) & FileAttributes.ReparsePoint) != 0)
+            throw new InvalidOperationException("Optional architecture payload folder is a reparse point.");
+
+        var fileName = AssertPlainFileName(ResolveInstallerFileName(variantDefinition, resolvedUrl, displayVersion));
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            fileName, "install.ps1", "install.bat", "uninstall.ps1", "uninstall.bat", "exitcode.txt"
+        };
+        foreach (var entry in Directory.EnumerateFileSystemEntries(folder))
+        {
+            if (Directory.Exists(entry) || !allowed.Contains(Path.GetFileName(entry)))
+                throw new InvalidOperationException("Optional architecture payload folder contains files outside its declared installer and generated wrappers.");
+            if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Optional architecture payload folder contains a reparse-point file.");
+        }
+    }
+
+    private static void RemoveOptionalVariantFiles(string variantPath, ISet<string> ownedNames)
+    {
+        if (!Directory.Exists(variantPath)) return;
+        foreach (var entry in Directory.EnumerateFileSystemEntries(variantPath))
+        {
+            if (Directory.Exists(entry) || !ownedNames.Contains(Path.GetFileName(entry))) continue;
+            if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("Optional architecture payload file is a reparse point and cannot be safely removed.");
+            File.Delete(entry);
+        }
     }
 
     /// <summary>
@@ -730,7 +931,8 @@ public sealed class StagingService
     /// </summary>
     private async Task<(string DownloadUrl, string InstallerFileName, string InstallerPath)> AcquireDownloadAsync(
         AppDefinition def, string contentPath, string version, string rawVersion,
-        Action<string>? onProgress, CancellationToken ct, string? downloadRoot = null)
+        Action<string>? onProgress, CancellationToken ct, string? downloadRoot = null,
+        Workbench.StageFinalizer? finalizer = null)
     {
         string downloadUrl;
         if (!string.IsNullOrEmpty(def.VersionScraper.DownloadUrlQuery))
@@ -817,6 +1019,9 @@ public sealed class StagingService
             ValidateInstallerMagic(installerPath, magicType);
             VerifyPayloadHash(installerPath, expectedHash, onProgress);
         }
+
+        if (!string.IsNullOrWhiteSpace(expectedHash))
+            finalizer?.RecordVerifiedPayload(installerPath, expectedHash);
 
         if (def.RequireValidSignature)
             AuthenticodeVerifier.RequireValid(installerPath, onProgress);
@@ -2170,7 +2375,7 @@ public sealed class StagingService
         try
         {
             var finalizer = StageFinalizer.Begin(inputs);
-            downloadRoot = finalizer.ScopeDownloadRoot(downloadRoot);
+            downloadRoot = finalizer.ScopeDownloadRoot(StagingRootGuard.Prepare(downloadRoot));
             if (!File.Exists(sourceInstallerPath))
                 return Task.FromResult(new StagingResult { Success = false, ErrorMessage = $"Installer not found: {sourceInstallerPath}" });
 

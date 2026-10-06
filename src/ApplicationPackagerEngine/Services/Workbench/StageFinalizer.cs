@@ -79,6 +79,18 @@ public sealed class StageFinalizer
         throw new InvalidOperationException($"Unsupported script host '{host}'. Use x64 or x86.");
     }
 
+    private readonly Dictionary<string, string> _verifiedPayloads = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Records the vendor-published SHA-256 a staged payload matched. The manifest write
+    /// refuses the stage when the file no longer carries that digest.
+    /// </summary>
+    public void RecordVerifiedPayload(string path, string sha256) =>
+        _verifiedPayloads[Path.GetFullPath(path)] = sha256.Trim().ToUpperInvariant();
+
+    /// <summary>Drops the record of a verified archive the stage itself extracted and removed.</summary>
+    public void ForgetVerifiedPayload(string path) => _verifiedPayloads.Remove(Path.GetFullPath(path));
+
     /// <summary>The local staging root: &lt;root&gt;\profiles\&lt;ProfileId&gt; for a non-default profile.</summary>
     public string ScopeDownloadRoot(string downloadRoot) =>
         ProfileContentScope.LocalDownloadRoot(downloadRoot, Snapshot?.ProfileId);
@@ -134,6 +146,14 @@ public sealed class StageFinalizer
     {
         var stageRoot = Path.GetDirectoryName(Path.GetFullPath(manifestPath))!;
         Apply(stageRoot, manifest, onLog);
+        // No filter on whether the file still exists: a recorded payload missing at the
+        // manifest write refuses the stage instead of losing its binding.
+        var verified = _verifiedPayloads
+            .Where(p => AppDataPaths.IsWithin(p.Key, stageRoot))
+            .Select(p => new StageVerifiedPayload { RelativePath = Path.GetRelativePath(stageRoot, p.Key), Sha256 = p.Value })
+            .OrderBy(p => p.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        manifest.VerifiedPayloads = verified.Length > 0 ? verified : null;
         manifestService.Write(manifestPath, manifest);
         var record = Seal(stageRoot, manifest);
         if (record is not null) onLog?.Invoke($"Build record sealed          : {WorkbenchJson.Get(record, "Path").Text}");

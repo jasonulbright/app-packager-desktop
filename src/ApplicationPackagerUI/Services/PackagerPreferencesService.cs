@@ -115,8 +115,10 @@ public class PackagerPreferencesService(SettingsService settingsService, Package
                         settings.SiteCode = sc.GetString() ?? settings.SiteCode;
                     if (oldPrefs.TryGetValue("FileShareRoot", out var fsr))
                         settings.FileShareRoot = fsr.GetString() ?? settings.FileShareRoot;
-                    if (oldPrefs.TryGetValue("DownloadRoot", out var dr))
-                        settings.DownloadRoot = dr.GetString() ?? settings.DownloadRoot;
+                    // The PS1 default stays behind: the settings already hold the per-user staging folder.
+                    if (oldPrefs.TryGetValue("DownloadRoot", out var dr) && dr.GetString() is { } importedRoot
+                        && !ApplicationPackagerEngine.Services.AppDataPaths.IsLegacyStagingRoot(importedRoot))
+                        settings.DownloadRoot = importedRoot;
                     if (oldPrefs.TryGetValue("EstimatedRuntimeMins", out var ert))
                         settings.EstimatedRuntimeMins = ert.TryGetInt32(out var v) ? v : settings.EstimatedRuntimeMins;
                     if (oldPrefs.TryGetValue("MaximumRuntimeMins", out var mrt))

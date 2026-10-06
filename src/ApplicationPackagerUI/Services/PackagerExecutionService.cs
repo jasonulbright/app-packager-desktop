@@ -162,11 +162,19 @@ public class PackagerExecutionService(
                 settingsValues ??= [];
                 settingsValues[StagingService.OdtChannelKey] = appSettings.M365Channel;
             }
+            var includeArchitectureVariants = snapshot is not null
+                && !ApplicationIds.IsDefaultProfile(snapshot.ProfileId)
+                    ? string.Equals(
+                        WorkbenchFieldMapping.VariantSplitToDisplay(WorkbenchJson.Get(snapshot.Profile, "Variants.Split").Value),
+                        "Architecture", StringComparison.OrdinalIgnoreCase)
+                    : source.LegacyMapsApply
+                        && string.Equals(deploymentConditionsService.GetConditions(def.Id)?.Split, "Architecture", StringComparison.OrdinalIgnoreCase);
             var inputs = new StageInputs
             {
                 LocalSourceFolder = appSettings.LocalSourceFolders.TryGetValue(def.Id, out var folder) ? folder : null,
                 SideFiles = appSettings.SideFiles,
                 CitrixSwitches = appSettings.CitrixSwitches,
+                IncludeArchitectureVariants = includeArchitectureVariants,
                 RunSnapshot = snapshot,
                 SigningPolicy = appSettings.ScriptSigning
             };
@@ -187,6 +195,12 @@ public class PackagerExecutionService(
         }
 
         var settings = settingsService.Load();
+        try { StagingRootGuard.Prepare(settings.DownloadRoot); }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or InvalidOperationException
+                                       or ArgumentException or NotSupportedException)
+        {
+            return new PackagerExecutionResult { ExitCode = 1, StdErr = ex.Message };
+        }
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, runTarget);
         if (refusal is not null) return refusal;
         var (args, logPaths) = StageArguments(packager, settings, bridge?.DownloadRoot, bridge?.Snapshot?.BuildId);
@@ -208,6 +222,26 @@ public class PackagerExecutionService(
             SealPackagerStage(bridge, staged.StdOut, settings.DownloadRoot, onOutputLine);
         await BuildIntuneWinAtStageAsync(manifestPath, onOutputLine, ct);
         return staged;
+    }
+
+    /// <summary>
+    /// The refusal text when another account can change the staged content or its parent
+    /// folder, which holds the .intunewin a publish reuses; null when both pass.
+    /// </summary>
+    private static string? StagedContentRefusal(string folder, bool withParent = true)
+    {
+        try
+        {
+            StagingRootGuard.Verify(folder);
+            if (withParent && Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder))) is { Length: > 0 } parent)
+                StagingRootGuard.Verify(parent);
+            return null;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or InvalidOperationException
+                                       or ArgumentException or NotSupportedException)
+        {
+            return ex.Message;
+        }
     }
 
     /// <summary>The .intunewin of a stage, built when the content prep tool is on this computer; the note goes to the run log.</summary>
@@ -350,6 +384,8 @@ public class PackagerExecutionService(
         var manifestPath = StagedManifestPath(packager, stageResult, snapshot);
         if (manifestPath is null)
             return new WsusStepResult(WsusStepStatus.Failed, "No stage manifest was found for this stage. Run Stage again.", [], []);
+        if (StagedContentRefusal(Path.GetDirectoryName(manifestPath)!) is { } contentRefusal)
+            return new WsusStepResult(WsusStepStatus.Failed, contentRefusal, [], []);
         StageManifest manifest;
         try { manifest = new ManifestService().Read(manifestPath); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
@@ -688,9 +724,11 @@ public class PackagerExecutionService(
                         : $"Stage manifest not found: {manifestPath}. Run Stage first."
                 };
 
+            var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
+            if (StagedContentRefusal(stagedContentPath) is { } contentRefusal)
+                return new PackagerExecutionResult { ExitCode = 1, StdErr = contentRefusal };
             var manifestService = new ApplicationPackagerEngine.Services.ManifestService();
             var manifest = manifestService.Read(manifestPath);
-            var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
 
             var conflicts = new ConflictWatch();
             void Report(string line)
@@ -713,7 +751,15 @@ public class PackagerExecutionService(
             // ProfileSource leaves them in force.
             var profiled = !ProfileSource.LegacyMapsApplyTo(manifest, source);
             var conditions = profiled ? null : deploymentConditionsService.GetConditions(def.Id);
-            DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, stagedContentPath, Report);
+            if (!profiled && manifest.OptionalArchitecturePayloadsStaged == true
+                && !string.Equals(conditions?.Split, "Architecture", StringComparison.OrdinalIgnoreCase))
+                return new PackagerExecutionResult
+                {
+                    ExitCode = 1,
+                    StdErr = "This stage includes the optional ARM64 payload, and the Architecture split is no longer selected. Re-stage before publishing."
+                };
+            DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, stagedContentPath, Report,
+                definitionDeclaresOptionalArchitecturePayloads: def.PayloadVariants is { Length: > 0 });
             var requirements = DeploymentConditionsService.BuildRequirements(conditions);
             // Recorded on the manifest, not just handed to MECM: the Intune publish reads
             // its command lines from the manifest, so a saved override that never lands
@@ -819,6 +865,8 @@ public class PackagerExecutionService(
         if (DeploymentTargets.PublishesToIntune(target))
             onOutputLine?.Invoke("Intune publishing applies to JSON-defined apps; this PS1 packager runs the ConfigMgr flow only.");
 
+        if (StagedContentRefusal(settings.DownloadRoot, withParent: false) is { } rootRefusal)
+            return new PackagerExecutionResult { ExitCode = 1, StdErr = rootRefusal };
         var bridge = PrepareChildBridge(packager, settings, onOutputLine, out var refusal, snapshot, target);
         if (refusal is not null) return refusal;
         var (args, logPaths) = PackageArguments(packager, settings, comment, bridge?.DownloadRoot, bridge?.Snapshot?.BuildId);
@@ -948,7 +996,8 @@ public class PackagerExecutionService(
             if (def is null || source is null || !ProfileSource.LegacyMapsApplyTo(manifest, source))
                 return IntuneCompatibilityFindings.Build(manifest);
             var conditions = deploymentConditionsService.GetConditions(def.Id);
-            DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, Path.GetDirectoryName(manifestPath)!);
+            DeploymentConditionsService.ApplyVariantSplit(manifest, conditions, Path.GetDirectoryName(manifestPath)!,
+                definitionDeclaresOptionalArchitecturePayloads: def.PayloadVariants is { Length: > 0 });
             return IntuneCompatibilityFindings.Build(manifest, DeploymentConditionsService.BuildRequirements(conditions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
@@ -1099,8 +1148,10 @@ public class PackagerExecutionService(
             return new PackagerExecutionResult { ExitCode = 1, StdErr = $"Stage manifest not found: {manifestPath}. Run Stage first." };
 
         var settings = settingsService.Load();
-        var manifest = new ManifestService().Read(manifestPath);
         var stagedContentPath = Path.GetDirectoryName(manifestPath)!;
+        if (StagedContentRefusal(stagedContentPath) is { } contentRefusal)
+            return new PackagerExecutionResult { ExitCode = 1, StdErr = contentRefusal };
+        var manifest = new ManifestService().Read(manifestPath);
         var signingPolicy = StageFinalizer.EffectivePolicy(snapshot, settings.ScriptSigning);
 
         var conflicts = new ConflictWatch();

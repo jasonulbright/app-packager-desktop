@@ -30,6 +30,12 @@ public sealed class ManifestService
         var root = Path.GetDirectoryName(Path.GetFullPath(path))!;
         var manifestName = Path.GetFileName(path);
         manifest.FileHashes = ComputeFileHashes(root, manifestName);
+        // Checked on the hashes the manifest records, before the manifest exists: a payload
+        // replaced after its download verification never gets a manifest that lists it.
+        var vendorProblems = VerifyVendorDigests(manifest);
+        if (vendorProblems.Count > 0)
+            throw new InvalidOperationException(
+                $"Stage integrity verification failed: {string.Join("; ", vendorProblems)}");
         manifest.PlanDigest = StageManifestPlanDigest.Compute(manifest);
         var json = JsonSerializer.Serialize(manifest, JsonOptions);
         File.WriteAllText(path, json, System.Text.Encoding.UTF8);
@@ -82,6 +88,29 @@ public sealed class ManifestService
         }
         var expectedSet = expected.Select(h => h.RelativePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
         problems.AddRange(actual.Keys.Where(k => !expectedSet.Contains(k)).Select(k => $"unexpected file: {k}"));
+        return problems;
+    }
+
+    /// <summary>
+    /// Compares each VerifiedPayloads entry to the FileHashes record of the same path.
+    /// Returns an empty list on pass or when the manifest names no verified payload.
+    /// </summary>
+    public static List<string> VerifyVendorDigests(StageManifest manifest)
+    {
+        var problems = new List<string>();
+        if (manifest.VerifiedPayloads is not { Length: > 0 } verified) return problems;
+
+        static string Key(string? path) => (path ?? "").TrimStart('\\', '/').Replace('/', '\\');
+        var staged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var hash in manifest.FileHashes ?? [])
+            staged[Key(hash.RelativePath)] = hash.Sha256 ?? "";
+        foreach (var payload in verified)
+        {
+            if (!staged.TryGetValue(Key(payload.RelativePath), out var actual))
+                problems.Add($"verified payload missing: {payload.RelativePath}");
+            else if (!string.Equals(actual, payload.Sha256?.Trim(), StringComparison.OrdinalIgnoreCase))
+                problems.Add($"vendor SHA256 mismatch: {payload.RelativePath}");
+        }
         return problems;
     }
 

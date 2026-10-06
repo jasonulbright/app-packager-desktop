@@ -27,7 +27,23 @@ public sealed class AppSettings
     /// Flat is Vendor-App-Version in one level.
     /// </summary>
     public string ContentLayout { get; set; } = ContentLayouts.Nested;
-    public string DownloadRoot { get; set; } = @"C:\temp\ap";
+    public string DownloadRoot { get; set; } = DefaultDownloadRoot();
+
+    // Empty when the data root is refused, so settings still load and the stage reports
+    // the unset folder.
+    private static string DefaultDownloadRoot()
+    {
+        try { return AppDataPaths.DefaultStagingRoot; }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.IO.IOException or InvalidOperationException) { return ""; }
+    }
+
+    /// <summary>
+    /// True once the staging default of earlier versions was replaced. Null in a file
+    /// written before the flag existed; SettingsService then moves a DownloadRoot still
+    /// at that default to the per-user staging folder.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? StagingRootMigrated { get; set; }
     public string PackagersRoot { get; set; } = "";
 
     public int EstimatedRuntimeMins { get; set; } = 15;
