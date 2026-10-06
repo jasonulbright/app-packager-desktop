@@ -25,15 +25,7 @@ public sealed class SevenZipDefinitionTests
     public void FeedHashQuerySelectsOnlyTheMatchingX64MsiAsset()
     {
         var definition = DefinitionFixture.Load("7zip.json");
-        var release = $$"""
-            {
-              "assets": [
-                { "name": "7z2603-x64.exe", "digest": "sha256:{{new string('1', 64)}}" },
-                { "name": "7z2603-x64.msi", "digest": "sha256:{{ExpectedX64MsiHash}}", "uploader": { "login": "ip7z" } },
-                { "name": "7z2603.msi", "digest": "sha256:{{new string('2', 64)}}" }
-              ]
-            }
-            """;
+        var release = Release(Asset("7z2603-x64.exe", new string('1', 64)), Asset("7z2603-x64.msi", ExpectedX64MsiHash), Asset("7z2603.msi", new string('2', 64)));
 
         Assert.Equal(ExpectedX64MsiHash, StagingService.ExtractFeedHash(release, definition.VersionScraper, "2603"));
     }
@@ -42,14 +34,7 @@ public sealed class SevenZipDefinitionTests
     public void FeedHashQueryDoesNotBorrowAnotherAssetsDigestWhenTheMsiDigestIsMissing()
     {
         var definition = DefinitionFixture.Load("7zip.json");
-        var release = $$"""
-            {
-              "assets": [
-                { "name": "7z2603-x64.msi" },
-                { "name": "7z2603.msi", "digest": "sha256:{{new string('2', 64)}}" }
-              ]
-            }
-            """;
+        var release = Release(Asset("7z2603-x64.msi", null), Asset("7z2603.msi", new string('2', 64)));
 
         Assert.Null(StagingService.ExtractFeedHash(release, definition.VersionScraper, "2603"));
     }
@@ -80,15 +65,7 @@ public sealed class SevenZipDefinitionTests
         var definition = DefinitionFixture.Load("7zip.json");
         var variant = Assert.Single(definition.PayloadVariants!);
         var hash = new string('A', 64);
-        var release = $$"""
-            {
-              "assets": [
-                { "name": "7z2603-x64.exe", "digest": "sha256:{{new string('1', 64)}}" },
-                { "name": "7z2603-arm64.exe", "digest": "sha256:{{hash}}" },
-                { "name": "7z2603-arm.exe", "digest": "sha256:{{new string('2', 64)}}" }
-              ]
-            }
-            """;
+        var release = Release(Asset("7z2603-x64.exe", new string('1', 64)), Asset("7z2603-arm64.exe", hash), Asset("7z2603-arm.exe", new string('2', 64)));
         var scraper = new VersionScraperConfig
         {
             Type = definition.VersionScraper.Type,
@@ -97,7 +74,7 @@ public sealed class SevenZipDefinitionTests
 
         Assert.Equal(hash, StagingService.ExtractFeedHash(release, scraper, "2603"));
 
-        var missingArm64Digest = release.Replace($"\"digest\": \"sha256:{hash}\"", "\"name\": \"duplicate\"");
+        var missingArm64Digest = Release(Asset("7z2603-x64.exe", new string('1', 64)), Asset("7z2603-arm64.exe", null), Asset("7z2603-arm.exe", new string('2', 64)));
         Assert.Null(StagingService.ExtractFeedHash(missingArm64Digest, scraper, "2603"));
     }
 
@@ -344,6 +321,13 @@ public sealed class SevenZipDefinitionTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    // The field order of the GitHub release API: the uploader object, whose URL templates
+    // carry braces, sits between an asset's name and its digest.
+    private static string Asset(string name, string? digest) =>
+        $$"""{ "url": "https://api.github.com/repos/ip7z/7zip/releases/assets/1", "id": 1, "name": "{{name}}", "label": null, "uploader": { "login": "ip7z", "following_url": "https://api.github.com/users/ip7z/following{/other_user}", "gists_url": "https://api.github.com/users/ip7z/gists{/gist_id}" }, "content_type": "application/octet-stream", "size": 1, "digest": {{(digest is null ? "null" : $"\"sha256:{digest}\"")}}, "download_count": 0 }""";
+
+    private static string Release(params string[] assets) => $$"""{ "tag_name": "26.03", "author": { "login": "ip7z" }, "assets": [{{string.Join(",", assets)}}] }""";
 
     private static byte[] SyntheticPe(ushort machine)
     {
