@@ -130,19 +130,22 @@ public sealed class SettingsDurabilityTests : IDisposable
     }
 
     [Fact]
-    public async Task AMissingFileWithoutASideFileThatReappearsIsWaitedFor()
+    public void AMissingFileWithoutASideFileThatReappearsIsWaitedFor()
     {
+        // A dedicated thread: a thread-pool timer under a busy pool can fire after the
+        // quiet period, and the load then returns first-run defaults.
         using var started = new ManualResetEventSlim();
-        var appear = Task.Run(async () =>
+        var appear = new Thread(() =>
         {
             started.Set();
-            await Task.Delay(50);
+            Thread.Sleep(20);
             File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
         });
+        appear.Start();
         started.Wait();
 
         var loaded = new SettingsService().Load();
-        await appear;
+        appear.Join();
 
         Assert.Equal(@"C:\new", loaded.DownloadRoot);
     }
