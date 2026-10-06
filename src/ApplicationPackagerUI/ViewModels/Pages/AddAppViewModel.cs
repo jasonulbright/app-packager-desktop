@@ -204,19 +204,48 @@ public partial class AddAppViewModel : ObservableObject
             RunningProcess = []
         };
 
-        var settings = _settingsService.Load();
-        var defsDir = Path.Combine(Path.GetDirectoryName(settings.PackagersRoot) ?? "", "Definitions");
-        if (!Directory.Exists(defsDir))
+        var definitionsRoot = AppDataPaths.UserDefinitionsRoot;
+        string filePath;
+        try
         {
-            defsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
-            Directory.CreateDirectory(defsDir);
+            filePath = UserDefinitionFiles.GetPath(definitionsRoot, ApplicationName);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or ArgumentException)
+        {
+            _snackbarService.Show("Save failed", ex.Message, ControlAppearance.Caution,
+                new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+            StatusText = ex.Message;
+            return;
         }
 
-        var safeName = ApplicationName.Replace(" ", "").Replace("(", "").Replace(")", "").ToLowerInvariant();
-        var filePath = Path.Combine(defsDir, $"{safeName}.json");
+        if (File.Exists(filePath))
+        {
+            var message = $"A user definition named {Path.GetFileName(filePath)} already exists. Existing definitions are never overwritten.";
+            _snackbarService.Show("Save refused", message, ControlAppearance.Caution,
+                new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+            StatusText = message;
+            return;
+        }
 
-        var json = JsonSerializer.Serialize(def, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(filePath, json);
+        try
+        {
+            filePath = UserDefinitionFiles.SaveNew(definitionsRoot, ApplicationName, def);
+        }
+        catch (IOException) when (File.Exists(filePath))
+        {
+            var message = $"A user definition named {Path.GetFileName(filePath)} already exists. Existing definitions are never overwritten.";
+            _snackbarService.Show("Save refused", message, ControlAppearance.Caution,
+                new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+            StatusText = message;
+            return;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            _snackbarService.Show("Save failed", ex.Message, ControlAppearance.Caution,
+                new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(4));
+            StatusText = ex.Message;
+            return;
+        }
 
         _snackbarService.Show("Saved", $"Definition saved: {Path.GetFileName(filePath)}",
             ControlAppearance.Success, new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(3));

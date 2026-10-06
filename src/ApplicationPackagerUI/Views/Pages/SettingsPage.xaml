@@ -300,7 +300,7 @@
             <Border Style="{StaticResource SectionDivider}" />
 
             <TextBlock Text="Packager Icon Pack" Style="{StaticResource SectionHeader}" />
-            <TextBlock Text="Application icons for definitions tagged IconSource External. Downloaded from the icon pack release and installed into Definitions\Icons."
+            <TextBlock Text="Application icons for definitions tagged IconSource External. Downloaded from the icon pack release and stored in your LocalAppData definition folder; bundled icons remain read-only."
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
 
             <DockPanel Margin="0,0,0,8">

@@ -19,7 +19,7 @@ public sealed class LegacyInventoryMigrationTests : IDisposable
         Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(AppDataPaths.Root);
     }
 
     public void Dispose()

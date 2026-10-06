@@ -34,7 +34,7 @@ public sealed class BuildRunnerTests : IDisposable
         Environment.SetEnvironmentVariable(WorkbenchPaths.DataRootVariable, null);
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
-        Directory.CreateDirectory(_root);
+        Directory.CreateDirectory(AppDataPaths.Root);
         _settingsJson = new JsonObject
         {
             ["SiteCode"] = "",
@@ -82,7 +82,7 @@ public sealed class BuildRunnerTests : IDisposable
     private static readonly WsusApiStatus ApiMissing = new(false, "", "", WsusApiProbe.NotInstalledMessage);
     private static readonly WsusApiStatus ApiPresent = new(true, "10.0", @"C:\Program Files\Update Services\Api\" + WsusApiProbe.AssemblyFileName, "");
 
-    private string WorkbenchRoot => Path.Combine(_root, "Workbench");
+    private string WorkbenchRoot => WorkbenchPaths.DefaultDataRoot;
 
     private bool NothingStaged =>
         !Directory.Exists(Path.Combine(WorkbenchRoot, "runs")) && !Directory.Exists(Path.Combine(_root, "dl"));

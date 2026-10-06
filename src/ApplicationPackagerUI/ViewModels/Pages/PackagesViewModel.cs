@@ -1210,15 +1210,18 @@ public partial class PackagesViewModel : ObservableObject
             return;
         }
 
-        var definitionsDir = Path.Combine(AppContext.BaseDirectory, "Definitions");
-        var fileName = SanitizeDefinitionFileName(definition.Application);
-        if (fileName.Length == 0)
+        var definitionsDir = ApplicationPackagerEngine.Services.AppDataPaths.UserDefinitionsRoot;
+        string target;
+        try
         {
-            AddLogLine("Save as definition failed: the application name contains no usable filename characters.");
+            target = ApplicationPackagerEngine.Services.UserDefinitionFiles.GetPath(definitionsDir, definition.Application);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException or ArgumentException)
+        {
+            AddLogLine($"Save as definition failed: {ex.Message}");
             return;
         }
 
-        var target = Path.Combine(definitionsDir, $"{fileName}.json");
         if (File.Exists(target))
         {
             AddLogLine($"Save as definition refused: {Path.GetFileName(target)} already exists. Existing definitions are never overwritten.");
@@ -1229,25 +1232,20 @@ public partial class PackagesViewModel : ObservableObject
 
         try
         {
-            Directory.CreateDirectory(definitionsDir);
-            var json = System.Text.Json.JsonSerializer.Serialize(definition,
-                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(target, json);
+            target = ApplicationPackagerEngine.Services.UserDefinitionFiles.SaveNew(
+                definitionsDir, definition.Application, definition);
             AddLogLine($"Saved definition: {target}");
             AddLogLine("  Acquisition is unset — a dropped file carries no origin URL. Fill in the download URL and version scraper before Check Latest works.");
             _ = LoadPackagersCommand.ExecuteAsync(null);
+        }
+        catch (IOException) when (File.Exists(target))
+        {
+            AddLogLine($"Save as definition refused: {Path.GetFileName(target)} already exists. Existing definitions are never overwritten.");
         }
         catch (Exception ex)
         {
             AddLogLine($"Save as definition failed: {ex.Message}");
         }
-    }
-
-    private static string SanitizeDefinitionFileName(string application)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        var cleaned = new string([.. application.Where(c => !invalid.Contains(c) && c != ' ')]);
-        return cleaned.ToLowerInvariant();
     }
 
     /// <summary>Prompts for missing local installer folders; returns the rows the run keeps.</summary>

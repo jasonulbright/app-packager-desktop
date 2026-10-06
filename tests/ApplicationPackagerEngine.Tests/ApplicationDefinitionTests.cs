@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
 
 namespace ApplicationPackagerEngine.Tests;
@@ -71,6 +72,31 @@ public sealed class ApplicationDefinitionTests : IDisposable
     }
 
     [Fact]
+    public void Discover_UsesUserFilesAsCatalogOverridesAndCustomDefinitionsWithoutDuplicatingCatalogIds()
+    {
+        var catalog = _t.NewFolder();
+        var user = _t.NewFolder();
+        var catalogId = "catalogoverride01";
+        var customId = "newcustom01";
+        _t.NewFile(Path.Combine(catalog, "shipped.json"), $$"""{ "Id": "{{catalogId}}", "Application": "Shipped Name" }""");
+        var userOverride = _t.NewFile(Path.Combine(user, "my-shipped.json"), $$"""{ "Id": "{{catalogId}}", "Application": "User Name" }""");
+        _t.NewFile(Path.Combine(user, "custom.json"), $$"""{ "Id": "{{customId}}", "Application": "Custom App" }""");
+
+        var applications = _t.Store.DiscoverApplications(new WorkbenchDiscoveryRoots
+        {
+            CatalogDefinitionsRoot = catalog,
+            CatalogOverridesRoot = user,
+            CustomDefinitionsRoot = user
+        });
+
+        var overridden = Assert.Single(applications, a => a.ApplicationId == $"catalog:{catalogId}");
+        Assert.Equal(Path.GetFullPath(userOverride), overridden.SourcePath);
+        Assert.Equal("User Name", overridden.DisplayName);
+        Assert.DoesNotContain(applications, a => a.ApplicationId == $"custom:{catalogId}");
+        Assert.Single(applications, a => a.ApplicationId == $"custom:{customId}" && a.SourcePath == Path.Combine(user, "custom.json"));
+    }
+
+    [Fact]
     public void Get_ReturnsAnUnsavedDefaultDefinitionForAnUnknownApplication()
     {
         var definition = _t.Store.GetApplicationDefinition("catalog:package-not-saved");
@@ -137,7 +163,7 @@ public sealed class WorkbenchStorageRootTests : IDisposable
     {
         var fromEnvironment = Path.Combine(_t.Root, "env-root");
         Environment.SetEnvironmentVariable(WorkbenchPaths.DataRootVariable, fromEnvironment);
-        Assert.Equal(fromEnvironment, WorkbenchPaths.ResolveDataRoot(@"C:\ignored", create: false));
+        Assert.Equal(AppDataPaths.ScopeRootToCurrentUser(fromEnvironment), WorkbenchPaths.ResolveDataRoot(@"C:\ignored", create: false));
     }
 
     [Fact]
@@ -145,8 +171,9 @@ public sealed class WorkbenchStorageRootTests : IDisposable
     {
         Environment.SetEnvironmentVariable(WorkbenchPaths.DataRootVariable, null);
         var wanted = Path.Combine(_t.Root, "pref-root");
-        Assert.Equal(wanted, WorkbenchPaths.ResolveDataRoot(wanted));
-        Assert.True(Directory.Exists(wanted));
+        var scoped = AppDataPaths.ScopeRootToCurrentUser(wanted);
+        Assert.Equal(scoped, WorkbenchPaths.ResolveDataRoot(wanted));
+        Assert.True(Directory.Exists(scoped));
     }
 
     [Fact]

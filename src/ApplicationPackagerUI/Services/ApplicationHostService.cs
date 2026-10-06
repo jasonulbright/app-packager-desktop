@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ApplicationPackagerEngine.Models.Workbench;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Views.Pages;
 using ApplicationPackagerUI.Views.Windows;
@@ -60,7 +61,9 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
                 LegacyPreferenceMigration.Run(WorkbenchStore.Open(), JsonSerializer.SerializeToNode(settings),
                     new WorkbenchDiscoveryRoots
                     {
-                        CatalogDefinitionsRoot = Path.Combine(AppContext.BaseDirectory, "Definitions"),
+                        CatalogDefinitionsRoot = IconPackService.BundledDefinitionsDirectory(),
+                        CatalogOverridesRoot = AppDataPaths.UserDefinitionsRoot,
+                        CustomDefinitionsRoot = AppDataPaths.UserDefinitionsRoot,
                         PackagersRoot = packagersRoot
                     });
             }

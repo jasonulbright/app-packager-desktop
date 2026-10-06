@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ApplicationPackagerEngine.Models.Workbench;
 
 namespace ApplicationPackagerEngine.Models;
 
@@ -230,6 +231,10 @@ public sealed class AppDefinition
     /// <summary>Path to the .json file this was loaded from.</summary>
     [JsonIgnore]
     public string SourcePath { get; set; } = "";
+
+    /// <summary>Workbench identity namespace selected by discovery; never stored in the definition file.</summary>
+    [JsonIgnore]
+    public ApplicationOrigin SourceOrigin { get; set; } = ApplicationOrigin.Catalog;
 }
 
 public sealed class VersionScraperConfig

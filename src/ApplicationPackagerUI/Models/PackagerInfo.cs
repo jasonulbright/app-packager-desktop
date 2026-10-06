@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Models;
+using ApplicationPackagerEngine.Models.Workbench;
 
 namespace ApplicationPackagerUI.Models;
 
@@ -31,6 +32,8 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     public bool IsJsonDefined { get; init; }
     /// <summary>Path to the .json definition file (null for PS1 scripts).</summary>
     public string? DefinitionPath { get; init; }
+    /// <summary>Workbench namespace for a JSON definition: shipped/overridden catalog or user-authored custom.</summary>
+    public ApplicationOrigin DefinitionOrigin { get; init; } = ApplicationOrigin.Catalog;
 
     /// <summary>
     /// Stage manifest of an ad-hoc dropped installer. Set, the row packages straight from

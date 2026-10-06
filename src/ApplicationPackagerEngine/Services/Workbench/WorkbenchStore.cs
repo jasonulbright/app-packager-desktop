@@ -90,19 +90,33 @@ public sealed partial class WorkbenchStore
         roots ??= new WorkbenchDiscoveryRoots();
         var results = new List<WorkbenchApplication>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var catalogDefinitions = ReadDefinitionFiles(roots.CatalogDefinitionsRoot);
+        var catalogIds = catalogDefinitions.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var overrides = ReadDefinitionFiles(roots.CatalogOverridesRoot);
 
-        void AddDefinitions(string? root, ApplicationOrigin origin)
+        void AddDefinitions(
+            string? root,
+            ApplicationOrigin origin,
+            IReadOnlyDictionary<string, (string Path, string? Name)>? replacements = null,
+            IReadOnlySet<string>? excludedIds = null)
         {
             if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return;
             foreach (var file in Directory.GetFiles(root, "*.json").OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
             {
                 var (id, name) = ReadDefinitionIdentity(file);
                 if (string.IsNullOrWhiteSpace(id)) continue;
+                if (excludedIds?.Contains(id) == true) continue;
+                var sourcePath = file;
+                if (replacements is not null && replacements.TryGetValue(id, out var replacement))
+                {
+                    sourcePath = replacement.Path;
+                    name = replacement.Name ?? name;
+                }
                 string applicationId;
                 try { applicationId = ApplicationIds.New(origin, name: id); }
                 catch (ArgumentException) { continue; }
                 if (!ApplicationIds.IsValid(applicationId) || !seen.Add(applicationId)) continue;
-                results.Add(Describe(applicationId, origin, name ?? Path.GetFileNameWithoutExtension(file), file, runnable: true));
+                results.Add(Describe(applicationId, origin, name ?? Path.GetFileNameWithoutExtension(sourcePath), sourcePath, runnable: true));
             }
         }
 
@@ -120,9 +134,9 @@ public sealed partial class WorkbenchStore
             }
         }
 
-        AddDefinitions(roots.CatalogDefinitionsRoot, ApplicationOrigin.Catalog);
+        AddDefinitions(roots.CatalogDefinitionsRoot, ApplicationOrigin.Catalog, overrides);
         AddScripts(roots.PackagersRoot, ApplicationOrigin.Catalog);
-        AddDefinitions(roots.CustomDefinitionsRoot ?? CustomDefinitionsRoot, ApplicationOrigin.Custom);
+        AddDefinitions(roots.CustomDefinitionsRoot ?? CustomDefinitionsRoot, ApplicationOrigin.Custom, excludedIds: catalogIds);
 
         if (Directory.Exists(ApplicationsRoot))
         {
@@ -175,6 +189,19 @@ public sealed partial class WorkbenchStore
         {
             return (null, null);
         }
+    }
+
+    private static Dictionary<string, (string Path, string? Name)> ReadDefinitionFiles(string? root)
+    {
+        var definitions = new Dictionary<string, (string Path, string? Name)>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) return definitions;
+        foreach (var file in Directory.GetFiles(root, "*.json")
+                     .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
+        {
+            var (id, name) = ReadDefinitionIdentity(file);
+            if (!string.IsNullOrWhiteSpace(id)) definitions.TryAdd(id, (file, name));
+        }
+        return definitions;
     }
 
     private static T? ReadJson<T>(string path) where T : class
