@@ -16,9 +16,11 @@
                            "Type":  "HttpRegex",
                            "Url":  "https://api.github.com/repos/ip7z/7zip/releases/latest",
                            "Pattern":  "\"name\":\\s*\"7z(\\d{4})-x64\\.msi\"",
-                           "VersionTransform":  "insert_dot:2"
+                           "VersionTransform":  "insert_dot:2",
+                           "PayloadHashQuery":  "\"name\":\\s*\"7z{version}-x64\\.msi\"[^{}]*?\"digest\":\\s*\"sha256:(?<hash>[0-9a-fA-F]{64})\""
                        },
     "DownloadUrl":  "https://github.com/ip7z/7zip/releases/download/{display_version}/7z{version}-x64.msi",
+    "RequirePayloadHash":  true,
     "InstallArgs":  "/qn /norestart",
     "UninstallArgs":  "/x {ProductCode} /qn /norestart",
     "Detection":  {
