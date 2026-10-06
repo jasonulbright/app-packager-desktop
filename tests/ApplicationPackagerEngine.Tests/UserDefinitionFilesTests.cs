@@ -2,6 +2,8 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Services;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -70,6 +72,38 @@ public sealed class UserDefinitionFilesTests : IDisposable
         Assert.Throws<UnauthorizedAccessException>(() => AppDataPaths.ScopeRootToCurrentUser(
             Path.Combine(programFiles, "AppPackagerTestData")));
     }
+
+    [Fact]
+    public void ProgramFilesGuardRejectsExtendedDeviceNamespacePaths()
+    {
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        Assert.False(string.IsNullOrWhiteSpace(programFiles));
+
+        Assert.Throws<UnauthorizedAccessException>(() => AppDataPaths.EnsureOutsideProgramFiles(
+            @"\\?\" + programFiles));
+        Assert.Throws<UnauthorizedAccessException>(() => AppDataPaths.EnsureOutsideProgramFiles(
+            @"\\.\" + programFiles));
+    }
+
+    [Fact]
+    public void ProgramFilesGuardRejectsShortNameAliasesWhenAvailable()
+    {
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        if (string.IsNullOrWhiteSpace(programFiles)) return;
+
+        var buffer = new StringBuilder(32768);
+        var length = GetShortPathName(programFiles, buffer, (uint)buffer.Capacity);
+        if (length is 0 or >= 32768) return;
+
+        var shortProgramFiles = buffer.ToString();
+        if (string.Equals(shortProgramFiles, programFiles, StringComparison.OrdinalIgnoreCase)) return;
+
+        Assert.Throws<UnauthorizedAccessException>(() => AppDataPaths.EnsureOutsideProgramFiles(
+            Path.Combine(shortProgramFiles, "AppPackagerTestData")));
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetShortPathNameW")]
+    private static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint bufferLength);
 
     [Fact]
     public void EffectiveDefinitions_UseUserOverrideForCatalogIdAndCustomIdentityForNewFiles()
