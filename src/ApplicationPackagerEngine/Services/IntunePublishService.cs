@@ -165,7 +165,6 @@ public sealed class IntunePublishService : IDisposable
         {
             appId = (string?)match["id"] ?? throw new InvalidOperationException("Existing Win32 app carries no id.");
             onProgress?.Invoke($"Updating Intune Win32 app    : {manifest.AppName} (app id {appId})");
-            await GraphJsonAsync(HttpMethod.Patch, $"{graph}/deviceAppManagement/mobileApps/{appId}", token, appBody, ct).ConfigureAwait(false);
         }
         else
         {
@@ -219,11 +218,15 @@ public sealed class IntunePublishService : IDisposable
 
             await WaitForCommitAsync(fileUri, token, options, ct).ConfigureAwait(false);
 
-            await GraphJsonAsync(HttpMethod.Patch, $"{graph}/deviceAppManagement/mobileApps/{appId}", token, new JsonObject
+            // Existing assignments must keep the old commands and detection while their
+            // old content is active. Activate the replacement metadata and content together
+            // only after Intune has validated the uploaded file.
+            var activation = match is not null ? appBody : new JsonObject
             {
-                ["@odata.type"] = "#microsoft.graph.win32LobApp",
-                ["committedContentVersion"] = contentId
-            }, ct).ConfigureAwait(false);
+                ["@odata.type"] = "#microsoft.graph.win32LobApp"
+            };
+            activation["committedContentVersion"] = contentId;
+            await GraphJsonAsync(HttpMethod.Patch, $"{graph}/deviceAppManagement/mobileApps/{appId}", token, activation, ct).ConfigureAwait(false);
 
             onProgress?.Invoke($"Published to Intune          : {manifest.AppName} (app id {appId})");
             return appId;
@@ -310,11 +313,17 @@ public sealed class IntunePublishService : IDisposable
                 $"Multiple Intune apps carry an earlier identity tag of this application (ids: {string.Join(", ", formerTagged.Select(a => (string?)a["id"]))}); resolve the duplicates before publishing.");
         if (formerTagged.Count == 1) return formerTagged[0];
 
-        var filterName = displayName.Replace("'", "''");
-        var existing = await GraphJsonAsync(HttpMethod.Get,
-            $"{graph}/deviceAppManagement/mobileApps?$filter=displayName eq '{filterName}'", token, null, ct).ConfigureAwait(false);
-        var candidates = (existing?["value"] as JsonArray ?? [])
-            .Where(n => (string?)n?["@odata.type"] == Win32Type && !CarriesAnyTag((string?)n?["notes"])).ToList();
+        var filter = Uri.EscapeDataString($"displayName eq '{displayName.Replace("'", "''")}'");
+        uri = $"{graph}/deviceAppManagement/mobileApps?$filter={filter}";
+        var candidates = new List<JsonNode>();
+        while (!string.IsNullOrEmpty(uri))
+        {
+            var page = await GraphJsonAsync(HttpMethod.Get, uri, token, null, ct).ConfigureAwait(false);
+            foreach (var app in page?["value"] as JsonArray ?? [])
+                if (app is not null && (string?)app["@odata.type"] == Win32Type && !CarriesAnyTag((string?)app["notes"]))
+                    candidates.Add(app);
+            uri = (string?)page?["@odata.nextLink"];
+        }
         if (candidates.Count > 1)
             throw new InvalidOperationException(
                 $"Multiple Intune apps are named '{displayName}' and none carries this application's identity tag (ids: {string.Join(", ", candidates.Select(a => (string?)a?["id"]))}); rename or tag the intended app before publishing.");
@@ -430,7 +439,7 @@ public sealed class IntunePublishService : IDisposable
                 request.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob");
 
                 using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-                await EnsureSuccessAsync(response, blockUri, ct).ConfigureAwait(false);
+                await EnsureSuccessAsync(response, blockUri, ct, includeResponseBody: false).ConfigureAwait(false);
                 index++;
             }
         }
@@ -443,7 +452,7 @@ public sealed class IntunePublishService : IDisposable
         {
             request.Content = new StringContent(xml, Encoding.UTF8, "text/plain");
             using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-            await EnsureSuccessAsync(response, listUri, ct).ConfigureAwait(false);
+            await EnsureSuccessAsync(response, listUri, ct, includeResponseBody: false).ConfigureAwait(false);
         }
 
         onProgress?.Invoke($"Uploaded payload             : {blockIds.Count} block(s)");
@@ -813,11 +822,15 @@ public sealed class IntunePublishService : IDisposable
     private static string FirstNonBlank(string? candidate, string fallback)
         => string.IsNullOrWhiteSpace(candidate) ? fallback : candidate;
 
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response, string uri, CancellationToken ct)
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, string uri, CancellationToken ct,
+        bool includeResponseBody = true)
     {
         if (response.IsSuccessStatusCode) return;
-        var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        // Storage URLs carry SAS credentials. A storage/proxy error body can echo the
+        // request URL, so neither its query nor its response body belongs in a run log.
+        var body = includeResponseBody ? await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false) : "";
         if (body.Length > 500) body = body[..500];
-        throw new HttpRequestException($"{(int)response.StatusCode} {response.ReasonPhrase} from {uri}: {body}");
+        var endpoint = new Uri(uri).GetLeftPart(UriPartial.Path);
+        throw new HttpRequestException($"{(int)response.StatusCode} {response.ReasonPhrase} from {endpoint}: {body}", null, response.StatusCode);
     }
 }

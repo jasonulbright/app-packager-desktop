@@ -49,6 +49,8 @@ The release is self-contained. A separate .NET runtime is not necessary.
 3. Select **Stage** to download and prepare the content.
 4. Select **Publish to ConfigMgr**, **Publish to Intune** or **Publish to WSUS**. A button is disabled while its system is not set up. Its tooltip names the setting that is missing.
 
+In **Settings**, ConfigMgr can request content distribution and then create an Available deployment to a test collection. Select **Use a user collection** to target users; leaving it cleared targets devices. Collection type is independent of the application's install context. If you enable collection creation, the new collection starts empty; add pilot members in ConfigMgr. See [deployment behavior](docs/deployment-behavior.md) for outcomes and validation limits.
+
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
@@ -96,12 +98,12 @@ AppPackagerBuild --application <id> [--profile <name or id>] (--stage | --packag
 | Exit code | Meaning |
 |---|---|
 | 0 | Success |
-| 1 | Failure or refusal, or a WSUS approval or decline that failed after a successful publish |
+| 1 | Failure or refusal, or a WSUS warning after a successful publish |
 | n | The non-zero exit code of a PS1 packager |
 
 ## Application definitions
 
-A definition is one JSON file in the `Definitions` folder. The **Add New App** page writes a definition for you.
+A definition is one JSON file. Shipped definitions are in the installation's `Definitions` folder. **Add New App** and **Save as definition** write your definitions into the per-user Workbench `definitions` folder, by default `%LOCALAPPDATA%\AppPackager\Workbench\definitions`. A user definition with the same `Id` overrides the shipped definition.
 
 ```json
 {
@@ -139,13 +141,16 @@ About one third of the definitions read `api.github.com`. Without a token, GitHu
 
 ## Data and network
 
-- Settings are in `%LOCALAPPDATA%\AppPackager`. Workbench profiles, builds and drafts are in `%LOCALAPPDATA%\AppPackager\Workbench`. The environment variable `APP_PACKAGER_DATA_ROOT` moves both.
+- Settings are in `%LOCALAPPDATA%\AppPackager`. Workbench profiles, builds and drafts are in `%LOCALAPPDATA%\AppPackager\Workbench`. Staging defaults to `%LOCALAPPDATA%\AppPackager\Staging`. An `APP_PACKAGER_DATA_ROOT` override places settings and these default data folders under `<override>\Users\<Windows SID>`; an explicitly configured staging folder stays configured.
+- Session logs, downloaded tools and the shared application inventory (`history.db`) normally live under `%LOCALAPPDATA%\SRLPackr`. With a data-root override they live under `<override>\Users\<Windows SID>\SRLPackr`. **Operation History** on the Packages page shows the selected application's latest 100 operations.
 - App Packager Desktop has no telemetry. It connects to vendor sites for version checks and downloads, to GitHub for the icon pack and for definitions that read GitHub releases, and to the systems that you set up.
 - The Intune client secret is stored encrypted for the current Windows user.
 
 ## Validation
 
 ConfigMgr packaging and deployment, WSUS publishing with a client update, and signed builds on a client that enforces AllSigned are validated on a lab site with client computers. Intune publishing is tested against simulated Graph responses only.
+
+The October 9 review changes pass the Release test suite. The new user-collection option and publication failure handling have automated coverage; they have not yet been validated against live ConfigMgr, Intune or WSUS in this review.
 
 ## Relationship to app-packager
 

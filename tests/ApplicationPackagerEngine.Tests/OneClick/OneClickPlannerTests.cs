@@ -106,7 +106,9 @@ public sealed class OneClickPlannerTests
     public void TheScopeNamesWhereEachDestinationLands()
     {
         var scope = Settings().Scope;
-        Assert.Equal("distribute to DP group All DPs; deploy to collection Pilot Devices", OneClickPlanner.Scope("ConfigMgr", scope));
+        Assert.Equal("distribute to DP group All DPs; deploy to device collection Pilot Devices", OneClickPlanner.Scope("ConfigMgr", scope));
+        Assert.Equal("distribute to DP group All DPs; deploy to user collection Pilot Users",
+            OneClickPlanner.Scope("ConfigMgr", scope with { TestCollectionIsUser = true, TestCollectionName = "Pilot Users" }));
         Assert.Equal("approved for group Pilot", OneClickPlanner.Scope("WSUS", scope));
         Assert.Equal("published, not approved", OneClickPlanner.Scope("WSUS", Settings(approvalGroup: "").Scope));
         Assert.Equal("app created, not assigned", OneClickPlanner.Scope("Intune", scope));

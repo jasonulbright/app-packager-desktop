@@ -92,6 +92,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     [ObservableProperty] private string _dpGroupName = "";
     [ObservableProperty] private bool _deployToTestCollection;
     [ObservableProperty] private string _testCollectionName = "";
+    [ObservableProperty] private bool _testCollectionIsUser;
     [ObservableProperty] private bool _createTestCollectionIfMissing;
 
     /// <summary>The test deployment needs distributed content, so its fields follow the auto-distribute switch.</summary>
@@ -529,6 +530,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         DpGroupName = s.ContentDistribution.DpGroupName;
         DeployToTestCollection = s.ContentDistribution.DeployToTestCollection;
         TestCollectionName = s.ContentDistribution.TestCollectionName;
+        TestCollectionIsUser = s.ContentDistribution.TestCollectionIsUser;
         CreateTestCollectionIfMissing = s.ContentDistribution.CreateTestCollectionIfMissing;
 
         var systems = s.Systems ?? new SystemsInUse();
@@ -592,6 +594,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             DpGroupName = DpGroupName.Trim(),
             DeployToTestCollection = DeployToTestCollection,
             TestCollectionName = TestCollectionName.Trim(),
+            TestCollectionIsUser = TestCollectionIsUser,
             CreateTestCollectionIfMissing = CreateTestCollectionIfMissing,
         };
 

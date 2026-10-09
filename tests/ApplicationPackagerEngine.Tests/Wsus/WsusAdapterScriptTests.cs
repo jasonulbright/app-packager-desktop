@@ -209,6 +209,50 @@ public class WsusAdapterScriptTests : IDisposable
     }
 
     [Fact]
+    public async Task ALookupFailureRetainsEarlierStateResultsAndProcessesLaterUpdates()
+    {
+        var request = AddTo(Request(), "Action", "Decline", "PackageIds", new JsonArray(
+            "bbbbbbbb-0000-0000-0000-000000000001", "bbbbbbbb-0000-0000-0000-000000000002",
+            "bbbbbbbb-0000-0000-0000-000000000004"));
+
+        var (result, log) = await StandIn("LookupFails", "SetState", request);
+
+        Assert.True(result.Ok, result.Error);
+        var rows = WsusAdminClient.ReadStateResults(result.Data!["Results"] as JsonArray, WsusUpdateActions.Decline);
+        Assert.Equal(3, rows.Count);
+        Assert.True(rows[0].Ok);
+        Assert.False(rows[1].Ok);
+        Assert.Contains("Update lookup timed out", rows[1].Message);
+        Assert.True(rows[2].Ok);
+        Assert.Equal(["decline Tool 1", "decline Tool 4"], log);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Pilot")]
+    public async Task ALookupFailureAfterPublishDoesNotLoseTheSuccessfulPublication(string approvalGroup)
+    {
+        var request = PublishRequest("staged bytes", Sha256Hex("staged bytes"));
+        request["Plan"]!["PackageId"] = "bbbbbbbb-0000-0000-0000-000000000002";
+        request["ApprovalGroup"] = approvalGroup;
+        request["DeclinePackageIds"] = new JsonArray("bbbbbbbb-0000-0000-0000-000000000004");
+
+        var (result, log) = await StandIn("LookupFails", "Publish", request);
+
+        Assert.True(result.Ok, result.Error);
+        Assert.True(WsusAdminClient.Bool(result.Data, "Published"));
+        Assert.False(WsusAdminClient.Bool(result.Data, "UpdateVisible"));
+        Assert.Equal("Update lookup timed out", WsusAdminClient.Str(result.Data, "UpdateVisibilityError"));
+        Assert.Contains("publish", log);
+        Assert.Contains("decline Tool 4", log);
+        if (approvalGroup.Length > 0)
+        {
+            Assert.False(WsusAdminClient.Bool(result.Data!["Approval"]!.AsObject(), "Ok"));
+            Assert.Contains("Update lookup timed out", WsusAdminClient.Str(result.Data["Approval"]!.AsObject(), "Message"));
+        }
+    }
+
+    [Fact]
     public async Task AppliesTheApprovalAndTheDeclinesToAnExistingUpdateAndReportsEachOutcome()
     {
         var request = Request();

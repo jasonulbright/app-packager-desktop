@@ -487,7 +487,7 @@ function Invoke-WsusPublishCommit {
     $server = Get-WsusServerConnection -Settings (Get-InputValue $Request 'Settings')
     Assert-WsusAdministrator -Server $server
     $packageId = if ($existingId) { [guid]$existingId } else { [guid][string]$plan.PackageId }
-    $data = [ordered]@{ ServerName = [string]$server.Name; PackageId = $packageId.ToString(); Published = $false; UpdateVisible = $false; Approval = $null; Declines = @() }
+    $data = [ordered]@{ ServerName = [string]$server.Name; PackageId = $packageId.ToString(); Published = $false; UpdateVisible = $false; UpdateVisibilityError = ''; Approval = $null; Declines = @() }
 
     if (-not $existingId) {
         $contentFolder = [string](Get-InputValue $Request 'ContentFolder' '')
@@ -522,12 +522,15 @@ function Invoke-WsusPublishCommit {
     }
 
     if ([bool](Get-InputValue $Request 'SkipFollowUp' $false)) { return $data }
-    $update = Get-WsusUpdateObject -Server $server -PackageId $packageId
+    $update = $null
+    try { $update = Get-WsusUpdateObject -Server $server -PackageId $packageId }
+    catch { $data.UpdateVisibilityError = Get-WsusErrorMessage -ErrorRecord $_ }
     $data.UpdateVisible = [bool]$update
     $group = [string](Get-InputValue $Request 'ApprovalGroup' '')
     if ($group) {
         $approval = [ordered]@{ Group = $group; Ok = $false; Message = '' }
         try {
+            if ($data.UpdateVisibilityError) { throw $data.UpdateVisibilityError }
             if (-not $update) { throw ('the update is not visible on {0} after publishing' -f [string]$server.Name) }
             Invoke-WsusUpdateApproval -Server $server -Update $update -GroupName $group
             $approval.Ok = $true
@@ -567,10 +570,10 @@ function Invoke-WsusSetStateOperation {
     $results = New-Object System.Collections.Generic.List[object]
     foreach ($id in @(@(Get-InputValue $Request 'PackageIds' @()) | ForEach-Object { [string]$_ } | Select-Object -Unique)) {
         $entry = [ordered]@{ PackageId = $id; Title = ''; Found = $true; Ok = $false; Message = ''; DeclinedNow = $false; FolderError = '' }
-        $update = Get-WsusUpdateObject -Server $server -PackageId ([guid]$id)
-        if (-not $update) { $entry.Found = $false; $results.Add($entry); continue }
-        $entry.Title = [string]$update.Title
         try {
+            $update = Get-WsusUpdateObject -Server $server -PackageId ([guid]$id)
+            if (-not $update) { $entry.Found = $false; $results.Add($entry); continue }
+            $entry.Title = [string]$update.Title
             switch ($action) {
                 'Approve' { Invoke-WsusUpdateApproval -Server $server -Update $update -GroupName $group }
                 'Decline' { Invoke-WsusUpdateDecline -Update $update }
