@@ -62,10 +62,12 @@ public sealed class IntunePublishServiceTests : IDisposable
     };
 
     /// <summary>Scripted Graph and blob endpoints for a successful publish.</summary>
-    private static FakeGraphHandler BuildHandler(string existingAppsJson)
+    private static FakeGraphHandler BuildHandler(string existingAppsJson,
+        Func<HttpRequestMessage, HttpResponseMessage?>? intercept = null)
     {
         return new FakeGraphHandler((request, _) =>
         {
+            if (intercept?.Invoke(request) is { } intercepted) return intercepted;
             var uri = request.RequestUri!.ToString();
 
             if (uri.Contains("/oauth2/v2.0/token"))
@@ -228,6 +230,103 @@ public sealed class IntunePublishServiceTests : IDisposable
             r => r.Method == HttpMethod.Patch && r.Uri.EndsWith("/deviceAppManagement/mobileApps/app-existing"));
     }
 
+    [Theory]
+    [InlineData("upload")]
+    [InlineData("commit")]
+    [InlineData("cancel")]
+    public async Task FailedReplacementLeavesExistingAppMetadataAndContentVersionAlone(string failure)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var handler = BuildHandler(ExistingApp, request =>
+        {
+            if (request.RequestUri!.Host.EndsWith("blob.core.windows.net", StringComparison.Ordinal))
+            {
+                if (failure == "upload") return new HttpResponseMessage(HttpStatusCode.BadGateway);
+                if (failure == "cancel")
+                {
+                    cancellation.Cancel();
+                    cancellation.Token.ThrowIfCancellationRequested();
+                }
+            }
+            if (failure == "commit" && request.RequestUri.AbsolutePath.EndsWith("/commit", StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.BadRequest);
+            return null;
+        });
+        using var service = new IntunePublishService(handler);
+
+        var package = IntuneWinFixture.Create(_dir);
+        if (failure == "cancel")
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.PublishAsync(
+                package, Manifest(), Options(), ct: cancellation.Token));
+        else
+            await Assert.ThrowsAsync<HttpRequestException>(() => service.PublishAsync(
+                package, Manifest(), Options(), ct: cancellation.Token));
+
+        Assert.DoesNotContain(handler.Requests, r => r.Method == HttpMethod.Patch);
+    }
+
+    [Fact]
+    public async Task ReplacementActivatesMetadataAndContentTogetherAfterCommitValidation()
+    {
+        var handler = BuildHandler(ExistingApp);
+        using var service = new IntunePublishService(handler);
+
+        await service.PublishAsync(IntuneWinFixture.Create(_dir), Manifest(), Options());
+
+        var patch = Assert.Single(handler.Requests, r => r.Method == HttpMethod.Patch);
+        Assert.Same(handler.Requests[^1], patch);
+        Assert.Equal(HttpMethod.Get, handler.Requests[^2].Method);
+        Assert.EndsWith("/files/file-1", handler.Requests[^2].Uri);
+        var body = JsonNode.Parse(patch.Body)!;
+        Assert.Equal("7", (string?)body["committedContentVersion"]);
+        Assert.Equal("install.bat", (string?)body["installCommandLine"]);
+        Assert.NotNull(body["rules"]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NameFallbackExaminesEveryPageBeforeAdoptingAnApp(bool duplicate)
+    {
+        var handler = new FakeGraphHandler((request, _) =>
+        {
+            var uri = Uri.UnescapeDataString(request.RequestUri!.AbsoluteUri);
+            if (uri.Contains("isof(")) return FakeGraphHandler.Json(NoApps);
+            if (uri.Contains("$skiptoken=")) return FakeGraphHandler.Json(
+                """{"value":[{"id":"second","@odata.type":"#microsoft.graph.win32LobApp"}]}""");
+            return FakeGraphHandler.Json(new JsonObject
+            {
+                ["value"] = duplicate ? JsonNode.Parse(ExistingApp)!["value"]!.DeepClone() : new JsonArray(),
+                ["@odata.nextLink"] = "https://graph.microsoft.com/v1.0/deviceAppManagement/mobileApps?$skiptoken=next"
+            }.ToJsonString());
+        });
+        using var service = new IntunePublishService(handler);
+
+        if (duplicate)
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.FindExistingAppAsync(
+                "https://graph.microsoft.com/v1.0", "token", "AppPackager:test/default", "Contoso"));
+        else
+            Assert.Equal("second", (string?)(await service.FindExistingAppAsync(
+                "https://graph.microsoft.com/v1.0", "token", "AppPackager:test/default", "Contoso"))?["id"]);
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.All(handler.Requests, r => Assert.Equal(HttpMethod.Get, r.Method));
+    }
+
+    [Fact]
+    public async Task NameFallbackEncodesTheEntireFilterAsOneQueryValue()
+    {
+        const string name = "Contoso's R&D #1 + 100%";
+        var handler = new FakeGraphHandler((_, _) => FakeGraphHandler.Json(NoApps));
+        using var service = new IntunePublishService(handler);
+
+        await service.FindExistingAppAsync("https://graph.microsoft.com/v1.0", "token", "tag", name);
+
+        var uri = new Uri(handler.Requests[^1].Uri);
+        Assert.Empty(uri.Fragment);
+        Assert.DoesNotContain("&", uri.Query);
+        Assert.Equal("?$filter=displayName eq 'Contoso''s R&D #1 + 100%'", Uri.UnescapeDataString(uri.Query));
+    }
+
     [Fact]
     public async Task Publish_NonWin32Match_IsIgnoredAndAppIsCreated()
     {
@@ -303,6 +402,29 @@ public sealed class IntunePublishServiceTests : IDisposable
             Uri.UnescapeDataString(blobPuts[0].Uri));
         Assert.EndsWith("comp=blocklist", blobPuts[1].Uri);
         Assert.Contains("<BlockList><Latest>", blobPuts[1].Body);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BlobFailureDoesNotDiscloseTheUploadCredential(bool failBlockList)
+    {
+        const string sas = "https://x.blob.core.windows.net/c/b?sv=1&sig=private-upload-credential";
+        Directory.CreateDirectory(_dir);
+        var payload = Path.Combine(_dir, "payload.bin");
+        File.WriteAllText(payload, "encrypted payload");
+        var handler = new FakeGraphHandler((request, _) =>
+            !failBlockList || request.RequestUri!.Query.Contains("comp=blocklist")
+                ? new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("Failed request: " + sas) }
+                : FakeGraphHandler.Empty());
+        using var service = new IntunePublishService(handler);
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => service.UploadBlockBlobAsync(sas, payload));
+
+        Assert.Contains("403", error.Message);
+        Assert.Contains("https://x.blob.core.windows.net/c/b", error.Message);
+        Assert.DoesNotContain("private-upload-credential", error.ToString());
+        Assert.DoesNotContain("sig=", error.ToString());
     }
 
     [Fact]

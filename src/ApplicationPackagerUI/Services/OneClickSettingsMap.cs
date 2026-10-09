@@ -23,7 +23,7 @@ public static class OneClickSettingsMap
         Scope = new OneClickScopeSettings(
             s.ContentDistribution.AutoDistribute, s.ContentDistribution.DpGroupName,
             s.ContentDistribution.DeployToTestCollection, s.ContentDistribution.TestCollectionName,
-            s.Wsus.ApprovalGroup)
+            s.Wsus.ApprovalGroup, s.ContentDistribution.TestCollectionIsUser)
     };
 
     /// <summary>

@@ -58,7 +58,7 @@ public sealed record OneClickReadiness(bool Ready, string Reason)
 /// <summary>Where a publish lands, as the plan and the report state it.</summary>
 public sealed record OneClickScopeSettings(
     bool AutoDistribute = false, string DpGroupName = "", bool DeployToTestCollection = false, string TestCollectionName = "",
-    string WsusApprovalGroup = "");
+    string WsusApprovalGroup = "", bool TestCollectionIsUser = false);
 
 /// <summary>Everything the planner reads from the settings.</summary>
 public sealed record OneClickPlanSettings
@@ -312,7 +312,7 @@ public static class OneClickPlanner
                 var parts = new List<string>();
                 if (scope.AutoDistribute && !string.IsNullOrWhiteSpace(scope.DpGroupName)) parts.Add("distribute to DP group " + scope.DpGroupName.Trim());
                 if (scope.AutoDistribute && scope.DeployToTestCollection && !string.IsNullOrWhiteSpace(scope.TestCollectionName))
-                    parts.Add("deploy to collection " + scope.TestCollectionName.Trim());
+                    parts.Add("deploy to " + (scope.TestCollectionIsUser ? "user" : "device") + " collection " + scope.TestCollectionName.Trim());
                 return parts.Count == 0 ? "application only, no distribution, no deployment" : string.Join("; ", parts);
             case OneClickDestinations.Wsus:
                 return string.IsNullOrWhiteSpace(scope.WsusApprovalGroup) ? "published, not approved" : "approved for group " + scope.WsusApprovalGroup.Trim();

@@ -64,6 +64,7 @@ function Get-WsusLocallyPublishedUpdateObjects {
 }
 function Get-WsusUpdateObject {
     param($Server, $PackageId)
+    if ($script:StandInScenario -eq 'LookupFails' -and [string]$PackageId -eq 'bbbbbbbb-0000-0000-0000-000000000002') { throw 'Update lookup timed out' }
     switch ([string]$PackageId) {
         'bbbbbbbb-0000-0000-0000-000000000001' { return (New-StandInUpdate -Id $PackageId -Title 'Tool 1' -Declined $true) }
         'bbbbbbbb-0000-0000-0000-000000000002' { return (New-StandInUpdate -Id $PackageId -Title 'Tool 2') }

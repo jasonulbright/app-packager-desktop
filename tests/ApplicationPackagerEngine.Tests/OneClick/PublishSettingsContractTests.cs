@@ -37,6 +37,25 @@ public sealed class PublishSettingsContractTests : IDisposable
 
     private static JsonObject Stored() => JsonNode.Parse(File.ReadAllText(SettingsService.SettingsPath))!.AsObject();
 
+    [Fact]
+    public void TestCollectionTypeDefaultsToDevicesAndRoundTripsIntoThePlan()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
+        File.WriteAllText(SettingsService.SettingsPath,
+            """{"ContentDistribution":{"AutoDistribute":true,"DeployToTestCollection":true,"TestCollectionName":"Pilot"}}""");
+        var service = new SettingsService();
+        var settings = service.Load();
+        Assert.False(settings.ContentDistribution.TestCollectionIsUser);
+        settings.ContentDistribution.TestCollectionIsUser = true;
+        service.SaveOperatorEdit(settings);
+
+        var restored = new SettingsService().Load();
+        Assert.True(restored.ContentDistribution.TestCollectionIsUser);
+        var scope = OneClickSettingsMap.PlanSettings(restored, consoleFound: true).Scope;
+        Assert.True(scope.TestCollectionIsUser);
+        Assert.Contains("deploy to user collection Pilot", ApplicationPackagerEngine.Services.OneClick.OneClickPlanner.Scope("ConfigMgr", scope));
+    }
+
     private sealed class Host : IPublishActionHost, ISettingsReload
     {
         public List<string> Log { get; } = [];

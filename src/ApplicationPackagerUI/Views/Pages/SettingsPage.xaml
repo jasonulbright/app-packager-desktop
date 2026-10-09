@@ -151,13 +151,16 @@
                       ToolTip="Creates an Available deployment, effective immediately, to the collection below. An existing deployment is treated as done." />
 
             <TextBlock Text="Test collection" Style="{StaticResource FieldLabel}" />
+            <CheckBox Content="Use a user collection" IsChecked="{Binding TestCollectionIsUser}"
+                      IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
+                      ToolTip="Select to target users. When cleared, the test deployment targets a device collection. This does not change the application's install context." />
             <ui:TextBox Text="{Binding TestCollectionName, UpdateSourceTrigger=PropertyChanged}"
                         IsEnabled="{Binding TestDeploymentAvailable}"
-                        PlaceholderText="Application pilot devices" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8" />
+                        PlaceholderText="Application pilot collection" Width="320" HorizontalAlignment="Left" Margin="0,0,0,8" />
 
             <CheckBox Content="Create the collection if it does not exist" IsChecked="{Binding CreateTestCollectionIfMissing}"
                       IsEnabled="{Binding TestDeploymentAvailable}" Margin="0,0,0,8"
-                      ToolTip="A missing collection is created with direct membership, limited to All Systems, and starts empty." />
+                      ToolTip="A missing collection starts empty, limited to All Users for a user collection or All Systems for a device collection. Add pilot members in ConfigMgr." />
 
             <Border Style="{StaticResource SectionDivider}" />
 

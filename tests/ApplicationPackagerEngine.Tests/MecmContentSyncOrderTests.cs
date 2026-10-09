@@ -44,6 +44,26 @@ public sealed class MecmContentSyncOrderTests : IDisposable
             manifest, Local, "P01", Server, "comment",
             onExisting: OnExistingBehavior.Overwrite);
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CancellationPropagatesWithoutBecomingAPackagingFailure(bool cancelledBeforeStart)
+    {
+        File.WriteAllText(Path.Combine(Local, "install.ps1"), "exit 0");
+        using var cancellation = new CancellationTokenSource();
+        if (cancelledBeforeStart) cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new MecmTarget().PackageAsync(
+            Manifest(), Local, "P01", Server, "comment", onExisting: OnExistingBehavior.Overwrite,
+            ct: cancellation.Token, onProgress: line =>
+            {
+                if (line.StartsWith("Network content path:", StringComparison.Ordinal)) cancellation.Cancel();
+            }));
+
+        Assert.False(File.Exists(Path.Combine(ExpectedContentPath(), "install.ps1")));
+        if (cancelledBeforeStart) Assert.False(Directory.Exists(ExpectedContentPath()));
+    }
+
     /// <summary>
     /// A stage that no longer matches its own manifest is refused before the share is
     /// written, so a corrupted stage cannot half-populate the content folder.

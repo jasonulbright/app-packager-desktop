@@ -210,6 +210,7 @@ public sealed class ContentDistributionSettings
     public string DpGroupName { get; set; } = "";
     public bool DeployToTestCollection { get; set; }
     public string TestCollectionName { get; set; } = "";
+    public bool TestCollectionIsUser { get; set; }
     public bool CreateTestCollectionIfMissing { get; set; }
 }
 

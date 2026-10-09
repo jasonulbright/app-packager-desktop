@@ -174,6 +174,9 @@ public sealed class WsusPublishService(IWsusAdapterRunner? runner = null, WsusRu
         }
         else
         {
+            var visibilityError = WsusAdminClient.Str(data, "UpdateVisibilityError");
+            if (visibilityError.Length > 0)
+                warnings.Add($"the update was published but its visibility could not be checked: {visibilityError}");
             if (data["Approval"] is JsonObject approval)
             {
                 if (WsusAdminClient.Bool(approval, "Ok")) approved = normalized.ApprovalGroup;

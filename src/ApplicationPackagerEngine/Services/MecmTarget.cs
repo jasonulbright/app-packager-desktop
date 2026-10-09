@@ -36,6 +36,7 @@ public sealed partial class MecmTarget
     {
         try
         {
+            ct.ThrowIfCancellationRequested();
             // The title decides the application and its deployment type names;
             // the content folder stays on the manifest name so a title change
             // never moves content already on the share.
@@ -156,6 +157,10 @@ public sealed partial class MecmTarget
                     ErrorMessage = result.StdErr
                 };
             }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -868,43 +873,50 @@ public sealed partial class MecmTarget
 
     /// <summary>
     /// Deploys a packaged application to a test collection as Available,
-    /// effective immediately, creating the collection (direct membership,
-    /// limited to All Systems) when asked. A missing collection without that
+    /// effective immediately, creating an empty collection limited to All Systems
+    /// or All Users when asked. A missing collection without that
     /// permission skips the deployment and reports it; an existing deployment
     /// counts as success.
     /// </summary>
     public async Task<bool> DeployToTestCollectionAsync(
         string appName, string siteCode, string collectionName, bool createIfMissing,
         Action<string>? onProgress = null, string? providerMachine = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, bool userCollection = false)
     {
         var result = await WindowsPowerShellHost.RunAsync(
-            BuildTestCollectionDeploymentScript(appName, siteCode, collectionName, createIfMissing, providerMachine), onProgress, ct);
+            BuildTestCollectionDeploymentScript(appName, siteCode, collectionName, createIfMissing, providerMachine, userCollection), onProgress, ct);
         if (result.ExitCode != 0)
             onProgress?.Invoke($"Test deployment failed: {result.StdErr}");
         return result.ExitCode == 0;
     }
 
     public static string BuildTestCollectionDeploymentScript(
-        string appName, string siteCode, string collectionName, bool createIfMissing, string? providerMachine)
+        string appName, string siteCode, string collectionName, bool createIfMissing, string? providerMachine,
+        bool userCollection = false)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(collectionName);
+        var collectionType = userCollection ? "User" : "Device";
+        var limitingId = userCollection ? "SMS00002" : "SMS00001";
+        var limitingName = userCollection ? "All Users" : "All Systems";
         var sb = new StringBuilder();
         AppendCmPreamble(sb, siteCode, providerMachine);
-        sb.AppendLine($"$collection = Get-CMDeviceCollection -Name '{Esc(collectionName)}' -ErrorAction SilentlyContinue");
+        sb.AppendLine($"$collections = @(Get-CMCollection -CollectionType {collectionType} -Name '{Esc(collectionName)}' -DisableWildcardHandling -ErrorAction Stop)");
         if (createIfMissing)
         {
-            sb.AppendLine("if (-not $collection) {");
-            sb.AppendLine($"  Write-Host 'Creating test collection: {Esc(collectionName)} (direct membership, limited to All Systems)'");
-            sb.AppendLine($"  New-CMDeviceCollection -Name '{Esc(collectionName)}' -LimitingCollectionName 'All Systems' -ErrorAction Stop | Out-Null");
-            sb.AppendLine($"  $collection = Get-CMDeviceCollection -Name '{Esc(collectionName)}' -ErrorAction SilentlyContinue");
+            sb.AppendLine("if ($collections.Count -eq 0) {");
+            sb.AppendLine($"  Write-Host 'Creating {collectionType.ToLowerInvariant()} test collection: {Esc(collectionName)} (empty, limited to {limitingName})'");
+            sb.AppendLine($"  $collections = @(New-CM{collectionType}Collection -Name '{Esc(collectionName)}' -LimitingCollectionId '{limitingId}' -ErrorAction Stop)");
             sb.AppendLine("}");
         }
-        sb.AppendLine("if (-not $collection) {");
+        sb.AppendLine("if ($collections.Count -eq 0) {");
         sb.AppendLine($"  Write-Host 'Test deployment skipped: collection {Esc(collectionName)} not found'");
         sb.AppendLine("  exit 0");
         sb.AppendLine("}");
+        sb.AppendLine($"if ($collections.Count -ne 1) {{ throw 'Multiple {collectionType.ToLowerInvariant()} collections named {Esc(collectionName)}; use a unique test collection name.' }}");
+        sb.AppendLine("$collection = $collections[0]");
+        sb.AppendLine("if ([string]::IsNullOrWhiteSpace([string]$collection.CollectionID)) { throw 'The test collection returned no collection ID.' }");
         sb.AppendLine("try {");
-        sb.AppendLine($"  New-CMApplicationDeployment -Name '{Esc(appName)}' -CollectionName '{Esc(collectionName)}' -DeployAction Install -DeployPurpose Available -AvailableDateTime (Get-Date) -ErrorAction Stop | Out-Null");
+        sb.AppendLine($"  New-CMApplicationDeployment -Name '{Esc(appName)}' -CollectionId $collection.CollectionID -DeployAction Install -DeployPurpose Available -AvailableDateTime (Get-Date) -ErrorAction Stop | Out-Null");
         sb.AppendLine($"  Write-Host 'Test deployment created: {Esc(appName)} to {Esc(collectionName)} (Available, immediate)'");
         sb.AppendLine("} catch {");
         sb.AppendLine("  if ($_.Exception.Message -match 'already (exists|deployed|been deployed)') {");

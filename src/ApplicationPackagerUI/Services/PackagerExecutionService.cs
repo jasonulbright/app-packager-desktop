@@ -1264,7 +1264,8 @@ public class PackagerExecutionService(
                 {
                     await mecmTarget.DeployToTestCollectionAsync(
                         result.ApplicationName, settings.SiteCode, distribution.TestCollectionName.Trim(),
-                        distribution.CreateTestCollectionIfMissing, report, settings.ProviderMachine, ct);
+                        distribution.CreateTestCollectionIfMissing, report, settings.ProviderMachine, ct,
+                        userCollection: distribution.TestCollectionIsUser);
                 }
             }
         }

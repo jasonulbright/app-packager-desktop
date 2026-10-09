@@ -26,6 +26,7 @@ public class WsusPublishServiceTests : IDisposable
     private string _prepareError = "";
     private string? _publishError;
     private string? _approvalError;
+    private string? _visibilityError;
     private readonly Dictionary<string, string> _declineErrors = [];
     private readonly List<JsonObject> _plans = [];
     private readonly List<string> _approvals = [];
@@ -84,6 +85,7 @@ public class WsusPublishServiceTests : IDisposable
                 if (_publishError is not null) return new WsusAdapterResult(false, WsusErrorKinds.PublishRejected, _publishError, null);
             }
             var data = new JsonObject { ["PackageId"] = id, ["Published"] = existing is null, ["UpdateVisible"] = true };
+            data["UpdateVisibilityError"] = _visibilityError;
             if (request["SkipFollowUp"]?.GetValue<bool>() == true) return FakeAdapterRunner.Ok(data);
             var group = request["ApprovalGroup"]?.GetValue<string>() ?? "";
             if (group.Length > 0)
@@ -245,6 +247,19 @@ public class WsusPublishServiceTests : IDisposable
         Assert.Contains("approval for Pilto failed: WSUS has no computer group named 'Pilto'", result.Warnings[0]);
         Assert.Equal([older.ToString()], _declines);
         Assert.Contains("approval for Pilto failed", result.Message);
+        Assert.Equal(WsusStepStatus.Published, result.ToStepResult().Status);
+    }
+
+    [Fact]
+    public async Task VisibilityFailureIsAWarningInTheSuccessfulPublishResult()
+    {
+        _visibilityError = "Update lookup timed out";
+
+        var result = await Service(out _).PublishAsync(Hashed(), _content, _settings);
+
+        Assert.Equal(WsusPublishOutcome.Published, result.Outcome);
+        Assert.Contains("Update lookup timed out", Assert.Single(result.Warnings));
+        Assert.Contains("visibility could not be checked", result.Message);
         Assert.Equal(WsusStepStatus.Published, result.ToStepResult().Status);
     }
 
