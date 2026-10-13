@@ -7,6 +7,7 @@
   "CMName": "Typora",
   "Architecture": "x64",
   "VendorUrl": "https://typora.io/",
+  "Cpe": "cpe:2.3:a:typora:typora:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],

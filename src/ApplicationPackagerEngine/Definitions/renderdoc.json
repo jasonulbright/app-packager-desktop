@@ -7,6 +7,7 @@
   "CMName": "RenderDoc",
   "Architecture": "x64",
   "VendorUrl": "https://renderdoc.org/",
+  "Cpe": "cpe:2.3:a:renderdoc:renderdoc:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

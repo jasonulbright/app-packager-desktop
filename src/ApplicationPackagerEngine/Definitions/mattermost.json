@@ -7,6 +7,7 @@
   "CMName": "Mattermost Desktop",
   "Architecture": "x64",
   "VendorUrl": "https://mattermost.com/",
+  "Cpe": "cpe:2.3:a:mattermost:mattermost_desktop:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

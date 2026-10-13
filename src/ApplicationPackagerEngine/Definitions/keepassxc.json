@@ -7,6 +7,7 @@
   "CMName": "KeePassXC",
   "Architecture": "x64",
   "VendorUrl": "https://keepassxc.org/",
+  "Cpe": "cpe:2.3:a:keepassxc:keepassxc:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

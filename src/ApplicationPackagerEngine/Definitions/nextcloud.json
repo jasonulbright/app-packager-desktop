@@ -7,6 +7,7 @@
   "CMName": "Nextcloud Desktop Client",
   "Architecture": "x64",
   "VendorUrl": "https://nextcloud.com/",
+  "Cpe": "cpe:2.3:a:nextcloud:desktop:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

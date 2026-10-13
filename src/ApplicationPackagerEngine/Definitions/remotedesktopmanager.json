@@ -7,6 +7,7 @@
   "CMName": "Remote Desktop Manager",
   "Architecture": "x64",
   "VendorUrl": "https://devolutions.net/",
+  "Cpe": "cpe:2.3:a:devolutions:remote_desktop_manager:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

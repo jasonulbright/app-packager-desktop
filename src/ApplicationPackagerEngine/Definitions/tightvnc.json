@@ -7,6 +7,7 @@
   "CMName": "TightVNC",
   "Architecture": "x64",
   "VendorUrl": "https://www.tightvnc.com/",
+  "Cpe": "cpe:2.3:a:tightvnc:tightvnc:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

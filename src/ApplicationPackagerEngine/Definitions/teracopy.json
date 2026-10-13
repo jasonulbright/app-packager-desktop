@@ -7,6 +7,7 @@
   "CMName": "TeraCopy",
   "Architecture": "x64",
   "VendorUrl": "https://www.codesector.com/",
+  "Cpe": "cpe:2.3:a:codesector:teracopy:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InstallShield",
   "Acquisition": {},

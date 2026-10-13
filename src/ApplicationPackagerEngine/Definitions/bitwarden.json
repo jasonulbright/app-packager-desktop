@@ -7,6 +7,8 @@
     "CMName":  "Bitwarden",
     "Architecture":  "x64",
     "VendorUrl":  "https://bitwarden.com/",
+    "Cpe":  "cpe:2.3:a:bitwarden:desktop:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.bitwarden.com/help/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",
     "SupportsInstallModes": ["CurrentUser", "AllUsers"],

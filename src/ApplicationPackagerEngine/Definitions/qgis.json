@@ -7,6 +7,7 @@
   "CMName": "QGIS",
   "Architecture": "x64",
   "VendorUrl": "https://qgis.org/",
+  "Cpe": "cpe:2.3:a:qgis:qgis:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -7,6 +7,8 @@
     "CMName":  "PowerShell 7",
     "Architecture":  "x64",
     "VendorUrl":  "https://github.com/PowerShell/PowerShell",
+    "Cpe":  "cpe:2.3:a:microsoft:powershell:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://github.com/PowerShell/PowerShell/security/advisories",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

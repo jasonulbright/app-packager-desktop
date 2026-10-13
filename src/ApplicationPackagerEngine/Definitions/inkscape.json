@@ -7,6 +7,7 @@
     "CMName":  "Inkscape",
     "Architecture":  "x64",
     "VendorUrl":  "https://inkscape.org/",
+    "Cpe":  "cpe:2.3:a:inkscape:inkscape:*:*:*:*:*:*:*:*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "InnoSetup",
     "Acquisition":  {

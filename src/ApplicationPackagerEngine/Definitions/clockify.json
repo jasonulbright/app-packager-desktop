@@ -7,6 +7,7 @@
   "CMName": "Clockify",
   "Architecture": "x64",
   "VendorUrl": "https://clockify.me/",
+  "Cpe": "cpe:2.3:a:cake:clockify:*:*:*:*:*:windows:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

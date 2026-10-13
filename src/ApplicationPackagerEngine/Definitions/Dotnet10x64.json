@@ -7,6 +7,8 @@
     "CMName":  ".NET 10 Desktop Runtime",
     "Architecture":  "x64",
     "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/10.0",
+    "Cpe":  "cpe:2.3:a:microsoft:.net:10.*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "WixBurn",
     "Acquisition":  {

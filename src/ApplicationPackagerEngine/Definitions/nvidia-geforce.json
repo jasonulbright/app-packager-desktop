@@ -7,6 +7,7 @@
   "CMName": "NVIDIA Graphics Driver - GeForce Game Ready",
   "Architecture": "x64",
   "VendorUrl": "https://www.nvidia.com/Download/index.aspx",
+  "Cpe": "cpe:2.3:a:nvidia:gpu_display_driver:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

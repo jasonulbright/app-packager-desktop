@@ -7,6 +7,7 @@
   "CMName": "TeamSpeak 3 Client",
   "Architecture": "x64",
   "VendorUrl": "https://teamspeak.com/",
+  "Cpe": "cpe:2.3:a:teamspeak:teamspeak3_client:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

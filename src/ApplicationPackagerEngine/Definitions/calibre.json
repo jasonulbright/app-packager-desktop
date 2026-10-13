@@ -7,6 +7,7 @@
   "CMName": "calibre",
   "Architecture": "x64",
   "VendorUrl": "https://calibre-ebook.com/",
+  "Cpe": "cpe:2.3:a:calibre-ebook:calibre:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

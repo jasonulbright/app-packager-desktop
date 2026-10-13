@@ -7,6 +7,7 @@
   "CMName": "DisplayLink Graphics",
   "Architecture": "x64",
   "VendorUrl": "https://www.synaptics.com/products/displaylink-graphics",
+  "Cpe": "cpe:2.3:a:displaylink:displaylink_graphics:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

@@ -7,6 +7,7 @@
   "CMName": "Tableau Desktop",
   "Architecture": "x64",
   "VendorUrl": "https://www.tableau.com/products/desktop",
+  "Cpe": "cpe:2.3:a:tableau:tableau:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

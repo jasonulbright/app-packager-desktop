@@ -7,6 +7,7 @@
   "CMName": "Rancher Desktop",
   "Architecture": "x64",
   "VendorUrl": "https://rancherdesktop.io/",
+  "Cpe": "cpe:2.3:a:suse:rancher_desktop:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

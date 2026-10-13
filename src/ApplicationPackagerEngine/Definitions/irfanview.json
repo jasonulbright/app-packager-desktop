@@ -7,6 +7,7 @@
   "CMName": "IrfanView",
   "Architecture": "x64",
   "VendorUrl": "https://www.irfanview.com/",
+  "Cpe": "cpe:2.3:a:irfanview:irfanview:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

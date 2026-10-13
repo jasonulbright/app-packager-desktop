@@ -12,7 +12,7 @@ namespace ApplicationPackagerEngine.Services;
 /// Each mutation is one SQLite transaction and one short-lived connection so writes
 /// from separate processes serialize without replacing another process's state.
 /// </summary>
-public sealed class ApplicationInventoryService
+public sealed partial class ApplicationInventoryService
 {
     public const string LegacySettingsMigrationId = "settings-appstates-v1";
     private readonly string _dbPath;

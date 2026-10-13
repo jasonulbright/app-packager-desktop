@@ -25,6 +25,12 @@ public sealed class AppDefinition
     public string? Publisher { get; set; }
     public string Architecture { get; set; } = "x64";
     public string VendorUrl { get; set; } = "";
+    /// <summary>CPE 2.3 name of the product, in the URI or the formatted form. The CVE lookup needs it.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cpe { get; set; }
+    /// <summary>The vendor's security advisory page. Only an https URL is shown as a link.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SecurityAdvisoryUrl { get; set; }
     public string InstallerType { get; set; } = "MSI"; // MSI, EXE, ODT, ZIP, MSIX
     /// <summary>
     /// Installer framework technology. Drives automated detection derivation and metadata extraction.

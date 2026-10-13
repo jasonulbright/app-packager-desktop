@@ -7,6 +7,7 @@
   "CMName": "Defraggler",
   "Architecture": "x64",
   "VendorUrl": "https://www.ccleaner.com/defraggler",
+  "Cpe": "cpe:2.3:a:piriform:defraggler:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

@@ -7,6 +7,8 @@
     "CMName":  "Microsoft Edge",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.microsoft.com/edge/business/download",
+    "Cpe":  "cpe:2.3:a:microsoft:edge_chromium:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {
