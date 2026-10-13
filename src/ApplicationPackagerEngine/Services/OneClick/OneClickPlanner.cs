@@ -47,7 +47,14 @@ public static class OneClickOutcomes
 }
 
 /// <summary>One tracked application as the planner reads it. CurrentVersion is the version the ConfigMgr site carries.</summary>
-public sealed record OneClickApp(string Key, string Application, string Vendor, string LatestVersion = "", string CurrentVersion = "");
+public sealed record OneClickApp(string Key, string Application, string Vendor, string LatestVersion = "", string CurrentVersion = "")
+{
+    /// <summary>
+    /// The refusal codes of an application whose default build WSUS cannot take, joined
+    /// with '|'; empty when WSUS can take it or the application declares nothing.
+    /// </summary>
+    public string WsusNotSupported { get; init; } = "";
+}
 
 /// <summary>Whether a destination can take a publish, and why not.</summary>
 public sealed record OneClickReadiness(bool Ready, string Reason)
@@ -176,6 +183,28 @@ public static class OneClickPlanner
         return published;
     }
 
+    /// <summary>The start of a result cell and of a plan reason for a destination that cannot take the build.</summary>
+    public const string NotSupportedPrefix = "not supported: ";
+
+    /// <summary>
+    /// The reason a destination is left out because it holds a newer release than the
+    /// vendor now reports; null when it does not. A publish would put the older build over
+    /// the newer one. A publish record and the vendor version come from the same feed, so
+    /// all four parts count. A site version can carry a build number the vendor does not
+    /// publish, so only the parts the vendor version carries count.
+    /// </summary>
+    public static string? NewerThanVendor(OneClickHistoryEntry? entry, string destination, string? siteVersion, string latest)
+    {
+        if (latest.Length == 0) return null;
+        var published = entry?.PublishedVersion(destination) ?? "";
+        if (published.Length > 0)
+            return VersionCompare.CompareStrict(published, latest) > 0 ? $"published {published} is newer than {latest}" : null;
+        if (destination == OneClickDestinations.ConfigMgr && !string.IsNullOrWhiteSpace(siteVersion)
+            && VersionCompare.Compare(siteVersion, latest) > 0)
+            return $"site version {siteVersion.Trim()} is newer than {latest}";
+        return null;
+    }
+
     private static OneClickReadiness ReadinessOf(OneClickPlanSettings settings, string destination) =>
         settings.Readiness.TryGetValue(destination, out var r) ? r : new OneClickReadiness(false, destination + " is not in use");
 
@@ -237,7 +266,14 @@ public static class OneClickPlanner
                         {
                             var ready = ReadinessOf(settings, d);
                             if (!ready.Ready) { reasons.Add($"{d}: {ready.Reason}"); notReady[d] = ready.Reason; continue; }
+                            if (d == OneClickDestinations.Wsus && app.WsusNotSupported.Length > 0)
+                            {
+                                reasons.Add($"{d}: not supported");
+                                notReady[d] = NotSupportedPrefix + app.WsusNotSupported;
+                                continue;
+                            }
                             if (!force && latest.Length > 0 && entry?.RefusedVersion(d) == latest) { reasons.Add($"{d}: not supported"); continue; }
+                            if (!force && NewerThanVendor(entry, d, app.CurrentVersion, latest) is { } newer) { reasons.Add($"{d}: {newer}"); continue; }
                             if (!force && latest.Length > 0 && lastPublished[d] == latest) { reasons.Add($"{d}: {latest} already published"); continue; }
                             publishTo.Add(d);
                         }
@@ -341,18 +377,22 @@ public static class OneClickPlanner
 
     /// <summary>
     /// What one row does after its check. The guard reads the history again:
-    /// the check may have found a version the plan did not know. A row whose
-    /// destinations all carry the version and that is staged only because its
-    /// build record is stale or missing is restaged and not published.
+    /// the check may have found a version the plan did not know. A destination
+    /// whose publish record carries the version is published again when the
+    /// build is stale or the record names another build: the profile or the
+    /// signing policy changed since that publish. A ConfigMgr site that carries
+    /// the version without a publish record names no build, so it is not
+    /// published again; the row is then restaged only.
     /// </summary>
     /// <param name="wanted">The destinations the operator kept for this row in the plan window.</param>
     /// <param name="versionChanged">The check found a version other than the last known one.</param>
     /// <param name="buildStale">The newest sealed build differs in version, profile revision or signing policy, or none exists.</param>
     /// <param name="staged">A stage of this application exists.</param>
-    /// <param name="notReady">The plan's not-ready destinations with their reason; each is skipped, Force or not.</param>
+    /// <param name="notReady">The plan's left-out destinations with their reason; each is skipped, Force or not.</param>
+    /// <param name="buildKey">The key (<see cref="OneClickHistory.BuildKey"/>) of the build this run makes; empty when the row has no build plan.</param>
     public static OneClickRunDecision Decide(string action, IReadOnlyList<string> wanted, OneClickHistoryEntry? entry, string latest,
         string siteVersion, bool force, bool versionChanged, bool buildStale, bool staged,
-        IReadOnlyDictionary<string, string>? notReady = null)
+        IReadOnlyDictionary<string, string>? notReady = null, string buildKey = "")
     {
         action = OneClickActionNames.Normalize(action);
         var publishTo = new List<string>();
@@ -366,10 +406,21 @@ public static class OneClickPlanner
                 if (notReady is not null && notReady.TryGetValue(d, out var why))
                 {
                     reasons.Add($"{d}: {why}");
-                    guard[d] = "skipped: " + why;
+                    guard[d] = why.StartsWith(NotSupportedPrefix, StringComparison.Ordinal) ? why : "skipped: " + why;
                     continue;
                 }
-                if (!force && CarriedVersion(entry, d, siteVersion) == latest && latest.Length > 0)
+                if (!force && NewerThanVendor(entry, d, siteVersion, latest) is { } newer)
+                {
+                    reasons.Add($"{d}: {newer}");
+                    guard[d] = "skipped: " + newer;
+                    continue;
+                }
+                var published = entry?.PublishedVersion(d) ?? "";
+                var publishedBuild = entry?.PublishedBuildKey(d) ?? "";
+                var sameBuild = !buildStale && (buildKey.Length == 0 || publishedBuild.Length == 0
+                    || string.Equals(publishedBuild, buildKey, StringComparison.OrdinalIgnoreCase));
+                var carried = published.Length > 0 ? published == latest && sameBuild : CarriedVersion(entry, d, siteVersion) == latest;
+                if (!force && carried && latest.Length > 0)
                 {
                     reasons.Add($"{d}: {latest} already published");
                     guard[d] = "already published " + latest;

@@ -284,8 +284,8 @@ public sealed class OneClickRowRunnerTests : IDisposable
         Assert.DoesNotContain(execution.Calls, c => c.Step == "Package");
     }
 
-    [Fact]
-    public async Task ARowRestagedOnlyForAStaleBuildIsNotRepublished()
+    /// <summary>The check and the stage of 2.0 from the day before, and optionally its publish to one destination.</summary>
+    private static void SeedEarlierRun(string? publishedTo = null)
     {
         var inventory = new ApplicationInventoryService();
         var settings = new SettingsService().Load();
@@ -293,16 +293,67 @@ public sealed class OneClickRowRunnerTests : IDisposable
         var at = DateTimeOffset.UtcNow.AddDays(-1);
         inventory.RecordVendorCheck(new InventoryVendorCheck("widget", "Widget", "2.0", "test-feed", InventoryOutcome.Succeeded, at));
         inventory.RecordStagedBuild(new InventoryStagedBuild(identity, "2.0", "old-build", "build.json", "manifest.json", at));
-        inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("widget", identity,
-            InventoryEnvironmentIdentity.ConfigMgr(settings.SiteCode, settings.ProviderMachine), "Publish", "2.0",
+        if (publishedTo is null) return;
+        var environment = ApplicationInventoryProjection.Environments(settings).First(e => e.Destination == publishedTo).Environment;
+        inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("widget", identity, environment, "Publish", "2.0",
             InventoryOutcome.Succeeded, "Widget 2.0", at, "old-build"));
+    }
+
+    [Fact]
+    public async Task ARowRestagedOnlyForAStaleBuildIsNotRepublishedToASiteThatCarriesTheVersionWithoutAPublishRecord()
+    {
+        SeedEarlierRun();
         var execution = new FakeExecution(Path.Combine(_root, "workbench"));
         var item = Item(true, false, false);
+        item.Row!.CurrentVersion = "2.0";
 
         await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
 
         Assert.Equal(["Stage"], execution.Calls.Select(c => c.Step));
         Assert.Equal(OneClickOutcomes.Staged, item.Outcome);
+    }
+
+    [Fact]
+    public async Task AStaleBuildIsPublishedAgainToADestinationThatHasAPublishRecord()
+    {
+        // No sealed build of this profile revision and signing policy exists, so the build is stale.
+        SeedEarlierRun(publishedTo: "ConfigMgr");
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(true, false, false);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.Equal(OneClickOutcomes.Published, item.Outcome);
+    }
+
+    [Fact]
+    public async Task AVendorVersionOlderThanTheOneLastSeenIsSkippedAndTheNewerVersionStaysOnRecord()
+    {
+        SeedEarlierRun();
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "1.9" };
+        var item = Item(true, true, false);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Empty(execution.Calls);
+        Assert.Equal(OneClickOutcomes.Skipped, item.Outcome);
+        Assert.Equal("vendor reports 1.9, older than 2.0 seen before", item.Reason);
+        Assert.Equal("Vendor older than last seen", item.Row!.Status);
+        Assert.Equal("2.0", Stored().LatestVersion);
+    }
+
+    [Fact]
+    public async Task ForceActsOnAVendorVersionOlderThanTheOneLastSeen()
+    {
+        SeedEarlierRun();
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "1.9" };
+        var item = Item(true, false, false);
+
+        await Runner(execution).RunAsync(item, Publish with { Force = true }, CancellationToken.None);
+
+        Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.Equal("1.9", Stored().LatestVersion);
     }
 
     [Fact]
