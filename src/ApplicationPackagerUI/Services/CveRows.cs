@@ -9,22 +9,22 @@ namespace ApplicationPackagerUI.Services;
 /// <summary>The CVE cells and the compare status of a Packages row.</summary>
 public static class CveRowState
 {
-    public const string UpdateAvailable = "Update available";
+    public const string UpdateAvailable = PackagerInfo.UpdateAvailableStatus;
 
     /// <summary>True for "Update available" with or without a CVE count behind it.</summary>
     public static bool IsUpdateAvailable(string? status) =>
         status is not null && status.StartsWith(UpdateAvailable, StringComparison.Ordinal);
 
-    public static void Apply(PackagerInfo row, VulnerabilityGridCells cells)
+    public static void Apply(PackagerInfo row, VulnerabilityGridCells cells) => row.SetCveCells(cells);
+
+    /// <summary>The update status of the row, with the count of the cells when they carry one.</summary>
+    public static string UpdateStatus(PackagerInfo row) =>
+        row.CveStatusText.Length > 0 ? $"{UpdateAvailable} ({row.CveStatusText})" : UpdateAvailable;
+
+    /// <summary>Puts the count of the cells on an update status, or takes off a count the cells no longer carry.</summary>
+    public static void SyncStatus(PackagerInfo row)
     {
-        row.CveCount = cells.Count;
-        row.CveCvss = cells.Cvss;
-        row.CveKev = cells.Kev;
-        row.CveEpss = cells.Epss;
-        row.CveChecked = cells.Checked;
-        row.CveFixed = cells.Fixed;
-        row.CveNewest = cells.Newest;
-        row.CveUpdated = cells.Updated;
+        if (IsUpdateAvailable(row.Status)) row.Status = UpdateStatus(row);
     }
 
     /// <summary>Removes a count that described another site or another version pair.</summary>
@@ -40,18 +40,19 @@ public static class CveRowState
         Apply(row, cells);
         if (string.IsNullOrEmpty(row.CurrentVersion) || string.IsNullOrEmpty(row.LatestVersion)) return;
         var order = VersionCompare.Compare(row.CurrentVersion, row.LatestVersion);
-        row.Status = order < 0
-            ? cells.Text.Length > 0 ? $"{UpdateAvailable} ({cells.Text})" : UpdateAvailable
-            : order == 0 ? "Up to date" : "Current newer";
+        row.Status = order < 0 ? UpdateStatus(row) : order == 0 ? "Up to date" : "Current newer";
     }
 
-    /// <summary>Why a row gets no lookup, or null when it gets one.</summary>
+    /// <summary>
+    /// Why a row gets no lookup, or null when it gets one. "No update" uses the compare of
+    /// the grid status, so a row the grid shows as up to date is never looked up.
+    /// </summary>
     public static string? SkipReason(PackagerInfo row)
     {
         if (string.IsNullOrWhiteSpace(row.Cpe)) return VulnerabilityGridCells.CpeMissing;
         if (string.IsNullOrWhiteSpace(row.CurrentVersion)) return "No ConfigMgr version";
         if (string.IsNullOrWhiteSpace(row.LatestVersion)) return "No latest version";
-        return VulnerabilityVersion.Compare(row.CurrentVersion, row.LatestVersion) >= 0 ? "No update" : null;
+        return VersionCompare.Compare(row.CurrentVersion, row.LatestVersion) >= 0 ? "No update" : null;
     }
 
     public static VulnerabilityReportSource ReportSource(PackagerInfo row) =>
@@ -83,6 +84,7 @@ public sealed class CveRowChecker(IVulnerabilityLookup lookup, ApplicationInvent
         if (CveRowState.SkipReason(row) is { } reason)
         {
             CveRowState.Apply(row, new VulnerabilityGridCells { Cpe = row.Cpe, Count = reason });
+            CveRowState.SyncStatus(row);
             log($"Skipped: {reason}.");
             return CveRowOutcome.Skipped;
         }
@@ -103,6 +105,7 @@ public sealed class CveRowChecker(IVulnerabilityLookup lookup, ApplicationInvent
             context.Results[row.Uid] = result;
             var summary = VulnerabilitySummary.FromResult(result);
             CveRowState.Apply(row, VulnerabilityGridCells.From(summary, row.Cpe));
+            CveRowState.SyncStatus(row);
             if (!string.IsNullOrEmpty(result.Error))
             {
                 // A failed lookup is shown, not recorded: the inventory keeps the last good summary.
@@ -111,7 +114,6 @@ public sealed class CveRowChecker(IVulnerabilityLookup lookup, ApplicationInvent
             }
 
             var text = VulnerabilityText.CountText(result.Count, result.KevCount);
-            if (CveRowState.IsUpdateAvailable(row.Status)) row.Status = $"{CveRowState.UpdateAvailable} ({text})";
             var cvss = result.MaxCvss is null ? "" : "; max CVSS " + VulnerabilityText.CvssText(result.MaxCvss, result.MaxSeverity);
             log($"{text} between {result.From} and {result.To} ({result.Source}){cvss}");
             try { inventory.RecordVulnerabilitySummary(row.Uid, context.Environment, row.Cpe, summary); }
@@ -123,7 +125,8 @@ public sealed class CveRowChecker(IVulnerabilityLookup lookup, ApplicationInvent
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            row.CveCount = VulnerabilityGridCells.Error;
+            CveRowState.Apply(row, new VulnerabilityGridCells { Cpe = row.Cpe, Count = VulnerabilityGridCells.Error });
+            CveRowState.SyncStatus(row);
             log($"ERROR: {ex.Message}");
             return CveRowOutcome.Failed;
         }
@@ -169,6 +172,49 @@ public static class CveWindowPlacement
         left = Math.Max(area.Left, Math.Min(left, area.Right - window.Width));
         var top = Math.Max(area.Top, Math.Min(owner.Top, area.Bottom - window.Height));
         return new System.Windows.Point(left, top);
+    }
+}
+
+/// <summary>
+/// One window per key. A second request for a key whose window is open, or is still
+/// opening, gets that window.
+/// </summary>
+public sealed class OpenOncePerKey<T> where T : class
+{
+    private readonly Dictionary<string, Task<T>> _open = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The window of the key. existing is true when this call did not start the open.</summary>
+    public Task<T> GetOrOpen(string key, Func<Task<T>> open, out bool existing)
+    {
+        Task<T> opening;
+        lock (_open)
+        {
+            if (_open.TryGetValue(key, out var known))
+            {
+                existing = true;
+                return known;
+            }
+
+            existing = false;
+            opening = open();
+            if (opening.IsFaulted || opening.IsCanceled) return opening;
+            _open[key] = opening;
+        }
+
+        // An open that fails leaves no window: the next request opens again.
+        _ = opening.ContinueWith(failed =>
+        {
+            lock (_open)
+            {
+                if (_open.TryGetValue(key, out var current) && ReferenceEquals(current, failed)) _open.Remove(key);
+            }
+        }, CancellationToken.None, TaskContinuationOptions.NotOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        return opening;
+    }
+
+    public void Closed(string key)
+    {
+        lock (_open) _open.Remove(key);
     }
 }
 

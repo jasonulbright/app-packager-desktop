@@ -268,7 +268,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="CVEs" Width="120" MinWidth="90" SortMemberPath="CveCount" IsReadOnly="True">
+                <DataGridTemplateColumn Header="CVEs" Width="120" MinWidth="90" SortMemberPath="CveCountSort" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Style="{StaticResource CveCellButton}" Click="CveCell_Click"
@@ -278,11 +278,11 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Max CVSS" Binding="{Binding CveCvss}" Width="110" IsReadOnly="True" />
+                <DataGridTextColumn Header="Max CVSS" Binding="{Binding CveCvss}" SortMemberPath="CveCvssSort" Width="110" IsReadOnly="True" />
                 <DataGridTextColumn Header="KEV" Binding="{Binding CveKev}" Width="50" IsReadOnly="True" />
-                <DataGridTextColumn Header="In latest" Binding="{Binding CveFixed}" Width="90" IsReadOnly="True" />
+                <DataGridTextColumn Header="In latest" Binding="{Binding CveFixed}" SortMemberPath="CveFixedSort" Width="90" IsReadOnly="True" />
                 <DataGridTextColumn Header="Newest CVE" Binding="{Binding CveNewest}" Width="100" IsReadOnly="True" />
-                <DataGridTextColumn x:Name="ColCveEpss" Header="Max EPSS" Binding="{Binding CveEpss}" Width="80" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColCveEpss" Header="Max EPSS" Binding="{Binding CveEpss}" SortMemberPath="CveEpssSort" Width="80" IsReadOnly="True"
                                     Visibility="Collapsed" />
                 <DataGridTextColumn x:Name="ColCveUpdated" Header="NVD updated" Binding="{Binding CveUpdated}" Width="100" IsReadOnly="True"
                                     Visibility="Collapsed" />

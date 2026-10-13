@@ -564,7 +564,7 @@ public partial class PackagesViewModel : ObservableObject
                         if (!string.IsNullOrEmpty(p.LatestVersion))
                         {
                             var cmp = CompareVersions(p.CurrentVersion, p.LatestVersion);
-                            p.Status = cmp < 0 ? "Update available"
+                            p.Status = cmp < 0 ? CveRowState.UpdateStatus(p)
                                      : cmp == 0 ? "Up to date"
                                      : "Current newer";
                             if (cmp >= 0)

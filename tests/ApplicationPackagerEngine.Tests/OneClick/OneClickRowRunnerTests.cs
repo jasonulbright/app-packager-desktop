@@ -327,6 +327,52 @@ public sealed class OneClickRowRunnerTests : IDisposable
         Assert.Equal(OneClickOutcomes.Published, item.Outcome);
     }
 
+    private static OneClickPlanItem ItemWithCveCells(out PackagerInfo row)
+    {
+        row = new PackagerInfo
+        {
+            Uid = "widget", Application = "Widget", Script = "widget.json", Cpe = "cpe:2.3:a:v:widget:*:*:*:*:*:*:*:*",
+            CurrentVersion = "1.0", LatestVersion = "1.5"
+        };
+        CveRowState.Preload(row, new ApplicationPackagerEngine.Services.Vulnerability.VulnerabilitySummary
+        {
+            QueriedAt = "2026-10-11T12:00:00Z", From = "1.0", To = "1.5", Source = "NVD", Count = 3, KevCount = 1,
+            FixedInLatestCount = 1, FixedEarlierCount = 2, FixedUnknownCount = 0
+        });
+        Assert.Equal("3", row.CveCount);
+        return new OneClickPlanItem
+        {
+            Key = "widget", Application = "Widget", Row = row, ConfigMgr = true, Include = true, NotReady = new Dictionary<string, string>()
+        };
+    }
+
+    private static OneClickRunOptions Report => new(OneClickActionNames.Report, false, OneClickOnExisting.Skip, "");
+
+    [Fact]
+    public async Task ANewVendorVersionClearsTheCveCellsThatDescribedTheOldOne()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "2.0" };
+        var item = ItemWithCveCells(out var row);
+
+        await Runner(execution).RunAsync(item, Report, CancellationToken.None);
+
+        Assert.Equal("2.0", row.LatestVersion);
+        Assert.Equal(("", "", ""), (row.CveCount, row.CveKev, row.CveFixed));
+        Assert.Equal("Update available", row.Status);
+    }
+
+    [Fact]
+    public async Task AnUnchangedVendorVersionKeepsTheCveCellsAndTheCountOnTheStatus()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "1.5" };
+        var item = ItemWithCveCells(out var row);
+
+        await Runner(execution).RunAsync(item, Report, CancellationToken.None);
+
+        Assert.Equal("3", row.CveCount);
+        Assert.Equal("Update available (3 CVEs, 1 in KEV)", row.Status);
+    }
+
     [Fact]
     public async Task AVendorVersionOlderThanTheOneLastSeenIsSkippedAndTheNewerVersionStaysOnRecord()
     {
