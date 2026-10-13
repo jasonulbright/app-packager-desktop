@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0b57e29fc481d3a6",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "2BrightSparks",
   "Application": "SyncBackFree",

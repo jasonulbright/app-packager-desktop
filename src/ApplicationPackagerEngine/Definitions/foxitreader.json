@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "7eba2ba51ed64d13",
+    "WsusSupport":  "Yes",
     "Vendor":  "Foxit Software",
     "Application":  "Foxit PDF Reader (x64)",
     "CMName":  "Foxit PDF Reader",

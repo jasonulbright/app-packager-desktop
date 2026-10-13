@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e8189d6f4192d176",
+  "WsusSupport": "Yes",
     "IconSource":  "None",
   "Vendor": "Amazon Web Services",
   "Application": "AWS SAM CLI (x64)",

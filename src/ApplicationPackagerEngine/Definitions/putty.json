@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "656d16fead444d4e",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Simon Tatham",
     "Application":  "PuTTY (x64)",

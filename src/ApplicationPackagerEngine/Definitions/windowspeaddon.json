@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f72e17a89f9c1991",
+  "WsusSupport": "No (CustomInstall)",
     "IconSource":  "External",
   "Vendor": "Microsoft",
   "Application": "Windows PE add-on for the Windows ADK",

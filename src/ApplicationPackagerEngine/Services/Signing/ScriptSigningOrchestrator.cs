@@ -192,6 +192,9 @@ public static class ScriptSigningOrchestrator
                 SigningCategory.Requirements => record.Requirements.Status,
                 _ => record.Deployment.Status
             };
+            // A build with no script in the category has nothing to sign: a registry or
+            // file detection, or an application without requirement scripts.
+            if (status == SigningStatus.NotApplicable) continue;
             if (!SigningStatus.IsSigned(status))
                 throw new InvalidOperationException(
                     $"Require{category} is set but the {category} category status is '{status}'; refusing to publish.");

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "a42f2d06232f424c",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "SmartBear Software",
     "Application":  "SoapUI Open Source",

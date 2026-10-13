@@ -75,6 +75,8 @@ public sealed class WorkbenchTokenBindingTests
     [InlineData("InstallerFile", "InstallerFile", "a$b.exe")]
     [InlineData("InstallerFile", "InstallerFile", "a`b.exe")]
     [InlineData("InstallerFile", "InstallerFile", "a|b.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "a^b.exe")]
+    [InlineData("InstallerFile", "InstallerFile", "a‟b.exe")]
     [InlineData("InstallerFile", "InstallerFile", @"..\a.exe")]
     public void Resolve_RefusesAValueThatIsNotSafeForItsToken(string field, string token, string value)
     {

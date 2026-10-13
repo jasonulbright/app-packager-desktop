@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "09ced2486056f21d",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "TeamSpeak Systems GmbH",
   "Application": "TeamSpeak 3 Client (x64)",

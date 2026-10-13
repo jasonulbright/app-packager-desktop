@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "000001b8b99bf5fa",
+    "WsusSupport":  "No (DetectionNotMappable)",
     "IconSource":  "Installer",
     "Vendor":  "Greenshot",
     "Application":  "Greenshot (x64)",

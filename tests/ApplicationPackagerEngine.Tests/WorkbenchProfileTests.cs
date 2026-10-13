@@ -148,6 +148,23 @@ public sealed class WorkbenchProfileTests : IDisposable
     }
 
     [Fact]
+    public void EnsureActiveProfile_MakesTheShownProfileTheOneARunBuildsAndWritesOnlyOnAChange()
+    {
+        const string id = "catalog:package-active";
+        var pilot = _t.NewProfile(id);
+        _t.Store.SetActiveProfile(id, "default");
+
+        Assert.True(_t.Store.EnsureActiveProfile(id, pilot.ProfileId));
+        Assert.Equal(pilot.ProfileId, _t.Store.GetApplicationDefinition(id).ActiveProfileId);
+        Assert.False(_t.Store.EnsureActiveProfile(id, pilot.ProfileId));
+        Assert.True(_t.Store.EnsureActiveProfile(id, "default"));
+        Assert.Equal("default", _t.Store.GetApplicationDefinition(id).ActiveProfileId);
+
+        Assert.Throws<InvalidOperationException>(() => _t.Store.EnsureActiveProfile(id, "0123456789abcdef0123456789abcdef"));
+        Assert.Equal("default", _t.Store.GetApplicationDefinition(id).ActiveProfileId);
+    }
+
+    [Fact]
     public void SaveAs_FromTheDefaultProfileCreatesAnEditableProfile()
     {
         var copy = _t.Store.CopyProfile("catalog:package-copy-default", "default", "Mine", setActive: true);

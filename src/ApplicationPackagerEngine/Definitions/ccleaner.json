@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0da14e79601b4c1f",
+    "WsusSupport":  "No (CustomInstall)",
     "IconSource":  "Installer",
     "Vendor":  "Piriform Software Ltd.",
     "Application":  "CCleaner",
@@ -21,10 +22,14 @@
     "InstallerFileName":  "CCleaner-{version}-Setup.exe",
     "InstallArgs":  "/S",
     "UninstallArgs":  "/S",
+    "SuccessExitCodes":  [
+                             111111
+                         ],
+    "UninstallCommand":  "$entry = Get-ChildItem -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall' -ErrorAction SilentlyContinue |\r\n    Where-Object { $_.PSChildName -match '^CCleaner( \\d+)?$' } |\r\n    ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } |\r\n    Where-Object { $_.UninstallString } | Sort-Object -Property PSChildName -Descending | Select-Object -First 1\r\nif (-not $entry) { exit 0 }\r\n$cmd = [string]$entry.UninstallString\r\nif ($cmd -match '^\"([^\"]+)\"\\s*(.*)$') { $exe = $matches[1]; $rest = $matches[2].Trim() }\r\nelseif ($cmd -match '^(.+?\\.exe)\\s*(.*)$') { $exe = $matches[1]; $rest = $matches[2].Trim() }\r\nelse { $exe = $cmd.Trim(); $rest = '' }\r\nif (-not (Test-Path -LiteralPath $exe)) { Write-Error \"CCleaner uninstaller not found: $exe\"; exit 1 }\r\n$arguments = if ($rest -match '/uninstall:') { @($rest, '/silent') } else { @('/S') }\r\n$proc = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru -NoNewWindow",
     "Detection":  {
                       "Type":  "RegistryKeyValue",
                       "RegistryHive":  "HKLM",
-                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CCleaner",
+                      "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CCleaner {version_part:1}",
                       "ValueName":  "DisplayVersion",
                       "PropertyType":  "Version",
                       "Operator":  "GreaterEquals",

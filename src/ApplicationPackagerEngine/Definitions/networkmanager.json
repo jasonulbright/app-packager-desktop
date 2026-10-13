@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "da26078d25849670",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "BornToBeRoot",
   "Application": "NETworkManager (x64)",

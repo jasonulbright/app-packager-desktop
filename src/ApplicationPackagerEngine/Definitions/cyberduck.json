@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "5c19b7ae32d84066",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "iterate GmbH",
   "Application": "Cyberduck (x64)",

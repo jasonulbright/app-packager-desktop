@@ -5,6 +5,7 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Workbench;
+using ApplicationPackagerEngine.Services.Wsus;
 using ApplicationPackagerUI.Models;
 
 namespace ApplicationPackagerUI.Services;
@@ -28,6 +29,9 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
 
     [GeneratedRegex(@"^\s*(?:#\s*)?VendorUrl\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex VendorUrlRegex();
+
+    [GeneratedRegex(@"^\s*(?:#\s*)?WsusSupport\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex WsusSupportRegex();
 
     [GeneratedRegex(@"^\s*\.SYNOPSIS\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex SynopsisRegex();
@@ -109,6 +113,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                         FullPath = filePath,
                         VendorUrl = meta.VendorUrl ?? "",
                         Description = meta.Description ?? "",
+                        WsusNotSupported = WsusSupportTag.NotSupportedCodes(meta.WsusSupport),
                         Status = "Ready"
                     });
                 }
@@ -215,6 +220,7 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         IsJsonDefined = true,
         DefinitionPath = jsonPath,
         DefinitionOrigin = origin ?? def.SourceOrigin,
+        WsusNotSupported = WsusSupportTag.NotSupportedCodes(def.WsusSupport),
         Status = "Ready"
     };
 
@@ -291,11 +297,11 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
 
     private sealed record ScriptMetadata(
         string? Uid, string? Vendor, string? Application, string? CMName,
-        string? VendorUrl, string? Description);
+        string? VendorUrl, string? Description, string? WsusSupport = null);
 
     private static ScriptMetadata ParseMetadata(string path)
     {
-        string? uid = null, vendor = null, app = null, cmName = null, vendorUrl = null, description = null;
+        string? uid = null, vendor = null, app = null, cmName = null, vendorUrl = null, description = null, wsusSupport = null;
         var inSynopsis = false;
         var lineCount = 0;
 
@@ -335,6 +341,12 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                 if (m.Success) { vendorUrl = m.Groups[1].Value.Trim(); continue; }
             }
 
+            if (wsusSupport is null)
+            {
+                var m = WsusSupportRegex().Match(line);
+                if (m.Success) { wsusSupport = m.Groups[1].Value.Trim(); continue; }
+            }
+
             if (description is null && SynopsisRegex().IsMatch(line))
             {
                 inSynopsis = true;
@@ -352,6 +364,6 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
             }
         }
 
-        return new ScriptMetadata(uid, vendor, app, cmName ?? app, vendorUrl, description);
+        return new ScriptMetadata(uid, vendor, app, cmName ?? app, vendorUrl, description, wsusSupport);
     }
 }

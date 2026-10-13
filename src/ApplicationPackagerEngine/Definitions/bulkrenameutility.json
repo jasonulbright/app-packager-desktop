@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "b8b02a535c37b793",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "TGRMN Software",
   "Application": "Bulk Rename Utility (x64)",

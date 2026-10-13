@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60002",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "TeamViewer",
     "Application":  "TeamViewer (x64)",

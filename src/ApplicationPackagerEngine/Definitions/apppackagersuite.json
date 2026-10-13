@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "62e2498d615ad31b",
+  "WsusSupport": "No (PerUserInstall)",
   "IconSource": "Installer",
   "Vendor": "Jason Ulbright",
   "Application": "AppPackager Suite (User)",

@@ -44,13 +44,21 @@ public class PackagerExecutionService(
         if (run.TimedOut || run.ExitCode != 0)
             return null;
 
-        foreach (var line in run.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        return VersionLine(run.StdOut);
+    }
+
+    /// <summary>
+    /// The first standard-output line shaped like a version, or null when no line is one.
+    /// A module the packager loads can write log lines before the version.
+    /// </summary>
+    public static string? VersionLine(string stdOut)
+    {
+        foreach (var line in stdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var trimmed = line.Trim();
-            if (trimmed.Length > 0)
+            if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^\d+(\.\d+){0,3}([+-]\d+)?$"))
                 return trimmed;
         }
-
         return null;
     }
 
@@ -1311,6 +1319,7 @@ public class PackagerExecutionService(
             CreateNoWindow = true
         };
         foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+        WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
         PackagerChildBridge.Apply(startInfo, environment);
         return startInfo;
     }

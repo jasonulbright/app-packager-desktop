@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "8e08481f031761bf",
+  "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "Jason Ulbright",
   "Application": "Signing Suite (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1fa6d3097cb85e42",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "JetBrains",
   "Application": "GoLand (x64)",

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "fe6e50610a5d4285",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Inkscape Project",
     "Application":  "Inkscape",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "800973055edbda77",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "Typora",
   "Application": "Typora (x64)",

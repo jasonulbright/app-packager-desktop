@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "ec72851816834219",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Python Software Foundation",
     "Application":  "Python (x64)",

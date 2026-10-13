@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "57dc7a31d466bfb9",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Amazon Web Services",
   "Application": "Amazon WorkSpaces",

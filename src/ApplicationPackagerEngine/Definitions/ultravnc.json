@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "44ffbc1b76aae099",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "uvnc bvba",
   "Application": "UltraVNC (x64)",
@@ -34,7 +35,7 @@
   "InstallerFileName": "UltraVNC_x64_Setup.exe",
   "InstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /COMPONENTS=UltraVNC_Viewer,UltraVNC_Server /TASKS=",
   "UninstallArgs": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
-  "UninstallCommand": "\"C:\\Program Files\\uvnc bvba\\UltraVNC\\unins000.exe\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+  "UninstallCommand": "$entry = $null\r\nforeach ($root in @('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall', 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall')) {\r\n    $entry = Get-ItemProperty -LiteralPath (Join-Path $root 'Ultravnc2_is1') -ErrorAction SilentlyContinue\r\n    if ($entry -and $entry.UninstallString) { break }\r\n}\r\nif (-not $entry -or -not $entry.UninstallString) { exit 0 }\r\n$cmd = $entry.UninstallString\r\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = $cmd.Trim() }\r\nif (-not (Test-Path -LiteralPath $exe)) { Write-Error \"Uninstaller not found: $exe\"; exit 1 }\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru -NoNewWindow",
   "Detection": {
     "Type": "RegistryKeyValue",
     "RegistryHive": "HKLM",

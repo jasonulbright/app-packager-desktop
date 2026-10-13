@@ -73,12 +73,14 @@ public static class DeploymentLauncher
     {
         var findings = new List<(string, string)>();
         text = Regex.Replace(text.Replace("^", "", StringComparison.Ordinal), "[–—―]", "-");
-        foreach (var raw in Regex.Split(text, @"[\s=:]+"))
+        // A parameter can arrive as one element of an argument array ('-ep','bypass' or
+        // @('-ex', 'bypass')), so a comma, a semicolon and a parenthesis end a token too.
+        foreach (var raw in Regex.Split(text, @"[\s=:,;()]+"))
         {
-            var token = raw.TrimStart('"', '\'', '‘', '’', '‚', '‛', '“', '”', '„');
+            var token = raw.TrimStart('"', '\'', '`', '‘', '’', '‚', '‛', '“', '”', '„');
             if (string.IsNullOrWhiteSpace(token)) continue;
             if (token[0] != '-' && token[0] != '/') continue;
-            var name = token.TrimStart('-', '/').Trim('"', '\'').ToLowerInvariant();
+            var name = token.TrimStart('-', '/').Trim('"', '\'', '`').ToLowerInvariant();
             if (name.Length == 0) continue;
             if ("executionpolicy".StartsWith(name, StringComparison.Ordinal) || name == "ep")
                 findings.Add((CodeExecutionPolicy, raw));

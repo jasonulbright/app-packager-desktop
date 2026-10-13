@@ -156,13 +156,26 @@ public sealed class ScriptSigningOrchestratorTests(SigningCertificateFixture fix
     }
 
     [Fact]
-    public void RequireRequirements_RefusesAStageWithNoRequirementScripts()
+    public void RequireRequirements_AcceptsAStageWithNoRequirementScripts()
     {
+        // One policy has to cover the catalog: a build without a script in a category has nothing to sign.
         var f = NewFixture("strict-no-requirements", false);
         var input = new ScriptSigningInput { Detection = f.Input.Detection, Commands = f.Input.Commands };
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            ScriptSigningOrchestrator.SignStage(f.StageRoot, input, fixture.Policy(sr: true, rr: true)));
-        Assert.Equal("RequireRequirements is set but the Requirements category status is 'NotApplicable'; refusing to publish.", ex.Message);
+
+        var record = ScriptSigningOrchestrator.SignStage(f.StageRoot, input, fixture.Policy(sr: true, rr: true));
+
+        Assert.Equal(SigningStatus.NotApplicable, record.Requirements.Status);
+    }
+
+    [Fact]
+    public void RequireDetection_AcceptsAStageWhoseDetectionIsNotAScript()
+    {
+        var f = NewFixture("strict-no-detection-script", false);
+        var input = new ScriptSigningInput { Commands = f.Input.Commands };
+
+        var record = ScriptSigningOrchestrator.SignStage(f.StageRoot, input, fixture.Policy(rd: true));
+
+        Assert.Equal(SigningStatus.NotApplicable, record.Detection.Status);
     }
 
     [Fact]

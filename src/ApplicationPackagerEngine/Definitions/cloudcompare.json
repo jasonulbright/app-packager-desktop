@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "01793a70a0450935",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "CloudCompare Project",
   "Application": "CloudCompare (x64)",

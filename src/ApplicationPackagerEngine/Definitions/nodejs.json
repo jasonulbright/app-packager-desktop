@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "b6652e48ffe64fba",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "OpenJS Foundation",
     "Application":  "Node.js LTS (x64)",

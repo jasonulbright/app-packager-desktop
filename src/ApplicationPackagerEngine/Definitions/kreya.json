@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f97a694fd9b944ea",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "riok GmbH",
   "Application": "Kreya (x64)",

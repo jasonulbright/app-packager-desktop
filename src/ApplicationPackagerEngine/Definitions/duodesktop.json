@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "8a4f27de0b9c516d",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Cisco",
   "Application": "Duo Desktop (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "9f30a86d5c214be7",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Automattic",
   "Application": "Simplenote (x64)",

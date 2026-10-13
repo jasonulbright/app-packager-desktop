@@ -72,7 +72,8 @@ public sealed class WrapperGeneratorService
         string installArgs, string uninstallArgs, string? installerFramework = null,
         string? applicationName = null, string? uninstallCommand = null,
         string? postInstallScript = null, string? arpKeyName = null, string? installFolder = null,
-        IReadOnlyList<string>? postInstallKillProcesses = null, IReadOnlyList<int>? rebootExitCodes = null)
+        IReadOnlyList<string>? postInstallKillProcesses = null, IReadOnlyList<int>? rebootExitCodes = null,
+        IReadOnlyList<int>? successExitCodes = null)
     {
         uninstallCommand = NormalizeUninstallCommand(uninstallCommand);
         var installPs1 = BuildExeInstallScript(exeFileName, installArgs, postInstallScript, postInstallKillProcesses);
@@ -96,8 +97,42 @@ public sealed class WrapperGeneratorService
         }
 
         WriteWrappers(outputPath,
-            ApplyRebootExitCodes(GuardNullProcess(installPs1), rebootExitCodes),
+            ApplySuccessExitCodes(ApplyRebootExitCodes(GuardNullProcess(installPs1), rebootExitCodes), successExitCodes),
             ApplyRebootExitCodes(GuardNullProcess(uninstallPs1), rebootExitCodes));
+    }
+
+    private const string PostInstallGuardLine = "if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }";
+
+    /// <summary>
+    /// Reports each listed installer exit code as 0 in an install script: an
+    /// installer can return its own code after a complete install, and the
+    /// detection rule still decides whether the install succeeded. With a
+    /// post-install section, the listed codes pass its installer exit-code
+    /// guard, so the section runs after them as it does after 0. A script with
+    /// no codes is returned unchanged.
+    /// </summary>
+    public static string ApplySuccessExitCodes(string script, IReadOnlyList<int>? successExitCodes)
+    {
+        var codes = successExitCodes?.Where(c => c != 0).Distinct().ToList() ?? [];
+        if (codes.Count == 0) return script;
+
+        if (script.Contains(PostInstallGuardLine, StringComparison.Ordinal))
+            return script.Replace(PostInstallGuardLine,
+                $"if ($proc.ExitCode -ne 0{string.Concat(codes.Select(c => $" -and $proc.ExitCode -ne {c}"))}) {{ exit $proc.ExitCode }}",
+                StringComparison.Ordinal);
+
+        return System.Text.RegularExpressions.Regex.Replace(script,
+            @"(?m)^([ \t]*)" + System.Text.RegularExpressions.Regex.Escape(ExitCodeFileLine),
+            m =>
+            {
+                var indent = m.Groups[1].Value;
+                var sb = new StringBuilder();
+                foreach (var code in codes)
+                    sb.Append(indent)
+                      .Append($"if ($proc.ExitCode -eq {code}) {{ '0' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit 0 }}")
+                      .Append("\r\n");
+                return sb.Append(m.Value).ToString();
+            });
     }
 
     private const string ExitCodeFileLine = "$proc.ExitCode | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline";
@@ -137,7 +172,7 @@ public sealed class WrapperGeneratorService
 
         if (!string.IsNullOrWhiteSpace(postInstallScript))
         {
-            lines.Add("if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }");
+            lines.Add(PostInstallGuardLine);
             lines.Add(postInstallScript.Trim().Replace("\r\n", "\n").Replace("\n", "\r\n"));
             lines.Add("exit 0");
         }

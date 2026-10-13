@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "ecc04cff03d1d915",
+  "WsusSupport": "No (DetectionNotMappable)",
   "Vendor": "JetBrains",
   "Application": "WebStorm (x64)",
   "CMName": "WebStorm",

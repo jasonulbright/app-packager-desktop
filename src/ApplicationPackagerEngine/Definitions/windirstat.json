@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0000006320515248",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "WinDirStat",
     "Application":  "WinDirStat (x64)",

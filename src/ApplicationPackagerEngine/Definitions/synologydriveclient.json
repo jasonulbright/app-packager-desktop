@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "d419a6035ecb827f",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Synology",
   "Application": "Synology Drive Client (x64)",

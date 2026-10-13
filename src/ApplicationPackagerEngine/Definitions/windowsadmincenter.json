@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "88c9ba10a49d22ce",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Microsoft",
   "Application": "Windows Admin Center (v2)",
@@ -33,9 +34,10 @@
     }
   ],
   "Detection": {
-    "Type": "File",
-    "FilePath": "C:\\Program Files\\WindowsAdminCenter",
-    "FileName": "WindowsAdminCenterAccountManagement.exe",
+    "Type": "RegistryKeyValue",
+    "RegistryHive": "HKLM",
+    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\9B27DF2F-5386-41DF-B52B-5DF81914B043_is1",
+    "ValueName": "DisplayVersion",
     "PropertyType": "Version",
     "Operator": "GreaterEquals",
     "Is64Bit": true

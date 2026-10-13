@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "7c4f1e93a6b25d18",
+    "WsusSupport":  "No (PerUserInstall)",
     "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "Visual Studio Code (User) (x64)",

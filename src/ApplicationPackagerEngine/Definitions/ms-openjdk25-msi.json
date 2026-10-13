@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "9bea4573e4785fa4",
+  "WsusSupport": "No (CustomInstall)",
   "IconSource": "Installer",
   "Vendor": "Microsoft",
   "Application": "Microsoft OpenJDK 25 (MSI)",

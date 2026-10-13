@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "6a4de017c95b28f3",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "IBM",
   "Application": "IBM Semeru Runtime Open Edition JRE 11 (x64)",

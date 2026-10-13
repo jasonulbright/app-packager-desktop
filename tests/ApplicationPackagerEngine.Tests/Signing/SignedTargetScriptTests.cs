@@ -187,6 +187,68 @@ public sealed class SignedTargetScriptTests(SigningCertificateFixture fixture)
     }
 
     [Fact]
+    public void TheDetectionFile_IsVerifiedAgainRightBeforeItIsSent()
+    {
+        var signed = Build(ScriptManifest(), new MecmScriptSigningContext
+        {
+            Policy = new SigningPolicy { RequireDetection = true },
+            Record = Record("SignedAndVerified")
+        });
+        Assert.Contains("-Signed $true -VerifySignature $true -ExpectedThumbprint 'ABCD'", signed);
+
+        var dir = fixture.NewDirectory("presend");
+        var intact = Path.Combine(dir, "intact.ps1");
+        File.WriteAllText(intact, "Write-Output 'Installed'\r\nexit 0");
+        ScriptSigningService.SignFile(intact, fixture.Signer, "SHA256", null);
+        var changed = Path.Combine(dir, "changed.ps1");
+        var bytes = File.ReadAllBytes(intact);
+        bytes[0] ^= 0x20;
+        File.WriteAllBytes(changed, bytes);
+        var unsigned = Path.Combine(dir, "unsigned.ps1");
+        File.WriteAllText(unsigned, "Write-Output 'Installed'\r\nexit 0");
+
+        var helpers = Path.Combine(dir, "helpers.ps1");
+        File.WriteAllText(helpers, MecmScriptSigningPs.ReadBackHelpers() + "\r\n" + MecmScriptSigningPs.DetectionFunctions(), new UTF8Encoding(true));
+        string Resolve(string label, string path, bool verify, string thumbprint) =>
+            $"try {{ $t = Resolve-ApkgDetectionScriptFile -Path {SigningCertificateFixture.PsLiteral(path)} -ScriptFile 'scripts\\detect.ps1' -ContentLocation {SigningCertificateFixture.PsLiteral(dir)} " +
+            $"-Signed ${(verify ? "true" : "false")} -VerifySignature ${(verify ? "true" : "false")} -ExpectedThumbprint '{thumbprint}'; '{label}: sent' }} catch {{ '{label}: ' + $_.Exception.Message }}";
+
+        var lines = SigningCertificateFixture.RunWindowsPowerShell(
+            $". {SigningCertificateFixture.PsLiteral(helpers)}; " +
+            Resolve("intact", intact, true, fixture.Thumbprint) + "; " +
+            Resolve("changed", changed, true, fixture.Thumbprint) + "; " +
+            Resolve("other signer", intact, true, new string('B', 40)) + "; " +
+            Resolve("unsigned required", unsigned, true, "") + "; " +
+            Resolve("unsigned not required", unsigned, false, ""));
+
+        Assert.Contains("intact: sent", lines);
+        Assert.Contains(lines, l => l.StartsWith("changed: The detection script 'scripts\\detect.ps1' carries no intact signature from the build's certificate and was not sent:", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.StartsWith("other signer: The detection script 'scripts\\detect.ps1' carries no intact signature from the build's certificate and was not sent:", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.StartsWith("unsigned required: The detection script 'scripts\\detect.ps1' carries no intact signature", StringComparison.Ordinal));
+        Assert.Contains("unsigned not required: sent", lines);
+    }
+
+    [Fact]
+    public void TheReadBack_FindsAScriptGlobalConditionBodyAndComparesTextWithCase()
+    {
+        var dir = fixture.NewDirectory("condition-body");
+        var helpers = Path.Combine(dir, "helpers.ps1");
+        File.WriteAllText(helpers, MecmScriptSigningPs.ReadBackHelpers(), new UTF8Encoding(true));
+        var xml = Path.Combine(dir, "condition.xml");
+        File.WriteAllText(xml, "<DesiredConfigurationDigest xmlns=\"http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/07/10/DesiredConfiguration\">" +
+            "<GlobalSettings><Settings><RootComplexSetting><SimpleSetting><ScriptDiscoverySource><DiscoveryScriptBody ScriptType=\"PowerShell\">Write-Output 'Connected'</DiscoveryScriptBody></ScriptDiscoverySource></SimpleSetting></RootComplexSetting></Settings></GlobalSettings></DesiredConfigurationDigest>");
+
+        var lines = SigningCertificateFixture.RunWindowsPowerShell(
+            $". {SigningCertificateFixture.PsLiteral(helpers)}; " +
+            $"'body=' + (Get-ApkgSdmScriptBody -SdmPackageXml ([IO.File]::ReadAllText({SigningCertificateFixture.PsLiteral(xml)})) -DeploymentTypeName '')");
+
+        Assert.Contains("body=Write-Output 'Connected'", lines);
+        Assert.Contains("-cne (ConvertTo-ApkgComparableText $Transport.Text)", MecmScriptSigningPs.DetectionFunctions());
+        Assert.Contains("-cne (ConvertTo-ApkgComparableText $ScriptText)", MecmScriptSigningPs.ScriptGlobalConditionFunctions());
+        Assert.Contains("-ceq (ConvertTo-ApkgComparableText $ScriptText)", MecmScriptSigningPs.ScriptGlobalConditionFunctions());
+    }
+
+    [Fact]
     public void Intune_WithoutAContext_KeepsTheUnenforcedTextRule()
     {
         var rule = IntunePublishService.BuildRules(ScriptManifest().Detection)[0]!;

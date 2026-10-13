@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1fff7f6f8d89744b",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "NVIDIA",
   "Application": "NVIDIA Graphics Driver - GeForce Game Ready (x64)",

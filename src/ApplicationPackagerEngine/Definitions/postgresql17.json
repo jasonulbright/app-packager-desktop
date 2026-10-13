@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "cd1d884f66ff41a2",
+    "WsusSupport":  "No (DetectionNotMappable)",
     "IconSource":  "Installer",
     "Vendor":  "PostgreSQL Global Development Group",
     "Application":  "PostgreSQL 17 (x64)",

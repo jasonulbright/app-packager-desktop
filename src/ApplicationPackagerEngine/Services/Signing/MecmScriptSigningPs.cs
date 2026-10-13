@@ -68,7 +68,8 @@ public static class MecmScriptSigningPs
                 if (-not $node) { return $null }
                 $scope = $node
             }
-            foreach ($xpath in @(".//*[local-name()='Arg'][@Name='ScriptBody']", ".//*[local-name()='DetectionScript']", ".//*[local-name()='ScriptBody']")) {
+            # A script global condition stores its body in DiscoveryScriptBody.
+            foreach ($xpath in @(".//*[local-name()='Arg'][@Name='ScriptBody']", ".//*[local-name()='DetectionScript']", ".//*[local-name()='ScriptBody']", ".//*[local-name()='DiscoveryScriptBody']")) {
                 $found = $scope.SelectSingleNode($xpath)
                 if ($found -and -not [string]::IsNullOrWhiteSpace($found.InnerText)) { return [string]$found.InnerText }
             }
@@ -132,11 +133,18 @@ public static class MecmScriptSigningPs
     public static string DetectionFunctions() =>
         """
         function Resolve-ApkgDetectionScriptFile {
-            param([string]$Path, [string]$ScriptFile, [string]$ContentLocation, [bool]$Signed)
+            param([string]$Path, [string]$ScriptFile, [string]$ContentLocation, [bool]$Signed,
+                [bool]$VerifySignature = $false, [AllowEmptyString()][string]$ExpectedThumbprint = '')
             if (-not (Test-Path -LiteralPath ("FileSystem::" + $Path) -PathType Leaf)) {
                 throw ("Detection script '{0}' was not found under the content location '{1}'; re-run the Stage phase." -f $ScriptFile, $ContentLocation)
             }
             $bytes = [System.IO.File]::ReadAllBytes($Path)
+            # The status in the manifest is from stage time. The file can have changed
+            # since, and these are the bytes the deployment type receives.
+            if ($VerifySignature) {
+                try { Test-ApkgStoredScriptSignature -Bytes $bytes -Context ("detection script '$ScriptFile' before send") -ExpectedThumbprint $ExpectedThumbprint }
+                catch { throw ("The detection script '{0}' carries no intact signature from the build's certificate and was not sent: {1} Re-run the Stage phase with signing enabled." -f $ScriptFile, $_.Exception.Message) }
+            }
             if ($bytes.Length -gt 32768) {
                 throw ("The finalized detection script is {0} bytes, above the {1}-byte limit a deployment type accepts; shorten the detector or use a native detection rule." -f $bytes.Length, 32768)
             }
@@ -174,7 +182,7 @@ public static class MecmScriptSigningPs
                         throw ("Deployment type '{0}' read back different detection script bytes than were sent." -f $DeploymentTypeName)
                     }
                 }
-                elseif ((ConvertTo-ApkgComparableText $stored.Text) -ne (ConvertTo-ApkgComparableText $Transport.Text)) {
+                elseif ((ConvertTo-ApkgComparableText $stored.Text) -cne (ConvertTo-ApkgComparableText $Transport.Text)) {
                     throw ("Deployment type '{0}' read back different detection script content than was sent." -f $DeploymentTypeName)
                 }
                 if ($Transport.Signed -or $RequireDetection) {
@@ -269,7 +277,7 @@ public static class MecmScriptSigningPs
                 }
                 Test-ApkgStoredScriptSignature -Bytes $stored.Bytes -Context ("global condition '$Name'") -ExpectedThumbprint $ExpectedThumbprint
             }
-            elseif ((ConvertTo-ApkgComparableText $stored.Text) -ne (ConvertTo-ApkgComparableText $ScriptText)) {
+            elseif ((ConvertTo-ApkgComparableText $stored.Text) -cne (ConvertTo-ApkgComparableText $ScriptText)) {
                 throw ("Global condition '{0}' read back different script content than was sent; the site did not store the finalized script." -f $Name)
             }
             Write-Host ("Global condition read-back   : {0} verified" -f $Name)
@@ -285,7 +293,7 @@ public static class MecmScriptSigningPs
                     return (New-ApkgScriptGlobalConditionVerified -Name $Name -PlatformType $PlatformType -DataType $DataType -Description $Description -ScriptText $ScriptText -SignedBase64 '' -ExpectedThumbprint '')
                 }
                 $stored = Get-ApkgGlobalConditionScriptBody -GlobalCondition $base
-                if ($null -eq $stored -or (ConvertTo-ApkgComparableText $stored.Text) -eq (ConvertTo-ApkgComparableText $ScriptText)) {
+                if ($null -eq $stored -or (ConvertTo-ApkgComparableText $stored.Text) -ceq (ConvertTo-ApkgComparableText $ScriptText)) {
                     Write-Host "Global condition (existing)  : $Name"
                     return $base
                 }

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "97d112568329fa00",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "AxCrypt",
   "Application": "AxCrypt (x64)",

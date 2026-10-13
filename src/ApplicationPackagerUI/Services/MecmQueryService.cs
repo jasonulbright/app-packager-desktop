@@ -29,16 +29,27 @@ public class MecmQueryService(SettingsService settingsService)
         }
         function Test-MecmApplicationTitle {
             param([string]$CMName, [AllowEmptyString()][string]$Title)
-            if ([string]::IsNullOrEmpty($Title) -or -not $Title.StartsWith($CMName, [System.StringComparison]::OrdinalIgnoreCase)) { return $false }
-            $rest = $Title.Substring($CMName.Length)
-            $continuation = if ($CMName -match '\d$') { '(\.\d[\w.+-]*)?' } else { '' }
-            $detail = '\s+(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64)'
-            return ($rest -match ('^' + $continuation + '(' + $detail + ')*(\s+-\s+.*)?$'))
+            if ([string]::IsNullOrWhiteSpace($Title) -or [string]::IsNullOrWhiteSpace($CMName)) { return $false }
+            $arch = '(-(x64|x86|arm64|amd64))?'
+            $detail = '^(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64|amd64)$'
+            $words = @($CMName.Trim() -split '\s+')
+            $next = 0
+            foreach ($token in @([regex]::Matches($Title, '\([^)]*\)|\S+') | ForEach-Object { $_.Value })) {
+                if ($next -eq $words.Count -and $token -eq '-') { return $true }
+                if ($next -lt $words.Count) {
+                    $continuation = if ($words[$next] -match '\d$') { '(\.\d[\w.+-]*)?' } else { '' }
+                    if ($token -imatch ('^' + [regex]::Escape($words[$next]) + $continuation + $arch + '$')) { $next++; continue }
+                }
+                if ($token -imatch $detail) { continue }
+                return $false
+            }
+            return ($next -eq $words.Count)
         }
         try {
             $apps = @(Get-CMApplication -Name $CMName -ErrorAction Stop)
             if (-not $apps -or $apps.Count -eq 0) {
-                $apps = @(Get-CMApplication -Name "$CMName*" -ErrorAction Stop | Where-Object {
+                # The wildcard between the words also returns a title that carries the version mid-name.
+                $apps = @(Get-CMApplication -Name ((@(([string]$CMName).Trim() -split '\s+') -join '*') + '*') -ErrorAction Stop | Where-Object {
                         $title = if ($_.LocalizedDisplayName) { [string]$_.LocalizedDisplayName } else { [string]$_.Name }
                         Test-MecmApplicationTitle -CMName $CMName -Title $title
                     })
@@ -75,6 +86,7 @@ public class MecmQueryService(SettingsService settingsService)
         {
             await File.WriteAllTextAsync(scriptFile, QueryScript, ct).ConfigureAwait(false);
             var startInfo = new ProcessStartInfo { FileName = "powershell.exe" };
+            WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
             // Passed as argument values, never spliced into the script body.
             startInfo.ArgumentList.Add("-NoProfile");
             startInfo.ArgumentList.Add("-NonInteractive");

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "c078c933ebd84276",
+    "WsusSupport":  "No (DetectionNotMappable)",
     "IconSource":  "None",
     "Vendor":  "Microsoft",
     "Application":  ".NET 8 Desktop Runtime (x64)",

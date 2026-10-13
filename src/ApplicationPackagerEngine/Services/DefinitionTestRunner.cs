@@ -181,6 +181,7 @@ public sealed class DefinitionTestRunner
             // handles and prevent WaitForExitAsync from completing until ALL
             // children exit, even after the parent powershell.exe exits.
         };
+        WindowsPowerShellHost.ApplyLogonModulePath(process.StartInfo);
 
         process.Start();
         // Hard 5-minute per-phase timeout. Kill process tree if exceeded.

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "37f9b6c0a1e24d85",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Baldur Karlsson",
   "Application": "RenderDoc (x64)",

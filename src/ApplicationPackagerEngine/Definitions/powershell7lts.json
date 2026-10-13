@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "000004e27e9117b0",
+    "WsusSupport":  "Yes",
     "Vendor":  "Microsoft",
     "Application":  "PowerShell 7 LTS (x64)",
     "CMName":  "PowerShell 7 LTS",

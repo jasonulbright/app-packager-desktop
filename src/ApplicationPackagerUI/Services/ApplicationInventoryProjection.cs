@@ -3,7 +3,9 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Models.Workbench;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.OneClick;
+using ApplicationPackagerEngine.Services.Workbench;
 using ApplicationPackagerUI.Models;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -27,6 +29,7 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
             : null;
         var published = new Dictionary<string, OneClickPublishRecord>(StringComparer.OrdinalIgnoreCase);
         var refused = new Dictionary<string, OneClickRefusalRecord>(StringComparer.OrdinalIgnoreCase);
+        var publishedBuild = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (destination, environment) in Environments(settings))
         {
@@ -35,12 +38,16 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
             if (environment.Key == "unknown") continue;
             var state = inventory.GetDestinationState(row.Uid, environment, "Publish");
             if (!string.IsNullOrWhiteSpace(state?.LastSuccessVersion))
+            {
                 published[destination] = new OneClickPublishRecord
                 {
                     Version = state.LastSuccessVersion,
                     Id = state.LastSuccessObjectId ?? "",
                     At = OneClickHistory.Stamp(state.LastSuccessAt ?? DateTimeOffset.MinValue)
                 };
+                if (plan is not null && PublishedBuildKey(plan, state.LastSuccessBuildId) is { } buildKey)
+                    publishedBuild[destination] = buildKey;
+            }
             var refusal = inventory.GetLatestRefusal(row.Uid, environment, "Publish");
             if (refusal is not null)
                 refused[destination] = new OneClickRefusalRecord
@@ -57,8 +64,31 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
             LastKnownVersion = vendor?.LatestVersion ?? "",
             LastStaged = package?.StagedAt.LocalDateTime,
             Published = published,
-            NotSupported = refused
+            NotSupported = refused,
+            PublishedBuild = publishedBuild
         };
+    }
+
+    /// <summary>
+    /// The build key of a published build, read from its sealed build record; null when
+    /// the publish names no build or the record is gone, which leaves the build unknown.
+    /// </summary>
+    private static string? PublishedBuildKey(PackagerExecutionService.OneClickBuildPlan plan, string? buildId)
+    {
+        if (string.IsNullOrWhiteSpace(buildId)) return null;
+        try
+        {
+            var record = BuildRecords.List(plan.DataRoot, plan.ApplicationId)
+                .FirstOrDefault(r => string.Equals(WorkbenchJson.Get(r, "BuildId").Text, buildId, StringComparison.OrdinalIgnoreCase));
+            if (record is null) return null;
+            return OneClickHistory.BuildKey(WorkbenchJson.Get(record, "ProfileId").Text,
+                WorkbenchJson.AsInt(record["ProfileRevision"]) ?? 0, WorkbenchJson.Get(record, "PolicyDigest").Text);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                   or InvalidOperationException or System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     public IReadOnlyDictionary<string, OneClickHistoryEntry> History(IEnumerable<PackagerInfo> rows, AppSettings settings,

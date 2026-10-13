@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0c5a91e3f74b8d26",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "dnGREP",
   "Application": "dnGREP (x64)",

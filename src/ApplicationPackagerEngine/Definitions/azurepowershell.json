@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "552d1604016d16a9",
+  "WsusSupport": "Yes",
     "IconSource":  "None",
   "Vendor": "Microsoft",
   "Application": "Azure PowerShell (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "390b1486f304923f",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "XnSoft",
   "Application": "XnView MP (x64)",

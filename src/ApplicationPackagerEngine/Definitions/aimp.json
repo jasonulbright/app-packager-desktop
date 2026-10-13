@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "736ab21985556fe0",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "AIMP DevTeam",
   "Application": "AIMP (x64)",

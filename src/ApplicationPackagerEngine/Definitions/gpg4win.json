@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0d38fb5719c6ae24",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "g10 Code GmbH",
   "Application": "Gpg4win (x64)",

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "000000f8088b6ae4",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "JGraph Ltd",
     "Application":  "draw.io Desktop (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f1a2b3c4d5e60003",
+  "WsusSupport": "No (DetectionNotMappable)",
   "IconSource": "Installer",
   "Vendor": "Salesforce (Tableau)",
   "Application": "Tableau Reader (x64)",

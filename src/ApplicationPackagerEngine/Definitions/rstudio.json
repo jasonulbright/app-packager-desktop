@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "00000036ef822100",
+  "WsusSupport": "No (DetectionNotMappable)",
   "IconSource": "Installer",
   "Vendor": "Posit PBC",
   "Application": "RStudio Desktop (x64)",

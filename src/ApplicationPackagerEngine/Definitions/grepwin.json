@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3c5079eab1f6d824",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Stefan Kueng",
   "Application": "grepWin (x64)",

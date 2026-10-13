@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "5c2e9b7a41d3f086",
+  "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "Apache Software Foundation",
   "Application": "Apache NetBeans (x64)",

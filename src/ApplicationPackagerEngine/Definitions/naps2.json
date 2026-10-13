@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "54214b48b9043a8a",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "NAPS2",
   "Application": "NAPS2 (x64)",

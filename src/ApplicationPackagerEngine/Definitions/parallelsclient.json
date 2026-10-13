@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "20695f47922b0d72",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Parallels",
   "Application": "Parallels Client (x64)",
