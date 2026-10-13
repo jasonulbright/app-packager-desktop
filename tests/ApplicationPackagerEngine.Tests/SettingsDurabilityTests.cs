@@ -151,19 +151,30 @@ public sealed class SettingsDurabilityTests : IDisposable
     }
 
     [Fact]
-    public async Task AMissingFileWithAReplaceSideFilePresentIsWaitedFor()
+    public void AMissingFileWithAReplaceSideFilePresentIsWaitedFor()
     {
         var backup = Path.Combine(AppDataPaths.Root, "settings.json." + Guid.NewGuid().ToString("N") + ".bak");
         File.WriteAllText(backup, """{ "DownloadRoot": "C:\\old" }""");
-        var appear = Task.Run(async () =>
+        // The file arrives complete, by a rename, as a replace delivers it: a reader can
+        // open a file that is written in place before it has its text.
+        var incoming = Path.Combine(AppDataPaths.Root, "incoming-" + Guid.NewGuid().ToString("N"));
+        File.WriteAllText(incoming, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
+        // A dedicated thread: a thread-pool timer under a busy pool can fire after the
+        // load's bound. The delay is longer than the quiet period a load without a side
+        // file waits, so only the side file keeps this load waiting.
+        using var started = new ManualResetEventSlim();
+        var appear = new Thread(() =>
         {
-            await Task.Delay(200);
-            File.WriteAllText(SettingsService.SettingsPath, """{ "DownloadRoot": "C:\\new", "FirstRunCompleted": true }""");
+            started.Set();
+            Thread.Sleep(250);
+            File.Move(incoming, SettingsService.SettingsPath);
             File.Delete(backup);
         });
+        appear.Start();
+        started.Wait();
 
         var loaded = new SettingsService().Load();
-        await appear;
+        appear.Join();
 
         Assert.Equal(@"C:\new", loaded.DownloadRoot);
     }
