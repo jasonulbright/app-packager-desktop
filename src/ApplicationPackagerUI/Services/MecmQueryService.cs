@@ -86,6 +86,7 @@ public class MecmQueryService(SettingsService settingsService)
         {
             await File.WriteAllTextAsync(scriptFile, QueryScript, ct).ConfigureAwait(false);
             var startInfo = new ProcessStartInfo { FileName = "powershell.exe" };
+            WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
             // Passed as argument values, never spliced into the script body.
             startInfo.ArgumentList.Add("-NoProfile");
             startInfo.ArgumentList.Add("-NonInteractive");

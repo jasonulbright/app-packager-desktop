@@ -122,17 +122,24 @@ public static class WindowsPowerShellHost
             UseShellExecute = false,
             CreateNoWindow = true
         };
-        // A PSModulePath inherited from PowerShell 7 makes Windows PowerShell
-        // load the 7.x security module, and the read-back's
-        // Get-AuthenticodeSignature is then missing. The machine and user
-        // values are what a logon session starts with, and the machine value
-        // carries the console's module folder.
+        ApplyLogonModulePath(startInfo);
+        return startInfo;
+    }
+
+    /// <summary>
+    /// Gives a Windows PowerShell child the module path a logon session starts
+    /// with. A PSModulePath inherited from PowerShell 7 makes Windows PowerShell
+    /// load 7.x modules: the security module then lacks
+    /// Get-AuthenticodeSignature and the utility module lacks Get-FileHash. The
+    /// machine value carries the ConfigMgr console's module folder.
+    /// </summary>
+    public static void ApplyLogonModulePath(ProcessStartInfo startInfo)
+    {
         var modulePath = LogonModulePath(
             Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.User),
             Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.Machine));
         if (modulePath.Length > 0) startInfo.Environment["PSModulePath"] = modulePath;
         else startInfo.Environment.Remove("PSModulePath");
-        return startInfo;
     }
 
     /// <summary>The user value, then the machine value, joined; an empty value is left out.</summary>
