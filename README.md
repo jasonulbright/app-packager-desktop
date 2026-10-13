@@ -85,6 +85,19 @@ App Packager Desktop refuses an application that installs for the signed-in user
 
 One Click checks the applications that you track. It stages and publishes each application that has a new version, to the destinations of that application. The plan window shows the work before it starts. After you select **Run**, One Click asks no more questions. When a destination refuses an application, One Click remembers the refusal until the version changes. Each run writes a report with a rollback section.
 
+The plan shows `WSUS: not supported` for an application whose definition declares that WSUS cannot take it. One Click does not publish to a destination that holds a newer version than the vendor reports. One Click publishes again when the Workbench profile or the signing policy changed after the last publish.
+
+## CVE lookup
+
+**Check CVEs** looks up the CVEs that an update fixes. It applies to each checked application whose ConfigMgr version is older than the vendor version. A definition names its product with a `Cpe` value; 294 definitions have one.
+
+- The grid shows the count, the highest CVSS score, the CISA KEV flag, the count that the latest release fixes, and the date of the newest CVE.
+- Select a count to open the CVE window. It lists each CVE with its fix version, published date, modified date, and links to NVD, CVE.org, EUVD, OpenCVE, cvedetails and OSV.
+- **CVE Report** writes the checked applications as HTML, CSV, XLSX, Markdown and JSON.
+- **Settings** holds the NVD API key and the switch **Look up CVEs after Check ConfigMgr**. A key is optional. Without a key, NVD permits 5 requests in 30 seconds; with a key, 50.
+
+The data comes from NVD. When NVD does not answer, the lookup uses Shodan CVEDB and marks the result. EPSS scores come from FIRST. A lookup that fails shows an error; it does not show a count of 0.
+
 ## Command-line build
 
 `AppPackagerBuild.exe` stages or publishes one application through a profile, without the window. Use it in scripts and scheduled tasks. It uses the same settings and the same Workbench data as the window.
@@ -100,6 +113,26 @@ AppPackagerBuild --application <id> [--profile <name or id>] (--stage | --packag
 | 0 | Success |
 | 1 | Failure or refusal, or a WSUS warning after a successful publish |
 | n | The non-zero exit code of a PS1 packager |
+
+### CVE report run
+
+`AppPackagerBuild --cve-report` checks the vendor version, reads the ConfigMgr version, looks up the CVEs and writes the reports, without the window. Use it in a scheduled task.
+
+```
+AppPackagerBuild --cve-report [--apps <id,id,...>] [--report-folder <path>] [--report-formats <list>] [options]
+```
+
+| Option | Function |
+|---|---|
+| `--apps` | Limits the run to these application ids |
+| `--skip-latest`, `--skip-mecm`, `--skip-cve` | Omits the vendor check, the ConfigMgr query or the CVE lookup. The report then shows stored versions and cache results, and marks them |
+| `--report-folder`, `--report-formats` | Report location and formats (`Html`, `Csv`, `Json`, `Xlsx`, `Markdown`) |
+| `--drop-folder` | Copies the reports to a second folder |
+| `--webhook-url`, `--notify-always` | Posts the run summary as JSON to an https address when an update exists, or after each run |
+| `--keep-report-days` | Deletes reports of this command that are older (default 90; 0 keeps all) |
+| `--config` | Path of `monitor-config.json`, which holds the report and notification defaults |
+
+The exit code is 1 when a vendor check, a ConfigMgr query or a CVE lookup failed. The NVD API key comes from Settings or from the `NVD_API_KEY` environment variable.
 
 ## Application definitions
 
@@ -144,7 +177,20 @@ About one third of the definitions read `api.github.com`. Without a token, GitHu
 - Settings are in `%LOCALAPPDATA%\AppPackager`. Workbench profiles, builds and drafts are in `%LOCALAPPDATA%\AppPackager\Workbench`. Staging defaults to `%LOCALAPPDATA%\AppPackager\Staging`. An `APP_PACKAGER_DATA_ROOT` override places settings and these default data folders under `<override>\Users\<Windows SID>`; an explicitly configured staging folder stays configured.
 - Session logs, downloaded tools and the shared application inventory (`history.db`) normally live under `%LOCALAPPDATA%\SRLPackr`. With a data-root override they live under `<override>\Users\<Windows SID>\SRLPackr`. **Operation History** on the Packages page shows the selected application's latest 100 operations.
 - App Packager Desktop has no telemetry. It connects to vendor sites for version checks and downloads, to GitHub for the icon pack and for definitions that read GitHub releases, and to the systems that you set up.
-- The Intune client secret is stored encrypted for the current Windows user.
+- The Intune client secret and the NVD API key are stored encrypted for the current Windows user.
+- CVE data: the cache is `Vulnerability\vuln-cache.json` and the KEV copy is `Vulnerability\kev-catalog.json` under the settings folder. Reports are in `Reports`. A cache entry is used for 360 minutes, or 60 minutes for a Shodan result. Entries older than 14 days are deleted.
+
+The CVE lookup sends these requests. The window or `AppPackagerBuild.exe` sends them over https; no other process does.
+
+| Host | Request | When |
+|---|---|---|
+| `services.nvd.nist.gov` | CVE query for one product and version range | One query for each application with an update and no current cache entry |
+| `cvedb.shodan.io` | CVE query for one product version | Only when the NVD query failed |
+| `api.first.org` | EPSS scores for the CVE ids found | One request for each 100 ids |
+| `www.cisa.gov` | Known Exploited Vulnerabilities catalog | One time in 24 hours |
+| The webhook host you set | Run summary | `--cve-report` only |
+
+A link in the CVE window opens in your browser. App Packager Desktop sends no request to the linked site. The log shows each request address. It does not show the API key, and it shows only the host of the webhook address.
 
 ## Validation
 
