@@ -72,19 +72,25 @@ public sealed class ProfileSourceTests : IDisposable
     }
 
     [Fact]
-    public async Task AnApplicationFileHeldForAMomentByASaveIsReadOnceItIsReleased()
+    public void AnApplicationFileHeldForAMomentByASaveIsReadOnceItIsReleased()
     {
         var profile = _t.NewProfile(ApplicationId, "Pilot Ring");
         var path = Path.Combine(_t.Store.GetApplicationFolder(ApplicationId), "application.json");
         var held = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-        var release = Task.Run(async () =>
+        // A dedicated thread: a thread-pool timer under a busy pool can fire after the
+        // read's bound, and the read then reports the file as held.
+        using var started = new ManualResetEventSlim();
+        var release = new Thread(() =>
         {
-            await Task.Delay(300);
+            started.Set();
+            Thread.Sleep(100);
             held.Dispose();
         });
+        release.Start();
+        started.Wait();
 
         var source = ProfileSource.Resolve(_t.Store, DefinitionId);
-        await release;
+        release.Join();
 
         Assert.Null(source.Failure);
         Assert.Equal(profile.ProfileId, source.ActiveProfileId);
