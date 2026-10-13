@@ -7,6 +7,7 @@
   "CMName": "Azul Zulu JRE 17 (x64)",
   "Architecture": "x64",
   "VendorUrl": "https://www.azul.com/downloads/?package=jre",
+  "Cpe": "cpe:2.3:a:azul:zulu:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

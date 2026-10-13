@@ -7,6 +7,8 @@
     "CMName":  "Zoom Workplace",
     "Architecture":  "x64",
     "VendorUrl":  "https://zoom.us/download",
+    "Cpe":  "cpe:2.3:a:zoom:zoom:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.zoom.com/en/trust/security-bulletin/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

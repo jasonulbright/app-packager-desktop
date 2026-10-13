@@ -7,6 +7,7 @@
   "CMName": "Gephi",
   "Architecture": "x64",
   "VendorUrl": "https://gephi.org/",
+  "Cpe": "cpe:2.3:a:gephi:gephi:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

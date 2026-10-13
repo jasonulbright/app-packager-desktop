@@ -7,6 +7,7 @@
   "CMName": "Audacity",
   "Architecture": "x64",
   "VendorUrl": "https://www.audacityteam.org/",
+  "Cpe": "cpe:2.3:a:audacityteam:audacity:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

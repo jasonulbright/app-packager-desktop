@@ -7,6 +7,8 @@
   "CMName": "Chrome Remote Desktop Host",
   "Architecture": "x64",
   "VendorUrl": "https://remotedesktop.google.com/",
+  "Cpe": "cpe:2.3:a:google:chrome_remote_desktop:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://chromereleases.googleblog.com/",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

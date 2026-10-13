@@ -7,6 +7,7 @@
   "CMName": "Password Safe",
   "Architecture": "x64",
   "VendorUrl": "https://pwsafe.org/",
+  "Cpe": "cpe:2.3:a:pwsafe:password_safe:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

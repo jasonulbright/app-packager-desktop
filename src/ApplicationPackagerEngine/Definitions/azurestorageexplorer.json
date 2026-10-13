@@ -7,6 +7,8 @@
   "CMName": "Microsoft Azure Storage Explorer",
   "Architecture": "x64",
   "VendorUrl": "https://azure.microsoft.com/products/storage/storage-explorer/",
+  "Cpe": "cpe:2.3:a:microsoft:azure_storage_explorer:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

@@ -6,6 +6,7 @@
   "CMName": "Chef Workstation",
   "Architecture": "x64",
   "VendorUrl": "https://www.chef.io/",
+  "Cpe": "cpe:2.3:a:chef:workstation:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

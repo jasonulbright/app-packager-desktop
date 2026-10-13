@@ -7,6 +7,8 @@
     "CMName":  "PostgreSQL 14",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.postgresql.org/",
+    "Cpe":  "cpe:2.3:a:postgresql:postgresql:14.*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.postgresql.org/support/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InstallShield",
     "Acquisition":  {

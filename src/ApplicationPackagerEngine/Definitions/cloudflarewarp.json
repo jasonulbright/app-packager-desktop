@@ -7,6 +7,7 @@
   "CMName": "Cloudflare WARP",
   "Architecture": "x64",
   "VendorUrl": "https://www.cloudflare.com/",
+  "Cpe": "cpe:2.3:a:cloudflare:warp:*:*:*:*:*:windows:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

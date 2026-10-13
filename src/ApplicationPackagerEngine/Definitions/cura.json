@@ -7,6 +7,7 @@
   "CMName": "UltiMaker Cura",
   "Architecture": "x64",
   "VendorUrl": "https://ultimaker.com/software/ultimaker-cura/",
+  "Cpe": "cpe:2.3:a:ultimaker:cura:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

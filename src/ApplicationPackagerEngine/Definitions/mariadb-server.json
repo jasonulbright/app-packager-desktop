@@ -7,6 +7,7 @@
   "CMName": "MariaDB Server",
   "Architecture": "x64",
   "VendorUrl": "https://mariadb.org/",
+  "Cpe": "cpe:2.3:a:mariadb:mariadb:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

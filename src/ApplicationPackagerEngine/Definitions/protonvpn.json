@@ -7,6 +7,7 @@
   "CMName": "Proton VPN",
   "Architecture": "x64",
   "VendorUrl": "https://protonvpn.com/",
+  "Cpe": "cpe:2.3:a:proton:protonvpn:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

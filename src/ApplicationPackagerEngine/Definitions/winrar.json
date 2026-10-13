@@ -7,6 +7,7 @@
     "CMName":  "WinRAR",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.win-rar.com/",
+    "Cpe":  "cpe:2.3:a:rarlab:winrar:*:*:*:*:*:*:*:*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",
     "Acquisition":  {

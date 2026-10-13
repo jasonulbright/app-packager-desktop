@@ -7,6 +7,7 @@
   "CMName": "PeaZip",
   "Architecture": "x64",
   "VendorUrl": "https://peazip.github.io/",
+  "Cpe": "cpe:2.3:a:peazip:peazip:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

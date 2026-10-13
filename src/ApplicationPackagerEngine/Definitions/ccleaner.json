@@ -7,6 +7,8 @@
     "CMName":  "CCleaner",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.ccleaner.com/",
+    "Cpe":  "cpe:2.3:a:piriform:ccleaner:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.ccleaner.com/knowledge/ccleaner-security-advisories",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

@@ -7,6 +7,7 @@
     "CMName":  "R",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.r-project.org/",
+    "Cpe":  "cpe:2.3:a:r-project:r:*:*:*:*:*:*:*:*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
     "Acquisition":  {

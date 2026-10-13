@@ -7,6 +7,7 @@
   "CMName": "ScreenToGif",
   "Architecture": "x64",
   "VendorUrl": "https://www.screentogif.com/",
+  "Cpe": "cpe:2.3:a:screentogif:screentogif:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

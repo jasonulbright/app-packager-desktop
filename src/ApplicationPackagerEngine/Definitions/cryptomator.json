@@ -7,6 +7,7 @@
   "CMName": "Cryptomator",
   "Architecture": "x64",
   "VendorUrl": "https://cryptomator.org/",
+  "Cpe": "cpe:2.3:a:cryptomator:cryptomator:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

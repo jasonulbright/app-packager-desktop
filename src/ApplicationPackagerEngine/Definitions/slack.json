@@ -6,6 +6,8 @@
   "CMName": "Slack",
   "Architecture": "x64",
   "VendorUrl": "https://slack.com/",
+  "Cpe": "cpe:2.3:a:slack:slack:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://slack.com/intl/en-gb/trust/security",
   "InstallerType": "MSIX",
   "InstallerFramework": "MSIX",
   "Acquisition": {},

@@ -6,6 +6,8 @@
   "CMName": "PyCharm",
   "Architecture": "x64",
   "VendorUrl": "https://www.jetbrains.com/pycharm/",
+  "Cpe": "cpe:2.3:a:jetbrains:pycharm:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://www.jetbrains.com/privacy-security/issues-fixed/",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

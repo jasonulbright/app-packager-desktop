@@ -7,6 +7,7 @@
     "CMName":  "XenServer VM Tools",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.xenserver.com/",
+    "Cpe":  "cpe:2.3:a:citrix:xenserver_vm_tools:*:*:*:*:*:*:*:*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

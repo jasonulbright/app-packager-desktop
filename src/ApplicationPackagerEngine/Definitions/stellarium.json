@@ -7,6 +7,7 @@
   "CMName": "Stellarium",
   "Architecture": "x64",
   "VendorUrl": "https://stellarium.org/",
+  "Cpe": "cpe:2.3:a:stellarium:stellarium:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],
