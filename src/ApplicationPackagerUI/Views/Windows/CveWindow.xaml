@@ -1,0 +1,133 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.CveWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="CVEs"
+    Width="1280"
+    Height="680"
+    MinWidth="980"
+    MinHeight="420"
+    WindowStartupLocation="Manual"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <!-- The accent text brush follows the theme, so a link stays readable on a dark background. -->
+        <Style x:Key="LinkButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,10,2" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+            <Setter Property="ToolTip" Value="{Binding Url}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" Padding="2,0">
+                            <TextBlock Text="{Binding Name}" TextDecorations="Underline"
+                                       Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="LinkTemplate">
+            <Button Style="{StaticResource LinkButton}" Click="Link_Click" AutomationProperties.Name="{Binding Name}" />
+        </DataTemplate>
+        <ItemsPanelTemplate x:Key="LinkPanel">
+            <WrapPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+    </ui:FluentWindow.Resources>
+
+    <Grid Margin="16,10,16,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="CVEs" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="0,10,0,8">
+            <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtCveTitle" />
+            <TextBlock Text="{Binding RangeText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="txtCveRange" />
+            <TextBlock Text="{Binding NoteText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Visibility="{Binding HasNote, Converter={StaticResource BooleanToVisibilityConverter}}"
+                       AutomationProperties.AutomationId="txtCveNote" />
+            <DockPanel Margin="0,6,0,0">
+                <TextBlock Text="Product:" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <ItemsControl ItemsSource="{Binding ProductLinks}" ItemTemplate="{StaticResource LinkTemplate}"
+                              ItemsPanel="{StaticResource LinkPanel}" Focusable="False" />
+            </DockPanel>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2"
+                  x:Name="CveGrid"
+                  ItemsSource="{Binding Rows}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  RowHeaderWidth="0"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  AutomationProperties.AutomationId="gridCves">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="CVE" Binding="{Binding Id}" Width="140" />
+                <DataGridTextColumn Header="CVSS" Binding="{Binding Cvss}" Width="110" />
+                <DataGridTextColumn Header="EPSS" Binding="{Binding Epss}" Width="70" />
+                <DataGridTextColumn Header="KEV" Binding="{Binding Kev}" Width="50" />
+                <DataGridTextColumn Header="Fixed in" Binding="{Binding FixedIn}" Width="110" />
+                <DataGridTextColumn Header="Published" Binding="{Binding Published}" Width="100" />
+                <DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="100" />
+                <DataGridTemplateColumn Header="Summary" Width="*" MinWidth="260" SortMemberPath="Summary">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <!-- Six lines of the 16-pixel line height; the tooltip carries the full text. -->
+                            <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+                                       LineHeight="16" LineStackingStrategy="BlockLineHeight" MaxHeight="96"
+                                       Margin="4,2" VerticalAlignment="Top">
+                                <TextBlock.ToolTip>
+                                    <ToolTip MaxWidth="640">
+                                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
+                                    </ToolTip>
+                                </TextBlock.ToolTip>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Links" Width="380" MinWidth="300">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ItemsControl ItemsSource="{Binding Links}" ItemTemplate="{StaticResource LinkTemplate}"
+                                          ItemsPanel="{StaticResource LinkPanel}" Focusable="False" Margin="2" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DockPanel Grid.Row="3" Margin="0,10,0,0">
+            <ui:Button DockPanel.Dock="Right" Content="Close" MinWidth="90" Click="Close_Click"
+                       AutomationProperties.AutomationId="btnCveClose" />
+            <StackPanel Orientation="Horizontal">
+                <ui:Button Content="Refresh" MinWidth="110" Margin="0,0,8,0" Click="Refresh_Click"
+                           IsEnabled="{Binding CanRefresh}"
+                           ToolTip="Look the CVEs up again, bypassing the cache"
+                           AutomationProperties.AutomationId="btnCveRefresh" />
+                <ui:Button Content="Copy CVE IDs" MinWidth="110" Margin="0,0,8,0" Click="Copy_Click"
+                           AutomationProperties.AutomationId="btnCveCopy" />
+                <ui:Button Content="Export report" MinWidth="110" Margin="0,0,8,0" Click="Export_Click"
+                           ToolTip="Write the HTML, CSV, XLSX, Markdown and JSON report for this application and open the HTML page"
+                           AutomationProperties.AutomationId="btnCveExport" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</ui:FluentWindow>

@@ -51,8 +51,11 @@ public static class Program
                 .AddPackagerServices()
                 .AddSingleton<IBuildOutput>(output)
                 .AddSingleton<BuildRunner>()
+                .AddSingleton<CveReportRunner>()
                 .BuildServiceProvider();
             services.GetRequiredService<LegacyInventoryMigration>().Run();
+            if (options.CveReport is not null)
+                return await services.GetRequiredService<CveReportRunner>().RunAsync(options, cancel.Token);
             var result = await services.GetRequiredService<BuildRunner>().RunAsync(options, cancel.Token);
             foreach (var line in result.SummaryLines()) output.Info(line);
             return result.ExitCode;

@@ -19,7 +19,7 @@ public class StatusToBrushConverter : IValueConverter
         return status switch
         {
             "Staged" or "Packaged" or "Up to date" or "Latest retrieved" or "ConfigMgr version retrieved" => Green,
-            "Update available" => Amber,
+            var s when Services.CveRowState.IsUpdateAvailable(s) => Amber,
             "Not found in ConfigMgr" or "Current newer" => Blue,
             "Staging..." or "Packaging..." or "Checking latest..." or "Querying ConfigMgr..." => Gray,
             var s when s.Contains("error", StringComparison.OrdinalIgnoreCase) => Red,
