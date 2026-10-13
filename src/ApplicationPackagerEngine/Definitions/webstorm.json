@@ -7,6 +7,8 @@
   "CMName": "WebStorm",
   "Architecture": "x64",
   "VendorUrl": "https://www.jetbrains.com/webstorm/",
+  "Cpe": "cpe:2.3:a:jetbrains:webstorm:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://www.jetbrains.com/privacy-security/issues-fixed/",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

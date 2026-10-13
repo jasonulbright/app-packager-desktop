@@ -8,6 +8,7 @@
   "CMName": "Intune Debug Toolkit",
   "Architecture": "x64",
   "VendorUrl": "https://msendpointmgr.com/",
+  "Cpe": "cpe:2.3:a:msendpointmgr:intune_debug_toolkit:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

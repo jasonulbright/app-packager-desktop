@@ -8,6 +8,7 @@
   "CMName": "Joplin",
   "Architecture": "x64",
   "VendorUrl": "https://joplinapp.org/",
+  "Cpe": "cpe:2.3:a:joplinapp:joplin:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],

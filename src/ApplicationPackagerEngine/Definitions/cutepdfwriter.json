@@ -8,6 +8,7 @@
     "CMName":  "CutePDF Writer",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.cutepdf.com/",
+    "Cpe":  "cpe:2.3:a:acrosoftware:cutepdf_writer:*:*:*:*:*:*:*:*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
     "Acquisition":  {

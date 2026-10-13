@@ -8,6 +8,8 @@
   "CMName": "Azure PowerShell",
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/powershell/azure/",
+  "Cpe": "cpe:2.3:a:microsoft:azure_powershell:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

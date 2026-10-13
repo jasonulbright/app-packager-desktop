@@ -8,6 +8,7 @@
   "CMName": "RStudio",
   "Architecture": "x64",
   "VendorUrl": "https://posit.co/products/open-source/rstudio/",
+  "Cpe": "cpe:2.3:a:posit:rstudio:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NativeEXE",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],

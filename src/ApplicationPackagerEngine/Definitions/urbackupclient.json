@@ -8,6 +8,7 @@
   "CMName": "UrBackup Client",
   "Architecture": "x64",
   "VendorUrl": "https://www.urbackup.org/",
+  "Cpe": "cpe:2.3:a:urbackup:urbackup:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -8,6 +8,7 @@
   "CMName": "OpenShot Video Editor",
   "Architecture": "x64",
   "VendorUrl": "https://www.openshot.org/",
+  "Cpe": "cpe:2.3:a:openshot:openshot_video_editor:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

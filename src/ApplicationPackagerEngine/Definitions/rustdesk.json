@@ -8,6 +8,7 @@
   "CMName": "RustDesk",
   "Architecture": "x64",
   "VendorUrl": "https://rustdesk.com/",
+  "Cpe": "cpe:2.3:a:rustdesk:rustdesk:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

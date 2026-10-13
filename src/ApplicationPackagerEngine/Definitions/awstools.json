@@ -8,6 +8,7 @@
   "CMName": "AWS Tools for Windows",
   "Architecture": "x64",
   "VendorUrl": "https://aws.amazon.com/powershell/",
+  "Cpe": "cpe:2.3:a:amazon:aws_tools_for_windows:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

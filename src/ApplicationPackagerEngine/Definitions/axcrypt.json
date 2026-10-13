@@ -8,6 +8,7 @@
   "CMName": "AxCrypt",
   "Architecture": "x64",
   "VendorUrl": "https://www.axcrypt.net/",
+  "Cpe": "cpe:2.3:a:axcrypt:axcrypt:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

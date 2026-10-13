@@ -10,6 +10,8 @@
     "Publisher":  "Microsoft Corporation",
     "Architecture":  "x86",
     "VendorUrl":  "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist",
+    "Cpe":  "cpe:2.3:a:microsoft:visual_c%2b%2b_redistributable:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "WixBurn",
     "Acquisition":  {

@@ -8,6 +8,7 @@
   "CMName": "ocenaudio",
   "Architecture": "x64",
   "VendorUrl": "https://www.ocenaudio.com/",
+  "Cpe": "cpe:2.3:a:ocenaudio:ocenaudio:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

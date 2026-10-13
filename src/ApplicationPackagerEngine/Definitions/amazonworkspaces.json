@@ -8,6 +8,7 @@
   "CMName": "Amazon WorkSpaces",
   "Architecture": "x64",
   "VendorUrl": "https://clients.amazonworkspaces.com/",
+  "Cpe": "cpe:2.3:a:amazon:workspaces:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -8,6 +8,7 @@
   "CMName": "Path Copy Copy",
   "Architecture": "x64",
   "VendorUrl": "https://pathcopycopy.github.io/",
+  "Cpe": "cpe:2.3:a:pathcopycopy:path_copy_copy:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

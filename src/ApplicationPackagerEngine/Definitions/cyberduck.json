@@ -8,6 +8,7 @@
   "CMName": "Cyberduck",
   "Architecture": "x64",
   "VendorUrl": "https://cyberduck.io/",
+  "Cpe": "cpe:2.3:a:cyberduck:cyberduck:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

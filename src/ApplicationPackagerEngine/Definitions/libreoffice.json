@@ -8,6 +8,8 @@
     "CMName":  "LibreOffice",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.libreoffice.org/",
+    "Cpe":  "cpe:2.3:a:libreoffice:libreoffice:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.libreoffice.org/about-us/security/advisories/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

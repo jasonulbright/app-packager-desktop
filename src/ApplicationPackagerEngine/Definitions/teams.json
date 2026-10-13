@@ -8,6 +8,8 @@
     "CMName":  "Microsoft Teams",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.microsoft.com/microsoft-teams/",
+    "Cpe":  "cpe:2.3:a:microsoft:teams:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "MSIX",
     "Acquisition":  {

@@ -71,6 +71,19 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     [ObservableProperty] private bool _hasStoredIntuneSecret;
 
+    /// <summary>
+    /// Key entry only. Never loaded from settings: an empty box on save keeps the stored
+    /// key, a typed value replaces it DPAPI-protected.
+    /// </summary>
+    [ObservableProperty] private string _nvdApiKey = "";
+    [ObservableProperty] private bool _hasStoredNvdApiKey;
+    [ObservableProperty] private bool _removeNvdApiKey;
+    [ObservableProperty] private bool _lookupCvesAfterCheckMecm;
+
+    public string NvdApiKeyHint => HasStoredNvdApiKey ? "Stored — leave empty to keep it" : "Not set";
+
+    partial void OnHasStoredNvdApiKeyChanged(bool value) => OnPropertyChanged(nameof(NvdApiKeyHint));
+
     [ObservableProperty] private string _iconPackStatus = "";
     [ObservableProperty] private bool _iconPackBusy;
 
@@ -562,6 +575,12 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         IntuneClientSecret = "";
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
 
+        s.Vulnerability ??= new VulnerabilitySettings();
+        NvdApiKey = "";
+        RemoveNvdApiKey = false;
+        HasStoredNvdApiKey = !string.IsNullOrWhiteSpace(s.Vulnerability.NvdApiKeyProtected);
+        LookupCvesAfterCheckMecm = s.Vulnerability.LookupAfterCheckCm;
+
         if (Enum.TryParse<ApplicationTheme>(s.Theme, out var theme))
             CurrentTheme = theme;
     }
@@ -641,6 +660,15 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
             IntuneClientSecret = "";
         }
         HasStoredIntuneSecret = !string.IsNullOrWhiteSpace(s.Intune.ClientSecretProtected);
+
+        s.Vulnerability ??= new VulnerabilitySettings();
+        s.Vulnerability.LookupAfterCheckCm = LookupCvesAfterCheckMecm;
+        // The plaintext key never reaches settings.json.
+        if (!string.IsNullOrWhiteSpace(NvdApiKey)) s.Vulnerability.NvdApiKeyProtected = NvdApiKeyStore.Protect(NvdApiKey);
+        else if (RemoveNvdApiKey) s.Vulnerability.NvdApiKeyProtected = "";
+        NvdApiKey = "";
+        RemoveNvdApiKey = false;
+        HasStoredNvdApiKey = !string.IsNullOrWhiteSpace(s.Vulnerability.NvdApiKeyProtected);
 
         _settingsService.SaveOperatorEdit(s);
 

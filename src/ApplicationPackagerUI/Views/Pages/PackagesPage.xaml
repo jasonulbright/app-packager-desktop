@@ -15,6 +15,23 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
         </Style>
+        <!-- The text takes the cell's own foreground, so the count stays readable on a selected row. -->
+        <Style x:Key="CveCellButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" Padding="4,0">
+                            <TextBlock Text="{Binding CveCount}" TextDecorations="Underline" TextTrimming="CharacterEllipsis"
+                                       Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
     <Grid Margin="16,12,16,12" Background="Transparent" AllowDrop="True">
@@ -41,6 +58,12 @@
                        Command="{Binding CheckMecmCommand}"
                        ToolTip="{Binding CheckMecmToolTip}"
                        ToolTipService.ShowOnDisabled="True"
+                       Margin="0,0,4,0" />
+            <ui:Button Content="Check CVEs"
+                       Icon="{ui:SymbolIcon ShieldError24}"
+                       Command="{Binding CheckCvesCommand}"
+                       ToolTip="Look up the CVEs fixed by updating each checked application from its ConfigMgr version to the latest version. Needs both versions and a CPE."
+                       AutomationProperties.AutomationId="btnCheckCves"
                        Margin="0,0,4,0" />
             <ui:Button Content="Stage"
                        Icon="{ui:SymbolIcon ArrowCircleDown24}"
@@ -84,6 +107,12 @@
                        AutomationProperties.AutomationId="btnOneClick"
                        ToolTip="One Click check (and optionally Stage / Publish) against your tracked apps. Configure tracked apps, action, and destinations in Settings, One Click Settings."
                        Margin="0,0,4,0" />
+            <ui:Button Content="CVE Report"
+                       Icon="{ui:SymbolIcon DocumentTable24}"
+                       Command="{Binding CveReportCommand}"
+                       ToolTip="Write the CVE report for the checked applications (all applications when none is checked) as HTML, CSV, XLSX, Markdown and JSON, then open the HTML page."
+                       AutomationProperties.AutomationId="btnCveReport"
+                       Margin="0,0,4,0" />
             <ui:Button x:Name="btnOperationHistory"
                        Content="Operation history"
                        Icon="{ui:SymbolIcon TextBulletListSquare24}"
@@ -122,7 +151,7 @@
                   ContextMenuOpening="PackagerGrid_ContextMenuOpening">
 
             <DataGrid.ContextMenu>
-                <ContextMenu>
+                <ContextMenu Opened="PackagerMenu_Opened">
                     <MenuItem Header="View operation history..." Click="ContextMenu_ViewHistory">
                         <MenuItem.Icon>
                             <ui:SymbolIcon Symbol="TextBulletListSquare24" />
@@ -159,6 +188,22 @@
                     <MenuItem Header="Open Vendor URL" Click="ContextMenu_OpenVendorUrl">
                         <MenuItem.Icon>
                             <ui:SymbolIcon Symbol="Link24" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem x:Name="MenuShowCves" Header="Show CVEs..." Click="ContextMenu_ShowCves">
+                        <MenuItem.Icon>
+                            <ui:SymbolIcon Symbol="ShieldError24" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="MenuOpenCveSources" Header="Open CVE Sources">
+                        <MenuItem.Icon>
+                            <ui:SymbolIcon Symbol="Globe24" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem x:Name="MenuCopyCveIds" Header="Copy CVE IDs" Click="ContextMenu_CopyCveIds">
+                        <MenuItem.Icon>
+                            <ui:SymbolIcon Symbol="Copy24" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </ContextMenu>
@@ -211,7 +256,7 @@
                 <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="170" IsReadOnly="True" />
                 <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" IsReadOnly="True" />
 
-                <DataGridTemplateColumn Header="Status" Width="170" SortMemberPath="Status">
+                <DataGridTemplateColumn Header="Status" Width="250" SortMemberPath="Status">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Status}"
@@ -222,6 +267,27 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="CVEs" Width="120" MinWidth="90" SortMemberPath="CveCount" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource CveCellButton}" Click="CveCell_Click"
+                                    ToolTip="Open the CVE list with links for this application"
+                                    AutomationProperties.AutomationId="btnCveCell"
+                                    AutomationProperties.Name="{Binding CveCount}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Max CVSS" Binding="{Binding CveCvss}" Width="110" IsReadOnly="True" />
+                <DataGridTextColumn Header="KEV" Binding="{Binding CveKev}" Width="50" IsReadOnly="True" />
+                <DataGridTextColumn Header="In latest" Binding="{Binding CveFixed}" Width="90" IsReadOnly="True" />
+                <DataGridTextColumn Header="Newest CVE" Binding="{Binding CveNewest}" Width="100" IsReadOnly="True" />
+                <DataGridTextColumn x:Name="ColCveEpss" Header="Max EPSS" Binding="{Binding CveEpss}" Width="80" IsReadOnly="True"
+                                    Visibility="Collapsed" />
+                <DataGridTextColumn x:Name="ColCveUpdated" Header="NVD updated" Binding="{Binding CveUpdated}" Width="100" IsReadOnly="True"
+                                    Visibility="Collapsed" />
+                <DataGridTextColumn x:Name="ColCveChecked" Header="CVEs Checked (UTC)" Binding="{Binding CveChecked}" Width="170" IsReadOnly="True"
+                                    Visibility="Collapsed" />
 
                 <DataGridTextColumn x:Name="ColIntune" Header="Intune" Binding="{Binding IntuneNote}" Width="*" MinWidth="110" IsReadOnly="True"
                                     Visibility="Collapsed" />

@@ -8,6 +8,8 @@
     "CMName":  "PowerToys",
     "Architecture":  "x64",
     "VendorUrl":  "https://learn.microsoft.com/windows/powertoys/",
+    "Cpe":  "cpe:2.3:a:microsoft:powertoys:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

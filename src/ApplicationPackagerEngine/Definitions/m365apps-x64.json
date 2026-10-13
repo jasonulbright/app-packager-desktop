@@ -8,6 +8,8 @@
   "CMName": "M365 Apps for Enterprise",
   "Architecture": "x64",
   "VendorUrl": "https://www.microsoft.com/microsoft-365/enterprise",
+  "Cpe": "cpe:2.3:a:microsoft:365_apps:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "ODT",
   "InstallerFramework": "ODT",
   "Acquisition": {},

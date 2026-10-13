@@ -8,6 +8,8 @@
     "CMName":  "Mozilla Thunderbird (x64 en-US)",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.thunderbird.net/",
+    "Cpe":  "cpe:2.3:a:mozilla:thunderbird:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.mozilla.org/en-US/security/known-vulnerabilities/thunderbird/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

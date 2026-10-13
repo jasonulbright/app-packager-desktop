@@ -8,6 +8,8 @@
   "CMName": "Microsoft SQL Server 2022 Express",
   "Architecture": "x64",
   "VendorUrl": "https://www.microsoft.com/sql-server/sql-server-downloads",
+  "Cpe": "cpe:2.3:a:microsoft:sql_server:2022:*:*:*:express:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "ReviewBeforeStage": true,

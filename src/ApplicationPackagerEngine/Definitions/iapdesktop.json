@@ -8,6 +8,7 @@
   "CMName": "IAP Desktop",
   "Architecture": "x64",
   "VendorUrl": "https://googlecloudplatform.github.io/iap-desktop/",
+  "Cpe": "cpe:2.3:a:google:iap_desktop:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

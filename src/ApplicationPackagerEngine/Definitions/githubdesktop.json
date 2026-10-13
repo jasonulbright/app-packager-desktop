@@ -8,6 +8,7 @@
   "CMName": "GitHub Desktop",
   "Architecture": "x64",
   "VendorUrl": "https://desktop.github.com/",
+  "Cpe": "cpe:2.3:a:github:github_desktop:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "Squirrel",
   "InstallContext": "User",

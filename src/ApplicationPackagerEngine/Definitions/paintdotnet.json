@@ -8,6 +8,7 @@
     "CMName":  "paint.net",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.getpaint.net/",
+    "Cpe":  "cpe:2.3:a:dotpdn:paint.net:*:*:*:*:*:*:*:*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

@@ -8,6 +8,7 @@
   "CMName": "Apache NetBeans",
   "Architecture": "x64",
   "VendorUrl": "https://netbeans.apache.org/",
+  "Cpe": "cpe:2.3:a:apache:netbeans:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

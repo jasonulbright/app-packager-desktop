@@ -8,6 +8,7 @@
   "CMName": "HWMonitor",
   "Architecture": "x64",
   "VendorUrl": "https://www.cpuid.com/softwares/hwmonitor.html",
+  "Cpe": "cpe:2.3:a:cpuid:hwmonitor:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

@@ -8,6 +8,7 @@
   "CMName": "DBeaver",
   "Architecture": "x64",
   "VendorUrl": "https://dbeaver.io/",
+  "Cpe": "cpe:2.3:a:dbeaver:dbeaver:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

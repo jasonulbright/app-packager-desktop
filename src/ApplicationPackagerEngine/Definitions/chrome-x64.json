@@ -8,6 +8,8 @@
   "CMName": "Google Chrome",
   "Architecture": "x64",
   "VendorUrl": "https://www.google.com/chrome/",
+  "Cpe": "cpe:2.3:a:google:chrome:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://chromereleases.googleblog.com/",
   "InstallerType": "MSI",
     "InstallerFramework":  "NativeMSI",
   "VersionScraper": {

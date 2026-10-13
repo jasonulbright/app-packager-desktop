@@ -8,6 +8,8 @@
     "CMName":  "Amazon Corretto 11 (x64)",
     "Architecture":  "x64",
     "VendorUrl":  "https://aws.amazon.com/corretto/",
+    "Cpe":  "cpe:2.3:a:amazon:corretto:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://aws.amazon.com/security/security-bulletins/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

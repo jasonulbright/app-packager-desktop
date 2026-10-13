@@ -364,6 +364,27 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
+            <TextBlock Text="CVE lookup" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Check CVEs asks the NIST NVD API for the CVEs between the ConfigMgr version and the latest version of each application. Without a key NVD allows 5 requests in 30 seconds; with a key it allows 50."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+            <TextBlock Text="NVD API key" Style="{StaticResource FieldLabel}" />
+            <ui:PasswordBox Password="{Binding NvdApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding NvdApiKeyHint}" Margin="0,0,0,4"
+                            AutomationProperties.AutomationId="pwdNvdApiKey" />
+            <TextBlock Text="Stored encrypted for the current Windows user. Leave empty to keep the saved key. Without a saved key the NVD_API_KEY environment variable is used."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <CheckBox Content="Remove the saved key on Save"
+                      IsChecked="{Binding RemoveNvdApiKey}"
+                      IsEnabled="{Binding HasStoredNvdApiKey}"
+                      Margin="0,0,0,8"
+                      AutomationProperties.AutomationId="chkRemoveNvdApiKey" />
+            <CheckBox Content="Look up CVEs after Check ConfigMgr"
+                      IsChecked="{Binding LookupCvesAfterCheckMecm}"
+                      Margin="0,0,0,8"
+                      AutomationProperties.AutomationId="chkCveAfterCm" />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
             <TextBlock Text="WSUS Publishing" Style="{StaticResource SectionHeader}" />
             <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap"
                        Text="Publish to WSUS publishes the installer of each checked app as a locally published update. WSUS Updates on the Packages page lists and manages the published updates. This computer needs the WSUS console or RSAT WSUS tools at the server's version, an account in the WSUS Administrators group, and file-share access to the server. When this computer is not the WSUS server, it must also trust the signing certificate." />

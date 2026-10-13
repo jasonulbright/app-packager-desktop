@@ -8,6 +8,8 @@
     "CMName":  "Wireshark",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.wireshark.org/",
+    "Cpe":  "cpe:2.3:a:wireshark:wireshark:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.wireshark.org/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",
     "Acquisition":  {

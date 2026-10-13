@@ -8,6 +8,8 @@
     "CMName":  "Postman",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.postman.com/",
+    "Cpe":  "cpe:2.3:a:postman:postman:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.postman.com/trust/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "Squirrel",
     "InstallContext":  "User",

@@ -8,6 +8,7 @@
   "CMName": "RVTools",
   "Architecture": "x64",
   "VendorUrl": "https://www.robware.net/",
+  "Cpe": "cpe:2.3:a:robware:rvtools:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

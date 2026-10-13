@@ -8,6 +8,7 @@
     "CMName":  "WinMerge",
     "Architecture":  "x64",
     "VendorUrl":  "https://winmerge.org/",
+    "Cpe":  "cpe:2.3:a:winmerge:winmerge:*:*:*:*:*:*:*:*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

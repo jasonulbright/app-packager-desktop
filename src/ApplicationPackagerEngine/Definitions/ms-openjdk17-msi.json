@@ -8,6 +8,8 @@
   "CMName": "Microsoft OpenJDK 17 (MSI)",
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/en-us/java/openjdk/",
+  "Cpe": "cpe:2.3:a:microsoft:build_of_openjdk:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

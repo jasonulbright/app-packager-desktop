@@ -8,6 +8,7 @@
   "CMName": "DAX Studio",
   "Architecture": "x64",
   "VendorUrl": "https://daxstudio.org/",
+  "Cpe": "cpe:2.3:a:daxstudio:dax_studio:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

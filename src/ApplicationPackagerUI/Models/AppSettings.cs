@@ -110,6 +110,9 @@ public sealed class AppSettings
     /// <summary>The WSUS server for local publishing; an empty server name means not configured.</summary>
     public WsusSettings Wsus { get; set; } = new();
 
+    /// <summary>The CVE lookup preferences.</summary>
+    public VulnerabilitySettings Vulnerability { get; set; } = new();
+
     /// <summary>
     /// The systems the operator publishes to. Null in a file written before the
     /// setting existed; SettingsService infers it on load from the Intune

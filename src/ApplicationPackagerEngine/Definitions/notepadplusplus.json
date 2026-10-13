@@ -8,6 +8,7 @@
     "CMName":  "Notepad++",
     "Architecture":  "x64",
     "VendorUrl":  "https://notepad-plus-plus.org/",
+    "Cpe":  "cpe:2.3:a:notepad-plus-plus:notepad%2b%2b:*:*:*:*:*:*:*:*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",
     "Acquisition":  {

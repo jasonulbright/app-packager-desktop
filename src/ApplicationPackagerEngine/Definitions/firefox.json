@@ -8,6 +8,8 @@
     "CMName":  "Mozilla Firefox",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.mozilla.org/firefox/enterprise/",
+    "Cpe":  "cpe:2.3:a:mozilla:firefox:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.mozilla.org/en-US/security/known-vulnerabilities/firefox/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

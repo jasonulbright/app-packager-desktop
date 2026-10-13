@@ -8,6 +8,8 @@
   "CMName": "Azure Functions Core Tools",
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/azure/azure-functions/functions-run-local",
+  "Cpe": "cpe:2.3:a:microsoft:azure_functions_core_tools:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},
