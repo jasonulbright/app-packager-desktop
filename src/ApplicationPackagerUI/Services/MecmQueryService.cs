@@ -9,10 +9,12 @@ public class MecmQueryService(SettingsService settingsService)
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
-    // Runs from a file with the site code and name passed as parameters, so neither is
-    // ever spliced into executable text.
+    // Runs from a file with the site code, the name and the provider passed as parameters,
+    // so none is ever spliced into executable text. With a provider, the site drive is the
+    // one rooted at that provider: a drive the console left for another provider of the
+    // same site code is replaced, so the answer comes from the provider the caller names.
     public const string QueryScript = """
-        param($SiteCode, $CMName)
+        param($SiteCode, $CMName, $ProviderMachineName)
         if (-not (Get-Command -Name Get-CMApplication -ErrorAction SilentlyContinue)) {
             try {
                 if ($env:SMS_ADMIN_UI_PATH) {
@@ -23,6 +25,30 @@ public class MecmQueryService(SettingsService settingsService)
         }
         if (-not (Get-Command -Name Get-CMApplication -ErrorAction SilentlyContinue)) {
             Write-Output 'ERROR:CM_CMDLETS_NOT_AVAILABLE'; exit 3
+        }
+        function Test-SameProviderHost {
+            param([string]$Left, [string]$Right)
+            $a = $Left.Trim().TrimEnd('\').ToLowerInvariant()
+            $b = $Right.Trim().TrimEnd('\').ToLowerInvariant()
+            if ($a -eq $b) { return $true }
+            # A short name and the fully qualified name of the same host.
+            if ($a.Contains('.') -eq $b.Contains('.')) { return $false }
+            return (($a -split '\.')[0] -eq ($b -split '\.')[0])
+        }
+        $provider = ([string]$ProviderMachineName).Trim()
+        if ($provider) {
+            try {
+                $drive = Get-PSDrive -Name $SiteCode -ErrorAction SilentlyContinue
+                if ($drive -and -not (Test-SameProviderHost -Left ([string]$drive.Root) -Right $provider)) {
+                    Remove-PSDrive -Name $SiteCode -Force -ErrorAction Stop
+                    $drive = $null
+                }
+                if (-not $drive) {
+                    New-PSDrive -Name $SiteCode -PSProvider CMSite -Root $provider -ErrorAction Stop | Out-Null
+                }
+            } catch {
+                Write-Output 'ERROR:SITE_DRIVE_FAILED'; exit 4
+            }
         }
         try { Set-Location "${SiteCode}:" -ErrorAction Stop } catch {
             Write-Output 'ERROR:SITE_DRIVE_FAILED'; exit 4
@@ -77,27 +103,39 @@ public class MecmQueryService(SettingsService settingsService)
         exit 0
         """;
 
+    /// <summary>The query process: the site, the provider and the name are argument values, never script text.</summary>
+    public static ProcessStartInfo BuildStartInfo(string scriptFile, string? siteCode, string? providerMachine, string? cmName)
+    {
+        var startInfo = new ProcessStartInfo { FileName = "powershell.exe" };
+        WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-NonInteractive");
+        startInfo.ArgumentList.Add("-ExecutionPolicy");
+        startInfo.ArgumentList.Add("Bypass");
+        startInfo.ArgumentList.Add("-File");
+        startInfo.ArgumentList.Add(scriptFile);
+        startInfo.ArgumentList.Add("-SiteCode");
+        startInfo.ArgumentList.Add(siteCode ?? "");
+        startInfo.ArgumentList.Add("-CMName");
+        startInfo.ArgumentList.Add(cmName ?? "");
+        // An empty value would not survive the -File argument parsing as a bound parameter.
+        if (!string.IsNullOrWhiteSpace(providerMachine))
+        {
+            startInfo.ArgumentList.Add("-ProviderMachineName");
+            startInfo.ArgumentList.Add(providerMachine.Trim());
+        }
+        return startInfo;
+    }
+
     public async Task<MecmQueryResult> QueryVersionAsync(string cmName, CancellationToken ct = default)
     {
-        var siteCode = settingsService.Load().SiteCode;
+        var settings = settingsService.Load();
 
         var scriptFile = Path.Combine(Path.GetTempPath(), $"packr-cmquery-{Guid.NewGuid():N}.ps1");
         try
         {
             await File.WriteAllTextAsync(scriptFile, QueryScript, ct).ConfigureAwait(false);
-            var startInfo = new ProcessStartInfo { FileName = "powershell.exe" };
-            WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
-            // Passed as argument values, never spliced into the script body.
-            startInfo.ArgumentList.Add("-NoProfile");
-            startInfo.ArgumentList.Add("-NonInteractive");
-            startInfo.ArgumentList.Add("-ExecutionPolicy");
-            startInfo.ArgumentList.Add("Bypass");
-            startInfo.ArgumentList.Add("-File");
-            startInfo.ArgumentList.Add(scriptFile);
-            startInfo.ArgumentList.Add("-SiteCode");
-            startInfo.ArgumentList.Add(siteCode ?? "");
-            startInfo.ArgumentList.Add("-CMName");
-            startInfo.ArgumentList.Add(cmName ?? "");
+            var startInfo = BuildStartInfo(scriptFile, settings.SiteCode, settings.ProviderMachine, cmName);
 
             var run = await BoundedProcessRunner.RunAsync(startInfo, Timeout, ct).ConfigureAwait(false);
 
