@@ -33,7 +33,16 @@ internal static class DefaultBuildWsusCheck
             def.Architecture.Equals("x86", StringComparison.OrdinalIgnoreCase) ? "Intel" : "x64";
     }
 
-    public static IReadOnlyList<WsusFinding> Findings(AppDefinition def, bool msiCarriesEntry = true)
+    public static IReadOnlyList<WsusFinding> Findings(AppDefinition def, bool msiCarriesEntry = true) =>
+        Stage(def, (folder, manifest) => WsusCompatibility.Evaluate(manifest, folder, new WsusRuleBuilder(new StandInMsi(def, msiCarriesEntry))));
+
+    /// <summary>The generated install and uninstall scripts and launchers of the default build, by file name.</summary>
+    public static IReadOnlyDictionary<string, string> Scripts(AppDefinition def) =>
+        Stage(def, (folder, _) => Directory.GetFiles(folder)
+            .Where(path => Path.GetExtension(path).ToLowerInvariant() is ".ps1" or ".bat")
+            .ToDictionary(path => Path.GetFileName(path), File.ReadAllText, StringComparer.OrdinalIgnoreCase));
+
+    private static T Stage<T>(AppDefinition def, Func<string, StageManifest, T> use)
     {
         var folder = Path.Combine(Path.GetTempPath(), "apkg-wsus-tag-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -46,7 +55,7 @@ internal static class DefaultBuildWsusCheck
             manifest.FileHashes = Directory.GetFiles(folder, "*", SearchOption.AllDirectories)
                 .Select(path => new StageFileHash { RelativePath = Path.GetRelativePath(folder, path), Sha256 = new string('0', 64) })
                 .ToArray();
-            return WsusCompatibility.Evaluate(manifest, folder, new WsusRuleBuilder(new StandInMsi(def, msiCarriesEntry)));
+            return use(folder, manifest);
         }
         finally
         {

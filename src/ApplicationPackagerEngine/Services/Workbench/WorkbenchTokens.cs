@@ -67,7 +67,9 @@ public static partial class WorkbenchTokens
     [GeneratedRegex(@"^\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}$")]
     private static partial Regex BracedGuid();
 
-    private const string InstallerFileRefused = "%;&|<>`$\\/:*?";
+    // A caret escapes the next character on a cmd line; U+201F is the last character
+    // of the quotation-mark block that PowerShell reads string delimiters from.
+    private const string InstallerFileRefused = "%;&|<>`$\\/:*?^‟";
 
     /// <summary>
     /// A bound value is pasted into an operator-written script or command line as text,

@@ -424,7 +424,9 @@ public sealed partial class MecmTarget
                     sb.Append($" -Path '{Esc(absolute)}'");
                     sb.Append($" -ScriptFile '{Esc(finalizedDetectionFile!)}'");
                     sb.Append($" -ContentLocation '{Esc(networkContentPath)}'");
-                    sb.AppendLine($" -Signed ${(detectionSigned ? "true" : "false")}");
+                    sb.Append($" -Signed ${(detectionSigned ? "true" : "false")}");
+                    sb.Append($" -VerifySignature ${(detectionSigned || signingPolicy.RequireDetection ? "true" : "false")}");
+                    sb.AppendLine($" -ExpectedThumbprint '{Esc(detectionThumbprint)}'");
                 }
                 else
                 {

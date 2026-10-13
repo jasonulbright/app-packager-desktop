@@ -1112,7 +1112,17 @@ public partial class WorkbenchWindowViewModel : ObservableObject
             return;
         }
 
-        var activeProfile = _store!.GetApplicationDefinition(_session.ApplicationId).ActiveProfileId;
+        // The run builds the application's active profile. The window can show a profile
+        // that was selected and never saved again, so the shown profile becomes the active
+        // one first; the window is still open, so a failure is shown in it.
+        var activeProfile = _session.ProfileId;
+        try { _store!.EnsureActiveProfile(_session.ApplicationId, activeProfile); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException
+                                   or ArgumentException or System.Text.Json.JsonException)
+        {
+            await Prompts.InfoAsync(title, $"The profile {SelectedProfile?.ToString() ?? activeProfile} could not be made the active profile, so nothing ran: {ex.Message}");
+            return;
+        }
         var refusal = _launcher.Launch(
             new WorkbenchBuildRequest(_session.ApplicationId, activeProfile, operation, target,
                 SelectedBuild == NoSealedBuilds ? null : SelectedBuild),
