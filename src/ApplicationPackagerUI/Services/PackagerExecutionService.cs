@@ -1319,6 +1319,7 @@ public class PackagerExecutionService(
             CreateNoWindow = true
         };
         foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+        WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
         PackagerChildBridge.Apply(startInfo, environment);
         return startInfo;
     }
