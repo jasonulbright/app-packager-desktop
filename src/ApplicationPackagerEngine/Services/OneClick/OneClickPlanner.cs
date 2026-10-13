@@ -191,14 +191,16 @@ public static class OneClickPlanner
     /// vendor now reports; null when it does not. A publish would put the older build over
     /// the newer one. A publish record and the vendor version come from the same feed, so
     /// all four parts count. A site version can carry a build number the vendor does not
-    /// publish, so only the parts the vendor version carries count.
+    /// publish, so only the parts the vendor version carries count. The site can hold a
+    /// release this product did not publish, so an older publish record does not clear
+    /// the site check.
     /// </summary>
     public static string? NewerThanVendor(OneClickHistoryEntry? entry, string destination, string? siteVersion, string latest)
     {
         if (latest.Length == 0) return null;
         var published = entry?.PublishedVersion(destination) ?? "";
-        if (published.Length > 0)
-            return VersionCompare.CompareStrict(published, latest) > 0 ? $"published {published} is newer than {latest}" : null;
+        if (published.Length > 0 && VersionCompare.CompareStrict(published, latest) > 0)
+            return $"published {published} is newer than {latest}";
         if (destination == OneClickDestinations.ConfigMgr && !string.IsNullOrWhiteSpace(siteVersion)
             && VersionCompare.Compare(siteVersion, latest) > 0)
             return $"site version {siteVersion.Trim()} is newer than {latest}";
