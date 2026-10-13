@@ -81,6 +81,19 @@ public sealed class SuccessExitCodeTests : IDisposable
     }
 
     [Fact]
+    public void WsusSeesThePostInstallSectionBehindAGuardThatListsANegativeCode()
+    {
+        var (install, _) = Generate([-1, 5], postInstallScript: "Set-Content x y");
+        Assert.Contains("if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne -1 -and $proc.ExitCode -ne 5) { exit $proc.ExitCode }", install);
+
+        var guardOnly = Path.Combine(_dir, "guard-only.ps1");
+        File.WriteAllText(guardOnly, "$exePath = Join-Path $PSScriptRoot 'setup.exe'\r\n" +
+            "$proc = Start-Process -FilePath $exePath -ArgumentList @('/S') -Wait -PassThru -NoNewWindow\r\n" +
+            "if ($proc.ExitCode -ne 0 -and $proc.ExitCode -ne -1) { exit $proc.ExitCode }\r\nexit 0");
+        Assert.Contains("post-install configuration", WsusCompatibility.InstallScriptExtras(guardOnly));
+    }
+
+    [Fact]
     public void CCleanerAcceptsTheCodeItReturnsWithoutADesktopSession()
     {
         var def = DefinitionFixture.Load("ccleaner.json");

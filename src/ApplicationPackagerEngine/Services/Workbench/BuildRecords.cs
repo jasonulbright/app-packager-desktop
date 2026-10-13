@@ -96,6 +96,26 @@ public static class BuildRecords
             .ToList();
     }
 
+    /// <summary>
+    /// The sealed record of one build in any profile of the application, or null. A build
+    /// folder carries its BuildId as its name, so only that record is read.
+    /// </summary>
+    public static JsonObject? Find(string dataRoot, string applicationId, string? buildId)
+    {
+        if (string.IsNullOrWhiteSpace(buildId) || !ApplicationIds.IsPlainFolderName(buildId)) return null;
+        var root = WorkbenchPaths.CombineUnder(Path.Combine(dataRoot, "builds"), ApplicationIds.ToKey(applicationId));
+        if (!Directory.Exists(root)) return null;
+        foreach (var profileFolder in Directory.GetDirectories(root))
+        {
+            var path = Path.Combine(profileFolder, buildId, FileName);
+            if (WorkbenchJson.Read(path) is not JsonObject record) continue;
+            if (!string.Equals(WorkbenchJson.Get(record, "BuildId").Text, buildId, StringComparison.OrdinalIgnoreCase)) continue;
+            record["Path"] = path;
+            return record;
+        }
+        return null;
+    }
+
     /// <summary>The newest sealed record, or null when no build was ever sealed.</summary>
     public static JsonObject? Latest(string dataRoot, string applicationId, string? profileId = null) =>
         List(dataRoot, applicationId, profileId).FirstOrDefault();

@@ -72,6 +72,10 @@ public sealed class LauncherAuditSpellingTests : IDisposable
     [InlineData("launch.ps1", "Start-Process powershell.exe -ArgumentList @('-ex', 'bypass', '-File', 'step.ps1') -Wait", DeploymentLauncher.CodeExecutionPolicy)]
     [InlineData("launch.ps1", "Start-Process powershell.exe -ArgumentList @('-NoProfile';'-ec';'ZQB4AGkAdAAgADAA') -Wait", DeploymentLauncher.CodeEncodedCommand)]
     [InlineData("launch.ps1", "& powershell.exe `-ep bypass -File step.ps1", DeploymentLauncher.CodeExecutionPolicy)]
+    [InlineData("launch.ps1", "& powershell.exe -NoProfile -Executi`onPolicy Bypass -File step.ps1", DeploymentLauncher.CodeExecutionPolicy)]
+    [InlineData("launch.ps1", "& powershell.exe -NoProfile -e`x By`pass -File step.ps1", DeploymentLauncher.CodeExecutionPolicy)]
+    [InlineData("launch.ps1", "& powershell.exe -NoProfile -Enc`odedCom`mand ZQB4AGkAdAAgADAA", DeploymentLauncher.CodeEncodedCommand)]
+    [InlineData("launch.ps1", "& powershell.exe -NoProfile -Executi`onPolicy Bypass -File step.ps1", DeploymentLauncher.CodePolicyRelaxation)]
     public void ASpellingWindowsPowerShellAccepts_IsAFinding(string file, string line, string code)
     {
         Write(file, line);

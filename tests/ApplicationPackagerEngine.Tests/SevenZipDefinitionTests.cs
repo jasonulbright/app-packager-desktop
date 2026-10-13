@@ -220,6 +220,49 @@ public sealed class SevenZipDefinitionTests
     }
 
     [Fact]
+    public async Task TheInstallWrapperOfAnArchitecturePayloadReportsTheDefinitionsSuccessCodesAsZero()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"apkg-7zip-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var definition = DefinitionFixture.Load("7zip.json");
+            var version = "24.08";
+            var baseInstaller = Path.Combine(AppContext.BaseDirectory, "Fixtures", "WsusRules", "seven-zip.msi");
+            var content = Path.Combine(root, $"{definition.Application.Replace(" ", "", StringComparison.Ordinal)}-{definition.Architecture}", version);
+            var arm64 = Path.Combine(content, "arm64");
+            Directory.CreateDirectory(arm64);
+
+            definition.VersionScraper.VersionTransform = null;
+            definition.VersionScraper.PayloadHashQuery = null;
+            definition.PayloadSha256 = StagingService.ComputeSha256(baseInstaller);
+            definition.DownloadUrl = "https://github.com/ip7z/7zip/releases/download/24.08/7z2408-x64.msi";
+            definition.SuccessExitCodes = [111111];
+            var variant = Assert.Single(definition.PayloadVariants!);
+            var arm64Bytes = SyntheticPe(0xAA64);
+            variant.DownloadUrl = "https://github.com/ip7z/7zip/releases/download/24.08/7z2408-arm64.exe";
+            variant.PayloadHashQuery = "unused-in-this-pinned-payload-test";
+            variant.PayloadSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(arm64Bytes));
+            File.Copy(baseInstaller, Path.Combine(content, "7z2408-x64.msi"));
+            File.WriteAllBytes(Path.Combine(arm64, "7z2408-arm64.exe"), arm64Bytes);
+
+            var service = new StagingService(new ScraperRegistry(), new DownloadService(), new MsiInspectionService(),
+                new WrapperGeneratorService(), new ManifestService());
+            var result = await service.StageAsync(definition, root, knownVersion: version,
+                inputs: new StageInputs { IncludeArchitectureVariants = true });
+
+            Assert.True(result.Success, result.ErrorMessage);
+            Assert.Contains("if ($proc.ExitCode -eq 111111) { '0' | Out-File (Join-Path $PSScriptRoot 'exitcode.txt') -NoNewline; exit 0 }",
+                File.ReadAllText(Path.Combine(arm64, "install.ps1")));
+            Assert.DoesNotContain("111111", File.ReadAllText(Path.Combine(arm64, "uninstall.ps1")));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task APayloadReplacedAfterItsDigestCheckGetsNoManifest()
     {
         var root = Path.Combine(Path.GetTempPath(), $"apkg-7zip-{Guid.NewGuid():N}");

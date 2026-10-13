@@ -754,6 +754,28 @@ public sealed partial class MecmTarget
     /// <summary>The -Hive value of the New-CMDetectionClauseRegistry* cmdlets for a detection.</summary>
     private static string CmHive(StageDetection det) => det.IsCurrentUserHive ? "CurrentUser" : "LocalMachine";
 
+    // The accepted values of -PropertyType and -ExpressionOperator of New-CMDetectionClauseFile
+    // and New-CMDetectionClauseRegistryKeyValue.
+    private static readonly string[] FilePropertyTypes = ["DateCreated", "DateModified", "Version", "Size"];
+    private static readonly string[] RegistryPropertyTypes = ["Version", "Integer", "String"];
+    private static readonly string[] FileOperators =
+        ["IsEquals", "NotEquals", "GreaterThan", "LessThan", "Between", "GreaterEquals", "LessEquals", "OneOf", "NoneOf"];
+    private static readonly string[] RegistryOperators =
+        [.. FileOperators, "BeginsWith", "NotBeginsWith", "EndsWith", "NotEndsWith", "Contains", "NotContains"];
+
+    /// <summary>
+    /// A detection value that the script carries as a bare word: the accepted value in the
+    /// cmdlet's spelling. A manifest is a file an operator can edit; any other text would
+    /// run as script in the publishing session.
+    /// </summary>
+    private static string CmdletWord(string? value, string fallback, string[] accepted, string field)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return fallback;
+        return accepted.FirstOrDefault(a => a.Equals(value.Trim(), StringComparison.OrdinalIgnoreCase))
+               ?? throw new InvalidOperationException(
+                   $"Detection {field} '{value}' is not a value the ConfigMgr cmdlet accepts. Use one of: {string.Join(", ", accepted)}.");
+    }
+
     private static string BuildDetectionClausePs(StageDetection det)
     {
         return det.Type switch
@@ -762,10 +784,10 @@ public sealed partial class MecmTarget
                 $"$clause = New-CMDetectionClauseFile -Path '{Esc(det.FilePath ?? "")}' -FileName '{Esc(det.FileName ?? "")}' -Existence{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             "File" =>
-                $"$clause = New-CMDetectionClauseFile -Path '{Esc(det.FilePath ?? "")}' -FileName '{Esc(det.FileName ?? "")}' -PropertyType {det.PropertyType ?? "Version"} -Value -ExpressionOperator {det.Operator ?? "GreaterEquals"} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
+                $"$clause = New-CMDetectionClauseFile -Path '{Esc(det.FilePath ?? "")}' -FileName '{Esc(det.FileName ?? "")}' -PropertyType {CmdletWord(det.PropertyType, "Version", FilePropertyTypes, "File PropertyType")} -Value -ExpressionOperator {CmdletWord(det.Operator, "GreaterEquals", FileOperators, "File Operator")} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             "RegistryKeyValue" =>
-                $"$clause = New-CMDetectionClauseRegistryKeyValue -Hive {CmHive(det)} -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -ValueName '{Esc(det.ValueName ?? "DisplayVersion")}' -PropertyType {det.PropertyType ?? "String"} -Value -ExpressionOperator {det.Operator ?? "IsEquals"} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
+                $"$clause = New-CMDetectionClauseRegistryKeyValue -Hive {CmHive(det)} -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -ValueName '{Esc(det.ValueName ?? "DisplayVersion")}' -PropertyType {CmdletWord(det.PropertyType, "String", RegistryPropertyTypes, "RegistryKeyValue PropertyType")} -Value -ExpressionOperator {CmdletWord(det.Operator, "IsEquals", RegistryOperators, "RegistryKeyValue Operator")} -ExpectedValue '{Esc(det.ExpectedValue ?? "")}'{(det.Is64Bit ? " -Is64Bit" : "")}",
 
             "RegistryKey" =>
                 $"$clause = New-CMDetectionClauseRegistryKey -Hive {CmHive(det)} -KeyName '{Esc(det.RegistryKeyRelative ?? "")}' -Existence{(det.Is64Bit ? " -Is64Bit" : "")}",

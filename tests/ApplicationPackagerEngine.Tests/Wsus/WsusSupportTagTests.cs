@@ -96,9 +96,23 @@ public sealed class WsusSupportTagTests
         var def = DefinitionFixture.Load(fileName);
         var possible = DefaultBuildWsusCheck.Possible(def);
 
-        Assert.True(possible.Contains(def.WsusSupport ?? ""),
-            $"{fileName} declares '{def.WsusSupport}'; the check gives {string.Join(" or ", possible.Select(p => "'" + p + "'"))}.");
+        if (possible.Count == 1)
+        {
+            Assert.True(possible[0] == def.WsusSupport, $"{fileName} declares '{def.WsusSupport}'; the check gives '{possible[0]}'.");
+            Assert.False(WsusSupportPins.Expected.ContainsKey(fileName), $"{fileName} has one result and needs no recorded value.");
+            return;
+        }
+
+        // Two results: the stand-in installer cannot decide, the recorded result of the real MSI does.
+        Assert.True(WsusSupportPins.Expected.TryGetValue(fileName, out var recorded),
+            $"{fileName} depends on its staged MSI; record its result in {nameof(WsusSupportPins)}.");
+        Assert.Contains(recorded, possible);
+        Assert.True(recorded == def.WsusSupport, $"{fileName} declares '{def.WsusSupport}'; the recorded result of its MSI is '{recorded}'.");
     }
+
+    [Fact]
+    public void EveryRecordedResultBelongsToAShippedDefinition() =>
+        Assert.Empty(WsusSupportPins.Expected.Keys.Except(DefinitionFiles(), StringComparer.OrdinalIgnoreCase));
 
     [Fact]
     public void TheCheckHasTwoResultsOnlyWhereItReadsTheStagedMsi()

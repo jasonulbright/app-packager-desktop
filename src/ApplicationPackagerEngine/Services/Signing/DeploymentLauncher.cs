@@ -65,7 +65,9 @@ public static class DeploymentLauncher
     /// bar as the parameter dash, cmd removes carets and quotes before
     /// powershell.exe sees the line, and an -ArgumentList string carries
     /// its first parameter behind a quote, so the line is normalized for all
-    /// four before tokens are matched. A bare policy name counts only on a
+    /// four before tokens are matched. PowerShell drops a backtick anywhere in
+    /// a parameter name or a bare word (-Executi`onPolicy By`pass), so a token
+    /// is matched without its backticks. A bare policy name counts only on a
     /// line that also names the execution policy: a comment or a string that
     /// merely contains the word is not a launcher.
     /// </summary>
@@ -80,16 +82,17 @@ public static class DeploymentLauncher
             var token = raw.TrimStart('"', '\'', '`', '‘', '’', '‚', '‛', '“', '”', '„');
             if (string.IsNullOrWhiteSpace(token)) continue;
             if (token[0] != '-' && token[0] != '/') continue;
-            var name = token.TrimStart('-', '/').Trim('"', '\'', '`').ToLowerInvariant();
+            var name = token.TrimStart('-', '/').Replace("`", "", StringComparison.Ordinal).Trim('"', '\'').ToLowerInvariant();
             if (name.Length == 0) continue;
             if ("executionpolicy".StartsWith(name, StringComparison.Ordinal) || name == "ep")
                 findings.Add((CodeExecutionPolicy, raw));
             if ("encodedcommand".StartsWith(name, StringComparison.Ordinal) || name == "ec")
                 findings.Add((CodeEncodedCommand, raw));
         }
-        if (Regex.IsMatch(text, "(?i)executionpolicy"))
+        var plain = text.Replace("`", "", StringComparison.Ordinal);
+        if (Regex.IsMatch(plain, "(?i)executionpolicy"))
         {
-            var bare = Regex.Match(text, @"(?i)\b(bypass|unrestricted|remotesigned)\b");
+            var bare = Regex.Match(plain, @"(?i)\b(bypass|unrestricted|remotesigned)\b");
             if (bare.Success) findings.Add((CodePolicyRelaxation, bare.Groups[1].Value.ToLowerInvariant()));
         }
         return findings;
