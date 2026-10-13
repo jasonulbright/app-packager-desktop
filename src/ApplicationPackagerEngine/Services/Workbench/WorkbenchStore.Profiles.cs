@@ -152,6 +152,21 @@ public sealed partial class WorkbenchStore
         return SaveApplicationDefinition(definition);
     }
 
+    /// <summary>
+    /// Makes one profile the profile that a run of the application builds. The profile
+    /// must exist. Nothing is written when it is already the active one.
+    /// </summary>
+    /// <returns>True when the application definition changed.</returns>
+    public bool EnsureActiveProfile(string applicationId, string profileId)
+    {
+        if (!ApplicationIds.IsDefaultProfile(profileId)) _ = GetProfile(applicationId, profileId);
+        var current = GetApplicationDefinition(applicationId).ActiveProfileId;
+        if (string.IsNullOrWhiteSpace(current)) current = ApplicationIds.DefaultProfileId;
+        if (string.Equals(current, profileId, StringComparison.OrdinalIgnoreCase)) return false;
+        SetActiveProfile(applicationId, profileId);
+        return true;
+    }
+
     /// <summary>Save as: copies a profile and its managed assets under a new id, at revision 0 before the save.</summary>
     public WorkbenchProfile CopyProfile(string applicationId, string profileId, string newName, bool setActive = false)
     {
