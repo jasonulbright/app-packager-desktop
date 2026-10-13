@@ -149,6 +149,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishWsusCommand.NotifyCanExecuteChanged();
         WsusUpdatesCommand.NotifyCanExecuteChanged();
         OneClickCommand.NotifyCanExecuteChanged();
+        NotifyCveCommands();
     }
 
     private async Task InitializeAsync()
@@ -207,7 +208,7 @@ public partial class PackagesViewModel : ObservableObject
     private void SelectUpdateAvailable()
     {
         foreach (var p in Packagers)
-            p.IsSelected = p.IsRunnable && p.Status == "Update available";
+            p.IsSelected = p.IsRunnable && CveRowState.IsUpdateAvailable(p.Status);
     }
 
     [RelayCommand]
@@ -321,6 +322,7 @@ public partial class PackagesViewModel : ObservableObject
             p.LatestVersion = vendor?.LatestVersion ?? "";
             p.CurrentVersion = _inventoryProjection.Environment(p, settings)?.LatestObservedVersion ?? "";
             if (!string.IsNullOrEmpty(vendor?.LatestVersion)) p.Status = "Cached";
+            ApplyStoredCveState(p, settings);
         }
 
         Packagers = new ObservableCollection<PackagerInfo>(results);
@@ -612,6 +614,9 @@ public partial class PackagesViewModel : ObservableObject
             _operationCts?.Dispose();
             _operationCts = null;
         }
+
+        if (settings.Vulnerability is { LookupAfterCheckCm: true } && !tally.Cancelled)
+            await RunCveCheckAsync(selected, force: false, "Checking CVEs for the queried applications...");
     }
 
     private async Task StageAsync() => await RunStageAsync();
@@ -1348,6 +1353,7 @@ public partial class PackagesViewModel : ObservableObject
         {
             p.CurrentVersion = "";
             p.Status = "Ready";
+            CveRowState.Clear(p);
         }
     }
 
