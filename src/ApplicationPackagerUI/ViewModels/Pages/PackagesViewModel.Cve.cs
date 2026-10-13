@@ -41,7 +41,7 @@ public partial class PackagesViewModel
         VulnerabilitySummary? summary = null;
         if (row.Cpe.Length > 0 && row.CurrentVersion.Length > 0 && row.LatestVersion.Length > 0)
         {
-            try { summary = _inventory.GetVulnerabilitySummary(row.Uid, CveEnvironment(settings)); }
+            try { summary = _inventory.GetVulnerabilitySummary(row.Uid, CveEnvironment(settings), row.Cpe); }
             catch (Exception ex) when (ex is System.Data.Common.DbException or System.IO.IOException) { }
         }
         CveRowState.Preload(row, summary);
