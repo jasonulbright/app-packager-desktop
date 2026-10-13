@@ -259,7 +259,8 @@ public static class BuildArguments
           --apps <a,b,...>            Application ids, definition file names or packager file names; all when omitted
           --skip-latest               Do not query the vendors; use the latest versions of the application inventory
           --skip-mecm                 Do not query ConfigMgr; use the ConfigMgr versions of the application inventory
-          --skip-cve                  Do not look CVEs up; write the version report only
+          --skip-cve                  Do not look CVEs up. The report shows the results of the CVE cache
+                                      and marks each as not looked up in this run
           --report-folder <folder>    Folder of the report files; Reports under the data root when omitted
           --report-formats <f,...>    Html, Csv, Json, Xlsx, Markdown; all when omitted
           --drop-folder <folder>      Copy the report files to this folder

@@ -280,6 +280,7 @@ public sealed class CveReportRunner(
             output.Info($"Applications  : {summary.Total}");
             output.Info($"Updates       : {summary.Updates}");
             output.Info($"LookedUp      : {summary.LookedUp}");
+            output.Info($"FromCache     : {summary.FromCache}");
             output.Info($"CVEs          : {summary.Cves}");
             output.Info($"KEV           : {summary.Kev}");
             output.Info($"Failed        : {summary.Failed}");
