@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "8bc6b24c87594bc3",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "VideoLAN",
     "Application":  "VLC Media Player (x64)",

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "0000089d8d25e2a0",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "PowerShell 7 (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "4df45193e8156b85",
+  "WsusSupport": "No (CustomInstall)",
   "IconSource": "Installer",
   "Vendor": "MuleSoft",
   "Application": "Anypoint Studio (x64)",

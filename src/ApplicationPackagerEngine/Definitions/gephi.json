@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "af73162b8e50d94c",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "Gephi Consortium",
   "Application": "Gephi (x64)",

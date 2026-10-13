@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "33223ed1a2f54eea",
+    "WsusSupport":  "No (DetectionNotMappable)",
     "Vendor":  "Anaconda, Inc.",
     "Application":  "Anaconda Distribution (x64)",
     "CMName":  "Anaconda",

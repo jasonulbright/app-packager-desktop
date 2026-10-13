@@ -52,6 +52,26 @@ public class WindowsPowerShellHostTests
     }
 
     [Fact]
+    public void AModulePathInheritedFromPowerShell7IsReplacedForEveryWindowsPowerShellChild()
+    {
+        var expected = WindowsPowerShellHost.LogonModulePath(
+            Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.User),
+            Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.Machine));
+        void AssertLogonValue(System.Diagnostics.ProcessStartInfo info)
+        {
+            if (expected.Length > 0) Assert.Equal(expected, info.Environment["PSModulePath"]);
+            else Assert.False(info.Environment.ContainsKey("PSModulePath"));
+        }
+
+        var inherited = new System.Diagnostics.ProcessStartInfo("powershell.exe");
+        inherited.Environment["PSModulePath"] = @"C:\Program Files\PowerShell\7\Modules";
+        WindowsPowerShellHost.ApplyLogonModulePath(inherited);
+        AssertLogonValue(inherited);
+
+        AssertLogonValue(ApplicationPackagerUI.Services.PackagerExecutionService.ChildStartInfo(["-NoProfile"], null));
+    }
+
+    [Fact]
     public async Task PassesArgumentsAndStandardInputToTheScriptAndRemovesItsFile()
     {
         var lines = new List<string>();

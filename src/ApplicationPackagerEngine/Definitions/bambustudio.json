@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1cb2217736c90d1d",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Bambu Lab",
   "Application": "Bambu Studio (x64)",

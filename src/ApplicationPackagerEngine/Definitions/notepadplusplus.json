@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "000002954536ed4a",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Don HO",
     "Application":  "Notepad++ (x64)",

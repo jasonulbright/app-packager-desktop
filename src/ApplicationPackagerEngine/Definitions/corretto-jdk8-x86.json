@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "00000024ad71cfb0",
+    "WsusSupport":  "Yes",
     "IconSource":  "None",
     "Vendor":  "Amazon",
     "Application":  "Amazon Corretto JDK 8 (x86)",

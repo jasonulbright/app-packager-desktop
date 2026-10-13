@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "58f7068f4445e008",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Azul",
   "Application": "Azul Zulu JRE 11 (x64)",

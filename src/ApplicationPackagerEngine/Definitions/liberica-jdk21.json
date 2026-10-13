@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e3c4e90329bc3e9c",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "BellSoft",
   "Application": "Liberica JDK 21 (x64)",

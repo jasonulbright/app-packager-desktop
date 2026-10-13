@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "48c5fa157ea4582d",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Zeal",
   "Application": "Zeal (x64)",

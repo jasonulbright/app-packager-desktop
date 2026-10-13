@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e6c209b7413df85a",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "SMath",
   "Application": "SMath Studio (x64)",
@@ -13,6 +14,8 @@
   "VersionScraper": {
     "Type": "HttpRegex",
     "SelectHighestVersion": true,
+    "FetchRetries": 2,
+    "FetchMaxTimeSeconds": 20,
     "Url": "https://smath.com/en-US/view/SMathStudio/download",
     "Pattern": "href\\s*=\\s*\"[^\"]*?SMathStudioDesktop\\.(\\d+(?:_\\d+)+)\\.Setup\\.msi\"",
     "DownloadUrlQuery": "href\\s*=\\s*\"(/[^\"]*?SMathStudioDesktop\\.{version}\\.Setup\\.msi)\"",

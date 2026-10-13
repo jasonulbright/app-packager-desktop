@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1b6a542a5179b417",
+  "WsusSupport": "No (PerUserInstall)",
   "IconSource": "Installer",
   "Vendor": "Microsoft",
   "Application": "Microsoft OpenJDK 25 (EXE, per user)",

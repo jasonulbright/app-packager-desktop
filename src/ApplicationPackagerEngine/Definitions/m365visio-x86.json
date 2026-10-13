@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "d1e2f3a4b5c60006",
+  "WsusSupport": "No (InstallerTypeUnsupported)",
   "IconSource": "External",
   "Vendor": "Microsoft",
   "Application": "M365 Visio (x86)",

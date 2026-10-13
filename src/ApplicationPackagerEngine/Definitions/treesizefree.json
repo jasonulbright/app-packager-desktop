@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "de4ed1ffa4c647b2",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "JAM Software",
     "Application":  "TreeSize Free",

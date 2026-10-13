@@ -85,12 +85,14 @@ public static class PowerShellScriptInspector
         {
             await File.WriteAllTextAsync(path, text, new UTF8Encoding(false), ct).ConfigureAwait(false);
             var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(InspectorCommand(path)));
-            var run = await BoundedProcessRunner.RunAsync(new ProcessStartInfo
+            var startInfo = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
                 Arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + encoded,
                 StandardOutputEncoding = Encoding.UTF8
-            }, Timeout, ct).ConfigureAwait(false);
+            };
+            WindowsPowerShellHost.ApplyLogonModulePath(startInfo);
+            var run = await BoundedProcessRunner.RunAsync(startInfo, Timeout, ct).ConfigureAwait(false);
             if (run.TimedOut) return new ScriptInspection([], false, "Windows PowerShell did not finish parsing the script.");
             if (run.ExitCode != 0 || string.IsNullOrWhiteSpace(run.StdOut))
                 return new ScriptInspection([], false, string.IsNullOrWhiteSpace(run.StdErr) ? $"Windows PowerShell exited {run.ExitCode}." : run.StdErr.Trim());

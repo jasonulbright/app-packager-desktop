@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "82be05d3f74c1a69",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "Raspberry Pi Ltd",
   "Application": "Raspberry Pi Imager (x64)",

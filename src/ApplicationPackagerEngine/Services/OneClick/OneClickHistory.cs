@@ -31,8 +31,18 @@ public sealed record OneClickHistoryEntry
     public IReadOnlyDictionary<string, OneClickPublishRecord> Published { get; init; } = new Dictionary<string, OneClickPublishRecord>();
     public IReadOnlyDictionary<string, OneClickRefusalRecord> NotSupported { get; init; } = new Dictionary<string, OneClickRefusalRecord>();
 
+    /// <summary>
+    /// Per destination, the build key (<see cref="OneClickHistory.BuildKey"/>) of the build
+    /// the last publish carried. A destination without an entry has a publish whose build
+    /// is not known.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> PublishedBuild { get; init; } = new Dictionary<string, string>();
+
     public string PublishedVersion(string destination) =>
         Published.TryGetValue(destination, out var record) ? record.Version ?? "" : "";
+
+    public string PublishedBuildKey(string destination) =>
+        PublishedBuild.TryGetValue(destination, out var key) ? key ?? "" : "";
 
     public string RefusedVersion(string destination) =>
         NotSupported.TryGetValue(destination, out var record) ? record.Version ?? "" : "";
@@ -46,6 +56,13 @@ public static class OneClickHistory
 {
     public static string Stamp(DateTimeOffset at) =>
         at.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The identity of a build for the publish guard: profile, profile revision and
+    /// signing-policy digest. A publish of another build does not count as this one.
+    /// </summary>
+    public static string BuildKey(string? profileId, int profileRevision, string? policyDigest) =>
+        $"{profileId}|{profileRevision.ToString(CultureInfo.InvariantCulture)}|{policyDigest}";
 
     /// <summary>Records a publish. A publish clears that destination's refusal record.</summary>
     public static void SetPublished(IDictionary<string, OneClickPublishRecord> published, IDictionary<string, OneClickRefusalRecord> notSupported,

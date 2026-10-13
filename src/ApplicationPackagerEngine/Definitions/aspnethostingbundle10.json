@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "890471f49355dc60",
+  "WsusSupport": "Yes",
   "IconSource": "None",
   "Vendor": "Microsoft",
   "Application": "ASP.NET 10 Server Hosting Bundle (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "7a3f95d2e18c604b",
+  "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "Piriform Software Ltd.",
   "Application": "Defraggler (x64)",

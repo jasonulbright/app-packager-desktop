@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "74522606c2454fb7",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "The GIMP Team",
     "Application":  "GIMP (x64)",

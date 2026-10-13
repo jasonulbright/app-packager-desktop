@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "537c0422142799bb",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Corporation for Digital Scholarship",
   "Application": "Zotero (x64)",

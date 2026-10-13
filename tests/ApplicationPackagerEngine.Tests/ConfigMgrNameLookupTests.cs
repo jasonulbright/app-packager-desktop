@@ -71,4 +71,17 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
             Lookup("Microsoft .NET 8", ("Microsoft .NET 8.0.31 - Windows Server Hosting", "8.0.31")));
         Assert.Equal("NOT_FOUND", Lookup("Microsoft .NET 1", ("Microsoft .NET 10.0.12 - Windows Server Hosting", "10.0.12")));
     }
+
+    [Theory]
+    [InlineData("PowerShell 7", "PowerShell 7-x64", true)]
+    [InlineData("PowerShell 7", "PowerShell 7.5.3", true)]
+    [InlineData("PowerShell 7", "PowerShell 7-preview", false)]
+    [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18.5.1.1 for SQL Server", true)]
+    [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18 for SQL Server 18.5.1.1", true)]
+    [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 17 for SQL Server", false)]
+    [InlineData("Microsoft ODBC Driver 18 for SQL Server", "Microsoft ODBC Driver 18 for SQL Server Tools", false)]
+    [InlineData("Mozilla Firefox", "Mozilla Firefox ESR (x64 en-US)", false)]
+    [InlineData("Microsoft Edge", "Microsoft Edge WebView2 Runtime", false)]
+    public void ATitleWithTheVersionMidNameOrTheArchitectureAttachedIsFound(string cmName, string title, bool found) =>
+        Assert.Equal(found ? $"FOUND|{title}|1.0|1" : "NOT_FOUND", Lookup(cmName, (title, "1.0")));
 }

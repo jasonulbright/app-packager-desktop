@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "89fd188eca2f418d",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "OpenShot Studios, LLC",
   "Application": "OpenShot Video Editor (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "c58f0d3a26b7e419",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "Proton AG",
   "Application": "Proton VPN (x64)",

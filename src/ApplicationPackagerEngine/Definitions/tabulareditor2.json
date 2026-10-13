@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "662d3d3b93a4a93e",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Tabular Editor ApS",
   "Application": "Tabular Editor 2 (x86)",

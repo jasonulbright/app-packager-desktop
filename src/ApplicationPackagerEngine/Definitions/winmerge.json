@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "000002b9e76c6134",
+    "WsusSupport":  "Yes",
     "IconSource":  "External",
     "Vendor":  "Thingamahoochie Software",
     "Application":  "WinMerge (x64)",

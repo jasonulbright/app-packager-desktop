@@ -45,7 +45,7 @@ public sealed class VendorPageDefinitionTests : IDisposable
     }
 
     [Fact]
-    public void JabraChecksThePayloadVersionAndDetectsTheBundleKey()
+    public void JabraChecksThePayloadVersionAndDetectsTheInstalledExecutable()
     {
         var def = DefinitionFixture.Load("jabradirect.json");
         var staged = StagingService.BuildDetection(def, null, "8.3.26701");
@@ -53,8 +53,9 @@ public sealed class VendorPageDefinitionTests : IDisposable
         Assert.Equal("{version}", def.ExpectedPayloadVersion);
         Assert.Equal("JabraDirectSetup.exe", def.InstallerFileName);
         Assert.Equal(["User-Agent: Mozilla/5.0"], def.VersionScraper.RequestHeaders!);
-        Assert.Equal(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}", staged.RegistryKeyRelative);
-        Assert.False(staged.Is64Bit);
+        // A Burn bundle id changes with each release, so no uninstall key name is pinned.
+        Assert.Equal("File", staged.Type);
+        Assert.Null(staged.RegistryKeyRelative);
         Assert.Contains("QuietUninstallString", def.UninstallCommand);
         Assert.Equal(["jabra-direct"], def.RunningProcess);
     }

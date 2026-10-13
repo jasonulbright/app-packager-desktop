@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f032a665efcfece8",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Ocenaudio Team",
   "Application": "ocenaudio (x64)",

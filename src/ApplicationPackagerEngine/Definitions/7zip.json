@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "fa505d1415214f14",
+    "WsusSupport":  "Yes",
     "IconSource":  "External",
     "Vendor":  "7-Zip",
     "Application":  "7-Zip (x64)",

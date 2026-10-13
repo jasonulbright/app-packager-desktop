@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "a2dc192b1643df73",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "TPGi",
   "Application": "Colour Contrast Analyser (x64)",

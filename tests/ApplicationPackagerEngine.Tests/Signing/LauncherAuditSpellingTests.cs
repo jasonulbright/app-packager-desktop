@@ -33,6 +33,33 @@ public sealed class LauncherAuditSpellingTests : IDisposable
     private LauncherChainResult Audit(SigningPolicy? policy = null) =>
         DeploymentLauncher.AuditChain(_root, null, policy ?? new SigningPolicy());
 
+    /// <summary>
+    /// An installer switch inside an argument array ('/e', '-en') has the shape of a
+    /// PowerShell parameter prefix. No generated script of a shipped definition may
+    /// carry one, or a signing policy refuses its stage.
+    /// </summary>
+    [Fact]
+    public void TheGeneratedScriptsOfEveryShippedDefinitionCarryNoParameterFinding()
+    {
+        var findings = new List<string>();
+        foreach (var path in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Definitions"), "*.json"))
+        {
+            var def = DefinitionFixture.Load(Path.GetFileName(path));
+            foreach (var (name, text) in Wsus.DefaultBuildWsusCheck.Scripts(def))
+            {
+                // An unsigned .bat launcher names the execution policy by design.
+                if (name.EndsWith(".bat", StringComparison.OrdinalIgnoreCase)) continue;
+                foreach (var line in text.Split('\n'))
+                {
+                    if (line.TrimStart().StartsWith('#')) continue;
+                    foreach (var (code, token) in DeploymentLauncher.TokenFindings(line))
+                        findings.Add($"{Path.GetFileName(path)} {name}: {code} {token}");
+                }
+            }
+        }
+        Assert.Empty(findings);
+    }
+
     [Theory]
     [InlineData("launch.bat", "powershell.exe -NoProfile -ec ZQB4AGkAdAAgADAA", DeploymentLauncher.CodeEncodedCommand)]
     [InlineData("launch.bat", "powershell.exe -NoProfile \"-ex\" Bypass -File \"%~dp0install.ps1\"", DeploymentLauncher.CodeExecutionPolicy)]
@@ -41,6 +68,10 @@ public sealed class LauncherAuditSpellingTests : IDisposable
     [InlineData("launch.bat", "powershell.exe -NoProfile —ExecutionPolicy Bypass -File \"%~dp0install.ps1\"", DeploymentLauncher.CodeExecutionPolicy)]
     [InlineData("launch.bat", "powershell.exe -NoProfile ―ExecutionPolicy Bypass -File \"%~dp0install.ps1\"", DeploymentLauncher.CodeExecutionPolicy)]
     [InlineData("launch.bat", "powershell.exe -NoProfile -^ex^ecutionpolicy b^ypass -File \"%~dp0install.ps1\"", DeploymentLauncher.CodeExecutionPolicy)]
+    [InlineData("launch.ps1", "Start-Process powershell.exe -ArgumentList '-ep','bypass','-File','step.ps1' -Wait", DeploymentLauncher.CodeExecutionPolicy)]
+    [InlineData("launch.ps1", "Start-Process powershell.exe -ArgumentList @('-ex', 'bypass', '-File', 'step.ps1') -Wait", DeploymentLauncher.CodeExecutionPolicy)]
+    [InlineData("launch.ps1", "Start-Process powershell.exe -ArgumentList @('-NoProfile';'-ec';'ZQB4AGkAdAAgADAA') -Wait", DeploymentLauncher.CodeEncodedCommand)]
+    [InlineData("launch.ps1", "& powershell.exe `-ep bypass -File step.ps1", DeploymentLauncher.CodeExecutionPolicy)]
     public void ASpellingWindowsPowerShellAccepts_IsAFinding(string file, string line, string code)
     {
         Write(file, line);

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0f89b2263af0aa29",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Arduino",
   "Application": "Arduino IDE (x64)",

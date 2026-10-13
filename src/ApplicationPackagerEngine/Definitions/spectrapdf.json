@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "7ae4013c8b96f52d",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Signal Ridge Labs",
   "Application": "Spectra PDF (x64)",

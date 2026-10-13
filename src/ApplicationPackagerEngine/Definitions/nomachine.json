@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "ece412b6285f423f",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "NoMachine",
   "Application": "NoMachine (x64)",

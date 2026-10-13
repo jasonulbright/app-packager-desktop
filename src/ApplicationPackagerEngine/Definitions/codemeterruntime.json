@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0c0ff28ff49d88ae",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "WIBU-SYSTEMS",
   "Application": "CodeMeter Runtime Kit (x64)",

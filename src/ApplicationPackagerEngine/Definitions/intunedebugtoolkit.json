@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "45a9c07be2f18d63",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "MSEndpointMgr",
   "Application": "Intune Debug Toolkit (x64)",
