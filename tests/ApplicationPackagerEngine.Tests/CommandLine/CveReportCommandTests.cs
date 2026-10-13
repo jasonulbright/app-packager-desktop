@@ -90,6 +90,7 @@ public sealed class CveReportArgumentsTests
         Assert.Contains("--application is required", Refused("--cve-report=false", "--stage"));
         Assert.Contains("--cve-report", BuildArguments.Usage);
         foreach (var option in CveReportArguments.OnlyOptions) Assert.Contains("--" + option, BuildArguments.Usage);
+        Assert.Contains("--skip-cve                  Do not look CVEs up. The report shows the results of the CVE cache", BuildArguments.Usage);
     }
 
     [Fact]
@@ -205,6 +206,7 @@ public sealed class CveReportRunnerTests : IDisposable
         Assert.True(config["Notifications"]!["OnlyOnStale"]!.GetValue<bool>());
         Assert.Null(config["NVD"]);
         Assert.Contains(_output.Lines, line => line.StartsWith("Applications  : "));
+        Assert.Contains("FromCache     : 0", _output.Lines);
         Assert.Contains("ExitCode      : 0", _output.Lines);
     }
 
