@@ -78,8 +78,7 @@ public sealed class ApplicationInventoryProjection(ApplicationInventoryService i
         if (string.IsNullOrWhiteSpace(buildId)) return null;
         try
         {
-            var record = BuildRecords.List(plan.DataRoot, plan.ApplicationId)
-                .FirstOrDefault(r => string.Equals(WorkbenchJson.Get(r, "BuildId").Text, buildId, StringComparison.OrdinalIgnoreCase));
+            var record = BuildRecords.Find(plan.DataRoot, plan.ApplicationId, buildId);
             if (record is null) return null;
             return OneClickHistory.BuildKey(WorkbenchJson.Get(record, "ProfileId").Text,
                 WorkbenchJson.AsInt(record["ProfileRevision"]) ?? 0, WorkbenchJson.Get(record, "PolicyDigest").Text);

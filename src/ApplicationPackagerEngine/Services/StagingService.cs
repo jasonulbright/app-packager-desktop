@@ -770,7 +770,8 @@ public sealed class StagingService
         var wrappers = finalizer.Wrappers(_wrapperService);
         wrappers.GenerateExeWrappers(variantPath, fileName, installArgs, uninstallArgs,
             applicationName: definition.Application, uninstallCommand: uninstallCommand,
-            postInstallKillProcesses: definition.PostInstallKillProcesses, rebootExitCodes: definition.RebootExitCodes);
+            postInstallKillProcesses: definition.PostInstallKillProcesses, rebootExitCodes: definition.RebootExitCodes,
+            successExitCodes: variantDefinition.SuccessExitCodes);
 
         var result = new List<StageDeploymentType>
         {
@@ -813,6 +814,7 @@ public sealed class StagingService
         RequirePayloadHash = variant.RequirePayloadHash,
         RequireValidSignature = variant.RequireValidSignature,
         RunningProcess = definition.RunningProcess,
+        SuccessExitCodes = definition.SuccessExitCodes,
         VersionScraper = new VersionScraperConfig
         {
             Type = definition.VersionScraper.Type,
