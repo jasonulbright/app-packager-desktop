@@ -21,7 +21,14 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
     }
 
     /// <summary>Runs the lookup with the given (title, version) rows and returns its stdout line.</summary>
-    private string Lookup(string cmName, params (string Title, string Version)[] apps)
+    private string Lookup(string cmName, params (string Title, string Version)[] apps) => Lookup(cmName, null, null, apps);
+
+    /// <summary>
+    /// Runs the lookup with a provider. The site drive that exists before the query is
+    /// rooted at <paramref name="driveRoot"/>; a drive the query creates is recorded with
+    /// its provider type and root in created.txt.
+    /// </summary>
+    private string Lookup(string cmName, string? provider, string? driveRoot, params (string Title, string Version)[] apps)
     {
         var script = Path.Combine(_dir, "lookup.ps1");
         File.WriteAllText(script, MecmQueryService.QueryScript);
@@ -34,8 +41,14 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
                 $pattern = New-Object System.Management.Automation.WildcardPattern($Name, [System.Management.Automation.WildcardOptions]::IgnoreCase)
                 @($global:Apps | Where-Object { $pattern.IsMatch($_.LocalizedDisplayName) })
             }
-            New-PSDrive -Name TST -PSProvider FileSystem -Root '{{_dir}}' | Out-Null
-            & '{{script}}' -SiteCode TST -CMName '{{cmName}}'
+            function New-PSDrive {
+                param([string]$Name, [string]$PSProvider, [string]$Root, $ErrorAction)
+                Add-Content -LiteralPath '{{Path.Combine(_dir, "created.txt")}}' -Value "$Name|$PSProvider|$Root"
+                if ($Root -eq 'unreachable') { throw 'The SMS Provider reported an error.' }
+                Microsoft.PowerShell.Management\New-PSDrive -Name $Name -PSProvider FileSystem -Root '{{_dir}}' -Scope Global
+            }
+            {{(driveRoot is null && provider is not null ? "" : $"Microsoft.PowerShell.Management\\New-PSDrive -Name TST -PSProvider FileSystem -Root '{driveRoot ?? _dir}' -Scope Global | Out-Null")}}
+            & '{{script}}' -SiteCode TST -CMName '{{cmName}}'{{(provider is null ? "" : $" -ProviderMachineName '{provider}'")}}
             """);
         var start = new ProcessStartInfo("powershell.exe")
         {
@@ -46,6 +59,57 @@ public sealed class ConfigMgrNameLookupTests : IDisposable
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
         return output.Trim();
+    }
+
+    private string[] CreatedDrives() =>
+        File.Exists(Path.Combine(_dir, "created.txt")) ? File.ReadAllLines(Path.Combine(_dir, "created.txt")) : [];
+
+    [Fact]
+    public void WithoutAProviderTheExistingSiteDriveIsUsed()
+    {
+        Assert.Equal("FOUND|Audacity|3.7.1|1", Lookup("Audacity", ("Audacity", "3.7.1")));
+        Assert.Empty(CreatedDrives());
+    }
+
+    [Fact]
+    public void WithAProviderAndNoSiteDriveTheDriveIsCreatedAtThatProvider()
+    {
+        Assert.Equal("FOUND|Audacity|3.7.1|1", Lookup("Audacity", "cm01.example.test", null, ("Audacity", "3.7.1")));
+        Assert.Equal(["TST|CMSite|cm01.example.test"], CreatedDrives());
+    }
+
+    [Fact]
+    public void ASiteDriveOfAnotherProviderIsReplacedByOneAtTheRequestedProvider()
+    {
+        var other = Directory.CreateDirectory(Path.Combine(_dir, "cm02.example.test")).FullName;
+        Assert.Equal("FOUND|Audacity|3.7.1|1", Lookup("Audacity", "cm01.example.test", other, ("Audacity", "3.7.1")));
+        Assert.Equal(["TST|CMSite|cm01.example.test"], CreatedDrives());
+    }
+
+    [Fact]
+    public void ASiteDriveOfTheRequestedProviderIsKept()
+    {
+        Assert.Equal("FOUND|Audacity|3.7.1|1", Lookup("Audacity", _dir.ToUpperInvariant() + @"\", _dir, ("Audacity", "3.7.1")));
+        Assert.Empty(CreatedDrives());
+    }
+
+    [Fact]
+    public void AProviderThatDoesNotAnswerFailsTheQueryInsteadOfUsingAnotherDrive()
+    {
+        var other = Directory.CreateDirectory(Path.Combine(_dir, "cm02.example.test")).FullName;
+        Assert.Equal("ERROR:SITE_DRIVE_FAILED", Lookup("Audacity", "unreachable", other, ("Audacity", "3.7.1")));
+        Assert.Equal("ERROR:SITE_DRIVE_FAILED", Lookup("Audacity", "unreachable", null, ("Audacity", "3.7.1")));
+    }
+
+    [Fact]
+    public void TheProviderReachesTheQueryProcessAsAnArgumentValue()
+    {
+        var start = MecmQueryService.BuildStartInfo(@"C:\t\q.ps1", "MCM", " cm01.example.test ", "PuTTY");
+        var arguments = start.ArgumentList.ToList();
+        Assert.Equal("cm01.example.test", arguments[arguments.IndexOf("-ProviderMachineName") + 1]);
+        Assert.Equal("MCM", arguments[arguments.IndexOf("-SiteCode") + 1]);
+        Assert.Equal("PuTTY", arguments[arguments.IndexOf("-CMName") + 1]);
+        Assert.DoesNotContain("-ProviderMachineName", MecmQueryService.BuildStartInfo(@"C:\t\q.ps1", "MCM", " ", "PuTTY").ArgumentList);
     }
 
     [Fact]
