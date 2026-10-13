@@ -196,7 +196,7 @@ A link in the CVE window opens in your browser. App Packager Desktop sends no re
 
 ConfigMgr packaging and deployment, WSUS publishing with a client update, and signed builds on a client that enforces AllSigned are validated on a lab site with client computers. Intune publishing is tested against simulated Graph responses only.
 
-The October 9 review changes pass the Release test suite. The new user-collection option and publication failure handling have automated coverage; they have not yet been validated against live ConfigMgr, Intune or WSUS in this review.
+The CVE lookup, the CVE reports, the command-line CVE report run, the ConfigMgr title lookup and the One Click skip and republish rules are validated on the lab site. The user-collection option and the publication failure handling have automated tests only; they are not validated against live ConfigMgr, Intune or WSUS.
 
 ## Relationship to app-packager
 
