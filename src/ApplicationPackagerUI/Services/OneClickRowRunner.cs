@@ -117,6 +117,22 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                 return;
             }
             var checkedAt = DateTimeOffset.UtcNow;
+
+            // A vendor feed can step back to an older release. The check is recorded as
+            // skipped, which leaves the newer version on record, and the row does nothing.
+            if (!options.Force && lastKnown.Length > 0 && VersionCompare.CompareStrict(lastKnown, latest) > 0)
+            {
+                var older = $"vendor reports {latest}, older than {lastKnown} seen before";
+                inventory.RecordVendorCheck(new InventoryVendorCheck(p.Uid, p.Application, latest, source,
+                    InventoryOutcome.Skipped, checkedAt, operationId, older));
+                p.LatestVersion = latest;
+                item.Version = latest;
+                p.Status = "Vendor older than last seen";
+                log($"{p.Application}: the vendor reports {latest}, older than {lastKnown} seen before - skipping");
+                Finish(item, OneClickOutcomes.Skipped, older);
+                return;
+            }
+
             inventory.RecordVendorCheck(new InventoryVendorCheck(p.Uid, p.Application, latest, source,
                 InventoryOutcome.Succeeded, checkedAt, operationId));
             p.LatestVersion = latest;
@@ -135,8 +151,9 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
 
         var buildStale = plan is not null && BuildRecords.IsCurrent(plan.DataRoot, plan.ApplicationId, plan.ProfileId, latest,
             plan.ProfileRevision, settings.ScriptSigning.PolicyDigest) == false;
+        var buildKey = plan is null ? "" : OneClickHistory.BuildKey(plan.ProfileId, plan.ProfileRevision, settings.ScriptSigning.PolicyDigest);
         var decision = OneClickPlanner.Decide(action, item.Destinations.Names, entry, latest, p.CurrentVersion, options.Force, versionChanged, buildStale,
-            staged: entry?.LastStaged is not null, item.NotReady);
+            staged: entry?.LastStaged is not null, item.NotReady, buildKey);
         foreach (var (destination, cell) in decision.GuardResults) item.SetResult(destination, cell);
         if (!decision.Stage)
         {
@@ -146,7 +163,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             return;
         }
         if (buildStale && !versionChanged && decision.PublishTo.Count == 0)
-            log($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. Its destinations carry this version, so it is not published.");
+            log($"One Click: {p.Application} {latest} restages: the last build differs in version, profile revision or signing policy. No destination takes a publish of it.");
 
         // One run snapshot serves the stage and every publish of this row.
         if (plan is null)

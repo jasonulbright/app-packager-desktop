@@ -329,6 +329,96 @@ public sealed class OneClickPlannerTests
         Assert.Equal(["ConfigMgr: 4.1 already published"], decision.SkipReasons);
     }
 
+    private static OneClickHistoryEntry PublishedBuild(string destination, string version, string buildKey) =>
+        Published(destination, version) with { PublishedBuild = new Dictionary<string, string> { [destination] = buildKey } };
+
+    [Fact]
+    public void AStaleBuildIsPublishedAgainToADestinationThatHasAPublishRecord()
+    {
+        var decision = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr", "WSUS"], Published("WSUS", "4.1"), "4.1", "4.1", false, false, buildStale: true, staged: true);
+        Assert.True(decision.Stage);
+        Assert.Equal(["WSUS"], decision.PublishTo);
+        Assert.Equal(["ConfigMgr: 4.1 already published"], decision.SkipReasons);
+    }
+
+    [Fact]
+    public void APublishRecordOfAnotherBuildDoesNotCountAsPublished()
+    {
+        var current = OneClickHistory.BuildKey("default", 3, "digest-b");
+        var other = PublishedBuild("Intune", "4.1", OneClickHistory.BuildKey("default", 2, "digest-b"));
+        Assert.Equal(["Intune"], OneClickPlanner.Decide("StageAndPackage", ["Intune"], other, "4.1", "", false, false, false, true, buildKey: current).PublishTo);
+
+        var otherPolicy = PublishedBuild("Intune", "4.1", OneClickHistory.BuildKey("default", 3, "digest-a"));
+        Assert.Equal(["Intune"], OneClickPlanner.Decide("StageAndPackage", ["Intune"], otherPolicy, "4.1", "", false, false, false, true, buildKey: current).PublishTo);
+
+        var same = PublishedBuild("Intune", "4.1", current);
+        var kept = OneClickPlanner.Decide("StageAndPackage", ["Intune"], same, "4.1", "", false, false, false, true, buildKey: current);
+        Assert.Empty(kept.PublishTo);
+        Assert.Equal("already published 4.1", kept.GuardResults["Intune"]);
+
+        // A publish whose build is not known is honored as it is.
+        Assert.Empty(OneClickPlanner.Decide("StageAndPackage", ["Intune"], Published("Intune", "4.1"), "4.1", "", false, false, false, true, buildKey: current).PublishTo);
+    }
+
+    [Theory]
+    [InlineData("5.7.1", "5.7.0", true)]
+    [InlineData("8.9.8.1", "8.9.8", true)]
+    [InlineData("8.9.8", "8.9.8.1", false)]
+    [InlineData("5.7.0", "5.7.0", false)]
+    [InlineData("not-a-version", "5.7.0", false)]
+    public void ADestinationWhosePublishedVersionIsNewerThanTheVendorVersionIsSkipped(string published, string latest, bool skipped)
+    {
+        var decision = OneClickPlanner.Decide("StageAndPackage", ["WSUS"], Published("WSUS", published), latest, "", false, true, false, true);
+        if (skipped)
+        {
+            Assert.Empty(decision.PublishTo);
+            Assert.Equal($"skipped: published {published} is newer than {latest}", decision.GuardResults["WSUS"]);
+            Assert.Equal([$"WSUS: published {published} is newer than {latest}"], decision.SkipReasons);
+        }
+        else if (published != latest)
+        {
+            Assert.Equal(["WSUS"], decision.PublishTo);
+        }
+    }
+
+    [Fact]
+    public void AConfigMgrSiteThatHoldsANewerVersionIsSkippedAndABuildNumberTheVendorDoesNotPublishIsNotNewer()
+    {
+        var newer = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], null, "5.7.0", "5.7.1", false, true, false, true);
+        Assert.Empty(newer.PublishTo);
+        Assert.Equal("skipped: site version 5.7.1 is newer than 5.7.0", newer.GuardResults["ConfigMgr"]);
+
+        Assert.Null(OneClickPlanner.NewerThanVendor(null, "ConfigMgr", "26.2.2.2", "26.2.2"));
+        Assert.Null(OneClickPlanner.NewerThanVendor(null, "WSUS", "9.0", "1.0"));
+        Assert.Equal(["ConfigMgr"], OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], null, "5.7.0", "5.7.1", force: true, true, false, true).PublishTo);
+    }
+
+    [Fact]
+    public void ThePlanLeavesOutADestinationThatHoldsANewerVersion()
+    {
+        var history = new Dictionary<string, OneClickHistoryEntry> { ["package-a"] = Published("WSUS", "5.7.1") };
+        var row = Assert.Single(Plan(Settings("MECMAndWSUS", tracked: ["package-a"]), [App("package-a", "5.7.0", current: "5.7.1")], history));
+        Assert.Empty(row.PublishTo);
+        Assert.Equal("ConfigMgr: site version 5.7.1 is newer than 5.7.0; WSUS: published 5.7.1 is newer than 5.7.0", row.Reason);
+    }
+
+    [Fact]
+    public void ThePlanShowsWsusNotSupportedForAnApplicationThatDeclaresItAndTheRunSkipsIt()
+    {
+        var app = App("package-a", "2.0") with { WsusNotSupported = "PerUserInstall|CustomInstall" };
+        var row = Assert.Single(Plan(Settings("MECMAndWSUS", tracked: ["package-a"]), [app]));
+        Assert.Equal(["ConfigMgr"], row.PublishTo);
+        Assert.Equal("WSUS: not supported", row.Reason);
+        Assert.Equal("not supported: PerUserInstall|CustomInstall", row.NotReady["WSUS"]);
+
+        var forced = Assert.Single(Plan(Settings("WSUSOnly", tracked: ["package-a"]), [app], force: true));
+        Assert.Empty(forced.PublishTo);
+
+        var decision = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr", "WSUS"], null, "2.0", "", force: true, true, false, true, row.NotReady);
+        Assert.Equal(["ConfigMgr"], decision.PublishTo);
+        Assert.Equal("not supported: PerUserInstall|CustomInstall", decision.GuardResults["WSUS"]);
+    }
+
     [Fact]
     public void ForcePublishesAgainWhateverTheHistory()
     {
