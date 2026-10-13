@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60001",
+    "WsusSupport":  "No (DetectionNotMappable)",
     "IconSource":  "Installer",
     "Vendor":  "Acro Software Inc.",
     "Application":  "CutePDF Writer",
@@ -22,12 +23,9 @@
     "InstallArgs":  "/SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
     "UninstallArgs":  "/uninstall /s",
     "Detection":  {
-                      "Type":  "RegistryKeyValue",
+                      "Type":  "RegistryKey",
                       "RegistryHive":  "HKLM",
                       "RegistryKeyTemplate":  "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\CutePDF Writer Installation",
-                      "ValueName":  "DisplayVersion",
-                      "PropertyType":  "Version",
-                      "Operator":  "GreaterEquals",
                       "Is64Bit":  true
                   },
     "RunningProcess":  [

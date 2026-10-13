@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0e160b420d8bd2d5",
+  "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "Scooter Software",
   "Application": "Beyond Compare 5 (x64)",

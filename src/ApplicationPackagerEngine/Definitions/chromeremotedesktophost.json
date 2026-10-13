@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "cf7f8f149931eb6b",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Google",
   "Application": "Chrome Remote Desktop Host (x64)",

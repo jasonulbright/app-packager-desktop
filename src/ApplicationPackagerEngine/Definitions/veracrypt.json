@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "a2a258d821697a41",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "AM Crypto",
   "Application": "VeraCrypt (x64)",

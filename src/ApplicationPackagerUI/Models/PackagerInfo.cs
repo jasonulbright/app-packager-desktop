@@ -28,6 +28,12 @@ public partial class PackagerInfo : ObservableObject, IPackagerExecutionRequest
     public string VendorUrl { get; init; } = "";
     public string Description { get; init; } = "";
 
+    /// <summary>
+    /// The refusal codes of an application that declares WSUS cannot take its default
+    /// build, joined with '|'; empty when it is supported or declares nothing.
+    /// </summary>
+    public string WsusNotSupported { get; init; } = "";
+
     /// <summary>True if backed by a JSON definition (engine DLL). False if PS1 script.</summary>
     public bool IsJsonDefined { get; init; }
     /// <summary>Path to the .json definition file (null for PS1 scripts).</summary>

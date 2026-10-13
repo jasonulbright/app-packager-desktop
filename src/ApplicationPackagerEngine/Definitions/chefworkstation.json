@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3e54d4313f1268e1",
+  "WsusSupport": "Yes",
   "Vendor": "Chef Software",
   "Application": "Chef Workstation (x64)",
   "CMName": "Chef Workstation",

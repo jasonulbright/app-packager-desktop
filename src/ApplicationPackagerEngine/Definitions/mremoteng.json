@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "000000dadf9145f2",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "mRemoteNG",
     "Application":  "mRemoteNG (x64)",

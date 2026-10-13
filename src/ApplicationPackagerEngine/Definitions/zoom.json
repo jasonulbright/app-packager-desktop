@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "562e5eb1a64c4669",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Zoom Video Communications",
     "Application":  "Zoom Workplace (x64)",

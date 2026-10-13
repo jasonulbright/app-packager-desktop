@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "9e3e685efd9ab456",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "None",
   "Vendor": "Amazon Web Services",
   "Application": "AWS Session Manager Plugin (x64)",

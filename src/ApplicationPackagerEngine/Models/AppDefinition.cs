@@ -12,6 +12,12 @@ public sealed class AppDefinition
     public int Schema { get; set; } = 1;
     /// <summary>Unique identifier for this app definition. Used as primary key for state, visibility, dedup.</summary>
     public string Id { get; set; } = "";
+    /// <summary>
+    /// Whether WSUS can take the default build: "Yes", or "No (Code)" with the blocking
+    /// refusal codes joined by '|'. The One Click plan shows a declared refusal before a
+    /// run. Absent declares nothing.
+    /// </summary>
+    public string? WsusSupport { get; set; }
     public string Vendor { get; set; } = "";
     public string Application { get; set; } = "";
     public string CMName { get; set; } = "";
@@ -101,6 +107,13 @@ public sealed class AppDefinition
     /// agents read as success with a pending restart.
     /// </summary>
     public int[]? RebootExitCodes { get; set; }
+
+    /// <summary>
+    /// Installer exit codes that follow a complete install. The EXE install
+    /// wrapper reports each as 0; the detection rule still decides whether the
+    /// install succeeded.
+    /// </summary>
+    public int[]? SuccessExitCodes { get; set; }
     public string? Icon { get; set; }
     public string? IconFormat { get; set; }
 
@@ -314,6 +327,26 @@ public sealed class VersionScraperConfig
     /// pages that list a back-published maintenance release above the newest one.
     /// </summary>
     public bool SelectHighestVersion { get; set; }
+
+    /// <summary>
+    /// HttpRegex only: a URL with a {version} placeholder that names the installer of a
+    /// listed version. The Pattern matches are tried from the highest version down, and
+    /// the first whose URL answers a one-byte range request with 200 or 206 is the
+    /// version. A vendor index can list a release before its files are served.
+    /// </summary>
+    public string? ServedUrlTemplate { get; set; }
+
+    /// <summary>
+    /// HttpRegex only: the number of times curl repeats a page fetch that timed out or
+    /// answered 5xx. Zero or absent fetches once.
+    /// </summary>
+    public int FetchRetries { get; set; }
+
+    /// <summary>
+    /// HttpRegex only: the time limit of one page fetch attempt in seconds. Zero or
+    /// absent uses the scraper's default.
+    /// </summary>
+    public int FetchMaxTimeSeconds { get; set; }
 
     /// <summary>
     /// Ordered hops for the ChainedHttpRegex scraper. Each hop fetches a URL and

@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "2c8cc6b01a514165",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Dominik Reichl",
     "Application":  "KeePass",

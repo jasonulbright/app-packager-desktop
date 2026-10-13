@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "00000168ac5e89f2",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Eclipse Adoptium",
     "Application":  "Eclipse Temurin JRE 11",

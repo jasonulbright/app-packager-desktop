@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "c1d2e3f4a5b60002",
+    "WsusSupport":  "No (CustomInstall)",
     "IconSource":  "None",
     "Vendor":  "Microsoft",
     "Application":  "Visual C++ v14 Redistributable (x86)",

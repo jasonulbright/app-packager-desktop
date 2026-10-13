@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "c0aaef20b779bbff",
+  "WsusSupport": "Yes",
   "IconSource": "None",
   "Vendor": "The R Foundation",
   "Application": "Rtools (x64)",

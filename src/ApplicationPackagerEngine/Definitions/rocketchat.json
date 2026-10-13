@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "d6142b9f8e50c7a3",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Rocket.Chat",
   "Application": "Rocket.Chat Desktop (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "aef31d7250b98c04",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Devolutions",
   "Application": "Remote Desktop Manager (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "21d3bd31a64ceb85",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Box",
   "Application": "Box Drive (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "ebc781d3f83da97e",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "Nextcloud GmbH",
   "Application": "Nextcloud Desktop Client (x64)",

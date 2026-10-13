@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "67cc2246f034493e",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Voidtools",
     "Application":  "Everything (x64)",

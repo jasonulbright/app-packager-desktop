@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "06915f526f2e443f",
+  "WsusSupport": "Yes",
   "Vendor": "Antibody Software",
   "Application": "WizTree (x64)",
   "CMName": "WizTree",

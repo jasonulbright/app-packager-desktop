@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "c3fa851d70e496b2",
+  "WsusSupport": "No (CustomInstall)",
     "IconSource":  "External",
   "Vendor": "Microsoft",
   "Application": "SQL Server 2022 Express (x64)",

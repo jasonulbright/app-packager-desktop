@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "62fb0d4791ae35c8",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "International GeoGebra Institute",
   "Application": "GeoGebra Classic 6 (x64)",

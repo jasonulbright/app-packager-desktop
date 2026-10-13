@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "c105e93b6d2f847a",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "Mozilla",
   "Application": "Mozilla Firefox ESR (x64)",

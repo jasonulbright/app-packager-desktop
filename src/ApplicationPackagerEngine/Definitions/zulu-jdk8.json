@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "452015d286b2f80b",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Azul",
   "Application": "Azul Zulu JDK 8 (x64)",

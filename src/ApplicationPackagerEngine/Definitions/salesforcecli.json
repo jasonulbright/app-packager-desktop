@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "1c58ea630d97b42f",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Salesforce",
   "Application": "Salesforce CLI (x64)",

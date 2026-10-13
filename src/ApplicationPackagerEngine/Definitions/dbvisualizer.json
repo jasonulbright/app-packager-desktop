@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e40c62f18a3b7d59",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "DbVis Software AB",
   "Application": "DbVisualizer (x64)",

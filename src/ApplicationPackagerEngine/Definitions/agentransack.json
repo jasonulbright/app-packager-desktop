@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "d40e87ff6dd9e784",
+  "WsusSupport": "No (InstallerTypeUnsupported)",
     "IconSource":  "Installer",
   "Vendor": "Mythicsoft",
   "Application": "Agent Ransack (x64)",

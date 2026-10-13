@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "a812304ef1d8c26f",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Code Sector",
   "Application": "TeraCopy (x64)",

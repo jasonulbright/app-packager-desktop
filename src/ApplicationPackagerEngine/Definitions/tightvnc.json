@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "cbbc1a19fa1c8c4d",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "GlavSoft",
   "Application": "TightVNC (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "74e2b9c0518af3d6",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "Google",
   "Application": "Google Drive for desktop (x64)",

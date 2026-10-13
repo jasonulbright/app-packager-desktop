@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "e1f2a3b4c5d60004",
+    "WsusSupport":  "No (InstallerTypeUnsupported)",
     "IconSource":  "External",
     "Vendor":  "Microsoft",
     "Application":  "Sysinternals Suite (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "7716134f98111f10",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "Microsoft",
   "Application": "Azure Storage Explorer (x64)",

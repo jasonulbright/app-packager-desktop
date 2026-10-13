@@ -11,7 +11,7 @@ public static partial class WsusMessages
 {
     public const string ConsoleVersionHint = "The WSUS console on this computer must match the server version.";
     public const string TlsHint = "For SSL, this computer must trust the server certificate and use TLS 1.2 (SchUseStrongCrypto = 1 under HKLM\\SOFTWARE\\Microsoft\\.NETFramework\\v4.0.30319).";
-    public const string DatabaseTimeoutHint = "The WSUS database did not answer in time; run WSUS database maintenance (rebuild indexes, update statistics) and publish again.";
+    public const string DatabaseTimeoutHint = "The WSUS database did not answer in time. Run WSUS database maintenance on the server (update statistics and rebuild the SUSDB indexes), then publish again.";
 
     [GeneratedRegex("SSL|TLS|secure channel|trust relationship", RegexOptions.IgnoreCase)]
     private static partial Regex SecureChannelFailure();
@@ -48,6 +48,8 @@ public static partial class WsusMessages
             return "The UpdateServicesPackages or WSUSContent share on the server is missing, not shared, or not writable.";
         if (Regex.IsMatch(text, "Failed to sign package", RegexOptions.IgnoreCase))
             return "The server could not sign the package: check its signing certificate and that it reaches its time stamp server.";
+        if (Regex.IsMatch(text, "timeout expired", RegexOptions.IgnoreCase))
+            return DatabaseTimeoutHint;
         if (Regex.IsMatch(text, "too many locally published categories", RegexOptions.IgnoreCase))
             return "The server holds too many locally published vendor and product categories; remove unused ones on the server.";
         if (Regex.IsMatch(text, "version", RegexOptions.IgnoreCase))
@@ -73,7 +75,7 @@ public static partial class WsusMessages
     /// </summary>
     public static string PublishFailure(string message)
     {
-        if (!message.Contains("Execution Timeout Expired", StringComparison.OrdinalIgnoreCase)
+        if (!message.Contains("timeout expired", StringComparison.OrdinalIgnoreCase)
             || message.EndsWith(DatabaseTimeoutHint, StringComparison.Ordinal))
             return message;
         return message.TrimEnd() + " " + DatabaseTimeoutHint;

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "000005da4a74d40a",
+  "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "ShareX Team",
   "Application": "ShareX (x64)",

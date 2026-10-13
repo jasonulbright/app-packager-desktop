@@ -53,10 +53,12 @@ public class HttpRegexScraper : IVersionScraper
         var headers = CurlHeaders.Arguments(config.RequestHeaders);
         var content = isRedirectMode
             ? await FetchRedirectUrlAsync(config.Url, ct, ua, headers)
-            : await FetchViaIwrAsync(config.Url, ct, ua, headers);
+            : await FetchViaIwrAsync(config.Url, ct, ua, headers, config.FetchRetries, config.FetchMaxTimeSeconds, nameFailure: true);
         if (content is null) return (null, null);
 
-        var version = ExtractVersion(content, pattern, config.SelectHighestVersion);
+        var version = string.IsNullOrWhiteSpace(config.ServedUrlTemplate) || isRedirectMode
+            ? ExtractVersion(content, pattern, config.SelectHighestVersion)
+            : await NewestServedVersionAsync(content, pattern, config.ServedUrlTemplate, ct, ua, headers);
 
         string? downloadUrl = null;
         if (!string.IsNullOrEmpty(config.DownloadUrlQuery))
@@ -126,16 +128,87 @@ public class HttpRegexScraper : IVersionScraper
         return (process.ExitCode == 0 || process.ExitCode == 63) && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 
-    protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null, IReadOnlyList<string>? headers = null)
+    private const int DefaultFetchMaxTimeSeconds = 25;
+    private const int FetchRetryDelaySeconds = 5;
+
+    /// <summary>
+    /// The curl switches that bound one page fetch: the time limit of an attempt, and
+    /// with retries the retry count and the pause between attempts. curl repeats only a
+    /// timeout or a 5xx answer.
+    /// </summary>
+    public static IReadOnlyList<string> FetchLimitArguments(int retries, int maxTimeSeconds)
+    {
+        var arguments = new List<string> { "--max-time", (maxTimeSeconds > 0 ? maxTimeSeconds : DefaultFetchMaxTimeSeconds).ToString() };
+        if (retries > 0)
+            arguments.AddRange(["--retry", retries.ToString(), "--retry-delay", FetchRetryDelaySeconds.ToString()]);
+        return arguments;
+    }
+
+    /// <summary>The time after which a page fetch with these limits is stopped: every attempt, every pause, and five seconds of margin.</summary>
+    public static TimeSpan FetchBound(int retries, int maxTimeSeconds)
+    {
+        var attempt = maxTimeSeconds > 0 ? maxTimeSeconds : DefaultFetchMaxTimeSeconds;
+        var count = Math.Max(retries, 0);
+        return TimeSpan.FromSeconds(attempt * (count + 1) + FetchRetryDelaySeconds * count + 5);
+    }
+
+    /// <summary>
+    /// The highest Pattern match whose installer URL answers. Throws when no listed
+    /// version is served: an older staged version must not be read as the latest.
+    /// </summary>
+    private static async Task<string?> NewestServedVersionAsync(string content, string pattern, string urlTemplate,
+        CancellationToken ct, string? userAgent, IReadOnlyList<string> headers)
+    {
+        var candidates = Regex.Matches(content, pattern, RegexOptions.Multiline)
+            .Where(m => m.Groups.Count > 1)
+            .Select(m => m.Groups[1].Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (candidates.Count == 0) return null;
+
+        while (candidates.Count > 0)
+        {
+            var candidate = LooseVersion.SelectHighest(candidates);
+            if (candidate is null) break;
+            candidates.Remove(candidate);
+            var status = await ServedStatusAsync(urlTemplate.Replace("{version}", candidate, StringComparison.OrdinalIgnoreCase), ct, userAgent, headers);
+            if (status is "200" or "206") return candidate;
+        }
+        throw new InvalidOperationException($"No listed version has a downloadable installer at {urlTemplate}.");
+    }
+
+    /// <summary>The HTTP status of a one-byte range request, or the empty string when curl gets no answer.</summary>
+    private static async Task<string> ServedStatusAsync(string url, CancellationToken ct, string? userAgent, IReadOnlyList<string> headers)
+    {
+        var sink = OperatingSystem.IsWindows() ? "NUL" : "/dev/null";
+        using var process = CurlProcess.Start(
+            ["-L", "--silent", "--range", "0-0", "--output", sink, "--write-out", "%{http_code}", "--max-time", "60",
+             .. UserAgentArguments(userAgent), .. headers], url);
+
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
+        var exitTask = process.WaitForExitAsync(ct);
+        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(65), ct));
+        if (completed != exitTask)
+        {
+            try { process.Kill(true); } catch { }
+            ct.ThrowIfCancellationRequested();
+            return "";
+        }
+        return (await stdoutTask).Trim();
+    }
+
+    /// <param name="nameFailure">A fetch that curl ends with an error throws and names the curl exit code; otherwise it returns null.</param>
+    protected static async Task<string?> FetchViaIwrAsync(string url, CancellationToken ct, string? userAgent = null, IReadOnlyList<string>? headers = null,
+        int retries = 0, int maxTimeSeconds = 0, bool nameFailure = false)
     {
         // curl.exe follows a 308 redirect, which Invoke-WebRequest under Windows PowerShell 5.1 does not.
         var headerFile = GitHubRateLimit.NewHeaderFile();
         using var process = CurlProcess.Start(
-            ["-L", "--silent", "--show-error", "--max-time", "25", .. GitHubRateLimit.HeaderArguments(headerFile), .. UserAgentArguments(userAgent), .. headers ?? []], url);
+            ["-L", "--silent", "--show-error", .. FetchLimitArguments(retries, maxTimeSeconds), .. GitHubRateLimit.HeaderArguments(headerFile), .. UserAgentArguments(userAgent), .. headers ?? []], url);
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var exitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(exitTask, Task.Delay(TimeSpan.FromSeconds(30), ct));
+        var completed = await Task.WhenAny(exitTask, Task.Delay(FetchBound(retries, maxTimeSeconds), ct));
 
         if (completed != exitTask)
         {
@@ -146,6 +219,8 @@ public class HttpRegexScraper : IVersionScraper
 
         var stdout = await stdoutTask;
         GitHubRateLimit.ThrowIfRefused(url, headerFile, stdout);
+        if (process.ExitCode != 0 && nameFailure)
+            throw new InvalidOperationException($"Failed to fetch {url} (curl exit {process.ExitCode}).");
         return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout) ? stdout : null;
     }
 

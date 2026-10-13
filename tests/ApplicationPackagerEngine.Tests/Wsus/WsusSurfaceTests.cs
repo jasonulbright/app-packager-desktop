@@ -407,9 +407,13 @@ public sealed class WsusSurfaceTests
     [Fact]
     public void TheDatabaseTimeoutSentenceNamesTheCauseAndTheRemedy()
     {
-        Assert.Equal("The WSUS database did not answer in time; run WSUS database maintenance (rebuild indexes, update statistics) and publish again.",
+        Assert.Equal("The WSUS database did not answer in time. Run WSUS database maintenance on the server (update statistics and rebuild the SUSDB indexes), then publish again.",
             WsusMessages.DatabaseTimeoutHint);
         Assert.Equal("no route", WsusMessages.PublishFailure("no route"));
+        Assert.Equal(WsusMessages.DatabaseTimeoutHint, WsusMessages.PublishFailureHint(
+            "Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not responding."));
+        Assert.Equal("", WsusMessages.PublishFailureHint("Access is denied."));
+        Assert.EndsWith(" " + WsusMessages.DatabaseTimeoutHint, WsusMessages.PublishFailure("Timeout expired while waiting for the server."));
     }
 
     private static int CountOf(string text, string part)

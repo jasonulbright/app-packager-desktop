@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "af508c26139be74d",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Ansgar Becker",
   "Application": "HeidiSQL (x64)",

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "9fe2552fe5781484",
+  "WsusSupport": "Yes",
     "IconSource":  "None",
   "Vendor": "MariaDB",
   "Application": "MariaDB Server (x64)",

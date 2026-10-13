@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "5c802ea9d174b3f6",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Amazon Web Services",
   "Application": "Amazon Redshift ODBC Driver (x64)",

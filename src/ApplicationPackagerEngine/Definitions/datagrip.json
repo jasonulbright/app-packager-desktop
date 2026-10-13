@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "9b40e7c21af6d385",
+  "WsusSupport": "No (DetectionNotMappable)",
   "Vendor": "JetBrains",
   "Application": "DataGrip (x64)",
   "CMName": "DataGrip",
