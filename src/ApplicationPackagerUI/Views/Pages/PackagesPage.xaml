@@ -250,13 +250,14 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <!-- A star column without MinWidth shrinks below its header text in a narrow window. -->
+                <!-- A grid narrower than its columns takes width from every column down to its MinWidth,
+                     and only then scrolls. Each MinWidth holds the header text and the sort arrow. -->
                 <DataGridTextColumn Header="Application" Binding="{Binding Application}" Width="2*" MinWidth="160" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
-                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
-                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="170" IsReadOnly="True" />
-                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" IsReadOnly="True" />
+                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="140" MinWidth="100" IsReadOnly="True" ElementStyle="{StaticResource TrimCell}" />
+                <DataGridTextColumn Header="Current (ConfigMgr)" Binding="{Binding CurrentVersion}" Width="176" MinWidth="176" IsReadOnly="True" />
+                <DataGridTextColumn Header="Latest" Binding="{Binding LatestVersion}" Width="120" MinWidth="110" IsReadOnly="True" />
 
-                <DataGridTemplateColumn Header="Status" Width="250" SortMemberPath="Status">
+                <DataGridTemplateColumn Header="Status" Width="250" MinWidth="170" SortMemberPath="Status">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Status}"
@@ -278,24 +279,24 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Max CVSS" Binding="{Binding CveCvss}" SortMemberPath="CveCvssSort" Width="110" IsReadOnly="True" />
-                <DataGridTextColumn Header="KEV" Binding="{Binding CveKev}" Width="50" IsReadOnly="True" />
-                <DataGridTextColumn Header="In latest" Binding="{Binding CveFixed}" SortMemberPath="CveFixedSort" Width="90" IsReadOnly="True" />
-                <DataGridTextColumn Header="Newest CVE" Binding="{Binding CveNewest}" Width="100" IsReadOnly="True" />
-                <DataGridTextColumn x:Name="ColCveEpss" Header="Max EPSS" Binding="{Binding CveEpss}" SortMemberPath="CveEpssSort" Width="80" IsReadOnly="True"
+                <DataGridTextColumn Header="Max CVSS" Binding="{Binding CveCvss}" SortMemberPath="CveCvssSort" Width="116" MinWidth="116" IsReadOnly="True" />
+                <DataGridTextColumn Header="KEV" Binding="{Binding CveKev}" Width="66" MinWidth="66" IsReadOnly="True" />
+                <DataGridTextColumn Header="In latest" Binding="{Binding CveFixed}" SortMemberPath="CveFixedSort" Width="94" MinWidth="94" IsReadOnly="True" />
+                <DataGridTextColumn Header="Newest CVE" Binding="{Binding CveNewest}" Width="120" MinWidth="120" IsReadOnly="True" />
+                <DataGridTextColumn x:Name="ColCveEpss" Header="Max EPSS" Binding="{Binding CveEpss}" SortMemberPath="CveEpssSort" Width="110" MinWidth="110" IsReadOnly="True"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn x:Name="ColCveUpdated" Header="NVD updated" Binding="{Binding CveUpdated}" Width="100" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColCveUpdated" Header="NVD updated" Binding="{Binding CveUpdated}" Width="130" MinWidth="130" IsReadOnly="True"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn x:Name="ColCveChecked" Header="CVEs Checked (UTC)" Binding="{Binding CveChecked}" Width="170" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColCveChecked" Header="CVEs Checked (UTC)" Binding="{Binding CveChecked}" Width="180" MinWidth="180" IsReadOnly="True"
                                     Visibility="Collapsed" />
 
                 <DataGridTextColumn x:Name="ColIntune" Header="Intune" Binding="{Binding IntuneNote}" Width="*" MinWidth="110" IsReadOnly="True"
                                     Visibility="Collapsed" />
 
                 <!-- Debug columns (visibility toggled in code-behind) -->
-                <DataGridTextColumn x:Name="ColCMName" Header="CMName" Binding="{Binding CMName}" Width="200" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColCMName" Header="CMName" Binding="{Binding CMName}" Width="200" MinWidth="110" IsReadOnly="True"
                                     Visibility="Collapsed" />
-                <DataGridTextColumn x:Name="ColScript" Header="Script" Binding="{Binding Script}" Width="200" IsReadOnly="True"
+                <DataGridTextColumn x:Name="ColScript" Header="Script" Binding="{Binding Script}" Width="200" MinWidth="110" IsReadOnly="True"
                                     Visibility="Collapsed" />
             </DataGrid.Columns>
         </ui:DataGrid>
