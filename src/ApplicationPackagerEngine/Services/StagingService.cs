@@ -2214,6 +2214,13 @@ public sealed class StagingService
     }
 
     /// <summary>
+    /// True for digits in two or more dot-separated parts. A scraped token without a dot
+    /// ("473" for 4.73) compares as a different version than the one the product reports.
+    /// </summary>
+    private static bool IsDottedVersion([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] string? value) =>
+        value is not null && System.Text.RegularExpressions.Regex.IsMatch(value, @"^\d+(\.\d+)+$");
+
+    /// <summary>
     /// Resolves one registry or file detection config into its staged form.
     /// </summary>
     private static StageDetection BuildSingleDetection(
@@ -2229,7 +2236,9 @@ public sealed class StagingService
             // (e.g., "11.0.30+7" → "11.0.30.7" — CM requires dotted version strings)
             // Use rawVersion (MSI ProductVersion) when available — ARP DisplayVersion comes from the MSI,
             // not from the scraped marketing version (e.g., XenCenter: scraped 2026.1.0, MSI 26.1.0).
-            var detValue = rawVersion ?? version;
+            // A raw value that is not a dotted version is a scraped token ("1-8-3-0" for 1.8.3.0);
+            // no installed product reports it.
+            var detValue = IsDottedVersion(rawVersion) ? rawVersion : version;
             if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true)
                 detValue = version.Replace("+", ".").Replace("-", ".");
             // A prefix comparison reads the value the package reports, so the
@@ -2260,8 +2269,7 @@ public sealed class StagingService
             // For Existence detection, version isn't used for comparison.
             var detVersion = version;
             if (det.PropertyType?.Equals("Version", StringComparison.OrdinalIgnoreCase) == true
-                && rawVersion is not null
-                && System.Text.RegularExpressions.Regex.IsMatch(rawVersion, @"^\d+[\d.]+$"))
+                && IsDottedVersion(rawVersion))
             {
                 detVersion = rawVersion;
             }
