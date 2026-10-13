@@ -144,7 +144,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
 
             if (action == OneClickActionNames.Report)
             {
-                p.Status = versionChanged ? "Update available" : "Up to date";
+                p.Status = versionChanged ? CveRowState.UpdateStatus(p) : "Up to date";
                 Finish(item, OneClickOutcomes.Checked, versionChanged ? "update available" : "up to date");
                 return;
             }

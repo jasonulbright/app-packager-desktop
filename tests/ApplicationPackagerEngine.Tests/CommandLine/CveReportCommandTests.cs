@@ -219,7 +219,7 @@ public sealed class CveReportRunnerTests : IDisposable
         File.WriteAllText(configPath, new JsonObject
         {
             ["SchemaVersion"] = 2,
-            ["Report"] = new JsonObject { ["OutputFolder"] = _reports, ["Formats"] = new JsonArray("Html", "Csv", "bogus"), ["KeepReportDays"] = 7 },
+            ["Report"] = new JsonObject { ["OutputFolder"] = _reports, ["Formats"] = new JsonArray("Html", "Csv"), ["KeepReportDays"] = 7 },
             ["Notifications"] = new JsonObject { ["Enabled"] = true, ["DropFolder"] = drop, ["WebhookUrl"] = "https://hooks.example.test/secret-token", ["OnlyOnStale"] = true }
         }.ToJsonString());
         Directory.CreateDirectory(_reports);
@@ -240,7 +240,7 @@ public sealed class CveReportRunnerTests : IDisposable
         Assert.Equal(1, transport.Count(FakeVulnerabilityTransport.IsNvd));
         Assert.All(transport.Calls, url => Assert.True(FakeVulnerabilityTransport.IsNvd(url) || FakeVulnerabilityTransport.IsEpss(url), url));
 
-        // Formats and folders come from the configuration; an unknown format name is dropped.
+        // Formats and folders come from the configuration.
         Assert.Equal(3, Directory.GetFiles(_reports, "cve-report-*").Length);
         Assert.Equal(3, Directory.GetFiles(drop).Length);
         Assert.False(File.Exists(old));
@@ -294,6 +294,58 @@ public sealed class CveReportRunnerTests : IDisposable
         Assert.Equal(1, exit);
         Assert.Contains("monitor configuration is not valid JSON", Assert.Single(_output.Errors));
         Assert.False(Directory.Exists(_reports));
+    }
+
+    [Fact]
+    public async Task AnUnknownFormatNameInTheConfigurationStopsTheRun()
+    {
+        var configPath = Path.Combine(_root, "monitor.json");
+        File.WriteAllText(configPath, """{ "Report": { "Formats": ["Html", "bogus"] } }""");
+        var (exit, _) = await RunAsync(new Sources(), new FakeVulnerabilityTransport(), "--config", configPath, "--report-folder", _reports);
+        Assert.Equal(1, exit);
+        var error = Assert.Single(_output.Errors);
+        Assert.Contains("Unknown report format 'bogus'; expected Html, Csv, Json, Xlsx, Markdown.", error);
+        Assert.Contains(configPath, error);
+        Assert.False(Directory.Exists(_reports));
+    }
+
+    [Fact]
+    public void ASectionTheLoaderDoesNotReadIsNamedOnceAndAnApiKeyInTheFileIsNotUsed()
+    {
+        var configPath = Path.Combine(_root, "monitor.json");
+        File.WriteAllText(configPath, """
+            {
+              "SchemaVersion": 2,
+              "MECM": { "SiteCode": "OLD", "ServerFQDN": "cm-old.example.test" },
+              "NVD": { "ApiKey": "key-from-the-file", "CacheTtlMinutes": 5 },
+              "Report": { "OutputFolder": "", "Formats": ["html", "CSV"], "KeepReportDays": 90 },
+              "Logging": { "LogFolder": "C:\\logs", "KeepLogDays": 30 },
+              "notifications": { "Enabled": false },
+              "Extra": 1
+            }
+            """);
+        var log = new List<string>();
+        var config = CveMonitorConfig.Load(configPath, log.Add);
+
+        var warnings = log.Where(line => line.StartsWith("WARNING: ", StringComparison.Ordinal)).ToList();
+        Assert.Equal(4, warnings.Count);
+        foreach (var section in new[] { "MECM", "NVD", "Logging", "Extra" })
+            Assert.Single(warnings, line => line.Contains($"'{section}'"));
+        Assert.DoesNotContain(log, line => line.Contains("key-from-the-file") || line.Contains("cm-old"));
+
+        var resolved = config.Resolve(new CveReportOptions(), new AppSettings { SiteCode = "MCM" }, @"C:\default\Reports");
+        Assert.Equal(("", "MCM", "", 360), (resolved.NvdApiKey, resolved.SiteCode, resolved.ProviderMachineName, resolved.CacheTtlMinutes));
+        Assert.Equal(["Html", "Csv"], resolved.Formats);
+    }
+
+    [Fact]
+    public void AConfigurationWithOnlyTheKnownSectionsGivesNoWarning()
+    {
+        var configPath = Path.Combine(_root, "fresh", "monitor.json");
+        var log = new List<string>();
+        CveMonitorConfig.Load(configPath, log.Add);
+        CveMonitorConfig.Load(configPath, log.Add);
+        Assert.DoesNotContain(log, line => line.StartsWith("WARNING", StringComparison.Ordinal));
     }
 
     [Fact]

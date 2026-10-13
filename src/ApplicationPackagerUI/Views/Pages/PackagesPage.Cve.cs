@@ -7,6 +7,8 @@ namespace ApplicationPackagerUI.Views.Pages;
 
 public partial class PackagesPage
 {
+    private readonly Services.OpenOncePerKey<Views.Windows.CveWindow> _cveWindows = new();
+
     private PackagesViewModel Packages => (PackagesViewModel)DataContext!;
 
     private async void CveCell_Click(object sender, RoutedEventArgs e)
@@ -22,7 +24,22 @@ public partial class PackagesPage
 
     private async Task OpenCveWindowAsync(PackagerInfo row)
     {
-        try { await Views.Windows.CveWindow.ShowForAsync(Window.GetWindow(this), row, Packages); }
+        try
+        {
+            // A double-click raises two clicks before the first window exists.
+            var key = row.Uid.Length > 0 ? row.Uid : row.FullPath;
+            var window = await _cveWindows.GetOrOpen(key,
+                () => Views.Windows.CveWindow.ShowForAsync(Window.GetWindow(this), row, Packages), out var existing);
+            if (existing)
+            {
+                if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                window.Activate();
+            }
+            else
+            {
+                window.Closed += (_, _) => _cveWindows.Closed(key);
+            }
+        }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             Packages.AppendLog($"CVE window not opened: {ex.Message}");

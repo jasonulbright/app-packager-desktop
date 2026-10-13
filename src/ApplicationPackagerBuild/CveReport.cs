@@ -127,8 +127,23 @@ public sealed class CveMonitorConfig
         AllowTrailingCommas = true
     };
 
-    /// <summary>Reads the file; a missing file is written with default values first.</summary>
-    /// <exception cref="InvalidDataException">The file is not a monitor configuration.</exception>
+    private static readonly string[] KnownSections = [nameof(SchemaVersion), nameof(Report), nameof(Notifications)];
+
+    /// <summary>Where the value of a section of another product's monitor configuration comes from in this product.</summary>
+    private static readonly Dictionary<string, string> SectionSources = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["MECM"] = "the site comes from the application settings or from --site-code and --provider-machine-name",
+        ["NVD"] = "the API key and the cache time come from the application settings; the key can also come from the "
+                  + NvdApiKeyStore.EnvironmentVariable + " environment variable",
+        ["Logging"] = "the log folder comes from --log-folder"
+    };
+
+    /// <summary>
+    /// Reads the file; a missing file is written with default values first. A section the
+    /// run does not use is named in one WARNING line, so a value an operator set there is
+    /// not taken for a value in effect. No value of such a section is read or logged.
+    /// </summary>
+    /// <exception cref="InvalidDataException">The file is not a monitor configuration, or it names an unknown report format.</exception>
     public static CveMonitorConfig Load(string path, Action<string>? log = null)
     {
         if (!File.Exists(path))
@@ -140,10 +155,29 @@ public sealed class CveMonitorConfig
         }
         try
         {
-            var config = JsonSerializer.Deserialize<CveMonitorConfig>(File.ReadAllText(path), JsonOptions) ?? new CveMonitorConfig();
+            var text = File.ReadAllText(path);
+            var config = JsonSerializer.Deserialize<CveMonitorConfig>(text, JsonOptions) ?? new CveMonitorConfig();
             config.Report ??= new ReportSection();
             config.Report.Formats ??= VulnerabilityReportFormats.All;
             config.Notifications ??= new NotificationSection();
+
+            using var document = JsonDocument.Parse(text, new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var section in document.RootElement.EnumerateObject().Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    if (KnownSections.Contains(section, StringComparer.OrdinalIgnoreCase)) continue;
+                    var source = SectionSources.TryGetValue(section, out var known) ? ": " + known : "";
+                    log?.Invoke($"WARNING: The monitor configuration section '{section}' is not used{source}. File: {path}");
+                }
+            }
+
+            foreach (var name in config.Report.Formats)
+            {
+                if (VulnerabilityReportFormats.Normalize(name) is null)
+                    throw new InvalidDataException(
+                        $"Unknown report format '{name}'; expected {string.Join(", ", VulnerabilityReportFormats.All)}. File: {path}");
+            }
             return config;
         }
         catch (JsonException ex)
