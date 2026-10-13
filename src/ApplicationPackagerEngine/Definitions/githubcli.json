@@ -8,6 +8,7 @@
   "CMName": "GitHub CLI",
   "Architecture": "x64",
   "VendorUrl": "https://cli.github.com/",
+  "Cpe": "cpe:2.3:a:github:cli:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

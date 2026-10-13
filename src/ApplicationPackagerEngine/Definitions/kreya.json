@@ -8,6 +8,7 @@
   "CMName": "Kreya",
   "Architecture": "x64",
   "VendorUrl": "https://kreya.app/",
+  "Cpe": "cpe:2.3:a:riok:kreya:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

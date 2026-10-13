@@ -8,6 +8,7 @@
   "CMName": "KDiff3",
   "Architecture": "x64",
   "VendorUrl": "https://apps.kde.org/kdiff3/",
+  "Cpe": "cpe:2.3:a:kde:kdiff3:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],

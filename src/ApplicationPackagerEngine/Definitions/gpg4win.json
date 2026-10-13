@@ -8,6 +8,7 @@
   "CMName": "Gpg4win",
   "Architecture": "x64",
   "VendorUrl": "https://www.gpg4win.org/",
+  "Cpe": "cpe:2.3:a:gpg4win:gpg4win:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

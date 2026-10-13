@@ -8,6 +8,7 @@
   "CMName": "HandBrake",
   "Architecture": "x64",
   "VendorUrl": "https://handbrake.fr/",
+  "Cpe": "cpe:2.3:a:handbrake:handbrake:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

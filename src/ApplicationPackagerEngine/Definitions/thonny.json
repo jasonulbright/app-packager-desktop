@@ -8,6 +8,7 @@
   "CMName": "Thonny",
   "Architecture": "x64",
   "VendorUrl": "https://thonny.org/",
+  "Cpe": "cpe:2.3:a:thonny:thonny:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],

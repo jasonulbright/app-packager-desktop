@@ -8,6 +8,8 @@
   "CMName": "Windows ADK for Windows 11",
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/windows-hardware/get-started/adk-install",
+  "Cpe": "cpe:2.3:a:microsoft:windows_assessment_and_deployment_kit:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

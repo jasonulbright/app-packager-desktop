@@ -10,6 +10,8 @@
   "Publisher": "Microsoft Corporation",
   "Architecture": "x64",
   "VendorUrl": "https://dotnet.microsoft.com/download/dotnet/8.0",
+  "Cpe": "cpe:2.3:a:microsoft:asp.net_core:8.*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

@@ -8,6 +8,7 @@
   "CMName": "Spectra PDF",
   "Architecture": "x64",
   "VendorUrl": "https://github.com/jasonulbright/spectra-pdf",
+  "Cpe": "cpe:2.3:a:signalridgelabs:spectra_pdf:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

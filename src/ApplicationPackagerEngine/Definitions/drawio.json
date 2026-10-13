@@ -8,6 +8,7 @@
     "CMName":  "draw.io",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.drawio.com/",
+    "Cpe":  "cpe:2.3:a:jgraph:drawio:*:*:*:*:*:*:*:*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

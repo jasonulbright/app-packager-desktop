@@ -8,6 +8,8 @@
     "CMName":  ".NET 8 Desktop Runtime (x86)",
     "Architecture":  "x86",
     "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/8.0",
+    "Cpe":  "cpe:2.3:a:microsoft:.net:8.*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "WixBurn",
     "Acquisition":  {

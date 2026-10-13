@@ -33,6 +33,12 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
     [GeneratedRegex(@"^\s*(?:#\s*)?WsusSupport\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex WsusSupportRegex();
 
+    [GeneratedRegex(@"^\s*(?:#\s*)?CPE\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex CpeRegex();
+
+    [GeneratedRegex(@"^\s*(?:#\s*)?SecurityAdvisoryUrl\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex SecurityAdvisoryUrlRegex();
+
     [GeneratedRegex(@"^\s*\.SYNOPSIS\s*$", RegexOptions.IgnoreCase)]
     private static partial Regex SynopsisRegex();
 
@@ -112,6 +118,8 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                         Script = scriptName,
                         FullPath = filePath,
                         VendorUrl = meta.VendorUrl ?? "",
+                        Cpe = meta.Cpe ?? "",
+                        AdvisoryUrl = meta.AdvisoryUrl ?? "",
                         Description = meta.Description ?? "",
                         WsusNotSupported = WsusSupportTag.NotSupportedCodes(meta.WsusSupport),
                         Status = "Ready"
@@ -216,6 +224,8 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
         Script = Path.GetFileName(jsonPath),
         FullPath = jsonPath,
         VendorUrl = def.VendorUrl,
+        Cpe = def.Cpe?.Trim() ?? "",
+        AdvisoryUrl = def.SecurityAdvisoryUrl?.Trim() ?? "",
         Description = $"{def.InstallerType} ({def.Architecture})",
         IsJsonDefined = true,
         DefinitionPath = jsonPath,
@@ -297,11 +307,13 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
 
     private sealed record ScriptMetadata(
         string? Uid, string? Vendor, string? Application, string? CMName,
-        string? VendorUrl, string? Description, string? WsusSupport = null);
+        string? VendorUrl, string? Description, string? WsusSupport = null,
+        string? Cpe = null, string? AdvisoryUrl = null);
 
     private static ScriptMetadata ParseMetadata(string path)
     {
-        string? uid = null, vendor = null, app = null, cmName = null, vendorUrl = null, description = null, wsusSupport = null;
+        string? uid = null, vendor = null, app = null, cmName = null, vendorUrl = null, description = null;
+        string? wsusSupport = null, cpe = null, advisoryUrl = null;
         var inSynopsis = false;
         var lineCount = 0;
 
@@ -347,6 +359,18 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
                 if (m.Success) { wsusSupport = m.Groups[1].Value.Trim(); continue; }
             }
 
+            if (cpe is null)
+            {
+                var m = CpeRegex().Match(line);
+                if (m.Success) { cpe = m.Groups[1].Value.Trim(); continue; }
+            }
+
+            if (advisoryUrl is null)
+            {
+                var m = SecurityAdvisoryUrlRegex().Match(line);
+                if (m.Success) { advisoryUrl = m.Groups[1].Value.Trim(); continue; }
+            }
+
             if (description is null && SynopsisRegex().IsMatch(line))
             {
                 inSynopsis = true;
@@ -364,6 +388,6 @@ public partial class PackagerDiscoveryService(SettingsService settingsService)
             }
         }
 
-        return new ScriptMetadata(uid, vendor, app, cmName ?? app, vendorUrl, description, wsusSupport);
+        return new ScriptMetadata(uid, vendor, app, cmName ?? app, vendorUrl, description, wsusSupport, cpe, advisoryUrl);
     }
 }

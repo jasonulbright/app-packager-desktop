@@ -8,6 +8,7 @@
   "CMName": "Omnissa Horizon Client",
   "Architecture": "x64",
   "VendorUrl": "https://www.omnissa.com/",
+  "Cpe": "cpe:2.3:a:omnissa:horizon_client:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

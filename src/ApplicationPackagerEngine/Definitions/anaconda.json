@@ -7,6 +7,8 @@
     "CMName":  "Anaconda",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.anaconda.com/download",
+    "Cpe":  "cpe:2.3:a:anaconda:anaconda:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.anaconda.com/security",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

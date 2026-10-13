@@ -8,6 +8,7 @@
   "CMName": "Beyond Compare 5",
   "Architecture": "x64",
   "VendorUrl": "https://www.scootersoftware.com/",
+  "Cpe": "cpe:2.3:a:scootersoftware:beyond_compare:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

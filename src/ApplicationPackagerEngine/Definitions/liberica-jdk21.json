@@ -8,6 +8,7 @@
   "CMName": "Liberica JDK 21",
   "Architecture": "x64",
   "VendorUrl": "https://bell-sw.com/libericajdk/",
+  "Cpe": "cpe:2.3:a:bell-sw:liberica_jdk:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -8,6 +8,7 @@
   "CMName": "YubiKey Manager CLI",
   "Architecture": "x64",
   "VendorUrl": "https://developers.yubico.com/yubikey-manager/",
+  "Cpe": "cpe:2.3:a:yubico:yubikey_manager:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

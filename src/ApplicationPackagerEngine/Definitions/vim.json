@@ -8,6 +8,7 @@
     "CMName":  "Vim",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.vim.org/",
+    "Cpe":  "cpe:2.3:a:vim:vim:*:*:*:*:*:*:*:*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
     "Acquisition":  {

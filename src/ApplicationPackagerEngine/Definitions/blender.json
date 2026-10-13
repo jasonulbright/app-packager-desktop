@@ -8,6 +8,7 @@
   "CMName": "Blender",
   "Architecture": "x64",
   "VendorUrl": "https://www.blender.org/",
+  "Cpe": "cpe:2.3:a:blender:blender:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

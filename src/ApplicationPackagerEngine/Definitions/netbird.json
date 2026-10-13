@@ -8,6 +8,7 @@
   "CMName": "NetBird",
   "Architecture": "x64",
   "VendorUrl": "https://netbird.io/",
+  "Cpe": "cpe:2.3:a:netbird:netbird:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

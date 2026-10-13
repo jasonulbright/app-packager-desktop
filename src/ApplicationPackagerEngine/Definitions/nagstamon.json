@@ -8,6 +8,7 @@
   "CMName": "Nagstamon",
   "Architecture": "x64",
   "VendorUrl": "https://nagstamon.de/",
+  "Cpe": "cpe:2.3:a:nagstamon:nagstamon:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

@@ -32,6 +32,8 @@ public sealed record BuildOptions
     public string? LocalSourceFolder { get; init; }
     public string? DataRoot { get; init; }
     public bool Help { get; init; }
+    /// <summary>The CVE report run; null for a build.</summary>
+    public CveReportOptions? CveReport { get; init; }
 }
 
 /// <summary>The parsed options, or the reason the arguments were refused.</summary>
@@ -51,7 +53,8 @@ public static class BuildArguments
 
     private static readonly HashSet<string> Switches = new(StringComparer.OrdinalIgnoreCase)
     {
-        "stage", "package", "wsus-use-ssl", "wsus-decline-superseded", "help"
+        "stage", "package", "wsus-use-ssl", "wsus-decline-superseded", "help",
+        "cve-report", "skip-latest", "skip-mecm", "skip-cve", "notify-always"
     };
 
     private static readonly HashSet<string> Valued = new(StringComparer.OrdinalIgnoreCase)
@@ -59,7 +62,8 @@ public static class BuildArguments
         "application", "profile", "version", "target", "download-root", "estimated-minutes", "maximum-minutes",
         "packagers-root", "log-folder", "site-code", "provider-machine-name", "file-server-path", "comment",
         "wsus-server", "wsus-port", "wsus-classification", "wsus-approval-group", "on-existing",
-        "local-source-folder", "data-root"
+        "local-source-folder", "data-root",
+        "apps", "report-folder", "report-formats", "webhook-url", "drop-folder", "keep-report-days", "config"
     };
 
     /// <summary>
@@ -70,7 +74,8 @@ public static class BuildArguments
     private static readonly string[] NonEmpty =
     [
         "data-root", "download-root", "packagers-root", "log-folder", "local-source-folder", "file-server-path",
-        "site-code", "provider-machine-name", "wsus-server"
+        "site-code", "provider-machine-name", "wsus-server",
+        "report-folder", "drop-folder", "webhook-url", "config", "apps", "report-formats"
     ];
 
     public static ParsedArguments Parse(IReadOnlyList<string> args)
@@ -115,6 +120,10 @@ public static class BuildArguments
             if (values.TryGetValue(name, out var given) && string.IsNullOrWhiteSpace(given))
                 return Fail($"Option '--{name}' was given an empty value; pass a value or leave the option out.");
         }
+
+        if (Flag(values, "cve-report") == true) return CveReportArguments.Parse(values);
+        if (CveReportArguments.OnlyOptions.FirstOrDefault(values.ContainsKey) is { } cveOnly)
+            return Fail($"Option '--{cveOnly}' applies to --cve-report only.");
 
         if (!values.TryGetValue("application", out var application) || string.IsNullOrWhiteSpace(application))
             return Fail($"--application is required. {HelpHint}");
@@ -182,12 +191,12 @@ public static class BuildArguments
         return new ParsedArguments(options, null);
     }
 
-    private static ParsedArguments Fail(string error) => new(null, error);
+    internal static ParsedArguments Fail(string error) => new(null, error);
 
-    private static string? Text(Dictionary<string, string> values, string name) =>
+    internal static string? Text(Dictionary<string, string> values, string name) =>
         values.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value) ? value.Trim() : null;
 
-    private static bool? Flag(Dictionary<string, string> values, string name) =>
+    internal static bool? Flag(Dictionary<string, string> values, string name) =>
         values.TryGetValue(name, out var value) ? bool.Parse(value) : null;
 
     private static bool TryMinutes(Dictionary<string, string> values, string name, out int? minutes, out string? error)
@@ -209,6 +218,7 @@ public static class BuildArguments
 
         Usage:
           AppPackagerBuild --application <id> [--profile <name or id>] (--stage | --package | --stage --package) [options]
+          AppPackagerBuild --cve-report [CVE report options]
 
         Application and profile:
           --application <id>          catalog:<id>, custom:<id>, byo:<id>, or a bare definition id, definition
@@ -243,6 +253,23 @@ public static class BuildArguments
           --wsus-decline-superseded[=false]
                                       Decline the AppPackager updates of the same application with a lower version
 
+        CVE report (--cve-report): the latest and the ConfigMgr version of every application, the CVEs that the
+        update of each stale application fixes, the report files and the notification. A value given here
+        replaces the value of monitor-config.json for this run:
+          --apps <a,b,...>            Application ids, definition file names or packager file names; all when omitted
+          --skip-latest               Do not query the vendors; use the latest versions of the application inventory
+          --skip-mecm                 Do not query ConfigMgr; use the ConfigMgr versions of the application inventory
+          --skip-cve                  Do not look CVEs up; write the version report only
+          --report-folder <folder>    Folder of the report files; Reports under the data root when omitted
+          --report-formats <f,...>    Html, Csv, Json, Xlsx, Markdown; all when omitted
+          --drop-folder <folder>      Copy the report files to this folder
+          --webhook-url <https url>   Post the run summary as JSON to this URL
+          --notify-always[=false]     Notify also when no application has an update
+          --keep-report-days <n>      Delete report files older than n days; 0 keeps every file
+          --config <file>             Monitor configuration; monitor-config.json under the data root when omitted.
+                                      A missing file is written with default values
+          --site-code, --provider-machine-name, --packagers-root, --data-root and --log-folder apply as above
+
         Locations:
           --data-root <folder>        Settings and workbench data root (sets APP_PACKAGER_DATA_ROOT for this run)
           --log-folder <folder>       Folder of this run's log file
@@ -251,7 +278,8 @@ public static class BuildArguments
 
         Exit codes:
           0  Success
-          1  Failure or refusal, or a WSUS approval or decline that failed after a successful publish
+          1  Failure or refusal, or a WSUS approval or decline that failed after a successful publish;
+             for --cve-report, a vendor query, a ConfigMgr query or a CVE lookup that failed
           n  A PS1 packager's own non-zero exit code
         """;
 }

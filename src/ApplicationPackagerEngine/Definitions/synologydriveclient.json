@@ -8,6 +8,7 @@
   "CMName": "Synology Drive Client",
   "Architecture": "x64",
   "VendorUrl": "https://www.synology.com/",
+  "Cpe": "cpe:2.3:a:synology:drive_client:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

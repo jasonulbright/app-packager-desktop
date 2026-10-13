@@ -8,6 +8,8 @@
     "CMName":  "TeamViewer",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.teamviewer.com/",
+    "Cpe":  "cpe:2.3:a:teamviewer:teamviewer:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.teamviewer.com/en/trust-center/security-bulletins/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NSIS",
     "Acquisition":  {

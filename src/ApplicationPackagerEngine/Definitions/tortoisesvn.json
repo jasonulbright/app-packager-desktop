@@ -8,6 +8,7 @@
     "CMName":  "TortoiseSVN",
     "Architecture":  "x64",
     "VendorUrl":  "https://tortoisesvn.net/",
+    "Cpe":  "cpe:2.3:a:tortoisesvn:tortoisesvn:*:*:*:*:*:*:*:*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

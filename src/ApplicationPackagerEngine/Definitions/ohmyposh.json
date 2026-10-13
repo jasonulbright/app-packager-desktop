@@ -8,6 +8,7 @@
   "CMName": "Oh My Posh",
   "Architecture": "x64",
   "VendorUrl": "https://ohmyposh.dev/",
+  "Cpe": "cpe:2.3:a:ohmyposh:oh-my-posh:*:*:*:*:*:*:*:*",
   "InstallerType": "MSIX",
   "InstallerFramework": "MSIX",
   "Acquisition": {},

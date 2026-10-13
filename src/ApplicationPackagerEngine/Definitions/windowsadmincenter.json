@@ -8,6 +8,8 @@
   "CMName": "Windows Admin Center",
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/windows-server/manage/windows-admin-center/overview",
+  "Cpe": "cpe:2.3:a:microsoft:windows_admin_center:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

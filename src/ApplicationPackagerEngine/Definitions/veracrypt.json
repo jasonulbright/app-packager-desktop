@@ -8,6 +8,7 @@
   "CMName": "VeraCrypt",
   "Architecture": "x64",
   "VendorUrl": "https://www.veracrypt.io/",
+  "Cpe": "cpe:2.3:a:veracrypt:veracrypt:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -8,6 +8,7 @@
     "CMName":  "GIMP",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.gimp.org/",
+    "Cpe":  "cpe:2.3:a:gimp:gimp:*:*:*:*:*:*:*:*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
     "SupportsInstallModes": ["CurrentUser", "AllUsers"],

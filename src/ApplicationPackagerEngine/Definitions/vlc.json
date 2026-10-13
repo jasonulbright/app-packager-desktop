@@ -8,6 +8,8 @@
     "CMName":  "VLC Media Player",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.videolan.org/vlc/",
+    "Cpe":  "cpe:2.3:a:videolan:vlc_media_player:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://www.videolan.org/security/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

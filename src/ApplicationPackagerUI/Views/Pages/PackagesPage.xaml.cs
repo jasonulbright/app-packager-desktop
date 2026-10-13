@@ -90,6 +90,9 @@ public partial class PackagesPage
             var vis = show ? Visibility.Visible : Visibility.Collapsed;
             ColCMName.Visibility = vis;
             ColScript.Visibility = vis;
+            ColCveEpss.Visibility = vis;
+            ColCveUpdated.Visibility = vis;
+            ColCveChecked.Visibility = vis;
         }
         else if (e.PropertyName == nameof(PackagesViewModel.ShowIntuneColumn))
         {
@@ -159,7 +162,7 @@ public partial class PackagesPage
     {
         // A double-click inside an editable cell (the selection checkbox) belongs to that cell, not to the row.
         if (e.OriginalSource is DependencyObject source
-            && (FindAncestor<System.Windows.Controls.Primitives.ToggleButton>(source) is not null
+            && (FindAncestor<System.Windows.Controls.Primitives.ButtonBase>(source) is not null
                 || FindAncestor<System.Windows.Controls.Primitives.DataGridColumnHeader>(source) is not null
                 || FindAncestor<DataGridRow>(source) is null))
             return;

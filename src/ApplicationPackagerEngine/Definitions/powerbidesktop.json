@@ -8,6 +8,8 @@
     "CMName":  "Power BI Desktop",
     "Architecture":  "x64",
     "VendorUrl":  "https://powerbi.microsoft.com/",
+    "Cpe":  "cpe:2.3:a:microsoft:power_bi:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

@@ -8,6 +8,7 @@
     "CMName":  "Everything",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.voidtools.com/",
+    "Cpe":  "cpe:2.3:a:voidtools:everything:*:*:*:*:*:*:*:*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

@@ -8,6 +8,7 @@
   "CMName": "TurboVNC",
   "Architecture": "x64",
   "VendorUrl": "https://turbovnc.org/",
+  "Cpe": "cpe:2.3:a:virtualgl:turbovnc:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

@@ -8,6 +8,7 @@
   "CMName": "XnView MP",
   "Architecture": "x64",
   "VendorUrl": "https://www.xnview.com/en/xnviewmp/",
+  "Cpe": "cpe:2.3:a:xnview:xnview_mp:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

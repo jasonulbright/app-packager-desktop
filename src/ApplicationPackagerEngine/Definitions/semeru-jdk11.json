@@ -8,6 +8,7 @@
   "CMName": "IBM Semeru Runtime Open Edition JDK 11",
   "Architecture": "x64",
   "VendorUrl": "https://developer.ibm.com/languages/java/semeru-runtimes/",
+  "Cpe": "cpe:2.3:a:ibm:semeru_runtime:*:*:*:*:open:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

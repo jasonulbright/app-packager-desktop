@@ -8,6 +8,8 @@
   "CMName": "SQL Server Management Studio",
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/sql/ssms/",
+  "Cpe": "cpe:2.3:a:microsoft:sql_server_management_studio:*:*:*:*:*:*:*:*",
+  "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

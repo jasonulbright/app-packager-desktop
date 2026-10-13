@@ -8,6 +8,7 @@
   "CMName": "TortoiseHg",
   "Architecture": "x64",
   "VendorUrl": "https://tortoisehg.bitbucket.io/",
+  "Cpe": "cpe:2.3:a:tortoisehg:tortoisehg:*:*:*:*:*:*:*:*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

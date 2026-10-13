@@ -8,6 +8,7 @@
   "CMName": "Shotcut",
   "Architecture": "x64",
   "VendorUrl": "https://www.shotcut.org/",
+  "Cpe": "cpe:2.3:a:meltytech:shotcut:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

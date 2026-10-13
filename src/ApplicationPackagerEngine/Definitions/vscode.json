@@ -8,6 +8,8 @@
     "CMName":  "Visual Studio Code (System)",
     "Architecture":  "x64",
     "VendorUrl":  "https://code.visualstudio.com/",
+    "Cpe":  "cpe:2.3:a:microsoft:visual_studio_code:*:*:*:*:*:*:*:*",
+    "SecurityAdvisoryUrl":  "https://github.com/microsoft/vscode/security/advisories",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
     "Acquisition":  {

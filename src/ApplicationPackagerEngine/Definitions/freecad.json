@@ -8,6 +8,7 @@
   "CMName": "FreeCAD",
   "Architecture": "x64",
   "VendorUrl": "https://www.freecad.org/",
+  "Cpe": "cpe:2.3:a:freecad:freecad:*:*:*:*:*:*:*:*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],
