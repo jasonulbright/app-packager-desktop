@@ -54,6 +54,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
         public WsusStepResult Wsus { get; set; } = new(WsusStepStatus.Published, "published", [], [], "wsus-1");
         public Action<string>? OnPublish { get; set; }
         public List<(string Step, RunSnapshot? Snapshot, string Target)> Calls { get; } = [];
+        public List<OnExistingBehavior> OnExisting { get; } = [];
 
         public Task<string?> GetLatestVersionAsync(PackagerInfo row, CancellationToken ct) => Task.FromResult<string?>(Latest);
 
@@ -80,6 +81,7 @@ public sealed class OneClickRowRunnerTests : IDisposable
             RunSnapshot snapshot, string target, CancellationToken ct)
         {
             Calls.Add(("Package", snapshot, target));
+            OnExisting.Add(onExisting);
             OnPublish?.Invoke(target);
             return Task.FromResult(Package(target));
         }
@@ -325,6 +327,72 @@ public sealed class OneClickRowRunnerTests : IDisposable
 
         Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
         Assert.Equal(OneClickOutcomes.Published, item.Outcome);
+    }
+
+    [Fact]
+    public async Task WithoutForceASiteVersionNewerThanTheVendorVersionIsNotPublishedOver()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "6.5.7" };
+        var item = Item(true, false, false);
+        item.Row!.CurrentVersion = "99.0";
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage"], execution.Calls.Select(c => c.Step));
+        Assert.Equal("skipped: site version 99.0 is newer than 6.5.7", item.ResultConfigMgr);
+        Assert.Equal("ConfigMgr: site version 99.0 is newer than 6.5.7", item.Reason);
+        Assert.Equal(OneClickOutcomes.Staged, item.Outcome);
+        Assert.DoesNotContain("ConfigMgr", Stored().Published.Keys);
+    }
+
+    [Fact]
+    public async Task ForcePublishesOverASiteVersionNewerThanTheVendorVersion()
+    {
+        var execution = new FakeExecution(Path.Combine(_root, "workbench")) { Latest = "6.5.7" };
+        var item = Item(true, false, false);
+        item.Row!.CurrentVersion = "99.0";
+
+        await Runner(execution).RunAsync(item, Publish with { Force = true }, CancellationToken.None);
+
+        Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
+    }
+
+    [Fact]
+    public async Task AChangedBuildOfAPublishedVersionReplacesTheApplicationUnderTheOverwritePolicy()
+    {
+        SeedEarlierRun(publishedTo: "ConfigMgr");
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"));
+        var item = Item(true, false, false);
+
+        await Runner(execution).RunAsync(item, Publish with { OnExisting = OneClickOnExisting.Overwrite }, CancellationToken.None);
+
+        Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.Equal([OnExistingBehavior.Overwrite], execution.OnExisting);
+        Assert.Equal("published Widget 2.0", item.ResultConfigMgr);
+        Assert.Equal(OneClickOutcomes.Published, item.Outcome);
+    }
+
+    [Fact]
+    public async Task AChangedBuildOfAPublishedVersionIsSkippedUnderTheSkipPolicyAndTheRecordStays()
+    {
+        SeedEarlierRun(publishedTo: "ConfigMgr");
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"))
+        {
+            Package = _ => new PackagerExecutionResult
+            {
+                StdOut = "Packaged: Widget 2.0", Conflict = new ExistingApplicationConflict("Widget 2.0", "2.0", "2.0")
+            }
+        };
+        var item = Item(true, false, false);
+
+        await Runner(execution).RunAsync(item, Publish, CancellationToken.None);
+
+        Assert.Equal(["Stage", "Package"], execution.Calls.Select(c => c.Step));
+        Assert.Equal([OnExistingBehavior.Skip], execution.OnExisting);
+        Assert.Equal("skipped: application Widget 2.0 already exists", item.ResultConfigMgr);
+        Assert.Equal("ConfigMgr: application exists, policy Skip", item.Reason);
+        Assert.Equal(OneClickOutcomes.Skipped, item.Outcome);
+        Assert.Equal("2.0", Stored().Published["ConfigMgr"].Version);
     }
 
     private static OneClickPlanItem ItemWithCveCells(out PackagerInfo row)

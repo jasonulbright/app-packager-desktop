@@ -423,6 +423,58 @@ public sealed class OneClickPlannerTests
     }
 
     [Fact]
+    public void WithoutForceAndWithoutAPublishRecordThePlanAndTheRunLeaveOutASiteThatHoldsANewerVersion()
+    {
+        var row = Assert.Single(Plan(Settings(tracked: ["package-a"]), [App("package-a", "6.5.7", current: "99.0")]));
+        Assert.Empty(row.PublishTo);
+        Assert.Equal("ConfigMgr: site version 99.0 is newer than 6.5.7", row.Reason);
+        Assert.Equal("Check, Stage", row.Planned);
+        Assert.True(row.Include);
+
+        var staged = new OneClickHistoryEntry { LastKnownVersion = "6.5.7", LastStaged = DateTime.Now };
+        var decision = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], staged, "6.5.7", "99.0", false, false, false, true);
+        Assert.False(decision.Stage);
+        Assert.Empty(decision.PublishTo);
+        Assert.Equal(["ConfigMgr: site version 99.0 is newer than 6.5.7"], decision.SkipReasons);
+        Assert.Equal("skipped: site version 99.0 is newer than 6.5.7", decision.GuardResults["ConfigMgr"]);
+
+        Assert.Equal(["ConfigMgr"], Assert.Single(Plan(Settings(tracked: ["package-a"]), [App("package-a", "6.5.7", current: "99.0")], force: true)).PublishTo);
+    }
+
+    [Fact]
+    public void WithoutForceAPublishedBuildIsSkippedWithoutAStageAndAProfileRevisionChangePublishesItAgain()
+    {
+        var published = OneClickHistory.BuildKey("default", 0, "digest");
+        var entry = PublishedBuild("ConfigMgr", "26.04", published) with { LastKnownVersion = "26.04", LastStaged = DateTime.Now };
+        var history = new Dictionary<string, OneClickHistoryEntry> { ["package-a"] = entry };
+
+        var row = Assert.Single(Plan(Settings(tracked: ["package-a"]), [App("package-a", "26.04", current: "26.04")], history));
+        Assert.Empty(row.PublishTo);
+        Assert.Equal("ConfigMgr: 26.04 already published", row.Reason);
+
+        var unchanged = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], entry, "26.04", "26.04", false, false, false, true, buildKey: published);
+        Assert.False(unchanged.Stage);
+        Assert.Empty(unchanged.PublishTo);
+        Assert.Equal("already published 26.04", unchanged.GuardResults["ConfigMgr"]);
+        Assert.Equal("up to date", unchanged.SkipReason);
+
+        // The profile was saved at a new revision: no sealed build of it exists, and the publish record names the old build.
+        var revised = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], entry, "26.04", "26.04", false, false, buildStale: true, staged: true,
+            buildKey: OneClickHistory.BuildKey("default", 1, "digest"));
+        Assert.True(revised.Stage);
+        Assert.Equal(["ConfigMgr"], revised.PublishTo);
+
+        // After the restage the build is current, and the record still names the old build.
+        var restaged = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], entry, "26.04", "26.04", false, false, buildStale: false, staged: true,
+            buildKey: OneClickHistory.BuildKey("default", 1, "digest"));
+        Assert.Equal(["ConfigMgr"], restaged.PublishTo);
+
+        var forced = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], entry, "26.04", "26.04", force: true, false, false, true, buildKey: published);
+        Assert.True(forced.Stage);
+        Assert.Equal(["ConfigMgr"], forced.PublishTo);
+    }
+
+    [Fact]
     public void ThePlanShowsWsusNotSupportedForAnApplicationThatDeclaresItAndTheRunSkipsIt()
     {
         var app = App("package-a", "2.0") with { WsusNotSupported = "PerUserInstall|CustomInstall" };
