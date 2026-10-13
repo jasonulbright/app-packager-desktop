@@ -1,6 +1,7 @@
 ﻿{
     "Schema":  1,
     "Id":  "993a7f81913c480f",
+    "WsusSupport":  "No (DetectionNotMappable)",
     "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "Microsoft Edge WebView2 Runtime (x64)",

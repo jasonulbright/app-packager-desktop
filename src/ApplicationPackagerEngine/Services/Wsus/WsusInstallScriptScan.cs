@@ -145,7 +145,101 @@ public static partial class WsusInstallScriptScan
             }
         }
         if (launches > 1) extras.Add($"{launches} process launches");
+        extras.AddRange(ExitCodeMappings(tokens));
         return extras.Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    /// Each "exit 0" inside an if whose condition compares ExitCode with -eq or -in.
+    /// The wrapper then reports success for a code that WSUS, which runs the installer
+    /// itself, reports as a failure.
+    /// </summary>
+    private static IEnumerable<string> ExitCodeMappings(List<Token> tokens)
+    {
+        for (var i = 0; i + 1 < tokens.Count; i++)
+        {
+            if (tokens[i].Kind != TokenKind.Word || !tokens[i].Text.Equals("exit", StringComparison.OrdinalIgnoreCase)) continue;
+            if (tokens[i + 1].Kind != TokenKind.Number || tokens[i + 1].Text != "0") continue;
+            if (i + 2 < tokens.Count && tokens[i + 2].Kind is not (TokenKind.StatementEnd or TokenKind.Close)) continue;
+
+            // The nearest enclosing if statement decides; its else block has no condition.
+            var position = i;
+            while (true)
+            {
+                var open = EnclosingOpen(tokens, position);
+                if (open < 0) break;
+                position = open;
+                if (tokens[open].Text != "{" || open == 0) continue;
+                var before = tokens[open - 1];
+                if (before.Kind == TokenKind.Word && before.Text.Equals("else", StringComparison.OrdinalIgnoreCase)) break;
+                if (before.Kind != TokenKind.Close || before.Text != ")") continue;
+                var start = MatchingOpen(tokens, open - 1);
+                if (start < 1 || tokens[start - 1].Kind != TokenKind.Word
+                    || !(tokens[start - 1].Text.Equals("if", StringComparison.OrdinalIgnoreCase)
+                         || tokens[start - 1].Text.Equals("elseif", StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                var condition = tokens.GetRange(start + 1, open - start - 2);
+                for (var k = 0; k + 1 < condition.Count; k++)
+                {
+                    if (condition[k].Kind == TokenKind.Word && condition[k].Text.Equals("ExitCode", StringComparison.OrdinalIgnoreCase)
+                        && condition[k + 1].Kind == TokenKind.Word
+                        && (condition[k + 1].Text.Equals("-eq", StringComparison.OrdinalIgnoreCase)
+                            || condition[k + 1].Text.Equals("-in", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        yield return $"installer exit code mapped to success ({ConditionText(condition)})";
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    /// <summary>The index of the bracket that encloses <paramref name="index"/>, or -1 at the top level.</summary>
+    private static int EnclosingOpen(List<Token> tokens, int index)
+    {
+        var depth = 0;
+        for (var k = index - 1; k >= 0; k--)
+        {
+            if (tokens[k].Kind == TokenKind.Close) depth++;
+            else if (tokens[k].Kind == TokenKind.Open)
+            {
+                if (depth == 0) return k;
+                depth--;
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>The index of the bracket that the closing bracket at <paramref name="close"/> ends, or -1.</summary>
+    private static int MatchingOpen(List<Token> tokens, int close)
+    {
+        var depth = 0;
+        for (var k = close - 1; k >= 0; k--)
+        {
+            if (tokens[k].Kind == TokenKind.Close) depth++;
+            else if (tokens[k].Kind == TokenKind.Open)
+            {
+                if (depth == 0) return k;
+                depth--;
+            }
+        }
+        return -1;
+    }
+
+    private static string ConditionText(List<Token> condition)
+    {
+        var sb = new StringBuilder();
+        for (var k = 0; k < condition.Count; k++)
+        {
+            var token = condition[k];
+            var member = token.Kind == TokenKind.Operator && token.Text is "." or ",";
+            var afterMember = k > 0 && condition[k - 1].Kind == TokenKind.Operator && condition[k - 1].Text == ".";
+            if (sb.Length > 0 && !member && !afterMember) sb.Append(' ');
+            sb.Append(token.Text);
+        }
+        return sb.ToString();
     }
 
     private static string StatementText(List<Token> tokens, int index)

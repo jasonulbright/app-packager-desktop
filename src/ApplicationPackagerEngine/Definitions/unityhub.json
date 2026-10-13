@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "4edbaf982bbb8d1f",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Unity Technologies",
   "Application": "Unity Hub (x64)",
@@ -13,7 +14,8 @@
   "VersionScraper": {
     "Type": "HttpRegex",
     "Url": "https://public-cdn.cloud.unity3d.com/hub/prod/latest.yml",
-    "Pattern": "(?m)^version:\\s*(\\d+(?:\\.\\d+)+)\\s*$"
+    "Pattern": "(?m)^version:\\s*(\\d+(?:\\.\\d+)+)\\s*$",
+    "DownloadUrlQuery": "(?m)^\\s*-?\\s*url:\\s*(\\S+x64\\.exe)\\s*$"
   },
   "DownloadUrl": "https://public-cdn.cloud.unity3d.com/hub/prod/{version}/UnityHubSetup-{version}-x64.exe",
   "InstallArgs": "/S",

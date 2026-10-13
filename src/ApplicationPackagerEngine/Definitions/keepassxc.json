@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "70f046fd19c8a14e",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "KeePassXC Team",
   "Application": "KeePassXC (x64)",

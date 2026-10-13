@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "37eacbe3ac0f3bef",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "VSCodium",
   "Application": "VSCodium (x64)",

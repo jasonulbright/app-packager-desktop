@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "f706d7d318544ff0",
+  "WsusSupport": "No (CustomInstall)",
     "IconSource":  "External",
   "Vendor": "Microsoft",
   "Application": "Windows ADK for Windows 11",

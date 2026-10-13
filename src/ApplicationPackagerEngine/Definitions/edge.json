@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "999de4a96c904418",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "Microsoft",
     "Application":  "Microsoft Edge",

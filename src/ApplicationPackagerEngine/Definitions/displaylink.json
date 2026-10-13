@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "6d3c8b0f5a92e174",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "DisplayLink",
   "Application": "DisplayLink Graphics (x64)",

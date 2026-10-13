@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3ba86c4f19d05e72",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Laurent Cozic",
   "Application": "Joplin (x64)",

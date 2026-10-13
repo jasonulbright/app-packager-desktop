@@ -189,7 +189,8 @@ public partial class PackagesViewModel : IOneClickRunner, IPublishActionHost
         var consoleFound = ConfigMgrConsole.IsInstalled();
         var context = new OneClickPlanContext
         {
-            Apps = rows.Select(p => (new OneClickApp(p.Uid, p.Application, p.Vendor, p.LatestVersion, p.CurrentVersion), (PackagerInfo?)p)).ToList(),
+            Apps = rows.Select(p => (new OneClickApp(p.Uid, p.Application, p.Vendor, p.LatestVersion, p.CurrentVersion)
+                { WsusNotSupported = p.WsusNotSupported }, (PackagerInfo?)p)).ToList(),
             Settings = () => OneClickSettingsMap.PlanSettings(_settingsService.Load(), consoleFound),
             History = _inventoryProjection.History(rows, settings, _executionService.ResolveBuildPlan),
             Action = action,

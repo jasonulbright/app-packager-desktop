@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3d51c6165bb13152",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "BleachBit",
   "Application": "BleachBit (x86)",

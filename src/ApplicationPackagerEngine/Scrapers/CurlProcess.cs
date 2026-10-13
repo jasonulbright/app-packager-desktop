@@ -63,13 +63,16 @@ public static class CurlProcess
 
     /// <summary>
     /// Refuses a URL that is not an absolute http or https URL, or that carries a double
-    /// quote, whitespace or a control character. Such a URL comes from a vendor page or
-    /// feed, and each of those characters can end the argument on a command line.
+    /// quote, whitespace, a control character or a trailing backslash. Such a URL comes
+    /// from a vendor page or feed, and each of those can end the argument on a command
+    /// line: a trailing backslash escapes the quote that closes a quoted argument.
     /// </summary>
     public static void ValidateUrl(string? url)
     {
         if (string.IsNullOrEmpty(url))
             throw new InvalidOperationException("Refused download URL: the URL is empty.");
+        if (url.EndsWith('\\'))
+            throw new InvalidOperationException($"Refused download URL '{Printable(url)}': it ends with a backslash.");
         foreach (var c in url)
         {
             if (c == '"' || char.IsWhiteSpace(c) || char.IsControl(c))

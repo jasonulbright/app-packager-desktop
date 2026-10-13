@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "baeabe84e264c870",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Karakun AG",
   "Application": "OpenWebStart (x64)",

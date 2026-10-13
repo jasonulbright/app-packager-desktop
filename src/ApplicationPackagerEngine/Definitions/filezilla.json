@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "4f0a26b6973f4ee7",
+    "WsusSupport":  "Yes",
     "Vendor":  "FileZilla Project",
     "Application":  "FileZilla Client (x64)",
     "CMName":  "FileZilla Client",

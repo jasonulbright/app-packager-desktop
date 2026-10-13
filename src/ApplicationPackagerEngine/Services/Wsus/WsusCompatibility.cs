@@ -10,7 +10,7 @@ namespace ApplicationPackagerEngine.Services.Wsus;
 /// </summary>
 public static partial class WsusCompatibility
 {
-    [GeneratedRegex(@"(?m)^[ \t]*if \(\$proc\.ExitCode -ne 0\) \{ exit \$proc\.ExitCode \}[ \t]*\r?$")]
+    [GeneratedRegex(@"(?m)^[ \t]*if \(\$proc\.ExitCode -ne 0(?: -and \$proc\.ExitCode -ne \d+)*\) \{ exit \$proc\.ExitCode \}[ \t]*\r?$")]
     private static partial Regex PostInstallGuard();
 
     public static IReadOnlyList<WsusFinding> Evaluate(StageManifest manifest, string? contentFolder = null, WsusRuleBuilder? rules = null)

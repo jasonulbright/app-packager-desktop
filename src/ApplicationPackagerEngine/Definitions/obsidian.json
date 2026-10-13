@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "000000888ad654da",
+  "WsusSupport": "No (PerUserInstall)",
   "IconSource": "Installer",
   "Vendor": "Obsidian",
   "Application": "Obsidian (x64)",

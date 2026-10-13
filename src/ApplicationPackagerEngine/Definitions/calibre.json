@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "6f83fe308ae19b47",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Kovid Goyal",
   "Application": "calibre (x64)",

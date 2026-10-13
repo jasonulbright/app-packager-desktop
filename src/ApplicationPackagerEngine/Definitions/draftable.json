@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "2e9b6134fa8057cd",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Draftable",
   "Application": "Draftable Desktop (x64)",

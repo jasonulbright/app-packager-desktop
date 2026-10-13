@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "09fa3388b00b4526",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "The Document Foundation",
     "Application":  "LibreOffice (x64)",
@@ -15,7 +16,9 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://download.documentfoundation.org/libreoffice/stable/",
-                           "Pattern":  "href=\"(\\d+\\.\\d+\\.\\d+)/\""
+                           "Pattern":  "href=\"(\\d+\\.\\d+\\.\\d+)/\"",
+                           "SelectHighestVersion":  true,
+                           "ServedUrlTemplate":  "https://download.documentfoundation.org/libreoffice/stable/{version}/win/x86_64/LibreOffice_{version}_Win_x86-64.msi"
                        },
     "DownloadUrl":  "https://download.documentfoundation.org/libreoffice/stable/{version}/win/x86_64/LibreOffice_{version}_Win_x86-64.msi",
     "InstallArgs":  "/quiet /norestart ADDLOCAL=ALL CREATEDESKTOPLINK=0 ISCHECKFORPRODUCTUPDATES=0",

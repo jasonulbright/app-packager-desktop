@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "8e61b9931b229873",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "CAKE.com",
   "Application": "Clockify (x64)",

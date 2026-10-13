@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "c6e2093fb7154a8d",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "DAX Studio",
   "Application": "DAX Studio (x64)",

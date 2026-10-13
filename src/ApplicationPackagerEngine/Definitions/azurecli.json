@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "3b491e5a65e7d6f8",
+  "WsusSupport": "Yes",
     "IconSource":  "None",
   "Vendor": "Microsoft",
   "Application": "Azure CLI (x64)",

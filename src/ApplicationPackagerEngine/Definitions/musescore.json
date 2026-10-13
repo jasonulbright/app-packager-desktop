@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "117651c4653c836b",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "MuseScore",
   "Application": "MuseScore Studio (x64)",

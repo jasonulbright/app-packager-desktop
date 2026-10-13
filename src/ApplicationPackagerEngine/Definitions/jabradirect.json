@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e28b431fabbf6eca",
+  "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "GN Audio A/S",
   "Application": "Jabra Direct (x86)",
@@ -25,15 +26,14 @@
   "ExpectedPayloadVersion": "{version}",
   "InstallArgs": "/install /quiet /norestart",
   "UninstallArgs": "/uninstall /quiet /norestart",
-  "UninstallCommand": "$keys = @(\r\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}',\r\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}'\r\n)\r\n$hit = $null\r\nforeach ($key in $keys) {\r\n    if (-not (Test-Path -LiteralPath $key)) { continue }\r\n    $hit = Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue\r\n    if ($hit) { break }\r\n}\r\nif (-not $hit) { exit 0 }\r\n$cmd = if ($hit.QuietUninstallString) { $hit.QuietUninstallString } else { $hit.UninstallString }\r\nif (-not $cmd) { exit 0 }\r\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = ($cmd -split '\\s+/')[0].Trim() }\r\nif (-not (Test-Path -LiteralPath $exe)) { exit 0 }\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/uninstall', '/quiet', '/norestart') -Wait -PassThru -NoNewWindow",
+  "UninstallCommand": "$roots = @(\r\n    'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',\r\n    'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall'\r\n)\r\n$hit = $null\r\nforeach ($root in $roots) {\r\n    if (-not (Test-Path -LiteralPath $root)) { continue }\r\n    $hit = Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue |\r\n        ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue } |\r\n        Where-Object {\r\n            $_.QuietUninstallString -and\r\n            (($_.DisplayName -eq 'Jabra Direct') -or (@($_.BundleUpgradeCode) -contains '{356870DC-69C0-4757-B09A-22C1786C104C}'))\r\n        } |\r\n        Select-Object -First 1\r\n    if ($hit) { break }\r\n}\r\nif (-not $hit) { exit 0 }\r\n$cmd = $hit.QuietUninstallString\r\nif ($cmd -match '^\"([^\"]+)\"') { $exe = $matches[1] } else { $exe = ($cmd -split '\\s+/')[0].Trim() }\r\nif (-not (Test-Path -LiteralPath $exe)) { exit 0 }\r\n$proc = Start-Process -FilePath $exe -ArgumentList @('/uninstall', '/quiet', '/norestart') -Wait -PassThru -NoNewWindow",
   "Detection": {
-    "Type": "RegistryKeyValue",
-    "RegistryHive": "HKLM",
-    "RegistryKeyTemplate": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{FF8111EB-E2A2-4A6B-830C-4F676D20FB39}",
-    "ValueName": "DisplayVersion",
+    "Type": "File",
+    "FilePath": "C:\\Program Files\\Jabra\\Direct6",
+    "FileName": "jabra-direct.exe",
     "PropertyType": "Version",
     "Operator": "GreaterEquals",
-    "Is64Bit": false
+    "Is64Bit": true
   },
   "RunningProcess": [
     "jabra-direct"

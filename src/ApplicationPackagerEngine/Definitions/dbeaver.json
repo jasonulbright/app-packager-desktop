@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0000063ececba2d8",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "DBeaver Corp",
   "Application": "DBeaver Community (x64)",

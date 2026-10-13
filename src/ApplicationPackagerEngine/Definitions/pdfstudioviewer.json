@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "71a039df1eb088b7",
+  "WsusSupport": "No (DetectionNotMappable)",
     "IconSource":  "Installer",
   "Vendor": "Qoppa Software",
   "Application": "PDF Studio Viewer (x64)",

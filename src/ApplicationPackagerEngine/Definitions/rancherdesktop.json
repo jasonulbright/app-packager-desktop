@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0ab53f8712ce49d6",
+  "WsusSupport": "Yes",
     "IconSource":  "External",
   "Vendor": "SUSE",
   "Application": "Rancher Desktop (x64)",

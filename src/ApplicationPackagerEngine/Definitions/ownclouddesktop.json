@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "6b7a28a3e8c0ee21",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "ownCloud GmbH",
   "Application": "ownCloud Desktop Client (x64)",

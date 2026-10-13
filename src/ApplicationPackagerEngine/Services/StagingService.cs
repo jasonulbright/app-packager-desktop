@@ -563,7 +563,7 @@ public sealed class StagingService
                 wrappers.GenerateExeWrappers(contentPath, installerFileName,
                     installArgs, uninstallArgs, def.InstallerFramework, def.Application, uninstallCommand,
                     ResolvePostInstallScript(def, settingsValues), arpKeyName, installFolder,
-                    def.PostInstallKillProcesses, def.RebootExitCodes);
+                    def.PostInstallKillProcesses, def.RebootExitCodes, def.SuccessExitCodes);
             }
 
             var hasOptionalArchitecturePayloads = def.PayloadVariants is { Length: > 0 };

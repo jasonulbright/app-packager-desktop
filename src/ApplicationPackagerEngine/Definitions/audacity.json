@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "0000065bdb017c80",
+  "WsusSupport": "No (DetectionNotMappable)",
   "IconSource": "Installer",
   "Vendor": "Audacity",
   "Application": "Audacity (x64)",

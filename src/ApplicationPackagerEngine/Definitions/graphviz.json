@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "96b1e7d40c5a382f",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Graphviz",
   "Application": "Graphviz (x64)",

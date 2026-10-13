@@ -1,6 +1,7 @@
 {
     "Schema":  1,
     "Id":  "98a3ecd988d144c2",
+    "WsusSupport":  "Yes",
     "IconSource":  "Installer",
     "Vendor":  "TortoiseGit",
     "Application":  "TortoiseGit (x64)",

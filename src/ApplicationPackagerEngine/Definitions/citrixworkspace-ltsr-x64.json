@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "2b23a02d9dc05a6e",
+  "WsusSupport": "Yes",
   "IconSource": "Installer",
   "Vendor": "Cloud Software Group",
   "Application": "Citrix Workspace LTSR (x64)",

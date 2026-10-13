@@ -89,6 +89,9 @@ public sealed class CurlArgumentTests : IDisposable
     [InlineData("https://vendor.example/a\tb.exe")]
     [InlineData("https://vendor.example/a\u0000b.exe")]
     [InlineData("https://vendor.example/a\"b.exe")]
+    [InlineData("https://vendor.example/setup.exe\\")]
+    [InlineData("https://vendor.example/a\u007Fb.exe")]
+    [InlineData(" https://vendor.example/setup.exe")]
     [InlineData("")]
     public void AUrlThatIsNotAPlainHttpUrlIsRefused(string url)
     {

@@ -1,6 +1,7 @@
 {
   "Schema": 1,
   "Id": "e01b6f4c9a5d3728",
+  "WsusSupport": "Yes",
     "IconSource":  "Installer",
   "Vendor": "Rony Shapiro",
   "Application": "Password Safe (x64)",
