@@ -403,6 +403,26 @@ public sealed class OneClickPlannerTests
     }
 
     [Fact]
+    public void ASiteThatHoldsANewerVersionIsSkippedAlsoWhenAnOlderPublishRecordExists()
+    {
+        var entry = Published("ConfigMgr", "1.0");
+        var history = new Dictionary<string, OneClickHistoryEntry> { ["package-a"] = entry };
+
+        var row = Assert.Single(Plan(Settings(tracked: ["package-a"]), [App("package-a", "2.0", current: "3.0")], history));
+        Assert.Empty(row.PublishTo);
+        Assert.Equal("ConfigMgr: site version 3.0 is newer than 2.0", row.Reason);
+
+        var decision = OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], entry, "2.0", "3.0", false, true, false, true);
+        Assert.Empty(decision.PublishTo);
+        Assert.Equal("skipped: site version 3.0 is newer than 2.0", decision.GuardResults["ConfigMgr"]);
+
+        Assert.Equal(["ConfigMgr"], OneClickPlanner.Decide("StageAndPackage", ["ConfigMgr"], entry, "2.0", "3.0", force: true, true, false, true).PublishTo);
+        Assert.Equal(["ConfigMgr"], Assert.Single(Plan(Settings(tracked: ["package-a"]), [App("package-a", "2.0", current: "3.0")], history, force: true)).PublishTo);
+        Assert.Equal("published 3.0 is newer than 2.0", OneClickPlanner.NewerThanVendor(Published("ConfigMgr", "3.0"), "ConfigMgr", "1.0", "2.0"));
+        Assert.Null(OneClickPlanner.NewerThanVendor(entry, "ConfigMgr", "2.0.0.5", "2.0"));
+    }
+
+    [Fact]
     public void ThePlanShowsWsusNotSupportedForAnApplicationThatDeclaresItAndTheRunSkipsIt()
     {
         var app = App("package-a", "2.0") with { WsusNotSupported = "PerUserInstall|CustomInstall" };
