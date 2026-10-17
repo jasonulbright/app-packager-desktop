@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://learn.microsoft.com/sql/connect/oledb/",
     "Cpe":  "cpe:2.3:a:microsoft:ole_db_driver_for_sql_server:*:*:*:*:*:*:*:*",
+    "ArpName":  "Microsoft OLE DB Driver 19 for SQL Server",
     "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",

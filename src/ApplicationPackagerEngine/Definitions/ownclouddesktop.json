@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://owncloud.com/desktop-app/",
   "Cpe": "cpe:2.3:a:owncloud:owncloud_desktop:*:*:*:*:*:*:*:*",
+  "ArpName": "ownCloud",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

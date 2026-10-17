@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.python.org/downloads/",
     "Cpe":  "cpe:2.3:a:python:python:*:*:*:*:*:*:*:*",
+    "ArpName":  "Python 3.* (64-bit)",
     "SecurityAdvisoryUrl":  "https://www.python.org/dev/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "WixBurn",

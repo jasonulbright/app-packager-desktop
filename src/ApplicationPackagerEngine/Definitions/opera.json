@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.opera.com/",
     "Cpe":  "cpe:2.3:a:opera:opera:*:*:*:*:*:*:*:*",
+    "ArpName":  "Opera Stable*",
     "SecurityAdvisoryUrl":  "https://security.opera.com/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",

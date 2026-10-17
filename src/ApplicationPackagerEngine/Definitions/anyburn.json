@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://anyburn.com/",
   "Cpe": "cpe:2.3:a:anyburn:anyburn:*:*:*:*:*:*:*:*",
+  "ArpName": "AnyBurn*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

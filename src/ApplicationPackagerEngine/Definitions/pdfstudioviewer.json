@@ -8,6 +8,7 @@
   "CMName": "PDF Studio Viewer",
   "Architecture": "x64",
   "VendorUrl": "https://www.qoppa.com/",
+  "ArpName": "PDF Studio Viewer*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

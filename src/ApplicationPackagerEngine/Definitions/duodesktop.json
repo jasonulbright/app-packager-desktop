@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://duo.com/",
   "Cpe": "cpe:2.3:a:duo:duo_desktop:*:*:*:*:*:*:*:*",
+  "ArpName": "Duo Desktop*",
   "SecurityAdvisoryUrl": "https://sec.cloudapps.cisco.com/security/center/publicationListing.x",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",

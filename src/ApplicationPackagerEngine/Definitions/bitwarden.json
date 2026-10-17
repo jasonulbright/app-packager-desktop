@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://bitwarden.com/",
     "Cpe":  "cpe:2.3:a:bitwarden:desktop:*:*:*:*:*:*:*:*",
+    "ArpName":  "Bitwarden | Bitwarden [0-9]*",
     "SecurityAdvisoryUrl":  "https://www.bitwarden.com/help/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",

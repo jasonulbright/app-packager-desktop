@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://learn.microsoft.com/sysinternals/",
     "Cpe":  "cpe:2.3:a:microsoft:sysinternals:*:*:*:*:*:*:*:*",
+    "ArpName":  "none",
     "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "ZIP",
     "InstallerFramework":  "ZIP",

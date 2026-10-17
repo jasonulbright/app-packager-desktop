@@ -9,6 +9,7 @@
   "Architecture": "ARM64",
   "VendorUrl": "https://www.citrix.com/downloads/workspace-app/",
   "Cpe": "cpe:2.3:a:citrix:workspace_app:*:*:*:*:*:*:*:*",
+  "ArpName": "none",
   "SecurityAdvisoryUrl": "https://support.citrix.com/securitybulletins",
   "InstallerType": "EXE",
   "InstallerFramework": "InstallShield",

@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.teamviewer.com/",
     "Cpe":  "cpe:2.3:a:teamviewer:teamviewer:*:*:*:*:*:*:*:*",
+    "ArpName":  "TeamViewer | TeamViewer [0-9]*",
     "SecurityAdvisoryUrl":  "https://www.teamviewer.com/en/trust-center/security-bulletins/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NSIS",

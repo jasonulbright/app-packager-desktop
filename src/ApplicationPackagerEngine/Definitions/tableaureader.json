@@ -11,6 +11,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.tableau.com/products/reader",
   "Cpe": "cpe:2.3:a:tableau:reader:*:*:*:*:*:*:*:*",
+  "ArpName": "Tableau Reader*",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

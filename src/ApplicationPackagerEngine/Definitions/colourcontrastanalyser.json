@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.tpgi.com/color-contrast-checker/",
   "Cpe": "cpe:2.3:a:tpgi:colour_contrast_analyser:*:*:*:*:*:*:*:*",
+  "ArpName": "Colour Contrast Analyser*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

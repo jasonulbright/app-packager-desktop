@@ -8,6 +8,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://slack.com/",
   "Cpe": "cpe:2.3:a:slack:slack:*:*:*:*:*:*:*:*",
+  "ArpName": "none",
   "SecurityAdvisoryUrl": "https://slack.com/intl/en-gb/trust/security",
   "InstallerType": "MSIX",
   "InstallerFramework": "MSIX",

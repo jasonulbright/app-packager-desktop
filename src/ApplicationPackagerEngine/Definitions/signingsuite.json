@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://github.com/jasonulbright/signing-suite",
   "Cpe": "cpe:2.3:a:jasonulbright:signing_suite:*:*:*:*:*:*:*:*",
+  "ArpName": "Signing Suite",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

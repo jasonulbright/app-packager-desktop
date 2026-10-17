@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://nodejs.org/",
     "Cpe":  "cpe:2.3:a:nodejs:node.js:*:*:*:*:lts:*:*:*",
+    "ArpName":  "Node.js",
     "SecurityAdvisoryUrl":  "https://nodejs.org/en/blog/vulnerability",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",

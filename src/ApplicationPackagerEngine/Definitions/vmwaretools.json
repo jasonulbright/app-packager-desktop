@@ -7,6 +7,7 @@
     "CMName":  "VMware Tools",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.vmware.com/",
+    "ArpName":  "VMware Tools",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

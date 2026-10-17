@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://bambulab.com/en/download/studio",
   "Cpe": "cpe:2.3:a:bambulab:bambu_studio:*:*:*:*:*:*:*:*",
+  "ArpName": "Bambu Studio",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

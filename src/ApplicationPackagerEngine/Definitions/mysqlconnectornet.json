@@ -9,6 +9,7 @@
   "Architecture": "x86",
   "VendorUrl": "https://dev.mysql.com/downloads/connector/net/",
   "Cpe": "cpe:2.3:a:oracle:mysql_connectors:*:*:*:*:*:*:*:*",
+  "ArpName": "MySQL Connector/NET* | MySQL Connector Net*",
   "SecurityAdvisoryUrl": "https://www.oracle.com/security-alerts/",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",

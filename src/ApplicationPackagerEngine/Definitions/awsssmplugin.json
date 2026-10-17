@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html",
   "Cpe": "cpe:2.3:a:amazon:session_manager_plugin:*:*:*:*:*:*:*:*",
+  "ArpName": "Session Manager Plugin*",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

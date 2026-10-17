@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://dngrep.github.io/",
   "Cpe": "cpe:2.3:a:dngrep:dngrep:*:*:*:*:*:*:*:*",
+  "ArpName": "dnGrep*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

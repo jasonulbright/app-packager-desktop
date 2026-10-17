@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://gitforwindows.org/",
     "Cpe":  "cpe:2.3:a:git-scm:git:*:*:*:*:*:*:*:*",
+    "ArpName":  "Git | Git version [0-9]*",
     "SecurityAdvisoryUrl":  "https://github.com/git-for-windows/git/security/advisories",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",

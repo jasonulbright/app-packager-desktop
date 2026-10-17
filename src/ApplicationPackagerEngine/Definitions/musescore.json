@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://musescore.org/",
   "Cpe": "cpe:2.3:a:musescore:musescore:*:*:*:*:*:*:*:*",
+  "ArpName": "MuseScore Studio* | MuseScore [0-9]*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

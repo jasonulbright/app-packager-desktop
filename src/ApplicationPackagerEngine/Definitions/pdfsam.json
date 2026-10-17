@@ -8,6 +8,7 @@
   "CMName": "PDFsam Basic",
   "Architecture": "x64",
   "VendorUrl": "https://pdfsam.org/",
+  "ArpName": "PDFsam Basic*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -11,6 +11,7 @@
   "Architecture": "x86",
   "VendorUrl": "https://www.jabra.com/software-and-services/jabra-direct",
   "Cpe": "cpe:2.3:a:jabra:direct:*:*:*:*:*:*:*:*",
+  "ArpName": "Jabra Direct",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

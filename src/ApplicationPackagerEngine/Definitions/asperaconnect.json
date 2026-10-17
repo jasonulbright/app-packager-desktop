@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.ibm.com/aspera/connect/",
   "Cpe": "cpe:2.3:a:ibm:aspera_connect:*:*:*:*:*:*:*:*",
+  "ArpName": "IBM Aspera Connect*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://uvnc.com/",
   "Cpe": "cpe:2.3:a:uvnc:ultravnc:*:*:*:*:*:*:*:*",
+  "ArpName": "UltraVNC*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

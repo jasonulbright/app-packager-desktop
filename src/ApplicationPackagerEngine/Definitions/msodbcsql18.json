@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://learn.microsoft.com/sql/connect/odbc/download-odbc-driver-for-sql-server",
     "Cpe":  "cpe:2.3:a:microsoft:odbc_driver_for_sql_server:*:*:*:*:*:*:*:*",
+    "ArpName":  "Microsoft ODBC Driver 18 for SQL Server",
     "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",

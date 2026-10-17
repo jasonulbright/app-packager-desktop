@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://gerardog.github.io/gsudo/",
   "Cpe": "cpe:2.3:a:gerardog:gsudo:*:*:*:*:*:*:*:*",
+  "ArpName": "gsudo*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

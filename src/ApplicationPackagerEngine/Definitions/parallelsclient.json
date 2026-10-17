@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.parallels.com/products/ras/",
   "Cpe": "cpe:2.3:a:parallels:remote_application_server:*:*:*:*:*:*:*:*",
+  "ArpName": "Parallels Client*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

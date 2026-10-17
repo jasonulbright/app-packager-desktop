@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.wireshark.org/",
     "Cpe":  "cpe:2.3:a:wireshark:wireshark:*:*:*:*:*:*:*:*",
+    "ArpName":  "Wireshark*",
     "SecurityAdvisoryUrl":  "https://www.wireshark.org/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",

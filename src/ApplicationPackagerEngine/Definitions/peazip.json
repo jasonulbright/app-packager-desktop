@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://peazip.github.io/",
   "Cpe": "cpe:2.3:a:peazip:peazip:*:*:*:*:*:*:*:*",
+  "ArpName": "PeaZip*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.pdfforge.org/pdfcreator",
   "Cpe": "cpe:2.3:a:pdfforge:pdfcreator:*:*:*:*:*:*:*:*",
+  "ArpName": "PDFCreator",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

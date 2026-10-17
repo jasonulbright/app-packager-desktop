@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://brave.com/",
     "Cpe":  "cpe:2.3:a:brave:brave:*:*:*:*:*:*:*:*",
+    "ArpName":  "Brave | Brave Browser",
     "InstallerType":  "EXE",
     "InstallerFramework":  "Squirrel",
     "Acquisition":  {

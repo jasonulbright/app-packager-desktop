@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.adobe.com/acrobat/pdf-reader.html",
     "Cpe":  "cpe:2.3:a:adobe:acrobat_reader_dc:*:*:*:*:*:*:*:*",
+    "ArpName":  "Adobe Acrobat (64-bit)",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

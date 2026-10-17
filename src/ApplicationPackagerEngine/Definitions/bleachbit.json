@@ -9,6 +9,7 @@
   "Architecture": "x86",
   "VendorUrl": "https://www.bleachbit.org/",
   "Cpe": "cpe:2.3:a:bleachbit:bleachbit:*:*:*:*:*:*:*:*",
+  "ArpName": "BleachBit",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],

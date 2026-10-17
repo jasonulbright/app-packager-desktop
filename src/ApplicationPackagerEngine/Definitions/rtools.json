@@ -8,6 +8,7 @@
   "CMName": "Rtools",
   "Architecture": "x64",
   "VendorUrl": "https://cran.r-project.org/bin/windows/Rtools/",
+  "ArpName": "Rtools*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

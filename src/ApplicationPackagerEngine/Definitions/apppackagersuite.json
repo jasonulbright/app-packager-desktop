@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://github.com/jasonulbright/app-packager-suite",
   "Cpe": "cpe:2.3:a:jasonulbright:app_packager_suite:*:*:*:*:*:*:*:*",
+  "ArpName": "none",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "InstallContext": "User",

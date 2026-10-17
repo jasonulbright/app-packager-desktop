@@ -8,6 +8,7 @@
   "CMName": "CloudCompare",
   "Architecture": "x64",
   "VendorUrl": "https://www.cloudcompare.org/",
+  "ArpName": "CloudCompare | CloudCompare [0-9]*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

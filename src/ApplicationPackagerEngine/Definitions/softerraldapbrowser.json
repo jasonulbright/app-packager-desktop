@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.ldapbrowser.com/",
   "Cpe": "cpe:2.3:a:softerra:ldap_browser:*:*:*:*:*:*:*:*",
+  "ArpName": "Softerra LDAP Browser*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://docs.aws.amazon.com/redshift/latest/mgmt/configure-odbc-connection.html",
   "Cpe": "cpe:2.3:a:amazon:redshift_odbc_driver:*:*:*:*:*:*:*:*",
+  "ArpName": "Amazon Redshift ODBC Driver*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

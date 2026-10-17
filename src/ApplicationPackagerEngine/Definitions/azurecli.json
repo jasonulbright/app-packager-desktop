@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/cli/azure/",
   "Cpe": "cpe:2.3:a:microsoft:azure_cli:*:*:*:*:*:*:*:*",
+  "ArpName": "Microsoft Azure CLI*",
   "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",

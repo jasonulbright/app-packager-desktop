@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.mongodb.com/products/tools/compass",
   "Cpe": "cpe:2.3:a:mongodb:compass:*:*:*:*:*:*:*:*",
+  "ArpName": "MongoDB Compass",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

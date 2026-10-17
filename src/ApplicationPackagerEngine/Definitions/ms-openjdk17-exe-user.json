@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://learn.microsoft.com/en-us/java/openjdk/",
   "Cpe": "cpe:2.3:a:microsoft:build_of_openjdk:*:*:*:*:*:*:*:*",
+  "ArpName": "none",
   "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.mythicsoft.com/agentransack/",
   "Cpe": "cpe:2.3:a:mythicsoft:agent_ransack:*:*:*:*:*:*:*:*",
+  "ArpName": "Agent Ransack",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

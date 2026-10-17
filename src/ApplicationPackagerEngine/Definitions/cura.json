@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://ultimaker.com/software/ultimaker-cura/",
   "Cpe": "cpe:2.3:a:ultimaker:cura:*:*:*:*:*:*:*:*",
+  "ArpName": "UltiMaker Cura*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

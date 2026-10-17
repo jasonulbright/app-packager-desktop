@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.chiark.greenend.org.uk/~sgtatham/putty/",
     "Cpe":  "cpe:2.3:a:putty:putty:*:*:*:*:*:*:*:*",
+    "ArpName":  "PuTTY release * (64-bit)",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

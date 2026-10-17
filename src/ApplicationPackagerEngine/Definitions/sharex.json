@@ -8,6 +8,7 @@
   "CMName": "ShareX",
   "Architecture": "x64",
   "VendorUrl": "https://getsharex.com/",
+  "ArpName": "ShareX",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

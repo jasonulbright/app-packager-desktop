@@ -7,6 +7,7 @@
     "CMName":  "Foxit PDF Reader",
     "Architecture":  "x64",
     "VendorUrl":  "https://www.foxit.com/pdf-reader.html",
+    "ArpName":  "Foxit PDF Reader",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

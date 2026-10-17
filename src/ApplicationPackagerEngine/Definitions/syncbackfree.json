@@ -9,6 +9,7 @@
   "Architecture": "x86",
   "VendorUrl": "https://www.2brightsparks.com/",
   "Cpe": "cpe:2.3:a:2brightsparks:syncback_free:*:*:*:*:*:*:*:*",
+  "ArpName": "SyncBackFree*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

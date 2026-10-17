@@ -34,6 +34,19 @@ public sealed class AppDefinition
     /// <summary>CPE 2.3 name of the product, in the URI or the formatted form. The CVE lookup needs it.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Cpe { get; set; }
+    /// <summary>
+    /// Add/Remove Programs display-name wildcards (PowerShell -like syntax, case-insensitive),
+    /// joined by " | ". "none" marks a product without a stable Add/Remove Programs entry, or a
+    /// variant that inventory cannot tell apart from the sibling that owns the pattern.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ArpName { get; set; }
+    /// <summary>Optional wildcard on the Add/Remove Programs version.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ArpVersion { get; set; }
+    /// <summary>Optional inventory view: x86 is the 32-bit view, x64 the 64-bit view.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ArpArch { get; set; }
     /// <summary>The vendor's security advisory page. Only an https URL is shown as a link.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SecurityAdvisoryUrl { get; set; }

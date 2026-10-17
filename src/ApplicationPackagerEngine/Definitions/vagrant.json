@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://developer.hashicorp.com/vagrant",
   "Cpe": "cpe:2.3:a:hashicorp:vagrant:*:*:*:*:*:*:*:*",
+  "ArpName": "Vagrant",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

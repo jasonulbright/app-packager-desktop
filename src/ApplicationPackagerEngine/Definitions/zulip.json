@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://zulip.com/",
   "Cpe": "cpe:2.3:a:zulip:zulip_desktop:*:*:*:*:*:*:*:*",
+  "ArpName": "Zulip",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -7,6 +7,7 @@
   "CMName": "WizTree",
   "Architecture": "x64",
   "VendorUrl": "https://diskanalyzer.com/",
+  "ArpName": "WizTree*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

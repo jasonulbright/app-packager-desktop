@@ -8,6 +8,7 @@
   "CMName": "Anypoint Studio",
   "Architecture": "x64",
   "VendorUrl": "https://www.mulesoft.com/platform/studio",
+  "ArpName": "none",
   "InstallerType": "EXE",
   "InstallerFramework": "ZIP",
   "Acquisition": {},

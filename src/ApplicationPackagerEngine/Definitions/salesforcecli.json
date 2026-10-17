@@ -8,6 +8,8 @@
   "CMName": "Salesforce CLI",
   "Architecture": "x64",
   "VendorUrl": "https://developer.salesforce.com/tools/salesforcecli",
+  "ArpName": "@salesforce/cli*",
+  "ArpArch": "x86",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

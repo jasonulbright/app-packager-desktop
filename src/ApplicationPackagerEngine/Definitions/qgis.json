@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://qgis.org/",
   "Cpe": "cpe:2.3:a:qgis:qgis:*:*:*:*:*:*:*:*",
+  "ArpName": "QGIS [0-9]*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

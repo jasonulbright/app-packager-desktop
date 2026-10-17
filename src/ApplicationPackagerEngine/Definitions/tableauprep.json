@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.tableau.com/products/prep",
   "Cpe": "cpe:2.3:a:tableau:prep_builder:*:*:*:*:*:*:*:*",
+  "ArpName": "Tableau Prep*",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

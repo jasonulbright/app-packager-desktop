@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.blender.org/",
   "Cpe": "cpe:2.3:a:blender:blender:*:*:*:*:*:*:*:*",
+  "ArpName": "Blender | Blender [0-9]*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://openvpn.net/community/",
   "Cpe": "cpe:2.3:a:openvpn:openvpn:*:*:*:*:*:*:*:*",
+  "ArpName": "OpenVPN | OpenVPN [0-9]*",
   "SecurityAdvisoryUrl": "https://openvpn.net/security-advisories/",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.wibu.com/",
   "Cpe": "cpe:2.3:a:wibu:codemeter_runtime:*:*:*:*:*:*:*:*",
+  "ArpName": "CodeMeter Runtime Kit*",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",
   "Acquisition": {},

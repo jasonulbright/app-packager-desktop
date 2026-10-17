@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://aws.amazon.com/corretto/",
     "Cpe":  "cpe:2.3:a:amazon:corretto:*:*:*:*:*:*:*:*",
+    "ArpName":  "Amazon Corretto 8 (x64)",
     "SecurityAdvisoryUrl":  "https://aws.amazon.com/security/security-bulletins/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",

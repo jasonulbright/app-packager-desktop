@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://aws.amazon.com/vpn/client-vpn-download/",
   "Cpe": "cpe:2.3:a:amazon:aws_vpn_client:*:*:*:*:*:*:*:*",
+  "ArpName": "AWS VPN Client",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

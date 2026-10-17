@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.naps2.com/",
   "Cpe": "cpe:2.3:a:naps2:naps2:*:*:*:*:*:*:*:*",
+  "ArpName": "NAPS2*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

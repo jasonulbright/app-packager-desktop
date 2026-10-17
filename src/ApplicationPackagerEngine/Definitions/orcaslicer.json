@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://orcaslicer.com/",
   "Cpe": "cpe:2.3:a:softfever:orcaslicer:*:*:*:*:*:*:*:*",
+  "ArpName": "OrcaSlicer*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

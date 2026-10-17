@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.scootersoftware.com/",
   "Cpe": "cpe:2.3:a:scootersoftware:beyond_compare:*:*:*:*:*:*:*:*",
+  "ArpName": "Beyond Compare 5*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

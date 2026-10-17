@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.arduino.cc/en/software",
   "Cpe": "cpe:2.3:a:arduino:arduino_ide:*:*:*:*:*:*:*:*",
+  "ArpName": "Arduino IDE | Arduino IDE [0-9]*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

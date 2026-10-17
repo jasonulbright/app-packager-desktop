@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.google.com/chrome/",
   "Cpe": "cpe:2.3:a:google:chrome:*:*:*:*:*:*:*:*",
+  "ArpName": "Google Chrome",
   "SecurityAdvisoryUrl": "https://chromereleases.googleblog.com/",
   "InstallerType": "MSI",
     "InstallerFramework":  "NativeMSI",

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.urbackup.org/",
   "Cpe": "cpe:2.3:a:urbackup:urbackup:*:*:*:*:*:*:*:*",
+  "ArpName": "UrBackup Client*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

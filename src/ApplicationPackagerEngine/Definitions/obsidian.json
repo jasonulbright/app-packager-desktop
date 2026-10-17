@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://obsidian.md/",
   "Cpe": "cpe:2.3:a:obsidian:obsidian:*:*:*:*:*:*:*:*",
+  "ArpName": "Obsidian",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "InstallContext": "User",

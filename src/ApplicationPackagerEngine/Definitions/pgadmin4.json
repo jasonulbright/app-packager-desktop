@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.pgadmin.org/",
     "Cpe":  "cpe:2.3:a:pgadmin:pgadmin_4:*:*:*:*:*:*:*:*",
+    "ArpName":  "pgAdmin 4*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
     "Acquisition":  {

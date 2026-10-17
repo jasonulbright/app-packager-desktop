@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://dotnet.microsoft.com/download/dotnet/8.0",
     "Cpe":  "cpe:2.3:a:microsoft:.net:8.*:*:*:*:*:*:*:*",
+    "ArpName":  "Microsoft Windows Desktop Runtime - 8.* (x64)",
     "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "WixBurn",

@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://keepass.info/",
     "Cpe":  "cpe:2.3:a:keepass:keepass:*:*:*:*:*:*:*:*",
+    "ArpName":  "KeePass [0-9]* | KeePass Password Safe [0-9]*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

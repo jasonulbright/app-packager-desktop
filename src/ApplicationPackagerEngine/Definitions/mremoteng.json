@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://mremoteng.org/",
     "Cpe":  "cpe:2.3:a:mremoteng:mremoteng:*:*:*:*:*:*:*:*",
+    "ArpName":  "mRemoteNG",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

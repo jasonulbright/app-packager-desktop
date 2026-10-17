@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.bulkrenameutility.co.uk/",
   "Cpe": "cpe:2.3:a:tgrmn:bulk_rename_utility:*:*:*:*:*:*:*:*",
+  "ArpName": "Bulk Rename Utility*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

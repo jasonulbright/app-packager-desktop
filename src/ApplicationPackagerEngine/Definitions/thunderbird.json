@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.thunderbird.net/",
     "Cpe":  "cpe:2.3:a:mozilla:thunderbird:*:*:*:*:*:*:*:*",
+    "ArpName":  "Mozilla Thunderbird (x64 *) | Mozilla Thunderbird [0-9]* x64 *",
     "SecurityAdvisoryUrl":  "https://www.mozilla.org/en-US/security/known-vulnerabilities/thunderbird/",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeEXE",

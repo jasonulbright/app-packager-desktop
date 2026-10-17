@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.cloudflare.com/",
   "Cpe": "cpe:2.3:a:cloudflare:warp:*:*:*:*:*:windows:*:*",
+  "ArpName": "Cloudflare WARP | Cloudflare One Client",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://imageglass.org/",
   "Cpe": "cpe:2.3:a:imageglass:imageglass:*:*:*:*:*:*:*:*",
+  "ArpName": "ImageGlass*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

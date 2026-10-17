@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.wireguard.com/",
   "Cpe": "cpe:2.3:a:wireguard:wireguard:*:*:*:*:*:*:*:*",
+  "ArpName": "WireGuard",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},
