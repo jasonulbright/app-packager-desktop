@@ -21,6 +21,7 @@ public static class PackagerServiceRegistration
         services.AddSingleton<PackagerDiscoveryService>();
         services.AddSingleton<PackagerExecutionService>();
         services.AddSingleton<MecmQueryService>();
+        services.AddSingleton<IDiscoveryService, ApplicationPackagerEngine.Services.DiscoveryService>();
         services.AddSingleton<PackagerPreferencesService>();
         services.AddSingleton<IntuneDeploymentService>();
         services.AddSingleton<DeploymentConditionsService>();

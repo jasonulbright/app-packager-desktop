@@ -1,0 +1,71 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.DiscoveryWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Discover unmanaged software"
+    Width="860" Height="520"
+    MinWidth="700" MinHeight="360"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Discover unmanaged software" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="16,4,16,8">
+            <TextBlock x:Name="txtPrompt" Text="{Binding PromptText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtDiscoverPrompt" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock x:Name="txtStatus" Text="{Binding StatusText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                       AutomationProperties.AutomationId="txtDiscoverStatus" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <TextBlock FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       Text="Each app is hidden on the Applications page, has no ConfigMgr application, and is installed on at least one client. Enabled apps join the grid for Check, Stage and Publish." />
+            <TextBlock x:Name="txtNote" Text="{Binding NoteText}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                       AutomationProperties.AutomationId="txtDiscoverNote" Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Visibility="{Binding HasNote, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" x:Name="gridDiscover" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                  CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
+                  AutomationProperties.AutomationId="gridDiscover">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Width="48" CanUserResize="False" CanUserSort="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                      AutomationProperties.Name="{Binding Name}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Application" Binding="{Binding Name}" Width="*" MinWidth="200" IsReadOnly="True" />
+                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="200" MinWidth="100" IsReadOnly="True" />
+                <DataGridTextColumn Header="Clients" Binding="{Binding ClientCount}" Width="96" MinWidth="96" IsReadOnly="True" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+            <WrapPanel HorizontalAlignment="Right">
+                <ui:Button x:Name="btnEnableSelected" Content="Enable selected" Appearance="Primary" MinWidth="130" Margin="0,0,8,0"
+                           Command="{Binding EnableSelectedCommand}" AutomationProperties.AutomationId="btnEnableSelected"
+                           ToolTip="Show the checked apps in the main grid." />
+                <ui:Button x:Name="btnEnableAll" Content="Enable all" MinWidth="110" Margin="0,0,8,0"
+                           Command="{Binding EnableAllCommand}" AutomationProperties.AutomationId="btnEnableAll"
+                           ToolTip="Show every app in this list in the main grid." />
+                <ui:Button x:Name="btnNotNow" Content="Not now" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
+                           Command="{Binding NotNowCommand}" AutomationProperties.AutomationId="btnNotNow"
+                           ToolTip="Close without a change. The next discovery offers these apps again." />
+                <ui:Button x:Name="btnDismiss" Content="Don't ask again for selected" MinWidth="200"
+                           Command="{Binding DismissSelectedCommand}" AutomationProperties.AutomationId="btnDismiss"
+                           ToolTip="Keep the checked apps hidden and leave them out of later discoveries. Clear the list in Settings, ConfigMgr Site Settings." />
+            </WrapPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

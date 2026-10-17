@@ -45,6 +45,7 @@ public partial class App : Application
                 services.AddSingleton<PublishDialogs>();
                 services.AddSingleton<IPublishDialogs>(sp => sp.GetRequiredService<PublishDialogs>());
                 services.AddSingleton<IWsusPrompts>(sp => sp.GetRequiredService<PublishDialogs>());
+                services.AddSingleton<IDiscoveryPrompt, DiscoveryPrompt>();
 
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainWindowViewModel>();
