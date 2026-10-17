@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.heidisql.com/",
   "Cpe": "cpe:2.3:a:heidisql:heidisql:*:*:*:*:*:*:*:*",
+  "ArpName": "HeidiSQL*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

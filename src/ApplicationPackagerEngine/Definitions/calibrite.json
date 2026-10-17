@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://calibrite.com/",
   "Cpe": "cpe:2.3:a:calibrite:profiler:*:*:*:*:*:*:*:*",
+  "ArpName": "calibrite PROFILER*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

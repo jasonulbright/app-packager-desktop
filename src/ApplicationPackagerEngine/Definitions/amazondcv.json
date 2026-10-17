@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.amazondcv.com/",
   "Cpe": "cpe:2.3:a:amazon:dcv:*:*:*:*:*:*:*:*",
+  "ArpName": "Amazon DCV Client | NICE DCV Client",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

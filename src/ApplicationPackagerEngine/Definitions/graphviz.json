@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://graphviz.org/",
   "Cpe": "cpe:2.3:a:graphviz:graphviz:*:*:*:*:*:*:*:*",
+  "ArpName": "Graphviz*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

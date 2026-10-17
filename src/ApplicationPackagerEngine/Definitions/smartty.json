@@ -9,6 +9,7 @@
   "Architecture": "x86",
   "VendorUrl": "https://sysprogs.com/SmarTTY/",
   "Cpe": "cpe:2.3:a:sysprogs:smartty:*:*:*:*:*:*:*:*",
+  "ArpName": "SmarTTY",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

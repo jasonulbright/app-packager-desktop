@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.nvidia.com/Download/index.aspx",
   "Cpe": "cpe:2.3:a:nvidia:gpu_display_driver:*:*:*:*:*:*:*:*",
+  "ArpName": "NVIDIA Graphics Driver [0-9]*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

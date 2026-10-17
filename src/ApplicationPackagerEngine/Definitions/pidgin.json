@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://pidgin.im/",
   "Cpe": "cpe:2.3:a:pidgin:pidgin:*:*:*:*:*:*:*:*",
+  "ArpName": "Pidgin*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

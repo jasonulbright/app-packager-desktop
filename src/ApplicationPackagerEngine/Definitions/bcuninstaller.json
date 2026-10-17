@@ -9,6 +9,8 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.bcuninstaller.com/",
   "Cpe": "cpe:2.3:a:bcuninstaller:bulk_crap_uninstaller:*:*:*:*:*:*:*:*",
+  "ArpName": "BCUninstaller*",
+  "ArpArch": "x64",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

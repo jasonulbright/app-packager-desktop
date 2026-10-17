@@ -8,6 +8,7 @@
   "CMName": "Raspberry Pi Imager",
   "Architecture": "x64",
   "VendorUrl": "https://www.raspberrypi.com/software/",
+  "ArpName": "Raspberry Pi Imager*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

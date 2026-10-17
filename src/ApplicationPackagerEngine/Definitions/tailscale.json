@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://tailscale.com/",
   "Cpe": "cpe:2.3:a:tailscale:tailscale:*:*:*:*:*:*:*:*",
+  "ArpName": "Tailscale",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

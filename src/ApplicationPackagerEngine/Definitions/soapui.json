@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.soapui.org/",
     "Cpe":  "cpe:2.3:a:smartbear:soapui:*:*:*:*:*:*:*:*",
+    "ArpName":  "SoapUI*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",
     "Acquisition":  {

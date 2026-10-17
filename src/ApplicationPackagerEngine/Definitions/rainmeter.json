@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.rainmeter.net/",
   "Cpe": "cpe:2.3:a:rainmeter:rainmeter:*:*:*:*:*:*:*:*",
+  "ArpName": "Rainmeter",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

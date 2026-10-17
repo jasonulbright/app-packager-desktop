@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.binaryfortress.com/HashTools/",
   "Cpe": "cpe:2.3:a:binaryfortress:hashtools:*:*:*:*:*:*:*:*",
+  "ArpName": "HashTools",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

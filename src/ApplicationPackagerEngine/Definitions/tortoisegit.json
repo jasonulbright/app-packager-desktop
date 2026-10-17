@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://tortoisegit.org/",
     "Cpe":  "cpe:2.3:a:tortoisegit:tortoisegit:*:*:*:*:*:*:*:*",
+    "ArpName":  "TortoiseGit*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

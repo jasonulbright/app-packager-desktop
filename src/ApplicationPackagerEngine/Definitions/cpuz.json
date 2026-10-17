@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.cpuid.com/softwares/cpu-z.html",
   "Cpe": "cpe:2.3:a:cpuid:cpu-z:*:*:*:*:*:*:*:*",
+  "ArpName": "CPUID CPU-Z [0-9]* | CPU-Z [0-9]*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

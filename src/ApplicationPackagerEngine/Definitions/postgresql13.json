@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.postgresql.org/",
     "Cpe":  "cpe:2.3:a:postgresql:postgresql:13.*:*:*:*:*:*:*:*",
+    "ArpName":  "PostgreSQL 13*",
     "SecurityAdvisoryUrl":  "https://www.postgresql.org/support/security/",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InstallShield",

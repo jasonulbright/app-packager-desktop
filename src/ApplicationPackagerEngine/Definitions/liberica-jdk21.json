@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://bell-sw.com/libericajdk/",
   "Cpe": "cpe:2.3:a:bell-sw:liberica_jdk:*:*:*:*:*:*:*:*",
+  "ArpName": "Liberica JDK 21*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

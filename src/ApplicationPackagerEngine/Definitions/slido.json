@@ -8,6 +8,7 @@
   "CMName": "Slido for Windows",
   "Architecture": "x64",
   "VendorUrl": "https://www.slido.com/powerpoint-polling",
+  "ArpName": "Slido for Windows*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

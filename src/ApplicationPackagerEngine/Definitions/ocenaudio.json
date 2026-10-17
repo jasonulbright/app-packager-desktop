@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.ocenaudio.com/",
   "Cpe": "cpe:2.3:a:ocenaudio:ocenaudio:*:*:*:*:*:*:*:*",
+  "ArpName": "ocenaudio*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

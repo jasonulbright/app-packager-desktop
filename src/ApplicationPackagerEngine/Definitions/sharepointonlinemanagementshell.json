@@ -8,6 +8,7 @@
   "CMName": "SharePoint Online Management Shell",
   "Architecture": "x64",
   "VendorUrl": "https://www.microsoft.com/",
+  "ArpName": "SharePoint Online Management Shell",
   "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",

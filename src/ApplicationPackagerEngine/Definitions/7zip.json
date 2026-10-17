@@ -12,6 +12,7 @@
                        ],
     "VendorUrl":  "https://www.7-zip.org/",
     "Cpe":  "cpe:2.3:a:7-zip:7-zip:*:*:*:*:*:*:*:*",
+    "ArpName":  "7-Zip [0-9]*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

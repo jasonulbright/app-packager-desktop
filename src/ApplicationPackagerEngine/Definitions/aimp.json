@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.aimp.ru/",
   "Cpe": "cpe:2.3:a:aimp:aimp:*:*:*:*:*:*:*:*",
+  "ArpName": "AIMP*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

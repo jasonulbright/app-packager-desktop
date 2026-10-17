@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.jetbrains.com/go/",
   "Cpe": "cpe:2.3:a:jetbrains:goland:*:*:*:*:*:*:*:*",
+  "ArpName": "GoLand [0-9]*",
   "SecurityAdvisoryUrl": "https://www.jetbrains.com/privacy-security/issues-fixed/",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",

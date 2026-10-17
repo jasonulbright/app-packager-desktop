@@ -9,6 +9,7 @@
   "Architecture": "x86",
   "VendorUrl": "https://tabulareditor.com/",
   "Cpe": "cpe:2.3:a:tabulareditor:tabular_editor:*:*:*:*:*:*:*:*",
+  "ArpName": "Tabular Editor | Tabular Editor 2*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

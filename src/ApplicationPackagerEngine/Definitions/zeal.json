@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://zealdocs.org/",
   "Cpe": "cpe:2.3:a:zealdocs:zeal:*:*:*:*:*:*:*:*",
+  "ArpName": "Zeal",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.dell.com/",
   "Cpe": "cpe:2.3:a:dell:command_update:*:*:*:*:*:*:*:*",
+  "ArpName": "Dell Command * Update*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "VersionScraper": {

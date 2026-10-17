@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://developer.microsoft.com/microsoft-edge/webview2/",
     "Cpe":  "cpe:2.3:a:microsoft:edge_webview2:*:*:*:*:*:*:*:*",
+    "ArpName":  "Microsoft Edge WebView2 Runtime",
     "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",

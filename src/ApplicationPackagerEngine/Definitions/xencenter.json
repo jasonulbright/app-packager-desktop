@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.xenserver.com/",
     "Cpe":  "cpe:2.3:a:citrix:xencenter:*:*:*:*:*:*:*:*",
+    "ArpName":  "XenCenter*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

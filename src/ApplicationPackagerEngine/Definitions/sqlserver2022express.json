@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.microsoft.com/sql-server/sql-server-downloads",
   "Cpe": "cpe:2.3:a:microsoft:sql_server:2022:*:*:*:express:*:*:*",
+  "ArpName": "none",
   "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",

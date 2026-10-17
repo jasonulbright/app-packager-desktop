@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://aws.amazon.com/cli/",
   "Cpe": "cpe:2.3:a:amazon:aws_command_line_interface:*:*:*:*:*:*:*:*",
+  "ArpName": "AWS Command Line Interface v2",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

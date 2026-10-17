@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://cmake.org/",
   "Cpe": "cpe:2.3:a:kitware:cmake:*:*:*:*:*:*:*:*",
+  "ArpName": "CMake",
   "SecurityAdvisoryUrl": "https://github.com/Kitware/CMake/security",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",

@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.geogebra.org/",
   "Cpe": "cpe:2.3:a:geogebra:geogebra:*:*:*:*:*:*:*:*",
+  "ArpName": "GeoGebra Classic*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

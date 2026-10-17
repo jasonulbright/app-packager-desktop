@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.webex.com/downloads.html",
     "Cpe":  "cpe:2.3:a:cisco:webex_meetings:*:*:*:*:*:*:*:*",
+    "ArpName":  "Webex",
     "SecurityAdvisoryUrl":  "https://sec.cloudapps.cisco.com/security/center/publicationListing.x",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",

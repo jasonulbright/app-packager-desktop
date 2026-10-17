@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://anydesk.com/",
     "Cpe":  "cpe:2.3:a:anydesk:anydesk:*:*:*:*:*:*:*:*",
+    "ArpName":  "AnyDesk",
     "SecurityAdvisoryUrl":  "https://www.anydesk.com/en/security",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",

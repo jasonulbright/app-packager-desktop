@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://clockify.me/",
   "Cpe": "cpe:2.3:a:cake:clockify:*:*:*:*:*:windows:*:*",
+  "ArpName": "Clockify",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

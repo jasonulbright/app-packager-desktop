@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.google.com/drive/download/",
   "Cpe": "cpe:2.3:a:google:drive_for_desktop:*:*:*:*:*:*:*:*",
+  "ArpName": "Google Drive",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

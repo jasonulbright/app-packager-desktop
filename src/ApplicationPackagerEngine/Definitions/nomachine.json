@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.nomachine.com/",
   "Cpe": "cpe:2.3:a:nomachine:nomachine:*:*:*:*:*:*:*:*",
+  "ArpName": "NoMachine",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

@@ -8,6 +8,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://www.anaconda.com/download",
     "Cpe":  "cpe:2.3:a:anaconda:anaconda:*:*:*:*:*:*:*:*",
+    "ArpName":  "Anaconda3 *",
     "SecurityAdvisoryUrl":  "https://www.anaconda.com/security",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NativeEXE",

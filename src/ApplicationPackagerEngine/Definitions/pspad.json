@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.pspad.com/",
   "Cpe": "cpe:2.3:a:pspad:pspad:*:*:*:*:*:*:*:*",
+  "ArpName": "PSPad*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

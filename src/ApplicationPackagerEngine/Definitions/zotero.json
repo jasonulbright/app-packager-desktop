@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.zotero.org/",
   "Cpe": "cpe:2.3:a:zotero:zotero:*:*:*:*:*:*:*:*",
+  "ArpName": "Zotero*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

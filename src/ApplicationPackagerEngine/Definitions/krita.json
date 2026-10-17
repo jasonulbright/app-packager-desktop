@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://krita.org/",
   "Cpe": "cpe:2.3:a:kde:krita:*:*:*:*:*:*:*:*",
+  "ArpName": "Krita*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

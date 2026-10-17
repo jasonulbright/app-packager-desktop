@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://aws.amazon.com/serverless/sam/",
   "Cpe": "cpe:2.3:a:amazon:aws_serverless_application_model_command_line_interface:*:*:*:*:*:*:*:*",
+  "ArpName": "AWS SAM Command Line Interface",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

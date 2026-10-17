@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://vscodium.com/",
   "Cpe": "cpe:2.3:a:vscodium:vscodium:*:*:*:*:*:*:*:*",
+  "ArpName": "VSCodium*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

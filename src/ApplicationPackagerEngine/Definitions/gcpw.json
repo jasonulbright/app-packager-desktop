@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://tools.google.com/dlpage/gcpw/",
   "Cpe": "cpe:2.3:a:google:credential_provider_for_windows:*:*:*:*:*:*:*:*",
+  "ArpName": "Google Credential Provider for Windows",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

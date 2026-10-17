@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://openwebstart.com/",
   "Cpe": "cpe:2.3:a:karakun:openwebstart:*:*:*:*:*:*:*:*",
+  "ArpName": "OpenWebStart*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

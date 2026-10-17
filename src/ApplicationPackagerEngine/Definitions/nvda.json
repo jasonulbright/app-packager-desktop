@@ -8,6 +8,7 @@
   "CMName": "NVDA",
   "Architecture": "x86",
   "VendorUrl": "https://www.nvaccess.org/",
+  "ArpName": "NVDA | NVDA [0-9]*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

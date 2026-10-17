@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.dbvis.com/",
   "Cpe": "cpe:2.3:a:dbvis:dbvisualizer:*:*:*:*:*:*:*:*",
+  "ArpName": "DbVisualizer*",
   "InstallerType": "EXE",
   "InstallerFramework": "Unknown",
   "Acquisition": {},

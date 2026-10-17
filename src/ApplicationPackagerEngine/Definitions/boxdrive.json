@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.box.com/resources/downloads",
   "Cpe": "cpe:2.3:a:box:box_drive:*:*:*:*:*:*:*:*",
+  "ArpName": "Box | Box Drive",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

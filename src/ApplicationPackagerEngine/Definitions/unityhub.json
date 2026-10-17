@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://unity.com/",
   "Cpe": "cpe:2.3:a:unity:unity_hub:*:*:*:*:*:*:*:*",
+  "ArpName": "Unity Hub*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

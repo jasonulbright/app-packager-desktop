@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://pandoc.org/",
   "Cpe": "cpe:2.3:a:johnmacfarlane:pandoc:*:*:*:*:*:*:*:*",
+  "ArpName": "Pandoc*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

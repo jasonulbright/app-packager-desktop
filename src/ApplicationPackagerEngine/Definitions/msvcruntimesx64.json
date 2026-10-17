@@ -11,6 +11,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist",
     "Cpe":  "cpe:2.3:a:microsoft:visual_c%2b%2b_redistributable:*:*:*:*:*:*:*:*",
+    "ArpName":  "Microsoft Visual C++ v14 Redistributable (x64) - * | Microsoft Visual C++ 2015-20?? Redistributable (x64) - *",
     "SecurityAdvisoryUrl":  "https://msrc.microsoft.com/update-guide",
     "InstallerType":  "EXE",
     "InstallerFramework":  "WixBurn",

@@ -7,6 +7,7 @@
     "CMName":  "FileZilla Client",
     "Architecture":  "x64",
     "VendorUrl":  "https://filezilla-project.org/",
+    "ArpName":  "FileZilla [0-9]* | FileZilla Client [0-9]*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "NSIS",
     "Acquisition":  {

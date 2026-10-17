@@ -8,6 +8,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://developer.android.com/studio",
   "Cpe": "cpe:2.3:a:google:android_studio:*:*:*:*:*:*:*:*",
+  "ArpName": "Android Studio",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

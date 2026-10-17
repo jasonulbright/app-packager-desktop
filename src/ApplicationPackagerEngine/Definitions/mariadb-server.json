@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://mariadb.org/",
   "Cpe": "cpe:2.3:a:mariadb:mariadb:*:*:*:*:*:*:*:*",
+  "ArpName": "MariaDB [0-9]* (x64)",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

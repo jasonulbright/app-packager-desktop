@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://mattermost.com/",
   "Cpe": "cpe:2.3:a:mattermost:mattermost_desktop:*:*:*:*:*:*:*:*",
+  "ArpName": "Mattermost",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

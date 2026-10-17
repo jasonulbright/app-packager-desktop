@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://smath.com/",
   "Cpe": "cpe:2.3:a:smath:smath_studio:*:*:*:*:*:*:*:*",
+  "ArpName": "SMath Studio*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

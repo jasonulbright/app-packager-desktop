@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://go.dev/",
   "Cpe": "cpe:2.3:a:golang:go:*:*:*:*:*:*:*:*",
+  "ArpName": "Go Programming Language*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

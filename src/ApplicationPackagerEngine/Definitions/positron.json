@@ -8,6 +8,7 @@
     "CMName":  "Positron",
     "Architecture":  "x64",
     "VendorUrl":  "https://positron.posit.co/",
+    "ArpName":  "Positron*",
     "InstallerType":  "EXE",
     "InstallerFramework":  "InnoSetup",
     "Acquisition":  {

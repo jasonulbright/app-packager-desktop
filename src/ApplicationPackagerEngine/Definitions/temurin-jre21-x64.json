@@ -9,6 +9,7 @@
     "Architecture":  "x64",
     "VendorUrl":  "https://adoptium.net/",
     "Cpe":  "cpe:2.3:a:eclipse:temurin:*:*:*:*:*:*:*:*",
+    "ArpName":  "Eclipse Temurin JRE with Hotspot 21.* (x64)",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

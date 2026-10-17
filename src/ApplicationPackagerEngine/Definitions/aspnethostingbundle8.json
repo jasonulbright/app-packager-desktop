@@ -11,6 +11,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://dotnet.microsoft.com/download/dotnet/8.0",
   "Cpe": "cpe:2.3:a:microsoft:asp.net_core:8.*:*:*:*:*:*:*:*",
+  "ArpName": "Microsoft .NET 8.* - Windows Server Hosting",
   "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "EXE",
   "InstallerFramework": "WixBurn",

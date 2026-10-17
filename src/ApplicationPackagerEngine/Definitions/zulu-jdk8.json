@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.azul.com/downloads/?package=jdk",
   "Cpe": "cpe:2.3:a:azul:zulu:*:*:*:*:*:*:*:*",
+  "ArpName": "Azul Zulu JDK 8.*, 64-bit",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

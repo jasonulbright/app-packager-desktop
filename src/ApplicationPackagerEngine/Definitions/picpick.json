@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://picpick.app/",
   "Cpe": "cpe:2.3:a:ngwin:picpick:*:*:*:*:*:*:*:*",
+  "ArpName": "PicPick*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "Acquisition": {},

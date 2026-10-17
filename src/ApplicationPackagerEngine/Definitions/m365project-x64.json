@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://www.microsoft.com/microsoft-365/project",
   "Cpe": "cpe:2.3:a:microsoft:365_apps:*:*:*:*:*:*:*:*",
+  "ArpName": "Microsoft Project - * | Microsoft Project Online Desktop Client - *",
   "SecurityAdvisoryUrl": "https://msrc.microsoft.com/update-guide",
   "InstallerType": "ODT",
   "InstallerFramework": "ODT",

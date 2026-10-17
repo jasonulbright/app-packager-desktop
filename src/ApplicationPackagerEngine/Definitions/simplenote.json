@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://simplenote.com/",
   "Cpe": "cpe:2.3:a:automattic:simplenote:*:*:*:*:*:*:*:*",
+  "ArpName": "Simplenote*",
   "InstallerType": "EXE",
   "InstallerFramework": "NSIS",
   "SupportsInstallModes": ["CurrentUser", "AllUsers"],

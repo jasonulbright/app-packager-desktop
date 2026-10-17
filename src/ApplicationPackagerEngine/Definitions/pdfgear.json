@@ -8,6 +8,7 @@
   "CMName": "PDFgear",
   "Architecture": "x64",
   "VendorUrl": "https://www.pdfgear.com/",
+  "ArpName": "PDFgear*",
   "InstallerType": "EXE",
   "InstallerFramework": "InnoSetup",
   "Acquisition": {},

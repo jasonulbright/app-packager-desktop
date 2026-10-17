@@ -8,6 +8,7 @@
   "CMName": "NETworkManager",
   "Architecture": "x64",
   "VendorUrl": "https://borntoberoot.net/NETworkManager/",
+  "ArpName": "NETworkManager*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

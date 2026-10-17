@@ -9,6 +9,7 @@
   "Architecture": "x64",
   "VendorUrl": "https://developers.yubico.com/yubico-piv-tool/",
   "Cpe": "cpe:2.3:a:yubico:yubico_piv_tool:*:*:*:*:*:*:*:*",
+  "ArpName": "Yubico PIV Tool*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},

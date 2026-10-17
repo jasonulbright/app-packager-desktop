@@ -8,6 +8,7 @@
     "CMName":  "WinDirStat",
     "Architecture":  "x64",
     "VendorUrl":  "https://windirstat.net/",
+    "ArpName":  "WinDirStat*",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {

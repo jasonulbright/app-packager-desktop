@@ -8,6 +8,7 @@
   "CMName": "NetLogo",
   "Architecture": "x64",
   "VendorUrl": "https://www.netlogo.org/",
+  "ArpName": "NetLogo [0-9]*",
   "InstallerType": "MSI",
   "InstallerFramework": "NativeMSI",
   "Acquisition": {},
