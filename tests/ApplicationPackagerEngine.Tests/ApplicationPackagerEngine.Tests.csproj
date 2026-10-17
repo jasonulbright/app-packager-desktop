@@ -32,6 +32,7 @@
     <Content Include="Fixtures\*.bin" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\PlanDigest\*.json;Fixtures\PlanDigest\*.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\Vulnerability\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Fixtures\Discovery\*.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\WsusRules\*.json;Fixtures\WsusRules\*.msi;Fixtures\WsusRules\*.ps1;Fixtures\WsusAdapter\*.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
