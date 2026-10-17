@@ -24,6 +24,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Services\Wsus\WsusAdapter.ps1" LogicalName="ApplicationPackagerEngine.Services.Wsus.WsusAdapter.ps1" />
+    <EmbeddedResource Include="Services\DiscoveryScripts\DiscoveryInventory.ps1" LogicalName="ApplicationPackagerEngine.Services.DiscoveryScripts.DiscoveryInventory.ps1" />
+    <EmbeddedResource Include="Services\DiscoveryScripts\DiscoverySiteDefinition.ps1" LogicalName="ApplicationPackagerEngine.Services.DiscoveryScripts.DiscoverySiteDefinition.ps1" />
   </ItemGroup>
 
 
