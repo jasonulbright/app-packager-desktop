@@ -21,6 +21,9 @@ public partial class ApplicationsViewModel : ObservableObject
         _discoveryService = discoveryService;
         _snackbarService = snackbarService;
         _packagesViewModel = packagesViewModel;
+        // A save from this page writes every row's state: rows read before a discovery changed
+        // the hidden list would hide the enabled applications again.
+        packagesViewModel.HiddenApplicationsChanged += (_, _) => _ = LoadAsync();
         _ = LoadAsync();
     }
 

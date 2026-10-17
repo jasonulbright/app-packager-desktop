@@ -101,6 +101,7 @@ public partial class MainWindow : IDialogHostWindow
 
         Closing += (_, _) =>
         {
+            _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>().StopDiscovery();
             var s = settingsService.Load();
             s.WindowMaximized = WindowState == WindowState.Maximized;
             if (WindowState == WindowState.Normal)

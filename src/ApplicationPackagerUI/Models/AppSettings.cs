@@ -67,6 +67,21 @@ public sealed class AppSettings
 
     public string[] HiddenApplications { get; set; } = [];
 
+    /// <summary>Definition ids that Discover unmanaged software no longer offers. Disjoint from <see cref="DiscoveryEnabled"/>.</summary>
+    public string[] DiscoveryDismissed { get; set; } = [];
+
+    /// <summary>
+    /// Definition ids that Discover unmanaged software made visible. The first-run hidden-list
+    /// import never hides them again. Disjoint from <see cref="DiscoveryDismissed"/>.
+    /// </summary>
+    public string[] DiscoveryEnabled { get; set; } = [];
+
+    /// <summary>SQL Server instance of the ConfigMgr site database; empty uses the server of the site.</summary>
+    public string DiscoverySqlServer { get; set; } = "";
+
+    /// <summary>ConfigMgr site database name; empty uses CM_ and the site code.</summary>
+    public string DiscoverySqlDatabase { get; set; } = "";
+
     // Per-app version check state (Script name → last checked + latest version)
     public Dictionary<string, AppCheckState> AppStates { get; set; } = [];
 

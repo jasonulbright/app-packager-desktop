@@ -40,6 +40,9 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>The Script Signing section; written to the store only by Save Settings.</summary>
     public ScriptSigningEditor Signing { get; } = new();
 
+    /// <summary>The Discover unmanaged software fields; written to the store only by Save Settings.</summary>
+    public DiscoverySettingsEditor Discovery { get; } = new();
+
 
     [ObservableProperty] private string _m365Channel = "MonthlyEnterprise";
 
@@ -526,6 +529,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         CompanyName = s.CompanyName;
         SiteCode = s.SiteCode;
         ProviderMachine = s.ProviderMachine;
+        Discovery.Load(s);
         FileShareRoot = s.FileShareRoot;
         DownloadRoot = s.DownloadRoot;
         PackagersRoot = s.PackagersRoot;
@@ -594,6 +598,7 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
         s.CompanyName = CompanyName;
         s.SiteCode = SiteCode;
         s.ProviderMachine = ProviderMachine.Trim();
+        Discovery.ApplyTo(s);
         s.FileShareRoot = FileShareRoot;
         s.DownloadRoot = DownloadRoot;
         s.PackagersRoot = PackagersRoot;

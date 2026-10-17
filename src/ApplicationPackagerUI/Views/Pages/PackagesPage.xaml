@@ -59,6 +59,13 @@
                        ToolTip="{Binding CheckMecmToolTip}"
                        ToolTipService.ShowOnDisabled="True"
                        Margin="0,0,4,0" />
+            <ui:Button Content="Discover unmanaged software"
+                       Icon="{ui:SymbolIcon BoxSearch24}"
+                       Command="{Binding DiscoverCommand}"
+                       ToolTip="{Binding DiscoverToolTip}"
+                       ToolTipService.ShowOnDisabled="True"
+                       AutomationProperties.AutomationId="btnDiscover"
+                       Margin="0,0,4,0" />
             <ui:Button Content="Check CVEs"
                        Icon="{ui:SymbolIcon ShieldError24}"
                        Command="{Binding CheckCvesCommand}"
