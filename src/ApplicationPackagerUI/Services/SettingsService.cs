@@ -103,6 +103,7 @@ public class SettingsService : IRunSettingsReader<AppSettings>
                     .Where(kv => kv.Value is not null)
                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
                 settings.OneClick.OnExisting = ApplicationPackagerEngine.Services.OneClick.OneClickOnExisting.Normalize(settings.OneClick.OnExisting);
+                DiscoveryPreferences.Normalize(settings);
                 settings.AppStates ??= [];
                 foreach (var state in settings.AppStates.Values.Where(s => s is not null))
                 {

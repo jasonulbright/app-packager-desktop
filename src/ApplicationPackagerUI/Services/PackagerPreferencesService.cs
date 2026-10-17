@@ -126,7 +126,8 @@ public class PackagerPreferencesService(SettingsService settingsService, Package
                     if (oldPrefs.TryGetValue("M365Channel", out var mc))
                         settings.M365Channel = mc.GetString() ?? settings.M365Channel;
                     if (oldPrefs.TryGetValue("HiddenApplications", out var ha) && ha.ValueKind == JsonValueKind.Array)
-                        settings.HiddenApplications = ha.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToArray();
+                        settings.HiddenApplications = DiscoveryPreferences.WithoutEnabled(
+                            ha.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0), settings);
                     migrated = true;
                 }
             }
