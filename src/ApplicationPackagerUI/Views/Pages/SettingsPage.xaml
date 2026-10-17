@@ -103,6 +103,33 @@
             <TextBlock Text="Leave empty only when this machine is the SMS provider."
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
 
+            <TextBlock Text="Discovery SQL Server" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding Discovery.SqlServer, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="Server of the site" MaxLength="200" Margin="0,0,0,4"
+                        AutomationProperties.AutomationId="txtDiscoverySqlServer"
+                        ToolTip="SQL Server instance of the ConfigMgr site database for Discover unmanaged software, for example cm01.contoso.com or server\instance. Windows authentication only." />
+            <TextBlock Text="Leave empty to use the SQL Server of the site, read from the SMS Provider."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <TextBlock Text="Discovery Database" Style="{StaticResource FieldLabel}" />
+            <ui:TextBox Text="{Binding Discovery.SqlDatabase, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="CM_ and the site code" MaxLength="128" Width="240" HorizontalAlignment="Left" Margin="0,0,0,4"
+                        AutomationProperties.AutomationId="txtDiscoverySqlDatabase"
+                        ToolTip="Name of the ConfigMgr site database, for example CM_MCM. The account needs db_datareader on this database." />
+            <TextBlock Text="Leave empty to use the database of the site."
+                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+            <TextBlock Text="Not offered by Discover" Style="{StaticResource FieldLabel}" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <TextBlock Text="{Binding Discovery.DismissedSummary}" VerticalAlignment="Center" Margin="0,0,12,0"
+                           AutomationProperties.AutomationId="txtDiscoveryDismissed"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           ToolTip="Apps that Discover unmanaged software leaves out after Don't ask again for selected." />
+                <ui:Button Content="Clear list" Command="{Binding Discovery.ClearDismissedCommand}"
+                           AutomationProperties.AutomationId="btnClearDiscoveryDismissed"
+                           ToolTip="Offer these apps again in later discoveries. Takes effect on Save." />
+            </StackPanel>
+
             <TextBlock Text="File Share Root (UNC)" Style="{StaticResource FieldLabel}" />
             <ui:TextBox Text="{Binding FileShareRoot, UpdateSourceTrigger=PropertyChanged}"
                         PlaceholderText="\\fileserver\sccm$" Margin="0,0,0,12" />

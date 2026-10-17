@@ -78,7 +78,9 @@ public partial class PackagesViewModel : ObservableObject
         IPublishDialogs publishDialogs,
         PublishRunService publishRuns,
         ApplicationPackagerEngine.Services.ApplicationInventoryService inventory,
-        ApplicationInventoryProjection inventoryProjection)
+        ApplicationInventoryProjection inventoryProjection,
+        ApplicationPackagerEngine.Services.IDiscoveryService discovery,
+        IDiscoveryPrompt discoveryPrompt)
     {
         _publishRuns = publishRuns;
         _dropAnalysisService = dropAnalysisService;
@@ -103,6 +105,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishWsusCommand = new AsyncRelayCommand(() => StartPublishRunAsync(PublishRunTargets.WsusOnly), () => CanRunOperation() && IsPublishWsusAvailable);
         WsusUpdatesCommand = new RelayCommand(OpenWsusUpdates, () => CanRunOperation() && IsWsusUpdatesAvailable);
         OneClickCommand = new AsyncRelayCommand(OneClickAsync, CanRunOperation);
+        InitializeDiscovery(discovery, discoveryPrompt);
 
         RefreshPublishActionState();
 
@@ -120,8 +123,10 @@ public partial class PackagesViewModel : ObservableObject
     /// </summary>
     public void RefreshPublishActionState()
     {
-        var readiness = ReadinessOf(_settingsService.Load());
+        var settings = _settingsService.Load();
+        var readiness = ReadinessOf(settings);
         var state = PublishActionState.For(readiness);
+        RefreshDiscoverState(settings);
 
         ShowIntuneColumn = readiness.Systems.Intune;
         IsCheckMecmAvailable = state.CheckMecmEnabled;
@@ -149,6 +154,7 @@ public partial class PackagesViewModel : ObservableObject
         PublishWsusCommand.NotifyCanExecuteChanged();
         WsusUpdatesCommand.NotifyCanExecuteChanged();
         OneClickCommand.NotifyCanExecuteChanged();
+        DiscoverCommand.NotifyCanExecuteChanged();
         NotifyCveCommands();
     }
 
