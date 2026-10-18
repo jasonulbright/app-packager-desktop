@@ -1,6 +1,8 @@
 using System.Runtime.ExceptionServices;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Xml.Linq;
 using ApplicationPackagerEngine.Services;
@@ -8,6 +10,7 @@ using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Windows;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Markup;
+using DataGrid = System.Windows.Controls.DataGrid;
 using Size = System.Windows.Size;
 
 namespace ApplicationPackagerEngine.Tests;
@@ -67,6 +70,42 @@ public sealed class DiscoveryWindowTests
         Assert.Equal("{Binding ToggleCheckedCommand}", (string?)binding.Attribute("Command"));
         Assert.Equal("{Binding SelectedItem, ElementName=gridDiscover}", (string?)binding.Attribute("CommandParameter"));
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheCheckColumnHeaderUsesTheThemedHeaderLook(ApplicationTheme theme)
+    {
+        var gridMarkup = Named(Markup(), "gridDiscover").ToString();
+        var hostMarkup =
+            "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:ui=\"http://schemas.lepo.co/wpfui/2022/xaml\">"
+            + "<Grid.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>"
+            + $"<ui:ThemesDictionary Theme=\"{theme}\" /><ui:ControlsDictionary />"
+            + "</ResourceDictionary.MergedDictionaries></ResourceDictionary></Grid.Resources>"
+            + gridMarkup + "</Grid>";
+        RunSta(() =>
+        {
+            var host = (Grid)System.Windows.Markup.XamlReader.Parse(hostMarkup);
+            var grid = host.Children.OfType<DataGrid>().Single();
+            host.Measure(new Size(600, 300));
+            host.Arrange(new Rect(0, 0, 600, 300));
+            host.UpdateLayout();
+
+            var headers = Descendants(grid).OfType<DataGridColumnHeader>().Where(h => h.Column is not null).ToList();
+            var check = headers.Single(h => h.Column is DataGridTemplateColumn);
+            var application = headers.Single(h => (h.Column.Header as string) == "Application");
+            Assert.Equal("Include", AutomationProperties.GetName(check));
+            Assert.Equal(application.Template, check.Template);
+            Assert.Equal(Describe(application.Background), Describe(check.Background));
+        });
+    }
+
+    private static string Describe(System.Windows.Media.Brush? brush) => brush switch
+    {
+        null => "none",
+        SolidColorBrush solid => solid.Color.ToString(),
+        _ => brush.GetType().Name
+    };
 
     [Fact]
     public void EnableSelectedIsTheDefaultButtonAndNotNowTheCancelButton()

@@ -11,7 +11,6 @@
     "Cpe":  "cpe:2.3:a:zoom:zoom:*:*:*:*:*:*:*:*",
     "ArpName":  "Zoom Workplace* | Zoom | Zoom (64-bit) | Zoom (32-bit)",
     "SecurityAdvisoryUrl":  "https://www.zoom.com/en/trust/security-bulletin/",
-    "InstallerType":  "EXE",
     "InstallerFramework":  "NativeMSI",
     "Acquisition":  {
 
