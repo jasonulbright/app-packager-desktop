@@ -69,7 +69,7 @@ The Workbench is the editor for one application. A definition supplies the defau
 
 ## Bring your own installer
 
-Drop an installer on the Packages page. App Packager Desktop analyses it and shows the installer type, the silent arguments and a detection rule. **Save as Application** keeps it as an application with numbered installer revisions.
+Drop an installer on the Packages page. App Packager Desktop analyzes it and shows the installer type, the silent arguments and a detection rule. **Save as Application** keeps it as an application with numbered installer revisions.
 
 ## Script signing
 
@@ -92,6 +92,8 @@ The plan shows `WSUS: not supported` for an application whose definition declare
 **Discover unmanaged software** finds hidden applications that your clients run and that ConfigMgr does not manage. It reads the Add/Remove Programs inventory in the site database. A hidden application is offered when at least one client reports it and the site has no ConfigMgr application for it.
 
 The prompt reads "Discovered N apps. Enable console view?". The checklist shows each application and the number of clients that report it.
+
+![The Discover unmanaged software prompt with the application, vendor and client count of each discovered application](docs/images/discover.png)
 
 - **Enable selected** and **Enable all** show the applications in the Packages grid.
 - **Not now** closes the prompt and changes nothing.
@@ -227,7 +229,7 @@ The CVE lookup, the CVE reports, the command-line CVE report run, the ConfigMgr 
 
 ## Relationship to app-packager
 
-App Packager Desktop is the C# counterpart of [app-packager](https://github.com/jasonulbright/app-packager), the PowerShell packager. A feature is released in app-packager first and is then ported to App Packager Desktop. The two products are MIT licensed.
+App Packager Desktop is the C# counterpart of [app-packager](https://github.com/jasonulbright/app-packager), the PowerShell packager. The two products are MIT licensed.
 
 ## Build from source
 
@@ -247,7 +249,7 @@ tools\build-release.ps1
 | `src\ApplicationPackagerEngine` | Scrapers, staging, the ConfigMgr, Intune and WSUS targets, Workbench, signing, One Click, and the definitions |
 | `tests\ApplicationPackagerEngine.Tests` | The tests |
 
-The Release workflow makes a release. Run it manually from `main`. It runs the tests, publishes and signs the executables, compiles and signs the installer, creates the tag `v<version>` and publishes the GitHub release. Before you run it, set `<Version>` in the UI project and add a section for that version to `CHANGELOG.md`. A version has the form `YYYY.MDD.N`: the year, then the month and day as one number without a leading zero (October 3 is `1003`), then the release number, which is the number of the last release plus one. `tools\test-release-version.ps1` checks the version.
+The Release workflow makes a release. Run it manually from `main`. It runs the tests, publishes and signs the executables, compiles and signs the installer, creates the tag `v<version>` and publishes the GitHub release. Before you run it, set `<Version>` in the UI project and add a section for that version to `CHANGELOG.md`. A version has the form `YYYY.MDD.N`: the year, then the month and day as one number without a leading zero (October 3 is `1003`), then the release number, which is the number of the last release plus one. `tools\test-release-version.ps1` checks the version. [RELEASING.md](RELEASING.md) gives the full procedure.
 
 ## License
 

@@ -32,7 +32,7 @@ public static class WindowsPowerShellHost
         IReadOnlyList<string>? scriptArguments = null,
         string? standardInput = null)
     {
-        // Write script to temp file to avoid argument escaping issues
+        // A script file keeps the script text out of command-line quoting.
         var scriptPath = Path.Combine(Path.GetTempPath(), $"{scriptFilePrefix}-{Guid.NewGuid():N}.ps1");
         await File.WriteAllTextAsync(scriptPath, script, Encoding.UTF8, ct);
 

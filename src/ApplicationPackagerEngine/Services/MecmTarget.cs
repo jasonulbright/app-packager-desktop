@@ -532,7 +532,6 @@ public sealed partial class MecmTarget
             sb.AppendLine("} else { Write-Host \"Application icon not found   : $iconPath\" }");
         }
 
-        // Clean up revision history (keep only latest)
         sb.AppendLine("try {");
         sb.AppendLine("  $revisions = Get-CMApplicationRevisionHistory -Id $app.CI_ID -ErrorAction Stop");
         sb.AppendLine("  if (@($revisions).Count -gt 1) {");
@@ -837,7 +836,7 @@ public sealed partial class MecmTarget
         sb.AppendLine("if (-not $msixFile) { $msixFile = Get-ChildItem -Path '" + Esc(networkContentPath) + "' -Filter '*.appx' -ErrorAction SilentlyContinue | Select-Object -First 1 }");
         sb.AppendLine("if (-not $msixFile) { throw 'No .msix or .appx file found in content path' }");
 
-        // Add MSIX deployment type — CM handles detection automatically
+        // Add-CMWindowsAppxDeploymentType takes no detection clause: the site detects the package itself.
         sb.AppendLine("Write-Host 'Adding MSIX deployment type...'");
         sb.Append($"Add-CMWindowsAppxDeploymentType -ApplicationName '{Esc(appName)}'");
         sb.Append($" -DeploymentTypeName '{Esc(appName)}'");
