@@ -103,7 +103,7 @@ public sealed class SidebarWindowTests
             var first = (NavigationViewItem)h.Navigation.MenuItems[0]!;
             Assert.Equal(SidebarIds.Packages, first.Tag);
             Assert.Equal(typeof(PackagesPage), first.TargetPageType);
-            Assert.Equal(3, h.Navigation.MenuItems.Count);
+            Assert.Equal(SidebarRegistry.CreateDefault().Items.Count - 1, h.Navigation.MenuItems.Count);
         }, SidebarRegistry.CreateDefault(), new SidebarLayout { Order = [SidebarIds.Workbench, SidebarIds.Packages], Hidden = [SidebarIds.Packages, SidebarIds.AddApp] });
     }
 

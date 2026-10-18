@@ -197,6 +197,10 @@ public static class SidebarServiceRegistration
         services.AddSingleton(_ => SidebarRegistry.CreateDefault());
         services.AddSingleton<ISidebarLayoutStore, SettingsSidebarLayoutStore>();
         services.AddSingleton<SidebarService>();
+        services.AddSingleton<ISuiteFileSystem, SuiteFileSystem>();
+        services.AddSingleton<ISuiteEnvironment, SuiteEnvironment>();
+        services.AddSingleton<IToolProcessStarter, ToolProcessStarter>();
+        services.AddSingleton<SuiteToolLauncher>();
         return services;
     }
 }

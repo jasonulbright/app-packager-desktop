@@ -60,6 +60,13 @@ public sealed class SidebarRegistry
         {
             Activate = services => services.GetRequiredService<MainWindow>().OpenWorkbenchForGridSelection()
         });
+        foreach (var tool in SuiteTools.All)
+        {
+            registry.Register(new SidebarItemDefinition(tool.Id, tool.Title, tool.Symbol, SidebarItemKind.Tool)
+            {
+                Activate = services => services.GetRequiredService<MainWindow>().OpenSuiteTool(tool)
+            });
+        }
         return registry;
     }
 }
