@@ -26,6 +26,9 @@
     <EmbeddedResource Include="Services\Wsus\WsusAdapter.ps1" LogicalName="ApplicationPackagerEngine.Services.Wsus.WsusAdapter.ps1" />
     <EmbeddedResource Include="Services\DiscoveryScripts\DiscoveryInventory.ps1" LogicalName="ApplicationPackagerEngine.Services.DiscoveryScripts.DiscoveryInventory.ps1" />
     <EmbeddedResource Include="Services\DiscoveryScripts\DiscoverySiteDefinition.ps1" LogicalName="ApplicationPackagerEngine.Services.DiscoveryScripts.DiscoverySiteDefinition.ps1" />
+    <EmbeddedResource Include="Services\ConfigMgrSession\Scripts\ConfigMgrSessionHost.ps1" LogicalName="ApplicationPackagerEngine.Services.ConfigMgrSession.Scripts.ConfigMgrSessionHost.ps1" />
+    <EmbeddedResource Include="Services\ConfigMgrSession\Scripts\GetSites.ps1" LogicalName="ApplicationPackagerEngine.Services.ConfigMgrSession.Scripts.GetSites.ps1" />
+    <EmbeddedResource Include="Services\ConfigMgrSession\Scripts\GetCollections.ps1" LogicalName="ApplicationPackagerEngine.Services.ConfigMgrSession.Scripts.GetCollections.ps1" />
   </ItemGroup>
 
 
