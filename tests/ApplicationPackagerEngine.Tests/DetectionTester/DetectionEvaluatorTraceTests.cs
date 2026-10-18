@@ -250,7 +250,8 @@ public sealed class DetectionEvaluatorTraceTests
     [Theory]
     [InlineData("10.0.26100.8457 (WinBuild.160101.0800)", "10.0.26100.8457")]
     [InlineData(" 1.2.3.4 ", "1.2.3.4")]
-    [InlineData("1, 2, 3, 4", "1,2,3,4")]
+    [InlineData("1, 2, 3, 4", "1.2.3.4")]
+    [InlineData("5,1,0,0", "5.1.0.0")]
     [InlineData("", "")]
     [InlineData(null, "")]
     public void AFileVersionLosesItsBuildLabelAndSpaces(string? raw, string want) =>
@@ -378,6 +379,146 @@ public sealed class DetectionEvaluatorTraceTests
         Assert.Equal("Script (PowerShell, 1 line)", DetectionEvaluator.Describe(Script()));
         Assert.Equal("Compound Or of 2 clauses",
             DetectionEvaluator.Describe(Compound("Or", KeyClause("a"), KeyClause("b"))));
+    }
+
+    [Theory]
+    [InlineData("2.0", "2.0.0", "GreaterEquals", DetectionEvaluation.Detected)]
+    [InlineData("2.0", "2.0.0.0", "IsEquals", DetectionEvaluation.Detected)]
+    [InlineData("1.0.0", "1.0", "GreaterThan", DetectionEvaluation.NotDetected)]
+    [InlineData("1.0", "1.0.0", "LessThan", DetectionEvaluation.NotDetected)]
+    [InlineData("2.0", "2.0.1", "GreaterEquals", DetectionEvaluation.NotDetected)]
+    public void MissingVersionComponentsCountAsZero(string actual, string expected, string op, DetectionEvaluation want) =>
+        Assert.Equal(want, DetectionEvaluator.CompareValue(actual,
+            new StageDetection { ExpectedValue = expected, Operator = op, PropertyType = "Version" }));
+
+    [Fact]
+    public void AFileVersionWithFourComponentsEqualsAShorterExpectedVersion() =>
+        Assert.Equal(DetectionEvaluation.Detected, DetectionEvaluator.CompareValue("5.1.0.0",
+            new StageDetection { ExpectedValue = "5.1", Operator = "IsEquals", PropertyType = "Version" },
+            DetectionEvaluator.FileDefaultOperator));
+
+    [Theory]
+    [InlineData(@"\SOFTWARE\Microsoft\Windows NT\CurrentVersion")]
+    [InlineData(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\")]
+    [InlineData(@"HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion")]
+    [InlineData(@"HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion")]
+    [InlineData(@"\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\")]
+    [InlineData(@"hkey_local_machine\SOFTWARE\Microsoft\Windows NT\CurrentVersion")]
+    public void AKeyPathWithASeparatorOrTheClauseHiveIsNormalized(string path)
+    {
+        var context = new DetectionEvaluationContext();
+
+        Assert.Equal(DetectionEvaluation.Detected, DetectionEvaluator.Trace(
+            new StageDetection { Type = "RegistryKey", RegistryKeyRelative = path }, context).Verdict);
+        Assert.Equal(DetectionEvaluation.Detected, DetectionEvaluator.Trace(new StageDetection
+        {
+            Type = "RegistryKeyValue",
+            RegistryKeyRelative = path,
+            ValueName = "CurrentMajorVersionNumber",
+            ExpectedValue = "6",
+            Operator = "GreaterEquals",
+            PropertyType = "Integer"
+        }, context).Verdict);
+    }
+
+    [Theory]
+    [InlineData(@"HKCU\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "LocalMachine")]
+    [InlineData(@"HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "LocalMachine")]
+    [InlineData(@"HKLM\Software\Microsoft\Windows\CurrentVersion", "CurrentUser")]
+    [InlineData(@"HKCR\.txt", "LocalMachine")]
+    [InlineData(@"HKEY_USERS\.DEFAULT", "LocalMachine")]
+    public void AKeyPathNamingAnotherHiveIsAnError(string path, string hive)
+    {
+        var registry = new FakeRegistryProvider();
+
+        var key = DetectionEvaluator.Trace(
+            new StageDetection { Type = "RegistryKey", RegistryKeyRelative = path, Hive = hive }, Context(registry));
+        var value = DetectionEvaluator.Trace(
+            new StageDetection { Type = "RegistryKeyValue", RegistryKeyRelative = path, Hive = hive, ExpectedValue = "1" }, Context(registry));
+
+        Assert.Equal(DetectionEvaluation.Error, key.Verdict);
+        Assert.Contains("hive", key.Detail);
+        Assert.Equal(DetectionEvaluation.Error, value.Verdict);
+        Assert.Equal(0, registry.OpenCount);
+    }
+
+    [Fact]
+    public void AKeyPathThatIsOnlyAHiveIsAnError() =>
+        Assert.Equal(DetectionEvaluation.Error, DetectionEvaluator.Trace(
+            new StageDetection { Type = "RegistryKey", RegistryKeyRelative = @"HKLM\" }, Context(new FakeRegistryProvider())).Verdict);
+
+    [Fact]
+    public void ADwordAboveTwoToTheThirtyFirstIsReadUnsigned()
+    {
+        var registry = new FakeRegistryProvider()
+            .Set(RegistryHive.LocalMachine, RegistryView.Registry64, Key, "Flags", unchecked((int)0x80000000), RegistryValueKind.DWord);
+
+        var trace = DetectionEvaluator.Trace(
+            Value("2147483647", "GreaterThan", "Integer", valueName: "Flags"), Context(registry));
+
+        Assert.Equal(DetectionEvaluation.Detected, trace.Verdict);
+        Assert.Contains("2147483648", trace.Detail);
+    }
+
+    [Fact]
+    public void AQwordAboveTheSignedRangeIsReadUnsigned()
+    {
+        var registry = new FakeRegistryProvider()
+            .Set(RegistryHive.LocalMachine, RegistryView.Registry64, Key, "Huge", -1L, RegistryValueKind.QWord);
+
+        var trace = DetectionEvaluator.Trace(
+            Value("9223372036854775807", "GreaterThan", "Integer", valueName: "Huge"), Context(registry));
+
+        Assert.Equal(DetectionEvaluation.Detected, trace.Verdict);
+        Assert.Contains("18446744073709551615", trace.Detail);
+        Assert.Equal(DetectionEvaluation.Detected, DetectionEvaluator.Trace(
+            Value("18446744073709551615", "IsEquals", "Integer", valueName: "Huge"), Context(registry)).Verdict);
+    }
+
+    [Theory]
+    [InlineData("NotEquals", DetectionEvaluation.Detected)]
+    [InlineData("IsEquals", DetectionEvaluation.NotDetected)]
+    [InlineData("BeginsWith", DetectionEvaluation.NotDetected)]
+    [InlineData("GreaterEquals", DetectionEvaluation.NotDetected)]
+    public void AnEmptyValueIsAbsentOnlyForAPositiveMatch(string op, DetectionEvaluation want)
+    {
+        var registry = new FakeRegistryProvider()
+            .Set(RegistryHive.LocalMachine, RegistryView.Registry64, Key, "Version", "");
+
+        Assert.Equal(want, DetectionEvaluator.Trace(Value("2.0", op), Context(registry)).Verdict);
+        Assert.Equal(want, DetectionEvaluator.CompareValue("", new StageDetection { ExpectedValue = "2.0", Operator = op, PropertyType = "String" }));
+    }
+
+    [Fact]
+    public void AThirtyTwoBitFileRuleReadsTheThirtyTwoBitProgramFiles()
+    {
+        var det = new StageDetection { Type = "File", FilePath = @"%ProgramFiles%\Contoso", FileName = "app.exe", Is64Bit = false };
+        var x86 = Environment.GetEnvironmentVariable("ProgramFiles(x86)")!;
+        var native = Environment.GetEnvironmentVariable("ProgramW6432")!;
+
+        Assert.Equal(Path.Combine(x86, "Contoso", "app.exe"), DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+        det.FilePath = @"%programfiles%\Contoso";
+        Assert.Equal(Path.Combine(x86, "Contoso", "app.exe"), DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+        det.FilePath = @"%CommonProgramFiles%\Contoso";
+        Assert.Equal(Path.Combine(Environment.GetEnvironmentVariable("CommonProgramFiles(x86)")!, "Contoso", "app.exe"),
+            DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+        det.FilePath = @"%ProgramFiles(x86)%\Contoso";
+        Assert.Equal(Path.Combine(x86, "Contoso", "app.exe"), DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+        det.FilePath = @"%ProgramFiles%\Contoso";
+        det.Is64Bit = true;
+        Assert.Equal(Path.Combine(native, "Contoso", "app.exe"), DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Windows\System32\notepad.exe")]
+    [InlineData(@"\Windows\notepad.exe")]
+    public void ARootedFileNameIsAnError(string fileName)
+    {
+        var trace = DetectionEvaluator.Trace(
+            new StageDetection { Type = "File", FilePath = @"C:\Contoso", FileName = fileName }, Context(new FakeRegistryProvider()));
+
+        Assert.Equal(DetectionEvaluation.Error, trace.Verdict);
+        Assert.Contains("file name", trace.Detail);
     }
 
     [Fact]

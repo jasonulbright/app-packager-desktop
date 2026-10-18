@@ -110,10 +110,13 @@ public static partial class DetectionEvaluator
         if (!IsSupportedOperator(det.Operator, fallback))
             return (DetectionEvaluation.Error, $"The operator '{det.Operator}' is not supported.");
 
-        if (string.IsNullOrEmpty(actual)) return (DetectionEvaluation.NotDetected, "The value is empty.");
+        var op = string.IsNullOrWhiteSpace(det.Operator) ? fallback : det.Operator!.Trim();
+        if (actual is null) return (DetectionEvaluation.NotDetected, "The value is empty.");
+        // An existing empty value can satisfy NotEquals, LessThan and LessEquals, so it
+        // counts as absent only for the operators it can never satisfy.
+        if (actual.Length == 0 && !ComparesEmptyValue(op)) return (DetectionEvaluation.NotDetected, "The value is empty.");
         if (string.IsNullOrEmpty(det.ExpectedValue)) return (DetectionEvaluation.Detected, "The value exists.");
 
-        var op = string.IsNullOrWhiteSpace(det.Operator) ? fallback : det.Operator!.Trim();
         var expected = det.ExpectedValue!;
 
         // Prefix, suffix and substring are string comparisons whatever the property type
@@ -137,13 +140,13 @@ public static partial class DetectionEvaluator
                 !Version.TryParse(expected, out var expectedVersion))
                 return (DetectionEvaluation.Error, $"'{actual}' or '{expected}' is not a version.");
 
-            return Ordered(actualVersion.CompareTo(expectedVersion), op);
+            return Ordered(PadVersion(actualVersion).CompareTo(PadVersion(expectedVersion)), op);
         }
 
         if (type is not null && IntegerTypes.Contains(type, StringComparer.OrdinalIgnoreCase))
         {
-            if (!long.TryParse(actual.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var actualNumber) ||
-                !long.TryParse(expected.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var expectedNumber))
+            if (!Int128.TryParse(actual.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var actualNumber) ||
+                !Int128.TryParse(expected.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var expectedNumber))
                 return (DetectionEvaluation.Error, $"'{actual}' or '{expected}' is not an integer.");
 
             return Ordered(actualNumber.CompareTo(expectedNumber), op);
@@ -159,6 +162,18 @@ public static partial class DetectionEvaluator
 
         return Ordered(string.Compare(actual, expected, StringComparison.OrdinalIgnoreCase), op);
     }
+
+    private static bool ComparesEmptyValue(string op) =>
+        op.Equals("NotEquals", StringComparison.OrdinalIgnoreCase)
+        || op.Equals("LessThan", StringComparison.OrdinalIgnoreCase)
+        || op.Equals("LessEquals", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// <see cref="Version"/> ranks a missing component below zero, so 1.0 is less than
+    /// 1.0.0; the deployment rule reads a missing component as zero.
+    /// </summary>
+    private static Version PadVersion(Version v) =>
+        new(v.Major, v.Minor, Math.Max(v.Build, 0), Math.Max(v.Revision, 0));
 
     private static (DetectionEvaluation, string) Ordered(int comparison, string op) => op.ToLowerInvariant() switch
     {
@@ -251,16 +266,49 @@ public static partial class DetectionEvaluator
 
     private static string ViewText(StageDetection det) => det.Is64Bit ? "64-bit view" : "32-bit view";
 
+    private static readonly (string Prefix, RegistryHive Hive)[] HivePrefixes =
+    [
+        ("HKEY_LOCAL_MACHINE", RegistryHive.LocalMachine), ("HKLM", RegistryHive.LocalMachine),
+        ("HKEY_CURRENT_USER", RegistryHive.CurrentUser), ("HKCU", RegistryHive.CurrentUser),
+        ("HKEY_CLASSES_ROOT", RegistryHive.ClassesRoot), ("HKCR", RegistryHive.ClassesRoot),
+        ("HKEY_USERS", RegistryHive.Users), ("HKU", RegistryHive.Users),
+        ("HKEY_CURRENT_CONFIG", RegistryHive.CurrentConfig), ("HKCC", RegistryHive.CurrentConfig)
+    ];
+
+    /// <summary>
+    /// The key path relative to the clause's hive. A leading separator makes the open
+    /// fail, and a pasted hive prefix is read as a subkey name; both would report the key
+    /// as absent, which a negative test then counts as a pass. A prefix naming another
+    /// hive than the clause's is an error for the same reason.
+    /// </summary>
+    private static (string? Path, string? Error) RelativeKeyPath(StageDetection det)
+    {
+        var parts = (det.RegistryKeyRelative ?? "").Trim()
+            .Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        if (parts.Count > 0)
+        {
+            var first = parts[0].TrimEnd(':');
+            var named = HivePrefixes.Where(p => p.Prefix.Equals(first, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (named.Count > 0)
+            {
+                if (named[0].Hive != HiveOf(det))
+                    return (null, $"The key path '{det.RegistryKeyRelative}' names another hive than the clause's {HivePrefix(det)}.");
+                parts.RemoveAt(0);
+            }
+        }
+        return parts.Count == 0 ? (null, "The clause has no registry key.") : (string.Join('\\', parts), null);
+    }
+
     private static DetectionTrace TraceRegistryKeyValue(StageDetection det, DetectionEvaluationContext context)
     {
-        if (string.IsNullOrEmpty(det.RegistryKeyRelative))
-            return Leaf(det, DetectionEvaluation.Error, "The clause has no registry key.");
+        var (path, pathError) = RelativeKeyPath(det);
+        if (path is null) return Leaf(det, DetectionEvaluation.Error, pathError!);
         // Refused before the key is opened, so a missing key cannot mask a bad rule.
         if (!IsSupportedOperator(det.Operator, RegistryDefaultOperator))
             return Leaf(det, DetectionEvaluation.Error, $"The operator '{det.Operator}' is not supported.");
 
-        var target = $@"{HivePrefix(det)}\{det.RegistryKeyRelative}";
-        using var key = context.Registry.OpenKey(HiveOf(det), ViewOf(det), det.RegistryKeyRelative);
+        var target = $@"{HivePrefix(det)}\{path}";
+        using var key = context.Registry.OpenKey(HiveOf(det), ViewOf(det), path);
         if (key is null) return Leaf(det, DetectionEvaluation.NotDetected, $"Key not found: {target} ({ViewText(det)}).");
 
         var name = det.ValueName ?? DefaultValueName;
@@ -271,8 +319,9 @@ public static partial class DetectionEvaluator
         switch (raw)
         {
             case string s: actual = s; break;
-            case int i: actual = i.ToString(CultureInfo.InvariantCulture); break;
-            case long l: actual = l.ToString(CultureInfo.InvariantCulture); break;
+            // REG_DWORD and REG_QWORD are unsigned; the registry API returns them as signed.
+            case int i: actual = unchecked((uint)i).ToString(CultureInfo.InvariantCulture); break;
+            case long l: actual = unchecked((ulong)l).ToString(CultureInfo.InvariantCulture); break;
             default:
                 if (string.IsNullOrEmpty(det.ExpectedValue))
                     return Leaf(det, DetectionEvaluation.Detected, $"Value '{name}' exists in {target}.");
@@ -289,11 +338,11 @@ public static partial class DetectionEvaluator
 
     private static DetectionTrace TraceRegistryKey(StageDetection det, DetectionEvaluationContext context)
     {
-        if (string.IsNullOrEmpty(det.RegistryKeyRelative))
-            return Leaf(det, DetectionEvaluation.Error, "The clause has no registry key.");
+        var (path, pathError) = RelativeKeyPath(det);
+        if (path is null) return Leaf(det, DetectionEvaluation.Error, pathError!);
 
-        var target = $@"{HivePrefix(det)}\{det.RegistryKeyRelative}";
-        using var key = context.Registry.OpenKey(HiveOf(det), ViewOf(det), det.RegistryKeyRelative);
+        var target = $@"{HivePrefix(det)}\{path}";
+        using var key = context.Registry.OpenKey(HiveOf(det), ViewOf(det), path);
         return key is null
             ? Leaf(det, DetectionEvaluation.NotDetected, $"Key not found: {target} ({ViewText(det)}).")
             : Leaf(det, DetectionEvaluation.Detected, $"Key exists: {target} ({ViewText(det)}).");
@@ -308,33 +357,43 @@ public static partial class DetectionEvaluator
     [GeneratedRegex(@"\s+", RegexOptions.CultureInvariant)]
     private static partial Regex Whitespace();
 
+    [GeneratedRegex(@"%(ProgramFiles|CommonProgramFiles)%", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ProgramFilesVariable();
+
     /// <summary>
-    /// The path a file rule probes. A 32-bit rule on a 64-bit Windows reads System32
-    /// through WOW64 redirection, which lands in SysWOW64; this 64-bit process sees no
-    /// redirection, so the segment is rewritten instead.
+    /// The path a file rule probes. A 32-bit rule on a 64-bit Windows is evaluated as a
+    /// 32-bit process would see it: System32 is redirected to SysWOW64 and %ProgramFiles%
+    /// and %CommonProgramFiles% expand to their (x86) folders. This 64-bit process sees
+    /// neither, so the path is rewritten instead.
     /// </summary>
     public static string ResolveFilePath(StageDetection det)
     {
-        var folder = Environment.ExpandEnvironmentVariables(det.FilePath ?? "");
-        if (!det.Is64Bit && Environment.Is64BitOperatingSystem)
-            folder = System32Segment().Replace(folder, @"\SysWOW64$1");
+        var raw = det.FilePath ?? "";
+        var redirect = !det.Is64Bit && Environment.Is64BitOperatingSystem;
+        if (redirect) raw = ProgramFilesVariable().Replace(raw, "%$1(x86)%");
+        var folder = Environment.ExpandEnvironmentVariables(raw);
+        if (redirect) folder = System32Segment().Replace(folder, @"\SysWOW64$1");
         return Path.Combine(folder, det.FileName ?? "");
     }
 
     /// <summary>
     /// The version string of a file without the build label Windows binaries append, for
-    /// example "10.0.26100.1 (WinBuild.160101.0800)", and without spaces.
+    /// example "10.0.26100.1 (WinBuild.160101.0800)", without spaces, and with the comma
+    /// separators of the "1, 2, 3, 4" form read as dots.
     /// </summary>
     public static string NormalizeFileVersion(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return "";
-        return Whitespace().Replace(TrailingLabel().Replace(raw.Trim(), ""), "");
+        return Whitespace().Replace(TrailingLabel().Replace(raw.Trim(), ""), "").Replace(',', '.');
     }
 
     private static DetectionTrace TraceFile(StageDetection det)
     {
         if (string.IsNullOrEmpty(det.FilePath) || string.IsNullOrEmpty(det.FileName))
             return Leaf(det, DetectionEvaluation.Error, "The clause has no file path or file name.");
+        // Path.Combine drops the folder when the second part is rooted.
+        if (Path.IsPathRooted(det.FileName))
+            return Leaf(det, DetectionEvaluation.Error, $"The file name '{det.FileName}' is a path; the folder belongs in the file path.");
 
         var property = det.PropertyType?.Trim();
         var isVersion = string.Equals(property, "Version", StringComparison.OrdinalIgnoreCase);
