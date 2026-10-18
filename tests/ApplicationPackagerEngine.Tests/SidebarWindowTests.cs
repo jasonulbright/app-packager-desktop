@@ -8,7 +8,9 @@ using ApplicationPackagerUI.Views.Windows;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Markup;
 using ContextMenu = System.Windows.Controls.ContextMenu;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MenuItem = System.Windows.Controls.MenuItem;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using NavigationView = Wpf.Ui.Controls.NavigationView;
 using NavigationViewItem = Wpf.Ui.Controls.NavigationViewItem;
 using Point = System.Windows.Point;
@@ -29,7 +31,6 @@ public sealed class SidebarWindowTests
         public required SidebarService Service { get; init; }
         public required SidebarPresenter Presenter { get; init; }
         public required List<string> Activated { get; init; }
-        public required PlainPages Pages { get; init; }
 
         public ItemsControl List => Presenter.Drag!.List;
 
@@ -50,8 +51,7 @@ public sealed class SidebarWindowTests
         {
             var service = new SidebarService(registry ?? SidebarFixtures.Registry(), new InMemorySidebarStore(layout));
             var navigation = new NavigationView { PaneDisplayMode = Wpf.Ui.Controls.NavigationViewPaneDisplayMode.Left, IsPaneOpen = true, OpenPaneLength = 220 };
-            var pages = new PlainPages();
-            navigation.SetPageProviderService(pages);
+            navigation.SetPageProviderService(new PlainPages());
             var activated = new List<string>();
             var presenter = new SidebarPresenter(navigation, service, item => activated.Add(item.Id));
             var window = new Window
@@ -66,21 +66,18 @@ public sealed class SidebarWindowTests
             {
                 window.UpdateLayout();
                 StaTestHelper.Flush();
-                test(new Harness { Window = window, Navigation = navigation, Service = service, Presenter = presenter, Activated = activated, Pages = pages });
+                test(new Harness { Window = window, Navigation = navigation, Service = service, Presenter = presenter, Activated = activated });
             }
             finally { window.Close(); }
         });
     }
 
-    internal sealed class PlainPages : Wpf.Ui.Abstractions.INavigationViewPageProvider
+    private sealed class PlainPages : Wpf.Ui.Abstractions.INavigationViewPageProvider
     {
         private readonly Dictionary<Type, Page> _pages = [];
 
-        public Type? Missing { get; set; }
-
         public object? GetPage(Type pageType)
         {
-            if (pageType == Missing) return null;
             if (!_pages.TryGetValue(pageType, out var page)) _pages[pageType] = page = new Page { Tag = pageType };
             return page;
         }
@@ -340,6 +337,206 @@ public sealed class SidebarWindowTests
         }, layout: new SidebarLayout { Order = [], Hidden = ["b"] });
     }
 
+    /// <summary>
+    /// Raises the preview mouse events the input system raises, on the element under the
+    /// pointer, and answers the behavior's pointer reads for them. An event the test did not
+    /// raise reads as a release with the pointer at the list origin.
+    /// </summary>
+    private sealed class Mouse_
+    {
+        private readonly Dictionary<MouseEventArgs, SidebarPointer> _raised = new(ReferenceEqualityComparer.Instance);
+
+        public Mouse_(Harness h) => h.Presenter.Drag!.ReadPointer = e => _raised.TryGetValue(e, out var p) ? p : new SidebarPointer(default, false);
+
+        // The left-button events are direct events that each element raises from the tunnelling
+        // PreviewMouseDown and PreviewMouseUp, so those are the events to raise.
+        public MouseButtonEventArgs Down(UIElement target, Point at) => Raise(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left), UIElement.PreviewMouseDownEvent, target, at, true);
+
+        public MouseEventArgs Move(UIElement target, Point at, bool leftPressed = true) => Raise(new MouseEventArgs(Mouse.PrimaryDevice, 0), UIElement.PreviewMouseMoveEvent, target, at, leftPressed);
+
+        public MouseButtonEventArgs Up(UIElement target, Point at) => Raise(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left), UIElement.PreviewMouseUpEvent, target, at, false);
+
+        private T Raise<T>(T e, RoutedEvent routed, UIElement target, Point at, bool leftPressed) where T : MouseEventArgs
+        {
+            e.RoutedEvent = routed;
+            _raised[e] = new SidebarPointer(at, leftPressed);
+            target.RaiseEvent(e);
+            return e;
+        }
+    }
+
+    [Fact]
+    public void AMouseTapOnAWindowEntryIsTakenFromTheNavigationViewAndOpensItOnce()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var window = h.Presenter.ItemFor("w");
+            Assert.True(mouse.Down(window, h.Center("w")).Handled);
+            Assert.Empty(h.Activated);
+            Assert.True(mouse.Up(window, h.Center("w")).Handled);
+            StaTestHelper.Flush();
+            Assert.Equal(["w"], h.Activated);
+            Assert.Equal(["home", "a", "b", "w", "t"], SidebarFixtures.Ids(h.Service.Items));
+        });
+    }
+
+    [Fact]
+    public void AMouseTapOnAPageEntryIsLeftToTheNavigationView()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var navigations = 0;
+            h.Navigation.Navigated += (_, _) => navigations++;
+            var alpha = h.Presenter.ItemFor("a");
+            Assert.False(mouse.Down(alpha, h.Center("a")).Handled);
+            Assert.False(mouse.Move(alpha, h.Center("a")).Handled);
+            Assert.False(mouse.Up(alpha, h.Center("a")).Handled);
+            StaTestHelper.Flush();
+            Assert.Empty(h.Activated);
+            Assert.Equal(0, navigations);
+        });
+    }
+
+    [Fact]
+    public void AMouseDragOfAWindowEntryCapturesTheMouseMovesTheEntryAndDoesNotOpenIt()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var drag = h.Presenter.Drag!;
+            var window = h.Presenter.ItemFor("w");
+            var start = h.Center("w");
+            mouse.Down(window, start);
+            Assert.False(mouse.Move(window, new Point(start.X + 1, start.Y - 1)).Handled);
+            Assert.False(drag.IsDragging);
+
+            Assert.True(mouse.Move(h.List, h.Top("a")).Handled);
+            Assert.True(drag.IsDragging);
+            Assert.True(drag.MarkerShown);
+            Assert.Same(h.List, Mouse.Captured);
+
+            Assert.True(mouse.Up(h.List, h.Top("a")).Handled);
+            StaTestHelper.Flush();
+            Assert.Empty(h.Activated);
+            Assert.Null(Mouse.Captured);
+            Assert.False(drag.MarkerShown);
+            Assert.Equal(["home", "w", "a", "b", "t"], SidebarFixtures.Ids(h.Service.Items));
+        });
+    }
+
+    [Fact]
+    public void AMouseDropOfAPageEntryIsTakenFromTheNavigationView()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var navigations = 0;
+            h.Navigation.Navigated += (_, _) => navigations++;
+            mouse.Down(h.Presenter.ItemFor("b"), h.Center("b"));
+            mouse.Move(h.List, h.Top("a"));
+            Assert.True(mouse.Up(h.List, h.Top("a")).Handled);
+            StaTestHelper.Flush();
+            Assert.Equal(0, navigations);
+            Assert.Equal(["home", "b", "a", "w", "t"], SidebarFixtures.Ids(h.Service.Items));
+        });
+    }
+
+    [Fact]
+    public void AMoveWithTheLeftButtonUpCancelsTheDrag()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var drag = h.Presenter.Drag!;
+            mouse.Down(h.Presenter.ItemFor("t"), h.Center("t"));
+            mouse.Move(h.List, h.Top("a"));
+            Assert.True(drag.IsDragging);
+
+            Assert.False(mouse.Move(h.List, h.Top("b"), leftPressed: false).Handled);
+            Assert.False(drag.IsDragging);
+            Assert.False(drag.MarkerShown);
+            Assert.Null(Mouse.Captured);
+            Assert.Null(h.Presenter.ItemFor("t").ReadLocalValue(UIElement.OpacityProperty) as double?);
+            Assert.False(mouse.Up(h.List, h.Top("a")).Handled);
+            StaTestHelper.Flush();
+            Assert.Empty(h.Activated);
+            Assert.Equal(["home", "a", "b", "w", "t"], SidebarFixtures.Ids(h.Service.Items));
+        });
+    }
+
+    [Fact]
+    public void ALostCaptureCancelsTheDrag()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var drag = h.Presenter.Drag!;
+            mouse.Down(h.Presenter.ItemFor("t"), h.Center("t"));
+            mouse.Move(h.List, h.Top("a"));
+            Assert.Same(h.List, Mouse.Captured);
+
+            Mouse.Capture(null);
+            Assert.False(drag.IsDragging);
+            Assert.False(drag.MarkerShown);
+            mouse.Up(h.List, h.Top("a"));
+            StaTestHelper.Flush();
+            Assert.Empty(h.Activated);
+            Assert.Equal(["home", "a", "b", "w", "t"], SidebarFixtures.Ids(h.Service.Items));
+        });
+    }
+
+    [Fact]
+    public void EscapeAfterAMouseMoveCancelsTheDragAndReleasesTheMouse()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var drag = h.Presenter.Drag!;
+            mouse.Down(h.Presenter.ItemFor("t"), h.Center("t"));
+            mouse.Move(h.List, h.Top("a"));
+            Assert.True(drag.IsDragging);
+
+            var escape = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(h.Window)!, 0, Key.Escape)
+            {
+                RoutedEvent = Keyboard.PreviewKeyDownEvent
+            };
+            h.Window.RaiseEvent(escape);
+            Assert.True(escape.Handled);
+            Assert.False(drag.IsDragging);
+            Assert.Null(Mouse.Captured);
+            mouse.Up(h.List, h.Top("a"));
+            StaTestHelper.Flush();
+            Assert.Empty(h.Activated);
+            Assert.Equal(["home", "a", "b", "w", "t"], SidebarFixtures.Ids(h.Service.Items));
+        });
+    }
+
+    [Fact]
+    public void AMouseMoveRaisedWhileTheDragTakesTheMouseIsIgnored()
+    {
+        WithSidebar(h =>
+        {
+            var mouse = new Mouse_(h);
+            var drag = h.Presenter.Drag!;
+            var synthetic = 0;
+            h.List.GotMouseCapture += (_, _) =>
+            {
+                synthetic++;
+                h.List.RaiseEvent(new MouseEventArgs(Mouse.PrimaryDevice, 0) { RoutedEvent = UIElement.PreviewMouseMoveEvent });
+            };
+            mouse.Down(h.Presenter.ItemFor("t"), h.Center("t"));
+            mouse.Move(h.List, h.Top("a"));
+            Assert.Equal(1, synthetic);
+            Assert.True(drag.IsDragging);
+            Assert.True(drag.MarkerShown);
+            Assert.Same(h.List, Mouse.Captured);
+            mouse.Up(h.List, h.Top("a"));
+            Assert.Equal(["home", "t", "a", "b", "w"], SidebarFixtures.Ids(h.Service.Items));
+        });
+    }
+
     [Fact]
     public void HidingTheShownPagesEntryOpensTheStartPageAndShowingItAgainLeavesNoHighlight()
     {
@@ -383,14 +580,15 @@ public sealed class SidebarWindowTests
     }
 
     [Fact]
-    public void AnEntryThatLeavesTheMenuLosesItsHighlightWhenTheStartPageCannotOpen()
+    public void AnEntryThatLeavesTheMenuLosesItsHighlightWhenTheStartPageNavigationIsCancelled()
     {
         WithSidebar(h =>
         {
             var alpha = h.Presenter.ItemFor("a");
             Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
-            h.Pages.Missing = typeof(PackagesPage);
+            h.Navigation.Navigating += (_, e) => e.Cancel = true;
             h.Service.Hide("a");
+            Assert.Same(alpha, h.Navigation.SelectedItem);
             Assert.False(alpha.IsActive);
             h.Service.Show("a");
             Assert.False(alpha.IsActive);

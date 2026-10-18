@@ -195,6 +195,8 @@ public sealed class SidebarPresenter
     }
 }
 
+public readonly record struct SidebarPointer(Point Position, bool LeftPressed);
+
 /// <summary>
 /// Drag and drop reorder over the navigation view's entry list. A press starts nothing
 /// until the pointer passes the system drag distance; the drag then owns the mouse, shows
@@ -231,9 +233,16 @@ public sealed class SidebarDragBehavior
         };
         HookWindow();
         list.Loaded += (_, _) => HookWindow();
+        ReadPointer = e => new SidebarPointer(e.GetPosition(List), e.LeftButton == MouseButtonState.Pressed);
     }
 
     public ItemsControl List { get; }
+
+    /// <summary>
+    /// The pointer position in list coordinates and the left button state for a mouse event.
+    /// Both come from the mouse device, not from the event, so a raised event needs its own reader.
+    /// </summary>
+    public Func<MouseEventArgs, SidebarPointer> ReadPointer { get; set; }
 
     public bool IsDragging { get; private set; }
 
@@ -333,7 +342,7 @@ public sealed class SidebarDragBehavior
     private void OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_itemFrom(e.OriginalSource) is not { } item) return;
-        Press(item, e.GetPosition(List));
+        Press(item, ReadPointer(e).Position);
         // The navigation view raises no Click for the item it already treats as current,
         // so a Window or Tool entry takes the mouse here and opens on release.
         if (_pressedDefinition is { Kind: not SidebarItemKind.Page }) e.Handled = true;
@@ -343,12 +352,13 @@ public sealed class SidebarDragBehavior
     {
         // A capture change raises a synthetic mouse move while the capture call runs.
         if (_pressed is null || _ending) return;
-        if (e.LeftButton != MouseButtonState.Pressed)
+        var pointer = ReadPointer(e);
+        if (!pointer.LeftPressed)
         {
             Cancel();
             return;
         }
-        MoveTo(e.GetPosition(List));
+        MoveTo(pointer.Position);
         if (IsDragging) e.Handled = true;
     }
 
@@ -356,7 +366,7 @@ public sealed class SidebarDragBehavior
     {
         if (_pressed is null) return;
         var handled = IsDragging || _pressedDefinition is { Kind: not SidebarItemKind.Page };
-        Release(e.GetPosition(List));
+        Release(ReadPointer(e).Position);
         if (handled) e.Handled = true;
     }
 
