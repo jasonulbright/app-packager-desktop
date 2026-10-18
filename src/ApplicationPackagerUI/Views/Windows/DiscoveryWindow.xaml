@@ -36,8 +36,16 @@
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
                   SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
                   AutomationProperties.AutomationId="gridDiscover">
+            <DataGrid.InputBindings>
+                <KeyBinding Key="Space" Command="{Binding ToggleCheckedCommand}" CommandParameter="{Binding SelectedItem, ElementName=gridDiscover}" />
+            </DataGrid.InputBindings>
             <DataGrid.Columns>
                 <DataGridTemplateColumn Width="48" CanUserResize="False" CanUserSort="False">
+                    <DataGridTemplateColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+                            <Setter Property="AutomationProperties.Name" Value="Include" />
+                        </Style>
+                    </DataGridTemplateColumn.HeaderStyle>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
@@ -45,24 +53,38 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Application" Binding="{Binding Name}" Width="*" MinWidth="200" IsReadOnly="True" />
-                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="200" MinWidth="100" IsReadOnly="True" />
+                <DataGridTextColumn Header="Application" Binding="{Binding Name}" Width="*" MinWidth="200" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding Name}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="200" MinWidth="100" IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="ToolTip" Value="{Binding Vendor}" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Clients" Binding="{Binding ClientCount}" Width="96" MinWidth="96" IsReadOnly="True" />
             </DataGrid.Columns>
         </DataGrid>
 
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
             <WrapPanel HorizontalAlignment="Right">
-                <ui:Button x:Name="btnEnableSelected" Content="Enable selected" Appearance="Primary" MinWidth="130" Margin="0,0,8,0"
+                <ui:Button x:Name="btnEnableSelected" Content="_Enable selected" Appearance="Primary" MinWidth="130" Margin="0,0,8,0" IsDefault="True"
                            Command="{Binding EnableSelectedCommand}" AutomationProperties.AutomationId="btnEnableSelected"
                            ToolTip="Show the checked apps in the main grid." />
-                <ui:Button x:Name="btnEnableAll" Content="Enable all" MinWidth="110" Margin="0,0,8,0"
+                <ui:Button x:Name="btnEnableAll" Content="Enable _all" MinWidth="110" Margin="0,0,8,0"
                            Command="{Binding EnableAllCommand}" AutomationProperties.AutomationId="btnEnableAll"
                            ToolTip="Show every app in this list in the main grid." />
-                <ui:Button x:Name="btnNotNow" Content="Not now" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
+                <ui:Button x:Name="btnNotNow" Content="_Not now" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
                            Command="{Binding NotNowCommand}" AutomationProperties.AutomationId="btnNotNow"
                            ToolTip="Close without a change. The next discovery offers these apps again." />
-                <ui:Button x:Name="btnDismiss" Content="Don't ask again for selected" MinWidth="200"
+                <ui:Button x:Name="btnDismiss" Content="_Don't ask again for selected" MinWidth="200"
                            Command="{Binding DismissSelectedCommand}" AutomationProperties.AutomationId="btnDismiss"
                            ToolTip="Keep the checked apps hidden and leave them out of later discoveries. Clear the list in Settings, ConfigMgr Site Settings." />
             </WrapPanel>

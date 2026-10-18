@@ -23,8 +23,21 @@ public partial class ApplicationsViewModel : ObservableObject
         _packagesViewModel = packagesViewModel;
         // A save from this page writes every row's state: rows read before a discovery changed
         // the hidden list would hide the enabled applications again.
-        packagesViewModel.HiddenApplicationsChanged += (_, _) => _ = LoadAsync();
+        packagesViewModel.HiddenApplicationsChanged += (_, _) => _ = ReloadLoggedAsync(LoadAsync, packagesViewModel.AppendLog);
         _ = LoadAsync();
+    }
+
+    /// <summary>Runs a reload nobody awaits; a failure becomes one log line without exception text.</summary>
+    public static async Task ReloadLoggedAsync(Func<Task> load, Action<string> log)
+    {
+        try
+        {
+            await load();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            log("Applications page: the list could not be reloaded. Open the page again to retry.");
+        }
     }
 
     private async Task LoadAsync()

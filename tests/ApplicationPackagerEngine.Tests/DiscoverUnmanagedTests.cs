@@ -697,6 +697,133 @@ public sealed class DiscoveryRunnerTests
         Assert.DoesNotContain(r.Log, line => line.Contains("secret"));
         Assert.Equal(0, r.Reloads);
     }
+
+    private static DiscoveryRunner UnreadableRunner(FakeDiscoveryService service, InMemorySettings store) =>
+        new(service, store.Load, store.Save,
+            _ => Task.FromResult<IReadOnlyList<DiscoveryPackager>>([GrepWin]),
+            _ => Task.FromResult<IReadOnlyList<CmSiteDrive>>([]),
+            () => null, settingsUnreadable: () => true);
+
+    [Theory]
+    [InlineData("enableAll")]
+    [InlineData("enableSelected")]
+    [InlineData("dismiss")]
+    public async Task AnUnreadableSettingsFileChangesNothingAndSaysSo(string button)
+    {
+        var store = new InMemorySettings(Configured());
+        var service = new FakeDiscoveryService { Answer = (_, _) => Task.FromResult(TwoCandidates()) };
+        var prompt = new FakeDiscoveryPrompt(vm =>
+        {
+            vm.Rows[0].Selected = true;
+            (button switch { "enableAll" => vm.EnableAllCommand, "enableSelected" => vm.EnableSelectedCommand, _ => vm.DismissSelectedCommand }).Execute(null);
+        });
+        var r = new Recorder();
+
+        await Run(UnreadableRunner(service, store), prompt, r);
+
+        Assert.Equal(0, store.Saves);
+        Assert.Equal(0, r.Reloads);
+        Assert.Equal(0, r.SettingsChanges);
+        Assert.Equal("Discover unmanaged software: the settings could not be saved. Nothing changed.", r.Status[^1]);
+        Assert.Contains("Discover unmanaged software: the settings could not be saved. Nothing changed.", r.Log);
+        Assert.DoesNotContain(r.Log, line => line.Contains("added") || line.Contains("offered again"));
+    }
+
+    [Fact]
+    public async Task TheDrivesAreNotReadWhenBothSqlOverridesAreSet()
+    {
+        var reads = 0;
+        var settings = Configured();
+        settings.ProviderMachine = "";
+        settings.DiscoverySqlServer = "sql01";
+        settings.DiscoverySqlDatabase = "CM_LAB";
+        var runner = Runner(new FakeDiscoveryService(), new InMemorySettings(settings),
+            _ => { reads++; return Task.FromResult<IReadOnlyList<CmSiteDrive>>([new CmSiteDrive("MCM", "cm01")]); });
+
+        Assert.Equal("", await runner.ResolveProviderNameAsync(settings, CancellationToken.None));
+        Assert.Equal(0, reads);
+
+        settings.DiscoverySqlDatabase = " ";
+        Assert.Equal("cm01", await runner.ResolveProviderNameAsync(settings, CancellationToken.None));
+        Assert.Equal(1, reads);
+    }
+
+    [Fact]
+    public async Task APromptFailureReportsAPlainMessageAndChangesNothing()
+    {
+        var store = new InMemorySettings(Configured());
+        var service = new FakeDiscoveryService { Answer = (_, _) => Task.FromResult(TwoCandidates()) };
+        var prompt = new FakeDiscoveryPrompt(_ => throw new InvalidOperationException("owner window at C:\\secret"));
+        var r = new Recorder();
+
+        Assert.Null(await Run(Runner(service, store), prompt, r));
+
+        Assert.Equal(0, store.Saves);
+        Assert.Equal("Discover unmanaged software: the prompt could not be shown. Nothing changed.", r.Status[^1]);
+        Assert.Contains("Discover unmanaged software: the prompt could not be shown. Nothing changed.", r.Log);
+        Assert.DoesNotContain(r.Log.Concat(r.Status), line => line.Contains("secret"));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ARefreshFailureAfterTheSaveReportsAPlainMessage(bool reloadFails)
+    {
+        var store = new InMemorySettings(Configured());
+        var service = new FakeDiscoveryService { Answer = (_, _) => Task.FromResult(TwoCandidates()) };
+        var prompt = new FakeDiscoveryPrompt(vm => vm.EnableAllCommand.Execute(null));
+        var log = new List<string>();
+        var status = new List<string>();
+
+        var choice = await Runner(service, store).RunAsync(prompt, log.Add, status.Add,
+            () => reloadFails ? throw new IOException("grid at C:\\secret") : Task.CompletedTask,
+            () => { if (!reloadFails) throw new InvalidOperationException("page at C:\\secret"); },
+            CancellationToken.None);
+
+        Assert.Equal(DiscoveryAction.EnableAll, choice!.Action);
+        Assert.Equal(1, store.Saves);
+        Assert.Equal("Discover unmanaged software: the choice was saved, but the lists could not be refreshed. Open the Applications page to see them.", status[^1]);
+        Assert.Contains(status[^1], log);
+        Assert.DoesNotContain(log.Concat(status), line => line.Contains("secret"));
+    }
+
+    [Fact]
+    public async Task CancellationDuringTheRefreshIsNotReportedAsAFailure()
+    {
+        var store = new InMemorySettings(Configured());
+        var service = new FakeDiscoveryService { Answer = (_, _) => Task.FromResult(TwoCandidates()) };
+        var prompt = new FakeDiscoveryPrompt(vm => vm.EnableAllCommand.Execute(null));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => Runner(service, store).RunAsync(prompt, _ => { }, _ => { },
+            () => throw new OperationCanceledException(), () => { }, CancellationToken.None));
+    }
+}
+
+public sealed class DiscoveryReloadTests
+{
+    [Fact]
+    public async Task AFailedReloadIsLoggedWithoutTheExceptionText()
+    {
+        var log = new List<string>();
+        await ApplicationsViewModel.ReloadLoggedAsync(() => throw new IOException("C:\\secret"), log.Add);
+        Assert.Equal(["Applications page: the list could not be reloaded. Open the page again to retry."], log);
+    }
+
+    [Fact]
+    public async Task AFailedAsynchronousReloadIsLogged()
+    {
+        var log = new List<string>();
+        await ApplicationsViewModel.ReloadLoggedAsync(async () => { await Task.Yield(); throw new InvalidOperationException("C:\\secret"); }, log.Add);
+        Assert.Single(log);
+        Assert.DoesNotContain("secret", log[0]);
+    }
+
+    [Fact]
+    public async Task ASuccessfulReloadLogsNothing()
+    {
+        var log = new List<string>();
+        await ApplicationsViewModel.ReloadLoggedAsync(() => Task.CompletedTask, log.Add);
+        Assert.Empty(log);
+    }
 }
 
 public sealed class DiscoverySettingsEditorTests

@@ -27,7 +27,8 @@ public partial class PackagesViewModel
             _settingsService.Load,
             _settingsService.Save,
             DiscoveryPackagerSource.LoadAsync,
-            DiscoveryRunner.ListCmSiteDrivesAsync);
+            DiscoveryRunner.ListCmSiteDrivesAsync,
+            settingsUnreadable: () => _settingsService.IsFileUnreadable);
     }
 
     private void RefreshDiscoverState(AppSettings settings)
@@ -58,6 +59,11 @@ public partial class PackagesViewModel
                 () => LoadPackagersCommand.ExecuteAsync(null),
                 () => HiddenApplicationsChanged?.Invoke(this, EventArgs.Empty),
                 _operationCts.Token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            StatusText = DiscoveryRunner.LogPrefix + "the action failed with an unexpected error.";
+            AddLogLine(StatusText);
         }
         finally
         {
