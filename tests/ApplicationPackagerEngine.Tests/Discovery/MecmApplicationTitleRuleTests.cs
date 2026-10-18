@@ -125,6 +125,21 @@ public class MecmApplicationTitleRuleTests
         { "Foo", "Foo - (x64", false },
         { "Foo", "Foo - x64)", false },
         { "Foo", "Foo - (open", false },
+        { "Foo 2", "Foo 2.3D - Windows Server Hosting", false },
+        { "Foo 2", "Foo 2.3x - Windows Server Hosting", false },
+        { "Foo 2", "Foo 2.3-beta - Windows Server Hosting", true },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Windows Server Hosting 2FA", false },
+        { "Git", "Git 2FA", false },
+        { "Git", "Git 3D", false },
+        { "Foo", "Foo 7zip", false },
+        { "Foo", "Foo 1.2.3-beta", true },
+        { "Foo", "Foo V2", true },
+        { "Microsoft Foo", "MICROSOFT FOO - 1.2", true },
+        { "Microsoft Foo", "microsoft foo (MSI)", true },
+        { "Foo (MSI)", "FOO (msi) 1.2", true },
+        { "Foo (MSI)", "Foo (EXE)", false },
+        { "Foo", "FOO - LATEST", true },
+        { "Microsoft .NET 8", "MICROSOFT .NET 8.0.31 - WINDOWS SERVER HOSTING", true },
         { "Audacity", "", false },
         { "", "Audacity", false },
     };
@@ -217,8 +232,34 @@ public class MecmApplicationTitleRuleTests
         Assert.True(bad.Count == 0, string.Join(Environment.NewLine, bad.Order()));
     }
 
-    [Fact]
-    public async Task CheckConfigMgrRunsTheSameRuleInWindowsPowerShell()
+    [Theory]
+    [InlineData("")]
+    [InlineData("tr-TR")]
+    public void TheRuleIgnoresTheCurrentCulture(string culture)
+    {
+        var invariant = Cases.Select(c => MecmApplicationTitleRule.Matches((string)c[0], (string)c[1])).ToList();
+        var saved = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(culture);
+            var cultured = Cases.Select(c => MecmApplicationTitleRule.Matches((string)c[0], (string)c[1])).ToList();
+            Assert.Equal(invariant, cultured);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = saved;
+        }
+    }
+
+    /// <summary>
+    /// Under tr-TR, case-insensitive matching in PowerShell -match and -like folds I and i to
+    /// different letters, so "MSI" does not match "msi"; the PowerShell copy must still agree
+    /// with the C# rule.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("tr-TR")]
+    public async Task CheckConfigMgrRunsTheSameRuleInWindowsPowerShell(string culture)
     {
         var pairs = Cases.Select(c => ((string)c[0], (string)c[1])).ToList();
         foreach (var (_, definition) in Definitions())
@@ -227,7 +268,11 @@ public class MecmApplicationTitleRuleTests
         pairs.Add(("PowerShell 7", "PowerShell 7 LTS - 7.4.6 (x64)"));
         pairs.Add(("Eclipse Temurin JDK 11", "Eclipse Temurin JDK 11 - 11.0.25 (x86)"));
 
-        var script = new StringBuilder(MecmApplicationTitleRule.PowerShellFunctions).AppendLine();
+        var script = new StringBuilder();
+        if (culture.Length > 0)
+            script.AppendLine($"[System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::new('{culture}')");
+        script.AppendLine("[Console]::Out.WriteLine('C:' + [System.Threading.Thread]::CurrentThread.CurrentCulture.Name)");
+        script.AppendLine(MecmApplicationTitleRule.PowerShellFunctions);
         script.AppendLine("$pairs = @(");
         foreach (var (cmName, title) in pairs)
             script.AppendLine($"  ,@({PowerShellLiteral.SingleQuoted(cmName)}, {PowerShellLiteral.SingleQuoted(title)})");
@@ -248,10 +293,12 @@ public class MecmApplicationTitleRuleTests
             foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", path }) start.ArgumentList.Add(a);
             using var process = Process.Start(start)!;
             var stderrTask = process.StandardError.ReadToEndAsync();
-            var lines = process.StandardOutput.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+            var output = process.StandardOutput.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
             await process.WaitForExitAsync();
             var stderr = await stderrTask;
-            Assert.True(lines.Length == pairs.Count * 2, stderr);
+            Assert.True(output.Length == pairs.Count * 2 + 1, stderr);
+            if (culture.Length > 0) Assert.Equal("C:" + culture, output[0]);
+            var lines = output[1..];
             var differ = new List<string>();
             for (var i = 0; i < pairs.Count; i++)
             {

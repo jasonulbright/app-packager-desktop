@@ -27,10 +27,11 @@ public static partial class MecmApplicationTitleRule
 {
     private const string QualifierPatternText = @"(?i)(?<![a-z0-9])(exe|msi|x64|x86|arm64|amd64|32-bit|64-bit)(?![a-z0-9])";
     private const string TokenPatternText = @"\([^)]*\)|\S+";
+    private const string VersionPatternText = @"v?\d+(\.\d+)*([-+._]\w+)*";
     private const string ArchitectureSuffix = "(-(x64|x86|arm64|amd64))?";
     private static readonly string[] HostingWords = ["Windows", "Server", "Hosting"];
 
-    [GeneratedRegex(QualifierPatternText)]
+    [GeneratedRegex(QualifierPatternText, RegexOptions.CultureInvariant)]
     private static partial Regex QualifierRegex();
 
     [GeneratedRegex(TokenPatternText)]
@@ -39,10 +40,10 @@ public static partial class MecmApplicationTitleRule
     [GeneratedRegex(@"[\s()+,/]")]
     private static partial Regex QualifierSeparatorRegex();
 
-    [GeneratedRegex(@"^(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64|amd64)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(\([^)]*\)|" + VersionPatternText + @"|x64|x86|arm64|amd64)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DetailRegex();
 
-    [GeneratedRegex(@"^(v?\d+(\.\d+)*([-+._]\w+)*|\([^)]*\)|latest)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(" + VersionPatternText + @"|\([^)]*\)|latest)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DashDetailRegex();
 
     [GeneratedRegex(@"\d$")]
@@ -55,10 +56,16 @@ public static partial class MecmApplicationTitleRule
     public const string PowerShellFunctions = """
         $script:MecmQualifierPattern = '(?i)(?<![a-z0-9])(exe|msi|x64|x86|arm64|amd64|32-bit|64-bit)(?![a-z0-9])'
         $script:MecmTitleTokenPattern = '\([^)]*\)|\S+'
+        $script:MecmRegexOptions = [System.Text.RegularExpressions.RegexOptions]'IgnoreCase, CultureInvariant'
+        $script:MecmVersionPattern = 'v?\d+(\.\d+)*([-+._]\w+)*'
+        function Test-MecmMatch {
+            param([string]$Text, [string]$Pattern)
+            return [regex]::IsMatch($Text, $Pattern, $script:MecmRegexOptions)
+        }
         function Get-MecmTitleQualifier {
             param([string]$Text)
             $classes = @{}
-            foreach ($m in [regex]::Matches([string]$Text, $script:MecmQualifierPattern)) {
+            foreach ($m in [regex]::Matches([string]$Text, $script:MecmQualifierPattern, $script:MecmRegexOptions)) {
                 $value = $m.Value.ToLowerInvariant()
                 $class = 'arch'
                 switch ($value) {
@@ -75,8 +82,8 @@ public static partial class MecmApplicationTitleRule
         }
         function Test-MecmQualifierWord {
             param([string]$Word)
-            if ($Word -notmatch $script:MecmQualifierPattern) { return $false }
-            return (($Word -replace $script:MecmQualifierPattern, '') -replace '[\s()+,/]', '').Length -eq 0
+            if (-not (Test-MecmMatch $Word $script:MecmQualifierPattern)) { return $false }
+            return [regex]::Replace([regex]::Replace($Word, $script:MecmQualifierPattern, '', $script:MecmRegexOptions), '[\s()+,/]', '').Length -eq 0
         }
         function Test-MecmQualifierEqual {
             param([string]$Word, [string]$Token)
@@ -103,7 +110,7 @@ public static partial class MecmApplicationTitleRule
                 if ($titleQualifier.ContainsKey($class) -and -not $titleQualifier[$class].SetEquals($nameQualifier[$class])) { return $false }
             }
             $arch = '(-(x64|x86|arm64|amd64))?'
-            $detail = '^(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64|amd64)$'
+            $detail = '^(\([^)]*\)|' + $script:MecmVersionPattern + '|x64|x86|arm64|amd64)$'
             $allWords = @([regex]::Matches($CMName.Trim(), $script:MecmTitleTokenPattern) | ForEach-Object { $_.Value })
             $words = @($allWords | Where-Object {
                     if (-not (Test-MecmQualifierWord $_)) { return $true }
@@ -118,24 +125,25 @@ public static partial class MecmApplicationTitleRule
                 $token = $tokens[$i]
                 if ($next -eq $words.Count -and $token -eq '-') {
                     if ($i + 1 -ge $tokens.Count) { return $false }
-                    if (($tokens[$i + 1] -imatch '^(v?\d+(\.\d+)*([-+._]\w+)*|\([^)]*\)|latest)$') -or ((Test-MecmQualifierWord $tokens[$i + 1]) -and $tokens[$i + 1] -notmatch '[()]')) { return $true }
+                    if ((Test-MecmMatch $tokens[$i + 1] ('^(' + $script:MecmVersionPattern + '|\([^)]*\)|latest)$')) -or ((Test-MecmQualifierWord $tokens[$i + 1]) -and $tokens[$i + 1].IndexOfAny([char[]]'()') -lt 0)) { return $true }
                     if ($versionedAt -ne $i - 1 -or $i + 3 -ge $tokens.Count) { return $false }
                     if ($tokens[$i + 1] -ine 'Windows' -or $tokens[$i + 2] -ine 'Server' -or $tokens[$i + 3] -ine 'Hosting') { return $false }
-                    for ($k = $i + 4; $k -lt $tokens.Count; $k++) { if ($tokens[$k] -inotmatch $detail) { return $false } }
+                    for ($k = $i + 4; $k -lt $tokens.Count; $k++) { if (-not (Test-MecmMatch $tokens[$k] $detail)) { return $false } }
                     return $true
                 }
                 if ($next -lt $words.Count) {
                     if ((Test-MecmQualifierWord $words[$next]) -and (Test-MecmQualifierWord $token)) {
                         if (Test-MecmQualifierEqual -Word $words[$next] -Token $token) { $next++; continue }
                     }
-                    $continuation = if ($words[$next] -match '\d$') { '(?<version>\.\d[\w.+-]*)?' } else { '' }
-                    if ($token -imatch ('^' + [regex]::Escape($words[$next]) + $continuation + $arch + '$')) {
+                    $continuation = if (Test-MecmMatch $words[$next] '\d$') { '(?<version>\.\d+(\.\d+)*([-+_]\w+)*)?' } else { '' }
+                    $wordMatch = [regex]::Match($token, ('^' + [regex]::Escape($words[$next]) + $continuation + $arch + '$'), $script:MecmRegexOptions)
+                    if ($wordMatch.Success) {
                         $next++
-                        if ($next -eq $words.Count -and $Matches.ContainsKey('version')) { $versionedAt = $i }
+                        if ($next -eq $words.Count -and $wordMatch.Groups['version'].Success) { $versionedAt = $i }
                         continue
                     }
                 }
-                if ($token -imatch $detail) { continue }
+                if (Test-MecmMatch $token $detail) { continue }
                 return $false
             }
             return ($next -eq $words.Count)
@@ -211,7 +219,7 @@ public static partial class MecmApplicationTitleRule
             {
                 var word = words[next];
                 if (IsQualifierWord(word) && IsQualifierWord(token) && QualifierEqual(word, token)) { next++; continue; }
-                var continuation = EndsInDigitRegex().IsMatch(word) ? @"(?<version>\.\d[\w.+-]*)?" : "";
+                var continuation = EndsInDigitRegex().IsMatch(word) ? @"(?<version>\.\d+(\.\d+)*([-+_]\w+)*)?" : "";
                 var match = Regex.Match(token, "^" + Regex.Escape(word) + continuation + ArchitectureSuffix + "$",
                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
                 if (match.Success)
