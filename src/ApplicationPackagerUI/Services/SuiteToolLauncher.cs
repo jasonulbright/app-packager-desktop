@@ -162,6 +162,19 @@ public sealed class SuiteToolLauncher
         return info;
     }
 
+    /// <summary>
+    /// Starts the tool with the desktop's site values. A site code the operator never saved
+    /// is the default, not a site, so the tool gets the one the suite launcher gave the
+    /// desktop, or none.
+    /// </summary>
+    public SuiteToolLaunchResult Launch(SuiteTool tool, Models.AppSettings settings)
+    {
+        var siteCode = settings.SiteCodeSaved == true
+            ? settings.SiteCode
+            : Environment.GetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable);
+        return Launch(tool, siteCode, settings.ProviderMachine);
+    }
+
     public SuiteToolLaunchResult Launch(SuiteTool tool, string? siteCode, string? provider)
     {
         lock (_gate)

@@ -290,6 +290,49 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
+    public void AToolEntryClickOnAFreshInstallPassesNoSiteCode()
+    {
+        StaTestHelper.Run(() =>
+        {
+            var saved = (Site: Environment.GetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable),
+                Provider: Environment.GetEnvironmentVariable(SettingsService.LauncherProviderVariable));
+            Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
+            Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
+            try
+            {
+                var files = new FakeSuiteFileSystem();
+                var environment = new FakeSuiteEnvironment();
+                var starter = new FakeToolProcessStarter();
+                var root = Path.Combine(environment.LocalApplicationData, "AppPackagerSuite");
+                files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
+                    .Add(environment.WindowsPowerShellPath)
+                    .Add(Path.Combine(root, "site-hygiene", "start-sitehygiene.ps1"));
+                using var provider = MainWindowServices(s =>
+                {
+                    s.AddSingleton<ISuiteFileSystem>(files);
+                    s.AddSingleton<ISuiteEnvironment>(environment);
+                    s.AddSingleton<IToolProcessStarter>(starter);
+                });
+                Assert.False(File.Exists(SettingsService.SettingsPath));
+
+                var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
+                var item = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
+                item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
+
+                var info = Assert.Single(starter.Started);
+                Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
+                Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
+                window.Close();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, saved.Site);
+                Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, saved.Provider);
+            }
+        });
+    }
+
+    [Fact]
     public void TheSuiteLauncherIsRegisteredOverTheRealSeams()
     {
         using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();

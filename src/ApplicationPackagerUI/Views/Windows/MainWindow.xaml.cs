@@ -62,7 +62,7 @@ public partial class MainWindow : IDialogHostWindow
     public void OpenSuiteTool(SuiteTool tool)
     {
         var settings = _serviceProvider.GetRequiredService<SettingsService>().Load();
-        var result = _serviceProvider.GetRequiredService<SuiteToolLauncher>().Launch(tool, settings.SiteCode, settings.ProviderMachine);
+        var result = _serviceProvider.GetRequiredService<SuiteToolLauncher>().Launch(tool, settings);
         if (result.Outcome != SuiteToolLaunchOutcome.Failed) return;
         _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} could not start.",
             ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(10));

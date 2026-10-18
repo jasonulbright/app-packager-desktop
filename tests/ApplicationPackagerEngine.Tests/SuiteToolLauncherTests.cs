@@ -355,6 +355,63 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, _provider);
     }
 
+    private static (SuiteToolLauncher Launcher, FakeToolProcessStarter Starter) InstalledLauncher()
+    {
+        var files = new FakeSuiteFileSystem();
+        var environment = new FakeSuiteEnvironment();
+        var starter = new FakeToolProcessStarter();
+        var root = Path.Combine(environment.LocalApplicationData, "AppPackagerSuite");
+        files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
+            .Add(environment.WindowsPowerShellPath)
+            .Add(Path.Combine(root, "detection-tester", "start-detectiontester.ps1"));
+        return (new SuiteToolLauncher(files, environment, starter), starter);
+    }
+
+    private static readonly SuiteTool Detection = SuiteTools.All.Single(t => t.Id == "detection-tester");
+
+    [Fact]
+    public void ASiteCodeTheOperatorNeverSavedIsNotPassed()
+    {
+        Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
+        Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
+        var (launcher, starter) = InstalledLauncher();
+        var settings = new AppSettings { SiteCode = "MCM", SiteCodeSaved = false, ProviderMachine = "cm01.contoso.com" };
+        Assert.Equal(SuiteToolLaunchOutcome.Started, launcher.Launch(Detection, settings).Outcome);
+        var info = Assert.Single(starter.Started);
+        Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
+        Assert.Equal("cm01.contoso.com", info.Environment[SettingsService.LauncherProviderVariable]);
+    }
+
+    [Fact]
+    public void ASavedSiteCodeIsPassedAndAnEmptyProviderIsNot()
+    {
+        Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
+        Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, "old.contoso.com");
+        var (launcher, starter) = InstalledLauncher();
+        launcher.Launch(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true, ProviderMachine = " " });
+        var info = Assert.Single(starter.Started);
+        Assert.Equal("LAB", info.Environment[SettingsService.LauncherSiteCodeVariable]);
+        Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
+    }
+
+    [Fact]
+    public void AnUnsavedSiteCodeKeepsTheValueTheSuiteLauncherGaveTheDesktop()
+    {
+        Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "SUI");
+        var (launcher, starter) = InstalledLauncher();
+        launcher.Launch(Detection, new AppSettings { SiteCode = "SUI", SiteCodeSaved = false });
+        Assert.Equal("SUI", Assert.Single(starter.Started).Environment[SettingsService.LauncherSiteCodeVariable]);
+    }
+
+    [Fact]
+    public void ASavedSiteCodeReplacesTheValueTheSuiteLauncherGaveTheDesktop()
+    {
+        Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "SUI");
+        var (launcher, starter) = InstalledLauncher();
+        launcher.Launch(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true });
+        Assert.Equal("LAB", Assert.Single(starter.Started).Environment[SettingsService.LauncherSiteCodeVariable]);
+    }
+
     [Fact]
     public void EmptyDesktopValuesRemoveTheVariablesTheDesktopInherited()
     {
