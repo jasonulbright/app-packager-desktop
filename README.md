@@ -71,10 +71,11 @@ Packages cannot be hidden or moved, and no entry can be dropped above it. **Sett
 The eight entries after the Application Workbench start tools of the App Packager Suite: Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Each tool opens in its own window. App Packager Desktop does not include these tools. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
+- To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
 - If the suite or a tool is not installed, a message names what is missing and where App Packager Desktop looked.
 - A second click on a tool that is open brings its window to the front.
-- App Packager Desktop passes the ConfigMgr site code and provider to the tool in the environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER`. It passes the site code only after you saved one. A tool uses these values only when its own settings are empty.
-- If a tool stops right after it starts, a message names the tool and its exit code.
+- App Packager Desktop passes the ConfigMgr site code and provider to the tool in the environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER`. It passes the site code you saved. When you did not save one, it passes only a site code that the environment already holds from the suite launcher. It passes the provider only when it is set. A tool uses these values only when its own settings are empty.
+- If a tool stops right after it starts with a non-zero exit code, a message names the tool and its exit code.
 
 ## Application Workbench
 
