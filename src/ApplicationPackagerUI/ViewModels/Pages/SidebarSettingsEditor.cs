@@ -71,10 +71,36 @@ public sealed partial class SidebarSettingsEditor : ObservableObject
         if (!applied) Sync();
     }
 
+    /// <summary>
+    /// A shown row lands past the next shown row in that direction, so the sidebar changes
+    /// with every press; with no shown row left that way it goes to the end of the list. A
+    /// hidden row moves one place.
+    /// </summary>
     private void MoveBy(SidebarSettingsRow row, int delta)
     {
-        var index = Rows.IndexOf(row);
-        if (index >= 0) _service.Move(row.Id, index + delta);
+        var all = _service.All;
+        var index = IndexOf(all, row.Id);
+        if (index < 0) return;
+        var target = index + delta;
+        if (!_service.IsHidden(row.Id))
+        {
+            var pinned = all.Count(i => i.IsPinned);
+            target = delta < 0 ? pinned : all.Count - 1;
+            for (var j = index + delta; j >= pinned && j < all.Count; j += delta)
+            {
+                if (_service.IsHidden(all[j].Id)) continue;
+                target = j;
+                break;
+            }
+        }
+        _service.Move(row.Id, target);
+    }
+
+    private static int IndexOf(IReadOnlyList<Models.SidebarItemDefinition> items, string id)
+    {
+        for (var i = 0; i < items.Count; i++)
+            if (string.Equals(items[i].Id, id, StringComparison.OrdinalIgnoreCase)) return i;
+        return -1;
     }
 
     /// <summary>

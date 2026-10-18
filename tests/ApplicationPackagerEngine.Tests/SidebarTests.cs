@@ -399,6 +399,53 @@ public sealed class SidebarSettingsEditorTests
     }
 
     [Fact]
+    public void UpAndDownOnAShownRowStepOverTheHiddenRowsBetween()
+    {
+        var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["b"] });
+        var window = editor.Rows.Single(r => r.Id == "w");
+        window.MoveUpCommand.Execute(null);
+        Assert.Equal(["home", "w", "a", "b", "t"], SidebarFixtures.Ids(service.All));
+        Assert.Equal(["home", "w", "a", "t"], SidebarFixtures.Ids(service.Items));
+
+        var alpha = editor.Rows.Single(r => r.Id == "a");
+        alpha.MoveDownCommand.Execute(null);
+        Assert.Equal(["home", "w", "b", "t", "a"], SidebarFixtures.Ids(service.All));
+        Assert.Equal(["home", "w", "t", "a"], SidebarFixtures.Ids(service.Items));
+        Assert.Equal(["home", "w", "b", "t", "a"], editor.Rows.Select(r => r.Id));
+    }
+
+    [Fact]
+    public void UpOnAShownRowWithOnlyHiddenRowsAboveMovesItBelowThePinnedRow()
+    {
+        var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["a", "b"] });
+        editor.Rows.Single(r => r.Id == "w").MoveUpCommand.Execute(null);
+        Assert.Equal(["home", "w", "a", "b", "t"], SidebarFixtures.Ids(service.All));
+        editor.Rows.Single(r => r.Id == "t").MoveDownCommand.Execute(null);
+        Assert.Equal(["home", "w", "a", "b", "t"], SidebarFixtures.Ids(service.All));
+    }
+
+    [Fact]
+    public void DownOnAShownRowWithOnlyHiddenRowsBelowMovesItToTheEnd()
+    {
+        var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["w", "t"] });
+        editor.Rows.Single(r => r.Id == "b").MoveDownCommand.Execute(null);
+        Assert.Equal(["home", "a", "w", "t", "b"], SidebarFixtures.Ids(service.All));
+    }
+
+    [Fact]
+    public void UpAndDownOnAHiddenRowMoveItOnePlace()
+    {
+        var (editor, service) = Create(new SidebarLayout { Order = ["a", "b", "w", "t"], Hidden = ["w"] });
+        var window = editor.Rows.Single(r => r.Id == "w");
+        window.MoveUpCommand.Execute(null);
+        Assert.Equal(["home", "a", "w", "b", "t"], SidebarFixtures.Ids(service.All));
+        window.MoveDownCommand.Execute(null);
+        window.MoveDownCommand.Execute(null);
+        Assert.Equal(["home", "a", "b", "t", "w"], SidebarFixtures.Ids(service.All));
+        Assert.True(service.IsHidden("w"));
+    }
+
+    [Fact]
     public void AChangeFromTheSidebarUpdatesTheRowsInPlace()
     {
         var (editor, service) = Create();

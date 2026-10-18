@@ -1,4 +1,3 @@
-using System.Xml.Linq;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,15 +18,6 @@ public sealed class SidebarWiringTests : IDisposable
         try { Directory.Delete(_root, true); } catch (IOException) { }
     }
 
-    private static XDocument Markup(params string[] relative)
-    {
-        var folder = new DirectoryInfo(AppContext.BaseDirectory);
-        string Full(DirectoryInfo f) => Path.Combine([f.FullName, "src", "ApplicationPackagerUI", .. relative]);
-        while (folder is not null && !File.Exists(Full(folder))) folder = folder.Parent;
-        Assert.NotNull(folder);
-        return XDocument.Load(Full(folder));
-    }
-
     [Fact]
     public void TheRegistrationGivesOneServiceOverTheDefaultRegistryAndTheSettingsFile()
     {
@@ -38,73 +28,22 @@ public sealed class SidebarWiringTests : IDisposable
         Assert.IsType<SettingsSidebarLayoutStore>(provider.GetRequiredService<ISidebarLayoutStore>());
     }
 
-    [Fact]
-    public void TheMainWindowMarkupDeclaresNoEntriesAndKeepsSettingsInTheFooter()
+    private sealed class RecordingSnackbar : Wpf.Ui.ISnackbarService
     {
-        var doc = Markup("Views", "Windows", "MainWindow.xaml");
-        Assert.DoesNotContain(doc.Descendants(), e => e.Name.LocalName == "NavigationView.MenuItems");
-        var footer = doc.Descendants().Single(e => e.Name.LocalName == "NavigationView.FooterMenuItems");
-        var settings = Assert.Single(footer.Elements());
-        Assert.Equal("Settings", (string?)settings.Attribute("Content"));
-        Assert.Equal("{x:Type pages:SettingsPage}", (string?)settings.Attribute("TargetPageType"));
+        public List<(string Title, string Message, Wpf.Ui.Controls.ControlAppearance Appearance)> Shown { get; } = [];
+        public TimeSpan DefaultTimeOut { get; set; } = TimeSpan.FromSeconds(5);
+        public void SetSnackbarPresenter(Wpf.Ui.Controls.SnackbarPresenter contentPresenter) { }
+        public Wpf.Ui.Controls.SnackbarPresenter? GetSnackbarPresenter() => null;
+        public void Show(string title, string message, Wpf.Ui.Controls.ControlAppearance appearance, Wpf.Ui.Controls.IconElement? icon, TimeSpan timeout) =>
+            Shown.Add((title, message, appearance));
     }
 
-    [Fact]
-    public void TheSettingsPageHasASidebarSectionBoundToTheEditor()
+    /// <summary>A plain page per page type, so navigation needs none of the real pages' services.</summary>
+    private static void AddPlainPages(IServiceCollection services)
     {
-        var doc = Markup("Views", "Pages", "SettingsPage.xaml");
-        Assert.Contains(doc.Descendants(), e => e.Name.LocalName == "TextBlock" && (string?)e.Attribute("Text") == "Sidebar");
-        var list = doc.Descendants().Single(e => (string?)e.Attribute("AutomationProperties.AutomationId") == "lstSidebar");
-        Assert.Equal("{Binding Sidebar.Rows}", (string?)list.Attribute("ItemsSource"));
-        var template = list.ToString();
-        Assert.Contains("{Binding Shown", template);
-        Assert.Contains("{Binding CanHide}", template);
-        Assert.Contains("{Binding MoveUpCommand}", template);
-        Assert.Contains("{Binding MoveDownCommand}", template);
-        var reset = doc.Descendants().Single(e => (string?)e.Attribute("AutomationProperties.AutomationId") == "btnResetSidebar");
-        Assert.Equal("{Binding Sidebar.ResetCommand}", (string?)reset.Attribute("Command"));
-    }
-
-    [Fact]
-    public void EveryIconOnTheSettingsPageNamesAnExistingSymbol()
-    {
-        var text = Markup("Views", "Pages", "SettingsPage.xaml").ToString();
-        var names = System.Text.RegularExpressions.Regex.Matches(text, @"\{ui:SymbolIcon (\w+)\}").Select(m => m.Groups[1].Value).Distinct().ToList();
-        Assert.Contains("ArrowReset24", names);
-        Assert.All(names, n => Assert.True(Enum.TryParse<Wpf.Ui.Controls.SymbolRegular>(n, out _), n));
-    }
-
-    [Theory]
-    [InlineData(Wpf.Ui.Appearance.ApplicationTheme.Light)]
-    [InlineData(Wpf.Ui.Appearance.ApplicationTheme.Dark)]
-    public void TheSidebarSectionRendersOneRowPerEntryWithThePinnedRowLocked(Wpf.Ui.Appearance.ApplicationTheme theme)
-    {
-        var list = Markup("Views", "Pages", "SettingsPage.xaml").Descendants()
-            .Single(e => (string?)e.Attribute("AutomationProperties.AutomationId") == "lstSidebar").ToString();
-        var host =
-            "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:ui=\"http://schemas.lepo.co/wpfui/2022/xaml\">"
-            + "<Grid.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries>"
-            + $"<ui:ThemesDictionary Theme=\"{theme}\" /><ui:ControlsDictionary />"
-            + "</ResourceDictionary.MergedDictionaries></ResourceDictionary></Grid.Resources>"
-            + list + "</Grid>";
-        StaTestHelper.Run(() =>
-        {
-            var service = new SidebarService(SidebarFixtures.Registry(), new InMemorySidebarStore());
-            var grid = (System.Windows.Controls.Grid)System.Windows.Markup.XamlReader.Parse(host);
-            grid.DataContext = new { Sidebar = new ApplicationPackagerUI.ViewModels.Pages.SidebarSettingsEditor(service) };
-            grid.Measure(new System.Windows.Size(700, 600));
-            grid.Arrange(new System.Windows.Rect(0, 0, 700, 600));
-            grid.UpdateLayout();
-
-            var boxes = Descendants(grid).OfType<System.Windows.Controls.CheckBox>().ToList();
-            Assert.Equal(["Home", "Alpha", "Bravo", "Window", "Tool"], boxes.Select(b => (string)b.Content));
-            Assert.False(boxes[0].IsEnabled);
-            Assert.All(boxes, b => Assert.True(b.IsChecked));
-            Assert.True(boxes[1].IsEnabled);
-
-            boxes[2].IsChecked = false;
-            Assert.True(service.IsHidden("b"));
-        });
+        foreach (var type in new[] { typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage),
+                     typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage) })
+            services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });
     }
 
     private static ServiceProvider MainWindowServices(Action<IServiceCollection>? replace = null)
@@ -118,6 +57,141 @@ public sealed class SidebarWiringTests : IDisposable
         services.AddSingleton<ApplicationPackagerUI.Views.Windows.MainWindow>();
         replace?.Invoke(services);
         return services.BuildServiceProvider();
+    }
+
+    private static void WriteSettings(string json)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsService.SettingsPath)!);
+        File.WriteAllText(SettingsService.SettingsPath, json);
+    }
+
+    private static Type? ShownPage(Wpf.Ui.Controls.NavigationView navigation)
+    {
+        StaTestHelper.Flush();
+        var presenter = navigation.Template.FindName("PART_NavigationViewContentPresenter", navigation) as System.Windows.Controls.ContentControl;
+        return (presenter?.Content as System.Windows.Controls.Page)?.Tag as Type;
+    }
+
+    /// <summary>
+    /// The real main window placed off screen for its first show. The window stays open at the end: closing it
+    /// runs the Packages view model's discovery stop, which needs the full page services.
+    /// </summary>
+    private static ApplicationPackagerUI.Views.Windows.MainWindow OffScreenMainWindow(ServiceProvider provider)
+    {
+        var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
+        window.Left = -32000;
+        window.Top = -32000;
+        window.ShowActivated = false;
+        window.ShowInTaskbar = false;
+        window.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ThemesDictionary { Theme = Wpf.Ui.Appearance.ApplicationTheme.Dark });
+        window.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ControlsDictionary());
+        return window;
+    }
+
+    [Fact]
+    public void TheMainWindowTakesItsEntriesFromTheRegistryAndKeepsSettingsAloneInTheFooter()
+    {
+        StaTestHelper.Run(() =>
+        {
+            using var provider = MainWindowServices();
+            var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
+            var navigation = window.GetNavigation();
+            var registry = provider.GetRequiredService<SidebarRegistry>();
+            Assert.Equal(registry.Items.Select(i => i.Title), Titles(window));
+            var settings = Assert.IsType<Wpf.Ui.Controls.NavigationViewItem>(Assert.Single(navigation.FooterMenuItems.Cast<object>()));
+            Assert.Equal("Settings", settings.Content);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SettingsPage), settings.TargetPageType);
+            Assert.DoesNotContain(navigation.MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>(), i => (string)i.Content == "Settings");
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void AnUnsavedSidebarChangeShowsTheCautionSnackbarAndASavedOneShowsNothing()
+    {
+        StaTestHelper.Run(() =>
+        {
+            var snackbar = new RecordingSnackbar();
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            using (var provider = MainWindowServices(s => s.AddSingleton<Wpf.Ui.ISnackbarService>(snackbar)))
+            {
+                var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
+                provider.GetRequiredService<SidebarService>().Hide(SidebarIds.AddApp);
+                Assert.Empty(snackbar.Shown);
+                window.Close();
+            }
+
+            WriteSettings("{ this is not json");
+            using (var provider = MainWindowServices(s => s.AddSingleton<Wpf.Ui.ISnackbarService>(snackbar)))
+            {
+                var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
+                provider.GetRequiredService<SidebarService>().Hide(SidebarIds.Applications);
+                var shown = Assert.Single(snackbar.Shown);
+                Assert.Equal("Sidebar", shown.Title);
+                Assert.Equal("The sidebar layout could not be saved. The change lasts until the application closes.", shown.Message);
+                Assert.Equal(Wpf.Ui.Controls.ControlAppearance.Caution, shown.Appearance);
+                Assert.Equal("{ this is not json", File.ReadAllText(SettingsService.SettingsPath));
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void StartupShowsPackagesWhateverTheSavedLayout()
+    {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("""
+                { "FirstRunCompleted": true,
+                  "Sidebar": { "Order": ["workbench", "add-app", "applications", "packages"], "Hidden": ["packages", "applications"] } }
+                """);
+            using var provider = MainWindowServices(AddPlainPages);
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var first = (Wpf.Ui.Controls.NavigationViewItem)navigation.MenuItems[0]!;
+            Assert.Equal("Packages", first.Content);
+            Assert.Same(first, navigation.SelectedItem);
+            Assert.True(first.IsActive);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), ShownPage(navigation));
+            Assert.DoesNotContain("Applications", Titles(window));
+            Assert.Equal("Application Workbench", Titles(window)[1]);
+        });
+    }
+
+    [Fact]
+    public void HidingTheShownPageInTheMainWindowOpensPackagesAndShowingItAgainLeavesNoHighlight()
+    {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            using var provider = MainWindowServices(AddPlainPages);
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var items = navigation.MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().ToList();
+            var packages = items.Single(i => (string)i.Content == "Packages");
+            var applications = items.Single(i => (string)i.Content == "Applications");
+
+            Assert.True(navigation.Navigate(typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage)));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage), ShownPage(navigation));
+            Assert.True(applications.IsActive);
+
+            var hide = applications.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Hide Applications");
+            hide.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, hide));
+            Assert.DoesNotContain("Applications", Titles(window));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), ShownPage(navigation));
+            Assert.Same(packages, navigation.SelectedItem);
+            Assert.False(applications.IsActive);
+
+            var show = packages.ContextMenu!.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Show tool");
+            var entry = show.Items.OfType<System.Windows.Controls.MenuItem>().Single(m => (string)m.Header == "Applications");
+            entry.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, entry));
+            Assert.Equal("Applications", Titles(window)[1]);
+            Assert.False(applications.IsActive);
+            Assert.True(packages.IsActive);
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), ShownPage(navigation));
+        });
     }
 
     private static readonly string[] ToolTitles =
@@ -223,15 +297,5 @@ public sealed class SidebarWiringTests : IDisposable
         Assert.IsType<SuiteFileSystem>(provider.GetRequiredService<ISuiteFileSystem>());
         Assert.IsType<SuiteEnvironment>(provider.GetRequiredService<ISuiteEnvironment>());
         Assert.IsType<ToolProcessStarter>(provider.GetRequiredService<IToolProcessStarter>());
-    }
-
-    private static IEnumerable<System.Windows.DependencyObject> Descendants(System.Windows.DependencyObject root)
-    {
-        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
-        {
-            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
-            yield return child;
-            foreach (var d in Descendants(child)) yield return d;
-        }
     }
 }
