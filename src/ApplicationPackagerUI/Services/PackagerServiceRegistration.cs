@@ -55,6 +55,11 @@ public static class PackagerServiceRegistration
             var settings = sp.GetRequiredService<SettingsService>();
             return new ConfigMgrSessionHost(() => SessionConnection(settings), sp.GetRequiredService<IAppLog>());
         });
+
+        services.AddSingleton<IInstalledApplicationsService>(_ => new InstalledApplicationsService());
+        services.AddSingleton<IDetectionTestService>(_ => new DetectionTestService());
+        services.AddSingleton<IDetectionHistoryStore>(sp => new DetectionHistoryStore(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IDetectionReportWriter>(_ => new DetectionReportWriter());
         return services;
     }
 
