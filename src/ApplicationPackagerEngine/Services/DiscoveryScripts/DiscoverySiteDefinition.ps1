@@ -6,7 +6,8 @@ function ConvertTo-DiscoveryJsonString {
     param([AllowNull()][object]$Value)
     if ($null -eq $Value) { return '""' }
     $text = [string]$Value
-    if ($text -cmatch '^[ !#-\[\]-~]*$') { return '"' + $text + '"' }
+    # \z, not $: $ also matches before a final line feed, which would pass a raw LF through.
+    if ($text -cmatch '^[ !#-\[\]-~]*\z') { return '"' + $text + '"' }
     $sb = New-Object System.Text.StringBuilder ($text.Length + 8)
     [void]$sb.Append('"')
     foreach ($ch in $text.ToCharArray()) {
@@ -26,6 +27,8 @@ function Invoke-DiscoverySiteDefinition {
     # administrator without either gets "Access is denied" there and reaches the SMS
     # Provider only through DCOM. Raw CIM error text never leaves the process.
     param([string]$Provider, [string]$SiteCode)
+    # A provider answering without an instance does not end the search: the other protocol
+    # can still return it. A not-found answer outranks a later protocol failure.
     $line = '{"t":"error","stage":"site"}'
     foreach ($protocol in 'Dcom', 'Wsman') {
         $session = $null
@@ -35,14 +38,12 @@ function Invoke-DiscoverySiteDefinition {
             $definition = @(Get-CimInstance -CimSession $session -Namespace ('root\sms\site_' + $SiteCode) -ClassName 'SMS_SCI_SiteDefinition' -Filter ("SiteCode='" + $SiteCode + "'") -OperationTimeoutSec 30 -ErrorAction Stop) | Select-Object -First 1
             if ($null -ne $definition) {
                 $line = '{"t":"site","found":true,"server":' + (ConvertTo-DiscoveryJsonString $definition.SQLServerName) + ',"database":' + (ConvertTo-DiscoveryJsonString $definition.SQLDatabaseName) + ',"via":"' + $protocol + '"}'
+                break
             }
-            else {
-                $line = '{"t":"site","found":false,"via":"' + $protocol + '"}'
-            }
-            break
+            $line = '{"t":"site","found":false,"via":"' + $protocol + '"}'
         }
         catch {
-            $line = '{"t":"error","stage":"site"}'
+            # $line keeps the previous answer: the initial error line or an earlier not-found.
         }
         finally {
             if ($null -ne $session) { $session.Dispose() }

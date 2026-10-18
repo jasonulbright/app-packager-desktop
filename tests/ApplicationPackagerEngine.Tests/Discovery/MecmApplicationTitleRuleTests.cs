@@ -171,7 +171,7 @@ public class MecmApplicationTitleRuleTests
     }
 
     [Fact]
-    public void CheckConfigMgrRunsTheSameRuleInWindowsPowerShell()
+    public async Task CheckConfigMgrRunsTheSameRuleInWindowsPowerShell()
     {
         var pairs = Cases.Select(c => ((string)c[0], (string)c[1])).ToList();
         foreach (var (_, definition) in Definitions())
@@ -202,8 +202,9 @@ public class MecmApplicationTitleRuleTests
             using var process = Process.Start(start)!;
             var stderrTask = process.StandardError.ReadToEndAsync();
             var lines = process.StandardOutput.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
-            process.WaitForExit();
-            Assert.True(lines.Length == pairs.Count * 2, stderrTask.Result);
+            await process.WaitForExitAsync();
+            var stderr = await stderrTask;
+            Assert.True(lines.Length == pairs.Count * 2, stderr);
             var differ = new List<string>();
             for (var i = 0; i < pairs.Count; i++)
             {

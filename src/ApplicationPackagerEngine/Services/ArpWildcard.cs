@@ -32,7 +32,7 @@ public static class ArpWildcard
 
     /// <summary>
     /// Builds an anchored regular expression for <paramref name="pattern"/>. False for an
-    /// unclosed or empty character set, which PowerShell rejects on first use.
+    /// unclosed, empty or reversed character set, which PowerShell rejects on first use.
     /// </summary>
     public static bool TryCreate(string pattern, [NotNullWhen(true)] out Regex? regex)
     {
@@ -69,9 +69,17 @@ public static class ArpWildcard
                 default: sb.Append(Regex.Escape(c.ToString())); break;
             }
         }
-        sb.Append('$');
-        regex = new Regex(sb.ToString(),
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline, TimeSpan.FromSeconds(1));
+        sb.Append(@"\z");
+        try
+        {
+            regex = new Regex(sb.ToString(),
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline, TimeSpan.FromSeconds(1));
+        }
+        catch (ArgumentException)
+        {
+            // A reversed range such as [z-a] passes the set scan and fails only in the regex parser.
+            return false;
+        }
         return true;
     }
 
