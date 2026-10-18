@@ -112,6 +112,71 @@ public sealed class DetectionScriptHostTests
         Assert.Empty(after);
     }
 
+    [Fact]
+    public async Task AChildThatKeepsTheOutputPipeOpenDoesNotHoldTheRun()
+    {
+        const string script = """
+            $child = Start-Process -FilePath cmd.exe -ArgumentList '/c ping -n 30 127.0.0.1 >nul' -NoNewWindow -PassThru
+            [Console]::Out.WriteLine($child.Id)
+            """;
+        var watch = Stopwatch.StartNew();
+
+        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(script, Generous, CancellationToken.None);
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"elapsed {watch.Elapsed}");
+        Assert.False(run.TimedOut);
+        Assert.Equal(0, run.ExitCode);
+        Assert.True(int.TryParse(run.StdOut.Trim(), out var childId), $"stdout: '{run.StdOut}'");
+        Assert.True(HasExited(childId));
+    }
+
+    [Fact]
+    public async Task AChildLeftRunningByAScriptThatExitedIsEnded()
+    {
+        const string script = """
+            $child = Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile','-Command','Start-Sleep 120' -WindowStyle Hidden -PassThru
+            [Console]::Out.WriteLine($child.Id)
+            """;
+
+        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(script, Generous, CancellationToken.None);
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.True(int.TryParse(run.StdOut.Trim(), out var childId), $"stdout: '{run.StdOut}'");
+        Assert.True(HasExited(childId));
+    }
+
+    [Fact]
+    public async Task NonAsciiTextComesBackUnchanged()
+    {
+        const string name = "Contoso Café Ünïcödé 日本語 Ωmega";
+
+        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(
+            $"Write-Output '{name}'\nWrite-Host '{name}'\n[Console]::Error.WriteLine('{name}')", Generous, CancellationToken.None);
+
+        Assert.Equal($"{name}{Environment.NewLine}{name}", run.StdOut);
+        Assert.Contains(name, run.StdErr);
+    }
+
+    [Fact]
+    public async Task AScriptThatStartsWithAUsingStatementStillRuns()
+    {
+        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(
+            "using namespace System.Text\n[StringBuilder]::new('ok').ToString()", Generous, CancellationToken.None);
+
+        Assert.Equal("ok", run.StdOut);
+        Assert.Equal(0, run.ExitCode);
+    }
+
+    [Fact]
+    public async Task TheCapDoesNotSplitASurrogatePair()
+    {
+        var run = await new WindowsPowerShellDetectionScriptHost(outputLimit: 3).RunAsync(
+            "Write-Output ('ab' + ([char]::ConvertFromUtf32(0x1F600) * 4))", Generous, CancellationToken.None);
+
+        Assert.True(run.OutputTruncated);
+        Assert.Equal("ab", run.StdOut);
+    }
+
     private static bool HasExited(int processId)
     {
         try
