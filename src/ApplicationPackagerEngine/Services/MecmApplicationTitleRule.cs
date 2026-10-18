@@ -11,7 +11,7 @@ namespace ApplicationPackagerEngine.Services;
 /// A packaged title holds the words of CMName in order, with only release details around
 /// them: a version, qualifiers in parentheses, an architecture, and after the last word
 /// optionally " - " and the rest of the title. The word after the dash starts with a version
-/// ("1.2", "v2"), is a parenthetical or is a qualifier word, unless the last word of CMName
+/// ("1.2", "v2"), is the word "Latest", is a parenthetical or is a qualifier word, unless the last word of CMName
 /// ends in a number and the title continues it as a version right before the dash
 /// ("Microsoft .NET 8.0.31 - Windows Server Hosting"). A word of CMName that ends in a number
 /// may continue as a version ("18" as "18.5.1.1") or carry an architecture ("7" as "7-x64").
@@ -40,7 +40,7 @@ public static partial class MecmApplicationTitleRule
     [GeneratedRegex(@"^(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64|amd64)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DetailRegex();
 
-    [GeneratedRegex(@"^(v?\d|\([^)]*\)$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(v?\d|\([^)]*\)$|latest$)",RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DashDetailRegex();
 
     [GeneratedRegex(@"\d$")]
@@ -117,7 +117,7 @@ public static partial class MecmApplicationTitleRule
                 if ($next -eq $words.Count -and $token -eq '-') {
                     if ($versionedAt -eq $i - 1) { return $true }
                     if ($i + 1 -ge $tokens.Count) { return $false }
-                    return (($tokens[$i + 1] -imatch '^(v?\d|\([^)]*\)$)') -or (Test-MecmQualifierWord $tokens[$i + 1]))
+                    return (($tokens[$i + 1] -imatch '^(v?\d|\([^)]*\)$|latest$)') -or (Test-MecmQualifierWord $tokens[$i + 1]))
                 }
                 if ($next -lt $words.Count) {
                     if ((Test-MecmQualifierWord $words[$next]) -and (Test-MecmQualifierWord $token)) {
