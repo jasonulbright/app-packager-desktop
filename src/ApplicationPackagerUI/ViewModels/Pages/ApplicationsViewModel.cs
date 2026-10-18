@@ -4,27 +4,45 @@ using ApplicationPackagerUI.Services;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
+/// <summary>What the Applications page reads and writes; the page logic depends on nothing else.</summary>
+/// <param name="LoadPackagers">Returns null when no packagers folder is resolved.</param>
+public sealed record ApplicationsPageServices(
+    Func<AppSettings> LoadSettings,
+    Action<AppSettings> SaveSettings,
+    Func<Task<IReadOnlyList<PackagerInfo>?>> LoadPackagers,
+    Func<Task> RefreshGrid,
+    Action<string> ShowSaved,
+    Action<string> Log);
+
 public partial class ApplicationsViewModel : ObservableObject
 {
-    private readonly SettingsService _settingsService;
-    private readonly PackagerDiscoveryService _discoveryService;
-    private readonly ISnackbarService _snackbarService;
-    private readonly PackagesViewModel _packagesViewModel;
+    private readonly ApplicationsPageServices _services;
+    private readonly object _reloadLock = new();
+    private Task _reload = Task.CompletedTask;
+    private int _reloadRequest;
 
     [ObservableProperty] private ObservableCollection<VendorGroup> _vendorGroups = [];
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private int _visibleCount;
 
     public ApplicationsViewModel(SettingsService settingsService, PackagerDiscoveryService discoveryService, ISnackbarService snackbarService, PackagesViewModel packagesViewModel)
+        : this(new ApplicationsPageServices(
+            settingsService.Load,
+            settingsService.Save,
+            async () => discoveryService.ResolvePackagersRoot() is null ? null : await discoveryService.DiscoverAllAsync(),
+            () => packagesViewModel.LoadPackagersCommand.ExecuteAsync(null),
+            message => snackbarService.Show("Applications", message,
+                Wpf.Ui.Controls.ControlAppearance.Success,
+                new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2)),
+            packagesViewModel.AppendLog))
     {
-        _settingsService = settingsService;
-        _discoveryService = discoveryService;
-        _snackbarService = snackbarService;
-        _packagesViewModel = packagesViewModel;
-        // A save from this page writes every row's state: rows read before a discovery changed
-        // the hidden list would hide the enabled applications again.
-        packagesViewModel.HiddenApplicationsChanged += (_, _) => _ = ReloadLoggedAsync(LoadAsync, packagesViewModel.AppendLog);
-        _ = LoadAsync();
+        packagesViewModel.HiddenApplicationsChanged += (_, _) => ReloadAfterSettingsChange();
+    }
+
+    public ApplicationsViewModel(ApplicationsPageServices services)
+    {
+        _services = services;
+        ReloadAfterSettingsChange();
     }
 
     /// <summary>Runs a reload nobody awaits; a failure becomes one log line without exception text.</summary>
@@ -40,15 +58,53 @@ public partial class ApplicationsViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Queues a reload behind the pending one. A save writes every row's state, so it waits for
+    /// the last queued reload: rows read before the stored lists changed would undo that change.
+    /// </summary>
+    public void ReloadAfterSettingsChange()
+    {
+        lock (_reloadLock)
+        {
+            var request = ++_reloadRequest;
+            _reload = ReloadAfterAsync(_reload, request);
+        }
+    }
+
+    private async Task ReloadAfterAsync(Task previous, int request)
+    {
+        await IgnoreFailureAsync(previous);
+        if (request != Volatile.Read(ref _reloadRequest)) return;
+        await ReloadLoggedAsync(LoadAsync, _services.Log);
+    }
+
+    private async Task WaitForReloadAsync()
+    {
+        while (true)
+        {
+            Task pending;
+            lock (_reloadLock) pending = _reload;
+            await IgnoreFailureAsync(pending);
+            lock (_reloadLock)
+            {
+                if (ReferenceEquals(pending, _reload)) return;
+            }
+        }
+    }
+
+    private static async Task IgnoreFailureAsync(Task task)
+    {
+        try { await task; }
+        catch (Exception) { }
+    }
+
     private async Task LoadAsync()
     {
-        var settings = _settingsService.Load();
+        var settings = _services.LoadSettings();
         var hidden = new HashSet<string>(settings.HiddenApplications, StringComparer.OrdinalIgnoreCase);
 
-        var root = _discoveryService.ResolvePackagersRoot();
-        if (root is null) return;
-
-        var allPackagers = await _discoveryService.DiscoverAllAsync();
+        var allPackagers = await _services.LoadPackagers();
+        if (allPackagers is null) return;
 
         var groups = allPackagers
             .GroupBy(p => p.Vendor, StringComparer.OrdinalIgnoreCase)
@@ -148,19 +204,18 @@ public partial class ApplicationsViewModel : ObservableObject
     [RelayCommand]
     private async Task Save()
     {
-        var s = _settingsService.Load();
+        await WaitForReloadAsync();
+
+        var s = _services.LoadSettings();
         s.HiddenApplications = VendorGroups
             .SelectMany(g => g.Apps)
             .Where(a => !a.IsVisible)
             .Select(a => a.Uid)
             .ToArray();
-        _settingsService.Save(s);
+        _services.SaveSettings(s);
 
-        // Refresh the Packages grid to reflect visibility changes
-        await _packagesViewModel.LoadPackagersCommand.ExecuteAsync(null);
+        await _services.RefreshGrid();
 
-        _snackbarService.Show("Applications", $"Saved. {VisibleCount} of {TotalCount} visible.",
-            Wpf.Ui.Controls.ControlAppearance.Success,
-            new SymbolIcon(SymbolRegular.Checkmark24), TimeSpan.FromSeconds(2));
+        _services.ShowSaved($"Saved. {VisibleCount} of {TotalCount} visible.");
     }
 }
