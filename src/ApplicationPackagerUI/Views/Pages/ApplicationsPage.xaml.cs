@@ -16,7 +16,7 @@ public partial class ApplicationsPage
     {
         if (sender is System.Windows.Controls.CheckBox cb && cb.Tag is VendorGroup group)
         {
-            // The click already toggled IsChecked. Use the new state directly.
+            // The click has already toggled IsChecked, so IsChecked holds the new state.
             var newState = cb.IsChecked == true;
             foreach (var app in group.Apps)
                 app.IsVisible = newState;

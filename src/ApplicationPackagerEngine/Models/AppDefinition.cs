@@ -23,7 +23,7 @@ public sealed class AppDefinition
     public string CMName { get; set; } = "";
     /// <summary>
     /// The staged application name; {version} is the staged version. When set, the name
-    /// and publisher no longer come from metadata read out of an extracted EXE, which only
+    /// and publisher do not come from metadata read out of an extracted EXE, which only
     /// a machine with 7-Zip can read.
     /// </summary>
     public string? AppName { get; set; }

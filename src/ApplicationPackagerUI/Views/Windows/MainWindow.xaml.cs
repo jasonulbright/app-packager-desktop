@@ -30,9 +30,8 @@ public partial class MainWindow : IDialogHostWindow
         contentDialogService.SetDialogHost(RootContentDialog);
         RootNavigation.SetServiceProvider(serviceProvider);
 
-        // Note: With CanContentScroll="False" on pages, the NavigationView's
-        // DynamicScrollViewer is disabled. DataGrid and ScrollViewer controls
-        // handle their own mouse wheel scrolling natively.
+        // Pages set CanContentScroll to False, which disables the NavigationView's
+        // DynamicScrollViewer; DataGrid and ScrollViewer controls scroll on the mouse wheel themselves.
     }
 
     public Wpf.Ui.Controls.NavigationView GetNavigation() => RootNavigation;

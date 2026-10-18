@@ -92,7 +92,3 @@ Delete the release and the tag, fix the cause, and run the procedure again with 
 ```bash
 gh release delete v<ver> -R jasonulbright/app-packager-desktop --yes --cleanup-tag
 ```
-
-## 8. After the release
-
-Every user-visible change in the release is part of the same catch-up with the PowerShell product. Keep the two products at the same feature level.
