@@ -195,6 +195,51 @@ public sealed class DetectionTestServiceTests
         Assert.Equal(0, result.ScriptExitCode);
     }
 
+    private static StageDetection TwoScripts(string connector) => new()
+    {
+        Type = "Compound",
+        Connector = connector,
+        Clauses =
+        [
+            new StageDetection { Type = "Script", ScriptText = "'one'" },
+            new StageDetection { Type = "Script", ScriptText = "'two'" }
+        ]
+    };
+
+    [Fact]
+    public async Task TheScriptsOfACompoundShareOneTimeout()
+    {
+        var host = new FakeScriptHost(_ =>
+        {
+            Thread.Sleep(500);
+            return new DetectionScriptRun(0, "", "", false);
+        });
+
+        await Service(host: host).RunAsync(Request(TwoScripts("Or"), timeout: TimeSpan.FromSeconds(10)), CancellationToken.None);
+
+        Assert.Equal(2, host.Calls.Count);
+        Assert.True(host.Calls[0].Timeout <= TimeSpan.FromSeconds(10));
+        Assert.True(host.Calls[1].Timeout <= TimeSpan.FromSeconds(10) - TimeSpan.FromMilliseconds(450),
+            $"second timeout {host.Calls[1].Timeout}");
+    }
+
+    [Fact]
+    public async Task AScriptLeftWithoutTimeIsNotStartedAndTimesOut()
+    {
+        var host = new FakeScriptHost(_ =>
+        {
+            Thread.Sleep(600);
+            return new DetectionScriptRun(0, "", "", false);
+        });
+
+        var result = await Service(host: host).RunAsync(
+            Request(TwoScripts("Or"), timeout: TimeSpan.FromMilliseconds(300)), CancellationToken.None);
+
+        Assert.Single(host.Calls);
+        Assert.False(result.Passed);
+        Assert.Contains("timed out", result.Clauses[2].Detail);
+    }
+
     [Fact]
     public async Task CancellationPropagates()
     {

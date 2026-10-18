@@ -7,9 +7,9 @@ namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
 /// The detection test history in one JSON file, newest first, bounded to the newest
-/// entries. A file that cannot be read or parsed is left in place and the store starts
-/// empty; the first write copies it aside under a time-stamped name before replacing it.
-/// A write failure keeps the change in memory and is logged, never thrown.
+/// entries. A file that cannot be parsed is left in place and the store starts empty; the
+/// first write copies it aside under a time-stamped name before replacing it. A write
+/// failure keeps the change in memory and is logged, never thrown.
 /// </summary>
 public sealed class DetectionHistoryStore : IDetectionHistoryStore
 {
@@ -25,6 +25,10 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
     private readonly object _gate = new();
     private List<DetectionHistoryEntry>? _entries;
     private bool _preserveBeforeWrite;
+    private bool _readPending;
+
+    private const int ReadAttempts = 5;
+    private static readonly TimeSpan ReadRetryDelay = TimeSpan.FromMilliseconds(100);
 
     public DetectionHistoryStore(string? folder = null, int capacity = DefaultCapacity, IAppLog? log = null)
     {
@@ -64,19 +68,30 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         {
             var entries = Loaded();
             entries.Clear();
+            _readPending = false;
             Save(entries);
         }
     }
 
+    /// <summary>
+    /// The entries in memory, read from the file on first use. A file that cannot be
+    /// opened (a sharing violation, a denied read) is not corrupt: it is retried at every
+    /// call until it is read, the entries added meanwhile are merged into it, and nothing
+    /// is written over it before then.
+    /// </summary>
     private List<DetectionHistoryEntry> Loaded()
     {
-        if (_entries is not null) return _entries;
-        _entries = [];
+        if (_entries is not null && !_readPending) return _entries;
+        _entries ??= [];
         string path;
         try
         {
             path = FilePath;
-            if (!File.Exists(path)) return _entries;
+            if (!File.Exists(path))
+            {
+                _readPending = false;
+                return _entries;
+            }
         }
         catch (Exception ex) when (IsStorageFailure(ex))
         {
@@ -84,27 +99,62 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
             return _entries;
         }
 
+        string text;
         try
         {
-            var stored = JsonSerializer.Deserialize<StoredHistory>(File.ReadAllText(path), JsonOptions)
+            text = ReadWithRetry(path);
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            if (!_readPending)
+                _log?.Warning(LogArea, $"The detection history file could not be opened; it is not changed until it can be read: {ex.Message}");
+            _readPending = true;
+            return _entries;
+        }
+
+        var added = _entries;
+        _readPending = false;
+        try
+        {
+            var stored = JsonSerializer.Deserialize<StoredHistory>(text, JsonOptions)
                 ?? throw new JsonException("The history file is empty.");
-            _entries = (stored.Entries ?? [])
-                .Where(e => e is not null && e.Detection is not null)
-                .Select(e => e!)
+            var known = added.Select(e => e.Id).ToHashSet();
+            _entries = added
+                .Concat((stored.Entries ?? []).Where(e => e is not null && e.Detection is not null && !known.Contains(e.Id)).Select(e => e!))
                 .OrderByDescending(e => e.Time)
                 .Take(_capacity)
                 .ToList();
         }
-        catch (Exception ex) when (IsStorageFailure(ex) || ex is JsonException or NotSupportedException)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             _preserveBeforeWrite = true;
-            _log?.Warning(LogArea, $"The detection history file could not be read and is set aside at the next save: {ex.Message}");
+            _log?.Warning(LogArea, $"The detection history file could not be parsed and is set aside at the next save: {ex.Message}");
         }
         return _entries;
     }
 
+    private static string ReadWithRetry(string path)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return File.ReadAllText(path);
+            }
+            catch (IOException) when (attempt < ReadAttempts)
+            {
+                Thread.Sleep(ReadRetryDelay);
+            }
+        }
+    }
+
     private void Save(List<DetectionHistoryEntry> entries)
     {
+        if (_readPending)
+        {
+            _log?.Warning(LogArea, "The detection history is kept in memory until the history file can be read.");
+            return;
+        }
         try
         {
             var path = FilePath;

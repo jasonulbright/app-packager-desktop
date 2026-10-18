@@ -114,6 +114,48 @@ public sealed class DetectionHistoryStoreTests : IDisposable
         Assert.Empty(Directory.GetFiles(_folder, DetectionHistoryStore.FileName + ".unreadable-*"));
     }
 
+    private FileStream LockHistory() =>
+        new(HistoryFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+    [Fact]
+    public async Task ABrieflyLockedFileIsReadOnARetry()
+    {
+        new DetectionHistoryStore(_folder).Add(Entry(1));
+        var held = LockHistory();
+        var release = Task.Run(async () =>
+        {
+            await Task.Delay(150);
+            held.Dispose();
+        });
+
+        var entries = new DetectionHistoryStore(_folder).All();
+        await release;
+
+        Assert.Equal(["Clause 1"], entries.Select(e => e.Description));
+    }
+
+    [Fact]
+    public void ALockedFileIsNotTreatedAsCorruptAndItsHistoryIsKept()
+    {
+        var first = new DetectionHistoryStore(_folder);
+        first.Add(Entry(1));
+        first.Add(Entry(2));
+        var store = new DetectionHistoryStore(_folder);
+
+        using (LockHistory())
+        {
+            Assert.Empty(store.All());
+            store.Add(Entry(3));
+            Assert.Equal(["Clause 3"], store.All().Select(e => e.Description));
+        }
+        store.Add(Entry(4));
+
+        Assert.Equal(["Clause 4", "Clause 3", "Clause 2", "Clause 1"], store.All().Select(e => e.Description));
+        Assert.Equal(["Clause 4", "Clause 3", "Clause 2", "Clause 1"],
+            new DetectionHistoryStore(_folder).All().Select(e => e.Description));
+        Assert.Empty(Directory.GetFiles(_folder, DetectionHistoryStore.FileName + ".unreadable-*"));
+    }
+
     [Fact]
     public void AnEntryWithoutADetectionIsDroppedAndTheRestLoad()
     {

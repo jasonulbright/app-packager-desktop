@@ -17,6 +17,8 @@ public sealed class DetectionTestService(IRegistryProvider? registry = null, IDe
 
     public const string LocalRunContext = "This app, current user, not SYSTEM";
 
+    public const string ScriptNotStarted = "Not started: the earlier scripts of this test used the whole timeout.";
+
     private readonly IRegistryProvider _registry = registry ?? WindowsRegistryProvider.Instance;
     private readonly IDetectionScriptHost _scriptHost = scriptHost ?? new WindowsPowerShellDetectionScriptHost();
 
@@ -29,6 +31,8 @@ public sealed class DetectionTestService(IRegistryProvider? registry = null, IDe
         var detection = WithView(request.Detection, request.View);
         var timeout = request.ScriptTimeout > TimeSpan.Zero ? request.ScriptTimeout : DefaultScriptTimeout;
         var runs = new List<DetectionScriptRun>();
+        // One budget for all script clauses of the test, counted from the first script start.
+        System.Diagnostics.Stopwatch? clock = null;
 
         var context = new DetectionEvaluationContext
         {
@@ -36,8 +40,14 @@ public sealed class DetectionTestService(IRegistryProvider? registry = null, IDe
             ScriptRule = ScriptVerdictRule.OutputOnly,
             RunScript = text =>
             {
-                // The evaluator is synchronous; this runs on a pool thread, never the caller's.
-                var run = _scriptHost.RunAsync(text, timeout, ct).GetAwaiter().GetResult();
+                var remaining = clock is null ? timeout : timeout - clock.Elapsed;
+                clock ??= System.Diagnostics.Stopwatch.StartNew();
+                DetectionScriptRun run;
+                if (remaining <= TimeSpan.Zero)
+                    run = new DetectionScriptRun(null, "", ScriptNotStarted, TimedOut: true);
+                else
+                    // The evaluator is synchronous; this runs on a pool thread, never the caller's.
+                    run = _scriptHost.RunAsync(text, remaining, ct).GetAwaiter().GetResult();
                 lock (runs) runs.Add(run);
                 return run;
             }

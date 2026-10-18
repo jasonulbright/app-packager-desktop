@@ -98,14 +98,12 @@ public sealed class DetectionTesterParityTests(ITestOutputHelper output)
         var system32 = Environment.GetFolderPath(Environment.SpecialFolder.System);
         var notepadVersion = DetectionEvaluator.NormalizeFileVersion(
             System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(system32, "notepad.exe")).FileVersion);
-        var serviceGroupList = ReadMultiString(@"SYSTEM\CurrentControlSet\Control\ServiceGroupOrder", "List");
+        var multiString = MultiStringCandidates
+            .Select(c => (c.Key, c.Name, Text: ReadMultiString(c.Key, c.Name)))
+            .FirstOrDefault(c => c.Text is not null);
         var absentKey = @"SOFTWARE\ApPackagerParity-" + Guid.NewGuid().ToString("N");
-        var only64 = new[]
-        {
-            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing",
-            @"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate",
-            @"SOFTWARE\Microsoft\Windows Defender"
-        }.FirstOrDefault(k => KeyExists(RegistryView.Registry64, k) && !KeyExists(RegistryView.Registry32, k));
+        var only64 = Only64BitCandidates
+            .FirstOrDefault(k => KeyExists(RegistryView.Registry64, k) && !KeyExists(RegistryView.Registry32, k));
 
         var cases = new List<ParityCase>
         {
@@ -154,14 +152,42 @@ public sealed class DetectionTesterParityTests(ITestOutputHelper output)
             new("negative-unsupported-operator", Rkv(CurrentVersion, "ProductName", "x", "Matches"), Negative: true),
             new("negative-file-property-size", FileRule(system32, "notepad.exe", "Size", "1"), Negative: true)
         };
-        if (serviceGroupList is not null)
-            cases.Add(new("rkv-multi-string", Rkv(@"SYSTEM\CurrentControlSet\Control\ServiceGroupOrder", "List", serviceGroupList, "IsEquals")));
-        if (only64 is not null)
-        {
-            cases.Add(new("rk-only-in-64-bit-view-read-64", Rk(only64)));
-            cases.Add(new("rk-only-in-64-bit-view-read-32", Rk(only64, is64: false)));
-        }
+        Assert.True(multiString.Text is not null,
+            "No multi-string value of the candidate list exists: " + string.Join(", ", MultiStringCandidates.Select(c => $@"{c.Key}\{c.Name}")));
+        Assert.True(only64 is not null,
+            "No key of the candidate list exists in the 64-bit view only: " + string.Join(", ", Only64BitCandidates));
+        cases.Add(new("rkv-multi-string", Rkv(multiString.Key, multiString.Name, multiString.Text!, "IsEquals")));
+        cases.Add(new("rk-only-in-64-bit-view-read-64", Rk(only64!)));
+        cases.Add(new("rk-only-in-64-bit-view-read-32", Rk(only64!, is64: false)));
         return cases;
+    }
+
+    /// <summary>The cases that read a view-specific key or a multi-string value; each run asserts it ran them.</summary>
+    public static readonly string[] RequiredCases =
+        ["rkv-multi-string", "rk-only-in-64-bit-view-read-64", "rk-only-in-64-bit-view-read-32", "rkv-32-bit-view", "rk-exists-32-bit-view"];
+
+    private static readonly string[] Only64BitCandidates =
+    [
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate",
+        @"SOFTWARE\Microsoft\Windows Defender",
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing",
+        @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notifications",
+        @"SOFTWARE\Microsoft\Windows\CurrentVersion\WINEVT"
+    ];
+
+    private static readonly (string Key, string Name)[] MultiStringCandidates =
+    [
+        (@"SYSTEM\CurrentControlSet\Control\ServiceGroupOrder", "List"),
+        (@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Svchost", "netsvcs"),
+        (@"SYSTEM\CurrentControlSet\Control\Session Manager", "BootExecute")
+    ];
+
+    [Fact]
+    public void TheViewAndMultiStringCasesAreAlwaysBuilt()
+    {
+        var names = Cases().Select(c => c.Name).ToList();
+
+        Assert.All(RequiredCases, name => Assert.Contains(name, names));
     }
 
     private static string? ReadMultiString(string key, string name)
@@ -239,6 +265,7 @@ public sealed class DetectionTesterParityTests(ITestOutputHelper output)
         }
 
         output.WriteLine($"{cases.Count} clauses, {differences.Count} differences.");
+        Assert.All(RequiredCases, name => Assert.True(module.ContainsKey(name), $"The module did not evaluate '{name}'."));
         var expected = DocumentedDifferences.Keys.Where(k => cases.Any(c => c.Name == k)).Order().ToList();
         Assert.Equal(expected, differences.Order().ToList());
     }
