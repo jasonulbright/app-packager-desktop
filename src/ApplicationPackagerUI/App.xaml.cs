@@ -41,6 +41,7 @@ public partial class App : Application
                 services.AddSingleton<IContentDialogService, ContentDialogService>();
 
                 services.AddPackagerServices();
+                services.AddSidebar();
                 services.AddSingleton<IWorkbenchBuildLauncher, WorkbenchBuildLauncher>();
                 services.AddSingleton<PublishDialogs>();
                 services.AddSingleton<IPublishDialogs>(sp => sp.GetRequiredService<PublishDialogs>());

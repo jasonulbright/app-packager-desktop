@@ -1,4 +1,3 @@
-using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -31,20 +30,7 @@ public sealed class DiscoveryWindowTests
     private static XElement Named(XDocument doc, string name) =>
         doc.Descendants().Single(e => (string?)e.Attribute(X + "Name") == name);
 
-    private static void RunSta(Action action)
-    {
-        ExceptionDispatchInfo? failure = null;
-        var thread = new Thread(() =>
-        {
-            try { action(); }
-            catch (Exception ex) { failure = ExceptionDispatchInfo.Capture(ex); }
-            finally { System.Windows.Threading.Dispatcher.CurrentDispatcher.InvokeShutdown(); }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
-        failure?.Throw();
-    }
+    private static void RunSta(Action action) => StaTestHelper.Run(action);
 
     [Theory]
     [InlineData("Application", "Name")]
