@@ -121,6 +121,10 @@ public class MecmApplicationTitleRuleTests
         { "Foo", "Foo - 7zip", false },
         { "Foo", "Foo - v", false },
         { "Foo", "Foo - 1.", false },
+        { "Foo", "Foo - (x64)", true },
+        { "Foo", "Foo - (x64", false },
+        { "Foo", "Foo - x64)", false },
+        { "Foo", "Foo - (open", false },
         { "Audacity", "", false },
         { "", "Audacity", false },
     };

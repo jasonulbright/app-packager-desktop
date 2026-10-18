@@ -118,7 +118,7 @@ public static partial class MecmApplicationTitleRule
                 $token = $tokens[$i]
                 if ($next -eq $words.Count -and $token -eq '-') {
                     if ($i + 1 -ge $tokens.Count) { return $false }
-                    if (($tokens[$i + 1] -imatch '^(v?\d+(\.\d+)*([-+._]\w+)*|\([^)]*\)|latest)$') -or (Test-MecmQualifierWord $tokens[$i + 1])) { return $true }
+                    if (($tokens[$i + 1] -imatch '^(v?\d+(\.\d+)*([-+._]\w+)*|\([^)]*\)|latest)$') -or ((Test-MecmQualifierWord $tokens[$i + 1]) -and $tokens[$i + 1] -notmatch '[()]')) { return $true }
                     if ($versionedAt -ne $i - 1 -or $i + 3 -ge $tokens.Count) { return $false }
                     if ($tokens[$i + 1] -ine 'Windows' -or $tokens[$i + 2] -ine 'Server' -or $tokens[$i + 3] -ine 'Hosting') { return $false }
                     for ($k = $i + 4; $k -lt $tokens.Count; $k++) { if ($tokens[$k] -inotmatch $detail) { return $false } }
@@ -202,7 +202,7 @@ public static partial class MecmApplicationTitleRule
             if (next == words.Count && token == "-")
             {
                 if (i + 1 >= tokens.Count) return false;
-                if (DashDetailRegex().IsMatch(tokens[i + 1]) || IsQualifierWord(tokens[i + 1])) return true;
+                if (DashDetailRegex().IsMatch(tokens[i + 1]) || (IsQualifierWord(tokens[i + 1]) && tokens[i + 1].IndexOfAny(['(', ')']) < 0)) return true;
                 return versionedAt == i - 1 && i + 3 < tokens.Count
                     && HostingWords.Select((w, k) => string.Equals(w, tokens[i + 1 + k], StringComparison.OrdinalIgnoreCase)).All(x => x)
                     && tokens.Skip(i + 4).All(t => DetailRegex().IsMatch(t));
