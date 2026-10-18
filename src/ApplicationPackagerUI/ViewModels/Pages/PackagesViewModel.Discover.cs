@@ -26,7 +26,7 @@ public partial class PackagesViewModel
             discovery,
             _settingsService.Load,
             _settingsService.Save,
-            DiscoveryPackagerSource.LoadAsync,
+            ct => DiscoveryPackagerSource.LoadAsync(AddLogLineFromAnyThread, ct),
             DiscoveryRunner.ListCmSiteDrivesAsync,
             settingsUnreadable: () => _settingsService.IsFileUnreadable);
     }

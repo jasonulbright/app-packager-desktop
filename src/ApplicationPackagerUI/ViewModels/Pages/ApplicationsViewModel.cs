@@ -5,7 +5,7 @@ using ApplicationPackagerUI.Services;
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
 /// <summary>What the Applications page reads and writes; the page logic depends on nothing else.</summary>
-/// <param name="LoadPackagers">Returns null when no packagers folder is resolved.</param>
+/// <param name="LoadPackagers">Every application, hidden ones included; null leaves the page unchanged.</param>
 public sealed record ApplicationsPageServices(
     Func<AppSettings> LoadSettings,
     Action<AppSettings> SaveSettings,
@@ -29,7 +29,7 @@ public partial class ApplicationsViewModel : ObservableObject
         : this(new ApplicationsPageServices(
             settingsService.Load,
             settingsService.Save,
-            async () => discoveryService.ResolvePackagersRoot() is null ? null : await discoveryService.DiscoverAllAsync(),
+            LoadPackagersFrom(discoveryService),
             () => packagesViewModel.LoadPackagersCommand.ExecuteAsync(null),
             message => snackbarService.Show("Applications", message,
                 Wpf.Ui.Controls.ControlAppearance.Success,
@@ -44,6 +44,10 @@ public partial class ApplicationsViewModel : ObservableObject
         _services = services;
         ReloadAfterSettingsChange();
     }
+
+    /// <summary>Every application the discovery service finds, hidden ones included.</summary>
+    public static Func<Task<IReadOnlyList<PackagerInfo>?>> LoadPackagersFrom(PackagerDiscoveryService discoveryService) =>
+        async () => await discoveryService.DiscoverAllAsync();
 
     /// <summary>Runs a reload nobody awaits; a failure becomes one log line without exception text.</summary>
     public static async Task ReloadLoggedAsync(Func<Task> load, Action<string> log)

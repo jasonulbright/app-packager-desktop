@@ -312,11 +312,15 @@ public partial class PackagesViewModel : ObservableObject
         AddLogLine(root is null
             ? "Loading the shipped definitions (no PS1 packagers folder configured)."
             : $"Loading packagers from: {root}");
-        var results = await _discoveryService.DiscoverAsync();
+        var load = await ReadGridAsync(() => _discoveryService.DiscoverAsync(), () => _discoveryService.DiscoverAllAsync());
+        var results = load.Rows;
         if (results.Count == 0)
         {
-            StatusText = "No applications found. Check the Definitions folder beside the executable or set a Packagers folder in Settings.";
-            AddLogLine("ERROR: no definitions beside the executable and no packagers folder.");
+            Packagers = [];
+            SearchText = "";
+            ApplyFilter();
+            StatusText = load.StatusText ?? "";
+            if (load.LogLine is not null) AddLogLine(load.LogLine);
             return;
         }
 
@@ -336,6 +340,23 @@ public partial class PackagesViewModel : ObservableObject
         ApplyFilter();
 
         _ = TestMecmConnectionAsync();
+    }
+
+    /// <summary>The rows the grid shows and, when it shows none, the status and the log line that say why.</summary>
+    public sealed record GridLoad(IReadOnlyList<PackagerInfo> Rows, string? StatusText, string? LogLine);
+
+    public const string AllHiddenMessage = "All applications are hidden. Show applications on the Applications page.";
+
+    /// <summary>Reads every application, hidden ones included, only when no visible one exists.</summary>
+    public static async Task<GridLoad> ReadGridAsync(Func<Task<List<PackagerInfo>>> visible, Func<Task<List<PackagerInfo>>> all)
+    {
+        var rows = await visible();
+        if (rows.Count > 0) return new GridLoad(rows, null, null);
+        if ((await all()).Count > 0)
+            return new GridLoad([], AllHiddenMessage, AllHiddenMessage);
+        return new GridLoad([],
+            "No applications found. Check the Definitions folder beside the executable or set a Packagers folder in Settings.",
+            "ERROR: no definitions beside the executable and no packagers folder.");
     }
 
     /// <summary>

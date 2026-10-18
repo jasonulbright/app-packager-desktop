@@ -953,6 +953,88 @@ public sealed class ApplicationsPageSaveTests
     }
 }
 
+[Collection(ProcessEnvironmentCollection.Name)]
+public sealed class ApplicationsPageWithoutPackagersFolderTests : IDisposable
+{
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-apps-" + Guid.NewGuid().ToString("N"));
+    private readonly Dictionary<string, string?> _saved = [];
+
+    public ApplicationsPageWithoutPackagersFolderTests()
+    {
+        foreach (var name in new[] { AppDataPaths.DataRootVariable, ApplicationPackagerEngine.Services.Workbench.WorkbenchPaths.DataRootVariable })
+            _saved[name] = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
+        Environment.SetEnvironmentVariable(ApplicationPackagerEngine.Services.Workbench.WorkbenchPaths.DataRootVariable, null);
+    }
+
+    public void Dispose()
+    {
+        foreach (var (name, value) in _saved) Environment.SetEnvironmentVariable(name, value);
+        try { Directory.Delete(_root, true); } catch (IOException) { }
+    }
+
+    [Fact]
+    public async Task ThePageListsTheShippedAndUserDefinitionsWhenNoPackagersFolderResolves()
+    {
+        var discovery = new PackagerDiscoveryService(new SettingsService());
+        Assert.Null(discovery.ResolvePackagersRoot());
+        Directory.CreateDirectory(AppDataPaths.UserDefinitionsRoot);
+        File.WriteAllText(Path.Combine(AppDataPaths.UserDefinitionsRoot, "labtool.json"),
+            """{ "Id": "labtool", "Vendor": "Lab", "Application": "Lab Tool" }""");
+        var store = new InMemorySettings(new AppSettings { HiddenApplications = ["labtool"] });
+        var shown = new List<string>();
+
+        var page = new ApplicationsViewModel(new ApplicationsPageServices(
+            store.Load, store.Save, ApplicationsViewModel.LoadPackagersFrom(discovery), () => Task.CompletedTask, shown.Add, _ => { }));
+        await page.SaveCommand.ExecuteAsync(null);
+
+        var apps = page.VendorGroups.SelectMany(g => g.Apps).ToList();
+        Assert.Contains(apps, a => a.Uid == "562e5eb1a64c4669" && a.IsVisible);
+        Assert.False(apps.Single(a => a.Uid == "labtool").IsVisible);
+        Assert.True(page.TotalCount > 1);
+        Assert.Equal(page.TotalCount - 1, page.VisibleCount);
+        Assert.Equal(["labtool"], store.Load().HiddenApplications);
+    }
+}
+
+public sealed class PackagesGridLoadTests
+{
+    private static List<PackagerInfo> Rows(params string[] ids) =>
+        ids.Select(id => new PackagerInfo { Uid = id, Vendor = "V", Application = id, IsJsonDefined = true }).ToList();
+
+    [Fact]
+    public async Task WithEveryApplicationHiddenTheGridIsEmptyAndTheLogSaysSoWithoutAnError()
+    {
+        var load = await PackagesViewModel.ReadGridAsync(() => Task.FromResult(Rows()), () => Task.FromResult(Rows("git", "gsudo")));
+
+        Assert.Empty(load.Rows);
+        Assert.Equal("All applications are hidden. Show applications on the Applications page.", load.StatusText);
+        Assert.Equal("All applications are hidden. Show applications on the Applications page.", load.LogLine);
+    }
+
+    [Fact]
+    public async Task WithNoDefinitionAtAllTheLogReportsTheMissingDefinitions()
+    {
+        var load = await PackagesViewModel.ReadGridAsync(() => Task.FromResult(Rows()), () => Task.FromResult(Rows()));
+
+        Assert.Empty(load.Rows);
+        Assert.Equal("No applications found. Check the Definitions folder beside the executable or set a Packagers folder in Settings.", load.StatusText);
+        Assert.Equal("ERROR: no definitions beside the executable and no packagers folder.", load.LogLine);
+    }
+
+    [Fact]
+    public async Task VisibleRowsAreShownWithoutAMessageAndWithoutTheFullRead()
+    {
+        var fullReads = 0;
+        var load = await PackagesViewModel.ReadGridAsync(() => Task.FromResult(Rows("git")), () => { fullReads++; return Task.FromResult(Rows("git", "gsudo")); });
+
+        Assert.Equal(["git"], load.Rows.Select(r => r.Uid));
+        Assert.Null(load.StatusText);
+        Assert.Null(load.LogLine);
+        Assert.Equal(0, fullReads);
+    }
+}
+
 public sealed class DiscoverySettingsEditorTests
 {
     [Fact]
@@ -1043,5 +1125,34 @@ public sealed class DiscoveryPackagerSourceTests : IDisposable
         var definition = Definition("broken", "Vendor", "{ not json");
         var packager = Assert.Single(DiscoveryPackagerSource.FromDefinitions([definition]));
         Assert.Equal("", packager.ArpName);
+    }
+
+    [Fact]
+    public void ABrokenDefinitionFileIsSkippedAndTheGoodOnesAreStillOffered()
+    {
+        var log = new List<string>();
+        var packagers = DiscoveryPackagerSource.FromDefinitions(
+        [
+            Definition("grepwin", "Stefan Kueng", """{ "Id": "grepwin", "ArpName": "grepWin*" }"""),
+            Definition("zoom", "Zoom", """{ "Id": "zoom", "ArpName": "Zoom*", "InstallerType": "EXE", "InstallerType": "MSI" }"""),
+            Definition("cased", "Vendor", """{ "Id": "cased", "ArpName": "Cased*", "arpname": "Other*" }"""),
+            Definition("broken", "Vendor", """{ "Id": "broken", "ArpName": "Broken*" """),
+            Definition("gsudo", "Gerardo Grignoli", """{ "Id": "gsudo", "ArpName": "gsudo*" }""")
+        ], log.Add);
+
+        Assert.Equal(["", "", ""], packagers.Where(p => p.Id is "zoom" or "cased" or "broken").Select(p => p.ArpName));
+        Assert.Equal(
+        [
+            "Discover unmanaged software: the definition file zoom.json could not be read and is skipped.",
+            "Discover unmanaged software: the definition file cased.json could not be read and is skipped.",
+            "Discover unmanaged software: the definition file broken.json could not be read and is skipped."
+        ], log);
+
+        string[] ids = ["grepwin", "zoom", "cased", "broken", "gsudo"];
+        var rows = new[] { "grepWin 2.1", "Zoom Workplace", "Cased Tool", "Broken Tool", "gsudo v2" }
+            .Select((name, i) => new InventoryRow(name, "", "1.0", "", new HashSet<int> { i + 1 }))
+            .ToList();
+        var candidates = DiscoveryMatcher.FindCandidates(new InventorySnapshot(rows, 5, null, []), DiscoveryMatcher.Prepare(packagers, ids, []));
+        Assert.Equal(["grepwin", "gsudo"], candidates.Select(c => c.Id).Order());
     }
 }
