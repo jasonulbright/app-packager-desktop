@@ -61,8 +61,8 @@ public partial class MainWindow : IDialogHostWindow
     /// <summary>Starts a suite tool with the saved site code and provider, or brings its running window to the front.</summary>
     public async void OpenSuiteTool(SuiteTool tool)
     {
-        var settings = _serviceProvider.GetRequiredService<SettingsService>().Load();
-        var result = await _serviceProvider.GetRequiredService<SuiteToolLauncher>().LaunchAsync(tool, settings);
+        var settings = _serviceProvider.GetRequiredService<SettingsService>();
+        var result = await _serviceProvider.GetRequiredService<SuiteToolLauncher>().LaunchAsync(tool, settings.Load);
         switch (result.Outcome)
         {
             case SuiteToolLaunchOutcome.Failed:

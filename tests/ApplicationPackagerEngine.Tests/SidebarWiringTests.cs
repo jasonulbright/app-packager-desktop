@@ -275,9 +275,11 @@ public sealed class SidebarWiringTests : IDisposable
             saved.ProviderMachine = "cm01.lab.local";
             settings.SaveOperatorEdit(saved);
 
+            SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
             var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
             var item = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
             item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
+            StaTestHelper.PumpUntil(() => starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
             item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
 
             var info = Assert.Single(starter.Started);
@@ -315,9 +317,11 @@ public sealed class SidebarWiringTests : IDisposable
                 });
                 Assert.False(File.Exists(SettingsService.SettingsPath));
 
+                SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
                 var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
                 var item = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
                 item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
+                StaTestHelper.PumpUntil(() => starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
 
                 var info = Assert.Single(starter.Started);
                 Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));

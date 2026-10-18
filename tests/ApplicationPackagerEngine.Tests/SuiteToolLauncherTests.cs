@@ -1,6 +1,10 @@
+using System.Data.SQLite;
 using System.Diagnostics;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Logging;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -11,6 +15,11 @@ internal sealed class FakeSuiteFileSystem : ISuiteFileSystem
 
     public List<string> Reads { get; } = [];
 
+    /// <summary>When set, every existence probe waits for it, up to five seconds.</summary>
+    public ManualResetEventSlim? ProbeGate { get; set; }
+
+    public List<int> ProbeThreads { get; } = [];
+
     public FakeSuiteFileSystem Add(string path, string? text = null)
     {
         _files.Add(Path.GetFullPath(path));
@@ -18,7 +27,12 @@ internal sealed class FakeSuiteFileSystem : ISuiteFileSystem
         return this;
     }
 
-    public bool FileExists(string path) => _files.Contains(Path.GetFullPath(path));
+    public bool FileExists(string path)
+    {
+        ProbeGate?.Wait(TimeSpan.FromSeconds(5));
+        lock (ProbeThreads) ProbeThreads.Add(Environment.CurrentManagedThreadId);
+        return _files.Contains(Path.GetFullPath(path));
+    }
 
     public string? ReadText(string path)
     {
@@ -35,11 +49,14 @@ internal sealed class FakeSuiteEnvironment : ISuiteEnvironment
     public string? RegisteredInstallLocation() => Registered;
 }
 
-internal sealed class FakeToolProcess : IToolProcess
+internal sealed class FakeToolProcess : IToolProcess, IDisposable
 {
     public required int Id { get; init; }
     public bool HasExited { get; set; }
     public int FrontRequests { get; private set; }
+    public bool Disposed { get; private set; }
+
+    public void Dispose() => Disposed = true;
 
     /// <summary>The answers of successive BringToFront calls; the last one repeats.</summary>
     public Queue<bool> FrontResults { get; } = new();
@@ -81,6 +98,22 @@ internal sealed class FakeToolProcessStarter : IToolProcessStarter
     }
 }
 
+internal sealed class RecordingSuiteLog : IAppLog
+{
+    public List<AppLogEntry> Entries { get; } = [];
+    public string? SessionFile => null;
+    public AppLogLevel MinimumLevel { get; set; } = AppLogLevel.Debug;
+    public event EventHandler<AppLogEntry>? Written;
+    public void RegisterSecret(string value) { }
+    public void Write(AppLogLevel level, string area, string message)
+    {
+        var entry = new AppLogEntry(DateTimeOffset.UtcNow, level, area, message);
+        lock (Entries) Entries.Add(entry);
+        Written?.Invoke(this, entry);
+    }
+    public IReadOnlyList<AppLogEntry> Tail() { lock (Entries) return Entries.ToList(); }
+}
+
 public sealed class SuiteToolLauncherTests
 {
     private const string Local = @"C:\Users\op\AppData\Local";
@@ -92,10 +125,11 @@ public sealed class SuiteToolLauncherTests
     private readonly FakeSuiteFileSystem _files = new();
     private readonly FakeSuiteEnvironment _environment = new();
     private readonly FakeToolProcessStarter _starter = new();
+    private readonly RecordingSuiteLog _log = new();
 
     private readonly List<TimeSpan> _delays = [];
 
-    private SuiteToolLauncher Launcher_() => new(_files, _environment, _starter, new SuiteToolLaunchTiming
+    private SuiteToolLauncher Launcher_() => new(_files, _environment, _starter, _log, new SuiteToolLaunchTiming
     {
         Delay = d => { _delays.Add(d); return Task.CompletedTask; }
     });
@@ -339,12 +373,108 @@ public sealed class SuiteToolLauncherTests
     {
         InstallSuite();
         InstallTool(Detection);
-        _starter.Failure = new System.ComponentModel.Win32Exception(5, "Access is denied");
+        _starter.Failure = new System.ComponentModel.Win32Exception(267, @"The directory name is invalid: \\fs01\tools password=hunter2");
         var launcher = Launcher_();
         var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
-        Assert.Equal("Detection Tester could not start: Access is denied", result.Message);
+        Assert.Equal("Detection Tester could not be started. The log has the details.", result.Message);
         Assert.Null(launcher.RunningProcessId(Detection));
+
+        var entry = Assert.Single(_log.Entries);
+        Assert.Equal(AppLogLevel.Error, entry.Level);
+        Assert.Contains(@"\\fs01\tools", entry.Message);
+        Assert.Contains("Detection Tester", entry.Message);
+        Assert.DoesNotContain("hunter2", entry.Message);
+    }
+
+    [Fact]
+    public async Task AToolThatExitsDuringTheWatchIsRemovedAndDisposedWhateverTheExitCode()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        var launcher = Launcher_();
+        foreach (var code in new[] { 0, 3 })
+        {
+            _starter.NextExitsAtOnceWith = code;
+            await launcher.LaunchAsync(Detection, "MCM", "cm01");
+            var process = _starter.Processes[^1];
+            Assert.True(process.Disposed, $"exit code {code}");
+            process.HasExited = false;
+            Assert.Null(launcher.RunningProcessId(Detection));
+        }
+        Assert.Equal(2, _starter.Started.Count);
+    }
+
+    [Fact]
+    public async Task ABlockedPathProbeLeavesTheCallerFreeAndThePendingTaskFinishesLater()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        using var gate = new ManualResetEventSlim(false);
+        _files.ProbeGate = gate;
+        var launcher = Launcher_();
+
+        var task = launcher.LaunchAsync(Detection, "MCM", "cm01");
+
+        Assert.False(task.IsCompleted);
+        gate.Set();
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await task).Outcome);
+        Assert.DoesNotContain(Environment.CurrentManagedThreadId, _files.ProbeThreads);
+        Assert.Single(_starter.Started);
+    }
+
+    [Fact]
+    public async Task ABlockedSettingsReadLeavesTheCallerFree()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        using var gate = new ManualResetEventSlim(false);
+        var readThread = 0;
+        var launcher = Launcher_();
+
+        var task = launcher.LaunchAsync(Detection, () =>
+        {
+            gate.Wait(TimeSpan.FromSeconds(5));
+            readThread = Environment.CurrentManagedThreadId;
+            return new AppSettings { SiteCode = "LAB", SiteCodeSaved = true, ProviderMachine = "cm01" };
+        });
+
+        Assert.False(task.IsCompleted);
+        gate.Set();
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await task).Outcome);
+        Assert.NotEqual(Environment.CurrentManagedThreadId, readThread);
+        Assert.Equal("LAB", Assert.Single(_starter.Started).Environment[SettingsService.LauncherSiteCodeVariable]);
+    }
+
+    [Fact]
+    public async Task TwoQuickClicksDuringABlockedResolutionStartOneProcess()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        using var gate = new ManualResetEventSlim(false);
+        _files.ProbeGate = gate;
+        var launcher = Launcher_();
+
+        var first = launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var second = launcher.LaunchAsync(Detection, "MCM", "cm01");
+
+        Assert.False(first.IsCompleted);
+        Assert.True(second.IsCompleted);
+        Assert.Equal(SuiteToolLaunchOutcome.StillStarting, (await second).Outcome);
+        gate.Set();
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await first).Outcome);
+        Assert.Single(_starter.Started);
+        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Detection));
+    }
+
+    [Fact]
+    public async Task AFailedResolutionClearsThePendingLaunch()
+    {
+        InstallSuite();
+        var launcher = Launcher_();
+        Assert.Equal(SuiteToolLaunchOutcome.Failed, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
+        InstallTool(Detection);
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
     }
 
     [Fact]
@@ -389,7 +519,7 @@ public sealed class SuiteToolLauncherTests
     {
         InstallSuite();
         InstallTool(Detection);
-        var launcher = new SuiteToolLauncher(_files, _environment, _starter, new SuiteToolLaunchTiming { StartWatch = TimeSpan.FromMilliseconds(10) });
+        var launcher = new SuiteToolLauncher(_files, _environment, _starter, _log, new SuiteToolLaunchTiming { StartWatch = TimeSpan.FromMilliseconds(10) });
         await launcher.LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal([TimeSpan.FromMilliseconds(10)], _starter.Processes[0].ExitWaits);
     }
@@ -434,7 +564,7 @@ public sealed class SuiteToolLauncherTests
         InstallSuite();
         InstallTool(Detection);
         var delays = new List<TimeSpan>();
-        var launcher = new SuiteToolLauncher(_files, _environment, _starter, new SuiteToolLaunchTiming
+        var launcher = new SuiteToolLauncher(_files, _environment, _starter, _log, new SuiteToolLaunchTiming
         {
             FrontAttempts = 5,
             FrontRetryInterval = TimeSpan.FromMilliseconds(1),
@@ -495,7 +625,7 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
             .Add(environment.WindowsPowerShellPath)
             .Add(Path.Combine(root, "detection-tester", "start-detectiontester.ps1"));
-        return (new SuiteToolLauncher(files, environment, starter), starter);
+        return (new SuiteToolLauncher(files, environment, starter, new RecordingSuiteLog()), starter);
     }
 
     private static readonly SuiteTool Detection = SuiteTools.All.Single(t => t.Id == "detection-tester");
@@ -548,10 +678,35 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
     {
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "OLD");
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, "old.contoso.com");
-        var launcher = new SuiteToolLauncher(new FakeSuiteFileSystem(), new FakeSuiteEnvironment(), new FakeToolProcessStarter());
+        var launcher = new SuiteToolLauncher(new FakeSuiteFileSystem(), new FakeSuiteEnvironment(), new FakeToolProcessStarter(), new RecordingSuiteLog());
         var info = launcher.BuildStartInfo(new SuiteToolLocation(@"C:\S\t", @"C:\S\t\start.ps1"), " ", null);
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
+    }
+}
+
+[Collection(ProcessEnvironmentCollection.Name)]
+public sealed class SuiteToolLauncherRegistrationTests : IDisposable
+{
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-suitelauncher-" + Guid.NewGuid().ToString("N"));
+    private readonly string? _saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
+
+    public SuiteToolLauncherRegistrationTests() => Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
+
+    public void Dispose()
+    {
+        Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _saved);
+        SQLiteConnection.ClearAllPools();
+        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
+    }
+
+    [Fact]
+    public void TheApplicationServicesBuildOneLauncher()
+    {
+        using var services = new ServiceCollection().AddPackagerServices().AddSidebar()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = false, ValidateScopes = true });
+        var launcher = services.GetRequiredService<SuiteToolLauncher>();
+        Assert.Same(launcher, services.GetRequiredService<SuiteToolLauncher>());
     }
 }
 
