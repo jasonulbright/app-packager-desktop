@@ -10,10 +10,13 @@ namespace ApplicationPackagerEngine.Services;
 /// <remarks>
 /// A packaged title holds the words of CMName in order, with only release details around
 /// them: a version, qualifiers in parentheses, an architecture, and after the last word
-/// optionally " - &lt;anything&gt;". A word of CMName that ends in a number may continue as a
-/// version ("18" as "18.5.1.1") or carry an architecture ("7" as "7-x64"). Any other word
-/// names a different product: "Git" must not find "Git Extensions", and "Mozilla Firefox"
-/// must not find "Mozilla Firefox ESR".
+/// optionally " - " and the rest of the title. The word after the dash starts with a version
+/// ("1.2", "v2"), is a parenthetical or is a qualifier word, unless the last word of CMName
+/// ends in a number and the title continues it as a version right before the dash
+/// ("Microsoft .NET 8.0.31 - Windows Server Hosting"). A word of CMName that ends in a number
+/// may continue as a version ("18" as "18.5.1.1") or carry an architecture ("7" as "7-x64").
+/// Any other word names a different product: "Git" must not find "Git Extensions" or
+/// "Git - Extensions", and "Mozilla Firefox" must not find "Mozilla Firefox ESR".
 /// Installer method (EXE, MSI) and architecture are qualifier classes. When CMName and the
 /// title both carry a class, the normalized values must be equal (amd64 and 64-bit are x64,
 /// 32-bit is x86), or "OpenJDK 17 (EXE)" counts as managed by "OpenJDK 17 (MSI) (EXE)". A
@@ -36,6 +39,9 @@ public static partial class MecmApplicationTitleRule
 
     [GeneratedRegex(@"^(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64|amd64)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DetailRegex();
+
+    [GeneratedRegex(@"^(v?\d|\([^)]*\)$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex DashDetailRegex();
 
     [GeneratedRegex(@"\d$")]
     private static partial Regex EndsInDigitRegex();
@@ -103,15 +109,26 @@ public static partial class MecmApplicationTitleRule
                     return $false
                 })
             if ($words.Count -eq 0) { $words = $allWords }
+            $tokens = @([regex]::Matches($Title, $script:MecmTitleTokenPattern) | ForEach-Object { $_.Value })
             $next = 0
-            foreach ($token in @([regex]::Matches($Title, $script:MecmTitleTokenPattern) | ForEach-Object { $_.Value })) {
-                if ($next -eq $words.Count -and $token -eq '-') { return $true }
+            $versionedAt = -1
+            for ($i = 0; $i -lt $tokens.Count; $i++) {
+                $token = $tokens[$i]
+                if ($next -eq $words.Count -and $token -eq '-') {
+                    if ($versionedAt -eq $i - 1) { return $true }
+                    if ($i + 1 -ge $tokens.Count) { return $false }
+                    return (($tokens[$i + 1] -imatch '^(v?\d|\([^)]*\)$)') -or (Test-MecmQualifierWord $tokens[$i + 1]))
+                }
                 if ($next -lt $words.Count) {
                     if ((Test-MecmQualifierWord $words[$next]) -and (Test-MecmQualifierWord $token)) {
                         if (Test-MecmQualifierEqual -Word $words[$next] -Token $token) { $next++; continue }
                     }
-                    $continuation = if ($words[$next] -match '\d$') { '(\.\d[\w.+-]*)?' } else { '' }
-                    if ($token -imatch ('^' + [regex]::Escape($words[$next]) + $continuation + $arch + '$')) { $next++; continue }
+                    $continuation = if ($words[$next] -match '\d$') { '(?<version>\.\d[\w.+-]*)?' } else { '' }
+                    if ($token -imatch ('^' + [regex]::Escape($words[$next]) + $continuation + $arch + '$')) {
+                        $next++
+                        if ($next -eq $words.Count -and $Matches.ContainsKey('version')) { $versionedAt = $i }
+                        continue
+                    }
                 }
                 if ($token -imatch $detail) { continue }
                 return $false
@@ -171,17 +188,27 @@ public static partial class MecmApplicationTitleRule
         var words = allWords.Where(w => !IsQualifierWord(w) || Qualifiers(w).Keys.Any(titleQualifier.ContainsKey)).ToList();
         if (words.Count == 0) words = allWords;
 
+        var tokens = Tokens(title);
         var next = 0;
-        foreach (var token in Tokens(title))
+        var versionedAt = -1;
+        for (var i = 0; i < tokens.Count; i++)
         {
-            if (next == words.Count && token == "-") return true;
+            var token = tokens[i];
+            if (next == words.Count && token == "-")
+                return versionedAt == i - 1 || (i + 1 < tokens.Count && (DashDetailRegex().IsMatch(tokens[i + 1]) || IsQualifierWord(tokens[i + 1])));
             if (next < words.Count)
             {
                 var word = words[next];
                 if (IsQualifierWord(word) && IsQualifierWord(token) && QualifierEqual(word, token)) { next++; continue; }
-                var continuation = EndsInDigitRegex().IsMatch(word) ? @"(\.\d[\w.+-]*)?" : "";
-                if (Regex.IsMatch(token, "^" + Regex.Escape(word) + continuation + ArchitectureSuffix + "$",
-                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)) { next++; continue; }
+                var continuation = EndsInDigitRegex().IsMatch(word) ? @"(?<version>\.\d[\w.+-]*)?" : "";
+                var match = Regex.Match(token, "^" + Regex.Escape(word) + continuation + ArchitectureSuffix + "$",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                if (match.Success)
+                {
+                    next++;
+                    if (next == words.Count && match.Groups["version"].Success) versionedAt = i;
+                    continue;
+                }
             }
             if (DetailRegex().IsMatch(token)) continue;
             return false;

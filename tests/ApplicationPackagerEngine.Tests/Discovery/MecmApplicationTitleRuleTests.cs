@@ -78,6 +78,22 @@ public class MecmApplicationTitleRuleTests
         { "Microsoft OpenJDK 17 (exe)", "Microsoft OpenJDK 17 (MSI)", false },
         { "Microsoft OpenJDK 17 (MSI)", "Microsoft OpenJDK 17 (exe)", false },
         { "Microsoft OpenJDK 17 (EXE) (x64)", "Microsoft OpenJDK 17 (EXE) (32-bit)", false },
+        { "7-Zip", "7-Zip (x64 edition) - 26.03", true },
+        { "Foo", "Foo - 1.2.3", true },
+        { "Foo", "Foo - v2", true },
+        { "Foo", "Foo - V2 (x64)", true },
+        { "Foo", "Foo - x64", true },
+        { "Foo", "Foo - 64-bit", true },
+        { "Foo", "Foo - MSI", true },
+        { "Foo", "Foo - (en-US)", true },
+        { "Git", "Git - Extensions", false },
+        { "Foo", "Foo - Bar", false },
+        { "Foo", "Foo - Pro 2", false },
+        { "Foo", "Foo - vNext", false },
+        { "Foo", "Foo - Portable x64", false },
+        { "Foo", "Foo -", false },
+        { "Foo 2", "Foo 2.1 - Bar", true },
+        { "Foo 2", "Foo 2 - Bar", false },
         { "Audacity", "", false },
         { "", "Audacity", false },
     };
@@ -101,7 +117,7 @@ public class MecmApplicationTitleRuleTests
     {
         Assert.True(MecmApplicationTitleRule.IsManaged("Audacity 3.7.9", ["audacity 3.7.9", "CMTrace Open"]));
         Assert.True(MecmApplicationTitleRule.IsManaged("M365 Apps for Enterprise", ["CMTrace Open", "M365 Apps for Enterprise (x64) (MEC)"]));
-        Assert.False(MecmApplicationTitleRule.IsManaged("Git", ["Git Extensions 4.3", "GitHub Desktop"]));
+        Assert.False(MecmApplicationTitleRule.IsManaged("Git", ["Git Extensions 4.3", "GitHub Desktop", "Git - Extensions"]));
         Assert.False(MecmApplicationTitleRule.IsManaged("Microsoft OpenJDK 17 (EXE)", ["Microsoft OpenJDK 17 (MSI) (EXE)"]));
         Assert.False(MecmApplicationTitleRule.IsManaged("Audacity", []));
     }
