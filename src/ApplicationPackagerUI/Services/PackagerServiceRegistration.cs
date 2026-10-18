@@ -1,4 +1,6 @@
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.ConfigMgrSession;
+using ApplicationPackagerEngine.Services.Logging;
 using ApplicationPackagerUI.Models;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -45,6 +47,21 @@ public static class PackagerServiceRegistration
         services.AddSingleton(sp => new ApplicationPackagerEngine.Services.DroppedInstallerAnalysisService(
             sp.GetRequiredService<ApplicationPackagerEngine.Services.MsiInspectionService>(),
             sp.GetRequiredService<ApplicationPackagerEngine.Services.InstallerIdentificationService>()));
+
+        services.AddSingleton<IAppLog>(_ => new AppLog());
+        services.AddSingleton<ISiteOperationHistory>(_ => new SiteOperationHistory());
+        services.AddSingleton<IConfigMgrSession>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            return new ConfigMgrSessionHost(() => SessionConnection(settings), sp.GetRequiredService<IAppLog>());
+        });
         return services;
+    }
+
+    /// <summary>The site and provider the ConfigMgr session connects to, read at each command.</summary>
+    public static ConfigMgrConnection SessionConnection(SettingsService settings)
+    {
+        var current = settings.Load();
+        return new ConfigMgrConnection(current.SiteCode, current.ProviderMachine);
     }
 }
