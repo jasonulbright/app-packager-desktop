@@ -132,12 +132,28 @@ public class DiscoveryMatcherTests
     [InlineData("[", null)]
     [InlineData("Git | Odd[", null)]
     [InlineData("Odd*", "17.[0")]
+    [InlineData("Odd [z-a]*", null)]
+    [InlineData("Odd*", "7.[9-0].*")]
     public void AMalformedPatternThrowsAPlainMessageThatNamesTheDefinition(string arpName, string? arpVersion)
     {
         var ex = Assert.Throws<DiscoveryException>(() =>
             DiscoveryMatcher.Prepare([new DiscoveryPackager("odd", "V", "Odd Tool", "Odd", arpName, arpVersion, null)], ["odd"], []));
         var tag = arpVersion is null ? "ArpName" : "ArpVersion";
         Assert.StartsWith($"The definition for Odd Tool has an {tag} pattern that is not a valid wildcard", ex.Message);
+    }
+
+    [Fact]
+    public void AReversedRangeIsNotAValidWildcard() =>
+        Assert.False(ArpWildcard.TryCreate("[z-a]", out _));
+
+    [Fact]
+    public void AMatchTimeoutThrowsAPlainMessageThatNamesTheDefinition()
+    {
+        var slow = new System.Text.RegularExpressions.Regex("^(a+)+$", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(1));
+        var packager = new MatchablePackager(new DiscoveryPackager("slow", "V", "Slow Tool", "Slow", "a*", null, null), [slow], [], null);
+        var snapshot = Snapshot([Row(new string('a', 40) + "!", "P", "1", "x64")]);
+        var ex = Assert.Throws<DiscoveryException>(() => DiscoveryMatcher.FindCandidates(snapshot, [packager]));
+        Assert.Equal("Matching the definition for Slow Tool against inventory took too long. Check its ArpName and ArpVersion patterns.", ex.Message);
     }
 
     [Fact]
@@ -221,6 +237,11 @@ public class DiscoveryMatcherTests
     [InlineData("A`*B", "A*B", true)]
     [InlineData("A`*B", "AxB", false)]
     [InlineData("Microsoft Visual C++ 2015-20?? Redistributable (x64) - *", "Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211", true)]
+    [InlineData("Widget", "Widget\n", false)]
+    [InlineData("7.[0-35-9].*", "7.5.4.0", true)]
+    [InlineData("7.[0-35-9].*", "7.4.6.0", false)]
+    [InlineData("7.[0-9][0-9]*", "7.10.0.0", true)]
+    [InlineData("7.[0-9][0-9]*", "7.4.6.0", false)]
     public void AnArpWildcardFollowsPowerShellLikeSyntax(string pattern, string text, bool expected)
     {
         Assert.True(ArpWildcard.TryCreate(pattern, out var regex));

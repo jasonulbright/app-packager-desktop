@@ -82,13 +82,20 @@ internal static class DiscoveryMatcher
 
             var clients = new HashSet<int>();
             var matched = false;
-            foreach (var row in rows)
+            try
             {
-                if (m.Architecture is not null && !string.Equals(m.Architecture, row.Architecture, StringComparison.OrdinalIgnoreCase)) continue;
-                if (m.Versions.Count > 0 && !m.Versions.Any(v => v.IsMatch(row.Version))) continue;
-                if (!m.Names.Any(n => n.IsMatch(row.DisplayName))) continue;
-                matched = true;
-                clients.UnionWith(row.Clients);
+                foreach (var row in rows)
+                {
+                    if (m.Architecture is not null && !string.Equals(m.Architecture, row.Architecture, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (m.Versions.Count > 0 && !m.Versions.Any(v => v.IsMatch(row.Version))) continue;
+                    if (!m.Names.Any(n => n.IsMatch(row.DisplayName))) continue;
+                    matched = true;
+                    clients.UnionWith(row.Clients);
+                }
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                throw new DiscoveryException($"Matching the definition for {Label(p)} against inventory took too long. Check its ArpName and ArpVersion patterns.");
             }
             if (!matched) continue;
             candidates.Add(new DiscoveryCandidate(p.Id.Trim(), cmName, p.Vendor ?? "", p.Application ?? "", clients.Count));

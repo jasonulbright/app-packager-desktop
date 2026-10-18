@@ -10,6 +10,7 @@
     "VendorUrl":  "https://github.com/PowerShell/PowerShell",
     "Cpe":  "cpe:2.3:a:microsoft:powershell:*:*:*:*:*:*:*:*",
     "ArpName":  "PowerShell 7-x64",
+    "ArpVersion":  "7.[0-35-9].* | 7.[0-9][0-9]*",
     "SecurityAdvisoryUrl":  "https://github.com/PowerShell/PowerShell/security/advisories",
     "InstallerType":  "MSI",
     "InstallerFramework":  "NativeMSI",

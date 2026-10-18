@@ -42,7 +42,8 @@ function ConvertTo-DiscoveryJsonString {
     param([AllowNull()][object]$Value)
     if ($null -eq $Value -or $Value -is [System.DBNull]) { return '""' }
     $text = [string]$Value
-    if ($text -cmatch '^[ !#-\[\]-~]*$') { return '"' + $text + '"' }
+    # \z, not $: $ also matches before a final line feed, which would pass a raw LF through.
+    if ($text -cmatch '^[ !#-\[\]-~]*\z') { return '"' + $text + '"' }
     $sb = New-Object System.Text.StringBuilder ($text.Length + 8)
     [void]$sb.Append('"')
     foreach ($ch in $text.ToCharArray()) {

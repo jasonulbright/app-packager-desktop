@@ -37,7 +37,7 @@ public class ArpNameDefinitionTests
                 if (!ArpWildcard.TryCreate(pattern, out _)) bad.Add($"{file}: not a valid wildcard '{pattern}'");
             }
             if (definition.ArpArch is { } arch && arch is not ("x64" or "x86")) bad.Add($"{file}: ArpArch '{arch}'");
-            if (definition.ArpVersion is { } version && (version.Trim().Length == 0 || !ArpWildcard.TryCreate(version, out _)))
+            if (definition.ArpVersion is { } version && (version.Trim().Length == 0 || version.Split('|').Any(v => v.Trim().Length == 0 || !ArpWildcard.TryCreate(v.Trim(), out _))))
                 bad.Add($"{file}: ArpVersion '{version}'");
         }
         Assert.True(bad.Count == 0, string.Join(Environment.NewLine, bad));
@@ -58,6 +58,97 @@ public class ArpNameDefinitionTests
         }
         var shared = owners.Where(o => o.Value.Count > 1).Select(o => $"{o.Key} => {string.Join(", ", o.Value)}").ToList();
         Assert.True(shared.Count == 0, string.Join(Environment.NewLine, shared));
+    }
+
+    private static readonly string[] VersionSamples = ["7.0.0.0", "7.4.6.0", "7.5.4.0", "7.6.0.0", "7.10.0.0", "8.0.4710", "11.0.28.6", "17.0.16.8", "21.0.8.9", "25.0.1.8"];
+
+    private static string Probe(string pattern)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < pattern.Length; i++)
+        {
+            var c = pattern[i];
+            if (c is '*' or '?') sb.Append('0');
+            else if (c == '`' && i + 1 < pattern.Length) sb.Append(pattern[++i]);
+            else if (c == '[') { sb.Append(pattern[i + 1]); i = pattern.IndexOf(']', i + 1); }
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    internal static bool VersionsOverlap(string? first, string? second)
+    {
+        var a = ArpWildcard.Split(first);
+        var b = ArpWildcard.Split(second);
+        if (a.Count == 0 || b.Count == 0) return true;
+        bool Accepts(IReadOnlyList<string> patterns, string version) =>
+            patterns.Any(p => ArpWildcard.TryCreate(p, out var r) && r.IsMatch(version));
+        return a.Concat(b).Select(Probe).Concat(VersionSamples).Any(v => Accepts(a, v) && Accepts(b, v));
+    }
+
+    /// <summary>
+    /// Two definitions with the same name patterns overlap when their architectures can meet
+    /// (an absent ArpArch meets every view) and a version one side accepts is accepted by the
+    /// other (an absent ArpVersion accepts every version). Versions are probed with one
+    /// concrete string per pattern and the shared sample list.
+    /// </summary>
+    internal static bool Overlap(AppDefinition first, AppDefinition second)
+    {
+        if (ArpWildcard.IsNone(first.ArpName) || ArpWildcard.IsNone(second.ArpName)) return false;
+        static string Names(AppDefinition d) => string.Join("|", ArpWildcard.Split(d.ArpName).Select(p => p.ToLowerInvariant()).Distinct().Order(StringComparer.Ordinal));
+        if (Names(first) != Names(second)) return false;
+        var archA = first.ArpArch?.Trim();
+        var archB = second.ArpArch?.Trim();
+        if (!string.IsNullOrEmpty(archA) && !string.IsNullOrEmpty(archB) && !string.Equals(archA, archB, StringComparison.OrdinalIgnoreCase)) return false;
+        return VersionsOverlap(first.ArpVersion, second.ArpVersion);
+    }
+
+    [Fact]
+    public void NoTwoDefinitionsWithTheSameNamePatternsAcceptTheSameInventoryRow()
+    {
+        var all = Definitions();
+        var overlaps = new List<string>();
+        for (var i = 0; i < all.Count; i++)
+            for (var j = i + 1; j < all.Count; j++)
+                if (Overlap(all[i].Definition, all[j].Definition)) overlaps.Add($"{all[i].File} and {all[j].File}");
+        Assert.True(overlaps.Count == 0, string.Join(Environment.NewLine, overlaps));
+    }
+
+    [Fact]
+    public void TheOverlapGuardCoversThePowerShellPair()
+    {
+        var stable = DefinitionFixture.Load("powershell7.json");
+        var lts = DefinitionFixture.Load("powershell7lts.json");
+        Assert.Equal(stable.ArpName, lts.ArpName);
+        Assert.False(Overlap(stable, lts));
+        Assert.True(Overlap(new AppDefinition { ArpName = stable.ArpName }, lts));
+        Assert.True(VersionsOverlap("7.*", "7.4.*"));
+        Assert.False(VersionsOverlap("17.*", "21.*"));
+    }
+
+    [Theory]
+    [InlineData("7.6.0.0", true, false)]
+    [InlineData("7.5.4.0", true, false)]
+    [InlineData("7.10.1.0", true, false)]
+    [InlineData("7.2.24.0", true, false)]
+    [InlineData("7.4.6.0", false, true)]
+    public void APowerShellVersionBelongsToExactlyOneDefinition(string version, bool stable, bool lts)
+    {
+        static bool Accepts(string file, string version)
+        {
+            var patterns = ArpWildcard.Split(DefinitionFixture.Load(file).ArpVersion);
+            return patterns.Count == 0 || patterns.Any(p => ArpWildcard.TryCreate(p, out var r) && r.IsMatch(version));
+        }
+        Assert.Equal(stable, Accepts("powershell7.json", version));
+        Assert.Equal(lts, Accepts("powershell7lts.json", version));
+    }
+
+    [Fact]
+    public void TheLtsVersionPinFollowsTheSeriesItsScraperReads()
+    {
+        var lts = DefinitionFixture.Load("powershell7lts.json");
+        var series = System.Text.RegularExpressions.Regex.Match(lts.VersionScraper.Pattern, @"v\((\d+)\\\.(\d+)\\\.").Groups;
+        Assert.Equal($"{series[1].Value}.{series[2].Value}.*", lts.ArpVersion);
     }
 
     [Fact]

@@ -179,11 +179,44 @@ public sealed class DiscoveryScriptTests : IDisposable
         Assert.Equal("{\"t\":\"error\",\"stage\":\"sql\",\"numbers\":[],\"sspi\":true,\"anonymous\":true}", output);
     }
 
+    [Fact]
+    public void ANameEndingInALineBreakIsEscapedByBothScripts()
+    {
+        foreach (var text in new[] { InventoryText, SiteText })
+        {
+            var script = text + Environment.NewLine + """
+                [Console]::Out.WriteLine((ConvertTo-DiscoveryJsonString "Tool`n"))
+                [Console]::Out.WriteLine((ConvertTo-DiscoveryJsonString "Tool`r`n"))
+                [Console]::Out.WriteLine((ConvertTo-DiscoveryJsonString 'Tool'))
+                """;
+            var lines = RunPowerShell(script).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+            Assert.Equal(["\"Tool\\u000a\"", "\"Tool\\u000d\\u000a\"", "\"Tool\""], lines);
+        }
+    }
+
+    [Fact]
+    public void AnInventoryRowWhoseNameEndsInALineBreakKeepsItsRow()
+    {
+        var script = InventoryText + Environment.NewLine + FakeReader + Environment.NewLine + """
+            $rows = @(
+                ,@([long]1, "Tool`n", 'P', '1.0', 'x64')
+                ,@([long]2, "Tool`r`n", 'P', '1.0', 'x64')
+            )
+            $summary = @(,@(2, [System.DBNull]::Value))
+            $apps = @()
+            Write-DiscoveryInventory -Reader (New-FakeReader -Sets @(,$rows + ,$summary + ,$apps))
+            [Console]::Out.WriteLine('{"t":"end"}')
+            """;
+        var snapshot = DiscoveryService.ParseInventory(RunPowerShell(script), new DiscoveryDatabaseTarget("s", "d"), 30);
+        Assert.Equal(["Tool\n", "Tool\r\n"], snapshot.Rows.Select(r => r.DisplayName));
+    }
+
     private const string FakeCim = """
         $global:Log = New-Object System.Collections.Generic.List[string]
         $global:FailSession = @()
         $global:FailQuery = @()
         $global:Empty = $false
+        $global:EmptyOn = @()
         function New-CimSessionOption { param([string]$Protocol) return $Protocol }
         function New-CimSession {
             param($ComputerName, $SessionOption, $OperationTimeoutSec, $ErrorAction)
@@ -197,7 +230,7 @@ public sealed class DiscoveryScriptTests : IDisposable
             param($CimSession, $Namespace, $ClassName, $Filter, $OperationTimeoutSec, $ErrorAction)
             $global:Log.Add("query:" + $CimSession.Protocol + ":" + $Namespace + ":" + $ClassName + ":" + $Filter)
             if ($global:FailQuery -contains $CimSession.Protocol) { throw 'Access is denied. (HRESULT 0x80070005)' }
-            if ($global:Empty) { return }
+            if ($global:Empty -or $global:EmptyOn -contains $CimSession.Protocol) { return }
             New-Object psobject -Property @{ SQLServerName = 'CM01.contoso.com'; SQLDatabaseName = 'CM_MCM' }
         }
         """;
@@ -249,11 +282,29 @@ public sealed class DiscoveryScriptTests : IDisposable
     }
 
     [Fact]
-    public void AProviderWithoutTheSiteAnswersNotFoundOverDcomOnly()
+    public void AProviderWithoutTheSiteOverBothProtocolsAnswersNotFound()
     {
         var output = RunSite("$global:Empty = $true");
-        Assert.Contains("{\"t\":\"site\",\"found\":false,\"via\":\"Dcom\"}", output);
-        Assert.DoesNotContain("Wsman", output);
+        Assert.StartsWith("{\"t\":\"site\",\"found\":false,\"via\":\"Wsman\"}", output);
+        Assert.Contains("query:Dcom:", output);
+        Assert.Contains("query:Wsman:", output);
+    }
+
+    [Fact]
+    public void TheSiteDefinitionFallsBackToWinRmWhenDcomReturnsNoInstance()
+    {
+        var output = RunSite("$global:EmptyOn = @('Dcom')");
+        Assert.StartsWith("{\"t\":\"site\",\"found\":true,\"server\":\"CM01.contoso.com\",\"database\":\"CM_MCM\",\"via\":\"Wsman\"}", output);
+        Assert.Contains("dispose:Dcom|open:Wsman", output);
+    }
+
+    [Fact]
+    public void ANotFoundOverDcomStaysTheAnswerWhenWinRmFails()
+    {
+        var output = RunSite("$global:EmptyOn = @('Dcom'); $global:FailQuery = @('Wsman')");
+        Assert.StartsWith("{\"t\":\"site\",\"found\":false,\"via\":\"Dcom\"}", output);
+        Assert.DoesNotContain("\"error\"", output);
+        Assert.Contains("dispose:Wsman", output);
     }
 
     [Fact]
@@ -267,7 +318,7 @@ public sealed class DiscoveryScriptTests : IDisposable
         [
             "7-Zip 26.03 (x64 edition)", "Git", "grepWin x64", "gsudo v2.6.1", "Microsoft Windows Desktop Runtime - 8.0.31 (x64)",
             "Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247", "Microsoft Edge", "Microsoft Edge WebView2 Runtime",
-            "PowerShell 7-x64", "7.4.6.0", "17.0.16.8", "21.0.8.9", "Mozilla Firefox (x64 en-US)", "Notepad++ (64-bit x64)",
+            "PowerShell 7-x64", "7.4.6.0", "7.5.4.0", "7.10.0.0", "7.40.1.0", "17.0.16.8", "21.0.8.9", "Mozilla Firefox (x64 en-US)", "Notepad++ (64-bit x64)",
         ]).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
 
         var script = new StringBuilder("$o = [System.Management.Automation.WildcardOptions]'IgnoreCase,CultureInvariant'").AppendLine();
