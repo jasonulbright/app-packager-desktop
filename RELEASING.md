@@ -25,8 +25,8 @@ The version is `YYYY.MDD.N`.
 
 Set `<Version>` in `src/ApplicationPackagerUI/ApplicationPackagerUI.csproj`. Check the version against the existing tags:
 
-```bash
-pwsh -NoProfile -File tools/test-release-version.ps1 -Version <ver> -ExistingTag @(git tag -l)
+```powershell
+& .\tools\test-release-version.ps1 -Version <ver> -ExistingTag @(git tag -l)
 ```
 
 The script throws with the broken rule and prints nothing when the version is valid.
