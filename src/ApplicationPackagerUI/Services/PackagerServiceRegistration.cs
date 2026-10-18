@@ -49,7 +49,7 @@ public static class PackagerServiceRegistration
             sp.GetRequiredService<ApplicationPackagerEngine.Services.InstallerIdentificationService>()));
 
         services.AddSingleton<IAppLog>(_ => new AppLog());
-        services.AddSingleton<ISiteOperationHistory>(_ => new SiteOperationHistory());
+        services.AddSingleton<ISiteOperationHistory>(sp => new SiteOperationHistory(log: sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<IConfigMgrSession>(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();

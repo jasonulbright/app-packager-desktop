@@ -16,6 +16,9 @@ public interface IConfigMgrSession : IAsyncDisposable
     /// Runs the script in the session with the parameters bound by name. Cancellation ends
     /// the running command by ending the session; the next command starts a new one.
     /// Failures throw <see cref="ConfigMgrSessionException"/> with a plain message.
+    /// Error text and warnings pass through <see cref="Logging.SecretMask"/>; output values
+    /// are raw, so a caller that logs or shows output masks it first. A request larger than
+    /// <see cref="ConfigMgrSessionHost.MaxRequestBytes"/> is refused before it is sent.
     /// </summary>
     Task<ConfigMgrCommandResult> InvokeAsync(
         ConfigMgrScript script,
@@ -131,7 +134,10 @@ public sealed partial class ConfigMgrParameters : IEnumerable<KeyValuePair<strin
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
-/// <summary>What one command wrote to its pipeline, one JSON value per object.</summary>
+/// <summary>
+/// What one command wrote to its pipeline, one JSON value per object. Output values are
+/// raw; warnings are masked. A NaN or infinite number arrives as null.
+/// </summary>
 public sealed class ConfigMgrCommandResult(IReadOnlyList<JsonElement> output, IReadOnlyList<string> warnings)
 {
     private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
@@ -160,7 +166,8 @@ public enum ConfigMgrFailure
     AccessDenied,
     ProcessDied,
     Timeout,
-    ScriptFailed
+    ScriptFailed,
+    RequestTooLarge
 }
 
 public sealed class ConfigMgrSessionException(ConfigMgrFailure failure, string message) : Exception(message)

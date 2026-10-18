@@ -12,6 +12,7 @@ public sealed class AppLog : IAppLog
 {
     public const int KeepSessionFiles = 30;
     public const int DefaultTailSize = 500;
+    public static readonly TimeSpan FileRetryInterval = TimeSpan.FromSeconds(30);
 
     private static readonly UTF8Encoding Utf8 = new(false);
 
@@ -22,7 +23,7 @@ public sealed class AppLog : IAppLog
     private readonly Queue<AppLogEntry> _tail = new();
     private readonly List<string> _secrets = [];
     private bool _fileOpened;
-    private bool _fileFailed;
+    private DateTimeOffset? _fileFailedAt;
     private string? _sessionFile;
 
     public AppLog(string? folder = null, int tailSize = DefaultTailSize, TimeProvider? time = null)
@@ -36,7 +37,7 @@ public sealed class AppLog : IAppLog
 
     public string? SessionFile
     {
-        get { lock (_gate) return _sessionFile; }
+        get { lock (_gate) return _fileFailedAt is null ? _sessionFile : null; }
     }
 
     public AppLogLevel MinimumLevel { get; set; } = AppLogLevel.Debug;
@@ -64,7 +65,19 @@ public sealed class AppLog : IAppLog
             while (_tail.Count > _tailSize) _tail.Dequeue();
             AppendToFile(entry);
         }
-        Written?.Invoke(this, entry);
+        RaiseWritten(entry);
+    }
+
+    // A subscriber is page code; its failure must not fail the write that a ConfigMgr
+    // operation made, nor stop the subscribers after it.
+    private void RaiseWritten(AppLogEntry entry)
+    {
+        if (Written is not { } handlers) return;
+        foreach (var handler in handlers.GetInvocationList().Cast<EventHandler<AppLogEntry>>())
+        {
+            try { handler(this, entry); }
+            catch (Exception) { }
+        }
     }
 
     public IReadOnlyList<AppLogEntry> Tail()
@@ -77,7 +90,11 @@ public sealed class AppLog : IAppLog
 
     private void AppendToFile(AppLogEntry entry)
     {
-        if (_fileFailed) return;
+        if (_fileFailedAt is { } failedAt)
+        {
+            if (_time.GetUtcNow() - failedAt < FileRetryInterval) return;
+            _fileFailedAt = null;
+        }
         try
         {
             if (!_fileOpened)
@@ -97,8 +114,7 @@ public sealed class AppLog : IAppLog
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
         {
-            _fileFailed = true;
-            _sessionFile = null;
+            _fileFailedAt = _time.GetUtcNow();
         }
     }
 

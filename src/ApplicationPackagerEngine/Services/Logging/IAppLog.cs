@@ -17,7 +17,10 @@ public sealed record AppLogEntry(DateTimeOffset Time, AppLogLevel Level, string 
 /// </summary>
 public interface IAppLog
 {
-    /// <summary>The session file, or null before the first entry or when the folder is not writable.</summary>
+    /// <summary>
+    /// The session file, or null before the first entry and while the file cannot be
+    /// written. After a write fails the file is tried again once the retry interval passes.
+    /// </summary>
     string? SessionFile { get; }
 
     AppLogLevel MinimumLevel { get; set; }

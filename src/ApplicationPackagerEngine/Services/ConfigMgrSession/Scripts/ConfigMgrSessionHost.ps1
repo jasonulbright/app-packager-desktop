@@ -28,6 +28,21 @@ function ConvertTo-SessionString {
     return (ConvertTo-Json -InputObject ([string]$Value) -Compress)
 }
 
+# ConvertTo-Json writes NaN and Infinity as bare words, which no JSON reader accepts; the
+# reader drops the whole line. The pattern matches whole strings first so text inside a
+# string is never changed.
+$script:NonFiniteNumber = New-Object System.Text.RegularExpressions.Regex -ArgumentList '"(?:[^"\\]|\\.)*"|-?Infinity|NaN', ([System.Text.RegularExpressions.RegexOptions]::CultureInvariant)
+
+function Repair-SessionJson {
+    param([string]$Json)
+    if ($Json -cnotmatch 'NaN|Infinity') { return $Json }
+    return $script:NonFiniteNumber.Replace($Json, [System.Text.RegularExpressions.MatchEvaluator] {
+        param($Match)
+        if ($Match.Value.StartsWith('"')) { return $Match.Value }
+        return 'null'
+    })
+}
+
 function ConvertTo-SessionValue {
     param([AllowNull()][object]$Item)
     if ($null -eq $Item) { return 'null' }
@@ -36,10 +51,11 @@ function ConvertTo-SessionValue {
     if ($base -is [bool]) { if ($base) { return 'true' } else { return 'false' } }
     if ($base -is [datetime]) { return (ConvertTo-SessionString $base.ToString('o', [Globalization.CultureInfo]::InvariantCulture)) }
     if ($base -is [enum]) { return (ConvertTo-SessionString $base.ToString()) }
+    if (($base -is [double] -or $base -is [single]) -and ([double]::IsNaN($base) -or [double]::IsInfinity($base))) { return 'null' }
     if ($base -is [ValueType]) { return (ConvertTo-Json -InputObject $base -Compress) }
     try {
         $json = ConvertTo-Json -InputObject $Item -Depth 3 -Compress -WarningAction SilentlyContinue
-        if ($json) { return ($json -replace '[\r\n]+', ' ') }
+        if ($json) { return (Repair-SessionJson ($json -replace '[\r\n]+', ' ')) }
     } catch { }
     return (ConvertTo-SessionString $Item)
 }
@@ -153,7 +169,18 @@ while ($true) {
     $line = $sessionInput.ReadLine()
     if ($null -eq $line) { break }
     if (-not $line.Trim()) { continue }
-    try { $request = ConvertFrom-Json -InputObject $line } catch { continue }
+    try {
+        $request = ConvertFrom-Json -InputObject $line
+    } catch {
+        # Without an end line the caller waits for its timeout; the id is taken from the
+        # raw text because the request did not parse.
+        $found = [regex]::Match($line, '"id"\s*:\s*"([A-Za-z0-9-]{1,64})"')
+        if ($found.Success) {
+            Write-SessionLine $found.Groups[1].Value 'error' ',"kind":"script","m":"The request could not be read."'
+            Write-SessionLine $found.Groups[1].Value 'end'
+        }
+        continue
+    }
     $id = [string](Get-SessionField $request 'id')
     if ($id -notmatch '^[A-Za-z0-9-]{1,64}$') { continue }
     switch ([string](Get-SessionField $request 'op')) {

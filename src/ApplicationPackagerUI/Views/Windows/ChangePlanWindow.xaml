@@ -34,6 +34,10 @@
                        AutomationProperties.AutomationId="txtChangePlanResult" AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />
+            <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtChangePlanForceClose" AutomationProperties.LiveSetting="Assertive"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
         </StackPanel>
 
         <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
@@ -75,6 +79,9 @@
                 <ui:Button x:Name="btnUndo" Content="_Undo" MinWidth="100" Margin="0,0,8,0"
                            Command="{Binding UndoCommand}" AutomationProperties.AutomationId="btnChangePlanUndo"
                            Visibility="{Binding ShowUndo, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnForceClose" Content="Close _without waiting" MinWidth="130" Margin="0,0,8,0"
+                           Command="{Binding ForceCloseCommand}" AutomationProperties.AutomationId="btnChangePlanForceClose"
+                           Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
                 <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
                            Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnChangePlanCancel"
                            Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />

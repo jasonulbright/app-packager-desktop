@@ -18,10 +18,11 @@ public partial class ChangePlanWindow
     }
 
     // Closing the window while a run is in progress would hide its result; the close turns
-    // into a cancel request and the window stays open until the run reports.
+    // into a cancel request and the window stays open until the run reports or the operator
+    // chooses to close without waiting.
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (_viewModel.IsBusy)
+        if (!_viewModel.CanClose)
         {
             e.Cancel = true;
             _viewModel.RequestCancel();
