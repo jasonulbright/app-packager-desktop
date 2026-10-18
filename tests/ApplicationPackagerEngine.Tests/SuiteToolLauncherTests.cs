@@ -40,10 +40,26 @@ internal sealed class FakeToolProcess : IToolProcess
     public required int Id { get; init; }
     public bool HasExited { get; set; }
     public int FrontRequests { get; private set; }
+
+    /// <summary>The answers of successive BringToFront calls; the last one repeats.</summary>
+    public Queue<bool> FrontResults { get; } = new();
+
+    /// <summary>The exit code the process stops with at once, or null while it keeps running.</summary>
+    public int? ExitsAtOnceWith { get; set; }
+    public List<TimeSpan> ExitWaits { get; } = [];
+
     public bool BringToFront()
     {
         FrontRequests++;
-        return true;
+        if (FrontResults.Count > 1) return FrontResults.Dequeue();
+        return FrontResults.Count == 0 || FrontResults.Peek();
+    }
+
+    public Task<int?> WaitForExitAsync(TimeSpan limit)
+    {
+        ExitWaits.Add(limit);
+        if (ExitsAtOnceWith is not null) HasExited = true;
+        return Task.FromResult(ExitsAtOnceWith);
     }
 }
 
@@ -53,12 +69,13 @@ internal sealed class FakeToolProcessStarter : IToolProcessStarter
     public List<ProcessStartInfo> Started { get; } = [];
     public List<FakeToolProcess> Processes { get; } = [];
     public Exception? Failure { get; set; }
+    public int? NextExitsAtOnceWith { get; set; }
 
     public IToolProcess Start(ProcessStartInfo startInfo)
     {
         if (Failure is not null) throw Failure;
         Started.Add(startInfo);
-        var process = new FakeToolProcess { Id = _nextId++ };
+        var process = new FakeToolProcess { Id = _nextId++, ExitsAtOnceWith = NextExitsAtOnceWith };
         Processes.Add(process);
         return process;
     }
@@ -76,7 +93,12 @@ public sealed class SuiteToolLauncherTests
     private readonly FakeSuiteEnvironment _environment = new();
     private readonly FakeToolProcessStarter _starter = new();
 
-    private SuiteToolLauncher Launcher_() => new(_files, _environment, _starter);
+    private readonly List<TimeSpan> _delays = [];
+
+    private SuiteToolLauncher Launcher_() => new(_files, _environment, _starter, new SuiteToolLaunchTiming
+    {
+        Delay = d => { _delays.Add(d); return Task.CompletedTask; }
+    });
 
     private void InstallSuite(string root = Install, string? settings = null)
     {
@@ -237,11 +259,11 @@ public sealed class SuiteToolLauncherTests
     }
 
     [Fact]
-    public void LaunchStartsTheToolWithTheSiteValuesAndReportsStarted()
+    public async Task LaunchStartsTheToolWithTheSiteValuesAndReportsStarted()
     {
         InstallSuite();
         InstallTool(Detection);
-        var result = Launcher_().Launch(Detection, "MCM", "cm01");
+        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Started, result.Outcome);
         Assert.Null(result.Message);
         var info = Assert.Single(_starter.Started);
@@ -250,13 +272,13 @@ public sealed class SuiteToolLauncherTests
     }
 
     [Fact]
-    public void ASecondLaunchOfARunningToolBringsItToTheFrontInsteadOfStartingAnother()
+    public async Task ASecondLaunchOfARunningToolBringsItToTheFrontInsteadOfStartingAnother()
     {
         InstallSuite();
         InstallTool(Detection);
         var launcher = Launcher_();
-        launcher.Launch(Detection, "MCM", "cm01");
-        var result = launcher.Launch(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.BroughtToFront, result.Outcome);
         Assert.Single(_starter.Started);
         Assert.Equal(1, _starter.Processes[0].FrontRequests);
@@ -264,73 +286,182 @@ public sealed class SuiteToolLauncherTests
     }
 
     [Fact]
-    public void AToolWhoseProcessExitedIsForgottenAndStartsAgain()
+    public async Task AToolWhoseProcessExitedIsForgottenAndStartsAgain()
     {
         InstallSuite();
         InstallTool(Detection);
         var launcher = Launcher_();
-        launcher.Launch(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Detection, "MCM", "cm01");
         _starter.Processes[0].HasExited = true;
         Assert.Null(launcher.RunningProcessId(Detection));
-        Assert.Equal(SuiteToolLaunchOutcome.Started, launcher.Launch(Detection, "MCM", "cm01").Outcome);
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
         Assert.Equal(2, _starter.Started.Count);
         Assert.Equal(0, _starter.Processes[0].FrontRequests);
         Assert.Equal(_starter.Processes[1].Id, launcher.RunningProcessId(Detection));
     }
 
     [Fact]
-    public void EachToolHasItsOwnSingleInstance()
+    public async Task EachToolHasItsOwnSingleInstance()
     {
         InstallSuite();
         var site = SuiteTools.All.Single(t => t.Id == "site-hygiene");
         InstallTool(Detection);
         InstallTool(site);
         var launcher = Launcher_();
-        launcher.Launch(Detection, "", "");
-        Assert.Equal(SuiteToolLaunchOutcome.Started, launcher.Launch(site, "", "").Outcome);
+        await launcher.LaunchAsync(Detection, "", "");
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(site, "", "")).Outcome);
         Assert.Equal(2, _starter.Started.Count);
     }
 
     [Fact]
-    public void AMissingToolStartsNothingAndReturnsThePlainMessage()
+    public async Task AMissingToolStartsNothingAndReturnsThePlainMessage()
     {
         InstallSuite();
-        var result = Launcher_().Launch(Detection, "MCM", "cm01");
+        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
         Assert.StartsWith("Detection Tester is not in the AppPackager Suite install.", result.Message);
         Assert.Empty(_starter.Started);
     }
 
     [Fact]
-    public void AMissingWindowsPowerShellStartsNothingAndSaysWhereItLooked()
+    public async Task AMissingWindowsPowerShellStartsNothingAndSaysWhereItLooked()
     {
         _files.Add(Launcher);
         InstallTool(Detection);
-        var result = Launcher_().Launch(Detection, "MCM", "cm01");
+        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
         Assert.Equal($"Detection Tester needs Windows PowerShell 5.1, which was not found at {_environment.WindowsPowerShellPath}.", result.Message);
         Assert.Empty(_starter.Started);
     }
 
     [Fact]
-    public void AStartFailureBecomesAPlainMessageAndNothingIsTracked()
+    public async Task AStartFailureBecomesAPlainMessageAndNothingIsTracked()
     {
         InstallSuite();
         InstallTool(Detection);
         _starter.Failure = new System.ComponentModel.Win32Exception(5, "Access is denied");
         var launcher = Launcher_();
-        var result = launcher.Launch(Detection, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
         Assert.Equal("Detection Tester could not start: Access is denied", result.Message);
         Assert.Null(launcher.RunningProcessId(Detection));
     }
 
     [Fact]
-    public void TheLauncherOnlyReadsTheSuiteSettingsFile()
+    public async Task AToolThatExitsAtOnceWithANonZeroCodeIsAPlainFailure()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        _starter.NextExitsAtOnceWith = 1;
+        var launcher = Launcher_();
+        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
+        Assert.Equal("Detection Tester stopped right after it started (exit code 1).", result.Message);
+        Assert.Equal([TimeSpan.FromSeconds(2)], _starter.Processes[0].ExitWaits);
+        Assert.Null(launcher.RunningProcessId(Detection));
+    }
+
+    [Fact]
+    public async Task AToolThatExitsAtOnceWithCodeZeroIsReportedAsStarted()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        _starter.NextExitsAtOnceWith = 0;
+        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
+        Assert.Equal(SuiteToolLaunchOutcome.Started, result.Outcome);
+        Assert.Null(result.Message);
+    }
+
+    [Fact]
+    public async Task AToolThatKeepsRunningThroughTheWatchIsStarted()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        var launcher = Launcher_();
+        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        Assert.Equal(SuiteToolLaunchOutcome.Started, result.Outcome);
+        Assert.Equal([TimeSpan.FromSeconds(2)], _starter.Processes[0].ExitWaits);
+        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Detection));
+    }
+
+    [Fact]
+    public async Task TheStartWatchIsInjectable()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        var launcher = new SuiteToolLauncher(_files, _environment, _starter, new SuiteToolLaunchTiming { StartWatch = TimeSpan.FromMilliseconds(10) });
+        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        Assert.Equal([TimeSpan.FromMilliseconds(10)], _starter.Processes[0].ExitWaits);
+    }
+
+    [Fact]
+    public async Task AWindowThatAppearsOnALaterAttemptIsBroughtToFront()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        var launcher = Launcher_();
+        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        foreach (var answer in new[] { false, true }) _starter.Processes[0].FrontResults.Enqueue(answer);
+
+        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+
+        Assert.Equal(SuiteToolLaunchOutcome.BroughtToFront, result.Outcome);
+        Assert.Equal(2, _starter.Processes[0].FrontRequests);
+        Assert.Equal([TimeSpan.FromSeconds(0.75)], _delays);
+    }
+
+    [Fact]
+    public async Task AToolWithNoWindowAfterEveryAttemptIsStillStarting()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        var launcher = Launcher_();
+        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        _starter.Processes[0].FrontResults.Enqueue(false);
+
+        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+
+        Assert.Equal(SuiteToolLaunchOutcome.StillStarting, result.Outcome);
+        Assert.Equal("Detection Tester is still starting. Its window is not open yet.", result.Message);
+        Assert.Equal(3, _starter.Processes[0].FrontRequests);
+        Assert.Equal([TimeSpan.FromSeconds(0.75), TimeSpan.FromSeconds(0.75)], _delays);
+        Assert.Single(_starter.Started);
+    }
+
+    [Fact]
+    public async Task TheFrontAttemptsAreInjectable()
+    {
+        InstallSuite();
+        InstallTool(Detection);
+        var delays = new List<TimeSpan>();
+        var launcher = new SuiteToolLauncher(_files, _environment, _starter, new SuiteToolLaunchTiming
+        {
+            FrontAttempts = 5,
+            FrontRetryInterval = TimeSpan.FromMilliseconds(1),
+            Delay = d => { delays.Add(d); return Task.CompletedTask; }
+        });
+        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        _starter.Processes[0].FrontResults.Enqueue(false);
+        Assert.Equal(SuiteToolLaunchOutcome.StillStarting, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
+        Assert.Equal(5, _starter.Processes[0].FrontRequests);
+        Assert.Equal(4, delays.Count);
+    }
+
+    [Fact]
+    public void TheDefaultTimingWatchesTwoSecondsAndTriesTheWindowThreeTimesOverOneAndAHalfSeconds()
+    {
+        var timing = new SuiteToolLaunchTiming();
+        Assert.Equal(TimeSpan.FromSeconds(2), timing.StartWatch);
+        Assert.Equal(3, timing.FrontAttempts);
+        Assert.Equal(TimeSpan.FromSeconds(1.5), timing.FrontRetryInterval * (timing.FrontAttempts - 1));
+    }
+
+    [Fact]
+    public async Task TheLauncherOnlyReadsTheSuiteSettingsFile()
     {
         InstallSuite(settings: """{ "ToolsRoot": "" }""");
         InstallTool(Detection);
-        Launcher_().Launch(Detection, "MCM", "cm01");
+        await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
         Assert.Equal([Settings], _files.Reads);
     }
 
@@ -370,45 +501,45 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
     private static readonly SuiteTool Detection = SuiteTools.All.Single(t => t.Id == "detection-tester");
 
     [Fact]
-    public void ASiteCodeTheOperatorNeverSavedIsNotPassed()
+    public async Task ASiteCodeTheOperatorNeverSavedIsNotPassed()
     {
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
         var (launcher, starter) = InstalledLauncher();
         var settings = new AppSettings { SiteCode = "MCM", SiteCodeSaved = false, ProviderMachine = "cm01.contoso.com" };
-        Assert.Equal(SuiteToolLaunchOutcome.Started, launcher.Launch(Detection, settings).Outcome);
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Detection, settings)).Outcome);
         var info = Assert.Single(starter.Started);
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
         Assert.Equal("cm01.contoso.com", info.Environment[SettingsService.LauncherProviderVariable]);
     }
 
     [Fact]
-    public void ASavedSiteCodeIsPassedAndAnEmptyProviderIsNot()
+    public async Task ASavedSiteCodeIsPassedAndAnEmptyProviderIsNot()
     {
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, "old.contoso.com");
         var (launcher, starter) = InstalledLauncher();
-        launcher.Launch(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true, ProviderMachine = " " });
+        await launcher.LaunchAsync(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true, ProviderMachine = " " });
         var info = Assert.Single(starter.Started);
         Assert.Equal("LAB", info.Environment[SettingsService.LauncherSiteCodeVariable]);
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
     }
 
     [Fact]
-    public void AnUnsavedSiteCodeKeepsTheValueTheSuiteLauncherGaveTheDesktop()
+    public async Task AnUnsavedSiteCodeKeepsTheValueTheSuiteLauncherGaveTheDesktop()
     {
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "SUI");
         var (launcher, starter) = InstalledLauncher();
-        launcher.Launch(Detection, new AppSettings { SiteCode = "SUI", SiteCodeSaved = false });
+        await launcher.LaunchAsync(Detection, new AppSettings { SiteCode = "SUI", SiteCodeSaved = false });
         Assert.Equal("SUI", Assert.Single(starter.Started).Environment[SettingsService.LauncherSiteCodeVariable]);
     }
 
     [Fact]
-    public void ASavedSiteCodeReplacesTheValueTheSuiteLauncherGaveTheDesktop()
+    public async Task ASavedSiteCodeReplacesTheValueTheSuiteLauncherGaveTheDesktop()
     {
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "SUI");
         var (launcher, starter) = InstalledLauncher();
-        launcher.Launch(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true });
+        await launcher.LaunchAsync(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true });
         Assert.Equal("LAB", Assert.Single(starter.Started).Environment[SettingsService.LauncherSiteCodeVariable]);
     }
 
@@ -421,6 +552,62 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         var info = launcher.BuildStartInfo(new SuiteToolLocation(@"C:\S\t", @"C:\S\t\start.ps1"), " ", null);
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
+    }
+}
+
+public sealed class ToolWindowActivationTests
+{
+    private sealed class FakeWindows : IToolWindows
+    {
+        public Dictionary<IntPtr, int> Owners { get; } = [];
+        public HashSet<IntPtr> Minimized { get; } = [];
+        public List<string> Calls { get; } = [];
+
+        public int OwnerProcessId(IntPtr window) => Owners.TryGetValue(window, out var id) ? id : 0;
+        public bool IsMinimized(IntPtr window) => Minimized.Contains(window);
+        public void Restore(IntPtr window) => Calls.Add("restore " + window);
+        public bool Activate(IntPtr window) { Calls.Add("activate " + window); return true; }
+    }
+
+    private static readonly IntPtr Window = new(0x1234);
+
+    [Fact]
+    public void AWindowOwnedByTheOriginalProcessIsActivated()
+    {
+        var windows = new FakeWindows();
+        windows.Owners[Window] = 4242;
+        Assert.True(ToolWindowActivation.BringToFront(4242, Window, () => false, windows));
+        Assert.Equal(["activate 4660"], windows.Calls);
+    }
+
+    [Fact]
+    public void AMinimizedWindowIsRestoredFirst()
+    {
+        var windows = new FakeWindows();
+        windows.Owners[Window] = 4242;
+        windows.Minimized.Add(Window);
+        Assert.True(ToolWindowActivation.BringToFront(4242, Window, () => false, windows));
+        Assert.Equal(["restore 4660", "activate 4660"], windows.Calls);
+    }
+
+    [Fact]
+    public void AWindowOwnedByAnotherProcessIsNeverTouched()
+    {
+        var windows = new FakeWindows();
+        windows.Owners[Window] = 5151;
+        windows.Minimized.Add(Window);
+        Assert.False(ToolWindowActivation.BringToFront(4242, Window, () => false, windows));
+        Assert.Empty(windows.Calls);
+    }
+
+    [Fact]
+    public void NoWindowOrAnExitedProcessActivatesNothing()
+    {
+        var windows = new FakeWindows();
+        windows.Owners[Window] = 4242;
+        Assert.False(ToolWindowActivation.BringToFront(4242, IntPtr.Zero, () => false, windows));
+        Assert.False(ToolWindowActivation.BringToFront(4242, Window, () => true, windows));
+        Assert.Empty(windows.Calls);
     }
 }
 

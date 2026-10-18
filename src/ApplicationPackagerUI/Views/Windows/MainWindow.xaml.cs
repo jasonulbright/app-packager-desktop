@@ -59,13 +59,21 @@ public partial class MainWindow : IDialogHostWindow
     }
 
     /// <summary>Starts a suite tool with the saved site code and provider, or brings its running window to the front.</summary>
-    public void OpenSuiteTool(SuiteTool tool)
+    public async void OpenSuiteTool(SuiteTool tool)
     {
         var settings = _serviceProvider.GetRequiredService<SettingsService>().Load();
-        var result = _serviceProvider.GetRequiredService<SuiteToolLauncher>().Launch(tool, settings);
-        if (result.Outcome != SuiteToolLaunchOutcome.Failed) return;
-        _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} could not start.",
-            ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(10));
+        var result = await _serviceProvider.GetRequiredService<SuiteToolLauncher>().LaunchAsync(tool, settings);
+        switch (result.Outcome)
+        {
+            case SuiteToolLaunchOutcome.Failed:
+                _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} could not start.",
+                    ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(10));
+                break;
+            case SuiteToolLaunchOutcome.StillStarting:
+                _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} is still starting.",
+                    ControlAppearance.Info, new SymbolIcon(SymbolRegular.Info24), TimeSpan.FromSeconds(6));
+                break;
+        }
     }
 
     public void OpenWorkbenchForGridSelection()

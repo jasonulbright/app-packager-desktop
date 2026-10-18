@@ -26,8 +26,9 @@ public static partial class SecretMask
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex AuthorizationHeader();
 
-    // A bearer token holds a digit or token punctuation; "bearer instruments" is prose.
-    [GeneratedRegex(@"(?<key>\bBearer\s+)(?<sep>)(?<value>(?=[A-Za-z0-9\-._~+/]*[0-9\-._~+/])[A-Za-z0-9\-._~+/]{8,}=*)",
+    // A bearer token holds a digit or token punctuation, or runs to 16 characters or more;
+    // a shorter word of letters only ("bearer instruments") is prose.
+    [GeneratedRegex(@"(?<key>\bBearer\s+)(?<sep>)(?<value>(?:(?=[A-Za-z0-9\-._~+/]*[0-9\-._~+/])[A-Za-z0-9\-._~+/]{8,}|[A-Za-z0-9\-._~+/]{16,})=*)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BearerToken();
 

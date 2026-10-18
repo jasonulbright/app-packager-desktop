@@ -437,6 +437,28 @@ public sealed class ConfigMgrSessionHostTests
     }
 
     [Fact]
+    public async Task AnUnexpectedExceptionReachesTheCallerAsAFixedMessageAndOnlyTheMaskedTextIsLogged()
+    {
+        var log = new RecordingLog();
+        var (host, factory) = NewHost(log: log);
+        await using var _ = host;
+        factory.Handler = (p, r) =>
+        {
+            if (r.GetProperty("op").GetString() == "run") throw new InvalidOperationException("Pipe state broke near password=Zq9secret at C:\\Internal\\Path");
+            FakeFactory.Default(p, r);
+        };
+
+        var failure = await Assert.ThrowsAsync<ConfigMgrSessionException>(() => host.InvokeAsync(Script));
+
+        Assert.Equal(ConfigMgrFailure.Unexpected, failure.Failure);
+        Assert.Equal("The ConfigMgr session failed unexpectedly. The log has the details.", failure.Message);
+        Assert.Null(failure.InnerException);
+        var logged = string.Join("\n", log.Entries.Select(e => e.Message));
+        Assert.Contains("Pipe state broke", logged);
+        Assert.DoesNotContain("Zq9secret", logged);
+    }
+
+    [Fact]
     public async Task AnAccessDeniedDuringACommandHasThePlainMessage()
     {
         var (host, factory) = NewHost();

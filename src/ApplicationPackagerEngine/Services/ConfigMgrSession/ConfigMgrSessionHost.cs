@@ -26,6 +26,7 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposabl
     public const string LogArea = "ConfigMgr";
     internal const string SettingsLocation = "Settings, ConfigMgr Site Settings";
     public const int MaxRequestBytes = 1024 * 1024;
+    public const string UnexpectedMessage = "The ConfigMgr session failed unexpectedly. The log has the details.";
 
     private sealed class Work(
         ConfigMgrScript script,
@@ -137,9 +138,14 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposabl
                 {
                     work.Completion.TrySetException(new ObjectDisposedException(nameof(ConfigMgrSessionHost)));
                 }
-                catch (Exception ex)
+                catch (ConfigMgrSessionException ex)
                 {
                     work.Completion.TrySetException(ex);
+                }
+                catch (Exception ex)
+                {
+                    _log?.Error(LogArea, $"{work.Script.Name} failed unexpectedly: {SecretMask.Apply(ex.ToString(), work.Parameters.SecretValues)}");
+                    work.Completion.TrySetException(new ConfigMgrSessionException(ConfigMgrFailure.Unexpected, UnexpectedMessage));
                 }
             }
         }

@@ -16,6 +16,8 @@ public sealed class SecretMaskTests
     [InlineData("Authorization: Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNzd29yZA==")]
     [InlineData("authorization=Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNzd29yZA==")]
     [InlineData("The request sent Bearer 0a1b2c3d4e5f6a7b8c9d and failed.", "0a1b2c3d4e5f6a7b8c9d")]
+    [InlineData("The request sent Bearer abcdefghijklmnop and failed.", "abcdefghijklmnop")]
+    [InlineData("Bearer ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef")]
     [InlineData("password=Hunter2 next", "Hunter2")]
     [InlineData("-Password 'P@ss word'", "P@ss word")]
     public void ASecretInEachKnownShapeIsMasked(string text, string secret)
@@ -44,6 +46,8 @@ public sealed class SecretMaskTests
     [InlineData("Basic settings: saved")]
     [InlineData("The bearer instruments were counted.")]
     [InlineData("Bearer of bad news")]
+    [InlineData("Bearer cases were reviewed.")]
+    [InlineData("Bearer responsibility")]
     [InlineData("DB_PASSWORD_FILE=C:\\secrets\\db.txt")]
     [InlineData("Collection SMS00001 has 3 members; site ABC.")]
     [InlineData("{\"Name\":\"7-Zip\",\"Version\":\"24.09\"}")]

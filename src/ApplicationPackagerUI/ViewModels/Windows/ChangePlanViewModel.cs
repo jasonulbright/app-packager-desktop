@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using ApplicationPackagerEngine.Services.Logging;
 using ApplicationPackagerUI.Services;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
@@ -46,12 +47,16 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     private readonly ChangePlanRun _run;
     private readonly ChangePlanRun? _undo;
     private readonly TimeSpan _forceCloseDelay;
+    private readonly IAppLog? _log;
     private ConfirmedChangePlan? _confirmed;
     private CancellationTokenSource? _cts;
     private ReportedItems? _reported;
     private bool _cancelRequested;
 
-    public ChangePlanViewModel(ChangePlan plan, ChangePlanRun run, ChangePlanRun? undo = null, TimeSpan? forceCloseDelay = null)
+    public const string FailedText = "The run failed. The log has the details.";
+    public const string LogArea = "Change plan";
+
+    public ChangePlanViewModel(ChangePlan plan, ChangePlanRun run, ChangePlanRun? undo = null, TimeSpan? forceCloseDelay = null, IAppLog? log = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(run);
@@ -61,6 +66,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         _run = run;
         _undo = undo;
         _forceCloseDelay = forceCloseDelay ?? DefaultForceCloseDelay;
+        _log = log;
         Items = new ObservableCollection<ChangePlanItem>(plan.Items);
     }
 
@@ -215,8 +221,9 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            _log?.Error(LogArea, $"{prefix}{_plan.Title} failed: {SecretMask.Apply(ex.ToString())}");
             result = Partial(reported.Snapshot(), ChangePlanStop.Failed, FailedReason);
-            text = "The run failed: " + ex.Message + ReportedBefore(reported.Snapshot(), "failure");
+            text = FailedText + ReportedBefore(reported.Snapshot(), "failure");
         }
         finally
         {
@@ -227,7 +234,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
 
         if (!IsDetached)
         {
-            foreach (var row in result.Items) ResultRows.Add(row);
+            foreach (var row in result.Items) ResultRows.Add(row with { Message = SecretMask.Apply(row.Message) });
             ResultText = prefix + text;
         }
         return result;

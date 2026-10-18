@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using CheckBox = System.Windows.Controls.CheckBox;
 using Size = System.Windows.Size;
+using ApplicationPackagerEngine.Services.Logging;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Windows;
 using ApplicationPackagerUI.Views.Windows;
@@ -246,14 +247,53 @@ public sealed class ChangePlanTests
         Assert.True(vm.CanClose);
     }
 
-    [Fact]
-    public async Task AFailedRunReportsItsMessage()
+    private sealed class RecordingLog : IAppLog
     {
-        var vm = new ChangePlanViewModel(Plan(), (_, _, _) => throw new InvalidOperationException("The SMS Provider denied access."));
+        public List<AppLogEntry> Entries { get; } = [];
+        public string? SessionFile => null;
+        public AppLogLevel MinimumLevel { get; set; } = AppLogLevel.Debug;
+        public event EventHandler<AppLogEntry>? Written;
+        public void RegisterSecret(string value) { }
+        public void Write(AppLogLevel level, string area, string message)
+        {
+            var entry = new AppLogEntry(DateTimeOffset.UtcNow, level, area, message);
+            lock (Entries) Entries.Add(entry);
+            Written?.Invoke(this, entry);
+        }
+        public IReadOnlyList<AppLogEntry> Tail() { lock (Entries) return Entries.ToList(); }
+    }
+
+    [Fact]
+    public async Task AFailedRunShowsAFixedLineAndLogsTheMaskedDetail()
+    {
+        var log = new RecordingLog();
+        var vm = new ChangePlanViewModel(Plan(), (_, _, _) => throw new InvalidOperationException("The SMS Provider denied access. password=Zq9secret"), log: log);
         await vm.ConfirmCommand.ExecuteAsync(null);
-        Assert.Equal("The run failed: The SMS Provider denied access.", vm.ResultText);
+        Assert.Equal(ChangePlanViewModel.FailedText, vm.ResultText);
+        Assert.Equal("The run failed. The log has the details.", ChangePlanViewModel.FailedText);
         Assert.True(vm.Outcome.Confirmed);
         Assert.False(vm.UndoCommand.CanExecute(null));
+        var entry = Assert.Single(log.Entries, e => e.Level == AppLogLevel.Error);
+        Assert.Contains("The SMS Provider denied access.", entry.Message);
+        Assert.DoesNotContain("Zq9secret", entry.Message);
+    }
+
+    [Fact]
+    public async Task AFailedRunWithoutALogStillShowsTheFixedLine()
+    {
+        var vm = new ChangePlanViewModel(Plan(), (_, _, _) => throw new InvalidOperationException("raw detail"));
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        Assert.Equal(ChangePlanViewModel.FailedText, vm.ResultText);
+    }
+
+    [Fact]
+    public async Task ItemMessagesStayVisibleButPassTheSecretMask()
+    {
+        var vm = new ChangePlanViewModel(Plan(), (c, _, _) => Task.FromResult(new ChangePlanResult(
+            [new ChangePlanItemResult(c.Plan.Items[0], true, "Removed."), new ChangePlanItemResult(c.Plan.Items[1], false, "Denied for token=Zq9secret on CM01.")])));
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        Assert.Equal("Removed.", vm.ResultRows[0].Message);
+        Assert.Equal("Denied for token=*** on CM01.", vm.ResultRows[1].Message);
     }
 
     [Fact]
@@ -281,7 +321,7 @@ public sealed class ChangePlanTests
         Assert.All(result.Items.Where(i => !i.Succeeded), i => Assert.Equal(ChangePlanViewModel.FailedReason, i.Message));
         Assert.Equal(["Window 4", "Window 5"], result.Items.Where(i => !i.Succeeded).Select(i => i.Item.Target));
         Assert.Equal(5, vm.ResultRows.Count);
-        Assert.Equal("The run failed: The SMS Provider stopped answering. Before the failure: 3 changed, 0 failed.", vm.ResultText);
+        Assert.Equal(ChangePlanViewModel.FailedText + " Before the failure: 3 changed, 0 failed.", vm.ResultText);
 
         Assert.True(vm.ShowUndo);
         Assert.True(vm.UndoCommand.CanExecute(null));

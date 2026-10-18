@@ -15,9 +15,14 @@ public interface IConfigMgrSession : IAsyncDisposable
     /// <summary>
     /// Runs the script in the session with the parameters bound by name. Cancellation ends
     /// the running command by ending the session; the next command starts a new one.
-    /// Failures throw <see cref="ConfigMgrSessionException"/> with a plain message.
-    /// Error text and warnings pass through <see cref="Logging.SecretMask"/>; output values
-    /// are raw, so a caller that logs or shows output masks it first. A request larger than
+    /// Failures throw <see cref="ConfigMgrSessionException"/> with a plain message. An
+    /// unexpected .NET failure in the host becomes <see cref="ConfigMgrFailure.Unexpected"/>
+    /// with a fixed message; its detail goes only to the log, masked. A
+    /// <see cref="ConfigMgrFailure.ScriptFailed"/> message carries the error text the script
+    /// wrote in the session: it is page-facing text from ConfigMgr, not a host message, and
+    /// it passes through <see cref="Logging.SecretMask"/> before it reaches the caller.
+    /// Warnings pass through the mask too; output values are raw, so a caller that logs or
+    /// shows output masks it first. A request larger than
     /// <see cref="ConfigMgrSessionHost.MaxRequestBytes"/> is refused before it is sent.
     /// </summary>
     Task<ConfigMgrCommandResult> InvokeAsync(
@@ -167,7 +172,8 @@ public enum ConfigMgrFailure
     ProcessDied,
     Timeout,
     ScriptFailed,
-    RequestTooLarge
+    RequestTooLarge,
+    Unexpected
 }
 
 public sealed class ConfigMgrSessionException(ConfigMgrFailure failure, string message) : Exception(message)

@@ -54,6 +54,49 @@ public interface IToolProcess
 
     /// <summary>Restores and activates the tool's main window; false when it has no window yet.</summary>
     bool BringToFront();
+
+    /// <summary>The exit code when the process ends within the limit; null while it still runs.</summary>
+    Task<int?> WaitForExitAsync(TimeSpan limit);
+}
+
+/// <summary>The window calls behind <see cref="ToolWindowActivation"/>.</summary>
+public interface IToolWindows
+{
+    /// <summary>The id of the process that created the window; 0 when the window is gone.</summary>
+    int OwnerProcessId(IntPtr window);
+
+    bool IsMinimized(IntPtr window);
+
+    void Restore(IntPtr window);
+
+    bool Activate(IntPtr window);
+}
+
+public static class ToolWindowActivation
+{
+    /// <summary>
+    /// Activates the window only when the process that owns it is the started process.
+    /// Windows does not reuse a process id while a handle to the process is open, so the
+    /// owner check counts only while <paramref name="hasExited"/>, read through that handle,
+    /// is false; the check runs after the owner lookup so an exit in between is seen.
+    /// </summary>
+    public static bool BringToFront(int processId, IntPtr window, Func<bool> hasExited, IToolWindows windows)
+    {
+        if (window == IntPtr.Zero) return false;
+        if (windows.OwnerProcessId(window) != processId) return false;
+        if (hasExited()) return false;
+        if (windows.IsMinimized(window)) windows.Restore(window);
+        return windows.Activate(window);
+    }
+}
+
+/// <summary>How long a launch watches a new process and retries a window that is not open yet.</summary>
+public sealed class SuiteToolLaunchTiming
+{
+    public TimeSpan StartWatch { get; init; } = TimeSpan.FromSeconds(2);
+    public int FrontAttempts { get; init; } = 3;
+    public TimeSpan FrontRetryInterval { get; init; } = TimeSpan.FromSeconds(0.75);
+    public Func<TimeSpan, Task> Delay { get; init; } = Task.Delay;
 }
 
 public interface IToolProcessStarter
@@ -70,6 +113,7 @@ public enum SuiteToolLaunchOutcome
 {
     Started,
     BroughtToFront,
+    StillStarting,
     Failed
 }
 
@@ -97,11 +141,14 @@ public sealed class SuiteToolLauncher
     private readonly Dictionary<string, IToolProcess> _running = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
 
-    public SuiteToolLauncher(ISuiteFileSystem files, ISuiteEnvironment environment, IToolProcessStarter starter)
+    private readonly SuiteToolLaunchTiming _timing;
+
+    public SuiteToolLauncher(ISuiteFileSystem files, ISuiteEnvironment environment, IToolProcessStarter starter, SuiteToolLaunchTiming? timing = null)
     {
         _files = files;
         _environment = environment;
         _starter = starter;
+        _timing = timing ?? new SuiteToolLaunchTiming();
     }
 
     /// <summary>The folders searched for the suite install, in search order.</summary>
@@ -167,24 +214,28 @@ public sealed class SuiteToolLauncher
     /// is the default, not a site, so the tool gets the one the suite launcher gave the
     /// desktop, or none.
     /// </summary>
-    public SuiteToolLaunchResult Launch(SuiteTool tool, Models.AppSettings settings)
+    public Task<SuiteToolLaunchResult> LaunchAsync(SuiteTool tool, Models.AppSettings settings)
     {
         var siteCode = settings.SiteCodeSaved == true
             ? settings.SiteCode
             : Environment.GetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable);
-        return Launch(tool, siteCode, settings.ProviderMachine);
+        return LaunchAsync(tool, siteCode, settings.ProviderMachine);
     }
 
-    public SuiteToolLaunchResult Launch(SuiteTool tool, string? siteCode, string? provider)
+    /// <summary>
+    /// Starts the tool, or brings its running window to the front. A new process is watched
+    /// for <see cref="SuiteToolLaunchTiming.StartWatch"/>: a non-zero exit in that time is a
+    /// failure. A running tool with no window yet is retried before it counts as still starting.
+    /// </summary>
+    public async Task<SuiteToolLaunchResult> LaunchAsync(SuiteTool tool, string? siteCode, string? provider)
     {
+        IToolProcess? running;
+        lock (_gate) running = Running(tool);
+        if (running is not null) return await BringToFrontAsync(tool, running).ConfigureAwait(true);
+
+        IToolProcess started;
         lock (_gate)
         {
-            if (Running(tool) is { } running)
-            {
-                running.BringToFront();
-                return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.BroughtToFront);
-            }
-
             var resolution = Resolve(tool);
             if (resolution.Location is not { } location)
                 return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, resolution.Message);
@@ -195,14 +246,30 @@ public sealed class SuiteToolLauncher
 
             try
             {
-                _running[tool.Id] = _starter.Start(BuildStartInfo(location, siteCode, provider));
-                return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Started);
+                started = _starter.Start(BuildStartInfo(location, siteCode, provider));
+                _running[tool.Id] = started;
             }
             catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
             {
                 return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} could not start: {ex.Message}");
             }
         }
+
+        var exitCode = await started.WaitForExitAsync(_timing.StartWatch).ConfigureAwait(true);
+        if (exitCode is null or 0) return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Started);
+        lock (_gate) _ = Running(tool);
+        return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} stopped right after it started (exit code {exitCode}).");
+    }
+
+    private async Task<SuiteToolLaunchResult> BringToFrontAsync(SuiteTool tool, IToolProcess process)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            if (process.BringToFront()) return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.BroughtToFront);
+            if (attempt >= _timing.FrontAttempts) break;
+            await _timing.Delay(_timing.FrontRetryInterval).ConfigureAwait(true);
+        }
+        return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.StillStarting, $"{tool.Title} is still starting. Its window is not open yet.");
     }
 
     /// <summary>The process id of the tool started from here while it runs; null once it exits.</summary>
@@ -302,9 +369,7 @@ public sealed class ToolProcessStarter : IToolProcessStarter
 
     private sealed class ToolProcess(Process process) : IToolProcess, IDisposable
     {
-        private const int RestoreCommand = 9;
-
-        public int Id => process.Id;
+        public int Id { get; } = process.Id;
 
         public bool HasExited
         {
@@ -320,10 +385,7 @@ public sealed class ToolProcessStarter : IToolProcessStarter
             try
             {
                 process.Refresh();
-                var window = process.MainWindowHandle;
-                if (window == IntPtr.Zero) return false;
-                if (IsIconic(window)) ShowWindow(window, RestoreCommand);
-                return SetForegroundWindow(window);
+                return ToolWindowActivation.BringToFront(Id, process.MainWindowHandle, () => HasExited, Win32ToolWindows.Instance);
             }
             catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
             {
@@ -331,18 +393,55 @@ public sealed class ToolProcessStarter : IToolProcessStarter
             }
         }
 
+        public async Task<int?> WaitForExitAsync(TimeSpan limit)
+        {
+            using var watch = new CancellationTokenSource(limit);
+            try
+            {
+                await process.WaitForExitAsync(watch.Token).ConfigureAwait(false);
+                return process.ExitCode;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
+            {
+                return null;
+            }
+        }
+
         public void Dispose() => process.Dispose();
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(IntPtr window);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool ShowWindow(IntPtr window, int command);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool IsIconic(IntPtr window);
     }
+}
+
+public sealed class Win32ToolWindows : IToolWindows
+{
+    private const int RestoreCommand = 9;
+
+    public static Win32ToolWindows Instance { get; } = new();
+
+    public int OwnerProcessId(IntPtr window) =>
+        GetWindowThreadProcessId(window, out var processId) == 0 ? 0 : unchecked((int)processId);
+
+    public bool IsMinimized(IntPtr window) => IsIconic(window);
+
+    public void Restore(IntPtr window) => ShowWindow(window, RestoreCommand);
+
+    public bool Activate(IntPtr window) => SetForegroundWindow(window);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr window, int command);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr window);
 }
