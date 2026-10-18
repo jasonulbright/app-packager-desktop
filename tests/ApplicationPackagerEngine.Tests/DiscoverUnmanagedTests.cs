@@ -826,6 +826,133 @@ public sealed class DiscoveryReloadTests
     }
 }
 
+public sealed class ApplicationsPageSaveTests
+{
+    private readonly Queue<Task<IReadOnlyList<PackagerInfo>?>> _loads = new();
+    private readonly List<string> _saved = [];
+    private readonly List<string> _log = [];
+    private int _loadCalls;
+
+    private static IReadOnlyList<PackagerInfo> Packagers() =>
+    [
+        new PackagerInfo { Uid = "git", Vendor = "Git", Application = "Git", Script = "git.json", IsJsonDefined = true },
+        new PackagerInfo { Uid = "grepwin", Vendor = "Stefan Kueng", Application = "grepWin", Script = "grepwin.json", IsJsonDefined = true },
+        new PackagerInfo { Uid = "gsudo", Vendor = "Gerardo Grignoli", Application = "gsudo", Script = "gsudo.json", IsJsonDefined = true },
+    ];
+
+    private ApplicationsViewModel Page(InMemorySettings store) => new(new ApplicationsPageServices(
+        store.Load,
+        store.Save,
+        () => { _loadCalls++; return _loads.Dequeue(); },
+        () => Task.CompletedTask,
+        _saved.Add,
+        _log.Add));
+
+    private TaskCompletionSource<IReadOnlyList<PackagerInfo>?> PendingLoad()
+    {
+        var load = new TaskCompletionSource<IReadOnlyList<PackagerInfo>?>();
+        _loads.Enqueue(load.Task);
+        return load;
+    }
+
+    private static bool Visible(ApplicationsViewModel page, string uid) =>
+        page.VendorGroups.SelectMany(g => g.Apps).Single(a => a.Uid == uid).IsVisible;
+
+    private static void SetHidden(InMemorySettings store, params string[] hidden)
+    {
+        var s = store.Load();
+        s.HiddenApplications = hidden;
+        store.Save(s);
+    }
+
+    [Fact]
+    public async Task ASaveDuringTheReloadWaitsAndWritesTheReloadedRows()
+    {
+        var store = new InMemorySettings(new AppSettings { HiddenApplications = ["grepwin", "gsudo"] });
+        _loads.Enqueue(Task.FromResult<IReadOnlyList<PackagerInfo>?>(Packagers()));
+        var page = Page(store);
+        Assert.False(Visible(page, "grepwin"));
+
+        SetHidden(store, "gsudo");
+        var reload = PendingLoad();
+        page.ReloadAfterSettingsChange();
+        var savesBefore = store.Saves;
+
+        var save = page.SaveCommand.ExecuteAsync(null);
+        Assert.False(save.IsCompleted);
+        Assert.Equal(savesBefore, store.Saves);
+
+        reload.SetResult(Packagers());
+        await save;
+
+        Assert.True(Visible(page, "grepwin"));
+        Assert.Equal(["gsudo"], store.Load().HiddenApplications);
+        Assert.Equal(["Saved. 2 of 3 visible."], _saved);
+    }
+
+    [Fact]
+    public async Task TwoQuickChangesSaveTheRowsOfTheLastReload()
+    {
+        var store = new InMemorySettings(new AppSettings { HiddenApplications = ["grepwin", "gsudo"] });
+        _loads.Enqueue(Task.FromResult<IReadOnlyList<PackagerInfo>?>(Packagers()));
+        var page = Page(store);
+
+        SetHidden(store, "gsudo");
+        var first = PendingLoad();
+        page.ReloadAfterSettingsChange();
+        SetHidden(store);
+        var second = PendingLoad();
+        page.ReloadAfterSettingsChange();
+
+        var save = page.SaveCommand.ExecuteAsync(null);
+        first.SetResult(Packagers());
+        Assert.False(save.IsCompleted);
+
+        second.SetResult(Packagers());
+        await save;
+
+        Assert.True(Visible(page, "grepwin"));
+        Assert.True(Visible(page, "gsudo"));
+        Assert.Empty(store.Load().HiddenApplications);
+        Assert.Equal(3, _loadCalls);
+    }
+
+    [Fact]
+    public async Task AReloadThatFailsKeepsTheRowsAndTheSaveProceeds()
+    {
+        var store = new InMemorySettings(new AppSettings { HiddenApplications = ["grepwin"] });
+        _loads.Enqueue(Task.FromResult<IReadOnlyList<PackagerInfo>?>(Packagers()));
+        var page = Page(store);
+
+        var reload = PendingLoad();
+        page.ReloadAfterSettingsChange();
+        var save = page.SaveCommand.ExecuteAsync(null);
+        Assert.False(save.IsCompleted);
+
+        reload.SetException(new IOException("C:\\secret"));
+        await save.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.False(Visible(page, "grepwin"));
+        Assert.Equal(["grepwin"], store.Load().HiddenApplications);
+        Assert.Equal(["Saved. 2 of 3 visible."], _saved);
+        Assert.Equal(["Applications page: the list could not be reloaded. Open the page again to retry."], _log);
+    }
+
+    [Fact]
+    public async Task ASaveBeforeTheFirstLoadEndsDoesNotShowEveryApplication()
+    {
+        var store = new InMemorySettings(new AppSettings { HiddenApplications = ["grepwin"] });
+        var initial = PendingLoad();
+        var page = Page(store);
+
+        var save = page.SaveCommand.ExecuteAsync(null);
+        initial.SetResult(Packagers());
+        await save;
+
+        Assert.Equal(["grepwin"], store.Load().HiddenApplications);
+    }
+}
+
 public sealed class DiscoverySettingsEditorTests
 {
     [Fact]
