@@ -10,10 +10,11 @@ namespace ApplicationPackagerEngine.Services;
 /// <remarks>
 /// A packaged title holds the words of CMName in order, with only release details around
 /// them: a version, qualifiers in parentheses, an architecture, and after the last word
-/// optionally " - " and the rest of the title. The word after the dash starts with a version
-/// ("1.2", "v2"), is the word "Latest", is a parenthetical or is a qualifier word, unless the last word of CMName
-/// ends in a number and the title continues it as a version right before the dash
-/// ("Microsoft .NET 8.0.31 - Windows Server Hosting"). A word of CMName that ends in a number
+/// optionally " - " and the rest of the title. The word after the dash is a version ("1.2.3",
+/// "v2", "1.2.3-beta", not "2FA" or "3D"), the word "Latest", a parenthetical or a qualifier
+/// word. One exception: when the title continues the last word of CMName as a version right
+/// before the dash, the dash may also be followed by "Windows Server Hosting" and release
+/// details ("Microsoft .NET 8.0.31 - Windows Server Hosting"). A word of CMName that ends in a number
 /// may continue as a version ("18" as "18.5.1.1") or carry an architecture ("7" as "7-x64").
 /// Any other word names a different product: "Git" must not find "Git Extensions" or
 /// "Git - Extensions", and "Mozilla Firefox" must not find "Mozilla Firefox ESR".
@@ -27,6 +28,7 @@ public static partial class MecmApplicationTitleRule
     private const string QualifierPatternText = @"(?i)(?<![a-z0-9])(exe|msi|x64|x86|arm64|amd64|32-bit|64-bit)(?![a-z0-9])";
     private const string TokenPatternText = @"\([^)]*\)|\S+";
     private const string ArchitectureSuffix = "(-(x64|x86|arm64|amd64))?";
+    private static readonly string[] HostingWords = ["Windows", "Server", "Hosting"];
 
     [GeneratedRegex(QualifierPatternText)]
     private static partial Regex QualifierRegex();
@@ -40,7 +42,7 @@ public static partial class MecmApplicationTitleRule
     [GeneratedRegex(@"^(\([^)]*\)|v?\d[\w.+-]*|x64|x86|arm64|amd64)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DetailRegex();
 
-    [GeneratedRegex(@"^(v?\d|\([^)]*\)$|latest$)",RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(v?\d+(\.\d+)*([-+._]\w+)*|\([^)]*\)|latest)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DashDetailRegex();
 
     [GeneratedRegex(@"\d$")]
@@ -115,9 +117,12 @@ public static partial class MecmApplicationTitleRule
             for ($i = 0; $i -lt $tokens.Count; $i++) {
                 $token = $tokens[$i]
                 if ($next -eq $words.Count -and $token -eq '-') {
-                    if ($versionedAt -eq $i - 1) { return $true }
                     if ($i + 1 -ge $tokens.Count) { return $false }
-                    return (($tokens[$i + 1] -imatch '^(v?\d|\([^)]*\)$|latest$)') -or (Test-MecmQualifierWord $tokens[$i + 1]))
+                    if (($tokens[$i + 1] -imatch '^(v?\d+(\.\d+)*([-+._]\w+)*|\([^)]*\)|latest)$') -or (Test-MecmQualifierWord $tokens[$i + 1])) { return $true }
+                    if ($versionedAt -ne $i - 1 -or $i + 3 -ge $tokens.Count) { return $false }
+                    if ($tokens[$i + 1] -ine 'Windows' -or $tokens[$i + 2] -ine 'Server' -or $tokens[$i + 3] -ine 'Hosting') { return $false }
+                    for ($k = $i + 4; $k -lt $tokens.Count; $k++) { if ($tokens[$k] -inotmatch $detail) { return $false } }
+                    return $true
                 }
                 if ($next -lt $words.Count) {
                     if ((Test-MecmQualifierWord $words[$next]) -and (Test-MecmQualifierWord $token)) {
@@ -195,7 +200,13 @@ public static partial class MecmApplicationTitleRule
         {
             var token = tokens[i];
             if (next == words.Count && token == "-")
-                return versionedAt == i - 1 || (i + 1 < tokens.Count && (DashDetailRegex().IsMatch(tokens[i + 1]) || IsQualifierWord(tokens[i + 1])));
+            {
+                if (i + 1 >= tokens.Count) return false;
+                if (DashDetailRegex().IsMatch(tokens[i + 1]) || IsQualifierWord(tokens[i + 1])) return true;
+                return versionedAt == i - 1 && i + 3 < tokens.Count
+                    && HostingWords.Select((w, k) => string.Equals(w, tokens[i + 1 + k], StringComparison.OrdinalIgnoreCase)).All(x => x)
+                    && tokens.Skip(i + 4).All(t => DetailRegex().IsMatch(t));
+            }
             if (next < words.Count)
             {
                 var word = words[next];
