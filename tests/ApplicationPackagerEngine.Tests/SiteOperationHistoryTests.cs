@@ -1,6 +1,7 @@
 using System.Data.SQLite;
 using ApplicationPackagerEngine.Models.Inventory;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Logging;
 
 namespace ApplicationPackagerEngine.Tests;
 
@@ -97,12 +98,12 @@ public sealed class SiteOperationHistoryTests : IDisposable
 
         var history = new SiteOperationHistory(DbPath);
         history.Record(Entry("T", "A", T0));
-        _ = new SiteOperationHistory(DbPath);
+        new SiteOperationHistory(DbPath).Record(Entry("T", "B", T0));
 
         Assert.Equal(tablesBefore.Append("SiteOperations").Order(StringComparer.Ordinal), Tables().Order(StringComparer.Ordinal));
         Assert.Equal(schemaBefore, InventorySchema());
         Assert.Single(inventory.GetOperations("uid-1", 10));
-        Assert.Single(history.Recent("T", 10));
+        Assert.Equal(2, history.Recent("T", 10).Count);
         Assert.Equal(1L, Scalar($"SELECT COUNT(*) FROM inventory_migrations WHERE migration_id = '{SiteOperationHistory.MigrationId}'"));
 
         // The inventory service still opens the database after the migration.
@@ -110,12 +111,138 @@ public sealed class SiteOperationHistoryTests : IDisposable
     }
 
     [Fact]
-    public void AFreshDatabaseGetsTheTableWithoutTheInventoryTables()
+    public void AFreshDatabaseGetsTheTableOnFirstUseWithoutTheInventoryTables()
     {
-        _ = new SiteOperationHistory(DbPath);
+        var history = new SiteOperationHistory(DbPath);
+        Assert.False(File.Exists(DbPath));
+        Assert.Empty(history.Recent(null, 1));
         var tables = Tables();
         Assert.Contains("SiteOperations", tables);
         Assert.DoesNotContain("inventory_operations", tables);
+    }
+
+    private sealed class RecordingLog : IAppLog
+    {
+        public List<AppLogEntry> Entries { get; } = [];
+        public string? SessionFile => null;
+        public AppLogLevel MinimumLevel { get; set; }
+        public event EventHandler<AppLogEntry>? Written;
+        public void RegisterSecret(string value) { }
+        public void Write(AppLogLevel level, string area, string message)
+        {
+            var entry = new AppLogEntry(DateTimeOffset.UtcNow, level, area, message);
+            lock (Entries) Entries.Add(entry);
+            Written?.Invoke(this, entry);
+        }
+        public IReadOnlyList<AppLogEntry> Tail() => Entries;
+    }
+
+    private static readonly TimeSpan ShortBusy = TimeSpan.FromMilliseconds(100);
+
+    private SQLiteConnection HoldExclusiveLock()
+    {
+        var connection = new SQLiteConnection($"Data Source={DbPath};Pooling=False;");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "BEGIN EXCLUSIVE;";
+        command.ExecuteNonQuery();
+        return connection;
+    }
+
+    [Fact]
+    public void TheServiceIsMadeWithoutTouchingALockedDatabaseAndRecordNeverThrows()
+    {
+        new SiteOperationHistory(DbPath).Record(Entry("T", "Before", T0));
+        var log = new RecordingLog();
+        SiteOperationHistory history;
+        using (HoldExclusiveLock())
+        {
+            history = new SiteOperationHistory(DbPath, log, ShortBusy);
+            Assert.Null(history.Record(Entry("T", "Locked", T0.AddMinutes(1))));
+            Assert.Empty(history.Recent("T", 10));
+        }
+
+        var entry = Assert.Single(log.Entries, e => e.Message.Contains("could not record", StringComparison.Ordinal));
+        Assert.Equal(AppLogLevel.Warning, entry.Level);
+        Assert.Equal(SiteOperationHistory.LogArea, entry.Area);
+        Assert.Contains("T Locked", entry.Message, StringComparison.Ordinal);
+        Assert.NotNull(history.Record(Entry("T", "After", T0.AddMinutes(2))));
+        Assert.Equal(["After", "Before"], history.Recent("T", 10).Select(r => r.Action));
+    }
+
+    [Fact]
+    public void AFreshLockedDatabaseMigratesOnTheFirstRecordAfterTheLockEnds()
+    {
+        SQLiteConnection.CreateFile(DbPath);
+        var log = new RecordingLog();
+        var history = new SiteOperationHistory(DbPath, log, ShortBusy);
+        using (HoldExclusiveLock())
+            Assert.Null(history.Record(Entry("T", "Locked", T0)));
+        Assert.NotNull(history.Record(Entry("T", "After", T0)));
+        Assert.Equal(["After"], history.Recent("T", 10).Select(r => r.Action));
+    }
+
+    [Fact]
+    public void AReadOnlyDatabaseFileLogsAndKeepsReading()
+    {
+        new SiteOperationHistory(DbPath).Record(Entry("T", "Before", T0));
+        SQLiteConnection.ClearAllPools();
+        File.SetAttributes(DbPath, FileAttributes.ReadOnly);
+        try
+        {
+            var log = new RecordingLog();
+            var history = new SiteOperationHistory(DbPath, log, ShortBusy);
+            Assert.Null(history.Record(Entry("T", "ReadOnly", T0.AddMinutes(1))));
+            Assert.Contains(log.Entries, e => e.Level == AppLogLevel.Warning);
+            Assert.Equal(["Before"], history.Recent("T", 10).Select(r => r.Action));
+        }
+        finally
+        {
+            File.SetAttributes(DbPath, FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
+    public void AReadOnlyDatabaseWithoutTheTableResolvesAndReturnsNothing()
+    {
+        SQLiteConnection.CreateFile(DbPath);
+        File.SetAttributes(DbPath, FileAttributes.ReadOnly);
+        try
+        {
+            var log = new RecordingLog();
+            var history = new SiteOperationHistory(DbPath, log, ShortBusy);
+            Assert.Null(history.Record(Entry("T", "A", T0)));
+            Assert.Empty(history.Recent(null, 10));
+            Assert.Contains(log.Entries, e => e.Level == AppLogLevel.Warning);
+        }
+        finally
+        {
+            File.SetAttributes(DbPath, FileAttributes.Normal);
+        }
+    }
+
+    [Theory]
+    [InlineData("Changed")]
+    [InlineData("1changed")]
+    [InlineData("changed count")]
+    [InlineData("")]
+    [InlineData("password=abc")]
+    [InlineData("a23456789012345678901234567890123")]
+    public void ACountsKeyOutsideThePatternIsRejectedWhenTheEntryIsMade(string key)
+    {
+        var failure = Assert.Throws<ArgumentException>(() =>
+            new SiteOperationEntry("T", "A", "", SiteOperationOutcome.Succeeded, new Dictionary<string, int> { [key] = 1 }, T0));
+        Assert.Contains("count", failure.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("changed")]
+    [InlineData("failed_2")]
+    [InlineData("a2345678901234567890123456789012")]
+    public void ACountsKeyInsideThePatternIsAccepted(string key)
+    {
+        var entry = new SiteOperationEntry("T", "A", "", SiteOperationOutcome.Succeeded, new Dictionary<string, int> { [key] = 1 }, T0);
+        Assert.Equal(1, entry.Counts[key]);
     }
 
     private List<string> Tables()

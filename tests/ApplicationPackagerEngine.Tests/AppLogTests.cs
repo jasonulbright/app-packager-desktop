@@ -128,6 +128,82 @@ public sealed class AppLogTests : IDisposable
     }
 
     [Fact]
+    public void AThrowingWrittenSubscriberNeverReachesWriteAndTheOtherSubscribersStillRun()
+    {
+        var log = new AppLog(_folder);
+        var seen = new List<string>();
+        log.Written += (_, _) => throw new InvalidOperationException("subscriber failed");
+        log.Written += (_, e) => seen.Add(e.Message);
+
+        log.Write(AppLogLevel.Info, "A", "first");
+        log.Write(AppLogLevel.Info, "A", "second");
+
+        Assert.Equal(["first", "second"], seen);
+        Assert.Equal(["first", "second"], log.Tail().Select(e => e.Message));
+        Assert.Contains("second", File.ReadAllText(log.SessionFile!));
+    }
+
+    private sealed class ManualTime(DateTimeOffset start) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = start;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Fact]
+    public void AFolderThatCannotBeCreatedIsTriedAgainAfterTheRetryInterval()
+    {
+        var time = new ManualTime(new DateTimeOffset(2026, 10, 18, 9, 0, 0, TimeSpan.Zero));
+        Directory.CreateDirectory(_folder);
+        var target = Path.Combine(_folder, "Logs");
+        File.WriteAllText(target, "a file where the folder should be");
+        var log = new AppLog(target, time: time);
+
+        log.Write(AppLogLevel.Info, "A", "while blocked");
+        Assert.Null(log.SessionFile);
+        File.Delete(target);
+
+        time.Now += AppLog.FileRetryInterval - TimeSpan.FromSeconds(1);
+        log.Write(AppLogLevel.Info, "A", "before the interval");
+        Assert.False(Directory.Exists(target));
+        Assert.Null(log.SessionFile);
+
+        time.Now += TimeSpan.FromSeconds(2);
+        log.Write(AppLogLevel.Info, "A", "after the interval");
+        Assert.NotNull(log.SessionFile);
+        var text = File.ReadAllText(log.SessionFile!);
+        Assert.Contains("after the interval", text);
+        Assert.DoesNotContain("before the interval", text);
+        Assert.Equal(3, log.Tail().Count);
+    }
+
+    [Fact]
+    public void ASessionFileThatWasBusyIsWrittenAgainAfterTheRetryInterval()
+    {
+        var time = new ManualTime(new DateTimeOffset(2026, 10, 18, 9, 0, 0, TimeSpan.Zero));
+        var log = new AppLog(_folder, time: time);
+        log.Write(AppLogLevel.Info, "A", "one");
+        var file = log.SessionFile!;
+
+        using (new FileStream(file, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            log.Write(AppLogLevel.Info, "A", "two");
+            Assert.Null(log.SessionFile);
+        }
+
+        time.Now += TimeSpan.FromSeconds(5);
+        log.Write(AppLogLevel.Info, "A", "three");
+        time.Now += AppLog.FileRetryInterval;
+        log.Write(AppLogLevel.Info, "A", "four");
+
+        Assert.Equal(file, log.SessionFile);
+        var lines = File.ReadAllLines(file);
+        Assert.Contains(lines, l => l.EndsWith("one", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.EndsWith("four", StringComparison.Ordinal));
+        Assert.DoesNotContain(lines, l => l.EndsWith("three", StringComparison.Ordinal));
+        Assert.Single(Directory.GetFiles(_folder, "app-*.log"));
+    }
+
+    [Fact]
     public void WrittenIsRaisedWithTheMaskedEntry()
     {
         var log = new AppLog(_folder);

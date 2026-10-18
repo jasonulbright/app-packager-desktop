@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -24,6 +25,7 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposabl
 {
     public const string LogArea = "ConfigMgr";
     internal const string SettingsLocation = "Settings, ConfigMgr Site Settings";
+    public const int MaxRequestBytes = 1024 * 1024;
 
     private sealed class Work(
         ConfigMgrScript script,
@@ -154,25 +156,30 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposabl
             throw Fail(ConfigMgrFailure.InvalidSiteCode, $"The site code {shown}. Correct it in {SettingsLocation}.");
         }
 
-        using var stop = CancellationTokenSource.CreateLinkedTokenSource(work.Token, _disposing.Token);
-        var process = await EnsureConnectedAsync(connection, stop.Token).ConfigureAwait(false);
-
         var id = Guid.NewGuid().ToString("N");
-        var request = new JsonObject
+        var requestLine = new JsonObject
         {
             ["id"] = id,
             ["op"] = "run",
             ["name"] = work.Script.Name,
             ["script"] = work.Script.Text,
             ["parameters"] = ParametersNode(work.Parameters)
-        };
+        }.ToJsonString();
+        // The child reads a whole request line before it can answer; a line that is too
+        // large to read or parse would leave the command waiting for its timeout.
+        if (Encoding.UTF8.GetByteCount(requestLine) > MaxRequestBytes)
+            throw Fail(ConfigMgrFailure.RequestTooLarge,
+                $"The ConfigMgr command {work.Script.Name} was not sent: its script and values are larger than the 1 MB limit for one command. Send the values in smaller parts.");
+
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(work.Token, _disposing.Token);
+        var process = await EnsureConnectedAsync(connection, stop.Token).ConfigureAwait(false);
         _log?.Info(LogArea, $"Run {work.Script.Name}" + (work.Parameters.Count > 0 ? $" ({work.Parameters.ToLogText()})" : ""));
 
         var secrets = work.Parameters.SecretValues.ToList();
         Exchange exchange;
         try
         {
-            exchange = await ExchangeAsync(process, id, request.ToJsonString(), work.Timeout, stop.Token).ConfigureAwait(false);
+            exchange = await ExchangeAsync(process, id, requestLine, work.Timeout, stop.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -201,7 +208,8 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposabl
         }
 
         _log?.Debug(LogArea, $"{work.Script.Name} returned {exchange.Output.Count} objects.");
-        return new ConfigMgrCommandResult(exchange.Output, exchange.Warnings);
+        var warnings = exchange.Warnings.Select(w => SecretMask.Apply(w, secrets)).ToList();
+        return new ConfigMgrCommandResult(exchange.Output, warnings);
     }
 
     private async Task<IConfigMgrSessionProcess> EnsureConnectedAsync(ConfigMgrConnection connection, CancellationToken ct)

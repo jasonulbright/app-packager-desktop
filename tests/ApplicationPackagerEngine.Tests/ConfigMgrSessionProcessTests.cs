@@ -19,13 +19,13 @@ public sealed class ConfigMgrSessionProcessTests
         ["parameters"] = parameters ?? new JsonObject()
     }.ToJsonString();
 
-    private static async Task<List<JsonElement>> Exchange(IConfigMgrSessionProcess process, string id, string request)
+    private static async Task<List<JsonElement>> Exchange(IConfigMgrSessionProcess process, string id, string request, TimeSpan? limit = null)
     {
         await process.WriteLineAsync(request);
         var lines = new List<JsonElement>();
         while (true)
         {
-            var line = await process.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(60));
+            var line = await process.ReadLineAsync().WaitAsync(limit ?? TimeSpan.FromSeconds(60));
             Assert.NotNull(line);
             var start = line!.IndexOf("{\"id\":\"" + id + "\"", StringComparison.Ordinal);
             if (start < 0) continue;
@@ -51,6 +51,82 @@ public sealed class ConfigMgrSessionProcessTests
         Assert.Equal(2, values[3].GetInt32());
         Assert.Equal(hostile.ToUpperInvariant(), values[4].GetProperty("Upper").GetString());
         Assert.Equal(3, values[4].GetProperty("N").GetInt32());
+    }
+
+    [Fact]
+    public async Task AParameterValueIsNeverRunAsScriptText()
+    {
+        var marker = Path.Combine(Path.GetTempPath(), "ap-cmsession-marker-" + Guid.NewGuid().ToString("N"));
+        var values = new[]
+        {
+            "$(New-Item -ItemType File -Path '" + marker + "')",
+            "'; New-Item -ItemType File -Path '" + marker + "'; '",
+            "\"; New-Item -ItemType File -Path \"" + marker + "\"; #",
+            "@(New-Item -ItemType File -Path '" + marker + "')"
+        };
+        await using var process = PowerShellSessionProcess.Start();
+        var parameters = new JsonObject();
+        for (var i = 0; i < values.Length; i++) parameters["V" + i] = values[i];
+
+        var lines = await Exchange(process, "e1", Request("e1", "param($V0, $V1, $V2, $V3) $V0; $V1; $V2; $V3; \"$V0\"", parameters));
+
+        Assert.False(File.Exists(marker));
+        Assert.Equal(values.Append(values[0]), lines.Select(l => l.GetProperty("v").GetString()));
+    }
+
+    [Fact]
+    public async Task AMalformedRequestGetsAnErrorReplyWithinSecondsAndTheSessionGoesOn()
+    {
+        await using var process = PowerShellSessionProcess.Start();
+        var truncated = "{\"id\":\"m1\",\"op\":\"run\",\"name\":\"T\",\"script\":\"'x'\",\"parameters\":{\"V\":";
+        var lines = await Exchange(process, "m1", truncated, TimeSpan.FromSeconds(15));
+        var error = Assert.Single(lines);
+        Assert.Equal("error", error.GetProperty("t").GetString());
+        Assert.Equal("script", error.GetProperty("kind").GetString());
+        Assert.Equal("The request could not be read.", error.GetProperty("m").GetString());
+
+        // Valid JSON nested deeper than Windows PowerShell 5.1 reads fails the same way.
+        var deep = new string('[', 150) + new string(']', 150);
+        var nested = "{\"id\":\"m2\",\"op\":\"run\",\"name\":\"T\",\"script\":\"'x'\",\"parameters\":{\"V\":" + deep + "}}";
+        Assert.Equal("error", Assert.Single(await Exchange(process, "m2", nested, TimeSpan.FromSeconds(15))).GetProperty("t").GetString());
+
+        await process.WriteLineAsync("not json and no id");
+        var next = await Exchange(process, "m3", Request("m3", "'still here'"));
+        Assert.Equal("still here", next.Single().GetProperty("v").GetString());
+    }
+
+    [Fact]
+    public async Task NonFiniteNumbersComeBackAsNullAndStringsKeepTheirText()
+    {
+        await using var process = PowerShellSessionProcess.Start();
+        var lines = await Exchange(process, "n1", Request("n1",
+            "[double]::NaN; [double]::PositiveInfinity; [single]::NegativeInfinity; 1.5; [pscustomobject]@{ A = [double]::NaN; B = [double]::NegativeInfinity; S = 'NaN, -Infinity: Infinity'; N = 2.5 }"));
+
+        var values = lines.Select(l => l.GetProperty("v")).ToList();
+        Assert.Equal(5, values.Count);
+        Assert.All(values.Take(3), v => Assert.Equal(JsonValueKind.Null, v.ValueKind));
+        Assert.Equal(1.5, values[3].GetDouble());
+        Assert.Equal(JsonValueKind.Null, values[4].GetProperty("A").ValueKind);
+        Assert.Equal(JsonValueKind.Null, values[4].GetProperty("B").ValueKind);
+        Assert.Equal("NaN, -Infinity: Infinity", values[4].GetProperty("S").GetString());
+        Assert.Equal(2.5, values[4].GetProperty("N").GetDouble());
+    }
+
+    [Fact]
+    public async Task AOnePointFiveMegabyteParameterIsRefusedByTheHostAndTheRealSessionKeepsWorking()
+    {
+        var factory = new ConnectSkippingFactory();
+        await using var host = new ConfigMgrSessionHost(
+            () => new ConfigMgrConnection("ABC", "unused"), factory, null, new ConfigMgrSessionOptions(), () => null);
+        var echo = ConfigMgrScript.FromText("Echo", "param($V) $V.Length");
+
+        var failure = await Assert.ThrowsAsync<ConfigMgrSessionException>(() =>
+            host.InvokeAsync(echo, new ConfigMgrParameters { ["V"] = new string('x', 1_500_000) }).WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.Equal(ConfigMgrFailure.RequestTooLarge, failure.Failure);
+
+        var result = await host.InvokeAsync(echo, new ConfigMgrParameters { ["V"] = new string('x', 500_000) }).WaitAsync(TimeSpan.FromSeconds(60));
+        Assert.Equal(["500000"], result.Lines);
+        Assert.Single(factory.Processes);
     }
 
     [Fact]

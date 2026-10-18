@@ -539,6 +539,58 @@ public sealed class ConfigMgrSessionHostTests
         Assert.Equal("Sup3rS3cret", RunRequests(factory.Started[0])[0].GetProperty("parameters").GetProperty("Password").GetString());
     }
 
+    [Fact]
+    public async Task WarningsAreMaskedLikeErrorText()
+    {
+        var (host, factory) = NewHost();
+        await using var _ = host;
+        factory.Handler = (p, r) =>
+        {
+            if (r.GetProperty("op").GetString() == "run")
+            {
+                p.Reply(r, "\"t\":\"warn\",\"m\":\"retrying with Sup3rS3cret\"", "\"t\":\"warn\",\"m\":\"connection string password=abc123 ignored\"", "\"t\":\"out\",\"v\":\"Sup3rS3cret raw\"");
+                return;
+            }
+            FakeFactory.Default(p, r);
+        };
+        var parameters = new ConfigMgrParameters();
+        parameters.AddSecret("Password", "Sup3rS3cret");
+
+        var result = await host.InvokeAsync(Script, parameters);
+
+        Assert.Equal(["retrying with ***", "connection string password=*** ignored"], result.Warnings);
+        // Output values are raw: a script that returns a secret returns it to its caller.
+        Assert.Equal(["Sup3rS3cret raw"], result.Lines);
+    }
+
+    [Fact]
+    public async Task ARequestOverTheSizeLimitIsRefusedPlainlyBeforeItIsSent()
+    {
+        var log = new RecordingLog();
+        var (host, factory) = NewHost(log: log);
+        await using var _ = host;
+        await host.InvokeAsync(Script);
+
+        var failure = await Assert.ThrowsAsync<ConfigMgrSessionException>(() =>
+            host.InvokeAsync(Script, new ConfigMgrParameters { ["Name"] = new string('x', ConfigMgrSessionHost.MaxRequestBytes) }));
+
+        Assert.Equal(ConfigMgrFailure.RequestTooLarge, failure.Failure);
+        Assert.Equal("The ConfigMgr command Test was not sent: its script and values are larger than the 1 MB limit for one command. Send the values in smaller parts.", failure.Message);
+        Assert.Single(RunRequests(factory.Started[0]));
+        Assert.False(factory.Started[0].Killed);
+        Assert.Equal(["ok"], (await host.InvokeAsync(Script)).Lines);
+        Assert.Single(factory.Started);
+    }
+
+    [Fact]
+    public async Task ARequestJustUnderTheSizeLimitIsSent()
+    {
+        var (host, factory) = NewHost();
+        await using var _ = host;
+        await host.InvokeAsync(Script, new ConfigMgrParameters { ["Name"] = new string('x', ConfigMgrSessionHost.MaxRequestBytes - 1024) });
+        Assert.Single(RunRequests(factory.Started[0]));
+    }
+
     [Theory]
     [InlineData("1abc")]
     [InlineData("a-b")]
@@ -563,16 +615,6 @@ public sealed class ConfigMgrSessionHostTests
     {
         foreach (var name in new[] { ConfigMgrScripts.Host, ConfigMgrScripts.GetSites, ConfigMgrScripts.GetCollections })
             Assert.False(string.IsNullOrWhiteSpace(ConfigMgrScripts.Read(name)), name);
-    }
-
-    [Fact]
-    public void TheHostScriptReadsUtf8InputSplatsParametersAndNeverExpandsThemIntoText()
-    {
-        var host = ConfigMgrScripts.Read(ConfigMgrScripts.Host);
-        Assert.Contains("OpenStandardInput", host);
-        Assert.Contains("[scriptblock]::Create", host);
-        Assert.Contains("@arguments", host);
-        Assert.DoesNotContain("Invoke-Expression", host);
     }
 
     [Fact]
