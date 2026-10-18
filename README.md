@@ -10,7 +10,7 @@
 
 App Packager Desktop packages third-party Windows applications and publishes them to ConfigMgr, Intune and WSUS. It is a Windows desktop application. It is free and MIT licensed.
 
-![The Packages page](docs/images/packages.png)
+![The Packages page with the version, ConfigMgr, status and CVE columns filled for checked applications](docs/images/packages.png)
 
 ## What it does
 
@@ -124,6 +124,8 @@ Requirements and limits:
 - **Settings** holds the NVD API key and the switch **Look up CVEs after Check ConfigMgr**. A key is optional. Without a key, NVD permits 5 requests in 30 seconds; with a key, 50.
 
 The data comes from NVD. When NVD does not answer, the lookup uses Shodan CVEDB and marks the result. EPSS scores come from FIRST. A lookup that fails shows an error; it does not show a count of 0.
+
+![The Packages grid scrolled to the CVEs, Max CVSS, KEV, In latest and Newest CVE columns](docs/images/packages-cve.png)
 
 ## Command-line build
 
