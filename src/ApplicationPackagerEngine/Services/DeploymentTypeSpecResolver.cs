@@ -188,7 +188,7 @@ public static class DeploymentTypeSpecResolver
     /// locator field. The model always materializes a Detection object,
     /// so an empty one means no detection.
     /// </summary>
-    private static bool IsUsable(StageDetection? det)
+    public static bool IsUsable(StageDetection? det)
     {
         if (det is null || string.IsNullOrWhiteSpace(det.Type)) return false;
         return !string.IsNullOrWhiteSpace(det.RegistryKeyRelative)

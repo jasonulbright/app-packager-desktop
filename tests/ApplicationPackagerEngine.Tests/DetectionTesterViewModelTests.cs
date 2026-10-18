@@ -14,13 +14,17 @@ internal sealed class FakeDetectionTestService : IDetectionTestService
     public TaskCompletionSource<DetectionTestResult>? Pending { get; set; }
     public Exception? Failure { get; set; }
 
+    /// <summary>When true, a pending run ignores the token and ends only when the test completes <see cref="Pending"/>.</summary>
+    public bool IgnoreCancel { get; set; }
+
     public async Task<DetectionTestResult> RunAsync(DetectionTestRequest request, CancellationToken ct)
     {
-        Requests.Add(request);
+        lock (Requests) Requests.Add(request);
         if (Failure is not null) throw Failure;
         if (Pending is not null)
         {
-            await using var registration = ct.Register(() => Pending.TrySetCanceled(ct));
+            if (IgnoreCancel) return await Pending.Task;
+            await using var registration = ct.Register(() => Pending.TrySetException(new OperationCanceledException(ct)));
             return await Pending.Task;
         }
         return Answer?.Invoke(request) ?? Result(detected: !request.Negative, passed: true);
@@ -36,18 +40,27 @@ internal sealed class FakeDetectionHistoryStore : IDetectionHistoryStore
     public List<DetectionHistoryEntry> Entries { get; } = [];
     public int ReadCount { get; private set; }
     public int ClearCount { get; private set; }
+    public Exception? ReadFailure { get; set; }
+    public Exception? AddFailure { get; set; }
+    public Exception? ClearFailure { get; set; }
 
     public IReadOnlyList<DetectionHistoryEntry> All()
     {
         ReadCount++;
+        if (ReadFailure is not null) throw ReadFailure;
         return Entries.ToList();
     }
 
-    public void Add(DetectionHistoryEntry entry) => Entries.Add(entry);
+    public void Add(DetectionHistoryEntry entry)
+    {
+        if (AddFailure is not null) throw AddFailure;
+        Entries.Add(entry);
+    }
 
     public void Clear()
     {
         ClearCount++;
+        if (ClearFailure is not null) throw ClearFailure;
         Entries.Clear();
     }
 }
@@ -72,11 +85,19 @@ internal sealed class FakeDetectionReportWriter : IDetectionReportWriter
 internal sealed class FakeInstalledApplicationsService : IInstalledApplicationsService
 {
     public List<InstalledApplication> Applications { get; } = [];
-    public int Calls { get; private set; }
+    public List<bool> Includes { get; } = [];
+    public int Calls { get { lock (Includes) return Includes.Count; } }
 
-    public IReadOnlyList<InstalledApplication> Enumerate()
+    /// <summary>When set, Enumerate blocks until the test releases it.</summary>
+    public ManualResetEventSlim? Gate { get; set; }
+
+    public Exception? Failure { get; set; }
+
+    public IReadOnlyList<InstalledApplication> Enumerate(bool includeSystemComponents = false)
     {
-        Calls++;
+        lock (Includes) Includes.Add(includeSystemComponents);
+        Gate?.Wait(TimeSpan.FromSeconds(10));
+        if (Failure is not null) throw Failure;
         return Applications.ToList();
     }
 }
@@ -97,7 +118,14 @@ internal sealed class FakeDetectionTesterPrompts : IDetectionTesterPrompts
         return Task.FromResult(ConfirmAnswer);
     }
 
-    public void CopyText(string text) => Copied.Add(text);
+    public bool CopyFails { get; set; }
+
+    public bool CopyText(string text)
+    {
+        if (CopyFails) return false;
+        Copied.Add(text);
+        return true;
+    }
 
     public void OpenFolder(string folder) => OpenedFolders.Add(folder);
 }
@@ -131,14 +159,24 @@ internal sealed class DetectionTesterHarness
     public RecordingDetectionLog Log { get; } = new();
     public DetectionTesterSettings? Saved { get; set; }
     public int PreferenceReads { get; private set; }
+    public int SaveCount { get; private set; }
+    public int? SaveThreadId { get; private set; }
+    public Exception? SaveFailure { get; set; }
+    public int ManifestReads { get; private set; }
     public Func<string, StageManifest> ReadManifest { get; set; } = path => new ManifestService().Read(path);
 
     public DetectionTesterViewModel Create() => new(new DetectionTesterPageServices(
         Tests, History, Reports, Applications, Prompts,
         () => { PreferenceReads++; return Saved; },
-        settings => Saved = settings,
+        settings =>
+        {
+            SaveCount++;
+            SaveThreadId = Environment.CurrentManagedThreadId;
+            if (SaveFailure is not null) throw SaveFailure;
+            Saved = settings;
+        },
         Log,
-        path => ReadManifest(path)));
+        path => { ManifestReads++; return ReadManifest(path); }));
 
     public async Task<DetectionTesterViewModel> OpenAsync()
     {
@@ -700,7 +738,7 @@ public sealed class DetectionTesterViewModelTests
         Assert.Equal(0, _h.Applications.Calls);
 
         viewModel.SelectedTabIndex = 1;
-        await WaitUntil(() => viewModel.Applications.Count == 3);
+        await WaitUntil(() => viewModel.ApplicationCount == "3 applications");
         Assert.Equal(1, _h.Applications.Calls);
         Assert.Equal("3 applications", viewModel.ApplicationCount);
 
@@ -810,7 +848,7 @@ public sealed class DetectionTesterViewModelTests
 
     private sealed class ThrowingApplications : IInstalledApplicationsService
     {
-        public IReadOnlyList<InstalledApplication> Enumerate() => throw new UnauthorizedAccessException("denied");
+        public IReadOnlyList<InstalledApplication> Enumerate(bool includeSystemComponents = false) => throw new UnauthorizedAccessException("denied");
     }
 
     private static async Task WaitUntil(Func<bool> condition)

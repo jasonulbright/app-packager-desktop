@@ -7,6 +7,7 @@ using ApplicationPackagerEngine.Models;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
+using ApplicationPackagerUI.ViewModels.Pages;
 using ApplicationPackagerUI.Views.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Wpf.Ui.Appearance;
@@ -48,7 +49,8 @@ public sealed class DetectionTesterPageTests
     /// Runs the test with the theme and control dictionaries merged into an application object,
     /// as App.xaml merges them, and removes the application object afterwards.
     /// </summary>
-    private static void WithPage(ApplicationTheme theme, Action<Window, DetectionTesterPage, DetectionTesterHarness> test)
+    private static void WithPage(ApplicationTheme theme, Action<Window, DetectionTesterPage, DetectionTesterHarness> test,
+        double width = 1200, double height = 900, Action<DetectionTesterHarness>? setup = null)
     {
         StaTestHelper.Run(() =>
         {
@@ -66,11 +68,12 @@ public sealed class DetectionTesterPageTests
                 harness.Applications.Applications.Add(new InstalledApplication("7-Zip", "Igor Pavlov", "24.09", "20261001", "HKLM 64-bit",
                     @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\7-Zip", "u.exe", "u.exe /S", @"C:\Program Files\7-Zip"));
                 harness.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now, new StageDetection { Type = "RegistryKey", RegistryKeyRelative = "SOFTWARE" }));
+                setup?.Invoke(harness);
                 var viewModel = harness.Create();
                 var page = new DetectionTesterPage(viewModel);
                 var window = new Window
                 {
-                    Width = 1200, Height = 900, Left = -32000, Top = -32000, ShowInTaskbar = false, ShowActivated = false,
+                    Width = width, Height = height, Left = -32000, Top = -32000, ShowInTaskbar = false, ShowActivated = false,
                     WindowStyle = WindowStyle.None, Content = page
                 };
                 window.Show();
@@ -152,6 +155,214 @@ public sealed class DetectionTesterPageTests
             StaTestHelper.PumpUntil(() => viewModel.ResultState == ApplicationPackagerUI.ViewModels.Pages.DetectionTesterResultState.Passed);
             Assert.Equal("Passed", ById<TextBlock>(page, "txtResultHeadline").Text);
             Assert.Equal(2, ById<DataGrid>(page, "dgHistory").Items.Count);
+            Assert.Same(Application.Current.FindResource("SystemFillColorSuccessBrush"), ById<TextBlock>(page, "txtResultHeadline").Foreground);
+        });
+    }
+
+    private static DetectionTesterViewModel ViewModelOf(DetectionTesterPage page) => (DetectionTesterViewModel)page.DataContext;
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheTitleUsesTheThemeTextColour(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            var title = Descendants(page).OfType<TextBlock>().Single(t => t.Text == "Detection Tester");
+            var color = Assert.IsType<SolidColorBrush>(title.Foreground).Color;
+            Assert.Same(Application.Current.FindResource("TextFillColorPrimaryBrush"), title.Foreground);
+            if (theme == ApplicationTheme.Dark) Assert.True(color.R > 200 && color.G > 200 && color.B > 200, $"Dark theme text is {color}.");
+            else Assert.True(color.R < 80 && color.G < 80 && color.B < 80, $"Light theme text is {color}.");
+        });
+    }
+
+    [Fact]
+    public void TheCompoundTreeRendersEveryClauseThroughItsTemplate()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            var viewModel = ViewModelOf(page);
+            var import = viewModel.ImportManifestCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => import.IsCompleted);
+            Assert.True(ById<FrameworkElement>(page, "pnlCompound").IsVisible);
+
+            var tree = ById<System.Windows.Controls.TreeView>(page, "treeCompound");
+            for (var pass = 0; pass < 3; pass++)
+            {
+                foreach (var item in Descendants(tree).OfType<System.Windows.Controls.TreeViewItem>().ToList()) item.IsExpanded = true;
+                window.UpdateLayout();
+                StaTestHelper.Flush();
+            }
+            var texts = Descendants(tree).OfType<System.Windows.Controls.TreeViewItem>()
+                .Select(i => Descendants(i).OfType<TextBlock>().FirstOrDefault(t => t.IsVisible && t.Text == ((DetectionClauseNode)i.DataContext).Text)?.Text ?? "<not rendered>").ToList();
+            Assert.Equal(6, texts.Count);
+            Assert.Equal("Any of (Or)", texts[0]);
+            Assert.Equal(2, texts.Count(t => t == "All of (And)"));
+            Assert.Contains(texts, t => t.StartsWith(@"%ProgramFiles%\7-Zip\7z.exe", StringComparison.Ordinal));
+            Assert.Contains(texts, t => t.StartsWith(@"HKCU\SOFTWARE\7-Zip", StringComparison.Ordinal));
+            Assert.DoesNotContain(texts, t => t.Contains(nameof(DetectionClauseNode), StringComparison.Ordinal));
+        }, setup: h => h.Prompts.ManifestPath = DetectionTesterHarness.FixturePath);
+    }
+
+    [Fact]
+    public void AScriptResultShowsTheOutputPanelAndTheSystemNote()
+    {
+        WithPage(ApplicationTheme.Dark, (window, page, harness) =>
+        {
+            var viewModel = ViewModelOf(page);
+            viewModel.SelectedClauseType = "Script";
+            viewModel.ScriptText = "'installed'";
+            var run = viewModel.RunCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => run.IsCompleted);
+            window.UpdateLayout();
+
+            var stdout = ById<System.Windows.Controls.TextBox>(page, "txtStdout");
+            Assert.True(stdout.IsVisible);
+            Assert.Equal("installed", stdout.Text);
+            Assert.Equal("warning text", ById<System.Windows.Controls.TextBox>(page, "txtStderr").Text);
+            Assert.Contains(Descendants(page).OfType<TextBlock>(), t => t.IsVisible && t.Text == DetectionTesterViewModel.ScriptSystemNote);
+            var exit = Descendants(page).OfType<TextBlock>().Single(t => t.Inlines.OfType<System.Windows.Documents.Run>().Any(r => r.Text == "Exit code:"));
+            Assert.Equal("3", exit.Inlines.OfType<System.Windows.Documents.Run>().Last().Text);
+        }, setup: h => h.Tests.Answer = _ => FakeDetectionTestService.Result(true, true, "Detected.", "installed", "warning text", 3));
+    }
+
+    [Fact]
+    public void InvalidAndCancelledUseTheCautionColour()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            var viewModel = ViewModelOf(page);
+            var headline = ById<TextBlock>(page, "txtResultHeadline");
+            var caution = Application.Current.FindResource("SystemFillColorCautionBrush");
+
+            viewModel.SelectedClauseType = "RegistryKey";
+            viewModel.KeyPath = "";
+            var invalid = viewModel.RunCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => invalid.IsCompleted);
+            Assert.Equal("Invalid clause", headline.Text);
+            Assert.True(headline.IsVisible);
+            Assert.Same(caution, headline.Foreground);
+
+            harness.Tests.Pending = new TaskCompletionSource<DetectionTestResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+            viewModel.KeyPath = "SOFTWARE";
+            var run = viewModel.RunCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => viewModel.IsRunning);
+            Assert.True(ById<FrameworkElement>(page, "btnCancel").IsVisible);
+            ById<System.Windows.Controls.Button>(page, "btnCancel").Command.Execute(null);
+            StaTestHelper.PumpUntil(() => run.IsCompleted);
+            Assert.Equal("Cancelled", headline.Text);
+            Assert.Same(caution, headline.Foreground);
+            Assert.False(ById<FrameworkElement>(page, "btnCancel").IsVisible);
+        });
+    }
+
+    [Fact]
+    public void ALongHistoryRendersAndTheDescriptionCellCarriesTheFullText()
+    {
+        var longText = "HKLM\\SOFTWARE\\" + new string('k', 400) + " equals 1.0 (64-bit view)";
+        WithPage(ApplicationTheme.Dark, (window, page, harness) =>
+        {
+            var grid = ById<DataGrid>(page, "dgHistory");
+            Assert.Equal(DetectionTesterViewModel.HistoryLimit, grid.Items.Count);
+            grid.ScrollIntoView(grid.Items[0]);
+            window.UpdateLayout();
+            StaTestHelper.Flush();
+            var cell = Descendants(grid).OfType<TextBlock>().First(t => t.Text == longText);
+            Assert.Equal(longText, cell.ToolTip);
+            Assert.Equal(TextTrimming.CharacterEllipsis, cell.TextTrimming);
+            Assert.True(cell.ActualWidth < grid.ActualWidth);
+        }, setup: h =>
+        {
+            h.History.Entries.Clear();
+            for (var i = 0; i < 600; i++)
+                h.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now.AddMinutes(-i), new StageDetection { Type = "RegistryKey", RegistryKeyRelative = "A" },
+                    description: i == 0 ? longText : $"entry {i}"));
+        });
+    }
+
+    [Fact]
+    public void ANarrowWindowKeepsTheControlsOnScreen()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            foreach (var id in new[] { "btnRun", "btnImportManifest", "dgHistory", "txtHistoryNote", "txtKeyPath", "btnClearHistory" })
+            {
+                var element = ById<FrameworkElement>(page, id);
+                Assert.True(element.IsVisible, $"{id} is not visible.");
+                Assert.True(element.ActualWidth > 0 && element.ActualHeight > 0, $"{id} has no size.");
+            }
+            ById<TabControl>(page, "tabDetectionTester").SelectedIndex = 1;
+            StaTestHelper.PumpUntil(() => ViewModelOf(page).Applications.Count == 1);
+            window.UpdateLayout();
+            foreach (var id in new[] { "chkShowSystemComponents", "txtApplicationFilter", "dgApplications", "btnRefreshApplications" })
+            {
+                var element = ById<FrameworkElement>(page, id);
+                Assert.True(element.IsVisible, $"{id} is not visible.");
+                Assert.True(element.ActualWidth > 0 && element.ActualHeight > 0, $"{id} has no size.");
+            }
+        }, width: 760, height: 640);
+    }
+
+    [Fact]
+    public void TheNotesShowAndTheEditorCarriesTheKeyHint()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            Assert.Equal(DetectionTesterViewModel.HistoryNote, ById<TextBlock>(page, "txtHistoryNote").Text);
+            Assert.True(ById<TextBlock>(page, "txtHistoryNote").IsVisible);
+            ViewModelOf(page).SelectedClauseType = "Script";
+            StaTestHelper.Flush();
+            Assert.True(ById<TextBlock>(page, "txtEditorKeyHint").IsVisible);
+            Assert.Equal("Press Ctrl+Tab to leave the editor.", ById<TextBlock>(page, "txtEditorKeyHint").Text);
+            var editor = ById<System.Windows.Controls.TextBox>(page, "txtScript");
+            Assert.Equal("Press Ctrl+Tab to leave the editor.", editor.ToolTip);
+            Assert.True(editor.AcceptsTab);
+        });
+    }
+
+    [Theory]
+    [InlineData(System.Windows.Input.ModifierKeys.Control, true)]
+    [InlineData(System.Windows.Input.ModifierKeys.None, false)]
+    public void CtrlTabInTheEditorIsTakenByTheEditorAndKeepsTheTab(System.Windows.Input.ModifierKeys modifiers, bool handled)
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            ViewModelOf(page).SelectedClauseType = "Script";
+            StaTestHelper.Flush();
+            page.ModifierSource = () => modifiers;
+            var editor = ById<System.Windows.Controls.TextBox>(page, "txtScript");
+            var args = new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(editor)!, 0, System.Windows.Input.Key.Tab)
+            {
+                RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent
+            };
+            editor.RaiseEvent(args);
+            Assert.Equal(handled, args.Handled);
+            Assert.Equal(0, ById<TabControl>(page, "tabDetectionTester").SelectedIndex);
+        });
+    }
+
+    [Theory]
+    [InlineData(System.Windows.Input.Key.Tab, System.Windows.Input.ModifierKeys.Control, System.Windows.Input.FocusNavigationDirection.Next)]
+    [InlineData(System.Windows.Input.Key.Tab, System.Windows.Input.ModifierKeys.Control | System.Windows.Input.ModifierKeys.Shift, System.Windows.Input.FocusNavigationDirection.Previous)]
+    [InlineData(System.Windows.Input.Key.Tab, System.Windows.Input.ModifierKeys.None, null)]
+    [InlineData(System.Windows.Input.Key.Tab, System.Windows.Input.ModifierKeys.Shift, null)]
+    [InlineData(System.Windows.Input.Key.A, System.Windows.Input.ModifierKeys.Control, null)]
+    public void EditorExitMovesFocusOnlyForCtrlTab(System.Windows.Input.Key key, System.Windows.Input.ModifierKeys modifiers, System.Windows.Input.FocusNavigationDirection? expected) =>
+        Assert.Equal(expected, DetectionTesterPage.EditorExit(key, modifiers));
+
+    [Fact]
+    public void TheSystemComponentsCheckBoxReloadsTheList()
+    {
+        WithPage(ApplicationTheme.Dark, (window, page, harness) =>
+        {
+            ById<TabControl>(page, "tabDetectionTester").SelectedIndex = 1;
+            StaTestHelper.PumpUntil(() => ViewModelOf(page).Applications.Count == 1);
+            var check = ById<System.Windows.Controls.CheckBox>(page, "chkShowSystemComponents");
+            Assert.False(check.IsChecked);
+            check.IsChecked = true;
+            StaTestHelper.PumpUntil(() => harness.Applications.Calls == 2 && !ViewModelOf(page).IsLoadingApplications);
+            Assert.Equal([false, true], harness.Applications.Includes);
+            Assert.True(ViewModelOf(page).ShowSystemComponents);
         });
     }
 }

@@ -18,7 +18,8 @@ public interface IDetectionTesterPrompts
 
     Task<bool> ConfirmClearHistoryAsync(int count);
 
-    void CopyText(string text);
+    /// <summary>False when another process holds the clipboard.</summary>
+    bool CopyText(string text);
 
     void OpenFolder(string folder);
 }
@@ -49,11 +50,17 @@ public sealed class DetectionTesterPrompts(IContentDialogService dialogs) : IDet
         return await dialogs.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
     }
 
-    public void CopyText(string text)
+    public bool CopyText(string text)
     {
-        // Another process can hold the clipboard open; the copy then fails without harm.
-        try { Clipboard.SetText(text); }
-        catch (ExternalException) { }
+        try
+        {
+            Clipboard.SetText(text);
+            return true;
+        }
+        catch (ExternalException)
+        {
+            return false;
+        }
     }
 
     public void OpenFolder(string folder)
