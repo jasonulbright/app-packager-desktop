@@ -32,6 +32,7 @@ The catalog has 319 application definitions. A definition is one JSON file. You 
 - For WSUS: the WSUS console or the RSAT WSUS tools on this computer, at the version of the server, and an account in the WSUS Administrators group.
 - For Intune: an app registration with a client secret. App Packager Desktop downloads the Microsoft Win32 Content Prep Tool when it is necessary.
 - 7-Zip, for applications whose installer is an archive.
+- For the suite tool entries in the sidebar: the App Packager Suite, installed for the current user.
 
 The release is self-contained. A separate .NET runtime is not necessary.
 
@@ -50,6 +51,30 @@ The release is self-contained. A separate .NET runtime is not necessary.
 4. Select **Publish to ConfigMgr**, **Publish to Intune** or **Publish to WSUS**. A button is disabled while its system is not set up. Its tooltip names the setting that is missing.
 
 In **Settings**, ConfigMgr can request content distribution and then create an Available deployment to a test collection. Select **Use a user collection** to target users; leaving it cleared targets devices. Collection type is independent of the application's install context. If you enable collection creation, the new collection starts empty; add pilot members in ConfigMgr. See [deployment behavior](docs/deployment-behavior.md) for outcomes and validation limits.
+
+## Sidebar
+
+The sidebar on the left lists the pages and tools. **Packages** is the main page. The application always starts on it.
+
+![The sidebar with the Packages page, the Application Workbench and the eight suite tools](docs/images/sidebar.png)
+
+You control the sidebar:
+
+- **Reorder:** drag an entry to a new place in the list. Press Alt+Up or Alt+Down on a selected entry to move it with the keyboard. Press Escape during a drag to cancel it.
+- **Hide:** right-click an entry and select **Hide**. The entry leaves the sidebar. Its settings and data stay.
+- **Show again:** right-click the empty area of the sidebar, or any entry, and select **Show tool**. Then select a hidden entry. It returns to the place it had.
+- **Reset:** right-click and select **Reset sidebar** to restore the default order and show every entry.
+- **Settings:** the Sidebar section of the **Settings** page lists every entry with a check box and Up and Down buttons. It makes the same changes without the mouse.
+
+Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
+
+The eight entries after the Application Workbench start tools of the App Packager Suite: Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Each tool opens in its own window. App Packager Desktop does not include these tools. It starts them from the suite installation of the current user and never changes the suite files.
+
+- App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
+- If the suite or a tool is not installed, a message names what is missing and where App Packager Desktop looked.
+- A second click on a tool that is open brings its window to the front.
+- App Packager Desktop passes the ConfigMgr site code and provider to the tool in the environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER`. It passes the site code only after you saved one. A tool uses these values only when its own settings are empty.
+- If a tool stops right after it starts, a message names the tool and its exit code.
 
 ## Application Workbench
 
