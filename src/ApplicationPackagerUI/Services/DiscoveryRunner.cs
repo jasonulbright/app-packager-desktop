@@ -44,7 +44,8 @@ public sealed class DiscoveryRunner
         Func<CancellationToken, Task<IReadOnlyList<DiscoveryPackager>>> packagers,
         Func<CancellationToken, Task<IReadOnlyList<CmSiteDrive>>> drives,
         Func<string?>? launcherProvider = null,
-        TimeSpan? timeLimit = null)
+        TimeSpan? timeLimit = null,
+        Func<bool>? settingsUnreadable = null)
     {
         _service = service;
         _load = load;
@@ -53,7 +54,14 @@ public sealed class DiscoveryRunner
         _drives = drives;
         _launcherProvider = launcherProvider ?? (() => Environment.GetEnvironmentVariable(SettingsService.LauncherProviderVariable));
         TimeLimit = timeLimit ?? DefaultTimeLimit;
+        _settingsUnreadable = settingsUnreadable ?? (() => false);
     }
+
+    private readonly Func<bool> _settingsUnreadable;
+
+    public const string NotSavedMessage = "the settings could not be saved. Nothing changed.";
+    public const string NoPromptMessage = "the prompt could not be shown. Nothing changed.";
+    public const string NotRefreshedMessage = "the choice was saved, but the lists could not be refreshed. Open the Applications page to see them.";
 
     /// <summary>
     /// The site database is read over SQL, so the console is not needed: ConfigMgr in use and
@@ -88,11 +96,15 @@ public sealed class DiscoveryRunner
         return drive?.Root.Trim().TrimEnd('\\') ?? "";
     }
 
-    /// <summary>Reads the CMSite drives only when neither the preference nor the launcher names a provider.</summary>
+    /// <summary>
+    /// Reads the CMSite drives only when neither the preference nor the launcher names a
+    /// provider and the SQL overrides leave the site lookup needed.
+    /// </summary>
     public async Task<string> ResolveProviderNameAsync(AppSettings settings, CancellationToken ct)
     {
         var launcher = _launcherProvider();
-        if (!string.IsNullOrWhiteSpace(settings.ProviderMachine) || !string.IsNullOrWhiteSpace(launcher))
+        var overrides = !string.IsNullOrWhiteSpace(settings.DiscoverySqlServer) && !string.IsNullOrWhiteSpace(settings.DiscoverySqlDatabase);
+        if (overrides || !string.IsNullOrWhiteSpace(settings.ProviderMachine) || !string.IsNullOrWhiteSpace(launcher))
             return ResolveProviderName(settings.ProviderMachine, launcher, settings.SiteCode, []);
         IReadOnlyList<CmSiteDrive> drives;
         try { drives = await _drives(ct); }
@@ -174,7 +186,23 @@ public sealed class DiscoveryRunner
         status(result.StatusText);
         if (result.Candidates.Count == 0) return null;
 
-        var choice = prompt.Show(new DiscoveryDialogViewModel(result.Candidates, result.StatusText));
+        void Report(string message)
+        {
+            log(LogPrefix + message);
+            status(LogPrefix + message);
+        }
+
+        DiscoveryChoice choice;
+        try
+        {
+            choice = prompt.Show(new DiscoveryDialogViewModel(result.Candidates, result.StatusText));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Report(NoPromptMessage);
+            return null;
+        }
+
         DiscoveryApplyOutcome applied;
         try
         {
@@ -182,20 +210,33 @@ public sealed class DiscoveryRunner
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            log(LogPrefix + "the settings could not be saved. Nothing changed.");
-            status(LogPrefix + "the settings could not be saved. Nothing changed.");
+            Report(NotSavedMessage);
             return choice;
         }
         log(applied.LogLine);
-        if (applied.GridChanged) await reloadGrid();
-        if (applied.SettingsChanged) settingsChanged();
+        try
+        {
+            if (applied.GridChanged) await reloadGrid();
+            if (applied.SettingsChanged) settingsChanged();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Report(NotRefreshedMessage);
+            return choice;
+        }
         status(applied.StatusLine);
         return choice;
     }
 
-    /// <summary>Applies the prompt's choice to the stored settings and saves them when anything changed.</summary>
+    /// <summary>
+    /// Applies the prompt's choice to the stored settings and saves them when anything changed.
+    /// Throws <see cref="InvalidOperationException"/> while the settings file is unreadable:
+    /// the load returns defaults then and the automatic save writes nothing.
+    /// </summary>
     public DiscoveryApplyOutcome Apply(DiscoveryChoice choice)
     {
+        if (choice.Action != DiscoveryAction.NotNow && _settingsUnreadable())
+            throw new InvalidOperationException("The settings file is unreadable; an automatic save writes nothing.");
         switch (choice.Action)
         {
             case DiscoveryAction.EnableSelected:

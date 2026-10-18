@@ -88,6 +88,12 @@ public sealed partial class DiscoveryDialogViewModel : ObservableObject
     [RelayCommand]
     private void DismissSelected() => Settle(DiscoveryAction.Dismiss, CheckedIds(), NothingCheckedToDismiss);
 
+    [RelayCommand]
+    private void ToggleChecked(object? item)
+    {
+        if (item is DiscoveryCandidateRow row) row.Selected = !row.Selected;
+    }
+
     private List<string> CheckedIds() => Rows.Where(r => r.Selected).Select(r => r.Id).ToList();
 
     private void Settle(DiscoveryAction action, List<string> ids, string emptyNote)
