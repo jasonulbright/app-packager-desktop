@@ -1,0 +1,87 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.ChangePlanWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:vm="clr-namespace:ApplicationPackagerUI.ViewModels.Windows"
+    Title="{Binding Title}"
+    Width="820" Height="520"
+    MinWidth="620" MinHeight="360"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="16,4,16,8">
+            <TextBlock x:Name="txtSummary" Text="{Binding SummaryText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtChangePlanSummary" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}" />
+            <TextBlock x:Name="txtResult" Text="{Binding ResultText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtChangePlanResult" AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
+                  AutomationProperties.AutomationId="gridChangePlan" AutomationProperties.Name="Changes"
+                  Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140" />
+                <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="*" MinWidth="200" />
+                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*" MinWidth="120" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DataGrid Grid.Row="2" x:Name="gridResult" ItemsSource="{Binding ResultRows}" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
+                  AutomationProperties.AutomationId="gridChangePlanResult" AutomationProperties.Name="Results"
+                  Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" />
+                <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="180" />
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="160" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <CheckBox Grid.Row="3" x:Name="chkDestructive" Margin="16,0,16,8"
+                  Content="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
+                  IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                  AutomationProperties.AutomationId="chkChangePlanDestructive"
+                  Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}" />
+
+        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+            <WrapPanel HorizontalAlignment="Right">
+                <ui:Button x:Name="btnConfirm" Content="{Binding ConfirmContent}" MinWidth="130" Margin="0,0,8,0"
+                           Command="{Binding ConfirmCommand}" AutomationProperties.AutomationId="btnChangePlanConfirm"
+                           Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnUndo" Content="_Undo" MinWidth="100" Margin="0,0,8,0"
+                           Command="{Binding UndoCommand}" AutomationProperties.AutomationId="btnChangePlanUndo"
+                           Visibility="{Binding ShowUndo, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
+                           Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnChangePlanCancel"
+                           Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnClose" Content="C_lose" MinWidth="100" Appearance="Primary" IsCancel="True"
+                           Command="{Binding CloseCommand}" AutomationProperties.AutomationId="btnChangePlanClose"
+                           Visibility="{Binding ShowClose, Converter={StaticResource ChangePlanVisibility}}" />
+            </WrapPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

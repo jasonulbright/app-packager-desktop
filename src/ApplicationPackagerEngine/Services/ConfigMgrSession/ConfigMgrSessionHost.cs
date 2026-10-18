@@ -20,7 +20,7 @@ namespace ApplicationPackagerEngine.Services.ConfigMgrSession;
 /// pipeline from outside. The next command starts and connects a new process, as it does
 /// after the process dies or the site or provider changes.
 /// </summary>
-public sealed partial class ConfigMgrSessionHost : IConfigMgrSession
+public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposable
 {
     public const string LogArea = "ConfigMgr";
     internal const string SettingsLocation = "Settings, ConfigMgr Site Settings";
@@ -95,6 +95,11 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession
         }
         return work.Completion.Task;
     }
+
+    // A service container disposes synchronously and throws for a service that is only
+    // IAsyncDisposable. Every await below runs without the caller's context, so the
+    // blocking wait cannot deadlock a UI thread.
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     public async ValueTask DisposeAsync()
     {
