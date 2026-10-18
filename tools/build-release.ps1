@@ -123,13 +123,9 @@ if (-not (Test-Path $exePath) -or -not (Test-Path $buildExePath)) { throw "No pu
 if (Test-Path $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $zipPath -CompressionLevel Optimal
 
-# Bare filenames in the checksum lines so `sha256sum -c` runs from the download directory.
 $installerPath = Join-Path $OutputRoot "AppPackagerDesktop-Setup-$version.exe"
 $artifacts = @($zipPath) + @(if (Test-Path -LiteralPath $installerPath) { $installerPath })
-$lines = foreach ($artifact in $artifacts) {
-    "{0}  {1}" -f (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant(), (Split-Path -Leaf $artifact)
-}
-$lines | Set-Content -LiteralPath $checksumPath -Encoding ascii
+$lines = & (Join-Path $PSScriptRoot 'write-checksums.ps1') -Path $artifacts -Destination $checksumPath
 
 Remove-Item -LiteralPath $stageDir -Recurse -Force
 $generatedDir = Join-Path $OutputRoot 'installer-generated'
