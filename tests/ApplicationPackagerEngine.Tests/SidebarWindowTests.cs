@@ -29,6 +29,7 @@ public sealed class SidebarWindowTests
         public required SidebarService Service { get; init; }
         public required SidebarPresenter Presenter { get; init; }
         public required List<string> Activated { get; init; }
+        public required PlainPages Pages { get; init; }
 
         public ItemsControl List => Presenter.Drag!.List;
 
@@ -49,6 +50,8 @@ public sealed class SidebarWindowTests
         {
             var service = new SidebarService(registry ?? SidebarFixtures.Registry(), new InMemorySidebarStore(layout));
             var navigation = new NavigationView { PaneDisplayMode = Wpf.Ui.Controls.NavigationViewPaneDisplayMode.Left, IsPaneOpen = true, OpenPaneLength = 220 };
+            var pages = new PlainPages();
+            navigation.SetPageProviderService(pages);
             var activated = new List<string>();
             var presenter = new SidebarPresenter(navigation, service, item => activated.Add(item.Id));
             var window = new Window
@@ -63,10 +66,30 @@ public sealed class SidebarWindowTests
             {
                 window.UpdateLayout();
                 StaTestHelper.Flush();
-                test(new Harness { Window = window, Navigation = navigation, Service = service, Presenter = presenter, Activated = activated });
+                test(new Harness { Window = window, Navigation = navigation, Service = service, Presenter = presenter, Activated = activated, Pages = pages });
             }
             finally { window.Close(); }
         });
+    }
+
+    internal sealed class PlainPages : Wpf.Ui.Abstractions.INavigationViewPageProvider
+    {
+        private readonly Dictionary<Type, Page> _pages = [];
+
+        public Type? Missing { get; set; }
+
+        public object? GetPage(Type pageType)
+        {
+            if (pageType == Missing) return null;
+            if (!_pages.TryGetValue(pageType, out var page)) _pages[pageType] = page = new Page { Tag = pageType };
+            return page;
+        }
+    }
+
+    private static Type? ShownPage(NavigationView navigation)
+    {
+        StaTestHelper.Flush();
+        return ((navigation.Template.FindName("PART_NavigationViewContentPresenter", navigation) as ContentControl)?.Content as Page)?.Tag as Type;
     }
 
     private static MenuItem Entry(ContextMenu menu, string header) =>
@@ -315,6 +338,80 @@ public sealed class SidebarWindowTests
             Assert.True(h.Presenter.HandleMoveKey(h.Presenter.ItemFor("a"), Key.Down, ModifierKeys.Alt));
             Assert.Equal(["home", "w", "a", "t"], h.Shown());
         }, layout: new SidebarLayout { Order = [], Hidden = ["b"] });
+    }
+
+    [Fact]
+    public void HidingTheShownPagesEntryOpensTheStartPageAndShowingItAgainLeavesNoHighlight()
+    {
+        WithSidebar(h =>
+        {
+            var home = h.Presenter.ItemFor("home");
+            var alpha = h.Presenter.ItemFor("a");
+            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            Assert.Same(alpha, h.Navigation.SelectedItem);
+            Assert.True(alpha.IsActive);
+            Assert.Equal(typeof(ApplicationsPage), ShownPage(h.Navigation));
+
+            h.Service.Hide("a");
+            Assert.Same(home, h.Navigation.SelectedItem);
+            Assert.True(home.IsActive);
+            Assert.False(alpha.IsActive);
+            Assert.Equal(typeof(PackagesPage), ShownPage(h.Navigation));
+
+            h.Service.Show("a");
+            Assert.Contains("a", h.Shown());
+            Assert.False(alpha.IsActive);
+            Assert.True(home.IsActive);
+            Assert.Same(home, h.Navigation.SelectedItem);
+
+            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            Assert.True(alpha.IsActive);
+            Assert.False(home.IsActive);
+        });
+    }
+
+    [Fact]
+    public void HidingTheShownPagesEntryThroughItsMenuOpensTheStartPage()
+    {
+        WithSidebar(h =>
+        {
+            Assert.True(h.Navigation.Navigate(typeof(AddAppPage)));
+            Click(Entry(h.Presenter.ItemFor("b").ContextMenu!, "Hide Bravo"));
+            Assert.Equal(typeof(PackagesPage), ShownPage(h.Navigation));
+            Assert.False(h.Presenter.ItemFor("b").IsActive);
+        });
+    }
+
+    [Fact]
+    public void AnEntryThatLeavesTheMenuLosesItsHighlightWhenTheStartPageCannotOpen()
+    {
+        WithSidebar(h =>
+        {
+            var alpha = h.Presenter.ItemFor("a");
+            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            h.Pages.Missing = typeof(PackagesPage);
+            h.Service.Hide("a");
+            Assert.False(alpha.IsActive);
+            h.Service.Show("a");
+            Assert.False(alpha.IsActive);
+        });
+    }
+
+    [Fact]
+    public void HidingAnotherEntryOrResettingKeepsTheShownPage()
+    {
+        WithSidebar(h =>
+        {
+            Assert.True(h.Navigation.Navigate(typeof(ApplicationsPage)));
+            var navigations = 0;
+            h.Navigation.Navigated += (_, _) => navigations++;
+            h.Service.Hide("b");
+            h.Service.Move("a", 3);
+            h.Service.Reset();
+            Assert.Equal(0, navigations);
+            Assert.Equal(typeof(ApplicationsPage), ShownPage(h.Navigation));
+            Assert.True(h.Presenter.ItemFor("a").IsActive);
+        });
     }
 
     [Theory]

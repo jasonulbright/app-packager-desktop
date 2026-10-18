@@ -110,6 +110,14 @@ public sealed class SidebarPresenter
         var focused = ItemFrom(Keyboard.FocusedElement);
         var menu = (ObservableCollection<object>)_navigation.MenuItems;
         var shown = _service.Items;
+        var leaving = menu.OfType<NavigationViewItem>()
+            .Where(item => !shown.Any(d => ReferenceEquals(Item(d), item))).ToList();
+        if (leaving.Any(item => ReferenceEquals(_navigation.SelectedItem, item)) && shown.FirstOrDefault()?.PageType is { } start)
+            _navigation.Navigate(start);
+        // A failed navigation leaves the item active, and an active item that leaves the
+        // menu keeps its highlight when it is shown again.
+        foreach (var item in leaving)
+            if (item.IsActive) item.Deactivate(_navigation);
         for (var i = 0; i < shown.Count; i++)
         {
             var item = Item(shown[i]);
