@@ -53,16 +53,29 @@ public partial class DetectionTesterViewModel : ObservableObject
     public const string View32 = "32-bit";
     public const string ScriptSystemNote = "ConfigMgr runs detection as SYSTEM and also reads the exit code.";
     public const string ScriptEditorNote = "This script runs on this computer as the current user.";
+    public const string EditorKeyNote = "Press Ctrl+Tab to leave the editor.";
+    public const string HistoryNote = "History keeps the clause text, including script text, on this computer.";
+    public const string NoDetectionMessage = "This manifest has no detection to import.";
+
+    /// <summary>The number of history rows the page keeps; the history store keeps the same number.</summary>
+    public const int HistoryLimit = 500;
+
+    /// <summary>A stage manifest is a few kilobytes; a larger file is refused before it is read.</summary>
+    public const long MaxManifestBytes = 8L * 1024 * 1024;
 
     public static readonly TimeSpan ScriptTimeout = TimeSpan.FromSeconds(30);
 
     private static readonly string[] BaseClauseTypes = [RegistryKeyValue, RegistryKey, File, Script];
 
     private readonly DetectionTesterPageServices _services;
+    private readonly List<string> _fallbackNotes = [];
     private CancellationTokenSource? _run;
     private bool _historyLoaded;
+    private bool _applyingPreferences;
+    private DetectionTesterSettings? _storedChoices;
     private IReadOnlyList<InstalledApplication>? _allApplications;
     private Task? _applicationsLoad;
+    private int _applicationsGeneration;
 
     public DetectionTesterViewModel(IDetectionTestService tests, IDetectionHistoryStore history, IDetectionReportWriter reports,
         IInstalledApplicationsService installedApplications, IDetectionTesterPrompts prompts, SettingsService settings, IAppLog log,
@@ -91,6 +104,8 @@ public partial class DetectionTesterViewModel : ObservableObject
 
     public string EditorNote => ScriptEditorNote;
     public string SystemNote => ScriptSystemNote;
+    public string EditorKeyHint => EditorKeyNote;
+    public string HistoryStorageNote => HistoryNote;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsRegistryKeyValue), nameof(IsRegistryKey), nameof(IsRegistry), nameof(IsFile), nameof(IsScript), nameof(IsCompound))]
@@ -153,6 +168,8 @@ public partial class DetectionTesterViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(RefreshApplicationsCommand))]
     private bool _isLoadingApplications;
 
+    [ObservableProperty] private bool _showSystemComponents;
+
     public bool IsRegistryKeyValue => SelectedClauseType == RegistryKeyValue;
     public bool IsRegistryKey => SelectedClauseType == RegistryKey;
     public bool IsRegistry => IsRegistryKeyValue || IsRegistryKey;
@@ -183,6 +200,10 @@ public partial class DetectionTesterViewModel : ObservableObject
     /// <summary>Releases the installed applications; the page reads them again on the next visit.</summary>
     public Task OnNavigatedFromAsync()
     {
+        // A load still running belongs to the visit that started it; its result is discarded.
+        _applicationsGeneration++;
+        _applicationsLoad = null;
+        IsLoadingApplications = false;
         _allApplications = null;
         SelectedApplication = null;
         Applications.Clear();
@@ -198,15 +219,36 @@ public partial class DetectionTesterViewModel : ObservableObject
 
     partial void OnApplicationFilterChanged(string value) => ApplyFilter();
 
+    partial void OnShowSystemComponentsChanged(bool value)
+    {
+        if (_applyingPreferences) return;
+        _ = SavePreferencesAsync();
+        if (_allApplications is null && _applicationsLoad is null && SelectedTabIndex != 1) return;
+        _applicationsGeneration++;
+        _applicationsLoad = null;
+        _ = LoadApplicationsAsync();
+    }
+
     private void ApplyPreferences()
     {
         DetectionTesterSettings? saved;
         try { saved = _services.LoadPreferences(); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { saved = null; }
+        catch (Exception ex)
+        {
+            saved = null;
+            _services.Log.Warning(LogArea, $"The page choices could not be read ({ex.GetType().Name}).");
+        }
         if (saved is null) return;
-        if (BaseClauseTypes.Contains(saved.ClauseType)) SelectedClauseType = saved.ClauseType;
-        if (Hives.Contains(saved.Hive)) SelectedHive = saved.Hive;
-        if (Views.Contains(saved.View)) SelectedView = saved.View;
+        _applyingPreferences = true;
+        try
+        {
+            if (BaseClauseTypes.Contains(saved.ClauseType)) SelectedClauseType = saved.ClauseType;
+            if (Hives.Contains(saved.Hive)) SelectedHive = saved.Hive;
+            if (Views.Contains(saved.View)) SelectedView = saved.View;
+            ShowSystemComponents = saved.ShowSystemComponents;
+        }
+        finally { _applyingPreferences = false; }
+        _storedChoices = CurrentChoices();
     }
 
     private async Task LoadHistoryAsync()
@@ -215,9 +257,9 @@ public partial class DetectionTesterViewModel : ObservableObject
         {
             var entries = await Task.Run(_services.History.All);
             History.Clear();
-            foreach (var entry in entries.OrderByDescending(e => e.Time)) History.Add(new DetectionHistoryRow(entry));
+            foreach (var entry in entries.OrderByDescending(e => e.Time).Take(HistoryLimit)) History.Add(new DetectionHistoryRow(entry));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or JsonException)
+        catch (Exception ex)
         {
             StatusMessage = "The history could not be read.";
             _services.Log.Warning(LogArea, $"The history could not be read ({ex.GetType().Name}).");
@@ -229,6 +271,7 @@ public partial class DetectionTesterViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task Run()
     {
+        if (IsRunning) return;
         var (detection, error) = BuildDetection();
         if (detection is null)
         {
@@ -236,35 +279,42 @@ public partial class DetectionTesterViewModel : ObservableObject
             return;
         }
 
-        SavePreferences();
         var request = new DetectionTestRequest(detection, Negative, SelectedView == View32 ? RegistryViewChoice.Registry32 : RegistryViewChoice.Registry64, ScriptTimeout);
         using var run = new CancellationTokenSource();
         _run = run;
         IsRunning = true;
         RunCommand.NotifyCanExecuteChanged();
         ShowOutcome(DetectionTesterResultState.None, "", "");
-        DetectionTestResult result;
+        DetectionTestResult? result = null;
+        Exception? failure = null;
         try
         {
+            await SavePreferencesAsync();
             result = await Task.Run(() => _services.Tests.RunAsync(request, run.Token), run.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            ShowOutcome(DetectionTesterResultState.Cancelled, "Cancelled", "The test was cancelled.");
-            _services.Log.Info(LogArea, $"Test cancelled: kind={detection.Type}.");
-            return;
         }
         catch (Exception ex)
         {
-            ShowOutcome(DetectionTesterResultState.Error, "Error", "The test could not run. The log has the details.");
-            _services.Log.Error(LogArea, $"Test failed: kind={detection.Type} error={ex.GetType().Name}.");
-            return;
+            failure = ex;
         }
         finally
         {
             _run = null;
             IsRunning = false;
             RunCommand.NotifyCanExecuteChanged();
+        }
+
+        // A cancelled script is killed, so a result that arrives after Cancel is not the clause's verdict.
+        if (run.IsCancellationRequested)
+        {
+            ShowOutcome(DetectionTesterResultState.Cancelled, "Cancelled", "The test was cancelled.");
+            _services.Log.Info(LogArea, $"Test cancelled: kind={detection.Type}.");
+            return;
+        }
+        if (result is null)
+        {
+            ShowOutcome(DetectionTesterResultState.Error, "Error", "The test could not run. The log has the details.");
+            _services.Log.Error(LogArea, $"Test failed: kind={detection.Type} error={failure?.GetType().Name}.");
+            return;
         }
 
         ShowResult(result, detection);
@@ -310,27 +360,43 @@ public partial class DetectionTesterViewModel : ObservableObject
     private async Task RecordAsync(DetectionHistoryEntry entry)
     {
         History.Insert(0, new DetectionHistoryRow(entry));
+        while (History.Count > HistoryLimit) History.RemoveAt(History.Count - 1);
         try
         {
             await Task.Run(() => _services.History.Add(entry));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex)
         {
             StatusMessage = "The test result could not be saved to the history.";
             _services.Log.Warning(LogArea, $"The history could not be saved ({ex.GetType().Name}).");
         }
     }
 
-    private void SavePreferences()
+    private DetectionTesterSettings CurrentChoices() => new()
     {
-        var choices = new DetectionTesterSettings
+        ClauseType = BaseClauseTypes.Contains(SelectedClauseType) ? SelectedClauseType : RegistryKeyValue,
+        Hive = SelectedHive,
+        View = SelectedView,
+        ShowSystemComponents = ShowSystemComponents
+    };
+
+    private static bool SameChoices(DetectionTesterSettings? a, DetectionTesterSettings b) =>
+        a is not null && a.ClauseType == b.ClauseType && a.Hive == b.Hive && a.View == b.View && a.ShowSystemComponents == b.ShowSystemComponents;
+
+    /// <summary>Writes the choices on a pool thread when they differ from the stored ones; a failure is logged and tried again at the next change or run.</summary>
+    private async Task SavePreferencesAsync()
+    {
+        var choices = CurrentChoices();
+        if (SameChoices(_storedChoices, choices)) return;
+        try
         {
-            ClauseType = BaseClauseTypes.Contains(SelectedClauseType) ? SelectedClauseType : RegistryKeyValue,
-            Hive = SelectedHive,
-            View = SelectedView
-        };
-        try { _services.SavePreferences(choices); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { }
+            await Task.Run(() => _services.SavePreferences(choices));
+            _storedChoices = choices;
+        }
+        catch (Exception ex)
+        {
+            _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+        }
     }
 
     /// <summary>The clause the inputs describe, or the reason it cannot run.</summary>
@@ -402,10 +468,10 @@ public partial class DetectionTesterViewModel : ObservableObject
     {
         var path = _services.Prompts.PickManifest();
         if (string.IsNullOrEmpty(path)) return;
-        StageManifest manifest;
+        StageManifest? manifest = null;
         try
         {
-            manifest = await Task.Run(() => _services.ReadManifest(path));
+            manifest = await Task.Run(() => IsTooLarge(path) ? null : _services.ReadManifest(path));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException
                                        or NotSupportedException or ArgumentException)
@@ -414,18 +480,69 @@ public partial class DetectionTesterViewModel : ObservableObject
             _services.Log.Warning(LogArea, $"Import failed ({ex.GetType().Name}).");
             return;
         }
+        catch (Exception ex)
+        {
+            ShowOutcome(DetectionTesterResultState.Invalid, "Import failed", "The file could not be read as a stage manifest.");
+            _services.Log.Warning(LogArea, $"Import failed ({ex.GetType().Name}).");
+            return;
+        }
+        if (manifest is null)
+        {
+            ShowOutcome(DetectionTesterResultState.Invalid, "Import failed", "The file is too large for a stage manifest.");
+            _services.Log.Warning(LogArea, "Import refused: the file is over the size limit.");
+            return;
+        }
 
-        var detection = manifest.Detection ?? new StageDetection();
-        LoadDetection(detection);
+        var (detection, deploymentType, deploymentTypeCount) = ImportableDetection(manifest);
+        if (detection is null)
+        {
+            StatusMessage = NoDetectionMessage;
+            _services.Log.Warning(LogArea, "Import found no detection in the stage manifest.");
+            return;
+        }
+        if (!LoadDetection(detection)) return;
+
         var name = string.Join(" ", new[] { manifest.AppName, manifest.SoftwareVersion }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        StatusMessage = $"Imported the detection of {(name.Length == 0 ? Path.GetFileName(path) : name)}. Press Run to test it.";
+        if (name.Length == 0) name = Path.GetFileName(path);
+        var source = deploymentTypeCount > 1
+            ? $"{name}, deployment type {deploymentType} (the first of {deploymentTypeCount} deployment types)"
+            : name;
+        StatusMessage = WithFallbackNotes($"Imported the detection of {source}. Press Run to test it.");
         ShowOutcome(DetectionTesterResultState.None, "", "");
-        _services.Log.Info(LogArea, $"Imported a stage manifest: kind={detection.Type} clauses={DetectionClauseText.ClauseCount(detection)}.");
+        _services.Log.Info(LogArea,
+            $"Imported a stage manifest: kind={detection.Type} clauses={DetectionClauseText.ClauseCount(detection)} deploymentTypes={deploymentTypeCount}.");
     }
 
-    /// <summary>Fills the inputs from a clause; a compound clause becomes the Compound type with its tree.</summary>
-    public void LoadDetection(StageDetection detection)
+    private static bool IsTooLarge(string path)
     {
+        var file = new FileInfo(path);
+        return file.Exists && file.Length > MaxManifestBytes;
+    }
+
+    /// <summary>
+    /// The detection ConfigMgr gives the first deployment type: its own, or the manifest's when it has none.
+    /// Without deployment types, the manifest's own detection. Null when neither is usable.
+    /// </summary>
+    private static (StageDetection? Detection, string DeploymentType, int DeploymentTypeCount) ImportableDetection(StageManifest manifest)
+    {
+        var entries = (manifest.DeploymentTypes ?? []).Where(e => e is not null).ToList();
+        var manifestDetection = DeploymentTypeSpecResolver.IsUsable(manifest.Detection) ? manifest.Detection : null;
+        if (entries.Count == 0) return (manifestDetection, "", 0);
+        var first = entries[0];
+        var detection = DeploymentTypeSpecResolver.IsUsable(first.Detection) ? first.Detection : manifestDetection;
+        return (detection, first.NameSuffix, entries.Count);
+    }
+
+    private string WithFallbackNotes(string message) =>
+        _fallbackNotes.Count == 0 ? message : $"{message} {string.Join(" ", _fallbackNotes)}";
+
+    /// <summary>
+    /// Fills the inputs from a clause; a compound clause becomes the Compound type with its tree.
+    /// False, with the inputs unchanged, when the clause type is not supported.
+    /// </summary>
+    public bool LoadDetection(StageDetection detection)
+    {
+        _fallbackNotes.Clear();
         var hive = detection.IsCurrentUserHive ? DetectionClauseText.Hkcu : DetectionClauseText.Hklm;
         var view = detection.Is64Bit ? View64 : View32;
         switch (detection.Type)
@@ -434,8 +551,8 @@ public partial class DetectionTesterViewModel : ObservableObject
                 KeyPath = detection.RegistryKeyRelative ?? "";
                 ValueName = detection.ValueName ?? "";
                 ExpectedValue = detection.ExpectedValue ?? "";
-                RegistryOperator = Pick(RegistryOperators, detection.Operator, DetectionEvaluator.RegistryDefaultOperator);
-                RegistryPropertyType = Pick(RegistryPropertyTypes, detection.PropertyType, "String");
+                RegistryOperator = Pick(RegistryOperators, detection.Operator, DetectionEvaluator.RegistryDefaultOperator, "operator");
+                RegistryPropertyType = Pick(RegistryPropertyTypes, detection.PropertyType, "String", "data type");
                 SelectedHive = hive;
                 SelectedView = view;
                 break;
@@ -448,7 +565,8 @@ public partial class DetectionTesterViewModel : ObservableObject
                 FilePath = detection.FilePath ?? "";
                 FileName = detection.FileName ?? "";
                 FileProperty = string.Equals(detection.PropertyType, "Version", StringComparison.OrdinalIgnoreCase) ? "Version" : "Existence";
-                FileOperator = Pick(FileOperators, detection.Operator, DetectionEvaluator.FileDefaultOperator);
+                if (FileProperty == "Version") FileOperator = Pick(FileOperators, detection.Operator, DetectionEvaluator.FileDefaultOperator, "operator");
+                else FileOperator = DetectionEvaluator.FileDefaultOperator;
                 FileExpectedValue = detection.ExpectedValue ?? "";
                 SelectedView = view;
                 break;
@@ -463,13 +581,20 @@ public partial class DetectionTesterViewModel : ObservableObject
                 break;
             default:
                 StatusMessage = $"The clause type {detection.Type} is not supported.";
-                return;
+                return false;
         }
         SelectedClauseType = detection.Type;
+        return true;
     }
 
-    private static string Pick(IReadOnlyList<string> offered, string? value, string fallback) =>
-        offered.FirstOrDefault(o => string.Equals(o, value?.Trim(), StringComparison.OrdinalIgnoreCase)) ?? fallback;
+    /// <summary>The offered entry that matches the value; an unknown value takes the fallback and adds a note for the status line.</summary>
+    private string Pick(IReadOnlyList<string> offered, string? value, string fallback, string what)
+    {
+        var match = offered.FirstOrDefault(o => string.Equals(o, value?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (match is not null) return match;
+        if (!string.IsNullOrWhiteSpace(value)) _fallbackNotes.Add($"The {what} {value.Trim()} is not offered. The inputs use {fallback}.");
+        return fallback;
+    }
 
     private bool HasSelectedHistory() => SelectedHistory is not null;
 
@@ -477,9 +602,9 @@ public partial class DetectionTesterViewModel : ObservableObject
     private void UseSelected()
     {
         if (SelectedHistory is not { } row) return;
-        LoadDetection(row.Entry.Detection);
+        if (!LoadDetection(row.Entry.Detection)) return;
         Negative = row.Entry.Negative;
-        StatusMessage = "Filled the inputs from the selected test.";
+        StatusMessage = WithFallbackNotes("Filled the inputs from the selected test.");
     }
 
     [RelayCommand]
@@ -507,6 +632,12 @@ public partial class DetectionTesterViewModel : ObservableObject
             _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }
+        catch (Exception ex)
+        {
+            StatusMessage = $"The {format} report could not be written.";
+            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            return;
+        }
         StatusMessage = $"Saved the {format} report to {path}.";
         _services.Log.Info(LogArea, $"Saved a {format} report with {entries.Count} tests.");
         if (Path.GetDirectoryName(path) is { Length: > 0 } folder) _services.Prompts.OpenFolder(folder);
@@ -521,7 +652,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         {
             await Task.Run(_services.History.Clear);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex)
         {
             StatusMessage = "The history could not be cleared.";
             _services.Log.Warning(LogArea, $"The history could not be cleared ({ex.GetType().Name}).");
@@ -544,31 +675,40 @@ public partial class DetectionTesterViewModel : ObservableObject
             await pending;
             return;
         }
-        _applicationsLoad = LoadApplicationsCoreAsync();
-        try { await _applicationsLoad; }
-        finally { _applicationsLoad = null; }
+        var load = LoadApplicationsCoreAsync(_applicationsGeneration);
+        _applicationsLoad = load;
+        try { await load; }
+        finally
+        {
+            if (ReferenceEquals(_applicationsLoad, load)) _applicationsLoad = null;
+        }
     }
 
-    private async Task LoadApplicationsCoreAsync()
+    /// <summary>Reads the applications; a result that arrives after the generation changed (page left, choice toggled) is discarded.</summary>
+    private async Task LoadApplicationsCoreAsync(int generation)
     {
         IsLoadingApplications = true;
         ApplicationStatus = "Reading the installed applications.";
+        var include = ShowSystemComponents;
+        IReadOnlyList<InstalledApplication> applications;
+        string status = "";
         try
         {
-            _allApplications = await Task.Run(_services.InstalledApplications.Enumerate);
-            ApplicationStatus = "";
-            _services.Log.Info(LogArea, $"Read {_allApplications.Count} installed applications.");
+            applications = await Task.Run(() => _services.InstalledApplications.Enumerate(include));
+            if (generation == _applicationsGeneration)
+                _services.Log.Info(LogArea, $"Read {applications.Count} installed applications (system components {(include ? "shown" : "hidden")}).");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.Security.SecurityException)
+        catch (Exception ex)
         {
-            _allApplications = [];
-            ApplicationStatus = "The installed applications could not be read.";
-            _services.Log.Warning(LogArea, $"The installed applications could not be read ({ex.GetType().Name}).");
+            applications = [];
+            status = "The installed applications could not be read.";
+            if (generation == _applicationsGeneration)
+                _services.Log.Warning(LogArea, $"The installed applications could not be read ({ex.GetType().Name}).");
         }
-        finally
-        {
-            IsLoadingApplications = false;
-        }
+        if (generation != _applicationsGeneration) return;
+        _allApplications = applications;
+        ApplicationStatus = status;
+        IsLoadingApplications = false;
         ApplyFilter();
     }
 
@@ -612,7 +752,10 @@ public partial class DetectionTesterViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(HasApplication))]
     private void CopyDetails()
     {
-        if (SelectedApplication is { } application) _services.Prompts.CopyText(DetailsText(application));
+        if (SelectedApplication is not { } application) return;
+        ApplicationStatus = _services.Prompts.CopyText(DetailsText(application))
+            ? $"Copied the details of {application.Name}."
+            : "The details could not be copied. Another program holds the clipboard.";
     }
 
     /// <summary>

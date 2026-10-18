@@ -72,9 +72,22 @@ public sealed class InstalledApplicationsServiceTests
         App(registry, RegistryHive.LocalMachine, RegistryView.Registry64, "Sys", "Runtime Part", ("SystemComponent", 1));
         App(registry, RegistryHive.LocalMachine, RegistryView.Registry64, "App", "Visible");
 
-        Assert.Equal(["Visible"], new InstalledApplicationsService(registry).Enumerate().Select(a => a.Name));
-        Assert.Equal(["Runtime Part", "Visible"],
-            new InstalledApplicationsService(registry, includeSystemComponents: true).Enumerate().Select(a => a.Name));
+        var service = new InstalledApplicationsService(registry);
+        Assert.Equal(["Visible"], service.Enumerate().Select(a => a.Name));
+        Assert.Equal(["Runtime Part", "Visible"], service.Enumerate(includeSystemComponents: true).Select(a => a.Name));
+        Assert.Equal(["Visible"], service.Enumerate(includeSystemComponents: false).Select(a => a.Name));
+    }
+
+    [Fact]
+    public void ASystemComponentFlagOfZeroOrTextOneIsReadAsWritten()
+    {
+        var registry = new FakeRegistryProvider();
+        App(registry, RegistryHive.LocalMachine, RegistryView.Registry64, "Zero", "Flag Zero", ("SystemComponent", 0));
+        App(registry, RegistryHive.CurrentUser, RegistryView.Registry64, "Text", "Flag Text", ("SystemComponent", "1"));
+
+        var service = new InstalledApplicationsService(registry);
+        Assert.Equal(["Flag Zero"], service.Enumerate().Select(a => a.Name));
+        Assert.Equal(["Flag Text", "Flag Zero"], service.Enumerate(includeSystemComponents: true).Select(a => a.Name));
     }
 
     [Fact]

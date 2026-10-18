@@ -177,10 +177,14 @@
                                     <TextBlock Text="{Binding EditorNote}" Style="{StaticResource Note}" Margin="0,0,0,4"
                                                Foreground="{DynamicResource SystemFillColorCautionBrush}" />
                                     <TextBlock Text="The script detects the application when it writes text to the output stream."
-                                               Style="{StaticResource Note}" Margin="0,0,0,8" />
+                                               Style="{StaticResource Note}" Margin="0,0,0,4" />
+                                    <TextBlock Text="{Binding EditorKeyHint}" Style="{StaticResource Note}" Margin="0,0,0,8"
+                                               AutomationProperties.AutomationId="txtEditorKeyHint" />
                                     <TextBox Text="{Binding ScriptText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" AcceptsTab="True"
                                              FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="14" MinHeight="220" TextWrapping="NoWrap"
                                              HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                             ToolTip="{Binding EditorKeyHint}" PreviewKeyDown="OnScriptEditorPreviewKeyDown"
+                                             AutomationProperties.HelpText="{Binding EditorKeyHint}"
                                              AutomationProperties.Name="Detection script" AutomationProperties.AutomationId="txtScript" />
                                 </StackPanel>
 
@@ -289,8 +293,12 @@
                             <ui:Button Content="Clear history" Icon="{ui:SymbolIcon Delete24}" Command="{Binding ClearHistoryCommand}"
                                        AutomationProperties.AutomationId="btnClearHistory" />
                         </WrapPanel>
-                        <TextBlock Text="History" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="History" FontSize="16" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="{Binding HistoryStorageNote}" Style="{StaticResource Note}"
+                                       AutomationProperties.AutomationId="txtHistoryNote" />
+                        </StackPanel>
                     </DockPanel>
 
                     <DataGrid Grid.Row="3" ItemsSource="{Binding History}" SelectedItem="{Binding SelectedHistory}" AutoGenerateColumns="False"
@@ -299,7 +307,14 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="150" />
                             <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" />
-                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" />
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                        <Setter Property="ToolTip" Value="{Binding Description}" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Negative" Binding="{Binding Negative}" Width="90" />
                             <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" />
                         </DataGrid.Columns>
@@ -322,6 +337,9 @@
                                    Margin="8,0,0,0" AutomationProperties.AutomationId="btnRefreshApplications" />
                         <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource Note}"
                                    Text="{Binding ApplicationCount}" AutomationProperties.AutomationId="txtApplicationCount" />
+                        <CheckBox DockPanel.Dock="Right" Content="Show system components" IsChecked="{Binding ShowSystemComponents}"
+                                  VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.AutomationId="chkShowSystemComponents"
+                                  ToolTip="List the entries that Windows marks as system components (SystemComponent=1)." />
                         <ui:TextBox Text="{Binding ApplicationFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, publisher or version"
                                     Icon="{ui:SymbolIcon Search24}" AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtApplicationFilter" />
                     </DockPanel>

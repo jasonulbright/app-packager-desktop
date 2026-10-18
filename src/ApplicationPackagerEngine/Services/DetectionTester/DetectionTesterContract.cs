@@ -18,8 +18,11 @@ public sealed record InstalledApplication(
 
 public interface IInstalledApplicationsService
 {
-    /// <summary>The entries of the three uninstall keys, sorted by name; an entry in two hives appears once for each hive.</summary>
-    IReadOnlyList<InstalledApplication> Enumerate();
+    /// <summary>
+    /// The entries of the three uninstall keys, sorted by name; an entry in two hives appears once for each hive.
+    /// An entry with SystemComponent=1 is left out unless <paramref name="includeSystemComponents"/> is true.
+    /// </summary>
+    IReadOnlyList<InstalledApplication> Enumerate(bool includeSystemComponents = false);
 }
 
 public enum DetectionClauseKind

@@ -7,8 +7,7 @@ namespace ApplicationPackagerEngine.Services;
 /// The Add or Remove Programs entries of this computer: HKLM in the 64-bit view, HKLM in
 /// the 32-bit view (WOW6432Node) and HKCU. An entry or hive that cannot be read is skipped.
 /// </summary>
-public sealed class InstalledApplicationsService(IRegistryProvider? registry = null, bool includeSystemComponents = false)
-    : IInstalledApplicationsService
+public sealed class InstalledApplicationsService(IRegistryProvider? registry = null) : IInstalledApplicationsService
 {
     private const string UninstallPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
     private const string Wow64UninstallPath = @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall";
@@ -22,7 +21,7 @@ public sealed class InstalledApplicationsService(IRegistryProvider? registry = n
         (RegistryHive.CurrentUser, RegistryView.Registry64, "HKCU", $@"HKCU\{UninstallPath}")
     ];
 
-    public IReadOnlyList<InstalledApplication> Enumerate()
+    public IReadOnlyList<InstalledApplication> Enumerate(bool includeSystemComponents = false)
     {
         var apps = new List<InstalledApplication>();
         foreach (var (hive, view, source, displayPath) in Hives)
@@ -33,7 +32,7 @@ public sealed class InstalledApplicationsService(IRegistryProvider? registry = n
                 if (parent is null) continue;
                 foreach (var id in parent.GetSubKeyNames())
                 {
-                    var app = TryRead(parent, id, source, $@"{displayPath}\{id}");
+                    var app = TryRead(parent, id, source, $@"{displayPath}\{id}", includeSystemComponents);
                     if (app is not null) apps.Add(app);
                 }
             }
@@ -47,7 +46,7 @@ public sealed class InstalledApplicationsService(IRegistryProvider? registry = n
             .ToList();
     }
 
-    private InstalledApplication? TryRead(IRegistryKeyReader parent, string id, string source, string keyPath)
+    private static InstalledApplication? TryRead(IRegistryKeyReader parent, string id, string source, string keyPath, bool includeSystemComponents)
     {
         try
         {
