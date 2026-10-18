@@ -16,7 +16,6 @@ public static class SuiteTools
 {
     public static IReadOnlyList<SuiteTool> All { get; } =
     [
-        new("detection-tester", "Detection Tester", "detection-tester", "start-detectiontester.ps1", "Beaker24"),
         new("maintenance-windows", "Maintenance Windows", "maintenance-window-manager", "start-maintenancewindowmgr.ps1", "CalendarClock24"),
         new("collection-and-compliance", "Collection and Compliance", "collection-and-compliance-manager", "start-ccm.ps1", "ShieldCheckmark24"),
         new("installer-analysis", "Installer Analysis", "installer-analysis", "start-installeranalysis.ps1", "BoxSearch24"),

@@ -120,7 +120,7 @@ public sealed class SuiteToolLauncherTests
     private const string Install = Local + @"\AppPackagerSuite";
     private const string Launcher = Install + @"\app-packager-suite\start-suite.ps1";
     private const string Settings = Install + @"\app-packager-suite\suite.settings.json";
-    private static readonly SuiteTool Detection = SuiteTools.All.Single(t => t.Id == "detection-tester");
+    private static readonly SuiteTool Analysis = SuiteTools.All.Single(t => t.Id == "installer-analysis");
 
     private readonly FakeSuiteFileSystem _files = new();
     private readonly FakeSuiteEnvironment _environment = new();
@@ -144,11 +144,10 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheEightToolsNameTheSuiteFoldersAndEntryScripts()
+    public void TheSevenToolsNameTheSuiteFoldersAndEntryScripts()
     {
         Assert.Equal(
         [
-            ("detection-tester", "detection-tester", "start-detectiontester.ps1"),
             ("maintenance-windows", "maintenance-window-manager", "start-maintenancewindowmgr.ps1"),
             ("collection-and-compliance", "collection-and-compliance-manager", "start-ccm.ps1"),
             ("installer-analysis", "installer-analysis", "start-installeranalysis.ps1"),
@@ -158,17 +157,18 @@ public sealed class SuiteToolLauncherTests
             ("site-hygiene", "site-hygiene", "start-sitehygiene.ps1")
         ], SuiteTools.All.Select(t => (t.Id, t.Folder, t.EntryScript)));
         Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-manager");
+        Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DetectionTester);
     }
 
     [Fact]
     public void AnInstalledToolResolvesUnderTheDefaultInstallFolder()
     {
         InstallSuite();
-        InstallTool(Detection);
-        var resolution = Launcher_().Resolve(Detection);
+        InstallTool(Analysis);
+        var resolution = Launcher_().Resolve(Analysis);
         Assert.Null(resolution.Message);
-        Assert.Equal(Install + @"\detection-tester", resolution.Location!.ToolFolder);
-        Assert.Equal(Install + @"\detection-tester\start-detectiontester.ps1", resolution.Location.EntryScript);
+        Assert.Equal(Install + @"\installer-analysis", resolution.Location!.ToolFolder);
+        Assert.Equal(Install + @"\installer-analysis\start-installeranalysis.ps1", resolution.Location.EntryScript);
     }
 
     [Fact]
@@ -177,10 +177,10 @@ public sealed class SuiteToolLauncherTests
         _environment.Registered = @"D:\Tools\Suite";
         InstallSuite(@"D:\Tools\Suite");
         InstallSuite();
-        InstallTool(Detection, @"D:\Tools\Suite");
-        InstallTool(Detection);
+        InstallTool(Analysis, @"D:\Tools\Suite");
+        InstallTool(Analysis);
         Assert.Equal([@"D:\Tools\Suite", Install], Launcher_().SuiteRoots());
-        Assert.Equal(@"D:\Tools\Suite\detection-tester", Launcher_().Resolve(Detection).Location!.ToolFolder);
+        Assert.Equal(@"D:\Tools\Suite\installer-analysis", Launcher_().Resolve(Analysis).Location!.ToolFolder);
     }
 
     [Fact]
@@ -188,18 +188,18 @@ public sealed class SuiteToolLauncherTests
     {
         _environment.Registered = @"D:\Gone";
         InstallSuite();
-        InstallTool(Detection);
-        Assert.Equal(Install + @"\detection-tester", Launcher_().Resolve(Detection).Location!.ToolFolder);
+        InstallTool(Analysis);
+        Assert.Equal(Install + @"\installer-analysis", Launcher_().Resolve(Analysis).Location!.ToolFolder);
     }
 
     [Fact]
     public void AMissingSuiteNamesTheSuiteAndEveryFolderSearched()
     {
         _environment.Registered = @"D:\Gone";
-        var resolution = Launcher_().Resolve(Detection);
+        var resolution = Launcher_().Resolve(Analysis);
         Assert.Null(resolution.Location);
         Assert.Equal(
-            @"Detection Tester needs AppPackager Suite, which is not installed. Looked for app-packager-suite\start-suite.ps1 in: D:\Gone; " + Install + ".",
+            @"Installer Analysis needs AppPackager Suite, which is not installed. Looked for app-packager-suite\start-suite.ps1 in: D:\Gone; " + Install + ".",
             resolution.Message);
     }
 
@@ -207,10 +207,10 @@ public sealed class SuiteToolLauncherTests
     public void AMissingToolNamesTheToolAndWhereItLooked()
     {
         InstallSuite();
-        var resolution = Launcher_().Resolve(Detection);
+        var resolution = Launcher_().Resolve(Analysis);
         Assert.Null(resolution.Location);
         Assert.Equal(
-            @"Detection Tester is not in the AppPackager Suite install. Looked for start-detectiontester.ps1 in: " + Install + @"\detection-tester.",
+            @"Installer Analysis is not in the AppPackager Suite install. Looked for start-installeranalysis.ps1 in: " + Install + @"\installer-analysis.",
             resolution.Message);
     }
 
@@ -218,17 +218,17 @@ public sealed class SuiteToolLauncherTests
     public void ToolsRootFromTheSuiteSettingsIsSearchedBeforeTheInstallFolder()
     {
         InstallSuite(settings: """{ "DarkMode": true, "ToolsRoot": "E:\\dev", "SiteCode": "" }""");
-        InstallTool(Detection, @"E:\dev");
-        InstallTool(Detection);
-        Assert.Equal(@"E:\dev\detection-tester", Launcher_().Resolve(Detection).Location!.ToolFolder);
+        InstallTool(Analysis, @"E:\dev");
+        InstallTool(Analysis);
+        Assert.Equal(@"E:\dev\installer-analysis", Launcher_().Resolve(Analysis).Location!.ToolFolder);
     }
 
     [Fact]
     public void AToolMissingUnderToolsRootIsFoundInTheInstallFolderAndTheMessageListsBoth()
     {
         InstallSuite(settings: "\uFEFF{ \"ToolsRoot\": \"E:\\\\dev\" }");
-        InstallTool(Detection);
-        Assert.Equal(Install + @"\detection-tester", Launcher_().Resolve(Detection).Location!.ToolFolder);
+        InstallTool(Analysis);
+        Assert.Equal(Install + @"\installer-analysis", Launcher_().Resolve(Analysis).Location!.ToolFolder);
 
         var site = SuiteTools.All.Single(t => t.Id == "site-hygiene");
         Assert.Equal(
@@ -240,8 +240,8 @@ public sealed class SuiteToolLauncherTests
     public void ARelativeToolsRootIsTakenFromTheSuiteLauncherFolder()
     {
         InstallSuite(settings: """{ "ToolsRoot": "..\\side" }""");
-        InstallTool(Detection, Install + @"\side");
-        Assert.Equal(Install + @"\side\detection-tester", Launcher_().Resolve(Detection).Location!.ToolFolder);
+        InstallTool(Analysis, Install + @"\side");
+        Assert.Equal(Install + @"\side\installer-analysis", Launcher_().Resolve(Analysis).Location!.ToolFolder);
     }
 
     [Theory]
@@ -254,14 +254,14 @@ public sealed class SuiteToolLauncherTests
     public void AnEmptyOrUnreadableToolsRootLeavesTheInstallFolder(string settings)
     {
         InstallSuite(settings: settings);
-        InstallTool(Detection);
-        Assert.Equal(Install + @"\detection-tester", Launcher_().Resolve(Detection).Location!.ToolFolder);
+        InstallTool(Analysis);
+        Assert.Equal(Install + @"\installer-analysis", Launcher_().Resolve(Analysis).Location!.ToolFolder);
     }
 
     [Fact]
     public void TheStartInfoRunsWindowsPowerShellOnTheEntryScriptInTheToolFolder()
     {
-        var location = new SuiteToolLocation(@"C:\S\detection-tester", @"C:\S\detection-tester\start-detectiontester.ps1");
+        var location = new SuiteToolLocation(@"C:\S\installer-analysis", @"C:\S\installer-analysis\start-installeranalysis.ps1");
         var info = Launcher_().BuildStartInfo(location, "MCM", "cm01.contoso.com");
         Assert.Equal(_environment.WindowsPowerShellPath, info.FileName);
         Assert.Equal(["-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", location.EntryScript], info.ArgumentList);
@@ -296,12 +296,12 @@ public sealed class SuiteToolLauncherTests
     public async Task LaunchStartsTheToolWithTheSiteValuesAndReportsStarted()
     {
         InstallSuite();
-        InstallTool(Detection);
-        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
+        InstallTool(Analysis);
+        var result = await Launcher_().LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Started, result.Outcome);
         Assert.Null(result.Message);
         var info = Assert.Single(_starter.Started);
-        Assert.Equal(Install + @"\detection-tester\start-detectiontester.ps1", info.ArgumentList[^1]);
+        Assert.Equal(Install + @"\installer-analysis\start-installeranalysis.ps1", info.ArgumentList[^1]);
         Assert.Equal("MCM", info.Environment[SettingsService.LauncherSiteCodeVariable]);
     }
 
@@ -309,29 +309,29 @@ public sealed class SuiteToolLauncherTests
     public async Task ASecondLaunchOfARunningToolBringsItToTheFrontInsteadOfStartingAnother()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var launcher = Launcher_();
-        await launcher.LaunchAsync(Detection, "MCM", "cm01");
-        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Analysis, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.BroughtToFront, result.Outcome);
         Assert.Single(_starter.Started);
         Assert.Equal(1, _starter.Processes[0].FrontRequests);
-        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Detection));
+        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Analysis));
     }
 
     [Fact]
     public async Task AToolWhoseProcessExitedIsForgottenAndStartsAgain()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var launcher = Launcher_();
-        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         _starter.Processes[0].HasExited = true;
-        Assert.Null(launcher.RunningProcessId(Detection));
-        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
+        Assert.Null(launcher.RunningProcessId(Analysis));
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Analysis, "MCM", "cm01")).Outcome);
         Assert.Equal(2, _starter.Started.Count);
         Assert.Equal(0, _starter.Processes[0].FrontRequests);
-        Assert.Equal(_starter.Processes[1].Id, launcher.RunningProcessId(Detection));
+        Assert.Equal(_starter.Processes[1].Id, launcher.RunningProcessId(Analysis));
     }
 
     [Fact]
@@ -339,10 +339,10 @@ public sealed class SuiteToolLauncherTests
     {
         InstallSuite();
         var site = SuiteTools.All.Single(t => t.Id == "site-hygiene");
-        InstallTool(Detection);
+        InstallTool(Analysis);
         InstallTool(site);
         var launcher = Launcher_();
-        await launcher.LaunchAsync(Detection, "", "");
+        await launcher.LaunchAsync(Analysis, "", "");
         Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(site, "", "")).Outcome);
         Assert.Equal(2, _starter.Started.Count);
     }
@@ -351,9 +351,9 @@ public sealed class SuiteToolLauncherTests
     public async Task AMissingToolStartsNothingAndReturnsThePlainMessage()
     {
         InstallSuite();
-        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
+        var result = await Launcher_().LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
-        Assert.StartsWith("Detection Tester is not in the AppPackager Suite install.", result.Message);
+        Assert.StartsWith("Installer Analysis is not in the AppPackager Suite install.", result.Message);
         Assert.Empty(_starter.Started);
     }
 
@@ -361,10 +361,10 @@ public sealed class SuiteToolLauncherTests
     public async Task AMissingWindowsPowerShellStartsNothingAndSaysWhereItLooked()
     {
         _files.Add(Launcher);
-        InstallTool(Detection);
-        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
+        InstallTool(Analysis);
+        var result = await Launcher_().LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
-        Assert.Equal($"Detection Tester needs Windows PowerShell 5.1, which was not found at {_environment.WindowsPowerShellPath}.", result.Message);
+        Assert.Equal($"Installer Analysis needs Windows PowerShell 5.1, which was not found at {_environment.WindowsPowerShellPath}.", result.Message);
         Assert.Empty(_starter.Started);
     }
 
@@ -372,18 +372,18 @@ public sealed class SuiteToolLauncherTests
     public async Task AStartFailureBecomesAPlainMessageAndNothingIsTracked()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         _starter.Failure = new System.ComponentModel.Win32Exception(267, @"The directory name is invalid: \\fs01\tools password=hunter2");
         var launcher = Launcher_();
-        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
-        Assert.Equal("Detection Tester could not be started. The log has the details.", result.Message);
-        Assert.Null(launcher.RunningProcessId(Detection));
+        Assert.Equal("Installer Analysis could not be started. The log has the details.", result.Message);
+        Assert.Null(launcher.RunningProcessId(Analysis));
 
         var entry = Assert.Single(_log.Entries);
         Assert.Equal(AppLogLevel.Error, entry.Level);
         Assert.Contains(@"\\fs01\tools", entry.Message);
-        Assert.Contains("Detection Tester", entry.Message);
+        Assert.Contains("Installer Analysis", entry.Message);
         Assert.DoesNotContain("hunter2", entry.Message);
     }
 
@@ -391,16 +391,16 @@ public sealed class SuiteToolLauncherTests
     public async Task AToolThatExitsDuringTheWatchIsRemovedAndDisposedWhateverTheExitCode()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var launcher = Launcher_();
         foreach (var code in new[] { 0, 3 })
         {
             _starter.NextExitsAtOnceWith = code;
-            await launcher.LaunchAsync(Detection, "MCM", "cm01");
+            await launcher.LaunchAsync(Analysis, "MCM", "cm01");
             var process = _starter.Processes[^1];
             Assert.True(process.Disposed, $"exit code {code}");
             process.HasExited = false;
-            Assert.Null(launcher.RunningProcessId(Detection));
+            Assert.Null(launcher.RunningProcessId(Analysis));
         }
         Assert.Equal(2, _starter.Started.Count);
     }
@@ -409,12 +409,12 @@ public sealed class SuiteToolLauncherTests
     public async Task ABlockedPathProbeLeavesTheCallerFreeAndThePendingTaskFinishesLater()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         using var gate = new ManualResetEventSlim(false);
         _files.ProbeGate = gate;
         var launcher = Launcher_();
 
-        var task = launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var task = launcher.LaunchAsync(Analysis, "MCM", "cm01");
 
         Assert.False(task.IsCompleted);
         gate.Set();
@@ -427,12 +427,12 @@ public sealed class SuiteToolLauncherTests
     public async Task ABlockedSettingsReadLeavesTheCallerFree()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         using var gate = new ManualResetEventSlim(false);
         var readThread = 0;
         var launcher = Launcher_();
 
-        var task = launcher.LaunchAsync(Detection, () =>
+        var task = launcher.LaunchAsync(Analysis, () =>
         {
             gate.Wait(TimeSpan.FromSeconds(5));
             readThread = Environment.CurrentManagedThreadId;
@@ -450,13 +450,13 @@ public sealed class SuiteToolLauncherTests
     public async Task TwoQuickClicksDuringABlockedResolutionStartOneProcess()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         using var gate = new ManualResetEventSlim(false);
         _files.ProbeGate = gate;
         var launcher = Launcher_();
 
-        var first = launcher.LaunchAsync(Detection, "MCM", "cm01");
-        var second = launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var first = launcher.LaunchAsync(Analysis, "MCM", "cm01");
+        var second = launcher.LaunchAsync(Analysis, "MCM", "cm01");
 
         Assert.False(first.IsCompleted);
         Assert.True(second.IsCompleted);
@@ -464,7 +464,7 @@ public sealed class SuiteToolLauncherTests
         gate.Set();
         Assert.Equal(SuiteToolLaunchOutcome.Started, (await first).Outcome);
         Assert.Single(_starter.Started);
-        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Detection));
+        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Analysis));
     }
 
     [Fact]
@@ -472,32 +472,32 @@ public sealed class SuiteToolLauncherTests
     {
         InstallSuite();
         var launcher = Launcher_();
-        Assert.Equal(SuiteToolLaunchOutcome.Failed, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
-        InstallTool(Detection);
-        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
+        Assert.Equal(SuiteToolLaunchOutcome.Failed, (await launcher.LaunchAsync(Analysis, "MCM", "cm01")).Outcome);
+        InstallTool(Analysis);
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Analysis, "MCM", "cm01")).Outcome);
     }
 
     [Fact]
     public async Task AToolThatExitsAtOnceWithANonZeroCodeIsAPlainFailure()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         _starter.NextExitsAtOnceWith = 1;
         var launcher = Launcher_();
-        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Failed, result.Outcome);
-        Assert.Equal("Detection Tester stopped right after it started (exit code 1).", result.Message);
+        Assert.Equal("Installer Analysis stopped right after it started (exit code 1).", result.Message);
         Assert.Equal([TimeSpan.FromSeconds(2)], _starter.Processes[0].ExitWaits);
-        Assert.Null(launcher.RunningProcessId(Detection));
+        Assert.Null(launcher.RunningProcessId(Analysis));
     }
 
     [Fact]
     public async Task AToolThatExitsAtOnceWithCodeZeroIsReportedAsStarted()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         _starter.NextExitsAtOnceWith = 0;
-        var result = await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
+        var result = await Launcher_().LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Started, result.Outcome);
         Assert.Null(result.Message);
     }
@@ -506,21 +506,21 @@ public sealed class SuiteToolLauncherTests
     public async Task AToolThatKeepsRunningThroughTheWatchIsStarted()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var launcher = Launcher_();
-        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal(SuiteToolLaunchOutcome.Started, result.Outcome);
         Assert.Equal([TimeSpan.FromSeconds(2)], _starter.Processes[0].ExitWaits);
-        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Detection));
+        Assert.Equal(_starter.Processes[0].Id, launcher.RunningProcessId(Analysis));
     }
 
     [Fact]
     public async Task TheStartWatchIsInjectable()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var launcher = new SuiteToolLauncher(_files, _environment, _starter, _log, new SuiteToolLaunchTiming { StartWatch = TimeSpan.FromMilliseconds(10) });
-        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal([TimeSpan.FromMilliseconds(10)], _starter.Processes[0].ExitWaits);
     }
 
@@ -528,12 +528,12 @@ public sealed class SuiteToolLauncherTests
     public async Task AWindowThatAppearsOnALaterAttemptIsBroughtToFront()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var launcher = Launcher_();
-        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         foreach (var answer in new[] { false, true }) _starter.Processes[0].FrontResults.Enqueue(answer);
 
-        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Analysis, "MCM", "cm01");
 
         Assert.Equal(SuiteToolLaunchOutcome.BroughtToFront, result.Outcome);
         Assert.Equal(2, _starter.Processes[0].FrontRequests);
@@ -544,15 +544,15 @@ public sealed class SuiteToolLauncherTests
     public async Task AToolWithNoWindowAfterEveryAttemptIsStillStarting()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var launcher = Launcher_();
-        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         _starter.Processes[0].FrontResults.Enqueue(false);
 
-        var result = await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        var result = await launcher.LaunchAsync(Analysis, "MCM", "cm01");
 
         Assert.Equal(SuiteToolLaunchOutcome.StillStarting, result.Outcome);
-        Assert.Equal("Detection Tester is still starting. Its window is not open yet.", result.Message);
+        Assert.Equal("Installer Analysis is still starting. Its window is not open yet.", result.Message);
         Assert.Equal(3, _starter.Processes[0].FrontRequests);
         Assert.Equal([TimeSpan.FromSeconds(0.75), TimeSpan.FromSeconds(0.75)], _delays);
         Assert.Single(_starter.Started);
@@ -562,7 +562,7 @@ public sealed class SuiteToolLauncherTests
     public async Task TheFrontAttemptsAreInjectable()
     {
         InstallSuite();
-        InstallTool(Detection);
+        InstallTool(Analysis);
         var delays = new List<TimeSpan>();
         var launcher = new SuiteToolLauncher(_files, _environment, _starter, _log, new SuiteToolLaunchTiming
         {
@@ -570,9 +570,9 @@ public sealed class SuiteToolLauncherTests
             FrontRetryInterval = TimeSpan.FromMilliseconds(1),
             Delay = d => { delays.Add(d); return Task.CompletedTask; }
         });
-        await launcher.LaunchAsync(Detection, "MCM", "cm01");
+        await launcher.LaunchAsync(Analysis, "MCM", "cm01");
         _starter.Processes[0].FrontResults.Enqueue(false);
-        Assert.Equal(SuiteToolLaunchOutcome.StillStarting, (await launcher.LaunchAsync(Detection, "MCM", "cm01")).Outcome);
+        Assert.Equal(SuiteToolLaunchOutcome.StillStarting, (await launcher.LaunchAsync(Analysis, "MCM", "cm01")).Outcome);
         Assert.Equal(5, _starter.Processes[0].FrontRequests);
         Assert.Equal(4, delays.Count);
     }
@@ -590,8 +590,8 @@ public sealed class SuiteToolLauncherTests
     public async Task TheLauncherOnlyReadsTheSuiteSettingsFile()
     {
         InstallSuite(settings: """{ "ToolsRoot": "" }""");
-        InstallTool(Detection);
-        await Launcher_().LaunchAsync(Detection, "MCM", "cm01");
+        InstallTool(Analysis);
+        await Launcher_().LaunchAsync(Analysis, "MCM", "cm01");
         Assert.Equal([Settings], _files.Reads);
     }
 
@@ -624,11 +624,11 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         var root = Path.Combine(environment.LocalApplicationData, "AppPackagerSuite");
         files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
             .Add(environment.WindowsPowerShellPath)
-            .Add(Path.Combine(root, "detection-tester", "start-detectiontester.ps1"));
+            .Add(Path.Combine(root, "installer-analysis", "start-installeranalysis.ps1"));
         return (new SuiteToolLauncher(files, environment, starter, new RecordingSuiteLog()), starter);
     }
 
-    private static readonly SuiteTool Detection = SuiteTools.All.Single(t => t.Id == "detection-tester");
+    private static readonly SuiteTool Analysis = SuiteTools.All.Single(t => t.Id == "installer-analysis");
 
     [Fact]
     public async Task ASiteCodeTheOperatorNeverSavedIsNotPassed()
@@ -637,7 +637,7 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
         var (launcher, starter) = InstalledLauncher();
         var settings = new AppSettings { SiteCode = "MCM", SiteCodeSaved = false, ProviderMachine = "cm01.contoso.com" };
-        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Detection, settings)).Outcome);
+        Assert.Equal(SuiteToolLaunchOutcome.Started, (await launcher.LaunchAsync(Analysis, settings)).Outcome);
         var info = Assert.Single(starter.Started);
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
         Assert.Equal("cm01.contoso.com", info.Environment[SettingsService.LauncherProviderVariable]);
@@ -649,7 +649,7 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
         Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, "old.contoso.com");
         var (launcher, starter) = InstalledLauncher();
-        await launcher.LaunchAsync(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true, ProviderMachine = " " });
+        await launcher.LaunchAsync(Analysis, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true, ProviderMachine = " " });
         var info = Assert.Single(starter.Started);
         Assert.Equal("LAB", info.Environment[SettingsService.LauncherSiteCodeVariable]);
         Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
@@ -660,7 +660,7 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
     {
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "SUI");
         var (launcher, starter) = InstalledLauncher();
-        await launcher.LaunchAsync(Detection, new AppSettings { SiteCode = "SUI", SiteCodeSaved = false });
+        await launcher.LaunchAsync(Analysis, new AppSettings { SiteCode = "SUI", SiteCodeSaved = false });
         Assert.Equal("SUI", Assert.Single(starter.Started).Environment[SettingsService.LauncherSiteCodeVariable]);
     }
 
@@ -669,7 +669,7 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
     {
         Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, "SUI");
         var (launcher, starter) = InstalledLauncher();
-        await launcher.LaunchAsync(Detection, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true });
+        await launcher.LaunchAsync(Analysis, new AppSettings { SiteCode = "LAB", SiteCodeSaved = true });
         Assert.Equal("LAB", Assert.Single(starter.Started).Environment[SettingsService.LauncherSiteCodeVariable]);
     }
 
@@ -787,15 +787,46 @@ public sealed class SuiteToolRegistryTests
     }
 
     [Fact]
-    public void EveryToolEntryIsAMovableToolWithAnAction()
+    public void TheDetectionTesterEntryIsAMovablePageWithItsSavedId()
     {
-        foreach (var item in SidebarRegistry.CreateDefault().Items.Skip(4))
+        var item = SidebarRegistry.CreateDefault().Find("detection-tester")!;
+        Assert.Equal(SidebarIds.DetectionTester, item.Id);
+        Assert.Equal(SidebarItemKind.Page, item.Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), item.PageType);
+        Assert.Null(item.Activate);
+        Assert.False(item.IsPinned);
+        Assert.Equal("Beaker24", item.Symbol);
+    }
+
+    [Fact]
+    public void EveryOtherToolEntryIsAMovableToolWithAnAction()
+    {
+        var tools = SidebarRegistry.CreateDefault().Items.Skip(5).ToList();
+        Assert.Equal(7, tools.Count);
+        foreach (var item in tools)
         {
             Assert.Equal(SidebarItemKind.Tool, item.Kind);
             Assert.False(item.IsPinned);
             Assert.NotNull(item.Activate);
             Assert.Null(item.PageType);
         }
+        Assert.Equal(SuiteTools.All.Select(t => t.Id), tools.Select(t => t.Id));
+    }
+
+    [Fact]
+    public void ASavedLayoutWithTheDetectionTesterHiddenAndMovedKeepsItsPlace()
+    {
+        var layout = new SidebarLayout
+        {
+            Order = [SidebarIds.Packages, "site-hygiene", SidebarIds.DetectionTester, SidebarIds.Applications, SidebarIds.AddApp, SidebarIds.Workbench,
+                "maintenance-windows", "collection-and-compliance", "installer-analysis", "deployment-helper", "dp-content-manager", "pivots-and-scripts"],
+            Hidden = [SidebarIds.DetectionTester]
+        };
+        var service = new SidebarService(SidebarRegistry.CreateDefault(), new InMemorySidebarStore(layout));
+        Assert.Equal([SidebarIds.Packages, "site-hygiene", SidebarIds.DetectionTester, SidebarIds.Applications], SidebarFixtures.Ids(service.All).Take(4));
+        Assert.True(service.IsHidden(SidebarIds.DetectionTester));
+        Assert.True(service.Show(SidebarIds.DetectionTester));
+        Assert.Equal(SidebarIds.DetectionTester, service.Items[2].Id);
     }
 
     [Fact]

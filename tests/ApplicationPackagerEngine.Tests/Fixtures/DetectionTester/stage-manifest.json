@@ -1,0 +1,62 @@
+{
+  "SchemaVersion": 4,
+  "AppName": "7-Zip",
+  "DisplayName": "7-Zip 24.09 (x64)",
+  "Publisher": "Igor Pavlov",
+  "SoftwareVersion": "24.09",
+  "InstallerFile": "7z2409-x64.msi",
+  "InstallerType": "MSI",
+  "Architecture": "x64",
+  "InstallContext": "Machine",
+  "InstallArgs": "/qn /norestart",
+  "UninstallArgs": "/qn /norestart",
+  "ProductCode": "{23170F69-40C1-2702-2409-000001000000}",
+  "RunningProcess": [ "7zFM" ],
+  "Detection": {
+    "Type": "Compound",
+    "Connector": "Or",
+    "GroupSizes": [ 2, 1 ],
+    "Is64Bit": true,
+    "Clauses": [
+      {
+        "Type": "RegistryKeyValue",
+        "RegistryKeyRelative": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{23170F69-40C1-2702-2409-000001000000}",
+        "ValueName": "DisplayVersion",
+        "ExpectedValue": "24.09.00.0",
+        "Operator": "GreaterEquals",
+        "PropertyType": "Version",
+        "Is64Bit": true,
+        "Hive": "LocalMachine"
+      },
+      {
+        "Type": "File",
+        "FilePath": "%ProgramFiles%\\7-Zip",
+        "FileName": "7z.exe",
+        "ExpectedValue": "24.09",
+        "Operator": "GreaterEquals",
+        "PropertyType": "Version",
+        "Is64Bit": true
+      },
+      {
+        "Type": "RegistryKey",
+        "RegistryKeyRelative": "SOFTWARE\\7-Zip",
+        "Is64Bit": false,
+        "Hive": "CurrentUser"
+      }
+    ]
+  },
+  "StagedAt": "2026-10-18T09:12:44.1234567-05:00",
+  "FileHashes": [
+    { "RelativePath": "7z2409-x64.msi", "Sha256": "0000000000000000000000000000000000000000000000000000000000000000", "Size": 1990656 }
+  ],
+  "Icon": "7zip.png",
+  "BuildId": "",
+  "ApplicationId": "",
+  "ProfileId": "default",
+  "ProfileRevision": 0,
+  "Timing": { "EstimatedMinutes": 15, "MaximumMinutes": 30 },
+  "Execution": { "Context": "System", "LogonRequirement": "WhetherOrNotUserLoggedOn", "UserInteraction": false, "ScriptHost": null },
+  "DetectionSource": "Default",
+  "CustomAssets": [],
+  "RunOverrides": {}
+}

@@ -12,6 +12,7 @@ public static class SidebarIds
     public const string Applications = "applications";
     public const string AddApp = "add-app";
     public const string Workbench = "workbench";
+    public const string DetectionTester = "detection-tester";
 }
 
 /// <summary>
@@ -60,6 +61,7 @@ public sealed class SidebarRegistry
         {
             Activate = services => services.GetRequiredService<MainWindow>().OpenWorkbenchForGridSelection()
         });
+        registry.Register(new SidebarItemDefinition(SidebarIds.DetectionTester, "Detection Tester", "Beaker24", SidebarItemKind.Page) { PageType = typeof(DetectionTesterPage) });
         foreach (var tool in SuiteTools.All)
         {
             registry.Register(new SidebarItemDefinition(tool.Id, tool.Title, tool.Symbol, SidebarItemKind.Tool)
