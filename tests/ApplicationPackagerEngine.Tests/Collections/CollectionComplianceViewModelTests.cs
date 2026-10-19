@@ -514,7 +514,7 @@ public sealed class CollectionComplianceViewModelTests
             FakeCollectionPrompts.Accept(p);
         };
         await viewModel.AddDirectMembersCommand.ExecuteAsync(null);
-        Assert.Contains("SMS_R_System.Name = 'O''Brien-PC'", Assert.Single(harness.Service.PreviewExpressions));
+        Assert.Contains(@"SMS_R_System.Name = 'O\'Brien-PC'", Assert.Single(harness.Service.PreviewExpressions));
         Assert.Single(harness.Plans.Shown);
     }
 
@@ -714,14 +714,15 @@ public sealed class CollectionComplianceViewModelTests
     }
 
     [Fact]
-    public void TemplateValuesAreQuotedLiteralsWithQuotesAndBackslashesDoubledAndControlCharactersRefused()
+    public void TemplateValuesAreLiteralsWithBackslashEscapesOrWholeNumbersAndControlCharactersAreRefused()
     {
-        Assert.Equal("where Build = '10.0'", WqlParameters.Insert("where Build = {Build}", [("{Build}", "10.0")]));
-        Assert.Equal("like '%O''Brien%'", WqlParameters.Insert("like '%{Name}%'", [("{Name}", "O'Brien")]));
-        Assert.Equal("like \"%a\"\"b%\"", WqlParameters.Insert("like \"%{Name}%\"", [("{Name}", "a\"b")]));
-        Assert.Equal("= 'LAB\\\\Group'", WqlParameters.Insert("= {G}", [("{G}", "LAB\\Group")]));
-        Assert.Equal("= ''' or 1=1 or '''", WqlParameters.Insert("= {G}", [("{G}", "' or 1=1 or '")]));
-        Assert.Equal("= '\\\\'' or 1=1 --'", WqlParameters.Insert("= {G}", [("{G}", "\\' or 1=1 --")]));
+        Assert.Equal("where Build = 22631", WqlParameters.Insert("where Build = {Build}", [("{Build}", "22631")]));
+        Assert.Throws<ArgumentException>(() => WqlParameters.Insert("where Build = {Build}", [("{Build}", "10.0")]));
+        Assert.Equal(@"like '%O\'Brien%'", WqlParameters.Insert("like '%{Name}%'", [("{Name}", "O'Brien")]));
+        Assert.Equal("like \"%a\\\"b%\"", WqlParameters.Insert("like \"%{Name}%\"", [("{Name}", "a\"b")]));
+        Assert.Equal(@"= 'LAB\\Group'", WqlParameters.Insert("= '{G}'", [("{G}", @"LAB\Group")]));
+        Assert.Equal(@"= '\' or 1=1 or \''", WqlParameters.Insert("= '{G}'", [("{G}", "' or 1=1 or '")]));
+        Assert.Equal(@"= '\\\' or 1=1 --'", WqlParameters.Insert("= '{G}'", [("{G}", @"\' or 1=1 --")]));
         Assert.Equal(WqlParameters.ControlCharacter, WqlParameters.Problem("a\nb"));
         Assert.Equal(WqlParameters.ControlCharacter, WqlParameters.Problem("a\u0000b"));
         Assert.Equal(WqlParameters.TooLong, WqlParameters.Problem(new string('x', 257)));
@@ -748,7 +749,7 @@ public sealed class CollectionComplianceViewModelTests
         Assert.Equal(WqlParameters.Required, viewModel.TemplateMessage);
         Assert.False(viewModel.CopyTemplateToEditorCommand.CanExecute(null));
         parameter.Value = "O'Brien";
-        Assert.EndsWith("like '%O''Brien%'", viewModel.TemplateWql);
+        Assert.EndsWith(@"like '%O\'Brien%'", viewModel.TemplateWql);
         Assert.Equal("", viewModel.TemplateMessage);
         parameter.Value = "bad\tvalue";
         Assert.Equal("", viewModel.TemplateWql);
@@ -816,9 +817,9 @@ public sealed class CollectionComplianceViewModelTests
         var viewModel = await harness.OpenAsync();
         viewModel.SelectedTemplate = viewModel.TemplateRows.Single(t => t.Name == "OS build");
         Assert.False(viewModel.ApplyTemplateCommand.CanExecute(null));
-        viewModel.TemplateParameters[0].Value = "10.0.22631";
+        viewModel.TemplateParameters[0].Value = "22631";
         Assert.True(viewModel.ApplyTemplateCommand.CanExecute(null));
-        Assert.EndsWith("SMS_R_System.Build = '10.0.22631'", viewModel.TemplateWql);
+        Assert.EndsWith("SMS_R_System.Build = 22631", viewModel.TemplateWql);
     }
 
     [Fact]

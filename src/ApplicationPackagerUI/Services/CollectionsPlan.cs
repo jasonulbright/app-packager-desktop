@@ -59,14 +59,47 @@ public sealed class CollectionPlan
         return undo;
     }
 
+    /// <summary>The outcomes of the last undo run from the plan window, one for each undo change sent.</summary>
+    public IReadOnlyList<CollectionOutcome> UndoOutcomes
+    {
+        get { lock (_undoOutcomes) return _undoOutcomes.ToArray(); }
+    }
+
+    private readonly List<CollectionOutcome> _undoOutcomes = [];
+
+    /// <summary>
+    /// This plan with only the outcomes whose undo change is still to be made after an undo run
+    /// reported <paramref name="undoOutcomes"/>; null when every undo change succeeded.
+    /// </summary>
+    public CollectionPlan? Remaining(IReadOnlyList<CollectionOutcome> undoOutcomes)
+    {
+        bool Done(CollectionChange undo) => undoOutcomes.Any(o => o.Succeeded && (ReferenceEquals(o.Change, undo) || SameTarget(o.Change, undo)));
+        var left = Outcomes.Where(o => o.UndoChange is { } undo && EntryFor(o.Change) is not null && !Done(undo)).ToList();
+        if (left.Count == 0) return null;
+        var copy = new CollectionPlan(Action, Plan.Title, Plan.ActionName, Entries, Plan.IsDestructive, Plan.HasUndo) { IsUndo = IsUndo };
+        foreach (var outcome in left) copy.AddOutcome(outcome);
+        return copy;
+    }
+
     internal void ClearOutcomes()
     {
         lock (_outcomes) _outcomes.Clear();
+        ClearUndoOutcomes();
+    }
+
+    internal void ClearUndoOutcomes()
+    {
+        lock (_undoOutcomes) _undoOutcomes.Clear();
     }
 
     internal void AddOutcome(CollectionOutcome outcome)
     {
         lock (_outcomes) _outcomes.Add(outcome);
+    }
+
+    internal void AddUndoOutcome(CollectionOutcome outcome)
+    {
+        lock (_undoOutcomes) _undoOutcomes.Add(outcome);
     }
 
     /// <summary>The entry of a change: the same object, or the same kind, collection, rule and query.</summary>
@@ -160,6 +193,7 @@ public sealed class CollectionWriter(ICollectionService service, ISiteOperationH
         ArgumentNullException.ThrowIfNull(plan);
         if (!plan.IsConfirmedPlan(confirmed)) throw new InvalidOperationException("The confirmed plan is not the plan of these changes.");
         var undo = plan.UndoChanges();
+        plan.ClearUndoOutcomes();
         var results = new Dictionary<ChangePlanItem, ChangePlanItemResult>(ReferenceEqualityComparer.Instance);
         if (undo.Count == 0) return new ChangePlanResult([]);
 
@@ -234,6 +268,7 @@ public sealed class CollectionWriter(ICollectionService service, ISiteOperationH
                 var entry = undoEntry is null ? plan.EntryFor(value.Change) : undoEntry(value.Change);
                 if (entry is null || results.ContainsKey(entry.Item)) return;
                 if (undoEntry is null) plan.AddOutcome(value);
+                else plan.AddUndoOutcome(value);
                 var message = SecretMask.Apply(value.Message);
                 if ((undoEntry is not null || plan.IsUndo) && value.Succeeded)
                 {

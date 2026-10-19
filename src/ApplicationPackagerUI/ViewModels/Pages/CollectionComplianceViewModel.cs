@@ -66,6 +66,9 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public const string MembershipNote = "An include or exclude rule changes the membership evaluation of the collection.";
     public const string DeviceNotFound = "No device with this name was found. Not added.";
     public const string NoDeviceFound = "No device with these names was found.";
+    public const string TooManyDevices = "The names match more devices than the page can list. Enter fewer names or resource IDs.";
+    public const string PartialListRefused = "The list holds only the collection opened by ID. Select Refresh to read the whole list, then try again.";
+    public const string DefaultIntervalText = "every 7 days (default)";
     public const string NoDirectMembers = "Select one or more direct members.";
     public const string PickCollection = "Select a collection in the tree first.";
     public const string RuleNameRequired = "Enter a rule name.";
@@ -84,6 +87,10 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public static string PreviewNote(int count) => $"The last preview found {CollectionsText.Count(count, "match", "matches")}.";
     public static string ReportFailed(string format) => $"The {format} report could not be written. The log has the details.";
     public static string QueryNameTaken(string name) => $"A saved query named {name} already exists.";
+    public static string WqlCollectionGone(string target) => $"The collection {target} no longer exists. Select a collection in the tree.";
+
+    public static string AmbiguousDevice(IReadOnlyList<string> resourceIds) =>
+        $"{resourceIds.Count} devices have this name (resource IDs {string.Join(", ", resourceIds)}). Not added. Enter the resource ID instead.";
 
     public static string PreviewText(int count, int shown) =>
         count == shown ? $"{CollectionsText.Count(count, "match", "matches")}." : $"{CollectionsText.Count(count, "match", "matches")}. The first {shown} are shown.";
@@ -103,8 +110,11 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     private IReadOnlyList<CollectionRow>? _collections;
     private bool _partialList;
     private CancellationTokenSource? _load;
+    private CancellationTokenSource? _open;
+    private CancellationTokenSource? _siteCheck;
     private Task? _loading;
     private int _generation;
+    private int _listGeneration;
     private bool _writing;
     private CollectionPlan? _lastRunPlan;
     private IReadOnlyList<CollectionGridRow> _selectedRows = [];
@@ -189,7 +199,10 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         _active = false;
         // A load still running belongs to the visit that started it; its result is discarded.
         _generation++;
-        try { _load?.Cancel(); } catch (ObjectDisposedException) { }
+        _listGeneration++;
+        Cancel(_load);
+        Cancel(_open);
+        Cancel(_siteCheck);
         _load = null;
         _loading = null;
         IsLoading = false;
@@ -199,10 +212,27 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         SetSelectedRows([]);
         Rows.Clear();
         RowCount = "";
+        StatusMessage = "";
+        ConnectionMessage = "";
+        ReleaseResults();
         ReleaseDetail();
         ReleaseWql();
         ReleaseQueries();
         await SavePreferencesAsync();
+    }
+
+    private static void Cancel(CancellationTokenSource? source)
+    {
+        try { source?.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
+    private void ReleaseResults()
+    {
+        _lastRunPlan = null;
+        LastPlan = null;
+        LastResults.Clear();
+        OnPropertyChanged(nameof(HasResults));
+        ResultSummary = "";
     }
 
     partial void OnSelectedTabIndexChanged(int value)
@@ -333,7 +363,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             await pending;
             return;
         }
-        var load = LoadCoreAsync(_generation);
+        var load = LoadCoreAsync(_generation, ++_listGeneration);
         _loading = load;
         try { await load; }
         finally
@@ -342,7 +372,9 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         }
     }
 
-    private async Task LoadCoreAsync(int generation)
+    private bool IsCurrentList(int generation, int listGeneration) => generation == _generation && listGeneration == _listGeneration;
+
+    private async Task LoadCoreAsync(int generation, int listGeneration)
     {
         using var cts = new CancellationTokenSource();
         _load = cts;
@@ -367,13 +399,13 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         catch (Exception ex)
         {
             connection = PlainMessage(ex, LoadFailed);
-            if (generation == _generation) _services.Log.Warning(LogArea, $"The collections could not be read ({FailureName(ex)}).");
+            if (IsCurrentList(generation, listGeneration)) _services.Log.Warning(LogArea, $"The collections could not be read ({FailureName(ex)}).");
         }
         finally
         {
             if (ReferenceEquals(_load, cts)) _load = null;
         }
-        if (generation != _generation) return;
+        if (!IsCurrentList(generation, listGeneration)) return;
         IsLoading = false;
         ConnectionMessage = connection ?? "";
         if (collections is null)
@@ -386,6 +418,18 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         _services.Log.Info(LogArea, $"Read {collections.Count} collections.");
         StatusMessage = "";
         Rebuild();
+        // ApplyFilter keeps the selected collection without a new read; its detail can be older than the list.
+        if (SelectedRow is { } selected) StartDetail(selected, 0);
+    }
+
+    /// <summary>Ends a running list read: its result belongs to an older request and is discarded.</summary>
+    private void DiscardListLoad()
+    {
+        _listGeneration++;
+        Cancel(_load);
+        _load = null;
+        _loading = null;
+        IsLoading = false;
     }
 
     /// <summary>The setting to change before the page can reach ConfigMgr, or null.</summary>
@@ -422,6 +466,21 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         if (folder.Length > 0 && !folders.Contains(folder, StringComparer.OrdinalIgnoreCase)) Folders.Add(new Choice<string>(folder, folder));
         ApplyFilter();
         RebuildTree();
+        FollowWqlCollection();
+    }
+
+    /// <summary>Gives the WQL Editor the read row of its collection, or drops a collection the full list no longer has.</summary>
+    private void FollowWqlCollection()
+    {
+        if (WqlCollection is not { } wql) return;
+        if (FindCollection(wql.CollectionId) is not { } fresh)
+        {
+            if (_partialList) return;
+            WqlCollection = null;
+            WqlMessage = WqlCollectionGone(wql.ToString());
+            return;
+        }
+        if (!Equals(fresh, wql.Row)) WqlCollection = Rows.FirstOrDefault(r => ReferenceEquals(r.Row, fresh)) ?? new CollectionGridRow(fresh);
     }
 
     private bool Matches(CollectionRow row)
@@ -507,27 +566,42 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             return;
         }
         var generation = _generation;
+        var listGeneration = _listGeneration;
+        Cancel(_open);
+        using var cts = new CancellationTokenSource();
+        _open = cts;
         CollectionRow? row;
         try
         {
             row = await Task.Run(async () =>
             {
                 if (ConnectionProblem(_services.LoadSettings()) is { } problem) throw new CollectionServiceException(problem);
-                return await _services.Collections.GetCollectionAsync(id, CancellationToken.None);
-            });
+                return await _services.Collections.GetCollectionAsync(id, cts.Token);
+            }, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch (Exception ex)
         {
+            if (!IsCurrentList(generation, listGeneration)) return;
             StatusMessage = PlainMessage(ex, LoadFailed);
             _services.Log.Warning(LogArea, $"A collection could not be opened by ID ({FailureName(ex)}).");
             return;
         }
-        if (generation != _generation) return;
+        finally
+        {
+            if (ReferenceEquals(_open, cts)) _open = null;
+        }
+        // A list read that started after this request is newer; one that started before it is older and is discarded.
+        if (!IsCurrentList(generation, listGeneration)) return;
         if (row is null)
         {
             StatusMessage = CollectionNotFound(id);
             return;
         }
+        DiscardListLoad();
         _collections = [row];
         _partialList = true;
         StatusMessage = "";
@@ -547,17 +621,31 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             return;
         }
         StatusMessage = "Testing the connection to the site.";
+        var generation = _generation;
+        Cancel(_siteCheck);
+        using var cts = new CancellationTokenSource();
+        _siteCheck = cts;
         try
         {
-            await Task.Run(() => _services.Collections.GetCollectionAsync("SMS00001", CancellationToken.None));
+            await Task.Run(() => _services.Collections.GetCollectionAsync("SMS00001", cts.Token), cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch (Exception ex)
         {
+            if (generation != _generation) return;
             ConnectionMessage = PlainMessage(ex, ConnectFailed);
             StatusMessage = "";
             _services.Log.Warning(LogArea, $"The connection test failed ({FailureName(ex)}).");
             return;
         }
+        finally
+        {
+            if (ReferenceEquals(_siteCheck, cts)) _siteCheck = null;
+        }
+        if (generation != _generation) return;
         ConnectionMessage = "";
         StatusMessage = Connected(settings.SiteCode.Trim());
         _services.Log.Info(LogArea, "The connection test succeeded.");
@@ -718,23 +806,30 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         OnPropertyChanged(nameof(HasResults));
         ResultSummary = $"{plan.Plan.Title}: {summary}";
         StatusMessage = ResultSummary;
-        LastPlan = outcome.UndoResult is null && plan.UndoChanges().Count > 0 ? plan : null;
+        LastPlan = outcome.UndoResult is null
+            ? plan.UndoChanges().Count > 0 ? plan : null
+            : plan.Remaining(plan.UndoOutcomes);
     }
 
     /// <summary>Reads the list, the selected detail, the WQL rules and the saved queries again after a write.</summary>
     private async Task AfterWriteAsync()
     {
+        if (!_active) return;
         var status = StatusMessage;
         // A load that started before the write can return the state before it; the list is read
         // again once that load ends.
         while (_loading is { IsCompleted: false } pending) await pending;
+        if (!_active) return;
         if (_partialList && _collections is [var opened])
         {
+            var generation = _generation;
             try
             {
                 var row = await Task.Run(() => _services.Collections.GetCollectionAsync(opened.CollectionId, CancellationToken.None));
+                if (generation != _generation || !_partialList) return;
                 _collections = row is null ? [] : [row];
                 Rebuild();
+                if (SelectedRow is { } selected) StartDetail(selected, 0);
             }
             catch (Exception ex)
             {
@@ -742,16 +837,19 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             }
         }
         else await LoadAsync();
+        if (!_active) return;
         if (StatusMessage.Length == 0) StatusMessage = status;
-        if (SelectedRow is { } selected) StartDetail(selected, 0);
-        if (WqlCollection is { } wql) StartWqlRules(Rows.FirstOrDefault(r => r.CollectionId == wql.CollectionId) ?? wql);
+        if (WqlCollection is { } wql) StartWqlRules(wql);
         if (_queriesLoaded) await StartQueriesLoad();
         await Task.WhenAll(DetailLoad, WqlRulesLoad);
     }
 
     private bool CanUndoLast() => !_writing && LastPlan is not null;
 
-    /// <summary>Undoes the last write set through a new plan: the undo changes the last run reported.</summary>
+    /// <summary>
+    /// Undoes the last write set through a new plan: the undo changes the last run reported. The
+    /// changes whose undo did not succeed stay offered for the next Undo.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanUndoLast))]
     private async Task UndoLast()
     {
@@ -770,7 +868,9 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             var destructive = prepared.Any(c => c.Kind is CollectionChangeKind.Remove or CollectionChangeKind.RemoveRule or CollectionChangeKind.DeleteQuery);
             return (new CollectionPlan("Undo " + last.Action, "Undo: " + last.Plan.Title, $"Undo {CollectionsText.Count(entries.Count, "change")}", entries, destructive) { IsUndo = true }, null);
         }, checkState: false);
-        if (run is { Outcome.Confirmed: true }) await AfterWriteAsync();
+        if (run is not { Outcome.Confirmed: true } done) return;
+        LastPlan = done.Outcome.UndoResult is null ? last.Remaining(done.Plan.Outcomes) : null;
+        await AfterWriteAsync();
     }
 
     private static string UndoDetail(CollectionChange change)

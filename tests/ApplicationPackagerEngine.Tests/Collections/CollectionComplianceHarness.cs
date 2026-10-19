@@ -34,6 +34,7 @@ internal sealed class FakeCollectionService : ICollectionService
     public Exception? ListFailure;
     public Exception? GetFailure;
     public TaskCompletionSource? ListGate;
+    public TaskCompletionSource? GetGate;
     public TaskCompletionSource? DetailGate;
     public TaskCompletionSource? PreviewGate;
     public int MemberPageSize = 2;
@@ -104,12 +105,16 @@ internal sealed class FakeCollectionService : ICollectionService
         lock (Collections) return Collections.ToList();
     }
 
-    public Task<CollectionRow?> GetCollectionAsync(string collectionId, CancellationToken ct)
+    public async Task<CollectionRow?> GetCollectionAsync(string collectionId, CancellationToken ct)
     {
         Interlocked.Increment(ref GetCalls);
+        if (GetGate is { } gate) await gate.Task.WaitAsync(ct);
         if (GetFailure is { } failure) throw failure;
-        return Task.FromResult(Find(collectionId));
+        return Find(collectionId);
     }
+
+    /// <summary>The device name as a single-quoted WQL literal: a backslash escapes a quote or a backslash.</summary>
+    private static string Quoted(string name) => "'" + name.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("'", "\\'", StringComparison.Ordinal) + "'";
 
     public async Task<CollectionDetail> GetDetailAsync(string collectionId, int memberPage, CancellationToken ct)
     {
@@ -140,7 +145,8 @@ internal sealed class FakeCollectionService : ICollectionService
         ct.ThrowIfCancellationRequested();
         if (!expression.TrimStart().StartsWith("select", StringComparison.OrdinalIgnoreCase))
             return new WqlResult(false, "The query is not a valid WQL select statement.", 0, [], []);
-        var matches = Devices.Where(d => expression.Contains("'" + d.Name.Replace("'", "''", StringComparison.Ordinal) + "'", StringComparison.OrdinalIgnoreCase)).ToList();
+        var matches = Devices.Where(d => expression.Contains(Quoted(d.Name), StringComparison.OrdinalIgnoreCase)
+            || System.Text.RegularExpressions.Regex.IsMatch(expression, @"ResourceId = " + d.ResourceId + @"\b")).ToList();
         if (matches.Count == 0 && !expression.Contains(" where ", StringComparison.OrdinalIgnoreCase)) matches = Devices.ToList();
         return new WqlResult(true, $"{matches.Count} matches.", matches.Count, ["SMS_R_System.ResourceId", "SMS_R_System.Name"],
             matches.Take(maxRows).Select(d => (IReadOnlyList<string>)[d.ResourceId, d.Name]).ToList());
