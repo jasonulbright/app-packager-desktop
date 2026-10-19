@@ -70,6 +70,15 @@ public static class PackagerServiceRegistration
         services.AddSingleton<ICollectionService>(sp => new CollectionService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<IQueryTemplateStore>(sp => new QueryTemplateStore(log: sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<ICollectionReportWriter>(_ => new CollectionReportWriter());
+
+        services.AddSingleton<ICatalogService>(sp => new CatalogService(sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IComplianceService>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            return new ComplianceService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<ICatalogService>(), new CatalogBuilderRunner(),
+                () => SessionConnection(settings), sp.GetRequiredService<IAppLog>());
+        });
+        services.AddSingleton<IComplianceReportWriter>(_ => new ComplianceReportWriter());
         return services;
     }
 
