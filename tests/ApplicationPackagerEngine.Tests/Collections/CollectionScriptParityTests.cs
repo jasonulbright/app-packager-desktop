@@ -50,7 +50,6 @@ public sealed class CollectionScriptParityTests
     [InlineData("WS 2", new[] { "remove:WS" }, false, "WS", Old)]
     public async Task TheUpdateScriptNeverDropsBelowTheRuleCountItStartedWith(string newName, string[] fail, bool succeeds, string keptName, string keptExpression)
     {
-        if (!WindowsPowerShellPresent) return;
         var (outcome, site) = await ServiceUpdate(newName, New, fail);
 
         Assert.Equal(succeeds, outcome.Succeeded);
@@ -62,7 +61,6 @@ public sealed class CollectionScriptParityTests
     [Fact]
     public async Task AnUpdateTheProviderRejectsLeavesTheOldRuleAndSaysSo()
     {
-        if (!WindowsPowerShellPresent) return;
         var (outcome, site) = await ServiceUpdate("WS", "select * from SMS_R_Systemxx");
 
         Assert.False(outcome.Succeeded);
@@ -73,7 +71,6 @@ public sealed class CollectionScriptParityTests
     [Fact]
     public async Task TheRemoveScriptRefusesALimitingCollectionWithoutAWrite()
     {
-        if (!WindowsPowerShellPresent) return;
         var site = Site();
         var service = new CollectionService(site);
         var error = await Assert.ThrowsAsync<CollectionServiceException>(() =>
@@ -85,7 +82,6 @@ public sealed class CollectionScriptParityTests
     [Fact]
     public async Task TheReadScriptCountsRulesAndPagesMembersUnderStrictMode()
     {
-        if (!WindowsPowerShellPresent) return;
         var service = new CollectionService(Site());
         var rows = await service.ListCollectionsAsync(CancellationToken.None);
         Assert.Equal(2, rows.Single(r => r.CollectionId == "MCM00010").QueryRuleCount);
@@ -107,7 +103,6 @@ public sealed class CollectionScriptParityTests
     [Fact]
     public async Task ValidationMatchesBothModulesForEverySelectQuery()
     {
-        if (!WindowsPowerShellPresent) return;
         var compared = 0;
         foreach (var module in new[] { FixedModule, OlderModule }.Where(File.Exists))
         {
@@ -141,7 +136,6 @@ public sealed class CollectionScriptParityTests
     [Fact]
     public async Task ADifferenceByDesignTheModulesSendAnyTextToTheProviderAndTheServiceRefusesIt()
     {
-        if (!WindowsPowerShellPresent) return;
         var site = Site();
         var service = await new CollectionService(site).ValidateWqlAsync("delete from SMS_R_System", CancellationToken.None);
         Assert.False(service.IsValid);
@@ -156,7 +150,6 @@ public sealed class CollectionScriptParityTests
     [Fact]
     public async Task PreviewMatchesTheCountAndFirstRowsOfTheFixedModuleAndTheOlderModuleHidesErrors()
     {
-        if (!WindowsPowerShellPresent) return;
         var service = await new CollectionService(Site()).PreviewWqlAsync("select Name, ResourceID from SMS_R_System", 1, CancellationToken.None);
         Assert.Equal(2, service.MatchCount);
         Assert.Single(service.FirstRows);
@@ -200,7 +193,6 @@ public sealed class CollectionScriptParityTests
     [Fact]
     public async Task TheRuleUpdateKeepsEveryRuleWhereTheModulesDropOne()
     {
-        if (!WindowsPowerShellPresent) return;
         var compared = 0;
         foreach (var (name, path) in new[] { ("older", OlderModule), ("fixed", FixedModule) })
         {

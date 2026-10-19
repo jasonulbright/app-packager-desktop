@@ -7,6 +7,7 @@ param(
     [long]$ResourceId = 0,
     [string]$Expression = '',
     [int]$MaxRows = 50,
+    [int]$MaxCount = 10000,
     [ValidatePattern('^[A-Za-z0-9]{0,16}$')][string]$QueryId = ''
 )
 
@@ -201,13 +202,14 @@ switch ($Operation) {
             }
         }
         if ($found.Count -eq 0) { return }
-        $members = @(Invoke-CMWmiQuery -Option Fast -Query "SELECT ResourceID, Name, IsClient, IsActive, IsDirect FROM SMS_FullCollectionMembership WHERE CollectionID = '$CollectionId'" |
-            Sort-Object -Property @{ Expression = { [string]$_.Name } }, @{ Expression = { [long]$_.ResourceID } })
-        [pscustomobject]@{ Kind = 'MemberTotal'; Count = $members.Count }
+        $total = @(Invoke-CMWmiQuery -Option Fast -Query "select count(*) from SMS_FullCollectionMembership where CollectionID = '$CollectionId'") | Select-Object -First 1
+        [pscustomobject]@{ Kind = 'MemberTotal'; Count = [int](Get-Prop $total 'Count') }
         $size = [Math]::Max(1, $PageSize)
         $first = [Math]::Max(0, $MemberPage) * $size
-        for ($i = $first; $i -lt [Math]::Min($members.Count, $first + $size); $i++) {
-            $m = $members[$i]
+        # The provider sorts; WQL has no offset, so the rows before the page are read and dropped.
+        $page = @(Invoke-CMWmiQuery -Option Fast -Query "SELECT ResourceID, Name, IsClient, IsActive, IsDirect FROM SMS_FullCollectionMembership WHERE CollectionID = '$CollectionId' ORDER BY Name, ResourceID" |
+            Select-Object -Skip $first -First $size)
+        foreach ($m in $page) {
             [pscustomobject]@{
                 Kind       = 'Member'
                 ResourceId = [string]$m.ResourceID
@@ -255,37 +257,31 @@ switch ($Operation) {
             [pscustomobject]@{ Kind = 'Resource'; ResourceId = [string]$r.ResourceId; Name = [string]$r.Name }
         }
     }
-    'Validate' {
-        if (-not (Test-ReadOnlySelect $Expression)) { return [pscustomobject]@{ Kind = 'Wql'; Valid = $false; Count = 0; Columns = @(); Detail = 'not a select' } }
-        try {
-            $rows = @(Invoke-CMWmiQuery -Option Fast -Query $Expression -ErrorAction Stop)
-        } catch {
-            if ([string]$_.Exception.Message -match 'Access is denied|Access denied|0x80070005') { throw }
-            $detail = $_.Exception.Message
-            if ($null -ne $_.Exception.InnerException) { $detail = $detail + ' ' + $_.Exception.InnerException.Message }
-            return [pscustomobject]@{ Kind = 'Wql'; Valid = $false; Count = 0; Columns = @(); Detail = $detail }
-        }
-        [pscustomobject]@{ Kind = 'Wql'; Valid = $true; Count = $rows.Count; Columns = @(); Detail = '' }
-    }
-    'Preview' {
-        if (-not (Test-ReadOnlySelect $Expression)) { return [pscustomobject]@{ Kind = 'Wql'; Valid = $false; Count = 0; Columns = @(); Detail = 'not a select' } }
-        try {
-            $rows = @(Invoke-CMWmiQuery -Option Fast -Query $Expression -ErrorAction Stop)
-        } catch {
-            if ([string]$_.Exception.Message -match 'Access is denied|Access denied|0x80070005') { throw }
-            $detail = $_.Exception.Message
-            if ($null -ne $_.Exception.InnerException) { $detail = $detail + ' ' + $_.Exception.InnerException.Message }
-            return [pscustomobject]@{ Kind = 'Wql'; Valid = $false; Count = 0; Columns = @(); Detail = $detail }
-        }
-        $take = [Math]::Max(0, [Math]::Min($MaxRows, $rows.Count))
+    { $_ -in 'Validate', 'Preview' } {
+        if (-not (Test-ReadOnlySelect $Expression)) { return [pscustomobject]@{ Kind = 'Wql'; Valid = $false; Count = 0; Capped = $false; Columns = @(); Detail = 'not a select' } }
+        $limit = [Math]::Max(1, $MaxCount)
+        $take = 0
+        if ($Operation -eq 'Preview') { $take = [Math]::Max(0, [Math]::Min($MaxRows, $limit)) }
+        $counted = 0
         $cellRows = New-Object System.Collections.Generic.List[object]
         $columns = New-Object System.Collections.Generic.List[string]
-        for ($i = 0; $i -lt $take; $i++) {
-            $cells = Get-Cells $rows[$i]
-            foreach ($key in $cells.Keys) { if (-not $columns.Contains($key) -and $columns.Count -lt 32) { $columns.Add($key) } }
-            $cellRows.Add($cells)
+        # Select-Object -First stops the enumeration of the provider result at the limit.
+        try {
+            Invoke-CMWmiQuery -Option Fast -Query $Expression -ErrorAction Stop | Select-Object -First $limit | ForEach-Object {
+                if ($counted -lt $take) {
+                    $cells = Get-Cells $_
+                    foreach ($key in $cells.Keys) { if (-not $columns.Contains($key) -and $columns.Count -lt 32) { $columns.Add($key) } }
+                    $cellRows.Add($cells)
+                }
+                $counted++
+            }
+        } catch {
+            if ([string]$_.Exception.Message -match 'Access is denied|Access denied|0x80070005') { throw }
+            $detail = $_.Exception.Message
+            if ($null -ne $_.Exception.InnerException) { $detail = $detail + ' ' + $_.Exception.InnerException.Message }
+            return [pscustomobject]@{ Kind = 'Wql'; Valid = $false; Count = 0; Capped = $false; Columns = @(); Detail = $detail }
         }
-        [pscustomobject]@{ Kind = 'Wql'; Valid = $true; Count = $rows.Count; Columns = [string[]]$columns.ToArray(); Detail = '' }
+        [pscustomobject]@{ Kind = 'Wql'; Valid = $true; Count = $counted; Capped = ($counted -ge $limit); Columns = [string[]]$columns.ToArray(); Detail = '' }
         foreach ($cells in $cellRows) {
             $values = foreach ($column in $columns) { if ($cells.Contains($column)) { [string]$cells[$column] } else { '' } }
             [pscustomobject]@{ Kind = 'WqlRow'; Values = [string[]]@($values) }

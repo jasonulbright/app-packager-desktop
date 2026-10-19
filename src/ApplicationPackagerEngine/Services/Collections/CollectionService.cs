@@ -64,6 +64,36 @@ public sealed partial class CollectionService : ICollectionService
 
     public static bool IsCollectionId(string? id) => id is not null && CollectionIdRegex().IsMatch(id);
 
+    /// <summary>The number of matches at which Validate and Preview stop reading the provider result.</summary>
+    public int MatchCountLimit { get; init; } = 10000;
+
+    /// <summary>
+    /// The interval of a ConfigMgr interval schedule token (recurrence flag 2 in bits 19 to 21;
+    /// minutes in bits 13 to 18, hours in bits 8 to 12, days in bits 3 to 7); null for any
+    /// other token or an interval that mixes units.
+    /// </summary>
+    public static RefreshInterval? IntervalOf(string? token)
+    {
+        if (token is null || !ScheduleRegex().IsMatch(token)
+            || !ulong.TryParse(token, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var v)
+            || ((v >> 19) & 0x7) != 2)
+            return null;
+        var minutes = (int)((v >> 13) & 0x3F);
+        var hours = (int)((v >> 8) & 0x1F);
+        var days = (int)((v >> 3) & 0x1F);
+        return (minutes, hours, days) switch
+        {
+            ( > 0, 0, 0) => new RefreshInterval(minutes, "Minutes"),
+            (0, > 0, 0) => new RefreshInterval(hours, "Hours"),
+            (0, 0, > 0) => new RefreshInterval(days, "Days"),
+            _ => null
+        };
+    }
+
+    private static string IntervalText(RefreshInterval? interval) => interval is null
+        ? "the current schedule"
+        : interval.Count == 1 ? $"every {interval.Unit.ToLowerInvariant().TrimEnd('s')}" : $"every {interval.Count} {interval.Unit.ToLowerInvariant()}";
+
     // ---- Script output shapes ----------------------------------------------------------------
 
     internal sealed record ReadRow(
@@ -79,7 +109,7 @@ public sealed partial class CollectionService : ICollectionService
 
     internal sealed record ReferenceRow(string? Kind, string? CollectionId, string? Name, string? Relation);
 
-    internal sealed record WqlRow(string? Kind, bool Valid, int Count, string[]? Columns, string? Detail);
+    internal sealed record WqlRow(string? Kind, bool Valid, int Count, string[]? Columns, string? Detail, bool Capped = false);
 
     internal sealed record WqlValues(string? Kind, string[]? Values);
 
@@ -90,7 +120,7 @@ public sealed partial class CollectionService : ICollectionService
     internal sealed record ResourceRow(string? Kind, string? ResourceId, string? Name);
 
     internal sealed record WriteResult(
-        string? Kind, string? Status, string? Detail, string[]? Steps, ReadRow? Collection, RuleRow[]? Rules, QueryRow? Query, string[]? References);
+        string? Kind, string? Status, string? Detail, string[]? Steps, ReadRow? Collection, RuleRow[]? Rules, QueryRow? Query, string[]? References, string? CreatedId = null);
 
     private sealed record CollectionState(CollectionRow Row, IReadOnlyList<CollectionRule> Rules, int WindowCount);
 
@@ -132,26 +162,32 @@ public sealed partial class CollectionService : ICollectionService
     public async Task<WqlResult> ValidateWqlAsync(string expression, CancellationToken ct)
     {
         if (WqlGuard.Check(expression) is { } reason) return Invalid(reason);
-        var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Validate" }, { "Expression", expression } }, ct).ConfigureAwait(false);
+        var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Validate" }, { "Expression", expression }, { "MaxCount", Math.Max(1, MatchCountLimit) } }, ct).ConfigureAwait(false);
         var wql = Rows<WqlRow>(output, "Wql").FirstOrDefault();
-        if (wql is null) return Invalid("ConfigMgr returned no result for the query. The log has the details.");
+        if (wql is null) return Invalid("ConfigMgr returned no result for the query.");
         if (!wql.Valid)
         {
             LogDetail("A query was not accepted", wql.Detail);
             _log?.Info(LogArea, "Validated a query: not valid.");
             return Invalid(ProviderRejectedMessage);
         }
-        _log?.Info(LogArea, $"Validated a query: valid, {wql.Count} matches.");
-        return new WqlResult(true, $"The query is valid. It matches {Count(wql.Count, "resource")}.", wql.Count, [], []);
+        _log?.Info(LogArea, $"Validated a query: valid, {wql.Count} matches{(wql.Capped ? " or more" : "")}.");
+        return new WqlResult(true, $"The query is valid. It matches {Matches(wql)}.", wql.Count, [], []);
     }
+
+    private static string Matches(WqlRow wql) =>
+        wql.Capped ? $"{wql.Count.ToString(CultureInfo.InvariantCulture)} or more resources (counting stops there)" : Count(wql.Count, "resource");
 
     public async Task<WqlResult> PreviewWqlAsync(string expression, int maxRows, CancellationToken ct)
     {
         if (WqlGuard.Check(expression) is { } reason) return Invalid(reason);
         var take = Math.Clamp(maxRows, 1, MaxPreviewRows);
-        var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Preview" }, { "Expression", expression }, { "MaxRows", take } }, ct).ConfigureAwait(false);
+        var output = await ReadAsync(new ConfigMgrParameters
+        {
+            { "Operation", "Preview" }, { "Expression", expression }, { "MaxRows", take }, { "MaxCount", Math.Max(1, MatchCountLimit) }
+        }, ct).ConfigureAwait(false);
         var wql = Rows<WqlRow>(output, "Wql").FirstOrDefault();
-        if (wql is null) return Invalid("ConfigMgr returned no result for the query. The log has the details.");
+        if (wql is null) return Invalid("ConfigMgr returned no result for the query.");
         if (!wql.Valid)
         {
             LogDetail("A preview query was not accepted", wql.Detail);
@@ -162,10 +198,10 @@ public sealed partial class CollectionService : ICollectionService
         var rows = Rows<WqlValues>(output, "WqlRow").Take(take)
             .Select(r => (IReadOnlyList<string>)Enumerable.Range(0, columns.Length).Select(i => r.Values is { } v && i < v.Length ? v[i] ?? "" : "").ToList())
             .ToList();
-        _log?.Info(LogArea, $"Previewed a query: {wql.Count} matches, {rows.Count} rows shown.");
+        _log?.Info(LogArea, $"Previewed a query: {wql.Count} matches{(wql.Capped ? " or more" : "")}, {rows.Count} rows shown.");
         var message = rows.Count < wql.Count
-            ? $"The query matches {Count(wql.Count, "resource")}. The first {rows.Count} are shown."
-            : $"The query matches {Count(wql.Count, "resource")}.";
+            ? $"The query matches {Matches(wql)}. The first {rows.Count} are shown."
+            : $"The query matches {Matches(wql)}.";
         return new WqlResult(true, message, wql.Count, columns, rows);
     }
 
@@ -191,6 +227,7 @@ public sealed partial class CollectionService : ICollectionService
     public async Task<CollectionChange> PrepareAsync(CollectionChange request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        request = Normalized(request);
         var impact = (request.Impact ?? []).ToList();
         switch (request.Kind)
         {
@@ -227,12 +264,22 @@ public sealed partial class CollectionService : ICollectionService
                 var target = CheckedRule(after);
                 if (!string.Equals(target.RuleName, current.RuleName, StringComparison.OrdinalIgnoreCase) && QueryRule(state.Rules, target.RuleName) is not null)
                     throw new CollectionServiceException(RuleTakenMessage(state.Row, target.RuleName));
+                RefuseUnrestorable(state.Row, current, "changed");
+                var orphans = (request.Rules ?? [])
+                    .Where(o => o.Kind == CollectionRuleKind.Query && !string.Equals(o.RuleName, target.RuleName, StringComparison.OrdinalIgnoreCase))
+                    .Select(o => QueryRule(state.Rules, o.RuleName) is { } r && string.Equals(r.Expression, o.Expression, StringComparison.Ordinal) ? r : null)
+                    .OfType<CollectionRule>().ToList();
                 impact.Add($"Replaces query rule {current.RuleName} of collection {Shown(state.Row)}.");
                 impact.Add($"Old WQL: {current.Expression}");
                 impact.Add($"New WQL: {target.Expression}");
                 impact.Add("The new rule is added before the old rule is removed, so the collection never has fewer rules. If a step fails, the old rule stays.");
+                foreach (var orphan in orphans) impact.Add($"Also removes query rule {orphan.RuleName}, which an earlier update left.");
                 impact.Add("Undo puts the old rule back.");
-                return request with { CollectionId = state.Row.CollectionId, CollectionName = state.Row.Name, BeforeRow = state.Row, RuleBefore = current, RuleAfter = target, Impact = impact };
+                return request with
+                {
+                    CollectionId = state.Row.CollectionId, CollectionName = state.Row.Name, BeforeRow = state.Row, RuleBefore = current, RuleAfter = target,
+                    Rules = orphans.Count == 0 ? null : orphans, Impact = impact
+                };
             }
             case CollectionChangeKind.RemoveRule:
             {
@@ -242,6 +289,7 @@ public sealed partial class CollectionService : ICollectionService
                 var current = FindRule(state.Rules, before) ?? throw new CollectionServiceException(RuleMissingMessage(state.Row, before));
                 if (current.Kind == CollectionRuleKind.Query && !string.Equals(current.Expression, before.Expression, StringComparison.Ordinal))
                     throw new CollectionServiceException(RuleChangedMessage(state.Row, before));
+                RefuseUnrestorable(state.Row, current, "removed");
                 impact.Add($"Removes {RuleText(current)} from collection {Shown(state.Row)}.");
                 if (current.Kind == CollectionRuleKind.Query) impact.Add($"WQL: {current.Expression}");
                 if (current.Kind is CollectionRuleKind.Include or CollectionRuleKind.Exclude) impact.Add(MembershipLine(current.Kind));
@@ -272,6 +320,7 @@ public sealed partial class CollectionService : ICollectionService
                 var current = await RequireQueryAsync(request.QueryBefore, ct).ConfigureAwait(false);
                 if (!SameQuery(current, request.QueryBefore!))
                     throw new CollectionServiceException(QueryChangedMessage(current.Name));
+                RefuseUnrestorable(current, "changed");
                 var query = CheckedQuery(request.QueryAfter) with { QueryId = current.QueryId };
                 if (!string.Equals(query.Name, current.Name, StringComparison.OrdinalIgnoreCase))
                     await CheckQueryNameFreeAsync(query.Name, current.QueryId, ct).ConfigureAwait(false);
@@ -287,6 +336,7 @@ public sealed partial class CollectionService : ICollectionService
             case CollectionChangeKind.DeleteQuery:
             {
                 var current = await RequireQueryAsync(request.QueryBefore, ct).ConfigureAwait(false);
+                RefuseUnrestorable(current, "deleted");
                 impact.Add($"Deletes the saved query {current.Name} ({current.QueryId}).");
                 impact.Add($"WQL: {current.Expression}");
                 impact.Add("Undo saves the query again with a new query ID.");
@@ -311,14 +361,24 @@ public sealed partial class CollectionService : ICollectionService
             if (await ReadStateAsync(rule.IncludedCollectionId, ct).ConfigureAwait(false) is null)
                 throw new CollectionServiceException(CollectionMissingMessage(null, rule.IncludedCollectionId));
 
+        if (RefreshInterval.Check(after.RefreshInterval) is { } invalidInterval) throw new CollectionServiceException(invalidInterval);
+        var periodic = refresh is "Periodic" or "Both";
+        // A captured schedule token (the Undo of a remove) is kept so the schedule comes back exactly.
+        var token = ScheduleOrEmpty(after.RefreshSchedule);
+        if (after.RefreshInterval is { } given && IntervalOf(token) != given) token = "";
+        var interval = !periodic ? null : token.Length > 0 ? IntervalOf(token) : after.RefreshInterval ?? RefreshInterval.Default;
+
         var row = after with
         {
             CollectionId = "", Name = name, IsBuiltIn = false, RefreshType = refresh,
             LimitingCollectionId = limiting.Row.CollectionId, LimitingCollectionName = limiting.Row.Name,
-            RefreshSchedule = ScheduleOrEmpty(after.RefreshSchedule), Comment = after.Comment ?? ""
+            RefreshSchedule = token, RefreshInterval = interval, Comment = after.Comment ?? ""
         };
         impact.Add($"Creates collection {name}, limited to {Shown(limiting.Row)}.");
-        impact.Add($"Refresh: {RefreshText(refresh)}.");
+        impact.Add(!periodic ? $"Refresh: {RefreshText(refresh)}."
+            : interval is null ? $"Refresh: {RefreshText(refresh)}, with the schedule the collection had."
+            : token.Length == 0 && after.RefreshInterval is null ? $"Refresh: {RefreshText(refresh)}, {IntervalText(interval)} (the default when no interval is given)."
+            : $"Refresh: {RefreshText(refresh)}, {IntervalText(interval)}.");
         if (rules.Count > 0) impact.Add($"Adds {Count(rules.Count, "rule")}: {string.Join("; ", rules.Select(RuleText))}.");
         impact.Add("Undo removes the new collection.");
         return request with { CollectionId = "", CollectionName = name, BeforeRow = null, AfterRow = row, Rules = rules, RuleAfter = null, Impact = impact };
@@ -340,18 +400,27 @@ public sealed partial class CollectionService : ICollectionService
             ?? throw new CollectionServiceException(CollectionMissingMessage(after.LimitingCollectionName, after.LimitingCollectionId));
         if (!string.Equals(name, current.Name, StringComparison.OrdinalIgnoreCase))
             await CheckNameFreeAsync(name, ct).ConfigureAwait(false);
-        var schedule = current.RefreshSchedule;
+        if (RefreshInterval.Check(after.RefreshInterval) is { } invalidInterval) throw new CollectionServiceException(invalidInterval);
+        var periodic = refresh is "Periodic" or "Both";
+        var currentInterval = IntervalOf(current.RefreshSchedule);
+        var newInterval = periodic && after.RefreshInterval is { } wanted && wanted != currentInterval ? wanted : null;
+        if (periodic && newInterval is null && current.RefreshSchedule.Length == 0) newInterval = after.RefreshInterval ?? RefreshInterval.Default;
 
         var row = current with
         {
             Name = name, Comment = after.Comment ?? "", LimitingCollectionId = limiting.Row.CollectionId,
-            LimitingCollectionName = limiting.Row.Name, RefreshType = refresh, RefreshSchedule = schedule
+            LimitingCollectionName = limiting.Row.Name, RefreshType = refresh,
+            RefreshSchedule = newInterval is null ? current.RefreshSchedule : "", RefreshInterval = newInterval ?? currentInterval
         };
         if (!string.Equals(current.Name, row.Name, StringComparison.Ordinal)) impact.Add($"Name: {current.Name} -> {row.Name}");
         if (!string.Equals(current.Comment, row.Comment, StringComparison.Ordinal)) impact.Add($"Comment: {Blank(current.Comment)} -> {Blank(row.Comment)}");
         if (!string.Equals(current.LimitingCollectionId, row.LimitingCollectionId, StringComparison.OrdinalIgnoreCase))
             impact.Add($"Limiting collection: {Shown(current.LimitingCollectionName, current.LimitingCollectionId)} -> {Shown(row.LimitingCollectionName, row.LimitingCollectionId)}");
         if (!string.Equals(current.RefreshType, row.RefreshType, StringComparison.Ordinal)) impact.Add($"Refresh: {RefreshText(current.RefreshType)} -> {RefreshText(row.RefreshType)}");
+        if (newInterval is not null)
+            impact.Add(currentInterval is null && current.RefreshSchedule.Length == 0 && after.RefreshInterval is null
+                ? $"Refresh schedule: none -> {IntervalText(newInterval)} (the default when no interval is given)"
+                : $"Refresh schedule: {IntervalText(currentInterval)} -> {IntervalText(newInterval)}");
 
         if (impact.Count == baseCount)
             throw new CollectionServiceException("The properties are the same as in ConfigMgr. Nothing to change.");
@@ -433,14 +502,23 @@ public sealed partial class CollectionService : ICollectionService
             throw new CollectionServiceException(
                 $"{Count(included.Count, "collection")} include or exclude collection {Shown(row)} ({Names(included)}). ConfigMgr does not remove a collection that is in such a rule. Remove those rules first.");
 
+        if (InvalidCreate(row with { CollectionId = "" }, []) is { } rowReason)
+            throw new CollectionServiceException($"Undo could not create collection {Shown(row)} again, so it is not removed. {rowReason}");
+        foreach (var rule in rules) RefuseUnrestorable(row, rule, "removed");
+
         impact.Add($"Removes collection {Shown(row)}.");
         impact.Add($"Members now: {row.MemberCount}.");
         impact.Add($"Deployments to the collection: {deployments}. ConfigMgr removes them with the collection.");
         impact.Add($"Maintenance windows on the collection: {read.WindowCount}. ConfigMgr removes them with the collection.");
         impact.Add("Collections that include or exclude it: 0. Collections that use it as limiting collection: 0.");
         impact.Add($"Rules captured for Undo: {rules.Count}.");
+        impact.Add("If these counts or the properties change before the remove starts, the collection is not removed.");
         impact.Add("Undo creates the collection again with its properties and rules. The new collection has a new ID. Deployments and maintenance windows are not restored.");
-        return request with { CollectionId = row.CollectionId, CollectionName = row.Name, BeforeRow = row, AfterRow = null, Rules = rules, Impact = impact };
+        return request with
+        {
+            CollectionId = row.CollectionId, CollectionName = row.Name, BeforeRow = row, AfterRow = null, Rules = rules, Impact = impact,
+            RemoveCounts = new CollectionRemoveCounts(row.MemberCount, deployments, read.WindowCount)
+        };
     }
 
     // ---- Apply --------------------------------------------------------------------------------
@@ -464,11 +542,11 @@ public sealed partial class CollectionService : ICollectionService
             {
                 try
                 {
-                    outcome = await ApplyOneAsync(change).ConfigureAwait(false);
+                    outcome = await ApplyOneAsync(Normalized(change)).ConfigureAwait(false) with { Change = change };
                 }
                 catch (Exception ex)
                 {
-                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {SecretMask.Apply($"{ex.GetType().Name}: {ex.Message}", [])}");
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
                     outcome = Fail(change, $"The change to {Target(change)} stopped with an unexpected error. Refresh the list to see the current state. The log has the details.");
                 }
                 if (outcome.Message.StartsWith(SkippedPrefix, StringComparison.Ordinal)) skipped++;
@@ -494,17 +572,19 @@ public sealed partial class CollectionService : ICollectionService
                 var parameters = new ConfigMgrParameters
                 {
                     { "Operation", "Create" }, { "Name", after.Name.Trim() }, { "LimitingCollectionId", after.LimitingCollectionId },
-                    { "RefreshType", after.RefreshType }, { "RefreshSchedule", ScheduleOrEmpty(after.RefreshSchedule) }, { "Comment", after.Comment ?? "" },
+                    { "RefreshType", after.RefreshType }, { "Comment", after.Comment ?? "" },
                     { "RuleKinds", rules.Select(r => r.Kind.ToString()).ToArray() },
                     { "RuleNames", rules.Select(r => r.RuleName ?? "").ToArray() },
                     { "RuleExpressions", rules.Select(r => r.Expression ?? "").ToArray() },
                     { "RuleResourceIds", rules.Select(r => r.ResourceId ?? "").ToArray() },
                     { "RuleCollectionIds", rules.Select(r => r.IncludedCollectionId ?? "").ToArray() }
                 };
+                AddSchedule(parameters, after, after.RefreshInterval ?? RefreshInterval.Default);
+                var existed = await CollectionIdsNamedAsync(after.Name.Trim()).ConfigureAwait(false);
                 var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
-                if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
-                var created = StateOf(run.Result!);
-                if (created is null) return Fail(change, NotReadBackMessage(change));
+                if (run.Failure is not null) return await ReconcileAsync(change, run, existed).ConfigureAwait(false);
+                var created = StateOf(run.Result!) ?? await ReadCreatedAsync(run.Result!.CreatedId).ConfigureAwait(false);
+                if (created is null) return await ReconcileAsync(change, Unread(change, run), existed).ConfigureAwait(false);
                 var undo = RemoveUndo(created);
                 if (run.Result!.Status == "rules-partial")
                 {
@@ -522,10 +602,11 @@ public sealed partial class CollectionService : ICollectionService
                 if (!IsCollectionId(change.CollectionId)) return Refused(change, NotPreparedMessage);
                 if (CheckName(change.AfterRow?.Name) is { } invalid) return Refused(change, invalid);
                 var name = change.AfterRow!.Name.Trim();
+                var existed = await CollectionIdsNamedAsync(name).ConfigureAwait(false);
                 var run = await RunWriteAsync(change, new ConfigMgrParameters { { "Operation", "Copy" }, { "CollectionId", change.CollectionId }, { "Name", name } }).ConfigureAwait(false);
-                if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
-                var copy = StateOf(run.Result!);
-                if (copy is null) return Fail(change, NotReadBackMessage(change));
+                if (run.Failure is not null) return await ReconcileAsync(change, run, existed).ConfigureAwait(false);
+                var copy = StateOf(run.Result!) ?? await ReadCreatedAsync(run.Result!.CreatedId).ConfigureAwait(false);
+                if (copy is null) return await ReconcileAsync(change, Unread(change, run), existed).ConfigureAwait(false);
                 return Done(change, $"Copied collection {Shown(change.CollectionName, change.CollectionId)} to {Shown(copy.Row)}.", RemoveUndo(copy));
             }
             case CollectionChangeKind.SetProperties:
@@ -534,17 +615,18 @@ public sealed partial class CollectionService : ICollectionService
                 if (IsBuiltIn(change.CollectionId)) return Refused(change, BuiltInMessage(change));
                 if (CheckName(after.Name) is { } invalidName) return Refused(change, invalidName);
                 if (!IsCollectionId(after.LimitingCollectionId) || !IsRefreshType(after.RefreshType)) return Refused(change, NotPreparedMessage);
+                if (RefreshInterval.Check(after.RefreshInterval) is { } invalidInterval) return Refused(change, invalidInterval);
                 var parameters = Expected(change, before);
                 parameters["Operation"] = "SetProperties";
                 parameters["Name"] = after.Name.Trim();
                 parameters["Comment"] = after.Comment ?? "";
                 parameters["LimitingCollectionId"] = after.LimitingCollectionId;
                 parameters["RefreshType"] = after.RefreshType;
-                parameters["RefreshSchedule"] = ScheduleOrEmpty(after.RefreshSchedule);
+                AddSchedule(parameters, after, null);
                 var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
                 var now = StateOf(run.Result!);
-                if (now is null) return Fail(change, NotReadBackMessage(change));
+                if (now is null) return await ReconcileAsync(change, Unread(change, run)).ConfigureAwait(false);
                 return Done(change, $"Updated the properties of collection {Shown(now.Row)}.", SetUndo(now.Row, before));
             }
             case CollectionChangeKind.AddRule:
@@ -560,7 +642,7 @@ public sealed partial class CollectionService : ICollectionService
                 var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
                 var added = StateOf(run.Result!) is { } now ? FindRule(now.Rules, rule) : null;
-                if (added is null) return Fail(change, NotReadBackMessage(change));
+                if (added is null) return await ReconcileAsync(change, Unread(change, run)).ConfigureAwait(false);
                 return Done(change, $"Added {RuleText(added)} to collection {Shown(change.CollectionName, change.CollectionId)}.",
                     RuleUndo(CollectionChangeKind.RemoveRule, change, added, null));
             }
@@ -587,11 +669,14 @@ public sealed partial class CollectionService : ICollectionService
             }
             case CollectionChangeKind.Remove:
             {
-                if (change.BeforeRow is not { } before || change.Rules is not { } rules) return Refused(change, NotPreparedMessage);
+                if (change.BeforeRow is not { } before || change.Rules is not { } rules || change.RemoveCounts is not { } counts) return Refused(change, NotPreparedMessage);
                 if (IsBuiltIn(change.CollectionId)) return Refused(change, BuiltInMessage(change));
                 var parameters = Expected(change, before);
                 parameters["Operation"] = "Remove";
                 parameters["ExpectedRuleKeys"] = rules.Select(RuleKey).ToArray();
+                parameters["ExpectedMemberCount"] = counts.Members;
+                parameters["ExpectedDeployments"] = counts.Deployments;
+                parameters["ExpectedWindows"] = counts.MaintenanceWindows;
                 var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
                 return Done(change, $"Removed collection {Shown(before)}. {RemoveUndoNote}", CreateUndo(before, rules));
@@ -599,10 +684,12 @@ public sealed partial class CollectionService : ICollectionService
             case CollectionChangeKind.SaveQuery:
             {
                 if (change.QueryAfter is not { } query || InvalidQuery(query) is not null) return Refused(change, InvalidQuery(change.QueryAfter) ?? NotPreparedMessage);
+                var existed = await QueryIdsNamedAsync(query.Name.Trim()).ConfigureAwait(false);
                 var run = await RunWriteAsync(change, QueryParameters("SaveQuery", query, null)).ConfigureAwait(false);
-                if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
-                if (run.Result!.Query is not { } saved) return Fail(change, NotReadBackMessage(change));
-                var created = ToQuery(saved);
+                if (run.Failure is not null) return await ReconcileAsync(change, run, existed).ConfigureAwait(false);
+                var saved = run.Result!.Query is { } row ? ToQuery(row) : await ReadCreatedQueryAsync(run.Result.CreatedId).ConfigureAwait(false);
+                if (saved is null) return await ReconcileAsync(change, Unread(change, run), existed).ConfigureAwait(false);
+                var created = saved;
                 return Done(change, $"Saved query {created.Name} ({created.QueryId}).", QueryUndo(CollectionChangeKind.DeleteQuery, created, null));
             }
             case CollectionChangeKind.UpdateQuery:
@@ -612,7 +699,7 @@ public sealed partial class CollectionService : ICollectionService
                 if (IsBuiltInQuery(before.QueryId)) return Refused(change, BuiltInQueryMessage(before));
                 var run = await RunWriteAsync(change, QueryParameters("UpdateQuery", after with { QueryId = before.QueryId }, before)).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
-                if (run.Result!.Query is not { } saved) return Fail(change, NotReadBackMessage(change));
+                if (run.Result!.Query is not { } saved) return await ReconcileAsync(change, Unread(change, run)).ConfigureAwait(false);
                 var updated = ToQuery(saved);
                 return Done(change, $"Updated saved query {updated.Name} ({updated.QueryId}).", QueryUndo(CollectionChangeKind.UpdateQuery, updated, before));
             }
@@ -649,8 +736,17 @@ public sealed partial class CollectionService : ICollectionService
             { "RuleName", newName }, { "Expression", after.Expression }, { "OldRuleName", before.RuleName },
             { "OldExpression", before.Expression }, { "TempRuleName", temp }
         };
+        var orphans = (change.Rules ?? []).Where(r => r.Kind == CollectionRuleKind.Query).ToList();
+        parameters["OrphanRuleNames"] = orphans.Select(r => r.RuleName ?? "").ToArray();
+        parameters["OrphanExpressions"] = orphans.Select(r => r.Expression ?? "").ToArray();
         var collection = Shown(change.CollectionName, change.CollectionId);
         var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
+        if (run.Result is { Status: "update-failed", Steps: { } steps } && steps.Contains("done"))
+        {
+            LogDetail("A temporary query rule was not removed", run.Result.Detail);
+            var left = string.Join(", ", orphans.Select(o => o.RuleName));
+            return Partial(change, $"Rule {newName} on {collection} has the WQL of this change, but ConfigMgr did not remove rule {left}. Remove it in the console.", null);
+        }
         if (run.Result?.Status == "update-failed" || (run.Failure is not null && run.Uncertain))
         {
             LogDetail("A query rule update stopped", run.Result?.Detail);
@@ -661,7 +757,12 @@ public sealed partial class CollectionService : ICollectionService
         }
         if (run.Failure is not null) return run.Failure;
         var updated = StateOf(run.Result!) is { } now ? QueryRule(now.Rules, newName) : null;
-        if (updated is null) return Fail(change, NotReadBackMessage(change));
+        if (updated is null)
+        {
+            var rules = (await ReadBackAsync(change).ConfigureAwait(false))?.Rules;
+            if (rules is null) return Fail(change, NotReadBackMessage(change));
+            return UpdateRuleOutcome(change, before, newName, temp, rules, collection);
+        }
         return Done(change, $"Updated query rule {updated.RuleName} on {collection}.",
             RuleUndo(CollectionChangeKind.UpdateRule, change, updated, before));
     }
@@ -690,8 +791,8 @@ public sealed partial class CollectionService : ICollectionService
             return Fail(change, $"ConfigMgr did not accept the new rule, so rule {before.RuleName} on {collection} is not changed. The log has the details.");
         }
         if (final is not null && tempRule is not null)
-            return Partial(change, $"Rule {final.RuleName} has the new WQL, but ConfigMgr did not remove the temporary rule {temp}. Remove it in the console; Undo puts the old WQL back in {final.RuleName}." + exists,
-                RuleUndo(CollectionChangeKind.UpdateRule, change, final, before));
+            return Partial(change, $"Rule {final.RuleName} has the new WQL, but ConfigMgr did not remove the temporary rule {temp}. Undo puts the old WQL back in {final.RuleName} and removes {temp}." + exists,
+                RuleUndo(CollectionChangeKind.UpdateRule, change, final, before) with { Rules = [tempRule] });
         if (final is not null)
             return Partial(change, $"Rule {final.RuleName} has the new WQL, but ConfigMgr then reported an error." + exists,
                 RuleUndo(CollectionChangeKind.UpdateRule, change, final, before));
@@ -715,7 +816,7 @@ public sealed partial class CollectionService : ICollectionService
         WriteResult? result;
         try
         {
-            var output = await _session.InvokeAsync(WriteScript, parameters, CancellationToken.None).ConfigureAwait(false);
+            var output = await _session.InvokeAsync(WriteScript, Masked(parameters), CancellationToken.None).ConfigureAwait(false);
             result = Rows<WriteResult>(output, "Result").LastOrDefault();
         }
         catch (ConfigMgrSessionException ex)
@@ -785,7 +886,12 @@ public sealed partial class CollectionService : ICollectionService
     /// carries the undo when something changed, the original failure when nothing changed or
     /// when the state cannot be read.
     /// </summary>
-    private async Task<CollectionOutcome> ReconcileAsync(CollectionChange change, WriteRun run)
+    /// <param name="existed">
+    /// For Create, Copy and SaveQuery, the IDs of the objects that had the new name before the
+    /// write; null when they could not be read. Only an object that is new since then and holds
+    /// the values of the change counts as made by this change.
+    /// </param>
+    private async Task<CollectionOutcome> ReconcileAsync(CollectionChange change, WriteRun run, IReadOnlySet<string>? existed = null)
     {
         if (!run.Uncertain || run.Failure is null) return run.Failure!;
         var target = Target(change);
@@ -794,11 +900,10 @@ public sealed partial class CollectionService : ICollectionService
             case CollectionChangeKind.Create:
             case CollectionChangeKind.Copy:
             {
-                var name = change.AfterRow?.Name?.Trim() ?? "";
-                var made = await FindByNameAsync(name).ConfigureAwait(false);
-                return made is not null && !string.Equals(made.Row.CollectionId, change.CollectionId, StringComparison.OrdinalIgnoreCase)
-                    ? Partial(change, $"ConfigMgr created collection {Shown(made.Row)} and then reported an error. The collection exists now; Undo removes it.", RemoveUndo(made))
-                    : run.Failure;
+                var (made, unclear) = await FindCreatedCollectionAsync(change, run.Result?.CreatedId, existed).ConfigureAwait(false);
+                if (made is not null)
+                    return Partial(change, $"ConfigMgr created collection {Shown(made.Row)} and then reported an error. The collection exists now; Undo removes it.", RemoveUndo(made));
+                return unclear ? Fail(change, UnknownResultMessage(change)) : run.Failure;
             }
             case CollectionChangeKind.SetProperties when change.BeforeRow is { } before:
             {
@@ -833,10 +938,10 @@ public sealed partial class CollectionService : ICollectionService
             }
             case CollectionChangeKind.SaveQuery when change.QueryAfter is { } query:
             {
-                var made = await FindQueryAsync(query.Name).ConfigureAwait(false);
-                return made is not null
-                    ? Partial(change, $"ConfigMgr saved query {made.Name} ({made.QueryId}) and then reported an error. Undo deletes it.", QueryUndo(CollectionChangeKind.DeleteQuery, made, null))
-                    : run.Failure;
+                var (made, unclear) = await FindCreatedQueryAsync(query, run.Result?.CreatedId, existed).ConfigureAwait(false);
+                if (made is not null)
+                    return Partial(change, $"ConfigMgr saved query {made.Name} ({made.QueryId}) and then reported an error. Undo deletes it.", QueryUndo(CollectionChangeKind.DeleteQuery, made, null));
+                return unclear ? Fail(change, UnknownResultMessage(change)) : run.Failure;
             }
             case CollectionChangeKind.UpdateQuery when change.QueryBefore is { } before:
             {
@@ -866,27 +971,39 @@ public sealed partial class CollectionService : ICollectionService
     private string WriteFailureMessage(ConfigMgrSessionException ex, CollectionChange change)
     {
         var target = Target(change);
-        switch (ex.Failure)
+        _log?.Warning(LogArea, $"A change failed in the ConfigMgr session: {ex.Failure}, {FailureKinds(ex.Message)}.");
+        return ex.Failure switch
         {
-            case ConfigMgrFailure.AccessDenied:
-                return $"ConfigMgr denied the change to {target}. {AccessHint}";
-            case ConfigMgrFailure.Timeout:
-            case ConfigMgrFailure.ProcessDied:
-            case ConfigMgrFailure.Unexpected:
-                return $"The result of the change to {target} is not known: {ex.Message} Refresh the list to see the current state.";
-            case ConfigMgrFailure.ScriptFailed:
-                _log?.Warning(LogArea, $"A change failed in the ConfigMgr session: {ex.Message}");
-                return $"ConfigMgr reported an error for {target}. The log has the details.";
-            default:
-                return ex.Message;
-        }
+            ConfigMgrFailure.AccessDenied => $"ConfigMgr denied the change to {target}. {AccessHint}",
+            ConfigMgrFailure.Timeout => $"The result of the change to {target} is not known: ConfigMgr did not answer in time. Refresh the list to see the current state.",
+            ConfigMgrFailure.ProcessDied => $"The result of the change to {target} is not known: the ConfigMgr session ended during the change. Refresh the list to see the current state.",
+            ConfigMgrFailure.Unexpected => $"The result of the change to {target} is not known: the ConfigMgr session failed. Refresh the list to see the current state.",
+            ConfigMgrFailure.ScriptFailed => $"ConfigMgr reported an error for {target}. The log has the details.",
+            _ => $"The change to {target} was not made. {SessionProblem(ex.Failure)}"
+        };
     }
+
+    /// <summary>Fixed text for a session failure that happens before any command runs.</summary>
+    private static string SessionProblem(ConfigMgrFailure failure) => failure switch
+    {
+        ConfigMgrFailure.AccessDenied => $"The SMS Provider denied access. {AccessHint}",
+        ConfigMgrFailure.InvalidSiteCode => $"The site code is not valid. Correct it in {ConfigMgrSessionHost.SettingsLocation}.",
+        ConfigMgrFailure.PowerShellNotStarted => "Windows PowerShell 5.1 (powershell.exe) could not start. ConfigMgr commands need it.",
+        ConfigMgrFailure.ModuleNotFound => "The ConfigurationManager PowerShell module was not found. Install the Configuration Manager console on this computer.",
+        ConfigMgrFailure.DriveNotConnected => $"The connection to the ConfigMgr site failed. Check the site code and the SMS Provider in {ConfigMgrSessionHost.SettingsLocation}.",
+        ConfigMgrFailure.Timeout => "ConfigMgr did not answer in time. Try again.",
+        ConfigMgrFailure.ProcessDied => "The Windows PowerShell session for ConfigMgr ended. Try again; the next command starts a new session.",
+        ConfigMgrFailure.RequestTooLarge => "The values are too large for one ConfigMgr command.",
+        _ => "The ConfigMgr session failed. The log has the details."
+    };
 
     // ---- Undo builders ------------------------------------------------------------------------
 
+    /// <summary>A collection this change made has no deployments; the Undo is refused when one was added since.</summary>
     private static CollectionChange RemoveUndo(CollectionState made) =>
         new(CollectionChangeKind.Remove, made.Row.CollectionId, made.Row.Name, made.Row, null, null, null, null, null,
-            [$"Removes collection {Shown(made.Row)}."], made.Rules);
+            [$"Removes collection {Shown(made.Row)}.", "If a deployment or a maintenance window was added to it since, it is not removed."], made.Rules,
+            new CollectionRemoveCounts(-1, 0, made.WindowCount));
 
     private static CollectionChange CreateUndo(CollectionRow removed, IReadOnlyList<CollectionRule> rules) =>
         new(CollectionChangeKind.Create, "", removed.Name, null, removed with { CollectionId = "" }, null, null, null, null,
@@ -914,6 +1031,25 @@ public sealed partial class CollectionService : ICollectionService
         { "ExpectedRefreshType", RefreshValue(before.RefreshType) },
         { "ExpectedRefreshSchedule", before.RefreshSchedule ?? "" }
     };
+
+    /// <summary>
+    /// A captured schedule token goes to the script as it is, so an Undo puts the exact schedule
+    /// back; otherwise the interval of the row, or <paramref name="fallback"/>, is built anew.
+    /// </summary>
+    private static void AddSchedule(ConfigMgrParameters parameters, CollectionRow row, RefreshInterval? fallback)
+    {
+        var token = ScheduleOrEmpty(row.RefreshSchedule);
+        if (token.Length > 0)
+        {
+            parameters["RefreshSchedule"] = token;
+            return;
+        }
+        if ((row.RefreshInterval ?? fallback) is { } interval && RefreshInterval.Check(interval) is null)
+        {
+            parameters["RefreshUnit"] = interval.Unit;
+            parameters["RefreshCount"] = interval.Count;
+        }
+    }
 
     private static ConfigMgrParameters RuleParameters(string operation, string collectionId, CollectionRule rule)
     {
@@ -1004,6 +1140,7 @@ public sealed partial class CollectionService : ICollectionService
         if (CheckName(row.Name) is { } reason) return reason;
         if (!IsCollectionId(row.LimitingCollectionId)) return "Select a limiting collection.";
         if (!IsRefreshType(row.RefreshType)) return "Select the refresh type: Manual, Periodic, Continuous or Both.";
+        if (RefreshInterval.Check(row.RefreshInterval) is { } interval) return interval;
         return rules?.Select(InvalidRule).FirstOrDefault(r => r is not null);
     }
 
@@ -1098,7 +1235,7 @@ public sealed partial class CollectionService : ICollectionService
         var id = r.CollectionId ?? "";
         return new CollectionRow(id, r.Name ?? "", MaintenanceWindowService.FolderPath(r.ObjectPath), r.LimitToCollectionId ?? "", r.LimitToCollectionName ?? "",
             r.MemberCount, IsBuiltIn(id), RefreshName(r.RefreshType), r.Comment ?? "", r.DirectRuleCount, r.QueryRuleCount, r.IncludeRuleCount, r.ExcludeRuleCount,
-            ScheduleOrEmpty(r.RefreshSchedule));
+            ScheduleOrEmpty(r.RefreshSchedule), IntervalOf(ScheduleOrEmpty(r.RefreshSchedule)));
     }
 
     private static CollectionRule? ToRule(RuleRow r)
@@ -1139,27 +1276,40 @@ public sealed partial class CollectionService : ICollectionService
 
     private const string UnreadableMessage = "ConfigMgr returned data that could not be read. The log has the details.";
 
+    private static readonly HashSet<string> LoggedParameters = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Operation", "CollectionId", "LimitingCollectionId", "RefreshType", "RefreshSchedule", "RefreshUnit",
+        "QueryId", "IncludedCollectionId", "LimitToCollectionId", "RuleKind", "TargetClassName"
+    };
+
+    /// <summary>
+    /// The session logs every parameter that is not secret and masks secret values in the error
+    /// text it returns, so names, comments and WQL travel as secret values.
+    /// </summary>
+    private static ConfigMgrParameters Masked(ConfigMgrParameters parameters)
+    {
+        var masked = new ConfigMgrParameters();
+        foreach (var (name, value) in parameters)
+        {
+            if (value is string text && !LoggedParameters.Contains(name)) masked.AddSecret(name, text);
+            else masked.Add(name, value);
+        }
+        return masked;
+    }
+
     private async Task<ConfigMgrCommandResult> ReadAsync(ConfigMgrParameters parameters, CancellationToken ct)
     {
         try
         {
-            return await _session.InvokeAsync(ReadScript, parameters, ct).ConfigureAwait(false);
+            return await _session.InvokeAsync(ReadScript, Masked(parameters), ct).ConfigureAwait(false);
         }
         catch (ConfigMgrSessionException ex)
         {
-            throw new CollectionServiceException(ex.Failure switch
-            {
-                ConfigMgrFailure.AccessDenied => $"{ex.Message} {AccessHint}",
-                ConfigMgrFailure.ScriptFailed => LoggedReadFailure(ex),
-                _ => ex.Message
-            });
+            _log?.Warning(LogArea, $"Reading collections failed in the ConfigMgr session: {ex.Failure}, {FailureKinds(ex.Message)}.");
+            throw new CollectionServiceException(ex.Failure == ConfigMgrFailure.ScriptFailed
+                ? "The collections could not be read from ConfigMgr. The log has the details."
+                : SessionProblem(ex.Failure));
         }
-    }
-
-    private string LoggedReadFailure(ConfigMgrSessionException ex)
-    {
-        _log?.Warning(LogArea, $"Reading collections failed in the ConfigMgr session: {ex.Message}");
-        return "The collections could not be read from ConfigMgr. The log has the details.";
     }
 
     private async Task<CollectionState?> ReadStateAsync(string? collectionId, CancellationToken ct)
@@ -1198,20 +1348,95 @@ public sealed partial class CollectionService : ICollectionService
     private async Task<CollectionState?> ReadBackAsync(CollectionChange change) =>
         IsCollectionId(change.CollectionId) ? (await ReadStateOrNullAsync(change.CollectionId).ConfigureAwait(false)).State : null;
 
-    private async Task<CollectionState?> FindByNameAsync(string name)
+    /// <summary>The IDs of the collections named <paramref name="name"/>; null when they cannot be read.</summary>
+    private async Task<IReadOnlySet<string>?> CollectionIdsNamedAsync(string name)
     {
         try
         {
             var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "FindCollection" }, { "Name", name } }, CancellationToken.None).ConfigureAwait(false);
-            var found = Rows<FoundRow>(output, "Found").FirstOrDefault(f => f.CollectionType == 2);
-            return found?.CollectionId is { } id && IsCollectionId(id) ? (await ReadStateOrNullAsync(id).ConfigureAwait(false)).State : null;
+            return Rows<FoundRow>(output, "Found").Select(f => f.CollectionId ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
-        catch (Exception ex) when (ex is CollectionServiceException)
+        catch (CollectionServiceException)
         {
-            _log?.Warning(LogArea, "A change failed and the collections could not be read back to find what changed.");
             return null;
         }
     }
+
+    /// <summary>The IDs of the saved queries named <paramref name="name"/>; null when they cannot be read.</summary>
+    private async Task<IReadOnlySet<string>?> QueryIdsNamedAsync(string name)
+    {
+        try
+        {
+            var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "FindQuery" }, { "Name", name } }, CancellationToken.None).ConfigureAwait(false);
+            return Rows<QueryRow>(output, "SavedQuery").Select(q => q.QueryId ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (CollectionServiceException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<CollectionState?> ReadCreatedAsync(string? id) =>
+        IsCollectionId(id) ? (await ReadStateOrNullAsync(id!).ConfigureAwait(false)).State : null;
+
+    private async Task<SavedQuery?> ReadCreatedQueryAsync(string? id) =>
+        id is not null && QueryIdRegex().IsMatch(id) ? (await ReadQueryOrNullAsync(id).ConfigureAwait(false)).Query : null;
+
+    /// <summary>
+    /// The collection a Create or Copy made: the one with the ID the script returned, or else the
+    /// only collection with the new name that did not exist before the write and holds the
+    /// limiting collection and comment of the change. <c>Unclear</c> is true when such a
+    /// collection may exist but cannot be shown to come from this change.
+    /// </summary>
+    private async Task<(CollectionState? Made, bool Unclear)> FindCreatedCollectionAsync(CollectionChange change, string? createdId, IReadOnlySet<string>? existed)
+    {
+        if (IsCollectionId(createdId))
+        {
+            var (read, state) = await ReadStateOrNullAsync(createdId!).ConfigureAwait(false);
+            return (state, !read);
+        }
+        var after = change.AfterRow;
+        var now = await CollectionIdsNamedAsync(after?.Name?.Trim() ?? "").ConfigureAwait(false);
+        if (now is null) return (null, true);
+        var fresh = now.Where(id => existed is null || !existed.Contains(id)).ToList();
+        if (fresh.Count == 0) return (null, false);
+        if (existed is null || fresh.Count > 1 || after is null) return (null, true);
+        var made = await ReadCreatedAsync(fresh[0]).ConfigureAwait(false);
+        var same = made is not null
+            && string.Equals(made.Row.LimitingCollectionId, after.LimitingCollectionId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(made.Row.Comment, after.Comment ?? "", StringComparison.Ordinal);
+        return same ? (made, false) : (null, true);
+    }
+
+    private async Task<(SavedQuery? Made, bool Unclear)> FindCreatedQueryAsync(SavedQuery query, string? createdId, IReadOnlySet<string>? existed)
+    {
+        if (createdId is not null && QueryIdRegex().IsMatch(createdId))
+        {
+            var (read, made) = await ReadQueryOrNullAsync(createdId).ConfigureAwait(false);
+            return (made, !read);
+        }
+        var now = await QueryIdsNamedAsync(query.Name.Trim()).ConfigureAwait(false);
+        if (now is null) return (null, true);
+        var fresh = now.Where(id => existed is null || !existed.Contains(id)).ToList();
+        if (fresh.Count == 0) return (null, false);
+        if (existed is null || fresh.Count > 1) return (null, true);
+        var candidate = await ReadCreatedQueryAsync(fresh[0]).ConfigureAwait(false);
+        var same = candidate is not null
+            && string.Equals(candidate.Expression, query.Expression, StringComparison.Ordinal)
+            && string.Equals(candidate.Comment ?? "", query.Comment ?? "", StringComparison.Ordinal);
+        return same ? (candidate, false) : (null, true);
+    }
+
+    private static string UnknownResultMessage(CollectionChange change)
+    {
+        var (thing, name) = change.Kind == CollectionChangeKind.SaveQuery
+            ? ("saved query", change.QueryAfter?.Name?.Trim() ?? "")
+            : ("collection", change.AfterRow?.Name?.Trim() ?? "");
+        return $"The result of the change to {Target(change)} is not known. ConfigMgr reported an error, and this change cannot be shown to have made the {thing} named {name}. Check in ConfigMgr whether {thing} {name} exists and who made it. Undo is not available.";
+    }
+
+    private static WriteRun Unread(CollectionChange change, WriteRun run) =>
+        run with { Failure = Fail(change, NotReadBackMessage(change)), Uncertain = true };
 
     private async Task CheckNameFreeAsync(string name, CancellationToken ct)
     {
@@ -1235,19 +1460,6 @@ public sealed partial class CollectionService : ICollectionService
             throw new CollectionServiceException($"A saved query named {name} exists already.");
     }
 
-    private async Task<SavedQuery?> FindQueryAsync(string name)
-    {
-        try
-        {
-            var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "FindQuery" }, { "Name", name.Trim() } }, CancellationToken.None).ConfigureAwait(false);
-            return Rows<QueryRow>(output, "SavedQuery").Select(ToQuery).FirstOrDefault();
-        }
-        catch (Exception ex) when (ex is CollectionServiceException)
-        {
-            return null;
-        }
-    }
-
     private async Task<(bool Read, SavedQuery? Query)> ReadQueryOrNullAsync(string queryId)
     {
         try
@@ -1261,15 +1473,48 @@ public sealed partial class CollectionService : ICollectionService
         }
     }
 
+    /// <summary>The change with its collection ID trimmed and in upper case, as ConfigMgr compares IDs.</summary>
+    private static CollectionChange Normalized(CollectionChange change)
+    {
+        var id = (change.CollectionId ?? "").Trim().ToUpperInvariant();
+        return id == change.CollectionId ? change : change with { CollectionId = id };
+    }
+
+    /// <summary>Refuses a change whose Undo would have to add <paramref name="rule"/> again when the Undo would refuse that rule.</summary>
+    private static void RefuseUnrestorable(CollectionRow row, CollectionRule rule, string action)
+    {
+        if (InvalidRule(rule) is { } reason)
+            throw new CollectionServiceException(
+                $"Undo could not add the {RuleText(rule)} of collection {Shown(row)} again, so it is not {action}. {reason}");
+    }
+
+    private static void RefuseUnrestorable(SavedQuery query, string action)
+    {
+        if (InvalidQuery(query) is { } reason)
+            throw new CollectionServiceException(
+                $"Undo could not save the query {Shown(query.Name, query.QueryId)} again with its current values, so it is not {action}. {reason}");
+    }
+
     private static void RefuseBuiltIn(CollectionChange request)
     {
         if (IsBuiltIn(request.CollectionId)) throw new CollectionServiceException(BuiltInMessage(request));
     }
 
+    /// <summary>Provider error text can hold rule names, WQL and device names, so only these parts of it reach the log.</summary>
     private void LogDetail(string what, string? detail)
     {
         if (!string.IsNullOrWhiteSpace(detail))
-            _log?.Warning(LogArea, $"{what}: {SecretMask.Apply(detail, [])}");
+            _log?.Warning(LogArea, $"{what}: {FailureKinds(detail)}.");
+    }
+
+    [GeneratedRegex(@"\b(?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*Exception\b|\b0x[0-9A-Fa-f]{8}\b")]
+    private static partial Regex FailureKindRegex();
+
+    /// <summary>The exception type names and HRESULT codes in <paramref name="text"/>, without the rest of it.</summary>
+    internal static string FailureKinds(string? text)
+    {
+        var kinds = FailureKindRegex().Matches(text ?? "").Select(m => m.Value).Distinct(StringComparer.Ordinal).Take(5).ToList();
+        return kinds.Count == 0 ? "no error type given" : string.Join(", ", kinds);
     }
 
     private static CollectionOutcome Fail(CollectionChange change, string message) => new(change, false, message, null);
@@ -1283,7 +1528,7 @@ public sealed partial class CollectionService : ICollectionService
     private const string NotPreparedMessage = "The change has no captured state, so it was not applied. Refresh the list and try again.";
 
     private static string NotReadBackMessage(CollectionChange change) =>
-        $"ConfigMgr made the change to {Target(change)}, but the result could not be read back. Refresh the list to see the current state.";
+        $"ConfigMgr reported the change to {Target(change)} as done, but the result could not be read back. Refresh the list to see the current state.";
 
     private static string Target(CollectionChange change) => change.Kind switch
     {

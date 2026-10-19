@@ -127,7 +127,8 @@ public enum CollectionChangeKind
 /// SetProperties sets name, comment, limiting collection and refresh type of <see cref="AfterRow"/>
 /// on the collection captured in <see cref="BeforeRow"/>.
 /// AddRule and ApplyTemplate add <see cref="RuleAfter"/>; UpdateRule replaces <see cref="RuleBefore"/>
-/// with <see cref="RuleAfter"/>; RemoveRule removes <see cref="RuleBefore"/>.
+/// with <see cref="RuleAfter"/> and then removes the query rules in <see cref="Rules"/> (rules an
+/// earlier update left); RemoveRule removes <see cref="RuleBefore"/>.
 /// Evaluate starts a membership update. Remove removes the collection <see cref="BeforeRow"/>;
 /// after preparation <see cref="Rules"/> holds its rules, which the Undo creates again.
 /// SaveQuery creates <see cref="QueryAfter"/>; UpdateQuery sets <see cref="QueryAfter"/> on
@@ -137,7 +138,7 @@ public enum CollectionChangeKind
 /// Plain lines for the plan. <see cref="ICollectionService.PrepareAsync"/> keeps the lines of the
 /// request (for example the match count of the last preview) and adds its own.
 /// </param>
-/// <param name="Rules">All rules of the collection for Create and Remove; null for the other kinds.</param>
+/// <param name="Rules">All rules of the collection for Create and Remove; the rules to remove after an UpdateRule; null for the other kinds.</param>
 /// <param name="RemoveCounts">
 /// For Remove, the counts the plan showed; filled by <see cref="ICollectionService.PrepareAsync"/>.
 /// The remove is refused when ConfigMgr holds other counts at write time.
@@ -157,6 +158,7 @@ public sealed record CollectionChange(
     CollectionRemoveCounts? RemoveCounts = null);
 
 /// <summary>What ConfigMgr removes with a collection.</summary>
+/// <param name="Members">The member count; a negative value skips the member check (the Undo of a create, whose members change as ConfigMgr evaluates it).</param>
 public sealed record CollectionRemoveCounts(int Members, int Deployments, int MaintenanceWindows);
 
 /// <param name="Message">Plain text for the operator; never raw exception text.</param>

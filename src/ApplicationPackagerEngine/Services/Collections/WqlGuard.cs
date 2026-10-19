@@ -28,6 +28,9 @@ public static class WqlGuard
         if (text.Length < 7 || !text.StartsWith("select", StringComparison.OrdinalIgnoreCase) || !char.IsWhiteSpace(text[6]))
             return "Only a select query can be used here. The query must start with select.";
 
+        // The SMS Provider rejects a doubled quote ('O''Brien'): it reads it as a closed value
+        // followed by a new one. The same reading here keeps the guard's view of the literal
+        // boundaries equal to the provider's.
         char? quote = null;
         for (var i = 0; i < text.Length; i++)
         {
@@ -39,7 +42,12 @@ public static class WqlGuard
                     if (i + 1 >= text.Length) return "A quoted value in the query is not closed.";
                     i++;
                 }
-                else if (c == quote) quote = null;
+                else if (c == quote)
+                {
+                    if (i + 1 < text.Length && text[i + 1] == quote)
+                        return $"Two quotes in a row end one value and start another, which WQL does not accept. Write a quote inside a value as \\{quote}.";
+                    quote = null;
+                }
                 continue;
             }
             if (c is '\'' or '"') quote = c;
@@ -49,15 +57,14 @@ public static class WqlGuard
     }
 
     /// <summary>
-    /// Null when <paramref name="name"/> can name a new query rule. The rule cmdlets read
-    /// * ? [ and ] in a rule name as wildcards, so a remove by such a name can match other rules.
+    /// Null when <paramref name="name"/> can name a query rule. The SMS Provider stores * ? [ and ]
+    /// in a rule name, and the rule cmdlets match a name literally, so these characters are allowed.
     /// </summary>
     public static string? CheckRuleName(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return "Enter a rule name.";
         if (name.Length > MaxRuleNameLength) return $"The rule name is longer than {MaxRuleNameLength} characters.";
         if (name.Any(char.IsControl)) return "The rule name contains a control character.";
-        if (name.IndexOfAny(['*', '?', '[', ']']) >= 0) return "A rule name cannot contain * ? [ or ].";
         return null;
     }
 }

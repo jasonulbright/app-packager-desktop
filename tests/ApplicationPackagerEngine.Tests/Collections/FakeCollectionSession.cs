@@ -47,7 +47,7 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
         public string Limit { get; set; } = "";
     }
 
-    internal sealed record Call(string Script, string Operation, Dictionary<string, object?> Parameters, bool Cancellable);
+    internal sealed record Call(string Script, string Operation, Dictionary<string, object?> Parameters, bool Cancellable, HashSet<string> Secret);
 
     public List<Collection> Collections { get; } = [];
     public List<Query> Queries { get; } = [];
@@ -80,7 +80,7 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
     public IEnumerable<Call> Writes => Calls.Where(c => c.Script == "WriteCollection");
 
     private int _nextId = 0x50;
-    private int _nextQuery = 1;
+    private int _nextQuery = 50;
 
     public Collection Add(string id, string name, string limit = "SMS00001", params Rule[] rules)
     {
@@ -101,7 +101,8 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
     {
         ct.ThrowIfCancellationRequested();
         var values = (parameters ?? new ConfigMgrParameters()).ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
-        var call = new Call(script.Name, S(values.GetValueOrDefault("Operation")), values, ct.CanBeCanceled);
+        var call = new Call(script.Name, S(values.GetValueOrDefault("Operation")), values, ct.CanBeCanceled,
+            values.Keys.Where(k => parameters!.IsSecret(k)).ToHashSet(StringComparer.OrdinalIgnoreCase));
         lock (Calls) Calls.Add(call);
         BeforeRun?.Invoke(call);
         if (Throw?.Invoke(call) is { } ex) return Task.FromException<ConfigMgrCommandResult>(ex);
@@ -121,6 +122,19 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
     private static string S(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";
 
     private static string[] A(object? value) => value as string[] ?? [];
+
+    private static int I(Dictionary<string, object?> p, string name) => p.TryGetValue(name, out var v) && v is not null ? Convert.ToInt32(v, CultureInfo.InvariantCulture) : -1;
+
+    /// <summary>The token of an interval schedule as New-CMSchedule builds it, with a fixed start.</summary>
+    public static string IntervalToken(string unit, int count)
+    {
+        var v = (1UL << 48) | (1UL << 44) | (56UL << 38) | (2UL << 19) | ((ulong)count << (unit switch { "Minutes" => 13, "Hours" => 8, _ => 3 }));
+        return v.ToString("X16", CultureInfo.InvariantCulture);
+    }
+
+    private static string? ScheduleOf(Dictionary<string, object?> p) =>
+        S(p.GetValueOrDefault("RefreshUnit")) is { Length: > 0 } unit ? IntervalToken(unit, I(p, "RefreshCount"))
+        : S(p.GetValueOrDefault("RefreshSchedule")) is { Length: 16 } token ? token : null;
 
     private static object Row(Collection c) => new
     {
@@ -200,7 +214,8 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
                     break;
                 }
                 var max = operation == "Preview" ? Convert.ToInt32(p["MaxRows"], CultureInfo.InvariantCulture) : 0;
-                rows.Add(new { Kind = "Wql", Valid = true, Count = PreviewRows.Count, Columns = operation == "Preview" ? new[] { "Name", "ResourceId" } : [], Detail = "" });
+                var limit = I(p, "MaxCount") is > 0 and var l ? l : int.MaxValue;
+                rows.Add(new { Kind = "Wql", Valid = true, Count = Math.Min(PreviewRows.Count, limit), Capped = PreviewRows.Count >= limit, Columns = operation == "Preview" ? new[] { "Name", "ResourceId" } : [], Detail = "" });
                 rows.AddRange(PreviewRows.Take(max).Select(r => (object)new { Kind = "WqlRow", Values = r.ToArray() }));
                 break;
             case "SavedQueries":
@@ -218,11 +233,11 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
         return rows;
     }
 
-    private object Result(string status, Collection? c = null, string detail = "", Query? q = null, string[]? references = null, List<string>? steps = null) => new
+    private object Result(string status, Collection? c = null, string detail = "", Query? q = null, string[]? references = null, List<string>? steps = null, string createdId = "") => new
     {
         Kind = "Result", Status = status, Detail = detail, Steps = (steps ?? []).ToArray(),
         Collection = c is null ? null : Row(c), Rules = c is null ? [] : c.Rules.Select(RuleRow).ToArray(),
-        Query = q is null ? null : QueryRow(q), References = references ?? []
+        Query = q is null ? null : QueryRow(q), References = references ?? [], CreatedId = createdId
     };
 
     private static string Key(Rule r) => r.Kind switch
@@ -286,11 +301,13 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
         if (p.GetValueOrDefault("CheckState") is true && c is not null)
         {
             var changed = c.Name != S(p["ExpectedName"]);
-            if (operation == "SetProperties")
+            if (operation is "SetProperties" or "Remove")
                 changed |= c.Comment != S(p["ExpectedComment"]) || !string.Equals(c.LimitId, S(p["ExpectedLimitingId"]), StringComparison.OrdinalIgnoreCase)
                     || c.RefreshType != (int)p["ExpectedRefreshType"]! || c.Schedule != S(p["ExpectedRefreshSchedule"]);
             if (operation == "Remove")
-                changed |= !c.Rules.Select(Key).Order(StringComparer.Ordinal).SequenceEqual(A(p["ExpectedRuleKeys"]).Order(StringComparer.Ordinal));
+                changed |= !c.Rules.Select(Key).Order(StringComparer.Ordinal).SequenceEqual(A(p["ExpectedRuleKeys"]).Order(StringComparer.Ordinal))
+                    || (I(p, "ExpectedMemberCount") >= 0 && I(p, "ExpectedMemberCount") != c.Members.Count)
+                    || I(p, "ExpectedDeployments") != c.Deployments || I(p, "ExpectedWindows") != c.Windows;
             if (changed) return Result("changed", c);
         }
         var kind = S(p.GetValueOrDefault("RuleKind"));
@@ -354,7 +371,7 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
                     {
                         Id = "MCM000" + (_nextId++).ToString("X2", CultureInfo.InvariantCulture), Name = name, LimitId = S(p["LimitingCollectionId"]),
                         RefreshType = CollectionRefresh(S(p["RefreshType"])), Comment = S(p["Comment"]),
-                        Schedule = S(p["RefreshType"]) is "Periodic" or "Both" ? (S(p["RefreshSchedule"]) is { Length: 16 } s ? s : "0001200000100038") : "0001200000100008"
+                        Schedule = S(p["RefreshType"]) is "Periodic" or "Both" ? ScheduleOf(p) ?? "0001200000100038" : "0001200000100008"
                     };
                     Collections.Add(made);
                     steps.Add("created");
@@ -365,7 +382,7 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
                         try { AddRule(made, kinds[i], A(p["RuleNames"])[i], A(p["RuleExpressions"])[i], A(p["RuleResourceIds"])[i], A(p["RuleCollectionIds"])[i]); }
                         catch (InvalidOperationException) { failed.Add(i.ToString(CultureInfo.InvariantCulture)); }
                     }
-                    return failed.Count > 0 ? Result("rules-partial", made, string.Join(",", failed)) : Result("ok", made);
+                    return failed.Count > 0 ? Result("rules-partial", made, string.Join(",", failed), createdId: made.Id) : Result("ok", made, createdId: made.Id);
                 }
                 case "Copy":
                 {
@@ -377,7 +394,7 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
                     };
                     copy.Rules.AddRange(c.Rules.Select(r => new Rule { Kind = r.Kind, Name = r.Name, Expression = r.Expression, ResourceId = r.ResourceId, IncludedId = r.IncludedId }));
                     Collections.Add(copy);
-                    return Result("ok", copy);
+                    return Result("ok", copy, createdId: copy.Id);
                 }
                 case "SetProperties":
                     mutated = true;
@@ -385,7 +402,7 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
                     c.Comment = S(p["Comment"]);
                     c.LimitId = S(p["LimitingCollectionId"]);
                     c.RefreshType = CollectionRefresh(S(p["RefreshType"]));
-                    if (S(p["RefreshSchedule"]) is { Length: 16 } schedule) c.Schedule = schedule;
+                    if (S(p["RefreshType"]) is "Periodic" or "Both" && ScheduleOf(p) is { } schedule) c.Schedule = schedule;
                     return Result("ok", c);
                 case "AddRule":
                     mutated = true;
@@ -414,6 +431,16 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
                             steps.Add("remove-old"); RemoveRule(c!, "Query", oldName, "", "");
                         }
                         steps.Add("done");
+                        var orphanNames = A(p.GetValueOrDefault("OrphanRuleNames"));
+                        var orphanExpressions = A(p.GetValueOrDefault("OrphanExpressions"));
+                        for (var i = 0; i < orphanNames.Length; i++)
+                        {
+                            var orphan = FindRule(c!, "Query", orphanNames[i], "", "");
+                            if (orphan is null) continue;
+                            if (orphan.Expression != (i < orphanExpressions.Length ? orphanExpressions[i] : "")) throw new InvalidOperationException("The temporary rule changed.");
+                            steps.Add("remove-orphan");
+                            RemoveRule(c!, "Query", orphanNames[i], "", "");
+                        }
                     }
                     catch (InvalidOperationException ex)
                     {
@@ -466,7 +493,7 @@ internal sealed class FakeCollectionSession : IConfigMgrSession
                     Comment = S(p["Comment"]), Target = S(p["TargetClassName"]), Limit = S(p["LimitToCollectionId"])
                 };
                 Queries.Add(made);
-                return Result("ok", q: made);
+                return Result("ok", q: made, createdId: made.Id);
             case "UpdateQuery":
                 current!.Name = name;
                 current.Expression = S(p["Expression"]);

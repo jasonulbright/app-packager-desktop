@@ -40,6 +40,40 @@ public sealed class WqlGuardTests
         Assert.DoesNotContain("Exception", reason);
     }
 
+    [Theory]
+    [InlineData("select * from SMS_R_System where Name = 'O\\'Brien'")]
+    [InlineData("select * from SMS_R_System where Name = \"O\\\"B; x\"")]
+    [InlineData("select * from SMS_R_System where Name like 'C:\\\\'")]
+    [InlineData("select * from SMS_R_System where Name = ''")]
+    [InlineData("select * from SMS_R_System where Name = \"it's; fine\"")]
+    public void ABackslashEscapedQuoteAndAnEmptyValueStayInsideTheirValue(string expression)
+    {
+        Assert.Null(WqlGuard.Check(expression));
+    }
+
+    [Theory]
+    [InlineData("select * from SMS_R_System where Name = 'O''Brien'")]
+    [InlineData("select * from SMS_R_System where Name = 'x'';delete from SMS_R_System'")]
+    [InlineData("select * from SMS_R_System where Name = \"a\"\"b\"")]
+    [InlineData("select * from SMS_R_System where Name = '''")]
+    public void ADoubledQuoteIsRefusedBecauseTheProviderReadsItAsTwoValues(string expression)
+    {
+        var reason = WqlGuard.Check(expression);
+        Assert.NotNull(reason);
+        Assert.Contains("Two quotes in a row", reason);
+    }
+
+    [Theory]
+    [InlineData("select * from SMS_R_System where Name like 'C:\\\\'; delete from SMS_R_System")]
+    [InlineData("select * from SMS_R_System where Name = \"it's\"; delete from SMS_R_System")]
+    [InlineData("select * from SMS_R_System where Name = 'x\\' ; delete from SMS_R_System")]
+    [InlineData("select * from SMS_R_System where Name = 'a' ; select * from SMS_R_User")]
+    [InlineData("select * from SMS_R_System where Name = 'a\\\\\\'; delete")]
+    public void ASecondStatementAfterAnEscapeIsStillRefused(string expression)
+    {
+        Assert.NotNull(WqlGuard.Check(expression));
+    }
+
     [Fact]
     public void AnOverlongExpressionIsRefused()
     {
@@ -49,13 +83,13 @@ public sealed class WqlGuardTests
 
     [Theory]
     [InlineData("Rule 1", true)]
-    [InlineData("Rule *", false)]
-    [InlineData("Rule ?", false)]
-    [InlineData("Rule [1]", false)]
+    [InlineData("Rule *", true)]
+    [InlineData("Rule ?", true)]
+    [InlineData("Win [x64]", true)]
     [InlineData("", false)]
     [InlineData("   ", false)]
     [InlineData("tab\tname", false)]
-    public void RuleNamesWithoutWildcardsOrControlCharactersAreAccepted(string name, bool valid)
+    public void RuleNamesWithoutControlCharactersAreAcceptedWildcardCharactersIncluded(string name, bool valid)
     {
         Assert.Equal(valid, WqlGuard.CheckRuleName(name) is null);
     }

@@ -394,14 +394,144 @@ public sealed class CollectionServiceTests
         Assert.Single(site.Find("MCM00010")!.Rules, r => r.Kind == "Query");
     }
 
+    /// <summary>The SMS Provider stores these characters and the rule cmdlets match names literally (lab site).</summary>
     [Fact]
-    public async Task ARuleNameWithWildcardsIsRefusedBeforeItReachesConfigMgr()
+    public async Task ARuleNameWithWildcardCharactersIsAddedAsItIs()
     {
         var site = Site();
-        var error = await Assert.ThrowsAsync<CollectionServiceException>(() =>
-            Service(site).PrepareAsync(Change(CollectionChangeKind.AddRule, "MCM00014") with { RuleAfter = Q("W*", WsQuery) }, CancellationToken.None));
-        Assert.Contains("* ? [ or ]", error.Message);
-        Assert.Empty(site.Calls);
+        var outcome = await PrepareAndApply(Service(site), Change(CollectionChangeKind.AddRule, "MCM00014") with { RuleAfter = Q("W*[x64]?", WsQuery) });
+        Assert.True(outcome.Succeeded, outcome.Message);
+        Assert.Single(site.Find("MCM00014")!.Rules, r => r.Name == "W*[x64]?");
+    }
+
+    [Fact]
+    public async Task AChangeWhoseUndoCouldNotAddACapturedRuleAgainIsRefusedNamingTheRule()
+    {
+        var site = Site();
+        site.Find("MCM00014")!.Rules.Add(QueryRule("Odd rule", "select * from SMS_R_System where Name = 'a\u0001'"));
+        var service = Service(site);
+
+        var remove = await Assert.ThrowsAsync<CollectionServiceException>(() => service.PrepareAsync(Change(CollectionChangeKind.Remove, "MCM00014"), CancellationToken.None));
+        Assert.Contains("Odd rule", remove.Message);
+        Assert.Contains("Undo", remove.Message);
+        var removeRule = await Assert.ThrowsAsync<CollectionServiceException>(() =>
+            service.PrepareAsync(Change(CollectionChangeKind.RemoveRule, "MCM00014") with { RuleBefore = Q("Odd rule", "select * from SMS_R_System where Name = 'a\u0001'") }, CancellationToken.None));
+        Assert.Contains("Odd rule", removeRule.Message);
+
+        site.Queries.Add(new Query { Id = "MCM00002", Name = "Odd query", Expression = "select * from SMS_R_System where Name = 'O''Brien'" });
+        var odd = (await service.ListSavedQueriesAsync(CancellationToken.None)).Single(q => q.Name == "Odd query");
+        var delete = await Assert.ThrowsAsync<CollectionServiceException>(() => service.PrepareAsync(Change(CollectionChangeKind.DeleteQuery) with { QueryBefore = odd }, CancellationToken.None));
+        Assert.Contains("Odd query", delete.Message);
+        Assert.Empty(site.Writes);
+    }
+
+    [Theory]
+    [InlineData(" sms00001")]
+    [InlineData("sms00001 ")]
+    [InlineData("Sms00001")]
+    public async Task ABuiltInCollectionIsRefusedWhateverItsCaseOrSpacing(string id)
+    {
+        var site = Site();
+        var service = Service(site);
+        var current = (await service.GetCollectionAsync("SMS00001", CancellationToken.None))!;
+
+        foreach (var kind in new[] { CollectionChangeKind.SetProperties, CollectionChangeKind.Remove, CollectionChangeKind.AddRule })
+        {
+            var error = await Assert.ThrowsAsync<CollectionServiceException>(() => service.PrepareAsync(Change(kind, id) with
+            {
+                AfterRow = current with { Comment = "x" }, RuleAfter = Q("R", WsQuery)
+            }, CancellationToken.None));
+            Assert.Contains("built-in", error.Message);
+        }
+        var (outcomes, _) = await Apply(service, Change(CollectionChangeKind.SetProperties, id, "All Systems") with { BeforeRow = current, AfterRow = current with { Comment = "x" } });
+        Assert.Contains("built-in", outcomes.Single().Message);
+        Assert.Empty(site.Writes);
+    }
+
+    [Theory]
+    [InlineData(60, "Minutes", "1 to 59")]
+    [InlineData(24, "Hours", "1 to 23")]
+    [InlineData(32, "Days", "1 to 31")]
+    [InlineData(0, "Days", "1 to 31")]
+    [InlineData(1, "Weeks", "Minutes, Hours or Days")]
+    public async Task ARefreshIntervalConfigMgrCannotStoreIsRefused(int count, string unit, string text)
+    {
+        var site = Site();
+        var service = Service(site);
+        var create = await Assert.ThrowsAsync<CollectionServiceException>(() =>
+            service.PrepareAsync(Change(CollectionChangeKind.Create) with { AfterRow = NewRow("Odd") with { RefreshInterval = new RefreshInterval(count, unit) } }, CancellationToken.None));
+        Assert.Contains(text, create.Message);
+        var current = (await service.GetCollectionAsync("MCM00014", CancellationToken.None))!;
+        var set = await Assert.ThrowsAsync<CollectionServiceException>(() =>
+            service.PrepareAsync(Change(CollectionChangeKind.SetProperties, "MCM00014") with { AfterRow = current with { RefreshInterval = new RefreshInterval(count, unit) } }, CancellationToken.None));
+        Assert.Contains(text, set.Message);
+        Assert.Empty(site.Writes);
+    }
+
+    [Fact]
+    public async Task TheUndoOfACreateRunsAfterConfigMgrAddedMembersButNotAfterADeployment()
+    {
+        var site = Site();
+        var service = Service(site);
+        var first = await PrepareAndApply(service, Change(CollectionChangeKind.Create) with { AfterRow = NewRow("Grows") });
+        site.Collections.Single(c => c.Name == "Grows").Members.Add(("16777221", "CLIENT01", true, true, false));
+        Assert.True((await Apply(service, first.UndoChange!)).Outcomes.Single().Succeeded);
+
+        var second = await PrepareAndApply(service, Change(CollectionChangeKind.Create) with { AfterRow = NewRow("Deployed") });
+        site.Collections.Single(c => c.Name == "Deployed").Deployments = 1;
+        var undo = (await Apply(service, second.UndoChange!)).Outcomes.Single();
+        Assert.False(undo.Succeeded);
+        Assert.NotNull(site.Collections.SingleOrDefault(c => c.Name == "Deployed"));
+    }
+
+    [Fact]
+    public async Task SessionFailuresGiveFixedTextAndTheRawTextReachesNeitherTheMessageNorTheLog()
+    {
+        var site = Site();
+        var log = new RecordingLog();
+        var service = Service(site, log);
+        var prepared = await service.PrepareAsync(Change(CollectionChangeKind.Evaluate, "MCM00014"), CancellationToken.None);
+
+        foreach (var failure in Enum.GetValues<ConfigMgrFailure>())
+        {
+            site.Throw = _ => new ConfigMgrSessionException(failure, "raw provider text for rule Secret rule");
+            var read = await Assert.ThrowsAsync<CollectionServiceException>(() => service.ListCollectionsAsync(CancellationToken.None));
+            Assert.DoesNotContain("raw provider text", read.Message);
+            var write = (await Apply(service, prepared)).Outcomes.Single();
+            Assert.False(write.Succeeded);
+            Assert.DoesNotContain("raw provider text", write.Message);
+        }
+        Assert.DoesNotContain(log.Lines, l => l.Contains("raw provider text") || l.Contains("Secret rule"));
+    }
+
+    [Fact]
+    public async Task NamesAndWqlTravelAsSecretValuesSoTheSessionLogMasksThem()
+    {
+        var site = Site();
+        var service = Service(site);
+        await service.PreviewWqlAsync(WsQuery, 5, CancellationToken.None);
+        await PrepareAndApply(service, Change(CollectionChangeKind.AddRule, "MCM00014") with { RuleAfter = Q("Secret rule", WsQuery) });
+        await PrepareAndApply(service, Change(CollectionChangeKind.Create) with { AfterRow = NewRow("Secret name") });
+
+        Assert.All(site.Calls, c => Assert.All(c.Parameters.Where(p => p.Value is string { Length: > 0 }), p =>
+            Assert.Equal(p.Key is not ("Operation" or "CollectionId" or "LimitingCollectionId" or "RefreshType" or "RefreshSchedule" or "RefreshUnit"
+                or "QueryId" or "IncludedCollectionId" or "LimitToCollectionId" or "RuleKind" or "TargetClassName"), c.Secret.Contains(p.Key))));
+        Assert.Contains(site.Calls, c => c.Secret.Contains("Expression"));
+        Assert.Contains(site.Calls, c => c.Secret.Contains("RuleName"));
+        Assert.Contains(site.Calls, c => c.Secret.Contains("Name"));
+    }
+
+    [Fact]
+    public async Task AProviderErrorIsLoggedByItsKindWithoutTheQueryOrNames()
+    {
+        var site = Site();
+        var log = new RecordingLog();
+        site.ProviderRejects = _ => true;
+        var result = await Service(site, log).ValidateWqlAsync("select * from SMS_R_System where Name = 'PC-SECRET'", CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(log.Lines, l => l.Contains("ManagementException"));
+        Assert.DoesNotContain(log.Lines, l => l.Contains("secret", StringComparison.OrdinalIgnoreCase) || l.Contains("Invalid class"));
     }
 
     [Theory]

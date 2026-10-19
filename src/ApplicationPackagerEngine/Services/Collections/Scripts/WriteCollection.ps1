@@ -13,6 +13,11 @@ param(
     [int]$ExpectedRefreshType = 0,
     [string]$ExpectedRefreshSchedule = '',
     [string[]]$ExpectedRuleKeys = @(),
+    [int]$ExpectedMemberCount = -1,
+    [int]$ExpectedDeployments = -1,
+    [int]$ExpectedWindows = -1,
+    [ValidateSet('', 'Minutes', 'Hours', 'Days')][string]$RefreshUnit = '',
+    [ValidateRange(0, 59)][int]$RefreshCount = 0,
     [ValidateSet('', 'Direct', 'Query', 'Include', 'Exclude')][string]$RuleKind = '',
     [string]$RuleName = '',
     [string]$Expression = '',
@@ -21,6 +26,8 @@ param(
     [string]$OldRuleName = '',
     [string]$OldExpression = '',
     [string]$TempRuleName = '',
+    [string[]]$OrphanRuleNames = @(),
+    [string[]]$OrphanExpressions = @(),
     [string[]]$RuleKinds = @(),
     [string[]]$RuleNames = @(),
     [string[]]$RuleExpressions = @(),
@@ -38,6 +45,7 @@ param(
 # parameters. Each operation checks the state it was planned against, writes, and reads back.
 
 $mutated = $false
+$createdId = ''
 $steps = New-Object System.Collections.Generic.List[string]
 
 function Get-Prop {
@@ -147,7 +155,7 @@ function ConvertTo-QueryRow {
 }
 
 function Write-Result {
-    param([string]$Status, [object]$Collection = $null, [string]$Detail = '', [object]$Query = $null, [string[]]$References = @())
+    param([string]$Status, [object]$Collection = $null, [string]$Detail = '', [object]$Query = $null, [string[]]$References = @(), [string]$CreatedId = $createdId)
     $rules = @()
     $row = $null
     if ($null -ne $Collection) {
@@ -163,6 +171,7 @@ function Write-Result {
         Rules      = $rules
         Query      = (ConvertTo-QueryRow $Query)
         References = $References
+        CreatedId  = $CreatedId
     }
 }
 
@@ -200,15 +209,27 @@ function Get-RefreshValue {
 }
 
 function New-RefreshSchedule {
+    if ($RefreshUnit) { return (New-CMSchedule -RecurInterval $RefreshUnit -RecurCount $RefreshCount) }
     if ($RefreshSchedule) { return (Convert-CMSchedule -ScheduleString $RefreshSchedule) }
     return (New-CMSchedule -RecurInterval Days -RecurCount 7)
 }
 
-# The query rule cmdlets read a rule name as a wildcard pattern; a name that matches more than
-# one rule would remove them all.
+# The query rule cmdlets match a rule name literally and in any case, and a remove by name
+# removes every rule that matches.
 function Get-NameMatches {
     param([object[]]$Rules, [string]$Text)
-    @($Rules | Where-Object { $_.RuleKind -eq 'Query' -and ($_.RuleName -eq $Text -or $_.RuleName -like $Text) })
+    @($Rules | Where-Object { $_.RuleKind -eq 'Query' -and $_.RuleName -eq $Text })
+}
+
+function Get-DeploymentCount {
+    param([string]$Id)
+    @(Invoke-CMWmiQuery -Option Fast -Query "SELECT CollectionID, SoftwareName FROM SMS_DeploymentSummary WHERE CollectionID = '$Id'").Count
+}
+
+# A remove cmdlet that matches no rule returns without an error.
+function Assert-QueryRuleGone {
+    param([string]$Text, [string]$Message)
+    if (@(Get-NameMatches (Get-Rules (Get-Collection $CollectionId)) $Text).Count -gt 0) { throw $Message }
 }
 
 function Find-Rule {
@@ -269,20 +290,33 @@ function Invoke-RuleUpdate {
         if ($null -eq (Find-Rule (Get-Rules (Get-Collection $CollectionId)) 'Query' $TempRuleName '' 0 '')) { throw 'The temporary rule was not found after it was added.' }
         $steps.Add('remove-old')
         Remove-Rule 'Query' $OldRuleName 0 ''
-        if ($null -ne (Find-Rule (Get-Rules (Get-Collection $CollectionId)) 'Query' $OldRuleName '' 0 '')) { throw 'The old rule is still present after the remove.' }
+        Assert-QueryRuleGone $OldRuleName 'The old rule is still present after the remove.'
         $steps.Add('add-final')
         Add-Rule 'Query' $RuleName $Expression 0 ''
         if ($null -eq (Find-Rule (Get-Rules (Get-Collection $CollectionId)) 'Query' $RuleName '' 0 '')) { throw 'The new rule was not found after it was added.' }
         $steps.Add('remove-temporary')
         Remove-Rule 'Query' $TempRuleName 0 ''
+        Assert-QueryRuleGone $TempRuleName 'The temporary rule is still present after the remove.'
     } else {
         $steps.Add('add-final')
         Add-Rule 'Query' $RuleName $Expression 0 ''
         if ($null -eq (Find-Rule (Get-Rules (Get-Collection $CollectionId)) 'Query' $RuleName '' 0 '')) { throw 'The new rule was not found after it was added.' }
         $steps.Add('remove-old')
         Remove-Rule 'Query' $OldRuleName 0 ''
+        Assert-QueryRuleGone $OldRuleName 'The old rule is still present after the remove.'
     }
     $steps.Add('done')
+    for ($i = 0; $i -lt $OrphanRuleNames.Count; $i++) {
+        $orphanName = [string]$OrphanRuleNames[$i]
+        $orphanExpression = ''
+        if ($i -lt $OrphanExpressions.Count) { $orphanExpression = [string]$OrphanExpressions[$i] }
+        $found = @(Get-NameMatches (Get-Rules (Get-Collection $CollectionId)) $orphanName)
+        if ($found.Count -eq 0) { continue }
+        if ($found.Count -gt 1 -or $found[0].Expression -cne $orphanExpression) { throw 'The temporary rule changed after the plan was shown.' }
+        $steps.Add('remove-orphan')
+        Remove-Rule 'Query' $orphanName 0 ''
+        Assert-QueryRuleGone $orphanName 'The temporary rule is still present after the remove.'
+    }
 }
 
 # ---- Saved queries -------------------------------------------------------------------------
@@ -312,17 +346,17 @@ if ($Operation -in 'SaveQuery', 'UpdateQuery', 'DeleteQuery') {
                 if ($LimitToCollectionId) { $arguments.LimitToCollectionId = $LimitToCollectionId }
                 $mutated = $true
                 $made = New-CMQuery @arguments
-                $found = $null
-                if ($null -ne $made -and $null -ne (Get-Prop $made 'QueryID')) { $found = @(Get-CMQuery -Id ([string]$made.QueryID)) | Select-Object -First 1 }
-                if ($null -eq $found) { $found = Find-QueryByName $Name }
-                if ($null -eq $found) { return (Write-Result 'failed' $null 'The saved query was not found after it was created.') }
+                $createdId = [string](Get-Prop $made 'QueryID')
+                if (-not $createdId) { return (Write-Result 'partial' $null 'New-CMQuery returned no query ID.') }
+                $found = @(Get-CMQuery -Id $createdId) | Where-Object { $null -ne $_ } | Select-Object -First 1
                 return (Write-Result 'ok' $null '' $found)
             }
             'UpdateQuery' {
                 $arguments = @{ Id = $QueryId; Expression = $Expression; Comment = $Comment }
                 if ($Name -cne [string]$current.Name) { $arguments.NewName = $Name }
                 if ($TargetClassName) { $arguments.TargetClassName = $TargetClassName }
-                if ($LimitToCollectionId) { $arguments.LimitToCollectionId = $LimitToCollectionId }
+                # An empty value clears the limit.
+                if ($LimitToCollectionId -ne [string](Get-Prop $current 'LimitToCollectionID')) { $arguments.LimitToCollectionId = $LimitToCollectionId }
                 $mutated = $true
                 Set-CMQuery @arguments | Out-Null
                 return (Write-Result 'ok' $null '' (@(Get-CMQuery -Id $QueryId) | Select-Object -First 1))
@@ -339,7 +373,8 @@ if ($Operation -in 'SaveQuery', 'UpdateQuery', 'DeleteQuery') {
         if ($mutated) {
             $now = $null
             try {
-                if ($Operation -eq 'SaveQuery') { $now = Find-QueryByName $Name } else { $now = @(Get-CMQuery -Id $QueryId) | Select-Object -First 1 }
+                if ($Operation -ne 'SaveQuery') { $now = @(Get-CMQuery -Id $QueryId) | Select-Object -First 1 }
+                elseif ($createdId) { $now = @(Get-CMQuery -Id $createdId) | Select-Object -First 1 }
             } catch { }
             return (Write-Result 'partial' $null $_.Exception.Message $now)
         }
@@ -360,7 +395,7 @@ $rules = @(Get-Rules $collection)
 
 if ($CheckState -and $null -ne $collection) {
     $changed = [string]$collection.Name -cne $ExpectedName
-    if ($Operation -eq 'SetProperties') {
+    if ($Operation -in 'SetProperties', 'Remove') {
         $changed = $changed -or [string](Get-Prop $collection 'Comment') -cne $ExpectedComment `
             -or [string](Get-Prop $collection 'LimitToCollectionID') -ne $ExpectedLimitingId `
             -or [int](Get-Prop $collection 'RefreshType') -ne $ExpectedRefreshType `
@@ -418,6 +453,13 @@ switch ($Operation) {
         if ($limited.Count -gt 0) { return (Write-Result 'is-limiting' $collection '' $null ([string[]]@($limited | ForEach-Object { [string]$_.DependentCollectionID }))) }
         $referenced = @($dependents | Where-Object { [int]$_.RelationshipType -in 2, 3 })
         if ($referenced.Count -gt 0) { return (Write-Result 'is-referenced' $collection '' $null ([string[]]@($referenced | ForEach-Object { [string]$_.DependentCollectionID }))) }
+        # ConfigMgr removes the deployments and maintenance windows with the collection.
+        $fresh = Get-Collection $CollectionId
+        if ($null -eq $fresh) { return (Write-Result 'collection-missing') }
+        if (-not $CheckState -or ($ExpectedMemberCount -ge 0 -and [int](Get-Prop $fresh 'MemberCount') -ne $ExpectedMemberCount) -or [int](Get-Prop $fresh 'ServiceWindowsCount') -ne $ExpectedWindows `
+            -or (Get-DeploymentCount $CollectionId) -ne $ExpectedDeployments) {
+            return (Write-Result 'changed' $fresh)
+        }
     }
 }
 
@@ -430,8 +472,8 @@ try {
             $mutated = $true
             $made = New-CMDeviceCollection @arguments
             $id = [string](Get-Prop $made 'CollectionID')
-            if (-not $id) { $id = [string](Get-Prop (Find-CollectionByName $Name) 'CollectionID') }
-            if (-not $id) { return (Write-Result 'failed' $null 'The new collection was not found after it was created.') }
+            if (-not $id) { return (Write-Result 'partial' $null 'New-CMDeviceCollection returned no collection ID.') }
+            $createdId = $id
             $steps.Add('created')
             $failed = New-Object System.Collections.Generic.List[string]
             for ($i = 0; $i -lt $RuleKinds.Count; $i++) {
@@ -459,18 +501,19 @@ try {
             $mutated = $true
             # Copy-CMCollection -PassThru returns the source collection, not the copy.
             Copy-CMCollection -Id $CollectionId -NewName $Name | Out-Null
-            $copy = $null
+            # The name was free just before the copy and names are unique in the site.
             $found = Find-CollectionByName $Name
-            if ($null -ne $found) { $copy = Get-Collection ([string]$found.CollectionID) }
-            if ($null -eq $copy) { return (Write-Result 'failed' $null 'The copy was not found after it was created.') }
-            return (Write-Result 'ok' $copy)
+            if ($null -eq $found) { return (Write-Result 'partial' $null 'The copy was not found after it was created.') }
+            $createdId = [string]$found.CollectionID
+            return (Write-Result 'ok' (Get-Collection $createdId))
         }
         'SetProperties' {
             $arguments = @{ CollectionId = $CollectionId; Comment = $Comment }
             if ($Name -cne [string]$collection.Name) { $arguments.NewName = $Name }
             if ($LimitingCollectionId -ne [string](Get-Prop $collection 'LimitToCollectionID')) { $arguments.LimitingCollectionId = $LimitingCollectionId }
             if ($RefreshType) { $arguments.RefreshType = $RefreshType }
-            if ($RefreshType -in 'Periodic', 'Both' -and $RefreshSchedule -ne (Get-ScheduleToken $collection)) { $arguments.RefreshSchedule = New-RefreshSchedule }
+            $setSchedule = $RefreshUnit -or ($RefreshSchedule -and $RefreshSchedule -ne (Get-ScheduleToken $collection))
+            if ($RefreshType -in 'Periodic', 'Both' -and $setSchedule) { $arguments.RefreshSchedule = New-RefreshSchedule }
             $mutated = $true
             Set-CMCollection @arguments | Out-Null
             return (Write-Result 'ok' (Get-Collection $CollectionId))
@@ -516,7 +559,7 @@ try {
     if ($mutated) {
         $now = $null
         try {
-            if ($Operation -eq 'Create' -or $Operation -eq 'Copy') { $found = Find-CollectionByName $Name; if ($null -ne $found) { $now = Get-Collection ([string]$found.CollectionID) } }
+            if ($Operation -eq 'Create' -or $Operation -eq 'Copy') { if ($createdId) { $now = Get-Collection $createdId } }
             else { $now = Get-Collection $CollectionId }
         } catch { }
         return (Write-Result 'partial' $now $failure.Exception.Message)
