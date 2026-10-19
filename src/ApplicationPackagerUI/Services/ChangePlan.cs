@@ -65,7 +65,12 @@ public delegate Task<ChangePlanResult> ChangePlanRun(ConfirmedChangePlan plan, I
 
 public sealed record ChangePlanItemResult(ChangePlanItem Item, bool Succeeded, string Message)
 {
-    public string OutcomeText => Succeeded ? "Changed" : "Failed";
+    /// <summary>The run left the item unchanged on purpose; a skipped item counts neither as changed nor as failed.</summary>
+    public bool Skipped { get; init; }
+
+    public string OutcomeText => Skipped ? "Skipped" : Succeeded ? "Changed" : "Failed";
+
+    public static ChangePlanItemResult Skip(ChangePlanItem item, string message) => new(item, false, message) { Skipped = true };
 }
 
 /// <summary>How a run ended.</summary>
@@ -79,9 +84,13 @@ public enum ChangePlanStop
 
 public sealed record ChangePlanResult(IReadOnlyList<ChangePlanItemResult> Items, ChangePlanStop Stop = ChangePlanStop.Completed)
 {
-    public int SucceededCount => Items.Count(i => i.Succeeded);
-    public int FailedCount => Items.Count(i => !i.Succeeded);
-    public string Summary => $"{SucceededCount} changed, {FailedCount} failed.";
+    public int SucceededCount => Items.Count(i => i.Succeeded && !i.Skipped);
+    public int FailedCount => Items.Count(i => !i.Succeeded && !i.Skipped);
+    public int SkippedCount => Items.Count(i => i.Skipped);
+
+    public string Summary => SkippedCount == 0
+        ? $"{SucceededCount} changed, {FailedCount} failed."
+        : $"{SucceededCount} changed, {FailedCount} failed, {SkippedCount} skipped.";
 }
 
 /// <summary>What happened in the change plan window.</summary>

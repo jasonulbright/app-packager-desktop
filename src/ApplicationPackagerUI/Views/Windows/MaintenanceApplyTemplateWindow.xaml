@@ -1,0 +1,82 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.MaintenanceApplyTemplateWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Apply template"
+    Width="820" Height="620"
+    MinWidth="620" MinHeight="420"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Apply template" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="16,0,16,8">
+            <TextBlock Text="Template" FontSize="12" Margin="0,0,0,4" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" DisplayMemberPath="Name"
+                      AutomationProperties.Name="Template" AutomationProperties.AutomationId="cboApplyTemplate" />
+            <TextBlock Text="{Binding SelectedTemplate.Description}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtApplyTemplateDescription" />
+            <RadioButton Content="Skip a collection that already has a window with the template's name" IsChecked="True" Margin="0,8,0,0"
+                         GroupName="Existing" AutomationProperties.AutomationId="rbSkipExisting" />
+            <RadioButton Content="Create the window there with a new name, for example Name (2)" IsChecked="{Binding RenameExisting}"
+                         GroupName="Existing" AutomationProperties.AutomationId="rbRenameExisting" />
+        </StackPanel>
+
+        <WrapPanel Grid.Row="2" Margin="16,0,16,8">
+            <ui:TextBox Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or folder" Icon="{ui:SymbolIcon Search24}"
+                        MinWidth="260" Margin="0,0,8,0" AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtApplyFilter" />
+            <CheckBox Content="Only collections without a window" IsChecked="{Binding OnlyWithoutWindow}" Margin="0,0,8,0" VerticalAlignment="Center"
+                      AutomationProperties.AutomationId="chkApplyWithoutWindow" />
+            <ui:Button Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="btnCheckShown" />
+            <ui:Button Content="Clear" Command="{Binding ClearChecksCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="btnClearChecks" />
+            <TextBlock VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" AutomationProperties.AutomationId="txtCheckedCount">
+                <Run Text="{Binding CheckedCount, Mode=OneWay}" />
+                <Run Text="selected" />
+            </TextBlock>
+        </WrapPanel>
+
+        <DataGrid Grid.Row="3" ItemsSource="{Binding Targets}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
+                  AutomationProperties.AutomationId="dgApplyTargets" AutomationProperties.Name="Target collections">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="44" CanUserSort="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                                      AutomationProperties.Name="{Binding Name}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Collection" Binding="{Binding Name, Mode=OneWay}" Width="2*" MinWidth="180" IsReadOnly="True" />
+                <DataGridTextColumn Header="ID" Binding="{Binding CollectionId, Mode=OneWay}" Width="100" IsReadOnly="True" />
+                <DataGridTextColumn Header="Windows" Binding="{Binding WindowCount, Mode=OneWay}" Width="90" IsReadOnly="True" />
+                <DataGridTextColumn Header="Folder" Binding="{Binding FolderPath, Mode=OneWay}" Width="*" MinWidth="120" IsReadOnly="True" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+            <DockPanel>
+                <WrapPanel DockPanel.Dock="Right">
+                    <ui:Button Content="Show plan" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding ApplyCommand}"
+                               AutomationProperties.AutomationId="btnApplyShowPlan" />
+                    <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}"
+                               AutomationProperties.AutomationId="btnApplyCancel" />
+                </WrapPanel>
+                <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           AutomationProperties.AutomationId="txtApplyMessage" AutomationProperties.LiveSetting="Assertive" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
