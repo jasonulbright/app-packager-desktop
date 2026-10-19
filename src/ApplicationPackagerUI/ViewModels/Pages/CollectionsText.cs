@@ -28,6 +28,28 @@ public static class CollectionsText
         string.IsNullOrEmpty(row.LimitingCollectionId) ? "" : Target(row.LimitingCollectionName, row.LimitingCollectionId);
 
     public static string OrNone(string? value) => string.IsNullOrWhiteSpace(value) ? "(none)" : value;
+
+    public static string Every(RefreshInterval interval)
+    {
+        var unit = interval.Unit.TrimEnd('s').ToLowerInvariant();
+        return interval.Count == 1 ? $"every 1 {unit}" : $"every {interval.Count.ToString(CultureInfo.InvariantCulture)} {unit}s";
+    }
+
+    /// <summary>
+    /// The interval of a single ConfigMgr interval schedule token (recurrence flag 2: minutes,
+    /// hours and days spans at bits 13, 8 and 3); null for any other token or a token with more
+    /// than one span set.
+    /// </summary>
+    public static RefreshInterval? IntervalOf(string? token)
+    {
+        if (token is null || token.Length != 16
+            || !ulong.TryParse(token, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var v))
+            return null;
+        int Bits(int shift, int width) => (int)((v >> shift) & ((1UL << width) - 1));
+        if (Bits(19, 3) != 2) return null;
+        var spans = new[] { (Bits(13, 6), "Minutes"), (Bits(8, 5), "Hours"), (Bits(3, 5), "Days") }.Where(s => s.Item1 > 0).ToList();
+        return spans.Count == 1 ? new RefreshInterval(spans[0].Item1, spans[0].Item2) : null;
+    }
 }
 
 /// <summary>One row of the Collections grid.</summary>
@@ -130,10 +152,12 @@ public sealed record SavedQueryRow(SavedQuery Query)
 }
 
 /// <summary>
-/// Puts operator values into the placeholders of a template. A value becomes a WQL string
-/// literal: inside a literal of the template it takes that literal's quote character, otherwise
-/// it is wrapped in single quotes. The quote character is doubled; a backslash is doubled
-/// because WQL reads a backslash in a literal as an escape, so a value cannot end the literal.
+/// Puts operator values into the placeholders of a template, by the place of each placeholder
+/// in the template text. Inside a quoted literal the value keeps that literal's quote character;
+/// WQL reads a backslash in a literal as an escape, so a backslash and the quote character get
+/// a backslash in front and a value cannot end the literal. Inside a literal compared with like,
+/// % _ and [ are wildcards and are refused. Outside a literal the value must be a whole number,
+/// or whole numbers separated by commas directly inside "in ( )".
 /// </summary>
 public static class WqlParameters
 {
@@ -142,11 +166,22 @@ public static class WqlParameters
     public const string ControlCharacter = "A parameter value cannot contain a line break, a tab or another control character.";
     public const string TooLong = "A parameter value can have at most 256 characters.";
 
-    /// <summary>Why the value cannot be used, or null.</summary>
+    public static string WholeNumber(string label) => $"Enter a whole number for {label}, for example 14.";
+
+    public static string WholeNumbers(string label) => $"Enter whole numbers separated by commas for {label}, for example 8,9,10.";
+
+    public static string Wildcard(string label, char wildcard) =>
+        $"The value for {label} cannot contain {wildcard}. The query compares it with like, where {wildcard} is a wildcard.";
+
+    private const int MaxDigits = 18;
+
+    private enum Place { Bare, List, Literal, LikeLiteral }
+
+    /// <summary>Why the value cannot be used anywhere, or null.</summary>
     public static string? Problem(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return Required;
-        if (value.Any(char.IsControl)) return ControlCharacter;
+        if (value.Any(c => char.IsControl(c) || c is (char)0x2028 or (char)0x2029)) return ControlCharacter;
         if (value.Length > MaxLength) return TooLong;
         return null;
     }
@@ -158,21 +193,34 @@ public static class WqlParameters
 
     public static string Placeholder(string name) => name.StartsWith('{') && name.EndsWith('}') ? name : "{" + name + "}";
 
+    /// <summary>The template with the values inserted; throws <see cref="ArgumentException"/> with the plain reason when a value does not fit its place.</summary>
     public static string Insert(string expression, IEnumerable<(string Placeholder, string Value)> values)
     {
+        var (wql, problem) = Build(expression, values.Select(v => (v.Placeholder, Label(v.Placeholder), v.Value)));
+        return wql ?? throw new ArgumentException(problem, nameof(values));
+    }
+
+    /// <summary>The template with the values inserted, or the plain reason the first value that does not fit its place cannot be used.</summary>
+    public static (string? Wql, string? Problem) Build(string expression, IEnumerable<(string Placeholder, string Label, string Value)> values)
+    {
         var list = values.Where(v => v.Placeholder.Length > 0).OrderByDescending(v => v.Placeholder.Length).ToList();
-        foreach (var (_, value) in list)
-            if (Problem(value) is { } problem) throw new ArgumentException(problem, nameof(values));
+        foreach (var v in list)
+            if (Problem(v.Value) is { } problem) return (null, problem);
         var output = new StringBuilder(expression.Length + 32);
         var quote = '\0';
+        var like = false;
         for (var i = 0; i < expression.Length;)
         {
             var match = list.FirstOrDefault(v => string.CompareOrdinal(expression, i, v.Placeholder, 0, v.Placeholder.Length) == 0);
             if (match.Placeholder is not null)
             {
-                if (quote == '\0') output.Append('\'').Append(Escape(match.Value, '\'')).Append('\'');
-                else output.Append(Escape(match.Value, quote));
-                i += match.Placeholder.Length;
+                var end = i + match.Placeholder.Length;
+                var place = quote != '\0' ? like ? Place.LikeLiteral : Place.Literal
+                    : InList(expression, i, end) ? Place.List : Place.Bare;
+                var (text, problem) = Value(match.Value, match.Label, place, quote);
+                if (text is null) return (null, problem);
+                output.Append(text);
+                i = end;
                 continue;
             }
             var c = expression[i];
@@ -183,13 +231,63 @@ public static class WqlParameters
                 i += 2;
                 continue;
             }
-            if (quote == '\0' && c is '\'' or '"') quote = c;
+            if (quote == '\0' && c is '\'' or '"')
+            {
+                quote = c;
+                like = PrecedingWord(expression, i).Equals("like", StringComparison.OrdinalIgnoreCase);
+            }
             else if (quote != '\0' && c == quote) quote = '\0';
             i++;
         }
-        return output.ToString();
+        return (output.ToString(), null);
+    }
+
+    private static (string? Text, string? Problem) Value(string value, string label, Place place, char quote)
+    {
+        if (place == Place.Bare)
+            return WholeNumberText(value) is { } number ? (number, null) : (null, WholeNumber(label));
+        if (place == Place.List)
+        {
+            var items = value.Split(',').Select(item => WholeNumberText(Unquoted(item.Trim()))).ToList();
+            return items.Any(item => item is null) ? (null, WholeNumbers(label)) : (string.Join(",", items.Select(item => $"'{item}'")), null);
+        }
+        var wildcard = value.IndexOfAny(['%', '_', '[']);
+        if (place == Place.LikeLiteral && wildcard >= 0) return (null, Wildcard(label, value[wildcard]));
+        return (Escape(value, quote), null);
+    }
+
+    private static string Unquoted(string item) =>
+        item.Length >= 2 && item[0] == item[^1] && item[0] is '\'' or '"' ? item[1..^1] : item;
+
+    private static string? WholeNumberText(string value)
+    {
+        var text = value.Trim();
+        return text.Length is > 0 and <= MaxDigits && text.All(char.IsAsciiDigit)
+            ? long.Parse(text, NumberStyles.None, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture)
+            : null;
+    }
+
+    /// <summary>The word that ends before <paramref name="index"/>, white space skipped; empty when a symbol comes first.</summary>
+    private static string PrecedingWord(string text, int index)
+    {
+        var end = index;
+        while (end > 0 && char.IsWhiteSpace(text[end - 1])) end--;
+        var start = end;
+        while (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] == '_')) start--;
+        return text[start..end];
+    }
+
+    /// <summary>True when the placeholder from <paramref name="start"/> to <paramref name="end"/> is the only content of "in ( )".</summary>
+    private static bool InList(string text, int start, int end)
+    {
+        var before = start;
+        while (before > 0 && char.IsWhiteSpace(text[before - 1])) before--;
+        if (before == 0 || text[before - 1] != '(') return false;
+        var after = end;
+        while (after < text.Length && char.IsWhiteSpace(text[after])) after++;
+        return after < text.Length && text[after] == ')' && PrecedingWord(text, before - 1).Equals("in", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Escape(string value, char quote) =>
-        value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace(quote.ToString(), new string(quote, 2), StringComparison.Ordinal);
+        value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace(quote.ToString(), "\\" + quote, StringComparison.Ordinal);
 }

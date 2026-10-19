@@ -125,4 +125,47 @@ public sealed class CollectionWriterTests : IDisposable
         Assert.Equal((3, "pilot"), (again.CollectionCompliance!.SelectedTab, again.CollectionCompliance.TextFilter));
         await Task.CompletedTask;
     }
+
+    private static string UiRoot()
+    {
+        var folder = new DirectoryInfo(AppContext.BaseDirectory);
+        while (folder is not null && !Directory.Exists(Path.Combine(folder.FullName, "src", "ApplicationPackagerUI"))) folder = folder.Parent;
+        Assert.NotNull(folder);
+        return Path.Combine(folder!.FullName, "src", "ApplicationPackagerUI");
+    }
+
+    /// <summary>The code of every UI source file without comments and string literals, by path relative to the UI project.</summary>
+    private static Dictionary<string, string> UiCode()
+    {
+        var root = UiRoot();
+        var separator = Path.DirectorySeparatorChar;
+        return Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{separator}obj{separator}", StringComparison.OrdinalIgnoreCase)
+                     && !f.Contains($"{separator}bin{separator}", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(f => Path.GetRelativePath(root, f), f => MaintenanceWindowWriterTests.Code(File.ReadAllText(f)), StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OnlyTheWriterCallsTheCollectionServiceWriteAndThePageCallsOnlyItsReads()
+    {
+        var code = UiCode();
+        var writers = code.Where(f => System.Text.RegularExpressions.Regex.IsMatch(f.Value, @"\bservice\s*\.\s*ApplyAsync\b")).Select(f => f.Key).ToList();
+        Assert.Equal([Path.Combine("Services", "CollectionsPlan.cs")], writers.Where(f => !f.Contains("Maintenance", StringComparison.Ordinal)));
+
+        Assert.Equal(
+        [
+            Path.Combine("Services", "CollectionCompliancePrompts.cs"),
+            Path.Combine("Services", "CollectionsPlan.cs"),
+            Path.Combine("Services", "PackagerServiceRegistration.cs"),
+            Path.Combine("ViewModels", "Pages", "CollectionComplianceViewModel.cs")
+        ], code.Where(f => System.Text.RegularExpressions.Regex.IsMatch(f.Value, @"\bICollectionService\b")).Select(f => f.Key).Order(StringComparer.OrdinalIgnoreCase));
+
+        string[] reads = ["ListCollectionsAsync", "GetCollectionAsync", "GetDetailAsync", "ValidateWqlAsync", "PreviewWqlAsync", "ListSavedQueriesAsync", "PrepareAsync"];
+        var page = code.Where(f => f.Key.Contains("CollectionComplianceViewModel", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, page.Count);
+        var used = page.SelectMany(f => System.Text.RegularExpressions.Regex.Matches(f.Value, @"\.\s*Collections\s*\.\s*(\w+)").Select(m => m.Groups[1].Value)).Distinct().ToList();
+        Assert.NotEmpty(used);
+        Assert.All(used, m => Assert.Contains(m, reads));
+        Assert.All(page, f => Assert.DoesNotMatch(@"\bApplyAsync\b", f.Value));
+    }
 }

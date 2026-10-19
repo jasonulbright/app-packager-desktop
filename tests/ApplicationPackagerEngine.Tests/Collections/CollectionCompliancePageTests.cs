@@ -646,6 +646,16 @@ public sealed class CollectionCompliancePageTests
                 Assert.Equal(mode == CollectionEditorMode.Copy, ById<FrameworkElement>(window, "txtCopySource").IsVisible);
                 Assert.Equal(mode != CollectionEditorMode.Copy, ById<FrameworkElement>(window, "lstLimiting").IsVisible);
                 Assert.Equal(mode != CollectionEditorMode.Copy, ById<FrameworkElement>(window, "cboRefreshType").IsVisible);
+                Assert.Equal(mode != CollectionEditorMode.Copy, ById<FrameworkElement>(window, "txtRefreshCount").IsVisible);
+                Assert.Equal(mode != CollectionEditorMode.Copy, ById<FrameworkElement>(window, "cboRefreshUnit").IsVisible);
+                if (mode != CollectionEditorMode.Copy)
+                {
+                    editor.RefreshType = "Manual";
+                    Settle(window);
+                    Assert.False(ById<FrameworkElement>(window, "txtRefreshCount").IsVisible);
+                    editor.RefreshType = "Periodic";
+                    Settle(window);
+                }
                 Assert.Equal(mode == CollectionEditorMode.Copy ? "Copy of Servers" : mode == CollectionEditorMode.Edit ? "Servers" : "",
                     ById<System.Windows.Controls.TextBox>(window, "txtCollectionName").Text);
                 Assert.True(ById<Button>(window, "btnCollectionSave").IsDefault);

@@ -29,7 +29,10 @@ public sealed partial class CollectionComplianceViewModel
 
     [ObservableProperty] private string _memberPageText = "";
     [ObservableProperty] private string _detailMessage = "";
-    [ObservableProperty] private bool _isDetailLoading;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(NextMemberPageCommand), nameof(PreviousMemberPageCommand))]
+    private bool _isDetailLoading;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(EditRuleInEditorCommand), nameof(RemoveSelectedQueryRuleCommand))]
@@ -52,7 +55,7 @@ public sealed partial class CollectionComplianceViewModel
     private void ReleaseDetail()
     {
         _detailGeneration++;
-        try { _detail?.Cancel(); } catch (ObjectDisposedException) { }
+        Cancel(_detail);
         _detail = null;
         IsDetailLoading = false;
         _detailRules = [];
@@ -71,18 +74,29 @@ public sealed partial class CollectionComplianceViewModel
 
     private void StartDetail(CollectionGridRow? row, int page)
     {
-        var keepPageSize = row is not null && page > 0 ? _memberPageSize : 0;
         ReleaseDetail();
-        _memberPageSize = keepPageSize;
         if (row is null)
         {
             DetailLoad = Task.CompletedTask;
             return;
         }
         ShowProperties(row.Row);
+        StartDetailRead(row.Row, page);
+    }
+
+    /// <summary>Reads another member page; the shown page, its rules and its paging stay until the read returns.</summary>
+    private void StartMemberPage(CollectionGridRow row, int page)
+    {
+        _detailGeneration++;
+        Cancel(_detail);
+        StartDetailRead(row.Row, page);
+    }
+
+    private void StartDetailRead(CollectionRow row, int page)
+    {
         var cts = new CancellationTokenSource();
         _detail = cts;
-        DetailLoad = LoadDetailAsync(row.Row, page, _detailGeneration, cts);
+        DetailLoad = LoadDetailAsync(row, page, _detailGeneration, cts);
     }
 
     private void ShowProperties(CollectionRow row)
@@ -126,6 +140,12 @@ public sealed partial class CollectionComplianceViewModel
             DetailMessage = problem ?? "";
             return;
         }
+        DetailMessage = "";
+        Members.Clear();
+        QueryRules.Clear();
+        IncludeRules.Clear();
+        ExcludeRules.Clear();
+        SetSelectedMembers([]);
         _detailRules = detail.Rules;
         ShowProperties(detail.Row);
         foreach (var member in detail.Members) Members.Add(new MemberRow(member));
@@ -149,23 +169,23 @@ public sealed partial class CollectionComplianceViewModel
         PreviousMemberPageCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanNextMemberPage() => _memberPageSize > 0 && MemberPage * _memberPageSize + Members.Count < _memberTotal;
+    private bool CanNextMemberPage() => !IsDetailLoading && _memberPageSize > 0 && MemberPage * _memberPageSize + Members.Count < _memberTotal;
 
     [RelayCommand(CanExecute = nameof(CanNextMemberPage))]
     private Task NextMemberPage()
     {
         if (SelectedRow is not { } row || !CanNextMemberPage()) return Task.CompletedTask;
-        StartDetail(row, MemberPage + 1);
+        StartMemberPage(row, MemberPage + 1);
         return DetailLoad;
     }
 
-    private bool CanPreviousMemberPage() => MemberPage > 0;
+    private bool CanPreviousMemberPage() => !IsDetailLoading && MemberPage > 0;
 
     [RelayCommand(CanExecute = nameof(CanPreviousMemberPage))]
     private Task PreviousMemberPage()
     {
-        if (SelectedRow is not { } row || MemberPage == 0) return Task.CompletedTask;
-        StartDetail(row, MemberPage - 1);
+        if (SelectedRow is not { } row || !CanPreviousMemberPage()) return Task.CompletedTask;
+        StartMemberPage(row, MemberPage - 1);
         return DetailLoad;
     }
 
@@ -191,6 +211,7 @@ public sealed partial class CollectionComplianceViewModel
 
     private async Task ShowEditorAsync(CollectionEditorViewModel editor)
     {
+        _lastRunPlan = null;
         _services.Prompts.ShowCollectionEditor(editor);
         _editorWidth = editor.Width;
         _editorHeight = editor.Height;
@@ -198,10 +219,14 @@ public sealed partial class CollectionComplianceViewModel
         if (editor.Saved || _lastRunPlan is not null) await AfterWriteAsync();
     }
 
+    /// <summary>
+    /// True when the whole list is loaded. The name and limiting-collection checks and the
+    /// collection pickers read the list, so a list of one collection opened by ID is refused.
+    /// </summary>
     private bool RequireList()
     {
-        if (IsDataLoaded) return true;
-        StatusMessage = ConnectionMessage.Length > 0 ? ConnectionMessage : RefreshFirst;
+        if (IsDataLoaded && !_partialList) return true;
+        StatusMessage = _partialList ? PartialListRefused : ConnectionMessage.Length > 0 ? ConnectionMessage : RefreshFirst;
         return false;
     }
 
@@ -209,10 +234,11 @@ public sealed partial class CollectionComplianceViewModel
     private Task NewCollection() => RequireList() ? ShowEditorAsync(NewEditor(CollectionEditorMode.New, null)) : Task.CompletedTask;
 
     [RelayCommand(CanExecute = nameof(CanChangeSelected))]
-    private Task EditCollection() => SelectedRow is { IsBuiltIn: false } row ? ShowEditorAsync(NewEditor(CollectionEditorMode.Edit, row.Row)) : Task.CompletedTask;
+    private Task EditCollection() =>
+        SelectedRow is { IsBuiltIn: false } row && RequireList() ? ShowEditorAsync(NewEditor(CollectionEditorMode.Edit, row.Row)) : Task.CompletedTask;
 
     [RelayCommand(CanExecute = nameof(CanCopySelected))]
-    private Task CopyCollection() => SelectedRow is { } row ? ShowEditorAsync(NewEditor(CollectionEditorMode.Copy, row.Row)) : Task.CompletedTask;
+    private Task CopyCollection() => SelectedRow is { } row && RequireList() ? ShowEditorAsync(NewEditor(CollectionEditorMode.Copy, row.Row)) : Task.CompletedTask;
 
     /// <summary>The editor's Save: one change, its plan, and true when the write changed ConfigMgr.</summary>
     private async Task<bool> SaveCollectionAsync(CollectionEditorViewModel editor)
@@ -245,7 +271,7 @@ public sealed partial class CollectionComplianceViewModel
                 return (new CollectionPlan("Create", "New collection", "Create collection",
                 [
                     CollectionPlanEntry.Write(new ChangePlanItem("Create", after.Name,
-                        $"Limiting collection: {CollectionsText.Limiting(after)}. Refresh: {after.RefreshType}. Comment: {CollectionsText.OrNone(after.Comment)}. Undo removes it."), change)
+                        $"Limiting collection: {CollectionsText.Limiting(after)}. Refresh: {RefreshText(after, null)}. Comment: {CollectionsText.OrNone(after.Comment)}. Undo removes it."), change)
                 ]), null);
             case CollectionChangeKind.Copy:
             {
@@ -265,7 +291,13 @@ public sealed partial class CollectionComplianceViewModel
                 if (before.Comment != after.Comment) lines.Add($"Comment: {CollectionsText.OrNone(before.Comment)} to {CollectionsText.OrNone(after.Comment)}");
                 if (!string.Equals(before.LimitingCollectionId, after.LimitingCollectionId, StringComparison.OrdinalIgnoreCase))
                     lines.Add($"Limiting collection: {CollectionsText.OrNone(CollectionsText.Limiting(before))} to {CollectionsText.Limiting(after)}");
-                if (before.RefreshType != after.RefreshType) lines.Add($"Refresh: {before.RefreshType} to {after.RefreshType}");
+                if (before.RefreshType != after.RefreshType) lines.Add($"Refresh: {before.RefreshType} to {RefreshText(after, before)}");
+                else if (after.RefreshInterval is { } interval && IsPeriodic(after.RefreshType))
+                {
+                    var current = CollectionsText.IntervalOf(before.RefreshSchedule);
+                    var currentText = current is not null ? CollectionsText.Every(current) : before.RefreshSchedule.Length > 0 ? "the current schedule" : "(none)";
+                    lines.Add($"Refresh interval: {currentText} to {CollectionsText.Every(interval)}");
+                }
                 if (lines.Count == 0) return (null, NothingToChange);
                 var set = before with
                 {
@@ -273,7 +305,8 @@ public sealed partial class CollectionComplianceViewModel
                     Comment = after.Comment,
                     RefreshType = after.RefreshType,
                     LimitingCollectionId = after.LimitingCollectionId,
-                    LimitingCollectionName = after.LimitingCollectionName
+                    LimitingCollectionName = after.LimitingCollectionName,
+                    RefreshInterval = after.RefreshInterval
                 };
                 return (new CollectionPlan("Set properties", "Edit collection", "Save changes",
                 [
@@ -282,6 +315,19 @@ public sealed partial class CollectionComplianceViewModel
                 ]), null);
             }
         }
+    }
+
+    private static bool IsPeriodic(string refreshType) => refreshType is "Periodic" or "Both";
+
+    /// <summary>The refresh type with the interval the write sets, or the schedule it keeps or gets by default.</summary>
+    private static string RefreshText(CollectionRow after, CollectionRow? before)
+    {
+        if (!IsPeriodic(after.RefreshType)) return after.RefreshType;
+        if (after.RefreshInterval is { } interval) return $"{after.RefreshType}, {CollectionsText.Every(interval)}";
+        var schedule = before?.RefreshSchedule ?? "";
+        var kept = CollectionsText.IntervalOf(schedule) is { } current ? $"{CollectionsText.Every(current)} (unchanged)"
+            : schedule.Length > 0 ? "the current schedule (unchanged)" : DefaultIntervalText;
+        return $"{after.RefreshType}, {kept}";
     }
 
     private bool CanEvaluate() => !_writing && _selectedRows.Count > 0;
@@ -337,11 +383,15 @@ public sealed partial class CollectionComplianceViewModel
     {
         if (SelectedRow is not { IsBuiltIn: false } row) return;
         var prompt = new TextPromptViewModel("Add direct members", "Device names",
-            $"One name per line, at most {MaxDeviceNames}. The page looks each name up in ConfigMgr and shows a plan.", "Look up and show plan", true,
+            $"One device name or resource ID per line, at most {MaxDeviceNames}. The page looks each one up in ConfigMgr and shows a plan.", "Look up and show plan", true,
             DeviceNamesProblem, p => AddDirectMembersAsync(row.Row, p));
+        _lastRunPlan = null;
         _services.Prompts.ShowTextPrompt(prompt);
         if (prompt.Accepted || _lastRunPlan is not null) await AfterWriteAsync();
     }
+
+    /// <summary>A line of digits that fits a ConfigMgr resource ID (an unsigned 32-bit number) is also looked up as a resource ID.</summary>
+    private static bool IsResourceId(string text) => text.Length is > 0 and <= 10 && text.All(char.IsAsciiDigit) && uint.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _);
 
     private static List<string> DeviceNames(string text) =>
         text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -361,7 +411,8 @@ public sealed partial class CollectionComplianceViewModel
     {
         var names = DeviceNames(prompt.Text);
         var query = "select SMS_R_System.ResourceId, SMS_R_System.Name from SMS_R_System where "
-            + string.Join(" or ", names.Select(n => "SMS_R_System.Name = " + WqlParameters.Literal(n)));
+            + string.Join(" or ", names.Select(n => "SMS_R_System.Name = " + WqlParameters.Literal(n)
+                + (IsResourceId(n) ? " or SMS_R_System.ResourceId = " + n : "")));
         WqlResult result;
         try
         {
@@ -379,20 +430,37 @@ public sealed partial class CollectionComplianceViewModel
             _services.Log.Warning(LogArea, "The device name lookup was not valid.");
             return false;
         }
+        if (result.MatchCount > result.FirstRows.Count)
+        {
+            prompt.ShowMessage(TooManyDevices);
+            _services.Log.Warning(LogArea, "The device name lookup found more devices than it could list.");
+            return false;
+        }
         var idColumn = IndexOf(result.Columns, "ResourceId");
         var nameColumn = IndexOf(result.Columns, "Name");
-        var found = new Dictionary<string, (string Id, string Name)>(StringComparer.OrdinalIgnoreCase);
-        if (idColumn >= 0 && nameColumn >= 0)
-            foreach (var r in result.FirstRows)
-                if (r.Count > Math.Max(idColumn, nameColumn)) found.TryAdd(r[nameColumn], (r[idColumn], r[nameColumn]));
-        _services.Log.Info(LogArea, $"Looked up {names.Count} device names; {names.Count(found.ContainsKey)} found.");
-        var skips = names.Where(n => !found.ContainsKey(n))
-            .Select(n => CollectionPlanEntry.Skip(new ChangePlanItem("Skip", n, DeviceNotFound), DeviceNotFound)).ToList();
-        var requests = names.Where(found.ContainsKey).Select(n => found[n])
+        var devices = idColumn >= 0 && nameColumn >= 0
+            ? result.FirstRows.Where(r => r.Count > Math.Max(idColumn, nameColumn)).Select(r => (Id: r[idColumn], Name: r[nameColumn])).Distinct().ToList()
+            : [];
+        var skips = new List<CollectionPlanEntry>();
+        var picked = new List<(string Id, string Name)>();
+        foreach (var name in names)
+        {
+            var matches = devices.Where(d => string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase) || (IsResourceId(name) && d.Id == name)).ToList();
+            var reason = matches.Count switch
+            {
+                0 => DeviceNotFound,
+                1 => null,
+                _ => AmbiguousDevice(matches.Select(m => m.Id).Order(StringComparer.Ordinal).ToList())
+            };
+            if (reason is null) picked.Add(matches[0]);
+            else skips.Add(CollectionPlanEntry.Skip(new ChangePlanItem("Skip", name, reason), reason));
+        }
+        _services.Log.Info(LogArea, $"Looked up {names.Count} device names; {picked.Count} found, {skips.Count} skipped.");
+        var requests = picked.DistinctBy(d => d.Id)
             .Select(d => Request(CollectionChangeKind.AddRule, collection, ruleAfter: new CollectionRule(CollectionRuleKind.Direct, d.Name, "", d.Id, "", ""))).ToList();
         if (requests.Count == 0)
         {
-            prompt.ShowMessage(NoDeviceFound);
+            prompt.ShowMessage(skips.FirstOrDefault(s => s.SkipReason != DeviceNotFound)?.SkipReason ?? NoDeviceFound);
             return false;
         }
         var run = await RunPlanAsync(requests, prepared =>
@@ -469,6 +537,7 @@ public sealed partial class CollectionComplianceViewModel
         var picker = new CollectionPickerViewModel($"Add {word} rules", $"Check the collections whose members {row.Name} {word}s.", "Show plan",
             _collections!.Where(c => !string.Equals(c.CollectionId, row.CollectionId, StringComparison.OrdinalIgnoreCase)),
             p => AddMembershipRulesAsync(row.Row, kind, p));
+        _lastRunPlan = null;
         _services.Prompts.ShowPicker(picker);
         if (picker.Accepted || _lastRunPlan is not null) await AfterWriteAsync();
     }
@@ -595,9 +664,10 @@ public sealed partial class CollectionComplianceViewModel
     private void ReleaseWql()
     {
         _wqlGeneration++;
-        try { _wqlRules?.Cancel(); } catch (ObjectDisposedException) { }
-        try { _preview?.Cancel(); } catch (ObjectDisposedException) { }
+        Cancel(_wqlRules);
+        Cancel(_preview);
         _wqlRules = null;
+        _lastPreview = null;
         WqlTree.Clear();
         WqlRules.Clear();
         PreviewRows.Clear();
@@ -605,6 +675,9 @@ public sealed partial class CollectionComplianceViewModel
         SelectedWqlRule = null;
         WqlCollection = null;
         WqlRulesLoad = Task.CompletedTask;
+        WqlText = "";
+        WqlRuleName = "";
+        WqlMessage = "";
     }
 
     private void StartWqlRules(CollectionGridRow? row)
@@ -951,14 +1024,9 @@ public sealed partial class CollectionComplianceViewModel
             TemplateMessage = "";
             return;
         }
-        if (TemplateParameters.Select(p => WqlParameters.Problem(p.Value)).FirstOrDefault(p => p is not null) is { } problem)
-        {
-            TemplateWql = "";
-            TemplateMessage = problem;
-            return;
-        }
-        TemplateWql = WqlParameters.Insert(row.Template.Expression, TemplateParameters.Select(p => (p.Placeholder, p.Value)));
-        TemplateMessage = "";
+        var (wql, problem) = WqlParameters.Build(row.Template.Expression, TemplateParameters.Select(p => (p.Placeholder, p.Label, p.Value)));
+        TemplateWql = wql ?? "";
+        TemplateMessage = problem ?? "";
     }
 
     private bool HasTemplateWql() => TemplateWql.Length > 0;
@@ -984,6 +1052,7 @@ public sealed partial class CollectionComplianceViewModel
         var wql = TemplateWql;
         var picker = new CollectionPickerViewModel($"Apply template {row.Name}", "Check the collections that get the template as a query rule. Built-in collections are not offered.",
             "Show plan", _collections!.Where(c => !c.IsBuiltIn), p => ApplyTemplateAsync(row.Template, wql, p));
+        _lastRunPlan = null;
         _services.Prompts.ShowPicker(picker);
         if (picker.Accepted || _lastRunPlan is not null) await AfterWriteAsync();
     }
@@ -1104,6 +1173,7 @@ public sealed partial class CollectionComplianceViewModel
         }
         var prompt = new TextPromptViewModel("Save query", "Name", "The WQL Editor's query is saved as a new ConfigMgr query on the site.", "Show plan", false,
             QueryNameProblem, p => SaveQueryAsync(p, wql));
+        _lastRunPlan = null;
         _services.Prompts.ShowTextPrompt(prompt);
         if (prompt.Accepted || _lastRunPlan is not null) await AfterWriteAsync();
     }

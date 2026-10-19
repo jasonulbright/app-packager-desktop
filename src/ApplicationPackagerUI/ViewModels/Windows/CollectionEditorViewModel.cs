@@ -31,10 +31,22 @@ public sealed partial class CollectionEditorViewModel : ObservableObject
     public const string LimitingRequired = "Select a limiting collection.";
     public const string LimitingSelf = "A collection cannot be its own limiting collection.";
     public const string CommentInvalid = "The comment cannot contain a control character other than a line break.";
+    public const string RefreshIntervalInvalid = "Enter a refresh interval of 1 to 59 minutes, 1 to 23 hours or 1 to 31 days, or leave it empty.";
 
     public static string NameTaken(string name) => $"A collection named {name} already exists.";
 
     public static IReadOnlyList<string> RefreshTypes { get; } = ["Manual", "Periodic", "Continuous", "Both"];
+
+    public static IReadOnlyList<string> RefreshUnits { get; } = ["Minutes", "Hours", "Days"];
+
+    /// <summary>The largest count of each unit that a ConfigMgr interval schedule holds.</summary>
+    private static int MaxCount(string unit) => unit switch
+    {
+        "Minutes" => 59,
+        "Hours" => 23,
+        "Days" => 31,
+        _ => 0
+    };
 
     private readonly IReadOnlyList<CollectionRow> _collections;
     private readonly IReadOnlyList<CollectionChoiceRow> _choices;
@@ -60,6 +72,12 @@ public sealed partial class CollectionEditorViewModel : ObservableObject
         _name = mode == CollectionEditorMode.Copy ? "Copy of " + original.Name : original.Name;
         _comment = original.Comment;
         _refreshType = RefreshTypes.Contains(original.RefreshType) ? original.RefreshType : "Periodic";
+        CurrentInterval = CollectionsText.IntervalOf(original.RefreshSchedule);
+        if (CurrentInterval is { } current)
+        {
+            _refreshCount = current.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            _refreshUnit = current.Unit;
+        }
         SelectedLimiting = _choices.FirstOrDefault(c => string.Equals(c.Row.CollectionId, original.LimitingCollectionId, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -95,9 +113,21 @@ public sealed partial class CollectionEditorViewModel : ObservableObject
     public bool Saved { get; private set; }
     public event EventHandler? CloseRequested;
 
+    /// <summary>The refresh interval of the original collection's schedule; null when it has none or one this dialog cannot show.</summary>
+    public RefreshInterval? CurrentInterval { get; }
+
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _comment = "";
-    [ObservableProperty] private string _refreshType = "Periodic";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRefreshIntervalVisible))]
+    private string _refreshType = "Periodic";
+
+    [ObservableProperty] private string _refreshCount = "";
+    [ObservableProperty] private string _refreshUnit = "Days";
+
+    /// <summary>True for a refresh type with a periodic schedule.</summary>
+    public bool IsRefreshIntervalVisible => RefreshType is "Periodic" or "Both";
     [ObservableProperty] private string _limitingFilter = "";
     [ObservableProperty] private CollectionChoiceRow? _selectedLimiting;
     [ObservableProperty] private string _validationMessage = "";
@@ -143,7 +173,17 @@ public sealed partial class CollectionEditorViewModel : ObservableObject
         if (Comment.Any(c => char.IsControl(c) && c is not '\r' and not '\n')) return CommentInvalid;
         if (SelectedLimiting is not { } limiting) return LimitingRequired;
         if (self is not null && string.Equals(limiting.Row.CollectionId, self, StringComparison.OrdinalIgnoreCase)) return LimitingSelf;
+        if (IsRefreshIntervalVisible && RefreshCount.Trim().Length > 0 && Interval() is null) return RefreshIntervalInvalid;
         return null;
+    }
+
+    /// <summary>The interval the count and unit give; null when the count is empty or out of range.</summary>
+    private RefreshInterval? Interval()
+    {
+        var text = RefreshCount.Trim();
+        if (text.Length is 0 or > 2 || !text.All(char.IsAsciiDigit)) return null;
+        var count = int.Parse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
+        return count >= 1 && count <= MaxCount(RefreshUnit) ? new RefreshInterval(count, RefreshUnit) : null;
     }
 
     /// <summary>The collection as the dialog describes it; null while the values are not valid.</summary>
@@ -154,13 +194,15 @@ public sealed partial class CollectionEditorViewModel : ObservableObject
         if (Mode == CollectionEditorMode.Copy) return Original! with { Name = name };
         var limiting = SelectedLimiting!.Row;
         var basis = Original ?? new CollectionRow("", name, "", "", "", 0, false, RefreshType, "", 0, 0, 0, 0);
+        var interval = IsRefreshIntervalVisible ? Interval() : null;
         return basis with
         {
             Name = name,
             Comment = Comment.Trim(),
             RefreshType = RefreshType,
             LimitingCollectionId = limiting.CollectionId,
-            LimitingCollectionName = limiting.Name
+            LimitingCollectionName = limiting.Name,
+            RefreshInterval = interval == CurrentInterval ? null : interval
         };
     }
 
