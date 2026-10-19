@@ -246,7 +246,9 @@ public sealed class DetectionTesterParityTests(ITestOutputHelper output)
         var module = JsonNode.Parse(line["PARITY-JSON:".Length..])!.AsArray()
             .ToDictionary(n => (string)n!["Name"]!, n => n!);
 
-        var service = new DetectionTestService();
+        var runFolder = Path.Combine(Path.GetTempPath(), "apkg-dtparity-" + Guid.NewGuid().ToString("N"));
+        using var cleanup = new FolderCleanup(runFolder);
+        var service = new DetectionTestService(scriptHost: new WindowsPowerShellDetectionScriptHost(runFolder: runFolder));
         var differences = new List<string>();
         foreach (var c in cases)
         {
@@ -268,5 +270,13 @@ public sealed class DetectionTesterParityTests(ITestOutputHelper output)
         Assert.All(RequiredCases, name => Assert.True(module.ContainsKey(name), $"The module did not evaluate '{name}'."));
         var expected = DocumentedDifferences.Keys.Where(k => cases.Any(c => c.Name == k)).Order().ToList();
         Assert.Equal(expected, differences.Order().ToList());
+    }
+
+    private sealed class FolderCleanup(string folder) : IDisposable
+    {
+        public void Dispose()
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
     }
 }

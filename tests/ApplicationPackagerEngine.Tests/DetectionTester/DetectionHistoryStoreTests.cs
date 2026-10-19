@@ -44,6 +44,55 @@ public sealed class DetectionHistoryStoreTests : IDisposable
     }
 
     [Fact]
+    public void AHistoryFolderThatIsAJunctionIsNeitherReadNorWritten()
+    {
+        var target = Path.Combine(_folder + "-target");
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, DetectionHistoryStore.FileName), """{"Version":1,"Entries":[]}""");
+        Junctions.Create(_folder, target);
+        try
+        {
+            var store = new DetectionHistoryStore(_folder);
+
+            Assert.Equal(DetectionFolderRefusedException.HistoryMessage,
+                Assert.Throws<DetectionFolderRefusedException>(() => store.All()).Message);
+            Assert.Throws<DetectionFolderRefusedException>(() => store.Add(Entry(1)));
+            Assert.Throws<DetectionFolderRefusedException>(store.Clear);
+            Assert.Equal("""{"Version":1,"Entries":[]}""", File.ReadAllText(Path.Combine(target, DetectionHistoryStore.FileName)));
+            Assert.Single(Directory.GetFiles(target));
+        }
+        finally
+        {
+            Directory.Delete(_folder);
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TheDefaultHistoryFolderIsRefusedWhenItIsAJunction()
+    {
+        var saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
+        var target = _folder + "-target";
+        Directory.CreateDirectory(target);
+        try
+        {
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _folder);
+            Directory.CreateDirectory(AppDataPaths.Root);
+            Junctions.Create(DetectionHistoryStore.DefaultFolder(), target);
+
+            var store = new DetectionHistoryStore();
+
+            Assert.Throws<DetectionFolderRefusedException>(() => store.Add(Entry(1)));
+            Assert.Empty(Directory.GetFiles(target));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, saved);
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    [Fact]
     public void NoFileIsWrittenBeforeTheFirstEntry()
     {
         Assert.Empty(new DetectionHistoryStore(_folder).All());

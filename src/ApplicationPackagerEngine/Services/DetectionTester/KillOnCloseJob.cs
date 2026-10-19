@@ -23,7 +23,8 @@ internal sealed class KillOnCloseJob : IDisposable
     /// <summary>
     /// Puts <paramref name="process"/> in a new kill-on-close job. Null when the job cannot
     /// be created or the process cannot be assigned; the caller then has no tree guarantee
-    /// beyond its own kill. A child started before the assignment is not in the job.
+    /// beyond its own kill and must not let the process continue. A child started before
+    /// the assignment is not in the job.
     /// </summary>
     public static KillOnCloseJob? TryAssign(Process process)
     {

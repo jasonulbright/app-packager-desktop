@@ -159,6 +159,10 @@ internal sealed class DetectionTesterHarness
     public RecordingDetectionLog Log { get; } = new();
     public DetectionTesterSettings? Saved { get; set; }
     public int PreferenceReads { get; private set; }
+    public int? PreferenceThreadId { get; private set; }
+
+    /// <summary>When set, the saved-choices read blocks until the test releases it.</summary>
+    public ManualResetEventSlim? PreferenceGate { get; set; }
     public int SaveCount { get; private set; }
     public int? SaveThreadId { get; private set; }
     public Exception? SaveFailure { get; set; }
@@ -167,7 +171,13 @@ internal sealed class DetectionTesterHarness
 
     public DetectionTesterViewModel Create() => new(new DetectionTesterPageServices(
         Tests, History, Reports, Applications, Prompts,
-        () => { PreferenceReads++; return Saved; },
+        () =>
+        {
+            PreferenceReads++;
+            PreferenceThreadId = Environment.CurrentManagedThreadId;
+            PreferenceGate?.Wait(TimeSpan.FromSeconds(10));
+            return Saved;
+        },
         settings =>
         {
             SaveCount++;
@@ -628,7 +638,7 @@ public sealed class DetectionTesterViewModelTests
             await viewModel.ImportManifestCommand.ExecuteAsync(null);
             Assert.Equal(DetectionTesterResultState.Invalid, viewModel.ResultState);
             Assert.Equal("Import failed", viewModel.ResultHeadline);
-            Assert.StartsWith("The file could not be read as a stage manifest.", viewModel.ResultSummary);
+            Assert.Equal("The file could not be read as a stage manifest.", viewModel.ResultSummary);
             Assert.Empty(viewModel.ImportedTree);
         }
         finally { File.Delete(path); }
@@ -694,8 +704,67 @@ public sealed class DetectionTesterViewModelTests
         _h.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now, new StageDetection { Type = "RegistryKey", RegistryKeyRelative = "A" }));
         var viewModel = await _h.OpenAsync();
         await viewModel.ExportCsvCommand.ExecuteAsync(null);
-        Assert.Equal("The CSV report could not be written. The disk is full.", viewModel.StatusMessage);
+        Assert.Equal("The CSV report could not be written.", viewModel.StatusMessage);
+        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("disk is full"));
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("IOException"));
         Assert.Empty(_h.Prompts.OpenedFolders);
+    }
+
+    [Fact]
+    public async Task AReportsFolderThatIsALinkShowsTheRefusal()
+    {
+        _h.Reports.Failure = new DetectionFolderRefusedException(DetectionFolderRefusedException.ReportsMessage);
+        _h.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now, new StageDetection { Type = "RegistryKey", RegistryKeyRelative = "A" }));
+        var viewModel = await _h.OpenAsync();
+        await viewModel.ExportHtmlCommand.ExecuteAsync(null);
+        Assert.Equal(DetectionFolderRefusedException.ReportsMessage, viewModel.StatusMessage);
+        Assert.Empty(_h.Prompts.OpenedFolders);
+    }
+
+    [Fact]
+    public async Task AHistoryFolderThatIsALinkShowsTheRefusalOnLoadAndOnSave()
+    {
+        _h.History.ReadFailure = new DetectionFolderRefusedException(DetectionFolderRefusedException.HistoryMessage);
+        var viewModel = await _h.OpenAsync();
+        Assert.Equal(DetectionFolderRefusedException.HistoryMessage, viewModel.StatusMessage);
+
+        viewModel.StatusMessage = "";
+        _h.History.AddFailure = new DetectionFolderRefusedException(DetectionFolderRefusedException.HistoryMessage);
+        viewModel.KeyPath = @"SOFTWARE\A";
+        viewModel.SelectedClauseType = DetectionTesterViewModel.RegistryKey;
+        await viewModel.RunCommand.ExecuteAsync(null);
+        Assert.Equal(DetectionFolderRefusedException.HistoryMessage, viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task AnImportReadFailureShowsFixedTextAndLogsOnlyTheType()
+    {
+        _h.Prompts.ManifestPath = "locked.json";
+        _h.ReadManifest = _ => throw new IOException(@"The process cannot access \\server\share\locked.json");
+        var viewModel = await _h.OpenAsync();
+        await viewModel.ImportManifestCommand.ExecuteAsync(null);
+        Assert.Equal("The file could not be read as a stage manifest.", viewModel.ResultSummary);
+        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("server"));
+    }
+
+    [Fact]
+    public async Task TheFirstVisitReadsTheSavedChoicesOffTheCallingThread()
+    {
+        using var gate = new ManualResetEventSlim(false);
+        _h.PreferenceGate = gate;
+        _h.Saved = new DetectionTesterSettings { ClauseType = "File", Hive = "HKCU", View = "32-bit" };
+        var viewModel = _h.Create();
+
+        var visit = viewModel.OnNavigatedToAsync();
+
+        Assert.False(visit.IsCompleted);
+        Assert.Equal("RegistryKeyValue", viewModel.SelectedClauseType);
+        gate.Set();
+        await visit.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal("File", viewModel.SelectedClauseType);
+        Assert.Equal("HKCU", viewModel.SelectedHive);
+        Assert.Equal("32-bit", viewModel.SelectedView);
+        Assert.NotEqual(Environment.CurrentManagedThreadId, _h.PreferenceThreadId);
     }
 
     [Fact]

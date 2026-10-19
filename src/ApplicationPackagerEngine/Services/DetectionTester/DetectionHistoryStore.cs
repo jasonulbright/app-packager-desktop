@@ -38,9 +38,19 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         _log = log;
     }
 
-    public static string DefaultFolder() => Path.Combine(AppDataPaths.Root, "DetectionTester");
+    public static string DefaultFolder() => DetectionTesterFolders.Root();
 
-    private string FilePath => Path.Combine(_folder ?? DefaultFolder(), FileName);
+    /// <summary>The history file; a folder that is a junction or symbolic link throws <see cref="DetectionFolderRefusedException"/>.</summary>
+    private string FilePath
+    {
+        get
+        {
+            var folder = _folder ?? DefaultFolder();
+            if (DetectionTesterFolders.HasLink(folder, DetectionTesterFolders.ContainerOf(folder, _folder is null)))
+                throw new DetectionFolderRefusedException(DetectionFolderRefusedException.HistoryMessage);
+            return Path.Combine(folder, FileName);
+        }
+    }
 
     private sealed record StoredHistory(int Version, List<DetectionHistoryEntry?>? Entries);
 
@@ -95,7 +105,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         }
         catch (Exception ex) when (IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"The detection history folder could not be resolved: {ex.Message}");
+            _log?.Warning(LogArea, $"The detection history folder could not be resolved ({ex.GetType().Name}).");
             return _entries;
         }
 
@@ -107,7 +117,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         catch (Exception ex) when (IsStorageFailure(ex))
         {
             if (!_readPending)
-                _log?.Warning(LogArea, $"The detection history file could not be opened; it is not changed until it can be read: {ex.Message}");
+                _log?.Warning(LogArea, $"The detection history file could not be opened; it is not changed until it can be read ({ex.GetType().Name}).");
             _readPending = true;
             return _entries;
         }
@@ -128,7 +138,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             _preserveBeforeWrite = true;
-            _log?.Warning(LogArea, $"The detection history file could not be parsed and is set aside at the next save: {ex.Message}");
+            _log?.Warning(LogArea, $"The detection history file could not be parsed and is set aside at the next save ({ex.GetType().Name}).");
         }
         return _entries;
     }
@@ -171,7 +181,7 @@ public sealed class DetectionHistoryStore : IDetectionHistoryStore
         }
         catch (Exception ex) when (IsStorageFailure(ex))
         {
-            _log?.Warning(LogArea, $"The detection history could not be saved: {ex.Message}");
+            _log?.Warning(LogArea, $"The detection history could not be saved ({ex.GetType().Name}).");
         }
     }
 

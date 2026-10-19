@@ -123,9 +123,13 @@ public static class AppDataPaths
 
     public static void EnsureDirectoryIsNotReparsePoint(string path)
     {
-        if (Directory.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+        if (IsReparsePointDirectory(path))
             throw new IOException($"The user data folder cannot be a junction or symbolic link: {path}");
     }
+
+    /// <summary>True when <paramref name="path"/> is an existing directory that is a junction, symbolic link or mount point.</summary>
+    public static bool IsReparsePointDirectory(string path) =>
+        Directory.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
 
     public static bool IsWithin(string path, string root)
     {

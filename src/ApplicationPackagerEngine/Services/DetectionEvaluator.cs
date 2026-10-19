@@ -249,9 +249,20 @@ public static partial class DetectionEvaluator
         }
         catch (Exception ex)
         {
-            return Leaf(det, DetectionEvaluation.Error, $"The clause could not be evaluated: {ex.Message}");
+            return Leaf(det, DetectionEvaluation.Error, FailureDetail(ex));
         }
     }
+
+    /// <summary>
+    /// Fixed text for a failure. An exception's own message can carry paths, machine
+    /// names or account names, so only a refusal written for the user is shown as it is.
+    /// </summary>
+    private static string FailureDetail(Exception ex) => ex switch
+    {
+        DetectionScriptRefusedException => ex.Message,
+        UnauthorizedAccessException or System.Security.SecurityException => "The clause could not be evaluated: access was denied.",
+        _ => $"The clause could not be evaluated ({ex.GetType().Name})."
+    };
 
     private static DetectionTrace Leaf(StageDetection det, DetectionEvaluation verdict, string detail,
         DetectionScriptRun? script = null) => new(det, verdict, detail, [], script);
@@ -348,9 +359,6 @@ public static partial class DetectionEvaluator
             : Leaf(det, DetectionEvaluation.Detected, $"Key exists: {target} ({ViewText(det)}).");
     }
 
-    [GeneratedRegex(@"\\System32(\\|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex System32Segment();
-
     [GeneratedRegex(@"\s*\(.*\)\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex TrailingLabel();
 
@@ -362,9 +370,9 @@ public static partial class DetectionEvaluator
 
     /// <summary>
     /// The path a file rule probes. A 32-bit rule on a 64-bit Windows is evaluated as a
-    /// 32-bit process would see it: System32 is redirected to SysWOW64 and %ProgramFiles%
-    /// and %CommonProgramFiles% expand to their (x86) folders. This 64-bit process sees
-    /// neither, so the path is rewritten instead.
+    /// 32-bit process would see it: the Windows system folder is redirected to SysWOW64 and
+    /// %ProgramFiles% and %CommonProgramFiles% expand to their (x86) folders. This 64-bit
+    /// process sees neither, so the path is rewritten instead.
     /// </summary>
     public static string ResolveFilePath(StageDetection det)
     {
@@ -372,8 +380,23 @@ public static partial class DetectionEvaluator
         var redirect = !det.Is64Bit && Environment.Is64BitOperatingSystem;
         if (redirect) raw = ProgramFilesVariable().Replace(raw, "%$1(x86)%");
         var folder = Environment.ExpandEnvironmentVariables(raw);
-        if (redirect) folder = System32Segment().Replace(folder, @"\SysWOW64$1");
+        if (redirect) folder = RedirectSystemFolder(folder);
         return Path.Combine(folder, det.FileName ?? "");
+    }
+
+    /// <summary>
+    /// Only the real system folder is redirected; a folder named System32 elsewhere, such
+    /// as under an application's own folder, is not.
+    /// </summary>
+    private static string RedirectSystemFolder(string folder)
+    {
+        var system = Path.TrimEndingDirectorySeparator(Environment.SystemDirectory);
+        var windows = Path.GetDirectoryName(system);
+        if (string.IsNullOrEmpty(windows)) return folder;
+        if (!folder.StartsWith(system, StringComparison.OrdinalIgnoreCase)) return folder;
+        var rest = folder[system.Length..];
+        if (rest.Length > 0 && rest[0] is not ('\\' or '/')) return folder;
+        return Path.Combine(windows, "SysWOW64") + rest;
     }
 
     /// <summary>
@@ -442,7 +465,8 @@ public static partial class DetectionEvaluator
         }
         catch (FileNotFoundException) { return (DetectionEvaluation.NotDetected, $"File not found: {filePath}"); }
         catch (DirectoryNotFoundException) { return (DetectionEvaluation.NotDetected, $"File not found: {filePath}"); }
-        catch (Exception ex) { return (DetectionEvaluation.Error, $"File could not be read: {filePath}: {ex.Message}"); }
+        catch (UnauthorizedAccessException) { return (DetectionEvaluation.Error, $"File could not be read: {filePath}: access was denied."); }
+        catch (Exception ex) { return (DetectionEvaluation.Error, $"File could not be read: {filePath} ({ex.GetType().Name})."); }
     }
 
     private static DetectionTrace TraceScript(StageDetection det, DetectionEvaluationContext context)

@@ -72,6 +72,7 @@ public partial class DetectionTesterViewModel : ObservableObject
     private CancellationTokenSource? _run;
     private bool _historyLoaded;
     private bool _applyingPreferences;
+    private Task _preferencesLoad = Task.CompletedTask;
     private DetectionTesterSettings? _storedChoices;
     private IReadOnlyList<InstalledApplication>? _allApplications;
     private Task? _applicationsLoad;
@@ -191,7 +192,8 @@ public partial class DetectionTesterViewModel : ObservableObject
         if (!_historyLoaded)
         {
             _historyLoaded = true;
-            ApplyPreferences();
+            _preferencesLoad = ApplyPreferencesAsync();
+            await _preferencesLoad;
             await LoadHistoryAsync();
         }
         if (SelectedTabIndex == 1 && _allApplications is null) await LoadApplicationsAsync();
@@ -229,10 +231,11 @@ public partial class DetectionTesterViewModel : ObservableObject
         _ = LoadApplicationsAsync();
     }
 
-    private void ApplyPreferences()
+    /// <summary>Reads the saved choices on a pool thread; the inputs are set on the calling thread.</summary>
+    private async Task ApplyPreferencesAsync()
     {
         DetectionTesterSettings? saved;
-        try { saved = _services.LoadPreferences(); }
+        try { saved = await Task.Run(_services.LoadPreferences); }
         catch (Exception ex)
         {
             saved = null;
@@ -261,7 +264,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = "The history could not be read.";
+            StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : "The history could not be read.";
             _services.Log.Warning(LogArea, $"The history could not be read ({ex.GetType().Name}).");
         }
     }
@@ -367,7 +370,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = "The test result could not be saved to the history.";
+            StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : "The test result could not be saved to the history.";
             _services.Log.Warning(LogArea, $"The history could not be saved ({ex.GetType().Name}).");
         }
     }
@@ -386,6 +389,8 @@ public partial class DetectionTesterViewModel : ObservableObject
     /// <summary>Writes the choices on a pool thread when they differ from the stored ones; a failure is logged and tried again at the next change or run.</summary>
     private async Task SavePreferencesAsync()
     {
+        // A save before the stored choices are known would replace them with the defaults.
+        await _preferencesLoad;
         var choices = CurrentChoices();
         if (SameChoices(_storedChoices, choices)) return;
         try
@@ -472,13 +477,6 @@ public partial class DetectionTesterViewModel : ObservableObject
         try
         {
             manifest = await Task.Run(() => IsTooLarge(path) ? null : _services.ReadManifest(path));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException
-                                       or NotSupportedException or ArgumentException)
-        {
-            ShowOutcome(DetectionTesterResultState.Invalid, "Import failed", $"The file could not be read as a stage manifest. {ex.Message}");
-            _services.Log.Warning(LogArea, $"Import failed ({ex.GetType().Name}).");
-            return;
         }
         catch (Exception ex)
         {
@@ -626,15 +624,9 @@ public partial class DetectionTesterViewModel : ObservableObject
         {
             path = await Task.Run(() => write(entries));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or NotSupportedException)
-        {
-            StatusMessage = $"The {format} report could not be written. {ex.Message}";
-            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
-            return;
-        }
         catch (Exception ex)
         {
-            StatusMessage = $"The {format} report could not be written.";
+            StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : $"The {format} report could not be written.";
             _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }
@@ -654,7 +646,7 @@ public partial class DetectionTesterViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = "The history could not be cleared.";
+            StatusMessage = ex is DetectionFolderRefusedException ? ex.Message : "The history could not be cleared.";
             _services.Log.Warning(LogArea, $"The history could not be cleared ({ex.GetType().Name}).");
             return;
         }

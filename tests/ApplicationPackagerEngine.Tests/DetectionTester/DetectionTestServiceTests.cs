@@ -250,17 +250,43 @@ public sealed class DetectionTestServiceTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Service().RunAsync(Request(det), cts.Token));
     }
 
+    private static string TempRunFolder() => Path.Combine(Path.GetTempPath(), "apkg-dtsvc-" + Guid.NewGuid().ToString("N"));
+
     [Fact]
     public async Task ARealScriptRunsThroughWindowsPowerShell()
     {
-        var service = new DetectionTestService();
-        var det = new StageDetection { Type = "Script", ScriptText = "if (Test-Path $env:SystemRoot) { 'present' }" };
+        var folder = TempRunFolder();
+        try
+        {
+            var service = new DetectionTestService(scriptHost: new WindowsPowerShellDetectionScriptHost(runFolder: folder));
+            var det = new StageDetection { Type = "Script", ScriptText = "if (Test-Path $env:SystemRoot) { 'present' }" };
 
-        var result = await service.RunAsync(Request(det), CancellationToken.None);
+            var result = await service.RunAsync(Request(det), CancellationToken.None);
 
-        Assert.True(result.Passed);
-        Assert.Equal("present", result.ScriptStdout);
-        Assert.Equal(0, result.ScriptExitCode);
+            Assert.True(result.Passed);
+            Assert.Equal("present", result.ScriptStdout);
+            Assert.Equal(0, result.ScriptExitCode);
+        }
+        finally { Directory.Delete(folder, recursive: true); }
+    }
+
+    [Fact]
+    public async Task AScriptThatCannotBeContainedFailsWithThePlainRefusal()
+    {
+        var folder = TempRunFolder();
+        try
+        {
+            var host = new WindowsPowerShellDetectionScriptHost(runFolder: folder) { AssignJob = _ => null };
+            var service = new DetectionTestService(Registry(), host);
+            var det = new StageDetection { Type = "Script", ScriptText = "'x'" };
+
+            var result = await service.RunAsync(Request(det, negative: true), CancellationToken.None);
+
+            Assert.False(result.Passed);
+            Assert.Contains(DetectionScriptRefusedException.NoContainment, result.Summary);
+            Assert.Contains(DetectionScriptRefusedException.NoContainment, Assert.Single(result.Clauses).Detail);
+        }
+        finally { Directory.Delete(folder, recursive: true); }
     }
 
     [Fact]

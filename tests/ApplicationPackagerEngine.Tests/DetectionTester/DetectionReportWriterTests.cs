@@ -22,6 +22,61 @@ public sealed class DetectionReportWriterTests : IDisposable
         new StageDetection { Type = script is null ? "RegistryKey" : "Script", RegistryKeyRelative = "SOFTWARE\\X", ScriptText = script });
 
     [Fact]
+    public void AReportsFolderThatIsAJunctionIsRefused()
+    {
+        var target = _folder + "-target";
+        Directory.CreateDirectory(target);
+        Junctions.Create(_folder, target);
+        try
+        {
+            Assert.Equal(DetectionFolderRefusedException.ReportsMessage,
+                Assert.Throws<DetectionFolderRefusedException>(() => Writer().WriteCsv([Entry("first")])).Message);
+            Assert.Throws<DetectionFolderRefusedException>(() => Writer().WriteHtml([Entry("first")]));
+            Assert.Empty(Directory.GetFiles(target));
+        }
+        finally
+        {
+            Directory.Delete(_folder);
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TheDefaultReportsFolderIsRefusedWhenItOrTheDetectionTesterFolderIsAJunction(bool linkTheParent)
+    {
+        var saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
+        var target = _folder + "-target";
+        Directory.CreateDirectory(target);
+        try
+        {
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _folder);
+            var reports = DetectionReportWriter.DefaultFolder();
+            var parent = Path.GetDirectoryName(reports)!;
+            Assert.Equal(Path.Combine(AppDataPaths.Root, "DetectionTester"), parent, ignoreCase: true);
+            if (linkTheParent)
+            {
+                Directory.CreateDirectory(AppDataPaths.Root);
+                Junctions.Create(parent, target);
+            }
+            else
+            {
+                Directory.CreateDirectory(parent);
+                Junctions.Create(reports, target);
+            }
+
+            Assert.Throws<DetectionFolderRefusedException>(() => new DetectionReportWriter(clock: () => Now).WriteCsv([Entry("first")]));
+            Assert.Empty(Directory.GetFileSystemEntries(target));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, saved);
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    [Fact]
     public void TheCsvFileIsTimeStampedUnderTheFolderAndHoldsAHeaderAndOneRowPerEntry()
     {
         var path = Writer().WriteCsv([Entry("first"), Entry("second", negative: true, passed: false)]);

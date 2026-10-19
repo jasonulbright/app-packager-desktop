@@ -16,7 +16,7 @@ public sealed class DetectionReportWriter(string? folder = null, Func<DateTimeOf
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
 
-    public static string DefaultFolder() => Path.Combine(AppDataPaths.Root, "DetectionTester", "Reports");
+    public static string DefaultFolder() => Path.Combine(DetectionTesterFolders.Root(), "Reports");
 
     public string WriteCsv(IReadOnlyList<DetectionHistoryEntry> entries)
     {
@@ -77,6 +77,9 @@ public sealed class DetectionReportWriter(string? folder = null, Func<DateTimeOf
     private string Write(string extension, string content)
     {
         var target = folder ?? DefaultFolder();
+        var container = DetectionTesterFolders.ContainerOf(target, folder is null);
+        if (DetectionTesterFolders.HasLink(target, container))
+            throw new DetectionFolderRefusedException(DetectionFolderRefusedException.ReportsMessage);
         Directory.CreateDirectory(target);
         var stamp = _clock().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);

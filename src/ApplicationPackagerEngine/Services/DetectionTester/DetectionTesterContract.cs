@@ -103,6 +103,29 @@ public interface IDetectionHistoryStore
     void Clear();
 }
 
+/// <summary>A script the host does not start; the message is fixed text for the user.</summary>
+public sealed class DetectionScriptRefusedException(string message) : Exception(message)
+{
+    public const string NoContainment =
+        "The script was not run: this computer did not allow the script's processes to be contained, so they could not be ended reliably.";
+
+    public const string RunFolderIsLink =
+        "The script was not run: the Detection Tester run folder is a junction or symbolic link.";
+}
+
+/// <summary>
+/// A Detection Tester data folder that is a junction or symbolic link; it is neither read
+/// nor written. The message is fixed text for the user.
+/// </summary>
+public sealed class DetectionFolderRefusedException(string message) : Exception(message)
+{
+    public const string HistoryMessage =
+        "The Detection Tester folder is a junction or symbolic link. The history is not read or saved.";
+
+    public const string ReportsMessage =
+        "The Detection Tester reports folder is a junction or symbolic link. The report was not written.";
+}
+
 public interface IDetectionReportWriter
 {
     /// <summary>Writes the entries to a new CSV file and returns its path.</summary>

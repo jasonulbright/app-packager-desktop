@@ -51,6 +51,51 @@ public sealed class DetectionEvaluatorTraceTests
     }
 
     [Fact]
+    public void AnUnexpectedFailureShowsItsTypeAndNotItsText()
+    {
+        var context = new DetectionEvaluationContext
+        {
+            Registry = new FakeRegistryProvider(),
+            RunScript = _ => throw new InvalidOperationException(@"internal detail \\server\share"),
+            ScriptRule = ScriptVerdictRule.OutputOnly
+        };
+
+        var trace = DetectionEvaluator.Trace(new StageDetection { Type = "Script", ScriptText = "'x'" }, context);
+
+        Assert.Equal(DetectionEvaluation.Error, trace.Verdict);
+        Assert.Equal("The clause could not be evaluated (InvalidOperationException).", trace.Detail);
+    }
+
+    [Fact]
+    public void ARefusedScriptShowsTheRefusalText()
+    {
+        var context = new DetectionEvaluationContext
+        {
+            Registry = new FakeRegistryProvider(),
+            RunScript = _ => throw new DetectionScriptRefusedException(DetectionScriptRefusedException.NoContainment),
+            ScriptRule = ScriptVerdictRule.OutputOnly
+        };
+
+        var trace = DetectionEvaluator.Trace(new StageDetection { Type = "Script", ScriptText = "'x'" }, context);
+
+        Assert.Equal(DetectionEvaluation.Error, trace.Verdict);
+        Assert.Equal(DetectionScriptRefusedException.NoContainment, trace.Detail);
+    }
+
+    [Fact]
+    public void AFileThatCannotBeProbedShowsTheFailureTypeAndNotItsText()
+    {
+        var det = new StageDetection { Type = "File", FilePath = @"C:\Bad|Folder", FileName = "x.exe", Is64Bit = true };
+
+        var trace = DetectionEvaluator.Trace(det, Context(new FakeRegistryProvider()));
+
+        Assert.Equal(DetectionEvaluation.Error, trace.Verdict);
+        Assert.StartsWith(@"File could not be read: C:\Bad|Folder\x.exe (", trace.Detail);
+        Assert.EndsWith("Exception).", trace.Detail);
+        Assert.DoesNotContain("syntax", trace.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void AKeyRuleReadsTheViewAndHiveItDeclares()
     {
         var registry = new FakeRegistryProvider().AddKey(RegistryHive.CurrentUser, RegistryView.Registry32, Key);
@@ -72,7 +117,7 @@ public sealed class DetectionEvaluatorTraceTests
         var trace = DetectionEvaluator.Trace(Value("2.0"), Context(registry));
 
         Assert.Equal(DetectionEvaluation.Error, trace.Verdict);
-        Assert.Contains("not allowed", trace.Detail);
+        Assert.Equal("The clause could not be evaluated: access was denied.", trace.Detail);
         var key = DetectionEvaluator.Trace(
             new StageDetection { Type = "RegistryKey", RegistryKeyRelative = Key }, Context(registry));
         Assert.Equal(DetectionEvaluation.Error, key.Verdict);
@@ -287,6 +332,39 @@ public sealed class DetectionEvaluatorTraceTests
     }
 
     [Theory]
+    [InlineData(@"C:\Program Files\Acme\System32", @"C:\Program Files\Acme\System32\agent.exe")]
+    [InlineData(@"D:\Data\System32", @"D:\Data\System32\agent.exe")]
+    [InlineData(@"C:\Windows\System32Backup\System32", @"C:\Windows\System32Backup\System32\agent.exe")]
+    public void AThirtyTwoBitFileRuleKeepsASystem32FolderOutsideTheWindowsSystemFolder(string folder, string expected)
+    {
+        var det = new StageDetection { Type = "File", FilePath = folder, FileName = "agent.exe", Is64Bit = false };
+
+        Assert.Equal(expected, DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+    }
+
+    [Theory]
+    [InlineData(@"%windir%\System32")]
+    [InlineData(@"%SystemRoot%\system32")]
+    [InlineData(@"C:\Windows\System32")]
+    [InlineData(@"C:\Windows\System32\")]
+    public void AThirtyTwoBitFileRuleUnderTheWindowsSystemFolderReadsSysWow64(string folder)
+    {
+        var det = new StageDetection { Type = "File", FilePath = folder, FileName = "notepad.exe", Is64Bit = false };
+        var expected = Path.Combine(Path.GetDirectoryName(Environment.SystemDirectory)!, "SysWOW64", "notepad.exe");
+
+        Assert.Equal(expected, DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+    }
+
+    [Fact]
+    public void AThirtyTwoBitFileRuleBelowTheWindowsSystemFolderKeepsTheRestOfThePath()
+    {
+        var det = new StageDetection { Type = "File", FilePath = @"%windir%\System32\drivers\etc", FileName = "hosts", Is64Bit = false };
+        var expected = Path.Combine(Path.GetDirectoryName(Environment.SystemDirectory)!, "SysWOW64", "drivers", "etc", "hosts");
+
+        Assert.Equal(expected, DetectionEvaluator.ResolveFilePath(det), ignoreCase: true);
+    }
+
+    [Theory]
     [InlineData("Size")]
     [InlineData("DateModified")]
     public void AFilePropertyThisEvaluatorDoesNotReadIsAnError(string property)
@@ -357,7 +435,8 @@ public sealed class DetectionEvaluatorTraceTests
             _ => throw new InvalidOperationException("no host")));
 
         Assert.Equal(DetectionEvaluation.Error, trace.Verdict);
-        Assert.Contains("no host", trace.Detail);
+        Assert.Contains("InvalidOperationException", trace.Detail);
+        Assert.DoesNotContain("no host", trace.Detail);
     }
 
     [Fact]

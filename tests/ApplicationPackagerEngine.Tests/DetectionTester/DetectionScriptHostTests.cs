@@ -4,14 +4,32 @@ using ApplicationPackagerEngine.Services;
 namespace ApplicationPackagerEngine.Tests.DetectionTester;
 
 /// <summary>Real Windows PowerShell child processes.</summary>
-public sealed class DetectionScriptHostTests
+public sealed class DetectionScriptHostTests : IDisposable
 {
     private static readonly TimeSpan Generous = TimeSpan.FromSeconds(60);
+
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-dtrun-" + Guid.NewGuid().ToString("N"));
+
+    private string RunFolder => Path.Combine(_root, "run");
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_root, recursive: true); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    private WindowsPowerShellDetectionScriptHost Host(int outputLimit = WindowsPowerShellDetectionScriptHost.DefaultOutputLimit) =>
+        new(outputLimit, RunFolder);
+
+    private sealed class RecordingJob : IDisposable
+    {
+        public int Disposed;
+        public void Dispose() => Interlocked.Increment(ref Disposed);
+    }
 
     [Fact]
     public async Task StdoutStderrAndTheExitCodeAreCaptured()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(
+        var run = await Host().RunAsync(
             "Write-Output 'Installed'\n[Console]::Error.WriteLine('warned')\nexit 3", Generous, CancellationToken.None);
 
         Assert.Equal("Installed", run.StdOut);
@@ -24,7 +42,7 @@ public sealed class DetectionScriptHostTests
     [Fact]
     public async Task AScriptThatPrintsNothingExitsZeroWithEmptyOutput()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync("$x = 1", Generous, CancellationToken.None);
+        var run = await Host().RunAsync("$x = 1", Generous, CancellationToken.None);
 
         Assert.Equal("", run.StdOut);
         Assert.Equal(0, run.ExitCode);
@@ -33,7 +51,7 @@ public sealed class DetectionScriptHostTests
     [Fact]
     public async Task WriteHostReachesStdout()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync("Write-Host 'found'", Generous, CancellationToken.None);
+        var run = await Host().RunAsync("Write-Host 'found'", Generous, CancellationToken.None);
 
         Assert.Equal("found", run.StdOut);
     }
@@ -41,7 +59,7 @@ public sealed class DetectionScriptHostTests
     [Fact]
     public async Task AScriptThatReadsTheHostGetsEndOfInputInsteadOfWaiting()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(
+        var run = await Host().RunAsync(
             "$a = Read-Host 'Name'\n$b = [Console]::ReadLine()\nif ($a -or $b) { 'got input' } else { 'no input' }",
             TimeSpan.FromSeconds(30), CancellationToken.None);
 
@@ -52,7 +70,7 @@ public sealed class DetectionScriptHostTests
     [Fact]
     public async Task ATerminatingErrorIsANonZeroExitWithTheErrorOnStderr()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync("throw 'broken rule'", Generous, CancellationToken.None);
+        var run = await Host().RunAsync("throw 'broken rule'", Generous, CancellationToken.None);
 
         Assert.NotEqual(0, run.ExitCode);
         Assert.Contains("broken rule", run.StdErr);
@@ -61,7 +79,7 @@ public sealed class DetectionScriptHostTests
     [Fact]
     public async Task OutputPastTheLimitIsCutAndTheRunStillEnds()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost(outputLimit: 1000).RunAsync(
+        var run = await Host(outputLimit: 1000).RunAsync(
             "Write-Output ('x' * 200000)", Generous, CancellationToken.None);
 
         Assert.True(run.OutputTruncated);
@@ -80,7 +98,7 @@ public sealed class DetectionScriptHostTests
             """;
         var watch = Stopwatch.StartNew();
 
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(script, TimeSpan.FromSeconds(8), CancellationToken.None);
+        var run = await Host().RunAsync(script, TimeSpan.FromSeconds(8), CancellationToken.None);
 
         Assert.True(run.TimedOut);
         Assert.Null(run.ExitCode);
@@ -96,20 +114,131 @@ public sealed class DetectionScriptHostTests
         var watch = Stopwatch.StartNew();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new WindowsPowerShellDetectionScriptHost().RunAsync("Start-Sleep 120", Generous, cts.Token));
+            Host().RunAsync("Start-Sleep 120", Generous, cts.Token));
 
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(60));
     }
 
     [Fact]
-    public async Task TheScriptFileIsRemovedAfterTheRun()
+    public async Task TheScriptFileIsWrittenInTheRunFolderAndRemovedAfterTheRun()
     {
-        var before = Directory.GetFiles(Path.GetTempPath(), "ap-detection-*.ps1").ToHashSet();
+        string? written = null;
+        var existedDuringRun = false;
+        var host = new WindowsPowerShellDetectionScriptHost(runFolder: RunFolder)
+        {
+            ScriptFileCreated = path => { written = path; existedDuringRun = File.Exists(path); }
+        };
 
-        await new WindowsPowerShellDetectionScriptHost().RunAsync("'x'", Generous, CancellationToken.None);
+        var run = await host.RunAsync("'x'", Generous, CancellationToken.None);
 
-        var after = Directory.GetFiles(Path.GetTempPath(), "ap-detection-*.ps1").Where(f => !before.Contains(f));
-        Assert.Empty(after);
+        Assert.Equal("x", run.StdOut);
+        Assert.NotNull(written);
+        Assert.True(existedDuringRun);
+        Assert.Equal(RunFolder, Path.GetDirectoryName(written), ignoreCase: true);
+        Assert.Matches(@"^ap-detection-[0-9a-f]{32}\.ps1$", Path.GetFileName(written));
+        Assert.False(File.Exists(written));
+    }
+
+    [Fact]
+    public void TheDefaultRunFolderIsUnderTheDataRoot()
+    {
+        Assert.Equal(Path.Combine(AppDataPaths.Root, "DetectionTester", "run"),
+            WindowsPowerShellDetectionScriptHost.DefaultRunFolder(), ignoreCase: true);
+    }
+
+    [Fact]
+    public async Task TheFirstRunRemovesScriptFilesOlderThanADayAndKeepsTheRest()
+    {
+        Directory.CreateDirectory(RunFolder);
+        var stale = Path.Combine(RunFolder, "ap-detection-" + Guid.NewGuid().ToString("N") + ".ps1");
+        var recent = Path.Combine(RunFolder, "ap-detection-" + Guid.NewGuid().ToString("N") + ".ps1");
+        var other = Path.Combine(RunFolder, "notes.txt");
+        foreach (var file in new[] { stale, recent, other }) File.WriteAllText(file, "x");
+        File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddDays(-2));
+        File.SetLastWriteTimeUtc(other, DateTime.UtcNow.AddDays(-2));
+        var host = Host();
+
+        await host.RunAsync("'x'", Generous, CancellationToken.None);
+
+        Assert.False(File.Exists(stale));
+        Assert.True(File.Exists(recent));
+        Assert.True(File.Exists(other));
+
+        var staleAgain = Path.Combine(RunFolder, "ap-detection-" + Guid.NewGuid().ToString("N") + ".ps1");
+        File.WriteAllText(staleAgain, "x");
+        File.SetLastWriteTimeUtc(staleAgain, DateTime.UtcNow.AddDays(-2));
+        await host.RunAsync("'x'", Generous, CancellationToken.None);
+        Assert.True(File.Exists(staleAgain));
+    }
+
+    [Fact]
+    public async Task ARunFolderThatIsAJunctionIsRefusedAndNothingRuns()
+    {
+        var target = Path.Combine(_root, "elsewhere");
+        Directory.CreateDirectory(target);
+        Directory.CreateDirectory(_root);
+        Junctions.Create(RunFolder, target);
+        var started = false;
+        var host = new WindowsPowerShellDetectionScriptHost(runFolder: RunFolder) { AssignJob = p => { started = true; return new RecordingJob(); } };
+
+        var ex = await Assert.ThrowsAsync<DetectionScriptRefusedException>(() => host.RunAsync("'x'", Generous, CancellationToken.None));
+
+        Assert.Equal(DetectionScriptRefusedException.RunFolderIsLink, ex.Message);
+        Assert.False(started);
+        Assert.Empty(Directory.GetFiles(target));
+    }
+
+    [Fact]
+    public async Task ARunIsRefusedAndTheProcessEndedWhenItCannotBeContained()
+    {
+        int? processId = null;
+        var host = new WindowsPowerShellDetectionScriptHost(runFolder: RunFolder)
+        {
+            AssignJob = process => { processId = process.Id; return null; }
+        };
+
+        var ex = await Assert.ThrowsAsync<DetectionScriptRefusedException>(() =>
+            host.RunAsync("Start-Sleep 120", Generous, CancellationToken.None));
+
+        Assert.Equal(DetectionScriptRefusedException.NoContainment, ex.Message);
+        Assert.NotNull(processId);
+        Assert.True(HasExited(processId.Value));
+        Assert.Empty(Directory.GetFiles(RunFolder, "ap-detection-*.ps1"));
+    }
+
+    [Fact]
+    public async Task ACancelDuringTheOutputDrainEndsTheRunAndTheJob()
+    {
+        var childIdFile = Path.Combine(_root, "child.txt");
+        Directory.CreateDirectory(_root);
+        var script = $$"""
+            $child = Start-Process -FilePath cmd.exe -ArgumentList '/c ping -n 20 127.0.0.1 >nul' -NoNewWindow -PassThru
+            Set-Content -LiteralPath '{{childIdFile}}' -Value $child.Id
+            """;
+        var job = new RecordingJob();
+        using var cts = new CancellationTokenSource();
+        Stopwatch? sinceDrain = null;
+        var host = new WindowsPowerShellDetectionScriptHost(runFolder: RunFolder)
+        {
+            AssignJob = _ => job,
+            DrainStarted = () => { sinceDrain = Stopwatch.StartNew(); cts.Cancel(); }
+        };
+        try
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.RunAsync(script, Generous, cts.Token));
+
+            Assert.NotNull(sinceDrain);
+            Assert.True(sinceDrain.Elapsed < WindowsPowerShellDetectionScriptHost.OutputDrainTimeout, $"elapsed {sinceDrain.Elapsed}");
+            Assert.True(job.Disposed >= 1);
+        }
+        finally
+        {
+            if (File.Exists(childIdFile) && int.TryParse(File.ReadAllText(childIdFile).Trim(), out var childId))
+            {
+                try { using var child = Process.GetProcessById(childId); child.Kill(entireProcessTree: true); }
+                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+            }
+        }
     }
 
     [Fact]
@@ -121,7 +250,7 @@ public sealed class DetectionScriptHostTests
             """;
         var watch = Stopwatch.StartNew();
 
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(script, Generous, CancellationToken.None);
+        var run = await Host().RunAsync(script, Generous, CancellationToken.None);
 
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"elapsed {watch.Elapsed}");
         Assert.False(run.TimedOut);
@@ -138,7 +267,7 @@ public sealed class DetectionScriptHostTests
             [Console]::Out.WriteLine($child.Id)
             """;
 
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(script, Generous, CancellationToken.None);
+        var run = await Host().RunAsync(script, Generous, CancellationToken.None);
 
         Assert.Equal(0, run.ExitCode);
         Assert.True(int.TryParse(run.StdOut.Trim(), out var childId), $"stdout: '{run.StdOut}'");
@@ -150,7 +279,7 @@ public sealed class DetectionScriptHostTests
     {
         const string name = "Contoso Café Ünïcödé 日本語 Ωmega";
 
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(
+        var run = await Host().RunAsync(
             $"Write-Output '{name}'\nWrite-Host '{name}'\n[Console]::Error.WriteLine('{name}')", Generous, CancellationToken.None);
 
         Assert.Equal($"{name}{Environment.NewLine}{name}", run.StdOut);
@@ -160,7 +289,7 @@ public sealed class DetectionScriptHostTests
     [Fact]
     public async Task AScriptThatStartsWithAUsingStatementStillRuns()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost().RunAsync(
+        var run = await Host().RunAsync(
             "using namespace System.Text\n[StringBuilder]::new('ok').ToString()", Generous, CancellationToken.None);
 
         Assert.Equal("ok", run.StdOut);
@@ -170,7 +299,7 @@ public sealed class DetectionScriptHostTests
     [Fact]
     public async Task TheCapDoesNotSplitASurrogatePair()
     {
-        var run = await new WindowsPowerShellDetectionScriptHost(outputLimit: 3).RunAsync(
+        var run = await Host(outputLimit: 3).RunAsync(
             "Write-Output ('ab' + ([char]::ConvertFromUtf32(0x1F600) * 4))", Generous, CancellationToken.None);
 
         Assert.True(run.OutputTruncated);

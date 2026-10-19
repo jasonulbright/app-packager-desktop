@@ -17,13 +17,34 @@ public interface IDetectionScriptHost
 
 /// <summary>
 /// Runs the body in a child Windows PowerShell 5.1 as the current user. The body goes to a
-/// temporary .ps1 file, never to the command line. Standard input is redirected and closed
+/// .ps1 file in the per-user run folder, never to the command line, and the file is
+/// removed after the run. Standard input is redirected and closed
 /// at once, so Read-Host and console reads get end of input instead of waiting for a
 /// console nobody can see.
 /// </summary>
-public sealed partial class WindowsPowerShellDetectionScriptHost(int outputLimit = WindowsPowerShellDetectionScriptHost.DefaultOutputLimit)
+public sealed partial class WindowsPowerShellDetectionScriptHost(
+    int outputLimit = WindowsPowerShellDetectionScriptHost.DefaultOutputLimit,
+    string? runFolder = null)
     : IDetectionScriptHost
 {
+    /// <summary>Puts the started process in a kill-on-close job; null when that is not possible.</summary>
+    internal Func<Process, IDisposable?> AssignJob { get; init; } = KillOnCloseJob.TryAssign;
+
+    /// <summary>Called with the script file's path once the file is written, before the process starts.</summary>
+    internal Action<string>? ScriptFileCreated { get; init; }
+
+    /// <summary>Called after the script process has exited, before the output drain.</summary>
+    internal Action? DrainStarted { get; init; }
+
+    public const string ScriptFilePattern = "ap-detection-*.ps1";
+
+    /// <summary>A script file older than this is left over from a run that never cleaned up.</summary>
+    public static readonly TimeSpan StaleScriptAge = TimeSpan.FromDays(1);
+
+    private int _staleSwept;
+
+    public static string DefaultRunFolder() => Path.Combine(DetectionTesterFolders.Root(), "run");
+
     /// <summary>The number of characters kept of each output stream.</summary>
     public const int DefaultOutputLimit = 64 * 1024;
 
@@ -45,19 +66,28 @@ public sealed partial class WindowsPowerShellDetectionScriptHost(int outputLimit
         ArgumentNullException.ThrowIfNull(scriptText);
         ct.ThrowIfCancellationRequested();
 
-        var scriptPath = Path.Combine(Path.GetTempPath(), $"ap-detection-{Guid.NewGuid():N}.ps1");
+        var folder = PrepareRunFolder();
+        var scriptPath = Path.Combine(folder, $"ap-detection-{Guid.NewGuid():N}.ps1");
         try
         {
             // A BOM makes Windows PowerShell 5.1 read the file as UTF-8; without it the file is read in the ANSI code page.
             await File.WriteAllTextAsync(scriptPath, WithUtf8Output(scriptText), new UTF8Encoding(true), CancellationToken.None)
                 .ConfigureAwait(false);
+            ScriptFileCreated?.Invoke(scriptPath);
 
             var startInfo = WindowsPowerShellHost.BuildStartInfo(scriptPath, redirectStandardInput: true);
             startInfo.StandardOutputEncoding = OutputEncoding;
             startInfo.StandardErrorEncoding = OutputEncoding;
             using var process = new Process { StartInfo = startInfo };
             process.Start();
-            using var job = KillOnCloseJob.TryAssign(process);
+            // Without the job, a descendant that outlives the script cannot be ended by Run's
+            // end or by Cancel, so the script is not allowed to continue.
+            using var job = AssignJob(process);
+            if (job is null)
+            {
+                BoundedProcessRunner.Terminate(process);
+                throw new DetectionScriptRefusedException(DetectionScriptRefusedException.NoContainment);
+            }
             try { process.StandardInput.Close(); } catch (IOException) { }
 
             // Neither reader takes a token: an abandoned read leaves the child blocked on a
@@ -74,20 +104,29 @@ public sealed partial class WindowsPowerShellDetectionScriptHost(int outputLimit
             catch (OperationCanceledException)
             {
                 BoundedProcessRunner.Terminate(process);
-                job?.Dispose();
-                var (partialOut, outCut) = await DrainAsync(stdoutTask).ConfigureAwait(false);
-                var (partialErr, errCut) = await DrainAsync(stderrTask).ConfigureAwait(false);
+                job.Dispose();
                 ct.ThrowIfCancellationRequested();
+                var (partialOut, outCut) = await DrainAsync(stdoutTask, ct).ConfigureAwait(false);
+                var (partialErr, errCut) = await DrainAsync(stderrTask, ct).ConfigureAwait(false);
                 return new DetectionScriptRun(null, partialOut, partialErr, TimedOut: true, outCut || errCut);
             }
 
             // A descendant that inherited the output handles keeps both pipes open after
             // the script exits; ending the job closes them, and the drain bound covers a
             // descendant outside the job.
-            job?.Dispose();
-            var (stdout, stdoutCut) = await DrainAsync(stdoutTask).ConfigureAwait(false);
-            var (stderr, stderrCut) = await DrainAsync(stderrTask).ConfigureAwait(false);
-            return new DetectionScriptRun(process.ExitCode, stdout, stderr, TimedOut: false, stdoutCut || stderrCut);
+            job.Dispose();
+            DrainStarted?.Invoke();
+            try
+            {
+                var (stdout, stdoutCut) = await DrainAsync(stdoutTask, ct).ConfigureAwait(false);
+                var (stderr, stderrCut) = await DrainAsync(stderrTask, ct).ConfigureAwait(false);
+                return new DetectionScriptRun(process.ExitCode, stdout, stderr, TimedOut: false, stdoutCut || stderrCut);
+            }
+            catch (OperationCanceledException)
+            {
+                BoundedProcessRunner.Terminate(process);
+                throw;
+            }
         }
         finally
         {
@@ -149,11 +188,49 @@ public sealed partial class WindowsPowerShellDetectionScriptHost(int outputLimit
         return new BoundedRead(text, ReadAsync());
     }
 
-    /// <summary>The text read so far once the stream ends or <see cref="OutputDrainTimeout"/> passes.</summary>
-    private static async Task<(string, bool)> DrainAsync(BoundedRead read)
+    /// <summary>
+    /// The text read so far once the stream ends or <see cref="OutputDrainTimeout"/> passes;
+    /// <paramref name="ct"/> ends the wait with <see cref="OperationCanceledException"/>.
+    /// </summary>
+    private static async Task<(string, bool)> DrainAsync(BoundedRead read, CancellationToken ct)
     {
-        try { await read.Completion.WaitAsync(OutputDrainTimeout).ConfigureAwait(false); }
+        try { await read.Completion.WaitAsync(OutputDrainTimeout, ct).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception) { }
         return read.Text.Snapshot();
+    }
+
+    /// <summary>
+    /// The folder for this run's script file, created when absent. A folder that is a
+    /// junction or symbolic link is refused: the script would be written, and run, wherever
+    /// the link points.
+    /// </summary>
+    private string PrepareRunFolder()
+    {
+        var folder = runFolder ?? DefaultRunFolder();
+        var container = DetectionTesterFolders.ContainerOf(folder, runFolder is null);
+        if (DetectionTesterFolders.HasLink(folder, container))
+            throw new DetectionScriptRefusedException(DetectionScriptRefusedException.RunFolderIsLink);
+        Directory.CreateDirectory(folder);
+        if (Interlocked.Exchange(ref _staleSwept, 1) == 0) RemoveStaleScripts(folder);
+        return folder;
+    }
+
+    private static void RemoveStaleScripts(string folder)
+    {
+        var cutoff = DateTime.UtcNow - StaleScriptAge;
+        try
+        {
+            foreach (var file in new DirectoryInfo(folder).EnumerateFiles(ScriptFilePattern,
+                         new EnumerationOptions { AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true }))
+            {
+                try
+                {
+                    if (file.LastWriteTimeUtc < cutoff) file.Delete();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 }
