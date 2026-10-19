@@ -5,6 +5,7 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
+    xmlns:views="clr-namespace:ApplicationPackagerUI.Views.Pages"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
@@ -111,24 +112,39 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="0,0,0,8">
-            <ui:Button DockPanel.Dock="Right" VerticalAlignment="Top" Content="Compliance baselines" Icon="{ui:SymbolIcon ShieldCheckmark24}"
-                       Command="{Binding OpenComplianceBaselinesCommand}" AutomationProperties.AutomationId="btnComplianceBaselines"
-                       ToolTip="Starts Collection and Compliance Manager for configuration items and baselines." />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" AutomationProperties.Name="Section"
+                        AutomationProperties.AutomationId="pnlSection">
+                <RadioButton Content="Collections" GroupName="CollectionComplianceSection" IsChecked="{Binding IsCollectionsSection}" Margin="0,0,12,0"
+                             AutomationProperties.AutomationId="rbSectionCollections" />
+                <RadioButton Content="Compliance" GroupName="CollectionComplianceSection" IsChecked="{Binding IsComplianceSection}"
+                             AutomationProperties.AutomationId="rbSectionCompliance" />
+            </StackPanel>
             <StackPanel>
                 <TextBlock Text="Collection and Compliance" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <TextBlock Text="Show, create and change device collections, their rules and saved queries. Every change shows a plan first."
+                <TextBlock Text="Show, create and change device collections, their rules and saved queries, and the configuration items and baselines of the site. Every change shows a plan first."
                            FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </StackPanel>
         </DockPanel>
 
-        <Border Grid.Row="1" Margin="0,0,0,8" Padding="12,8" CornerRadius="6" BorderThickness="1"
+        <Border Grid.Row="1" Grid.RowSpan="4" Visibility="{Binding IsComplianceSection, Converter={StaticResource BoolToVisibility}}">
+            <views:ComplianceSectionView x:Name="viewCompliance" AutomationProperties.AutomationId="viewCompliance" />
+        </Border>
+
+        <Grid Grid.Row="1" Grid.RowSpan="4" x:Name="gridCollectionsSection" Visibility="{Binding IsCollectionsSection, Converter={StaticResource BoolToVisibility}}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Margin="0,0,0,8" Padding="12,8" CornerRadius="6" BorderThickness="1"
                 BorderBrush="{DynamicResource SystemFillColorCautionBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                 Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlConnection">
             <TextBlock Text="{Binding ConnectionMessage}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtConnectionMessage" AutomationProperties.LiveSetting="Polite" />
         </Border>
 
-        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabCollectionCompliance">
+        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabCollectionCompliance">
             <TabItem Header="Collections" AutomationProperties.AutomationId="tabCollections">
                 <!-- The tab fills the viewport so the grid takes the free height; when the viewport is
                      lower than the tab needs, the whole tab scrolls and the details stay reachable. -->
@@ -529,7 +545,7 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="3" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}"
+        <Border Grid.Row="2" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlResults">
             <Grid>
                 <Grid.RowDefinitions>
@@ -555,10 +571,11 @@
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
             <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
             <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Note}" VerticalAlignment="Center"
                        AutomationProperties.AutomationId="txtCollectionStatus" AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
+        </Grid>
     </Grid>
 </Page>

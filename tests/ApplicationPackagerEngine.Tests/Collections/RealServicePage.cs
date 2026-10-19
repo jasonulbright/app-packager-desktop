@@ -13,7 +13,7 @@ internal sealed record RealServicePage(CollectionComplianceViewModel ViewModel, 
         var service = new CollectionService(site, null, () => "t1");
         var viewModel = new CollectionComplianceViewModel(new CollectionCompliancePageServices(
             service, harness.Store, harness.Reports, harness.Prompts, harness.Plans, new CollectionWriter(service, harness.History, harness.Log, () => "LAB"),
-            () => harness.Settings, () => null, _ => { }, () => Task.FromResult<string?>(null), harness.Log));
+            () => harness.Settings, () => null, _ => { }, harness.Log));
         await viewModel.OnNavigatedToAsync();
         if (selectId is not null)
         {

@@ -68,8 +68,7 @@ public sealed class SidebarRegistry
         {
             PageType = typeof(MaintenanceWindowsPage)
         });
-        registry.Register(new SidebarItemDefinition(SidebarIds.CollectionCompliance, SuiteTools.CollectionAndCompliance.Title,
-            SuiteTools.CollectionAndCompliance.Symbol, SidebarItemKind.Page)
+        registry.Register(new SidebarItemDefinition(SidebarIds.CollectionCompliance, "Collection and Compliance", "ShieldCheckmark24", SidebarItemKind.Page)
         {
             PageType = typeof(CollectionCompliancePage)
         });

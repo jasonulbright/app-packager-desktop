@@ -32,7 +32,7 @@ public sealed class CollectionRefreshScheduleTests
         var service = new CollectionService(site, null, () => "t1");
         var viewModel = new CollectionComplianceViewModel(new CollectionCompliancePageServices(
             service, harness.Store, harness.Reports, harness.Prompts, harness.Plans, new CollectionWriter(service, harness.History, harness.Log, () => "LAB"),
-            () => harness.Settings, () => null, _ => { }, () => Task.FromResult<string?>(null), harness.Log));
+            () => harness.Settings, () => null, _ => { }, harness.Log));
         await viewModel.OnNavigatedToAsync();
         viewModel.SelectedRow = viewModel.Rows.Single(r => r.CollectionId == "MCM00020");
         viewModel.SetSelectedRows([viewModel.SelectedRow]);

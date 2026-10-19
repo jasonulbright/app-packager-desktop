@@ -1,0 +1,107 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.CiSettingEditorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:vm="clr-namespace:ApplicationPackagerUI.ViewModels.Windows"
+    Title="{Binding Title}"
+    Width="760" Height="700"
+    MinWidth="560" MinHeight="480"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="SettingVisibility" />
+        <Style x:Key="SettingLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,8,0,4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="ScriptBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="MinHeight" Value="120" />
+            <Setter Property="MaxHeight" Value="240" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="TextAlignment" Value="Left" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
+
+        <ScrollViewer Grid.Row="1" Margin="16,0,8,8" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      AutomationProperties.AutomationId="scrollSettingEditor">
+            <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="Configuration item" Style="{StaticResource SettingLabel}" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding CiText}" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           AutomationProperties.AutomationId="txtSettingCi" />
+                <TextBlock Text="Kind" Style="{StaticResource SettingLabel}" />
+                <ComboBox x:Name="cboKind" ItemsSource="{x:Static vm:CiSettingEditorViewModel.Kinds}" SelectedItem="{Binding Kind}" IsEnabled="{Binding CanChooseKind}"
+                          AutomationProperties.Name="Kind" AutomationProperties.AutomationId="cboSettingKind" />
+                <TextBlock Text="Name" Style="{StaticResource SettingLabel}" />
+                <ui:TextBox x:Name="txtName" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Name"
+                            AutomationProperties.AutomationId="txtSettingName" />
+
+                <StackPanel Visibility="{Binding IsRegistry, Converter={StaticResource SettingVisibility}}">
+                    <TextBlock Text="Hive" Style="{StaticResource SettingLabel}" />
+                    <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.Hives}" SelectedItem="{Binding Hive}"
+                              AutomationProperties.Name="Hive" AutomationProperties.AutomationId="cboSettingHive" />
+                    <TextBlock Text="Key path" Style="{StaticResource SettingLabel}" />
+                    <ui:TextBox Text="{Binding KeyPath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="For example SOFTWARE\Policies\Example"
+                                AutomationProperties.Name="Key path" AutomationProperties.AutomationId="txtSettingKey" />
+                    <TextBlock Text="Value name" Style="{StaticResource SettingLabel}" />
+                    <ui:TextBox Text="{Binding ValueName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Value name"
+                                AutomationProperties.AutomationId="txtSettingValueName" />
+                </StackPanel>
+
+                <StackPanel Visibility="{Binding IsScript, Converter={StaticResource SettingVisibility}}">
+                    <TextBlock Text="Language" Style="{StaticResource SettingLabel}" />
+                    <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.Languages}" SelectedItem="{Binding Language}"
+                              AutomationProperties.Name="Language" AutomationProperties.AutomationId="cboSettingLanguage" />
+                    <TextBlock Text="Discovery script" Style="{StaticResource SettingLabel}" />
+                    <TextBox Text="{Binding DiscoveryScript, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ScriptBox}"
+                             AutomationProperties.Name="Discovery script" AutomationProperties.AutomationId="txtSettingDiscovery" />
+                    <TextBlock Text="Remediation script (optional)" Style="{StaticResource SettingLabel}" />
+                    <TextBox Text="{Binding RemediationScript, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ScriptBox}"
+                             AutomationProperties.Name="Remediation script" AutomationProperties.AutomationId="txtSettingRemediation" />
+                </StackPanel>
+
+                <TextBlock Text="Data type" Style="{StaticResource SettingLabel}" />
+                <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.DataTypes}" SelectedItem="{Binding DataType}" IsEnabled="{Binding CanChooseDataType}"
+                          AutomationProperties.Name="Data type" AutomationProperties.AutomationId="cboSettingDataType" />
+                <TextBlock Text="{x:Static vm:CiSettingEditorViewModel.DataTypeFixedNote}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Visibility="{Binding IsEdit, Converter={StaticResource SettingVisibility}}"
+                           AutomationProperties.AutomationId="txtSettingDataTypeNote" />
+                <TextBlock Text="Expected value" Style="{StaticResource SettingLabel}" />
+                <ui:TextBox Text="{Binding ExpectedValue, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Expected value"
+                            AutomationProperties.AutomationId="txtSettingExpected" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border x:Name="pnlSettingFooter" Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+                AutomationProperties.AutomationId="pnlSettingFooter">
+            <DockPanel>
+                <WrapPanel DockPanel.Dock="Right">
+                    <ui:Button Content="Show plan" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding SaveCommand}"
+                               AutomationProperties.AutomationId="btnSettingSave" />
+                    <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnSettingCancel" />
+                </WrapPanel>
+                <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}" AutomationProperties.AutomationId="txtSettingMessage"
+                           AutomationProperties.LiveSetting="Assertive" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

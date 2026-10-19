@@ -69,11 +69,21 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <CheckBox Grid.Row="3" x:Name="chkDestructive" Margin="16,0,16,8"
-                  Content="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
-                  IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
-                  AutomationProperties.AutomationId="chkChangePlanDestructive"
-                  Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}" />
+        <StackPanel Grid.Row="3" Margin="16,0,16,0">
+            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8"
+                      Content="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
+                      IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanDestructive"
+                      Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}" />
+            <CheckBox x:Name="chkExtra" Margin="0,0,0,8" IsChecked="{Binding ExtraAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanExtra" AutomationProperties.Name="{Binding ExtraConfirmationText}"
+                      Visibility="{Binding HasExtraConfirmation, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding ExtraConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
+            <TextBlock x:Name="txtStep" Text="{Binding StepText}" Margin="0,0,0,8" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="txtChangePlanStep" AutomationProperties.LiveSetting="Polite"
+                       Visibility="{Binding IsBusy, Converter={StaticResource ChangePlanVisibility}}" />
+        </StackPanel>
 
         <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
             <WrapPanel HorizontalAlignment="Right">

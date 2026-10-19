@@ -9,7 +9,6 @@ using ApplicationPackagerUI.Services;
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
 /// <summary>What the Collection and Compliance page reads and writes; the page logic depends on nothing else.</summary>
-/// <param name="OpenComplianceTool">Starts the suite tool for compliance baselines; returns a message when it could not start.</param>
 public sealed record CollectionCompliancePageServices(
     ICollectionService Collections,
     IQueryTemplateStore Templates,
@@ -20,7 +19,6 @@ public sealed record CollectionCompliancePageServices(
     Func<AppSettings> LoadSettings,
     Func<CollectionComplianceSettings?> LoadPreferences,
     Action<CollectionComplianceSettings> SavePreferences,
-    Func<Task<string?>> OpenComplianceTool,
     IAppLog Log);
 
 /// <summary>
@@ -35,6 +33,8 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public const int WqlTab = 1;
     public const int TemplatesTab = 2;
     public const int SiteQueriesTab = 3;
+    public const int CollectionsSection = 0;
+    public const int ComplianceSection = 1;
     public const int MaxPreviewRows = 50;
     public const int MaxDeviceNames = 200;
 
@@ -77,7 +77,6 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public const string UpdateOrderNote = "The new rule is added under a temporary name first and the old rule is removed only after that, so the collection never has fewer rules.";
     public const string NoPreviewNote = "Preview was not run for this query.";
     public const string PreviewCancelled = "The preview was cancelled.";
-    public const string ComplianceStarted = "Collection and Compliance Manager starts for the compliance baselines.";
     public const string RemoveUndoNote = "Undo recreates the collection with its properties and rules.";
 
     public static string CollectionNotFound(string id) => $"No collection with the ID {id} exists.";
@@ -129,6 +128,10 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public IReadOnlyList<Choice<string>> TypeFilters { get; } = [new("", "All collections"), new(BuiltInFilter, "Built-in"), new(CustomFilter, "Custom")];
     public ObservableCollection<ChangePlanItemResult> LastResults { get; } = [];
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCollectionsSection), nameof(IsComplianceSection))]
+    private int _selectedSection;
+
     [ObservableProperty] private int _selectedTabIndex;
     [ObservableProperty] private int _detailTabIndex;
     [ObservableProperty] private string _textFilter = "";
@@ -159,6 +162,18 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(UndoLastCommand))]
     private CollectionPlan? _lastPlan;
 
+    public bool IsCollectionsSection
+    {
+        get => SelectedSection == CollectionsSection;
+        set { if (value) SelectedSection = CollectionsSection; }
+    }
+
+    public bool IsComplianceSection
+    {
+        get => SelectedSection == ComplianceSection;
+        set { if (value) SelectedSection = ComplianceSection; }
+    }
+
     public bool HasSelectedRow => SelectedRow is not null;
     public bool HasConnectionMessage => ConnectionMessage.Length > 0;
     public bool HasResults => LastResults.Count > 0;
@@ -188,9 +203,22 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
             _preferencesLoad = ApplyPreferencesAsync();
             await _preferencesLoad;
         }
+        if (SelectedSection == CollectionsSection) await ShowCollectionsAsync();
+    }
+
+    /// <summary>The first look at the Collections section in a visit reads the templates and the collections.</summary>
+    private async Task ShowCollectionsAsync()
+    {
         await LoadTemplatesAsync();
+        if (!_active) return;
         if (!IsDataLoaded) await LoadAsync();
         if (_active && SelectedTabIndex == SiteQueriesTab && !_queriesLoaded) await StartQueriesLoad();
+    }
+
+    partial void OnSelectedSectionChanged(int value)
+    {
+        SaveChoicesLater();
+        if (_active && value == CollectionsSection && !_applyingPreferences) _ = ShowCollectionsAsync();
     }
 
     /// <summary>Releases the ConfigMgr data; the page reads it again on the next visit.</summary>
@@ -238,7 +266,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     partial void OnSelectedTabIndexChanged(int value)
     {
         SaveChoicesLater();
-        if (_active && value == SiteQueriesTab && !_queriesLoaded && !_applyingPreferences) _ = StartQueriesLoad();
+        if (_active && value == SiteQueriesTab && SelectedSection == CollectionsSection && !_queriesLoaded && !_applyingPreferences) _ = StartQueriesLoad();
     }
 
     partial void OnDetailTabIndexChanged(int value) => SaveChoicesLater();
@@ -283,6 +311,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         _applyingPreferences = true;
         try
         {
+            SelectedSection = saved.Section == ComplianceSection ? ComplianceSection : CollectionsSection;
             SelectedTabIndex = saved.SelectedTab is >= 0 and <= SiteQueriesTab ? saved.SelectedTab : 0;
             DetailTabIndex = saved.DetailTab is >= 0 and <= 4 ? saved.DetailTab : 0;
             ShowDetails = !saved.DetailsHidden;
@@ -313,14 +342,15 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         FolderFilter = FolderFilter,
         TemplateCategory = CategoryFilter == AllCategories ? "" : CategoryFilter,
         EditorWidth = _editorWidth,
-        EditorHeight = _editorHeight
+        EditorHeight = _editorHeight,
+        Section = SelectedSection
     };
 
     private static bool SameChoices(CollectionComplianceSettings? a, CollectionComplianceSettings b) =>
         a is not null && a.SelectedTab == b.SelectedTab && a.DetailTab == b.DetailTab && a.DetailsHidden == b.DetailsHidden && a.TextFilter == b.TextFilter && a.TypeFilter == b.TypeFilter
         && a.OnlyEmpty == b.OnlyEmpty && a.OnlyWithDirectMembers == b.OnlyWithDirectMembers && a.OnlyWithQueryRules == b.OnlyWithQueryRules
         && a.FolderFilter == b.FolderFilter && a.TemplateCategory == b.TemplateCategory
-        && a.EditorWidth.Equals(b.EditorWidth) && a.EditorHeight.Equals(b.EditorHeight);
+        && a.EditorWidth.Equals(b.EditorWidth) && a.EditorHeight.Equals(b.EditorHeight) && a.Section == b.Section;
 
     /// <summary>
     /// Writes the choices on a pool thread when they differ from the stored ones. Saves run one at
@@ -651,19 +681,6 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         ConnectionMessage = "";
         StatusMessage = Connected(settings.SiteCode.Trim());
         _services.Log.Info(LogArea, "The connection test succeeded.");
-    }
-
-    [RelayCommand]
-    private async Task OpenComplianceBaselines()
-    {
-        string? message;
-        try { message = await _services.OpenComplianceTool(); }
-        catch (Exception ex)
-        {
-            message = "Collection and Compliance Manager could not be started. The log has the details.";
-            _services.Log.Warning(LogArea, $"The compliance tool could not be started ({ex.GetType().Name}).");
-        }
-        StatusMessage = message ?? ComplianceStarted;
     }
 
     [RelayCommand]
