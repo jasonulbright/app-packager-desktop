@@ -59,12 +59,15 @@ public sealed partial class ComplianceService
         Step($"Checked the site: no object with these names exists; {Count(plan.Collections.Count, "target collection")} found.");
 
         Step($"Started the builder of {entry.DisplayName}.");
+        var started = _utcNow();
+        var announced = new List<(string Kind, string Name)>();
         CatalogBuilderRun run;
         try
         {
             run = await _runner.RunAsync(entry, bytes, plan.Arguments, line =>
             {
                 if (BuilderStep(line) is { } text) Step(text);
+                if (BuilderMarker(line) is { } marker) lock (announced) announced.Add(marker);
             }, BuilderTimeout, ct).ConfigureAwait(false);
         }
         catch (CatalogBuilderRefusedException ex)
@@ -91,23 +94,46 @@ public sealed partial class ComplianceService
                 $"The result of the catalog deploy is not known: ConfigMgr could not be read after the builder. Check in ConfigMgr whether {string.Join(", ", entry.ProducesConfigurationItems.Concat(entry.ProducesBaselines))} exist. Undo is not available.") with { Steps = steps.ToList() };
         }
 
-        var claim = Claim(entry, plan, change.TargetCollectionIds ?? [], before.Info!, runStart, after);
+        var targets = change.TargetCollectionIds ?? [];
+        IReadOnlyList<string> missing = [];
+        if (run.Cancelled || run.TimedOut)
+        {
+            List<(string Kind, string Name)> marks;
+            lock (announced) marks = announced.ToList();
+            (after, missing) = await ReconcileAsync(entry, plan, targets, marks, after).ConfigureAwait(false);
+        }
+
+        var claim = Claim(entry, plan.Deploys, targets, before.Info!, runStart, after);
         var (items, baselines, deployments) = (claim.Items, claim.Baselines, claim.Deployments);
         var created = deployments.Select(d => "Deployment:" + d.Id).Concat(baselines.Select(b => "Baseline:" + b.Id)).Concat(items.Select(i => "ConfigurationItem:" + i.Id)).ToList();
-        var undo = created.Count == 0
+        var reclaim = missing.Count == 0
+            ? new Dictionary<string, string>()
+            : new Dictionary<string, string>
+            {
+                [ReclaimStartKey] = runStart.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
+                [ReclaimUntilKey] = (runStart.ToUniversalTime() + (_utcNow() - started).Duration() + ReclaimLimit).ToString("o", CultureInfo.InvariantCulture),
+                [ReclaimUserKey] = before.Info!.User ?? "",
+                [ReclaimDeploysKey] = plan.Deploys ? "True" : "False"
+            };
+        var undo = created.Count == 0 && missing.Count == 0
             ? null
-            : new ComplianceChange(ComplianceChangeKind.RemoveCatalogObjects, entry.Id, new Dictionary<string, string>(), [], null, null, null, null, null, null,
+            : new ComplianceChange(ComplianceChangeKind.RemoveCatalogObjects, entry.Id, reclaim, targets, null, null, null, null, null, null,
                 [$"Removes the {Count(deployments.Count, "deployment")}, {Count(baselines.Count, "baseline")} and {Count(items.Count, "configuration item")} that the deploy of {entry.DisplayName} created."], created);
         var made = $"{Count(items.Count, "configuration item")}, {Count(baselines.Count, "baseline")} and {Count(deployments.Count, "deployment")}";
         var unclear = claim.NotClaimed;
         var unclearText = unclear.Count == 0 ? "" : $" Not claimed as made by this run, so not part of the Undo: {string.Join("; ", unclear)}.";
+        var missingText = missing.Count == 0
+            ? ""
+            : $" {string.Join(" ", missing.Select(m => $"A {m} may still appear: check ConfigMgr."))} {ReclaimText}";
 
         if (run.ExitCode != 0)
         {
             var why = run.Cancelled ? "was cancelled" : run.TimedOut ? "did not finish in time" : "stopped with an error";
+            if (created.Count == 0 && missing.Count == 0)
+                return Fail(change, $"The builder {why}. ConfigMgr holds no object from it.{unclearText}") with { Steps = steps.ToList() };
             return created.Count == 0
-                ? Fail(change, $"The builder {why}. ConfigMgr holds no object from it.{unclearText}") with { Steps = steps.ToList() }
-                : Partial(change, $"The builder {why} after it made {made}. These exist now; Undo removes them.{unclearText}", undo, steps.ToList());
+                ? Partial(change, $"The builder {why}. ConfigMgr holds no object from it yet.{missingText}{unclearText}", undo, steps.ToList())
+                : Partial(change, $"The builder {why} after it made {made}. These exist now; Undo removes them.{missingText}{unclearText}", undo, steps.ToList());
         }
 
         var tagFailures = new List<string>();
@@ -147,7 +173,8 @@ public sealed partial class ComplianceService
     /// of the run as creator when ConfigMgr names one. Every other object with such a name, and every
     /// other deployment of a claimed baseline, is named in <see cref="ClaimResult.NotClaimed"/>.
     /// </summary>
-    internal static ClaimResult Claim(CatalogEntry entry, CatalogPlan plan, IReadOnlyList<string> targets, SnapshotInfo info, DateTime runStart, Snapshot after)
+    /// <param name="until">For a later Undo of a cancelled run: an object created after this time is not claimed.</param>
+    internal static ClaimResult Claim(CatalogEntry entry, bool deploys, IReadOnlyList<string> targets, SnapshotInfo info, DateTime runStart, Snapshot after, DateTime? until = null)
     {
         var notClaimed = new List<string>();
         var earliest = runStart.ToUniversalTime() - ComplianceRules.ClockTolerance;
@@ -158,6 +185,7 @@ public sealed partial class ComplianceService
             if (known.Contains(row.Id ?? "")) return "it existed before the run";
             if (row.Created is not { } created) return "ConfigMgr returned no creation time";
             if (created.ToUniversalTime() < earliest) return "it was created before the run";
+            if (until is { } last && created.ToUniversalTime() > last.ToUniversalTime()) return "it was created after the run ended";
             if (!string.IsNullOrEmpty(row.CreatedBy) && !string.IsNullOrEmpty(info.User) && !string.Equals(row.CreatedBy, info.User, StringComparison.OrdinalIgnoreCase))
                 return "another account made or changed it";
             return null;
@@ -188,7 +216,7 @@ public sealed partial class ComplianceService
         foreach (var d in after.Deployments.Where(d => baselineIds.Contains(d.BaselineId ?? "")))
         {
             var reason = Doubt(d, knownDeployments)
-                         ?? (!plan.Deploys || !targets.Contains(d.CollectionId ?? "", StringComparer.OrdinalIgnoreCase) ? "its collection is not a target of the run" : null);
+                         ?? (!deploys || !targets.Contains(d.CollectionId ?? "", StringComparer.OrdinalIgnoreCase) ? "its collection is not a target of the run" : null);
             if (reason is null) deployments.Add(d);
             else notClaimed.Add($"deployment {d.Id} to collection {d.CollectionId} ({reason})");
         }
@@ -196,14 +224,131 @@ public sealed partial class ComplianceService
     }
 
     /// <summary>A plain progress line for a builder output line that marks a step; null for other lines.</summary>
-    internal static string? BuilderStep(string line)
+    internal static string? BuilderStep(string line) => BuilderMarker(line) switch
+    {
+        ("Item", var item) => $"Creating configuration item {item}.",
+        ("Baseline", var baseline) => $"Creating baseline {baseline}.",
+        ("Deployment", var collection) => $"Deploying to collection {collection}.",
+        _ => null
+    };
+
+    /// <summary>The object a builder output line says the builder starts to make: Item or Baseline with its name, Deployment with the collection name.</summary>
+    internal static (string Kind, string Name)? BuilderMarker(string line)
     {
         var text = line.Trim();
         static string? After(string text, string marker) =>
             text.StartsWith(marker, StringComparison.OrdinalIgnoreCase) ? text[marker.Length..].Trim() : null;
-        if (After(text, "Creating Configuration Item:") is { } item) return $"Creating configuration item {item}.";
-        if (After(text, "Creating Configuration Baseline:") is { } baseline) return $"Creating baseline {baseline}.";
-        if (After(text, "Deploying baseline to:") is { } collection) return $"Deploying to collection {collection}.";
+        if (After(text, "Creating Configuration Item:") is { } item) return ("Item", item);
+        if (After(text, "Creating Configuration Baseline:") is { } baseline) return ("Baseline", baseline);
+        if (After(text, "Deploying baseline to:") is { } collection) return ("Deployment", collection);
         return null;
+    }
+
+    /// <summary>
+    /// The SMS Provider can finish a create after the builder process is ended. After a cancel or a
+    /// timeout the names are read again every <see cref="ReconcileInterval"/> until two reads in a
+    /// row are equal and every object the builder started is there, for at most <see cref="ReconcileWindow"/>.
+    /// </summary>
+    internal static readonly TimeSpan ReconcileWindow = TimeSpan.FromSeconds(15);
+
+    internal static readonly TimeSpan ReconcileInterval = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// How long after the end of a cancelled run a later Undo still claims an object with a name the
+    /// entry makes; the other proofs of <see cref="Claim"/> apply as well.
+    /// </summary>
+    internal static readonly TimeSpan ReclaimLimit = TimeSpan.FromMinutes(10);
+
+    internal const string ReclaimStartKey = "ReclaimRunStart";
+    internal const string ReclaimUntilKey = "ReclaimUntil";
+    internal const string ReclaimUserKey = "ReclaimUser";
+    internal const string ReclaimDeploysKey = "ReclaimDeploys";
+
+    internal const string ReclaimText =
+        "Undo looks for these names again when it runs and also removes an object that this account made after the run start, up to 10 minutes after the run ended.";
+
+    internal const string NothingReclaimedMessage = "ConfigMgr holds no object from the cancelled run now. Check ConfigMgr, and try Undo again when an object appears.";
+
+    internal static bool IsReclaim(ComplianceChange change) => change.Values?.ContainsKey(ReclaimStartKey) == true;
+
+    /// <summary>
+    /// The objects a RemoveCatalogObjects change removes: <see cref="ComplianceChange.CreatedIds"/>, and
+    /// for the Undo of a cancelled run also the objects with the entry's names that <see cref="Claim"/>
+    /// gives to that run now, with its start, account and targets and the <see cref="ReclaimUntilKey"/> limit.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ReclaimAsync(ComplianceChange change, CancellationToken ct)
+    {
+        var created = change.CreatedIds ?? [];
+        if (!IsReclaim(change)) return created;
+        var values = change.Values!;
+        if (!DateTime.TryParse(values[ReclaimStartKey], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var start)
+            || !values.TryGetValue(ReclaimUntilKey, out var untilText)
+            || !DateTime.TryParse(untilText, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var until)
+            || !values.TryGetValue(ReclaimUserKey, out var user) || string.IsNullOrWhiteSpace(user)
+            || (change.CatalogId is { } id ? _catalog.Find(id) : null) is not { } entry)
+            throw new ComplianceServiceException(NotPreparedMessage);
+        var now = await SnapshotAsync(entry, [], ct).ConfigureAwait(false);
+        var claim = Claim(entry, values.GetValueOrDefault(ReclaimDeploysKey) == "True", change.TargetCollectionIds ?? [],
+            new SnapshotInfo("SnapshotInfo", null, user, [], [], []), start, now, until);
+        return created
+            .Concat(claim.Deployments.Select(d => "Deployment:" + d.Id))
+            .Concat(claim.Baselines.Select(b => "Baseline:" + b.Id))
+            .Concat(claim.Items.Select(i => "ConfigurationItem:" + i.Id))
+            .Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>The wait between two reads of <see cref="ReconcileAsync"/>; tests replace it.</summary>
+    internal Func<TimeSpan, Task> Delay { get; set; } = t => Task.Delay(t);
+
+    /// <returns>The last read, and "configuration item", "baseline" or "deployment" for each started object that is still missing.</returns>
+    private async Task<(Snapshot After, IReadOnlyList<string> Missing)> ReconcileAsync(
+        CatalogEntry entry, CatalogPlan plan, IReadOnlyList<string> targets, IReadOnlyList<(string Kind, string Name)> announced, Snapshot first)
+    {
+        string? TargetOf(string collectionName)
+        {
+            for (var i = 0; i < plan.Collections.Count && i < targets.Count; i++)
+                if (string.Equals(plan.Collections[i].Name, collectionName, StringComparison.OrdinalIgnoreCase)) return targets[i];
+            return null;
+        }
+
+        List<string> Missing(Snapshot s)
+        {
+            var missing = new List<string>();
+            foreach (var (kind, name) in announced)
+            {
+                var present = kind switch
+                {
+                    "Item" => s.Items.Any(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase)),
+                    "Baseline" => s.Baselines.Any(b => string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase)),
+                    _ => TargetOf(name) is { } target && s.Deployments.Any(d => string.Equals(d.CollectionId, target, StringComparison.OrdinalIgnoreCase))
+                };
+                if (!present) missing.Add(kind switch { "Item" => "configuration item", "Baseline" => "baseline", _ => "deployment" });
+            }
+            return missing;
+        }
+
+        static string Key(Snapshot s) => string.Join("|",
+            s.Items.Select(i => "I" + i.Id).Concat(s.Baselines.Select(b => "B" + b.Id)).Concat(s.Deployments.Select(d => "D" + d.Id)).Order(StringComparer.Ordinal));
+
+        var current = first;
+        for (var waited = TimeSpan.Zero; waited < ReconcileWindow; waited += ReconcileInterval)
+        {
+            await Delay(ReconcileInterval).ConfigureAwait(false);
+            Snapshot next;
+            try
+            {
+                next = await SnapshotAsync(entry, [], CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (ComplianceServiceException)
+            {
+                break;
+            }
+            var stable = Key(next) == Key(current);
+            current = next;
+            if (stable && Missing(current).Count == 0) break;
+        }
+        var left = Missing(current);
+        _log?.Info(LogArea, $"The state after the builder was read again; {left.Count} started objects are missing.");
+        return (current, left.Distinct().ToList());
     }
 }

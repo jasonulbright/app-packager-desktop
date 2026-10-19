@@ -19,7 +19,8 @@ public sealed class ComplianceDeploymentTests
 
     internal static ComplianceService Service(IConfigMgrSession site, ICatalogBuilderRunner? runner = null, ICatalogService? catalog = null) =>
         new(site, catalog ?? new CatalogService(), runner ?? new CatalogBuilderRunner(Path.Combine(Path.GetTempPath(), "apkg-unused")), () => new ConfigMgrConnection("MCM", "cm01.contoso.com"),
-            null, () => Now, Counter());
+            null, () => Now, Counter())
+        { Delay = _ => Task.CompletedTask };
 
     private static StubComplianceSite Site() => new(NewState(
         items: [Ci("16780001", "Lab CI", 4, RegistrySetting("RegSetting_a", "EnableMulticast"), RegistrySetting("RegSetting_b", "EnableMDNS"))],

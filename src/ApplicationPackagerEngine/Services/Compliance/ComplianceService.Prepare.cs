@@ -99,12 +99,15 @@ public sealed partial class ComplianceService
                 return await PrepareSettingAsync(request, impact, ct).ConfigureAwait(false);
             case ComplianceChangeKind.RemoveCatalogObjects:
             {
-                var (deployments, baselines, items) = SplitCreated(request.CreatedIds);
-                if (deployments.Count + baselines.Count + items.Count == 0) throw new ComplianceServiceException("There is nothing to remove.");
+                var ids = await ReclaimAsync(request, ct).ConfigureAwait(false);
+                var (deployments, baselines, items) = SplitCreated(ids);
+                if (deployments.Count + baselines.Count + items.Count == 0)
+                    throw new ComplianceServiceException(IsReclaim(request) ? NothingReclaimedMessage : "There is nothing to remove.");
                 impact.Add($"Removes {Count(deployments.Count, "deployment")}, {Count(baselines.Count, "baseline")} and {Count(items.Count, "configuration item")} that the catalog deploy created, in that order.");
+                if (IsReclaim(request)) impact.Add(ReclaimText);
                 impact.Add("Objects that existed before the deploy are not touched. An object that something else uses now is not removed; the result names it.");
                 impact.Add("Undo is not available. Deploy the catalog entry again instead.");
-                return request with { Impact = impact };
+                return request with { CreatedIds = ids, Impact = impact };
             }
             default:
                 throw new ComplianceServiceException("The change kind is not known.");

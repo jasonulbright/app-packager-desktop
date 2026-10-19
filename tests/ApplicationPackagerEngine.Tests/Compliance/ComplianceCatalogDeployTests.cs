@@ -360,6 +360,116 @@ public sealed class ComplianceCatalogDeployTests
         Assert.DoesNotContain("Remove-CMConfigurationItem:16790000", site.Log);
     }
 
+    /// <summary>Makes the first CI, starts the first baseline and is cancelled; the baseline is not on the site yet.</summary>
+    private sealed class CancelledAtBaseline(StubComplianceSite site) : ICatalogBuilderRunner
+    {
+        public Task<CatalogBuilderRun> RunAsync(CatalogEntry entry, byte[] builder, IReadOnlyList<string> arguments, Action<string> line, TimeSpan timeout, CancellationToken ct)
+        {
+            line("Creating Configuration Item: " + entry.ProducesConfigurationItems[0]);
+            site.Items.Add(JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(Ci("16790000", entry.ProducesConfigurationItems[0], 2, RegistrySetting("RegSetting_16790000", "S")))));
+            line("Creating Configuration Baseline: " + entry.ProducesBaselines[0]);
+            return Task.FromResult(new CatalogBuilderRun(null, false, true, []));
+        }
+    }
+
+    private static JsonNode LateBaseline(string? createdBy = null)
+    {
+        var node = JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(CiBaseline("16790500", "Hardening LLMNR Disable", "Builder text.", "16790000")))!;
+        if (createdBy is not null) node["CreatedBy"] = createdBy;
+        return node;
+    }
+
+    /// <summary>Adds the baseline right before the given Snapshot read from now on (1 is the read before the builder, 3 the first read again after it).</summary>
+    private static void AppearAtSnapshot(StubComplianceSite site, int read)
+    {
+        var reads = 0;
+        site.BeforeRun = (s, _, parameters) =>
+        {
+            if (parameters.GetValueOrDefault("Operation") as string == "Snapshot" && ++reads == read) s.Baselines.Add(LateBaseline());
+        };
+    }
+
+    private static int SnapshotReads(StubComplianceSite site) => site.Runs.Count(r => r.Parameters.GetValueOrDefault("Operation") as string == "Snapshot");
+
+    [Fact]
+    public async Task ABaselineTheProviderFinishesAfterTheCancelIsFoundAndPartOfTheUndo()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new CancelledAtBaseline(site));
+        var plan = await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None);
+        var before = SnapshotReads(site);
+        AppearAtSnapshot(site, 3);
+
+        var (outcome, _) = await Apply(service, plan);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Contains("was cancelled after it made 1 configuration item, 1 baseline and 0 deployments", outcome.Message);
+        Assert.DoesNotContain("may still appear", outcome.Message);
+        Assert.Equal(["Baseline:16790500", "ConfigurationItem:16790000"], outcome.UndoChange!.CreatedIds);
+        Assert.False(ComplianceService.IsReclaim(outcome.UndoChange));
+        Assert.Equal(4, SnapshotReads(site) - before);
+    }
+
+    [Fact]
+    public async Task ABaselineThatIsStillMissingAfterTheWindowIsNamedAndALaterUndoRemovesIt()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new CancelledAtBaseline(site));
+        var plan = await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None);
+        var before = SnapshotReads(site);
+
+        var (outcome, _) = await Apply(service, plan);
+
+        Assert.Contains("A baseline may still appear: check ConfigMgr.", outcome.Message);
+        Assert.Contains("Undo looks for these names again", outcome.Message);
+        Assert.Equal(2 + (int)(ComplianceService.ReconcileWindow / ComplianceService.ReconcileInterval), SnapshotReads(site) - before);
+        Assert.True(ComplianceService.IsReclaim(outcome.UndoChange!));
+        Assert.Equal(["ConfigurationItem:16790000"], outcome.UndoChange!.CreatedIds);
+
+        site.Baselines.Add(LateBaseline());
+        var undo = await service.PrepareAsync(outcome.UndoChange, CancellationToken.None);
+        Assert.Contains("Baseline:16790500", undo.CreatedIds);
+        var (undone, _) = await Apply(service, undo);
+
+        Assert.True(undone.Succeeded, undone.Message);
+        Assert.Null(site.Baseline("16790500"));
+        Assert.Null(site.Item("16790000"));
+    }
+
+    [Fact]
+    public async Task ALaterUndoLeavesABaselineWithTheNameThatAnotherAccountMade()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new CancelledAtBaseline(site));
+        var (outcome, _) = await Apply(service, await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None));
+        site.Baselines.Add(LateBaseline(@"CONTOSO\OtherAdmin"));
+
+        var (undone, _) = await Apply(service, outcome.UndoChange!);
+
+        Assert.NotNull(site.Baseline("16790500"));
+        Assert.DoesNotContain("Remove-CMBaseline:16790500", site.Log);
+        Assert.NotNull(site.Item("16790000"));
+        Assert.Contains("Hardening: LLMNR Disable (16790000) was kept", undone.Message);
+    }
+
+    [Fact]
+    public async Task AnUndoOfACancelledRunWithNothingFoundYetIsRefusedAndCanBeOfferedAgain()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new CancelledAtBaseline(site));
+        var (outcome, _) = await Apply(service, await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None));
+        site.Items.Clear();
+        var undo = outcome.UndoChange! with { CreatedIds = [] };
+
+        var error = await Assert.ThrowsAsync<ComplianceServiceException>(() => service.PrepareAsync(undo, CancellationToken.None));
+        Assert.Equal(ComplianceService.NothingReclaimedMessage, error.Message);
+
+        site.Baselines.Add(LateBaseline());
+        var (undone, _) = await Apply(service, await service.PrepareAsync(undo, CancellationToken.None));
+        Assert.True(undone.Succeeded, undone.Message);
+        Assert.Null(site.Baseline("16790500"));
+    }
+
     [Fact]
     public async Task CreatingAMissingDependencyIsRefusedWithAPlainMessage()
     {

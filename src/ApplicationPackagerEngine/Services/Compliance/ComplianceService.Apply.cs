@@ -408,8 +408,17 @@ public sealed partial class ComplianceService
 
     private async Task<ComplianceOutcome> ApplyRemoveObjectsAsync(ComplianceChange change)
     {
-        var (deployments, baselines, items) = SplitCreated(change.CreatedIds);
-        if (deployments.Count + baselines.Count + items.Count == 0) return Refused(change, NotPreparedMessage);
+        IReadOnlyList<string> ids;
+        try
+        {
+            ids = await ReclaimAsync(change, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (ComplianceServiceException ex)
+        {
+            return Refused(change, ex.Message);
+        }
+        var (deployments, baselines, items) = SplitCreated(ids);
+        if (deployments.Count + baselines.Count + items.Count == 0) return Refused(change, IsReclaim(change) ? NothingReclaimedMessage : NotPreparedMessage);
         var run = await RunWriteAsync(change, new ConfigMgrParameters
         {
             { "Operation", "RemoveObjects" }, { "DeploymentIds", deployments.ToArray() }, { "BaselineIds", baselines.ToArray() }, { "ItemIds", items.ToArray() }
