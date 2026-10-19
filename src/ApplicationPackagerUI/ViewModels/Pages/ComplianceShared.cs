@@ -360,6 +360,8 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
     public static string UndoDetail(ComplianceChange? original, ComplianceChange undo) =>
         undo.Impact.Count > 0 ? string.Join(Environment.NewLine, undo.Impact) : undo.Kind switch
         {
+            ComplianceChangeKind.RemoveCatalogObjects when undo.CreatedIds.Count == 0 =>
+                "Looks for the deployments, baselines and configuration items of the run by their names and removes the ones the run created. An object that existed before the run stays.",
             ComplianceChangeKind.RemoveCatalogObjects => $"Removes the deployments, baselines and configuration items the run created ({ComplianceText.Count(undo.CreatedIds.Count, "object")}). An object that existed before the run stays.",
             ComplianceChangeKind.SetRemediation => $"Sets the mode back to {ComplianceText.Mode(undo.RemediateAfter == true)}.",
             ComplianceChangeKind.CreateDeployment => $"Creates the deployment again from the captured values. {ComplianceWriter.RecreatedNote}",
