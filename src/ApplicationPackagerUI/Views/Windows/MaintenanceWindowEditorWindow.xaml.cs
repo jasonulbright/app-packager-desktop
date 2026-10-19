@@ -10,6 +10,7 @@ public partial class MaintenanceWindowEditorWindow
     public MaintenanceWindowEditorWindow(MaintenanceWindowEditorViewModel viewModel)
     {
         _viewModel = viewModel;
+        viewModel.FitTo(System.Windows.SystemParameters.WorkArea.Width, System.Windows.SystemParameters.WorkArea.Height);
         DataContext = viewModel;
         InitializeComponent();
         viewModel.CloseRequested += (_, _) => Close();

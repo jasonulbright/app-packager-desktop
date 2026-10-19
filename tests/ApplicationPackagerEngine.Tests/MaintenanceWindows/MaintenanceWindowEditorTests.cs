@@ -27,6 +27,29 @@ public sealed class MaintenanceWindowEditorTests
         new MaintenanceSchedule(MaintenanceScheduleKind.PatchTuesday, new DateTime(2033, 12, 31, 2, 0, 0), TimeSpan.FromMinutes(1), true, 12, null, null, null, 21, null)
     };
 
+    [Fact]
+    public void AScheduleThePreviewCannotDescribeShowsAFixedTextWithoutTheExceptionText()
+    {
+        var projector = new FakeProjector { DescribeFailure = new ArgumentException("raw projector detail") };
+        var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.NewWindow, projector, _ => Task.FromResult(true), () => Now);
+        Assert.Equal(MaintenanceWindowEditorViewModel.ScheduleNotShown, editor.ScheduleText);
+        editor.DurationHours = 2;
+        Assert.Equal(MaintenanceWindowEditorViewModel.ScheduleNotShown, editor.ScheduleText);
+    }
+
+    [Theory]
+    [InlineData(5000, 4000, 1280, 680, 1280, 680)]
+    [InlineData(800, 600, 1920, 1040, 800, 600)]
+    [InlineData(1000, 900, 1366, 728, 1000, 728)]
+    public void AStoredSizeIsBoundedByTheWorkArea(double width, double height, double areaWidth, double areaHeight, double expectedWidth, double expectedHeight)
+    {
+        var editor = Editor();
+        editor.Width = width;
+        editor.Height = height;
+        editor.FitTo(areaWidth, areaHeight);
+        Assert.Equal((expectedWidth, expectedHeight), (editor.Width, editor.Height));
+    }
+
     private static MaintenanceWindowEditorViewModel Ready()
     {
         var editor = Editor();

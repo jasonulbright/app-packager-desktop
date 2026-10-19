@@ -32,6 +32,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     public const string DurationRange = "The duration must be between 1 minute and 24 hours.";
     public const string NotProjected = "The schedule has no occurrence after now.";
     public const string NoEndDateNote = "ConfigMgr stores no end date. The window recurs until it is removed or disabled.";
+    public const string ScheduleNotShown = "The schedule cannot be shown.";
 
     public static string NameTaken(string collection, string name) => $"The collection {collection} already has a window named {name}.";
 
@@ -186,6 +187,13 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     /// <summary>The dialog size the page stores between visits.</summary>
     public double Width { get; set; } = 760;
     public double Height { get; set; } = 720;
+
+    /// <summary>Shrinks a stored size that is larger than the work area, for example after a change to a smaller screen.</summary>
+    public void FitTo(double workAreaWidth, double workAreaHeight)
+    {
+        if (double.IsFinite(workAreaWidth) && workAreaWidth > 0 && !(Width <= workAreaWidth)) Width = workAreaWidth;
+        if (double.IsFinite(workAreaHeight) && workAreaHeight > 0 && !(Height <= workAreaHeight)) Height = workAreaHeight;
+    }
 
     partial void OnCollectionFilterChanged(string value)
     {
@@ -359,7 +367,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ArgumentOutOfRangeException)
         {
-            ScheduleText = "The schedule cannot be shown: " + ex.Message;
+            ScheduleText = ScheduleNotShown;
         }
     }
 

@@ -44,12 +44,15 @@
                                     Icon="{ui:SymbolIcon Search24}" IsEnabled="{Binding CanPickCollection}" Margin="0,0,0,4"
                                     AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtCollectionFilter" />
                         <ListBox ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}" Height="140"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  IsEnabled="{Binding CanPickCollection}" AutomationProperties.Name="Collection" AutomationProperties.AutomationId="lstCollections">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel>
-                                        <TextBlock Text="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                        <TextBlock Text="{Binding FolderPath}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}"
+                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                        <TextBlock Text="{Binding FolderPath}" TextTrimming="CharacterEllipsis" ToolTip="{Binding FolderPath}" FontSize="11"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>

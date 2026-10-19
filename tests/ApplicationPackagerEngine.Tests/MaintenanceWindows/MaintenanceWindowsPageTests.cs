@@ -302,6 +302,38 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
+    [Fact]
+    public void TheEditorClipsALongCollectionNameWithATooltipAndFitsTheWorkArea()
+    {
+        WithApplication(ApplicationTheme.Dark, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            var name = "Servers in the " + string.Join(" ", Enumerable.Repeat("very long", 30)) + " folder";
+            harness.Service.AddCollection("LAB00099", name, @"Patching\" + new string('x', 300));
+            var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.NewWindow, harness.Projector, _ => Task.FromResult(true),
+                () => MaintenanceWindowsHarness.Now, harness.Service.Collections, harness.Service.Windows) { Width = 100_000, Height = 100_000 };
+            var window = new MaintenanceWindowEditorWindow(editor);
+            Show(window);
+            try
+            {
+                Assert.True(window.Width <= SystemParameters.WorkArea.Width);
+                Assert.True(window.Height <= SystemParameters.WorkArea.Height);
+                var list = ById<System.Windows.Controls.ListBox>(window, "lstCollections");
+                Assert.Equal(ScrollBarVisibility.Disabled, ScrollViewer.GetHorizontalScrollBarVisibility(list));
+                var texts = Descendants(list).OfType<TextBlock>().Where(t => t.Text.Contains("very long", StringComparison.Ordinal)
+                    || t.Text.Contains("xxxx", StringComparison.Ordinal)).ToList();
+                Assert.Equal(2, texts.Count);
+                Assert.All(texts, t =>
+                {
+                    Assert.Equal(TextTrimming.CharacterEllipsis, t.TextTrimming);
+                    Assert.Equal(t.Text, t.ToolTip);
+                    Assert.True(t.ActualWidth <= list.ActualWidth);
+                });
+            }
+            finally { window.Close(); }
+        });
+    }
+
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]

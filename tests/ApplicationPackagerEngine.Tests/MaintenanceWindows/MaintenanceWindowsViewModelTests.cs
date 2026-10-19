@@ -246,6 +246,7 @@ public sealed class MaintenanceWindowsViewModelTests
         Assert.Single(harness.Plans.Shown);
         Assert.Empty(harness.Service.Applied);
         Assert.False(shown!.Saved);
+        Assert.Equal(MaintenanceWindowsViewModel.NotConfirmed, shown.ValidationMessage);
         Assert.Equal(MaintenanceWindowsViewModel.NotConfirmed, vm.StatusMessage);
         Assert.False(vm.HasUndo);
     }
@@ -371,7 +372,8 @@ public sealed class MaintenanceWindowsViewModelTests
             editor.SelectedCollection = editor.Collections.Single(c => c.Collection.Name == "Kiosks");
             editor.Name = "Late";
             FakeMaintenancePrompts.Save(editor);
-            Assert.Equal(MaintenanceWindowEditorViewModel.NameTaken("Kiosks", "Late"), editor.ValidationMessage);
+            Assert.False(editor.Saved);
+            Assert.Equal(FakeMaintenanceService.NameTakenMessage("Kiosks", "Late"), editor.ValidationMessage);
         };
         await vm.NewWindowCommand.ExecuteAsync(null);
         Assert.Empty(harness.Plans.Shown);
@@ -572,10 +574,13 @@ public sealed class MaintenanceWindowsViewModelTests
         Assert.DoesNotContain(harness.Service.Windows, w => w.WindowName == "Weekly Sunday 2 AM");
     }
 
-    [Fact]
-    public async Task ACancelInTheMiddleOfABulkApplyKeepsThePartialResults()
+    [Theory]
+    [InlineData(false, "Skipped")]
+    [InlineData(true, "Failed")]
+    public async Task ACancelInTheMiddleOfABulkApplyKeepsThePartialResults(bool throwOnCancel, string notStarted)
     {
         var harness = new MaintenanceWindowsHarness();
+        harness.Service.ThrowOnCancel = throwOnCancel;
         var vm = await harness.OpenAsync();
         harness.Service.AfterChange = i => { if (i == 0) harness.Plans.LastViewModel!.RequestCancel(); };
         harness.Prompts.ApplyTemplate = dialog =>
@@ -587,7 +592,8 @@ public sealed class MaintenanceWindowsViewModelTests
         await vm.ApplyTemplateToSelectedCommand.ExecuteAsync(null);
         var result = harness.Plans.LastOutcome!.Result!;
         Assert.Equal(ChangePlanStop.Cancelled, result.Stop);
-        Assert.Equal(["Changed", "Failed", "Failed"], vm.LastResults.Select(r => r.OutcomeText));
+        Assert.Equal(["Changed", notStarted, notStarted], vm.LastResults.Select(r => r.OutcomeText));
+        Assert.Equal(SiteOperationOutcome.Cancelled, harness.History.Entries.Single().Outcome);
         Assert.Single(harness.Service.Windows, w => w.WindowName == "Weekly Sunday 2 AM");
         Assert.True(vm.HasUndo);
     }
@@ -725,5 +731,225 @@ public sealed class MaintenanceWindowsViewModelTests
     {
         Assert.Equal("A", MaintenanceWindowsViewModel.FreeName("A", new HashSet<string>()));
         Assert.Equal("A (3)", MaintenanceWindowsViewModel.FreeName("A", new HashSet<string>(["A", "A (2)"], StringComparer.OrdinalIgnoreCase)));
+    }
+
+    // --- State that changes between the list read and the write ----------------------------
+
+    private static void SetEnabledOnSite(MaintenanceWindowsHarness harness, string window, bool enabled)
+    {
+        lock (harness.Service.Windows)
+        {
+            var index = harness.Service.Windows.FindIndex(w => w.WindowName == window);
+            harness.Service.Windows[index] = harness.Service.Windows[index] with { Enabled = enabled };
+        }
+    }
+
+    [Theory]
+    [InlineData("Nightly", ChangeKind.Update)]
+    [InlineData("Nightly clients", ChangeKind.Rename)]
+    public async Task EditAndRenameKeepTheEnabledStateConfigMgrHasAtSave(string newName, ChangeKind kind)
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        Select(vm, "Nightly");
+        SetEnabledOnSite(harness, "Nightly", false);
+        harness.Prompts.Editor = editor =>
+        {
+            editor.Name = newName;
+            editor.DurationHours = 2;
+            FakeMaintenancePrompts.Save(editor);
+        };
+        await vm.EditWindowCommand.ExecuteAsync(null);
+
+        var change = Assert.Single(Assert.Single(harness.Service.Applied));
+        Assert.Equal(kind, change.Kind);
+        Assert.False(change.After!.Enabled);
+        Assert.False(harness.Service.Windows.Single(w => w.WindowName == newName).Enabled);
+        Assert.Equal("Disabled", Row(vm, newName).Status);
+    }
+
+    [Fact]
+    public async Task UndoRunsWithoutAStateCheckSoAStaleReadCannotBlockIt()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        Select(vm, "Nightly");
+        await vm.RemoveWindowsCommand.ExecuteAsync(null);
+        Assert.True(vm.HasUndo);
+
+        harness.Service.PrepareFails = _ => new InvalidOperationException("stale");
+        var prepares = harness.Service.PrepareCalls;
+        await vm.UndoLastCommand.ExecuteAsync(null);
+        Assert.Equal(prepares, harness.Service.PrepareCalls);
+        Assert.Equal(2, harness.Plans.Shown.Count);
+        Assert.Equal(ChangeKind.Create, Assert.Single(harness.Service.Applied[1]).Kind);
+        Assert.Contains(harness.Service.Windows, w => w.WindowName == "Nightly");
+    }
+
+    [Fact]
+    public async Task InABulkPlanAnItemWhoseStateCheckFailsIsASkipLineWithAPlainReason()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        Select(vm, "Patch Tuesday", "Weekend", "Nightly");
+        const string gone = "The window Weekend does not exist on Servers any more. Refresh the list.";
+        harness.Service.PrepareFails = c => c.WindowName switch
+        {
+            "Weekend" => new MaintenanceWindowException(gone),
+            "Nightly" => new InvalidOperationException("raw provider text"),
+            _ => null
+        };
+        await vm.ToggleEnabledCommand.ExecuteAsync(null);
+
+        var plan = Assert.Single(harness.Plans.Shown);
+        Assert.Equal(["Skip", "Skip", "Disable"], plan.Items.Select(i => i.Action));
+        Assert.Equal(["Servers: Weekend", "Workstations: Nightly"], plan.Items.Take(2).Select(i => i.Target));
+        Assert.Equal(gone, plan.Items[0].Detail);
+        Assert.Equal(MaintenanceWindowsViewModel.PrepareFailed, plan.Items[1].Detail);
+        Assert.Equal("Disable 1 window", plan.ActionName);
+        Assert.Equal(["Patch Tuesday"], Assert.Single(harness.Service.Applied).Select(c => c.WindowName));
+        Assert.Equal(["Skipped", "Skipped", "Changed"], vm.LastResults.Select(r => r.OutcomeText));
+        Assert.DoesNotContain(harness.Log.Entries, e => e.Message.Contains("raw provider text"));
+    }
+
+    [Fact]
+    public async Task ABulkPlanWhoseEveryStateCheckFailsShowsNoPlanAndTheFirstReason()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        Select(vm, "Patch Tuesday", "Weekend");
+        harness.Service.PrepareFails = c => new MaintenanceWindowException($"Gone: {c.WindowName}.");
+        await vm.ToggleEnabledCommand.ExecuteAsync(null);
+        Assert.Empty(harness.Plans.Shown);
+        Assert.Equal("Gone: Patch Tuesday.", vm.StatusMessage);
+    }
+
+    [Fact]
+    public async Task AWriteAfterARefreshThatReadTheOldStateShowsTheNewState()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        Select(vm, "Weekend");
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Service.ListWindowsGate = gate;
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        await WaitFor(() => Volatile.Read(ref harness.Service.WindowReads) == 2);
+
+        var toggle = vm.ToggleEnabledCommand.ExecuteAsync(null);
+        await WaitFor(() => harness.Service.Applied.Count == 1);
+        harness.Service.ListWindowsGate = null;
+        gate.SetResult();
+        await Task.WhenAll(refresh, toggle);
+
+        Assert.True(harness.Service.Windows.Single(w => w.WindowName == "Weekend").Enabled);
+        Assert.Equal("Enabled", Row(vm, "Weekend").Status);
+        Assert.Equal(3, harness.Service.ListCalls);
+    }
+
+    [Fact]
+    public async Task ADeclinedApplyPlanSaysSoInTheDialog()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        harness.Plans.Confirm = false;
+        var vm = await harness.OpenAsync();
+        MaintenanceApplyTemplateViewModel? shown = null;
+        harness.Prompts.ApplyTemplate = dialog =>
+        {
+            shown = dialog;
+            foreach (var t in dialog.Targets.Where(t => t.Name == "Kiosks")) t.IsChecked = true;
+            FakeMaintenancePrompts.Apply(dialog);
+        };
+        await vm.ApplyTemplateToSelectedCommand.ExecuteAsync(null);
+        Assert.Single(harness.Plans.Shown);
+        Assert.False(shown!.Applied);
+        Assert.Equal(MaintenanceWindowsViewModel.NotConfirmed, shown.ValidationMessage);
+    }
+
+    // --- Filter ----------------------------------------------------------------------------
+
+    [Fact]
+    public async Task TheTextFilterKeepsTheRowsItStillShowsAndDropsHiddenRowsFromTheSelection()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        var patch = Row(vm, "Patch Tuesday");
+        var weekend = Row(vm, "Weekend");
+        Select(vm, "Patch Tuesday", "Weekend");
+        var resets = 0;
+        vm.Rows.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset) resets++;
+        };
+
+        vm.TextFilter = "Servers";
+        Assert.Same(patch, Row(vm, "Patch Tuesday"));
+        Assert.Same(weekend, Row(vm, "Weekend"));
+        Assert.Same(patch, vm.SelectedRow);
+        Assert.Equal(["Patch Tuesday", "Weekend"], vm.SelectedWindows.Select(r => r.WindowName));
+
+        vm.TextFilter = "weekend";
+        Assert.Equal(["Weekend"], vm.Rows.Select(r => r.WindowName));
+        Assert.Null(vm.SelectedRow);
+        Assert.Equal(["Weekend"], vm.SelectedWindows.Select(r => r.WindowName));
+
+        vm.TextFilter = "";
+        Assert.Equal(["Patch Tuesday", "Weekend", "Nightly"], vm.Rows.Select(r => r.WindowName));
+        Assert.Same(weekend, Row(vm, "Weekend"));
+        Assert.Equal(0, resets);
+    }
+
+    // --- Page choices ----------------------------------------------------------------------
+
+    [Fact]
+    public async Task PageChoiceSavesRunOneAtATimeAndTheNewestChoiceIsWrittenLast()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        using var hold = new ManualResetEventSlim(false);
+        var written = new List<MaintenanceWindowsSettings>();
+        var running = 0;
+        var overlapped = false;
+        harness.BeforeSave = s =>
+        {
+            if (Interlocked.Increment(ref running) > 1) overlapped = true;
+            if (s.SelectedTab == 1 && s.TypeFilter == "") hold.Wait(TimeSpan.FromSeconds(10));
+            lock (written) written.Add(s);
+            Interlocked.Decrement(ref running);
+        };
+
+        vm.SelectedTabIndex = 1;
+        await WaitFor(() => Volatile.Read(ref running) == 1);
+        vm.TypeFilter = MaintenanceWindowsText.SoftwareUpdates;
+        vm.TextFilter = "Patch";
+        await Task.Delay(50);
+        hold.Set();
+        await vm.OnNavigatedFromAsync();
+
+        Assert.False(overlapped);
+        Assert.Equal((1, "SoftwareUpdates", "Patch"), (harness.Saved!.SelectedTab, harness.Saved.TypeFilter, harness.Saved.TextFilter));
+        lock (written) Assert.Same(harness.Saved, written[^1]);
+    }
+
+    [Fact]
+    public async Task LeavingThePageWaitsForTheSaveOfTheChoices()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        harness.BeforeSave = _ => Thread.Sleep(100);
+        vm.CoverageWithoutWindowOnly = true;
+        await vm.OnNavigatedFromAsync();
+        Assert.True(harness.Saved!.CoverageWithoutWindowOnly);
+    }
+
+    [Fact]
+    public async Task AnEditorSizeFromTheSettingsThatIsNotAFiniteNumberIsIgnored()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        harness.Saved = new MaintenanceWindowsSettings { EditorWidth = double.PositiveInfinity, EditorHeight = double.NaN };
+        var vm = await harness.OpenAsync();
+        MaintenanceWindowEditorViewModel? shown = null;
+        harness.Prompts.Editor = editor => shown = editor;
+        await vm.NewWindowCommand.ExecuteAsync(null);
+        Assert.Equal((760d, 720d), (shown!.Width, shown.Height));
     }
 }

@@ -61,7 +61,9 @@ internal sealed class FakeProjector : IScheduleProjector
         return list;
     }
 
-    public string Describe(MaintenanceSchedule schedule) => $"{schedule.Kind} at {schedule.Start:HH:mm} for {(int)schedule.Duration.TotalMinutes} minutes";
+    public Exception? DescribeFailure;
+
+    public string Describe(MaintenanceSchedule schedule) => DescribeFailure is { } failure ? throw failure : $"{schedule.Kind} at {schedule.Start:HH:mm} for {(int)schedule.Duration.TotalMinutes} minutes";
 
     /// <summary>A reason replaces the real rules when set; otherwise the real rules apply.</summary>
     public Func<MaintenanceSchedule, string?>? Rejects;
@@ -82,6 +84,23 @@ internal sealed class FakeMaintenanceService : IMaintenanceWindowService
     public TaskCompletionSource? ListGate;
     public TaskCompletionSource? PrepareGate;
     public List<IReadOnlyList<MaintenanceChange>> Applied { get; } = [];
+
+    /// <summary>The window list is read first and returned only after this gate opens.</summary>
+    public TaskCompletionSource? ListWindowsGate;
+    public int WindowReads;
+
+    /// <summary>An exception makes the state check of that request fail, as the service's checks do.</summary>
+    public Func<MaintenanceChange, Exception?>? PrepareFails;
+
+    /// <summary>
+    /// False (the real service's behavior): a cancelled run returns the changes it did not start as
+    /// skipped outcomes. True: the run throws <see cref="OperationCanceledException"/>.
+    /// </summary>
+    public bool ThrowOnCancel;
+
+    public const string CancelledSkip = MaintenanceWindowService.SkippedPrefix + "the run was cancelled before this change.";
+
+    public static string NameTakenMessage(string collection, string name) => $"Collection {collection} already has a window named {name}.";
 
     /// <summary>A message makes the change fail; null lets it succeed.</summary>
     public Func<MaintenanceChange, string?>? Fail;
@@ -121,9 +140,13 @@ internal sealed class FakeMaintenanceService : IMaintenanceWindowService
         lock (Windows) return Collections.ToList();
     }
 
-    public Task<IReadOnlyList<MaintenanceWindowInfo>> ListWindowsAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<MaintenanceWindowInfo>> ListWindowsAsync(CancellationToken ct)
     {
-        lock (Windows) return Task.FromResult<IReadOnlyList<MaintenanceWindowInfo>>(Windows.ToList());
+        List<MaintenanceWindowInfo> read;
+        lock (Windows) read = Windows.ToList();
+        Interlocked.Increment(ref WindowReads);
+        if (ListWindowsGate is { } gate) await gate.Task.WaitAsync(ct);
+        return read;
     }
 
     private MaintenanceWindowInfo? Find(string collectionId, string name)
@@ -135,7 +158,11 @@ internal sealed class FakeMaintenanceService : IMaintenanceWindowService
     {
         Interlocked.Increment(ref PrepareCalls);
         if (PrepareGate is { } gate) await gate.Task;
-        return request with { Before = Find(request.CollectionId, request.WindowName) };
+        if (PrepareFails?.Invoke(request) is { } failure) throw failure;
+        var before = Find(request.CollectionId, request.WindowName);
+        if (request.Kind == ChangeKind.Create && before is not null)
+            throw new MaintenanceWindowException(NameTakenMessage(request.CollectionName, request.WindowName));
+        return request with { Before = before };
     }
 
     public async Task<IReadOnlyList<MaintenanceOutcome>> ApplyAsync(IReadOnlyList<MaintenanceChange> changes, IProgress<MaintenanceOutcome> progress, CancellationToken ct)
@@ -145,8 +172,8 @@ internal sealed class FakeMaintenanceService : IMaintenanceWindowService
         var outcomes = new List<MaintenanceOutcome>();
         for (var i = 0; i < changes.Count; i++)
         {
-            ct.ThrowIfCancellationRequested();
-            var outcome = Apply(changes[i]);
+            if (ThrowOnCancel) ct.ThrowIfCancellationRequested();
+            var outcome = ct.IsCancellationRequested ? new MaintenanceOutcome(changes[i], false, CancelledSkip, null) : Apply(changes[i]);
             outcomes.Add(outcome);
             progress.Report(outcome);
             AfterChange?.Invoke(i);
@@ -333,6 +360,10 @@ internal sealed class MaintenanceWindowsHarness
     public RecordingMaintenanceLog Log { get; } = new();
     public AppSettings Settings { get; } = new() { SiteCode = "LAB", ProviderMachine = "cm01.lab.local" };
     public MaintenanceWindowsSettings? Saved { get; set; }
+
+    /// <summary>Runs on the saving thread before the choices are stored; a test can hold a save here.</summary>
+    public Action<MaintenanceWindowsSettings>? BeforeSave;
+
     public int PreferenceLoads;
     public int PreferenceSaves;
     public int SettingsLoads;
@@ -364,7 +395,12 @@ internal sealed class MaintenanceWindowsHarness
         Service, Projector, Store, Reports, Prompts, Plans, Writer(),
         () => { Interlocked.Increment(ref SettingsLoads); return Settings; },
         () => { Interlocked.Increment(ref PreferenceLoads); return Saved; },
-        s => { Interlocked.Increment(ref PreferenceSaves); Saved = s; },
+        s =>
+        {
+            BeforeSave?.Invoke(s);
+            Interlocked.Increment(ref PreferenceSaves);
+            Saved = s;
+        },
         Log,
         () => Now));
 
