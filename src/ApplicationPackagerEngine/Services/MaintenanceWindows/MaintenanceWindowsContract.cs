@@ -26,7 +26,10 @@ public enum MaintenanceScheduleKind
 /// <param name="DayOfWeek">The day for Weekly and MonthlyByWeekday; Tuesday is implied for PatchTuesday.</param>
 /// <param name="DayOfMonth">1 to 31 for MonthlyByDate, or 0 for the last day of the month. A day after the month's last day falls on the last day.</param>
 /// <param name="WeekOrder">1 to 4, or 5 for the last such weekday of the month, for MonthlyByWeekday.</param>
-/// <param name="PatchTuesdayOffsetDays">Days from the second Tuesday of the month for PatchTuesday.</param>
+/// <param name="PatchTuesdayOffsetDays">
+/// Days from the second Tuesday of the month for PatchTuesday (-7 to 21 can be stored). For
+/// MonthlyByWeekday, ConfigMgr's offset: 0 to 7 days after the weekday. Ignored for other kinds.
+/// </param>
 /// <param name="End">
 /// No occurrence starts after this time. A ConfigMgr schedule token has no end date, so a
 /// write of a schedule with an end is refused.
@@ -41,7 +44,12 @@ public sealed record MaintenanceSchedule(
     int? DayOfMonth,
     int? WeekOrder,
     int PatchTuesdayOffsetDays,
-    DateTime? End);
+    DateTime? End)
+{
+    /// <summary>The same schedule with its effective date set to <paramref name="date"/>, keeping the start time.</summary>
+    public MaintenanceSchedule EffectiveOn(DateTime date) =>
+        this with { Start = DateTime.SpecifyKind(date.Date + Start.TimeOfDay, DateTimeKind.Unspecified) };
+}
 
 public interface IScheduleProjector
 {
@@ -67,7 +75,10 @@ public sealed record CollectionInfo(string CollectionId, string Name, string Fol
 /// <param name="WindowType">"Any", "SoftwareUpdates" or "TaskSequences".</param>
 /// <param name="ScheduleText">The text of <see cref="IScheduleProjector.Describe"/> for the schedule ConfigMgr stores.</param>
 /// <param name="NextOccurrence">The next start time in local time; null when no occurrence is left.</param>
-/// <param name="Comment">The window's description in ConfigMgr.</param>
+/// <param name="Comment">
+/// The window's Description in ConfigMgr. ConfigMgr writes its own schedule text there at
+/// each create and update, and the cmdlets offer no way to set it, so writes ignore it.
+/// </param>
 public sealed record MaintenanceWindowInfo(
     string CollectionId,
     string CollectionName,
@@ -80,6 +91,7 @@ public sealed record MaintenanceWindowInfo(
     DateTime? NextOccurrence,
     string Comment);
 
+/// <param name="Schedule">The date part of Start is a placeholder; apply the template with <see cref="MaintenanceSchedule.EffectiveOn"/>.</param>
 public sealed record MaintenanceTemplate(
     string Id,
     string Name,
