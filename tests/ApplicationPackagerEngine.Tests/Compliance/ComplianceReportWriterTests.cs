@@ -65,6 +65,36 @@ public sealed class ComplianceReportWriterTests : IDisposable
         Assert.Contains("Deployments: 1.", html);
     }
 
+    private static ComplianceRow Unsummarized(string baseline, string collection) =>
+        new(baseline, collection, 0, 0, 0, 0, null, true, CountsKnown: false);
+
+    [Fact]
+    public void TheCsvWritesUnknownCountsAndANeverEvaluatedDeploymentAsWords()
+    {
+        var path = Writer().WriteCsv([], [Unsummarized("=cmd|' /C calc'!A0", "@SUM(1)"), new ComplianceRow("Known", "Pilot", 0, 0, 0, 0, new DateTime(2026, 10, 10, 8, 0, 0, DateTimeKind.Utc), false)]);
+
+        var lines = File.ReadAllLines(path);
+        Assert.Equal("\"'=cmd|' /C calc'!A0\",\"'@SUM(1)\",\"unknown\",\"unknown\",\"unknown\",\"unknown\",\"never\",\"Yes\"", lines[5]);
+        Assert.Equal("\"Known\",\"Pilot\",\"0\",\"0\",\"0\",\"0\",\"2026-10-10 08:00\",\"No\"", lines[6]);
+    }
+
+    [Fact]
+    public void TheCsvWritesNeverForADeploymentWithKnownCountsAndNoSummaryTime()
+    {
+        var lines = File.ReadAllLines(Writer().WriteCsv([], [new ComplianceRow("B", "C", 2, 1, 0, 0, null, true)]));
+        Assert.Equal("\"B\",\"C\",\"2\",\"1\",\"0\",\"0\",\"never\",\"Yes\"", lines[5]);
+    }
+
+    [Fact]
+    public void TheHtmlWritesUnknownCountsAndNeverAndStillEncodesHostileNames()
+    {
+        var html = File.ReadAllText(Writer().WriteHtml([], [Unsummarized("<img src=x onerror=alert(1)>", "never & \"unknown\"")]));
+
+        Assert.DoesNotContain("<img", html);
+        Assert.Contains("<td>&lt;img src=x onerror=alert(1)&gt;</td><td>never &amp; &quot;unknown&quot;</td><td>unknown</td><td>unknown</td><td>unknown</td><td>unknown</td><td>never</td><td>Yes</td>", html);
+        Assert.DoesNotContain("<td>0</td>", html);
+    }
+
     [Fact]
     public void ASecondReportInTheSameSecondGetsANewName()
     {

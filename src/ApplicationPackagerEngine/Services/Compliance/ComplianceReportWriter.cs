@@ -51,17 +51,22 @@ public sealed class ComplianceReportWriter(string? folder = null, Func<DateTimeO
         row.BaselineName ?? "", row.BaselineId ?? "", row.CatalogId ?? "", row.DeployedVersion ?? "", row.CatalogVersion ?? "", row.State ?? ""
     ];
 
+    public const string UnknownCount = "unknown";
+    public const string NeverEvaluated = "never";
+
     private static IEnumerable<string> ComplianceValues(ComplianceRow row) =>
     [
         row.BaselineName ?? "",
         row.CollectionName ?? "",
-        row.Compliant.ToString(CultureInfo.InvariantCulture),
-        row.NonCompliant.ToString(CultureInfo.InvariantCulture),
-        row.Error.ToString(CultureInfo.InvariantCulture),
-        row.Unknown.ToString(CultureInfo.InvariantCulture),
-        row.LastEvaluated is { } time ? time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "",
+        Count(row, row.Compliant),
+        Count(row, row.NonCompliant),
+        Count(row, row.Error),
+        Count(row, row.Unknown),
+        row.LastEvaluated is { } time ? time.ToUniversalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : NeverEvaluated,
         row.Stale ? "Yes" : "No"
     ];
+
+    private static string Count(ComplianceRow row, int count) => row.CountsKnown ? count.ToString(CultureInfo.InvariantCulture) : UnknownCount;
 
     private static string Csv(string[] columns, IEnumerable<IEnumerable<string>> rows)
     {
