@@ -60,6 +60,9 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
 
     [ObservableProperty] private string _resultSummary = "";
 
+    /// <summary>True when the results panel shows its rows under the summary.</summary>
+    [ObservableProperty] private bool _showResultRows = true;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUndo))]
     [NotifyCanExecuteChangedFor(nameof(UndoLastCommand))]
