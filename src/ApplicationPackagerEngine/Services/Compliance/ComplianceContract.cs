@@ -111,7 +111,8 @@ public sealed record BaselineDeploymentSettings(
 /// <param name="Is64Bit">True when the setting reads the 64-bit registry view or runs the script as a 64-bit process.</param>
 /// <param name="Operator">The rule operator, for example IsEquals.</param>
 /// <param name="Severity">None, Informational, Warning, Critical or CriticalWithEvent.</param>
-/// <param name="IsEditable">False for a setting this page shows but does not change.</param>
+/// <param name="IsEditable">False for a setting this page shows but does not change: a kind other than Registry or Script, or a rule other than one value rule.</param>
+/// <param name="RemediateDword">A registry setting remediates the value as a DWORD.</param>
 public sealed record CiSetting(
     string SettingId,
     string Name,
@@ -133,7 +134,8 @@ public sealed record CiSetting(
     bool Remediate = false,
     bool ReportNoncompliance = true,
     string Severity = "Warning",
-    bool IsEditable = true);
+    bool IsEditable = true,
+    bool RemediateDword = false);
 
 /// <param name="State">Current, Behind, Untagged or Unknown (a tag whose ID is not in the catalog, or a version newer than the catalog).</param>
 public sealed record DriftRow(string BaselineName, string BaselineId, string? CatalogId, string? DeployedVersion, string? CatalogVersion, string State);
