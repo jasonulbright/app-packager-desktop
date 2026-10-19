@@ -161,6 +161,21 @@ public sealed class MaintenanceWindowsViewModelTests
     }
 
     [Fact]
+    public async Task AParentFolderEntryFiltersTheWindowsAndTheCoverageToThatFolderAndEveryFolderBelowIt()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        Assert.Equal(["", "Patching", @"Patching\Clients", @"Patching\Servers"], vm.Folders.Select(f => f.Value));
+        Assert.Equal("Patching (and sub-folders)", vm.Folders.Single(f => f.Value == "Patching").Text);
+        vm.FolderFilter = "Patching";
+        Assert.Equal(["Servers", "Workstations"], vm.Rows.Select(r => r.CollectionName).Distinct());
+        Assert.Equal(["Servers", "Workstations"], vm.Coverage.Select(r => r.Name));
+        vm.FolderFilter = "Patch";
+        Assert.Empty(vm.Rows);
+        Assert.Empty(vm.Coverage);
+    }
+
+    [Fact]
     public async Task TheDetailShowsThePropertiesAndTheNextFiveOccurrences()
     {
         var harness = new MaintenanceWindowsHarness();

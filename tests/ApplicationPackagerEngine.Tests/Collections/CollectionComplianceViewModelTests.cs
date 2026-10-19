@@ -109,6 +109,20 @@ public sealed class CollectionComplianceViewModelTests
     }
 
     [Fact]
+    public async Task AParentFolderEntryListsTheCollectionsOfThatFolderAndEveryFolderBelowIt()
+    {
+        var harness = new CollectionComplianceHarness();
+        var viewModel = await harness.OpenAsync();
+        Assert.Equal(["", "Patching", @"Patching\Clients", @"Patching\Servers"], viewModel.Folders.Select(f => f.Value));
+        Assert.Equal("Patching (and sub-folders)", viewModel.Folders.Single(f => f.Value == "Patching").Text);
+        Assert.Equal(@"Patching\Clients", viewModel.Folders.Single(f => f.Value == @"Patching\Clients").Text);
+        viewModel.FolderFilter = "Patching";
+        Assert.Equal(["Servers", "Workstations"], viewModel.Rows.Select(r => r.Name));
+        viewModel.FolderFilter = "Patch";
+        Assert.Empty(viewModel.Rows);
+    }
+
+    [Fact]
     public async Task AMissingSiteCodeShowsOneMessageAndReadsNothing()
     {
         var harness = new CollectionComplianceHarness();

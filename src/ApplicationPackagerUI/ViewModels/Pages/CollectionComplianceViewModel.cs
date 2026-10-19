@@ -465,12 +465,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     private void Rebuild()
     {
         if (_collections is null) return;
-        var folders = _collections.Select(c => c.FolderPath).Where(f => !string.IsNullOrEmpty(f))
-            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
-        var folder = FolderFilter;
-        while (Folders.Count > 1) Folders.RemoveAt(1);
-        foreach (var f in folders) Folders.Add(new Choice<string>(f, f));
-        if (folder.Length > 0 && !folders.Contains(folder, StringComparer.OrdinalIgnoreCase)) Folders.Add(new Choice<string>(folder, folder));
+        CollectionFolderFilter.Fill(Folders, _collections.Select(c => c.FolderPath), FolderFilter);
         ApplyFilter();
         RebuildTree();
         FollowWqlCollection();
@@ -497,7 +492,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         if (OnlyEmpty && row.MemberCount > 0) return false;
         if (OnlyWithDirectMembers && row.DirectRuleCount == 0) return false;
         if (OnlyWithQueryRules && row.QueryRuleCount == 0) return false;
-        if (FolderFilter.Length > 0 && !string.Equals(row.FolderPath, FolderFilter, StringComparison.OrdinalIgnoreCase)) return false;
+        if (!CollectionFolderFilter.Matches(FolderFilter, row.FolderPath)) return false;
         var text = TextFilter.Trim();
         return text.Length == 0 || row.Name.Contains(text, StringComparison.OrdinalIgnoreCase) || row.CollectionId.Contains(text, StringComparison.OrdinalIgnoreCase)
             || row.Comment.Contains(text, StringComparison.OrdinalIgnoreCase) || row.LimitingCollectionName.Contains(text, StringComparison.OrdinalIgnoreCase);
