@@ -507,7 +507,7 @@ public sealed partial class CollectionService : ICollectionService
         var included = references.Where(r => r.Relation is "Include" or "Exclude").ToList();
         if (included.Count > 0)
             throw new CollectionServiceException(
-                $"{Count(included.Count, "collection")} include or exclude collection {Shown(row)} ({Names(included)}). ConfigMgr does not remove a collection that is in such a rule. Remove those rules first.");
+                $"{Count(included.Count, "collection")} {(included.Count == 1 ? "includes or excludes" : "include or exclude")} collection {Shown(row)} ({Names(included)}). ConfigMgr does not remove a collection that is in such a rule. Remove those rules first.");
 
         if (InvalidCreate(row with { CollectionId = "" }, []) is { } rowReason)
             throw new CollectionServiceException($"Undo could not create collection {Shown(row)} again, so it is not removed. {rowReason}");
@@ -861,24 +861,24 @@ public sealed partial class CollectionService : ICollectionService
             case "limiting-self":
                 return new WriteRun(result, Refused(change, "A collection cannot be its own limiting collection."));
             case "changed":
-                return new WriteRun(result, Refused(change, $"Collection {target} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
+                return new WriteRun(result, Refused(change, $"{Capital(target)} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
             case "rule-taken":
                 return new WriteRun(result, Refused(change, change.Kind == CollectionChangeKind.ApplyTemplate
-                    ? $"Collection {target} already has a query rule named {change.RuleAfter?.RuleName}."
-                    : $"Collection {target} already has this rule or a query rule with this name."));
+                    ? $"{Capital(target)} already has a query rule named {change.RuleAfter?.RuleName}."
+                    : $"{Capital(target)} already has this rule or a query rule with this name."));
             case "rule-missing":
-                return new WriteRun(result, Refused(change, $"The rule {RuleOf(change)} does not exist on {target} any more. Refresh the list."));
+                return new WriteRun(result, Refused(change, $"The {RuleOf(change)} does not exist on {target} any more. Refresh the list."));
             case "rule-changed":
-                return new WriteRun(result, Refused(change, $"The rule {RuleOf(change)} on {target} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
+                return new WriteRun(result, Refused(change, $"The {RuleOf(change)} on {target} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
             case "rule-duplicate":
                 return new WriteRun(result, Refused(change,
                     $"More than one query rule on {target} matches the name {RuleOf(change)}. The ConfigMgr cmdlet would remove all of them, so nothing was changed. Rename the rules in the console first."));
             case "target-missing":
-                return new WriteRun(result, Refused(change, $"The device or collection that the rule refers to does not exist any more, or it is collection {target} itself."));
+                return new WriteRun(result, Refused(change, $"The device or collection that the rule refers to does not exist any more, or it is {target} itself."));
             case "is-limiting":
-                return new WriteRun(result, Refused(change, $"Collection {target} is the limiting collection of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}), so it is not removed."));
+                return new WriteRun(result, Refused(change, $"{Capital(target)} is the limiting collection of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}), so it is not removed."));
             case "is-referenced":
-                return new WriteRun(result, Refused(change, $"Collection {target} is in an include or exclude rule of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}). ConfigMgr does not remove it; remove those rules first."));
+                return new WriteRun(result, Refused(change, $"{Capital(target)} is in an include or exclude rule of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}). ConfigMgr does not remove it; remove those rules first."));
             case "query-missing":
                 return new WriteRun(result, Refused(change, $"The saved query {QueryOf(change)} does not exist any more. Refresh the list."));
             case "query-built-in":
@@ -1558,6 +1558,8 @@ public sealed partial class CollectionService : ICollectionService
         CollectionChangeKind.Create => "collection " + (change.AfterRow?.Name ?? change.CollectionName),
         _ => "collection " + Shown(change.CollectionName, change.CollectionId)
     };
+
+    private static string Capital(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
     private static string QueryOf(CollectionChange change) => change.QueryBefore?.Name ?? change.QueryAfter?.Name ?? "";
 

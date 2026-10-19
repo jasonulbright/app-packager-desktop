@@ -46,26 +46,26 @@
 
         <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
-                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel"
                   AutomationProperties.AutomationId="gridChangePlan" AutomationProperties.Name="Changes"
                   Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="*" MinWidth="200" />
-                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="2*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
         </DataGrid>
 
         <DataGrid Grid.Row="2" x:Name="gridResult" ItemsSource="{Binding ResultRows}" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
-                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel"
                   AutomationProperties.AutomationId="gridChangePlanResult" AutomationProperties.Name="Results"
                   Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" />
                 <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="180" />
-                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
         </DataGrid>
 

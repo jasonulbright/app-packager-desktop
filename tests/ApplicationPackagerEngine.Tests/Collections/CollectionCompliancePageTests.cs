@@ -806,6 +806,37 @@ public sealed class CollectionCompliancePageTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
+    public void AtItsDefaultSizeThePlanWindowShowsTheWholeDetailOfARemove(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var detail = "Removes collection CCM-Test-10190741-5 (MCM00066). Members now: 0. Deployments to the collection: 1. ConfigMgr removes them with the collection. "
+                + "Maintenance windows on the collection: 1. ConfigMgr removes them with the collection. Collections that include or exclude it: 0. "
+                + "Collections that use it as limiting collection: 0. Rules captured for Undo: 0. If these counts or the properties change before the remove starts, "
+                + $"the collection is not removed. {CollectionComplianceViewModel.RemoveUndoNote} {CollectionWriter.RecreatedNote}";
+            var plan = new ChangePlan("Remove collection", "Remove collection", [new ChangePlanItem("Remove", "CCM-Test-10190741-5 (MCM00066)", detail)], hasUndo: true, isDestructive: true);
+            var viewModel = new ChangePlanViewModel(plan, (c, p, ct) => Task.FromResult(new ChangePlanResult([])), (c, p, ct) => Task.FromResult(new ChangePlanResult([])));
+            var window = new ChangePlanWindow(viewModel);
+            Show(window);
+            try
+            {
+                var grid = ById<DataGrid>(window, "gridChangePlan");
+                Assert.Equal(ScrollUnit.Pixel, VirtualizingPanel.GetScrollUnit(grid));
+                var cell = Descendants(Row(grid, 0)).OfType<DataGridCell>().Single(c => Equals(c.Column.Header, "Detail"));
+                var text = Descendants(cell).OfType<TextBlock>().First();
+                Assert.Equal(detail, text.ToolTip);
+                Assert.Equal(TextWrapping.Wrap, text.TextWrapping);
+                var bottom = text.TransformToAncestor(grid).TransformBounds(new Rect(text.RenderSize)).Bottom;
+                Assert.True(bottom <= grid.ActualHeight + 0.5, $"The detail ends at {bottom:0} px in a {grid.ActualHeight:0} px list.");
+                Pixels(window, grid, $"RemovePlan-{theme}");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowShowsALongTemplatePlan(ApplicationTheme theme)
     {
         WithApplication(theme, () =>

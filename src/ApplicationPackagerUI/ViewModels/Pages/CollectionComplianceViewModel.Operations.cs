@@ -368,7 +368,8 @@ public sealed partial class CollectionComplianceViewModel
             var change = prepared[0];
             var before = change.BeforeRow ?? row.Row;
             if (before.IsBuiltIn) return (null, BuiltInRefused);
-            var impact = change.Impact.Count == 0 ? "" : string.Join(" ", change.Impact.Select(Sentence)) + " ";
+            var lines = change.Impact.Where(l => !l.TrimStart().StartsWith("Undo ", StringComparison.Ordinal)).Select(Sentence).ToList();
+            var impact = lines.Count == 0 ? "" : string.Join(" ", lines) + " ";
             return (new CollectionPlan("Remove", "Remove collection", "Remove collection",
             [
                 CollectionPlanEntry.Write(new ChangePlanItem("Remove", CollectionsText.Target(before), $"{impact}{RemoveUndoNote} {CollectionWriter.RecreatedNote}"), change)
