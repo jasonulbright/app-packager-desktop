@@ -73,6 +73,11 @@ public interface IScheduleProjector
 public sealed record CollectionInfo(string CollectionId, string Name, string FolderPath, int MemberCount, bool IsBuiltIn);
 
 /// <param name="WindowType">"Any", "SoftwareUpdates" or "TaskSequences".</param>
+/// <param name="Schedule">
+/// A schedule this model cannot hold (an hour or minute interval, several schedules in one
+/// window) has a zero duration, the ConfigMgr text in <paramref name="ScheduleText"/> and no
+/// <paramref name="NextOccurrence"/>; such a window can only be enabled or disabled here.
+/// </param>
 /// <param name="ScheduleText">The text of <see cref="IScheduleProjector.Describe"/> for the schedule ConfigMgr stores.</param>
 /// <param name="NextOccurrence">The next start time in local time; null when no occurrence is left.</param>
 /// <param name="Comment">

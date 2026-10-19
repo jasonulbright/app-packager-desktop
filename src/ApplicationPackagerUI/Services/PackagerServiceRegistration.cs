@@ -60,6 +60,12 @@ public static class PackagerServiceRegistration
         services.AddSingleton<IDetectionTestService>(_ => new DetectionTestService());
         services.AddSingleton<IDetectionHistoryStore>(sp => new DetectionHistoryStore(log: sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<IDetectionReportWriter>(_ => new DetectionReportWriter());
+
+        services.AddSingleton<IScheduleProjector>(_ => new ScheduleProjector());
+        services.AddSingleton<IMaintenanceWindowService>(sp => new MaintenanceWindowService(
+            sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IScheduleProjector>(), sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IMaintenanceTemplateStore>(sp => new MaintenanceTemplateStore(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IMaintenanceReportWriter>(_ => new MaintenanceReportWriter());
         return services;
     }
 

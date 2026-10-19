@@ -7,6 +7,14 @@ internal static class DetectionTesterFolders
 
     public static string Root() => Path.Combine(AppDataPaths.Root, FolderName);
 
+    public static bool HasLink(string folder, string container) => DataFolderLinks.HasLink(folder, container);
+
+    public static string ContainerOf(string folder, bool isDefault) => DataFolderLinks.ContainerOf(folder, isDefault);
+}
+
+/// <summary>Link checks for the data folders under the per-user data root.</summary>
+internal static class DataFolderLinks
+{
     /// <summary>
     /// True when <paramref name="folder"/>, or an existing directory between it and
     /// <paramref name="container"/> (not included), is a junction or symbolic link. A
