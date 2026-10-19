@@ -6,6 +6,7 @@ public enum CollectionRuleKind { Direct, Query, Include, Exclude }
 /// <param name="IsBuiltIn">True for a collection whose ID starts with SMS: it cannot be removed or edited here.</param>
 /// <param name="RefreshType">Manual, Periodic, Continuous or Both.</param>
 /// <param name="RefreshSchedule">The ConfigMgr schedule token of the periodic refresh; empty when the collection has none.</param>
+/// <param name="RefreshInterval">The periodic refresh interval to set; null keeps the current schedule.</param>
 public sealed record CollectionRow(
     string CollectionId,
     string Name,
@@ -20,7 +21,12 @@ public sealed record CollectionRow(
     int QueryRuleCount,
     int IncludeRuleCount,
     int ExcludeRuleCount,
-    string RefreshSchedule = "");
+    string RefreshSchedule = "",
+    RefreshInterval? RefreshInterval = null);
+
+/// <summary>A periodic refresh interval.</summary>
+/// <param name="Unit">Minutes, Hours or Days.</param>
+public sealed record RefreshInterval(int Count, string Unit);
 
 /// <param name="Expression">The WQL of a query rule; empty for the other kinds.</param>
 /// <param name="ResourceId">The resource of a direct rule; empty for the other kinds.</param>
