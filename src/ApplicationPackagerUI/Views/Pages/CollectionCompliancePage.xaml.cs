@@ -18,6 +18,55 @@ public partial class CollectionCompliancePage : INavigationAware
         InitializeComponent();
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         BuildPreviewColumns();
+        ApplyDetails();
+        pnlCollectionFilters.SizeChanged += (_, _) => UpdateTabMinHeight();
+        pnlCollectionTools.SizeChanged += (_, _) => UpdateTabMinHeight();
+    }
+
+    private const double GridMinHeight = 160;
+    private const double DetailsMinHeight = 140;
+
+    /// <summary>
+    /// The Collections tab needs its filter and tool rows at their wrapped height, the grid's
+    /// minimum and the details at their height; a lower viewport scrolls the tab instead of
+    /// cutting the details.
+    /// </summary>
+    private void UpdateTabMinHeight()
+    {
+        var rows = gridCollectionsLayout.RowDefinitions;
+        var detailsHeight = rows[2].Height.IsAbsolute ? rows[2].Height.Value : rows[2].ActualHeight;
+        var details = _viewModel.ShowDetails ? Math.Max(detailsHeight, DetailsMinHeight) + rows[1].Height.Value : 0;
+        gridCollectionsTab.MinHeight = pnlCollectionFilters.ActualHeight + pnlCollectionFilters.Margin.Bottom
+            + pnlCollectionTools.ActualHeight + pnlCollectionTools.Margin.Bottom + GridMinHeight + details;
+    }
+
+    private void OnDetailsResized(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e) => UpdateTabMinHeight();
+
+    private GridLength _detailsHeight = new(240);
+
+    /// <summary>
+    /// A hidden details panel gives its row to the grid; showing it again restores the height the
+    /// splitter last gave it. The splitter sets the row height directly, so no binding can hold it.
+    /// </summary>
+    private void ApplyDetails()
+    {
+        var row = gridCollectionsLayout.RowDefinitions[2];
+        var show = _viewModel.ShowDetails;
+        if (show)
+        {
+            row.MinHeight = DetailsMinHeight;
+            row.Height = _detailsHeight;
+        }
+        else
+        {
+            if (row.Height.Value > 0) _detailsHeight = row.Height;
+            row.MinHeight = 0;
+            row.Height = new GridLength(0);
+        }
+        var visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        splitCollectionDetails.Visibility = visibility;
+        pnlCollectionDetails.Visibility = visibility;
+        UpdateTabMinHeight();
     }
 
     public Task OnNavigatedToAsync() => _viewModel.OnNavigatedToAsync();
@@ -38,6 +87,7 @@ public partial class CollectionCompliancePage : INavigationAware
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(CollectionComplianceViewModel.PreviewColumns)) BuildPreviewColumns();
+        if (e.PropertyName == nameof(CollectionComplianceViewModel.ShowDetails)) ApplyDetails();
     }
 
     /// <summary>The preview columns come from the query; each binds to the row's indexer, so a column name with a dot is no binding path.</summary>

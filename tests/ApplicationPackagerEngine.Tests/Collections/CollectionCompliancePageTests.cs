@@ -111,14 +111,14 @@ public sealed class CollectionCompliancePageTests
     private static void Run(Task task) => StaTestHelper.PumpUntil(() => task.IsCompleted);
 
     private static void WithPage(ApplicationTheme theme, Action<Window, CollectionCompliancePage, CollectionComplianceHarness> test, double width = 1440 - NavigationPaneWidth,
-        Action<CollectionComplianceHarness>? arrange = null)
+        Action<CollectionComplianceHarness>? arrange = null, double height = 900)
     {
         WithApplication(theme, () =>
         {
             var harness = new CollectionComplianceHarness();
             arrange?.Invoke(harness);
             var page = new CollectionCompliancePage(harness.Create());
-            var window = new Window { Width = width, Height = 900, WindowStyle = WindowStyle.None, Content = page };
+            var window = new Window { Width = width, Height = height, WindowStyle = WindowStyle.None, Content = page };
             Show(window);
             try
             {
@@ -424,6 +424,79 @@ public sealed class CollectionCompliancePageTests
             Assert.Single(tops);
             Assert.Equal("2 matches.", CollectionComplianceViewModel.PreviewText(2, 2));
         }, width: width);
+    }
+
+    /// <summary>The rows of the Collections grid that fit in its height.</summary>
+    private static double RowCapacity(DataGrid grid)
+    {
+        var header = Descendants(grid).OfType<System.Windows.Controls.Primitives.DataGridColumnHeadersPresenter>().First().ActualHeight;
+        return (grid.ActualHeight - header) / Row(grid, 0).ActualHeight;
+    }
+
+    /// <summary>A main window of 1440x900 gives the page its height less the title bar.</summary>
+    private const double PageHeightAt900 = 900 - 48;
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AtNineHundredPixelsTheGridShowsSixRowsWithTheDetailsAndMoreWithoutThem(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            var viewModel = Vm(page);
+            SelectCollection(window, page, "LAB00010");
+            var grid = ById<DataGrid>(page, "dgCollections");
+            Assert.True(ById<FrameworkElement>(page, "pnlCollectionDetails").IsVisible);
+            var withDetails = RowCapacity(grid);
+            Assert.True(withDetails >= 6, $"The grid holds {withDetails:0.0} rows with the details open.");
+
+            viewModel.ShowDetails = false;
+            Settle(window);
+            Assert.False(ById<FrameworkElement>(page, "pnlCollectionDetails").IsVisible);
+            Assert.False(ById<FrameworkElement>(page, "splitCollectionDetails").IsVisible);
+            Assert.True(RowCapacity(grid) >= withDetails + 6, $"Without the details the grid holds {RowCapacity(grid):0.0} rows.");
+            Assert.True(ById<System.Windows.Controls.CheckBox>(page, "chkShowDetails").IsVisible);
+
+            viewModel.ShowDetails = true;
+            Settle(window);
+            Assert.True(ById<FrameworkElement>(page, "pnlCollectionDetails").IsVisible);
+            Assert.Equal(withDetails, RowCapacity(grid), 1);
+            Pixels(window, grid, $"Collections-900-{theme}");
+        }, height: PageHeightAt900);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AtNineHundredBySixHundredTheDetailsScrollIntoViewWhole(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            SelectCollection(window, page, "LAB00010");
+            var scroller = ById<System.Windows.Controls.ScrollViewer>(page, "scrollCollectionsTab");
+            var details = ById<FrameworkElement>(page, "pnlCollectionDetails");
+            scroller.ScrollToEnd();
+            Settle(window);
+            var bounds = details.TransformToAncestor(scroller).TransformBounds(new Rect(details.RenderSize));
+            Assert.True(bounds.Top >= -0.5 && bounds.Bottom <= scroller.ViewportHeight + 0.5,
+                $"The details span {bounds.Top:0} to {bounds.Bottom:0} px in a {scroller.ViewportHeight:0} px view.");
+            var tabs = ById<TabControl>(page, "tabCollectionDetails");
+            Assert.True(tabs.IsVisible && tabs.ActualHeight > 0);
+            Assert.True(RowCapacity(ById<DataGrid>(page, "dgCollections")) >= 3);
+        }, width: 900 - NavigationPaneWidth, height: 600 - 48);
+    }
+
+    [Fact]
+    public async Task TheDetailsChoiceIsKept()
+    {
+        var harness = new CollectionComplianceHarness();
+        var viewModel = await harness.OpenAsync();
+        viewModel.ShowDetails = false;
+        await viewModel.OnNavigatedFromAsync();
+        Assert.True(harness.Saved!.DetailsHidden);
+
+        var again = await harness.OpenAsync();
+        Assert.False(again.ShowDetails);
     }
 
     [Fact]

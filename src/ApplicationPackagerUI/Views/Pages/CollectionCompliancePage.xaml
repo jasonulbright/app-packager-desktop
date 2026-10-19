@@ -130,14 +130,18 @@
 
         <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabCollectionCompliance">
             <TabItem Header="Collections" AutomationProperties.AutomationId="tabCollections">
-                <Grid Margin="0,12,0,0">
+                <!-- The tab fills the viewport so the grid takes the free height; when the viewport is
+                     lower than the tab needs, the whole tab scrolls and the details stay reachable. -->
+                <ScrollViewer x:Name="scrollCollectionsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollCollectionsTab">
+                <Grid x:Name="gridCollectionsTab" Height="{Binding ViewportHeight, ElementName=scrollCollectionsTab}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <WrapPanel Grid.Row="0" Margin="0,0,0,4">
+                    <WrapPanel Grid.Row="0" x:Name="pnlCollectionFilters" Margin="0,0,0,4">
                         <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID, comment or limiting collection"
                                     Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8"
                                     AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtCollectionFilter" />
@@ -154,7 +158,7 @@
                                    AutomationProperties.AutomationId="txtRowCount" />
                     </WrapPanel>
 
-                    <WrapPanel Grid.Row="1" Margin="0,0,0,4">
+                    <WrapPanel Grid.Row="1" x:Name="pnlCollectionTools" Margin="0,0,0,4">
                         <ui:Button Content="New" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewCollectionCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnNewCollection" />
                         <ui:Button Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyCollectionCommand}"
@@ -184,13 +188,15 @@
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportCsv" />
                         <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportHtml" />
+                        <CheckBox Content="Details" IsChecked="{Binding ShowDetails}" Margin="4,0,0,8" VerticalAlignment="Center"
+                                  ToolTip="Show or hide the details under the list." AutomationProperties.AutomationId="chkShowDetails" />
                     </WrapPanel>
 
                     <Grid Grid.Row="2" x:Name="gridCollectionsLayout">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*" MinHeight="160" />
                             <RowDefinition Height="16" />
-                            <RowDefinition Height="320" MinHeight="200" />
+                            <RowDefinition Height="240" MinHeight="140" />
                         </Grid.RowDefinitions>
 
                         <DataGrid Grid.Row="0" x:Name="dgCollections" Style="{StaticResource GridBase}" ItemsSource="{Binding Rows}"
@@ -209,12 +215,14 @@
                         </DataGrid>
 
                         <GridSplitter Grid.Row="1" x:Name="splitCollectionDetails" Height="16" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                      ResizeBehavior="PreviousAndNext" ResizeDirection="Rows" Background="Transparent" Focusable="True"
+                                      ResizeBehavior="PreviousAndNext" ResizeDirection="Rows" Background="Transparent" Focusable="True" DragCompleted="OnDetailsResized"
                                       ToolTip="Drag to change the height of the details." AutomationProperties.Name="Details height"
                                       AutomationProperties.AutomationId="splitCollectionDetails" />
 
                         <Border Grid.Row="2" x:Name="pnlCollectionDetails" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlCollectionDetails">
-                            <Grid>
+                            <ScrollViewer x:Name="scrollCollectionDetails" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                          AutomationProperties.AutomationId="scrollCollectionDetails">
+                            <Grid MinHeight="220" Height="{Binding ViewportHeight, ElementName=scrollCollectionDetails}">
                                 <TextBlock Text="Select a collection to see its properties, members and rules." Style="{StaticResource Note}"
                                            Visibility="{Binding HasSelectedRow, Converter={x:Static helpers:DetectionTesterConverters.NotVisible}}" />
                                 <Grid Visibility="{Binding HasSelectedRow, Converter={StaticResource BoolToVisibility}}">
@@ -310,9 +318,11 @@
                                     </TabControl>
                                 </Grid>
                             </Grid>
+                            </ScrollViewer>
                         </Border>
                     </Grid>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="WQL Editor" AutomationProperties.AutomationId="tabWqlEditor">

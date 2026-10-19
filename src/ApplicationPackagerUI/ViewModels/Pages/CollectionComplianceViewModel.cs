@@ -242,6 +242,11 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     }
 
     partial void OnDetailTabIndexChanged(int value) => SaveChoicesLater();
+
+    /// <summary>False while the operator has the details panel under the Collections grid hidden.</summary>
+    [ObservableProperty] private bool _showDetails = true;
+
+    partial void OnShowDetailsChanged(bool value) => SaveChoicesLater();
     partial void OnTextFilterChanged(string value) => FilterChanged();
     partial void OnTypeFilterChanged(string value) => FilterChanged();
     partial void OnOnlyEmptyChanged(bool value) => FilterChanged();
@@ -280,6 +285,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
         {
             SelectedTabIndex = saved.SelectedTab is >= 0 and <= SiteQueriesTab ? saved.SelectedTab : 0;
             DetailTabIndex = saved.DetailTab is >= 0 and <= 4 ? saved.DetailTab : 0;
+            ShowDetails = !saved.DetailsHidden;
             TextFilter = saved.TextFilter ?? "";
             TypeFilter = saved.TypeFilter is BuiltInFilter or CustomFilter ? saved.TypeFilter : "";
             OnlyEmpty = saved.OnlyEmpty;
@@ -298,6 +304,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     {
         SelectedTab = SelectedTabIndex,
         DetailTab = DetailTabIndex,
+        DetailsHidden = !ShowDetails,
         TextFilter = TextFilter,
         TypeFilter = TypeFilter,
         OnlyEmpty = OnlyEmpty,
@@ -310,7 +317,7 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     };
 
     private static bool SameChoices(CollectionComplianceSettings? a, CollectionComplianceSettings b) =>
-        a is not null && a.SelectedTab == b.SelectedTab && a.DetailTab == b.DetailTab && a.TextFilter == b.TextFilter && a.TypeFilter == b.TypeFilter
+        a is not null && a.SelectedTab == b.SelectedTab && a.DetailTab == b.DetailTab && a.DetailsHidden == b.DetailsHidden && a.TextFilter == b.TextFilter && a.TypeFilter == b.TypeFilter
         && a.OnlyEmpty == b.OnlyEmpty && a.OnlyWithDirectMembers == b.OnlyWithDirectMembers && a.OnlyWithQueryRules == b.OnlyWithQueryRules
         && a.FolderFilter == b.FolderFilter && a.TemplateCategory == b.TemplateCategory
         && a.EditorWidth.Equals(b.EditorWidth) && a.EditorHeight.Equals(b.EditorHeight);

@@ -9,6 +9,9 @@ public sealed class CollectionComplianceSettings
     /// <summary>0 Properties, 1 Direct Members, 2 Query Rules, 3 Include Rules, 4 Exclude Rules.</summary>
     public int DetailTab { get; set; }
 
+    /// <summary>True when the details panel under the Collections grid is hidden.</summary>
+    public bool DetailsHidden { get; set; }
+
     public string TextFilter { get; set; } = "";
 
     /// <summary>Empty for every collection, else BuiltIn or Custom.</summary>
