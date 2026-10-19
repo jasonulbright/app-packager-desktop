@@ -34,13 +34,18 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
     public static string RemediationCheck(int collections, int devices) =>
         $"I understand that remediation changes registry values on every device of {ComplianceText.Count(collections, "collection")} ({ComplianceText.Count(devices, "device")} with a compliance state now).";
 
+    public static string RemediationCheckWithoutCounts(int collections) =>
+        $"I understand that remediation changes registry values on every device of {ComplianceText.Count(collections, "collection")} (the device count is not known: ConfigMgr has not summarized every deployment).";
+
     /// <summary>The second check box of a plan whose changes turn remediation on or keep it on; null when none does.</summary>
     public static string? RemediationConfirmation(IReadOnlyList<ComplianceChange> changes)
     {
         var remediating = changes.Where(c => ComplianceWriter.NeedsRemediationConfirmation(c) && c.DeploymentBefore is not null).Select(c => c.DeploymentBefore!).ToList();
         if (remediating.Count == 0) return null;
+        var collections = remediating.Select(d => d.CollectionId).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        if (remediating.Any(d => !d.CountsKnown)) return RemediationCheckWithoutCounts(collections);
         var devices = remediating.DistinctBy(d => d.CollectionId, StringComparer.OrdinalIgnoreCase).Sum(d => d.Compliant + d.NonCompliant + d.Error + d.Unknown);
-        return RemediationCheck(remediating.Select(d => d.CollectionId).Distinct(StringComparer.OrdinalIgnoreCase).Count(), devices);
+        return RemediationCheck(collections, devices);
     }
 
     /// <summary>The page lines of a plan entry, then the Impact lines of the service, or the page notes when the service gives none.</summary>
@@ -169,11 +174,11 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
     private void ShowDeploymentsOf()
     {
         var id = SelectedBaseline?.BaselineId;
-        var keep = _selectedDeployments.Select(d => d.Row.DeploymentId).ToHashSet(StringComparer.OrdinalIgnoreCase);
         Replace(Deployments, _deployments.Where(d => id is null || string.Equals(d.BaselineId, id, StringComparison.OrdinalIgnoreCase))
             .OrderBy(d => d.BaselineName, StringComparer.OrdinalIgnoreCase).ThenBy(d => d.CollectionName, StringComparer.OrdinalIgnoreCase)
             .Select(d => new DeploymentGridRow(d)).ToList());
-        SetSelectedDeployments(Deployments.Where(d => keep.Contains(d.Row.DeploymentId)));
+        // The grid deselects a row that Replace swaps for a new one; only the rows it still holds stay selected.
+        SetSelectedDeployments(_selectedDeployments.Where(s => Deployments.Any(d => ReferenceEquals(d, s))));
     }
 
     [RelayCommand]
@@ -247,6 +252,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
         try
         {
             var generation = Shared.Generation;
+            Shared.ForgetCollections();
             var collections = await Shared.DeviceCollectionsAsync();
             if (collections is null || generation != Shared.Generation) return;
             var deployment = selected.Row;
@@ -267,12 +273,13 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
                     var run = await Shared.RunPlanAsync([ComplianceRequests.Reassign(deployment, target.CollectionId)], prepared =>
                     {
                         var change = prepared[0];
+                        var now = change.DeploymentBefore ?? deployment;
                         var detail = Detail(
-                            $"Moves the deployment from {ComplianceText.Target(deployment.CollectionName, deployment.CollectionId)} to {ComplianceText.Target(target.Name, target.CollectionId)} ({ComplianceText.Count(target.MemberCount, "member")} now). Mode stays {ComplianceText.Mode(deployment.RemediateNoncompliant)}. {ComplianceText.DeploymentSettings(change.DeploymentBefore ?? deployment)}",
+                            $"Moves the deployment from {ComplianceText.Target(now.CollectionName, now.CollectionId)} to {ComplianceText.Target(target.Name, target.CollectionId)} ({ComplianceText.Count(target.MemberCount, "member")} now). Mode stays {ComplianceText.Mode(now.RemediateNoncompliant)}. {ComplianceText.DeploymentSettings(now)}",
                             change, ReassignNote);
-                        return (new CompliancePlan("Reassign", $"Reassign {deployment.BaselineName}", "Reassign deployment",
+                        return (new CompliancePlan("Reassign", $"Reassign {now.BaselineName}", "Reassign deployment",
                             [CompliancePlanEntry.Write(new ChangePlanItem("Reassign", Describe(change), detail), change)],
-                            extraConfirmation: deployment.RemediateNoncompliant
+                            extraConfirmation: ComplianceWriter.NeedsRemediationConfirmation(change)
                                 ? $"I understand that remediation changes registry values on every device of {ComplianceText.Target(target.Name, target.CollectionId)} ({ComplianceText.Count(target.MemberCount, "device")} now)."
                                 : null), null);
                     }, Describe, p.ShowMessage);
@@ -295,7 +302,9 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
             {
                 var d = change.DeploymentBefore!;
                 var detail = Detail(
-                    $"Removes the deployment ({ComplianceText.Mode(d.RemediateNoncompliant)}). Compliance now: {d.Compliant} compliant, {d.NonCompliant} non-compliant, {d.Error} error, {d.Unknown} unknown.",
+                    $"Removes the deployment ({ComplianceText.Mode(d.RemediateNoncompliant)}). " + (d.CountsKnown
+                        ? $"Compliance now: {d.Compliant} compliant, {d.NonCompliant} non-compliant, {d.Error} error, {d.Unknown} unknown."
+                        : "Compliance now: not known; ConfigMgr has not summarized this deployment."),
                     change, DeleteNote);
                 return CompliancePlanEntry.Write(new ChangePlanItem("Delete", Describe(change), detail), change);
             }).ToList();

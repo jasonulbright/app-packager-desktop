@@ -19,6 +19,13 @@ public static class ComplianceText
 
     public static string Target(string name, string id) => CollectionsText.Target(name, id);
 
+    public const string UnknownCount = "unknown";
+
+    /// <summary>A compliance count, or unknown when ConfigMgr has not summarized the deployment.</summary>
+    public static string Number(int value, bool known) => known ? value.ToString(CultureInfo.InvariantCulture) : UnknownCount;
+
+    public static string Evaluated(DateTime? value) => value is null ? "never" : Date(value);
+
     public static string DriftTag(CatalogEntry entry) => $"[ccm:{entry.Id}@{entry.Version}]";
 
     public static string Registry(RegistrySurfaceItem item) =>
@@ -41,6 +48,24 @@ public static class ComplianceText
         : $"Kept values: schedule {row.Schedule}, remediation outside maintenance windows {(s.OverrideServiceWindow ? "allowed" : "not allowed")}, "
           + $"alert {(s.GenerateAlert ? $"below {s.AlertThresholdPercent}% compliance" : "off")}, Operations Manager alerts {(s.MonitoredByScom ? "on" : "off")}.";
 
+    public const int ScriptPlanLines = 20;
+    public const int ScriptPlanCharacters = 2000;
+
+    /// <summary>The script text for a plan: the first lines up to the line and character limits, then the count of characters left out.</summary>
+    public static string Script(string? text)
+    {
+        var value = text ?? "";
+        var cut = 0;
+        for (var line = 0; line < ScriptPlanLines && cut < value.Length; line++)
+        {
+            var end = value.IndexOf('\n', cut);
+            cut = end < 0 ? value.Length : (line == ScriptPlanLines - 1 ? end : end + 1);
+        }
+        if (cut > ScriptPlanCharacters) cut = ScriptPlanCharacters;
+        if (cut >= value.Length) return value;
+        var shown = value[..cut].TrimEnd('\r', '\n');
+        return $"{shown} ... and {value.Length - shown.Length} more characters";
+    }
 
 }
 
@@ -81,7 +106,7 @@ public sealed record BaselineGridRow(BaselineRow Row)
     public string Catalog => Row.CatalogId is null ? "" : $"{Row.CatalogId} {Row.CatalogVersion}".Trim();
     public int ItemCount => Row.ItemCount;
     public int DeploymentCount => Row.DeploymentCount;
-    public string Compliance => $"{Row.Compliant} compliant, {Row.NonCompliant} non-compliant, {Row.Failed} error";
+    public string Compliance => Row.CountsKnown ? $"{Row.Compliant} compliant, {Row.NonCompliant} non-compliant, {Row.Failed} error" : ComplianceText.UnknownCount;
     public string Modified => ComplianceText.Date(Row.Modified);
 
     public override string ToString() => ComplianceText.Target(Name, BaselineId);
@@ -93,11 +118,11 @@ public sealed record DeploymentGridRow(BaselineDeploymentRow Row)
     public string BaselineName => Row.BaselineName;
     public string Collection => ComplianceText.Target(Row.CollectionName, Row.CollectionId);
     public string Mode => ComplianceText.Mode(Row.RemediateNoncompliant);
-    public int Compliant => Row.Compliant;
-    public int NonCompliant => Row.NonCompliant;
-    public int Error => Row.Error;
-    public int Unknown => Row.Unknown;
-    public string LastEvaluated => ComplianceText.Date(Row.LastEvaluated);
+    public string Compliant => ComplianceText.Number(Row.Compliant, Row.CountsKnown);
+    public string NonCompliant => ComplianceText.Number(Row.NonCompliant, Row.CountsKnown);
+    public string Error => ComplianceText.Number(Row.Error, Row.CountsKnown);
+    public string Unknown => ComplianceText.Number(Row.Unknown, Row.CountsKnown);
+    public string LastEvaluated => ComplianceText.Evaluated(Row.LastEvaluated);
 
     public override string ToString() => $"{BaselineName} on {Collection}, {Mode}";
 }
@@ -134,11 +159,11 @@ public sealed record ComplianceGridRow(ComplianceRow Row)
 {
     public string BaselineName => Row.BaselineName;
     public string CollectionName => Row.CollectionName;
-    public int Compliant => Row.Compliant;
-    public int NonCompliant => Row.NonCompliant;
-    public int Error => Row.Error;
-    public int Unknown => Row.Unknown;
-    public string LastEvaluated => ComplianceText.Date(Row.LastEvaluated);
+    public string Compliant => ComplianceText.Number(Row.Compliant, Row.CountsKnown);
+    public string NonCompliant => ComplianceText.Number(Row.NonCompliant, Row.CountsKnown);
+    public string Error => ComplianceText.Number(Row.Error, Row.CountsKnown);
+    public string Unknown => ComplianceText.Number(Row.Unknown, Row.CountsKnown);
+    public string LastEvaluated => ComplianceText.Evaluated(Row.LastEvaluated);
     public string Freshness => Row.Stale ? "Stale" : "Current";
 
     public override string ToString() => $"{BaselineName} on {CollectionName}, {Freshness}";

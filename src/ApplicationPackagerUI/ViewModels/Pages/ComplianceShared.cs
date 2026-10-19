@@ -33,6 +33,11 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
     public const string CollectionsFailed = "The device collections could not be read. The log has the details.";
     public const string NotConfirmed = "Nothing was changed.";
     public const string NothingToUndo = "There is no change to undo.";
+    public const string BackgroundRunText =
+        "The plan window was closed while the run was still working. The run continues in the background and can still change ConfigMgr. Wait until it ends before you start another change.";
+    public const string BackgroundRunEndedText = "The run that continued in the background has ended. Refresh the lists to see the result.";
+
+    private bool _background;
 
     private readonly List<Func<Task>> _refreshers = [];
     private IReadOnlyList<CollectionRow>? _collections;
@@ -171,8 +176,17 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
         Action<string>? report = null,
         bool checkState = true)
     {
-        if (IsWriting) return null;
+        if (IsWriting)
+        {
+            if (_background)
+            {
+                StatusMessage = BackgroundRunText;
+                report?.Invoke(BackgroundRunText);
+            }
+            return null;
+        }
         IsWriting = true;
+        var detached = false;
         try
         {
             var generation = Generation;
@@ -234,12 +248,43 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
                     built.Plan.HasUndo, built.Plan.ExtraConfirmation) { IsUndo = built.IsUndo };
 
             var outcome = Services.Plans.Show(plan.Plan, Services.Writer.RunFor(plan), plan.Plan.HasUndo ? Services.Writer.UndoFor(plan) : null);
+            if (outcome.Result?.Stop == ChangePlanStop.Detached || outcome.UndoResult?.Stop == ChangePlanStop.Detached)
+            {
+                detached = true;
+                _ = WaitForBackgroundRunAsync(plan, outcome.UndoResult is null);
+                if (generation == Generation) Refuse(BackgroundRunText);
+                return null;
+            }
             if (generation != Generation) return null;
             ShowOutcome(plan, outcome);
             return (plan, outcome);
         }
         finally
         {
+            if (!detached) IsWriting = false;
+        }
+    }
+
+    /// <summary>
+    /// Keeps every write blocked until the run that a closed plan window left working ends. No
+    /// list is read meanwhile; the Undo of the run is offered when it ends.
+    /// </summary>
+    private async Task WaitForBackgroundRunAsync(CompliancePlan plan, bool offerUndo)
+    {
+        _background = true;
+        try { await Services.Writer.Running; }
+        catch (Exception ex)
+        {
+            Services.Log.Warning(LogArea, $"A run that continued in the background failed ({FailureName(ex)}).");
+        }
+        finally
+        {
+            if (IsActive)
+            {
+                if (offerUndo && plan.UndoChanges().Count > 0) LastPlan = plan;
+                StatusMessage = BackgroundRunEndedText;
+            }
+            _background = false;
             IsWriting = false;
         }
     }

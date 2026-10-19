@@ -8,7 +8,7 @@ namespace ApplicationPackagerUI.Views.Pages;
 public partial class ComplianceSectionView : UserControl
 {
     private ComplianceViewModel? _viewModel;
-    private GridLength _detailsWidth = new(380);
+    private GridLength _detailsWidth = new(1, GridUnitType.Star);
     private GridLength _deploymentsHeight = new(1, GridUnitType.Star);
 
     public ComplianceSectionView()
@@ -53,7 +53,7 @@ public partial class ComplianceSectionView : UserControl
         var show = _viewModel.Catalog.ShowDetails;
         if (show)
         {
-            column.MinWidth = 240;
+            column.MinWidth = 200;
             column.Width = _detailsWidth;
         }
         else

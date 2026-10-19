@@ -201,6 +201,11 @@ public sealed partial class CatalogDeployViewModel : ObservableObject
 
     public bool HasMissingDependency => Dependencies.Any(d => !d.Satisfied);
 
+    /// <summary>False while a plan or a dependency runs: the values sent stay the values shown.</summary>
+    public bool CanEditFields => !IsBusy;
+
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanEditFields));
+
     /// <summary>The first reason the form cannot deploy, or null.</summary>
     public string? Validate()
     {

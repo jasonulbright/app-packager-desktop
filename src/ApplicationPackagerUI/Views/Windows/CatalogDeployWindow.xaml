@@ -45,7 +45,8 @@
                            AutomationProperties.AutomationId="txtDeploySummary" />
                 <TextBlock Text="Fields with * are required." Style="{StaticResource DeployNote}" Margin="0,4,0,0" />
 
-                <ItemsControl x:Name="lstFields" ItemsSource="{Binding Fields}" IsTabStop="False" Focusable="False" AutomationProperties.AutomationId="lstDeployFields">
+                <ItemsControl x:Name="lstFields" ItemsSource="{Binding Fields}" IsTabStop="False" Focusable="False" IsEnabled="{Binding CanEditFields}"
+                              AutomationProperties.AutomationId="lstDeployFields">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,0,0,4">

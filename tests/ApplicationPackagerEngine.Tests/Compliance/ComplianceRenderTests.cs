@@ -127,6 +127,60 @@ public sealed class ComplianceRenderTests
         }, width);
     }
 
+    /// <summary>The element lies inside the scroller's width and is reachable by a vertical scroll.</summary>
+    private static void AssertReachable(ScrollViewer scroller, FrameworkElement element, string id, double minHeight)
+    {
+        Assert.True(element.IsVisible, $"{id} is not visible.");
+        var bounds = element.TransformToAncestor(scroller).TransformBounds(new Rect(element.RenderSize));
+        Assert.True(bounds.Left >= -0.5 && bounds.Right <= scroller.ViewportWidth + 0.5, $"{id} spans {bounds.Left:0} to {bounds.Right:0} px in a {scroller.ViewportWidth:0} px tab.");
+        var bottom = bounds.Bottom + scroller.VerticalOffset;
+        Assert.True(bottom <= scroller.ExtentHeight + 0.5, $"{id} ends at {bottom:0} px below the {scroller.ExtentHeight:0} px the tab scrolls to.");
+        Assert.True(element.ActualHeight >= minHeight - 0.5, $"{id} is {element.ActualHeight:0} px high, below {minHeight} px.");
+    }
+
+    public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
+    {
+        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 }
+    };
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void EveryTabFitsItsWidthAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
+    {
+        WithSection(theme, (window, page, viewModel, harness) =>
+        {
+            var large = width > 1000;
+            void Check(int tab, string scrollId, params (string Id, double MinHeight)[] elements)
+            {
+                ShowTab(window, viewModel, tab);
+                var scroller = ById<ScrollViewer>(page, scrollId);
+                Assert.True(scroller.ScrollableWidth < 1, $"{scrollId} scrolls sideways by {scroller.ScrollableWidth:0} px.");
+                if (large) Assert.True(scroller.ScrollableHeight < 1, $"{scrollId} needs {scroller.ScrollableHeight:0} px more height at {width}x{height}.");
+                foreach (var (id, minHeight) in elements)
+                {
+                    var element = ById<FrameworkElement>(page, id);
+                    element.BringIntoView();
+                    Settle(window);
+                    AssertReachable(scroller, element, id, minHeight);
+                }
+            }
+
+            viewModel.Catalog.SelectedRow = viewModel.Catalog.Rows[0];
+            Check(ComplianceViewModel.CatalogTab, "scrollCatalogTab", ("dgCatalog", 120), ("btnCatalogDeploy", 20), ("pnlCatalogDetails", 120));
+            Check(ComplianceViewModel.LiveTab, "scrollLiveTab", ("dgLiveItems", 100), ("dgLiveBaselines", 100), ("btnDeleteDeployments", 20), ("dgDeployments", 120));
+            viewModel.Live.SetSelectedDeployments(viewModel.Live.Deployments.Take(1));
+            Run(viewModel.Live.DeleteDeploymentsCommand.ExecuteAsync(null));
+            Settle(window);
+            large = false;
+            Check(ComplianceViewModel.LiveTab, "scrollLiveTab", ("dgLiveItems", 100), ("btnDeleteDeployments", 20), ("dgDeployments", 120));
+            Check(ComplianceViewModel.EditorTab, "scrollEditorTab", ("lstEditorItems", 120), ("btnRemoveSetting", 20), ("dgSettings", 120));
+            Check(ComplianceViewModel.AuditingTab, "scrollAuditingTab", ("btnAuditingHtml", 20), ("dgDrift", 120));
+        }, width, height);
+    }
+
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
@@ -302,9 +356,8 @@ public sealed class ComplianceRenderTests
         {
             var harness = new ComplianceHarness();
             var change = ApplicationPackagerUI.ViewModels.Pages.ComplianceRequests.Deploy(harness.SpecExec, new Dictionary<string, string>(), ["LAB00012"], true);
-            var targets = harness.Collections.Collections.Where(c => c.CollectionId == "LAB00012").ToList();
             var (plan, _) = ComplianceCatalogViewModel.BuildDeployPlan(harness.SpecExec with { DisplayName = "CPU Speculative Execution Mitigations Intel and AMD Bundled Hyper-Threading Variants" },
-                change, targets, true, false);
+                change, harness.Collections.Collections);
             var viewModel = new ChangePlanViewModel(plan!.Plan, (c, p, ct) => Task.FromResult(new ChangePlanResult([])), (c, p, ct) => Task.FromResult(new ChangePlanResult([])));
             var window = new ChangePlanWindow(viewModel);
             Show(window);

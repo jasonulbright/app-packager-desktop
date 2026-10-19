@@ -27,7 +27,7 @@ public sealed class CollectionPlan
         Action = action;
         Entries = entries.ToArray();
         if (Entries.All(e => e.Change is null)) throw new ArgumentException("A collection plan makes at least one change.", nameof(entries));
-        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo);
+        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo) { LogName = action };
     }
 
     /// <summary>True for a plan made of the undo changes of an earlier run.</summary>

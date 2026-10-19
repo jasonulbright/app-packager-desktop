@@ -18,6 +18,9 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
     public const string PickSetting = "Select a setting first.";
     public const string RevisionNote = "ConfigMgr stores the change as a new revision of the configuration item.";
     public const string ReevaluateNote = "Clients that have a baseline with this configuration item evaluate it again with the new revision.";
+    public const string FullScriptNote = "The plan shortens long script text; the setting dialog shows the full text.";
+    public const string RemediationCheck =
+        "I understand that this setting remediates: where a baseline with this configuration item is deployed with remediation, clients change this value on every device of the collection.";
 
     private IReadOnlyList<ConfigurationItemRow> _all = [];
     private CancellationTokenSource? _settingsLoad;
@@ -199,8 +202,10 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         };
         if (string.Equals(setting.Kind, CiSettingEditorViewModel.ScriptKind, StringComparison.OrdinalIgnoreCase))
         {
-            parts.Add($"Language {setting.DiscoveryLanguage}. Discovery script: {setting.DiscoveryScript}");
-            parts.Add(setting.RemediationScript is { Length: > 0 } remediation ? $"Remediation script ({setting.RemediationLanguage}): {remediation}" : "No remediation script.");
+            parts.Add($"Language {setting.DiscoveryLanguage}. Discovery script: {ComplianceText.Script(setting.DiscoveryScript)}");
+            parts.Add(setting.RemediationScript is { Length: > 0 } remediation ? $"Remediation script ({setting.RemediationLanguage}): {ComplianceText.Script(remediation)}" : "No remediation script.");
+            if (ComplianceText.Script(setting.DiscoveryScript) != (setting.DiscoveryScript ?? "") || ComplianceText.Script(setting.RemediationScript) != (setting.RemediationScript ?? ""))
+                parts.Add(FullScriptNote);
         }
         else parts.Add($"Registry value {setting.Detail}, {(setting.Is64Bit ? "64-bit" : "32-bit")} view.");
         return string.Join(" ", parts);
@@ -235,7 +240,8 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
             }
             var action = before is null ? "Add setting" : "Edit setting";
             return (new CompliancePlan(action, $"{action} {after.Name}", action,
-                [CompliancePlanEntry.Write(new ChangePlanItem(before is null ? "Add" : "Edit", Describe(item, change), detail), change)]), null);
+                [CompliancePlanEntry.Write(new ChangePlanItem(before is null ? "Add" : "Edit", Describe(item, change), detail), change)],
+                extraConfirmation: ComplianceWriter.RemediatingSetting(change) && item.BaselineCount > 0 ? RemediationCheck : null), null);
         }, change => Describe(item, change), editor.ShowMessage);
         if (run is not { Outcome.Confirmed: true }) return false;
         await Shared.AfterWriteAsync();

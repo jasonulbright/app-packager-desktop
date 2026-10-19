@@ -39,8 +39,17 @@ internal sealed class FakeComplianceService : IComplianceService
     /// <summary>Holds a catalog deploy after its first step until the test releases it.</summary>
     public TaskCompletionSource? DeployGate;
 
+    /// <summary>Holds every write until the test releases it; the writes then run whether or not the run was cancelled.</summary>
+    public TaskCompletionSource? ApplyGate;
+
     public List<IReadOnlyList<ComplianceChange>> Applied { get; } = [];
     public Func<ComplianceChange, Exception?>? PrepareFails;
+
+    /// <summary>Changes a prepared change as the real service fills it from the live state.</summary>
+    public Func<ComplianceChange, ComplianceChange>? Prepared;
+
+    /// <summary>Changes the undo change of each outcome as the real service fills it.</summary>
+    public Func<ComplianceChange, ComplianceChange>? UndoFill;
     public Func<ComplianceChange, string?>? Fail;
     public Func<bool>? InConfirmedRun;
     public List<string> Impact { get; } = [];
@@ -123,7 +132,13 @@ internal sealed class FakeComplianceService : IComplianceService
         lock (Items) return Task.FromResult<IReadOnlyList<ComplianceRow>>(Compliance.ToList());
     }
 
-    public Task<ComplianceChange> PrepareAsync(ComplianceChange request, CancellationToken ct)
+    public async Task<ComplianceChange> PrepareAsync(ComplianceChange request, CancellationToken ct)
+    {
+        var prepared = await PrepareCoreAsync(request);
+        return Prepared is { } fill ? fill(prepared) : prepared;
+    }
+
+    private Task<ComplianceChange> PrepareCoreAsync(ComplianceChange request)
     {
         Interlocked.Increment(ref PrepareCalls);
         if (PrepareFails?.Invoke(request) is { } failure) throw failure;
@@ -149,14 +164,16 @@ internal sealed class FakeComplianceService : IComplianceService
     {
         if (InConfirmedRun is { } check) Assert.True(check(), "A write ran outside a confirmed change plan.");
         lock (Applied) Applied.Add(changes.ToList());
+        if (ApplyGate is { } held) await held.Task;
         var outcomes = new List<ComplianceOutcome>();
         foreach (var change in changes)
         {
             ComplianceOutcome outcome;
-            if (ct.IsCancellationRequested) outcome = new ComplianceOutcome(change, false, CancelledSkip, null, []);
+            if (ct.IsCancellationRequested && ApplyGate is null) outcome = new ComplianceOutcome(change, false, CancelledSkip, null, []);
             else if (change.Kind == ComplianceChangeKind.CatalogDeploy && !change.Values.ContainsKey(ComplianceRequests.CreateDependencyKey))
                 outcome = await DeployAsync(change, progress, ct);
             else outcome = Apply(change);
+            if (UndoFill is { } fill && outcome.UndoChange is { } undo) outcome = outcome with { UndoChange = fill(undo) };
             outcomes.Add(outcome);
             progress.Report(outcome);
             await Task.Yield();
