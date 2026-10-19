@@ -75,14 +75,20 @@ public sealed record CollectionInfo(string CollectionId, string Name, string Fol
 /// <param name="WindowType">"Any", "SoftwareUpdates" or "TaskSequences".</param>
 /// <param name="Schedule">
 /// A schedule this model cannot hold (an hour or minute interval, several schedules in one
-/// window) has a zero duration, the ConfigMgr text in <paramref name="ScheduleText"/> and no
-/// <paramref name="NextOccurrence"/>; such a window can only be enabled or disabled here.
+/// window) or one that <see cref="IScheduleProjector.Validate"/> refuses (a duration over 24
+/// hours, a weekly interval of 5 to 7, a monthly interval of 13 to 15) has a zero duration,
+/// the ConfigMgr text in <paramref name="ScheduleText"/> and no <paramref name="NextOccurrence"/>;
+/// such a window can only be enabled or disabled here.
 /// </param>
 /// <param name="ScheduleText">The text of <see cref="IScheduleProjector.Describe"/> for the schedule ConfigMgr stores.</param>
 /// <param name="NextOccurrence">The next start time in local time; null when no occurrence is left.</param>
-/// <param name="Comment">
-/// The window's Description in ConfigMgr. ConfigMgr writes its own schedule text there at
-/// each create and update, and the cmdlets offer no way to set it, so writes ignore it.
+/// <param name="Comment">The same text as <paramref name="Description"/> in a window the service read; writes ignore it.</param>
+/// <param name="Description">
+/// The Description of the window in ConfigMgr. New-CMMaintenanceWindow, and
+/// Set-CMMaintenanceWindow with a schedule, write ConfigMgr's own schedule text there; a
+/// different text is the window's own description. Create and Rename keep the own
+/// description of the source window, and Update keeps the one of the window it changes.
+/// Empty on a new window: ConfigMgr writes its text.
 /// </param>
 public sealed record MaintenanceWindowInfo(
     string CollectionId,
@@ -94,7 +100,8 @@ public sealed record MaintenanceWindowInfo(
     MaintenanceSchedule Schedule,
     string ScheduleText,
     DateTime? NextOccurrence,
-    string Comment);
+    string Comment,
+    string Description = "");
 
 /// <param name="Schedule">The date part of Start is a placeholder; apply the template with <see cref="MaintenanceSchedule.EffectiveOn"/>.</param>
 public sealed record MaintenanceTemplate(

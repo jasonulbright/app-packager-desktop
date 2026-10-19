@@ -9,7 +9,8 @@ namespace ApplicationPackagerEngine.Services;
 /// script run that checks the current state (the collection exists, the name is free, the
 /// window is unchanged since it was captured) before it writes, and reads the window back
 /// after it. A write runs to its end once started: cancellation takes effect between
-/// changes. A rename creates the new window before it removes the old one.
+/// changes. A rename checks the old window, creates the new window and only then removes the
+/// old one by its ID.
 /// </summary>
 public sealed class MaintenanceWindowService : IMaintenanceWindowService
 {
@@ -51,7 +52,8 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         int Type,
         bool Enabled,
         string? Schedules,
-        string? Description);
+        string? Description,
+        bool DescriptionWritable);
 
     internal sealed record WriteResult(string? Kind, string? Status, string? Detail, Row? Window);
 
@@ -94,10 +96,22 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
             throw new MaintenanceWindowException(CollectionMissingMessage(request.CollectionName, request.CollectionId));
         var collectionName = collection.Name ?? request.CollectionName;
         var windows = rows.Where(r => r.Kind == "Window").Select(r => ToInfo(r, collectionName)).ToList();
+        var descriptionWritable = rows.Any(r => r.Kind == "Capability" && r.DescriptionWritable);
         var change = request with { CollectionId = collection.CollectionId ?? request.CollectionId, CollectionName = collectionName };
 
         MaintenanceWindowInfo? Named(string? name) =>
             windows.FirstOrDefault(w => string.Equals(w.WindowName, name, StringComparison.OrdinalIgnoreCase));
+
+        MaintenanceWindowInfo? Current()
+        {
+            if (request.Before is { ServiceWindowId.Length: > 0 } before)
+                return windows.FirstOrDefault(w => string.Equals(w.ServiceWindowId, before.ServiceWindowId, StringComparison.OrdinalIgnoreCase));
+            var named = windows.Where(w => string.Equals(w.WindowName, request.WindowName, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (named.Count > 1)
+                throw new MaintenanceWindowException(
+                    $"Collection {collectionName} has more than one window named {request.WindowName}, so the window to change is not certain. Refresh the list and select the window again.");
+            return named.FirstOrDefault();
+        }
 
         switch (request.Kind)
         {
@@ -120,14 +134,12 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
             case ChangeKind.SetEnabled:
             case ChangeKind.Remove:
             {
-                var current = request.Before is { ServiceWindowId.Length: > 0 } before
-                    ? windows.FirstOrDefault(w => string.Equals(w.ServiceWindowId, before.ServiceWindowId, StringComparison.OrdinalIgnoreCase))
-                    : Named(request.WindowName);
-                if (current is null)
-                    throw new MaintenanceWindowException(WindowMissingMessage(collectionName, request.Before?.WindowName ?? request.WindowName));
+                var current = Current()
+                    ?? throw new MaintenanceWindowException(WindowMissingMessage(collectionName, request.Before?.WindowName ?? request.WindowName));
                 if (request.Kind != ChangeKind.SetEnabled && !IsReadable(current))
-                    throw new MaintenanceWindowException(
-                        $"The schedule of window {current.WindowName} uses a form this page cannot show, so it is not changed or removed here. Use the ConfigMgr console.");
+                    throw new MaintenanceWindowException(ReadOnlyMessage(current.WindowName));
+                if (request.Kind != ChangeKind.SetEnabled && !descriptionWritable && OwnDescription(current) is not null)
+                    throw new MaintenanceWindowException(DescriptionUnsupportedMessage(current.WindowName, collectionName, request.Kind));
                 change = change with { WindowName = current.WindowName, Before = current };
                 switch (request.Kind)
                 {
@@ -136,7 +148,11 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                         return change with { After = request.After! with { CollectionId = change.CollectionId, CollectionName = collectionName, WindowName = current.WindowName, ServiceWindowId = current.ServiceWindowId } };
                     case ChangeKind.Rename:
                         var newName = request.NewWindowName?.Trim() ?? "";
-                        var target = (request.After ?? current) with { CollectionId = change.CollectionId, CollectionName = collectionName, WindowName = newName };
+                        var target = (request.After ?? current) with
+                        {
+                            CollectionId = change.CollectionId, CollectionName = collectionName, WindowName = newName,
+                            Comment = current.Comment, Description = current.Description
+                        };
                         CheckNewWindow(target, newName);
                         if (Named(newName) is not null)
                             throw new MaintenanceWindowException(NameTakenMessage(collectionName, newName));
@@ -170,7 +186,18 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
             }
             else
             {
-                outcome = await ApplyOneAsync(change).ConfigureAwait(false);
+                try
+                {
+                    outcome = await ApplyOneAsync(change).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {SecretMask.Apply($"{ex.GetType().Name}: {ex.Message}", [])}");
+                    var collection = string.IsNullOrWhiteSpace(change.CollectionName) ? change.CollectionId : change.CollectionName;
+                    var name = change.Before?.WindowName ?? (string.IsNullOrWhiteSpace(change.WindowName) ? change.After?.WindowName ?? "" : change.WindowName);
+                    outcome = Fail(change,
+                        $"The change to window {name} on {collection} stopped with an unexpected error. Refresh the list to see the current state. The log has the details.");
+                }
                 _log?.Info(LogArea, $"{change.Kind}: {(outcome.Succeeded ? "succeeded" : "not applied")}.");
             }
             outcomes.Add(outcome);
@@ -196,45 +223,64 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                 if (change.Kind == ChangeKind.ApplyTemplate && change.Before is not null && change.NewWindowName is null)
                     return Fail(change, SkippedPrefix + $"collection {collection} already has a window named {name}.");
                 if (InvalidNewWindow(change.After, name) is { } invalid) return Fail(change, invalid);
-                var (result, failure) = await CreateAsync(change, change.After!, name).ConfigureAwait(false);
+                var description = OwnDescription(change.After);
+                var (result, failure) = await CreateAsync(change, change.After!, name, description).ConfigureAwait(false);
                 if (failure is not null) return failure;
                 var created = ToInfo(result!.Window!, change.CollectionName);
-                return Done(change, $"Created window {name} on {collection}." + StoredNote(change.After!.Schedule, created),
+                return Done(change, $"Created window {name} on {collection}." + StoredNote(change.After!.Schedule, created, description),
                     new MaintenanceChange(ChangeKind.Remove, change.CollectionId, change.CollectionName, created.WindowName, null, created, null));
             }
             case ChangeKind.Update:
             {
                 if (change.Before is null) return Fail(change, NotPreparedMessage);
+                if (!IsReadable(change.Before)) return Fail(change, ReadOnlyMessage(change.Before.WindowName));
                 if (InvalidNewWindow(change.After, change.Before.WindowName) is { } invalid) return Fail(change, invalid);
+                var description = OwnDescription(change.Before)
+                    ?? (change.After!.Description != change.Before.Description ? OwnDescription(change.After) : null);
                 var parameters = Write("Update", change, change.Before);
                 AddWindow(parameters, change.After!);
+                AddDescription(parameters, description);
                 var (result, failure) = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
                 if (failure is not null) return failure;
                 var updated = ToInfo(result!.Window!, change.CollectionName);
-                return Done(change, $"Updated window {updated.WindowName} on {collection}." + StoredNote(change.After!.Schedule, updated),
+                return Done(change, $"Updated window {updated.WindowName} on {collection}." + StoredNote(change.After!.Schedule, updated, description),
                     new MaintenanceChange(ChangeKind.Update, change.CollectionId, change.CollectionName, updated.WindowName, null, updated, change.Before));
             }
             case ChangeKind.Rename:
             {
                 if (change.Before is null) return Fail(change, NotPreparedMessage);
+                var old = change.Before.WindowName;
+                if (!IsReadable(change.Before)) return Fail(change, ReadOnlyMessage(old));
                 var newName = change.NewWindowName?.Trim() ?? "";
                 var target = change.After ?? change.Before;
                 if (InvalidNewWindow(target, newName) is { } invalid) return Fail(change, invalid);
-                var (createdResult, createFailure) = await CreateAsync(change, target, newName).ConfigureAwait(false);
+                var description = OwnDescription(change.Before);
+
+                var check = Write("Check", change, change.Before);
+                AddDescription(check, description);
+                var (_, checkFailure) = await RunWriteAsync(change, check, old).ConfigureAwait(false);
+                if (checkFailure is not null) return checkFailure;
+
+                var (createdResult, createFailure) = await CreateAsync(change, target, newName, description).ConfigureAwait(false);
                 if (createFailure is not null)
-                    return createFailure with { Message = createFailure.Message + $" The window {change.Before.WindowName} is not changed." };
+                    return createFailure with { Message = createFailure.Message + $" The window {old} is not changed." };
                 var created = ToInfo(createdResult!.Window!, change.CollectionName);
                 var undoCreate = new MaintenanceChange(ChangeKind.Remove, change.CollectionId, change.CollectionName, created.WindowName, null, created, null);
+                if (createdResult.Status == "description-failed")
+                    return new MaintenanceOutcome(change, false,
+                        $"Created window {newName} on {collection}, but ConfigMgr did not keep the description of {old}, so {old} was not removed. Both windows exist now.",
+                        undoCreate);
 
-                var remove = Write("Remove", change, change.Before);
-                var (_, removeFailure) = await RunWriteAsync(change, remove, change.Before.WindowName).ConfigureAwait(false);
+                var (removeResult, removeFailure) = await RunWriteAsync(change, Write("Remove", change, change.Before), old).ConfigureAwait(false);
                 if (removeFailure is not null)
                     return new MaintenanceOutcome(change, false,
-                        $"Created window {newName} on {collection}, but the old window {change.Before.WindowName} was not removed: {removeFailure.Message} "
-                        + $"Both windows exist now. Remove {change.Before.WindowName} to finish the rename.",
+                        removeResult?.Status == "window-missing"
+                            ? $"Created window {newName} on {collection}, but the old window {old} was removed by someone else after the check. Only {newName} exists now."
+                            : $"Created window {newName} on {collection}, but the old window {old} was not removed: {removeFailure.Message} "
+                              + $"Both windows exist now. Remove {old} to finish the rename.",
                         undoCreate);
-                return Done(change, $"Renamed window {change.Before.WindowName} to {newName} on {collection}. The window has a new ID." + StoredNote(target.Schedule, created),
-                    new MaintenanceChange(ChangeKind.Rename, change.CollectionId, change.CollectionName, created.WindowName, change.Before.WindowName, created, change.Before));
+                return Done(change, $"Renamed window {old} to {newName} on {collection}. The window has a new ID." + StoredNote(target.Schedule, created, description),
+                    new MaintenanceChange(ChangeKind.Rename, change.CollectionId, change.CollectionName, created.WindowName, old, created, change.Before));
             }
             case ChangeKind.SetEnabled:
             {
@@ -252,9 +298,10 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
             case ChangeKind.Remove:
             {
                 if (change.Before is null) return Fail(change, NotPreparedMessage);
-                if (!IsReadable(change.Before))
-                    return Fail(change, $"The schedule of window {change.Before.WindowName} uses a form this page cannot show, so it is not removed here. Use the ConfigMgr console.");
-                var (_, failure) = await RunWriteAsync(change, Write("Remove", change, change.Before), change.Before.WindowName).ConfigureAwait(false);
+                if (!IsReadable(change.Before)) return Fail(change, ReadOnlyMessage(change.Before.WindowName));
+                var parameters = Write("Remove", change, change.Before);
+                if (OwnDescription(change.Before) is not null) parameters["RequireDescription"] = true;
+                var (_, failure) = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
                 if (failure is not null) return failure;
                 return Done(change, $"Removed window {change.Before.WindowName} from {collection}. Undo creates it again as a new window with a new ID.",
                     new MaintenanceChange(ChangeKind.Create, change.CollectionId, change.CollectionName, change.Before.WindowName, null, null, change.Before));
@@ -269,7 +316,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
     private static string CreateName(MaintenanceChange change) =>
         string.IsNullOrWhiteSpace(change.WindowName) ? change.After?.WindowName?.Trim() ?? "" : change.WindowName.Trim();
 
-    private Task<(WriteResult? Result, MaintenanceOutcome? Failure)> CreateAsync(MaintenanceChange change, MaintenanceWindowInfo window, string name)
+    private Task<(WriteResult? Result, MaintenanceOutcome? Failure)> CreateAsync(MaintenanceChange change, MaintenanceWindowInfo window, string name, string? description)
     {
         var parameters = new ConfigMgrParameters
         {
@@ -278,10 +325,30 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
             { "Name", name }
         };
         AddWindow(parameters, window);
+        if (description is not null) parameters["Description"] = description;
         return RunWriteAsync(change, parameters, name);
     }
 
-    private static ConfigMgrParameters Write(string operation, MaintenanceChange change, MaintenanceWindowInfo before) => new()
+    /// <summary>The script writes the description after the schedule and refuses to start when it cannot write one.</summary>
+    private static void AddDescription(ConfigMgrParameters parameters, string? description)
+    {
+        if (description is null) return;
+        parameters["Description"] = description;
+        parameters["RequireDescription"] = true;
+    }
+
+    /// <summary>
+    /// The description of the window when it is not the text ConfigMgr writes itself for the
+    /// schedule; null otherwise. Only an own description needs a write to survive a create or
+    /// a schedule update.
+    /// </summary>
+    private string? OwnDescription(MaintenanceWindowInfo? window) =>
+        window is { Description.Length: > 0 } && IsReadable(window)
+        && !string.Equals(window.Description, _projector.Describe(window.Schedule), StringComparison.Ordinal)
+            ? window.Description
+            : null;
+
+    private ConfigMgrParameters Write(string operation, MaintenanceChange change, MaintenanceWindowInfo before) => new()
     {
         { "Operation", operation },
         { "CollectionId", change.CollectionId },
@@ -354,11 +421,17 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         PatchTuesdayOffsetDays = s.Kind is MaintenanceScheduleKind.MonthlyByWeekday or MaintenanceScheduleKind.PatchTuesday ? s.PatchTuesdayOffsetDays : 0
     };
 
-    private string StoredNote(MaintenanceSchedule requested, MaintenanceWindowInfo stored)
+    private string StoredNote(MaintenanceSchedule requested, MaintenanceWindowInfo stored, string? description)
     {
-        if (!IsReadable(stored)) return " ConfigMgr stored a schedule this page cannot show.";
-        var wanted = ScheduleToken.Decode(ScheduleToken.Encode(Normalized(requested)));
-        return wanted == stored.Schedule ? "" : $" ConfigMgr stored a different schedule: {stored.ScheduleText}, {MaintenanceReportWriter.DurationText(stored.Schedule.Duration)} long.";
+        var lost = description is not null && !string.Equals(stored.Description, description, StringComparison.Ordinal)
+            ? " ConfigMgr did not keep the description."
+            : "";
+        if (!IsReadable(stored)) return " ConfigMgr stored a schedule this page cannot show." + lost;
+        var normalized = Normalized(requested);
+        var wanted = ScheduleToken.Decode(ScheduleToken.Encode(normalized)) ?? normalized;
+        return (ScheduleToken.SameSchedule(wanted, stored.Schedule)
+            ? ""
+            : $" ConfigMgr stored a different schedule: {stored.ScheduleText}, {MaintenanceReportWriter.DurationText(stored.Schedule.Duration)} long.") + lost;
     }
 
     private static int ServiceWindowType(string type)
@@ -382,7 +455,13 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         if (InvalidNewWindow(window, name) is { } reason) throw new MaintenanceWindowException(reason);
     }
 
-    private static bool IsReadable(MaintenanceWindowInfo window) => window.Schedule is { } s && s.Duration > TimeSpan.Zero;
+    /// <summary>
+    /// A token can hold a schedule New-CMSchedule cannot write back (a duration over 24 hours,
+    /// a weekly interval of 5 to 7, a monthly interval of 13 to 15); a window with one is
+    /// read-only, because the Undo of a change to it could not recreate it.
+    /// </summary>
+    private bool IsReadable(MaintenanceWindowInfo window) =>
+        window.Schedule is { } s && s.Duration > TimeSpan.Zero && _projector.Validate(s with { End = null }) is null;
 
     private async Task<(WriteResult? Result, MaintenanceOutcome? Failure)> RunWriteAsync(MaintenanceChange change, ConfigMgrParameters parameters, string windowName)
     {
@@ -407,6 +486,14 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         {
             case "ok" when result.Window is not null:
                 return (result, null);
+            case "description-failed" when result.Window is not null:
+                LogDetail(change, result.Detail);
+                return (result, null);
+            case "description-unsupported":
+                return (result, Fail(change, DescriptionUnsupportedMessage(windowName, collection, change.Kind)));
+            case "duplicate-name":
+                return (result, Fail(change,
+                    $"Collection {collection} has more than one window named {windowName}. The ConfigMgr PowerShell module on this computer removes all windows with that name together, so nothing was removed."));
             case "collection-missing":
                 return (result, Fail(change, CollectionMissingMessage(change.CollectionName, change.CollectionId)));
             case "name-taken":
@@ -493,15 +580,16 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
     {
         var schedule = ScheduleToken.Decode(row.Schedules);
         var type = MaintenanceWindowTypes.FromServiceWindowType(row.Type);
-        if (schedule is null)
+        var description = row.Description ?? "";
+        if (schedule is null || _projector.Validate(schedule) is not null)
         {
             var unreadable = new MaintenanceSchedule(MaintenanceScheduleKind.OneTime, DateTime.MinValue, TimeSpan.Zero, false, 1, null, null, null, 0, null);
             return new MaintenanceWindowInfo(row.CollectionId ?? "", collectionName, row.Name ?? "", row.ServiceWindowId ?? "", type, row.Enabled,
-                unreadable, row.Description ?? "", null, row.Description ?? "");
+                unreadable, description, null, description, description);
         }
         DateTime? next = _projector.NextOccurrences(schedule, _now(), 1) is [var first, ..] ? first : null;
         return new MaintenanceWindowInfo(row.CollectionId ?? "", collectionName, row.Name ?? "", row.ServiceWindowId ?? "", type, row.Enabled,
-            schedule, _projector.Describe(schedule), next, row.Description ?? "");
+            schedule, _projector.Describe(schedule), next, description, description);
     }
 
     private static MaintenanceOutcome Fail(MaintenanceChange change, string message) => new(change, false, message, null);
@@ -519,6 +607,18 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
 
     private static string WindowMissingMessage(string collection, string name) =>
         $"The window {name} does not exist on {collection} any more. Refresh the list.";
+
+    private static string ReadOnlyMessage(string name) =>
+        $"The schedule of window {name} uses a form this page cannot show, so it is not changed or removed here. Use the ConfigMgr console.";
+
+    private static string DescriptionUnsupportedMessage(string name, string collection, ChangeKind kind) =>
+        $"Window {name} on {collection} has its own description, and the ConfigMgr PowerShell module on this computer cannot write a window description. "
+        + kind switch
+        {
+            ChangeKind.Remove => "Undo could not restore it, so the window is not removed here.",
+            ChangeKind.Rename => "The renamed window would lose it, so the window is not renamed here.",
+            _ => "A schedule change would replace it, so the window is not changed here."
+        };
 
     private static string Shown(string? name, string id) => string.IsNullOrWhiteSpace(name) ? id : $"{name} ({id})";
 }

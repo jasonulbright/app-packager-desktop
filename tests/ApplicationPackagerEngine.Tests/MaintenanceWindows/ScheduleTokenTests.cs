@@ -56,6 +56,45 @@ public sealed class ScheduleTokenTests
     }
 
     [Theory]
+    [InlineData(7, "0043BE0020331600")]
+    [InlineData(0, "0043BE00203313C0")]
+    [InlineData(14, "0043BE0020331800")]
+    public void ATuesdayTokenInAnotherWeekWithTheOffsetFlagIsAnEquivalentToken(int offset, string token)
+    {
+        var schedule = S(K.PatchTuesday, new DateTime(2026, 11, 3, 2, 0, 0), 240, offset: offset);
+        Assert.Equal(schedule, ScheduleToken.Decode(token));
+        Assert.Contains(token, ScheduleToken.Equivalents(schedule));
+    }
+
+    [Theory]
+    [InlineData(-7)]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(3)]
+    [InlineData(7)]
+    [InlineData(8)]
+    [InlineData(14)]
+    [InlineData(21)]
+    public void EveryEquivalentTokenOfAPatchTuesdayScheduleIsTheSameSchedule(int offset)
+    {
+        var schedule = S(K.PatchTuesday, LabStart, 1440, offset: offset);
+        var tokens = ScheduleToken.Equivalents(schedule);
+        Assert.Contains(ScheduleToken.Encode(schedule), tokens);
+        Assert.Equal(tokens.Count, tokens.Distinct().Count());
+        Assert.All(tokens, t => Assert.True(ScheduleToken.SameSchedule(ScheduleToken.Decode(t)!, schedule), t));
+    }
+
+    [Fact]
+    public void ATuesdayMonthlyByWeekdayScheduleIsTheSameScheduleAsItsPatchTuesdayForm()
+    {
+        Assert.True(ScheduleToken.SameSchedule(S(K.MonthlyByWeekday, LabStart, 60, day: DayOfWeek.Tuesday, week: 3, offset: 2), S(K.PatchTuesday, LabStart, 60, offset: 9)));
+        Assert.True(ScheduleToken.SameSchedule(S(K.MonthlyByWeekday, LabStart, 60, day: DayOfWeek.Tuesday, week: 1), S(K.PatchTuesday, LabStart, 60, offset: -7)));
+        Assert.False(ScheduleToken.SameSchedule(S(K.MonthlyByWeekday, LabStart, 60, day: DayOfWeek.Tuesday, week: 5), S(K.PatchTuesday, LabStart, 60, offset: 21)));
+        Assert.False(ScheduleToken.SameSchedule(S(K.MonthlyByWeekday, LabStart, 60, day: DayOfWeek.Monday, week: 2), S(K.PatchTuesday, LabStart, 60, offset: -1)));
+        Assert.False(ScheduleToken.SameSchedule(S(K.PatchTuesday, LabStart, 60, offset: 1), S(K.PatchTuesday, LabStart, 61, offset: 1)));
+    }
+
+    [Theory]
     [InlineData("7AC3BE0008100800")]
     [InlineData("7AC3BE0018100000")]
     [InlineData("")]

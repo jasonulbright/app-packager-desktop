@@ -52,6 +52,15 @@ foreach ($c in $collections) {
 
 if ($CollectionsOnly) { return }
 
+# A window description and a removal by ServiceWindowID are written through the collection
+# settings; a module without Get-CMCollectionSetting can do neither.
+if ($CollectionId) {
+    [pscustomobject]@{
+        Kind                = 'Capability'
+        DescriptionWritable = [bool](Get-Command -Name Get-CMCollectionSetting -ErrorAction SilentlyContinue)
+    }
+}
+
 foreach ($c in $collections) {
     if (-not $CollectionId -and (@($c.PropertyNames) -contains 'ServiceWindowsCount') -and [int]$c.ServiceWindowsCount -eq 0) { continue }
     foreach ($w in @(Get-CMMaintenanceWindow -CollectionId $c.CollectionID)) {

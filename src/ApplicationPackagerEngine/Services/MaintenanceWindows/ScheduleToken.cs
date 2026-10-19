@@ -87,27 +87,48 @@ internal static class ScheduleToken
     /// <summary>The token New-CMSchedule writes for the schedule; the schedule must pass <see cref="ScheduleProjector.Validate"/> except for its end.</summary>
     public static string Encode(MaintenanceSchedule schedule) => Format(Build(schedule, offsetFlagForZero: false, durationInDays: false));
 
-    /// <summary>Every token that decodes to the schedule.</summary>
+    /// <summary>Every token that decodes to a schedule with the same occurrences (see <see cref="SameSchedule"/>).</summary>
     public static IReadOnlyList<string> Equivalents(MaintenanceSchedule schedule)
     {
-        var tokens = new List<string>();
-        foreach (var offsetFlag in new[] { false, true })
-            foreach (var days in new[] { false, true })
+        var tokens = new List<string> { Encode(schedule) };
+        var reference = Decode(tokens[0]) ?? schedule;
+        foreach (var days in new[] { false, true })
+        {
+            if (days && schedule.Duration != TimeSpan.FromDays(1)) continue;
+            if (schedule.Kind is MaintenanceScheduleKind.PatchTuesday or MaintenanceScheduleKind.MonthlyByWeekday)
             {
-                if (days && schedule.Duration != TimeSpan.FromDays(1)) continue;
-                if (offsetFlag && !HasZeroOffsetForm(schedule)) continue;
-                var token = Format(Build(schedule, offsetFlag, days));
-                if (!tokens.Contains(token)) tokens.Add(token);
+                var weekday = schedule.Kind == MaintenanceScheduleKind.PatchTuesday ? DayOfWeek.Tuesday : schedule.DayOfWeek!.Value;
+                for (var week = 1; week <= 5; week++)
+                    for (var offset = 0; offset <= 7; offset++)
+                        foreach (var offsetFlag in new[] { false, true })
+                        {
+                            if (!offsetFlag && offset > 0) continue;
+                            var form = schedule with
+                            {
+                                Kind = MaintenanceScheduleKind.MonthlyByWeekday, DayOfWeek = weekday, WeekOrder = week, PatchTuesdayOffsetDays = offset
+                            };
+                            var token = Format(Build(form, offsetFlag, days));
+                            if (Decode(token) is { } decoded && SameSchedule(decoded, reference) && !tokens.Contains(token)) tokens.Add(token);
+                        }
+                continue;
             }
+            var plain = Format(Build(schedule, offsetFlagForZero: false, days));
+            if (!tokens.Contains(plain)) tokens.Add(plain);
+        }
         return tokens;
     }
 
-    private static bool HasZeroOffsetForm(MaintenanceSchedule schedule) => schedule.Kind switch
-    {
-        MaintenanceScheduleKind.MonthlyByWeekday => schedule.PatchTuesdayOffsetDays == 0,
-        MaintenanceScheduleKind.PatchTuesday => PatchTuesdayForm(schedule.PatchTuesdayOffsetDays).OffsetDays == 0,
-        _ => false
-    };
+    /// <summary>
+    /// True when the two schedules open at the same times: a Tuesday in week 1 to 4 of the
+    /// month plus an offset is the Patch Tuesday schedule with the same distance from the
+    /// second Tuesday.
+    /// </summary>
+    public static bool SameSchedule(MaintenanceSchedule a, MaintenanceSchedule b) => Canonical(a) == Canonical(b);
+
+    private static MaintenanceSchedule Canonical(MaintenanceSchedule s) =>
+        s is { Kind: MaintenanceScheduleKind.MonthlyByWeekday, DayOfWeek: System.DayOfWeek.Tuesday, WeekOrder: >= 1 and <= 4 }
+            ? s with { Kind = MaintenanceScheduleKind.PatchTuesday, DayOfWeek = null, WeekOrder = null, PatchTuesdayOffsetDays = (s.WeekOrder.Value - 2) * 7 + s.PatchTuesdayOffsetDays }
+            : s;
 
     private static string Format(ulong value) => value.ToString("X16", CultureInfo.InvariantCulture);
 

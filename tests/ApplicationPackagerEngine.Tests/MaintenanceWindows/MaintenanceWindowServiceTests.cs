@@ -62,7 +62,8 @@ public sealed class MaintenanceWindowServiceTests
         Assert.Equal(K.Daily, daily.Schedule.Kind);
         Assert.Equal("Occurs every 1 days effective 8/12/2026 4:00 AM", daily.ScheduleText);
         Assert.Equal(new DateTime(2026, 10, 19, 4, 0, 0), daily.NextOccurrence);
-        Assert.Equal("ConfigMgr text", daily.Comment);
+        Assert.Equal("Occurs every 1 days effective 8/12/2026 4:00 AM", daily.Description);
+        Assert.Equal(daily.Description, daily.Comment);
 
         var weekly = windows.Single(w => w.WindowName.StartsWith("Patch Saturday"));
         Assert.Equal("SoftwareUpdates", weekly.WindowType);

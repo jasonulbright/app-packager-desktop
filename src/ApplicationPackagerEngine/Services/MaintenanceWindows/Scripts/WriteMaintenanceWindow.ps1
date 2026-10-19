@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Create', 'Update', 'SetEnabled', 'Remove')][string]$Operation,
+    [ValidateSet('Create', 'Update', 'SetEnabled', 'Remove', 'Check')][string]$Operation,
     [string]$CollectionId,
     [string]$Name = '',
     [string]$ServiceWindowId = '',
@@ -18,7 +18,9 @@ param(
     [string]$WeekOrder = 'First',
     [int]$DayOfMonth = 1,
     [int]$RecurCount = 1,
-    [int]$OffsetDay = 0
+    [int]$OffsetDay = 0,
+    [string]$Description = '',
+    [bool]$RequireDescription = $false
 )
 
 function ConvertTo-WindowRow {
@@ -64,6 +66,68 @@ function Test-AccessDenied {
 
 function Get-Windows {
     @(Get-CMMaintenanceWindow -CollectionId $CollectionId)
+}
+
+function Get-Window {
+    param([string]$Id)
+    Get-Windows | Where-Object { [string]$_.ServiceWindowID -eq $Id } | Select-Object -First 1
+}
+
+# The cmdlets cannot set a description and remove windows only by name; the collection
+# settings object holds every window of the collection and is written back as a whole.
+function Test-SettingsWritable {
+    [bool](Get-Command -Name Get-CMCollectionSetting -ErrorAction SilentlyContinue)
+}
+
+function Get-Settings {
+    $settings = Get-CMCollectionSetting -CollectionId $CollectionId
+    $settings.Get()
+    return $settings
+}
+
+function Set-WindowDescription {
+    param([string]$Id, [string]$Text)
+    $settings = Get-Settings
+    $items = $settings.GetArrayItems('ServiceWindows')
+    $found = $false
+    foreach ($item in $items) {
+        if ([string]$item['ServiceWindowID'].StringValue -eq $Id) {
+            $item['Description'].StringValue = $Text
+            $found = $true
+        }
+    }
+    if (-not $found) { return }
+    $settings.SetArrayItems('ServiceWindows', $items)
+    $settings.Put()
+}
+
+function Remove-WindowById {
+    param([string]$Id)
+    $settings = Get-Settings
+    $items = $settings.GetArrayItems('ServiceWindows')
+    for ($i = $items.Count - 1; $i -ge 0; $i--) {
+        if ([string]$items[$i]['ServiceWindowID'].StringValue -eq $Id) { $items.RemoveAt($i) }
+    }
+    $settings.SetArrayItems('ServiceWindows', $items)
+    $settings.Put()
+}
+
+# New-CMMaintenanceWindow, and Set-CMMaintenanceWindow with a schedule, replace the
+# description with ConfigMgr's schedule text.
+function Write-WithDescription {
+    param([object]$Window)
+    if ($null -eq $Window) { return (Write-Result 'failed' $null 'The window was not found after the change.') }
+    if (-not $Description -or [string]$Window.Description -ceq $Description) { return (Write-Result 'ok' $Window) }
+    if (-not (Test-SettingsWritable)) { return (Write-Result 'description-failed' $Window 'Get-CMCollectionSetting is not available.') }
+    try {
+        Set-WindowDescription ([string]$Window.ServiceWindowID) $Description
+    } catch {
+        if (Test-AccessDenied $_) { throw }
+        return (Write-Result 'description-failed' $Window $_.Exception.Message)
+    }
+    $after = Get-Window ([string]$Window.ServiceWindowID)
+    if ($null -eq $after -or [string]$after.Description -cne $Description) { return (Write-Result 'description-failed' $Window 'The description was not stored.') }
+    return (Write-Result 'ok' $after)
 }
 
 function New-WindowSchedule {
@@ -114,6 +178,7 @@ $collection = @(Get-CMDeviceCollection -Id $CollectionId)
 if ($collection.Count -eq 0) { return (Write-Result 'collection-missing') }
 
 $windows = Get-Windows
+$current = $null
 if ($Operation -eq 'Create') {
     if (@($windows | Where-Object { [string]$_.Name -eq $Name }).Count -gt 0) {
         return (Write-Result 'name-taken' ($windows | Where-Object { [string]$_.Name -eq $Name } | Select-Object -First 1))
@@ -123,6 +188,8 @@ if ($Operation -eq 'Create') {
     if ($null -eq $current) { return (Write-Result 'window-missing') }
     if (-not (Test-Expected $current)) { return (Write-Result 'changed' $current) }
 }
+if ($RequireDescription -and -not (Test-SettingsWritable)) { return (Write-Result 'description-unsupported' $current) }
+if ($Operation -eq 'Check') { return (Write-Result 'ok' $current) }
 
 $schedule = $null
 if ($Operation -eq 'Create' -or $Operation -eq 'Update') {
@@ -140,17 +207,25 @@ try {
             New-CMMaintenanceWindow -CollectionId $CollectionId -Name $Name -Schedule $schedule -ApplyTo $ApplyTo -IsEnabled $IsEnabled -IsUtc $IsUtc | Out-Null
             $created = Get-Windows | Where-Object { [string]$_.Name -eq $Name } | Select-Object -First 1
             if ($null -eq $created) { return (Write-Result 'failed' $null 'The new window was not found after it was created.') }
-            return (Write-Result 'ok' $created)
+            return (Write-WithDescription $created)
         }
         'Update' {
             Set-CMMaintenanceWindow -CollectionId $CollectionId -MaintenanceWindow $current -Schedule $schedule -ApplyTo $ApplyTo -IsEnabled $IsEnabled -IsUtc $IsUtc
+            return (Write-WithDescription (Get-Window $ServiceWindowId))
         }
         'SetEnabled' {
             Set-CMMaintenanceWindow -CollectionId $CollectionId -MaintenanceWindow $current -IsEnabled $IsEnabled
         }
         'Remove' {
-            Remove-CMMaintenanceWindow -CollectionId $CollectionId -MaintenanceWindowName ([string]$current.Name) -Force -DisableWildcardHandling
-            $left = Get-Windows | Where-Object { [string]$_.ServiceWindowID -eq $ServiceWindowId } | Select-Object -First 1
+            # Remove-CMMaintenanceWindow removes every window with the name, in any case.
+            $sameName = @($windows | Where-Object { [string]$_.Name -eq [string]$current.Name })
+            if ($sameName.Count -gt 1) {
+                if (-not (Test-SettingsWritable)) { return (Write-Result 'duplicate-name' $current) }
+                Remove-WindowById $ServiceWindowId
+            } else {
+                Remove-CMMaintenanceWindow -CollectionId $CollectionId -MaintenanceWindowName ([string]$current.Name) -Force -DisableWildcardHandling
+            }
+            $left = Get-Window $ServiceWindowId
             if ($null -ne $left) { return (Write-Result 'failed' $left 'The window is still present after the remove.') }
             return (Write-Result 'ok' $current)
         }
@@ -160,6 +235,6 @@ try {
     return (Write-Result 'failed' $null $_.Exception.Message)
 }
 
-$after = Get-Windows | Where-Object { [string]$_.ServiceWindowID -eq $ServiceWindowId } | Select-Object -First 1
+$after = Get-Window $ServiceWindowId
 if ($null -eq $after) { return (Write-Result 'failed' $null 'The window was not found after the change.') }
 Write-Result 'ok' $after

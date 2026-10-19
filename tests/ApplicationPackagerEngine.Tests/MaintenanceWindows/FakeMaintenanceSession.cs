@@ -7,8 +7,11 @@ namespace ApplicationPackagerEngine.Tests.MaintenanceWindows;
 
 /// <summary>
 /// A ConfigMgr site in memory that answers the two Maintenance Windows scripts the way the
-/// scripts and ConfigMgr do: names are unique without regard to case, a new window gets a
-/// new id, and New-CMSchedule parameters become a schedule token.
+/// scripts and ConfigMgr do: New-CMMaintenanceWindow refuses a name in any case, but windows
+/// written through the collection settings can share a name; Remove-CMMaintenanceWindow
+/// removes every window with the name; a create or a schedule update replaces the
+/// description with ConfigMgr's schedule text; a new window gets a new id; and New-CMSchedule
+/// parameters become a schedule token through an encoder of this file, not the product's.
 /// </summary>
 internal sealed class FakeMaintenanceSession : IConfigMgrSession
 {
@@ -28,7 +31,7 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
         public int Type { get; set; } = 1;
         public bool Enabled { get; set; } = true;
         public required string Schedules { get; set; }
-        public string Description { get; set; } = "ConfigMgr text";
+        public string Description { get; set; } = "";
     }
 
     internal sealed record Call(string Script, string Text, Dictionary<string, object?> Parameters, bool Cancellable);
@@ -44,7 +47,16 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
     /// <summary>Changes the token ConfigMgr stores, as a clamp would.</summary>
     public Func<string, string>? Store { get; set; }
 
-    public IEnumerable<Call> Writes => Calls.Where(c => c.Script == "WriteMaintenanceWindow");
+    /// <summary>False models a ConfigMgr module without Get-CMCollectionSetting: no description write and no removal by id.</summary>
+    public bool DescriptionWritable { get; set; } = true;
+
+    /// <summary>True makes a description write through the collection settings fail.</summary>
+    public bool DescriptionWriteFails { get; set; }
+
+    /// <summary>The windows that left the site through Remove-CMMaintenanceWindow, by name.</summary>
+    public List<string> RemovedByName { get; } = [];
+
+    public IEnumerable<Call> Writes => Calls.Where(c => c.Script == "WriteMaintenanceWindow" && S(c.Parameters["Operation"]) != "Check");
 
     public Task<ConfigMgrCommandResult> InvokeAsync(ConfigMgrScript script, ConfigMgrParameters? parameters = null, CancellationToken ct = default, TimeSpan? timeout = null)
     {
@@ -64,14 +76,22 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
-    public Window Add(string collectionId, string name, string token, int type = 1, bool enabled = true)
+    /// <summary>Adds a window as the collection settings would store it: no name check; the description defaults to ConfigMgr's text.</summary>
+    public Window Add(string collectionId, string name, string token, int type = 1, bool enabled = true, string? description = null)
     {
-        var window = new Window { CollectionId = collectionId, Name = name, Schedules = token, Type = type, Enabled = enabled };
+        var window = new Window
+        {
+            CollectionId = collectionId, Name = name, Schedules = token, Type = type, Enabled = enabled,
+            Description = description ?? ConfigMgrText(ScheduleToken.Decode(token))
+        };
         Windows.Add(window);
         return window;
     }
 
     private static string S(object? value) => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "";
+
+    private static string ConfigMgrText(MaintenanceSchedule? schedule) =>
+        schedule is null ? "Occurs every 8 hours" : new ScheduleProjector(TimeZoneInfo.Utc).Describe(schedule);
 
     private List<object> List(Dictionary<string, object?> p)
     {
@@ -85,6 +105,8 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
             foreach (var c in collections)
                 foreach (var w in Windows.Where(w => w.CollectionId == c.Id))
                     rows.Add(Row(w));
+        if (id.Length > 0)
+            rows.Add(new { Kind = "Capability", DescriptionWritable });
         return rows;
     }
 
@@ -93,8 +115,10 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
         Kind = "Window", w.CollectionId, w.Name, ServiceWindowId = w.Id, w.Type, w.Enabled, w.Schedules, w.Description
     };
 
-    private object Result(string status, Window? window = null, string detail = "") =>
+    private static object Result(string status, Window? window = null, string detail = "") =>
         new { Kind = "Result", Status = status, Detail = detail, Window = window is null ? null : Row(window) };
+
+    private static bool SameName(Window w, string name) => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase);
 
     private object Write(Call call, Dictionary<string, object?> p)
     {
@@ -105,7 +129,7 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
         Window? current = null;
         if (operation == "Create")
         {
-            var taken = windows.FirstOrDefault(w => string.Equals(w.Name, S(p["Name"]), StringComparison.OrdinalIgnoreCase));
+            var taken = windows.FirstOrDefault(w => SameName(w, S(p["Name"])));
             if (taken is not null) return Result("name-taken", taken);
         }
         else
@@ -117,32 +141,58 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
                 || (expected.Length > 0 && !expected.Contains(current.Schedules)))
                 return Result("changed", current);
         }
+        if (p.GetValueOrDefault("RequireDescription") is true && !DescriptionWritable)
+            return Result("description-unsupported", current);
+        if (operation == "Check") return Result("ok", current);
 
         if (Answer?.Invoke(call) is { } answer) return Result(answer.Status, null, answer.Detail);
 
+        var description = S(p.GetValueOrDefault("Description"));
         switch (operation)
         {
             case "Create":
+                var (token, text) = Token(p);
                 var created = new Window
                 {
-                    CollectionId = collectionId, Name = S(p["Name"]), Type = TypeOf(p), Enabled = (bool)p["IsEnabled"]!, Schedules = Token(p)
+                    CollectionId = collectionId, Name = S(p["Name"]), Type = TypeOf(p), Enabled = (bool)p["IsEnabled"]!, Schedules = token, Description = text
                 };
                 Windows.Add(created);
-                return Result("ok", created);
+                return WithDescription(created, description);
             case "Update":
-                current!.Schedules = Token(p);
+                (current!.Schedules, current.Description) = Token(p);
                 current.Type = TypeOf(p);
                 current.Enabled = (bool)p["IsEnabled"]!;
-                return Result("ok", current);
+                return WithDescription(current, description);
             case "SetEnabled":
                 current!.Enabled = (bool)p["IsEnabled"]!;
                 return Result("ok", current);
             case "Remove":
-                Windows.Remove(current!);
+                var sameName = windows.Where(w => SameName(w, current!.Name)).ToList();
+                if (sameName.Count > 1)
+                {
+                    if (!DescriptionWritable) return Result("duplicate-name", current);
+                    Windows.Remove(current!);
+                }
+                else
+                {
+                    foreach (var w in Windows.Where(w => w.CollectionId == collectionId && SameName(w, current!.Name)).ToList())
+                    {
+                        Windows.Remove(w);
+                        RemovedByName.Add(w.Name);
+                    }
+                }
                 return Result("ok", current);
             default:
                 throw new InvalidOperationException(operation);
         }
+    }
+
+    private object WithDescription(Window window, string description)
+    {
+        if (description.Length == 0 || window.Description == description) return Result("ok", window);
+        if (!DescriptionWritable || DescriptionWriteFails) return Result("description-failed", window, "The description could not be set.");
+        window.Description = description;
+        return Result("ok", window);
     }
 
     private static int TypeOf(Dictionary<string, object?> p) => S(p["ApplyTo"]) switch
@@ -152,26 +202,30 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
         _ => 1
     };
 
-    /// <summary>The token New-CMSchedule and the duration fields make from the script parameters.</summary>
-    private string Token(Dictionary<string, object?> p)
+    /// <summary>The token New-CMSchedule and the duration fields make from the script parameters, and ConfigMgr's text for it.</summary>
+    private (string Token, string Text) Token(Dictionary<string, object?> p)
     {
         var start = DateTime.ParseExact(S(p["Start"]), "yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
-        var duration = TimeSpan.FromMinutes((int)p["DurationHours"]! * 60 + (int)p["DurationMinutes"]!);
+        var minutes = (int)p["DurationHours"]! * 60 + (int)p["DurationMinutes"]!;
         var utc = (bool)p["IsUtc"]!;
         var count = (int)p["RecurCount"]!;
-        DayOfWeek Day() => Enum.Parse<DayOfWeek>(S(p["DayOfWeek"]));
-        int Week() => S(p["WeekOrder"]) switch { "First" => 1, "Second" => 2, "Third" => 3, "Fourth" => 4, _ => 5 };
+        int Day() => (int)Enum.Parse<DayOfWeek>(S(p["DayOfWeek"])) + 1;
+        int Week() => S(p["WeekOrder"]) switch { "First" => 1, "Second" => 2, "Third" => 3, "Fourth" => 4, _ => 0 };
         var offset = p.TryGetValue("OffsetDay", out var o) ? (int)o! : 0;
-        var schedule = S(p["Recurrence"]) switch
+
+        ulong v = ((ulong)start.Minute << 58) | ((ulong)start.Hour << 53) | ((ulong)start.Day << 48) | ((ulong)start.Month << 44)
+            | ((ulong)(start.Year - 1970) << 38) | ((ulong)(minutes % 60) << 32) | ((ulong)(minutes / 60) << 27) | (utc ? 1UL : 0UL);
+        v |= S(p["Recurrence"]) switch
         {
-            "None" => new MaintenanceSchedule(MaintenanceScheduleKind.OneTime, start, duration, utc, 1, null, null, null, 0, null),
-            "Days" => new MaintenanceSchedule(MaintenanceScheduleKind.Daily, start, duration, utc, count, null, null, null, 0, null),
-            "Weekly" => new MaintenanceSchedule(MaintenanceScheduleKind.Weekly, start, duration, utc, count, Day(), null, null, 0, null),
-            "MonthlyByDate" => new MaintenanceSchedule(MaintenanceScheduleKind.MonthlyByDate, start, duration, utc, count, null, (int)p["DayOfMonth"]!, null, 0, null),
-            "MonthlyByWeekday" => new MaintenanceSchedule(MaintenanceScheduleKind.MonthlyByWeekday, start, duration, utc, count, Day(), null, Week(), offset, null),
+            "None" => 1UL << 19,
+            "Days" => (2UL << 19) | ((ulong)count << 3),
+            "Weekly" => (3UL << 19) | ((ulong)Day() << 16) | ((ulong)count << 13),
+            "MonthlyByDate" => (5UL << 19) | ((ulong)(int)p["DayOfMonth"]! << 14) | ((ulong)count << 10),
+            "MonthlyByWeekday" => ((offset > 0 ? 6UL : 4UL) << 19) | ((ulong)Day() << 16) | ((ulong)count << 12) | ((ulong)Week() << 9) | ((ulong)offset << 6),
             var other => throw new InvalidOperationException(other)
         };
-        var token = ScheduleToken.Encode(schedule);
-        return Store?.Invoke(token) ?? token;
+        var token = v.ToString("X16", CultureInfo.InvariantCulture);
+        token = Store?.Invoke(token) ?? token;
+        return (token, ConfigMgrText(ScheduleToken.Decode(token)));
     }
 }
