@@ -1,0 +1,164 @@
+namespace ApplicationPackagerEngine.Services;
+
+public enum CollectionRuleKind { Direct, Query, Include, Exclude }
+
+/// <param name="FolderPath">The console folder path, for example "Servers\Production"; empty at the root.</param>
+/// <param name="IsBuiltIn">True for a collection whose ID starts with SMS: it cannot be removed or edited here.</param>
+/// <param name="RefreshType">Manual, Periodic, Continuous or Both.</param>
+public sealed record CollectionRow(
+    string CollectionId,
+    string Name,
+    string FolderPath,
+    string LimitingCollectionId,
+    string LimitingCollectionName,
+    int MemberCount,
+    bool IsBuiltIn,
+    string RefreshType,
+    string Comment,
+    int DirectRuleCount,
+    int QueryRuleCount,
+    int IncludeRuleCount,
+    int ExcludeRuleCount);
+
+/// <param name="Expression">The WQL of a query rule; empty for the other kinds.</param>
+/// <param name="ResourceId">The resource of a direct rule; empty for the other kinds.</param>
+/// <param name="IncludedCollectionId">The collection of an include or exclude rule; empty for the other kinds.</param>
+public sealed record CollectionRule(
+    CollectionRuleKind Kind,
+    string RuleName,
+    string Expression,
+    string ResourceId,
+    string IncludedCollectionId,
+    string Detail);
+
+public sealed record CollectionMember(string ResourceId, string Name, string ClientState, bool IsDirect);
+
+/// <param name="Members">One page of members only.</param>
+/// <param name="MemberTotal">The number of members of the whole collection.</param>
+public sealed record CollectionDetail(
+    CollectionRow Row,
+    IReadOnlyList<CollectionRule> Rules,
+    IReadOnlyList<CollectionMember> Members,
+    int MemberTotal);
+
+public sealed record WqlResult(
+    bool IsValid,
+    string Message,
+    int MatchCount,
+    IReadOnlyList<string> Columns,
+    IReadOnlyList<IReadOnlyList<string>> FirstRows);
+
+public sealed record SavedQuery(string QueryId, string Name, string Expression, string TargetClassName, string Comment);
+
+/// <param name="IsOriginal">True for a template shipped by this product.</param>
+public sealed record QueryTemplate(
+    string Id,
+    string Name,
+    string Category,
+    string Expression,
+    IReadOnlyList<string> Parameters,
+    string Description,
+    bool IsOriginal);
+
+public enum CollectionChangeKind
+{
+    Create,
+    Copy,
+    SetProperties,
+    AddRule,
+    UpdateRule,
+    RemoveRule,
+    Evaluate,
+    Remove,
+    SaveQuery,
+    UpdateQuery,
+    DeleteQuery,
+    ApplyTemplate
+}
+
+/// <summary>
+/// One change. What each kind reads:
+/// Create creates <see cref="AfterRow"/> (its id is ignored) with the rules in
+/// <see cref="RuleAfter"/> when one is given.
+/// Copy copies the collection <see cref="CollectionId"/> under the name of <see cref="AfterRow"/>.
+/// SetProperties sets name, comment, limiting collection and refresh type of <see cref="AfterRow"/>
+/// on the collection captured in <see cref="BeforeRow"/>.
+/// AddRule and ApplyTemplate add <see cref="RuleAfter"/>; UpdateRule replaces <see cref="RuleBefore"/>
+/// with <see cref="RuleAfter"/>; RemoveRule removes <see cref="RuleBefore"/>.
+/// Evaluate starts a membership update. Remove removes the collection <see cref="BeforeRow"/>.
+/// SaveQuery creates <see cref="QueryAfter"/>; UpdateQuery sets <see cref="QueryAfter"/> on
+/// <see cref="QueryBefore"/>; DeleteQuery removes <see cref="QueryBefore"/>.
+/// </summary>
+/// <param name="Impact">Plain lines filled by <see cref="ICollectionService.PrepareAsync"/>.</param>
+public sealed record CollectionChange(
+    CollectionChangeKind Kind,
+    string CollectionId,
+    string CollectionName,
+    CollectionRow? BeforeRow,
+    CollectionRow? AfterRow,
+    CollectionRule? RuleBefore,
+    CollectionRule? RuleAfter,
+    SavedQuery? QueryBefore,
+    SavedQuery? QueryAfter,
+    IReadOnlyList<string> Impact);
+
+/// <param name="Message">Plain text for the operator; never raw exception text.</param>
+/// <param name="UndoChange">The change that reverses this one; set on every outcome that changed ConfigMgr and can be reversed.</param>
+public sealed record CollectionOutcome(CollectionChange Change, bool Succeeded, string Message, CollectionChange? UndoChange);
+
+public interface ICollectionService
+{
+    /// <summary>The device collections, built-in ones included and flagged.</summary>
+    Task<IReadOnlyList<CollectionRow>> ListCollectionsAsync(CancellationToken ct);
+
+    /// <summary>One collection by ID without the list; null when it does not exist.</summary>
+    Task<CollectionRow?> GetCollectionAsync(string collectionId, CancellationToken ct);
+
+    Task<CollectionDetail> GetDetailAsync(string collectionId, int memberPage, CancellationToken ct);
+
+    Task<WqlResult> ValidateWqlAsync(string expression, CancellationToken ct);
+
+    Task<WqlResult> PreviewWqlAsync(string expression, int maxRows, CancellationToken ct);
+
+    Task<IReadOnlyList<SavedQuery>> ListSavedQueriesAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Reads the current state and returns the change with the Before values and the Impact
+    /// lines filled. Throws <see cref="CollectionServiceException"/> with a plain message when
+    /// the change cannot be made in the current state.
+    /// </summary>
+    Task<CollectionChange> PrepareAsync(CollectionChange request, CancellationToken ct);
+
+    /// <summary>
+    /// Applies the changes in order and reports each outcome through <paramref name="progress"/>
+    /// as soon as it is known. Cancellation stops between changes; the changes not started are
+    /// returned as skipped outcomes.
+    /// </summary>
+    Task<IReadOnlyList<CollectionOutcome>> ApplyAsync(
+        IReadOnlyList<CollectionChange> changes,
+        IProgress<CollectionOutcome> progress,
+        CancellationToken ct);
+}
+
+public interface IQueryTemplateStore
+{
+    IReadOnlyList<QueryTemplate> All();
+
+    /// <summary>The suite folder the templates were read from; null when none was used.</summary>
+    string? SuiteFolderUsed { get; }
+
+    /// <summary>A plain message about the templates that could not be read; null when there is none.</summary>
+    string? Message { get; }
+}
+
+public interface ICollectionReportWriter
+{
+    /// <summary>Writes the rows to a new CSV file and returns its path.</summary>
+    string WriteCsv(IReadOnlyList<CollectionRow> rows);
+
+    /// <summary>Writes the rows to a new HTML file and returns its path.</summary>
+    string WriteHtml(IReadOnlyList<CollectionRow> rows);
+}
+
+/// <summary>A collection operation that could not run; the message is plain text for the operator.</summary>
+public sealed class CollectionServiceException(string message) : Exception(message);
