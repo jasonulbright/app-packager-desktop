@@ -201,9 +201,11 @@ public sealed partial class CollectionService : ICollectionService
             _log?.Info(LogArea, "Previewed a query: not valid.");
             return Invalid(ProviderRejectedMessage);
         }
-        var columns = wql.Columns ?? [];
+        var read = wql.Columns ?? [];
+        var order = SelectOrder(expression, read);
+        var columns = order.Select(i => read[i]).ToArray();
         var rows = Rows<WqlValues>(output, "WqlRow").Take(take)
-            .Select(r => (IReadOnlyList<string>)Enumerable.Range(0, columns.Length).Select(i => r.Values is { } v && i < v.Length ? v[i] ?? "" : "").ToList())
+            .Select(r => (IReadOnlyList<string>)order.Select(i => r.Values is { } v && i < v.Length ? v[i] ?? "" : "").ToList())
             .ToList();
         _log?.Info(LogArea, $"Previewed a query: {wql.Count} matches{(wql.Capped ? " or more" : "")}, {rows.Count} rows shown.");
         var message = rows.Count < wql.Count
@@ -219,6 +221,69 @@ public sealed partial class CollectionService : ICollectionService
             .OrderBy(q => q.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(q => q.QueryId, StringComparer.OrdinalIgnoreCase).ToList();
         _log?.Info(LogArea, $"Listed {queries.Count} saved queries.");
         return queries;
+    }
+
+    /// <summary>
+    /// The positions of <paramref name="columns"/> in the order of the select list. The provider
+    /// returns the properties of a row in its own order; a column the select list does not name,
+    /// as with *, keeps its place after the named ones.
+    /// </summary>
+    internal static int[] SelectOrder(string expression, IReadOnlyList<string> columns)
+    {
+        var order = new List<int>(columns.Count);
+        foreach (var item in SelectList(expression))
+        {
+            for (var i = 0; i < columns.Count; i++)
+            {
+                if (order.Contains(i)) continue;
+                var column = columns[i];
+                var matches = string.Equals(column, item, StringComparison.OrdinalIgnoreCase)
+                    || column.EndsWith("." + item, StringComparison.OrdinalIgnoreCase)
+                    || item.EndsWith("." + column, StringComparison.OrdinalIgnoreCase)
+                    || (item.EndsWith(".*", StringComparison.Ordinal) && column.StartsWith(item[..^1], StringComparison.OrdinalIgnoreCase));
+                if (matches) order.Add(i);
+            }
+        }
+        for (var i = 0; i < columns.Count; i++)
+            if (!order.Contains(i)) order.Add(i);
+        return [.. order];
+    }
+
+    /// <summary>The items between select and the first from outside quotes and parentheses.</summary>
+    private static List<string> SelectList(string expression)
+    {
+        var text = expression.Trim();
+        var items = new List<string>();
+        if (!text.StartsWith("select", StringComparison.OrdinalIgnoreCase)) return items;
+        var start = 6;
+        var depth = 0;
+        char? quote = null;
+        for (var i = start; i <= text.Length; i++)
+        {
+            var end = i == text.Length;
+            var c = end ? ' ' : text[i];
+            if (quote is not null)
+            {
+                if (c == '\\') i++;
+                else if (c == quote) quote = null;
+                continue;
+            }
+            if (c is '\'' or '"') { quote = c; continue; }
+            if (c == '(') depth++;
+            else if (c == ')') depth = Math.Max(0, depth - 1);
+            var atFrom = !end && depth == 0 && char.IsWhiteSpace(text[i - 1]) && i + 4 <= text.Length
+                && string.Compare(text, i, "from", 0, 4, StringComparison.OrdinalIgnoreCase) == 0 && (i + 4 == text.Length || char.IsWhiteSpace(text[i + 4]));
+            if (end || atFrom || (depth == 0 && c == ','))
+            {
+                var item = text[start..i].Trim();
+                foreach (var word in new[] { "distinct ", "all " })
+                    if (item.StartsWith(word, StringComparison.OrdinalIgnoreCase)) item = item[word.Length..].Trim();
+                if (item.Length > 0) items.Add(item);
+                if (end || atFrom) break;
+                start = i + 1;
+            }
+        }
+        return items;
     }
 
     private const string ProviderRejectedMessage =
