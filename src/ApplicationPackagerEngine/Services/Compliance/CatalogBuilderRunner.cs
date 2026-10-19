@@ -74,6 +74,7 @@ public sealed class CatalogBuilderRunner(string? catalogFolder = null) : ICatalo
         var container = DataFolderLinks.ContainerOf(root, catalogFolder is null);
         if (DataFolderLinks.HasLink(root, container)) throw new CatalogBuilderRefusedException(LinkMessage);
         Directory.CreateDirectory(root);
+        RemoveLeftRunFolders(root);
         var runFolder = Path.Combine(root, RunFolderPrefix + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(runFolder);
         try
@@ -192,6 +193,39 @@ public sealed class CatalogBuilderRunner(string? catalogFolder = null) : ICatalo
     {
         try { await Task.WhenAll(stdout, stderr).WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
         catch (Exception) { }
+    }
+
+    /// <summary>A run folder older than this was left by a run that ended without its clean-up.</summary>
+    public static readonly TimeSpan LeftFolderAge = TimeSpan.FromDays(1);
+
+    internal Func<DateTime> UtcNow { get; init; } = () => DateTime.UtcNow;
+
+    private void RemoveLeftRunFolders(string root)
+    {
+        IEnumerable<string> folders;
+        try
+        {
+            folders = Directory.EnumerateDirectories(root, RunFolderPrefix + "*").ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+        var cutoff = UtcNow() - LeftFolderAge;
+        foreach (var folder in folders)
+        {
+            var name = Path.GetFileName(folder);
+            if (name.Length != RunFolderPrefix.Length + 32 || !name[RunFolderPrefix.Length..].All(Uri.IsHexDigit)) continue;
+            try
+            {
+                if (AppDataPaths.IsReparsePointDirectory(folder) || Directory.GetCreationTimeUtc(folder) > cutoff) continue;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+            RemoveRunFolder(folder);
+        }
     }
 
     private static void RemoveRunFolder(string runFolder)

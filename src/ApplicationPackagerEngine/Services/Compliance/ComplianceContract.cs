@@ -51,6 +51,7 @@ public sealed record ConfigurationItemRow(string CiId, string Name, string Descr
 /// <param name="Compliant">The number of compliant devices over all deployments of the baseline.</param>
 /// <param name="NonCompliant">The number of non-compliant devices over all deployments of the baseline.</param>
 /// <param name="Failed">The number of devices with an evaluation error over all deployments of the baseline.</param>
+/// <param name="CountsKnown">False when ConfigMgr returned no value for a count; the counts are then 0 and mean unknown, not zero.</param>
 public sealed record BaselineRow(
     string BaselineId,
     string Name,
@@ -63,11 +64,13 @@ public sealed record BaselineRow(
     DateTime? Modified,
     int Compliant = 0,
     int NonCompliant = 0,
-    int Failed = 0);
+    int Failed = 0,
+    bool CountsKnown = true);
 
 /// <param name="Schedule">The evaluation schedule as plain text.</param>
-/// <param name="LastEvaluated">The time ConfigMgr last summarized the compliance state of the deployment.</param>
+/// <param name="LastEvaluated">The time (UTC) ConfigMgr last summarized the compliance state of the deployment; null when it never did.</param>
 /// <param name="Settings">The values a re-create needs; filled by every read.</param>
+/// <param name="CountsKnown">False when the deployment has no compliance summary yet or ConfigMgr returned no value for a count; the counts are then 0 and mean unknown, not zero.</param>
 public sealed record BaselineDeploymentRow(
     string DeploymentId,
     string BaselineId,
@@ -81,15 +84,19 @@ public sealed record BaselineDeploymentRow(
     int Error,
     int Unknown,
     DateTime? LastEvaluated,
-    BaselineDeploymentSettings? Settings = null);
+    BaselineDeploymentSettings? Settings = null,
+    bool CountsKnown = true);
 
 /// <summary>The stored values of a baseline deployment that a re-create sets again.</summary>
 /// <param name="ScheduleToken">The ConfigMgr schedule token of the evaluation schedule.</param>
-/// <param name="OverrideServiceWindow">Remediation may run outside maintenance windows.</param>
+/// <param name="OverrideServiceWindow">
+/// Remediation may run outside maintenance windows. ConfigMgr stores it on a new deployment only
+/// when remediation is on; an existing deployment keeps it when remediation is turned off.
+/// </param>
 /// <param name="GenerateAlert">An alert is raised below <paramref name="AlertThresholdPercent"/>.</param>
 /// <param name="AlertThresholdPercent">The compliance percentage below which the alert is raised; 0 when there is no alert.</param>
-/// <param name="AlertAfter">The time after which the alert is raised; null when there is none.</param>
-/// <param name="MonitoredByScom">Operations Manager alerts are raised for the deployment.</param>
+/// <param name="AlertAfter">The time (UTC) after which the alert is raised; null when there is none.</param>
+/// <param name="MonitoredByScom">Operations Manager alerts are raised for the deployment; ConfigMgr stores it on the alert, so it needs <paramref name="GenerateAlert"/>.</param>
 public sealed record BaselineDeploymentSettings(
     string ScheduleToken,
     bool OverrideServiceWindow,
@@ -140,8 +147,12 @@ public sealed record CiSetting(
 /// <param name="State">Current, Behind, Untagged or Unknown (a tag whose ID is not in the catalog, or a version newer than the catalog).</param>
 public sealed record DriftRow(string BaselineName, string BaselineId, string? CatalogId, string? DeployedVersion, string? CatalogVersion, string State);
 
-/// <param name="LastEvaluated">The time ConfigMgr last summarized the deployment; null when it never did.</param>
-/// <param name="Stale">True when <paramref name="LastEvaluated"/> is more than <see cref="ComplianceRules.StaleDays"/> days old.</param>
+/// <param name="LastEvaluated">The time (UTC) ConfigMgr last summarized the deployment; null when it never did.</param>
+/// <param name="Stale">
+/// True when <paramref name="LastEvaluated"/> is more than <see cref="ComplianceRules.StaleDays"/> days old,
+/// and when the deployment was never summarized (the counts are then not data).
+/// </param>
+/// <param name="CountsKnown">False when the deployment has no compliance summary yet or ConfigMgr returned no value for a count; the counts are then 0 and mean unknown, not zero.</param>
 public sealed record ComplianceRow(
     string BaselineName,
     string CollectionName,
@@ -153,7 +164,8 @@ public sealed record ComplianceRow(
     bool Stale,
     string BaselineId = "",
     string CollectionId = "",
-    string DeploymentId = "");
+    string DeploymentId = "",
+    bool CountsKnown = true);
 
 public enum ComplianceChangeKind
 {
@@ -284,8 +296,18 @@ public interface IComplianceReportWriter
 /// <summary>Fixed rules shared by the service and the page.</summary>
 public static class ComplianceRules
 {
-    /// <summary>A deployment whose compliance summary is older than this many days is stale.</summary>
+    /// <summary>
+    /// A deployment whose compliance summary is older than this many days is stale. The summary
+    /// time is the freshness a site holds: a device reports its compliance again only when the
+    /// state changes, so the newest device report can be weeks old on a healthy deployment.
+    /// </summary>
     public const int StaleDays = 7;
+
+    /// <summary>
+    /// How far the clock of this computer and the clock of the site database may differ when a
+    /// catalog deploy decides that an object was created during its run.
+    /// </summary>
+    public static readonly TimeSpan ClockTolerance = TimeSpan.FromMinutes(5);
 
     /// <summary>The longest value a catalog builder parameter accepts.</summary>
     public const int MaxParameterLength = 256;

@@ -44,7 +44,7 @@ public sealed class ComplianceDeploymentTests
 
         int Queries() { var n = site.Log.Count(l => l == "Query"); site.Log.Clear(); return n; }
         var items = await service.ListConfigurationItemsAsync(CancellationToken.None);
-        Assert.Equal(3, Queries());
+        Assert.Equal(4, Queries());
         var baselines = await service.ListBaselinesAsync(CancellationToken.None);
         Assert.Equal(3, Queries());
         var deployments = await service.ListDeploymentsAsync(null, CancellationToken.None);
@@ -70,7 +70,7 @@ public sealed class ComplianceDeploymentTests
 
         Assert.True(rows.Single(r => r.DeploymentId == "16777270").Stale);
         Assert.False(rows.Single(r => r.DeploymentId == "16777271").Stale);
-        Assert.False(ComplianceService.IsStale(null, Now));
+        Assert.True(ComplianceService.IsStale(null, Now));
         Assert.False(ComplianceService.IsStale(Now.AddDays(-7), Now));
         Assert.True(ComplianceService.IsStale(Now.AddDays(-7).AddSeconds(-1), Now));
     }

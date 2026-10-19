@@ -76,9 +76,12 @@ public sealed partial class ComplianceService : IComplianceService
 
     public static bool IsBuiltInCollection(string? id) => id is not null && id.StartsWith("SMS", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>True when the summary is more than <see cref="ComplianceRules.StaleDays"/> days older than <paramref name="nowUtc"/>; a deployment that was never summarized is not stale.</summary>
+    /// <summary>
+    /// True when the summary is more than <see cref="ComplianceRules.StaleDays"/> days older than
+    /// <paramref name="nowUtc"/>, and when there is no summary: counts that were never summarized are not data.
+    /// </summary>
     public static bool IsStale(DateTime? lastEvaluatedUtc, DateTime nowUtc) =>
-        lastEvaluatedUtc is { } last && last < nowUtc.AddDays(-ComplianceRules.StaleDays);
+        lastEvaluatedUtc is not { } last || last < nowUtc.AddDays(-ComplianceRules.StaleDays);
 
     // ---- Script output shapes ----------------------------------------------------------------
 
@@ -86,19 +89,23 @@ public sealed partial class ComplianceService : IComplianceService
 
     internal sealed record BaselineReadRow(
         string? Kind, string? BaselineId, string? Name, string? Description, int Revision, int ItemCount, int DeploymentCount,
-        int Compliant, int NonCompliant, int Failed, DateTime? Modified);
+        int? Compliant, int? NonCompliant, int? Failed, DateTime? Modified);
 
     internal sealed record DeploymentReadRow(
         string? Kind, string? AssignmentId, string? UniqueId, string? BaselineId, string? BaselineName, string? CollectionId, string? CollectionName,
-        bool Enforcement, string? Schedule, bool OverrideWindows, bool MonitoredByScom, bool GenerateAlert, int AlertThreshold,
-        int Compliant, int NonCompliant, int Failed, int Unknown, DateTime? Summarized);
+        bool Enforcement, string? Schedule, bool OverrideWindows, bool MonitoredByScom, bool GenerateAlert, int AlertThreshold, DateTime? AlertAfter,
+        int? Compliant, int? NonCompliant, int? Failed, int? Unknown, DateTime? Summarized);
 
     internal sealed record SettingReadRow(
         string? Kind, string? SettingId, string? Name, string? Description, string? SettingKind, string? DataType, int RuleCount, bool HasValueRule,
         string? Operator, string[]? Values, string? RuleName, string? Severity, bool Remediate, bool Report, string? Hive, string? KeyName, string? ValueName,
         bool Is64Bit, bool RemediateDword, string? DiscoveryLanguage, string? DiscoveryScript, string? RemediationLanguage, string? RemediationScript);
 
-    internal sealed record FoundRow(string? Kind, string? Id, string? Name, int Revision, string? Description, string? BaselineId, string? CollectionId, int CollectionType, int Members);
+    internal sealed record FoundRow(
+        string? Kind, string? Id, string? Name, int Revision, string? Description, string? BaselineId, string? CollectionId, int CollectionType, int Members,
+        DateTime? Created = null, string? CreatedBy = null);
+
+    internal sealed record SnapshotInfo(string? Kind, DateTime? Now, string? User, string[]? ItemIds, string[]? BaselineIds, string[]? DeploymentIds);
 
     internal sealed record WriteResult(string? Kind, string? Status, string? Detail, string[]? Steps, string? CreatedId, string[]? References, string? CiId, int Revision);
 
@@ -129,7 +136,8 @@ public sealed partial class ComplianceService : IComplianceService
             var tag = DriftTag.Parse(r.Description);
             var valid = tag is { Valid: true };
             return new BaselineRow(r.BaselineId ?? "", r.Name ?? "", r.Description ?? "", r.Revision, valid ? tag!.Value.Id : null, valid ? tag!.Value.Version : null,
-                r.ItemCount, r.DeploymentCount, r.Modified, r.Compliant, r.NonCompliant, r.Failed);
+                r.ItemCount, r.DeploymentCount, r.Modified, r.Compliant ?? 0, r.NonCompliant ?? 0, r.Failed ?? 0,
+                r.Compliant is not null && r.NonCompliant is not null && r.Failed is not null);
         }).ToList();
     }
 
@@ -151,8 +159,11 @@ public sealed partial class ComplianceService : IComplianceService
 
     private static BaselineDeploymentRow ToDeployment(DeploymentReadRow r) => new(
         r.AssignmentId ?? "", r.BaselineId ?? "", r.BaselineName ?? "", r.CollectionId ?? "", r.CollectionName ?? "", r.Enforcement,
-        ScheduleText(r.Schedule), r.Compliant, r.NonCompliant, r.Failed, r.Unknown, r.Summarized,
-        new BaselineDeploymentSettings(r.Schedule ?? "", r.OverrideWindows, r.GenerateAlert, r.AlertThreshold, null, r.MonitoredByScom));
+        ScheduleText(r.Schedule), r.Compliant ?? 0, r.NonCompliant ?? 0, r.Failed ?? 0, r.Unknown ?? 0, Utc(r.Summarized),
+        new BaselineDeploymentSettings(r.Schedule ?? "", r.OverrideWindows, r.GenerateAlert, r.AlertThreshold, r.GenerateAlert ? Utc(r.AlertAfter) : null, r.GenerateAlert && r.MonitoredByScom),
+        r.Compliant is not null && r.NonCompliant is not null && r.Failed is not null && r.Unknown is not null);
+
+    private static DateTime? Utc(DateTime? value) => value?.ToUniversalTime();
 
     public async Task<IReadOnlyList<CiSetting>> ListSettingsAsync(string ciId, CancellationToken ct)
     {
@@ -210,7 +221,7 @@ public sealed partial class ComplianceService : IComplianceService
         var now = _utcNow();
         var deployments = await ReadDeploymentsAsync(new ConfigMgrParameters { { "Operation", "Deployments" } }, ct).ConfigureAwait(false);
         var rows = deployments.Select(d => new ComplianceRow(d.BaselineName, d.CollectionName, d.Compliant, d.NonCompliant, d.Error, d.Unknown,
-                d.LastEvaluated, IsStale(d.LastEvaluated, now), d.BaselineId, d.CollectionId, d.DeploymentId))
+                d.LastEvaluated, IsStale(d.LastEvaluated, now), d.BaselineId, d.CollectionId, d.DeploymentId, d.CountsKnown))
             .OrderBy(r => r.BaselineName, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.CollectionName, StringComparer.OrdinalIgnoreCase).ToList();
         _log?.Info(LogArea, $"Compliance of {rows.Count} deployments; {rows.Count(r => r.Stale)} stale.");
         return rows;
@@ -269,7 +280,7 @@ public sealed partial class ComplianceService : IComplianceService
     private static readonly HashSet<string> LoggedParameters = new(StringComparer.OrdinalIgnoreCase)
     {
         "Operation", "CollectionId", "ToCollectionId", "ExpectedSchedule", "ScheduleToken", "SettingId", "EditMode", "SettingKind", "DataType", "Hive",
-        "DiscoveryLanguage", "RemediationLanguage", "Operator", "Severity"
+        "DiscoveryLanguage", "RemediationLanguage", "Operator", "Severity", "AlertAfter", "ExpectedAlertAfter"
     };
 
     /// <summary>

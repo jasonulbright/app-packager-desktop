@@ -23,15 +23,24 @@ public sealed partial class ComplianceService
 
     // ---- Deployments ----------------------------------------------------------------------------
 
-    private static ConfigMgrParameters DeploymentCheck(string operation, BaselineDeploymentRow before) => new()
+    private static ConfigMgrParameters DeploymentCheck(string operation, BaselineDeploymentRow before)
     {
-        { "Operation", operation },
-        { "AssignmentId", long.Parse(before.DeploymentId, CultureInfo.InvariantCulture) },
-        { "BaselineId", long.Parse(before.BaselineId, CultureInfo.InvariantCulture) },
-        { "CollectionId", before.CollectionId.ToUpperInvariant() },
-        { "ExpectedEnforcement", before.RemediateNoncompliant },
-        { "ExpectedSchedule", before.Settings?.ScheduleToken ?? "" }
-    };
+        var settings = before.Settings ?? new BaselineDeploymentSettings("", false, false, 0, null, false);
+        return new()
+        {
+            { "Operation", operation },
+            { "AssignmentId", long.Parse(before.DeploymentId, CultureInfo.InvariantCulture) },
+            { "BaselineId", long.Parse(before.BaselineId, CultureInfo.InvariantCulture) },
+            { "CollectionId", before.CollectionId.ToUpperInvariant() },
+            { "ExpectedEnforcement", before.RemediateNoncompliant },
+            { "ExpectedSchedule", settings.ScheduleToken ?? "" },
+            { "ExpectedOverride", settings.OverrideServiceWindow },
+            { "ExpectedAlert", settings.GenerateAlert },
+            { "ExpectedThreshold", settings.GenerateAlert ? Math.Clamp(settings.AlertThresholdPercent, 0, 100) : 0 },
+            { "ExpectedScom", settings.GenerateAlert && settings.MonitoredByScom },
+            { "ExpectedAlertAfter", settings.GenerateAlert ? UtcText(settings.AlertAfter) : "" }
+        };
+    }
 
     private static void AddCreateValues(ConfigMgrParameters parameters, BaselineDeploymentRow row)
     {
@@ -42,7 +51,20 @@ public sealed partial class ComplianceService
         parameters["GenerateAlert"] = settings.GenerateAlert;
         parameters["AlertThreshold"] = Math.Clamp(settings.AlertThresholdPercent, 0, 100);
         parameters["MonitoredByScom"] = settings.MonitoredByScom;
+        parameters["AlertAfter"] = settings.GenerateAlert ? UtcText(settings.AlertAfter) : "";
     }
+
+    private static string UtcText(DateTime? value) =>
+        value is { } v ? v.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture) : "";
+
+    /// <summary>
+    /// The Values key of a Reassign that moves a captured deployment back: an Undo may restore a
+    /// deployment to the built-in collection it was taken from.
+    /// </summary>
+    public const string RestoreKey = "RestoresCapture";
+
+    private static bool Restores(ComplianceChange change) =>
+        change.Values is { } v && v.TryGetValue(RestoreKey, out var r) && r == "True";
 
     private static bool IsCaptured(BaselineDeploymentRow? row) =>
         row is { Settings: not null } && NumberRegex().IsMatch(row.DeploymentId ?? "") && NumberRegex().IsMatch(row.BaselineId ?? "") && CollectionIdRegex().IsMatch(row.CollectionId ?? "");
@@ -87,13 +109,14 @@ public sealed partial class ComplianceService
         var reassign = change.Kind == ComplianceChangeKind.Reassign;
         var to = reassign ? (change.ToCollectionId ?? "").Trim().ToUpperInvariant() : before.CollectionId.ToUpperInvariant();
         if (!CollectionIdRegex().IsMatch(to)) return Refused(change, NotPreparedMessage);
-        if (IsBuiltInCollection(to)) return Refused(change, $"Collection {to} is a built-in collection. Select a collection that holds the devices to evaluate.");
+        if (IsBuiltInCollection(to) && !(reassign && Restores(change)))
+            return Refused(change, $"Collection {to} is a built-in collection. Select a collection that holds the devices to evaluate.");
         var parameters = DeploymentCheck(reassign ? "Reassign" : "Redeploy", before);
         if (reassign) parameters["ToCollectionId"] = to;
         AddCreateValues(parameters, before);
         var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
         var status = run.Result?.Status;
-        (bool Read, BaselineDeploymentRow? Row) made = status is "ok" or "old-remains" or "stored-differs" ? await ReadDeploymentOrNullAsync(run.Result!.CreatedId).ConfigureAwait(false) : (false, null);
+        (bool Read, BaselineDeploymentRow? Row) made = status is "ok" or "old-remains" or "replacement-differs" ? await ReadDeploymentOrNullAsync(run.Result!.CreatedId).ConfigureAwait(false) : (false, null);
         var target = reassign ? $"collection {to}" : $"collection {Shown(before.CollectionName, before.CollectionId)}";
         switch (status)
         {
@@ -103,14 +126,17 @@ public sealed partial class ComplianceService
                         change with
                         {
                             DeploymentBefore = row, ToCollectionId = before.CollectionId, RemediationConfirmed = false, CreatedIds = [],
+                            Values = new Dictionary<string, string> { [RestoreKey] = "True" },
                             Impact = [$"Moves the deployment of baseline {before.BaselineName} back to collection {Shown(before.CollectionName, before.CollectionId)}. The deployments have new IDs."]
                         }, run.Steps)
                     : Done(change, $"Created {Deployment(before)} again (new deployment ID {row.DeploymentId}) and removed the old one. Undo is not applicable: the deployment holds the same settings with a new ID.", null, run.Steps);
             case "ok":
-            case "stored-differs":
-                return made.Row is { } stored
-                    ? Partial(change, $"ConfigMgr created the deployment on {target} (ID {stored.DeploymentId}) but it does not hold the captured settings; the old deployment was removed. Check the new deployment. Undo removes it.", DeleteUndo(change, stored), run.Steps)
-                    : Fail(change, $"ConfigMgr reported the new deployment on {target} as made, but it could not be read back, and the old deployment was removed. Refresh the list. The captured values: {Mode(before.RemediateNoncompliant)}, {before.Schedule}.");
+                return Fail(change, $"ConfigMgr made the new deployment on {target} and confirmed its settings, then removed the old deployment, but the new deployment could not be read back here. Refresh the list. The captured values: {Mode(before.RemediateNoncompliant)}, {before.Schedule}.");
+            case "replacement-differs":
+                // The new deployment is the run's own: its ID is the one deployment that was not there before the create.
+                return made.Row is { } differs
+                    ? Partial(change, $"ConfigMgr created the deployment on {target} (ID {differs.DeploymentId}) but reported an error or stored other settings than captured, so the old deployment ({before.DeploymentId}) was kept. Both exist now. Undo removes the new one.", DeleteUndo(change, differs), run.Steps)
+                    : Fail(change, $"ConfigMgr created a deployment on {target} that does not hold the captured settings, and it could not be read back. The old deployment ({before.DeploymentId}) was kept. Refresh the list and remove the new deployment in the console.");
             case "old-remains":
                 return made.Row is { } both
                     ? Partial(change, $"ConfigMgr created the deployment on {target} (ID {both.DeploymentId}) but did not remove the old one ({before.DeploymentId}). Both exist now. Undo removes the new one.", DeleteUndo(change, both), run.Steps)
@@ -154,7 +180,8 @@ public sealed partial class ComplianceService
     {
         var row = change.DeploymentBefore;
         if (row is null || !NumberRegex().IsMatch(row.BaselineId ?? "") || !CollectionIdRegex().IsMatch(row.CollectionId ?? "")) return Refused(change, NotPreparedMessage);
-        if (IsBuiltInCollection(row.CollectionId)) return Refused(change, $"Collection {row.CollectionId} is a built-in collection. Select a collection that holds the devices to evaluate.");
+        if (IsBuiltInCollection(row.CollectionId) && !IsCaptured(row))
+            return Refused(change, $"Collection {row.CollectionId} is a built-in collection. Select a collection that holds the devices to evaluate.");
         if (row.RemediateNoncompliant && !change.RemediationConfirmed) return Refused(change, RemediationNotConfirmedMessage);
         var parameters = new ConfigMgrParameters
         {
@@ -288,6 +315,20 @@ public sealed partial class ComplianceService
                 var newId = stored.SettingId != before!.SettingId ? " The setting has a new ID." : "";
                 return Done(change, $"Changed setting {stored.Name} on {ci}.{newId}", editUndo, run.Steps);
             }
+            case (ComplianceChangeKind.EditSetting, "set-uncertain"):
+            {
+                var editUndo = Undo(ComplianceChangeKind.EditSetting, stored, before! with { SettingId = "" }, $"Sets the old values of setting {before!.Name} back.");
+                return stored is not null && SettingRules.Same(stored, after! with { SettingId = stored.SettingId })
+                    ? Partial(change, $"ConfigMgr changed setting {stored.Name} on {ci} and then reported an error. The new values are stored. Undo sets the old values back.", editUndo, run.Steps)
+                    : Fail(change, $"The result of the change to setting {before.Name} on {ci} is not known: ConfigMgr reported an error after it stored a new revision. Check the setting in ConfigMgr. Undo is not available.");
+            }
+            case (ComplianceChangeKind.EditSetting, "set-unknown"):
+                return Fail(change, $"The result of the change to setting {before!.Name} on {ci} is not known: ConfigMgr reported an error after it stored a new revision. Check the setting in ConfigMgr. Undo is not available.");
+            case (ComplianceChangeKind.EditSetting, "replace-conflict"):
+                return stored is null
+                    ? Fail(change, $"ConfigMgr added the new values as setting {temp} on {ci}, but the configuration item changed during the change, so setting {before!.Name} was not removed. Both may exist now. Refresh the list; remove {temp} in the console if it exists.")
+                    : Partial(change, $"ConfigMgr added the new values as setting {temp} on {ci}, but setting {before!.Name} or the configuration item changed during the change, so {before.Name} was not removed. Both exist now: {before.Name} and {temp}. Undo removes {temp}.",
+                        Undo(ComplianceChangeKind.RemoveSetting, stored, null, $"Removes setting {temp}, which the change added."), run.Steps);
             case (ComplianceChangeKind.EditSetting, "replace-added"):
                 return stored is null
                     ? Fail(change, $"ConfigMgr added the new setting {temp} to {ci} and did not finish the change. Refresh the list; remove {temp} in the console if it exists.")
@@ -374,7 +415,7 @@ public sealed partial class ComplianceService
         return parts[0] switch
         {
             "removed" => $"Removed {RefText(parts.Length > 1 ? parts[1] : "")}.",
-            "gone" => $"Already gone: {RefText(parts.Length > 1 ? parts[1] : "")}.",
+            "gone" => $"Not found in ConfigMgr, so not removed: {RefText(parts.Length > 1 ? parts[1] : "")}.",
             "created" => "Created the deployment.",
             "set" => "Set the new values.",
             "added" => "Added the setting.",
@@ -410,8 +451,9 @@ public sealed partial class ComplianceService
                 ConfigMgrFailure.ProcessDied => "The result of the change is not known: the ConfigMgr session ended during the change. Refresh the lists to see the current state.",
                 ConfigMgrFailure.Unexpected => "The result of the change is not known: the ConfigMgr session failed. Refresh the lists to see the current state.",
                 ConfigMgrFailure.ScriptFailed => "ConfigMgr reported an error for the change. The log has the details.",
-                _ => $"The change was not made. {SessionProblem(ex.Failure)}"
+                _ => null
             };
+            if (message is null) return new WriteRun(null, Refused(change, $"The change was not made. {SessionProblem(ex.Failure)}"), false, []);
             var uncertain = ex.Failure is ConfigMgrFailure.Timeout or ConfigMgrFailure.ProcessDied or ConfigMgrFailure.Unexpected or ConfigMgrFailure.ScriptFailed;
             return new WriteRun(null, Fail(change, message), uncertain, []);
         }

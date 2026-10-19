@@ -47,7 +47,9 @@ public sealed partial class ComplianceService
                 var current = await RequireDeploymentAsync(request, ct).ConfigureAwait(false);
                 impact.Add($"Creates {Deployment(current)} again with its settings ({Mode(current.RemediateNoncompliant)}, {current.Schedule}), then removes the old deployment.");
                 impact.Add("The new deployment is made first, so the collection is never without the deployment. It has a new ID.");
+                impact.Add("The old deployment is removed only when the new one holds the captured settings; otherwise both stay and the result says so.");
                 if (current.RemediateNoncompliant) impact.Add("The new deployment remediates noncompliant settings, as the old one does.");
+                if (OverrideLost(current) is { } lost) impact.Add(lost);
                 impact.Add("Undo is not applicable after a full redeploy: the deployment holds the same settings with a new ID.");
                 return request with { DeploymentBefore = current, Impact = impact };
             }
@@ -57,12 +59,15 @@ public sealed partial class ComplianceService
                 var to = CheckedCollectionId(request.ToCollectionId, "Select the collection to move the deployment to.");
                 if (string.Equals(to, current.CollectionId, StringComparison.OrdinalIgnoreCase))
                     throw new ComplianceServiceException("Select another collection than the one the deployment targets now.");
-                var target = await RequireTargetCollectionAsync(to, ct).ConfigureAwait(false);
+                var target = await RequireTargetCollectionAsync(to, ct, allowBuiltIn: Restores(request)).ConfigureAwait(false);
                 var existing = await ReadDeploymentsAsync(new ConfigMgrParameters { { "Operation", "Deployments" }, { "BaselineId", long.Parse(current.BaselineId, CultureInfo.InvariantCulture) } }, ct).ConfigureAwait(false);
                 if (existing.Any(d => string.Equals(d.CollectionId, to, StringComparison.OrdinalIgnoreCase)))
                     throw new ComplianceServiceException($"Baseline {current.BaselineName} is already deployed to collection {Shown(target.Name, to)}.");
                 impact.Add($"Deploys baseline {Shown(current.BaselineName, current.BaselineId)} to collection {Shown(target.Name, to)} ({Count(target.Members, "member")} now) with the same settings ({Mode(current.RemediateNoncompliant)}, {current.Schedule}).");
-                impact.Add($"Then removes the deployment to collection {Shown(current.CollectionName, current.CollectionId)}. If the new deployment fails, the old one stays.");
+                impact.Add($"Then removes the deployment to collection {Shown(current.CollectionName, current.CollectionId)}. If the new deployment fails or does not hold the captured settings, the old one stays.");
+                if (OverrideLost(current) is { } lost) impact.Add(lost);
+                if (IsBuiltInCollection(current.CollectionId))
+                    impact.Add($"Collection {Shown(current.CollectionName, current.CollectionId)} is a built-in collection. Undo moves the deployment back to it.");
                 impact.Add("Undo moves the deployment back. The deployments have new IDs.");
                 return request with { DeploymentBefore = current, ToCollectionId = to, Impact = impact };
             }
@@ -70,15 +75,20 @@ public sealed partial class ComplianceService
             {
                 var current = await RequireDeploymentAsync(request, ct).ConfigureAwait(false);
                 impact.Add($"Removes {Deployment(current)}.");
-                impact.Add($"Compliance now: {current.Compliant} compliant, {current.NonCompliant} non-compliant, {current.Error} error, {current.Unknown} unknown.");
+                impact.Add(current.CountsKnown
+                    ? $"Compliance now: {current.Compliant} compliant, {current.NonCompliant} non-compliant, {current.Error} error, {current.Unknown} unknown."
+                    : "Compliance now: not known (ConfigMgr has no compliance summary for the deployment).");
                 impact.Add("Undo creates the deployment again with the same settings. The new deployment has a new ID; the compliance history of the old one is not restored.");
+                if (IsBuiltInCollection(current.CollectionId))
+                    impact.Add($"Collection {Shown(current.CollectionName, current.CollectionId)} is a built-in collection. Undo deploys the baseline to it again; new deployments to it are not offered.");
+                if (OverrideLost(current) is { } lost) impact.Add(lost);
                 return request with { DeploymentBefore = current, Impact = impact };
             }
             case ComplianceChangeKind.CreateDeployment:
             {
                 var row = request.DeploymentBefore ?? throw new ComplianceServiceException("The deployment to create is missing.");
                 CheckedNumber(row.BaselineId, "Select a baseline.");
-                var target = await RequireTargetCollectionAsync(CheckedCollectionId(row.CollectionId, "Select a collection."), ct).ConfigureAwait(false);
+                var target = await RequireTargetCollectionAsync(CheckedCollectionId(row.CollectionId, "Select a collection."), ct, allowBuiltIn: IsCaptured(row)).ConfigureAwait(false);
                 impact.Add($"Deploys baseline {Shown(row.BaselineName, row.BaselineId)} to collection {Shown(target.Name, target.Id)} ({Count(target.Members, "member")} now), {Mode(row.RemediateNoncompliant)}, {row.Schedule}.");
                 impact.Add("Undo removes the new deployment.");
                 return request with { Impact = impact };
@@ -130,6 +140,9 @@ public sealed partial class ComplianceService
             ? []
             : entry.CollectionParameters.Select(p => (p, CatalogArguments.Effective(entry.Parameters.First(x => x.Name == p), values) ?? ""))
                 .Where(c => c.Item2.Length > 0).ToList();
+        var twice = collections.GroupBy(c => c.Item2, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+        if (twice is not null)
+            throw new ComplianceServiceException($"{string.Join(" and ", twice.Select(c => c.Item1))} name the same collection {twice.Key}. The baselines of this entry need different collections.");
         return new CatalogPlan(entry, values, arguments, collections, detectOnly, collections.Count > 0);
     }
 
@@ -154,7 +167,7 @@ public sealed partial class ComplianceService
             targets.Add(RequireNamedCollection(snapshot.Collections, name, parameter));
         foreach (var dependency in dependencies)
         {
-            if (snapshot.Collections.Any(c => c.Name == dependency.Name && c.CollectionType == 2)) continue;
+            if (snapshot.Collections.Any(c => string.Equals(c.Name, dependency.Name, StringComparison.OrdinalIgnoreCase) && c.CollectionType == 2)) continue;
             throw new ComplianceServiceException(
                 $"Collection {dependency.Name} must exist before entry {entry.DisplayName} is deployed. No shipped builder creates it: create it on the Collections tab, or select another collection.");
         }
@@ -185,7 +198,7 @@ public sealed partial class ComplianceService
 
     private static FoundRow RequireNamedCollection(IReadOnlyList<FoundRow> found, string name, string parameter)
     {
-        var matches = found.Where(c => c.Name == name).ToList();
+        var matches = found.Where(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
         if (matches.Count == 0) throw new ComplianceServiceException($"Collection {name} ({parameter}) does not exist. Create it first or select another collection.", ComplianceFailureKind.NotFound);
         if (matches.Count > 1) throw new ComplianceServiceException($"More than one collection is named {name}. The deployment cmdlet would not know which one to use.");
         var c = matches[0];
@@ -194,18 +207,22 @@ public sealed partial class ComplianceService
         return c;
     }
 
-    internal sealed record Snapshot(IReadOnlyList<FoundRow> Items, IReadOnlyList<FoundRow> Baselines, IReadOnlyList<FoundRow> Deployments, IReadOnlyList<FoundRow> Collections);
+    /// <param name="Info">With the IDs of every CI revision, baseline and baseline deployment, the clock and the account; null unless asked for.</param>
+    internal sealed record Snapshot(IReadOnlyList<FoundRow> Items, IReadOnlyList<FoundRow> Baselines, IReadOnlyList<FoundRow> Deployments, IReadOnlyList<FoundRow> Collections, SnapshotInfo? Info = null);
 
-    private async Task<Snapshot> SnapshotAsync(CatalogEntry entry, IEnumerable<string> collectionNames, CancellationToken ct)
+    private async Task<Snapshot> SnapshotAsync(CatalogEntry entry, IEnumerable<string> collectionNames, CancellationToken ct, bool withIds = false)
     {
-        var output = await ReadAsync(new ConfigMgrParameters
+        var parameters = new ConfigMgrParameters
         {
             { "Operation", "Snapshot" },
             { "ItemNames", entry.ProducesConfigurationItems.ToArray() },
             { "BaselineNames", entry.ProducesBaselines.ToArray() },
-            { "CollectionNames", collectionNames.Distinct(StringComparer.Ordinal).ToArray() }
-        }, ct).ConfigureAwait(false);
-        return new Snapshot(Rows<FoundRow>(output, "FoundItem"), Rows<FoundRow>(output, "FoundBaseline"), Rows<FoundRow>(output, "FoundDeployment"), Rows<FoundRow>(output, "FoundCollection"));
+            { "CollectionNames", collectionNames.Distinct(StringComparer.OrdinalIgnoreCase).ToArray() }
+        };
+        if (withIds) parameters["WithIds"] = true;
+        var output = await ReadAsync(parameters, ct).ConfigureAwait(false);
+        return new Snapshot(Rows<FoundRow>(output, "FoundItem"), Rows<FoundRow>(output, "FoundBaseline"), Rows<FoundRow>(output, "FoundDeployment"), Rows<FoundRow>(output, "FoundCollection"),
+            withIds ? Rows<SnapshotInfo>(output, "SnapshotInfo").FirstOrDefault() : null);
     }
 
     // ---- Deployments ----------------------------------------------------------------------------
@@ -220,18 +237,31 @@ public sealed partial class ComplianceService
         if (before.BaselineId.Length > 0 && (current.BaselineId != before.BaselineId
                                              || !string.Equals(current.CollectionId, before.CollectionId, StringComparison.OrdinalIgnoreCase)
                                              || current.RemediateNoncompliant != before.RemediateNoncompliant
-                                             || (before.Settings is { } s && current.Settings is { } c && !string.Equals(s.ScheduleToken, c.ScheduleToken, StringComparison.OrdinalIgnoreCase))))
+                                             || (before.Settings is { } s && current.Settings is { } c && !SameSettings(s, c))))
             throw new ComplianceServiceException($"{Capital(Deployment(before))} changed since it was read. Refresh the list and try again.", ComplianceFailureKind.Stale);
         return current;
     }
 
-    private async Task<FoundRow> RequireTargetCollectionAsync(string collectionId, CancellationToken ct)
+    /// <summary>A plan line when a re-create cannot keep the captured maintenance window override; null otherwise.</summary>
+    private static string? OverrideLost(BaselineDeploymentRow row) =>
+        row.Settings is { OverrideServiceWindow: true } && !row.RemediateNoncompliant
+            ? "The deployment allows remediation outside maintenance windows while remediation is off. ConfigMgr does not store that on a new deployment without remediation, so the new deployment has it off; it has no effect while remediation is off."
+            : null;
+
+    /// <summary>True when the two hold the same stored deployment values; the alert values count only while there is an alert.</summary>
+    internal static bool SameSettings(BaselineDeploymentSettings a, BaselineDeploymentSettings b) =>
+        string.Equals(a.ScheduleToken, b.ScheduleToken, StringComparison.OrdinalIgnoreCase)
+        && a.OverrideServiceWindow == b.OverrideServiceWindow
+        && a.GenerateAlert == b.GenerateAlert
+        && (!a.GenerateAlert || (a.AlertThresholdPercent == b.AlertThresholdPercent && a.MonitoredByScom == b.MonitoredByScom && UtcText(a.AlertAfter) == UtcText(b.AlertAfter)));
+
+    private async Task<FoundRow> RequireTargetCollectionAsync(string collectionId, CancellationToken ct, bool allowBuiltIn = false)
     {
         var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Collection" }, { "CollectionId", collectionId } }, ct).ConfigureAwait(false);
         var found = Rows<FoundRow>(output, "FoundCollection").FirstOrDefault()
             ?? throw new ComplianceServiceException($"Collection {collectionId} does not exist. Refresh the list.", ComplianceFailureKind.NotFound);
         if (found.CollectionType != 2) throw new ComplianceServiceException($"Collection {Shown(found.Name, found.Id)} is not a device collection.");
-        if (IsBuiltInCollection(found.Id)) throw new ComplianceServiceException($"Collection {Shown(found.Name, found.Id)} is a built-in collection. Select a collection that holds the devices to evaluate.");
+        if (IsBuiltInCollection(found.Id) && !allowBuiltIn) throw new ComplianceServiceException($"Collection {Shown(found.Name, found.Id)} is a built-in collection. Select a collection that holds the devices to evaluate.");
         return found;
     }
 
@@ -266,7 +296,7 @@ public sealed partial class ComplianceService
                 throw new ComplianceServiceException($"Setting {before.Name} is not a registry or script setting with one value rule. This page does not change it, because Undo could not create it again.");
             if (SettingRules.Check(before) is { } unrestorable)
                 throw new ComplianceServiceException($"Undo could not create setting {before.Name} again as it is now, so it is not changed here. {unrestorable}");
-            if (settings.Count(s => s.Name == before.Name) > 1)
+            if (settings.Count(s => string.Equals(s.Name, before.Name, StringComparison.OrdinalIgnoreCase)) > 1)
                 throw new ComplianceServiceException($"More than one setting on configuration item {ci} is named {before.Name}. The ConfigMgr cmdlet would change or remove all of them; rename them in the console first.");
         }
         CiSetting? after = null;
@@ -274,7 +304,7 @@ public sealed partial class ComplianceService
         {
             after = request.SettingAfter ?? throw new ComplianceServiceException("Enter the setting.");
             if (SettingRules.Check(after) is { } problem) throw new ComplianceServiceException(problem);
-            if (settings.Any(s => s.Name == after.Name && s.SettingId != before?.SettingId))
+            if (settings.Any(s => string.Equals(s.Name, after.Name, StringComparison.OrdinalIgnoreCase) && s.SettingId != before?.SettingId))
                 throw new ComplianceServiceException($"Configuration item {ci} already has a setting named {after.Name}.");
         }
 

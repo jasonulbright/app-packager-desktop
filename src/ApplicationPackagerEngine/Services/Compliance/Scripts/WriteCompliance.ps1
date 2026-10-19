@@ -12,6 +12,12 @@ param(
     [bool]$GenerateAlert = $false,
     [ValidateRange(0, 100)][int]$AlertThreshold = 0,
     [bool]$MonitoredByScom = $false,
+    [ValidatePattern('^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)?$')][string]$AlertAfter = '',
+    [bool]$ExpectedOverride = $false,
+    [bool]$ExpectedAlert = $false,
+    [ValidateRange(0, 100)][int]$ExpectedThreshold = 0,
+    [bool]$ExpectedScom = $false,
+    [ValidatePattern('^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)?$')][string]$ExpectedAlertAfter = '',
     [ValidateRange(0, 2147483647)][long]$CiId = 0,
     [ValidateRange(0, 2147483647)][int]$ExpectedRevision = 0,
     [ValidatePattern('^[A-Za-z0-9_\-]{0,128}$')][string]$SettingId = '',
@@ -85,15 +91,51 @@ function Get-AssignmentIds {
         Where-Object { @(Get-Prop $_ 'AssignedCIs') -contains $Baseline } | ForEach-Object { [long]$_.AssignmentID })
 }
 
+function Get-UtcText {
+    param([object]$Value)
+    if ($Value -isnot [datetime]) { return '' }
+    return $Value.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [System.Globalization.CultureInfo]::InvariantCulture)
+}
+
+# The alert of a deployment: -MonitoredByScom is stored on the SMS_Alert (the assignment's
+# RaiseMomAlertsOnFailure stays false), the threshold is parameter 3, -PostponeDateTime is SkipUntil.
+function Get-AlertState {
+    param([object]$Assignment)
+    $uid = ([string]$Assignment.AssignmentUniqueID).ToUpperInvariant()
+    if ($uid -notmatch '^\{[0-9A-F-]{36}\}$') { return $null }
+    $alert = Invoke-Query ("SELECT TypeInstanceID, ParameterValues, MonitoredByScom, SkipUntil FROM SMS_Alert WHERE TypeID = 14 AND TypeInstanceID = '{0}'" -f $uid) | Select-Object -First 1
+    if ($null -eq $alert) { return $null }
+    $threshold = 0
+    try {
+        $xml = [xml][string](Get-Prop $alert 'ParameterValues')
+        $node = @($xml.Parameters.Parameter | Where-Object { $_.index -eq '3' }) | Select-Object -First 1
+        if ($null -ne $node) { [void][int]::TryParse([string]$node.InnerText, [ref]$threshold) }
+    } catch { $threshold = 0 }
+    @{ Threshold = $threshold; Scom = [bool](Get-Prop $alert 'MonitoredByScom'); After = Get-UtcText (Get-Prop $alert 'SkipUntil') }
+}
+
+# $Extra holds the further stored values to compare: Alert, Threshold, Scom and After always,
+# Override when present. ConfigMgr ignores -OverrideServiceWindow on a deployment without
+# remediation, so a read-back after a create compares it only for a remediating deployment.
 function Test-Assignment {
-    param([object]$Assignment, [long]$Baseline, [string]$Collection, [bool]$Enforced, [string]$Schedule)
+    param([object]$Assignment, [long]$Baseline, [string]$Collection, [bool]$Enforced, [string]$Schedule, [hashtable]$Extra)
     if ($null -eq $Assignment) { return 'missing' }
     $assigned = @(Get-Prop $Assignment 'AssignedCIs')
     if ($assigned.Count -ne 1 -or [long]$assigned[0] -ne $Baseline) { return 'changed' }
     if ([string]$Assignment.TargetCollectionID -ne $Collection) { return 'changed' }
     if ([bool](Get-Prop $Assignment 'EnforcementEnabled') -ne $Enforced) { return 'changed' }
     if ($Schedule -and ([string](Get-Prop $Assignment 'EvaluationSchedule')).ToUpperInvariant() -ne $Schedule.ToUpperInvariant()) { return 'changed' }
+    if ($null -ne $Extra) {
+        if ($Extra.ContainsKey('Override') -and [bool](Get-Prop $Assignment 'OverrideServiceWindows') -ne [bool]$Extra.Override) { return 'changed' }
+        $alert = Get-AlertState $Assignment
+        if (($null -ne $alert) -ne [bool]$Extra.Alert) { return 'changed' }
+        if ($null -ne $alert -and ($alert.Threshold -ne [int]$Extra.Threshold -or $alert.Scom -ne [bool]$Extra.Scom -or $alert.After -ne [string]$Extra.After)) { return 'changed' }
+    }
     return ''
+}
+
+function Get-Expected {
+    @{ Override = $ExpectedOverride; Alert = $ExpectedAlert; Threshold = $ExpectedThreshold; Scom = $ExpectedScom; After = $ExpectedAlertAfter }
 }
 
 function Get-DeploymentObject {
@@ -122,12 +164,12 @@ function New-Deployment {
     if ($problem) { return (Made $problem) }
     $before = @(Get-AssignmentIds $Baseline $Collection)
     if ($before.Count -gt 0 -and -not $AllowExisting) { return (Made 'deployment-exists') }
-    $parameters = @{ Id = [int]$Baseline; CollectionId = $Collection; EnableEnforcement = $Enforcement; GenerateAlert = $GenerateAlert; MonitoredByScom = $MonitoredByScom }
-    if ($Enforcement) { $parameters.OverrideServiceWindow = $OverrideServiceWindow }
+    $parameters = @{ Id = [int]$Baseline; CollectionId = $Collection; EnableEnforcement = $Enforcement; GenerateAlert = $GenerateAlert; MonitoredByScom = $MonitoredByScom; OverrideServiceWindow = $OverrideServiceWindow }
     if ($GenerateAlert) { $parameters.ParameterValue = $AlertThreshold }
+    if ($GenerateAlert -and $AlertAfter) { $parameters.PostponeDateTime = [datetime]::Parse($AlertAfter, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AdjustToUniversal).ToLocalTime() }
     if ($ScheduleToken) { $parameters.Schedule = Convert-CMSchedule -ScheduleString $ScheduleToken }
     try {
-        New-CMBaselineDeployment @parameters | Out-Null
+        New-CMBaselineDeployment @parameters 3>$null | Out-Null
         $steps.Add('created')
     } catch {
         $made = @(Get-AssignmentIds $Baseline $Collection | Where-Object { $before -notcontains $_ })
@@ -138,7 +180,9 @@ function New-Deployment {
     if ($made.Count -ne 1) { return (Made 'create-unclear' 0 ('{0} new deployments' -f $made.Count)) }
     $stored = Get-Assignment $made[0]
     $schedule = if ($ScheduleToken) { $ScheduleToken } else { '' }
-    if ((Test-Assignment $stored $Baseline $Collection $Enforcement $schedule) -ne '') { return (Made 'stored-differs' $made[0]) }
+    $sent = @{ Alert = $GenerateAlert; Threshold = $(if ($GenerateAlert) { $AlertThreshold } else { 0 }); Scom = ($GenerateAlert -and $MonitoredByScom); After = $(if ($GenerateAlert) { $AlertAfter } else { '' }) }
+    if ($Enforcement) { $sent.Override = $OverrideServiceWindow }
+    if ((Test-Assignment $stored $Baseline $Collection $Enforcement $schedule $sent) -ne '') { return (Made 'stored-differs' $made[0]) }
     return (Made 'ok' $made[0])
 }
 
@@ -201,7 +245,25 @@ function Find-Settings {
     param([long]$Id, [string]$SettingName)
     $item = Get-ConfigItem $Id -Lazy
     if ($null -eq $item) { return @() }
-    @(Get-SettingNames $item | Where-Object { $_.Name -ceq $SettingName })
+    @(Get-SettingNames $item | Where-Object { $_.Name -eq $SettingName })
+}
+
+# The stored form of one setting and its rules. A new revision rewrites the Version attribute of
+# every SettingReference and nothing else of an unchanged setting, so that attribute is left out.
+function Get-SettingFragment {
+    param([long]$Id, [string]$LogicalName)
+    $item = Get-ConfigItem $Id -Lazy
+    if ($null -eq $item) { return '' }
+    $xml = [xml][string](Get-Prop $item 'SDMPackageXML')
+    $ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
+    $ns.AddNamespace('d', 'http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/07/10/DesiredConfiguration')
+    $ns.AddNamespace('r', 'http://schemas.microsoft.com/SystemsCenterConfigurationManager/2009/06/14/Rules')
+    $setting = @($xml.SelectNodes('//d:SimpleSetting', $ns) | Where-Object { [string]$_.GetAttribute('LogicalName') -ceq $LogicalName })
+    if ($setting.Count -ne 1) { return '' }
+    $rules = @($xml.SelectNodes('//r:Rule', $ns) | Where-Object {
+        @($_.SelectNodes('.//r:SettingReference', $ns) | Where-Object { [string]$_.GetAttribute('SettingLogicalName') -ceq $LogicalName }).Count -gt 0 })
+    foreach ($reference in @($rules | ForEach-Object { $_.SelectNodes('.//r:SettingReference', $ns) })) { $reference.RemoveAttribute('Version') }
+    return $setting[0].OuterXml + (($rules | ForEach-Object { $_.OuterXml }) -join '')
 }
 
 function Test-Item {
@@ -214,7 +276,7 @@ function Test-Item {
 switch ($Operation) {
     'SetRemediation' {
         $a = Get-Assignment $AssignmentId
-        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule
+        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule (Get-Expected)
         if ($state) { Write-Result $state; return }
         $object = Get-DeploymentObject $a
         if ($null -eq $object) { Write-Result 'missing'; return }
@@ -231,7 +293,7 @@ switch ($Operation) {
     }
     'RemoveDeployment' {
         $a = Get-Assignment $AssignmentId
-        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule
+        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule (Get-Expected)
         if ($state) { Write-Result $state; return }
         Write-Result (Remove-Deployment $a)
     }
@@ -239,23 +301,27 @@ switch ($Operation) {
         # The new deployment is made before the old one goes: ConfigMgr holds two deployments of
         # one baseline to one collection, so the collection is never without the deployment.
         $a = Get-Assignment $AssignmentId
-        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule
+        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule (Get-Expected)
         if ($state) { Write-Result $state; return }
         $made = New-Deployment $BaselineId $CollectionId -AllowExisting
         if ($made.Status -notin 'ok', 'created-with-error', 'stored-differs') { Write-Result $made.Status ([string]$made.Detail); return }
+        # The old deployment goes only when the new one holds the captured values.
+        if ($made.Status -ne 'ok') { Write-Result 'replacement-differs' ([string]$made.Detail) ([string]$made.Id); return }
         $removed = Remove-Deployment $a
         if ($removed -ne 'ok') { Write-Result 'old-remains' '' ([string]$made.Id); return }
-        Write-Result $(if ($made.Status -eq 'ok') { 'ok' } else { 'stored-differs' }) '' ([string]$made.Id)
+        Write-Result 'ok' '' ([string]$made.Id)
     }
     'Reassign' {
         $a = Get-Assignment $AssignmentId
-        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule
+        $state = Test-Assignment $a $BaselineId $CollectionId $ExpectedEnforcement $ExpectedSchedule (Get-Expected)
         if ($state) { Write-Result $state; return }
         $made = New-Deployment $BaselineId $ToCollectionId
         if ($made.Status -notin 'ok', 'created-with-error', 'stored-differs') { Write-Result $made.Status ([string]$made.Detail); return }
+        # The old deployment goes only when the new one holds the captured values.
+        if ($made.Status -ne 'ok') { Write-Result 'replacement-differs' ([string]$made.Detail) ([string]$made.Id); return }
         $removed = Remove-Deployment $a
         if ($removed -ne 'ok') { Write-Result 'old-remains' '' ([string]$made.Id); return }
-        Write-Result $(if ($made.Status -eq 'ok') { 'ok' } else { 'stored-differs' }) '' ([string]$made.Id)
+        Write-Result 'ok' '' ([string]$made.Id)
     }
     'AddSetting' {
         $problem = Test-Item
@@ -287,7 +353,8 @@ switch ($Operation) {
         $found = @(Find-Settings $CiId $OldName)
         if ($found.Count -eq 0 -or @($found | Where-Object { $_.SettingId -ceq $SettingId }).Count -eq 0) { Write-Result 'setting-missing'; return }
         if ($found.Count -gt 1) { Write-Result 'setting-duplicate'; return }
-        if ($Name -cne $OldName -and @(Find-Settings $CiId $Name).Count -gt 0) { Write-Result 'setting-name-taken'; return }
+        if (@(Find-Settings $CiId $Name | Where-Object { $_.SettingId -cne $SettingId }).Count -gt 0) { Write-Result 'setting-name-taken'; return }
+        $captured = Get-SettingFragment $CiId $SettingId
         $item = Get-ConfigItem $CiId
         if ($EditMode -eq 'InPlace') {
             $parameters = @{ InputObject = $item; SettingName = $OldName; Description = $Description; Is64Bit = $Is64Bit }
@@ -303,7 +370,15 @@ switch ($Operation) {
                     Set-CMComplianceSettingScript @parameters | Out-Null
                 }
                 $steps.Add('set')
-            } catch { Write-Result 'failed' $_.Exception.Message; return }
+            } catch {
+                # The cmdlet can commit the new revision and then fail: an unchanged revision
+                # proves nothing was stored; otherwise the setting found by its ID is reported.
+                $detail = $_.Exception.Message
+                $now = Get-ConfigItem $CiId
+                if ($null -ne $now -and $ExpectedRevision -gt 0 -and [int](Get-Prop $now 'CIVersion') -eq $ExpectedRevision) { Write-Result 'failed' $detail; return }
+                if (@(Find-Settings $CiId $Name | Where-Object { $_.SettingId -ceq $SettingId }).Count -eq 1) { Write-Result 'set-uncertain' $detail $SettingId } else { Write-Result 'set-unknown' $detail }
+                return
+            }
             $now = @(Find-Settings $CiId $Name | Where-Object { $_.SettingId -ceq $SettingId })
             if ($now.Count -ne 1) { Write-Result 'not-stored' '' $SettingId; return }
             Write-Result 'ok' '' $SettingId
@@ -318,7 +393,13 @@ switch ($Operation) {
         $made = @(Find-Settings $CiId $TempName)
         if ($made.Count -ne 1) { Write-Result 'not-stored'; return }
         $newId = $made[0].SettingId
+        # The old setting is removed only while it is as captured and no other revision came in
+        # since the add; otherwise another writer changed the CI and both settings stay.
         $item = Get-ConfigItem $CiId
+        $revisionNow = [int](Get-Prop $item 'CIVersion')
+        if (($ExpectedRevision -gt 0 -and $revisionNow -ne $ExpectedRevision + 1) -or -not $captured -or (Get-SettingFragment $CiId $SettingId) -cne $captured) {
+            Write-Result 'replace-conflict' '' $newId; return
+        }
         try { Remove-CMComplianceSetting -InputObject $item -SettingName $OldName -Force; $steps.Add('removed') } catch { }
         if (@(Find-Settings $CiId $OldName | Where-Object { $_.SettingId -ceq $SettingId }).Count -gt 0) { Write-Result 'replace-added' '' $newId; return }
         if ($TempName -cne $Name) {

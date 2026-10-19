@@ -6,7 +6,8 @@ param(
     [ValidatePattern('^[A-Za-z0-9]{0,8}$')][string]$CollectionId = '',
     [string[]]$ItemNames = @(),
     [string[]]$BaselineNames = @(),
-    [string[]]$CollectionNames = @()
+    [string[]]$CollectionNames = @(),
+    [switch]$WithIds
 )
 
 # Only the validated numbers and IDs above reach WQL text; names travel as cmdlet parameters
@@ -22,10 +23,16 @@ function Get-Prop {
     return $found.Value
 }
 
+# The provider returns a time with a known offset as local time, and a time without an offset
+# (DMTF '+***', for example SMS_DeploymentSummary.SummarizationTime) as the stored UTC value
+# with an unspecified kind: -Utc reads such a value as UTC instead of converting it again.
 function Get-Time {
-    param([object]$Value)
+    param([object]$Value, [switch]$Utc)
     if ($null -eq $Value) { return $null }
-    if ($Value -is [datetime]) { return $Value.ToUniversalTime().ToString('o') }
+    if ($Value -is [datetime]) {
+        if ($Utc -and $Value.Kind -ne [System.DateTimeKind]::Local) { return [datetime]::SpecifyKind($Value, [System.DateTimeKind]::Utc).ToString('o') }
+        return $Value.ToUniversalTime().ToString('o')
+    }
     $text = [string]$Value
     if ($text -match '^\d{14}\.\d{6}[+-]\d{3}$') {
         try { return [System.Management.ManagementDateTimeConverter]::ToDateTime($text).ToUniversalTime().ToString('o') } catch { return $null }
@@ -40,16 +47,49 @@ function Invoke-Query {
 
 # An IN list of numbers, in chunks the provider accepts.
 function Invoke-InQuery {
-    param([string]$Prefix, [string]$Property, [long[]]$Values)
+    param([string]$Prefix, [string]$Property, [long[]]$Values, [switch]$And)
     $all = @($Values | Sort-Object -Unique)
+    $joint = if ($And) { 'AND' } else { 'WHERE' }
     for ($i = 0; $i -lt $all.Count; $i += 200) {
         $chunk = $all[$i..([Math]::Min($i + 199, $all.Count - 1))]
-        Invoke-Query ("{0} WHERE {1} IN ({2})" -f $Prefix, $Property, (($chunk | ForEach-Object { [string][long]$_ }) -join ','))
+        Invoke-Query ("{0} {1} {2} IN ({3})" -f $Prefix, $joint, $Property, (($chunk | ForEach-Object { [string][long]$_ }) -join ','))
     }
 }
 
+$BaselineColumns = 'CI_ID, CI_UniqueID, LocalizedDisplayName, LocalizedDescription, CIVersion, DateLastModified, ComplianceCount, NonComplianceCount, FailureCount'
+
 function Get-Baselines {
-    Invoke-Query 'SELECT CI_ID, CI_UniqueID, LocalizedDisplayName, LocalizedDescription, CIVersion, DateLastModified, ComplianceCount, NonComplianceCount, FailureCount FROM SMS_ConfigurationBaselineInfo'
+    param([long[]]$Ids)
+    if ($PSBoundParameters.ContainsKey('Ids')) {
+        if (@($Ids).Count -eq 0) { return @() }
+        return Invoke-InQuery "SELECT $BaselineColumns FROM SMS_ConfigurationBaselineInfo" 'CI_ID' $Ids
+    }
+    Invoke-Query "SELECT $BaselineColumns FROM SMS_ConfigurationBaselineInfo"
+}
+
+# A count property the provider does not return is an unknown count (null), never zero.
+function Get-Count {
+    param([object]$Object, [string[]]$Properties)
+    if ($null -eq $Object) { return $null }
+    $total = 0
+    foreach ($p in $Properties) {
+        $value = Get-Prop $Object $p
+        if ($null -eq $value) { return $null }
+        $total += [int]$value
+    }
+    return $total
+}
+
+# Every CI_ID of every revision with its ModelID: a baseline keeps referencing the CI_ID of the
+# revision it was made with, so counts follow the lineage (ModelID), not the latest CI_ID.
+function Get-Lineage {
+    $model = @{}
+    foreach ($r in Invoke-Query 'SELECT CI_ID, ModelID FROM SMS_ConfigurationItem WHERE CIType_ID = 3') {
+        $id = [long]$r.CI_ID
+        $m = Get-Prop $r 'ModelID'
+        $model[$id] = $(if ($null -eq $m -or [long]$m -eq 0) { $id } else { [long]$m })
+    }
+    return $model
 }
 
 function Get-Relations {
@@ -67,12 +107,16 @@ function Get-Assignments {
 }
 
 function ConvertTo-DeploymentRows {
-    param([object[]]$Assignments)
+    param([object[]]$Assignments, [switch]$Scoped)
     if (@($Assignments).Count -eq 0) { return }
     $names = @{}
-    foreach ($b in Get-Baselines) { $names[[long]$b.CI_ID] = [string]$b.LocalizedDisplayName }
+    $assignedIds = @($Assignments | ForEach-Object { @(Get-Prop $_ 'AssignedCIs') } | Where-Object { $null -ne $_ } | ForEach-Object { [long]$_ })
+    $baselineRows = if ($Scoped) { Get-Baselines -Ids $assignedIds } else { Get-Baselines }
+    foreach ($b in $baselineRows) { $names[[long]$b.CI_ID] = [string]$b.LocalizedDisplayName }
     $summaries = @{}
-    foreach ($s in Invoke-Query 'SELECT AssignmentID, CollectionName, NumberSuccess, NumberErrors, NumberOther, NumberInProgress, NumberUnknown, NumberTargeted, SummarizationTime, ModificationTime FROM SMS_DeploymentSummary WHERE FeatureType = 6') {
+    $summaryQuery = 'SELECT AssignmentID, CollectionName, NumberSuccess, NumberErrors, NumberOther, NumberInProgress, NumberUnknown, NumberTargeted, SummarizationTime, ModificationTime FROM SMS_DeploymentSummary WHERE FeatureType = 6'
+    $summaryRows = if ($Scoped) { Invoke-InQuery $summaryQuery 'AssignmentID' @($Assignments | ForEach-Object { [long]$_.AssignmentID }) -And } else { Invoke-Query $summaryQuery }
+    foreach ($s in $summaryRows) {
         $summaries[[long]$s.AssignmentID] = $s
     }
     $collections = @{}
@@ -84,14 +128,13 @@ function ConvertTo-DeploymentRows {
         }
     }
     $alerts = @{}
-    foreach ($a in Invoke-Query 'SELECT TypeInstanceID, ParameterValues FROM SMS_Alert WHERE TypeID = 14') {
-        $threshold = 0
-        try {
-            $xml = [xml][string](Get-Prop $a 'ParameterValues')
-            $node = @($xml.Parameters.Parameter | Where-Object { $_.index -eq '3' }) | Select-Object -First 1
-            if ($null -ne $node) { [void][int]::TryParse([string]$node.InnerText, [ref]$threshold) }
-        } catch { $threshold = 0 }
-        $alerts[([string]$a.TypeInstanceID).ToUpperInvariant()] = $threshold
+    $alertQuery = 'SELECT TypeInstanceID, ParameterValues, MonitoredByScom, SkipUntil FROM SMS_Alert WHERE TypeID = 14'
+    $alertRows = if ($Scoped) {
+        $uids = @($Assignments | ForEach-Object { ([string]$_.AssignmentUniqueID).ToUpperInvariant() } | Where-Object { $_ -match '^\{[0-9A-F-]{36}\}$' } | Sort-Object -Unique)
+        if ($uids.Count -gt 0) { Invoke-Query ("{0} AND TypeInstanceID IN ({1})" -f $alertQuery, (($uids | ForEach-Object { "'" + $_ + "'" }) -join ',')) }
+    } else { Invoke-Query $alertQuery }
+    foreach ($a in $alertRows) {
+        $alerts[([string]$a.TypeInstanceID).ToUpperInvariant()] = ConvertFrom-Alert $a
     }
     foreach ($a in $Assignments) {
         $id = [long]$a.AssignmentID
@@ -100,6 +143,9 @@ function ConvertTo-DeploymentRows {
         $collection = [string]$a.TargetCollectionID
         $collectionName = if ($collections.ContainsKey($collection)) { $collections[$collection] } elseif ($null -ne $summary) { [string]$summary.CollectionName } else { '' }
         $uid = ([string]$a.AssignmentUniqueID).ToUpperInvariant()
+        $alert = if ($alerts.ContainsKey($uid)) { $alerts[$uid] } else { $null }
+        # Verified on a site: NumberSuccess counts compliant devices, NumberOther non-compliant
+        # ones, NumberErrors devices with an evaluation error.
         [pscustomobject]@{
             Kind               = 'Deployment'
             AssignmentId       = [string]$id
@@ -112,18 +158,33 @@ function ConvertTo-DeploymentRows {
             Enforcement        = [bool](Get-Prop $a 'EnforcementEnabled')
             Schedule           = [string](Get-Prop $a 'EvaluationSchedule')
             OverrideWindows    = [bool](Get-Prop $a 'OverrideServiceWindows')
-            MonitoredByScom    = [bool](Get-Prop $a 'RaiseMomAlertsOnFailure')
-            GenerateAlert      = $alerts.ContainsKey($uid)
-            AlertThreshold     = $(if ($alerts.ContainsKey($uid)) { [int]$alerts[$uid] } else { 0 })
-            Compliant          = $(if ($null -ne $summary) { [int](Get-Prop $summary 'NumberSuccess') } else { 0 })
-            NonCompliant       = $(if ($null -ne $summary) { [int](Get-Prop $summary 'NumberOther') } else { 0 })
-            Failed             = $(if ($null -ne $summary) { [int](Get-Prop $summary 'NumberErrors') } else { 0 })
-            Unknown            = $(if ($null -ne $summary) { [int](Get-Prop $summary 'NumberUnknown') + [int](Get-Prop $summary 'NumberInProgress') } else { 0 })
-            Targeted           = $(if ($null -ne $summary) { [int](Get-Prop $summary 'NumberTargeted') } else { 0 })
-            Summarized         = $(if ($null -ne $summary) { Get-Time (Get-Prop $summary 'SummarizationTime') } else { $null })
+            MonitoredByScom    = $(if ($null -ne $alert) { $alert.Scom } else { $false })
+            GenerateAlert      = $null -ne $alert
+            AlertThreshold     = $(if ($null -ne $alert) { $alert.Threshold } else { 0 })
+            AlertAfter         = $(if ($null -ne $alert) { $alert.After } else { $null })
+            Compliant          = Get-Count $summary 'NumberSuccess'
+            NonCompliant       = Get-Count $summary 'NumberOther'
+            Failed             = Get-Count $summary 'NumberErrors'
+            Unknown            = Get-Count $summary 'NumberUnknown', 'NumberInProgress'
+            Targeted           = Get-Count $summary 'NumberTargeted'
+            Summarized         = $(if ($null -ne $summary) { Get-Time (Get-Prop $summary 'SummarizationTime') -Utc } else { $null })
             Modified           = Get-Time (Get-Prop $a 'LastModificationTime')
         }
     }
+}
+
+# The SMS_Alert of a baseline deployment: -MonitoredByScom is stored here (not in
+# SMS_BaselineAssignment.RaiseMomAlertsOnFailure), the threshold is parameter 3 and
+# -PostponeDateTime is SkipUntil.
+function ConvertFrom-Alert {
+    param([object]$Alert)
+    $threshold = 0
+    try {
+        $xml = [xml][string](Get-Prop $Alert 'ParameterValues')
+        $node = @($xml.Parameters.Parameter | Where-Object { $_.index -eq '3' }) | Select-Object -First 1
+        if ($null -ne $node) { [void][int]::TryParse([string]$node.InnerText, [ref]$threshold) }
+    } catch { $threshold = 0 }
+    @{ Threshold = $threshold; Scom = [bool](Get-Prop $Alert 'MonitoredByScom'); After = Get-Time (Get-Prop $Alert 'SkipUntil') }
 }
 
 function Get-NodeText {
@@ -195,17 +256,21 @@ function ConvertTo-SettingRows {
 switch ($Operation) {
     'Items' {
         $baselineIds = @(Get-Baselines | ForEach-Object { [long]$_.CI_ID })
-        $count = @{}
+        $lineage = Get-Lineage
+        $holders = @{}
         foreach ($r in Get-Relations $baselineIds) {
             $to = [long]$r.ToCIID
-            if ($count.ContainsKey($to)) { $count[$to]++ } else { $count[$to] = 1 }
+            $model = if ($lineage.ContainsKey($to)) { $lineage[$to] } else { $to }
+            if (-not $holders.ContainsKey($model)) { $holders[$model] = New-Object System.Collections.Generic.HashSet[long] }
+            [void]$holders[$model].Add([long]$r.FromCIID)
         }
         foreach ($ci in Invoke-Query 'SELECT CI_ID, LocalizedDisplayName, LocalizedDescription, CIVersion, DateLastModified, CIType_ID, IsUserDefined FROM SMS_ConfigurationItemLatest WHERE CIType_ID = 3') {
             if (-not [bool](Get-Prop $ci 'IsUserDefined')) { continue }
             $id = [long]$ci.CI_ID
+            $model = if ($lineage.ContainsKey($id)) { $lineage[$id] } else { $id }
             [pscustomobject]@{
                 Kind = 'Item'; CiId = [string]$id; Name = [string]$ci.LocalizedDisplayName; Description = [string](Get-Prop $ci 'LocalizedDescription')
-                Revision = [int](Get-Prop $ci 'CIVersion'); BaselineCount = $(if ($count.ContainsKey($id)) { [int]$count[$id] } else { 0 })
+                Revision = [int](Get-Prop $ci 'CIVersion'); BaselineCount = $(if ($holders.ContainsKey($model)) { [int]$holders[$model].Count } else { 0 })
                 Modified = Get-Time (Get-Prop $ci 'DateLastModified')
             }
         }
@@ -230,7 +295,7 @@ switch ($Operation) {
                 Kind = 'Baseline'; BaselineId = [string]$id; Name = [string]$b.LocalizedDisplayName; Description = [string](Get-Prop $b 'LocalizedDescription')
                 Revision = [int](Get-Prop $b 'CIVersion'); ItemCount = $(if ($items.ContainsKey($id)) { [int]$items[$id] } else { 0 })
                 DeploymentCount = $(if ($deployments.ContainsKey($id)) { [int]$deployments[$id] } else { 0 })
-                Compliant = [int](Get-Prop $b 'ComplianceCount'); NonCompliant = [int](Get-Prop $b 'NonComplianceCount'); Failed = [int](Get-Prop $b 'FailureCount')
+                Compliant = Get-Count $b 'ComplianceCount'; NonCompliant = Get-Count $b 'NonComplianceCount'; Failed = Get-Count $b 'FailureCount'
                 Modified = Get-Time (Get-Prop $b 'DateLastModified')
             }
         }
@@ -238,15 +303,21 @@ switch ($Operation) {
     'Deployments' {
         $assignments = @(Get-Assignments $AssignmentId)
         if ($BaselineId -gt 0) { $assignments = @($assignments | Where-Object { @(Get-Prop $_ 'AssignedCIs') -contains $BaselineId }) }
-        ConvertTo-DeploymentRows $assignments
+        ConvertTo-DeploymentRows $assignments -Scoped:($AssignmentId -gt 0 -or $BaselineId -gt 0)
     }
     'Settings' {
-        # A setting change can give the CI a new CI_ID; the cmdlet resolves an older ID to the latest one.
+        # A setting change can give the CI a new CI_ID; the cmdlet resolves an older ID to the latest
+        # one, and baselines keep referencing the CI_ID of the revision they were made with.
         $ci = Get-CMConfigurationItem -Id ([int]$CiId) -WarningAction SilentlyContinue | Select-Object -First 1
         if ($null -eq $ci) { return }
         $latest = [long]$ci.CI_ID
-        $baselineIds = @(Invoke-InQuery 'SELECT FromCIID, ToCIID, RelationType FROM SMS_CIRelation' 'ToCIID' @($latest) |
-            Where-Object { [int](Get-Prop $_ 'RelationType') -in 1, 2, 3, 4 } | ForEach-Object { [long]$_.FromCIID })
+        $lineageIds = @($latest)
+        $model = Get-Prop $ci 'ModelID'
+        if ($null -ne $model -and [long]$model -gt 0) {
+            $lineageIds += @(Invoke-Query ('SELECT CI_ID, ModelID FROM SMS_ConfigurationItem WHERE ModelID = ' + [string][long]$model) | ForEach-Object { [long]$_.CI_ID })
+        }
+        $baselineIds = @(Invoke-InQuery 'SELECT FromCIID, ToCIID, RelationType FROM SMS_CIRelation' 'ToCIID' $lineageIds |
+            Where-Object { [int](Get-Prop $_ 'RelationType') -in 1, 2, 3, 4 } | ForEach-Object { [long]$_.FromCIID } | Sort-Object -Unique)
         $deployed = 0
         if ($baselineIds.Count -gt 0) {
             foreach ($a in Invoke-Query 'SELECT AssignmentID, AssignedCIs FROM SMS_BaselineAssignment') {
@@ -258,25 +329,37 @@ switch ($Operation) {
         if ($xml) { ConvertTo-SettingRows ([xml]$xml) }
     }
     'Snapshot' {
+        # ConfigMgr compares object names without case, so a name that differs only in case is the same name.
+        if ($WithIds) {
+            [pscustomobject]@{
+                Kind = 'SnapshotInfo'; Now = (Get-Date).ToUniversalTime().ToString('o'); User = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+                ItemIds = @(Invoke-Query 'SELECT CI_ID FROM SMS_ConfigurationItem WHERE CIType_ID = 3' | ForEach-Object { [string]$_.CI_ID })
+                BaselineIds = @(Invoke-Query 'SELECT CI_ID FROM SMS_ConfigurationBaselineInfo' | ForEach-Object { [string]$_.CI_ID })
+                DeploymentIds = @(Invoke-Query 'SELECT AssignmentID FROM SMS_BaselineAssignment' | ForEach-Object { [string]$_.AssignmentID })
+            }
+        }
         foreach ($name in @($ItemNames | Sort-Object -Unique)) {
             foreach ($ci in @(Get-CMConfigurationItem -Name $name -Fast)) {
-                if ($null -eq $ci -or [string]$ci.LocalizedDisplayName -cne $name) { continue }
-                [pscustomobject]@{ Kind = 'FoundItem'; Id = [string]$ci.CI_ID; Name = $name; Revision = [int]$ci.CIVersion; Description = [string]$ci.LocalizedDescription }
+                if ($null -eq $ci -or [string]$ci.LocalizedDisplayName -ne $name) { continue }
+                [pscustomobject]@{ Kind = 'FoundItem'; Id = [string]$ci.CI_ID; Name = [string]$ci.LocalizedDisplayName; Revision = [int]$ci.CIVersion; Description = [string]$ci.LocalizedDescription
+                    Created = Get-Time (Get-Prop $ci 'DateCreated'); CreatedBy = [string](Get-Prop $ci 'CreatedBy') }
             }
         }
         $baselineIds = @()
         foreach ($name in @($BaselineNames | Sort-Object -Unique)) {
             foreach ($b in @(Get-CMBaseline -Name $name -Fast)) {
-                if ($null -eq $b -or [string]$b.LocalizedDisplayName -cne $name) { continue }
+                if ($null -eq $b -or [string]$b.LocalizedDisplayName -ne $name) { continue }
                 $baselineIds += [long]$b.CI_ID
-                [pscustomobject]@{ Kind = 'FoundBaseline'; Id = [string]$b.CI_ID; Name = $name; Revision = [int]$b.CIVersion; Description = [string]$b.LocalizedDescription }
+                [pscustomobject]@{ Kind = 'FoundBaseline'; Id = [string]$b.CI_ID; Name = [string]$b.LocalizedDisplayName; Revision = [int]$b.CIVersion; Description = [string]$b.LocalizedDescription
+                    Created = Get-Time (Get-Prop $b 'DateCreated'); CreatedBy = [string](Get-Prop $b 'CreatedBy') }
             }
         }
         if ($baselineIds.Count -gt 0) {
-            foreach ($a in Invoke-Query 'SELECT AssignmentID, AssignedCIs, TargetCollectionID FROM SMS_BaselineAssignment') {
+            foreach ($a in Invoke-Query 'SELECT AssignmentID, AssignedCIs, TargetCollectionID, CreationTime, LastModifiedBy FROM SMS_BaselineAssignment') {
                 foreach ($assigned in @(Get-Prop $a 'AssignedCIs')) {
                     if ($baselineIds -contains [long]$assigned) {
-                        [pscustomobject]@{ Kind = 'FoundDeployment'; Id = [string]$a.AssignmentID; BaselineId = [string]$assigned; CollectionId = [string]$a.TargetCollectionID }
+                        [pscustomobject]@{ Kind = 'FoundDeployment'; Id = [string]$a.AssignmentID; BaselineId = [string]$assigned; CollectionId = [string]$a.TargetCollectionID
+                            Created = Get-Time (Get-Prop $a 'CreationTime'); CreatedBy = [string](Get-Prop $a 'LastModifiedBy') }
                     }
                 }
             }
@@ -284,8 +367,8 @@ switch ($Operation) {
         foreach ($name in @($CollectionNames | Sort-Object -Unique)) {
             if ($name -match '[\*\?\[\]]') { continue }
             foreach ($c in @(Get-CMCollection -Name $name)) {
-                if ($null -eq $c -or [string]$c.Name -cne $name) { continue }
-                [pscustomobject]@{ Kind = 'FoundCollection'; Id = [string]$c.CollectionID; Name = $name; CollectionType = [int](Get-Prop $c 'CollectionType'); Members = [int](Get-Prop $c 'MemberCount') }
+                if ($null -eq $c -or [string]$c.Name -ne $name) { continue }
+                [pscustomobject]@{ Kind = 'FoundCollection'; Id = [string]$c.CollectionID; Name = [string]$c.Name; CollectionType = [int](Get-Prop $c 'CollectionType'); Members = [int](Get-Prop $c 'MemberCount') }
             }
         }
     }

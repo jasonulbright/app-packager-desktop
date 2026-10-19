@@ -8,13 +8,18 @@ namespace ApplicationPackagerEngine.Tests.Compliance;
 /// <summary>
 /// A ConfigMgr site in a child Windows PowerShell: stub cmdlets over a JSON state that behave as
 /// the lab site does (a setting change gives the CI a new CI_ID and Get-CMConfigurationItem -Id
-/// resolves an older ID to it; setting names need not be unique and Remove-CMComplianceSetting
-/// removes every setting with the name; a DateTime setting with remediation is not stored and no
-/// error is reported; a script setting refuses StringArray; ConfigMgr holds two deployments of one
-/// baseline to one collection; New-CMBaselineDeployment returns another deployment than the one it
-/// made; names are matched exactly). Each listed failure ("create:BaselineId", "remove:AssignmentId",
-/// "set:AssignmentId", "add:SettingName", "removesetting:SettingName", "rename:SettingName",
-/// "tag:BaselineId", "removebaseline:Id", "removeitem:Id", "query") happens once, also across runs.
+/// resolves an older ID to it, while a baseline keeps referencing the CI_ID it was made with;
+/// setting names need not be unique and Remove-CMComplianceSetting removes every setting with the
+/// name; a DateTime setting with remediation is not stored and no error is reported; a script
+/// setting refuses StringArray; ConfigMgr holds two deployments of one baseline to one collection;
+/// New-CMBaselineDeployment returns another deployment than the one it made, ignores
+/// -OverrideServiceWindow without remediation and stores -MonitoredByScom and -PostponeDateTime on
+/// the alert; SummarizationTime comes back as UTC with an unspecified kind; names are matched
+/// without case). Each listed failure ("create:BaselineId", "after-create:BaselineId",
+/// "remove:AssignmentId", "after-remove:AssignmentId", "set:AssignmentId", "add:SettingName",
+/// "after-add:SettingName", "set:SettingName", "after-set:SettingName", "removesetting:SettingName",
+/// "rename:SettingName", "tag:BaselineId", "removebaseline:Id", "removeitem:Id", "query") happens
+/// once, also across runs.
 /// It runs the embedded Compliance scripts under strict mode as the session host does.
 /// </summary>
 internal sealed class StubComplianceSite : IConfigMgrSession
@@ -33,11 +38,19 @@ internal sealed class StubComplianceSite : IConfigMgrSession
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
         function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove($Key)) { throw 'The SMS Provider reported an error: SECRET-DETAIL-1234.' } }
         function global:L([object]$List) { $r = [System.Collections.Generic.List[object]]::new(); foreach ($x in @($List)) { if ($null -ne $x) { $r.Add($x) } }; return ,$r }
+        $global:Me = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $global:Stamp = (Get-Date).ToUniversalTime().ToString('o')
+        function global:Born([object]$O) {
+            if ($null -eq $O.PSObject.Properties['Created']) { $O | Add-Member -NotePropertyName Created -NotePropertyValue $global:Stamp }
+            if ($null -eq $O.PSObject.Properties['CreatedBy']) { $O | Add-Member -NotePropertyName CreatedBy -NotePropertyValue $global:Me }
+        }
+        function global:Utc([object]$O) { [datetime]::Parse([string]$O.Created, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal).ToLocalTime() }
         $global:Items = L $state.Items
-        foreach ($i in $global:Items) { $i.Settings = L (V $i 'Settings' @()) }
+        foreach ($i in $global:Items) { $i.Settings = L (V $i 'Settings' @()); Born $i; if ($null -eq $i.PSObject.Properties['Model']) { $i | Add-Member -NotePropertyName Model -NotePropertyValue ([string]$i.Id) } }
         $global:Baselines = L $state.Baselines
-        foreach ($b in $global:Baselines) { $b.Items = @(V $b 'Items' @()) }
+        foreach ($b in $global:Baselines) { $b.Items = @(V $b 'Items' @()); Born $b }
         $global:Assignments = L $state.Assignments
+        foreach ($a in $global:Assignments) { Born $a }
         $global:Collections = L $state.Collections
         $global:Aliases = @{}
         foreach ($a in @(V $state 'Aliases' @())) { if ($null -ne $a) { $global:Aliases[[string]$a.From] = [string]$a.To } }
@@ -46,8 +59,8 @@ internal sealed class StubComplianceSite : IConfigMgrSession
         function global:Bump-Ci([object]$Ci) {
             $old = [string]$Ci.Id; $new = [string]$global:Next; $global:Next++
             $global:Aliases[$old] = $new; $Ci.Id = $new; $Ci.Version = [int]$Ci.Version + 1
-            foreach ($b in $global:Baselines) { $b.Items = @($b.Items | ForEach-Object { if ([string]$_ -eq $old) { $new } else { $_ } }) }
         }
+        function global:Ci-Ids([object]$Ci) { @([string]$Ci.Id) + @($global:Aliases.Keys | Where-Object { (Resolve-Ci $_) -eq [string]$Ci.Id }) }
         function global:Sdm-Type([string]$Type) { switch ($Type) { 'Integer' { 'Int64' } 'FloatingPoint' { 'Double' } default { $Type } } }
         function global:Hive-Name([string]$Hive) { switch ($Hive) { 'LocalMachine' { 'HKEY_LOCAL_MACHINE' } 'CurrentUser' { 'HKEY_CURRENT_USER' } 'ClassesRoot' { 'HKEY_CLASSES_ROOT' } 'CurrentConfig' { 'HKEY_CURRENT_CONFIG' } 'Users' { 'HKEY_USERS' } default { $Hive } } }
         function global:New-Xml([object]$Ci) {
@@ -86,7 +99,8 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             return $x.OuterXml
         }
         function global:Ci-Object([object]$Ci, [switch]$Lazy) {
-            $o = [pscustomobject]@{ CI_ID = [long]$Ci.Id; LocalizedDisplayName = [string]$Ci.Name; LocalizedDescription = [string](V $Ci 'Description' ''); CIVersion = [int]$Ci.Version; DateLastModified = [datetime]'2026-10-01T10:00:00Z' }
+            $o = [pscustomobject]@{ CI_ID = [long]$Ci.Id; LocalizedDisplayName = [string]$Ci.Name; LocalizedDescription = [string](V $Ci 'Description' ''); CIVersion = [int]$Ci.Version; DateLastModified = [datetime]'2026-10-01T10:00:00Z'
+                ModelID = [long]$Ci.Model; DateCreated = (Utc $Ci); CreatedBy = [string]$Ci.CreatedBy }
             if ($Lazy) { $o | Add-Member -NotePropertyName SDMPackageXML -NotePropertyValue (New-Xml $Ci) }
             return $o
         }
@@ -100,7 +114,7 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             [CmdletBinding()] param([int]$Id, [string]$Name, [switch]$Fast)
             foreach ($b in $global:Baselines) {
                 if (($PSBoundParameters.ContainsKey('Id') -and [string]$b.Id -eq [string]$Id) -or ($PSBoundParameters.ContainsKey('Name') -and [string]$b.Name -like $Name)) {
-                    [pscustomobject]@{ CI_ID = [long]$b.Id; LocalizedDisplayName = [string]$b.Name; LocalizedDescription = [string](V $b 'Description' ''); CIVersion = [int](V $b 'Version' 1) }
+                    [pscustomobject]@{ CI_ID = [long]$b.Id; LocalizedDisplayName = [string]$b.Name; LocalizedDescription = [string](V $b 'Description' ''); CIVersion = [int](V $b 'Version' 1); DateCreated = (Utc $b); CreatedBy = [string]$b.CreatedBy }
                 }
             }
         }
@@ -124,13 +138,16 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             Test-Fail ('after-remove:' + [string]$InputObject.AssignmentID)
         }
         function global:New-CMBaselineDeployment {
-            [CmdletBinding()] param([int]$Id, [string]$CollectionId, [bool]$EnableEnforcement, [bool]$OverrideServiceWindow, [bool]$GenerateAlert, [int]$ParameterValue, [bool]$MonitoredByScom, [object]$Schedule)
+            [CmdletBinding()] param([int]$Id, [string]$CollectionId, [bool]$EnableEnforcement, [bool]$OverrideServiceWindow, [bool]$GenerateAlert, [int]$ParameterValue, [bool]$MonitoredByScom, [datetime]$PostponeDateTime, [object]$Schedule)
             $global:Log.Add('New-CMBaselineDeployment:' + $CollectionId)
             Test-Fail ('create:' + [string]$Id)
+            if ($OverrideServiceWindow -and -not $EnableEnforcement) { Write-Warning "The parameter 'OverrideServiceWindow' has been ignored because one or more conditions for its use have not been met." }
             $n = $global:NextAssignment; $global:NextAssignment++
+            $after = $(if ($GenerateAlert -and $PSBoundParameters.ContainsKey('PostponeDateTime')) { $PostponeDateTime.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { '' })
             $global:Assignments.Add([pscustomobject]@{ AssignmentID = $n; UniqueId = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'; BaselineId = [string]$Id; CollectionID = $CollectionId
-                Enforcement = $EnableEnforcement; Schedule = $(if ($null -ne $Schedule) { [string]$Schedule.Token } else { '0001200000100038' }); Override = ($EnableEnforcement -and $OverrideServiceWindow)
-                Mom = $false; Alert = $GenerateAlert; AlertThreshold = $(if ($GenerateAlert) { $ParameterValue } else { 0 }); Summary = $null })
+                Enforcement = $EnableEnforcement; Schedule = $(if ($null -ne $Schedule -and -not $global:Opt.ContainsKey('IgnoreSchedule')) { [string]$Schedule.Token } else { '0001200000100038' }); Override = ($EnableEnforcement -and $OverrideServiceWindow)
+                Mom = ($GenerateAlert -and $MonitoredByScom); Alert = $GenerateAlert; AlertThreshold = $(if ($GenerateAlert) { $ParameterValue } else { 0 }); AlertAfter = $after; Summary = $null
+                Created = (Get-Date).ToUniversalTime().ToString('o'); CreatedBy = $global:Me })
             Test-Fail ('after-create:' + [string]$Id)
             if ($global:Assignments.Count -gt 0) { Assignment-Object $global:Assignments[0] }
         }
@@ -152,7 +169,8 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             [CmdletBinding()] param([int]$Id, [switch]$Force)
             $global:Log.Add('Remove-CMConfigurationItem:' + [string]$Id)
             Test-Fail ('removeitem:' + [string]$Id)
-            if (@($global:Baselines | Where-Object { @($_.Items | ForEach-Object { [string]$_ }) -contains [string]$Id }).Count -gt 0) { throw 'The configuration item cannot be deleted because there are dependent items in use.' }
+            $target = Resolve-Ci ([string]$Id)
+            if (@($global:Baselines | Where-Object { @($_.Items | ForEach-Object { Resolve-Ci ([string]$_) }) -contains $target }).Count -gt 0) { throw 'The configuration item cannot be deleted because there are dependent items in use.' }
             [void]$global:Items.Remove((Get-Ci ([string]$Id)))
         }
         function global:Stub-AddSetting([object]$InputObject, [string]$Kind, [hashtable]$P) {
@@ -171,6 +189,13 @@ internal sealed class StubComplianceSite : IConfigMgrSession
                 DiscoveryLanguage = [string]$P['DiscoveryScriptLanguage']; DiscoveryScript = [string]$P['DiscoveryScriptText']; RemediationLanguage = [string]$P['RemediationScriptLanguage']; RemediationScript = [string]$P['RemediationScriptText']
                 RuleName = [string]$P['RuleName']; Operator = $operator; Values = @($P['ExpectedValue']); Severity = [string]$P['NoncomplianceSeverity']; Remediate = [bool]$P['Remediate']; Report = [bool]$P['ReportNoncompliance'] })
             Bump-Ci $ci
+            if ($global:Opt.ContainsKey('EditOnAdd')) {
+                $edit = ([string]$global:Opt['EditOnAdd']).Split('|')
+                if ($edit[0] -eq [string]$P['Name']) {
+                    foreach ($s in @($ci.Settings | Where-Object { [string]$_.Name -eq $edit[1] -and [string]$_.SettingId -ne $id })) { $s.Values = @($edit[2]) }
+                    if ($edit[3] -eq 'bump') { Bump-Ci $ci }
+                }
+            }
             Test-Fail ('after-add:' + [string]$P['Name'])
         }
         function global:Add-CMComplianceSettingRegistryKeyValue {
@@ -188,12 +213,13 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             if ($P.ContainsKey('NewSettingName')) { Test-Fail ('rename:' + [string]$P['SettingName']) } else { Test-Fail ('set:' + [string]$P['SettingName']) }
             foreach ($s in $matches) {
                 if ($P.ContainsKey('NewSettingName')) { $s.Name = [string]$P['NewSettingName'] }
-                foreach ($k in 'Description', 'Hive', 'KeyName', 'ValueName', 'Is64Bit', 'RemediateDword') { if ($P.ContainsKey($k)) { $s.$k = $P[$k] } }
+                foreach ($k in 'Description', 'Hive', 'KeyName', 'ValueName', 'Is64Bit', 'RemediateDword') { if ($P.ContainsKey($k) -and -not ($k -eq 'KeyName' -and $global:Opt.ContainsKey('SetIgnoresKey'))) { $s.$k = $P[$k] } }
                 if ($P.ContainsKey('DiscoveryScriptText')) { $s.DiscoveryScript = [string]$P['DiscoveryScriptText']; $s.DiscoveryLanguage = [string]$P['DiscoveryScriptLanguage'] }
                 if ($P.ContainsKey('RemediationScriptText')) { $s.RemediationScript = [string]$P['RemediationScriptText']; $s.RemediationLanguage = [string]$P['RemediationScriptLanguage'] }
                 if ($P.ContainsKey('RemoveRemediationScript')) { $s.RemediationScript = ''; $s.RemediationLanguage = '' }
             }
             Bump-Ci $ci
+            Test-Fail ('after-set:' + [string]$P['SettingName'])
         }
         function global:Set-CMComplianceSettingRegistryKeyValue { [CmdletBinding()] param([object]$InputObject, [string]$SettingName, [string]$NewSettingName, [string]$Description, [string]$Hive, [string]$KeyName, [string]$ValueName, [bool]$Is64Bit, [bool]$RemediateDword) $global:Log.Add('Set-Registry'); Stub-SetSetting $InputObject $PSBoundParameters }
         function global:Set-CMComplianceSettingScript { [CmdletBinding()] param([object]$InputObject, [string]$SettingName, [string]$NewSettingName, [string]$Description, [bool]$Is64Bit, [string]$DiscoveryScriptLanguage, [string]$DiscoveryScriptText, [string]$RemediationScriptLanguage, [string]$RemediationScriptText, [switch]$RemoveRemediationScript) $global:Log.Add('Set-Script'); Stub-SetSetting $InputObject $PSBoundParameters }
@@ -208,10 +234,18 @@ internal sealed class StubComplianceSite : IConfigMgrSession
         function global:Invoke-CMWmiQuery {
             [CmdletBinding()] param([string]$Query, [string]$Option)
             $global:Log.Add('Query')
+            $global:Log.Add('Q:' + $Query)
             Test-Fail 'query'
+            function InList([string]$Text, [string]$Property) { if ($Text -match ($Property + ' IN \(([^)]*)\)')) { return ,@([regex]::Matches($Matches[1], "[\w{}-]+") | ForEach-Object { $_.Value }) }; return $null }
+            function UtcAsStored([string]$Text) { [datetime]::SpecifyKind([datetime]::Parse($Text, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal), [DateTimeKind]::Unspecified) }
+            $missing = $global:Opt.ContainsKey('MissingCounts')
             if ($Query -match 'FROM SMS_ConfigurationBaselineInfo WHERE CI_ID = (\d+)') { return @($global:Baselines | Where-Object { [string]$_.Id -eq $Matches[1] } | ForEach-Object { [pscustomobject]@{ CI_ID = [long]$_.Id } }) }
             if ($Query -match 'FROM SMS_ConfigurationBaselineInfo') {
-                return @($global:Baselines | ForEach-Object { [pscustomobject]@{ CI_ID = [long]$_.Id; CI_UniqueID = 'B' + $_.Id; LocalizedDisplayName = [string]$_.Name; LocalizedDescription = [string](V $_ 'Description' ''); CIVersion = [int](V $_ 'Version' 1); DateLastModified = [datetime]'2026-10-01T10:00:00Z'; ComplianceCount = [int](V $_ 'Compliant' 0); NonComplianceCount = [int](V $_ 'NonCompliant' 0); FailureCount = [int](V $_ 'Failed' 0) } })
+                $only = InList $Query 'CI_ID'
+                return @($global:Baselines | Where-Object { $null -eq $only -or $only -contains [string]$_.Id } | ForEach-Object {
+                    $row = [pscustomobject]@{ CI_ID = [long]$_.Id; CI_UniqueID = 'B' + $_.Id; LocalizedDisplayName = [string]$_.Name; LocalizedDescription = [string](V $_ 'Description' ''); CIVersion = [int](V $_ 'Version' 1); DateLastModified = [datetime]'2026-10-01T10:00:00Z' }
+                    if (-not $missing) { $row | Add-Member -NotePropertyMembers @{ ComplianceCount = [int](V $_ 'Compliant' 0); NonComplianceCount = [int](V $_ 'NonCompliant' 0); FailureCount = [int](V $_ 'Failed' 0) } }
+                    $row })
             }
             if ($Query -match 'FROM SMS_CIRelation WHERE (FromCIID|ToCIID) IN \(([\d,]+)\)') {
                 $side = $Matches[1]; $ids = $Matches[2] -split ','
@@ -220,19 +254,32 @@ internal sealed class StubComplianceSite : IConfigMgrSession
                     if (($side -eq 'FromCIID' -and $ids -contains [string]$b.Id) -or ($side -eq 'ToCIID' -and $ids -contains [string]$i)) { $rel } } })
             }
             if ($Query -match 'FROM SMS_ConfigurationItemLatest WHERE CIType_ID = 3') { return @($global:Items | ForEach-Object { [pscustomobject]@{ CI_ID = [long]$_.Id; LocalizedDisplayName = [string]$_.Name; LocalizedDescription = [string](V $_ 'Description' ''); CIVersion = [int]$_.Version; DateLastModified = [datetime]'2026-10-01T10:00:00Z'; CIType_ID = 3; IsUserDefined = $true } }) }
+            if ($Query -match 'FROM SMS_ConfigurationItem WHERE') {
+                $rows = @(foreach ($ci in $global:Items) { foreach ($id in Ci-Ids $ci) { [pscustomobject]@{ CI_ID = [long]$id; ModelID = [long]$ci.Model } } })
+                if ($Query -match 'WHERE ModelID = (\d+)') { $m = $Matches[1]; return @($rows | Where-Object { [string]$_.ModelID -eq $m }) }
+                return $rows
+            }
             if ($Query -match 'FROM SMS_BaselineAssignment') {
-                $rows = @($global:Assignments | ForEach-Object { [pscustomobject]@{ AssignmentID = [long]$_.AssignmentID; AssignmentUniqueID = [string]$_.UniqueId; AssignmentName = 'A'; AssignedCIs = @([long]$_.BaselineId); TargetCollectionID = [string]$_.CollectionID; EnforcementEnabled = [bool]$_.Enforcement; EvaluationSchedule = [string]$_.Schedule; OverrideServiceWindows = [bool]$_.Override; RaiseMomAlertsOnFailure = [bool]$_.Mom; LastModificationTime = [datetime]'2026-10-01T10:00:00Z' } })
+                $rows = @($global:Assignments | ForEach-Object { [pscustomobject]@{ AssignmentID = [long]$_.AssignmentID; AssignmentUniqueID = [string]$_.UniqueId; AssignmentName = 'A'; AssignedCIs = @([long]$_.BaselineId); TargetCollectionID = [string]$_.CollectionID; EnforcementEnabled = [bool]$_.Enforcement; EvaluationSchedule = [string]$_.Schedule; OverrideServiceWindows = [bool]$_.Override; RaiseMomAlertsOnFailure = $false; LastModificationTime = [datetime]'2026-10-01T10:00:00Z'; CreationTime = (Utc $_); LastModifiedBy = [string]$_.CreatedBy } })
                 if ($Query -match 'WHERE AssignmentID = (\d+)') { $id = $Matches[1]; return @($rows | Where-Object { [string]$_.AssignmentID -eq $id }) }
                 if ($Query -match "WHERE TargetCollectionID = '(\w+)'") { $c = $Matches[1]; return @($rows | Where-Object { $_.TargetCollectionID -eq $c }) }
                 return $rows
             }
             if ($Query -match 'FROM SMS_DeploymentSummary WHERE FeatureType = 6') {
-                return @($global:Assignments | Where-Object { $null -ne (V $_ 'Summary' $null) } | ForEach-Object { $s = $_.Summary
-                    [pscustomobject]@{ AssignmentID = [long]$_.AssignmentID; CollectionName = ''; NumberSuccess = [int](V $s 'Success' 0); NumberErrors = [int](V $s 'Errors' 0); NumberOther = [int](V $s 'Other' 0); NumberInProgress = [int](V $s 'InProgress' 0); NumberUnknown = [int](V $s 'Unknown' 0); NumberTargeted = [int](V $s 'Targeted' 0); SummarizationTime = [datetime](V $s 'Time' '2026-10-01T10:00:00Z'); ModificationTime = [datetime]'2026-10-01T10:00:00Z' } })
+                $only = InList $Query 'AssignmentID'
+                return @($global:Assignments | Where-Object { $null -ne (V $_ 'Summary' $null) -and ($null -eq $only -or $only -contains [string]$_.AssignmentID) } | ForEach-Object { $s = $_.Summary
+                    $row = [pscustomobject]@{ AssignmentID = [long]$_.AssignmentID; CollectionName = ''; NumberSuccess = [int](V $s 'Success' 0); NumberErrors = [int](V $s 'Errors' 0); NumberInProgress = [int](V $s 'InProgress' 0); NumberUnknown = [int](V $s 'Unknown' 0); NumberTargeted = [int](V $s 'Targeted' 0); SummarizationTime = (UtcAsStored ([string](V $s 'Time' '2026-10-01T10:00:00Z'))); ModificationTime = [datetime]'2026-10-01T10:00:00Z' }
+                    if (-not $missing) { $row | Add-Member -NotePropertyName NumberOther -NotePropertyValue ([int](V $s 'Other' 0)) }
+                    $row })
             }
             if ($Query -match 'FROM SMS_Collection WHERE CollectionID IN \((.+)\)') { $ids = @([regex]::Matches($Matches[1], "'(\w+)'") | ForEach-Object { $_.Groups[1].Value }); return @($global:Collections | Where-Object { $ids -contains [string]$_.CollectionID } | ForEach-Object { [pscustomobject]@{ CollectionID = [string]$_.CollectionID; Name = [string]$_.Name } }) }
             if ($Query -match "FROM SMS_Collection WHERE CollectionID = '(\w+)'") { $id = $Matches[1]; return @($global:Collections | Where-Object { [string]$_.CollectionID -eq $id } | ForEach-Object { [pscustomobject]@{ CollectionID = [string]$_.CollectionID; Name = [string]$_.Name; CollectionType = [int](V $_ 'CollectionType' 2); MemberCount = [int](V $_ 'Members' 0) } }) }
-            if ($Query -match 'FROM SMS_Alert WHERE TypeID = 14') { return @($global:Assignments | Where-Object { [bool]$_.Alert } | ForEach-Object { [pscustomobject]@{ TypeInstanceID = [string]$_.UniqueId; ParameterValues = '<Parameters><Parameter index="3" isUserParameter="1" type="int">' + [string]$_.AlertThreshold + '</Parameter></Parameters>' } }) }
+            if ($Query -match 'FROM SMS_Alert WHERE TypeID = 14') {
+                $only = InList $Query 'TypeInstanceID'
+                if ($null -eq $only -and $Query -match "TypeInstanceID = '([^']+)'") { $only = @($Matches[1]) }
+                return @($global:Assignments | Where-Object { [bool]$_.Alert -and ($null -eq $only -or $only -contains [string]$_.UniqueId) } | ForEach-Object { [pscustomobject]@{ TypeInstanceID = [string]$_.UniqueId; ParameterValues = '<Parameters><Parameter index="3" isUserParameter="1" type="int">' + [string]$_.AlertThreshold + '</Parameter></Parameters>'
+                    MonitoredByScom = [bool](V $_ 'Mom' $false); SkipUntil = $(if ([string](V $_ 'AlertAfter' '')) { [datetime]::Parse([string]$_.AlertAfter, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal).ToLocalTime() } else { $null }) } })
+            }
             throw ('Unexpected query: ' + $Query)
         }
 
@@ -299,7 +346,23 @@ internal sealed class StubComplianceSite : IConfigMgrSession
 
     public void SetOption(string name, JsonNode? value) => _state["Options"]!.AsObject()[name] = value;
 
-    public static JsonObject NewState(object[]? items = null, object[]? baselines = null, object[]? assignments = null, object[]? collections = null) =>
+    /// <summary>
+    /// The objects a test starts with were made before any run, by another account; objects a test
+    /// adds later without these values count as made now by the current account.
+    /// </summary>
+    public static JsonObject NewState(object[]? items = null, object[]? baselines = null, object[]? assignments = null, object[]? collections = null)
+    {
+        var state = Initial(items, baselines, assignments, collections);
+        foreach (var key in new[] { "Items", "Baselines", "Assignments" })
+            foreach (var o in ((JsonArray)state[key]!).Select(n => n!.AsObject()))
+            {
+                o["Created"] ??= "2026-10-01T10:00:00Z";
+                o["CreatedBy"] ??= @"CONTOSO\EarlierAdmin";
+            }
+        return state;
+    }
+
+    private static JsonObject Initial(object[]? items, object[]? baselines, object[]? assignments, object[]? collections) =>
         JsonSerializer.SerializeToNode(new
         {
             Items = items ?? [],

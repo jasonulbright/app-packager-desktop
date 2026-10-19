@@ -45,6 +45,7 @@ public static partial class CatalogArguments
         foreach (var unknown in values.Keys.Where(k => entry.Parameters.All(p => p.Name != k)))
             errors.Add($"The builder has no parameter named {Shown(unknown)}.");
         var collectionParameters = entry.CollectionParameters;
+        var skipDeploy = entry.Parameters.FirstOrDefault(p => p.Name == "SkipDeploy" && p.Type == "Switch") is { } skip && IsOn(Effective(skip, values));
         foreach (var p in entry.Parameters)
         {
             var value = Effective(p, values);
@@ -58,7 +59,10 @@ public static partial class CatalogArguments
                 case "Int":
                     if (string.IsNullOrEmpty(value))
                     {
+                        // An absent argument makes the builder use its own default, which the plan would not check.
                         if (p.Required) errors.Add($"Enter a value for {p.Name}.");
+                        else if (!string.IsNullOrEmpty(p.Default) && collectionParameters.Contains(p.Name) && !skipDeploy)
+                            errors.Add($"Select a collection for {p.Name}. Without one the builder deploys to its default collection {p.Default}.");
                         break;
                     }
                     if (CheckValue(p, value, collectionParameters.Contains(p.Name)) is { } reason) { errors.Add(reason); break; }

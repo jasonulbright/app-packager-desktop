@@ -15,7 +15,7 @@ public static partial class DriftTag
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$")]
     private static partial Regex IdRegex();
 
-    [GeneratedRegex(@"^\d+\.\d+\.\d+(\.\d+)?$")]
+    [GeneratedRegex(@"^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}(\.[0-9]{1,9})?$")]
     private static partial Regex VersionRegex();
 
     /// <summary>The longest baseline description ConfigMgr stores.</summary>
@@ -62,11 +62,17 @@ public static partial class DriftTag
         };
     }
 
-    /// <summary>Compares two catalog versions part by part; a missing fourth part counts as zero.</summary>
+    /// <summary>
+    /// Compares two catalog versions part by part; a missing fourth part counts as zero. A part
+    /// that is not a whole number up to <see cref="long.MaxValue"/> counts as larger than any number.
+    /// </summary>
     public static int CompareVersions(string a, string b)
     {
-        var x = a.Split('.').Select(p => long.Parse(p, CultureInfo.InvariantCulture)).Concat([0L]).Take(4).ToArray();
-        var y = b.Split('.').Select(p => long.Parse(p, CultureInfo.InvariantCulture)).Concat([0L]).Take(4).ToArray();
+        static long[] Parts(string v) => v.Split('.')
+            .Select(p => long.TryParse(p, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : long.MaxValue)
+            .Concat([0L, 0L, 0L, 0L]).Take(4).ToArray();
+        var x = Parts(a);
+        var y = Parts(b);
         for (var i = 0; i < 4; i++)
             if (x[i] != y[i]) return x[i].CompareTo(y[i]);
         return 0;
