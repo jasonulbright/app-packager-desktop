@@ -92,33 +92,70 @@ public sealed class ComplianceWriterServiceTests
         Assert.Equal(("MCM00081", true), ((string)back["CollectionID"]!, (bool)back["Enforcement"]!));
     }
 
-    [Fact]
-    public async Task UndoOfDisableRemediationTurnsItOnAgain()
+    /// <summary>Shows the plan as the page does, with the check boxes the plan has, and presses Undo in the plan window.</summary>
+    private static async Task<(ChangePlanOutcome Outcome, CompliancePlan Plan)> RunWithUndoAsync(ComplianceService service, ComplianceChange request)
     {
-        var site = Site();
-        var service = ComplianceDeploymentTests.Service(site);
-        var (dialog, plan) = await RunAsync(service, Request(ComplianceChangeKind.SetRemediation, await Row(service, RemediatingId), remediate: false));
-        Assert.Null(plan.Plan.ExtraConfirmation);
-        AssertChanged(dialog);
-        Assert.False((bool)site.Assignment(Remediating)!["Enforcement"]!);
+        SynchronizationContext.SetSynchronizationContext(null);
+        var plan = Plan([await service.PrepareAsync(request, CancellationToken.None)]);
+        var writer = Writer(service);
+        var dialogs = new ScriptedPlanDialogs { RunUndo = true };
+        return (dialogs.Show(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan)), plan);
+    }
 
-        await dialog.UndoCommand.ExecuteAsync(null);
-        AssertChanged(dialog);
-        Assert.True((bool)site.Assignment(Remediating)!["Enforcement"]!);
+    private static void AssertUndoSkippedToThePage(ChangePlanOutcome outcome, CompliancePlan plan)
+    {
+        Assert.True(Assert.Single(outcome.Result!.Items).Succeeded);
+        var undo = Assert.Single(outcome.UndoResult!.Items);
+        Assert.True(undo.Skipped, undo.Message);
+        Assert.Equal(ComplianceWriter.UndoNeedsPageText, undo.Message);
+        Assert.NotNull(plan.Remaining(plan.UndoOutcomes));
     }
 
     [Fact]
-    public async Task UndoOfADeleteOfARemediatingDeploymentCreatesItWithRemediation()
+    public async Task UndoInThePlanWindowOfDisableRemediationDoesNotTurnRemediationOnWithoutTheCheck()
     {
         var site = Site();
         var service = ComplianceDeploymentTests.Service(site);
-        var (dialog, _) = await RunAsync(service, Request(ComplianceChangeKind.DeleteDeployment, await Row(service, RemediatingId)));
-        AssertChanged(dialog);
-        Assert.Null(site.Assignment(Remediating));
+        var (outcome, plan) = await RunWithUndoAsync(service, Request(ComplianceChangeKind.SetRemediation, await Row(service, RemediatingId), remediate: false));
+        Assert.Null(plan.Plan.ExtraConfirmation);
+        AssertUndoSkippedToThePage(outcome, plan);
+        Assert.False((bool)site.Assignment(Remediating)!["Enforcement"]!);
+    }
 
-        await dialog.UndoCommand.ExecuteAsync(null);
-        AssertChanged(dialog);
-        Assert.True((bool)site.Assignment(16777300)!["Enforcement"]!);
+    [Fact]
+    public async Task UndoInThePlanWindowOfADeleteOfARemediatingDeploymentCreatesNothingWithoutTheCheck()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site);
+        var (outcome, plan) = await RunWithUndoAsync(service, Request(ComplianceChangeKind.DeleteDeployment, await Row(service, RemediatingId)));
+        Assert.Null(plan.Plan.ExtraConfirmation);
+        AssertUndoSkippedToThePage(outcome, plan);
+        Assert.Null(site.Assignment(Remediating));
+        Assert.Null(site.Assignment(16777300));
+    }
+
+    [Fact]
+    public async Task UndoInThePlanWindowOfAReassignWhosePlanHadTheCheckMovesTheRemediatingDeploymentBack()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site);
+        var (outcome, plan) = await RunWithUndoAsync(service, Request(ComplianceChangeKind.Reassign, await Row(service, RemediatingId), to: "MCM00080"));
+        Assert.NotNull(plan.Plan.ExtraConfirmation);
+        var undo = Assert.Single(outcome.UndoResult!.Items);
+        Assert.True(undo.Succeeded, undo.Message);
+        var back = site.Assignment(16777301)!;
+        Assert.Equal(("MCM00081", true), ((string)back["CollectionID"]!, (bool)back["Enforcement"]!));
+    }
+
+    [Fact]
+    public async Task UndoInThePlanWindowOfDetectOnlyChangesNeedsNoCheck()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site);
+        var (outcome, _) = await RunWithUndoAsync(service, Request(ComplianceChangeKind.DeleteDeployment, await Row(service, "16777270")));
+        var undo = Assert.Single(outcome.UndoResult!.Items);
+        Assert.True(undo.Succeeded, undo.Message);
+        Assert.False((bool)site.Assignment(16777300)!["Enforcement"]!);
     }
 
     [Fact]
@@ -165,6 +202,8 @@ public sealed class ComplianceWriterServiceTests
         await dialog.ConfirmCommand.ExecuteAsync(null);
 
         Assert.DoesNotContain(dialog.ResultRows, r => r.Succeeded);
+        Assert.NotEqual(ChangePlanViewModel.FailedText, dialog.ResultText);
+        Assert.Equal(ComplianceWriter.NotAcknowledgedText, Assert.Single(dialog.ResultRows).Message);
         Assert.False((bool)site.Assignment(16777270)!["Enforcement"]!);
     }
 }

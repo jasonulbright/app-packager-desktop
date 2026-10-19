@@ -41,7 +41,10 @@ public sealed class ChangePlan
     /// </summary>
     public string? ExtraConfirmation { get; init; }
 
-    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo) { ExtraConfirmation = ExtraConfirmation };
+    /// <summary>The fixed action name the log uses instead of the title, which can hold object names; null logs a generic name.</summary>
+    public string? LogName { get; init; }
+
+    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo) { ExtraConfirmation = ExtraConfirmation, LogName = LogName };
 }
 
 /// <summary>

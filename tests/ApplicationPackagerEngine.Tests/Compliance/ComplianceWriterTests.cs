@@ -12,7 +12,7 @@ public sealed class ComplianceWriterTests
     private static CompliancePlan DeployPlan(ComplianceHarness harness, out ComplianceChange change)
     {
         change = ComplianceRequests.Deploy(harness.Autorun, new Dictionary<string, string> { ["DetectOnly"] = "True" }, ["LAB00010"], false);
-        var (plan, _) = ComplianceCatalogViewModel.BuildDeployPlan(harness.Autorun, change, [harness.Collections.Collections.Single(c => c.CollectionId == "LAB00010")], false, false);
+        var (plan, _) = ComplianceCatalogViewModel.BuildDeployPlan(harness.Autorun, change, harness.Collections.Collections);
         return plan!;
     }
 
@@ -118,7 +118,8 @@ public sealed class ComplianceWriterTests
     {
         var harness = new ComplianceHarness();
         var change = ComplianceRequests.Deploy(harness.Autorun, new Dictionary<string, string>(), ["LAB00010"], true);
-        var (plan, _) = ComplianceCatalogViewModel.BuildDeployPlan(harness.Autorun, change, [harness.Collections.Collections.Single(c => c.CollectionId == "LAB00010")], true, false);
+        var (plan, _) = ComplianceCatalogViewModel.BuildDeployPlan(harness.Autorun, change, harness.Collections.Collections);
+        Assert.NotNull(plan!.Plan.ExtraConfirmation);
         var dialog = new ChangePlanViewModel(plan!.Plan, harness.Writer().RunFor(plan), harness.Writer().UndoFor(plan)) { DestructiveAcknowledged = true };
         await dialog.ConfirmCommand.ExecuteAsync(null);
         Assert.Empty(harness.Service.Applied);

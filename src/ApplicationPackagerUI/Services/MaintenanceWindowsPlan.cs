@@ -27,7 +27,7 @@ public sealed class MaintenancePlan
         Action = action;
         Entries = entries.ToArray();
         if (Entries.All(e => e.Change is null)) throw new ArgumentException("A maintenance plan makes at least one change.", nameof(entries));
-        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo);
+        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo) { LogName = action };
     }
 
     /// <summary>The short action name for the log and the site history, for example "Remove".</summary>

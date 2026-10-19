@@ -203,6 +203,7 @@ public sealed partial class ComplianceCatalogViewModel(ComplianceShared shared) 
             }
             var generation = Shared.Generation;
             Shared.StatusMessage = "Reading the device collections.";
+            Shared.ForgetCollections();
             var collections = await Shared.DeviceCollectionsAsync();
             if (collections is null || generation != Shared.Generation) return;
             Shared.StatusMessage = "";
@@ -238,38 +239,58 @@ public sealed partial class ComplianceCatalogViewModel(ComplianceShared shared) 
     private async Task<bool> DeployAsync(CatalogDeployViewModel form)
     {
         var entry = form.Entry;
-        var targets = form.Targets();
-        var request = ComplianceRequests.Deploy(entry, form.Values(), targets.Select(t => t.CollectionId).ToList(), form.Remediate);
-        var run = await Shared.RunPlanAsync([request], prepared => BuildDeployPlan(entry, prepared[0], targets, form.Remediate, form.SkipDeploy),
+        var request = ComplianceRequests.Deploy(entry, form.Values(), form.Targets().Select(t => t.CollectionId).ToList(), form.Remediate);
+        Shared.ForgetCollections();
+        var collections = await Shared.DeviceCollectionsAsync();
+        if (collections is null)
+        {
+            form.ShowMessage(Shared.StatusMessage);
+            return false;
+        }
+        var run = await Shared.RunPlanAsync([request], prepared => BuildDeployPlan(entry, prepared[0], collections),
             _ => $"{entry.DisplayName} {entry.Version}", form.ShowMessage);
         if (run is not { Outcome.Confirmed: true }) return false;
         await Shared.AfterWriteAsync();
         return true;
     }
 
-    /// <summary>The plan of a catalog deploy: what the builder creates, where it deploys, the mode and the drift tag.</summary>
-    public static (CompliancePlan? Plan, string? Problem) BuildDeployPlan(CatalogEntry entry, ComplianceChange change, IReadOnlyList<CollectionRow> targets,
-        bool remediate, bool skipDeploy)
+    /// <summary>
+    /// The plan of a catalog deploy, made from the prepared change only: its target collections,
+    /// its mode and the Impact lines of the service. <paramref name="collections"/> gives the
+    /// names and member counts of the targets when the service gives no Impact lines.
+    /// </summary>
+    public static (CompliancePlan? Plan, string? Problem) BuildDeployPlan(CatalogEntry entry, ComplianceChange change, IReadOnlyList<CollectionRow> collections)
     {
-        var devices = targets.Sum(t => t.MemberCount);
-        var lines = new List<string>
+        var remediate = ComplianceWriter.NeedsRemediationConfirmation(change);
+        var targets = change.TargetCollectionIds
+            .Select(id => (Id: id, Row: collections.FirstOrDefault(c => string.Equals(c.CollectionId, id, StringComparison.OrdinalIgnoreCase))))
+            .ToList();
+        var distinct = targets.DistinctBy(t => t.Id, StringComparer.OrdinalIgnoreCase).ToList();
+        var devices = distinct.Sum(t => t.Row?.MemberCount ?? 0);
+        List<string> lines;
+        if (change.Impact.Count > 0) lines = [.. change.Impact];
+        else
         {
-            $"Creates configuration items: {string.Join(", ", entry.ProducesConfigurationItems)}.",
-            $"Creates baselines: {string.Join(", ", entry.ProducesBaselines)}."
-        };
-        if (skipDeploy || targets.Count == 0) lines.Add("Deploys to no collection.");
-        else lines.AddRange(targets.Select(t => $"Deploys to {ComplianceText.Target(t.Name, t.CollectionId)}: {ComplianceText.Count(t.MemberCount, "member")} now."));
-        lines.Add(remediate
-            ? $"Mode: {ComplianceText.Remediate}. Clients change these registry values on every device of the target collections: "
-              + string.Join("; ", entry.RegistrySurface.Select(ComplianceText.Registry)) + "."
-            : $"Mode: {ComplianceText.DetectOnly}. Clients report compliance and change nothing.");
-        if (remediate) lines.Add(entry.RebootRequired ? "The devices need a restart after remediation." : "The devices need no restart after remediation.");
-        lines.Add($"Each baseline gets the tag {ComplianceText.DriftTag(entry)} once in its description. The existing description stays.");
-        lines.AddRange(change.Impact);
-        lines.Add("Undo removes the deployments, baselines and configuration items this run creates. An object that existed before the run stays.");
+            lines =
+            [
+                $"Creates configuration items: {string.Join(", ", entry.ProducesConfigurationItems)}.",
+                $"Creates baselines: {string.Join(", ", entry.ProducesBaselines)}."
+            ];
+            if (targets.Count == 0) lines.Add("Deploys to no collection.");
+            else lines.AddRange(targets.Select(t => t.Row is { } row
+                ? $"Deploys to {ComplianceText.Target(row.Name, row.CollectionId)}: {ComplianceText.Count(row.MemberCount, "member")} now."
+                : $"Deploys to collection {t.Id}."));
+            lines.Add(remediate
+                ? $"Mode: {ComplianceText.Remediate}. Clients change these registry values on every device of the target collections: "
+                  + string.Join("; ", entry.RegistrySurface.Select(ComplianceText.Registry)) + "."
+                : $"Mode: {ComplianceText.DetectOnly}. Clients report compliance and change nothing.");
+            if (remediate) lines.Add(entry.RebootRequired ? "The devices need a restart after remediation." : "The devices need no restart after remediation.");
+            lines.Add($"Each baseline gets the tag {ComplianceText.DriftTag(entry)} once in its description. The existing description stays.");
+            lines.Add("Undo removes the deployments, baselines and configuration items this run creates. An object that existed before the run stays.");
+        }
         var item = new ChangePlanItem("Deploy", $"{entry.DisplayName} {entry.Version}", string.Join(" ", lines));
         var extra = !remediate ? null
-            : !skipDeploy && targets.Count > 0 ? RemediationCheck(targets.Count, devices, entry.RebootRequired)
+            : distinct.Count > 0 ? RemediationCheck(distinct.Count, devices, entry.RebootRequired)
             : NoTargetRemediationCheck;
         return (new CompliancePlan("Catalog deploy", $"Deploy {entry.DisplayName}", remediate ? "Deploy with remediation" : "Deploy detect only",
             [CompliancePlanEntry.Write(item, change)], extraConfirmation: extra), null);

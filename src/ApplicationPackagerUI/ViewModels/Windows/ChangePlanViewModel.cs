@@ -236,7 +236,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _log?.Error(LogArea, $"{prefix}{_plan.Title} failed: {SecretMask.Apply(ex.ToString())}");
+            _log?.Error(LogArea, $"{prefix}{_plan.LogName ?? "A change plan"} failed: {SecretMask.Apply(ex.ToString())}");
             result = Partial(reported.Snapshot(), ChangePlanStop.Failed, FailedReason);
             text = FailedText + ReportedBefore(reported.Snapshot(), "failure");
         }

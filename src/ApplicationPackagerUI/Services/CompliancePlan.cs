@@ -29,7 +29,7 @@ public sealed class CompliancePlan
         Action = action;
         Entries = entries.ToArray();
         if (Entries.All(e => e.Change is null)) throw new ArgumentException("A compliance plan makes at least one change.", nameof(entries));
-        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo) { ExtraConfirmation = extraConfirmation };
+        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo) { ExtraConfirmation = extraConfirmation, LogName = action };
     }
 
     /// <summary>True for a plan made of the undo changes of an earlier run.</summary>
@@ -137,17 +137,36 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
     public const string NoResultText = "No result: the service did not report this change.";
     public const string SkippedPrefix = "Skipped";
     public const string RecreatedNote = "A recreated object has a new ID.";
+    public const string NotAcknowledgedText =
+        "Skipped: this change turns remediation on or keeps it on, and the plan did not ask the second confirmation for it. Nothing was changed. Show the plan again.";
+    public const string UndoNeedsPageText =
+        "Skipped: this undo turns remediation on again, and the plan did not ask the second confirmation for it. Nothing was changed. Close this window and select Undo last change on the page; its plan asks for the check box.";
 
-    public ChangePlanRun RunFor(CompliancePlan plan) => (confirmed, progress, ct) => ApplyAsync(confirmed, plan, progress, ct);
+    /// <summary>The run that a closed plan window left working; a completed task when none works.</summary>
+    public Task Running
+    {
+        get { lock (_runLock) return _running; }
+    }
 
-    public ChangePlanRun UndoFor(CompliancePlan plan) => (confirmed, progress, ct) => UndoAsync(confirmed, plan, progress, ct);
+    private readonly object _runLock = new();
+    private Task _running = Task.CompletedTask;
+
+    private Task<ChangePlanResult> Track(Task<ChangePlanResult> run)
+    {
+        lock (_runLock) _running = run;
+        return run;
+    }
+
+    public ChangePlanRun RunFor(CompliancePlan plan) => (confirmed, progress, ct) => Track(ApplyAsync(confirmed, plan, progress, ct));
+
+    public ChangePlanRun UndoFor(CompliancePlan plan) => (confirmed, progress, ct) => Track(UndoAsync(confirmed, plan, progress, ct));
 
     public async Task<ChangePlanResult> ApplyAsync(ConfirmedChangePlan confirmed, CompliancePlan plan, IProgress<ChangePlanItemResult> progress, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(confirmed);
         ArgumentNullException.ThrowIfNull(plan);
         if (!plan.IsConfirmedPlan(confirmed)) throw new InvalidOperationException("The confirmed plan is not the plan of these changes.");
-        var changes = Confirmed(plan.Changes, confirmed.Plan.ExtraConfirmation is not null);
+        var (changes, held) = Confirmed(plan.Changes, confirmed.Plan.ExtraConfirmation is not null);
         plan.ClearOutcomes();
 
         var results = new Dictionary<ChangePlanItem, ChangePlanItemResult>(ReferenceEqualityComparer.Instance);
@@ -159,10 +178,11 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
         }
 
         var reporter = new OutcomeReporter(plan, results, progress, null);
+        foreach (var change in held) reporter.Final(new ComplianceOutcome(change, false, NotAcknowledgedText, null, []));
         var stop = SiteOperationOutcome.Failed;
         try
         {
-            var outcomes = await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
+            IReadOnlyList<ComplianceOutcome> outcomes = changes.Count == 0 ? [] : await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Final(outcome);
             var rows = new ChangePlanResult(plan.Entries.Select(e => results.TryGetValue(e.Item, out var r) ? r : new ChangePlanItemResult(e.Item, false, NoResultText)).ToList());
             var cancelled = ct.IsCancellationRequested && LeftUndone(plan.Entries.Where(e => e.Change is not null).Select(e => e.Item), rows.Items);
@@ -204,9 +224,11 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
         var stop = SiteOperationOutcome.Failed;
         try
         {
-            // The undo restores a state the confirmed run replaced, so a restored remediation needs no second check box.
-            var changes = Confirmed(undo.Select(u => u.Undo).ToList(), true);
-            var outcomes = await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
+            // An undo that restores remediation runs only when this plan asked the second check box; otherwise
+            // the page's own undo plan asks for it.
+            var (changes, held) = Confirmed(undo.Select(u => u.Undo).ToList(), confirmed.Plan.ExtraConfirmation is not null);
+            foreach (var change in held) reporter.Final(new ComplianceOutcome(change, false, UndoNeedsPageText, null, []));
+            IReadOnlyList<ComplianceOutcome> outcomes = changes.Count == 0 ? [] : await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Final(outcome);
             var rows = undo.Select(u => results.TryGetValue(u.Entry.Item, out var r) ? r : new ChangePlanItemResult(u.Entry.Item, false, NoResultText)).ToList();
             var cancelled = ct.IsCancellationRequested && LeftUndone(undo.Select(u => u.Entry.Item), rows);
@@ -232,15 +254,29 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
     }
 
     /// <summary>
-    /// The changes to send: a change that turns remediation on or keeps it on carries the second
-    /// confirmation only when <paramref name="acknowledged"/>; without it the run does not start.
+    /// The changes to send and the changes held back: a change that turns remediation on or keeps
+    /// it on is sent, with the second confirmation, only when <paramref name="acknowledged"/>. A
+    /// setting that remediates carries the confirmation when the plan asked for it.
     /// </summary>
-    internal static IReadOnlyList<ComplianceChange> Confirmed(IReadOnlyList<ComplianceChange> changes, bool acknowledged)
+    internal static (IReadOnlyList<ComplianceChange> Send, IReadOnlyList<ComplianceChange> Held) Confirmed(IReadOnlyList<ComplianceChange> changes, bool acknowledged)
     {
-        if (!acknowledged && changes.Any(NeedsRemediationConfirmation))
-            throw new InvalidOperationException("A plan that turns remediation on needs its second confirmation.");
-        return changes.Select(c => NeedsRemediationConfirmation(c) ? c with { RemediationConfirmed = true } : c).ToList();
+        var send = new List<ComplianceChange>(changes.Count);
+        var held = new List<ComplianceChange>();
+        foreach (var change in changes)
+        {
+            if (NeedsRemediationConfirmation(change))
+            {
+                if (acknowledged) send.Add(change with { RemediationConfirmed = true });
+                else held.Add(change);
+            }
+            else send.Add(acknowledged && RemediatingSetting(change) ? change with { RemediationConfirmed = true } : change);
+        }
+        return (send, held);
     }
+
+    /// <summary>True for an added or edited setting whose rule remediates.</summary>
+    public static bool RemediatingSetting(ComplianceChange change) =>
+        change.Kind is ComplianceChangeKind.AddSetting or ComplianceChangeKind.EditSetting && change.SettingAfter?.Remediate == true;
 
     /// <summary>True when the service refuses the change unless the operator confirmed remediation a second time.</summary>
     public static bool NeedsRemediationConfirmation(ComplianceChange change) => change.Kind switch

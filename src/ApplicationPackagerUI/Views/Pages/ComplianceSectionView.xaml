@@ -105,7 +105,9 @@
 
         <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabCompliance">
             <TabItem Header="Catalog" AutomationProperties.AutomationId="tabCatalog" DataContext="{Binding Catalog}">
-                <Grid Margin="0,12,0,0">
+                <ScrollViewer x:Name="scrollCatalogTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollCatalogTab">
+                <Grid Height="{Binding ViewportHeight, ElementName=scrollCatalogTab}" MinHeight="480">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -140,9 +142,9 @@
                     </WrapPanel>
                     <Grid Grid.Row="3" x:Name="gridCatalogLayout">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="420" />
+                            <ColumnDefinition Width="2*" MinWidth="300" />
                             <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="380" MinWidth="240" />
+                            <ColumnDefinition Width="*" MinWidth="200" />
                         </Grid.ColumnDefinitions>
                         <DataGrid Grid.Column="0" x:Name="dgCatalog" Style="{StaticResource GridBase}" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}"
                                   SelectionMode="Single" AutomationProperties.AutomationId="dgCatalog" AutomationProperties.Name="Catalog entries">
@@ -169,10 +171,13 @@
                         </Border>
                     </Grid>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Live CI/CB" AutomationProperties.AutomationId="tabLive" DataContext="{Binding Live}">
-                <Grid Margin="0,12,0,0">
+                <ScrollViewer x:Name="scrollLiveTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollLiveTab">
+                <Grid Height="{Binding ViewportHeight, ElementName=scrollLiveTab}" MinHeight="540">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" MinHeight="140" />
@@ -195,9 +200,9 @@
                     </WrapPanel>
                     <Grid Grid.Row="1" x:Name="gridLiveLists">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="300" />
+                            <ColumnDefinition Width="*" MinWidth="240" />
                             <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" MinWidth="300" />
+                            <ColumnDefinition Width="*" MinWidth="240" />
                         </Grid.ColumnDefinitions>
                         <DockPanel Grid.Column="0">
                             <TextBlock DockPanel.Dock="Top" Text="Configuration items" Style="{StaticResource FieldLabel}" />
@@ -264,14 +269,17 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Editor" AutomationProperties.AutomationId="tabEditor" DataContext="{Binding Editor}">
-                <Grid Margin="0,12,0,0">
+                <ScrollViewer x:Name="scrollEditorTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollEditorTab">
+                <Grid Height="{Binding ViewportHeight, ElementName=scrollEditorTab}" MinHeight="400">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="320" MinWidth="220" />
+                        <ColumnDefinition Width="*" MinWidth="200" MaxWidth="360" />
                         <ColumnDefinition Width="16" />
-                        <ColumnDefinition Width="*" MinWidth="480" />
+                        <ColumnDefinition Width="2*" MinWidth="340" />
                     </Grid.ColumnDefinitions>
                     <DockPanel Grid.Column="0">
                         <ui:TextBox DockPanel.Dock="Top" Text="{Binding ItemFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name or ID"
@@ -329,10 +337,13 @@
                         </DataGrid>
                     </Grid>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Auditing" AutomationProperties.AutomationId="tabAuditing" DataContext="{Binding Auditing}">
-                <Grid Margin="0,12,0,0">
+                <ScrollViewer x:Name="scrollAuditingTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollAuditingTab">
+                <Grid Height="{Binding ViewportHeight, ElementName=scrollAuditingTab}" MinHeight="400">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -387,6 +398,7 @@
                         </TabItem>
                     </TabControl>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 

@@ -41,6 +41,24 @@ public static class ComplianceText
         : $"Kept values: schedule {row.Schedule}, remediation outside maintenance windows {(s.OverrideServiceWindow ? "allowed" : "not allowed")}, "
           + $"alert {(s.GenerateAlert ? $"below {s.AlertThresholdPercent}% compliance" : "off")}, Operations Manager alerts {(s.MonitoredByScom ? "on" : "off")}.";
 
+    public const int ScriptPlanLines = 20;
+    public const int ScriptPlanCharacters = 2000;
+
+    /// <summary>The script text for a plan: the first lines up to the line and character limits, then the count of characters left out.</summary>
+    public static string Script(string? text)
+    {
+        var value = text ?? "";
+        var cut = 0;
+        for (var line = 0; line < ScriptPlanLines && cut < value.Length; line++)
+        {
+            var end = value.IndexOf('\n', cut);
+            cut = end < 0 ? value.Length : (line == ScriptPlanLines - 1 ? end : end + 1);
+        }
+        if (cut > ScriptPlanCharacters) cut = ScriptPlanCharacters;
+        if (cut >= value.Length) return value;
+        var shown = value[..cut].TrimEnd('\r', '\n');
+        return $"{shown} ... and {value.Length - shown.Length} more characters";
+    }
 
 }
 

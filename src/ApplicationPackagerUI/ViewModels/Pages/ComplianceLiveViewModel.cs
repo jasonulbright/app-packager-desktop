@@ -169,11 +169,11 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
     private void ShowDeploymentsOf()
     {
         var id = SelectedBaseline?.BaselineId;
-        var keep = _selectedDeployments.Select(d => d.Row.DeploymentId).ToHashSet(StringComparer.OrdinalIgnoreCase);
         Replace(Deployments, _deployments.Where(d => id is null || string.Equals(d.BaselineId, id, StringComparison.OrdinalIgnoreCase))
             .OrderBy(d => d.BaselineName, StringComparer.OrdinalIgnoreCase).ThenBy(d => d.CollectionName, StringComparer.OrdinalIgnoreCase)
             .Select(d => new DeploymentGridRow(d)).ToList());
-        SetSelectedDeployments(Deployments.Where(d => keep.Contains(d.Row.DeploymentId)));
+        // The grid deselects a row that Replace swaps for a new one; only the rows it still holds stay selected.
+        SetSelectedDeployments(_selectedDeployments.Where(s => Deployments.Any(d => ReferenceEquals(d, s))));
     }
 
     [RelayCommand]
@@ -247,6 +247,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
         try
         {
             var generation = Shared.Generation;
+            Shared.ForgetCollections();
             var collections = await Shared.DeviceCollectionsAsync();
             if (collections is null || generation != Shared.Generation) return;
             var deployment = selected.Row;
@@ -267,12 +268,13 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
                     var run = await Shared.RunPlanAsync([ComplianceRequests.Reassign(deployment, target.CollectionId)], prepared =>
                     {
                         var change = prepared[0];
+                        var now = change.DeploymentBefore ?? deployment;
                         var detail = Detail(
-                            $"Moves the deployment from {ComplianceText.Target(deployment.CollectionName, deployment.CollectionId)} to {ComplianceText.Target(target.Name, target.CollectionId)} ({ComplianceText.Count(target.MemberCount, "member")} now). Mode stays {ComplianceText.Mode(deployment.RemediateNoncompliant)}. {ComplianceText.DeploymentSettings(change.DeploymentBefore ?? deployment)}",
+                            $"Moves the deployment from {ComplianceText.Target(now.CollectionName, now.CollectionId)} to {ComplianceText.Target(target.Name, target.CollectionId)} ({ComplianceText.Count(target.MemberCount, "member")} now). Mode stays {ComplianceText.Mode(now.RemediateNoncompliant)}. {ComplianceText.DeploymentSettings(now)}",
                             change, ReassignNote);
-                        return (new CompliancePlan("Reassign", $"Reassign {deployment.BaselineName}", "Reassign deployment",
+                        return (new CompliancePlan("Reassign", $"Reassign {now.BaselineName}", "Reassign deployment",
                             [CompliancePlanEntry.Write(new ChangePlanItem("Reassign", Describe(change), detail), change)],
-                            extraConfirmation: deployment.RemediateNoncompliant
+                            extraConfirmation: ComplianceWriter.NeedsRemediationConfirmation(change)
                                 ? $"I understand that remediation changes registry values on every device of {ComplianceText.Target(target.Name, target.CollectionId)} ({ComplianceText.Count(target.MemberCount, "device")} now)."
                                 : null), null);
                     }, Describe, p.ShowMessage);

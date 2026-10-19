@@ -265,7 +265,7 @@ public sealed class ComplianceContractViewModelTests
     {
         var harness = new ComplianceHarness();
         var change = ComplianceRequests.Deploy(harness.SpecExec, new Dictionary<string, string> { ["DetectOnly"] = "False", ["SkipDeploy"] = "True" }, [], true);
-        var (plan, _) = ComplianceCatalogViewModel.BuildDeployPlan(harness.SpecExec, change, [], true, true);
+        var (plan, _) = ComplianceCatalogViewModel.BuildDeployPlan(harness.SpecExec, change, []);
         Assert.Equal(ComplianceCatalogViewModel.NoTargetRemediationCheck, plan!.Plan.ExtraConfirmation);
     }
 }
