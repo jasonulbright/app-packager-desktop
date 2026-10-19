@@ -137,7 +137,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     }
 
     private bool CanUndo() =>
-        _undo is not null && _confirmed is not null && Stage == ChangePlanStage.Done && Outcome.Result is { SucceededCount: > 0 };
+        _undo is not null && _confirmed is not null && Stage == ChangePlanStage.Done && Outcome.Result is { SucceededCount: > 0 } or { PartialCount: > 0 };
 
     [RelayCommand(CanExecute = nameof(CanUndo))]
     private async Task UndoAsync()
