@@ -142,7 +142,7 @@ Your templates and the exported reports are in the `MaintenanceWindows` folder o
 
 ## Collection and Compliance
 
-The **Collection and Compliance** page shows and changes the device collections of the ConfigMgr site, their membership rules, query templates and saved site queries. It connects to the SMS Provider through the ConfigMgr session of the application and makes no other network request. Every change shows a plan first. Nothing changes until you read the plan, select the confirmation box and select the action button. The configuration item and baseline functions of the suite tool Collection and Compliance Manager are not part of this page yet. The **Compliance baselines** button starts that suite tool.
+The **Collection and Compliance** page shows and changes the device collections of the ConfigMgr site, their membership rules, query templates and saved site queries. It connects to the SMS Provider through the ConfigMgr session of the application and makes no other network request. Every change shows a plan first. Nothing changes until you read the plan, select the confirmation box and select the action button. The page has two sections, chosen with the switch at the top right: **Collections** and **Compliance**. The sections below describe Collections first and Compliance after it.
 
 ![The Collections tab with the folder column and the detail panel](docs/images/apd8-cc-collections.png)
 
@@ -187,6 +187,54 @@ The page follows the light and the dark theme.
 
 The exported reports are in the `Collections` folder of the data folder (see [Data and network](#data-and-network)). The page saves the selected tab and the filters for the current Windows user. A folder that is a junction or a symbolic link is refused. Each completed run adds one line to the operation history. The line holds counts and no names or queries.
 
+### Compliance
+
+The **Compliance** section manages configuration items and baselines of the site. It has four tabs: Catalog, Live CI/CB, Editor and Auditing. It needs a console role with Compliance Settings Manager rights. Every change shows a plan first, as in the Collections section.
+
+![The Catalog tab with 16 entries and the details of one entry](docs/images/apd9-comp-catalog.png)
+
+The **Catalog** tab lists the 16 catalog entries that ship with the application. Each entry creates configuration items and baselines for one hardening, compliance or configuration setting. The filters are the text filter, the CVE or plugin ID, and the lists for subcategory, severity, status and operating system. The details show the description, the ID and version, the operating systems, the restart flag, the registry values and the objects that the entry creates.
+
+![The Deploy dialog for the entry SMB Signing Required](docs/images/apd9-comp-deploy.png)
+
+- **Deploy:** the dialog shows one input for each parameter of the entry. The site code and the site server come from your settings. **DetectOnly** is on by default: clients report compliance and change nothing. A collection name cannot contain `*`, `?`, `[` or `]`, because ConfigMgr reads them as wildcards.
+- **Plan:** the plan names the configuration items and the baselines that the entry creates, the collections, their member counts and the mode. A deploy is refused while a configuration item or a baseline with the same name exists, because a second run would make duplicates. A missing collection stops the plan with a message.
+- **Remediation:** a deploy with remediation changes registry values on every device of the collection. The plan lists the registry paths and the number of devices, and the action button stays off until you select the second confirmation box. Enable Remediation, Redeploy, Reassign, the Undo of such changes and a setting that remediates need the same box.
+- **Run:** the entry runs from a private copy in a new folder of the data folder. The application checks the file against its recorded SHA-256 hash right before the run and removes the folder after the run. The run has a time limit, and **Cancel** ends the builder and every process that it started. The plan dialog shows each step while the builder runs. After the builder, the application adds the drift tag `[ccm:<ID>@<version>]` to the baseline description one time.
+- **Undo:** Undo removes the deployments, the baselines and the configuration items that the run created, and only these. An object that existed before the run is never removed. An object that something else uses, for example a deployment that another administrator made during the run, stays, and the message names it. After a Cancel, a baseline can appear a few seconds late. The result then says so, and Undo can be used again later.
+
+![The plan dialog for a deploy with remediation and its confirmation box](docs/images/apd9-comp-plan.png)
+
+The **Live CI/CB** tab lists the configuration items, the baselines and the deployments of the selected baseline. The counts of the baselines show compliant, non-compliant and error devices. The page reads these lists in a fixed number of queries and makes no query for each row.
+
+![The Live CI/CB tab with the deployments of a baseline](docs/images/apd9-comp-live.png)
+
+- **Enable remediation, Disable remediation:** change the mode of the selected deployments. The page reads the stored mode back after the write.
+- **Redeploy:** creates the deployment again. It removes the old deployment only after the new one passes the read back. If the new deployment differs or the write fails, both deployments stay and the message says so.
+- **Reassign:** creates the deployment on another collection first, and removes the old one after the read back.
+- **Delete:** removes the selected deployments. The plan shows their compliance counts. Undo creates them again with a new ID. This also works for a deployment on a built-in collection.
+
+The **Editor** tab shows the settings of one configuration item. **Add**, **Edit** and **Remove** change a registry value setting or a script setting.
+
+![The Edit setting dialog for a registry setting](docs/images/apd9-comp-editor.png)
+
+- **Plan:** the plan shows the old and the new values. ConfigMgr gives the configuration item a new revision with each change, and clients evaluate the new revision. A change of the data type, the rule or the value adds the new setting first and removes the old setting after it. If a step fails, both settings stay and the message names them.
+- **Rules of ConfigMgr:** a DateTime setting with remediation is not stored, so the dialog refuses it. A Boolean value works for script settings only. A StringArray value works for registry settings only. ConfigMgr allows two settings with the same name, and a removal by name removes all of them, so the page uses the setting ID.
+- **Undo:** Undo sets the old values back. A recreated setting has a new ID.
+
+The **Auditing** tab has two lists. **Drift** compares the version in the drift tag of each baseline with the catalog version: Current, Behind or Untagged. A tag that cannot be read shows as Unknown.
+
+![The Drift list with the states Current, Behind and Untagged](docs/images/apd9-comp-drift.png)
+
+**Compliance** shows the compliant, non-compliant, error and unknown counts of each deployment and its last evaluation. A count that ConfigMgr did not report shows `unknown`, not 0. A deployment that no client has reported on shows `never` and Stale. **Export CSV** and **Export HTML** write all rows of both lists, without the filters. **Open folder** opens the reports folder.
+
+![The Compliance list with counts, last evaluation and freshness](docs/images/apd9-comp-compliance.png)
+
+The page follows the light and the dark theme.
+
+![The Live CI/CB tab in the dark theme](docs/images/apd9-comp-dark.png)
+
+The files of a catalog run are in the `Collections` folder of the data folder (see [Data and network](#data-and-network)). Each completed run adds one line to the operation history. The line holds counts and no names or script text.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
