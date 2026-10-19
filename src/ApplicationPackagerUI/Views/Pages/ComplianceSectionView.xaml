@@ -60,6 +60,10 @@
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
 
+            <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+            </Style>
+
             <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
                 <Setter Property="AutoGenerateColumns" Value="False" />
                 <Setter Property="CanUserAddRows" Value="False" />
@@ -76,7 +80,8 @@
                 <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
                 <Setter Property="helpers:DataGridColumnSizing.FixStarWidthsOnResize" Value="True" />
                 <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
-                <Setter Property="CellStyle" Value="{StaticResource FocusableCell}" />
+                <Setter Property="CellStyle" Value="{StaticResource TabStopCell}" />
+                <Setter Property="helpers:DataGridKeyboard.SelectsFocusedRow" Value="True" />
             </Style>
 
             <DataTemplate x:Key="PropertyTemplate">

@@ -26,9 +26,9 @@ namespace ApplicationPackagerEngine.Tests.Compliance;
 public sealed class ComplianceRenderTests
 {
     /// <summary>The main window gives this width to the navigation pane and its border; the page gets the rest.</summary>
-    private const double NavigationPaneWidth = 230;
+    internal const double NavigationPaneWidth = 230;
 
-    private static void WithSection(ApplicationTheme theme, Action<Window, CollectionCompliancePage, ComplianceViewModel, ComplianceHarness> test,
+    internal static void WithSection(ApplicationTheme theme, Action<Window, CollectionCompliancePage, ComplianceViewModel, ComplianceHarness> test,
         double width = 1440 - NavigationPaneWidth, double height = 900 - 48)
     {
         WithApplication(theme, () =>
@@ -49,7 +49,7 @@ public sealed class ComplianceRenderTests
         });
     }
 
-    private static void ShowTab(Window window, ComplianceViewModel viewModel, int tab)
+    internal static void ShowTab(Window window, ComplianceViewModel viewModel, int tab)
     {
         viewModel.SelectedTabIndex = tab;
         Run(viewModel.CurrentTab.LoadTask);
