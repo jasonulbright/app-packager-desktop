@@ -177,8 +177,9 @@ public sealed class ComplianceContractViewModelTests
     {
         Assert.Equal("", new ConfigurationItemGridRow(new ConfigurationItemRow("1", "A", "", 1, -1, 0, null)).SettingCount);
         Assert.Equal("3", new ConfigurationItemGridRow(new ConfigurationItemRow("1", "A", "", 1, 3, 0, null)).SettingCount);
-        Assert.Equal("4 compliant, 2 non-compliant, 1 error",
-            new BaselineGridRow(new BaselineRow("1", "B", "", 1, null, null, 1, 1, null, Compliant: 4, NonCompliant: 2, Failed: 1)).Compliance);
+        var counts = new BaselineGridRow(new BaselineRow("1", "B", "", 1, null, null, 1, 1, null, Compliant: 4, NonCompliant: 2, Failed: 1));
+        Assert.Equal("4 / 2 / 1", counts.Compliance);
+        Assert.Equal("4 compliant, 2 non-compliant, 1 error", counts.ComplianceDetail);
         var setting = new CiSetting(SettingId: "S", Name: "N", Kind: "Registry", DataType: "StringArray", Detail: "", ExpectedValue: "a\nb", Operator: "AllOf");
         Assert.Equal("AllOf a, b", new SettingGridRow(setting).Rule);
     }

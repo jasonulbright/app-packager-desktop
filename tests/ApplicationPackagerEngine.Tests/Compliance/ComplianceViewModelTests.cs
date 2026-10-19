@@ -622,7 +622,7 @@ public sealed class ComplianceViewModelTests
     }
 
     [Fact]
-    public async Task AuditingFiltersByStateAndStaleAndExportsOnlyTheRowsShown()
+    public async Task AuditingFiltersByStateAndStaleAndExportsEveryRowOfBothLists()
     {
         var harness = new ComplianceHarness();
         var viewModel = await harness.OpenAsync(ComplianceViewModel.AuditingTab);
@@ -633,9 +633,11 @@ public sealed class ComplianceViewModelTests
         Assert.Equal(["LSA Protection"], auditing.DriftRows.Select(r => r.BaselineName));
         await auditing.ExportCsvCommand.ExecuteAsync(null);
         var written = harness.Reports.Written.Single();
-        Assert.Single(written.Drift);
-        Assert.Empty(written.Compliance);
-        Assert.Equal([@"C:\data\Collections\Reports"], harness.Dialogs.OpenedFolders);
+        Assert.Equal(["LSA Protection", "SMB Signing Required", "TLS Legacy Disable"], written.Drift.Select(r => r.BaselineName));
+        Assert.Equal(2, written.Compliance.Count);
+        Assert.Equal(@"Saved the CSV report to C:\data\Collections\Reports\compliance.csv: 3 drift rows and 2 compliance rows, all rows of the last read without the filters.",
+            viewModel.Shared.StatusMessage);
+        Assert.Empty(harness.Dialogs.OpenedFolders);
 
         auditing.SelectedTabIndex = ComplianceAuditingViewModel.ComplianceTab;
         auditing.OnlyStale = true;
@@ -645,6 +647,26 @@ public sealed class ComplianceViewModelTests
         await auditing.ExportHtmlCommand.ExecuteAsync(null);
         Assert.Equal(ComplianceAuditingViewModel.ReportFailed("HTML"), viewModel.Shared.StatusMessage);
         Assert.DoesNotContain("disk text", viewModel.Shared.StatusMessage);
+    }
+
+    [Fact]
+    public async Task AnHtmlExportRightAfterACsvExportWritesItsOwnReportAndOpensNoWindow()
+    {
+        var harness = new ComplianceHarness();
+        var viewModel = await harness.OpenAsync(ComplianceViewModel.AuditingTab);
+        var auditing = viewModel.Auditing;
+        Assert.False(auditing.OpenReportsFolderCommand.CanExecute(null));
+        await auditing.ExportCsvCommand.ExecuteAsync(null);
+        Assert.True(auditing.ExportHtmlCommand.CanExecute(null));
+        await auditing.ExportHtmlCommand.ExecuteAsync(null);
+        Assert.Equal(2, harness.Reports.Written.Count);
+        Assert.All(harness.Reports.Written, w => Assert.Equal((3, 2), (w.Drift.Count, w.Compliance.Count)));
+        Assert.StartsWith(@"Saved the HTML report to C:\data\Collections\Reports\compliance.html:", viewModel.Shared.StatusMessage);
+        Assert.Empty(harness.Dialogs.OpenedFolders);
+
+        Assert.True(auditing.OpenReportsFolderCommand.CanExecute(null));
+        auditing.OpenReportsFolderCommand.Execute(null);
+        Assert.Equal([@"C:\data\Collections\Reports"], harness.Dialogs.OpenedFolders);
     }
 
     [Fact]

@@ -60,6 +60,15 @@
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
 
+            <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+            </Style>
+
+            <Style x:Key="CountsCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding ComplianceDetail}" />
+            </Style>
+
             <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
                 <Setter Property="AutoGenerateColumns" Value="False" />
                 <Setter Property="CanUserAddRows" Value="False" />
@@ -76,7 +85,8 @@
                 <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
                 <Setter Property="helpers:DataGridColumnSizing.FixStarWidthsOnResize" Value="True" />
                 <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
-                <Setter Property="CellStyle" Value="{StaticResource FocusableCell}" />
+                <Setter Property="CellStyle" Value="{StaticResource TabStopCell}" />
+                <Setter Property="helpers:DataGridKeyboard.SelectsFocusedRow" Value="True" />
             </Style>
 
             <DataTemplate x:Key="PropertyTemplate">
@@ -88,7 +98,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid SizeChanged="OnSectionSizeChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -228,7 +238,7 @@
                                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="ID" Binding="{Binding BaselineId}" Width="*" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Catalog" Binding="{Binding Catalog}" Width="*" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
-                                    <DataGridTextColumn Header="Compliance" Binding="{Binding Compliance}" Width="1.5*" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Compliance" Binding="{Binding Compliance}" Width="1.5*" MinWidth="96" ElementStyle="{StaticResource CountsCell}" />
                                     <DataGridTextColumn Header="Items" Binding="{Binding ItemCount}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Deployments" Binding="{Binding DeploymentCount}" Width="116" MinWidth="116" ElementStyle="{StaticResource TrimmedCell}" />
                                 </DataGrid.Columns>
@@ -263,7 +273,7 @@
                             <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="104" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Compliant" Binding="{Binding Compliant}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Non-compliant" Binding="{Binding NonCompliant}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Unknown" Binding="{Binding Unknown}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Last evaluated" Binding="{Binding LastEvaluated}" Width="140" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                         </DataGrid.Columns>
@@ -357,9 +367,13 @@
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
                                    AutomationProperties.AutomationId="btnAuditingRefresh" />
                         <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Writes every drift row and every compliance row of the last read to a CSV file. The filters do not apply."
                                    AutomationProperties.AutomationId="btnAuditingCsv" />
                         <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Writes every drift row and every compliance row of the last read to an HTML file. The filters do not apply."
                                    AutomationProperties.AutomationId="btnAuditingHtml" />
+                        <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnAuditingOpenFolder" />
                     </WrapPanel>
                     <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabAuditingViews">
                         <TabItem Header="Drift" AutomationProperties.AutomationId="tabDrift">
@@ -388,7 +402,7 @@
                                         <DataGridTextColumn Header="Collection" Binding="{Binding CollectionName}" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Compliant" Binding="{Binding Compliant}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Non-compliant" Binding="{Binding NonCompliant}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Unknown" Binding="{Binding Unknown}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Last evaluated" Binding="{Binding LastEvaluated}" Width="140" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Freshness" Binding="{Binding Freshness}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
@@ -402,21 +416,24 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="2" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding Shared.HasResults, Converter={StaticResource BoolToVisibility}}"
+        <Border Grid.Row="2" x:Name="pnlComplianceResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding Shared.HasResults, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlComplianceResults">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <DockPanel Grid.Row="0" Margin="0,0,0,8">
                     <ui:Button DockPanel.Dock="Right" Content="Undo last change" Icon="{ui:SymbolIcon ArrowUndo24}" Command="{Binding Shared.UndoLastCommand}"
                                AutomationProperties.AutomationId="btnComplianceUndo" ToolTip="Shows a plan that undoes the last change set."
                                Visibility="{Binding Shared.HasUndo, Converter={StaticResource BoolToVisibility}}" />
+                    <CheckBox DockPanel.Dock="Right" Content="Rows" IsChecked="{Binding Shared.ShowResultRows}" Margin="12,0,12,0" VerticalAlignment="Center"
+                              ToolTip="Show or hide the result of each change under the summary." AutomationProperties.AutomationId="chkComplianceResultRows" />
                     <TextBlock Text="{Binding Shared.ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtComplianceResultSummary" />
                 </DockPanel>
                 <DataGrid Grid.Row="1" Style="{StaticResource GridBase}" ItemsSource="{Binding Shared.LastResults}" MaxHeight="160" SelectionMode="Single"
+                          Visibility="{Binding Shared.ShowResultRows, Converter={StaticResource BoolToVisibility}}"
                           AutomationProperties.AutomationId="dgComplianceResults" AutomationProperties.Name="Results">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />

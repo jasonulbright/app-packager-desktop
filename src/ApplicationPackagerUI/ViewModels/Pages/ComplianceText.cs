@@ -106,7 +106,12 @@ public sealed record BaselineGridRow(BaselineRow Row)
     public string Catalog => Row.CatalogId is null ? "" : $"{Row.CatalogId} {Row.CatalogVersion}".Trim();
     public int ItemCount => Row.ItemCount;
     public int DeploymentCount => Row.DeploymentCount;
-    public string Compliance => Row.CountsKnown ? $"{Row.Compliant} compliant, {Row.NonCompliant} non-compliant, {Row.Failed} error" : ComplianceText.UnknownCount;
+    /// <summary>The compliant, non-compliant and error counts in short form; <see cref="ComplianceDetail"/> names them.</summary>
+    public string Compliance => Row.CountsKnown ? $"{Row.Compliant} / {Row.NonCompliant} / {Row.Failed}" : ComplianceText.UnknownCount;
+
+    public string ComplianceDetail => Row.CountsKnown
+        ? $"{Row.Compliant} compliant, {Row.NonCompliant} non-compliant, {Row.Failed} error"
+        : "The counts are not known: ConfigMgr has no compliance summary for this baseline yet.";
     public string Modified => ComplianceText.Date(Row.Modified);
 
     public override string ToString() => ComplianceText.Target(Name, BaselineId);

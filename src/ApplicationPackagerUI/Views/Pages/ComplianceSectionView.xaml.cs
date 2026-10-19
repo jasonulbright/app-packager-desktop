@@ -84,6 +84,9 @@ public partial class ComplianceSectionView : UserControl
         }
     }
 
+    private void OnSectionSizeChanged(object sender, SizeChangedEventArgs e) =>
+        pnlComplianceResults.MaxHeight = Math.Floor(e.NewSize.Height / 3);
+
     private void OnDeploymentsSelectionChanged(object sender, SelectionChangedEventArgs e) =>
         _viewModel?.Live.SetSelectedDeployments(dgDeployments.SelectedItems.OfType<DeploymentGridRow>());
 }

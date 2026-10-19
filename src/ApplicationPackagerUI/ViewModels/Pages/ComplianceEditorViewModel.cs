@@ -217,8 +217,10 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
     /// </summary>
     private static string Notes(ConfigurationItemRow item, ComplianceChange change, bool replaces) =>
         change.Impact.Count > 0
-            ? string.Join(" ", change.Impact)
-            : string.Join(" ", new[] { replaces ? CiSettingEditorViewModel.ReplaceNote : "", RevisionNote, item.BaselineCount > 0 ? ReevaluateNote : "" }.Where(l => l.Length > 0));
+            ? string.Join(Environment.NewLine, change.Impact)
+            : string.Join(Environment.NewLine, new[] { replaces ? CiSettingEditorViewModel.ReplaceNote : "", RevisionNote, item.BaselineCount > 0 ? ReevaluateNote : "" }.Where(l => l.Length > 0));
+
+    private static string Lines(params string[] lines) => ComplianceText.Lines(lines);
 
     private static string Describe(ConfigurationItemRow item, ComplianceChange change) =>
         $"{(change.SettingAfter ?? change.SettingBefore)?.Name} in {ComplianceText.Target(item.Name, item.CiId)}";
@@ -231,12 +233,12 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         {
             var change = prepared[0];
             string detail;
-            if (before is null) detail = $"New: {Values(after)} {Notes(item, change, false)} Undo removes the setting.";
+            if (before is null) detail = Lines($"New: {Values(after)}", Notes(item, change, false), "Undo removes the setting.");
             else
             {
                 var old = change.SettingBefore ?? before;
                 var replaces = !SettingRules.CanChangeInPlace(old, after);
-                detail = $"Old: {Values(old)} New: {Values(after)} {Notes(item, change, replaces)} Undo sets the old values back{(replaces ? "; the restored setting has a new ID" : "")}.";
+                detail = Lines($"Old: {Values(old)}", $"New: {Values(after)}", Notes(item, change, replaces), $"Undo sets the old values back{(replaces ? "; the restored setting has a new ID" : "")}.");
             }
             var action = before is null ? "Add setting" : "Edit setting";
             return (new CompliancePlan(action, $"{action} {after.Name}", action,
@@ -256,7 +258,7 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         {
             var change = prepared[0];
             var captured = change.SettingBefore ?? setting.Setting;
-            var detail = $"Removes: {Values(captured)} {Notes(item.Row, change, false)} Undo adds the setting again from these values; the recreated setting has a new ID.";
+            var detail = Lines($"Removes: {Values(captured)}", Notes(item.Row, change, false), "Undo adds the setting again from these values; the recreated setting has a new ID.");
             return (new CompliancePlan("Remove setting", $"Remove setting {captured.Name}", "Remove setting",
                 [CompliancePlanEntry.Write(new ChangePlanItem("Remove", Describe(item.Row, change), detail), change)], isDestructive: true), null);
         }, change => Describe(item.Row, change));

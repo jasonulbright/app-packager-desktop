@@ -8,7 +8,7 @@ namespace ApplicationPackagerUI.ViewModels.Pages;
 /// <summary>
 /// The Auditing tab: Drift (the catalog version in each baseline's tag against the shipped
 /// catalog) and Compliance (counts per baseline and collection with the Stale flag), with filters
-/// and CSV and HTML export of the rows shown. One read gets both lists.
+/// and CSV and HTML export of both lists. One read gets both lists.
 /// </summary>
 public sealed partial class ComplianceAuditingViewModel(ComplianceShared shared) : ComplianceTabViewModel(shared)
 {
@@ -100,6 +100,7 @@ public sealed partial class ComplianceAuditingViewModel(ComplianceShared shared)
         ComplianceRows.Clear();
         DriftCount = "";
         ComplianceCount = "";
+        LastReportFolder = null;
     }
 
     private void ApplyFilter()
@@ -117,17 +118,34 @@ public sealed partial class ComplianceAuditingViewModel(ComplianceShared shared)
             + $", {stale} stale";
     }
 
+    public const string ExportScope = "all rows of the last read without the filters";
+
+    /// <summary>The folder of the last report written; null before the first export.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(OpenReportsFolderCommand))]
+    private string? _lastReportFolder;
+
     [RelayCommand]
     private Task ExportCsv() => ExportAsync("CSV", Services.Reports.WriteCsv);
 
     [RelayCommand]
     private Task ExportHtml() => ExportAsync("HTML", Services.Reports.WriteHtml);
 
-    /// <summary>Writes the rows of the shown sub-tab with its filters applied.</summary>
+    private bool CanOpenReportsFolder() => LastReportFolder is not null;
+
+    // An Explorer window opened by each export covers the page, and the next click on the page lands in that window.
+    [RelayCommand(CanExecute = nameof(CanOpenReportsFolder))]
+    private void OpenReportsFolder()
+    {
+        if (LastReportFolder is { } folder) Services.Dialogs.OpenFolder(folder);
+    }
+
+    /// <summary>Writes every drift row and every compliance row of the last read, whatever sub-tab shows and whatever the filters hide.</summary>
     private async Task ExportAsync(string format, Func<IReadOnlyList<DriftRow>, IReadOnlyList<ComplianceRow>, string> write)
     {
-        IReadOnlyList<DriftRow> drift = SelectedTabIndex == DriftTab ? DriftRows.Select(r => r.Row).ToList() : [];
-        IReadOnlyList<ComplianceRow> compliance = SelectedTabIndex == ComplianceTab ? ComplianceRows.Select(r => r.Row).ToList() : [];
+        IReadOnlyList<DriftRow> drift = _drift.OrderBy(d => d.BaselineName, StringComparer.OrdinalIgnoreCase).ToList();
+        IReadOnlyList<ComplianceRow> compliance = _compliance.OrderBy(c => c.BaselineName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => c.CollectionName, StringComparer.OrdinalIgnoreCase).ToList();
         if (drift.Count + compliance.Count == 0)
         {
             Shared.StatusMessage = NothingToExport;
@@ -141,8 +159,9 @@ public sealed partial class ComplianceAuditingViewModel(ComplianceShared shared)
             Services.Log.Warning(ComplianceShared.LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }
-        Shared.StatusMessage = $"Saved the {format} report to {path}.";
+        Shared.StatusMessage = $"Saved the {format} report to {path}: {ComplianceText.Count(drift.Count, "drift row")} and "
+            + $"{ComplianceText.Count(compliance.Count, "compliance row")}, {ExportScope}.";
         Services.Log.Info(ComplianceShared.LogArea, $"Saved a {format} report with {drift.Count + compliance.Count} rows.");
-        if (Path.GetDirectoryName(path) is { Length: > 0 } folder) Services.Dialogs.OpenFolder(folder);
+        LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }
 }
