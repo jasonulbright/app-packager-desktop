@@ -365,24 +365,42 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     {
         if (_loading) return;
         UpdateScheduleProblem();
-        Preview.Clear();
         var (schedule, error) = BuildSchedule();
         if (schedule is null)
         {
             ScheduleText = error ?? "";
+            ShowPreview([]);
             return;
         }
         try
         {
             ScheduleText = _projector.Describe(schedule);
             var next = _projector.NextOccurrences(schedule, _now(), PreviewCount);
-            foreach (var start in next) Preview.Add(MaintenanceWindowsText.Occurrence(start, schedule.Duration));
-            if (next.Count == 0) Preview.Add(NotProjected);
+            ShowPreview(next.Count == 0 ? [NotProjected] : next.Select(start => MaintenanceWindowsText.Occurrence(start, schedule.Duration)).ToList());
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ArgumentOutOfRangeException)
         {
             ScheduleText = ScheduleNotShown;
+            ShowPreview([]);
         }
+    }
+
+    // A line removed and added again with equal text reads as empty through UI Automation, so a
+    // line that stays is kept in place.
+    private void ShowPreview(IReadOnlyList<string> lines)
+    {
+        for (var i = Preview.Count - 1; i >= 0; i--)
+            if (!lines.Contains(Preview[i])) Preview.RemoveAt(i);
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (i < Preview.Count && Preview[i] == lines[i]) continue;
+            var at = -1;
+            for (var j = i + 1; j < Preview.Count; j++)
+                if (Preview[j] == lines[i]) { at = j; break; }
+            if (at >= 0) Preview.Move(at, i);
+            else Preview.Insert(i, lines[i]);
+        }
+        while (Preview.Count > lines.Count) Preview.RemoveAt(Preview.Count - 1);
     }
 
     /// <summary>The window the inputs describe, with the original's id and state when editing.</summary>

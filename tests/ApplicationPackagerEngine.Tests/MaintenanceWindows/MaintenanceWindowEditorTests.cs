@@ -27,6 +27,36 @@ public sealed class MaintenanceWindowEditorTests
         new MaintenanceSchedule(MaintenanceScheduleKind.PatchTuesday, new DateTime(2033, 12, 31, 2, 0, 0), TimeSpan.FromMinutes(1), true, 12, null, null, null, 21, null)
     };
 
+    /// <summary>
+    /// Moving the start of a weekly Sunday window from a weekday to the next Sunday keeps the
+    /// occurrences. A preview cleared and refilled with equal text reads as empty through UI Automation.
+    /// </summary>
+    [Fact]
+    public void AnInputChangeKeepsThePreviewLinesThatStayTheSame()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        harness.Projector.UseReal = true;
+        var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.NewWindow, harness.Projector, _ => Task.FromResult(true), () => Now,
+            harness.Service.Collections, harness.Service.Windows);
+        Assert.Equal(MaintenanceScheduleKind.Weekly, editor.Kind);
+        Assert.Equal(DayOfWeek.Sunday, editor.DayOfWeek);
+        var before = editor.Preview.ToList();
+        Assert.Equal(MaintenanceWindowEditorViewModel.PreviewCount, before.Count);
+        var changes = new List<System.Collections.Specialized.NotifyCollectionChangedEventArgs>();
+        editor.Preview.CollectionChanged += (_, e) => changes.Add(e);
+
+        editor.StartDate = new DateTime(2026, 10, 25);
+        Assert.Equal("Occurs every 1 weeks on Sunday effective 10/25/2026 2:00 AM", editor.ScheduleText);
+        Assert.Equal(before, editor.Preview);
+        Assert.Empty(changes);
+
+        editor.StartDate = new DateTime(2026, 11, 1);
+        Assert.Equal(before.Skip(1), editor.Preview.Take(4));
+        Assert.Equal("Sun 2026-11-29 02:00 to 06:00", editor.Preview[4]);
+        Assert.DoesNotContain(changes, e => e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset);
+        Assert.All(changes.Where(e => e.NewItems is not null).SelectMany(e => e.NewItems!.Cast<string>()), s => Assert.DoesNotContain(s, before));
+    }
+
     [Fact]
     public void EditListsOnlyTheWindowsOwnCollectionAndSelectsIt()
     {
