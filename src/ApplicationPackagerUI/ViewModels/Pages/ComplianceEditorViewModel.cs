@@ -241,7 +241,7 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
             var action = before is null ? "Add setting" : "Edit setting";
             return (new CompliancePlan(action, $"{action} {after.Name}", action,
                 [CompliancePlanEntry.Write(new ChangePlanItem(before is null ? "Add" : "Edit", Describe(item, change), detail), change)],
-                extraConfirmation: ComplianceWriter.RemediatingSetting(change) && item.BaselineCount > 0 ? RemediationCheck : null), null);
+                extraConfirmation: ComplianceWriter.RemediatingSetting(change) && change.InRemediatingDeployment ? RemediationCheck : null), null);
         }, change => Describe(item, change), editor.ShowMessage);
         if (run is not { Outcome.Confirmed: true }) return false;
         await Shared.AfterWriteAsync();

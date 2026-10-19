@@ -318,13 +318,37 @@ switch ($Operation) {
         }
         $baselineIds = @(Invoke-InQuery 'SELECT FromCIID, ToCIID, RelationType FROM SMS_CIRelation' 'ToCIID' $lineageIds |
             Where-Object { [int](Get-Prop $_ 'RelationType') -in 1, 2, 3, 4 } | ForEach-Object { [long]$_.FromCIID } | Sort-Object -Unique)
-        $deployed = 0
+        $held = @()
         if ($baselineIds.Count -gt 0) {
-            foreach ($a in Invoke-Query 'SELECT AssignmentID, AssignedCIs FROM SMS_BaselineAssignment') {
-                if (@(@(Get-Prop $a 'AssignedCIs') | Where-Object { $baselineIds -contains [long]$_ }).Count -gt 0) { $deployed++ }
+            $held = @(Invoke-Query 'SELECT AssignmentID, AssignedCIs, TargetCollectionID, EnforcementEnabled FROM SMS_BaselineAssignment' |
+                Where-Object { @(@(Get-Prop $_ 'AssignedCIs') | Where-Object { $baselineIds -contains [long]$_ }).Count -gt 0 })
+        }
+        [pscustomobject]@{ Kind = 'Item'; CiId = [string]$latest; Name = [string]$ci.LocalizedDisplayName; Description = [string]$ci.LocalizedDescription; Revision = [int]$ci.CIVersion; BaselineCount = $baselineIds.Count; Deployments = $held.Count; Modified = Get-Time $ci.DateLastModified }
+        $remediating = @($held | Where-Object { [bool](Get-Prop $_ 'EnforcementEnabled') })
+        if ($remediating.Count -gt 0) {
+            $names = @{}
+            foreach ($b in Get-Baselines -Ids @($remediating | ForEach-Object { @(Get-Prop $_ 'AssignedCIs') } | ForEach-Object { [long]$_ })) { $names[[long]$b.CI_ID] = [string]$b.LocalizedDisplayName }
+            $collections = @{}
+            $ids = @($remediating | ForEach-Object { [string]$_.TargetCollectionID } | Where-Object { $_ -match '^[A-Za-z0-9]{1,8}$' } | Sort-Object -Unique)
+            for ($i = 0; $i -lt $ids.Count; $i += 100) {
+                $chunk = $ids[$i..([Math]::Min($i + 99, $ids.Count - 1))]
+                foreach ($c in Invoke-Query ("SELECT CollectionID, Name, MemberCount FROM SMS_Collection WHERE CollectionID IN ({0})" -f (($chunk | ForEach-Object { "'" + $_ + "'" }) -join ','))) {
+                    $collections[[string]$c.CollectionID] = $c
+                }
+            }
+            foreach ($a in $remediating) {
+                $baseline = [long](@(@(Get-Prop $a 'AssignedCIs') | Where-Object { $baselineIds -contains [long]$_ }) | Select-Object -First 1)
+                $collection = [string]$a.TargetCollectionID
+                $c = if ($collections.ContainsKey($collection)) { $collections[$collection] } else { $null }
+                $members = Get-Prop $c 'MemberCount'
+                [pscustomobject]@{
+                    Kind = 'ItemDeployment'; AssignmentId = [string]$a.AssignmentID; BaselineId = [string]$baseline
+                    BaselineName = $(if ($names.ContainsKey($baseline)) { $names[$baseline] } else { '' })
+                    CollectionId = $collection; CollectionName = $(if ($null -ne $c) { [string]$c.Name } else { '' })
+                    Members = $(if ($null -ne $members) { [int]$members } else { $null })
+                }
             }
         }
-        [pscustomobject]@{ Kind = 'Item'; CiId = [string]$latest; Name = [string]$ci.LocalizedDisplayName; Description = [string]$ci.LocalizedDescription; Revision = [int]$ci.CIVersion; BaselineCount = $baselineIds.Count; Deployments = $deployed; Modified = Get-Time $ci.DateLastModified }
         $xml = [string](Get-Prop $ci 'SDMPackageXML')
         if ($xml) { ConvertTo-SettingRows ([xml]$xml) }
     }

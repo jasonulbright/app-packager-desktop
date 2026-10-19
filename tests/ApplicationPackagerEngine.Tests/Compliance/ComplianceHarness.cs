@@ -436,9 +436,14 @@ internal sealed class ComplianceHarness
         Service.InConfirmedRun = () => Plans.InRun;
     }
 
-    public ComplianceWriter Writer() => new(Service, History, Log, () => "LAB");
+    /// <summary>A service that replaces the fake, for example the real service on the stub site.</summary>
+    public IComplianceService? RealService { get; set; }
 
-    public CompliancePageServices Services() => new(Service, Catalog, Collections, Reports, Dialogs, Plans, Writer(), () => Settings, () => Saved,
+    private IComplianceService Compliance => RealService ?? Service;
+
+    public ComplianceWriter Writer() => new(Compliance, History, Log, () => "LAB");
+
+    public CompliancePageServices Services() => new(Compliance, Catalog, Collections, Reports, Dialogs, Plans, Writer(), () => Settings, () => Saved,
         s =>
         {
             BeforeSave?.Invoke(s);

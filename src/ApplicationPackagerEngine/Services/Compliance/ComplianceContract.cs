@@ -206,9 +206,14 @@ public enum ComplianceChangeKind
 /// </param>
 /// <param name="RemediationConfirmed">
 /// True when the operator confirmed remediation a second time. A CatalogDeploy without DetectOnly,
-/// a SetRemediation to on and a re-create with remediation on are refused without it.
+/// a SetRemediation to on, a re-create with remediation on, and an AddSetting or EditSetting whose
+/// new setting remediates on a CI in a remediating deployment are refused without it.
 /// </param>
 /// <param name="CiName">The name of CI <see cref="CiId"/>, for messages.</param>
+/// <param name="InRemediatingDeployment">
+/// For AddSetting, EditSetting and RemoveSetting: a baseline that holds any revision of CI
+/// <see cref="CiId"/> has a deployment that remediates noncompliant settings; filled by PrepareAsync.
+/// </param>
 public sealed record ComplianceChange(
     ComplianceChangeKind Kind,
     string? CatalogId,
@@ -223,7 +228,8 @@ public sealed record ComplianceChange(
     IReadOnlyList<string> Impact,
     IReadOnlyList<string> CreatedIds,
     bool RemediationConfirmed = false,
-    string? CiName = null);
+    string? CiName = null,
+    bool InRemediatingDeployment = false);
 
 /// <param name="Message">Plain text for the operator; never raw exception text. Starts with "Skipped: " when the change was not attempted.</param>
 /// <param name="UndoChange">The change that reverses this one; set on every outcome that changed ConfigMgr and can be reversed.</param>

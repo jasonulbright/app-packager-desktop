@@ -265,6 +265,16 @@ public sealed partial class ComplianceService
         var after = change.SettingAfter;
         if (change.Kind != ComplianceChangeKind.AddSetting && (before is null || !SettingIdRegex().IsMatch(before.SettingId ?? ""))) return Refused(change, NotPreparedMessage);
         if (change.Kind != ComplianceChangeKind.RemoveSetting && SettingRules.Check(after) is { } invalid) return Refused(change, invalid);
+        if (RemediatingSetting(change.Kind, after) && !change.RemediationConfirmed)
+        {
+            switch (await InRemediatingDeploymentAsync(change).ConfigureAwait(false))
+            {
+                case true:
+                    return Refused(change, $"Configuration item {ci} is in a baseline deployment that remediates, and this setting remediates. That needs the second confirmation of the plan, so nothing was changed.");
+                case null:
+                    return Refused(change, $"The baseline deployments of configuration item {ci} could not be read, so it is not known whether the setting needs the second confirmation of the plan. Nothing was changed. Try again.");
+            }
+        }
         var parameters = new ConfigMgrParameters
         {
             { "Operation", change.Kind.ToString() }, { "CiId", long.Parse(change.CiId!, CultureInfo.InvariantCulture) }, { "ExpectedRevision", revision }
@@ -364,6 +374,21 @@ public sealed partial class ComplianceService
         if (run.Uncertain)
             return Fail(change, $"The result of the change to {ci} is not known: ConfigMgr reported an error during the change. Refresh the settings to see the current state.");
         return run.Failure ?? Fail(change, WriteFailedMessage(change));
+    }
+
+    /// <summary>The prepared value, or the live state when the plan saw no remediating deployment; null when the live read failed.</summary>
+    private async Task<bool?> InRemediatingDeploymentAsync(ComplianceChange change)
+    {
+        if (change.InRemediatingDeployment) return true;
+        try
+        {
+            var (_, _, remediating) = await ReadItemAsync(change.CiId!, CancellationToken.None).ConfigureAwait(false);
+            return remediating.Count > 0;
+        }
+        catch (ComplianceServiceException)
+        {
+            return null;
+        }
     }
 
     private async Task<CiSetting?> ReadSettingOrNullAsync(string ciId, string settingId)

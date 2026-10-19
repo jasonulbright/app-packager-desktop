@@ -272,7 +272,7 @@ internal sealed class StubComplianceSite : IConfigMgrSession
                     if (-not $missing) { $row | Add-Member -NotePropertyName NumberOther -NotePropertyValue ([int](V $s 'Other' 0)) }
                     $row })
             }
-            if ($Query -match 'FROM SMS_Collection WHERE CollectionID IN \((.+)\)') { $ids = @([regex]::Matches($Matches[1], "'(\w+)'") | ForEach-Object { $_.Groups[1].Value }); return @($global:Collections | Where-Object { $ids -contains [string]$_.CollectionID } | ForEach-Object { [pscustomobject]@{ CollectionID = [string]$_.CollectionID; Name = [string]$_.Name } }) }
+            if ($Query -match 'FROM SMS_Collection WHERE CollectionID IN \((.+)\)') { $ids = @([regex]::Matches($Matches[1], "'(\w+)'") | ForEach-Object { $_.Groups[1].Value }); return @($global:Collections | Where-Object { $ids -contains [string]$_.CollectionID } | ForEach-Object { $row = [pscustomobject]@{ CollectionID = [string]$_.CollectionID; Name = [string]$_.Name }; if ($Query -match 'MemberCount' -and $null -ne (V $_ 'Members' $null)) { $row | Add-Member -NotePropertyName MemberCount -NotePropertyValue ([int]$_.Members) }; $row }) }
             if ($Query -match "FROM SMS_Collection WHERE CollectionID = '(\w+)'") { $id = $Matches[1]; return @($global:Collections | Where-Object { [string]$_.CollectionID -eq $id } | ForEach-Object { [pscustomobject]@{ CollectionID = [string]$_.CollectionID; Name = [string]$_.Name; CollectionType = [int](V $_ 'CollectionType' 2); MemberCount = [int](V $_ 'Members' 0) } }) }
             if ($Query -match 'FROM SMS_Alert WHERE TypeID = 14') {
                 $only = InList $Query 'TypeInstanceID'

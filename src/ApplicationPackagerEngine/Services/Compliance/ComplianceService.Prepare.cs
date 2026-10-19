@@ -277,7 +277,7 @@ public sealed partial class ComplianceService
     private async Task<ComplianceChange> PrepareSettingAsync(ComplianceChange request, List<string> impact, CancellationToken ct)
     {
         var ciId = CheckedNumber(request.CiId, "Select a configuration item.");
-        var (item, settings) = await ReadSettingsAsync(ciId, ct).ConfigureAwait(false);
+        var (item, settings, remediating) = await ReadItemAsync(ciId, ct).ConfigureAwait(false);
         if (item is null) throw new ComplianceServiceException("The configuration item does not exist any more. Refresh the list.", ComplianceFailureKind.NotFound);
         var ci = Shown(item.Name, item.CiId);
         var values = new Dictionary<string, string>(request.Values ?? new Dictionary<string, string>(), StringComparer.Ordinal)
@@ -341,8 +341,26 @@ public sealed partial class ComplianceService
         impact.Add($"ConfigMgr stores this as a new revision of the configuration item: revision {item.Revision} becomes {item.Revision + revisions}{(revisions > 1 ? " (one per step)" : "")}, and the item can get a new CI ID.");
         if (item.Deployments > 0)
             impact.Add($"The item is in a deployed baseline ({Count(item.Deployments, "deployment")}). Clients evaluate the new revision at their next evaluation.");
-        return request with { CiId = item.CiId, CiName = item.Name, SettingBefore = before, SettingAfter = after, Values = values, Impact = impact };
+        foreach (var d in remediating)
+            impact.Add($"The deployment of baseline {Shown(d.BaselineName, d.BaselineId)} to collection {Shown(d.CollectionName, d.CollectionId)} remediates noncompliant settings ({Members(d.Members)}).");
+        if (remediating.Count == 0 && item.Deployments > 0) impact.Add(NoRemediatingDeploymentLine);
+        var held = remediating.Count > 0 && RemediatingSetting(request.Kind, after);
+        if (held) impact.Add(SettingRemediationLine);
+        return request with
+        {
+            CiId = item.CiId, CiName = item.Name, SettingBefore = before, SettingAfter = after, Values = values, Impact = impact, InRemediatingDeployment = remediating.Count > 0
+        };
     }
+
+    public const string NoRemediatingDeploymentLine = "No deployment of a baseline with this item remediates noncompliant settings.";
+
+    public const string SettingRemediationLine =
+        "This setting remediates: clients of the remediating deployments change the value at their next evaluation. Remediation needs a second, separate confirmation.";
+
+    internal static bool RemediatingSetting(ComplianceChangeKind kind, CiSetting? after) =>
+        kind is ComplianceChangeKind.AddSetting or ComplianceChangeKind.EditSetting && after?.Remediate == true;
+
+    private static string Members(int? members) => members is { } n ? Count(n, "member") + " now" : "member count not known";
 
     private static IEnumerable<string> SettingLines(CiSetting s, CiSetting? old)
     {

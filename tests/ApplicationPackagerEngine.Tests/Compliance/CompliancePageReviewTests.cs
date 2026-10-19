@@ -403,6 +403,7 @@ public sealed class CompliancePageReviewTests
     public async Task ARemediatingSettingInADeployedItemNeedsTheSecondCheckAndCarriesIt()
     {
         var (harness, viewModel) = await EditorOnSmb();
+        harness.Service.Prepared = c => c with { InRemediatingDeployment = true };
         harness.Plans.AcknowledgeExtra = false;
         harness.Dialogs.SettingEditor = e =>
         {
@@ -440,6 +441,58 @@ public sealed class CompliancePageReviewTests
         };
         viewModel.Editor.AddSettingCommand.Execute(null);
         Assert.Null(Assert.Single(harness.Plans.Shown).ExtraConfirmation);
+    }
+
+    private static async Task<(ComplianceHarness Harness, ComplianceViewModel ViewModel, StubComplianceSite Site)> EditorOnStub(bool remediating)
+    {
+        var site = new StubComplianceSite(StubComplianceSite.NewState(
+            items: [StubComplianceSite.Ci("16780001", "Lab CI", 4, StubComplianceSite.RegistrySetting("RegSetting_a", "EnableMulticast"))],
+            baselines: [StubComplianceSite.CiBaseline("16780002", "Lab Baseline", "", "16780001")],
+            assignments: [StubComplianceSite.Deployment(16777270, "16780002", "MCM00081", enforcement: remediating)]));
+        var harness = new ComplianceHarness { RealService = ComplianceDeploymentTests.Service(site) };
+        var viewModel = await harness.OpenAsync(ComplianceViewModel.EditorTab);
+        await viewModel.Editor.LoadTask;
+        viewModel.Editor.SelectedItem = viewModel.Editor.Items.Single(i => i.CiId == "16780001");
+        await viewModel.Editor.SettingsLoad;
+        viewModel.Editor.SelectedSetting = viewModel.Editor.Settings.Single();
+        harness.Dialogs.SettingEditor = e =>
+        {
+            e.Remediate = true;
+            FakeComplianceDialogs.Run(e.SaveCommand.ExecuteAsync(null));
+        };
+        return (harness, viewModel, site);
+    }
+
+    private static bool StoredRemediate(StubComplianceSite site) =>
+        (bool)((System.Text.Json.Nodes.JsonArray)site.Item("16780001")!["Settings"]!).Single()!["Remediate"]!;
+
+    [Fact]
+    public async Task ARemediatingSettingInARemediatingDeploymentAsksTheSecondCheckOfTheRealService()
+    {
+        var (harness, viewModel, site) = await EditorOnStub(remediating: true);
+        harness.Plans.AcknowledgeExtra = false;
+
+        viewModel.Editor.EditSettingCommand.Execute(null);
+
+        Assert.Equal(ComplianceEditorViewModel.RemediationCheck, Assert.Single(harness.Plans.Shown).ExtraConfirmation);
+        Assert.False(StoredRemediate(site));
+
+        harness.Plans.AcknowledgeExtra = true;
+        viewModel.Editor.EditSettingCommand.Execute(null);
+
+        Assert.Equal(ComplianceEditorViewModel.RemediationCheck, harness.Plans.Shown[1].ExtraConfirmation);
+        Assert.True(StoredRemediate(site));
+    }
+
+    [Fact]
+    public async Task ARemediatingSettingInADeploymentThatDoesNotRemediateNeedsNoSecondCheck()
+    {
+        var (harness, viewModel, site) = await EditorOnStub(remediating: false);
+
+        viewModel.Editor.EditSettingCommand.Execute(null);
+
+        Assert.Null(Assert.Single(harness.Plans.Shown).ExtraConfirmation);
+        Assert.True(StoredRemediate(site));
     }
 
     // ---- Writer-only scan ------------------------------------------------------------------------

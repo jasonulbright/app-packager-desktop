@@ -105,6 +105,10 @@ public sealed partial class ComplianceService : IComplianceService
         string? Kind, string? Id, string? Name, int Revision, string? Description, string? BaselineId, string? CollectionId, int CollectionType, int Members,
         DateTime? Created = null, string? CreatedBy = null);
 
+    /// <summary>A remediating deployment of a baseline that holds a revision of the CI of a Settings read.</summary>
+    /// <param name="Members">Null when the provider returned no member count.</param>
+    internal sealed record ItemDeploymentRow(string? Kind, string? AssignmentId, string? BaselineId, string? BaselineName, string? CollectionId, string? CollectionName, int? Members);
+
     internal sealed record SnapshotInfo(string? Kind, DateTime? Now, string? User, string[]? ItemIds, string[]? BaselineIds, string[]? DeploymentIds);
 
     internal sealed record WriteResult(string? Kind, string? Status, string? Detail, string[]? Steps, string? CreatedId, string[]? References, string? CiId, int Revision);
@@ -174,9 +178,15 @@ public sealed partial class ComplianceService : IComplianceService
 
     private async Task<(ItemRow? Item, IReadOnlyList<CiSetting> Settings)> ReadSettingsAsync(string ciId, CancellationToken ct)
     {
+        var (item, settings, _) = await ReadItemAsync(ciId, ct).ConfigureAwait(false);
+        return (item, settings);
+    }
+
+    private async Task<(ItemRow? Item, IReadOnlyList<CiSetting> Settings, IReadOnlyList<ItemDeploymentRow> Remediating)> ReadItemAsync(string ciId, CancellationToken ct)
+    {
         var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Settings" }, { "CiId", long.Parse(ciId, CultureInfo.InvariantCulture) } }, ct).ConfigureAwait(false);
         var item = Rows<ItemRow>(output, "Item").FirstOrDefault();
-        return (item, Rows<SettingReadRow>(output, "Setting").Select(ToSetting).ToList());
+        return (item, Rows<SettingReadRow>(output, "Setting").Select(ToSetting).ToList(), Rows<ItemDeploymentRow>(output, "ItemDeployment"));
     }
 
     internal static CiSetting ToSetting(SettingReadRow r)
