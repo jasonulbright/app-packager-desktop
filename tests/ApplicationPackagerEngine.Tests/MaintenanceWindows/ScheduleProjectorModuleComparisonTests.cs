@@ -7,13 +7,13 @@ using K = ApplicationPackagerEngine.Services.MaintenanceScheduleKind;
 namespace ApplicationPackagerEngine.Tests.MaintenanceWindows;
 
 /// <summary>
-/// The projector against Get-NextOccurrences of the source module, imported read-only in a
-/// child Windows PowerShell with Get-Date fixed. The source reads only StartTime,
+/// The projector against Get-NextOccurrences of the PowerShell module at ModulePath, imported read-only in a
+/// child Windows PowerShell with Get-Date fixed. The module reads only StartTime,
 /// RecurrenceType and Duration of a window, so the compared schedules are the ones it can
-/// express: interval 1, the weekday and week of the start date, days 1 to 28. The source
+/// express: interval 1, the weekday and week of the start date, days 1 to 28. The module
 /// leaves out an occurrence that is open at the current time; the comparison drops it too.
 /// </summary>
-public sealed class ScheduleProjectorParityTests
+public sealed class ScheduleProjectorModuleComparisonTests
 {
     private const string ModulePath = @"C:\projects\maintenance-window-manager\Module\MaintWindowMgrCommon.psd1";
 
@@ -40,12 +40,12 @@ public sealed class ScheduleProjectorParityTests
         }
         """;
 
-    public sealed record SourceCase(string Id, int Type, string Start, int Minutes, string Now);
+    public sealed record ModuleCase(string Id, int Type, string Start, int Minutes, string Now);
 
     private static DateTime T(string text) => DateTime.ParseExact(text, "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
 
-    /// <summary>The schedule in this model that the source's RecurrenceType and StartTime describe.</summary>
-    private static MaintenanceSchedule Equivalent(SourceCase c)
+    /// <summary>The schedule in this model that the module's RecurrenceType and StartTime describe.</summary>
+    private static MaintenanceSchedule Equivalent(ModuleCase c)
     {
         var start = T(c.Start);
         var duration = TimeSpan.FromMinutes(c.Minutes);
@@ -59,7 +59,7 @@ public sealed class ScheduleProjectorParityTests
         };
     }
 
-    private static string[] Projected(SourceCase c, TimeZoneInfo zone)
+    private static string[] Projected(ModuleCase c, TimeZoneInfo zone)
     {
         var now = T(c.Now);
         return new ScheduleProjector(zone).NextOccurrences(Equivalent(c), now, 6)
@@ -67,7 +67,7 @@ public sealed class ScheduleProjectorParityTests
             .Select(d => d.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)).ToArray();
     }
 
-    public static IReadOnlyList<SourceCase> ComparableCases()
+    public static IReadOnlyList<ModuleCase> ComparableCases()
     {
         var starts = new (int Type, string Start)[]
         {
@@ -78,15 +78,15 @@ public sealed class ScheduleProjectorParityTests
             (5, "2026-01-01 02:00"), (5, "2026-01-28 03:00"), (5, "2026-10-19 01:00"), (5, "2026-10-19 02:00"), (5, "2026-02-15 22:00"), (5, "2024-02-28 04:00"), (5, "2026-12-10 00:00"), (5, "2026-07-04 07:45"), (5, "2026-03-13 13:00"), (5, "2027-01-20 20:20"),
         };
         var nows = new[] { "2026-10-19 01:37", "2026-02-27 12:00" };
-        return nows.SelectMany((now, n) => starts.Select((s, i) => new SourceCase($"c{n}-{i}", s.Type, s.Start, 240, now))).ToList();
+        return nows.SelectMany((now, n) => starts.Select((s, i) => new ModuleCase($"c{n}-{i}", s.Type, s.Start, 240, now))).ToList();
     }
 
     /// <summary>
-    /// Results of the source module with the clock fixed, for the case that the module is not
+    /// Results of the module with the clock fixed, for the case that the module is not
     /// on this computer. None of them touches a daylight saving gap, so the time zone does not
     /// change them.
     /// </summary>
-    public static readonly (SourceCase Case, string[] Dates)[] RecordedSourceResults =
+    public static readonly (ModuleCase Case, string[] Dates)[] RecordedModuleResults =
     [
         (new("r1", 2, "2026-08-13 04:00", 360, "2026-10-19 01:37"), ["2026-10-19 04:00", "2026-10-20 04:00", "2026-10-21 04:00", "2026-10-22 04:00", "2026-10-23 04:00"]),
         (new("r2", 3, "2026-08-15 06:00", 240, "2026-10-19 01:37"), ["2026-10-24 06:00", "2026-10-31 06:00", "2026-11-07 06:00", "2026-11-14 06:00", "2026-11-21 06:00"]),
@@ -100,21 +100,21 @@ public sealed class ScheduleProjectorParityTests
     ];
 
     /// <summary>
-    /// Schedules where the source and the projector differ by design, with the source's
-    /// result: the source steps month by month from the start date with AddMonths, so a
+    /// Schedules where the module and the projector differ by design, with the module's
+    /// result: the module steps month by month from the start date with AddMonths, so a
     /// day 29 to 31 drifts to the shortest month's day where a ConfigMgr client skips the month; it reads a start after day 28 as a
     /// fifth weekday that can fall in the next month; it keeps a start time that a
     /// daylight saving change skips; it leaves out a window that is open now.
     /// </summary>
-    public static readonly (string Why, SourceCase Case, string[] SourceDates, string[] ProjectorDates)[] KnownDifferences =
+    public static readonly (string Why, ModuleCase Case, string[] ModuleDates, string[] ProjectorDates)[] KnownDifferences =
     [
-        ("day 31 drifts to the 28th after February in the source; a ConfigMgr client skips a month without day 31", new("d1", 5, "2026-01-31 02:00", 60, "2026-10-19 01:37"),
+        ("day 31 drifts to the 28th after February in the module; a ConfigMgr client skips a month without day 31", new("d1", 5, "2026-01-31 02:00", 60, "2026-10-19 01:37"),
             ["2026-10-28 02:00", "2026-11-28 02:00", "2026-12-28 02:00", "2027-01-28 02:00", "2027-02-28 02:00"],
             ["2026-10-31 02:00", "2026-12-31 02:00", "2027-01-31 02:00", "2027-03-31 02:00", "2027-05-31 02:00"]),
-        ("a start on day 29 to 31 is a fifth weekday in the source and the last weekday in ConfigMgr", new("d2", 4, "2026-01-30 01:00", 60, "2026-10-19 01:37"),
+        ("a start on day 29 to 31 is a fifth weekday in the module and the last weekday in ConfigMgr", new("d2", 4, "2026-01-30 01:00", 60, "2026-10-19 01:37"),
             ["2026-10-30 01:00", "2026-12-04 01:00", "2027-01-29 01:00", "2027-03-05 01:00", "2027-04-30 01:00"],
             ["2026-10-30 01:00", "2026-11-27 01:00", "2026-12-25 01:00", "2027-01-29 01:00", "2027-02-26 01:00"]),
-        ("a skipped start time is kept by the source and moved forward by the projector", new("d3", 2, "2026-03-01 02:30", 60, "2026-03-07 12:00"),
+        ("a skipped start time is kept by the module and moved forward by the projector", new("d3", 2, "2026-03-01 02:30", 60, "2026-03-07 12:00"),
             ["2026-03-08 02:30", "2026-03-09 02:30", "2026-03-10 02:30", "2026-03-11 02:30", "2026-03-12 02:30"],
             ["2026-03-08 03:30", "2026-03-09 02:30", "2026-03-10 02:30", "2026-03-11 02:30", "2026-03-12 02:30"]),
     ];
@@ -122,10 +122,10 @@ public sealed class ScheduleProjectorParityTests
     private static readonly TimeZoneInfo Eastern = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
 
     [Fact]
-    public void TheProjectorMatchesTheRecordedSourceResults()
+    public void TheProjectorMatchesTheRecordedModuleResults()
     {
         var ran = 0;
-        foreach (var (c, dates) in RecordedSourceResults)
+        foreach (var (c, dates) in RecordedModuleResults)
         {
             Assert.True(dates.SequenceEqual(Projected(c, Eastern)), $"{c.Id}: {string.Join(";", Projected(c, Eastern))}");
             ran++;
@@ -141,37 +141,37 @@ public sealed class ScheduleProjectorParityTests
     }
 
     [Fact]
-    public void TheProjectorMatchesTheSourceModuleForEveryScheduleTheSourceCanExpress()
+    public void TheProjectorMatchesTheModuleForEveryScheduleTheModuleCanExpress()
     {
         if (!File.Exists(ModulePath))
         {
-            TheProjectorMatchesTheRecordedSourceResults();
+            TheProjectorMatchesTheRecordedModuleResults();
             return;
         }
 
         var cases = ComparableCases();
-        var withKnown = cases.Concat(KnownDifferences.Select(k => k.Case)).Concat(RecordedSourceResults.Select(r => r.Case)).ToList();
-        var source = RunSource(withKnown);
+        var withKnown = cases.Concat(KnownDifferences.Select(k => k.Case)).Concat(RecordedModuleResults.Select(r => r.Case)).ToList();
+        var module = RunModule(withKnown);
 
         var compared = 0;
         foreach (var c in cases)
         {
-            Assert.True(source.ContainsKey(c.Id), $"The source returned nothing for {c.Id}.");
-            Assert.True(source[c.Id].SequenceEqual(Projected(c, TimeZoneInfo.Local)),
-                $"{c.Id} type {c.Type} start {c.Start} now {c.Now}: source {string.Join(";", source[c.Id])}, projector {string.Join(";", Projected(c, TimeZoneInfo.Local))}");
+            Assert.True(module.ContainsKey(c.Id), $"The module returned nothing for {c.Id}.");
+            Assert.True(module[c.Id].SequenceEqual(Projected(c, TimeZoneInfo.Local)),
+                $"{c.Id} type {c.Type} start {c.Start} now {c.Now}: module {string.Join(";", module[c.Id])}, projector {string.Join(";", Projected(c, TimeZoneInfo.Local))}");
             compared++;
         }
         Assert.True(compared >= 40, $"Only {compared} schedules were compared.");
 
-        foreach (var (why, c, sourceDates, _) in KnownDifferences)
-            Assert.True(sourceDates.SequenceEqual(source[c.Id]), $"The source result changed for '{why}': {string.Join(";", source[c.Id])}");
-        foreach (var (c, dates) in RecordedSourceResults)
-            Assert.True(dates.SequenceEqual(source[c.Id]), $"The recorded source result changed for {c.Id}: {string.Join(";", source[c.Id])}");
+        foreach (var (why, c, moduleDates, _) in KnownDifferences)
+            Assert.True(moduleDates.SequenceEqual(module[c.Id]), $"The module result changed for '{why}': {string.Join(";", module[c.Id])}");
+        foreach (var (c, dates) in RecordedModuleResults)
+            Assert.True(dates.SequenceEqual(module[c.Id]), $"The recorded module result changed for {c.Id}: {string.Join(";", module[c.Id])}");
     }
 
-    private static Dictionary<string, string[]> RunSource(IReadOnlyList<SourceCase> cases)
+    private static Dictionary<string, string[]> RunModule(IReadOnlyList<ModuleCase> cases)
     {
-        var folder = Path.Combine(Path.GetTempPath(), "apkg-mwparity-" + Guid.NewGuid().ToString("N"));
+        var folder = Path.Combine(Path.GetTempPath(), "apkg-mwcompare-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         try
         {
@@ -188,8 +188,8 @@ public sealed class ScheduleProjectorParityTests
             using var process = Process.Start(psi)!;
             var error = process.StandardError.ReadToEndAsync();
             var output = process.StandardOutput.ReadToEnd();
-            Assert.True(process.WaitForExit(120_000), "The source module did not finish.");
-            Assert.True(process.ExitCode == 0, "The source module failed: " + error.Result);
+            Assert.True(process.WaitForExit(120_000), "The module did not finish.");
+            Assert.True(process.ExitCode == 0, "The module failed: " + error.Result);
             return output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(l => l.Split('|'))
                 .Where(p => p.Length == 2)

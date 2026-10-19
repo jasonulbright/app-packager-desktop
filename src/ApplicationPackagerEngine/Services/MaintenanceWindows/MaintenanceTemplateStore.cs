@@ -49,6 +49,10 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
     [GeneratedRegex("^[A-Za-z0-9_-]{1,64}$")]
     private static partial Regex IdRegex();
 
+    /// <summary>A file named CON.json or COM1.json opens the device, not a file.</summary>
+    [GeneratedRegex(@"^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(\..*)?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex DeviceNameRegex();
+
     public IReadOnlyList<MaintenanceTemplate> All()
     {
         lock (_gate)
@@ -111,6 +115,8 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
     {
         if (!IdRegex().IsMatch(id))
             throw new MaintenanceWindowException("The template id can contain only letters, digits, hyphens and underscores.");
+        if (DeviceNameRegex().IsMatch(id))
+            throw new MaintenanceWindowException("The template id cannot be a Windows device name such as CON, NUL or COM1.");
         if (Shipped.Value.Any(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase)))
             throw new MaintenanceWindowException("A shipped template cannot be changed or deleted.");
     }
@@ -170,7 +176,7 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
     private static bool IsStorageFailure(Exception ex) =>
         ex is IOException or UnauthorizedAccessException or System.Security.SecurityException;
 
-    private sealed record SourceTemplate(
+    private sealed record ShippedTemplateFile(
         string? Name,
         string? Description,
         string? RecurrenceType,
@@ -193,7 +199,7 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
         foreach (var name in assembly.GetManifestResourceNames().Where(n => n.StartsWith(ResourcePrefix, StringComparison.Ordinal)).Order(StringComparer.Ordinal))
         {
             using var stream = assembly.GetManifestResourceStream(name)!;
-            var source = JsonSerializer.Deserialize<SourceTemplate>(stream)
+            var source = JsonSerializer.Deserialize<ShippedTemplateFile>(stream)
                 ?? throw new InvalidOperationException($"The shipped template {name} is empty.");
             var id = name[ResourcePrefix.Length..^".json".Length];
             result.Add(new MaintenanceTemplate(id, source.Name ?? id, source.Description ?? "", Convert(source), WindowType(source.WindowType), true));
@@ -202,10 +208,10 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
     }
 
     /// <summary>
-    /// The source tool's template model: a non-negative PatchTuesdayOffset makes the
-    /// template a Patch Tuesday schedule whatever its RecurrenceType says.
+    /// A non-negative PatchTuesdayOffset in a shipped template file makes the template a
+    /// Patch Tuesday schedule whatever its RecurrenceType says.
     /// </summary>
-    private static MaintenanceSchedule Convert(SourceTemplate s)
+    private static MaintenanceSchedule Convert(ShippedTemplateFile s)
     {
         var kind = s.PatchTuesdayOffset >= 0
             ? MaintenanceScheduleKind.PatchTuesday

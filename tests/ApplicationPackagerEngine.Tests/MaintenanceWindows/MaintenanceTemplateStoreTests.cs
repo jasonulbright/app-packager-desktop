@@ -104,6 +104,42 @@ public sealed class MaintenanceTemplateStoreTests : IDisposable
         Assert.Throws<MaintenanceWindowException>(() => Store().Delete(id));
     }
 
+    [Theory]
+    [InlineData("CON")]
+    [InlineData("con")]
+    [InlineData("PRN")]
+    [InlineData("Aux")]
+    [InlineData("nul")]
+    [InlineData("COM1")]
+    [InlineData("com9")]
+    [InlineData("LPT1")]
+    [InlineData("lpt9")]
+    public void AWindowsDeviceNameIsRefusedAsAnId(string id)
+    {
+        var error = Assert.Throws<MaintenanceWindowException>(() => Store().Save(User(id)));
+        Assert.Equal("The template id cannot be a Windows device name such as CON, NUL or COM1.", error.Message);
+        Assert.Throws<MaintenanceWindowException>(() => Store().Delete(id));
+        Assert.False(Directory.Exists(_folder) && Directory.GetFiles(_folder).Length > 0);
+    }
+
+    [Theory]
+    [InlineData("CON.txt")]
+    [InlineData("nul.json")]
+    public void ADeviceNameWithAnExtensionIsRefused(string id)
+    {
+        Assert.Throws<MaintenanceWindowException>(() => Store().Save(User(id)));
+    }
+
+    [Theory]
+    [InlineData("CONSOLE")]
+    [InlineData("COM10")]
+    [InlineData("nul-window")]
+    public void ANameThatOnlyStartsLikeADeviceNameIsAccepted(string id)
+    {
+        Store().Save(User(id));
+        Assert.Contains(Store().All(), t => t.Id == id);
+    }
+
     [Fact]
     public void AnInvalidScheduleIsRefused()
     {
