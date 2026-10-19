@@ -351,6 +351,129 @@ public sealed class DetectionTesterPageTests
         Assert.Equal(expected, DetectionTesterPage.EditorExit(key, modifiers));
 
     [Fact]
+    public void AKeyPathPrefixChangesTheHiveSelectorAndTheStatusLineShowsIt()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            var viewModel = ViewModelOf(page);
+            viewModel.SelectedClauseType = "RegistryKey";
+            var hive = ById<System.Windows.Controls.ComboBox>(page, "cboHive");
+            hive.SelectedItem = "HKLM";
+            ById<System.Windows.Controls.TextBox>(page, "txtKeyPath").Text = @"HKCU\SOFTWARE\Contoso";
+            var run = viewModel.RunCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => run.IsCompleted);
+            window.UpdateLayout();
+            Assert.Equal("HKCU", hive.SelectedItem);
+            Assert.Equal(@"SOFTWARE\Contoso", ById<System.Windows.Controls.TextBox>(page, "txtKeyPath").Text);
+            var status = ById<TextBlock>(page, "txtDetectionStatus");
+            Assert.Equal("The hive was set to HKCU from the key path.", status.Text);
+            Assert.True(status.IsVisible && status.ActualHeight > 0);
+        });
+    }
+
+    private static DataGridColumn Column(DataGrid grid, string header) => grid.Columns.Single(c => (string)c.Header == header);
+
+    private static (DataGrid Grid, FrameworkElement Details) OpenInstalledApplications(Window window, DetectionTesterPage page)
+    {
+        ById<TabControl>(page, "tabDetectionTester").SelectedIndex = 1;
+        StaTestHelper.PumpUntil(() => ViewModelOf(page).Applications.Count == 1);
+        ViewModelOf(page).SelectedApplication = ViewModelOf(page).Applications[0];
+        for (var pass = 0; pass < 3; pass++)
+        {
+            window.UpdateLayout();
+            StaTestHelper.Flush();
+        }
+        return (ById<DataGrid>(page, "dgApplications"), ById<FrameworkElement>(page, "pnlApplicationSide"));
+    }
+
+    [Theory]
+    [InlineData(1024, 768)]
+    [InlineData(804, 700)]
+    public void AtA1024PixelScreenTheNameAndPublisherColumnsStayReadable(double width, double height)
+    {
+        WithPage(ApplicationTheme.Dark, (window, page, harness) =>
+        {
+            var (grid, details) = OpenInstalledApplications(window, page);
+            Assert.True(Column(grid, "Name").ActualWidth >= 120, $"Name is {Column(grid, "Name").ActualWidth} px.");
+            Assert.True(Column(grid, "Publisher").ActualWidth >= 120, $"Publisher is {Column(grid, "Publisher").ActualWidth} px.");
+            foreach (var header in new[] { "Version", "Install date", "Source" })
+                Assert.True(Column(grid, header).Width.IsAbsolute, $"{header} is not a fixed width.");
+            Assert.Equal(System.Windows.Controls.ScrollBarVisibility.Auto, grid.HorizontalScrollBarVisibility);
+            Assert.True(details.IsVisible && details.ActualWidth >= 300 && details.ActualHeight >= 120,
+                $"The detail panel is {details.ActualWidth} x {details.ActualHeight} px.");
+            Assert.True(ById<FrameworkElement>(page, "btnUseForDetection").IsVisible);
+        }, width: width, height: height);
+    }
+
+    [Fact]
+    public void AtANarrowWidthTheDetailPanelMovesUnderTheGrid()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            var (grid, details) = OpenInstalledApplications(window, page);
+            Assert.Equal(2, Grid.GetRow(details));
+            Assert.Equal(0, Grid.GetColumn(details));
+            var gridBottom = grid.TranslatePoint(new System.Windows.Point(0, grid.ActualHeight), page).Y;
+            Assert.True(details.TranslatePoint(new System.Windows.Point(0, 0), page).Y >= gridBottom);
+            Assert.True(grid.ActualHeight >= 120, $"The grid is {grid.ActualHeight} px high.");
+        }, width: 804, height: 700);
+    }
+
+    [Fact]
+    public void AtA1440PixelScreenTheDetailPanelStaysBesideTheGrid()
+    {
+        WithPage(ApplicationTheme.Dark, (window, page, harness) =>
+        {
+            var (grid, details) = OpenInstalledApplications(window, page);
+            Assert.Equal(1, Grid.GetRow(details));
+            Assert.Equal(2, Grid.GetColumn(details));
+            Assert.Equal(340, details.ActualWidth, 1);
+            var gridRight = grid.TranslatePoint(new System.Windows.Point(grid.ActualWidth, 0), page).X;
+            Assert.True(details.TranslatePoint(new System.Windows.Point(0, 0), page).X > gridRight);
+            Assert.Equal(grid.TranslatePoint(new System.Windows.Point(0, 0), page).Y, details.TranslatePoint(new System.Windows.Point(0, 0), page).Y, 1);
+            Assert.True(Column(grid, "Name").ActualWidth > Column(grid, "Publisher").ActualWidth);
+            Assert.True(Column(grid, "Publisher").ActualWidth >= 120);
+        }, width: 1440, height: 900);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheSelectedTabHeaderUsesDifferentBrushesFromTheOtherHeader(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            var tabs = ById<TabControl>(page, "tabDetectionTester");
+            void Check(int selected)
+            {
+                tabs.SelectedIndex = selected;
+                window.UpdateLayout();
+                StaTestHelper.Flush();
+                var items = tabs.Items.OfType<TabItem>().ToList();
+                var on = Header(items[selected]);
+                var off = Header(items[1 - selected]);
+                Assert.Same(Application.Current.FindResource("TextFillColorPrimaryBrush"), on.Text.Foreground);
+                Assert.Same(Application.Current.FindResource("TextFillColorSecondaryBrush"), off.Text.Foreground);
+                Assert.Same(Application.Current.FindResource("AccentFillColorDefaultBrush"), on.Underline.Background);
+                Assert.NotEqual(((SolidColorBrush)on.Text.Foreground).Color, ((SolidColorBrush)off.Text.Foreground).Color);
+                var accent = Assert.IsType<SolidColorBrush>(on.Underline.Background).Color;
+                Assert.True(accent.A > 0, "The selected underline is transparent.");
+                Assert.True(off.Underline.Background is null || ((SolidColorBrush)off.Underline.Background).Color.A == 0,
+                    "The unselected underline is drawn.");
+                Assert.True(on.Underline.IsVisible && on.Underline.ActualHeight >= 2);
+            }
+            Check(0);
+            Check(1);
+        });
+    }
+
+    private static (TextBlock Text, Border Underline) Header(TabItem item)
+    {
+        var parts = Descendants(item).ToList();
+        return (parts.OfType<TextBlock>().Single(t => t.Name == "TabHeaderText"), parts.OfType<Border>().Single(b => b.Name == "TabHeaderUnderline"));
+    }
+
+    [Fact]
     public void TheSystemComponentsCheckBoxReloadsTheList()
     {
         WithPage(ApplicationTheme.Dark, (window, page, harness) =>
