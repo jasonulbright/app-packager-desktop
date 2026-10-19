@@ -56,26 +56,94 @@ public sealed class MaintenanceWindowWriterTests
         Assert.All(methods, m => Assert.Equal(typeof(ConfirmedChangePlan), m.GetParameters()[0].ParameterType));
     }
 
-    private static string UiSourceRoot()
+    private static string SourceRoot()
     {
         var folder = new DirectoryInfo(AppContext.BaseDirectory);
         while (folder is not null && !Directory.Exists(Path.Combine(folder.FullName, "src", "ApplicationPackagerUI"))) folder = folder.Parent;
         Assert.NotNull(folder);
-        return Path.Combine(folder!.FullName, "src", "ApplicationPackagerUI");
+        return Path.Combine(folder!.FullName, "src");
+    }
+
+    private static readonly Regex Comments = new(@"//[^\r\n]*|/\*.*?\*/", RegexOptions.Singleline | RegexOptions.CultureInvariant);
+    private static readonly Regex Strings = new(@"@""(?:[^""]|"""")*""|""(?:\\.|[^""\\\r\n])*""", RegexOptions.CultureInvariant);
+
+    /// <summary>The source text without string literals and comments, so a mention in either is not counted.</summary>
+    internal static string Code(string source) => Comments.Replace(Strings.Replace(source, "\"\""), "");
+
+    private static List<string> FilesWith(Regex pattern)
+    {
+        var root = SourceRoot();
+        var separator = Path.DirectorySeparatorChar;
+        return Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{separator}obj{separator}", StringComparison.OrdinalIgnoreCase)
+                     && !f.Contains($"{separator}bin{separator}", StringComparison.OrdinalIgnoreCase))
+            .Where(f => pattern.IsMatch(Code(File.ReadAllText(f))))
+            .Select(f => Path.GetRelativePath(root, f))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    [Fact]
+    public void TheCodeFilterIgnoresCommentsAndStringsButNotACallOrAMethodGroup()
+    {
+        var name = new Regex(@"\bApplyAsync\b");
+        Assert.DoesNotMatch(name, Code("// service.ApplyAsync(x)\n/* ApplyAsync */ var s = \"ApplyAsync\";"));
+        Assert.Matches(name, Code("Func<int> f = service.ApplyAsync;"));
+        Assert.Matches(name, Code("var t = service . ApplyAsync (changes, p, ct); // comment"));
     }
 
     [Fact]
     public void OnlyTheWriterCallsTheServiceWrite()
     {
-        var root = UiSourceRoot();
-        var calls = new Regex(@"\.\s*ApplyAsync\s*\(", RegexOptions.CultureInvariant);
-        var callers = Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
-            .Where(f => !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                     && !f.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            .Where(f => calls.IsMatch(File.ReadAllText(f)))
-            .Select(f => Path.GetRelativePath(root, f))
+        // Each file has a reason: the contract declares the method, the service implements it, the
+        // writer is its only caller, and the WSUS dialog has an unrelated private method of the same name.
+        Assert.Equal(
+        [
+            Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowsContract.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowService.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "MaintenanceWindowsPlan.cs"),
+            Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
+        ], FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant)));
+        Assert.DoesNotContain("Maintenance", Code(File.ReadAllText(Path.Combine(SourceRoot(), "ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs"))));
+    }
+
+    [Fact]
+    public void TheServiceIsNamedOnlyByTheWriterThePageAndTheRegistration()
+    {
+        Assert.Equal(
+        [
+            Path.Combine("ApplicationPackagerUI", "Services", "MaintenanceWindowsPlan.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "MaintenanceWindowsPrompts.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "PackagerServiceRegistration.cs"),
+            Path.Combine("ApplicationPackagerUI", "ViewModels", "Pages", "MaintenanceWindowsViewModel.cs")
+        ], FilesWith(new Regex(@"\bIMaintenanceWindowService\b", RegexOptions.CultureInvariant)).Where(f => f.StartsWith("ApplicationPackagerUI", StringComparison.Ordinal)));
+    }
+
+    private static bool IsService(Type type) => typeof(IMaintenanceWindowService).IsAssignableFrom(type);
+
+    private static Type Outermost(Type type)
+    {
+        while (type.DeclaringType is { } outer) type = outer;
+        return type;
+    }
+
+    [Fact]
+    public void NoTypeOfTheDesktopButTheWriterAndThePageHoldsTheService()
+    {
+        var allowed = new[] { typeof(MaintenanceWindowWriter), typeof(ApplicationPackagerUI.ViewModels.Pages.MaintenanceWindowsViewModel),
+            typeof(ApplicationPackagerUI.ViewModels.Pages.MaintenanceWindowsPageServices) };
+        var all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+        var holders = typeof(MaintenanceWindowWriter).Assembly.GetTypes()
+            .Where(t => IsService(t)
+                || t.GetConstructors(all).Any(c => c.GetParameters().Any(p => IsService(p.ParameterType)))
+                || t.GetFields(all).Any(f => IsService(f.FieldType))
+                || t.GetProperties(all).Any(p => IsService(p.PropertyType)))
+            .Select(Outermost)
+            .Distinct()
             .ToList();
-        Assert.Equal([Path.Combine("Services", "MaintenanceWindowsPlan.cs")], callers);
+        Assert.NotEmpty(holders);
+        Assert.All(holders, t => Assert.Contains(t, allowed));
+        Assert.Contains(typeof(MaintenanceWindowWriter), holders);
     }
 
     [Fact]
@@ -120,10 +188,13 @@ public sealed class MaintenanceWindowWriterTests
         Assert.Equal(["Remove", "Undo Remove"], harness.History.Entries.Select(e => e.Action));
     }
 
-    [Fact]
-    public async Task ACancelKeepsTheReportedOutcomesForTheUndo()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ACancelKeepsTheReportedOutcomesForTheUndo(bool throwOnCancel)
     {
         var harness = NewHarness();
+        harness.Service.ThrowOnCancel = throwOnCancel;
         var writer = harness.Writer();
         var plan = PlanOf(Write(Create(harness.Kiosks, "A")), Write(Create(harness.Kiosks, "B")), Write(Create(harness.Kiosks, "C")));
         var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
@@ -133,10 +204,41 @@ public sealed class MaintenanceWindowWriterTests
         var result = dialog.Outcome.Result!;
         Assert.Equal(ChangePlanStop.Cancelled, result.Stop);
         Assert.Equal(1, result.SucceededCount);
-        Assert.Equal(2, result.FailedCount);
+        Assert.Equal(throwOnCancel ? (2, 0) : (0, 2), (result.FailedCount, result.SkippedCount));
         Assert.Single(plan.UndoChanges());
         Assert.Equal(SiteOperationOutcome.Cancelled, harness.History.Entries.Single().Outcome);
         Assert.True(dialog.UndoCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ACancelDuringTheLastChangeOfARunThatMadeEveryChangeRecordsItAsSucceeded()
+    {
+        var harness = NewHarness();
+        var writer = harness.Writer();
+        var plan = PlanOf(Write(Create(harness.Kiosks, "A")), Write(Create(harness.Kiosks, "B")));
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        harness.Service.AfterChange = i => { if (i == 1) dialog.RequestCancel(); };
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+
+        var result = dialog.Outcome.Result!;
+        Assert.Equal(ChangePlanStop.Completed, result.Stop);
+        Assert.Equal(2, result.SucceededCount);
+        Assert.Equal(SiteOperationOutcome.Succeeded, harness.History.Entries.Single().Outcome);
+    }
+
+    [Fact]
+    public async Task ACancelDuringTheLastUndoChangeOfAnUndoThatMadeEveryChangeRecordsItAsSucceeded()
+    {
+        var harness = NewHarness();
+        var writer = harness.Writer();
+        var plan = PlanOf(Write(Create(harness.Kiosks, "A")), Write(Create(harness.Kiosks, "B")));
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+        harness.Service.AfterChange = i => { if (i == 1) dialog.RequestCancel(); };
+        await dialog.UndoCommand.ExecuteAsync(null);
+
+        Assert.Equal(ChangePlanStop.Completed, dialog.Outcome.UndoResult!.Stop);
+        Assert.Equal(SiteOperationOutcome.Succeeded, harness.History.Entries[1].Outcome);
     }
 
     [Fact]

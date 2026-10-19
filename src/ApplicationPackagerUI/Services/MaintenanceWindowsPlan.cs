@@ -130,9 +130,9 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
         {
             var outcomes = await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Report(outcome);
-            // The service ends a cancelled run normally and returns the changes it did not start as skipped outcomes.
-            var cancelled = ct.IsCancellationRequested;
-            var result = Result(plan, results) with { Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed };
+            var rows = Result(plan, results);
+            var cancelled = ct.IsCancellationRequested && LeftUndone(plan.Entries.Where(e => e.Change is not null).Select(e => e.Item), rows.Items);
+            var result = rows with { Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed };
             stop = cancelled ? SiteOperationOutcome.Cancelled
                 : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
                 : result.SucceededCount > 0 ? SiteOperationOutcome.PartlySucceeded
@@ -169,7 +169,7 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
             var outcomes = await Task.Run(() => service.ApplyAsync(undo.Select(u => u.Undo).ToList(), reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Report(outcome);
             var rows = undo.Select(u => results.TryGetValue(u.Entry.Item, out var r) ? r : new ChangePlanItemResult(u.Entry.Item, false, NoResultText)).ToList();
-            var cancelled = ct.IsCancellationRequested;
+            var cancelled = ct.IsCancellationRequested && LeftUndone(undo.Select(u => u.Entry.Item), rows);
             var result = new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed);
             stop = cancelled ? SiteOperationOutcome.Cancelled
                 : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
@@ -186,6 +186,17 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
         {
             Record("Undo " + plan.Action, stop, results.Values);
         }
+    }
+
+    /// <summary>
+    /// True when a change of the run was not made because of the cancel. The service ends a
+    /// cancelled run normally and returns the changes it did not start as skipped outcomes; a
+    /// cancel that arrives during the last change leaves none, and the run counts as completed.
+    /// </summary>
+    private static bool LeftUndone(IEnumerable<ChangePlanItem> writes, IReadOnlyList<ChangePlanItemResult> rows)
+    {
+        var items = new HashSet<ChangePlanItem>(writes, ReferenceEqualityComparer.Instance);
+        return rows.Any(r => items.Contains(r.Item) && (r.Skipped || r.Message == NoResultText));
     }
 
     private static ChangePlanResult Result(MaintenancePlan plan, Dictionary<ChangePlanItem, ChangePlanItemResult> results) =>

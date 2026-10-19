@@ -107,6 +107,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     private bool _applyingPreferences;
     private Task _preferencesLoad = Task.CompletedTask;
     private MaintenanceWindowsSettings? _storedChoices;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private double _editorWidth;
     private double _editorHeight;
 
@@ -338,23 +339,32 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         && a.FolderFilter == b.FolderFilter && a.CoverageWithoutWindowOnly == b.CoverageWithoutWindowOnly
         && a.EditorWidth.Equals(b.EditorWidth) && a.EditorHeight.Equals(b.EditorHeight);
 
-    /// <summary>Writes the choices on a pool thread when they differ from the stored ones; a failure is logged and tried again at the next change.</summary>
+    /// <summary>
+    /// Writes the choices on a pool thread when they differ from the stored ones; a failure is
+    /// logged and tried again at the next change. Saves run one at a time and each reads the
+    /// choices when its turn comes, so the last write holds the newest choices.
+    /// </summary>
     private async Task SavePreferencesAsync()
     {
         // A save before the stored choices are known would replace them with the defaults.
         await _preferencesLoad;
-        var choices = CurrentChoices();
-        if (SameChoices(_storedChoices, choices)) return;
-        _storedChoices = choices;
+        await _saveLock.WaitAsync();
         try
         {
-            await Task.Run(() => _services.SavePreferences(choices));
+            var choices = CurrentChoices();
+            if (SameChoices(_storedChoices, choices)) return;
+            _storedChoices = choices;
+            try
+            {
+                await Task.Run(() => _services.SavePreferences(choices));
+            }
+            catch (Exception ex)
+            {
+                _storedChoices = null;
+                _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+            }
         }
-        catch (Exception ex)
-        {
-            _storedChoices = null;
-            _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
-        }
+        finally { _saveLock.Release(); }
     }
 
     private bool CanRefresh() => !IsLoading;
@@ -373,7 +383,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     /// <summary>Reads the collections and windows; a second call while a load runs waits for that load.</summary>
     public async Task LoadAsync()
     {
-        if (_loading is { } pending)
+        if (_loading is { IsCompleted: false } pending)
         {
             await pending;
             return;
@@ -495,7 +505,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         var text = TextFilter.Trim();
         var selected = SelectedRow;
         var all = AllRows().ToList();
-        Rows.Clear();
+        var shownRows = new List<MaintenanceWindowRow>();
         foreach (var row in all.OrderBy(r => r.CollectionName, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.WindowName, StringComparer.OrdinalIgnoreCase))
         {
             if (OnlyCollectionsWithWindows && !row.HasWindow) continue;
@@ -507,12 +517,30 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
                 && !row.WindowName.Contains(text, StringComparison.OrdinalIgnoreCase)
                 && !row.ScheduleText.Contains(text, StringComparison.OrdinalIgnoreCase)
                 && !row.CollectionId.Contains(text, StringComparison.OrdinalIgnoreCase)) continue;
-            Rows.Add(row);
+            shownRows.Add(row);
         }
+        ReplaceRows(shownRows);
         SelectedRow = selected is null ? null : Rows.FirstOrDefault(r => SameRow(r, selected));
+        var stillShown = _selectedWindows.Select(s => Rows.FirstOrDefault(r => SameRow(r, s))).OfType<MaintenanceWindowRow>().ToList();
+        if (!stillShown.SequenceEqual(_selectedWindows, ReferenceEqualityComparer.Instance)) SetSelectedWindows(stillShown);
         var windows = all.Count(r => r.HasWindow);
         var shown = Rows.Count(r => r.HasWindow);
         RowCount = shown == windows ? Count(windows, "window") : $"{shown} of {Count(windows, "window")}";
+    }
+
+    /// <summary>
+    /// Changes <see cref="Rows"/> to <paramref name="wanted"/> with the fewest changes: a row that
+    /// stays shown keeps its object, so the grid keeps its selection and scroll position.
+    /// </summary>
+    private void ReplaceRows(IReadOnlyList<MaintenanceWindowRow> wanted)
+    {
+        var keep = new HashSet<MaintenanceWindowRow>(wanted);
+        for (var i = Rows.Count - 1; i >= 0; i--)
+            if (!keep.Contains(Rows[i])) Rows.RemoveAt(i);
+        for (var i = 0; i < wanted.Count; i++)
+            if (i >= Rows.Count || !Equals(Rows[i], wanted[i])) Rows.Insert(i, wanted[i]);
+        // Rows that kept their object but moved in the order end up after the wanted rows.
+        while (Rows.Count > wanted.Count) Rows.RemoveAt(Rows.Count - 1);
     }
 
     private static bool SameRow(MaintenanceWindowRow a, MaintenanceWindowRow b) =>
@@ -608,11 +636,15 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     /// Reads the current state of each request, builds the plan from it and shows the plan.
     /// The writer applies only the changes of the plan the operator confirms. Null when no
     /// plan was shown; the reason is in <see cref="StatusMessage"/> and passed to <paramref name="report"/>.
+    /// With more than one request, a request whose state cannot be read becomes a Skip line with
+    /// the plain reason. <paramref name="checkState"/> false sends the requests as they are: the
+    /// service checks the state of each change again when it writes it.
     /// </summary>
     private async Task<(MaintenancePlan Plan, ChangePlanOutcome Outcome)?> RunPlanAsync(
         IReadOnlyList<MaintenanceChange> requests,
         Func<IReadOnlyList<MaintenanceChange>, (MaintenancePlan? Plan, string? Problem)> build,
-        Action<string>? report = null)
+        Action<string>? report = null,
+        bool checkState = true)
     {
         if (_writing) return null;
         _writing = true;
@@ -621,36 +653,54 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         try
         {
             var generation = _generation;
-            IReadOnlyList<MaintenanceChange> prepared;
-            try
+            void Refuse(string message)
             {
-                prepared = await Task.Run(async () =>
-                {
-                    var list = new List<MaintenanceChange>(requests.Count);
-                    foreach (var request in requests) list.Add(await _services.Windows.PrepareAsync(request, CancellationToken.None));
-                    return list;
-                });
-            }
-            catch (Exception ex)
-            {
-                var message = PlainMessage(ex, PrepareFailed);
                 StatusMessage = message;
                 report?.Invoke(message);
-                _services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(ex)}).");
-                return null;
+            }
+
+            var prepared = new List<MaintenanceChange>(requests.Count);
+            var skips = new List<MaintenancePlanEntry>();
+            if (!checkState) prepared.AddRange(requests);
+            else
+            {
+                var checks = await Task.Run(async () =>
+                {
+                    var list = new List<(MaintenanceChange Request, MaintenanceChange? Prepared, Exception? Failure)>(requests.Count);
+                    foreach (var request in requests)
+                    {
+                        try { list.Add((request, await _services.Windows.PrepareAsync(request, CancellationToken.None), null)); }
+                        catch (Exception ex) { list.Add((request, null, ex)); }
+                    }
+                    return list;
+                });
+                foreach (var (request, ready, failure) in checks)
+                {
+                    if (failure is null)
+                    {
+                        prepared.Add(ready!);
+                        continue;
+                    }
+                    _services.Log.Warning(LogArea, $"The state before a write could not be read ({FailureName(failure)}).");
+                    var reason = PlainMessage(failure, PrepareFailed);
+                    skips.Add(MaintenancePlanEntry.Skip(new ChangePlanItem("Skip", MaintenanceWindowsText.Target(request.CollectionName, request.WindowName), reason), reason));
+                }
+                if (skips.Count > 0 && (requests.Count == 1 || prepared.Count == 0))
+                {
+                    Refuse(skips[0].SkipReason!);
+                    return null;
+                }
             }
             if (generation != _generation) return null;
 
-            var (plan, problem) = build(prepared);
-            if (plan is null)
+            var (built, problem) = build(prepared);
+            if (built is null)
             {
-                if (problem is not null)
-                {
-                    StatusMessage = problem;
-                    report?.Invoke(problem);
-                }
+                if (problem is not null) Refuse(problem);
                 return null;
             }
+            var plan = skips.Count == 0 ? built
+                : new MaintenancePlan(built.Action, built.Plan.Title, built.Plan.ActionName, [.. skips, .. built.Entries], built.Plan.IsDestructive, built.Plan.HasUndo);
 
             var outcome = _services.Plans.Show(plan.Plan, _services.Writer.RunFor(plan), plan.Plan.HasUndo ? _services.Writer.UndoFor(plan) : null);
             if (outcome.Confirmed) _lastRunPlan = plan;
@@ -696,6 +746,9 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     private async Task AfterWriteAsync(MaintenancePlan? plan)
     {
         var status = StatusMessage;
+        // A load that started before the write can return the state before it; the list is
+        // read again once that load ends.
+        while (_loading is { IsCompleted: false } pending) await pending;
         await LoadAsync();
         if (StatusMessage.Length == 0) StatusMessage = status;
         if (plan is null || _windows is null) return;
@@ -724,6 +777,13 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     {
         var change = prepared[0];
         var after = change.After!;
+        // The editor's values carry the enabled state of the list read; the write sets the
+        // enabled state too, so a toggle made since the read would be undone without this.
+        if (change.Kind is ChangeKind.Update or ChangeKind.Rename && change.Before is { } current)
+        {
+            after = after with { Enabled = current.Enabled };
+            change = change with { After = after };
+        }
         switch (change.Kind)
         {
             case ChangeKind.Create:
@@ -760,17 +820,22 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             request = new MaintenanceChange(ChangeKind.Rename, original.CollectionId, original.CollectionName, original.WindowName, after.WindowName, original, after);
 
         var run = await RunPlanAsync([request], BuildEditorPlan, editor.ShowMessage);
-        if (run is not { } done || done.Outcome.Result is not { } result) return false;
+        if (run is not { } done) return false;
+        if (done.Outcome.Result is not { } result)
+        {
+            editor.ShowMessage(NotConfirmed);
+            return false;
+        }
         if (result.SucceededCount > 0) return true;
-        if (done.Outcome.Confirmed) editor.ShowMessage(result.Items.FirstOrDefault(i => !i.Succeeded)?.Message ?? NotConfirmed);
+        editor.ShowMessage(result.Items.FirstOrDefault(i => !i.Succeeded)?.Message ?? NotConfirmed);
         return false;
     }
 
     private MaintenanceWindowEditorViewModel NewEditor(MaintenanceEditorMode mode, Func<MaintenanceWindowEditorViewModel, Task<bool>> save)
     {
         var editor = new MaintenanceWindowEditorViewModel(mode, _services.Projector, save, _services.Now, _collections, _windows);
-        if (_editorWidth >= 400) editor.Width = _editorWidth;
-        if (_editorHeight >= 400) editor.Height = _editorHeight;
+        if (double.IsFinite(_editorWidth) && _editorWidth >= 400) editor.Width = _editorWidth;
+        if (double.IsFinite(_editorHeight) && _editorHeight >= 400) editor.Height = _editorHeight;
         return editor;
     }
 
@@ -885,7 +950,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
                 undo[i].Entry.Item.Target, UndoDetail(change)), change)).ToList();
             var destructive = prepared.Any(c => c.Kind is ChangeKind.Remove or ChangeKind.Rename);
             return (new MaintenancePlan("Undo " + last.Action, "Undo: " + last.Plan.Title, $"Undo {Count(entries.Count, "change")}", entries, destructive), null);
-        });
+        }, checkState: false);
         if (run is { Outcome.Confirmed: true } done) await AfterWriteAsync(done.Plan);
     }
 
@@ -984,6 +1049,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             return (new MaintenancePlan("Apply template", $"Apply template {template.Name}", $"Create {Count(writes, "window")}", entries), null);
         }, dialog.ShowMessage);
         if (run is not { } done) return false;
+        if (done.Outcome.Result is null) dialog.ShowMessage(NotConfirmed);
         return done.Outcome.Confirmed && done.Outcome.Result is { SucceededCount: > 0 };
     }
 
