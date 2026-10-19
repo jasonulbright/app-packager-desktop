@@ -62,7 +62,7 @@ public static class DetectionClauseText
         "File" when IsVersion(detection.PropertyType) =>
             $@"{detection.FilePath}\{detection.FileName} version {Operator(detection.Operator, DetectionEvaluator.FileDefaultOperator)} {detection.ExpectedValue}",
         "File" => $@"{detection.FilePath}\{detection.FileName} exists",
-        "Script" => $"Script ({LineCount(detection.ScriptText)} lines)",
+        "Script" => $"Script ({LineText(detection.ScriptText)})",
         "Compound" => $"Compound: {detection.Clauses?.Length ?? 0} clauses ({Connector(detection)})",
         _ => detection.Type
     };
@@ -100,6 +100,16 @@ public static class DetectionClauseText
 
     private static string Operator(string? op, string fallback) => string.IsNullOrWhiteSpace(op) ? fallback : op.Trim();
 
-    private static int LineCount(string? text) =>
-        string.IsNullOrEmpty(text) ? 0 : text.Split('\n').Length;
+    private static string LineText(string? text)
+    {
+        var count = LineCount(text);
+        return count == 1 ? "1 line" : $"{count} lines";
+    }
+
+    /// <summary>The line count as an editor shows it: a final line break does not start another line.</summary>
+    private static int LineCount(string? text)
+    {
+        var body = (text ?? "").TrimEnd('\r', '\n');
+        return body.Length == 0 ? 0 : body.Split('\n').Length;
+    }
 }

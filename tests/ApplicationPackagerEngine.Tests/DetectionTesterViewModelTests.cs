@@ -311,6 +311,42 @@ public sealed class DetectionTesterViewModelTests
     }
 
     [Fact]
+    public async Task AKeyPathPrefixThatChangesTheHiveSaysSoBeforeTheRun()
+    {
+        var viewModel = await _h.OpenAsync();
+        viewModel.SelectedClauseType = "RegistryKey";
+        viewModel.SelectedHive = "HKLM";
+        viewModel.KeyPath = @"HKCU\SOFTWARE\Contoso";
+        _h.Tests.Pending = new TaskCompletionSource<DetectionTestResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = viewModel.RunCommand.ExecuteAsync(null);
+        Assert.Equal("The hive was set to HKCU from the key path.", viewModel.StatusMessage);
+        Assert.Equal("HKCU", viewModel.SelectedHive);
+        Assert.Equal(@"SOFTWARE\Contoso", viewModel.KeyPath);
+        _h.Tests.Pending.SetResult(FakeDetectionTestService.Result(true, false, "Detected."));
+        await run;
+        Assert.Equal("The hive was set to HKCU from the key path.", viewModel.StatusMessage);
+        Assert.Equal("CurrentUser", Assert.Single(_h.Tests.Requests).Detection.Hive);
+
+        viewModel.KeyPath = @"HKEY_LOCAL_MACHINE\SOFTWARE\Contoso";
+        await viewModel.RunCommand.ExecuteAsync(null);
+        Assert.Equal("The hive was set to HKLM from the key path.", viewModel.StatusMessage);
+        Assert.Equal("HKLM", viewModel.SelectedHive);
+    }
+
+    [Fact]
+    public async Task AKeyPathPrefixThatMatchesTheHiveLeavesTheStatusLine()
+    {
+        var viewModel = await _h.OpenAsync();
+        viewModel.SelectedClauseType = "RegistryKey";
+        viewModel.SelectedHive = "HKLM";
+        viewModel.KeyPath = @"HKLM\SOFTWARE\Contoso";
+        await viewModel.RunCommand.ExecuteAsync(null);
+        Assert.Equal("", viewModel.StatusMessage);
+        Assert.Equal("HKLM", viewModel.SelectedHive);
+        Assert.Equal(@"SOFTWARE\Contoso", Assert.Single(_h.Tests.Requests).Detection.RegistryKeyRelative);
+    }
+
+    [Fact]
     public async Task RunSendsFileAndScriptClauses()
     {
         var viewModel = await _h.OpenAsync();

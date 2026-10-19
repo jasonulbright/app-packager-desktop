@@ -57,6 +57,8 @@ public partial class DetectionTesterViewModel : ObservableObject
     public const string HistoryNote = "History keeps the clause text, including script text, on this computer.";
     public const string NoDetectionMessage = "This manifest has no detection to import.";
 
+    public static string HiveFromKeyPathMessage(string hive) => $"The hive was set to {hive} from the key path.";
+
     /// <summary>The number of history rows the page keeps; the history store keeps the same number.</summary>
     public const int HistoryLimit = 500;
 
@@ -456,12 +458,16 @@ public partial class DetectionTesterViewModel : ObservableObject
         }
     }
 
-    /// <summary>A pasted full key path selects its hive; the input keeps the path below the hive.</summary>
+    /// <summary>
+    /// A pasted full key path selects its hive and the status line says so when the hive changes;
+    /// the input keeps the path below the hive.
+    /// </summary>
     private string ApplyKeyPath()
     {
         var (hive, relative) = DetectionClauseText.SplitKeyPath(KeyPath);
         if (hive is not null)
         {
+            if (hive != SelectedHive) StatusMessage = HiveFromKeyPathMessage(hive);
             SelectedHive = hive;
             KeyPath = relative;
         }
