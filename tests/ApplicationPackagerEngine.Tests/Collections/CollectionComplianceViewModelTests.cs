@@ -592,7 +592,8 @@ public sealed class CollectionComplianceViewModelTests
         var viewModel = await WqlOnAsync(harness, "LAB00011");
         viewModel.WqlText = "delete from SMS_R_System";
         await viewModel.ValidateWqlCommand.ExecuteAsync(null);
-        Assert.Equal("The query is not a valid WQL select statement.", viewModel.WqlMessage);
+        Assert.Equal(WqlGuard.Check("delete from SMS_R_System"), viewModel.WqlMessage);
+        Assert.Equal(0, harness.Service.ValidateCalls);
         viewModel.WqlText = "select SMS_R_System.ResourceId, SMS_R_System.Name from SMS_R_System";
         await viewModel.ValidateWqlCommand.ExecuteAsync(null);
         Assert.Equal("The query is valid.", viewModel.WqlMessage);
