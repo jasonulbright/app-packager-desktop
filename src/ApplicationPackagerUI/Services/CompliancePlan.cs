@@ -147,6 +147,7 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
         ArgumentNullException.ThrowIfNull(confirmed);
         ArgumentNullException.ThrowIfNull(plan);
         if (!plan.IsConfirmedPlan(confirmed)) throw new InvalidOperationException("The confirmed plan is not the plan of these changes.");
+        var changes = Confirmed(plan.Changes, confirmed.Plan.ExtraConfirmation is not null);
         plan.ClearOutcomes();
 
         var results = new Dictionary<ChangePlanItem, ChangePlanItemResult>(ReferenceEqualityComparer.Instance);
@@ -161,7 +162,7 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
         var stop = SiteOperationOutcome.Failed;
         try
         {
-            var outcomes = await Task.Run(() => service.ApplyAsync(plan.Changes, reporter, ct), ct).ConfigureAwait(true);
+            var outcomes = await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Final(outcome);
             var rows = new ChangePlanResult(plan.Entries.Select(e => results.TryGetValue(e.Item, out var r) ? r : new ChangePlanItemResult(e.Item, false, NoResultText)).ToList());
             var cancelled = ct.IsCancellationRequested && LeftUndone(plan.Entries.Where(e => e.Change is not null).Select(e => e.Item), rows.Items);
@@ -203,7 +204,9 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
         var stop = SiteOperationOutcome.Failed;
         try
         {
-            var outcomes = await Task.Run(() => service.ApplyAsync(undo.Select(u => u.Undo).ToList(), reporter, ct), ct).ConfigureAwait(true);
+            // The undo restores a state the confirmed run replaced, so a restored remediation needs no second check box.
+            var changes = Confirmed(undo.Select(u => u.Undo).ToList(), true);
+            var outcomes = await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Final(outcome);
             var rows = undo.Select(u => results.TryGetValue(u.Entry.Item, out var r) ? r : new ChangePlanItemResult(u.Entry.Item, false, NoResultText)).ToList();
             var cancelled = ct.IsCancellationRequested && LeftUndone(undo.Select(u => u.Entry.Item), rows);
@@ -228,9 +231,30 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
         }
     }
 
+    /// <summary>
+    /// The changes to send: a change that turns remediation on or keeps it on carries the second
+    /// confirmation only when <paramref name="acknowledged"/>; without it the run does not start.
+    /// </summary>
+    internal static IReadOnlyList<ComplianceChange> Confirmed(IReadOnlyList<ComplianceChange> changes, bool acknowledged)
+    {
+        if (!acknowledged && changes.Any(NeedsRemediationConfirmation))
+            throw new InvalidOperationException("A plan that turns remediation on needs its second confirmation.");
+        return changes.Select(c => NeedsRemediationConfirmation(c) ? c with { RemediationConfirmed = true } : c).ToList();
+    }
+
+    /// <summary>True when the service refuses the change unless the operator confirmed remediation a second time.</summary>
+    public static bool NeedsRemediationConfirmation(ComplianceChange change) => change.Kind switch
+    {
+        ComplianceChangeKind.CatalogDeploy => change.RemediateAfter == true
+            || (change.Values.TryGetValue("DetectOnly", out var detectOnly) && !string.Equals(detectOnly, "True", StringComparison.OrdinalIgnoreCase)),
+        ComplianceChangeKind.SetRemediation => change.RemediateAfter == true,
+        ComplianceChangeKind.Redeploy or ComplianceChangeKind.Reassign or ComplianceChangeKind.CreateDeployment => change.DeploymentBefore?.RemediateNoncompliant == true,
+        _ => false
+    };
+
     /// <summary>True when the undo of the change creates its object again.</summary>
     public static bool Recreates(ComplianceChange? change) =>
-        change?.Kind is ComplianceChangeKind.DeleteDeployment or ComplianceChangeKind.RemoveSetting or ComplianceChangeKind.Redeploy;
+        change?.Kind is ComplianceChangeKind.DeleteDeployment or ComplianceChangeKind.RemoveSetting;
 
     private static SiteOperationOutcome Outcome(ChangePlanResult result, bool cancelled) =>
         cancelled ? SiteOperationOutcome.Cancelled
@@ -278,7 +302,7 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
         public void Report(ComplianceOutcome value)
         {
             ArgumentNullException.ThrowIfNull(value);
-            if (value.Change.Kind != ComplianceChangeKind.CatalogDeploy)
+            if (!value.InProgress)
             {
                 Final(value);
                 return;

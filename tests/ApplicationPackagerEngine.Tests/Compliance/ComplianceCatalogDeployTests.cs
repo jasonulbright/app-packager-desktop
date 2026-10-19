@@ -11,7 +11,7 @@ namespace ApplicationPackagerEngine.Tests.Compliance;
 public sealed class ComplianceCatalogDeployTests
 {
     /// <summary>Makes the entry's objects on the stub site as the builder does, step by step.</summary>
-    private sealed class SiteBuilder(StubComplianceSite site) : ICatalogBuilderRunner
+    internal sealed class SiteBuilder(StubComplianceSite site) : ICatalogBuilderRunner
     {
         public IReadOnlyList<string>? Arguments { get; private set; }
         public int StopAfterItems { get; init; } = int.MaxValue;
@@ -53,7 +53,7 @@ public sealed class ComplianceCatalogDeployTests
         }
     }
 
-    private static StubComplianceSite Site(params object[] collections) => new(NewState(
+    internal static StubComplianceSite Site(params object[] collections) => new(NewState(
         items: [Ci("16780001", "Existing CI", 3)],
         baselines: [CiBaseline("16780002", "Existing Baseline", "", "16780001")],
         assignments: [Deployment(16777270, "16780002", "MCM00080")],

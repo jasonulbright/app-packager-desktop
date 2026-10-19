@@ -12,6 +12,7 @@ namespace ApplicationPackagerEngine.Tests.Compliance;
 internal sealed class FakeComplianceService : IComplianceService
 {
     public const string CancelledSkip = "Skipped: the run was cancelled before this change.";
+    public const string UnconfirmedSkip = "Skipped: Remediation changes client settings and needs its own confirmation, so nothing was changed.";
 
     private int _next = 0x100;
 
@@ -104,8 +105,9 @@ internal sealed class FakeComplianceService : IComplianceService
 
     public async Task<IReadOnlyList<CiSetting>> ListSettingsAsync(string ciId, CancellationToken ct)
     {
+        var held = SettingsGate;
         Interlocked.Increment(ref SettingCalls);
-        if (SettingsGate is { } gate) await gate.Task.WaitAsync(ct);
+        if (held is { } gate) await gate.Task.WaitAsync(ct);
         lock (Items) return Settings.TryGetValue(ciId, out var list) ? list.ToList() : [];
     }
 
@@ -164,14 +166,16 @@ internal sealed class FakeComplianceService : IComplianceService
 
     private async Task<ComplianceOutcome> DeployAsync(ComplianceChange change, IProgress<ComplianceOutcome> progress, CancellationToken ct)
     {
-        progress.Report(new ComplianceOutcome(change, false, "Running.", null, ["Build: running the builder."]));
+        if (ComplianceWriter.NeedsRemediationConfirmation(change) && !change.RemediationConfirmed)
+            return new ComplianceOutcome(change, false, UnconfirmedSkip, null, []);
+        progress.Report(new ComplianceOutcome(change, true, "Build: running the builder.", null, ["Build: running the builder."], InProgress: true));
         if (DeployGate is { } gate)
         {
             try { await gate.Task.WaitAsync(ct); }
             catch (OperationCanceledException)
             {
                 return new ComplianceOutcome(change, false, "Cancelled after the build started. 1 configuration item was created; Undo removes it.",
-                    change with { CreatedIds = ["CI-NEW"] }, ["Build: running the builder.", "Build: cancelled."]);
+                    change with { Kind = ComplianceChangeKind.RemoveCatalogObjects, CreatedIds = ["ConfigurationItem:16777300"] }, ["Build: running the builder.", "Build: cancelled."]);
             }
         }
         if (Fail?.Invoke(change) is { } message) return new ComplianceOutcome(change, false, message, null, ["Build: failed."]);
@@ -181,13 +185,15 @@ internal sealed class FakeComplianceService : IComplianceService
             var baseline = AddBaseline($"CB-{_next++:X4}", "Created baseline", change.CatalogId, "1.0.0");
             foreach (var target in change.TargetCollectionIds) AddDeployment(baseline, target, target, change.RemediateAfter == true);
             return new ComplianceOutcome(change, true, "Created 1 configuration item and 1 baseline.",
-                change with { CreatedIds = [item.CiId, baseline.BaselineId] }, ["Build: done.", "Deploy: done.", "Tag: done."]);
+                change with { Kind = ComplianceChangeKind.RemoveCatalogObjects, CreatedIds = [$"Baseline:{baseline.BaselineId}", $"ConfigurationItem:{item.CiId}"] }, ["Build: done.", "Deploy: done.", "Tag: done."]);
         }
     }
 
     private ComplianceOutcome Apply(ComplianceChange change)
     {
         if (Fail?.Invoke(change) is { } message) return new ComplianceOutcome(change, false, message, null, []);
+        if (ComplianceWriter.NeedsRemediationConfirmation(change) && !change.RemediationConfirmed)
+            return new ComplianceOutcome(change, false, UnconfirmedSkip, null, []);
         lock (Items)
         {
             switch (change.Kind)
@@ -204,16 +210,16 @@ internal sealed class FakeComplianceService : IComplianceService
                     var before = Deployments.Single(d => d.DeploymentId == change.DeploymentBefore!.DeploymentId);
                     Deployments.Remove(before);
                     Recount();
-                    return new ComplianceOutcome(change, true, "Deleted.", ComplianceRequests.Redeploy(before) with { Kind = ComplianceChangeKind.Redeploy }, []);
+                    return new ComplianceOutcome(change, true, "Deleted.", ComplianceRequests.Delete(before) with { Kind = ComplianceChangeKind.CreateDeployment }, []);
                 }
                 case ComplianceChangeKind.Redeploy:
                 {
                     var before = change.DeploymentBefore!;
-                    Deployments.RemoveAll(d => d.DeploymentId == before.DeploymentId);
                     var again = before with { DeploymentId = $"{{DEP-{_next++:X4}}}" };
                     Deployments.Add(again);
+                    Deployments.RemoveAll(d => d.DeploymentId == before.DeploymentId);
                     Recount();
-                    return new ComplianceOutcome(change, true, "Redeployed.", ComplianceRequests.Delete(again), []);
+                    return new ComplianceOutcome(change, true, "Redeployed.", null, []);
                 }
                 case ComplianceChangeKind.Reassign:
                 {
@@ -244,6 +250,13 @@ internal sealed class FakeComplianceService : IComplianceService
                     list.RemoveAll(s => s.SettingId == change.SettingBefore!.SettingId);
                     Bump(change.CiId!);
                     return new ComplianceOutcome(change, true, "Removed.", ComplianceRequests.AddSetting(change.CiId!, change.SettingBefore!), []);
+                }
+                case ComplianceChangeKind.CreateDeployment:
+                {
+                    var made = change.DeploymentBefore! with { DeploymentId = $"{{DEP-{_next++:X4}}}" };
+                    Deployments.Add(made);
+                    Recount();
+                    return new ComplianceOutcome(change, true, "Created.", ComplianceRequests.Delete(made), []);
                 }
                 default:
                     return new ComplianceOutcome(change, true, "Created.", change with { CreatedIds = ["MCM-DEP"] }, []);
@@ -385,10 +398,12 @@ internal sealed class ComplianceHarness
 
         Smb = Service.AddItem("CI-SMB", "SMB Signing");
         Tls = Service.AddItem("CI-TLS", "TLS Legacy", baselines: 0);
-        SmbValue = new CiSetting("S-1", "RequireSecuritySignature", "Registry", "Integer", @"HKEY_LOCAL_MACHINE\SYSTEM\Lanman\RequireSecuritySignature", "1",
-            Hive: "HKEY_LOCAL_MACHINE", KeyName: @"SYSTEM\Lanman", ValueName: "RequireSecuritySignature");
-        SmbScript = new CiSetting("S-2", "Signing check", "Script", "Boolean", "PowerShell script, 1 line", "True", DiscoveryLanguage: "PowerShell",
-            DiscoveryScript: "(Get-SmbServerConfiguration).RequireSecuritySignature", RemediationScript: "");
+        SmbValue = new CiSetting(SettingId: "S-1", Name: "RequireSecuritySignature", Kind: "Registry", DataType: "Integer",
+            Detail: @"LocalMachine\SYSTEM\Lanman\RequireSecuritySignature", ExpectedValue: "1",
+            Hive: "LocalMachine", KeyName: @"SYSTEM\Lanman", ValueName: "RequireSecuritySignature", RuleName: "RequireSecuritySignature rule");
+        SmbScript = new CiSetting(SettingId: "S-2", Name: "Signing check", Kind: "Script", DataType: "Boolean", Detail: "PowerShell script, 1 line, no remediation script",
+            ExpectedValue: "True", DiscoveryLanguage: "PowerShell", DiscoveryScript: "(Get-SmbServerConfiguration).RequireSecuritySignature",
+            RemediationLanguage: "PowerShell", RemediationScript: "", RuleName: "Signing check rule");
         Service.AddSetting("CI-SMB", SmbValue);
         Service.AddSetting("CI-SMB", SmbScript);
         SmbBaseline = Service.AddBaseline("CB-SMB", "SMB Signing Required", "smb-signing-require", "1.0.0");

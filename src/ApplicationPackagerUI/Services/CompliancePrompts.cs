@@ -49,11 +49,10 @@ public sealed class ComplianceDialogs : IComplianceDialogs
     }
 }
 
-public static partial class ComplianceRegistration
+public static class ComplianceRegistration
 {
     public static IServiceCollection AddCompliancePage(this IServiceCollection services)
     {
-        AddServiceFallbacks(services);
         services.AddSingleton<IComplianceDialogs, ComplianceDialogs>();
         services.AddSingleton(sp =>
         {
@@ -83,7 +82,4 @@ public static partial class ComplianceRegistration
         services.AddSingleton<ComplianceViewModel>();
         return services;
     }
-
-    /// <summary>Registers stand-ins for compliance services that are not registered; a no-op once the services exist.</summary>
-    static partial void AddServiceFallbacks(IServiceCollection services);
 }

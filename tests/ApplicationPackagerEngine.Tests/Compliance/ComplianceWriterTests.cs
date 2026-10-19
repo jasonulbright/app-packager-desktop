@@ -90,7 +90,7 @@ public sealed class ComplianceWriterTests
         public Task<IReadOnlyList<ComplianceOutcome>> ApplyAsync(IReadOnlyList<ComplianceChange> changes, IProgress<ComplianceOutcome> progress, CancellationToken ct)
         {
             var change = changes[0];
-            progress.Report(new ComplianceOutcome(change, false, "Running.", change with { CreatedIds = ["CB-1"] }, ["Deploy: the builder created 1 baseline."]));
+            progress.Report(new ComplianceOutcome(change, true, "Running.", change with { CreatedIds = ["CB-1"] }, ["Deploy: the builder created 1 baseline."], InProgress: true));
             throw new InvalidOperationException("session lost");
         }
     }
@@ -162,7 +162,6 @@ public sealed class ComplianceWriterTests
         [
             Path.Combine("ApplicationPackagerUI", "Services", "CompliancePlan.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "CompliancePrompts.cs"),
-            Path.Combine("ApplicationPackagerUI", "Services", "ComplianceServiceFallbacks.cs"),
             Path.Combine("ApplicationPackagerUI", "ViewModels", "Pages", "ComplianceShared.cs")
         ], found.Where(f => !f.EndsWith("PackagerServiceRegistration.cs", StringComparison.Ordinal)));
     }

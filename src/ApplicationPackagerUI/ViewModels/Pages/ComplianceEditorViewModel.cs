@@ -152,20 +152,33 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
 
     private bool CanAdd() => SelectedItem is not null && !Shared.IsWriting;
 
-    private bool CanChange() => SelectedItem is not null && SelectedSetting is not null && !Shared.IsWriting;
+    private bool CanChange() => SelectedItem is not null && SelectedSetting is { Setting.IsEditable: true } && !Shared.IsWriting;
+
+    /// <summary>Why the selected setting cannot be changed here; empty when it can.</summary>
+    public string SelectedSettingNote => SelectedSetting is { Setting.IsEditable: false } ? CiSettingEditorViewModel.NotEditable : "";
+
+    public bool HasSelectedSettingNote => SelectedSettingNote.Length > 0;
+
+    partial void OnSelectedSettingChanged(SettingGridRow? value)
+    {
+        OnPropertyChanged(nameof(SelectedSettingNote));
+        OnPropertyChanged(nameof(HasSelectedSettingNote));
+    }
+
+    private IReadOnlyList<string> SettingNames() => Settings.Select(s => s.Name).ToList();
 
     [RelayCommand(CanExecute = nameof(CanAdd))]
     private void AddSetting()
     {
         if (_dialogOpen || SelectedItem is not { } item) return;
-        ShowEditor(new CiSettingEditorViewModel(CiSettingEditorMode.Add, item.ToString(), editor => SaveAsync(item.Row, null, editor)));
+        ShowEditor(new CiSettingEditorViewModel(CiSettingEditorMode.Add, item.ToString(), editor => SaveAsync(item.Row, null, editor), existingNames: SettingNames()));
     }
 
     [RelayCommand(CanExecute = nameof(CanChange))]
     private void EditSetting()
     {
-        if (_dialogOpen || SelectedItem is not { } item || SelectedSetting is not { } setting) return;
-        ShowEditor(new CiSettingEditorViewModel(CiSettingEditorMode.Edit, item.ToString(), editor => SaveAsync(item.Row, setting.Setting, editor), setting.Setting));
+        if (_dialogOpen || SelectedItem is not { } item || SelectedSetting is not { Setting.IsEditable: true } setting) return;
+        ShowEditor(new CiSettingEditorViewModel(CiSettingEditorMode.Edit, item.ToString(), editor => SaveAsync(item.Row, setting.Setting, editor), setting.Setting, SettingNames()));
     }
 
     private void ShowEditor(CiSettingEditorViewModel editor)
@@ -178,18 +191,29 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
     /// <summary>The plain lines that state the setting's values, script text included.</summary>
     public static string Values(CiSetting setting)
     {
-        var parts = new List<string> { $"{setting.Kind}, data type {setting.DataType}, expected value {setting.ExpectedValue ?? "(none)"}." };
+        var values = SettingRules.Values(setting);
+        var parts = new List<string>
+        {
+            $"{setting.Kind}, data type {setting.DataType}, rule {setting.RuleName}: {setting.Operator} {(values.Count == 0 ? "(none)" : string.Join(", ", values))}.",
+            $"Severity {setting.Severity}. Remediation {(setting.Remediate ? "on" : "off")}."
+        };
         if (string.Equals(setting.Kind, CiSettingEditorViewModel.ScriptKind, StringComparison.OrdinalIgnoreCase))
         {
             parts.Add($"Language {setting.DiscoveryLanguage}. Discovery script: {setting.DiscoveryScript}");
-            parts.Add(setting.RemediationScript is { Length: > 0 } remediation ? $"Remediation script: {remediation}" : "No remediation script.");
+            parts.Add(setting.RemediationScript is { Length: > 0 } remediation ? $"Remediation script ({setting.RemediationLanguage}): {remediation}" : "No remediation script.");
         }
-        else parts.Add($"Registry value {setting.Detail}.");
+        else parts.Add($"Registry value {setting.Detail}, {(setting.Is64Bit ? "64-bit" : "32-bit")} view.");
         return string.Join(" ", parts);
     }
 
-    private static string Notes(ConfigurationItemRow item, ComplianceChange change) =>
-        string.Join(" ", new[] { RevisionNote, item.BaselineCount > 0 ? ReevaluateNote : "" }.Concat(change.Impact).Where(l => l.Length > 0));
+    /// <summary>
+    /// The revision, re-evaluation and replace notes; the Impact lines of the service state the same
+    /// facts from the live state, so the page notes stand in only when the service gives none.
+    /// </summary>
+    private static string Notes(ConfigurationItemRow item, ComplianceChange change, bool replaces) =>
+        change.Impact.Count > 0
+            ? string.Join(" ", change.Impact)
+            : string.Join(" ", new[] { replaces ? CiSettingEditorViewModel.ReplaceNote : "", RevisionNote, item.BaselineCount > 0 ? ReevaluateNote : "" }.Where(l => l.Length > 0));
 
     private static string Describe(ConfigurationItemRow item, ComplianceChange change) =>
         $"{(change.SettingAfter ?? change.SettingBefore)?.Name} in {ComplianceText.Target(item.Name, item.CiId)}";
@@ -202,12 +226,12 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         {
             var change = prepared[0];
             string detail;
-            if (before is null) detail = $"New: {Values(after)} {Notes(item, change)} Undo removes the setting.";
+            if (before is null) detail = $"New: {Values(after)} {Notes(item, change, false)} Undo removes the setting.";
             else
             {
                 var old = change.SettingBefore ?? before;
-                if (!string.Equals(old.DataType, after.DataType, StringComparison.OrdinalIgnoreCase)) return (null, CiSettingEditorViewModel.DataTypeFixedNote);
-                detail = $"Old: {Values(old)} New: {Values(after)} {Notes(item, change)} Undo sets the old values back.";
+                var replaces = !SettingRules.CanChangeInPlace(old, after);
+                detail = $"Old: {Values(old)} New: {Values(after)} {Notes(item, change, replaces)} Undo sets the old values back{(replaces ? "; the restored setting has a new ID" : "")}.";
             }
             var action = before is null ? "Add setting" : "Edit setting";
             return (new CompliancePlan(action, $"{action} {after.Name}", action,
@@ -226,7 +250,7 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         {
             var change = prepared[0];
             var captured = change.SettingBefore ?? setting.Setting;
-            var detail = $"Removes: {Values(captured)} {Notes(item.Row, change)} Undo adds the setting again from these values; the recreated setting has a new ID.";
+            var detail = $"Removes: {Values(captured)} {Notes(item.Row, change, false)} Undo adds the setting again from these values; the recreated setting has a new ID.";
             return (new CompliancePlan("Remove setting", $"Remove setting {captured.Name}", "Remove setting",
                 [CompliancePlanEntry.Write(new ChangePlanItem("Remove", Describe(item.Row, change), detail), change)], isDestructive: true), null);
         }, change => Describe(item.Row, change));

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests.Collections;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
@@ -10,6 +11,7 @@ using ApplicationPackagerUI.Views.Windows;
 using Wpf.Ui.Appearance;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
 using Button = System.Windows.Controls.Button;
+using ComboBox = System.Windows.Controls.ComboBox;
 using Control = System.Windows.Controls.Control;
 using DataGrid = System.Windows.Controls.DataGrid;
 using DataGridCell = System.Windows.Controls.DataGridCell;
@@ -261,8 +263,20 @@ public sealed class ComplianceRenderTests
             {
                 Assert.Equal(kind == "Registry", ById<FrameworkElement>(window, "txtSettingKey").IsVisible);
                 Assert.Equal(kind == "Script", ById<FrameworkElement>(window, "txtSettingDiscovery").IsVisible);
-                Assert.Equal(mode == CiSettingEditorMode.Add, ById<Control>(window, "cboSettingDataType").IsEnabled);
-                Assert.Equal(mode == CiSettingEditorMode.Edit, ById<FrameworkElement>(window, "txtSettingDataTypeNote").IsVisible);
+                Assert.True(ById<Control>(window, "cboSettingDataType").IsEnabled);
+                Assert.True(ById<Control>(window, "cboSettingOperator").IsVisible);
+                Assert.True(ById<Control>(window, "cboSettingSeverity").IsVisible);
+                Assert.True(ById<Control>(window, "chkSettingRemediate").IsVisible);
+                Assert.Equal(kind == "Registry", ById<Control>(window, "chkSettingDword").IsVisible);
+                Assert.False(ById<FrameworkElement>(window, "txtSettingReplaceNote").IsVisible);
+                Assert.Equal(kind == "Registry" ? SettingRules.RegistryDataTypes : SettingRules.ScriptDataTypes,
+                    ById<ComboBox>(window, "cboSettingDataType").Items.Cast<string>().ToList());
+                if (mode == CiSettingEditorMode.Edit)
+                {
+                    editor.DataType = "String";
+                    Settle(window);
+                    Assert.True(ById<FrameworkElement>(window, "txtSettingReplaceNote").IsVisible);
+                }
                 if (kind == "Script")
                 {
                     var script = ById<System.Windows.Controls.TextBox>(window, "txtSettingDiscovery");

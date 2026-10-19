@@ -35,6 +35,13 @@ public static class ComplianceText
     public static string Lines(IEnumerable<string> lines) => string.Join(Environment.NewLine, lines.Where(l => !string.IsNullOrWhiteSpace(l)));
 
     public static string OrNone(IReadOnlyList<string> values) => values.Count == 0 ? "(none)" : string.Join(", ", values);
+
+    /// <summary>The stored deployment values a re-create sets again, in plain words; empty when the row holds none.</summary>
+    public static string DeploymentSettings(BaselineDeploymentRow row) => row.Settings is not { } s ? ""
+        : $"Kept values: schedule {row.Schedule}, remediation outside maintenance windows {(s.OverrideServiceWindow ? "allowed" : "not allowed")}, "
+          + $"alert {(s.GenerateAlert ? $"below {s.AlertThresholdPercent}% compliance" : "off")}, Operations Manager alerts {(s.MonitoredByScom ? "on" : "off")}.";
+
+
 }
 
 /// <summary>One catalog entry in the Catalog grid.</summary>
@@ -56,7 +63,9 @@ public sealed record ConfigurationItemGridRow(ConfigurationItemRow Row)
     public string Name => Row.Name;
     public string CiId => Row.CiId;
     public int Revision => Row.Revision;
-    public int SettingCount => Row.SettingCount;
+
+    /// <summary>The number of settings; empty when the list read does not hold it.</summary>
+    public string SettingCount => Row.SettingCount < 0 ? "" : Row.SettingCount.ToString(CultureInfo.InvariantCulture);
     public int BaselineCount => Row.BaselineCount;
     public string Modified => ComplianceText.Date(Row.Modified);
 
@@ -72,6 +81,7 @@ public sealed record BaselineGridRow(BaselineRow Row)
     public string Catalog => Row.CatalogId is null ? "" : $"{Row.CatalogId} {Row.CatalogVersion}".Trim();
     public int ItemCount => Row.ItemCount;
     public int DeploymentCount => Row.DeploymentCount;
+    public string Compliance => $"{Row.Compliant} compliant, {Row.NonCompliant} non-compliant, {Row.Failed} error";
     public string Modified => ComplianceText.Date(Row.Modified);
 
     public override string ToString() => ComplianceText.Target(Name, BaselineId);
@@ -96,10 +106,12 @@ public sealed record DeploymentGridRow(BaselineDeploymentRow Row)
 public sealed record SettingGridRow(CiSetting Setting)
 {
     public string Name => Setting.Name;
-    public string Kind => Setting.Kind;
+    public string Kind => Setting.IsEditable ? Setting.Kind : $"{Setting.Kind}, read-only";
     public string DataType => Setting.DataType;
     public string Detail => Setting.Detail;
+    public string Rule => Setting.ExpectedValue is null ? "" : $"{Setting.Operator} {string.Join(", ", SettingRules.Values(Setting))}";
     public string ExpectedValue => Setting.ExpectedValue ?? "";
+    public string Severity => Setting.Severity;
 
     public override string ToString() => $"{Name}, {Kind}, {DataType}";
 }

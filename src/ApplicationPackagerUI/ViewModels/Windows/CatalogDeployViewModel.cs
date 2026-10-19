@@ -27,6 +27,11 @@ public static class CatalogParameterRules
     public static string TooLong(string name) => $"{name} is longer than {MaxLength} characters.";
     public static string ControlCharacters(string name) => $"{name} contains a line break or another control character.";
     public static string LeadingDash(string name) => $"{name} cannot start with a dash.";
+    /// <summary>The builders pass a collection name to a cmdlet parameter that reads these characters as wildcards.</summary>
+    private static readonly char[] WildcardCharacters = ['*', '?', '[', ']'];
+
+    public static string Wildcard(string name) =>
+        $"{name} cannot contain *, ?, [ or ]. The builder passes the name to a ConfigMgr cmdlet that reads these characters as wildcards, so it could deploy to other collections. Rename the collection or pick another one.";
     public static string BadSiteCode => "The site code has three letters or digits, for example LAB.";
     public static string BadSiteServer => "The site server is a computer name, for example cm01.lab.local.";
     public static string NoCollection(string value) => $"No device collection named {value} exists.";
@@ -41,6 +46,7 @@ public static class CatalogParameterRules
         if (text.Length > MaxLength) return TooLong(parameter.Name);
         if (text.Any(char.IsControl)) return ControlCharacters(parameter.Name);
         if (text.TrimStart().StartsWith('-') || text.TrimStart().StartsWith('–') || text.TrimStart().StartsWith('—')) return LeadingDash(parameter.Name);
+        if (IsCollection(parameter) && text.IndexOfAny(WildcardCharacters) >= 0) return Wildcard(parameter.Name);
         if (string.Equals(parameter.Name, SiteCodeName, StringComparison.OrdinalIgnoreCase) && !SiteCodePattern.IsMatch(text.Trim())) return BadSiteCode;
         if (string.Equals(parameter.Name, SiteServerName, StringComparison.OrdinalIgnoreCase) && !HostPattern.IsMatch(text.Trim())) return BadSiteServer;
         return null;

@@ -18,6 +18,12 @@
             <Setter Property="Margin" Value="0,8,0,4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
+        <Style x:Key="SettingNote" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
         <Style x:Key="ScriptBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
             <Setter Property="FontSize" Value="13" />
@@ -53,6 +59,12 @@
                 <TextBlock Text="Name" Style="{StaticResource SettingLabel}" />
                 <ui:TextBox x:Name="txtName" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Name"
                             AutomationProperties.AutomationId="txtSettingName" />
+                <TextBlock Text="{Binding NameWarning}" Style="{StaticResource SettingNote}" Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           Visibility="{Binding HasNameWarning, Converter={StaticResource SettingVisibility}}"
+                           AutomationProperties.AutomationId="txtSettingNameWarning" AutomationProperties.LiveSetting="Polite" />
+                <TextBlock Text="Description (optional)" Style="{StaticResource SettingLabel}" />
+                <ui:TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Description"
+                            AutomationProperties.AutomationId="txtSettingDescription" />
 
                 <StackPanel Visibility="{Binding IsRegistry, Converter={StaticResource SettingVisibility}}">
                     <TextBlock Text="Hive" Style="{StaticResource SettingLabel}" />
@@ -61,32 +73,57 @@
                     <TextBlock Text="Key path" Style="{StaticResource SettingLabel}" />
                     <ui:TextBox Text="{Binding KeyPath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="For example SOFTWARE\Policies\Example"
                                 AutomationProperties.Name="Key path" AutomationProperties.AutomationId="txtSettingKey" />
-                    <TextBlock Text="Value name" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Text="Value name (empty for the default value)" Style="{StaticResource SettingLabel}" />
                     <ui:TextBox Text="{Binding ValueName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Value name"
                                 AutomationProperties.AutomationId="txtSettingValueName" />
+                    <CheckBox Content="Read the 64-bit registry view" IsChecked="{Binding Is64Bit}" Margin="0,8,0,0"
+                              AutomationProperties.AutomationId="chkSettingRegistry64" />
                 </StackPanel>
 
                 <StackPanel Visibility="{Binding IsScript, Converter={StaticResource SettingVisibility}}">
-                    <TextBlock Text="Language" Style="{StaticResource SettingLabel}" />
+                    <TextBlock Text="Discovery script language" Style="{StaticResource SettingLabel}" />
                     <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.Languages}" SelectedItem="{Binding Language}"
-                              AutomationProperties.Name="Language" AutomationProperties.AutomationId="cboSettingLanguage" />
+                              AutomationProperties.Name="Discovery script language" AutomationProperties.AutomationId="cboSettingLanguage" />
                     <TextBlock Text="Discovery script" Style="{StaticResource SettingLabel}" />
                     <TextBox Text="{Binding DiscoveryScript, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ScriptBox}"
                              AutomationProperties.Name="Discovery script" AutomationProperties.AutomationId="txtSettingDiscovery" />
+                    <TextBlock Text="Remediation script language" Style="{StaticResource SettingLabel}" />
+                    <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.Languages}" SelectedItem="{Binding RemediationLanguage}"
+                              AutomationProperties.Name="Remediation script language" AutomationProperties.AutomationId="cboSettingRemediationLanguage" />
                     <TextBlock Text="Remediation script (optional)" Style="{StaticResource SettingLabel}" />
                     <TextBox Text="{Binding RemediationScript, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource ScriptBox}"
                              AutomationProperties.Name="Remediation script" AutomationProperties.AutomationId="txtSettingRemediation" />
+                    <CheckBox Content="Run the scripts as a 64-bit process" IsChecked="{Binding Is64Bit}" Margin="0,8,0,0"
+                              AutomationProperties.AutomationId="chkSettingScript64" />
                 </StackPanel>
 
                 <TextBlock Text="Data type" Style="{StaticResource SettingLabel}" />
-                <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.DataTypes}" SelectedItem="{Binding DataType}" IsEnabled="{Binding CanChooseDataType}"
+                <ComboBox ItemsSource="{Binding DataTypes}" SelectedItem="{Binding DataType}" IsEnabled="{Binding CanChooseDataType}"
                           AutomationProperties.Name="Data type" AutomationProperties.AutomationId="cboSettingDataType" />
-                <TextBlock Text="{x:Static vm:CiSettingEditorViewModel.DataTypeFixedNote}" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" Visibility="{Binding IsEdit, Converter={StaticResource SettingVisibility}}"
-                           AutomationProperties.AutomationId="txtSettingDataTypeNote" />
+
+                <TextBlock Text="Rule name (empty: the setting name and rule)" Style="{StaticResource SettingLabel}" />
+                <ui:TextBox Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Rule name"
+                            AutomationProperties.AutomationId="txtSettingRuleName" />
+                <TextBlock Text="Operator" Style="{StaticResource SettingLabel}" />
+                <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.Operators}" SelectedItem="{Binding Operator}"
+                          AutomationProperties.Name="Operator" AutomationProperties.AutomationId="cboSettingOperator" />
                 <TextBlock Text="Expected value" Style="{StaticResource SettingLabel}" />
-                <ui:TextBox Text="{Binding ExpectedValue, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Expected value"
-                            AutomationProperties.AutomationId="txtSettingExpected" />
+                <ui:TextBox Text="{Binding ExpectedValue, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="{Binding IsListValue}" TextWrapping="Wrap"
+                            AutomationProperties.Name="Expected value" AutomationProperties.AutomationId="txtSettingExpected" />
+                <TextBlock Text="{x:Static vm:CiSettingEditorViewModel.ListValueNote}" Style="{StaticResource SettingNote}"
+                           Visibility="{Binding IsListValue, Converter={StaticResource SettingVisibility}}" AutomationProperties.AutomationId="txtSettingListNote" />
+                <TextBlock Text="Noncompliance severity" Style="{StaticResource SettingLabel}" />
+                <ComboBox ItemsSource="{x:Static vm:CiSettingEditorViewModel.Severities}" SelectedItem="{Binding Severity}"
+                          AutomationProperties.Name="Noncompliance severity" AutomationProperties.AutomationId="cboSettingSeverity" />
+                <CheckBox Content="Remediate noncompliant values" IsChecked="{Binding Remediate}" Margin="0,8,0,0"
+                          AutomationProperties.AutomationId="chkSettingRemediate" />
+                <CheckBox Content="Remediate the value as a DWORD" IsChecked="{Binding RemediateDword}" Margin="0,4,0,0"
+                          Visibility="{Binding IsRegistry, Converter={StaticResource SettingVisibility}}" AutomationProperties.AutomationId="chkSettingDword" />
+                <CheckBox Content="Report noncompliance when the value is not found" IsChecked="{Binding ReportNoncompliance}" Margin="0,4,0,0"
+                          AutomationProperties.AutomationId="chkSettingReport" />
+                <TextBlock Text="{x:Static vm:CiSettingEditorViewModel.ReplaceNote}" Style="{StaticResource SettingNote}" Margin="0,8,0,0"
+                           Visibility="{Binding ReplacesSetting, Converter={StaticResource SettingVisibility}}"
+                           AutomationProperties.AutomationId="txtSettingReplaceNote" AutomationProperties.LiveSetting="Polite" />
             </StackPanel>
         </ScrollViewer>
 

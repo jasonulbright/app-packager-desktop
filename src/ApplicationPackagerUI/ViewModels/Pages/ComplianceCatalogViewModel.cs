@@ -21,6 +21,9 @@ public sealed partial class ComplianceCatalogViewModel(ComplianceShared shared) 
         $"I understand that remediation changes registry values on every device of {ComplianceText.Count(collections, "collection")} "
         + $"({ComplianceText.Count(devices, "device")} now){(reboot ? " and that the devices need a restart" : "")}.";
 
+    public const string NoTargetRemediationCheck =
+        "I understand that the configuration items are made with remediation on: a later deployment of the baselines changes registry values on the devices.";
+
     private IReadOnlyList<CatalogEntry> _entries = [];
     private bool _applying;
     private bool _deploying;
@@ -265,7 +268,9 @@ public sealed partial class ComplianceCatalogViewModel(ComplianceShared shared) 
         lines.AddRange(change.Impact);
         lines.Add("Undo removes the deployments, baselines and configuration items this run creates. An object that existed before the run stays.");
         var item = new ChangePlanItem("Deploy", $"{entry.DisplayName} {entry.Version}", string.Join(" ", lines));
-        var extra = remediate && !skipDeploy && targets.Count > 0 ? RemediationCheck(targets.Count, devices, entry.RebootRequired) : null;
+        var extra = !remediate ? null
+            : !skipDeploy && targets.Count > 0 ? RemediationCheck(targets.Count, devices, entry.RebootRequired)
+            : NoTargetRemediationCheck;
         return (new CompliancePlan("Catalog deploy", $"Deploy {entry.DisplayName}", remediate ? "Deploy with remediation" : "Deploy detect only",
             [CompliancePlanEntry.Write(item, change)], extraConfirmation: extra), null);
     }

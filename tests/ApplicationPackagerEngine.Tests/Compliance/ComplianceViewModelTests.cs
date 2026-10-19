@@ -522,7 +522,8 @@ public sealed class ComplianceViewModelTests
         };
         viewModel.Editor.AddSettingCommand.Execute(null);
         var detail = Assert.Single(Assert.Single(harness.Plans.Shown).Items).Detail!;
-        Assert.Contains(@"Registry value HKEY_LOCAL_MACHINE\SYSTEM\Lanman\EnableSecuritySignature.", detail);
+        Assert.Contains(@"Registry value LocalMachine\SYSTEM\Lanman\EnableSecuritySignature, 64-bit view.", detail);
+        Assert.Contains("rule EnableSecuritySignature rule: IsEquals 1.", detail);
         Assert.Contains(ComplianceEditorViewModel.RevisionNote, detail);
         Assert.Contains(ComplianceEditorViewModel.ReevaluateNote, detail);
         var change = harness.Service.Applied.Single().Single();
@@ -538,7 +539,7 @@ public sealed class ComplianceViewModelTests
         viewModel.Editor.SelectedSetting = viewModel.Editor.Settings.Single(s => s.Kind == "Script");
         harness.Dialogs.SettingEditor = e =>
         {
-            Assert.False(e.CanChooseDataType);
+            Assert.True(e.CanChooseDataType);
             Assert.Equal("Boolean", e.DataType);
             FakeComplianceDialogs.Run(e.SaveCommand.ExecuteAsync(null));
             Assert.Equal(CiSettingEditorViewModel.NoChange, e.ValidationMessage);
@@ -597,6 +598,8 @@ public sealed class ComplianceViewModelTests
         harness.Service.SettingsGate = gate;
         viewModel.Editor.SelectedItem = viewModel.Editor.Items.Single(i => i.CiId == "CI-SMB");
         var late = viewModel.Editor.SettingsLoad;
+        // The read starts on a pool thread; the gate is released for the next read only after this read holds it.
+        while (Volatile.Read(ref harness.Service.SettingCalls) == 0) await Task.Delay(1);
         harness.Service.SettingsGate = null;
         viewModel.Editor.SelectedItem = viewModel.Editor.Items.Single(i => i.CiId == "CI-TLS");
         await viewModel.Editor.SettingsLoad;

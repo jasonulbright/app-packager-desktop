@@ -93,7 +93,12 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
     };
 
     public static string FailureName(Exception ex) =>
-        ex is ConfigMgrSessionException s ? $"{nameof(ConfigMgrSessionException)} {s.Failure}" : ex.GetType().Name;
+        ex switch
+        {
+            ConfigMgrSessionException s => $"{nameof(ConfigMgrSessionException)} {s.Failure}",
+            ComplianceServiceException c => $"{nameof(ComplianceServiceException)} {c.Kind}",
+            _ => ex.GetType().Name
+        };
 
     /// <summary>
     /// The device collections of the site, read once a visit; null when they cannot be read, with
@@ -294,9 +299,9 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
         {
             var entries = prepared.Select((change, i) => CompliancePlanEntry.Write(new ChangePlanItem("Undo " + undo[i].Entry.Item.Action,
                 undo[i].Entry.Item.Target, UndoDetail(undo[i].Entry.Change, change)), change)).ToList();
-            var destructive = prepared.Any(c => c.Kind is ComplianceChangeKind.DeleteDeployment or ComplianceChangeKind.RemoveSetting or ComplianceChangeKind.CatalogDeploy);
-            return (new CompliancePlan("Undo " + last.Action, "Undo: " + last.Plan.Title, $"Undo {ComplianceText.Count(entries.Count, "change")}", entries, destructive)
-                { IsUndo = true }, null);
+            var destructive = prepared.Any(c => c.Kind is ComplianceChangeKind.DeleteDeployment or ComplianceChangeKind.RemoveSetting or ComplianceChangeKind.RemoveCatalogObjects);
+            return (new CompliancePlan("Undo " + last.Action, "Undo: " + last.Plan.Title, $"Undo {ComplianceText.Count(entries.Count, "change")}", entries, destructive,
+                extraConfirmation: ComplianceLiveViewModel.RemediationConfirmation(prepared)) { IsUndo = true }, null);
         }, change => change.Kind.ToString(), checkState: false);
         if (run is not { Outcome.Confirmed: true } done) return;
         LastPlan = done.Outcome.UndoResult is null ? last.Remaining(done.Plan.Outcomes) : null;
@@ -304,16 +309,17 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
     }
 
     /// <summary>What the undo of <paramref name="original"/> does, in plain words.</summary>
-    public static string UndoDetail(ComplianceChange? original, ComplianceChange undo) => original?.Kind switch
-    {
-        ComplianceChangeKind.CatalogDeploy => $"Removes the deployments, baselines and configuration items the run created ({ComplianceText.Count(undo.CreatedIds.Count, "object")}). An object that existed before the run stays.",
-        ComplianceChangeKind.SetRemediation => $"Sets the mode back to {ComplianceText.Mode(undo.RemediateAfter == true)}.",
-        ComplianceChangeKind.Redeploy => $"Creates the deployment again from the values captured before the redeploy. {ComplianceWriter.RecreatedNote}",
-        ComplianceChangeKind.Reassign => "Moves the deployment back to its earlier collection.",
-        ComplianceChangeKind.DeleteDeployment => $"Creates the deployment again from the values captured before the delete. {ComplianceWriter.RecreatedNote}",
-        ComplianceChangeKind.AddSetting => $"Removes the setting {undo.SettingBefore?.Name ?? original.SettingAfter?.Name} again.",
-        ComplianceChangeKind.EditSetting => "Sets the old values of the setting back.",
-        ComplianceChangeKind.RemoveSetting => $"Adds the setting {original.SettingBefore?.Name} again from the values captured before the remove. {ComplianceWriter.RecreatedNote}",
-        _ => "Reverses the change."
-    };
+    public static string UndoDetail(ComplianceChange? original, ComplianceChange undo) =>
+        undo.Impact.Count > 0 ? string.Join(" ", undo.Impact) : undo.Kind switch
+        {
+            ComplianceChangeKind.RemoveCatalogObjects => $"Removes the deployments, baselines and configuration items the run created ({ComplianceText.Count(undo.CreatedIds.Count, "object")}). An object that existed before the run stays.",
+            ComplianceChangeKind.SetRemediation => $"Sets the mode back to {ComplianceText.Mode(undo.RemediateAfter == true)}.",
+            ComplianceChangeKind.CreateDeployment => $"Creates the deployment again from the captured values. {ComplianceWriter.RecreatedNote}",
+            ComplianceChangeKind.DeleteDeployment => "Removes the deployment that the change made.",
+            ComplianceChangeKind.Reassign => "Moves the deployment back to its earlier collection. The deployments have new IDs.",
+            ComplianceChangeKind.RemoveSetting => $"Removes the setting {undo.SettingBefore?.Name ?? original?.SettingAfter?.Name} that the change added.",
+            ComplianceChangeKind.EditSetting => "Sets the old values of the setting back.",
+            ComplianceChangeKind.AddSetting => $"Adds the setting {undo.SettingAfter?.Name ?? original?.SettingBefore?.Name} again from the captured values. {ComplianceWriter.RecreatedNote}",
+            _ => "Reverses the change."
+        };
 }
