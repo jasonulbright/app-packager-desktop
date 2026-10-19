@@ -64,6 +64,11 @@
                 <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
             </Style>
 
+            <Style x:Key="CountsCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding ComplianceDetail}" />
+            </Style>
+
             <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
                 <Setter Property="AutoGenerateColumns" Value="False" />
                 <Setter Property="CanUserAddRows" Value="False" />
@@ -233,7 +238,7 @@
                                     <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="ID" Binding="{Binding BaselineId}" Width="*" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Catalog" Binding="{Binding Catalog}" Width="*" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
-                                    <DataGridTextColumn Header="Compliance" Binding="{Binding Compliance}" Width="1.5*" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Compliance" Binding="{Binding Compliance}" Width="1.5*" MinWidth="96" ElementStyle="{StaticResource CountsCell}" />
                                     <DataGridTextColumn Header="Items" Binding="{Binding ItemCount}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Deployments" Binding="{Binding DeploymentCount}" Width="116" MinWidth="116" ElementStyle="{StaticResource TrimmedCell}" />
                                 </DataGrid.Columns>
@@ -268,7 +273,7 @@
                             <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="104" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Compliant" Binding="{Binding Compliant}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Non-compliant" Binding="{Binding NonCompliant}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Unknown" Binding="{Binding Unknown}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Last evaluated" Binding="{Binding LastEvaluated}" Width="140" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                         </DataGrid.Columns>
@@ -397,7 +402,7 @@
                                         <DataGridTextColumn Header="Collection" Binding="{Binding CollectionName}" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Compliant" Binding="{Binding Compliant}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Non-compliant" Binding="{Binding NonCompliant}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
-                                        <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Unknown" Binding="{Binding Unknown}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Last evaluated" Binding="{Binding LastEvaluated}" Width="140" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                         <DataGridTextColumn Header="Freshness" Binding="{Binding Freshness}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />

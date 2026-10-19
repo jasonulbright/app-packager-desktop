@@ -48,9 +48,9 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
         return RemediationCheck(collections, devices);
     }
 
-    /// <summary>The page lines of a plan entry, then the Impact lines of the service, or the page notes when the service gives none.</summary>
-    private static string Detail(string summary, ComplianceChange change, params string[] notes) =>
-        string.Join(" ", new[] { summary }.Concat(change.Impact.Count > 0 ? change.Impact : notes).Where(l => l.Length > 0));
+    /// <summary>The page lines of a plan entry, then the Impact lines of the service, or the page notes when the service gives none; one per line.</summary>
+    public static string PlanDetail(string summary, ComplianceChange change, params string[] notes) =>
+        string.Join(Environment.NewLine, new[] { summary }.Concat(change.Impact.Count > 0 ? change.Impact : notes).Where(l => l.Length > 0));
 
     private IReadOnlyList<ConfigurationItemRow> _items = [];
     private IReadOnlyList<BaselineRow> _baselines = [];
@@ -213,7 +213,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
             var entries = prepared.Select(change =>
             {
                 var d = change.DeploymentBefore!;
-                var detail = Detail($"Mode now: {ComplianceText.Mode(d.RemediateNoncompliant)}. New mode: {ComplianceText.Mode(remediate)}.", change,
+                var detail = PlanDetail($"Mode now: {ComplianceText.Mode(d.RemediateNoncompliant)}. New mode: {ComplianceText.Mode(remediate)}.", change,
                     remediate ? "Clients change the registry values of the baseline's configuration items on every device of the collection." : "Clients report compliance and change nothing.",
                     $"Undo sets {ComplianceText.Mode(d.RemediateNoncompliant)} back.");
                 return CompliancePlanEntry.Write(new ChangePlanItem(remediate ? "Enable remediation" : "Disable remediation", Describe(change), detail), change);
@@ -234,7 +234,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
             var entries = prepared.Select(change =>
             {
                 var d = change.DeploymentBefore!;
-                var detail = Detail($"Creates the deployment again ({ComplianceText.Mode(d.RemediateNoncompliant)}, schedule {d.Schedule}), then removes the old one. {ComplianceText.DeploymentSettings(d)}",
+                var detail = PlanDetail($"Creates the deployment again ({ComplianceText.Mode(d.RemediateNoncompliant)}, schedule {d.Schedule}), then removes the old one. {ComplianceText.DeploymentSettings(d)}",
                     change, RedeployNote);
                 return CompliancePlanEntry.Write(new ChangePlanItem("Redeploy", Describe(change), detail), change);
             }).ToList();
@@ -274,7 +274,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
                     {
                         var change = prepared[0];
                         var now = change.DeploymentBefore ?? deployment;
-                        var detail = Detail(
+                        var detail = PlanDetail(
                             $"Moves the deployment from {ComplianceText.Target(now.CollectionName, now.CollectionId)} to {ComplianceText.Target(target.Name, target.CollectionId)} ({ComplianceText.Count(target.MemberCount, "member")} now). Mode stays {ComplianceText.Mode(now.RemediateNoncompliant)}. {ComplianceText.DeploymentSettings(now)}",
                             change, ReassignNote);
                         return (new CompliancePlan("Reassign", $"Reassign {now.BaselineName}", "Reassign deployment",
@@ -301,7 +301,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
             var entries = prepared.Select(change =>
             {
                 var d = change.DeploymentBefore!;
-                var detail = Detail(
+                var detail = PlanDetail(
                     $"Removes the deployment ({ComplianceText.Mode(d.RemediateNoncompliant)}). " + (d.CountsKnown
                         ? $"Compliance now: {d.Compliant} compliant, {d.NonCompliant} non-compliant, {d.Error} error, {d.Unknown} unknown."
                         : "Compliance now: not known; ConfigMgr has not summarized this deployment."),

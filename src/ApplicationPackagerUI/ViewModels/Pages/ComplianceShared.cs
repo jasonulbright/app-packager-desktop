@@ -358,7 +358,7 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
 
     /// <summary>What the undo of <paramref name="original"/> does, in plain words.</summary>
     public static string UndoDetail(ComplianceChange? original, ComplianceChange undo) =>
-        undo.Impact.Count > 0 ? string.Join(" ", undo.Impact) : undo.Kind switch
+        undo.Impact.Count > 0 ? string.Join(Environment.NewLine, undo.Impact) : undo.Kind switch
         {
             ComplianceChangeKind.RemoveCatalogObjects => $"Removes the deployments, baselines and configuration items the run created ({ComplianceText.Count(undo.CreatedIds.Count, "object")}). An object that existed before the run stays.",
             ComplianceChangeKind.SetRemediation => $"Sets the mode back to {ComplianceText.Mode(undo.RemediateAfter == true)}.",

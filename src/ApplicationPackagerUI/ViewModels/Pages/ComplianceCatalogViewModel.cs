@@ -280,15 +280,17 @@ public sealed partial class ComplianceCatalogViewModel(ComplianceShared shared) 
             else lines.AddRange(targets.Select(t => t.Row is { } row
                 ? $"Deploys to {ComplianceText.Target(row.Name, row.CollectionId)}: {ComplianceText.Count(row.MemberCount, "member")} now."
                 : $"Deploys to collection {t.Id}."));
-            lines.Add(remediate
-                ? $"Mode: {ComplianceText.Remediate}. Clients change these registry values on every device of the target collections: "
-                  + string.Join("; ", entry.RegistrySurface.Select(ComplianceText.Registry)) + "."
-                : $"Mode: {ComplianceText.DetectOnly}. Clients report compliance and change nothing.");
+            if (remediate)
+            {
+                lines.Add($"Mode: {ComplianceText.Remediate}. Clients change these registry values on every device of the target collections:");
+                lines.AddRange(entry.RegistrySurface.Select(ComplianceText.Registry));
+            }
+            else lines.Add($"Mode: {ComplianceText.DetectOnly}. Clients report compliance and change nothing.");
             if (remediate) lines.Add(entry.RebootRequired ? "The devices need a restart after remediation." : "The devices need no restart after remediation.");
             lines.Add($"Each baseline gets the tag {ComplianceText.DriftTag(entry)} once in its description. The existing description stays.");
             lines.Add("Undo removes the deployments, baselines and configuration items this run creates. An object that existed before the run stays.");
         }
-        var item = new ChangePlanItem("Deploy", $"{entry.DisplayName} {entry.Version}", string.Join(" ", lines));
+        var item = new ChangePlanItem("Deploy", $"{entry.DisplayName} {entry.Version}", string.Join(Environment.NewLine, lines));
         var extra = !remediate ? null
             : distinct.Count > 0 ? RemediationCheck(distinct.Count, devices, entry.RebootRequired)
             : NoTargetRemediationCheck;
@@ -301,7 +303,7 @@ public sealed partial class ComplianceCatalogViewModel(ComplianceShared shared) 
         var request = ComplianceRequests.CreateDependency(form.Entry, dependency);
         var run = await Shared.RunPlanAsync([request], prepared =>
         {
-            var detail = string.Join(" ", new[] { $"Creates the {dependency.Type.ToLowerInvariant()} {dependency.Name} that {form.Entry.DisplayName} needs." }
+            var detail = string.Join(Environment.NewLine, new[] { $"Creates the {dependency.Type.ToLowerInvariant()} {dependency.Name} that {form.Entry.DisplayName} needs." }
                 .Concat(prepared[0].Impact).Append("Undo removes it."));
             return (new CompliancePlan("Create dependency", $"Create {dependency.Name}", $"Create {dependency.Type.ToLowerInvariant()}",
                 [CompliancePlanEntry.Write(new ChangePlanItem("Create", dependency.Name, detail), prepared[0])]), null);

@@ -50,4 +50,53 @@ public sealed class ComplianceLayoutTests
             Assert.True(rows.IsVisible);
         }, width, height);
     }
+
+    /// <summary>At its minimum width the column shows the cell text of the first row uncut, and the cell tooltip holds <paramref name="tooltip"/>.</summary>
+    private static void AssertCellFitsAtMinimum(Window window, DataGrid grid, string header, string text, string? tooltip = null)
+    {
+        var column = grid.Columns.Single(c => Equals(c.Header, header));
+        column.Width = new System.Windows.Controls.DataGridLength(column.MinWidth);
+        Settle(window);
+        var cell = Descendants(Row(grid, 0)).OfType<System.Windows.Controls.DataGridCell>().Single(c => c.Column == column);
+        var block = Descendants(cell).OfType<System.Windows.Controls.TextBlock>().Single();
+        Assert.Equal(text, block.Text);
+        var needed = new System.Windows.Media.FormattedText(text, System.Globalization.CultureInfo.InvariantCulture, System.Windows.FlowDirection.LeftToRight,
+            new System.Windows.Media.Typeface(block.FontFamily, block.FontStyle, block.FontWeight, block.FontStretch), block.FontSize,
+            System.Windows.Media.Brushes.Black, System.Windows.Media.VisualTreeHelper.GetDpi(block).PixelsPerDip).WidthIncludingTrailingWhitespace;
+        Assert.True(needed <= block.ActualWidth + 0.5, $"{header}: '{text}' needs {needed:0} px; the cell gives {block.ActualWidth:0} px at the {column.MinWidth} px minimum.");
+        Assert.Equal(tooltip ?? text, block.ToolTip);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void UnknownCountsAndLiveComplianceFitTheirMinimumWidths(ApplicationTheme theme)
+    {
+        WithSection(theme, (window, page, viewModel, harness) =>
+        {
+            var service = harness.Service;
+            service.Deployments[0] = service.Deployments[0] with { CountsKnown = false };
+            service.Compliance[0] = service.Compliance[0] with { CountsKnown = false };
+            service.Baselines[0] = service.Baselines[0] with { Compliant = 12, NonCompliant = 3, Failed = 0 };
+
+            ShowTab(window, viewModel, ComplianceViewModel.LiveTab);
+            viewModel.Live.SelectedBaseline = null;
+            Settle(window);
+            var deployments = ById<DataGrid>(page, "dgDeployments");
+            deployments.Items.SortDescriptions.Clear();
+            Assert.Equal("unknown", ((DeploymentGridRow)deployments.Items[0]).Error);
+            AssertCellFitsAtMinimum(window, deployments, "Error", "unknown");
+            var baselines = ById<DataGrid>(page, "dgLiveBaselines");
+            var first = (BaselineGridRow)baselines.Items[0];
+            Assert.Equal("CB-SMB", first.BaselineId);
+            AssertCellFitsAtMinimum(window, baselines, "Compliance", "12 / 3 / 0", "12 compliant, 3 non-compliant, 0 error");
+
+            ShowTab(window, viewModel, ComplianceViewModel.AuditingTab);
+            viewModel.Auditing.SelectedTabIndex = ComplianceAuditingViewModel.ComplianceTab;
+            Settle(window);
+            var counts = ById<DataGrid>(page, "dgComplianceCounts");
+            Assert.Equal("unknown", ((ComplianceGridRow)counts.Items[0]).Error);
+            AssertCellFitsAtMinimum(window, counts, "Error", "unknown");
+        });
+    }
 }
