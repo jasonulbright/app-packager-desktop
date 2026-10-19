@@ -102,15 +102,15 @@ public sealed class ScheduleProjectorParityTests
     /// <summary>
     /// Schedules where the source and the projector differ by design, with the source's
     /// result: the source steps month by month from the start date with AddMonths, so a
-    /// day 29 to 31 drifts to the shortest month's day; it reads a start after day 28 as a
+    /// day 29 to 31 drifts to the shortest month's day where a ConfigMgr client skips the month; it reads a start after day 28 as a
     /// fifth weekday that can fall in the next month; it keeps a start time that a
     /// daylight saving change skips; it leaves out a window that is open now.
     /// </summary>
     public static readonly (string Why, SourceCase Case, string[] SourceDates, string[] ProjectorDates)[] KnownDifferences =
     [
-        ("day 31 drifts after February in the source", new("d1", 5, "2026-01-31 02:00", 60, "2026-10-19 01:37"),
+        ("day 31 drifts to the 28th after February in the source; a ConfigMgr client skips a month without day 31", new("d1", 5, "2026-01-31 02:00", 60, "2026-10-19 01:37"),
             ["2026-10-28 02:00", "2026-11-28 02:00", "2026-12-28 02:00", "2027-01-28 02:00", "2027-02-28 02:00"],
-            ["2026-10-31 02:00", "2026-11-30 02:00", "2026-12-31 02:00", "2027-01-31 02:00", "2027-02-28 02:00"]),
+            ["2026-10-31 02:00", "2026-12-31 02:00", "2027-01-31 02:00", "2027-03-31 02:00", "2027-05-31 02:00"]),
         ("a start on day 29 to 31 is a fifth weekday in the source and the last weekday in ConfigMgr", new("d2", 4, "2026-01-30 01:00", 60, "2026-10-19 01:37"),
             ["2026-10-30 01:00", "2026-12-04 01:00", "2027-01-29 01:00", "2027-03-05 01:00", "2027-04-30 01:00"],
             ["2026-10-30 01:00", "2026-11-27 01:00", "2026-12-25 01:00", "2027-01-29 01:00", "2027-02-26 01:00"]),

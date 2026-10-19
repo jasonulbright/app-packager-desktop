@@ -6,42 +6,45 @@ if ($CollectionId) {
     $collections = @(Get-CMDeviceCollection)
 }
 
-# Sites before ObjectPath existed need the folder tree from the provider's WMI classes.
-$folderOf = $null
-if ($collections.Count -gt 0 -and -not (@($collections[0].PropertyNames) -contains 'ObjectPath')) {
-    $folderOf = @{}
+# Get-CMDeviceCollection leaves ObjectPath empty; a WQL query over the same provider
+# connection returns it. A site without ObjectPath gets the path from the folder tree.
+$folderOf = @{}
+if ($collections.Count -gt 0) {
     try {
-        $drive = Get-PSDrive -Name (Get-Location).Drive.Name
-        $namespace = 'root\sms\site_' + $drive.Name
-        $nodes = @{}
-        foreach ($node in @(Get-CimInstance -ComputerName $drive.Root -Namespace $namespace -ClassName SMS_ObjectContainerNode -Filter 'ObjectType = 5000')) {
-            $nodes[[int]$node.ContainerNodeID] = $node
-        }
-        foreach ($item in @(Get-CimInstance -ComputerName $drive.Root -Namespace $namespace -ClassName SMS_ObjectContainerItem -Filter 'ObjectType = 5000')) {
-            $parts = New-Object System.Collections.Generic.List[string]
-            $id = [int]$item.ContainerNodeID
-            $guard = 0
-            while ($id -ne 0 -and $nodes.ContainsKey($id) -and $guard -lt 64) {
-                $parts.Insert(0, [string]$nodes[$id].Name)
-                $id = [int]$nodes[$id].ParentContainerNodeID
-                $guard++
-            }
-            $folderOf[[string]$item.InstanceKey] = '/' + ($parts -join '/')
+        foreach ($row in @(Invoke-CMWmiQuery -Query 'SELECT CollectionID, ObjectPath FROM SMS_Collection WHERE CollectionType = 2')) {
+            $folderOf[[string]$row.CollectionID] = [string]$row.ObjectPath
         }
     } catch {
-        $folderOf = @{}
+        try {
+            $nodes = @{}
+            foreach ($node in @(Invoke-CMWmiQuery -Query 'SELECT ContainerNodeID, Name, ParentContainerNodeID FROM SMS_ObjectContainerNode WHERE ObjectType = 5000')) {
+                $nodes[[int]$node.ContainerNodeID] = $node
+            }
+            foreach ($item in @(Invoke-CMWmiQuery -Query 'SELECT InstanceKey, ContainerNodeID FROM SMS_ObjectContainerItem WHERE ObjectType = 5000')) {
+                $parts = New-Object System.Collections.Generic.List[string]
+                $id = [int]$item.ContainerNodeID
+                $guard = 0
+                while ($id -ne 0 -and $nodes.ContainsKey($id) -and $guard -lt 64) {
+                    $parts.Insert(0, [string]$nodes[$id].Name)
+                    $id = [int]$nodes[$id].ParentContainerNodeID
+                    $guard++
+                }
+                $folderOf[[string]$item.InstanceKey] = '/' + ($parts -join '/')
+            }
+        } catch {
+            $folderOf = @{}
+        }
     }
 }
 
 foreach ($c in $collections) {
     $count = -1
     if (@($c.PropertyNames) -contains 'ServiceWindowsCount') { $count = [int]$c.ServiceWindowsCount }
-    $path = if ($null -ne $folderOf) { [string]$folderOf[[string]$c.CollectionID] } else { [string]$c.ObjectPath }
     [pscustomobject]@{
         Kind         = 'Collection'
         CollectionId = [string]$c.CollectionID
         Name         = [string]$c.Name
-        FolderPath   = $path
+        FolderPath   = [string]$folderOf[[string]$c.CollectionID]
         MemberCount  = [int]$c.MemberCount
         WindowCount  = $count
     }

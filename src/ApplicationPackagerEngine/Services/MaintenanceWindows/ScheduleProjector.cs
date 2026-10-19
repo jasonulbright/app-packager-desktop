@@ -172,21 +172,22 @@ public sealed class ScheduleProjector(TimeZoneInfo? zone = null) : IScheduleProj
                     var index = firstMonth + k * s.Interval;
                     var year = index / 12;
                     if (year > DateTime.MaxValue.Year - 1) yield break;
-                    var date = DayIn(s, year, index % 12 + 1);
-                    yield return date + start.TimeOfDay;
+                    if (DayIn(s, year, index % 12 + 1) is { } date)
+                        yield return date + start.TimeOfDay;
                 }
                 yield break;
         }
     }
 
-    private static DateTime DayIn(MaintenanceSchedule s, int year, int month)
+    /// <summary>The occurrence date in the month, or null for a month without that day of the month.</summary>
+    private static DateTime? DayIn(MaintenanceSchedule s, int year, int month)
     {
         var length = DateTime.DaysInMonth(year, month);
         switch (s.Kind)
         {
             case MaintenanceScheduleKind.MonthlyByDate:
-                var day = s.DayOfMonth is 0 ? length : Math.Min(s.DayOfMonth!.Value, length);
-                return new DateTime(year, month, day);
+                var day = s.DayOfMonth is 0 ? length : s.DayOfMonth!.Value;
+                return day <= length ? new DateTime(year, month, day) : null;
             case MaintenanceScheduleKind.MonthlyByWeekday:
                 return NthWeekday(year, month, s.DayOfWeek!.Value, s.WeekOrder!.Value).AddDays(s.PatchTuesdayOffsetDays);
             default:

@@ -24,7 +24,7 @@ public enum MaintenanceScheduleKind
 /// monthly kinds and PatchTuesday; ignored for OneTime. One or more.
 /// </param>
 /// <param name="DayOfWeek">The day for Weekly and MonthlyByWeekday; Tuesday is implied for PatchTuesday.</param>
-/// <param name="DayOfMonth">1 to 31 for MonthlyByDate, or 0 for the last day of the month. A day after the month's last day falls on the last day.</param>
+/// <param name="DayOfMonth">1 to 31 for MonthlyByDate, or 0 for the last day of the month. A month without that day has no occurrence, as on a ConfigMgr client.</param>
 /// <param name="WeekOrder">1 to 4, or 5 for the last such weekday of the month, for MonthlyByWeekday.</param>
 /// <param name="PatchTuesdayOffsetDays">
 /// Days from the second Tuesday of the month for PatchTuesday (-7 to 21 can be stored). For
