@@ -31,7 +31,10 @@ public static class WqlGuard
         // The SMS Provider rejects a doubled quote ('O''Brien'): it reads it as a closed value
         // followed by a new one. The same reading here keeps the guard's view of the literal
         // boundaries equal to the provider's.
+        // A select inside parentheses is a subselect of an in clause; one outside them starts a
+        // second statement.
         char? quote = null;
+        var depth = 0;
         for (var i = 0; i < text.Length; i++)
         {
             var c = text[i];
@@ -52,9 +55,22 @@ public static class WqlGuard
             }
             if (c is '\'' or '"') quote = c;
             else if (c == ';') return "The query can hold only one statement. Remove the semicolon.";
+            else if (c == '-' && i + 1 < text.Length && text[i + 1] == '-') return "The query cannot hold a comment. Remove -- and the text after it.";
+            else if (c == '/' && i + 1 < text.Length && text[i + 1] == '*') return "The query cannot hold a comment. Remove /* and */ and the text between them.";
+            else if (c == '(') depth++;
+            else if (c == ')') depth = Math.Max(0, depth - 1);
+            else if (i > 0 && depth == 0 && IsSelectAt(text, i))
+                return "The query can hold only one statement. Remove the second select or put it in parentheses as part of an in clause.";
         }
         return quote is null ? null : "A quoted value in the query is not closed.";
     }
+
+    private static bool IsSelectAt(string text, int i) =>
+        i + 6 < text.Length
+        && string.Compare(text, i, "select", 0, 6, StringComparison.OrdinalIgnoreCase) == 0
+        && !IsWordChar(text[i - 1]) && (char.IsWhiteSpace(text[i + 6]) || text[i + 6] == '*');
+
+    private static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c is '_' or '.';
 
     /// <summary>
     /// Null when <paramref name="name"/> can name a query rule. The SMS Provider stores * ? [ and ]

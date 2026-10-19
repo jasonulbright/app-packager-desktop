@@ -773,9 +773,9 @@ public sealed partial class CollectionComplianceViewModel
     private async Task ValidateWql()
     {
         var text = WqlText.Trim();
-        if (text.Length == 0)
+        if (WqlProblem(text) is { } refused)
         {
-            WqlMessage = QueryRequired;
+            WqlMessage = refused;
             return;
         }
         try
@@ -797,9 +797,9 @@ public sealed partial class CollectionComplianceViewModel
     private async Task PreviewWql()
     {
         var text = WqlText.Trim();
-        if (text.Length == 0)
+        if (WqlProblem(text) is { } refused)
         {
-            WqlMessage = QueryRequired;
+            WqlMessage = refused;
             return;
         }
         using var cts = new CancellationTokenSource();
@@ -847,6 +847,9 @@ public sealed partial class CollectionComplianceViewModel
         try { _preview?.Cancel(); } catch (ObjectDisposedException) { }
     }
 
+    /// <summary>Why the query cannot go to the provider, from the guard the service applies too; null when it can.</summary>
+    private static string? WqlProblem(string text) => text.Length == 0 ? QueryRequired : WqlGuard.Check(text);
+
     private string PreviewLine(string expression) =>
         _lastPreview is { } last && last.Expression == expression ? PreviewNote(last.Count) : NoPreviewNote;
 
@@ -867,12 +870,13 @@ public sealed partial class CollectionComplianceViewModel
     {
         var (collection, name, text, problem) = WqlInputs();
         if (problem is null && WqlRules.Any(r => string.Equals(r.RuleName, name, StringComparison.OrdinalIgnoreCase))) problem = RuleNameTaken(name);
-        if (problem is null && text.Length == 0) problem = QueryRequired;
+        problem ??= WqlProblem(text);
         if (problem is not null)
         {
             WqlMessage = problem;
             return;
         }
+        WqlMessage = "";
         var preview = PreviewLine(text);
         var run = await RunPlanAsync([Request(CollectionChangeKind.AddRule, collection!, ruleAfter: QueryRule(name, text), impact: [preview])], prepared =>
         {
@@ -898,13 +902,14 @@ public sealed partial class CollectionComplianceViewModel
         var old = SelectedWqlRule?.Rule;
         if (problem is null && !string.Equals(name, old!.RuleName, StringComparison.OrdinalIgnoreCase)
             && WqlRules.Any(r => string.Equals(r.RuleName, name, StringComparison.OrdinalIgnoreCase))) problem = RuleNameTaken(name);
-        if (problem is null && text.Length == 0) problem = QueryRequired;
+        problem ??= WqlProblem(text);
         if (problem is null && name == old!.RuleName && text == old.Expression) problem = NothingToChange;
         if (problem is not null)
         {
             WqlMessage = problem;
             return;
         }
+        WqlMessage = "";
         var preview = PreviewLine(text);
         var run = await RunPlanAsync([Request(CollectionChangeKind.UpdateRule, collection!, ruleBefore: old, ruleAfter: QueryRule(name, text), impact: [preview])], prepared =>
         {
@@ -930,6 +935,7 @@ public sealed partial class CollectionComplianceViewModel
             WqlMessage = problem;
             return;
         }
+        WqlMessage = "";
         await RemoveRuleAsync(collection!, SelectedWqlRule!.Rule, m => WqlMessage = m);
     }
 
@@ -1172,10 +1178,10 @@ public sealed partial class CollectionComplianceViewModel
     private async Task SaveQueryAsNew()
     {
         var wql = WqlText.Trim();
-        if (wql.Length == 0)
+        if (WqlProblem(wql) is { } refused)
         {
-            StatusMessage = QueryRequired;
-            QueriesMessage = QueryRequired;
+            StatusMessage = refused;
+            QueriesMessage = refused;
             return;
         }
         var prompt = new TextPromptViewModel("Save query", "Name", "The WQL Editor's query is saved as a new ConfigMgr query on the site.", "Show plan", false,
@@ -1201,9 +1207,9 @@ public sealed partial class CollectionComplianceViewModel
     {
         if (SelectedSavedQuery is not { } row) return;
         var wql = WqlText.Trim();
-        if (wql.Length == 0 || wql == row.Expression)
+        if (WqlProblem(wql) is not null || wql == row.Expression)
         {
-            QueriesMessage = wql.Length == 0 ? QueryRequired : NothingToChange;
+            QueriesMessage = WqlProblem(wql) ?? NothingToChange;
             StatusMessage = QueriesMessage;
             return;
         }

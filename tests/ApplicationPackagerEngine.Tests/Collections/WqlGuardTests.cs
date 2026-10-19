@@ -74,6 +74,34 @@ public sealed class WqlGuardTests
         Assert.NotNull(WqlGuard.Check(expression));
     }
 
+    [Theory]
+    [InlineData("select * from SMS_R_System -- all of them", "--")]
+    [InlineData("select * from SMS_R_System --", "--")]
+    [InlineData("select * from SMS_R_System /* all */", "/*")]
+    [InlineData("select * /* x */ from SMS_R_System", "/*")]
+    [InlineData("select * from SMS_R_System\r\nselect * from SMS_R_User", "one statement")]
+    [InlineData("select * from SMS_R_System where Name = 'a' select * from SMS_R_User", "one statement")]
+    [InlineData("select * from SMS_R_System\nSELECT\t* from SMS_R_User", "one statement")]
+    public void ACommentOrASecondSelectIsRefusedBeforeTheProviderSeesIt(string expression, string named)
+    {
+        var reason = WqlGuard.Check(expression);
+        Assert.NotNull(reason);
+        Assert.Contains(named, reason);
+    }
+
+    [Theory]
+    [InlineData("select * from SMS_R_System where Name like '%--%'")]
+    [InlineData("select * from SMS_R_System where Name = \"/* not a comment */\"")]
+    [InlineData("select * from SMS_R_System where Name = 'select'")]
+    [InlineData("select * from SMS_R_System where ResourceId in (select ResourceID from SMS_FullCollectionMembership where CollectionID = 'SMS00001')")]
+    [InlineData("select * from SMS_R_System where ResourceId not in (\r\n  select ResourceID from SMS_G_System_ADD_REMOVE_PROGRAMS)")]
+    [InlineData("select SMS_R_System.Name from SMS_R_System where SMS_R_System.Name like 'selected%' and SMS_R_System.Client = 1")]
+    [InlineData("select * from SMS_R_System where Build - 1 > 0")]
+    public void ADashAQuotedCommentAndASubselectAreAccepted(string expression)
+    {
+        Assert.Null(WqlGuard.Check(expression));
+    }
+
     [Fact]
     public void AnOverlongExpressionIsRefused()
     {
