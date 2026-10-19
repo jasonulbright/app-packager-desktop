@@ -6,7 +6,10 @@ public enum CollectionRuleKind { Direct, Query, Include, Exclude }
 /// <param name="IsBuiltIn">True for a collection whose ID starts with SMS: it cannot be removed or edited here.</param>
 /// <param name="RefreshType">Manual, Periodic, Continuous or Both.</param>
 /// <param name="RefreshSchedule">The ConfigMgr schedule token of the periodic refresh; empty when the collection has none.</param>
-/// <param name="RefreshInterval">The periodic refresh interval to set; null keeps the current schedule.</param>
+/// <param name="RefreshInterval">
+/// The periodic refresh interval to set; null keeps the current schedule. A Create with a
+/// periodic refresh and no interval uses <see cref="RefreshInterval.Default"/>.
+/// </param>
 public sealed record CollectionRow(
     string CollectionId,
     string Name,
@@ -26,7 +29,31 @@ public sealed record CollectionRow(
 
 /// <summary>A periodic refresh interval.</summary>
 /// <param name="Unit">Minutes, Hours or Days.</param>
-public sealed record RefreshInterval(int Count, string Unit);
+public sealed record RefreshInterval(int Count, string Unit)
+{
+    /// <summary>Every 7 days.</summary>
+    public static RefreshInterval Default { get; } = new(7, "Days");
+
+    /// <summary>The largest count ConfigMgr stores for <paramref name="unit"/>; 0 for an unknown unit.</summary>
+    public static int MaxCount(string? unit) => unit switch
+    {
+        "Minutes" => 59,
+        "Hours" => 23,
+        "Days" => 31,
+        _ => 0
+    };
+
+    /// <summary>Null when ConfigMgr can store the interval; otherwise a plain reason.</summary>
+    public static string? Check(RefreshInterval? interval)
+    {
+        if (interval is null) return null;
+        var max = MaxCount(interval.Unit);
+        if (max == 0) return "Select the refresh unit: Minutes, Hours or Days.";
+        return interval.Count >= 1 && interval.Count <= max
+            ? null
+            : $"Enter a refresh interval of 1 to {max} {interval.Unit.ToLowerInvariant()}.";
+    }
+}
 
 /// <param name="Expression">The WQL of a query rule; empty for the other kinds.</param>
 /// <param name="ResourceId">The resource of a direct rule; empty for the other kinds.</param>
@@ -111,6 +138,10 @@ public enum CollectionChangeKind
 /// request (for example the match count of the last preview) and adds its own.
 /// </param>
 /// <param name="Rules">All rules of the collection for Create and Remove; null for the other kinds.</param>
+/// <param name="RemoveCounts">
+/// For Remove, the counts the plan showed; filled by <see cref="ICollectionService.PrepareAsync"/>.
+/// The remove is refused when ConfigMgr holds other counts at write time.
+/// </param>
 public sealed record CollectionChange(
     CollectionChangeKind Kind,
     string CollectionId,
@@ -122,7 +153,11 @@ public sealed record CollectionChange(
     SavedQuery? QueryBefore,
     SavedQuery? QueryAfter,
     IReadOnlyList<string> Impact,
-    IReadOnlyList<CollectionRule>? Rules = null);
+    IReadOnlyList<CollectionRule>? Rules = null,
+    CollectionRemoveCounts? RemoveCounts = null);
+
+/// <summary>What ConfigMgr removes with a collection.</summary>
+public sealed record CollectionRemoveCounts(int Members, int Deployments, int MaintenanceWindows);
 
 /// <param name="Message">Plain text for the operator; never raw exception text.</param>
 /// <param name="UndoChange">The change that reverses this one; set on every outcome that changed ConfigMgr and can be reversed.</param>
