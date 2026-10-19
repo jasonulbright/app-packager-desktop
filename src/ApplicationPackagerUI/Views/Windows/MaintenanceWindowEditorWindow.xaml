@@ -73,6 +73,16 @@
                                     AutomationProperties.Name="Description" AutomationProperties.AutomationId="txtTemplateDescription" />
                     </StackPanel>
 
+                    <StackPanel Visibility="{Binding ShowsWindowDescription, Converter={StaticResource EditorVisibility}}"
+                                AutomationProperties.AutomationId="pnlWindowDescription">
+                        <TextBlock Text="Description" Style="{StaticResource EditorLabel}" />
+                        <TextBox Text="{Binding WindowDescription, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                                 AutomationProperties.Name="Description" AutomationProperties.AutomationId="txtWindowDescription" />
+                        <TextBlock Text="{x:Static vm:MaintenanceWindowEditorViewModel.DescriptionKeptNote}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   AutomationProperties.AutomationId="txtDescriptionKept" />
+                    </StackPanel>
+
                     <TextBlock Text="Type" Style="{StaticResource EditorLabel}" />
                     <ComboBox ItemsSource="{Binding WindowTypes}" SelectedValue="{Binding WindowType}" SelectedValuePath="Value" DisplayMemberPath="Text"
                               AutomationProperties.Name="Type" AutomationProperties.AutomationId="cboWindowType" />

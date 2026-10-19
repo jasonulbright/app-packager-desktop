@@ -342,11 +342,16 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
     /// schedule; null otherwise. Only an own description needs a write to survive a create or
     /// a schedule update.
     /// </summary>
-    private string? OwnDescription(MaintenanceWindowInfo? window) =>
-        window is { Description.Length: > 0 } && IsReadable(window)
-        && !string.Equals(window.Description, _projector.Describe(window.Schedule), StringComparison.Ordinal)
-            ? window.Description
-            : null;
+    public static string? OwnDescription(MaintenanceWindowInfo? window, IScheduleProjector projector)
+    {
+        ArgumentNullException.ThrowIfNull(projector);
+        return window is { Description.Length: > 0 } && IsReadable(window, projector)
+            && !string.Equals(window.Description, projector.Describe(window.Schedule), StringComparison.Ordinal)
+                ? window.Description
+                : null;
+    }
+
+    private string? OwnDescription(MaintenanceWindowInfo? window) => OwnDescription(window, _projector);
 
     private ConfigMgrParameters Write(string operation, MaintenanceChange change, MaintenanceWindowInfo before) => new()
     {
@@ -460,8 +465,10 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
     /// a weekly interval of 5 to 7, a monthly interval of 13 to 15); a window with one is
     /// read-only, because the Undo of a change to it could not recreate it.
     /// </summary>
-    private bool IsReadable(MaintenanceWindowInfo window) =>
-        window.Schedule is { } s && s.Duration > TimeSpan.Zero && _projector.Validate(s with { End = null }) is null;
+    private bool IsReadable(MaintenanceWindowInfo window) => IsReadable(window, _projector);
+
+    private static bool IsReadable(MaintenanceWindowInfo window, IScheduleProjector projector) =>
+        window.Schedule is { } s && s.Duration > TimeSpan.Zero && projector.Validate(s with { End = null }) is null;
 
     private async Task<(WriteResult? Result, MaintenanceOutcome? Failure)> RunWriteAsync(MaintenanceChange change, ConfigMgrParameters parameters, string windowName)
     {

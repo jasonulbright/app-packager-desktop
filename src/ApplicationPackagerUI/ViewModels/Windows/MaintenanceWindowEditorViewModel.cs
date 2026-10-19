@@ -33,6 +33,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     public const string NotProjected = "The schedule has no occurrence after now.";
     public const string NoEndDateNote = "ConfigMgr stores no end date. The window recurs until it is removed or disabled.";
     public const string ScheduleNotShown = "The schedule cannot be shown.";
+    public const string DescriptionKeptNote = "The description of this window is kept when you save.";
 
     public static string NameTaken(string collection, string name) => $"The collection {collection} already has a window named {name}.";
 
@@ -85,6 +86,11 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
 
     /// <summary>The window being edited, or null for a new window or a template.</summary>
     public MaintenanceWindowInfo? Original { get; private set; }
+
+    /// <summary>The own description of the window being edited, read only; empty when the window has none.</summary>
+    public string WindowDescription { get; private set; } = "";
+
+    public bool ShowsWindowDescription => WindowDescription.Length > 0;
 
     /// <summary>The template being edited, or null.</summary>
     public MaintenanceTemplate? OriginalTemplate { get; private set; }
@@ -240,6 +246,10 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         SelectedCollection = choice;
         Name = window.WindowName;
         WindowType = window.WindowType;
+        try { WindowDescription = MaintenanceWindowService.OwnDescription(window, _projector) ?? ""; }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { WindowDescription = ""; }
+        OnPropertyChanged(nameof(WindowDescription));
+        OnPropertyChanged(nameof(ShowsWindowDescription));
         LoadSchedule(window.Schedule);
     }
 
@@ -378,7 +388,8 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         if (schedule is null || SelectedCollection is not { } collection) return null;
         var next = SafeNext(schedule);
         return new MaintenanceWindowInfo(collection.Collection.CollectionId, collection.Collection.Name, Name.Trim(),
-            Original?.ServiceWindowId ?? "", WindowType, Original?.Enabled ?? true, schedule, SafeDescribe(schedule), next, Original?.Comment ?? "");
+            Original?.ServiceWindowId ?? "", WindowType, Original?.Enabled ?? true, schedule, SafeDescribe(schedule), next, Original?.Comment ?? "",
+            Original?.Description ?? "");
     }
 
     public MaintenanceTemplate? BuildTemplate()

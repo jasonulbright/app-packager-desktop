@@ -91,6 +91,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     public const string NoOccurrencesShown = "This page cannot calculate the occurrences of this schedule.";
     public const string TemplateSaveFailed = "The template could not be saved. The log has the details.";
     public const string TemplateDeleteFailed = "The template could not be deleted. The log has the details.";
+    public const string KeepsDescription = "Keeps the description.";
 
     public static string ReportFailed(string format) => $"The {format} report could not be written. The log has the details.";
 
@@ -590,9 +591,18 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         Properties.Add(new PropertyRow("Start", MaintenanceWindowsText.Time(s.Start)));
         Properties.Add(new PropertyRow("Duration", MaintenanceWindowsText.Duration(s.Duration)));
         Properties.Add(new PropertyRow("Time", s.IsUtc ? "UTC" : "Local time of the client"));
-        Properties.Add(new PropertyRow("Description", w.Comment));
+        if (OwnDescription(w) is { } description) Properties.Add(new PropertyRow("Description", description));
         foreach (var line in Project(s, MaintenanceWindowEditorViewModel.PreviewCount)) NextOccurrences.Add(line);
     }
+
+    private string? OwnDescription(MaintenanceWindowInfo? window)
+    {
+        try { return MaintenanceWindowService.OwnDescription(window, _services.Projector); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return null; }
+    }
+
+    /// <summary>The plan text for a change that keeps the own description of <paramref name="window"/>; empty when it has none.</summary>
+    private string KeepsDescriptionText(MaintenanceWindowInfo? window) => OwnDescription(window) is null ? "" : " " + KeepsDescription;
 
     private IReadOnlyList<string> Project(MaintenanceSchedule schedule, int count)
     {
@@ -795,14 +805,14 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
                 return (new MaintenancePlan("Update", "Edit maintenance window", "Save changes",
                 [
                     MaintenancePlanEntry.Write(new ChangePlanItem("Update", MaintenanceWindowsText.Target(change.CollectionName, change.WindowName),
-                        $"Old: {MaintenanceWindowsText.WindowType(before.WindowType)}, {before.ScheduleText}. New: {MaintenanceWindowsText.WindowType(after.WindowType)}, {after.ScheduleText}."), change)
+                        $"Old: {MaintenanceWindowsText.WindowType(before.WindowType)}, {before.ScheduleText}. New: {MaintenanceWindowsText.WindowType(after.WindowType)}, {after.ScheduleText}.{KeepsDescriptionText(before)}"), change)
                 ]), null);
             default:
                 if (change.Before is not { } old) return (null, WindowGone(change.CollectionName, change.WindowName));
                 return (new MaintenancePlan("Rename", "Rename maintenance window", "Rename window",
                 [
                     MaintenancePlanEntry.Write(new ChangePlanItem("Rename", MaintenanceWindowsText.Target(change.CollectionName, change.WindowName),
-                        $"New name: {change.NewWindowName}. {change.NewWindowName} is created first; {change.WindowName} is removed only after that. Old: {old.ScheduleText}. New: {after.ScheduleText}."), change)
+                        $"New name: {change.NewWindowName}. {change.NewWindowName} is created first; {change.WindowName} is removed only after that. Old: {old.ScheduleText}. New: {after.ScheduleText}.{KeepsDescriptionText(old)}"), change)
                 ]), null);
         }
     }
@@ -954,10 +964,10 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         if (run is { Outcome.Confirmed: true } done) await AfterWriteAsync(done.Plan);
     }
 
-    private static string UndoDetail(MaintenanceChange change) => change.Kind switch
+    private string UndoDetail(MaintenanceChange change) => change.Kind switch
     {
         ChangeKind.Remove => $"Removes {change.WindowName}.",
-        ChangeKind.Create or ChangeKind.ApplyTemplate => $"Recreates {change.WindowName}: {change.After?.ScheduleText}. {MaintenanceWindowWriter.RecreatedNote}",
+        ChangeKind.Create or ChangeKind.ApplyTemplate => $"Recreates {change.WindowName}: {change.After?.ScheduleText}. {MaintenanceWindowWriter.RecreatedNote}{KeepsDescriptionText(change.After)}",
         ChangeKind.SetEnabled => change.After?.Enabled == true ? $"Enables {change.WindowName}." : $"Disables {change.WindowName}.",
         ChangeKind.Rename => $"Renames {change.WindowName} to {change.NewWindowName}.",
         _ => $"Sets the old values back: {change.After?.ScheduleText}."

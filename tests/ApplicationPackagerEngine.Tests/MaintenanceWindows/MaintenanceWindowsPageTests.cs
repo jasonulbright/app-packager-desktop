@@ -198,6 +198,81 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
+    private const string OwnDescription = "Patch the file servers first.";
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheDetailPanelShowsTheOwnDescriptionOnly(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            var own = harness.Service.AddWindow(harness.Kiosks, "Own text");
+            harness.Service.Windows[^1] = own with { Description = OwnDescription };
+            var configMgr = harness.Service.AddWindow(harness.Kiosks, "ConfigMgr text");
+            harness.Service.Windows[^1] = configMgr with { Description = harness.Projector.Describe(configMgr.Schedule) };
+            var viewModel = harness.Create();
+            var page = new MaintenanceWindowsPage(viewModel);
+            var window = new Window { Width = 1400, Height = 900, WindowStyle = WindowStyle.None, Content = page };
+            Show(window);
+            try
+            {
+                var opened = page.OnNavigatedToAsync();
+                StaTestHelper.PumpUntil(() => opened.IsCompleted);
+                var grid = ById<DataGrid>(page, "dgWindows");
+                grid.SelectedItem = viewModel.Rows.Single(r => r.WindowName == "Own text");
+                StaTestHelper.Flush();
+                var properties = ById<ItemsControl>(page, "lstProperties");
+                var box = Descendants(properties).OfType<System.Windows.Controls.TextBox>().Single(t => AutomationProperties.GetName(t) == "Description");
+                Assert.Equal(OwnDescription, box.Text);
+                Assert.True(box.IsReadOnly);
+                Assert.Contains(Descendants(properties).OfType<TextBlock>(), t => t.Text == "Description");
+
+                foreach (var name in new[] { "ConfigMgr text", "Patch Tuesday" })
+                {
+                    grid.SelectedItem = viewModel.Rows.Single(r => r.WindowName == name);
+                    StaTestHelper.Flush();
+                    Assert.DoesNotContain(Descendants(properties).OfType<TextBlock>(), t => t.Text == "Description");
+                    Assert.DoesNotContain(Descendants(properties).OfType<System.Windows.Controls.TextBox>(), t => AutomationProperties.GetName(t) == "Description");
+                }
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheEditorShowsTheOwnDescriptionReadOnlyWithANote(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            var plain = harness.Service.Windows[0];
+            foreach (var (source, own) in new[] { (plain with { Description = OwnDescription }, true), (plain with { Description = harness.Projector.Describe(plain.Schedule) }, false), (plain, false) })
+            {
+                var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.EditWindow, harness.Projector, _ => Task.FromResult(true),
+                    () => MaintenanceWindowsHarness.Now, harness.Service.Collections, harness.Service.Windows);
+                editor.Load(source);
+                var window = new MaintenanceWindowEditorWindow(editor);
+                Show(window);
+                try
+                {
+                    Assert.Equal(own, ById<FrameworkElement>(window, "pnlWindowDescription").IsVisible);
+                    Assert.False(ById<FrameworkElement>(window, "txtTemplateDescription").IsVisible);
+                    if (!own) continue;
+                    var box = ById<System.Windows.Controls.TextBox>(window, "txtWindowDescription");
+                    Assert.Equal(OwnDescription, box.Text);
+                    Assert.True(box.IsReadOnly);
+                    Assert.Equal(MaintenanceWindowEditorViewModel.DescriptionKeptNote, ById<TextBlock>(window, "txtDescriptionKept").Text);
+                    Assert.True(ById<TextBlock>(window, "txtDescriptionKept").IsVisible);
+                }
+                finally { window.Close(); }
+            }
+        });
+    }
+
     [Fact]
     public void AConnectionProblemShowsItsMessageAboveTheTabs()
     {
