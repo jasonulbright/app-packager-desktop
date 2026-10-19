@@ -29,15 +29,19 @@ public sealed record MaintenanceWindowRow(CollectionInfo Collection, Maintenance
 {
     public bool HasWindow => Window is not null;
     public bool IsEnabled => Window?.Enabled == true;
+
+    /// <summary>False for a window whose schedule the model cannot hold: the service reads it with a zero duration.</summary>
+    public bool IsScheduleHeld => Window is null || Window.Schedule.Duration > TimeSpan.Zero;
+
     public string Status => Window is null ? "No window" : Window.Enabled ? "Enabled" : "Disabled";
     public string CollectionName => Collection.Name;
     public string CollectionId => Collection.CollectionId;
     public string FolderPath => Collection.FolderPath;
     public string WindowName => Window?.WindowName ?? "";
     public string Type => Window is null ? "" : MaintenanceWindowsText.WindowType(Window.WindowType);
-    public string Recurrence => Window is null ? "" : MaintenanceWindowsText.Kind(Window.Schedule.Kind);
+    public string Recurrence => Window is null ? "" : IsScheduleHeld ? MaintenanceWindowsText.Kind(Window.Schedule.Kind) : MaintenanceWindowsText.OtherSchedule;
     public string ScheduleText => Window?.ScheduleText ?? "";
-    public string Duration => Window is null ? "" : MaintenanceWindowsText.Duration(Window.Schedule.Duration);
+    public string Duration => Window is null || !IsScheduleHeld ? "" : MaintenanceWindowsText.Duration(Window.Schedule.Duration);
     public string Next => Window is null ? "" : MaintenanceWindowsText.Time(Window.NextOccurrence);
 }
 
@@ -82,6 +86,13 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     public const string RefreshFirst = "Refresh the list first.";
     public const string NothingToExport = "The list has no windows to export.";
     public const string NothingToUndo = "There is no change to undo.";
+    public const string ScheduleNotHeld =
+        "ConfigMgr stores a schedule for this window that this page cannot show, for example an hourly interval. Here it can only be enabled or disabled. Use the ConfigMgr console to change it.";
+    public const string NoOccurrencesShown = "This page cannot calculate the occurrences of this schedule.";
+    public const string TemplateSaveFailed = "The template could not be saved. The log has the details.";
+    public const string TemplateDeleteFailed = "The template could not be deleted. The log has the details.";
+
+    public static string ReportFailed(string format) => $"The {format} report could not be written. The log has the details.";
 
     public static string WindowGone(string collection, string window) =>
         $"The window {window} on {collection} no longer exists. Refresh the list.";
@@ -148,7 +159,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     [ObservableProperty] private bool _coverageWithoutWindowOnly;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelectedWindow))]
+    [NotifyPropertyChangedFor(nameof(HasSelectedWindow), nameof(EditTooltip))]
     [NotifyCanExecuteChangedFor(nameof(EditWindowCommand))]
     private MaintenanceWindowRow? _selectedRow;
 
@@ -172,6 +183,12 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     private MaintenancePlan? _lastPlan;
 
     public bool HasSelectedWindow => SelectedRow?.HasWindow == true;
+
+    /// <summary>Why Edit is disabled for the selected window, or null.</summary>
+    public string? EditTooltip => SelectedRow is { HasWindow: true, IsScheduleHeld: false } ? ScheduleNotHeld : null;
+
+    /// <summary>Why Remove is disabled for the selection, or null.</summary>
+    public string? RemoveTooltip => _selectedWindows.Any(r => r.HasWindow && !r.IsScheduleHeld) ? ScheduleNotHeld : null;
     public bool HasConnectionMessage => ConnectionMessage.Length > 0;
     public bool HasResults => LastResults.Count > 0;
     public bool HasUndo => LastPlan is not null;
@@ -189,6 +206,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         _selectedWindows = rows.ToList();
         ToggleEnabledCommand.NotifyCanExecuteChanged();
         RemoveWindowsCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(RemoveTooltip));
     }
 
     public void SetSelectedCoverage(IEnumerable<CoverageRow> rows) => _selectedCoverage = rows.ToList();
@@ -429,6 +447,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     /// <summary>A message for the operator: the session's own plain text with the setting to check, or the fallback.</summary>
     public static string PlainMessage(Exception ex, string fallback) => ex switch
     {
+        MaintenanceWindowException m => SecretMask.Apply(m.Message),
         ConfigMgrSessionException { Failure: ConfigMgrFailure.InvalidSiteCode or ConfigMgrFailure.DriveNotConnected or ConfigMgrFailure.ModuleNotFound } s
             => SecretMask.Apply(s.Message) + SiteHint,
         ConfigMgrSessionException { Failure: ConfigMgrFailure.AccessDenied } s => SecretMask.Apply(s.Message) + AccessHint,
@@ -532,13 +551,18 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         Properties.Add(new PropertyRow("Window ID", w.ServiceWindowId));
         Properties.Add(new PropertyRow("Type", MaintenanceWindowsText.WindowType(w.WindowType)));
         Properties.Add(new PropertyRow("Status", w.Enabled ? Enabled : Disabled));
-        Properties.Add(new PropertyRow("Recurrence", MaintenanceWindowsText.Kind(s.Kind)));
+        Properties.Add(new PropertyRow("Recurrence", row.Recurrence));
         Properties.Add(new PropertyRow("Schedule", w.ScheduleText));
+        if (!row.IsScheduleHeld)
+        {
+            Properties.Add(new PropertyRow("Note", ScheduleNotHeld));
+            NextOccurrences.Add(NoOccurrencesShown);
+            return;
+        }
         Properties.Add(new PropertyRow("Start", MaintenanceWindowsText.Time(s.Start)));
         Properties.Add(new PropertyRow("Duration", MaintenanceWindowsText.Duration(s.Duration)));
         Properties.Add(new PropertyRow("Time", s.IsUtc ? "UTC" : "Local time of the client"));
-        if (s.End is { } end) Properties.Add(new PropertyRow("End", MaintenanceWindowsText.Time(end)));
-        Properties.Add(new PropertyRow("Comment", w.Comment));
+        Properties.Add(new PropertyRow("Description", w.Comment));
         foreach (var line in Project(s, MaintenanceWindowEditorViewModel.PreviewCount)) NextOccurrences.Add(line);
     }
 
@@ -569,7 +593,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = ex is IOException or UnauthorizedAccessException ? "The templates could not be read." : "The templates could not be read. The log has the details.";
+            StatusMessage = "The templates could not be read. The log has the details.";
             _services.Log.Warning(LogArea, $"The templates could not be read ({ex.GetType().Name}).");
         }
     }
@@ -773,12 +797,12 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         if (editor.Saved || _lastRunPlan is not null) await AfterWriteAsync(_lastRunPlan);
     }
 
-    private bool CanEdit() => SelectedRow?.HasWindow == true;
+    private bool CanEdit() => SelectedRow is { HasWindow: true, IsScheduleHeld: true };
 
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private async Task EditWindow()
     {
-        if (SelectedRow?.Window is not { } window) return;
+        if (!CanEdit() || SelectedRow?.Window is not { } window) return;
         var editor = NewEditor(MaintenanceEditorMode.EditWindow, SaveWindowAsync);
         editor.Load(window);
         _services.Prompts.ShowEditor(editor);
@@ -790,6 +814,8 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         _selectedWindows.Where(r => r.Window is not null).Select(r => r.Window!).ToList();
 
     private bool CanChangeSelection() => !_writing && _selectedWindows.Any(r => r.HasWindow);
+
+    private bool CanRemoveSelection() => CanChangeSelection() && RemoveTooltip is null;
 
     [RelayCommand(CanExecute = nameof(CanChangeSelection))]
     private async Task ToggleEnabled()
@@ -818,11 +844,11 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         if (run is { Outcome.Confirmed: true } done) await AfterWriteAsync(done.Plan);
     }
 
-    [RelayCommand(CanExecute = nameof(CanChangeSelection))]
+    [RelayCommand(CanExecute = nameof(CanRemoveSelection))]
     private async Task RemoveWindows()
     {
         var windows = SelectedWindowInfos();
-        if (windows.Count == 0) return;
+        if (windows.Count == 0 || RemoveTooltip is not null) return;
         var requests = windows.Select(w => new MaintenanceChange(ChangeKind.Remove, w.CollectionId, w.CollectionName, w.WindowName, null, w, null)).ToList();
         var run = await RunPlanAsync(requests, prepared =>
         {
@@ -912,7 +938,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     {
         if (dialog.SelectedTemplate is not { } template) return false;
         var now = _services.Now();
-        var schedule = template.Schedule;
+        var schedule = template.Schedule.EffectiveOn(now.Date);
         var text = Describe(schedule);
         var skips = new List<(CollectionInfo Collection, ChangePlanItem Item)>();
         var requests = new List<MaintenanceChange>();
@@ -1001,7 +1027,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            var message = ex is IOException or UnauthorizedAccessException ? "The template could not be saved: " + ex.Message : "The template could not be saved. The log has the details.";
+            var message = ex is MaintenanceWindowException m ? SecretMask.Apply(m.Message) : TemplateSaveFailed;
             editor.ShowMessage(message);
             _services.Log.Warning(LogArea, $"A template could not be saved ({ex.GetType().Name}).");
             return false;
@@ -1024,7 +1050,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = "The template could not be deleted.";
+            StatusMessage = ex is MaintenanceWindowException m ? SecretMask.Apply(m.Message) : TemplateDeleteFailed;
             _services.Log.Warning(LogArea, $"A template could not be deleted ({ex.GetType().Name}).");
             return;
         }
@@ -1054,7 +1080,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = ex is IOException or UnauthorizedAccessException ? $"The {format} report could not be written: {ex.Message}" : $"The {format} report could not be written.";
+            StatusMessage = ex is MaintenanceWindowException m ? SecretMask.Apply(m.Message) : ReportFailed(format);
             _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }

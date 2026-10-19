@@ -16,6 +16,9 @@ public static class MaintenanceWindowsText
     public const string SoftwareUpdates = "SoftwareUpdates";
     public const string TaskSequences = "TaskSequences";
 
+    /// <summary>The recurrence text of a window whose schedule this page cannot hold.</summary>
+    public const string OtherSchedule = "Other";
+
     public static IReadOnlyList<Choice<string>> WindowTypes { get; } =
     [
         new(Any, "All deployments"),

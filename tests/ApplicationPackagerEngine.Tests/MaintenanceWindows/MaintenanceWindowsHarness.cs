@@ -206,11 +206,14 @@ internal sealed class FakeTemplateStore : IMaintenanceTemplateStore
     public List<MaintenanceTemplate> Templates { get; } = [];
     public int Saves;
     public int Deletes;
+    public Exception? SaveFailure;
+    public Exception? DeleteFailure;
 
     public IReadOnlyList<MaintenanceTemplate> All() { lock (Templates) return Templates.ToList(); }
 
     public void Save(MaintenanceTemplate t)
     {
+        if (SaveFailure is { } failure) throw failure;
         lock (Templates)
         {
             Saves++;
@@ -221,6 +224,7 @@ internal sealed class FakeTemplateStore : IMaintenanceTemplateStore
 
     public void Delete(string id)
     {
+        if (DeleteFailure is { } failure) throw failure;
         lock (Templates)
         {
             Deletes++;
@@ -232,8 +236,21 @@ internal sealed class FakeTemplateStore : IMaintenanceTemplateStore
 internal sealed class FakeReportWriter : IMaintenanceReportWriter
 {
     public List<IReadOnlyList<MaintenanceWindowInfo>> Written { get; } = [];
-    public string WriteCsv(IReadOnlyList<MaintenanceWindowInfo> rows) { Written.Add(rows); return @"C:\data\MaintenanceWindows\Reports\windows.csv"; }
-    public string WriteHtml(IReadOnlyList<MaintenanceWindowInfo> rows) { Written.Add(rows); return @"C:\data\MaintenanceWindows\Reports\windows.html"; }
+    public Exception? Failure;
+
+    public string WriteCsv(IReadOnlyList<MaintenanceWindowInfo> rows)
+    {
+        if (Failure is { } failure) throw failure;
+        Written.Add(rows);
+        return @"C:\data\MaintenanceWindows\Reports\windows.csv";
+    }
+
+    public string WriteHtml(IReadOnlyList<MaintenanceWindowInfo> rows)
+    {
+        if (Failure is { } failure) throw failure;
+        Written.Add(rows);
+        return @"C:\data\MaintenanceWindows\Reports\windows.html";
+    }
 }
 
 internal sealed class FakeMaintenancePrompts : IMaintenanceWindowsPrompts

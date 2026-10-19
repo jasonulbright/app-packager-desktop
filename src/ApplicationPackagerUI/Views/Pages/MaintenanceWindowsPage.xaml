@@ -102,10 +102,12 @@
                         <ui:Button Content="New Window" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewWindowCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnNewWindow" />
                         <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditWindowCommand}"
+                                   ToolTip="{Binding EditTooltip}" ToolTipService.ShowOnDisabled="True"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEditWindow" />
                         <ui:Button Content="Toggle Enabled" Icon="{ui:SymbolIcon ToggleLeft24}" Command="{Binding ToggleEnabledCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnToggleEnabled" />
                         <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveWindowsCommand}"
+                                   ToolTip="{Binding RemoveTooltip}" ToolTipService.ShowOnDisabled="True"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRemoveWindow" />
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefresh" />

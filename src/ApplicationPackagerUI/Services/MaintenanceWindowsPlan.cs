@@ -45,13 +45,16 @@ public sealed class MaintenancePlan
         get { lock (_outcomes) return _outcomes.ToArray(); }
     }
 
-    /// <summary>The undo changes of the outcomes that changed ConfigMgr.</summary>
+    /// <summary>
+    /// The undo changes of the outcomes that changed ConfigMgr. A failed outcome can carry one
+    /// too: a rename whose remove failed created the new window.
+    /// </summary>
     public IReadOnlyList<(MaintenancePlanEntry Entry, MaintenanceChange Undo)> UndoChanges()
     {
         var undo = new List<(MaintenancePlanEntry, MaintenanceChange)>();
         foreach (var outcome in Outcomes)
         {
-            if (!outcome.Succeeded || outcome.UndoChange is not { } change) continue;
+            if (outcome.UndoChange is not { } change) continue;
             if (EntryFor(outcome.Change) is { } entry) undo.Add((entry, change));
         }
         return undo;
@@ -127,8 +130,11 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
         {
             var outcomes = await Task.Run(() => service.ApplyAsync(changes, reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Report(outcome);
-            var result = Result(plan, results);
-            stop = result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
+            // The service ends a cancelled run normally and returns the changes it did not start as skipped outcomes.
+            var cancelled = ct.IsCancellationRequested;
+            var result = Result(plan, results) with { Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed };
+            stop = cancelled ? SiteOperationOutcome.Cancelled
+                : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
                 : result.SucceededCount > 0 ? SiteOperationOutcome.PartlySucceeded
                 : SiteOperationOutcome.Failed;
             return result;
@@ -163,8 +169,10 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
             var outcomes = await Task.Run(() => service.ApplyAsync(undo.Select(u => u.Undo).ToList(), reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Report(outcome);
             var rows = undo.Select(u => results.TryGetValue(u.Entry.Item, out var r) ? r : new ChangePlanItemResult(u.Entry.Item, false, NoResultText)).ToList();
-            var result = new ChangePlanResult(rows);
-            stop = result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
+            var cancelled = ct.IsCancellationRequested;
+            var result = new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed);
+            stop = cancelled ? SiteOperationOutcome.Cancelled
+                : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
                 : result.SucceededCount > 0 ? SiteOperationOutcome.PartlySucceeded
                 : SiteOperationOutcome.Failed;
             return result;
@@ -223,7 +231,9 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
                 if (undoEntry is not null && value.Succeeded && value.Change.Kind is ChangeKind.Create or ChangeKind.ApplyTemplate
                     && entry.Change?.Kind == ChangeKind.Remove)
                     message = $"{message} {RecreatedNote}".Trim();
-                result = new ChangePlanItemResult(entry.Item, value.Succeeded, message);
+                result = !value.Succeeded && value.UndoChange is null && value.Message.StartsWith(MaintenanceWindowService.SkippedPrefix, StringComparison.Ordinal)
+                    ? ChangePlanItemResult.Skip(entry.Item, message)
+                    : new ChangePlanItemResult(entry.Item, value.Succeeded, message);
                 results[entry.Item] = result;
             }
             progress.Report(result);

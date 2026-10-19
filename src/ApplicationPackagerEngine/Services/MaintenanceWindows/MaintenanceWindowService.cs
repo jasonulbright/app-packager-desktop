@@ -15,6 +15,9 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
 {
     public const string LogArea = "MaintenanceWindows";
 
+    /// <summary>Starts the message of an outcome that changed nothing on purpose: a cancelled run or a name already taken by an apply.</summary>
+    public const string SkippedPrefix = "Skipped: ";
+
     internal const string ListResource = "ApplicationPackagerEngine.Services.MaintenanceWindows.Scripts.ListMaintenanceWindows.ps1";
     internal const string WriteResource = "ApplicationPackagerEngine.Services.MaintenanceWindows.Scripts.WriteMaintenanceWindow.ps1";
 
@@ -162,7 +165,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
             MaintenanceOutcome outcome;
             if (ct.IsCancellationRequested)
             {
-                outcome = new MaintenanceOutcome(change, false, "Skipped: the run was cancelled before this change.", null);
+                outcome = new MaintenanceOutcome(change, false, SkippedPrefix + "the run was cancelled before this change.", null);
                 skipped++;
             }
             else
@@ -191,7 +194,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
             {
                 var name = change.Kind == ChangeKind.ApplyTemplate ? change.NewWindowName ?? change.WindowName : CreateName(change);
                 if (change.Kind == ChangeKind.ApplyTemplate && change.Before is not null && change.NewWindowName is null)
-                    return Fail(change, $"Skipped: collection {collection} already has a window named {name}.");
+                    return Fail(change, SkippedPrefix + $"collection {collection} already has a window named {name}.");
                 if (InvalidNewWindow(change.After, name) is { } invalid) return Fail(change, invalid);
                 var (result, failure) = await CreateAsync(change, change.After!, name).ConfigureAwait(false);
                 if (failure is not null) return failure;
@@ -408,7 +411,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                 return (result, Fail(change, CollectionMissingMessage(change.CollectionName, change.CollectionId)));
             case "name-taken":
                 return (result, Fail(change, change.Kind == ChangeKind.ApplyTemplate
-                    ? $"Skipped: collection {collection} already has a window named {windowName}."
+                    ? SkippedPrefix + $"collection {collection} already has a window named {windowName}."
                     : NameTakenMessage(collection, windowName)));
             case "window-missing":
                 return (result, Fail(change, WindowMissingMessage(collection, windowName)));

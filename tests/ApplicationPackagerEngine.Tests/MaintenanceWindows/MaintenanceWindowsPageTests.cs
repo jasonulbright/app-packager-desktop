@@ -160,6 +160,44 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AWindowWhoseScheduleThePageCannotHoldDisablesEditAndRemoveWithATooltip(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            const string text = "Occurs every 1 hours effective 10/1/2026 12:00 AM";
+            harness.Service.Windows.Add(new MaintenanceWindowInfo(harness.Kiosks.CollectionId, harness.Kiosks.Name, "Hourly", "{900}", "Any", true,
+                new MaintenanceSchedule(MaintenanceScheduleKind.OneTime, DateTime.MinValue, TimeSpan.Zero, false, 1, null, null, null, 0, null), text, null, text));
+            var viewModel = harness.Create();
+            var page = new MaintenanceWindowsPage(viewModel);
+            var window = new Window { Width = 1400, Height = 900, WindowStyle = WindowStyle.None, Content = page };
+            Show(window);
+            try
+            {
+                var opened = page.OnNavigatedToAsync();
+                StaTestHelper.PumpUntil(() => opened.IsCompleted);
+                var grid = ById<DataGrid>(page, "dgWindows");
+                grid.SelectedItem = viewModel.Rows.Single(r => r.WindowName == "Hourly");
+                StaTestHelper.Flush();
+                var edit = ById<System.Windows.Controls.Button>(page, "btnEditWindow");
+                var remove = ById<System.Windows.Controls.Button>(page, "btnRemoveWindow");
+                Assert.False(edit.IsEnabled);
+                Assert.False(remove.IsEnabled);
+                Assert.True(ById<System.Windows.Controls.Button>(page, "btnToggleEnabled").IsEnabled);
+                Assert.Equal(MaintenanceWindowsViewModel.ScheduleNotHeld, edit.ToolTip);
+                Assert.Equal(MaintenanceWindowsViewModel.ScheduleNotHeld, remove.ToolTip);
+                Assert.True(ToolTipService.GetShowOnDisabled(edit));
+                viewModel.DetailTabIndex = 1;
+                StaTestHelper.Flush();
+                Assert.Equal([MaintenanceWindowsViewModel.NoOccurrencesShown], ById<ItemsControl>(page, "lstNextOccurrences").Items.Cast<string>());
+            }
+            finally { window.Close(); }
+        });
+    }
+
     [Fact]
     public void AConnectionProblemShowsItsMessageAboveTheTabs()
     {
