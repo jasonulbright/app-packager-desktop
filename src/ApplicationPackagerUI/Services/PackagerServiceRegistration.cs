@@ -66,6 +66,10 @@ public static class PackagerServiceRegistration
             sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IScheduleProjector>(), sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<IMaintenanceTemplateStore>(sp => new MaintenanceTemplateStore(log: sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<IMaintenanceReportWriter>(_ => new MaintenanceReportWriter());
+
+        services.AddSingleton<ICollectionService>(sp => new CollectionService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IQueryTemplateStore>(sp => new QueryTemplateStore(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<ICollectionReportWriter>(_ => new CollectionReportWriter());
         return services;
     }
 
