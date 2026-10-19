@@ -95,15 +95,27 @@ public sealed class MaintenanceWindowWriterTests
     [Fact]
     public void OnlyTheWriterCallsTheServiceWrite()
     {
-        // Each file has a reason: the contract declares the method, the service implements it, the
-        // writer is its only caller, and the WSUS dialog has an unrelated private method of the same name.
-        Assert.Equal(
+        // Each file has a reason: a contract declares the method, a service implements it, a
+        // writer is its only caller, the collection fallbacks stand in for a service, and the WSUS
+        // dialog has an unrelated private method of the same name.
+        string[] required =
         [
             Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowsContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowService.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "MaintenanceWindowsPlan.cs"),
-            Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
-        ], FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant)));
+            Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "Collections", "CollectionsContract.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "CollectionsPlan.cs")
+        ];
+        string[] allowed =
+        [
+            .. required,
+            Path.Combine("ApplicationPackagerEngine", "Services", "Collections", "CollectionService.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "CollectionServiceFallbacks.cs")
+        ];
+        var found = FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant));
+        Assert.All(required, f => Assert.Contains(f, found));
+        Assert.All(found, f => Assert.Contains(f, allowed));
         Assert.DoesNotContain("Maintenance", Code(File.ReadAllText(Path.Combine(SourceRoot(), "ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs"))));
     }
 

@@ -1,0 +1,555 @@
+<Page
+    x:Class="ApplicationPackagerUI.Views.Pages.CollectionCompliancePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
+    ScrollViewer.CanContentScroll="False">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Margin" Value="0,0,0,4" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="Note" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="ToolButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Setter Property="Margin" Value="0,0,8,8" />
+            </Style>
+
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Padding" Value="12" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            </Style>
+
+            <Style x:Key="Monospace" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="VerticalContentAlignment" Value="Top" />
+            </Style>
+
+            <DataTemplate x:Key="TabHeaderTemplate">
+                <StackPanel>
+                    <TextBlock x:Name="TabHeaderText" Text="{Binding}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Border x:Name="TabHeaderUnderline" Height="3" CornerRadius="1.5" Margin="0,4,0,0" Background="Transparent" />
+                </StackPanel>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                        <Setter TargetName="TabHeaderText" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Setter TargetName="TabHeaderText" Property="FontWeight" Value="SemiBold" />
+                        <Setter TargetName="TabHeaderUnderline" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
+
+            <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+                <Setter Property="HeaderTemplate" Value="{StaticResource TabHeaderTemplate}" />
+            </Style>
+
+            <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+
+            <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                <Setter Property="AutoGenerateColumns" Value="False" />
+                <Setter Property="CanUserAddRows" Value="False" />
+                <Setter Property="CanUserDeleteRows" Value="False" />
+                <Setter Property="IsReadOnly" Value="True" />
+                <Setter Property="HeadersVisibility" Value="Column" />
+                <Setter Property="RowHeaderWidth" Value="0" />
+                <Setter Property="GridLinesVisibility" Value="Horizontal" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="CanUserResizeColumns" Value="True" />
+                <Setter Property="EnableRowVirtualization" Value="True" />
+                <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+                <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+                <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+                <Setter Property="helpers:DataGridColumnSizing.FixStarWidthsOnResize" Value="True" />
+                <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
+                <Setter Property="CellStyle" Value="{StaticResource FocusableCell}" />
+            </Style>
+
+            <DataTemplate x:Key="RuleItemTemplate">
+                <StackPanel Margin="0,2">
+                    <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock Text="{Binding Expression}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Expression}" FontSize="11"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </DataTemplate>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid Margin="24,16,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <ui:Button DockPanel.Dock="Right" VerticalAlignment="Top" Content="Compliance baselines" Icon="{ui:SymbolIcon ShieldCheckmark24}"
+                       Command="{Binding OpenComplianceBaselinesCommand}" AutomationProperties.AutomationId="btnComplianceBaselines"
+                       ToolTip="Starts Collection and Compliance Manager for configuration items and baselines." />
+            <StackPanel>
+                <TextBlock Text="Collection and Compliance" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="Show, create and change device collections, their rules and saved queries. Every change shows a plan first."
+                           FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1" Margin="0,0,0,8" Padding="12,8" CornerRadius="6" BorderThickness="1"
+                BorderBrush="{DynamicResource SystemFillColorCautionBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlConnection">
+            <TextBlock Text="{Binding ConnectionMessage}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.AutomationId="txtConnectionMessage" AutomationProperties.LiveSetting="Polite" />
+        </Border>
+
+        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabCollectionCompliance">
+            <TabItem Header="Collections" AutomationProperties.AutomationId="tabCollections">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,4">
+                        <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID, comment or limiting collection"
+                                    Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8"
+                                    AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtCollectionFilter" />
+                        <ComboBox ItemsSource="{Binding TypeFilters}" SelectedValue="{Binding TypeFilter}" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                  MinWidth="150" Margin="0,0,8,8" AutomationProperties.Name="Type" AutomationProperties.AutomationId="cboTypeFilter" />
+                        <ComboBox ItemsSource="{Binding Folders}" SelectedValue="{Binding FolderFilter}" SelectedValuePath="Value" DisplayMemberPath="Text"
+                                  MinWidth="180" Margin="0,0,8,8" AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboFolderFilter" />
+                        <CheckBox Content="Empty" IsChecked="{Binding OnlyEmpty}" Margin="0,0,12,8" VerticalAlignment="Center" AutomationProperties.AutomationId="chkOnlyEmpty" />
+                        <CheckBox Content="With direct members" IsChecked="{Binding OnlyWithDirectMembers}" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  AutomationProperties.AutomationId="chkOnlyDirect" />
+                        <CheckBox Content="With query rules" IsChecked="{Binding OnlyWithQueryRules}" Margin="0,0,12,8" VerticalAlignment="Center"
+                                  AutomationProperties.AutomationId="chkOnlyQuery" />
+                        <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                   AutomationProperties.AutomationId="txtRowCount" />
+                    </WrapPanel>
+
+                    <WrapPanel Grid.Row="1" Margin="0,0,0,4">
+                        <ui:Button Content="New" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewCollectionCommand}"
+                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnNewCollection" />
+                        <ui:Button Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyCollectionCommand}"
+                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnCopyCollection" />
+                        <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditCollectionCommand}" ToolTip="{Binding BuiltInTooltip}"
+                                   ToolTipService.ShowOnDisabled="True" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEditCollection" />
+                        <ui:Button Content="Evaluate" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding EvaluateCommand}"
+                                   ToolTip="Update the membership of the selected collections now." Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnEvaluate" />
+                        <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveCollectionCommand}" ToolTip="{Binding BuiltInTooltip}"
+                                   ToolTipService.ShowOnDisabled="True" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRemoveCollection" />
+                        <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}"
+                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRefresh" />
+                        <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.AutomationId="btnCancelLoad" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+                        <ui:TextBox Text="{Binding OpenByIdText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Collection ID" Width="140" Margin="0,0,4,8"
+                                    AutomationProperties.Name="Collection ID" AutomationProperties.AutomationId="txtOpenById">
+                            <ui:TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding OpenByIdCommand}" />
+                            </ui:TextBox.InputBindings>
+                        </ui:TextBox>
+                        <ui:Button Content="Open by ID" Icon="{ui:SymbolIcon Open24}" Command="{Binding OpenByIdCommand}"
+                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnOpenById" />
+                        <ui:Button Content="Connect Site" Icon="{ui:SymbolIcon PlugConnected24}" Command="{Binding ConnectSiteCommand}"
+                                   ToolTip="Test the connection to the site without reading the collections." Style="{StaticResource ToolButton}"
+                                   AutomationProperties.AutomationId="btnConnectSite" />
+                        <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}"
+                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportCsv" />
+                        <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}"
+                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportHtml" />
+                    </WrapPanel>
+
+                    <Grid Grid.Row="2" x:Name="gridCollectionsLayout" SizeChanged="OnCollectionsLayoutSizeChanged">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" MinHeight="180" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="360" MinWidth="300" />
+                        </Grid.ColumnDefinitions>
+
+                        <DataGrid Grid.Row="0" Grid.Column="0" x:Name="dgCollections" Style="{StaticResource GridBase}" ItemsSource="{Binding Rows}"
+                                  SelectedItem="{Binding SelectedRow}" SelectionChanged="OnCollectionsSelectionChanged" SelectionMode="Extended"
+                                  AutomationProperties.AutomationId="dgCollections" AutomationProperties.Name="Collections">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.5*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="ID" Binding="{Binding CollectionId}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="88" MinWidth="88" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Limiting collection" Binding="{Binding LimitingText}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Refresh" Binding="{Binding RefreshType}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding TypeText}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Folder" Binding="{Binding FolderPath}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <GridSplitter Grid.Row="0" Grid.Column="1" x:Name="splitCollectionDetails" Width="16" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                      ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Background="Transparent" Focusable="True"
+                                      ToolTip="Drag to change the width of the details." AutomationProperties.Name="Details width"
+                                      AutomationProperties.AutomationId="splitCollectionDetails" />
+
+                        <Border Grid.Row="0" Grid.Column="2" x:Name="pnlCollectionDetails" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlCollectionDetails">
+                            <Grid>
+                                <TextBlock Text="Select a collection to see its properties, members and rules." Style="{StaticResource Note}"
+                                           Visibility="{Binding HasSelectedRow, Converter={x:Static helpers:DetectionTesterConverters.NotVisible}}" />
+                                <Grid Visibility="{Binding HasSelectedRow, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{Binding DetailMessage}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtDetailMessage" />
+                                    <TabControl Grid.Row="1" SelectedIndex="{Binding DetailTabIndex}" AutomationProperties.AutomationId="tabCollectionDetails">
+                                        <TabItem Header="Properties" AutomationProperties.AutomationId="tabProperties">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                                                <ItemsControl ItemsSource="{Binding Properties}" AutomationProperties.AutomationId="lstProperties">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <StackPanel Margin="0,0,0,6">
+                                                                <TextBlock Text="{Binding Name}" Style="{StaticResource FieldLabel}" Margin="0" />
+                                                                <TextBox Text="{Binding Value, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" AutomationProperties.Name="{Binding Name}" />
+                                                            </StackPanel>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+                                        </TabItem>
+                                        <TabItem Header="Direct Members" AutomationProperties.AutomationId="tabMembers">
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <WrapPanel Grid.Row="0">
+                                                    <ui:Button Content="Add" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddDirectMembersCommand}" Style="{StaticResource ToolButton}"
+                                                               AutomationProperties.AutomationId="btnAddMembers" />
+                                                    <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveDirectMembersCommand}" Style="{StaticResource ToolButton}"
+                                                               ToolTip="Removes the direct membership rules of the selected direct members." AutomationProperties.AutomationId="btnRemoveMembers" />
+                                                </WrapPanel>
+                                                <DataGrid Grid.Row="1" x:Name="dgMembers" Style="{StaticResource GridBase}" ItemsSource="{Binding Members}" SelectionMode="Extended"
+                                                          SelectionChanged="OnMembersSelectionChanged" AutomationProperties.AutomationId="dgMembers" AutomationProperties.Name="Members">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                                        <DataGridTextColumn Header="Resource ID" Binding="{Binding ResourceId}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                                        <DataGridTextColumn Header="Membership" Binding="{Binding Membership}" Width="104" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                                <DockPanel Grid.Row="2" Margin="0,8,0,0">
+                                                    <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ChevronRight24}" Command="{Binding NextMemberPageCommand}" Margin="4,0,0,0"
+                                                               ToolTip="Next page" AutomationProperties.Name="Next page" AutomationProperties.AutomationId="btnNextMembers" />
+                                                    <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ChevronLeft24}" Command="{Binding PreviousMemberPageCommand}"
+                                                               ToolTip="Previous page" AutomationProperties.Name="Previous page" AutomationProperties.AutomationId="btnPreviousMembers" />
+                                                    <TextBlock Text="{Binding MemberPageText}" Style="{StaticResource Note}" VerticalAlignment="Center" AutomationProperties.AutomationId="txtMemberPage" />
+                                                </DockPanel>
+                                            </Grid>
+                                        </TabItem>
+                                        <TabItem Header="Query Rules" AutomationProperties.AutomationId="tabQueryRules">
+                                            <DockPanel Margin="0,8,0,0">
+                                                <WrapPanel DockPanel.Dock="Top">
+                                                    <ui:Button Content="Edit in WQL Editor" Icon="{ui:SymbolIcon Code24}" Command="{Binding EditRuleInEditorCommand}" Style="{StaticResource ToolButton}"
+                                                               AutomationProperties.AutomationId="btnEditRuleInEditor" />
+                                                    <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveSelectedQueryRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               AutomationProperties.AutomationId="btnRemoveQueryRule" />
+                                                </WrapPanel>
+                                                <ListBox ItemsSource="{Binding QueryRules}" SelectedItem="{Binding SelectedQueryRule}" ItemTemplate="{StaticResource RuleItemTemplate}"
+                                                         ItemContainerStyle="{StaticResource SelectableListItem}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                         AutomationProperties.Name="Query rules" AutomationProperties.AutomationId="lstQueryRules" />
+                                            </DockPanel>
+                                        </TabItem>
+                                        <TabItem Header="Include Rules" AutomationProperties.AutomationId="tabIncludeRules">
+                                            <DockPanel Margin="0,8,0,0">
+                                                <WrapPanel DockPanel.Dock="Top">
+                                                    <ui:Button Content="Add" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddIncludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               AutomationProperties.AutomationId="btnAddInclude" />
+                                                    <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveIncludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               AutomationProperties.AutomationId="btnRemoveInclude" />
+                                                </WrapPanel>
+                                                <ListBox ItemsSource="{Binding IncludeRules}" SelectedItem="{Binding SelectedIncludeRule}" DisplayMemberPath="Text"
+                                                         ItemContainerStyle="{StaticResource SelectableListItem}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                         AutomationProperties.Name="Include rules" AutomationProperties.AutomationId="lstIncludeRules" />
+                                            </DockPanel>
+                                        </TabItem>
+                                        <TabItem Header="Exclude Rules" AutomationProperties.AutomationId="tabExcludeRules">
+                                            <DockPanel Margin="0,8,0,0">
+                                                <WrapPanel DockPanel.Dock="Top">
+                                                    <ui:Button Content="Add" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddExcludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               AutomationProperties.AutomationId="btnAddExclude" />
+                                                    <ui:Button Content="Remove" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveExcludeRuleCommand}" Style="{StaticResource ToolButton}"
+                                                               AutomationProperties.AutomationId="btnRemoveExclude" />
+                                                </WrapPanel>
+                                                <ListBox ItemsSource="{Binding ExcludeRules}" SelectedItem="{Binding SelectedExcludeRule}" DisplayMemberPath="Text"
+                                                         ItemContainerStyle="{StaticResource SelectableListItem}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                         AutomationProperties.Name="Exclude rules" AutomationProperties.AutomationId="lstExcludeRules" />
+                                            </DockPanel>
+                                        </TabItem>
+                                    </TabControl>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="WQL Editor" AutomationProperties.AutomationId="tabWqlEditor">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" MinWidth="220" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" MinWidth="360" />
+                    </Grid.ColumnDefinitions>
+
+                    <DockPanel Grid.Column="0">
+                        <ui:TextBox DockPanel.Dock="Top" Text="{Binding WqlFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name or ID"
+                                    Icon="{ui:SymbolIcon Search24}" Margin="0,0,0,8" AutomationProperties.Name="Collection filter" AutomationProperties.AutomationId="txtWqlFilter" />
+                        <TreeView x:Name="treeWqlCollections" ItemsSource="{Binding WqlTree}" SelectedItemChanged="OnWqlTreeSelectionChanged"
+                                  AutomationProperties.Name="Collections by folder" AutomationProperties.AutomationId="treeWqlCollections">
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                    <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate DataType="{x:Type pages:CollectionTreeNode}" ItemsSource="{Binding Children}">
+                                    <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </DockPanel>
+
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="120" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="120" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Text="Collection" Style="{StaticResource FieldLabel}" />
+                            <TextBlock Text="{Binding WqlCollectionText}" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding WqlCollectionText}" AutomationProperties.AutomationId="txtWqlCollection" />
+                            <TextBlock Text="{Binding WqlCollectionNote}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtWqlCollectionNote" />
+                        </StackPanel>
+                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Query rule of the collection" Style="{StaticResource FieldLabel}" />
+                                <ComboBox ItemsSource="{Binding WqlRules}" SelectedItem="{Binding SelectedWqlRule}" DisplayMemberPath="RuleName"
+                                          AutomationProperties.Name="Query rule of the collection" AutomationProperties.AutomationId="cboWqlRule" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Rule name" Style="{StaticResource FieldLabel}" />
+                                <ui:TextBox Text="{Binding WqlRuleName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Rule name"
+                                            AutomationProperties.AutomationId="txtWqlRuleName" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBox Grid.Row="2" Text="{Binding WqlText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource Monospace}" AcceptsReturn="True"
+                                 AutomationProperties.Name="WQL query" AutomationProperties.AutomationId="txtWql" />
+                        <WrapPanel Grid.Row="3" Margin="0,8,0,0">
+                            <ui:Button Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateWqlCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnValidateWql" />
+                            <ui:Button Content="Preview" Icon="{ui:SymbolIcon Eye24}" Command="{Binding PreviewWqlCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnPreviewWql" />
+                            <ui:Button Content="Cancel preview" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelPreviewCommand}" Style="{StaticResource ToolButton}"
+                                       Visibility="{Binding IsPreviewing, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="btnCancelPreview" />
+                            <ui:Button Content="Add Rule" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddRuleCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnAddRule" />
+                            <ui:Button Content="Update Rule" Icon="{ui:SymbolIcon Save24}" Command="{Binding UpdateRuleCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnUpdateRule" />
+                            <ui:Button Content="Remove Rule" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveRuleCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnRemoveRule" />
+                        </WrapPanel>
+                        <TextBlock Grid.Row="4" Text="{Binding WqlMessage}" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   AutomationProperties.AutomationId="txtWqlMessage" AutomationProperties.LiveSetting="Polite" />
+                        <DataGrid Grid.Row="5" x:Name="dgPreview" Style="{StaticResource GridBase}" ItemsSource="{Binding PreviewRows}" SelectionMode="Single"
+                                  AutomationProperties.AutomationId="dgPreview" AutomationProperties.Name="Preview" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Templates" AutomationProperties.AutomationId="tabTemplates">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="400" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,8" Padding="12,8" CornerRadius="6" BorderThickness="1"
+                            BorderBrush="{DynamicResource SystemFillColorCautionBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                            Visibility="{Binding HasTemplatesMessage, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlTemplatesMessage">
+                        <TextBlock Text="{Binding TemplatesMessage}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   AutomationProperties.AutomationId="txtTemplatesMessage" />
+                    </Border>
+                    <WrapPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,0,0,4">
+                        <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding CategoryFilter}" MinWidth="220" Margin="0,0,8,8"
+                                  AutomationProperties.Name="Category" AutomationProperties.AutomationId="cboCategory" />
+                        <TextBlock Text="{Binding TemplateCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                   AutomationProperties.AutomationId="txtTemplateCount" />
+                    </WrapPanel>
+                    <DataGrid Grid.Row="2" Grid.Column="0" x:Name="dgTemplates" Style="{StaticResource GridBase}" ItemsSource="{Binding TemplateRows}"
+                              SelectedItem="{Binding SelectedTemplate}" SelectionMode="Single" AutomationProperties.AutomationId="dgTemplates" AutomationProperties.Name="Templates">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Parameters" Binding="{Binding ParameterText}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlTemplateDetails">
+                        <Grid>
+                            <TextBlock Text="Select a template to see its query." Style="{StaticResource Note}"
+                                       Visibility="{Binding HasSelectedTemplate, Converter={x:Static helpers:DetectionTesterConverters.NotVisible}}" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding HasSelectedTemplate, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="Description" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock Text="{Binding SelectedTemplate.Description}" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                               AutomationProperties.AutomationId="txtTemplateDescription" />
+                                    <StackPanel Visibility="{Binding HasTemplateParameters, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="Parameters" Style="{StaticResource FieldLabel}" />
+                                        <ItemsControl ItemsSource="{Binding TemplateParameters}" AutomationProperties.AutomationId="lstTemplateParameters">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Margin="0,0,0,8">
+                                                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                        <ui:TextBox Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="{Binding Label}" Margin="0,4,0,0" />
+                                                        <TextBlock Text="{Binding HelpText}" Style="{StaticResource Note}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                    <TextBlock Text="Final query" Style="{StaticResource FieldLabel}" Margin="0,4,0,4" />
+                                    <TextBox Text="{Binding TemplateWql, Mode=OneWay}" IsReadOnly="True" Style="{StaticResource Monospace}" MinHeight="120"
+                                             AutomationProperties.Name="Final query" AutomationProperties.AutomationId="txtTemplateWql" />
+                                    <TextBlock Text="{Binding TemplateMessage}" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                               AutomationProperties.AutomationId="txtTemplateMessage" AutomationProperties.LiveSetting="Polite" />
+                                    <WrapPanel Margin="0,8,0,0">
+                                        <ui:Button Content="Copy to WQL Editor" Icon="{ui:SymbolIcon Code24}" Command="{Binding CopyTemplateToEditorCommand}"
+                                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnCopyTemplate" />
+                                        <ui:Button Content="Apply to Collections" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding ApplyTemplateCommand}"
+                                                   Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnApplyTemplate" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Site Queries" AutomationProperties.AutomationId="tabSiteQueries">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="400" />
+                    </Grid.ColumnDefinitions>
+                    <WrapPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,4">
+                        <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshQueriesCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.AutomationId="btnRefreshQueries" />
+                        <ui:Button Content="Load to Editor" Icon="{ui:SymbolIcon Code24}" Command="{Binding LoadQueryToEditorCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.AutomationId="btnLoadQuery" />
+                        <ui:Button Content="Save as New" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Command="{Binding SaveQueryAsNewCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Saves the WQL Editor's query as a new saved query." AutomationProperties.AutomationId="btnSaveQuery" />
+                        <ui:Button Content="Update Saved" Icon="{ui:SymbolIcon Save24}" Command="{Binding UpdateSavedQueryCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Sets the WQL Editor's query on the selected saved query." AutomationProperties.AutomationId="btnUpdateQuery" />
+                        <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeleteSavedQueryCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.AutomationId="btnDeleteQuery" />
+                    </WrapPanel>
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="{Binding QueriesMessage}" Style="{StaticResource Note}" Margin="0,0,0,8"
+                               AutomationProperties.AutomationId="txtQueriesMessage" />
+                    <DataGrid Grid.Row="2" Grid.Column="0" x:Name="dgSavedQueries" Style="{StaticResource GridBase}" ItemsSource="{Binding SavedQueries}"
+                              SelectedItem="{Binding SelectedSavedQuery}" SelectionMode="Single" AutomationProperties.AutomationId="dgSavedQueries" AutomationProperties.Name="Saved queries">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Query ID" Binding="{Binding QueryId}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Class" Binding="{Binding TargetClassName}" Width="130" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Comment" Binding="{Binding Comment}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlQueryDetails">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Query" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding SelectedSavedQuery.Expression, Mode=OneWay, FallbackValue=''}" IsReadOnly="True" Style="{StaticResource Monospace}"
+                                     AutomationProperties.Name="Saved query" AutomationProperties.AutomationId="txtSavedQuery" />
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.Row="3" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}"
+                AutomationProperties.AutomationId="pnlResults">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                    <ui:Button DockPanel.Dock="Right" Content="Undo last change" Icon="{ui:SymbolIcon ArrowUndo24}" Command="{Binding UndoLastCommand}"
+                               AutomationProperties.AutomationId="btnUndoLast" ToolTip="Shows a plan that undoes the last change set."
+                               Visibility="{Binding HasUndo, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtResultSummary" />
+                </DockPanel>
+                <DataGrid Grid.Row="1" Style="{StaticResource GridBase}" ItemsSource="{Binding LastResults}" MaxHeight="160" SelectionMode="Single"
+                          AutomationProperties.AutomationId="dgResults" AutomationProperties.Name="Results">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
+            <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Note}" VerticalAlignment="Center"
+                       AutomationProperties.AutomationId="txtCollectionStatus" AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
+    </Grid>
+</Page>

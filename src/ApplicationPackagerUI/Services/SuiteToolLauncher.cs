@@ -14,9 +14,12 @@ public sealed record SuiteTool(string Id, string Title, string Folder, string En
 /// <summary>The suite tools that have a sidebar entry, in the default sidebar order.</summary>
 public static class SuiteTools
 {
+    /// <summary>Started from the Collection and Compliance page for the compliance baselines; the sidebar entry opens the page.</summary>
+    public static SuiteTool CollectionAndCompliance { get; } =
+        new("collection-and-compliance", "Collection and Compliance", "collection-and-compliance-manager", "start-ccm.ps1", "ShieldCheckmark24");
+
     public static IReadOnlyList<SuiteTool> All { get; } =
     [
-        new("collection-and-compliance", "Collection and Compliance", "collection-and-compliance-manager", "start-ccm.ps1", "ShieldCheckmark24"),
         new("installer-analysis", "Installer Analysis", "installer-analysis", "start-installeranalysis.ps1", "BoxSearch24"),
         new("deployment-helper", "Deployment Helper", "deployment-helper", "start-deploymenthelper.ps1", "Rocket24"),
         new("dp-content-manager", "DP Content Manager", "dp-content-manager", "start-dpcontentmgr.ps1", "Server24"),

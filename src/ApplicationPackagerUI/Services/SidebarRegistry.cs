@@ -14,6 +14,7 @@ public static class SidebarIds
     public const string Workbench = "workbench";
     public const string DetectionTester = "detection-tester";
     public const string MaintenanceWindows = "maintenance-windows";
+    public const string CollectionCompliance = "collection-and-compliance";
 }
 
 /// <summary>
@@ -66,6 +67,11 @@ public sealed class SidebarRegistry
         registry.Register(new SidebarItemDefinition(SidebarIds.MaintenanceWindows, "Maintenance Windows", "CalendarClock24", SidebarItemKind.Page)
         {
             PageType = typeof(MaintenanceWindowsPage)
+        });
+        registry.Register(new SidebarItemDefinition(SidebarIds.CollectionCompliance, SuiteTools.CollectionAndCompliance.Title,
+            SuiteTools.CollectionAndCompliance.Symbol, SidebarItemKind.Page)
+        {
+            PageType = typeof(CollectionCompliancePage)
         });
         foreach (var tool in SuiteTools.All)
         {
