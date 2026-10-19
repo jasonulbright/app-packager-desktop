@@ -12,15 +12,15 @@
     WindowBackdropType="Mica">
 
     <ui:FluentWindow.Resources>
-        <!-- The theme's row template puts a 3 px selection bar left of the cells of a selected row; the negative
-             right margin keeps that row as wide as the columns, so selecting a row adds no horizontal scroll. -->
-        <Style x:Key="IndicatorRow" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
-            <Setter Property="Margin" Value="0,2,-3,2" />
-        </Style>
-        <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+        </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -62,7 +62,7 @@
         <DataGrid Grid.Row="3" ItemsSource="{Binding Targets}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                   HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
                   HorizontalScrollBarVisibility="Auto" helpers:DataGridColumnSizing.FixStarWidthsOnResize="True"
-                  RowStyle="{StaticResource IndicatorRow}" AutomationProperties.AutomationId="dgApplyTargets" AutomationProperties.Name="Target collections">
+                  RowStyle="{StaticResource SelectableRow}" CellStyle="{StaticResource FocusableCell}" AutomationProperties.AutomationId="dgApplyTargets" AutomationProperties.Name="Target collections">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="64" MinWidth="64" CanUserSort="False">
                     <DataGridTemplateColumn.CellTemplate>

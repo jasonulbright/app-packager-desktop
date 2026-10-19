@@ -18,6 +18,8 @@ using Point = System.Windows.Point;
 using TabControl = System.Windows.Controls.TabControl;
 using Control = System.Windows.Controls.Control;
 using Brushes = System.Windows.Media.Brushes;
+using Brush = System.Windows.Media.Brush;
+using Color = System.Windows.Media.Color;
 
 namespace ApplicationPackagerEngine.Tests.MaintenanceWindows;
 
@@ -797,6 +799,209 @@ public sealed class MaintenanceWindowsPageTests
                 Assert.Equal(150, ById<DataGrid>(window, "gridChangePlanResult").Items.Count);
             }
             finally { window.Close(); }
+        });
+    }
+
+    private static double Luminance(Color c)
+    {
+        static double Channel(byte v)
+        {
+            var s = v / 255.0;
+            return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+    }
+
+    private static double Contrast(Color a, Color b)
+    {
+        var (x, y) = (Luminance(a), Luminance(b));
+        return (Math.Max(x, y) + 0.05) / (Math.Min(x, y) + 0.05);
+    }
+
+    /// <summary>
+    /// Renders the window and returns the pixels of the element's bounds, each composed over the
+    /// theme's application background, as a window backdrop shows through a transparent area.
+    /// </summary>
+    private static List<Color> Pixels(Window window, FrameworkElement element, string? saveAs = null)
+    {
+        window.UpdateLayout();
+        StaTestHelper.Flush();
+        var root = (FrameworkElement)window.Content;
+        var width = (int)Math.Ceiling(root.ActualWidth);
+        var height = (int)Math.Ceiling(root.ActualHeight);
+        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        var backdrop = new DrawingVisual();
+        using (var context = backdrop.RenderOpen())
+            context.DrawRectangle((Brush)Application.Current.FindResource("ApplicationBackgroundBrush"), null, new Rect(0, 0, width, height));
+        bitmap.Render(backdrop);
+        bitmap.Render(root);
+        var directory = Environment.GetEnvironmentVariable("APD_RENDER_DIR");
+        if (saveAs is not null && !string.IsNullOrEmpty(directory))
+        {
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            using var file = System.IO.File.Create(System.IO.Path.Combine(directory, saveAs + ".png"));
+            encoder.Save(file);
+        }
+        var bounds = element.TransformToAncestor(root).TransformBounds(new Rect(element.RenderSize));
+        var x = Math.Max(0, (int)Math.Ceiling(bounds.X));
+        var y = Math.Max(0, (int)Math.Ceiling(bounds.Y));
+        var w = Math.Min(width - x, (int)Math.Floor(bounds.Width));
+        var h = Math.Min(height - y, (int)Math.Floor(bounds.Height));
+        Assert.True(w > 0 && h > 0, $"The element at {bounds} is outside the rendered area.");
+        var data = new byte[w * h * 4];
+        bitmap.CopyPixels(new Int32Rect(x, y, w, h), data, w * 4, 0);
+        var pixels = new List<Color>(w * h);
+        for (var i = 0; i < data.Length; i += 4) pixels.Add(Color.FromRgb(data[i + 2], data[i + 1], data[i]));
+        return pixels;
+    }
+
+    private static Color MostCommon(List<Color> pixels) =>
+        pixels.GroupBy(c => c).OrderByDescending(g => g.Count()).First().Key;
+
+    /// <summary>The contrast of the strongest text pixel against the most common pixel of a cell's text.</summary>
+    private static double TextContrast(List<Color> pixels)
+    {
+        var background = MostCommon(pixels);
+        return pixels.Max(p => Contrast(p, background));
+    }
+
+    private static DataGridRow Row(DataGrid grid, int index)
+    {
+        grid.ScrollIntoView(grid.Items[index]);
+        grid.UpdateLayout();
+        return (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(index);
+    }
+
+    private static TextBlock RowText(DataGridRow row) =>
+        Descendants(row).OfType<DataGridCell>().Where(c => c.Column is DataGridTextColumn).SelectMany(c => Descendants(c).OfType<TextBlock>())
+            .First(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text) && t.ActualWidth > 20);
+
+    /// <summary>
+    /// A data row's text is readable on its background. With the page's row style, a selected row
+    /// also differs visibly from an unselected row and a focused cell shows the theme's focus rectangle.
+    /// </summary>
+    private static void AssertReadableRowsAndVisibleSelection(Window window, DataGrid grid, string name, Action<int> select, bool themedSelection = true)
+    {
+        Assert.True(grid.Items.Count >= 2, $"{name} needs two rows.");
+        select(0);
+        window.UpdateLayout();
+        StaTestHelper.Flush();
+        var plain = Pixels(window, RowText(Row(grid, 1)), name);
+        var plainContrast = TextContrast(plain);
+        Assert.True(plainContrast >= 4.5, $"{name}: the text of an unselected row has a contrast of {plainContrast:0.00} on {MostCommon(plain)}.");
+        var selected = Pixels(window, RowText(Row(grid, 0)));
+        var selectedContrast = TextContrast(selected);
+        Assert.True(selectedContrast >= 4.5, $"{name}: the text of a selected row has a contrast of {selectedContrast:0.00} on {MostCommon(selected)}.");
+        if (!themedSelection) return;
+        Assert.Same(Application.Current.FindResource("DefaultControlFocusVisualStyle"), Descendants(Row(grid, 0)).OfType<DataGridCell>().First().FocusVisualStyle);
+        var mark = Contrast(MostCommon(selected), MostCommon(plain));
+        Assert.True(mark >= 1.15, $"{name}: a selected row ({MostCommon(selected)}) is not visibly different from an unselected row ({MostCommon(plain)}): {mark:0.00}.");
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ThePageGridsShowReadableRowsAndAVisibleSelectionInTheTheme(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, harness) =>
+        {
+            var viewModel = (MaintenanceWindowsViewModel)page.DataContext;
+            var tabs = ById<TabControl>(page, "tabMaintenanceWindows");
+            var windows = ById<DataGrid>(page, "dgWindows");
+            AssertReadableRowsAndVisibleSelection(window, windows, $"Windows-{theme}", i => windows.SelectedIndex = i);
+
+            tabs.SelectedIndex = 1;
+            StaTestHelper.Flush();
+            var coverage = ById<DataGrid>(page, "dgCoverage");
+            AssertReadableRowsAndVisibleSelection(window, coverage, $"Coverage-{theme}", i => coverage.SelectedIndex = i);
+
+            tabs.SelectedIndex = 2;
+            StaTestHelper.Flush();
+            var templates = ById<DataGrid>(page, "dgTemplates");
+            AssertReadableRowsAndVisibleSelection(window, templates, $"Templates-{theme}", i => templates.SelectedIndex = i);
+
+            tabs.SelectedIndex = 0;
+            StaTestHelper.Flush();
+            windows.SelectAll();
+            StaTestHelper.Flush();
+            var toggle = viewModel.ToggleEnabledCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => toggle.IsCompleted);
+            StaTestHelper.Flush();
+            var results = ById<DataGrid>(page, "dgResults");
+            AssertReadableRowsAndVisibleSelection(window, results, $"Results-{theme}", i => results.SelectedIndex = i);
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light, ApplicationTheme.Dark)]
+    [InlineData(ApplicationTheme.Dark, ApplicationTheme.Light)]
+    public void TheWindowsGridFollowsALiveThemeSwitch(ApplicationTheme start, ApplicationTheme next)
+    {
+        WithPage(start, (window, page, harness) =>
+        {
+            var grid = ById<DataGrid>(page, "dgWindows");
+            AssertReadableRowsAndVisibleSelection(window, grid, $"Windows-{start}", i => grid.SelectedIndex = i);
+            var dictionaries = Application.Current.Resources.MergedDictionaries;
+            dictionaries[dictionaries.IndexOf(dictionaries.OfType<ThemesDictionary>().Single())] = new ThemesDictionary { Theme = next };
+            StaTestHelper.Flush();
+            AssertReadableRowsAndVisibleSelection(window, grid, $"Windows-{start}-to-{next}", i => grid.SelectedIndex = i);
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheDialogListsShowReadableRowsAndAVisibleSelectionInTheTheme(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            var dialog = new MaintenanceApplyTemplateViewModel(harness.Store.Templates, harness.Service.Collections,
+                new Dictionary<string, int>(), _ => Task.FromResult(true));
+            var applyWindow = new MaintenanceApplyTemplateWindow(dialog);
+            Show(applyWindow);
+            try
+            {
+                var grid = ById<DataGrid>(applyWindow, "dgApplyTargets");
+                AssertReadableRowsAndVisibleSelection(applyWindow, grid, $"ApplyTemplate-{theme}", i => grid.SelectedIndex = i);
+            }
+            finally { applyWindow.Close(); }
+
+            var plan = new ChangePlan("Toggle", "Toggle 2 windows",
+                [new ChangePlanItem("Disable", "Servers: Patch Tuesday", "Enabled to disabled."), new ChangePlanItem("Disable", "Kiosks: Nightly", "Enabled to disabled.")]);
+            var planWindow = new ChangePlanWindow(new ChangePlanViewModel(plan, (c, p, ct) => Task.FromResult(new ChangePlanResult([]))));
+            Show(planWindow);
+            try
+            {
+                var grid = ById<DataGrid>(planWindow, "gridChangePlan");
+                AssertReadableRowsAndVisibleSelection(planWindow, grid, $"Plan-{theme}", i => grid.SelectedIndex = i, themedSelection: false);
+            }
+            finally { planWindow.Close(); }
+
+            var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.NewWindow, harness.Projector, _ => Task.FromResult(true),
+                () => MaintenanceWindowsHarness.Now, harness.Service.Collections, harness.Service.Windows);
+            var editorWindow = new MaintenanceWindowEditorWindow(editor);
+            Show(editorWindow);
+            try
+            {
+                var list = ById<System.Windows.Controls.ListBox>(editorWindow, "lstCollections");
+                list.SelectedIndex = 0;
+                editorWindow.UpdateLayout();
+                StaTestHelper.Flush();
+                TextBlock ItemText(int i) => Descendants((ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(i)).OfType<TextBlock>()
+                    .First(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text));
+                var plain = Pixels(editorWindow, ItemText(1), $"Editor-{theme}");
+                Assert.True(TextContrast(plain) >= 4.5, $"Editor: an unselected collection has a contrast of {TextContrast(plain):0.00}.");
+                var selected = Pixels(editorWindow, ItemText(0));
+                Assert.True(TextContrast(selected) >= 4.5, $"Editor: the selected collection has a contrast of {TextContrast(selected):0.00} on {MostCommon(selected)}.");
+                var mark = Contrast(MostCommon(selected), MostCommon(plain));
+                Assert.True(mark >= 1.15, $"Editor: the selected collection ({MostCommon(selected)}) is not visibly different from another ({MostCommon(plain)}): {mark:0.00}.");
+                var item = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
+                var folder = Descendants(item).OfType<TextBlock>().Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text)).ElementAt(1);
+                Assert.True(TextContrast(Pixels(editorWindow, folder)) >= 4.5, $"Editor: the folder of the selected collection has a contrast of {TextContrast(Pixels(editorWindow, folder)):0.00}.");
+            }
+            finally { editorWindow.Close(); }
         });
     }
 }

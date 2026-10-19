@@ -12,12 +12,17 @@
     WindowBackdropType="Mica">
 
     <ui:FluentWindow.Resources>
-        <BooleanToVisibilityConverter x:Key="EditorVisibility" />
-        <Style x:Key="EditorLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Margin" Value="0,8,0,4" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="EditorVisibility" />
+            <Style x:Key="EditorLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Margin" Value="0,8,0,4" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+        </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -47,7 +52,7 @@
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  IsEnabled="{Binding CanPickCollection}" AutomationProperties.Name="Collection" AutomationProperties.AutomationId="lstCollections">
                             <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource SelectableListItem}">
                                     <EventSetter Event="GotKeyboardFocus" Handler="OnCollectionItemFocused" />
                                 </Style>
                             </ListBox.ItemContainerStyle>
