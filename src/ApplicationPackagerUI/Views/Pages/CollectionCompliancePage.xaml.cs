@@ -24,34 +24,6 @@ public partial class CollectionCompliancePage : INavigationAware
 
     public Task OnNavigatedFromAsync() => _viewModel.OnNavigatedFromAsync();
 
-    /// <summary>
-    /// Below this width of the Collections area, the detail panel moves under the grid. Beside the
-    /// grid, the panel and its gap take 376 px by default and the seven columns at least 726 px.
-    /// </summary>
-    public const double DetailsBesideMinWidth = 1100;
-
-    public static bool DetailsBelow(double layoutWidth) => layoutWidth < DetailsBesideMinWidth;
-
-    private GridLength _detailsWidth = new(360);
-
-    private void OnCollectionsLayoutSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (!e.WidthChanged) return;
-        var below = DetailsBelow(e.NewSize.Width);
-        if (below == (Grid.GetRow(pnlCollectionDetails) == 1)) return;
-        var layout = gridCollectionsLayout;
-        if (below) _detailsWidth = layout.ColumnDefinitions[2].Width;
-        layout.ColumnDefinitions[1].Width = new GridLength(below ? 0 : 16);
-        layout.ColumnDefinitions[2].MinWidth = below ? 0 : 300;
-        layout.ColumnDefinitions[2].Width = below ? new GridLength(0) : _detailsWidth;
-        splitCollectionDetails.Visibility = below ? Visibility.Collapsed : Visibility.Visible;
-        layout.RowDefinitions[1].Height = below ? new GridLength(300) : GridLength.Auto;
-        Grid.SetRow(pnlCollectionDetails, below ? 1 : 0);
-        Grid.SetColumn(pnlCollectionDetails, below ? 0 : 2);
-        Grid.SetColumnSpan(pnlCollectionDetails, below ? 3 : 1);
-        pnlCollectionDetails.Margin = new Thickness(0, below ? 12 : 0, 0, 0);
-    }
-
     private void OnCollectionsSelectionChanged(object sender, SelectionChangedEventArgs e) =>
         _viewModel.SetSelectedRows(dgCollections.SelectedItems.OfType<CollectionGridRow>());
 
@@ -81,9 +53,15 @@ public partial class CollectionCompliancePage : INavigationAware
                 Header = columns[i],
                 Binding = new Binding($"[{i}]") { Mode = BindingMode.OneWay },
                 Width = new DataGridLength(1, DataGridLengthUnitType.Star),
-                MinWidth = 120,
+                MinWidth = Math.Max(100, HeaderWidth(columns[i])),
                 ElementStyle = style
             });
         }
     }
+
+    /// <summary>The width a column header needs for its text, with the header padding and the sort glyph space.</summary>
+    private double HeaderWidth(string text) =>
+        Math.Ceiling(new System.Windows.Media.FormattedText(text, System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new System.Windows.Media.Typeface(dgPreview.FontFamily, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), Math.Max(dgPreview.FontSize, 14),
+            System.Windows.Media.Brushes.Black, System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip).WidthIncludingTrailingWhitespace) + 40;
 }

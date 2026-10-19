@@ -81,12 +81,12 @@ public sealed partial class CollectionComplianceViewModel : ObservableObject
     public static string Connected(string site) => $"Connected to site {site}.";
     public static string RuleNameTaken(string name) => $"The collection already has a query rule named {name}.";
     public static string RuleNameExists(string name) => $"The collection already has a rule named {name}. Not changed.";
-    public static string PreviewNote(int count) => $"The last preview found {CollectionsText.Count(count, "match")}.";
+    public static string PreviewNote(int count) => $"The last preview found {CollectionsText.Count(count, "match", "matches")}.";
     public static string ReportFailed(string format) => $"The {format} report could not be written. The log has the details.";
     public static string QueryNameTaken(string name) => $"A saved query named {name} already exists.";
 
     public static string PreviewText(int count, int shown) =>
-        count == shown ? $"{CollectionsText.Count(count, "match")}." : $"{CollectionsText.Count(count, "match")}. The first {shown} are shown.";
+        count == shown ? $"{CollectionsText.Count(count, "match", "matches")}." : $"{CollectionsText.Count(count, "match", "matches")}. The first {shown} are shown.";
 
     private static readonly Regex CollectionIdPattern = new("^[A-Za-z0-9]{3}[0-9A-Fa-f]{5}$", RegexOptions.CultureInvariant);
 

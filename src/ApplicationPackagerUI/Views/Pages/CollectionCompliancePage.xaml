@@ -45,6 +45,8 @@
                 <Setter Property="TextWrapping" Value="Wrap" />
                 <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
                 <Setter Property="VerticalContentAlignment" Value="Top" />
+                <Setter Property="TextAlignment" Value="Left" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
             </Style>
 
             <DataTemplate x:Key="TabHeaderTemplate">
@@ -184,18 +186,14 @@
                                    Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnExportHtml" />
                     </WrapPanel>
 
-                    <Grid Grid.Row="2" x:Name="gridCollectionsLayout" SizeChanged="OnCollectionsLayoutSizeChanged">
+                    <Grid Grid.Row="2" x:Name="gridCollectionsLayout">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="*" MinHeight="180" />
-                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="160" />
+                            <RowDefinition Height="16" />
+                            <RowDefinition Height="320" MinHeight="200" />
                         </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="360" MinWidth="300" />
-                        </Grid.ColumnDefinitions>
 
-                        <DataGrid Grid.Row="0" Grid.Column="0" x:Name="dgCollections" Style="{StaticResource GridBase}" ItemsSource="{Binding Rows}"
+                        <DataGrid Grid.Row="0" x:Name="dgCollections" Style="{StaticResource GridBase}" ItemsSource="{Binding Rows}"
                                   SelectedItem="{Binding SelectedRow}" SelectionChanged="OnCollectionsSelectionChanged" SelectionMode="Extended"
                                   AutomationProperties.AutomationId="dgCollections" AutomationProperties.Name="Collections">
                             <DataGrid.Columns>
@@ -205,16 +203,17 @@
                                 <DataGridTextColumn Header="Limiting collection" Binding="{Binding LimitingText}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Refresh" Binding="{Binding RefreshType}" Width="92" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding TypeText}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Rules" Binding="{Binding RulesText}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Folder" Binding="{Binding FolderPath}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <GridSplitter Grid.Row="0" Grid.Column="1" x:Name="splitCollectionDetails" Width="16" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                      ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Background="Transparent" Focusable="True"
-                                      ToolTip="Drag to change the width of the details." AutomationProperties.Name="Details width"
+                        <GridSplitter Grid.Row="1" x:Name="splitCollectionDetails" Height="16" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                      ResizeBehavior="PreviousAndNext" ResizeDirection="Rows" Background="Transparent" Focusable="True"
+                                      ToolTip="Drag to change the height of the details." AutomationProperties.Name="Details height"
                                       AutomationProperties.AutomationId="splitCollectionDetails" />
 
-                        <Border Grid.Row="0" Grid.Column="2" x:Name="pnlCollectionDetails" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlCollectionDetails">
+                        <Border Grid.Row="2" x:Name="pnlCollectionDetails" Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlCollectionDetails">
                             <Grid>
                                 <TextBlock Text="Select a collection to see its properties, members and rules." Style="{StaticResource Note}"
                                            Visibility="{Binding HasSelectedRow, Converter={x:Static helpers:DetectionTesterConverters.NotVisible}}" />

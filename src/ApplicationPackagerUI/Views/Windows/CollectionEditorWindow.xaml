@@ -63,10 +63,7 @@
             </StackPanel>
             <DockPanel Grid.Row="1" Visibility="{Binding CanEditProperties, Converter={StaticResource EditorVisibility}}">
                 <TextBlock DockPanel.Dock="Bottom" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           AutomationProperties.AutomationId="txtSelectedLimiting">
-                    <Run Text="Selected:" />
-                    <Run Text="{Binding SelectedLimitingText, Mode=OneWay}" />
-                </TextBlock>
+                           Text="{Binding SelectedLimitingText, Mode=OneWay, StringFormat='Selected: {0}'}" AutomationProperties.AutomationId="txtSelectedLimiting" />
                 <ListBox x:Name="lstLimiting" ItemsSource="{Binding LimitingChoices}" SelectedItem="{Binding SelectedLimiting, Mode=OneWay}"
                          SelectionChanged="OnLimitingSelectionChanged" MinHeight="100" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          AutomationProperties.Name="Limiting collection" AutomationProperties.AutomationId="lstLimiting">

@@ -11,7 +11,8 @@ public static class CollectionsText
 
     public static string Target(string name, string id) => string.IsNullOrEmpty(id) ? name : $"{name} ({id})";
 
-    public static string Count(int n, string noun) => n == 1 ? $"1 {noun}" : $"{n.ToString(CultureInfo.InvariantCulture)} {noun}s";
+    public static string Count(int n, string noun, string? plural = null) =>
+        n == 1 ? $"1 {noun}" : $"{n.ToString(CultureInfo.InvariantCulture)} {plural ?? noun + "s"}";
 
     public static string Rules(CollectionRow row)
     {

@@ -169,7 +169,6 @@ public sealed partial class CollectionComplianceViewModel
         return DetailLoad;
     }
 
-    // ---- Collection writes ----
 
     private bool CanChangeSelected() => SelectedRow is { IsBuiltIn: false };
 
@@ -332,7 +331,6 @@ public sealed partial class CollectionComplianceViewModel
         return text.Length == 0 || text.EndsWith('.') ? text : text + ".";
     }
 
-    // ---- Direct members ----
 
     [RelayCommand(CanExecute = nameof(CanChangeSelected))]
     private async Task AddDirectMembers()
@@ -455,7 +453,6 @@ public sealed partial class CollectionComplianceViewModel
         if (run is { Outcome.Confirmed: true }) await AfterWriteAsync();
     }
 
-    // ---- Include and exclude rules ----
 
     [RelayCommand(CanExecute = nameof(CanChangeSelected))]
     private Task AddIncludeRule() => AddMembershipRuleAsync(CollectionRuleKind.Include);
@@ -549,7 +546,6 @@ public sealed partial class CollectionComplianceViewModel
 
     private bool CanEditRuleInEditor() => SelectedQueryRule is not null;
 
-    // ---- WQL Editor ----
 
     private CancellationTokenSource? _wqlRules;
     private int _wqlGeneration;
@@ -857,7 +853,6 @@ public sealed partial class CollectionComplianceViewModel
         await RemoveRuleAsync(collection!, SelectedWqlRule!.Rule, m => WqlMessage = m);
     }
 
-    // ---- Templates ----
 
     private IReadOnlyList<QueryTemplate> _templates = [];
 
@@ -1017,7 +1012,6 @@ public sealed partial class CollectionComplianceViewModel
         return Done(run, picker.ShowMessage);
     }
 
-    // ---- Site queries ----
 
     private bool _queriesLoaded;
 
