@@ -7,6 +7,7 @@ param(
     [string[]]$ExpectedSchedules = @(),
     [int]$ExpectedType = 0,
     [bool]$ExpectedEnabled = $false,
+    [string]$ExpectedDescription = '',
     [ValidateSet('Any', 'SoftwareUpdatesOnly', 'TaskSequencesOnly')][string]$ApplyTo = 'Any',
     [bool]$IsEnabled = $true,
     [string]$Recurrence = '',
@@ -22,6 +23,9 @@ param(
     [string]$Description = '',
     [bool]$RequireDescription = $false
 )
+
+$checkDescription = $PSBoundParameters.ContainsKey('ExpectedDescription')
+$mutated = $false
 
 function ConvertTo-WindowRow {
     param([object]$Window)
@@ -85,10 +89,32 @@ function Get-Settings {
     return $settings
 }
 
+# The window set as ids, names and descriptions. Put writes every window of the collection
+# back as read, so a set that differs from the one the checks used would overwrite or bring
+# back another administrator's change. The provider has no conditional write: a change
+# between this comparison and Put is still lost.
+function Get-WindowSetKey {
+    param([object[]]$Rows)
+    (@($Rows | ForEach-Object { '{0}|{1}|{2}' -f $_.Id, $_.Name, $_.Description } | Sort-Object -CaseSensitive) -join "`n")
+}
+
+function Get-SnapshotKey {
+    param([object[]]$Windows)
+    Get-WindowSetKey @($Windows | Where-Object { $null -ne $_ } | ForEach-Object {
+        [pscustomobject]@{ Id = [string]$_.ServiceWindowID; Name = [string]$_.Name; Description = [string]$_.Description } })
+}
+
+function Get-ItemsKey {
+    param([object]$Items)
+    Get-WindowSetKey @($Items | Where-Object { $null -ne $_ } | ForEach-Object {
+        [pscustomobject]@{ Id = [string]$_['ServiceWindowID'].StringValue; Name = [string]$_['Name'].StringValue; Description = [string]$_['Description'].StringValue } })
+}
+
 function Set-WindowDescription {
-    param([string]$Id, [string]$Text)
+    param([string]$Id, [string]$Text, [string]$ExpectedKey)
     $settings = Get-Settings
     $items = $settings.GetArrayItems('ServiceWindows')
+    if ((Get-ItemsKey $items) -cne $ExpectedKey) { return 'stale' }
     $found = $false
     foreach ($item in $items) {
         if ([string]$item['ServiceWindowID'].StringValue -eq $Id) {
@@ -96,36 +122,43 @@ function Set-WindowDescription {
             $found = $true
         }
     }
-    if (-not $found) { return }
-    $settings.SetArrayItems('ServiceWindows', $items)
-    $settings.Put()
+    if (-not $found) { return 'missing' }
+    $null = $settings.SetArrayItems('ServiceWindows', $items)
+    $null = $settings.Put()
+    return 'written'
 }
 
 function Remove-WindowById {
-    param([string]$Id)
+    param([string]$Id, [string]$ExpectedKey)
     $settings = Get-Settings
     $items = $settings.GetArrayItems('ServiceWindows')
+    if ((Get-ItemsKey $items) -cne $ExpectedKey) { return 'stale' }
     for ($i = $items.Count - 1; $i -ge 0; $i--) {
         if ([string]$items[$i]['ServiceWindowID'].StringValue -eq $Id) { $items.RemoveAt($i) }
     }
-    $settings.SetArrayItems('ServiceWindows', $items)
-    $settings.Put()
+    $null = $settings.SetArrayItems('ServiceWindows', $items)
+    $null = $settings.Put()
+    return 'written'
 }
 
 # New-CMMaintenanceWindow, and Set-CMMaintenanceWindow with a schedule, replace the
-# description with ConfigMgr's schedule text.
+# description with ConfigMgr's schedule text. The window change is already made here, so no
+# error, access denied included, may leave without the window in the result: the window
+# carries the undo of the change.
 function Write-WithDescription {
-    param([object]$Window)
+    param([string]$Id)
+    $snapshot = @(Get-Windows)
+    $Window = $snapshot | Where-Object { [string]$_.ServiceWindowID -eq $Id } | Select-Object -First 1
     if ($null -eq $Window) { return (Write-Result 'failed' $null 'The window was not found after the change.') }
     if (-not $Description -or [string]$Window.Description -ceq $Description) { return (Write-Result 'ok' $Window) }
     if (-not (Test-SettingsWritable)) { return (Write-Result 'description-failed' $Window 'Get-CMCollectionSetting is not available.') }
     try {
-        Set-WindowDescription ([string]$Window.ServiceWindowID) $Description
+        $written = Set-WindowDescription $Id $Description (Get-SnapshotKey $snapshot)
     } catch {
-        if (Test-AccessDenied $_) { throw }
         return (Write-Result 'description-failed' $Window $_.Exception.Message)
     }
-    $after = Get-Window ([string]$Window.ServiceWindowID)
+    if ($written -eq 'stale') { return (Write-Result 'description-failed' $Window 'The windows of the collection changed during the write, so the description was not written.') }
+    $after = Get-Window $Id
     if ($null -eq $after -or [string]$after.Description -cne $Description) { return (Write-Result 'description-failed' $Window 'The description was not stored.') }
     return (Write-Result 'ok' $after)
 }
@@ -171,7 +204,21 @@ function Test-Expected {
     if ([int]$Window.ServiceWindowType -ne $ExpectedType) { return $false }
     if ([bool]$Window.IsEnabled -ne $ExpectedEnabled) { return $false }
     if ($ExpectedSchedules.Count -gt 0 -and -not ($ExpectedSchedules -contains [string]$Window.ServiceWindowSchedules)) { return $false }
+    if ($checkDescription -and [string]$Window.Description -cne $ExpectedDescription) { return $false }
     return $true
+}
+
+function Write-Partial {
+    param([object]$Failure)
+    $window = $null
+    try {
+        if ($Operation -eq 'Create') {
+            $window = Get-Windows | Where-Object { [string]$_.Name -eq $Name } | Select-Object -First 1
+        } else {
+            $window = Get-Window $ServiceWindowId
+        }
+    } catch { }
+    Write-Result 'partial' $window $Failure.Exception.Message
 }
 
 $collection = @(Get-CMDeviceCollection -Id $CollectionId)
@@ -204,25 +251,32 @@ if ($Operation -eq 'Create' -or $Operation -eq 'Update') {
 try {
     switch ($Operation) {
         'Create' {
+            $mutated = $true
             New-CMMaintenanceWindow -CollectionId $CollectionId -Name $Name -Schedule $schedule -ApplyTo $ApplyTo -IsEnabled $IsEnabled -IsUtc $IsUtc | Out-Null
             $created = Get-Windows | Where-Object { [string]$_.Name -eq $Name } | Select-Object -First 1
             if ($null -eq $created) { return (Write-Result 'failed' $null 'The new window was not found after it was created.') }
-            return (Write-WithDescription $created)
+            return (Write-WithDescription ([string]$created.ServiceWindowID))
         }
         'Update' {
+            $mutated = $true
             Set-CMMaintenanceWindow -CollectionId $CollectionId -MaintenanceWindow $current -Schedule $schedule -ApplyTo $ApplyTo -IsEnabled $IsEnabled -IsUtc $IsUtc
-            return (Write-WithDescription (Get-Window $ServiceWindowId))
+            return (Write-WithDescription $ServiceWindowId)
         }
         'SetEnabled' {
+            $mutated = $true
             Set-CMMaintenanceWindow -CollectionId $CollectionId -MaintenanceWindow $current -IsEnabled $IsEnabled
         }
         'Remove' {
+            $stale = 'The windows of the collection changed after the check.'
             # Remove-CMMaintenanceWindow removes every window with the name, in any case.
             $sameName = @($windows | Where-Object { [string]$_.Name -eq [string]$current.Name })
             if ($sameName.Count -gt 1) {
                 if (-not (Test-SettingsWritable)) { return (Write-Result 'duplicate-name' $current) }
-                Remove-WindowById $ServiceWindowId
+                $mutated = $true
+                if ((Remove-WindowById $ServiceWindowId (Get-SnapshotKey $windows)) -eq 'stale') { return (Write-Result 'changed' $current $stale) }
             } else {
+                if ((Get-SnapshotKey @(Get-Windows)) -cne (Get-SnapshotKey $windows)) { return (Write-Result 'changed' $current $stale) }
+                $mutated = $true
                 Remove-CMMaintenanceWindow -CollectionId $CollectionId -MaintenanceWindowName ([string]$current.Name) -Force -DisableWildcardHandling
             }
             $left = Get-Window $ServiceWindowId
@@ -231,6 +285,9 @@ try {
         }
     }
 } catch {
+    # After a cmdlet that changes ConfigMgr has started, an error, access denied included,
+    # is reported with the window as it is now, so the caller can offer the undo.
+    if ($mutated) { return (Write-Partial $_) }
     if (Test-AccessDenied $_) { throw }
     return (Write-Result 'failed' $null $_.Exception.Message)
 }

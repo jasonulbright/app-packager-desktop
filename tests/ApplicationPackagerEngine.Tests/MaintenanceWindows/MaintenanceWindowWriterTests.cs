@@ -242,6 +242,29 @@ public sealed class MaintenanceWindowWriterTests
     }
 
     [Fact]
+    public async Task AFailedRenameThatCreatedTheNewWindowCountsAsAChangeInTheHistoryAndTheSummary()
+    {
+        var harness = NewHarness();
+        harness.Service.RenameRemoveFails = true;
+        var writer = harness.Writer();
+        var window = harness.Service.Windows.First(w => w.WindowName == "Nightly");
+        var rename = new MaintenanceChange(ChangeKind.Rename, window.CollectionId, window.CollectionName, window.WindowName, "Nightly 2", window, window);
+        var plan = new MaintenancePlan("Rename", "Rename", "Rename 1 window",
+            [MaintenancePlanEntry.Write(new ChangePlanItem("Rename", "Workstations: Nightly", null), rename)]);
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+
+        var result = dialog.Outcome.Result!;
+        Assert.Equal(1, result.FailedCount);
+        Assert.True(result.Items.Single().PartialChange);
+        Assert.Equal("0 changed, 1 failed. 1 failed change was made in part; Undo can reverse it.", result.Summary);
+        var entry = Assert.Single(harness.History.Entries);
+        Assert.Equal(1, entry.Counts["changed"]);
+        Assert.Equal(1, entry.Counts["failed"]);
+        Assert.Equal(SiteOperationOutcome.PartlySucceeded, entry.Outcome);
+    }
+
+    [Fact]
     public void APlanWithOnlySkippedLinesIsRefused()
     {
         Assert.Throws<ArgumentException>(() => PlanOf(MaintenancePlanEntry.Skip(new ChangePlanItem("Skip", "x", null), "Exists.")));

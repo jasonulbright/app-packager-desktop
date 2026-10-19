@@ -44,6 +44,9 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
     public Func<Call, Exception?>? Throw { get; set; }
     public Func<Call, (string Status, string Detail)?>? Answer { get; set; }
 
+    /// <summary>Called after a write script made its change; a returned exception is thrown although the change stays made.</summary>
+    public Func<Call, Exception?>? AfterWrite { get; set; }
+
     /// <summary>Changes the token ConfigMgr stores, as a clamp would.</summary>
     public Func<string, string>? Store { get; set; }
 
@@ -71,6 +74,8 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
             "WriteMaintenanceWindow" => [Write(call, values)],
             _ => throw new InvalidOperationException("Unknown script " + script.Name)
         };
+        if (script.Name == "WriteMaintenanceWindow" && S(values["Operation"]) != "Check" && AfterWrite?.Invoke(call) is { } after)
+            return Task.FromException<ConfigMgrCommandResult>(after);
         return Task.FromResult(new ConfigMgrCommandResult(output.Select(o => JsonSerializer.SerializeToElement(o)).ToList(), []));
     }
 
@@ -138,7 +143,8 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
             if (current is null) return Result("window-missing");
             var expected = ((string[]?)p.GetValueOrDefault("ExpectedSchedules")) ?? [];
             if (current.Name != S(p["ExpectedName"]) || current.Type != (int)p["ExpectedType"]! || current.Enabled != (bool)p["ExpectedEnabled"]!
-                || (expected.Length > 0 && !expected.Contains(current.Schedules)))
+                || (expected.Length > 0 && !expected.Contains(current.Schedules))
+                || (p.TryGetValue("ExpectedDescription", out var expectedDescription) && current.Description != S(expectedDescription)))
                 return Result("changed", current);
         }
         if (p.GetValueOrDefault("RequireDescription") is true && !DescriptionWritable)

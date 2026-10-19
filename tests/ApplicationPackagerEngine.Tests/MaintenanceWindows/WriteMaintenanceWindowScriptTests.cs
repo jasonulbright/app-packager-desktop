@@ -22,15 +22,24 @@ public sealed class WriteMaintenanceWindowScriptTests
         $global:Windows = [System.Collections.Generic.List[object]]::new()
         foreach ($w in @($state.Windows)) { $global:Windows.Add([pscustomobject]@{ CollectionId = $w.CollectionId; Name = $w.Name; ServiceWindowID = $w.ServiceWindowID; ServiceWindowType = [int]$w.ServiceWindowType; IsEnabled = [bool]$w.IsEnabled; ServiceWindowSchedules = $w.ServiceWindowSchedules; Description = $w.Description }) }
         $global:Collections = @($state.Collections)
+        $global:Options = $state.Options
+        $global:Reads = 0
+        function global:Add-Intruder { $global:Windows.Add([pscustomobject]@{ CollectionId = 'C1'; Name = 'Intruder'; ServiceWindowID = '{Z}'; ServiceWindowType = 1; IsEnabled = $true; ServiceWindowSchedules = '0043BE00201F2000'; Description = 'added' }) }
 
         function global:Get-CMDeviceCollection { param([string]$Id) if ($global:Collections -contains $Id) { [pscustomobject]@{ CollectionID = $Id } } }
-        function global:Get-CMMaintenanceWindow { param([string]$CollectionId) @($global:Windows | Where-Object { $_.CollectionId -eq $CollectionId }) }
+        function global:Get-CMMaintenanceWindow {
+            param([string]$CollectionId)
+            $global:Reads++
+            if ($global:Options.ChangeOnRead -eq $global:Reads) { Add-Intruder }
+            @($global:Windows | Where-Object { $_.CollectionId -eq $CollectionId })
+        }
         function global:New-CMSchedule { [pscustomobject]@{ DayDuration = 0; HourDuration = 0; MinuteDuration = 0 } }
         function global:New-CMMaintenanceWindow {
             param([string]$CollectionId, [string]$Name, [object]$Schedule, [string]$ApplyTo, [bool]$IsEnabled, [bool]$IsUtc)
             $global:Log.Add('New-CMMaintenanceWindow')
             if (@($global:Windows | Where-Object { $_.CollectionId -eq $CollectionId -and $_.Name -eq $Name }).Count -gt 0) { throw "The item '$Name' already exists." }
             $global:Windows.Add([pscustomobject]@{ CollectionId = $CollectionId; Name = $Name; ServiceWindowID = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'; ServiceWindowType = 1; IsEnabled = $IsEnabled; ServiceWindowSchedules = '0043BE00201F2000'; Description = 'Occurs ConfigMgr text' })
+            if ($global:Options.NewThrows) { throw [System.UnauthorizedAccessException]::new('Access is denied.') }
         }
         function global:Set-CMMaintenanceWindow {
             param([string]$CollectionId, [object]$MaintenanceWindow, [object]$Schedule, [string]$ApplyTo, [bool]$IsEnabled, [bool]$IsUtc)
@@ -59,7 +68,8 @@ public sealed class WriteMaintenanceWindowScriptTests
                 $settings | Add-Member -MemberType ScriptMethod -Name Get -Value { }
                 $settings | Add-Member -MemberType ScriptMethod -Name GetArrayItems -Value {
                     param($name)
-                    $list = [System.Collections.Generic.List[object]]::new()
+                    if ($global:Options.ChangeOnSettingsRead) { Add-Intruder }
+                    $list =[System.Collections.Generic.List[object]]::new()
                     foreach ($w in @($global:Windows | Where-Object { $_.CollectionId -eq $this.CollectionId })) {
                         $list.Add(@{ ServiceWindowID = [pscustomobject]@{ StringValue = $w.ServiceWindowID }; Name = [pscustomobject]@{ StringValue = $w.Name }; Description = [pscustomobject]@{ StringValue = $w.Description } })
                     }
@@ -67,6 +77,7 @@ public sealed class WriteMaintenanceWindowScriptTests
                 }
                 $settings | Add-Member -MemberType ScriptMethod -Name SetArrayItems -Value { param($name, $items) $this.Items = $items }
                 $settings | Add-Member -MemberType ScriptMethod -Name Put -Value {
+                    if ($global:Options.PutThrows) { throw [System.UnauthorizedAccessException]::new('Access is denied.') }
                     $global:Log.Add('Put')
                     $ids = @($this.Items | ForEach-Object { $_['ServiceWindowID'].StringValue })
                     foreach ($w in @($global:Windows | Where-Object { $_.CollectionId -eq $this.CollectionId })) {
@@ -114,7 +125,7 @@ public sealed class WriteMaintenanceWindowScriptTests
         ["DurationHours"] = 4, ["DurationMinutes"] = 0, ["DayOfWeek"] = "Saturday", ["RecurCount"] = 1
     };
 
-    private static Run Invoke(IEnumerable<StubWindow> windows, Dictionary<string, object> parameters, bool descriptionWritable = true)
+    private static Run Invoke(IEnumerable<StubWindow> windows, Dictionary<string, object> parameters, bool descriptionWritable = true, object? options = null)
     {
         var folder = Path.Combine(Path.GetTempPath(), "apkg-mwscript-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -127,7 +138,7 @@ public sealed class WriteMaintenanceWindowScriptTests
             var parametersPath = Path.Combine(folder, "parameters.json");
             File.WriteAllText(scriptPath, script.Text, new System.Text.UTF8Encoding(true));
             File.WriteAllText(driverPath, Driver, new System.Text.UTF8Encoding(true));
-            File.WriteAllText(statePath, JsonSerializer.Serialize(new { Collections = new[] { "C1" }, Windows = windows, DescriptionWritable = descriptionWritable }));
+            File.WriteAllText(statePath, JsonSerializer.Serialize(new { Collections = new[] { "C1" }, Windows = windows, DescriptionWritable = descriptionWritable, Options = options ?? new { } }));
             File.WriteAllText(parametersPath, JsonSerializer.Serialize(parameters));
             var psi = new ProcessStartInfo("powershell.exe")
             {
@@ -241,5 +252,71 @@ public sealed class WriteMaintenanceWindowScriptTests
 
         run = Invoke([], Expected(target, "Check"));
         Assert.Equal("window-missing", run.Status);
+    }
+
+    private static Dictionary<string, object> CreateWithDescription() =>
+        new(Schedule) { ["Operation"] = "Create", ["CollectionId"] = "C1", ["Name"] = "New", ["Description"] = "Owned by the patch team" };
+
+    [Fact]
+    public void AnAccessDeniedOnTheDescriptionAfterTheCreateReportsTheNewWindow()
+    {
+        var run = Invoke([], CreateWithDescription(), options: new { PutThrows = true });
+
+        Assert.Equal("description-failed", run.Status);
+        var created = Assert.Single(run.Windows);
+        Assert.Equal(created.ServiceWindowID, run.Result.GetProperty("Window").GetProperty("ServiceWindowId").GetString());
+    }
+
+    [Fact]
+    public void AnErrorAfterTheCmdletMadeTheChangeIsReportedAsPartialWithTheWindow()
+    {
+        var run = Invoke([], CreateWithDescription(), options: new { NewThrows = true });
+
+        Assert.Equal("partial", run.Status);
+        Assert.Equal("New", run.Result.GetProperty("Window").GetProperty("Name").GetString());
+        Assert.Single(run.Windows);
+    }
+
+    [Fact]
+    public void TheGuardComparesTheDescriptionWhenItIsGiven()
+    {
+        var target = W("Patch", "{A}", "Mine");
+        var check = new Dictionary<string, object>(Expected(target, "Check")) { ["ExpectedDescription"] = "Mine" };
+        Assert.Equal("ok", Invoke([target], check).Status);
+
+        check["ExpectedDescription"] = "Other";
+        Assert.Equal("changed", Invoke([target], check).Status);
+    }
+
+    [Fact]
+    public void ARemoveByNameStopsWhenTheWindowsChangedBeforeTheCmdlet()
+    {
+        var target = W("Patch", "{A}");
+        var run = Invoke([target], Expected(target, "Remove"), descriptionWritable: false, options: new { ChangeOnRead = 2 });
+
+        Assert.Equal("changed", run.Status);
+        Assert.DoesNotContain("Remove-CMMaintenanceWindow", run.Log);
+        Assert.Contains(run.Windows, w => w.ServiceWindowID == "{A}");
+    }
+
+    [Fact]
+    public void ARemoveByIdStopsWhenTheWindowListChangedBeforeTheWrite()
+    {
+        var target = W("Patch", "{A}");
+        var run = Invoke([target, W("PATCH", "{B}")], Expected(target, "Remove"), options: new { ChangeOnSettingsRead = true });
+
+        Assert.Equal("changed", run.Status);
+        Assert.DoesNotContain("Put", run.Log);
+        Assert.Contains(run.Windows, w => w.ServiceWindowID == "{A}");
+    }
+
+    [Fact]
+    public void ADescriptionWriteStopsWhenTheWindowListChangedBeforeTheWrite()
+    {
+        var run = Invoke([], CreateWithDescription(), options: new { ChangeOnSettingsRead = true });
+
+        Assert.Equal("description-failed", run.Status);
+        Assert.DoesNotContain("Put", run.Log);
+        Assert.Equal("Occurs ConfigMgr text", run.Windows.Single(w => w.Name == "New").Description);
     }
 }

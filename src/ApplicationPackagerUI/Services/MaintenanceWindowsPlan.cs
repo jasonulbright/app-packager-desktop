@@ -135,7 +135,7 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
             var result = rows with { Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed };
             stop = cancelled ? SiteOperationOutcome.Cancelled
                 : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
-                : result.SucceededCount > 0 ? SiteOperationOutcome.PartlySucceeded
+                : result.SucceededCount > 0 || result.PartialCount > 0 ? SiteOperationOutcome.PartlySucceeded
                 : SiteOperationOutcome.Failed;
             return result;
         }
@@ -173,7 +173,7 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
             var result = new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed);
             stop = cancelled ? SiteOperationOutcome.Cancelled
                 : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
-                : result.SucceededCount > 0 ? SiteOperationOutcome.PartlySucceeded
+                : result.SucceededCount > 0 || result.PartialCount > 0 ? SiteOperationOutcome.PartlySucceeded
                 : SiteOperationOutcome.Failed;
             return result;
         }
@@ -205,7 +205,7 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
     private void Record(string action, SiteOperationOutcome outcome, IEnumerable<ChangePlanItemResult> results)
     {
         var rows = results.ToList();
-        var changed = rows.Count(r => r.Succeeded && !r.Skipped);
+        var changed = rows.Count(r => !r.Skipped && (r.Succeeded || r.PartialChange));
         var failed = rows.Count(r => !r.Succeeded && !r.Skipped);
         var skipped = rows.Count(r => r.Skipped);
         log.Info(LogArea, $"{action}: outcome={outcome} changed={changed} failed={failed} skipped={skipped}.");
@@ -244,7 +244,7 @@ public sealed class MaintenanceWindowWriter(IMaintenanceWindowService service, I
                     message = $"{message} {RecreatedNote}".Trim();
                 result = !value.Succeeded && value.UndoChange is null && value.Message.StartsWith(MaintenanceWindowService.SkippedPrefix, StringComparison.Ordinal)
                     ? ChangePlanItemResult.Skip(entry.Item, message)
-                    : new ChangePlanItemResult(entry.Item, value.Succeeded, message);
+                    : new ChangePlanItemResult(entry.Item, value.Succeeded, message) { PartialChange = !value.Succeeded && value.UndoChange is not null };
                 results[entry.Item] = result;
             }
             progress.Report(result);

@@ -159,6 +159,8 @@ public sealed partial class MaintenanceTemplateStore : IMaintenanceTemplateStore
                 continue;
             try
             {
+                if (File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint))
+                    throw new IOException("The template file is a symbolic link or another reparse point.");
                 var template = JsonSerializer.Deserialize<MaintenanceTemplate>(File.ReadAllText(file), JsonOptions);
                 if (template?.Schedule is null || string.IsNullOrWhiteSpace(template.Name)
                     || !string.Equals(template.Id, id, StringComparison.OrdinalIgnoreCase))

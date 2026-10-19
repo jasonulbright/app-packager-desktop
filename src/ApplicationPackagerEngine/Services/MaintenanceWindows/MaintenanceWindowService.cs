@@ -224,9 +224,9 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                     return Fail(change, SkippedPrefix + $"collection {collection} already has a window named {name}.");
                 if (InvalidNewWindow(change.After, name) is { } invalid) return Fail(change, invalid);
                 var description = OwnDescription(change.After);
-                var (result, failure) = await CreateAsync(change, change.After!, name, description).ConfigureAwait(false);
-                if (failure is not null) return failure;
-                var created = ToInfo(result!.Window!, change.CollectionName);
+                var run = await CreateAsync(change, change.After!, name, description).ConfigureAwait(false);
+                if (run.Failure is not null) return await ReconcileAsync(change, run, name, collection).ConfigureAwait(false);
+                var created = ToInfo(run.Result!.Window!, change.CollectionName);
                 return Done(change, $"Created window {name} on {collection}." + StoredNote(change.After!.Schedule, created, description),
                     new MaintenanceChange(ChangeKind.Remove, change.CollectionId, change.CollectionName, created.WindowName, null, created, null));
             }
@@ -240,9 +240,9 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                 var parameters = Write("Update", change, change.Before);
                 AddWindow(parameters, change.After!);
                 AddDescription(parameters, description);
-                var (result, failure) = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
-                if (failure is not null) return failure;
-                var updated = ToInfo(result!.Window!, change.CollectionName);
+                var run = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
+                if (run.Failure is not null) return await ReconcileAsync(change, run, change.Before.WindowName, collection).ConfigureAwait(false);
+                var updated = ToInfo(run.Result!.Window!, change.CollectionName);
                 return Done(change, $"Updated window {updated.WindowName} on {collection}." + StoredNote(change.After!.Schedule, updated, description),
                     new MaintenanceChange(ChangeKind.Update, change.CollectionId, change.CollectionName, updated.WindowName, null, updated, change.Before));
             }
@@ -261,17 +261,30 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                 var (_, checkFailure) = await RunWriteAsync(change, check, old).ConfigureAwait(false);
                 if (checkFailure is not null) return checkFailure;
 
-                var (createdResult, createFailure) = await CreateAsync(change, target, newName, description).ConfigureAwait(false);
-                if (createFailure is not null)
+                var createRun = await CreateAsync(change, target, newName, description).ConfigureAwait(false);
+                if (createRun.Failure is { } createFailure)
+                {
+                    if (createRun.Uncertain && await ReadBackAsync(change).ConfigureAwait(false) is { } windows && ByName(windows, newName) is { } made)
+                        return Partial(change,
+                            $"ConfigMgr created window {made.WindowName} on {collection} and then reported an error, so {old} was not removed. Both windows exist now.",
+                            RemoveUndo(change, made));
                     return createFailure with { Message = createFailure.Message + $" The window {old} is not changed." };
-                var created = ToInfo(createdResult!.Window!, change.CollectionName);
-                var undoCreate = new MaintenanceChange(ChangeKind.Remove, change.CollectionId, change.CollectionName, created.WindowName, null, created, null);
+                }
+                var createdResult = createRun.Result!;
+                var created = ToInfo(createdResult.Window!, change.CollectionName);
+                var undoCreate = RemoveUndo(change, created);
                 if (createdResult.Status == "description-failed")
                     return new MaintenanceOutcome(change, false,
                         $"Created window {newName} on {collection}, but ConfigMgr did not keep the description of {old}, so {old} was not removed. Both windows exist now.",
                         undoCreate);
 
-                var (removeResult, removeFailure) = await RunWriteAsync(change, Write("Remove", change, change.Before), old).ConfigureAwait(false);
+                var removeRun = await RunWriteAsync(change, Write("Remove", change, change.Before), old).ConfigureAwait(false);
+                var (removeResult, removeFailure) = removeRun;
+                if (removeFailure is not null && removeRun.Uncertain
+                    && await ReadBackAsync(change).ConfigureAwait(false) is { } left && ById(left, change.Before.ServiceWindowId) is null)
+                    return Partial(change,
+                        $"Created window {newName} on {collection} and removed {old}, but ConfigMgr then reported an error. Only {newName} exists now.",
+                        new MaintenanceChange(ChangeKind.Rename, change.CollectionId, change.CollectionName, created.WindowName, old, created, change.Before));
                 if (removeFailure is not null)
                     return new MaintenanceOutcome(change, false,
                         removeResult?.Status == "window-missing"
@@ -288,9 +301,9 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                 var enabled = change.After?.Enabled ?? !change.Before.Enabled;
                 var parameters = Write("SetEnabled", change, change.Before);
                 parameters["IsEnabled"] = enabled;
-                var (result, failure) = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
-                if (failure is not null) return failure;
-                var after = ToInfo(result!.Window!, change.CollectionName);
+                var run = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
+                if (run.Failure is not null) return await ReconcileAsync(change, run, change.Before.WindowName, collection).ConfigureAwait(false);
+                var after = ToInfo(run.Result!.Window!, change.CollectionName);
                 return Done(change, $"{(enabled ? "Enabled" : "Disabled")} window {after.WindowName} on {collection}.",
                     new MaintenanceChange(ChangeKind.SetEnabled, change.CollectionId, change.CollectionName, after.WindowName, null, after,
                         after with { Enabled = change.Before.Enabled }));
@@ -301,8 +314,8 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
                 if (!IsReadable(change.Before)) return Fail(change, ReadOnlyMessage(change.Before.WindowName));
                 var parameters = Write("Remove", change, change.Before);
                 if (OwnDescription(change.Before) is not null) parameters["RequireDescription"] = true;
-                var (_, failure) = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
-                if (failure is not null) return failure;
+                var run = await RunWriteAsync(change, parameters, change.Before.WindowName).ConfigureAwait(false);
+                if (run.Failure is not null) return await ReconcileAsync(change, run, change.Before.WindowName, collection).ConfigureAwait(false);
                 return Done(change, $"Removed window {change.Before.WindowName} from {collection}. Undo creates it again as a new window with a new ID.",
                     new MaintenanceChange(ChangeKind.Create, change.CollectionId, change.CollectionName, change.Before.WindowName, null, null, change.Before));
             }
@@ -316,7 +329,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
     private static string CreateName(MaintenanceChange change) =>
         string.IsNullOrWhiteSpace(change.WindowName) ? change.After?.WindowName?.Trim() ?? "" : change.WindowName.Trim();
 
-    private Task<(WriteResult? Result, MaintenanceOutcome? Failure)> CreateAsync(MaintenanceChange change, MaintenanceWindowInfo window, string name, string? description)
+    private Task<WriteRun> CreateAsync(MaintenanceChange change, MaintenanceWindowInfo window, string name, string? description)
     {
         var parameters = new ConfigMgrParameters
         {
@@ -361,7 +374,8 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         { "ExpectedName", before.WindowName },
         { "ExpectedSchedules", IsReadable(before) ? ScheduleToken.Equivalents(Normalized(before.Schedule)).ToArray() : Array.Empty<string>() },
         { "ExpectedType", ServiceWindowType(before.WindowType) },
-        { "ExpectedEnabled", before.Enabled }
+        { "ExpectedEnabled", before.Enabled },
+        { "ExpectedDescription", before.Description ?? "" }
     };
 
     private static void AddWindow(ConfigMgrParameters parameters, MaintenanceWindowInfo window)
@@ -470,9 +484,24 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
     private static bool IsReadable(MaintenanceWindowInfo window, IScheduleProjector projector) =>
         window.Schedule is { } s && s.Duration > TimeSpan.Zero && projector.Validate(s with { End = null }) is null;
 
-    private async Task<(WriteResult? Result, MaintenanceOutcome? Failure)> RunWriteAsync(MaintenanceChange change, ConfigMgrParameters parameters, string windowName)
+    /// <summary>
+    /// The result of one write script run. <c>Uncertain</c> marks a failure that can follow a
+    /// change ConfigMgr already made: the session failed during a write, or the script
+    /// stopped after its cmdlet started.
+    /// </summary>
+    private sealed record WriteRun(WriteResult? Result, MaintenanceOutcome? Failure, bool Uncertain = false)
+    {
+        public void Deconstruct(out WriteResult? result, out MaintenanceOutcome? failure)
+        {
+            result = Result;
+            failure = Failure;
+        }
+    }
+
+    private async Task<WriteRun> RunWriteAsync(MaintenanceChange change, ConfigMgrParameters parameters, string windowName)
     {
         var collection = string.IsNullOrWhiteSpace(change.CollectionName) ? change.CollectionId : change.CollectionName;
+        var writes = !Equals(parameters["Operation"], "Check");
         WriteResult? result;
         try
         {
@@ -481,7 +510,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         }
         catch (ConfigMgrSessionException ex)
         {
-            return (null, Fail(change, WriteFailureMessage(ex, collection, windowName)));
+            return new WriteRun(null, Fail(change, WriteFailureMessage(ex, collection, windowName)), writes);
         }
         catch (System.Text.Json.JsonException ex)
         {
@@ -492,32 +521,108 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         switch (result?.Status)
         {
             case "ok" when result.Window is not null:
-                return (result, null);
+                return new WriteRun(result, null);
             case "description-failed" when result.Window is not null:
                 LogDetail(change, result.Detail);
-                return (result, null);
+                return new WriteRun(result, null);
             case "description-unsupported":
-                return (result, Fail(change, DescriptionUnsupportedMessage(windowName, collection, change.Kind)));
+                return new WriteRun(result, Fail(change, DescriptionUnsupportedMessage(windowName, collection, change.Kind)));
             case "duplicate-name":
-                return (result, Fail(change,
+                return new WriteRun(result, Fail(change,
                     $"Collection {collection} has more than one window named {windowName}. The ConfigMgr PowerShell module on this computer removes all windows with that name together, so nothing was removed."));
             case "collection-missing":
-                return (result, Fail(change, CollectionMissingMessage(change.CollectionName, change.CollectionId)));
+                return new WriteRun(result, Fail(change, CollectionMissingMessage(change.CollectionName, change.CollectionId)));
             case "name-taken":
-                return (result, Fail(change, change.Kind == ChangeKind.ApplyTemplate
+                return new WriteRun(result, Fail(change, change.Kind == ChangeKind.ApplyTemplate
                     ? SkippedPrefix + $"collection {collection} already has a window named {windowName}."
                     : NameTakenMessage(collection, windowName)));
             case "window-missing":
-                return (result, Fail(change, WindowMissingMessage(collection, windowName)));
+                return new WriteRun(result, Fail(change, WindowMissingMessage(collection, windowName)));
             case "changed":
-                return (result, Fail(change, $"The window {windowName} on {collection} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
+                return new WriteRun(result, Fail(change, $"The window {windowName} on {collection} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
             case "schedule-rejected":
                 LogDetail(change, result.Detail);
-                return (result, Fail(change, $"ConfigMgr did not accept the schedule of window {windowName}. The log has the details."));
+                return new WriteRun(result, Fail(change, $"ConfigMgr did not accept the schedule of window {windowName}. The log has the details."));
             default:
                 LogDetail(change, result?.Detail ?? "The script returned no result.");
-                return (result, Fail(change, $"ConfigMgr did not make the change to window {windowName} on {collection}. The log has the details."));
+                return new WriteRun(result, Fail(change, $"ConfigMgr did not make the change to window {windowName} on {collection}. The log has the details."), writes);
         }
+    }
+
+    /// <summary>
+    /// Reads the windows of the collection after an uncertain failure; null when the read
+    /// fails too.
+    /// </summary>
+    private async Task<IReadOnlyList<MaintenanceWindowInfo>?> ReadBackAsync(MaintenanceChange change)
+    {
+        try
+        {
+            var rows = await ReadAsync(new ConfigMgrParameters { { "CollectionId", change.CollectionId } }, CancellationToken.None).ConfigureAwait(false);
+            return rows.Where(r => r.Kind == "Window" && string.Equals(r.CollectionId, change.CollectionId, StringComparison.OrdinalIgnoreCase))
+                .Select(r => ToInfo(r, change.CollectionName)).ToList();
+        }
+        catch (MaintenanceWindowException)
+        {
+            _log?.Warning(LogArea, $"{change.Kind} failed and the windows could not be read back to find what changed.");
+            return null;
+        }
+    }
+
+    private static MaintenanceWindowInfo? ById(IEnumerable<MaintenanceWindowInfo> windows, string id) =>
+        windows.FirstOrDefault(w => string.Equals(w.ServiceWindowId, id, StringComparison.OrdinalIgnoreCase));
+
+    private static MaintenanceWindowInfo? ByName(IEnumerable<MaintenanceWindowInfo> windows, string name) =>
+        windows.FirstOrDefault(w => string.Equals(w.WindowName, name, StringComparison.OrdinalIgnoreCase));
+
+    private static MaintenanceChange RemoveUndo(MaintenanceChange change, MaintenanceWindowInfo created) =>
+        new(ChangeKind.Remove, change.CollectionId, change.CollectionName, created.WindowName, null, created, null);
+
+    private static bool SameState(MaintenanceWindowInfo a, MaintenanceWindowInfo b) =>
+        ScheduleToken.SameSchedule(a.Schedule, b.Schedule) && a.WindowType == b.WindowType && a.Enabled == b.Enabled
+        && string.Equals(a.Description, b.Description, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Turns an uncertain failure into the change ConfigMgr holds now: a failed outcome that
+    /// carries the undo when the window changed, the original failure when it did not or when
+    /// the windows cannot be read.
+    /// </summary>
+    private async Task<MaintenanceOutcome> ReconcileAsync(MaintenanceChange change, WriteRun run, string name, string collection)
+    {
+        if (!run.Uncertain || run.Failure is null) return run.Failure!;
+        if (await ReadBackAsync(change).ConfigureAwait(false) is not { } windows) return run.Failure;
+        var before = change.Before;
+        switch (change.Kind)
+        {
+            case ChangeKind.Create:
+            case ChangeKind.ApplyTemplate:
+                return ByName(windows, name) is { } created
+                    ? Partial(change, $"ConfigMgr created window {created.WindowName} on {collection} and then reported an error. The window exists now.", RemoveUndo(change, created))
+                    : run.Failure;
+            case ChangeKind.Update when before is not null:
+                return ById(windows, before.ServiceWindowId) is { } updated && !SameState(updated, before)
+                    ? Partial(change, $"ConfigMgr changed window {updated.WindowName} on {collection} and then reported an error. Refresh the list to see the stored values.",
+                        new MaintenanceChange(ChangeKind.Update, change.CollectionId, change.CollectionName, updated.WindowName, null, updated, before))
+                    : run.Failure;
+            case ChangeKind.SetEnabled when before is not null:
+                return ById(windows, before.ServiceWindowId) is { } toggled && toggled.Enabled != before.Enabled
+                    ? Partial(change, $"ConfigMgr {(toggled.Enabled ? "enabled" : "disabled")} window {toggled.WindowName} on {collection} and then reported an error.",
+                        new MaintenanceChange(ChangeKind.SetEnabled, change.CollectionId, change.CollectionName, toggled.WindowName, null, toggled,
+                            toggled with { Enabled = before.Enabled }))
+                    : run.Failure;
+            case ChangeKind.Remove when before is not null:
+                return ById(windows, before.ServiceWindowId) is null
+                    ? Partial(change, $"ConfigMgr removed window {before.WindowName} from {collection} and then reported an error. Undo creates it again as a new window with a new ID.",
+                        new MaintenanceChange(ChangeKind.Create, change.CollectionId, change.CollectionName, before.WindowName, null, null, before))
+                    : run.Failure;
+            default:
+                return run.Failure;
+        }
+    }
+
+    private MaintenanceOutcome Partial(MaintenanceChange change, string message, MaintenanceChange undo)
+    {
+        _log?.Warning(LogArea, $"{change.Kind} failed after ConfigMgr made the change; the outcome carries its undo.");
+        return new MaintenanceOutcome(change, false, message, undo);
     }
 
     private void LogDetail(MaintenanceChange change, string? detail)

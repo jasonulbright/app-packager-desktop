@@ -190,6 +190,35 @@ public sealed class MaintenanceTemplateStoreTests : IDisposable
     }
 
     [Fact]
+    public void ATemplateFileThatIsASymbolicLinkIsSkippedAndLogged()
+    {
+        Store().Save(User("kept"));
+        var target = _folder + "-planted.json";
+        File.WriteAllText(target, System.Text.Json.JsonSerializer.Serialize(User("planted"), MaintenanceTemplateStore.JsonOptions));
+        var link = Path.Combine(_folder, "planted.json");
+        try
+        {
+            try { File.CreateSymbolicLink(link, target); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Assert.Fail("A file symbolic link could not be created; the test needs Developer Mode or an elevated run: " + ex.Message);
+            }
+            Assert.True(File.GetAttributes(link).HasFlag(FileAttributes.ReparsePoint), "the symbolic link was not created");
+            var log = new RecordingLog();
+
+            var users = Store(log).All().Where(t => !t.IsShipped).Select(t => t.Id).ToArray();
+
+            Assert.Equal(["kept"], users);
+            Assert.Contains(log.Lines, l => l.Contains("could not be read and is skipped", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(link);
+            File.Delete(target);
+        }
+    }
+
+    [Fact]
     public void ATemplatesFolderThatIsAJunctionIsNeitherReadNorWritten()
     {
         var target = _folder + "-target";
