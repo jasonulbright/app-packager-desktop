@@ -19,6 +19,7 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
     public const string RevisionNote = "ConfigMgr stores the change as a new revision of the configuration item.";
     public const string ReevaluateNote = "Clients that have a baseline with this configuration item evaluate it again with the new revision.";
     public const string FullScriptNote = "The plan shortens long script text; the setting dialog shows the full text.";
+    public const string FullDescriptionNote = "The plan shortens a long description; the setting dialog shows the full text.";
     public const string RemediationCheck =
         "I understand that this setting remediates: where a baseline with this configuration item is deployed with remediation, clients change this value on every device of the collection.";
 
@@ -200,6 +201,11 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
             $"{setting.Kind}, data type {setting.DataType}, rule {setting.RuleName}: {setting.Operator} {(values.Count == 0 ? "(none)" : string.Join(", ", values))}.",
             $"Severity {setting.Severity}. Remediation {(setting.Remediate ? "on" : "off")}."
         };
+        if (setting.Description is { Length: > 0 } description)
+        {
+            parts.Add($"Description: {ComplianceText.Script(description)}");
+            if (ComplianceText.Script(description) != description) parts.Add(FullDescriptionNote);
+        }
         if (string.Equals(setting.Kind, CiSettingEditorViewModel.ScriptKind, StringComparison.OrdinalIgnoreCase))
         {
             parts.Add($"Language {setting.DiscoveryLanguage}. Discovery script: {ComplianceText.Script(setting.DiscoveryScript)}");
@@ -212,13 +218,13 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
     }
 
     /// <summary>
-    /// The revision, re-evaluation and replace notes; the Impact lines of the service state the same
-    /// facts from the live state, so the page notes stand in only when the service gives none.
+    /// The revision, re-evaluation, replace and undo notes; the Impact lines of the service state the
+    /// same facts from the live state, so the page notes stand in only when the service gives none.
     /// </summary>
-    private static string Notes(ConfigurationItemRow item, ComplianceChange change, bool replaces) =>
+    private static string Notes(ConfigurationItemRow item, ComplianceChange change, bool replaces, string undo) =>
         change.Impact.Count > 0
             ? string.Join(Environment.NewLine, change.Impact)
-            : string.Join(Environment.NewLine, new[] { replaces ? CiSettingEditorViewModel.ReplaceNote : "", RevisionNote, item.BaselineCount > 0 ? ReevaluateNote : "" }.Where(l => l.Length > 0));
+            : string.Join(Environment.NewLine, new[] { replaces ? CiSettingEditorViewModel.ReplaceNote : "", RevisionNote, item.BaselineCount > 0 ? ReevaluateNote : "", undo }.Where(l => l.Length > 0));
 
     private static string Lines(params string[] lines) => ComplianceText.Lines(lines);
 
@@ -233,12 +239,12 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         {
             var change = prepared[0];
             string detail;
-            if (before is null) detail = Lines($"New: {Values(after)}", Notes(item, change, false), "Undo removes the setting.");
+            if (before is null) detail = Lines($"New: {Values(after)}", Notes(item, change, false, "Undo removes the setting."));
             else
             {
                 var old = change.SettingBefore ?? before;
                 var replaces = !SettingRules.CanChangeInPlace(old, after);
-                detail = Lines($"Old: {Values(old)}", $"New: {Values(after)}", Notes(item, change, replaces), $"Undo sets the old values back{(replaces ? "; the restored setting has a new ID" : "")}.");
+                detail = Lines($"Old: {Values(old)}", $"New: {Values(after)}", Notes(item, change, replaces, $"Undo sets the old values back{(replaces ? "; the restored setting has a new ID" : "")}."));
             }
             var action = before is null ? "Add setting" : "Edit setting";
             return (new CompliancePlan(action, $"{action} {after.Name}", action,
@@ -258,7 +264,7 @@ public sealed partial class ComplianceEditorViewModel : ComplianceTabViewModel
         {
             var change = prepared[0];
             var captured = change.SettingBefore ?? setting.Setting;
-            var detail = Lines($"Removes: {Values(captured)}", Notes(item.Row, change, false), "Undo adds the setting again from these values; the recreated setting has a new ID.");
+            var detail = Lines($"Removes: {Values(captured)}", Notes(item.Row, change, false, "Undo adds the setting again from these values; the recreated setting has a new ID."));
             return (new CompliancePlan("Remove setting", $"Remove setting {captured.Name}", "Remove setting",
                 [CompliancePlanEntry.Write(new ChangePlanItem("Remove", Describe(item.Row, change), detail), change)], isDestructive: true), null);
         }, change => Describe(item.Row, change));

@@ -111,6 +111,9 @@ public sealed record ChangePlanResult(IReadOnlyList<ChangePlanItemResult> Items,
     public int SkippedCount => Items.Count(i => i.Skipped);
     public int PartialCount => Items.Count(i => i.PartialChange && !i.Succeeded && !i.Skipped);
 
+    /// <summary>False when the run changed nothing that its undo reverses; null leaves Undo to the counts.</summary>
+    public bool? UndoAvailable { get; init; }
+
     public string Summary => (SkippedCount == 0
         ? $"{SucceededCount} changed, {FailedCount} failed."
         : $"{SucceededCount} changed, {FailedCount} failed, {SkippedCount} skipped.")

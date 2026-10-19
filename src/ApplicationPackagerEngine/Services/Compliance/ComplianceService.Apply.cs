@@ -428,7 +428,9 @@ public sealed partial class ComplianceService
         switch (run.Result?.Status)
         {
             case "ok":
-                return Done(change, $"Removed the objects the catalog deploy created: {Count(deployments.Count, "deployment")}, {Count(baselines.Count, "baseline")}, {Count(items.Count, "configuration item")}.", null, steps);
+                var (removedDeployments, removedBaselines, removedItems) = SplitCreated((run.Result.Steps ?? [])
+                    .Where(s => s.StartsWith("removed:", StringComparison.Ordinal)).Select(s => s["removed:".Length..]).ToList());
+                return Done(change, $"Removed the objects the catalog deploy created: {Count(removedDeployments.Count, "deployment")}, {Count(removedBaselines.Count, "baseline")}, {Count(removedItems.Count, "configuration item")}.", null, steps);
             case "kept":
                 return Fail(change, $"{kept} The other objects were removed.") with { Steps = steps };
             case "some-remain":

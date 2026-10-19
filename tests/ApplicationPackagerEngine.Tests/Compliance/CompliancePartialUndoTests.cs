@@ -63,4 +63,53 @@ public sealed class CompliancePartialUndoTests
         Assert.Equal(ComplianceChangeKind.RemoveCatalogObjects, harness.Service.Applied[^1].Single().Kind);
         Assert.Equal("Undo: 1 changed, 0 failed.", vm.ResultText);
     }
+
+    private static (ComplianceHarness Harness, StubComplianceSite Site) RedeployOnStub(params string[] failures)
+    {
+        var site = new StubComplianceSite(StubComplianceSite.NewState(
+            items: [StubComplianceSite.Ci("16780001", "Lab CI", 4, StubComplianceSite.RegistrySetting("RegSetting_a", "EnableMulticast"))],
+            baselines: [StubComplianceSite.CiBaseline("16780002", "Lab Baseline", "", "16780001")],
+            assignments: [StubComplianceSite.Deployment(16777270, "16780002", "MCM00080")]));
+        site.Fail(failures);
+        return (new ComplianceHarness { RealService = ComplianceDeploymentTests.Service(site) }, site);
+    }
+
+    private static async Task RedeployAll(ComplianceHarness harness)
+    {
+        var viewModel = await harness.OpenAsync(ComplianceViewModel.LiveTab);
+        await viewModel.Live.LoadTask;
+        viewModel.Live.SetSelectedDeployments(viewModel.Live.Deployments);
+        await viewModel.Live.RedeployCommand.ExecuteAsync(null);
+    }
+
+    [Fact]
+    public async Task ARedeployThatKeepsBothDeploymentsIsUndoneFromThePlanWindow()
+    {
+        var (harness, site) = RedeployOnStub("remove:16777270");
+        harness.Plans.RunUndo = true;
+
+        await RedeployAll(harness);
+
+        var dialog = harness.Plans.LastViewModel!;
+        Assert.Contains("Undo removes the new one.", Assert.Single(dialog.Outcome.Result!.Items).Message);
+        Assert.True(dialog.ShowUndo);
+        Assert.Equal("Undo: 1 changed, 0 failed.", dialog.ResultText);
+        Assert.NotNull(site.Assignment(16777270));
+        Assert.Null(site.Assignment(16777300));
+    }
+
+    [Fact]
+    public async Task AFullRedeployShowsNoUndoInThePlanWindow()
+    {
+        var (harness, site) = RedeployOnStub();
+
+        await RedeployAll(harness);
+
+        var dialog = harness.Plans.LastViewModel!;
+        Assert.True(Assert.Single(dialog.Outcome.Result!.Items).Succeeded);
+        Assert.False(dialog.ShowUndo);
+        Assert.False(dialog.UndoCommand.CanExecute(null));
+        Assert.Null(site.Assignment(16777270));
+        Assert.NotNull(site.Assignment(16777300));
+    }
 }

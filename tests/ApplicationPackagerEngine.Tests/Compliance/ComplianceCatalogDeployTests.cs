@@ -328,6 +328,30 @@ public sealed class ComplianceCatalogDeployTests
     }
 
     [Fact]
+    public async Task ASecondUndoCountsOnlyTheObjectsThatExistNow()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new SiteBuilder(site));
+        var (outcome, _) = await Apply(service, await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None));
+        site.Assignments.Add(JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(Deployment(16777400, "16790001", "MCM00081"))));
+        var first = await service.PrepareAsync(outcome.UndoChange!, CancellationToken.None);
+        Assert.Contains(first.Impact, l => l.StartsWith("Removes 1 deployment, 1 baseline and 1 configuration item ", StringComparison.Ordinal));
+        var (kept, _) = await Apply(service, first);
+        Assert.False(kept.Succeeded);
+        site.Assignments.Remove(site.Assignments.First(a => (long)a!["AssignmentID"]! == 16777400));
+
+        var again = await service.PrepareAsync(outcome.UndoChange!, CancellationToken.None);
+
+        Assert.Contains(again.Impact, l => l.StartsWith("Removes 0 deployments, 1 baseline and 1 configuration item ", StringComparison.Ordinal));
+        Assert.DoesNotContain(again.Impact, l => l.Contains("1 deployment", StringComparison.Ordinal));
+        var (undone, _) = await Apply(service, again);
+        Assert.True(undone.Succeeded, undone.Message);
+        Assert.Contains("0 deployments, 1 baseline, 1 configuration item", undone.Message);
+        Assert.Null(site.Baseline("16790001"));
+        Assert.Null(site.Item("16790000"));
+    }
+
+    [Fact]
     public async Task UndoKeepsTheBaselineAndItsItemWhenAnotherSessionDeploysTheBaselineDuringTheUndo()
     {
         var site = Site();

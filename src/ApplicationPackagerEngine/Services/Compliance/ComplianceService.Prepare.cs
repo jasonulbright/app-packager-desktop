@@ -50,7 +50,7 @@ public sealed partial class ComplianceService
                 impact.Add("The old deployment is removed only when the new one holds the captured settings; otherwise both stay and the result says so.");
                 if (current.RemediateNoncompliant) impact.Add("The new deployment remediates noncompliant settings, as the old one does.");
                 if (OverrideLost(current) is { } lost) impact.Add(lost);
-                impact.Add("Undo is not applicable after a full redeploy: the deployment holds the same settings with a new ID.");
+                impact.Add("Undo is not applicable after a full redeploy: the deployment holds the same settings with a new ID. When both deployments stay, Undo removes the new one.");
                 return request with { DeploymentBefore = current, Impact = impact };
             }
             case ComplianceChangeKind.Reassign:
@@ -103,6 +103,14 @@ public sealed partial class ComplianceService
                 var (deployments, baselines, items) = SplitCreated(ids);
                 if (deployments.Count + baselines.Count + items.Count == 0)
                     throw new ComplianceServiceException(IsReclaim(request) ? NothingReclaimedMessage : "There is nothing to remove.");
+                if ((request.CatalogId is { } catalogId ? _catalog.Find(catalogId) : null) is { } entry
+                    && (await SnapshotAsync(entry, [], ct, withIds: true).ConfigureAwait(false)).Info is { } now)
+                {
+                    deployments = deployments.Where(id => (now.DeploymentIds ?? []).Contains(id, StringComparer.Ordinal)).ToList();
+                    baselines = baselines.Where(id => (now.BaselineIds ?? []).Contains(id, StringComparer.Ordinal)).ToList();
+                    items = items.Where(id => (now.ItemIds ?? []).Contains(id, StringComparer.Ordinal)).ToList();
+                }
+                impact.Clear();
                 impact.Add($"Removes {Count(deployments.Count, "deployment")}, {Count(baselines.Count, "baseline")} and {Count(items.Count, "configuration item")} that the catalog deploy created, in that order.");
                 if (IsReclaim(request)) impact.Add(ReclaimText);
                 impact.Add("Objects that existed before the deploy are not touched. An object that something else uses now is not removed; the result names it.");
@@ -332,7 +340,7 @@ public sealed partial class ComplianceService
                     revisions = 3;
                     impact.Add("ConfigMgr cannot change the data type, the rule or the expected value of a setting in place. The new setting is added first under a temporary name, then the old one is removed and the new one takes the name. The setting gets a new ID.");
                 }
-                impact.Add("Undo sets the old values back.");
+                impact.Add(inPlace ? "Undo sets the old values back." : "Undo sets the old values back; the restored setting has a new ID.");
                 break;
             }
             case ComplianceChangeKind.RemoveSetting:
@@ -379,6 +387,9 @@ public sealed partial class ComplianceService
         ];
         foreach (var (label, now, before) in lines)
             yield return before is null ? $"{label}: {now}" : before == now ? $"{label}: {now} (unchanged)" : $"{label}: {before} -> {now}";
+        var description = s.Description ?? "";
+        yield return old is null ? $"Description: {(description.Length == 0 ? "(none)" : Count(description.Length, "character"))}"
+            : description == (old.Description ?? "") ? "Description: (unchanged)" : "Description: changed.";
         if (s.DataType == "DateTime") yield return "ConfigMgr stores the date and time in UTC.";
         if (s.Kind == "Script" && old is not null && (s.DiscoveryScript != old.DiscoveryScript || s.RemediationScript != old.RemediationScript))
             yield return "The script text changes; the dialog shows the full text.";

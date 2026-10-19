@@ -495,6 +495,29 @@ public sealed class CompliancePageReviewTests
         Assert.True(StoredRemediate(site));
     }
 
+    [Fact]
+    public async Task ADescriptionOnlyEditNamesTheOldAndNewTextAndStatesTheUndoOnce()
+    {
+        var (harness, viewModel, site) = await EditorOnStub(remediating: false);
+        var longText = string.Join("\n", Enumerable.Range(1, ComplianceText.ScriptPlanLines + 5).Select(i => $"Line {i}"));
+        harness.Dialogs.SettingEditor = e =>
+        {
+            e.Description = longText;
+            FakeComplianceDialogs.Run(e.SaveCommand.ExecuteAsync(null));
+            Assert.True(e.Accepted, e.ValidationMessage);
+        };
+
+        viewModel.Editor.EditSettingCommand.Execute(null);
+
+        var detail = Assert.Single(Assert.Single(harness.Plans.Shown).Items).Detail!;
+        Assert.Contains($"Description: {ComplianceText.Script(longText)}", detail);
+        Assert.DoesNotContain($"Line {ComplianceText.ScriptPlanLines + 1}", detail);
+        Assert.Contains(ComplianceEditorViewModel.FullDescriptionNote, detail);
+        Assert.Contains("Description: changed.", detail);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(detail, "Undo sets the old values back"));
+        Assert.Equal(longText, (string)((System.Text.Json.Nodes.JsonArray)site.Item("16780001")!["Settings"]!).Single()!["Description"]!);
+    }
+
     // ---- Writer-only scan ------------------------------------------------------------------------
 
     private static string SourceRoot()

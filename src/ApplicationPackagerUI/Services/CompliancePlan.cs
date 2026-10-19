@@ -186,7 +186,7 @@ public sealed class ComplianceWriter(IComplianceService service, ISiteOperationH
             foreach (var outcome in outcomes) reporter.Final(outcome);
             var rows = new ChangePlanResult(plan.Entries.Select(e => results.TryGetValue(e.Item, out var r) ? r : new ChangePlanItemResult(e.Item, false, NoResultText)).ToList());
             var cancelled = ct.IsCancellationRequested && LeftUndone(plan.Entries.Where(e => e.Change is not null).Select(e => e.Item), rows.Items);
-            var result = rows with { Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed };
+            var result = rows with { Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed, UndoAvailable = plan.UndoChanges().Count > 0 };
             stop = Outcome(result, cancelled);
             return result;
         }

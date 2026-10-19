@@ -169,15 +169,15 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
     /// writer applies only the changes of the plan the operator confirms. Null when no plan was
     /// shown; the reason is in <see cref="StatusMessage"/> and passed to <paramref name="report"/>.
     /// With more than one request, a request whose state cannot be read becomes a Skip line.
-    /// <paramref name="checkState"/> false sends the requests as they are: the service checks the
-    /// state of each change again when it writes it.
+    /// A request for which <paramref name="checkState"/> returns false is sent as it is: the service
+    /// checks the state of each change again when it writes it. Null reads the state of every request.
     /// </summary>
     public async Task<(CompliancePlan Plan, ChangePlanOutcome Outcome)?> RunPlanAsync(
         IReadOnlyList<ComplianceChange> requests,
         Func<IReadOnlyList<ComplianceChange>, (CompliancePlan? Plan, string? Problem)> build,
         Func<ComplianceChange, string> describe,
         Action<string>? report = null,
-        bool checkState = true)
+        Func<ComplianceChange, bool>? checkState = null)
     {
         if (IsWriting)
         {
@@ -206,7 +206,8 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
             }
             var prepared = new List<ComplianceChange>(requests.Count);
             var skips = new List<CompliancePlanEntry>();
-            if (!checkState) prepared.AddRange(requests);
+            var check = checkState ?? (_ => true);
+            if (!requests.Any(check)) prepared.AddRange(requests);
             else
             {
                 var checks = await Task.Run(async () =>
@@ -214,6 +215,11 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
                     var list = new List<(ComplianceChange Request, ComplianceChange? Prepared, Exception? Failure)>(requests.Count);
                     foreach (var request in requests)
                     {
+                        if (!check(request))
+                        {
+                            list.Add((request, request, null));
+                            continue;
+                        }
                         try { list.Add((request, await Services.Compliance.PrepareAsync(request, CancellationToken.None), null)); }
                         catch (Exception ex) { list.Add((request, null, ex)); }
                     }
@@ -345,12 +351,19 @@ public sealed partial class ComplianceShared(CompliancePageServices services) : 
         }
         var run = await RunPlanAsync(undo.Select(u => u.Undo).ToList(), prepared =>
         {
-            var entries = prepared.Select((change, i) => CompliancePlanEntry.Write(new ChangePlanItem("Undo " + undo[i].Entry.Item.Action,
-                undo[i].Entry.Item.Target, UndoDetail(undo[i].Entry.Change, change)), change)).ToList();
+            var left = undo.ToList();
+            var entries = prepared.Select(change =>
+            {
+                var index = left.FindIndex(u => ReferenceEquals(u.Undo, change));
+                if (index < 0) index = left.FindIndex(u => CompliancePlan.SameTarget(u.Undo, change));
+                var (entry, _) = left[index];
+                left.RemoveAt(index);
+                return CompliancePlanEntry.Write(new ChangePlanItem("Undo " + entry.Item.Action, entry.Item.Target, UndoDetail(entry.Change, change)), change);
+            }).ToList();
             var destructive = prepared.Any(c => c.Kind is ComplianceChangeKind.DeleteDeployment or ComplianceChangeKind.RemoveSetting or ComplianceChangeKind.RemoveCatalogObjects);
             return (new CompliancePlan("Undo " + last.Action, "Undo: " + last.Plan.Title, $"Undo {ComplianceText.Count(entries.Count, "change")}", entries, destructive,
                 extraConfirmation: ComplianceLiveViewModel.RemediationConfirmation(prepared)) { IsUndo = true }, null);
-        }, change => change.Kind.ToString(), checkState: false);
+        }, change => change.Kind.ToString(), checkState: change => change.Kind == ComplianceChangeKind.RemoveCatalogObjects);
         if (run is not { Outcome.Confirmed: true } done) return;
         LastPlan = done.Outcome.UndoResult is null ? last.Remaining(done.Plan.Outcomes) : null;
         await AfterWriteAsync();

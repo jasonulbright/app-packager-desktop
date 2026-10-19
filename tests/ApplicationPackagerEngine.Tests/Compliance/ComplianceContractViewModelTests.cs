@@ -207,7 +207,7 @@ public sealed class ComplianceContractViewModelTests
         viewModel.Live.SetSelectedDeployments(viewModel.Live.Deployments.Where(d => d.Row.DeploymentId == harness.SmbOnWorkstations.DeploymentId));
         await viewModel.Live.RedeployCommand.ExecuteAsync(null);
         var plan = Assert.Single(harness.Plans.Shown);
-        Assert.False(plan.HasUndo);
+        Assert.False(harness.Plans.LastViewModel!.ShowUndo);
         Assert.NotNull(plan.ExtraConfirmation);
         Assert.StartsWith("Creates the deployment again (Remediate", plan.Items[0].Detail);
         Assert.Contains(ComplianceLiveViewModel.RedeployNote, plan.Items[0].Detail);

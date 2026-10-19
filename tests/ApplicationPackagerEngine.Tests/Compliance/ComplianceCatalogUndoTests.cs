@@ -46,4 +46,25 @@ public sealed class ComplianceCatalogUndoTests
         await viewModel.Shared.UndoLastCommand.ExecuteAsync(null);
         Assert.False(viewModel.Shared.HasUndo);
     }
+
+    [Fact]
+    public async Task UndoLastChangeReadsTheCatalogObjectsAgainForItsPlan()
+    {
+        const string Now = "Removes 0 deployments, 1 baseline and 1 configuration item that the catalog deploy created, in that order.";
+        var harness = new ComplianceHarness();
+        var viewModel = await harness.OpenAsync();
+        viewModel.Catalog.SelectedRow = viewModel.Catalog.Rows.Single(r => r.Entry.Id == "autorun-disable");
+        harness.Dialogs.Deploy = f =>
+        {
+            f.Field("CollectionName")!.Value = "Servers";
+            FakeComplianceDialogs.Run(f.DeployCommand.ExecuteAsync(null));
+        };
+        await viewModel.Catalog.DeployCommand.ExecuteAsync(null);
+        harness.Service.Prepared = c => c.Kind == ComplianceChangeKind.RemoveCatalogObjects ? c with { Impact = [Now] } : c;
+
+        await viewModel.Shared.UndoLastCommand.ExecuteAsync(null);
+
+        Assert.Equal(Now, harness.Plans.Shown[^1].Items.Single().Detail);
+        Assert.Equal([Now], harness.Service.Applied[^1].Single().Impact);
+    }
 }

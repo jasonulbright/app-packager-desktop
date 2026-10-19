@@ -119,7 +119,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public bool ShowResult => Stage != ChangePlanStage.Review;
     public bool ShowConfirm => Stage is ChangePlanStage.Review or ChangePlanStage.Running;
     public bool ShowClose => Stage is ChangePlanStage.Done or ChangePlanStage.Undone;
-    public bool ShowUndo => _plan.HasUndo && (Stage is ChangePlanStage.Done or ChangePlanStage.Undoing or ChangePlanStage.Undone);
+    public bool ShowUndo => _plan.HasUndo && Outcome.Result?.UndoAvailable != false && (Stage is ChangePlanStage.Done or ChangePlanStage.Undoing or ChangePlanStage.Undone);
 
     private bool CanConfirm() => Stage == ChangePlanStage.Review && (!IsDestructive || DestructiveAcknowledged) && (!HasExtraConfirmation || ExtraAcknowledged);
 
@@ -137,7 +137,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     }
 
     private bool CanUndo() =>
-        _undo is not null && _confirmed is not null && Stage == ChangePlanStage.Done && Outcome.Result is { SucceededCount: > 0 } or { PartialCount: > 0 };
+        _undo is not null && _confirmed is not null && Stage == ChangePlanStage.Done && Outcome.Result is { UndoAvailable: not false } and ({ SucceededCount: > 0 } or { PartialCount: > 0 });
 
     [RelayCommand(CanExecute = nameof(CanUndo))]
     private async Task UndoAsync()

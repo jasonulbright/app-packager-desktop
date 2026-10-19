@@ -27,7 +27,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
     public const string PickTarget = "Check one collection.";
     public const string SameCollection = "The deployment already targets this collection.";
     public const string AlreadyInMode = "The selected deployments already have this mode.";
-    public const string RedeployNote = "The new deployment is created first and the old one is removed after it exists, so the collection always has the deployment. The new deployment has a new ID. Undo is not offered after a full redeploy: the deployment holds the same values.";
+    public const string RedeployNote = "The new deployment is created first and the old one is removed after it exists, so the collection always has the deployment. The new deployment has a new ID. Undo is not offered after a full redeploy: the deployment holds the same values. When both deployments stay, Undo removes the new one.";
     public const string DeleteNote = "Undo creates the deployment again from the captured values; the recreated deployment has a new ID.";
     public const string ReassignNote = "The deployment on the new collection is created first; the old one is removed only after it exists. If the create fails, the old one stays. Undo moves the deployment back; the deployments have new IDs.";
 
@@ -239,7 +239,7 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
                 return CompliancePlanEntry.Write(new ChangePlanItem("Redeploy", Describe(change), detail), change);
             }).ToList();
             return (new CompliancePlan("Redeploy", "Redeploy baselines", $"Redeploy {ComplianceText.Count(entries.Count, "deployment")}", entries, isDestructive: true,
-                hasUndo: false, extraConfirmation: RemediationConfirmation(prepared)), null);
+                extraConfirmation: RemediationConfirmation(prepared)), null);
         }, Describe);
         if (run is { Outcome.Confirmed: true }) await Shared.AfterWriteAsync();
     }
