@@ -286,19 +286,10 @@ public sealed partial class CollectionComplianceViewModel
             {
                 var before = change.BeforeRow!;
                 if (before.IsBuiltIn) return (null, BuiltInRefused);
-                var lines = new List<string>();
-                if (before.Name != after.Name) lines.Add($"Name: {before.Name} to {after.Name}");
-                if (before.Comment != after.Comment) lines.Add($"Comment: {CollectionsText.OrNone(before.Comment)} to {CollectionsText.OrNone(after.Comment)}");
-                if (!string.Equals(before.LimitingCollectionId, after.LimitingCollectionId, StringComparison.OrdinalIgnoreCase))
-                    lines.Add($"Limiting collection: {CollectionsText.OrNone(CollectionsText.Limiting(before))} to {CollectionsText.Limiting(after)}");
-                if (before.RefreshType != after.RefreshType) lines.Add($"Refresh: {before.RefreshType} to {RefreshText(after, before)}");
-                else if (after.RefreshInterval is { } interval && IsPeriodic(after.RefreshType))
-                {
-                    var current = CollectionsText.IntervalOf(before.RefreshSchedule);
-                    var currentText = current is not null ? CollectionsText.Every(current) : before.RefreshSchedule.Length > 0 ? "the current schedule" : "(none)";
-                    lines.Add($"Refresh interval: {currentText} to {CollectionsText.Every(interval)}");
-                }
-                if (lines.Count == 0) return (null, NothingToChange);
+                // The old token stays only when it holds the requested interval; the write sends the
+                // token when it is kept and builds the interval otherwise, and the plan text below
+                // reads the same row.
+                var keepsToken = after.RefreshInterval is not { } wanted || CollectionsText.IntervalOf(before.RefreshSchedule) == wanted;
                 var set = before with
                 {
                     Name = after.Name,
@@ -306,8 +297,22 @@ public sealed partial class CollectionComplianceViewModel
                     RefreshType = after.RefreshType,
                     LimitingCollectionId = after.LimitingCollectionId,
                     LimitingCollectionName = after.LimitingCollectionName,
+                    RefreshSchedule = keepsToken ? before.RefreshSchedule : "",
                     RefreshInterval = after.RefreshInterval
                 };
+                var lines = new List<string>();
+                if (before.Name != set.Name) lines.Add($"Name: {before.Name} to {set.Name}");
+                if (before.Comment != set.Comment) lines.Add($"Comment: {CollectionsText.OrNone(before.Comment)} to {CollectionsText.OrNone(set.Comment)}");
+                if (!string.Equals(before.LimitingCollectionId, set.LimitingCollectionId, StringComparison.OrdinalIgnoreCase))
+                    lines.Add($"Limiting collection: {CollectionsText.OrNone(CollectionsText.Limiting(before))} to {CollectionsText.Limiting(set)}");
+                if (before.RefreshType != set.RefreshType) lines.Add($"Refresh: {before.RefreshType} to {RefreshText(set, before)}");
+                else if (IsPeriodic(set.RefreshType) && !keepsToken)
+                {
+                    var current = CollectionsText.IntervalOf(before.RefreshSchedule);
+                    var currentText = current is not null ? CollectionsText.Every(current) : before.RefreshSchedule.Length > 0 ? "the current schedule" : "(none)";
+                    lines.Add($"Refresh interval: {currentText} to {CollectionsText.Every(set.RefreshInterval!)}");
+                }
+                if (lines.Count == 0) return (null, NothingToChange);
                 return (new CollectionPlan("Set properties", "Edit collection", "Save changes",
                 [
                     CollectionPlanEntry.Write(new ChangePlanItem("Set properties", CollectionsText.Target(before), string.Join(". ", lines) + ". Undo sets the old values back."),
@@ -323,11 +328,13 @@ public sealed partial class CollectionComplianceViewModel
     private static string RefreshText(CollectionRow after, CollectionRow? before)
     {
         if (!IsPeriodic(after.RefreshType)) return after.RefreshType;
-        if (after.RefreshInterval is { } interval) return $"{after.RefreshType}, {CollectionsText.Every(interval)}";
-        var schedule = before?.RefreshSchedule ?? "";
-        var kept = CollectionsText.IntervalOf(schedule) is { } current ? $"{CollectionsText.Every(current)} (unchanged)"
-            : schedule.Length > 0 ? "the current schedule (unchanged)" : DefaultIntervalText;
-        return $"{after.RefreshType}, {kept}";
+        var schedule = after.RefreshSchedule ?? "";
+        var keepsToken = schedule.Length > 0 && (after.RefreshInterval is null || CollectionsText.IntervalOf(schedule) == after.RefreshInterval);
+        if (!keepsToken)
+            return after.RefreshInterval is { } interval ? $"{after.RefreshType}, {CollectionsText.Every(interval)}" : $"{after.RefreshType}, {DefaultIntervalText}";
+        var unchanged = string.Equals(schedule, before?.RefreshSchedule, StringComparison.OrdinalIgnoreCase) ? " (unchanged)" : "";
+        var kept = CollectionsText.IntervalOf(schedule) is { } current ? CollectionsText.Every(current) : "the current schedule";
+        return $"{after.RefreshType}, {kept}{unchanged}";
     }
 
     private bool CanEvaluate() => !_writing && _selectedRows.Count > 0;

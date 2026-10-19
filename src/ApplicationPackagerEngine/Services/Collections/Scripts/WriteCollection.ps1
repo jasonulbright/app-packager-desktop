@@ -208,6 +208,28 @@ function Get-RefreshValue {
     switch ($Value) { 1 { 'Manual' } 2 { 'Periodic' } 4 { 'Continuous' } 6 { 'Both' } default { '' } }
 }
 
+# The part of a schedule token that a write requests: the recurrence and its spans. The start
+# time is left out because the provider can store the start of a new schedule differently.
+function Get-ScheduleKey {
+    param([string]$Token)
+    if ($Token -notmatch '^[0-9A-Fa-f]{16}$') { return $Token }
+    $value = [uint64]::Parse($Token, [System.Globalization.NumberStyles]::AllowHexSpecifier)
+    if ((($value -shr 19) -band 7) -eq 2) {
+        return 'Interval:' + (($value -shr 13) -band 63) + ':' + (($value -shr 8) -band 31) + ':' + (($value -shr 3) -band 31)
+    }
+    return $Token.Substring(8).ToUpperInvariant()
+}
+
+# Reads the collection back by id and returns the token it holds when that schedule is not the
+# one the write sent; returns $null when it matches.
+function Test-StoredSchedule {
+    param([string]$Id, [object]$Requested)
+    $requestedToken = [string](@(Convert-CMSchedule -InputObject $Requested)[0])
+    $stored = Get-ScheduleToken (Get-Collection $Id)
+    if ((Get-ScheduleKey $stored) -eq (Get-ScheduleKey $requestedToken)) { return $null }
+    return $requestedToken
+}
+
 function New-RefreshSchedule {
     if ($RefreshUnit) { return (New-CMSchedule -RecurInterval $RefreshUnit -RecurCount $RefreshCount) }
     if ($RefreshSchedule) { return (Convert-CMSchedule -ScheduleString $RefreshSchedule) }
@@ -494,6 +516,10 @@ try {
                 }
             }
             $created = Get-Collection $id
+            if ($arguments.ContainsKey('RefreshSchedule')) {
+                $requested = Test-StoredSchedule $id $arguments.RefreshSchedule
+                if ($null -ne $requested) { return (Write-Result 'schedule-mismatch' $created $requested) }
+            }
             if ($failed.Count -gt 0) { return (Write-Result 'rules-partial' $created ($failed -join ',')) }
             return (Write-Result 'ok' $created)
         }
@@ -516,6 +542,10 @@ try {
             if ($RefreshType -in 'Periodic', 'Both' -and $setSchedule) { $arguments.RefreshSchedule = New-RefreshSchedule }
             $mutated = $true
             Set-CMCollection @arguments | Out-Null
+            if ($arguments.ContainsKey('RefreshSchedule')) {
+                $requested = Test-StoredSchedule $CollectionId $arguments.RefreshSchedule
+                if ($null -ne $requested) { return (Write-Result 'schedule-mismatch' (Get-Collection $CollectionId) $requested) }
+            }
             return (Write-Result 'ok' (Get-Collection $CollectionId))
         }
         'AddRule' {

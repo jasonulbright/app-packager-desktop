@@ -94,6 +94,13 @@ public sealed partial class CollectionService : ICollectionService
         ? "the current schedule"
         : interval.Count == 1 ? $"every {interval.Unit.ToLowerInvariant().TrimEnd('s')}" : $"every {interval.Count} {interval.Unit.ToLowerInvariant()}";
 
+    private static string ScheduleMismatch(CollectionRow stored, RefreshInterval? requested)
+    {
+        var held = IntervalOf(stored.RefreshSchedule) is { } interval ? IntervalText(interval) : "a schedule that is not a single interval";
+        var wanted = requested is null ? "the requested schedule" : $"the requested {IntervalText(requested)}";
+        return $"ConfigMgr holds the refresh schedule {held}, not {wanted}.";
+    }
+
     // ---- Script output shapes ----------------------------------------------------------------
 
     internal sealed record ReadRow(
@@ -586,6 +593,8 @@ public sealed partial class CollectionService : ICollectionService
                 var created = StateOf(run.Result!) ?? await ReadCreatedAsync(run.Result!.CreatedId).ConfigureAwait(false);
                 if (created is null) return await ReconcileAsync(change, Unread(change, run), existed).ConfigureAwait(false);
                 var undo = RemoveUndo(created);
+                if (run.Result!.Status == "schedule-mismatch")
+                    return Partial(change, $"Created collection {Shown(created.Row)}, but {ScheduleMismatch(created.Row, WrittenInterval(after, RefreshInterval.Default))} Undo removes the new collection.", undo);
                 if (run.Result!.Status == "rules-partial")
                 {
                     var missing = (run.Result.Detail ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -627,6 +636,8 @@ public sealed partial class CollectionService : ICollectionService
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
                 var now = StateOf(run.Result!);
                 if (now is null) return await ReconcileAsync(change, Unread(change, run)).ConfigureAwait(false);
+                if (run.Result!.Status == "schedule-mismatch")
+                    return Partial(change, $"ConfigMgr changed collection {Shown(now.Row)}, but {ScheduleMismatch(now.Row, WrittenInterval(after, null))} Undo sets the old values back.", SetUndo(now.Row, before));
                 return Done(change, $"Updated the properties of collection {Shown(now.Row)}.", SetUndo(now.Row, before));
             }
             case CollectionChangeKind.AddRule:
@@ -834,6 +845,7 @@ public sealed partial class CollectionService : ICollectionService
             case "ok":
             case "rules-partial":
             case "update-failed":
+            case "schedule-mismatch":
                 return new WriteRun(result, null);
             case "partial":
                 LogDetail($"{change.Kind} failed after ConfigMgr started the change", result.Detail);
@@ -1033,13 +1045,15 @@ public sealed partial class CollectionService : ICollectionService
     };
 
     /// <summary>
-    /// A captured schedule token goes to the script as it is, so an Undo puts the exact schedule
-    /// back; otherwise the interval of the row, or <paramref name="fallback"/>, is built anew.
+    /// The schedule a write sends: the row's token when the row has no interval or the token
+    /// holds that interval (an Undo then puts the exact schedule back); otherwise the interval of
+    /// the row, or <paramref name="fallback"/>, built anew. A token that disagrees with the
+    /// interval is never sent, so a stale token cannot replace the requested interval.
     /// </summary>
-    private static void AddSchedule(ConfigMgrParameters parameters, CollectionRow row, RefreshInterval? fallback)
+    internal static void AddSchedule(ConfigMgrParameters parameters, CollectionRow row, RefreshInterval? fallback)
     {
         var token = ScheduleOrEmpty(row.RefreshSchedule);
-        if (token.Length > 0)
+        if (token.Length > 0 && (row.RefreshInterval is null || IntervalOf(token) == row.RefreshInterval))
         {
             parameters["RefreshSchedule"] = token;
             return;
@@ -1049,6 +1063,14 @@ public sealed partial class CollectionService : ICollectionService
             parameters["RefreshUnit"] = interval.Unit;
             parameters["RefreshCount"] = interval.Count;
         }
+    }
+
+    /// <summary>The interval a write with <see cref="AddSchedule"/> requests; null when it keeps or sends a schedule that is not a single interval.</summary>
+    internal static RefreshInterval? WrittenInterval(CollectionRow row, RefreshInterval? fallback)
+    {
+        var token = ScheduleOrEmpty(row.RefreshSchedule);
+        if (token.Length > 0 && (row.RefreshInterval is null || IntervalOf(token) == row.RefreshInterval)) return IntervalOf(token);
+        return row.RefreshInterval ?? fallback;
     }
 
     private static ConfigMgrParameters RuleParameters(string operation, string collectionId, CollectionRule rule)

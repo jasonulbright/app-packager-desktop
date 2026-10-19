@@ -128,7 +128,7 @@ internal sealed class StubSitePowerShell : IConfigMgrSession
             if ($null -ne (Get-CMCollection -Name $Name)) { throw 'The name is taken.' }
             $id = 'MCM000' + ('{0:X2}' -f $global:Next); $global:Next++
             $type = switch ($RefreshType) { 'Manual' { 1 } 'Periodic' { 2 } 'Continuous' { 4 } 'Both' { 6 } }
-            $schedule = if ($null -ne $RefreshSchedule) { $RefreshSchedule } else { New-Schedule '0001200000100008' }
+            $schedule = if ($null -ne $RefreshSchedule -and -not $global:Opt.ContainsKey('KeepSchedule')) { $RefreshSchedule } else { New-Schedule '0001200000100008' }
             $global:Cols.Add([pscustomobject]@{ CollectionID = $id; Name = $Name; ObjectPath = ''; LimitToCollectionID = $LimitingCollectionId; LimitToCollectionName = ''; MemberCount = 0; RefreshType = $type; RefreshSchedule = $schedule
                 Comment = $Comment; ServiceWindowsCount = 0; Deployments = 0; CollectionType = 2; CollectionRules = [System.Collections.Generic.List[object]]::new(); Members = [System.Collections.Generic.List[object]]::new() })
             $global:NewIds.Add($id)
@@ -160,7 +160,7 @@ internal sealed class StubSitePowerShell : IConfigMgrSession
             if ($PSBoundParameters.ContainsKey('NewName')) { $c.Name = $NewName }
             if ($PSBoundParameters.ContainsKey('LimitingCollectionId')) { $c.LimitToCollectionID = $LimitingCollectionId }
             if ($PSBoundParameters.ContainsKey('RefreshType')) { $c.RefreshType = switch ($RefreshType) { 'Manual' { 1 } 'Periodic' { 2 } 'Continuous' { 4 } 'Both' { 6 } } }
-            if ($PSBoundParameters.ContainsKey('RefreshSchedule')) { $c.RefreshSchedule = $RefreshSchedule }
+            if ($PSBoundParameters.ContainsKey('RefreshSchedule') -and -not $global:Opt.ContainsKey('KeepSchedule')) { $c.RefreshSchedule = $RefreshSchedule }
             Test-FailAfter 'set' $CollectionId
         }
         function global:Remove-CMDeviceCollection {
