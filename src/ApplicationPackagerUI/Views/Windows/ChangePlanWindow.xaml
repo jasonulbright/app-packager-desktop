@@ -51,8 +51,8 @@
                   Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140" />
-                <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="*" MinWidth="200" />
-                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="2*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="4*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
         </DataGrid>
 
@@ -64,8 +64,8 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" />
                 <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" />
-                <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="180" />
-                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="3*" MinWidth="180" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="4*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
         </DataGrid>
 

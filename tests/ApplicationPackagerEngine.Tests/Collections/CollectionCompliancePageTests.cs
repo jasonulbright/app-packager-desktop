@@ -910,6 +910,35 @@ public sealed class CollectionCompliancePageTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
+    public void AtItsDefaultSizeThePlanWindowShowsALongObjectNameAndIdUncut(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            const string target = "CCM-Test-10190923-5 Patch Ring Workstations (MCM00012)";
+            const string detail = "Removes collection CCM-Test-10190923-5 Patch Ring Workstations (MCM00012). Members now: 0. Deployments to the collection: 1.";
+            var plan = new ChangePlan("Remove collection", "Remove collection", [new ChangePlanItem("Remove", target, detail)], isDestructive: true);
+            var viewModel = new ChangePlanViewModel(plan, (c, p, ct) => Task.FromResult(new ChangePlanResult([])));
+            var window = new ChangePlanWindow(viewModel);
+            Show(window);
+            try
+            {
+                var grid = ById<DataGrid>(window, "gridChangePlan");
+                var cells = Descendants(Row(grid, 0)).OfType<DataGridCell>().ToList();
+                var objectCell = cells.Single(c => Equals(c.Column.Header, "Object"));
+                var text = Descendants(objectCell).OfType<TextBlock>().First();
+                Assert.Equal(target, text.ToolTip);
+                Assert.True(text.ActualWidth <= objectCell.ActualWidth + 0.5, $"The object text is {text.ActualWidth:0} px in a {objectCell.ActualWidth:0} px cell.");
+                var detailCell = cells.Single(c => Equals(c.Column.Header, "Detail"));
+                Assert.True(detailCell.ActualWidth >= 300, $"The Detail column is {detailCell.ActualWidth:0} px wide.");
+                Pixels(window, grid, $"LongObjectPlan-{theme}");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowShowsALongTemplatePlan(ApplicationTheme theme)
     {
         WithApplication(theme, () =>
