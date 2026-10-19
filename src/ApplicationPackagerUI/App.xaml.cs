@@ -72,6 +72,7 @@ public partial class App : Application
                 services.AddSingleton<AddAppViewModel>();
                 services.AddDetectionTesterPage();
                 services.AddMaintenanceWindowsPage();
+                services.AddCollectionCompliancePage();
 
                 services.AddHostedService<ApplicationHostService>();
             })
