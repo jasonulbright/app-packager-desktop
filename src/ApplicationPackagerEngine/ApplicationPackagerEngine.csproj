@@ -33,6 +33,9 @@
     <EmbeddedResource Include="Services\Collections\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Collections.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\Collections\Templates\*.json" LogicalName="ApplicationPackagerEngine.Services.Collections.Templates.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\MaintenanceWindows\Templates\*.json" LogicalName="ApplicationPackagerEngine.Services.MaintenanceWindows.Templates.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\Compliance\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Compliance.Scripts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\Compliance\Catalog\Entries\*.json" LogicalName="ApplicationPackagerEngine.Services.Compliance.Catalog.Entries.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\Compliance\Catalog\Builders\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Compliance.Catalog.Builders.%(Filename)%(Extension)" />
   </ItemGroup>
 
 

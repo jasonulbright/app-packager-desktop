@@ -1,0 +1,124 @@
+{
+  "Id": "specexec-mitigations",
+  "Version": "1.0.0",
+  "DisplayName": "CPU Speculative Execution Mitigations (Intel + AMD, Bundled)",
+  "Subcategory": "CVE-Remediation",
+  "Mechanism": "NativeRegistry",
+  "Status": "Validated",
+  "Description": "Bitmask enforcement of the full CPU speculative-execution mitigation family on FeatureSettingsOverride + FeatureSettingsOverrideMask. A script setting tests the required bits with -band (a superset stays compliant) and auto-detects Intel vs AMD at evaluation time. One CI/CB pair per Hyper-Threading variant. Target values: Intel HT-On 0x00800048 / HT-Off 0x00802048; AMD HT-On 0x05000048 / HT-Off 0x05002048; Mask 0x3.",
+  "Severity": "Critical",
+  "Cves": [
+    "CVE-2017-5715",
+    "CVE-2017-5754",
+    "CVE-2018-3639",
+    "CVE-2018-3620",
+    "CVE-2018-3646",
+    "CVE-2018-12126",
+    "CVE-2018-12127",
+    "CVE-2018-12130",
+    "CVE-2018-11091",
+    "CVE-2019-11135",
+    "CVE-2020-0543",
+    "CVE-2022-0001",
+    "CVE-2022-23825",
+    "CVE-2023-20569"
+  ],
+  "TenablePlugins": [],
+  "KbReferences": [
+    "KB4073119",
+    "KB4072698"
+  ],
+  "OsScope": {
+    "Client": [
+      "Windows 10",
+      "Windows 11"
+    ],
+    "Server": [
+      "Server 2012 R2",
+      "Server 2016",
+      "Server 2019",
+      "Server 2022",
+      "Server 2025"
+    ]
+  },
+  "RebootRequired": true,
+  "RegistrySurface": [
+    {
+      "Hive": "HKLM",
+      "KeyPath": "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management",
+      "Values": [
+        "FeatureSettingsOverride",
+        "FeatureSettingsOverrideMask"
+      ]
+    }
+  ],
+  "Builder": {
+    "ScriptPath": "New-SpecExecBaseline.ps1",
+    "Parameters": [
+      {
+        "Name": "SiteCode",
+        "Type": "String",
+        "Required": true,
+        "Default": null,
+        "Description": "Configuration Manager site code."
+      },
+      {
+        "Name": "SiteServer",
+        "Type": "String",
+        "Required": true,
+        "Default": null,
+        "Description": "Configuration Manager site server FQDN (SMS Provider host)."
+      },
+      {
+        "Name": "HtEnabledCollectionName",
+        "Type": "String",
+        "Required": false,
+        "Default": "Devices: Hyperthreading Enabled",
+        "Description": "Collection that receives the HT-Enabled CB."
+      },
+      {
+        "Name": "HtDisabledCollectionName",
+        "Type": "String",
+        "Required": false,
+        "Default": "Devices: Hyperthreading Disabled",
+        "Description": "Collection that receives the HT-Disabled CB."
+      },
+      {
+        "Name": "SkipDeploy",
+        "Type": "Switch",
+        "Required": false,
+        "Default": false,
+        "Description": "Create CIs/CBs without deploying."
+      },
+      {
+        "Name": "DetectOnly",
+        "Type": "Switch",
+        "Required": false,
+        "Default": false,
+        "Description": "Create with remediation disabled."
+      }
+    ]
+  },
+  "DependsOn": [
+    {
+      "Type": "Collection",
+      "Name": "Devices: Hyperthreading Enabled",
+      "CreatedBy": null
+    },
+    {
+      "Type": "Collection",
+      "Name": "Devices: Hyperthreading Disabled",
+      "CreatedBy": null
+    }
+  ],
+  "Produces": {
+    "ConfigurationItems": [
+      "CPU SpecExec Mitigations (HT Enabled)",
+      "CPU SpecExec Mitigations (HT Disabled)"
+    ],
+    "ConfigurationBaselines": [
+      "CPU SpecExec Mitigations - HT Enabled",
+      "CPU SpecExec Mitigations - HT Disabled"
+    ]
+  }
+}
