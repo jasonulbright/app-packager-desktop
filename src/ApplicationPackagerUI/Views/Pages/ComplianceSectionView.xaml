@@ -362,9 +362,13 @@
                         <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
                                    AutomationProperties.AutomationId="btnAuditingRefresh" />
                         <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Writes every drift row and every compliance row of the last read to a CSV file. The filters do not apply."
                                    AutomationProperties.AutomationId="btnAuditingCsv" />
                         <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Writes every drift row and every compliance row of the last read to an HTML file. The filters do not apply."
                                    AutomationProperties.AutomationId="btnAuditingHtml" />
+                        <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnAuditingOpenFolder" />
                     </WrapPanel>
                     <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabAuditingViews">
                         <TabItem Header="Drift" AutomationProperties.AutomationId="tabDrift">

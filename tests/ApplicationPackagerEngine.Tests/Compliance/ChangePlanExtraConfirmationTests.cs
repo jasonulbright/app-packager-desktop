@@ -82,7 +82,8 @@ public sealed class ChangePlanExtraConfirmationTests
         {
             if (e.PropertyName == nameof(ChangePlanViewModel.StepText) && viewModel.StepText.Length > 0) steps.Add(viewModel.StepText);
         };
-        await viewModel.ConfirmCommand.ExecuteAsync(null);
+        // The test runner's context runs posts on pool threads, where a step post can race the end of the run.
+        await Task.Run(() => viewModel.ConfirmCommand.ExecuteAsync(null));
         Assert.Contains("Build: running the builder.", steps);
         Assert.Single(viewModel.ResultRows);
         Assert.Equal("", viewModel.StepText);
