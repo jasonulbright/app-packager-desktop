@@ -43,7 +43,7 @@ public sealed class SidebarWiringTests : IDisposable
     {
         foreach (var type in new[] { typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage),
-                     typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage) })
+                     typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage) })
             services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });
     }
 
@@ -234,7 +234,8 @@ public sealed class SidebarWiringTests : IDisposable
 
             var items = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Skip(4).ToList();
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), items[0].TargetPageType);
-            Assert.All(items.Skip(1), i => Assert.Null(i.TargetPageType));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), items[1].TargetPageType);
+            Assert.All(items.Skip(2), i => Assert.Null(i.TargetPageType));
             Assert.Equal(8, items.Select(i => ((Wpf.Ui.Controls.SymbolIcon)i.Icon!).Symbol).Distinct().Count());
 
             var dp = items.Single(i => (string)i.Content == "DP Content Manager");
@@ -277,6 +278,48 @@ public sealed class SidebarWiringTests : IDisposable
             Assert.True(item.IsActive);
             Assert.Empty(starter.Started);
         });
+    }
+
+    [Fact]
+    public void TheMaintenanceWindowsEntryOpensItsPageAndStartsNoTool()
+    {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            var starter = new FakeToolProcessStarter();
+            using var provider = MainWindowServices(s =>
+            {
+                AddPlainPages(s);
+                s.AddSingleton<IToolProcessStarter>(starter);
+            });
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var item = navigation.MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Maintenance Windows");
+
+            typeof(Wpf.Ui.Controls.NavigationViewItem).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(item, null);
+
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), ShownPage(navigation));
+            Assert.True(item.IsActive);
+            Assert.Empty(starter.Started);
+        });
+    }
+
+    [Fact]
+    public void ASavedLayoutWithTheMaintenanceWindowsEntryMovedAndHiddenKeepsItsPlaceAsAPage()
+    {
+        WriteSettings("""
+            { "FirstRunCompleted": true,
+              "Sidebar": { "Order": ["packages", "maintenance-windows", "applications"], "Hidden": ["maintenance-windows"] } }
+            """);
+        using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
+        var service = provider.GetRequiredService<SidebarService>();
+        Assert.Equal([SidebarIds.Packages, SidebarIds.MaintenanceWindows, SidebarIds.Applications], SidebarFixtures.Ids(service.All).Take(3));
+        Assert.True(service.IsHidden(SidebarIds.MaintenanceWindows));
+        Assert.True(service.Show(SidebarIds.MaintenanceWindows));
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[1].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), service.Items[1].PageType);
     }
 
     [Fact]
