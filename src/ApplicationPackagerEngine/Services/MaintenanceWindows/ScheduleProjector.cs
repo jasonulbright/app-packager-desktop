@@ -13,6 +13,10 @@ public sealed class ScheduleProjector(TimeZoneInfo? zone = null) : IScheduleProj
 {
     public static readonly TimeSpan MaxDuration = TimeSpan.FromHours(24);
 
+    /// <summary>The first and last start year a ConfigMgr schedule token can store.</summary>
+    public const int FirstYear = ScheduleToken.FirstYear;
+    public const int LastYear = ScheduleToken.LastYear;
+
     private const int MaxSteps = 200_000;
     private readonly TimeZoneInfo _zone = zone ?? TimeZoneInfo.Local;
 

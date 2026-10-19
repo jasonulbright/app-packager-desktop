@@ -18,12 +18,22 @@ public sealed class MaintenanceWindowEditorTests
     {
         new MaintenanceSchedule(MaintenanceScheduleKind.OneTime, new DateTime(2026, 11, 1, 22, 30, 0), TimeSpan.FromMinutes(90), true, 1, null, null, null, 0, null),
         new MaintenanceSchedule(MaintenanceScheduleKind.Daily, new DateTime(2026, 11, 1, 1, 0, 0), TimeSpan.FromHours(3), false, 2, null, null, null, 0, null),
-        new MaintenanceSchedule(MaintenanceScheduleKind.Weekly, new DateTime(2026, 11, 1, 2, 0, 0), new TimeSpan(23, 59, 0), false, 2, DayOfWeek.Saturday, null, null, 0,
-            new DateTime(2027, 6, 30).AddDays(1).AddTicks(-1)),
+        new MaintenanceSchedule(MaintenanceScheduleKind.Weekly, new DateTime(2026, 11, 1, 2, 0, 0), new TimeSpan(23, 59, 0), false, 2, DayOfWeek.Saturday, null, null, 0, null),
+        new MaintenanceSchedule(MaintenanceScheduleKind.Weekly, new DateTime(2026, 11, 1, 0, 0, 0), TimeSpan.FromHours(24), false, 4, DayOfWeek.Sunday, null, null, 0, null),
         new MaintenanceSchedule(MaintenanceScheduleKind.MonthlyByDate, new DateTime(2026, 11, 1, 3, 15, 0), TimeSpan.FromHours(4), false, 1, null, 0, null, 0, null),
         new MaintenanceSchedule(MaintenanceScheduleKind.MonthlyByWeekday, new DateTime(2026, 11, 1, 4, 0, 0), TimeSpan.FromHours(4), false, 3, DayOfWeek.Friday, null, 5, 0, null),
-        new MaintenanceSchedule(MaintenanceScheduleKind.PatchTuesday, new DateTime(2026, 11, 1, 2, 0, 0), TimeSpan.FromHours(4), false, 1, null, null, null, -3, null)
+        new MaintenanceSchedule(MaintenanceScheduleKind.MonthlyByWeekday, new DateTime(2026, 11, 1, 4, 0, 0), TimeSpan.FromHours(4), false, 12, DayOfWeek.Monday, null, 2, 7, null),
+        new MaintenanceSchedule(MaintenanceScheduleKind.PatchTuesday, new DateTime(2026, 11, 1, 2, 0, 0), TimeSpan.FromHours(4), false, 1, null, null, null, -7, null),
+        new MaintenanceSchedule(MaintenanceScheduleKind.PatchTuesday, new DateTime(2033, 12, 31, 2, 0, 0), TimeSpan.FromMinutes(1), true, 12, null, null, null, 21, null)
     };
+
+    private static MaintenanceWindowEditorViewModel Ready()
+    {
+        var editor = Editor();
+        editor.Name = "Window";
+        editor.SelectedCollection = editor.Collections[0];
+        return editor;
+    }
 
     [Theory]
     [MemberData(nameof(Schedules))]
@@ -56,8 +66,117 @@ public sealed class MaintenanceWindowEditorTests
         Assert.Equal(31, editor.Intervals.Count);
         editor.Kind = MaintenanceScheduleKind.PatchTuesday;
         Assert.True(editor.ShowPatchOffset);
-        Assert.Equal(-3, editor.PatchTuesdayOffsets[0]);
-        Assert.Equal(30, editor.PatchTuesdayOffsets[^1]);
+        Assert.False(editor.ShowWeekdayOffset);
+        Assert.Equal(Enumerable.Range(-7, 29), editor.PatchTuesdayOffsets);
+        editor.Kind = MaintenanceScheduleKind.MonthlyByWeekday;
+        Assert.True(editor.ShowWeekdayOffset);
+        Assert.False(editor.ShowPatchOffset);
+        Assert.Equal(Enumerable.Range(0, 8), editor.WeekdayOffsets);
+        Assert.Equal(Enumerable.Range(0, 25), editor.DurationHourChoices);
+        Assert.Equal(Enumerable.Range(0, 60), editor.Minutes);
+    }
+
+    [Fact]
+    public void TheEditorOffersOnlyValuesValidateAccepts()
+    {
+        var projector = new ScheduleProjector();
+        var editor = Ready();
+        foreach (var kind in Enum.GetValues<MaintenanceScheduleKind>())
+        {
+            editor.Kind = kind;
+            foreach (var interval in editor.Intervals)
+            {
+                editor.Interval = interval;
+                Assert.Null(projector.Validate(editor.BuildSchedule().Schedule!));
+            }
+            foreach (var offset in kind == MaintenanceScheduleKind.PatchTuesday ? editor.PatchTuesdayOffsets : kind == MaintenanceScheduleKind.MonthlyByWeekday ? editor.WeekdayOffsets : [0])
+            {
+                if (kind == MaintenanceScheduleKind.PatchTuesday) editor.PatchTuesdayOffsetDays = offset;
+                else if (kind == MaintenanceScheduleKind.MonthlyByWeekday) editor.WeekdayOffsetDays = offset;
+                Assert.Null(projector.Validate(editor.BuildSchedule().Schedule!));
+            }
+        }
+        Assert.Equal(new DateTime(ScheduleToken.FirstYear, 1, 1), editor.FirstStartDate);
+        Assert.Equal(new DateTime(ScheduleToken.LastYear, 12, 31), editor.LastStartDate);
+    }
+
+    [Fact]
+    public void AReasonFromValidateIsShownAndSaveIsDisabledUntilItIsGone()
+    {
+        var editor = Ready();
+        Assert.True(editor.SaveCommand.CanExecute(null));
+        editor.StartDate = new DateTime(2034, 1, 1);
+        var reason = new ScheduleProjector().Validate(editor.BuildSchedule().Schedule!);
+        Assert.NotNull(reason);
+        Assert.Equal(reason, editor.ValidationMessage);
+        Assert.False(editor.SaveCommand.CanExecute(null));
+        editor.StartDate = new DateTime(2033, 12, 31);
+        Assert.Equal("", editor.ValidationMessage);
+        Assert.True(editor.SaveCommand.CanExecute(null));
+
+        editor.DurationHours = 24;
+        editor.DurationMinutes = 30;
+        Assert.Equal(MaintenanceWindowEditorViewModel.DurationRange, editor.ValidationMessage);
+        Assert.False(editor.SaveCommand.CanExecute(null));
+        editor.DurationMinutes = 0;
+        Assert.Equal("", editor.ValidationMessage);
+        Assert.True(editor.SaveCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task TheProjectorsReasonWinsOverTheEditorsOwnChecksPassing()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var projector = new FakeProjector { Rejects = _ => "ConfigMgr cannot store this schedule." };
+        var calls = 0;
+        var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.NewWindow, projector, _ => { calls++; return Task.FromResult(true); }, () => Now,
+            harness.Service.Collections, harness.Service.Windows) { Name = "Window" };
+        editor.SelectedCollection = editor.Collections[0];
+        Assert.Equal("ConfigMgr cannot store this schedule.", editor.ValidationMessage);
+        Assert.False(editor.SaveCommand.CanExecute(null));
+        await editor.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(0, calls);
+        Assert.Equal("ConfigMgr cannot store this schedule.", editor.Validate());
+    }
+
+    [Fact]
+    public void TheEditorHasNoEndDateAndSaysSo()
+    {
+        var editor = Editor(MaintenanceEditorMode.NewTemplate);
+        editor.LoadSchedule(new MaintenanceSchedule(MaintenanceScheduleKind.Daily, new DateTime(2026, 11, 1, 1, 0, 0), TimeSpan.FromHours(1), false, 1, null, null, null, 0,
+            new DateTime(2027, 1, 1)));
+        Assert.Null(editor.BuildSchedule().Schedule!.End);
+        Assert.Equal("", editor.ValidationMessage);
+        Assert.Equal("ConfigMgr stores no end date. The window recurs until it is removed or disabled.", MaintenanceWindowEditorViewModel.NoEndDateNote);
+        Assert.Null(typeof(MaintenanceWindowEditorViewModel).GetProperty("HasEnd"));
+        Assert.Null(typeof(MaintenanceWindowEditorViewModel).GetProperty("EndDate"));
+    }
+
+    [Theory]
+    [InlineData(28, "")]
+    [InlineData(29, "A month without day 29 has no occurrence.")]
+    [InlineData(31, "A month without day 31 has no occurrence.")]
+    [InlineData(0, "")]
+    public void ADayOfTheMonthThatSomeMonthsLackHasANote(int day, string note)
+    {
+        var editor = Ready();
+        editor.Kind = MaintenanceScheduleKind.MonthlyByDate;
+        editor.DayOfMonth = day;
+        Assert.Equal(note, editor.DayOfMonthNote);
+        Assert.Equal("Last day", editor.DaysOfMonth[0].Text);
+        Assert.Null(new ScheduleProjector().Validate(editor.BuildSchedule().Schedule!));
+    }
+
+    [Fact]
+    public void TheWindowKeepsTheOriginalDescriptionBecauseWritesIgnoreIt()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var window = harness.Service.Windows[0] with { Comment = "Occurs every 1 weeks on Sunday" };
+        var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.EditWindow, new FakeProjector(), _ => Task.FromResult(true), () => Now,
+            harness.Service.Collections, harness.Service.Windows);
+        editor.Load(window);
+        Assert.Equal(window.Comment, editor.BuildWindow()!.Comment);
+        Assert.Null(typeof(MaintenanceWindowEditorViewModel).GetProperty("Comment"));
     }
 
     [Fact]
@@ -78,13 +197,10 @@ public sealed class MaintenanceWindowEditorTests
         editor.DurationHours = 23;
         editor.DurationMinutes = 59;
         Assert.Null(editor.Validate());
-        Assert.Equal(23, editor.Hours[^1]);
-
-        editor.HasEnd = true;
-        editor.EndDate = editor.StartDate!.Value.AddDays(-1);
-        Assert.Equal(MaintenanceWindowEditorViewModel.EndBeforeStart, editor.Validate());
-        editor.EndDate = editor.StartDate.Value;
+        editor.DurationHours = 24;
+        editor.DurationMinutes = 0;
         Assert.Null(editor.Validate());
+        Assert.Equal(23, editor.Hours[^1]);
 
         editor.StartDate = null;
         Assert.Equal(MaintenanceWindowEditorViewModel.StartRequired, editor.Validate());

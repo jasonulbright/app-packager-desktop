@@ -29,11 +29,13 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     public const string NameRequired = "Enter a name.";
     public const string CollectionRequired = "Select a collection.";
     public const string StartRequired = "Select a start date.";
-    public const string DurationRange = "The duration must be between 1 minute and 23 hours 59 minutes.";
-    public const string EndBeforeStart = "The end date is before the start date.";
+    public const string DurationRange = "The duration must be between 1 minute and 24 hours.";
     public const string NotProjected = "The schedule has no occurrence after now.";
+    public const string NoEndDateNote = "ConfigMgr stores no end date. The window recurs until it is removed or disabled.";
 
     public static string NameTaken(string collection, string name) => $"The collection {collection} already has a window named {name}.";
+
+    public static string MissingDayNote(int day) => $"A month without day {day} has no occurrence.";
 
     private readonly IScheduleProjector _projector;
     private readonly Func<DateTime> _now;
@@ -41,6 +43,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     private readonly IReadOnlyList<MaintenanceWindowInfo> _existingWindows;
     private readonly Func<MaintenanceWindowEditorViewModel, Task<bool>> _save;
     private bool _loading;
+    private string? _scheduleProblem;
 
     public MaintenanceWindowEditorViewModel(
         MaintenanceEditorMode mode,
@@ -102,8 +105,13 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     public IReadOnlyList<Choice<int>> DaysOfMonth { get; } =
         [new(0, "Last day"), .. Enumerable.Range(1, 31).Select(d => new Choice<int>(d, d.ToString(System.Globalization.CultureInfo.InvariantCulture)))];
     public IReadOnlyList<int> Hours { get; } = Enumerable.Range(0, 24).ToList();
+    public IReadOnlyList<int> DurationHourChoices { get; } = Enumerable.Range(0, (int)ScheduleProjector.MaxDuration.TotalHours + 1).ToList();
     public IReadOnlyList<int> Minutes { get; } = Enumerable.Range(0, 60).ToList();
-    public IReadOnlyList<int> PatchTuesdayOffsets { get; } = Enumerable.Range(-3, 34).ToList();
+    public IReadOnlyList<int> PatchTuesdayOffsets { get; } = Enumerable.Range(-7, 29).ToList();
+    public IReadOnlyList<int> WeekdayOffsets { get; } = Enumerable.Range(0, 8).ToList();
+
+    public DateTime FirstStartDate { get; } = new(ScheduleProjector.FirstYear, 1, 1);
+    public DateTime LastStartDate { get; } = new(ScheduleProjector.LastYear, 12, 31);
 
     /// <summary>The intervals ConfigMgr accepts for the kind: days 1 to 31, weeks 1 to 4, months 1 to 12.</summary>
     public IReadOnlyList<int> Intervals => Kind switch
@@ -130,11 +138,10 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _description = "";
     [ObservableProperty] private string _windowType = MaintenanceWindowsText.Any;
-    [ObservableProperty] private string _comment = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsRecurring), nameof(ShowInterval), nameof(ShowDayOfWeek), nameof(ShowDayOfMonth), nameof(ShowWeekOrder),
-        nameof(ShowPatchOffset), nameof(Intervals), nameof(IntervalLabel))]
+        nameof(ShowPatchOffset), nameof(ShowWeekdayOffset), nameof(Intervals), nameof(IntervalLabel), nameof(DayOfMonthNote), nameof(HasDayOfMonthNote))]
     private MaintenanceScheduleKind _kind = MaintenanceScheduleKind.Weekly;
 
     [ObservableProperty] private DateTime? _startDate;
@@ -145,11 +152,14 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     [ObservableProperty] private bool _isUtc;
     [ObservableProperty] private int _interval = 1;
     [ObservableProperty] private DayOfWeek _dayOfWeek = DayOfWeek.Sunday;
-    [ObservableProperty] private int _dayOfMonth = 1;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DayOfMonthNote), nameof(HasDayOfMonthNote))]
+    private int _dayOfMonth = 1;
+
     [ObservableProperty] private int _weekOrder = 1;
     [ObservableProperty] private int _patchTuesdayOffsetDays;
-    [ObservableProperty] private bool _hasEnd;
-    [ObservableProperty] private DateTime? _endDate;
+    [ObservableProperty] private int _weekdayOffsetDays;
 
     [ObservableProperty] private string _scheduleText = "";
     [ObservableProperty] private string _validationMessage = "";
@@ -165,6 +175,13 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     public bool ShowDayOfMonth => Kind == MaintenanceScheduleKind.MonthlyByDate;
     public bool ShowWeekOrder => Kind == MaintenanceScheduleKind.MonthlyByWeekday;
     public bool ShowPatchOffset => Kind == MaintenanceScheduleKind.PatchTuesday;
+    public bool ShowWeekdayOffset => Kind == MaintenanceScheduleKind.MonthlyByWeekday;
+
+    /// <summary>The reason the schedule inputs cannot be saved, from the editor's checks and the projector's Validate; null when none.</summary>
+    public string? ScheduleProblem => _scheduleProblem;
+
+    public string DayOfMonthNote => Kind == MaintenanceScheduleKind.MonthlyByDate && DayOfMonth >= 29 ? MissingDayNote(DayOfMonth) : "";
+    public bool HasDayOfMonthNote => DayOfMonthNote.Length > 0;
 
     /// <summary>The dialog size the page stores between visits.</summary>
     public double Width { get; set; } = 760;
@@ -203,8 +220,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     partial void OnDayOfMonthChanged(int value) => UpdatePreview();
     partial void OnWeekOrderChanged(int value) => UpdatePreview();
     partial void OnPatchTuesdayOffsetDaysChanged(int value) => UpdatePreview();
-    partial void OnHasEndChanged(bool value) => UpdatePreview();
-    partial void OnEndDateChanged(DateTime? value) => UpdatePreview();
+    partial void OnWeekdayOffsetDaysChanged(int value) => UpdatePreview();
 
     /// <summary>Fills the dialog from a window; the collection cannot change in Edit.</summary>
     public void Load(MaintenanceWindowInfo window)
@@ -216,7 +232,6 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         SelectedCollection = choice;
         Name = window.WindowName;
         WindowType = window.WindowType;
-        Comment = window.Comment;
         LoadSchedule(window.Schedule);
     }
 
@@ -229,6 +244,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         LoadSchedule(template.Schedule);
     }
 
+    /// <summary>Fills the schedule inputs. An end date is dropped: ConfigMgr stores none.</summary>
     public void LoadSchedule(MaintenanceSchedule schedule)
     {
         _loading = true;
@@ -238,7 +254,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
             StartDate = schedule.Start.Date;
             StartHour = schedule.Start.Hour;
             StartMinute = schedule.Start.Minute;
-            var duration = schedule.Duration > MaintenanceWindowsText.MaxDuration ? MaintenanceWindowsText.MaxDuration : schedule.Duration;
+            var duration = schedule.Duration > ScheduleProjector.MaxDuration ? ScheduleProjector.MaxDuration : schedule.Duration;
             DurationHours = Math.Max(0, (int)duration.TotalHours);
             DurationMinutes = Math.Max(0, duration.Minutes);
             IsUtc = schedule.IsUtc;
@@ -246,9 +262,10 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
             DayOfWeek = schedule.DayOfWeek ?? DayOfWeek.Sunday;
             DayOfMonth = schedule.DayOfMonth is >= 0 and <= 31 ? schedule.DayOfMonth.Value : 1;
             WeekOrder = schedule.WeekOrder is >= 1 and <= 5 ? schedule.WeekOrder.Value : 1;
-            PatchTuesdayOffsetDays = PatchTuesdayOffsets.Contains(schedule.PatchTuesdayOffsetDays) ? schedule.PatchTuesdayOffsetDays : 0;
-            HasEnd = schedule.End is not null;
-            EndDate = schedule.End?.Date;
+            PatchTuesdayOffsetDays = schedule.Kind == MaintenanceScheduleKind.PatchTuesday && PatchTuesdayOffsets.Contains(schedule.PatchTuesdayOffsetDays)
+                ? schedule.PatchTuesdayOffsetDays : 0;
+            WeekdayOffsetDays = schedule.Kind == MaintenanceScheduleKind.MonthlyByWeekday && WeekdayOffsets.Contains(schedule.PatchTuesdayOffsetDays)
+                ? schedule.PatchTuesdayOffsetDays : 0;
         }
         finally { _loading = false; }
         UpdatePreview();
@@ -259,15 +276,8 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     {
         if (StartDate is not { } date) return (null, StartRequired);
         var duration = TimeSpan.FromHours(DurationHours) + TimeSpan.FromMinutes(DurationMinutes);
-        if (duration < TimeSpan.FromMinutes(1) || duration > MaintenanceWindowsText.MaxDuration) return (null, DurationRange);
+        if (duration < TimeSpan.FromMinutes(1) || duration > ScheduleProjector.MaxDuration) return (null, DurationRange);
         var start = date.Date.AddHours(StartHour).AddMinutes(StartMinute);
-        DateTime? end = null;
-        if (IsRecurring && HasEnd)
-        {
-            if (EndDate is not { } endDate) return (null, EndBeforeStart);
-            if (endDate.Date < start.Date) return (null, EndBeforeStart);
-            end = endDate.Date.AddDays(1).AddTicks(-1);
-        }
         var kind = Kind;
         return (new MaintenanceSchedule(
             kind,
@@ -278,8 +288,13 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
             ShowDayOfWeek ? DayOfWeek : null,
             kind == MaintenanceScheduleKind.MonthlyByDate ? DayOfMonth : null,
             kind == MaintenanceScheduleKind.MonthlyByWeekday ? WeekOrder : null,
-            kind == MaintenanceScheduleKind.PatchTuesday ? PatchTuesdayOffsetDays : 0,
-            end), null);
+            kind switch
+            {
+                MaintenanceScheduleKind.PatchTuesday => PatchTuesdayOffsetDays,
+                MaintenanceScheduleKind.MonthlyByWeekday => WeekdayOffsetDays,
+                _ => 0
+            },
+            null), null);
     }
 
     /// <summary>The reason the inputs cannot be saved, or null.</summary>
@@ -288,7 +303,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         var name = Name.Trim();
         if (name.Length == 0) return NameRequired;
         if (IsWindow && SelectedCollection is null) return CollectionRequired;
-        var (_, error) = BuildSchedule();
+        var error = CheckSchedule();
         if (error is not null) return error;
         if (IsWindow && SelectedCollection is { } collection)
         {
@@ -301,9 +316,33 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         return null;
     }
 
+    /// <summary>The editor's own reason, then the projector's reason, that the schedule cannot be stored; null when none.</summary>
+    private string? CheckSchedule()
+    {
+        var (schedule, error) = BuildSchedule();
+        if (error is not null) return error;
+        try { return _projector.Validate(schedule!); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return "The schedule cannot be stored."; }
+    }
+
+    /// <summary>Shows a schedule problem as the validation message and keeps Save disabled while one exists.</summary>
+    private void UpdateScheduleProblem()
+    {
+        var previous = _scheduleProblem;
+        _scheduleProblem = CheckSchedule();
+        if (_scheduleProblem is not null) ValidationMessage = _scheduleProblem;
+        else if (previous is not null && ValidationMessage == previous) ValidationMessage = "";
+        if (previous != _scheduleProblem)
+        {
+            OnPropertyChanged(nameof(ScheduleProblem));
+            SaveCommand.NotifyCanExecuteChanged();
+        }
+    }
+
     private void UpdatePreview()
     {
         if (_loading) return;
+        UpdateScheduleProblem();
         Preview.Clear();
         var (schedule, error) = BuildSchedule();
         if (schedule is null)
@@ -331,7 +370,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         if (schedule is null || SelectedCollection is not { } collection) return null;
         var next = SafeNext(schedule);
         return new MaintenanceWindowInfo(collection.Collection.CollectionId, collection.Collection.Name, Name.Trim(),
-            Original?.ServiceWindowId ?? "", WindowType, Original?.Enabled ?? true, schedule, SafeDescribe(schedule), next, Comment.Trim());
+            Original?.ServiceWindowId ?? "", WindowType, Original?.Enabled ?? true, schedule, SafeDescribe(schedule), next, Original?.Comment ?? "");
     }
 
     public MaintenanceTemplate? BuildTemplate()
@@ -353,7 +392,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return ""; }
     }
 
-    private bool CanSave() => !IsSaving;
+    private bool CanSave() => !IsSaving && _scheduleProblem is null;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()

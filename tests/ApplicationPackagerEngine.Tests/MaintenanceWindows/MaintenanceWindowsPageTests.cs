@@ -243,6 +243,20 @@ public sealed class MaintenanceWindowsPageTests
                 Assert.Equal(editor.ShowDayOfMonth, ById<FrameworkElement>(window, "cboDayOfMonth").IsVisible);
                 Assert.Equal(editor.ShowWeekOrder, ById<FrameworkElement>(window, "cboWeekOrder").IsVisible);
                 Assert.Equal(editor.ShowPatchOffset, ById<FrameworkElement>(window, "cboPatchOffset").IsVisible);
+                Assert.Equal(editor.ShowWeekdayOffset, ById<FrameworkElement>(window, "cboWeekdayOffset").IsVisible);
+                Assert.Equal(editor.IsRecurring, ById<TextBlock>(window, "txtNoEndDate").IsVisible);
+                Assert.Equal(MaintenanceWindowEditorViewModel.NoEndDateNote, ById<TextBlock>(window, "txtNoEndDate").Text);
+                Assert.DoesNotContain(Descendants(window), e => AutomationProperties.GetAutomationId(e) is "dpEndDate" or "chkHasEnd" or "txtComment");
+                Assert.Equal(25, ById<System.Windows.Controls.ComboBox>(window, "cboDurationHours").Items.Count);
+                var picker = ById<DatePicker>(window, "dpStartDate");
+                Assert.Equal((editor.FirstStartDate, editor.LastStartDate), (picker.DisplayDateStart, picker.DisplayDateEnd));
+                if (kind == MaintenanceScheduleKind.MonthlyByDate)
+                {
+                    editor.DayOfMonth = 31;
+                    StaTestHelper.Flush();
+                    Assert.Equal(editor.DayOfMonthNote, ById<TextBlock>(window, "txtDayOfMonthNote").Text);
+                    Assert.True(ById<TextBlock>(window, "txtDayOfMonthNote").IsVisible);
+                }
                 Assert.Equal(kind == MaintenanceScheduleKind.OneTime ? 1 : 5, ById<ItemsControl>(window, "lstPreview").Items.Count);
                 Assert.Equal(editor.ScheduleText, ById<TextBlock>(window, "txtScheduleText").Text);
             }

@@ -16,9 +16,6 @@ public static class MaintenanceWindowsText
     public const string SoftwareUpdates = "SoftwareUpdates";
     public const string TaskSequences = "TaskSequences";
 
-    /// <summary>ConfigMgr refuses a window of 24 hours or more.</summary>
-    public static readonly TimeSpan MaxDuration = TimeSpan.FromHours(24) - TimeSpan.FromMinutes(1);
-
     public static IReadOnlyList<Choice<string>> WindowTypes { get; } =
     [
         new(Any, "All deployments"),
