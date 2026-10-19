@@ -423,9 +423,25 @@ switch ($Operation) {
         Write-Result 'ok'
     }
     'RemoveObjects' {
-        # Deployments first, then baselines, then CIs: ConfigMgr refuses to remove an object that
-        # another one still references. Each item reports its own result.
+        # Deployments first, then baselines, then CIs. Remove-CMBaseline -Force removes a baseline
+        # that still has deployments (seen on a site), so the deployments and relations of each
+        # baseline and CI are read again right before its removal: any that remains keeps it.
         $failed = New-Object System.Collections.Generic.List[string]
+        $kept = New-Object System.Collections.Generic.List[object]
+        function Add-Kept([string]$Reference, [string]$Name, [string[]]$UsedBy) {
+            $kept.Add([pscustomobject]@{ Ref = $Reference; Name = $Name; UsedBy = @($UsedBy) })
+            $steps.Add('kept:' + $Reference)
+        }
+        function Get-Holders([long[]]$Ids) {
+            @(Invoke-Query ('SELECT FromCIID, ToCIID, RelationType FROM SMS_CIRelation WHERE ToCIID IN ({0})' -f ((@($Ids) | ForEach-Object { [string][long]$_ }) -join ',')) |
+                Where-Object { [int](Get-Prop $_ 'RelationType') -in 1, 2, 3, 4 } | ForEach-Object { [long]$_.FromCIID } | Sort-Object -Unique)
+        }
+        function Get-HolderText([long]$Id) {
+            $b = Invoke-Query ('SELECT CI_ID, LocalizedDisplayName FROM SMS_ConfigurationBaselineInfo WHERE CI_ID = ' + [string]$Id) | Select-Object -First 1
+            if ($null -ne $b) { return ('baseline {0} ({1})' -f [string](Get-Prop $b 'LocalizedDisplayName'), [string]$Id) }
+            return ('configuration item ' + [string]$Id)
+        }
+        $owned = @($DeploymentIds | Where-Object { $_ -match '^\d{1,10}$' } | ForEach-Object { [long]$_ })
         foreach ($id in $DeploymentIds) {
             if ($id -notmatch '^\d{1,10}$') { $failed.Add('Deployment:' + $id); continue }
             $a = Get-Assignment ([long]$id)
@@ -434,17 +450,44 @@ switch ($Operation) {
         }
         foreach ($id in $BaselineIds) {
             if ($id -notmatch '^\d{1,10}$') { $failed.Add('Baseline:' + $id); continue }
-            if ($null -eq (Get-CMBaseline -Id ([int]$id) -Fast)) { $steps.Add('gone:Baseline:' + $id); continue }
+            $b = Get-CMBaseline -Id ([int]$id) -Fast
+            if ($null -eq $b) { $steps.Add('gone:Baseline:' + $id); continue }
+            $deployed = @(Invoke-Query 'SELECT AssignmentID, AssignedCIs, TargetCollectionID FROM SMS_BaselineAssignment' |
+                Where-Object { @(Get-Prop $_ 'AssignedCIs') -contains [long]$id })
+            $foreign = @($deployed | Where-Object { $owned -notcontains [long]$_.AssignmentID })
+            $holders = @(Get-Holders @([long]$id))
+            if ($foreign.Count + $holders.Count -gt 0) {
+                Add-Kept ('Baseline:' + $id) ([string]$b.LocalizedDisplayName) (@($foreign | ForEach-Object { 'deployment {0} to collection {1}' -f [string]$_.AssignmentID, [string]$_.TargetCollectionID }) + @($holders | ForEach-Object { Get-HolderText $_ }))
+                continue
+            }
+            if ($deployed.Count -gt 0) { $failed.Add('Baseline:' + $id); continue }
             try { Remove-CMBaseline -Id ([int]$id) -Force } catch { }
             if ($null -eq (Get-CMBaseline -Id ([int]$id) -Fast)) { $steps.Add('removed:Baseline:' + $id) } else { $failed.Add('Baseline:' + $id) }
         }
+        $ownedBaselines = @($BaselineIds | Where-Object { $_ -match '^\d{1,10}$' } | ForEach-Object { [long]$_ })
         foreach ($id in $ItemIds) {
             if ($id -notmatch '^\d{1,10}$') { $failed.Add('ConfigurationItem:' + $id); continue }
             $ci = Get-ConfigItem ([long]$id)
             if ($null -eq $ci) { $steps.Add('gone:ConfigurationItem:' + $id); continue }
+            $lineage = @([long]$id, [long]$ci.CI_ID)
+            $model = Get-Prop $ci 'ModelID'
+            if ($null -ne $model -and [long]$model -gt 0) {
+                $lineage += @(Invoke-Query ('SELECT CI_ID, ModelID FROM SMS_ConfigurationItem WHERE ModelID = ' + [string][long]$model) | ForEach-Object { [long]$_.CI_ID })
+            }
+            $holders = @(Get-Holders ($lineage | Sort-Object -Unique))
+            $keptRefs = @($kept | ForEach-Object { [string]$_.Ref })
+            $foreign = @($holders | Where-Object { $ownedBaselines -notcontains $_ -or $keptRefs -contains ('Baseline:' + [string]$_) })
+            if ($foreign.Count -gt 0) {
+                Add-Kept ('ConfigurationItem:' + $id) ([string]$ci.LocalizedDisplayName) @($foreign | ForEach-Object { Get-HolderText $_ })
+                continue
+            }
+            if ($holders.Count -gt 0) { $failed.Add('ConfigurationItem:' + $id); continue }
             try { Remove-CMConfigurationItem -Id ([int]$ci.CI_ID) -Force } catch { }
             if ($null -eq (Get-ConfigItem ([long]$id))) { $steps.Add('removed:ConfigurationItem:' + $id) } else { $failed.Add('ConfigurationItem:' + $id) }
         }
-        Write-Result $(if ($failed.Count -eq 0) { 'ok' } else { 'some-remain' }) '' '' @($failed)
+        $status = if ($failed.Count -gt 0) { 'some-remain' } elseif ($kept.Count -gt 0) { 'kept' } else { 'ok' }
+        $result = Write-Result $status '' '' @($failed)
+        $result | Add-Member -NotePropertyName Kept -NotePropertyValue ([object[]]$kept.ToArray())
+        $result
     }
 }

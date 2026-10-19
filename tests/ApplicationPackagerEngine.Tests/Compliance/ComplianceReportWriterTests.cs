@@ -105,6 +105,19 @@ public sealed class ComplianceReportWriterTests : IDisposable
     }
 
     [Fact]
+    public void AnHtmlReportRightAfterACsvReportInTheSameSecondIsWrittenWithBothSections()
+    {
+        var csv = Writer().WriteCsv(Drift, [Row()]);
+        var html = Writer().WriteHtml(Drift, [Row()]);
+
+        Assert.Equal(Path.Combine(_folder, "compliance-20261019-093005.html"), html);
+        Assert.True(File.Exists(csv));
+        var text = File.ReadAllText(html);
+        Assert.Contains("Baselines: 2.", text);
+        Assert.Contains("Deployments: 1.", text);
+    }
+
+    [Fact]
     public void AReportsFolderThatIsAJunctionIsRefused()
     {
         var target = Path.Combine(_folder, "target");

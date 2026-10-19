@@ -85,7 +85,7 @@ public sealed partial class ComplianceService : IComplianceService
 
     // ---- Script output shapes ----------------------------------------------------------------
 
-    internal sealed record ItemRow(string? Kind, string? CiId, string? Name, string? Description, int Revision, int BaselineCount, int Deployments, DateTime? Modified);
+    internal sealed record ItemRow(string? Kind, string? CiId, string? Name, string? Description, int Revision, int BaselineCount, int Deployments, DateTime? Modified, int? SettingCount = null);
 
     internal sealed record BaselineReadRow(
         string? Kind, string? BaselineId, string? Name, string? Description, int Revision, int ItemCount, int DeploymentCount,
@@ -111,7 +111,10 @@ public sealed partial class ComplianceService : IComplianceService
 
     internal sealed record SnapshotInfo(string? Kind, DateTime? Now, string? User, string[]? ItemIds, string[]? BaselineIds, string[]? DeploymentIds);
 
-    internal sealed record WriteResult(string? Kind, string? Status, string? Detail, string[]? Steps, string? CreatedId, string[]? References, string? CiId, int Revision);
+    internal sealed record WriteResult(string? Kind, string? Status, string? Detail, string[]? Steps, string? CreatedId, string[]? References, string? CiId, int Revision, KeptRow[]? Kept = null);
+
+    /// <summary>An object a RemoveObjects run did not remove because something it did not create uses it.</summary>
+    internal sealed record KeptRow(string? Ref, string? Name, string[]? UsedBy);
 
     // ---- Reads --------------------------------------------------------------------------------
 
@@ -119,7 +122,7 @@ public sealed partial class ComplianceService : IComplianceService
     {
         var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Items" } }, ct).ConfigureAwait(false);
         var rows = Rows<ItemRow>(output, "Item")
-            .Select(r => new ConfigurationItemRow(r.CiId ?? "", r.Name ?? "", r.Description ?? "", r.Revision, -1, r.BaselineCount, r.Modified))
+            .Select(r => new ConfigurationItemRow(r.CiId ?? "", r.Name ?? "", r.Description ?? "", r.Revision, r.SettingCount ?? -1, r.BaselineCount, r.Modified))
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
         _log?.Info(LogArea, $"Listed {rows.Count} configuration items.");
         return rows;

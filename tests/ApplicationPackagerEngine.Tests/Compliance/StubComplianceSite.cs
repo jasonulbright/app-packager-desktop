@@ -15,7 +15,7 @@ namespace ApplicationPackagerEngine.Tests.Compliance;
 /// New-CMBaselineDeployment returns another deployment than the one it made, ignores
 /// -OverrideServiceWindow without remediation and stores -MonitoredByScom and -PostponeDateTime on
 /// the alert; SummarizationTime comes back as UTC with an unspecified kind; names are matched
-/// without case). Each listed failure ("create:BaselineId", "after-create:BaselineId",
+/// without case; Remove-CMBaseline -Force removes a baseline that has deployments, and the deployments with it). Option DeployOnRemove "AssignmentId|BaselineId|CollectionId|NewAssignmentId" adds a deployment of another account when that assignment is removed. Each listed failure ("create:BaselineId", "after-create:BaselineId",
 /// "remove:AssignmentId", "after-remove:AssignmentId", "set:AssignmentId", "add:SettingName",
 /// "after-add:SettingName", "set:SettingName", "after-set:SettingName", "removesetting:SettingName",
 /// "rename:SettingName", "tag:BaselineId", "removebaseline:Id", "removeitem:Id", "query") happens
@@ -135,6 +135,14 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             Test-Fail ('remove:' + [string]$InputObject.AssignmentID)
             $a = $global:Assignments | Where-Object { [long]$_.AssignmentID -eq [long]$InputObject.AssignmentID } | Select-Object -First 1
             [void]$global:Assignments.Remove($a)
+            if ($global:Opt.ContainsKey('DeployOnRemove')) {
+                $deploy = ([string]$global:Opt['DeployOnRemove']).Split('|')
+                if ($deploy[0] -eq [string]$InputObject.AssignmentID) {
+                    $global:Assignments.Add([pscustomobject]@{ AssignmentID = [long]$deploy[3]; UniqueId = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'; BaselineId = $deploy[1]; CollectionID = $deploy[2]
+                        Enforcement = $false; Schedule = '0001200000100038'; Override = $false; Mom = $false; Alert = $false; AlertThreshold = 0; AlertAfter = ''; Summary = $null
+                        Created = (Get-Date).ToUniversalTime().ToString('o'); CreatedBy = 'CONTOSO\OtherAdmin' })
+                }
+            }
             Test-Fail ('after-remove:' + [string]$InputObject.AssignmentID)
         }
         function global:New-CMBaselineDeployment {
@@ -162,7 +170,9 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             [CmdletBinding()] param([int]$Id, [switch]$Force)
             $global:Log.Add('Remove-CMBaseline:' + [string]$Id)
             Test-Fail ('removebaseline:' + [string]$Id)
-            if (@($global:Assignments | Where-Object { [string]$_.BaselineId -eq [string]$Id }).Count -gt 0) { throw 'The configuration item cannot be deleted because there are dependent items in use.' }
+            $deployed = @($global:Assignments | Where-Object { [string]$_.BaselineId -eq [string]$Id })
+            if ($deployed.Count -gt 0 -and -not $Force) { throw 'The configuration item cannot be deleted because there are dependent items in use.' }
+            foreach ($a in $deployed) { [void]$global:Assignments.Remove($a) }
             [void]$global:Baselines.Remove(($global:Baselines | Where-Object { [string]$_.Id -eq [string]$Id } | Select-Object -First 1))
         }
         function global:Remove-CMConfigurationItem {
@@ -239,7 +249,7 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             function InList([string]$Text, [string]$Property) { if ($Text -match ($Property + ' IN \(([^)]*)\)')) { return ,@([regex]::Matches($Matches[1], "[\w{}-]+") | ForEach-Object { $_.Value }) }; return $null }
             function UtcAsStored([string]$Text) { [datetime]::SpecifyKind([datetime]::Parse($Text, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal), [DateTimeKind]::Unspecified) }
             $missing = $global:Opt.ContainsKey('MissingCounts')
-            if ($Query -match 'FROM SMS_ConfigurationBaselineInfo WHERE CI_ID = (\d+)') { return @($global:Baselines | Where-Object { [string]$_.Id -eq $Matches[1] } | ForEach-Object { [pscustomobject]@{ CI_ID = [long]$_.Id } }) }
+            if ($Query -match 'FROM SMS_ConfigurationBaselineInfo WHERE CI_ID = (\d+)') { return @($global:Baselines | Where-Object { [string]$_.Id -eq $Matches[1] } | ForEach-Object { [pscustomobject]@{ CI_ID = [long]$_.Id; LocalizedDisplayName = [string]$_.Name } }) }
             if ($Query -match 'FROM SMS_ConfigurationBaselineInfo') {
                 $only = InList $Query 'CI_ID'
                 return @($global:Baselines | Where-Object { $null -eq $only -or $only -contains [string]$_.Id } | ForEach-Object {
@@ -252,6 +262,10 @@ internal sealed class StubComplianceSite : IConfigMgrSession
                 return @(foreach ($b in $global:Baselines) { foreach ($i in @($b.Items)) {
                     $rel = [pscustomobject]@{ FromCIID = [long]$b.Id; ToCIID = [long]$i; RelationType = 1 }
                     if (($side -eq 'FromCIID' -and $ids -contains [string]$b.Id) -or ($side -eq 'ToCIID' -and $ids -contains [string]$i)) { $rel } } })
+            }
+            if ($Query -match 'FROM SMS_ConfigurationItemSettings WHERE CI_ID IN \(([\d,]+)\)') {
+                $ids = $Matches[1] -split ','
+                return @(foreach ($ci in $global:Items) { if ($ids -contains [string]$ci.Id) { foreach ($s in $ci.Settings) { [pscustomobject]@{ CI_ID = [long]$ci.Id; Setting_UniqueID = [string]$s.SettingId } } } })
             }
             if ($Query -match 'FROM SMS_ConfigurationItemLatest WHERE CIType_ID = 3') { return @($global:Items | ForEach-Object { [pscustomobject]@{ CI_ID = [long]$_.Id; LocalizedDisplayName = [string]$_.Name; LocalizedDescription = [string](V $_ 'Description' ''); CIVersion = [int]$_.Version; DateLastModified = [datetime]'2026-10-01T10:00:00Z'; CIType_ID = 3; IsUserDefined = $true } }) }
             if ($Query -match 'FROM SMS_ConfigurationItem WHERE') {

@@ -415,18 +415,31 @@ public sealed partial class ComplianceService
             { "Operation", "RemoveObjects" }, { "DeploymentIds", deployments.ToArray() }, { "BaselineIds", baselines.ToArray() }, { "ItemIds", items.ToArray() }
         }).ConfigureAwait(false);
         var steps = (run.Result?.Steps ?? []).Select(StepLine).ToList();
+        var kept = KeptText(run.Result?.Kept);
         switch (run.Result?.Status)
         {
             case "ok":
                 return Done(change, $"Removed the objects the catalog deploy created: {Count(deployments.Count, "deployment")}, {Count(baselines.Count, "baseline")}, {Count(items.Count, "configuration item")}.", null, steps);
+            case "kept":
+                return Fail(change, $"{kept} The other objects were removed.") with { Steps = steps };
             case "some-remain":
                 var left = string.Join(", ", (run.Result.References ?? []).Select(RefText));
-                return Fail(change, $"ConfigMgr did not remove {left}. Something else may use them now; check them in the console. The other objects were removed.") with { Steps = steps };
+                return Fail(change, $"ConfigMgr did not remove {left}. Something else may use them now; check them in the console.{(kept.Length > 0 ? " " + kept : "")} The other objects were removed.") with { Steps = steps };
         }
         if (run.Uncertain)
             return Fail(change, "The result of the removal is not known: ConfigMgr reported an error during the change. Refresh the lists to see which objects still exist.");
         return run.Failure ?? Fail(change, WriteFailedMessage(change));
     }
+
+    /// <summary>One sentence per kept object: its name and ID, and what uses it.</summary>
+    private static string KeptText(IReadOnlyList<KeptRow>? kept) =>
+        string.Join(" ", (kept ?? []).Select(k =>
+        {
+            var parts = (k.Ref ?? "").Split(':', 2);
+            var noun = parts[0] == "ConfigurationItem" ? "Configuration item" : parts[0];
+            var uses = string.Join(", ", k.UsedBy ?? []);
+            return $"{noun} {Shown(k.Name, parts.Length == 2 ? parts[1] : "")} was kept because it is used by something this run did not create{(uses.Length > 0 ? ": " + uses : "")}.";
+        }));
 
     private static string RefText(string reference)
     {
@@ -441,6 +454,7 @@ public sealed partial class ComplianceService
         {
             "removed" => $"Removed {RefText(parts.Length > 1 ? parts[1] : "")}.",
             "gone" => $"Not found in ConfigMgr, so not removed: {RefText(parts.Length > 1 ? parts[1] : "")}.",
+            "kept" => $"Kept {RefText(parts.Length > 1 ? parts[1] : "")}: something this run did not create uses it.",
             "created" => "Created the deployment.",
             "set" => "Set the new values.",
             "added" => "Added the setting.",

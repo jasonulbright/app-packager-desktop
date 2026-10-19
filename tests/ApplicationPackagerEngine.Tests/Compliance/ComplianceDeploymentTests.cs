@@ -22,7 +22,7 @@ public sealed class ComplianceDeploymentTests
             null, () => Now, Counter());
 
     private static StubComplianceSite Site() => new(NewState(
-        items: [Ci("16780001", "Lab CI", 4, RegistrySetting("RegSetting_a", "EnableMulticast"))],
+        items: [Ci("16780001", "Lab CI", 4, RegistrySetting("RegSetting_a", "EnableMulticast"), RegistrySetting("RegSetting_b", "EnableMDNS"))],
         baselines: [CiBaseline("16780002", "Lab Baseline", "Disables LLMNR. [ccm:llmnr-disable@1.0.0]", "16780001"), CiBaseline("16780003", "Hand made", "No tag here")],
         assignments:
         [
@@ -44,14 +44,14 @@ public sealed class ComplianceDeploymentTests
 
         int Queries() { var n = site.Log.Count(l => l == "Query"); site.Log.Clear(); return n; }
         var items = await service.ListConfigurationItemsAsync(CancellationToken.None);
-        Assert.Equal(4, Queries());
+        Assert.Equal(5, Queries());
         var baselines = await service.ListBaselinesAsync(CancellationToken.None);
         Assert.Equal(3, Queries());
         var deployments = await service.ListDeploymentsAsync(null, CancellationToken.None);
         Assert.Equal(5, Queries());
         var one = await service.ListDeploymentsAsync("16780002", CancellationToken.None);
 
-        Assert.Equal(("16780001", "Lab CI", 4, -1, 1), (items.Single().CiId, items.Single().Name, items.Single().Revision, items.Single().SettingCount, items.Single().BaselineCount));
+        Assert.Equal(("16780001", "Lab CI", 4, 2, 1),(items.Single().CiId, items.Single().Name, items.Single().Revision, items.Single().SettingCount, items.Single().BaselineCount));
         var tagged = baselines.Single(b => b.BaselineId == "16780002");
         Assert.Equal(("llmnr-disable", "1.0.0", 1, 1), (tagged.CatalogId, tagged.CatalogVersion, tagged.ItemCount, tagged.DeploymentCount));
         Assert.Null(baselines.Single(b => b.BaselineId == "16780003").CatalogId);

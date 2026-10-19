@@ -299,8 +299,49 @@ public sealed class ComplianceCatalogDeployTests
         Assert.Equal(3, outcome.UndoChange!.CreatedIds.Count);
     }
 
+    private static void AssertKeptForForeignDeployment(StubComplianceSite site, ComplianceOutcome undone, long foreign)
+    {
+        Assert.False(undone.Succeeded);
+        Assert.Contains("kept because it is used by something this run did not create", undone.Message);
+        Assert.Contains("Hardening LLMNR Disable (16790001)", undone.Message);
+        Assert.Contains("Hardening: LLMNR Disable (16790000)", undone.Message);
+        Assert.Contains($"deployment {foreign} to collection MCM00081", undone.Message);
+        Assert.NotNull(site.Assignment(foreign));
+        Assert.Null(site.Assignment(16777300));
+        Assert.NotNull(site.Baseline("16790001"));
+        Assert.NotNull(site.Item("16790000"));
+        Assert.DoesNotContain("Remove-CMBaseline:16790001", site.Log);
+        Assert.DoesNotContain("Remove-CMConfigurationItem:16790000", site.Log);
+    }
+
     [Fact]
-    public async Task AnObjectSomethingElseUsesIsNamedWhenUndoCannotRemoveIt()
+    public async Task UndoKeepsTheBaselineAndItsItemWhenAnotherSessionDeployedTheBaselineAfterTheRun()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new SiteBuilder(site));
+        var (outcome, _) = await Apply(service, await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None));
+        site.Assignments.Add(JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(Deployment(16777400, "16790001", "MCM00081"))));
+
+        var (undone, _) = await Apply(service, await service.PrepareAsync(outcome.UndoChange!, CancellationToken.None));
+
+        AssertKeptForForeignDeployment(site, undone, 16777400);
+    }
+
+    [Fact]
+    public async Task UndoKeepsTheBaselineAndItsItemWhenAnotherSessionDeploysTheBaselineDuringTheUndo()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new SiteBuilder(site));
+        var (outcome, _) = await Apply(service, await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None));
+        site.SetOption("DeployOnRemove", "16777300|16790001|MCM00081|16777401");
+
+        var (undone, _) = await Apply(service, await service.PrepareAsync(outcome.UndoChange!, CancellationToken.None));
+
+        AssertKeptForForeignDeployment(site, undone, 16777401);
+    }
+
+    [Fact]
+    public async Task UndoRemovesTheBaselineButKeepsTheItemThatAnotherBaselineHoldsNow()
     {
         var site = Site();
         var service = ComplianceDeploymentTests.Service(site, new SiteBuilder(site));
@@ -310,8 +351,13 @@ public sealed class ComplianceCatalogDeployTests
         var (undone, _) = await Apply(service, outcome.UndoChange!);
 
         Assert.False(undone.Succeeded);
-        Assert.Contains("configuration item 16790000", undone.Message);
+        Assert.Contains("kept because it is used by something this run did not create", undone.Message);
+        Assert.Contains("Hardening: LLMNR Disable (16790000)", undone.Message);
+        Assert.Contains("baseline Existing Baseline (16780002)", undone.Message);
+        Assert.Null(site.Baseline("16790001"));
         Assert.Contains(undone.Steps, s => s.StartsWith("Removed baseline", StringComparison.Ordinal));
+        Assert.NotNull(site.Item("16790000"));
+        Assert.DoesNotContain("Remove-CMConfigurationItem:16790000", site.Log);
     }
 
     [Fact]

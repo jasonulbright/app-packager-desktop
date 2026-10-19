@@ -264,13 +264,25 @@ switch ($Operation) {
             if (-not $holders.ContainsKey($model)) { $holders[$model] = New-Object System.Collections.Generic.HashSet[long] }
             [void]$holders[$model].Add([long]$r.FromCIID)
         }
-        foreach ($ci in Invoke-Query 'SELECT CI_ID, LocalizedDisplayName, LocalizedDescription, CIVersion, DateLastModified, CIType_ID, IsUserDefined FROM SMS_ConfigurationItemLatest WHERE CIType_ID = 3') {
-            if (-not [bool](Get-Prop $ci 'IsUserDefined')) { continue }
+        $latest = @(Invoke-Query 'SELECT CI_ID, LocalizedDisplayName, LocalizedDescription, CIVersion, DateLastModified, CIType_ID, IsUserDefined FROM SMS_ConfigurationItemLatest WHERE CIType_ID = 3' |
+            Where-Object { [bool](Get-Prop $_ 'IsUserDefined') })
+        # SMS_ConfigurationItemSettings holds one row per setting of each CI_ID (SDMPackageXML is
+        # lazy and a query does not return it): one query per 200 configuration items.
+        $settings = @{}
+        if ($latest.Count -gt 0) {
+            foreach ($s in Invoke-InQuery 'SELECT CI_ID, Setting_UniqueID FROM SMS_ConfigurationItemSettings' 'CI_ID' @($latest | ForEach-Object { [long]$_.CI_ID })) {
+                $key = [long]$s.CI_ID
+                if (-not $settings.ContainsKey($key)) { $settings[$key] = New-Object System.Collections.Generic.HashSet[string] }
+                [void]$settings[$key].Add([string](Get-Prop $s 'Setting_UniqueID'))
+            }
+        }
+        foreach ($ci in $latest) {
             $id = [long]$ci.CI_ID
             $model = if ($lineage.ContainsKey($id)) { $lineage[$id] } else { $id }
             [pscustomobject]@{
                 Kind = 'Item'; CiId = [string]$id; Name = [string]$ci.LocalizedDisplayName; Description = [string](Get-Prop $ci 'LocalizedDescription')
                 Revision = [int](Get-Prop $ci 'CIVersion'); BaselineCount = $(if ($holders.ContainsKey($model)) { [int]$holders[$model].Count } else { 0 })
+                SettingCount = $(if ($settings.ContainsKey($id)) { [int]$settings[$id].Count } else { 0 })
                 Modified = Get-Time (Get-Prop $ci 'DateLastModified')
             }
         }
