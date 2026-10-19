@@ -3,7 +3,7 @@ using K = ApplicationPackagerEngine.Services.MaintenanceScheduleKind;
 
 namespace ApplicationPackagerEngine.Tests.MaintenanceWindows;
 
-/// <summary>The tokens are the values CM01 stored for windows made with New-CMSchedule.</summary>
+/// <summary>The tokens are values a ConfigMgr site stored for windows made with New-CMSchedule.</summary>
 public sealed class ScheduleTokenTests
 {
     private static readonly DateTime LabStart = new(2026, 11, 3, 22, 30, 0);
