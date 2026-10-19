@@ -11,6 +11,12 @@ public sealed partial class ComplianceService
     /// <summary>The Values key that says how an Edit is written: InPlace keeps the setting ID, Replace gives a new one.</summary>
     public const string EditModeKey = "EditMode";
 
+    /// <summary>The Values key of a CatalogDeploy that asks for a missing dependency to be created.</summary>
+    public const string CreateDependencyKey = "CreateDependency";
+
+    internal const string CreateDependencyMessage =
+        "No shipped builder creates a collection that a catalog entry depends on. Create the collection on the Collections tab (the plan and Undo there apply), then deploy the entry.";
+
     internal sealed record CatalogPlan(
         CatalogEntry Entry, IReadOnlyDictionary<string, string> Values, IReadOnlyList<string> Arguments,
         IReadOnlyList<(string Parameter, string Name)> Collections, bool DetectOnly, bool Deploys);
@@ -102,6 +108,8 @@ public sealed partial class ComplianceService
     {
         var entry = (request.CatalogId is { } id ? _catalog.Find(id) : null)
             ?? throw new ComplianceServiceException("Select a catalog entry.");
+        if (request.Values?.ContainsKey(CreateDependencyKey) == true)
+            throw new ComplianceServiceException(CreateDependencyMessage);
         var connection = _connection();
         var values = new Dictionary<string, string>(request.Values ?? new Dictionary<string, string>(), StringComparer.Ordinal);
         var site = connection.NormalizedSiteCode;
@@ -178,7 +186,7 @@ public sealed partial class ComplianceService
     private static FoundRow RequireNamedCollection(IReadOnlyList<FoundRow> found, string name, string parameter)
     {
         var matches = found.Where(c => c.Name == name).ToList();
-        if (matches.Count == 0) throw new ComplianceServiceException($"Collection {name} ({parameter}) does not exist. Create it first or select another collection.");
+        if (matches.Count == 0) throw new ComplianceServiceException($"Collection {name} ({parameter}) does not exist. Create it first or select another collection.", ComplianceFailureKind.NotFound);
         if (matches.Count > 1) throw new ComplianceServiceException($"More than one collection is named {name}. The deployment cmdlet would not know which one to use.");
         var c = matches[0];
         if (c.CollectionType != 2) throw new ComplianceServiceException($"Collection {Shown(c.Name, c.Id)} is not a device collection. Baselines from the catalog target devices.");
@@ -208,12 +216,12 @@ public sealed partial class ComplianceService
         var id = CheckedNumber(before.DeploymentId, "Select a deployment.");
         var current = (await ReadDeploymentsAsync(new ConfigMgrParameters { { "Operation", "Deployments" }, { "AssignmentId", long.Parse(id, CultureInfo.InvariantCulture) } }, ct).ConfigureAwait(false))
             .FirstOrDefault()
-            ?? throw new ComplianceServiceException($"{Capital(Deployment(before))} does not exist any more. Refresh the list.");
+            ?? throw new ComplianceServiceException($"{Capital(Deployment(before))} does not exist any more. Refresh the list.", ComplianceFailureKind.NotFound);
         if (before.BaselineId.Length > 0 && (current.BaselineId != before.BaselineId
                                              || !string.Equals(current.CollectionId, before.CollectionId, StringComparison.OrdinalIgnoreCase)
                                              || current.RemediateNoncompliant != before.RemediateNoncompliant
                                              || (before.Settings is { } s && current.Settings is { } c && !string.Equals(s.ScheduleToken, c.ScheduleToken, StringComparison.OrdinalIgnoreCase))))
-            throw new ComplianceServiceException($"{Capital(Deployment(before))} changed since it was read. Refresh the list and try again.");
+            throw new ComplianceServiceException($"{Capital(Deployment(before))} changed since it was read. Refresh the list and try again.", ComplianceFailureKind.Stale);
         return current;
     }
 
@@ -221,7 +229,7 @@ public sealed partial class ComplianceService
     {
         var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Collection" }, { "CollectionId", collectionId } }, ct).ConfigureAwait(false);
         var found = Rows<FoundRow>(output, "FoundCollection").FirstOrDefault()
-            ?? throw new ComplianceServiceException($"Collection {collectionId} does not exist. Refresh the list.");
+            ?? throw new ComplianceServiceException($"Collection {collectionId} does not exist. Refresh the list.", ComplianceFailureKind.NotFound);
         if (found.CollectionType != 2) throw new ComplianceServiceException($"Collection {Shown(found.Name, found.Id)} is not a device collection.");
         if (IsBuiltInCollection(found.Id)) throw new ComplianceServiceException($"Collection {Shown(found.Name, found.Id)} is a built-in collection. Select a collection that holds the devices to evaluate.");
         return found;
@@ -240,7 +248,7 @@ public sealed partial class ComplianceService
     {
         var ciId = CheckedNumber(request.CiId, "Select a configuration item.");
         var (item, settings) = await ReadSettingsAsync(ciId, ct).ConfigureAwait(false);
-        if (item is null) throw new ComplianceServiceException("The configuration item does not exist any more. Refresh the list.");
+        if (item is null) throw new ComplianceServiceException("The configuration item does not exist any more. Refresh the list.", ComplianceFailureKind.NotFound);
         var ci = Shown(item.Name, item.CiId);
         var values = new Dictionary<string, string>(request.Values ?? new Dictionary<string, string>(), StringComparer.Ordinal)
         {
@@ -251,9 +259,9 @@ public sealed partial class ComplianceService
         {
             var wanted = request.SettingBefore ?? throw new ComplianceServiceException("Select a setting.");
             before = settings.FirstOrDefault(s => s.SettingId == wanted.SettingId)
-                     ?? throw new ComplianceServiceException($"Setting {wanted.Name} does not exist on configuration item {ci} any more. Refresh the list.");
+                     ?? throw new ComplianceServiceException($"Setting {wanted.Name} does not exist on configuration item {ci} any more. Refresh the list.", ComplianceFailureKind.NotFound);
             if (!SettingRules.Same(before, wanted))
-                throw new ComplianceServiceException($"Setting {wanted.Name} on configuration item {ci} changed since it was read. Refresh the list and try again.");
+                throw new ComplianceServiceException($"Setting {wanted.Name} on configuration item {ci} changed since it was read. Refresh the list and try again.", ComplianceFailureKind.Stale);
             if (!before.IsEditable)
                 throw new ComplianceServiceException($"Setting {before.Name} is not a registry or script setting with one value rule. This page does not change it, because Undo could not create it again.");
             if (SettingRules.Check(before) is { } unrestorable)

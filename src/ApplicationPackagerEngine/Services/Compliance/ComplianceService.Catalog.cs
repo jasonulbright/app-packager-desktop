@@ -29,7 +29,7 @@ public sealed partial class ComplianceService
             lock (steps)
             {
                 steps.Add(line);
-                progress.Report(new ComplianceOutcome(change, false, line, null, steps.ToList(), InProgress: true));
+                progress.Report(new ComplianceOutcome(change, true, line, null, steps.ToList(), InProgress: true));
             }
         }
 

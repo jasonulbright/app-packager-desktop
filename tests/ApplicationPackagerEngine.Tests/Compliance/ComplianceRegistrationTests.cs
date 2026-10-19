@@ -30,7 +30,7 @@ public sealed class ComplianceRegistrationTests : IDisposable
         Assert.Same(catalog, services.GetRequiredService<ICatalogService>());
         Assert.Equal(16, catalog.All().Count);
 
-        var report = services.GetRequiredService<IComplianceReportWriter>().WriteHtml(Array.Empty<ComplianceRow>());
+        var report = services.GetRequiredService<IComplianceReportWriter>().WriteHtml([], []);
         Assert.StartsWith(Path.Combine(AppDataPaths.Root, "Collections", "Reports"), report);
         Assert.StartsWith(Path.Combine(AppDataPaths.Root, "Collections", "Catalog"), CatalogBuilderRunner.DefaultFolder());
     }

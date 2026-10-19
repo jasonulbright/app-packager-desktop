@@ -217,7 +217,7 @@ public sealed record ComplianceChange(
 /// <param name="UndoChange">The change that reverses this one; set on every outcome that changed ConfigMgr and can be reversed.</param>
 /// <param name="Steps">Plain lines, one per step done, in order.</param>
 /// <param name="InProgress">
-/// True for an interim report of a catalog deploy that is still running (one per finished step);
+/// True for an interim report of a catalog deploy that is still running: one per step, with Succeeded true and the step line as Message;
 /// the final outcome of every change has false.
 /// </param>
 public sealed record ComplianceOutcome(
@@ -275,19 +275,12 @@ public interface IComplianceService
 
 public interface IComplianceReportWriter
 {
-    /// <summary>Writes the rows to a new CSV file and returns its path.</summary>
-    string WriteCsv(IReadOnlyList<DriftRow> rows);
+    /// <summary>Writes the drift rows and the compliance rows to one new CSV file, one section each, and returns its path.</summary>
+    string WriteCsv(IReadOnlyList<DriftRow> drift, IReadOnlyList<ComplianceRow> compliance);
 
-    /// <summary>Writes the rows to a new CSV file and returns its path.</summary>
-    string WriteCsv(IReadOnlyList<ComplianceRow> rows);
-
-    /// <summary>Writes the rows to a new HTML file and returns its path.</summary>
-    string WriteHtml(IReadOnlyList<DriftRow> rows);
-
-    /// <summary>Writes the rows to a new HTML file and returns its path.</summary>
-    string WriteHtml(IReadOnlyList<ComplianceRow> rows);
+    /// <summary>Writes the drift rows and the compliance rows to one new HTML file, one table each, and returns its path.</summary>
+    string WriteHtml(IReadOnlyList<DriftRow> drift, IReadOnlyList<ComplianceRow> compliance);
 }
-
 /// <summary>Fixed rules shared by the service and the page.</summary>
 public static class ComplianceRules
 {
@@ -298,5 +291,24 @@ public static class ComplianceRules
     public const int MaxParameterLength = 256;
 }
 
+/// <summary>Why a compliance operation could not run.</summary>
+public enum ComplianceFailureKind
+{
+    /// <summary>The request is not valid or the rules refuse it.</summary>
+    Refused,
+
+    /// <summary>The object changed since it was read.</summary>
+    Stale,
+
+    /// <summary>The object does not exist.</summary>
+    NotFound,
+
+    /// <summary>The ConfigMgr session or the provider failed, or returned data that could not be read.</summary>
+    Session
+}
+
 /// <summary>A compliance operation that could not run; the message is plain text for the operator.</summary>
-public sealed class ComplianceServiceException(string message) : Exception(message);
+public sealed class ComplianceServiceException(string message, ComplianceFailureKind kind = ComplianceFailureKind.Refused) : Exception(message)
+{
+    public ComplianceFailureKind Kind { get; } = kind;
+}

@@ -260,7 +260,7 @@ public sealed partial class ComplianceService : IComplianceService
             _log?.Warning(LogArea, $"Reading compliance data failed in the ConfigMgr session: {ex.Failure}, {CollectionService.FailureKinds(ex.Message)}.");
             throw new ComplianceServiceException(ex.Failure == ConfigMgrFailure.ScriptFailed
                 ? "The compliance data could not be read from ConfigMgr. The log has the details."
-                : SessionProblem(ex.Failure));
+                : SessionProblem(ex.Failure), ComplianceFailureKind.Session);
         }
     }
 
@@ -276,7 +276,7 @@ public sealed partial class ComplianceService : IComplianceService
         catch (JsonException ex)
         {
             _log?.Warning(LogArea, $"ConfigMgr returned output that could not be read ({ex.GetType().Name}).");
-            throw new ComplianceServiceException("ConfigMgr returned data that could not be read. The log has the details.");
+            throw new ComplianceServiceException("ConfigMgr returned data that could not be read. The log has the details.", ComplianceFailureKind.Session);
         }
     }
 

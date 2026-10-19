@@ -23,28 +23,27 @@ public sealed class ComplianceReportWriter(string? folder = null, Func<DateTimeO
 
     public static string DefaultFolder() => Path.Combine(CollectionsFolders.Root(), "Reports");
 
-    public string WriteCsv(IReadOnlyList<DriftRow> rows)
+    public string WriteCsv(IReadOnlyList<DriftRow> drift, IReadOnlyList<ComplianceRow> compliance)
     {
-        ArgumentNullException.ThrowIfNull(rows);
-        return Write("compliance-drift", "csv", Csv(DriftColumns, rows.Select(DriftValues)));
+        ArgumentNullException.ThrowIfNull(drift);
+        ArgumentNullException.ThrowIfNull(compliance);
+        var text = new StringBuilder();
+        text.Append(ReportFile.Cell("Baseline drift")).Append("\r\n");
+        text.Append(Csv(DriftColumns, drift.Select(DriftValues)));
+        text.Append("\r\n").Append(ReportFile.Cell("Baseline compliance")).Append("\r\n");
+        text.Append(Csv(ComplianceColumns, compliance.Select(ComplianceValues)));
+        return Write("compliance", "csv", text.ToString());
     }
 
-    public string WriteCsv(IReadOnlyList<ComplianceRow> rows)
+    public string WriteHtml(IReadOnlyList<DriftRow> drift, IReadOnlyList<ComplianceRow> compliance)
     {
-        ArgumentNullException.ThrowIfNull(rows);
-        return Write("compliance-status", "csv", Csv(ComplianceColumns, rows.Select(ComplianceValues)));
-    }
-
-    public string WriteHtml(IReadOnlyList<DriftRow> rows)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-        return Write("compliance-drift", "html", Html("Baseline drift", "Baselines", DriftColumns, rows.Select(DriftValues).ToList()));
-    }
-
-    public string WriteHtml(IReadOnlyList<ComplianceRow> rows)
-    {
-        ArgumentNullException.ThrowIfNull(rows);
-        return Write("compliance-status", "html", Html("Baseline compliance", "Deployments", ComplianceColumns, rows.Select(ComplianceValues).ToList()));
+        ArgumentNullException.ThrowIfNull(drift);
+        ArgumentNullException.ThrowIfNull(compliance);
+        return Write("compliance", "html", Html(
+        [
+            ("Baseline drift", "Baselines", DriftColumns, drift.Select(DriftValues).ToList()),
+            ("Baseline compliance", "Deployments", ComplianceColumns, compliance.Select(ComplianceValues).ToList())
+        ]));
     }
 
     private static IEnumerable<string> DriftValues(DriftRow row) =>
@@ -72,29 +71,34 @@ public sealed class ComplianceReportWriter(string? folder = null, Func<DateTimeO
         return text.ToString();
     }
 
-    private string Html(string title, string noun, string[] columns, IReadOnlyList<IEnumerable<string>> rows)
+    private string Html(IReadOnlyList<(string Title, string Noun, string[] Columns, IReadOnlyList<IEnumerable<string>> Rows)> sections)
     {
         var generated = _clock().ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
         var html = new StringBuilder();
         html.Append("<!DOCTYPE html>\r\n<html lang=\"en\"><head><meta charset=\"utf-8\">")
             .Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\">")
-            .Append("<title>").Append(Encode(title)).Append("</title><style>")
+            .Append("<title>Compliance report</title><style>")
             .Append("body{font-family:\"Segoe UI\",Arial,sans-serif;margin:20px}")
-            .Append("table{border-collapse:collapse;width:100%}")
+            .Append("table{border-collapse:collapse;width:100%;margin-bottom:24px}")
             .Append("th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #ccc;vertical-align:top}")
             .Append("th{border-bottom:2px solid #333}")
-            .Append("</style></head><body>\r\n<h1>").Append(Encode(title)).Append("</h1>\r\n")
-            .Append("<p>Generated ").Append(Encode(generated)).Append(". ").Append(noun).Append(": ")
-            .Append(rows.Count.ToString(CultureInfo.InvariantCulture)).Append(".</p>\r\n<table><thead><tr>");
-        foreach (var column in columns) html.Append("<th>").Append(Encode(column)).Append("</th>");
-        html.Append("</tr></thead><tbody>\r\n");
-        foreach (var row in rows)
+            .Append("</style></head><body>\r\n<h1>Compliance report</h1>\r\n")
+            .Append("<p>Generated ").Append(Encode(generated)).Append(".</p>\r\n");
+        foreach (var (title, noun, columns, rows) in sections)
         {
-            html.Append("<tr>");
-            foreach (var value in row) html.Append("<td>").Append(Encode(value)).Append("</td>");
-            html.Append("</tr>\r\n");
+            html.Append("<h2>").Append(Encode(title)).Append("</h2>\r\n<p>").Append(noun).Append(": ")
+                .Append(rows.Count.ToString(CultureInfo.InvariantCulture)).Append(".</p>\r\n<table><thead><tr>");
+            foreach (var column in columns) html.Append("<th>").Append(Encode(column)).Append("</th>");
+            html.Append("</tr></thead><tbody>\r\n");
+            foreach (var row in rows)
+            {
+                html.Append("<tr>");
+                foreach (var value in row) html.Append("<td>").Append(Encode(value)).Append("</td>");
+                html.Append("</tr>\r\n");
+            }
+            html.Append("</tbody></table>\r\n");
         }
-        html.Append("</tbody></table></body></html>\r\n");
+        html.Append("</body></html>\r\n");
         return html.ToString();
     }
 

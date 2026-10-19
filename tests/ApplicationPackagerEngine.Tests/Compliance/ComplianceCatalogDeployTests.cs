@@ -88,7 +88,9 @@ public sealed class ComplianceCatalogDeployTests
         Assert.Equal(["-SiteCode", "MCM", "-SiteServer", "cm01.contoso.com", "-CollectionName", "CCM Test 1", "-DetectOnly"], builder.Arguments);
         var baseline = site.Baselines.Select(b => b!.AsObject()).Single(b => (string)b["Name"]! == "Hardening LLMNR Disable");
         Assert.Equal("Builder text. [ccm:llmnr-disable@1.0.0]", (string)baseline["Description"]!);
+        Assert.All(progress.Items.Where(p => p.InProgress), p => Assert.True(p.Succeeded));
         var steps = progress.Items.Where(p => p.InProgress).Select(p => p.Message).ToList();
+        Assert.Equal(steps, outcome.Steps);
         Assert.Contains("Creating configuration item Hardening: LLMNR Disable.", steps);
         Assert.Contains("Creating baseline Hardening LLMNR Disable.", steps);
         Assert.Contains("Deploying to collection CCM Test 1.", steps);
@@ -310,5 +312,17 @@ public sealed class ComplianceCatalogDeployTests
         Assert.False(undone.Succeeded);
         Assert.Contains("configuration item 16790000", undone.Message);
         Assert.Contains(undone.Steps, s => s.StartsWith("Removed baseline", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CreatingAMissingDependencyIsRefusedWithAPlainMessage()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new SiteBuilder(site));
+
+        var error = await Assert.ThrowsAsync<ComplianceServiceException>(() =>
+            service.PrepareAsync(Deploy("specexec-mitigations", new() { [ComplianceService.CreateDependencyKey] = "Devices: Hyperthreading Enabled" }), CancellationToken.None));
+
+        Assert.Contains("Collections tab", error.Message);
     }
 }
