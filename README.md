@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench start tools of the App Packager Suite: Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Each tool opens in its own window. App Packager Desktop does not include these tools. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester is part of App Packager Desktop; see [Detection Tester](#detection-tester). The other seven start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these seven tools. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -76,6 +76,28 @@ The eight entries after the Application Workbench start tools of the App Package
 - A second click on a tool that is open brings its window to the front.
 - App Packager Desktop passes the ConfigMgr site code and provider to the tool in the environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER`. It passes the site code you saved. When you did not save one, it passes only a site code that the environment already holds from the suite launcher. It passes the provider only when it is set. A tool uses these values only when its own settings are empty.
 - If a tool stops right after it starts with a non-zero exit code, a message names the tool and its exit code.
+
+## Detection Tester
+
+The **Detection Tester** page writes ConfigMgr detection clauses and tests them on this computer. It makes no ConfigMgr connection and no network request.
+
+![The Detection Tester page with a passed registry clause and the history of earlier tests](docs/images/detection-tester.png)
+
+The **Detection** tab:
+
+- **Clause types:** a registry value, a registry key, a file and a script. A compound clause (And, Or) appears after you import one.
+- **Registry:** choose the hive (HKLM or HKCU) and the registry view (64-bit or 32-bit). The key path accepts a prefix such as `HKLM\`. A prefix that names another hive than the clause is an error.
+- **File:** the rule checks that the file exists or compares its version. A 32-bit rule reads the 32-bit folders.
+- **Script:** the script runs in a child Windows PowerShell, as the current user, not as SYSTEM, with a limit of 30 seconds. **Cancel** stops it. The script counts as detected when it prints output. The result shows the output, the error output and the exit code. ConfigMgr runs a detection script as SYSTEM and also reads the exit code, so a script can give another result in ConfigMgr. A script that leaves a child process running does not keep the page waiting, and the child process ends with the script.
+- **Negative test:** a clause that is not detected passes.
+- **Import:** **Import stage-manifest.json** loads the detection of a staged build, with compound clauses. Nothing runs until you press **Run**. A manifest without a detection shows a message and changes no input.
+- **History:** every test adds a row. **Use selected** fills the inputs from a row. **Export CSV** and **Export HTML** write a report. **Clear history** asks first. History keeps the clause text, including script text, on this computer. A CSV cell that starts with `=`, `+`, `-` or `@` is written as text, and the HTML report encodes all text.
+
+![The Installed Applications tab with the list, the filter and the detail panel](docs/images/detection-installed.png)
+
+The **Installed Applications** tab lists the applications from the three uninstall registry locations (HKLM 64-bit, HKLM 32-bit and HKCU). It has a filter, a detail panel and **Copy details**. **Show system components** adds the entries that Windows marks as system components. **Use for detection** fills a clause for the selected application.
+
+The history and the reports are in the `DetectionTester` folder of the data folder (see [Data and network](#data-and-network)). A history file that cannot be read stays in place until the next save. A folder that is a junction or a symbolic link is refused.
 
 ## Application Workbench
 
