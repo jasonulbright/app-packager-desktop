@@ -205,6 +205,19 @@ public sealed class MaintenanceWindowsViewModelTests
         Assert.Equal(["All Systems", "Kiosks"], vm.Coverage.Select(c => c.Name));
     }
 
+    [Fact]
+    public async Task TheCoverageCountLineCountsOnlyTheCollectionsOfTheSelectedFolder()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var vm = await harness.OpenAsync();
+        vm.FolderFilter = @"Patching\Servers";
+        var shown = vm.Coverage.ToList();
+        Assert.NotEmpty(shown);
+        Assert.True(shown.Count < 4);
+        var without = shown.Count(r => !r.HasWindow);
+        var noun = shown.Count == 1 ? "collection" : "collections";
+        Assert.Equal($"{shown.Count} {noun}, {without} without a window", vm.CoverageCount);
+    }
     // --- New, edit and rename --------------------------------------------------------------
 
     [Fact]

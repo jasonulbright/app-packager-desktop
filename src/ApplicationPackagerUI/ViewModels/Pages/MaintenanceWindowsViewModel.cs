@@ -565,8 +565,9 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             if (!CollectionFolderFilter.Matches(FolderFilter, row.FolderPath)) continue;
             Coverage.Add(row);
         }
-        var without = all.Count(r => !r.HasWindow);
-        CoverageCount = $"{Count(all.Count, "collection")}, {without} without a window";
+        var inFolder = all.Where(r => CollectionFolderFilter.Matches(FolderFilter, r.FolderPath)).ToList();
+        var without = inFolder.Count(r => !r.HasWindow);
+        CoverageCount = $"{Count(inFolder.Count, "collection")}, {without} without a window";
     }
 
     private static string Count(int n, string noun) => n == 1 ? $"1 {noun}" : $"{n} {noun}s";
