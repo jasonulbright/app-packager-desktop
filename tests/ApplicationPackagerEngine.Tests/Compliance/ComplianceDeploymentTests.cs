@@ -13,11 +13,13 @@ public sealed class ComplianceDeploymentTests
         public void Report(T value) { lock (Items) Items.Add(value); }
     }
 
+    private static Func<string> Counter() { var n = 0; return () => "t" + (++n).ToString(System.Globalization.CultureInfo.InvariantCulture); }
+
     internal static readonly DateTime Now = new(2026, 10, 19, 12, 0, 0, DateTimeKind.Utc);
 
     internal static ComplianceService Service(IConfigMgrSession site, ICatalogBuilderRunner? runner = null, ICatalogService? catalog = null) =>
         new(site, catalog ?? new CatalogService(), runner ?? new CatalogBuilderRunner(Path.Combine(Path.GetTempPath(), "apkg-unused")), () => new ConfigMgrConnection("MCM", "cm01.contoso.com"),
-            null, () => Now, () => "t1");
+            null, () => Now, Counter());
 
     private static StubComplianceSite Site() => new(NewState(
         items: [Ci("16780001", "Lab CI", 4, RegistrySetting("RegSetting_a", "EnableMulticast"))],

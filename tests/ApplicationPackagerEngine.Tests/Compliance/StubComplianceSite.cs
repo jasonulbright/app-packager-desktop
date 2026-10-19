@@ -155,7 +155,7 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             if (@($global:Baselines | Where-Object { @($_.Items | ForEach-Object { [string]$_ }) -contains [string]$Id }).Count -gt 0) { throw 'The configuration item cannot be deleted because there are dependent items in use.' }
             [void]$global:Items.Remove((Get-Ci ([string]$Id)))
         }
-        function global:Add-Setting([object]$InputObject, [string]$Kind, [hashtable]$P) {
+        function global:Stub-AddSetting([object]$InputObject, [string]$Kind, [hashtable]$P) {
             $ci = Get-Ci ([string]$InputObject.CI_ID)
             Test-Fail ('add:' + [string]$P['Name'])
             $global:Log.Add('Add-Setting:' + $Kind + ':' + [string]$P['Name'])
@@ -175,13 +175,13 @@ internal sealed class StubComplianceSite : IConfigMgrSession
         }
         function global:Add-CMComplianceSettingRegistryKeyValue {
             [CmdletBinding()] param([object]$InputObject, [string]$Name, [ValidateSet('String','Integer','DateTime','FloatingPoint','Version','StringArray')][string]$DataType, [string]$Description, [switch]$ValueRule, [string]$RuleName, [string[]]$ExpectedValue, [string]$NoncomplianceSeverity, [string]$ExpressionOperator, [switch]$Remediate, [switch]$ReportNoncompliance, [switch]$Is64Bit, [string]$Hive, [string]$KeyName, [bool]$RemediateDword, [string]$ValueName)
-            Add-Setting $InputObject 'Registry' $PSBoundParameters
+            Stub-AddSetting $InputObject 'Registry' $PSBoundParameters
         }
         function global:Add-CMComplianceSettingScript {
             [CmdletBinding()] param([object]$InputObject, [string]$Name, [ValidateSet('String','DateTime','Integer','FloatingPoint','Version','Boolean')][string]$DataType, [string]$Description, [switch]$ValueRule, [string]$RuleName, [string[]]$ExpectedValue, [string]$NoncomplianceSeverity, [string]$ExpressionOperator, [switch]$Remediate, [switch]$ReportNoncompliance, [switch]$Is64Bit, [string]$DiscoveryScriptLanguage, [string]$DiscoveryScriptText, [string]$RemediationScriptLanguage, [string]$RemediationScriptText)
-            Add-Setting $InputObject 'Script' $PSBoundParameters
+            Stub-AddSetting $InputObject 'Script' $PSBoundParameters
         }
-        function global:Set-Setting([object]$InputObject, [hashtable]$P) {
+        function global:Stub-SetSetting([object]$InputObject, [hashtable]$P) {
             $ci = Get-Ci ([string]$InputObject.CI_ID)
             $matches = @($ci.Settings | Where-Object { [string]$_.Name -eq [string]$P['SettingName'] })
             if ($matches.Count -eq 0) { throw 'No object corresponds to the specified parameters.' }
@@ -195,8 +195,8 @@ internal sealed class StubComplianceSite : IConfigMgrSession
             }
             Bump-Ci $ci
         }
-        function global:Set-CMComplianceSettingRegistryKeyValue { [CmdletBinding()] param([object]$InputObject, [string]$SettingName, [string]$NewSettingName, [string]$Description, [string]$Hive, [string]$KeyName, [string]$ValueName, [bool]$Is64Bit, [bool]$RemediateDword) $global:Log.Add('Set-Registry'); Set-Setting $InputObject $PSBoundParameters }
-        function global:Set-CMComplianceSettingScript { [CmdletBinding()] param([object]$InputObject, [string]$SettingName, [string]$NewSettingName, [string]$Description, [bool]$Is64Bit, [string]$DiscoveryScriptLanguage, [string]$DiscoveryScriptText, [string]$RemediationScriptLanguage, [string]$RemediationScriptText, [switch]$RemoveRemediationScript) $global:Log.Add('Set-Script'); Set-Setting $InputObject $PSBoundParameters }
+        function global:Set-CMComplianceSettingRegistryKeyValue { [CmdletBinding()] param([object]$InputObject, [string]$SettingName, [string]$NewSettingName, [string]$Description, [string]$Hive, [string]$KeyName, [string]$ValueName, [bool]$Is64Bit, [bool]$RemediateDword) $global:Log.Add('Set-Registry'); Stub-SetSetting $InputObject $PSBoundParameters }
+        function global:Set-CMComplianceSettingScript { [CmdletBinding()] param([object]$InputObject, [string]$SettingName, [string]$NewSettingName, [string]$Description, [bool]$Is64Bit, [string]$DiscoveryScriptLanguage, [string]$DiscoveryScriptText, [string]$RemediationScriptLanguage, [string]$RemediationScriptText, [switch]$RemoveRemediationScript) $global:Log.Add('Set-Script'); Stub-SetSetting $InputObject $PSBoundParameters }
         function global:Remove-CMComplianceSetting {
             [CmdletBinding()] param([object]$InputObject, [string]$SettingName, [switch]$Force)
             $global:Log.Add('Remove-CMComplianceSetting:' + $SettingName)
