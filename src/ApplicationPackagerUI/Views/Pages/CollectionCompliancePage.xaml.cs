@@ -10,12 +10,15 @@ namespace ApplicationPackagerUI.Views.Pages;
 public partial class CollectionCompliancePage : INavigationAware
 {
     private readonly CollectionComplianceViewModel _viewModel;
+    private readonly ComplianceViewModel _compliance;
 
-    public CollectionCompliancePage(CollectionComplianceViewModel viewModel)
+    public CollectionCompliancePage(CollectionComplianceViewModel viewModel, ComplianceViewModel compliance)
     {
         _viewModel = viewModel;
+        _compliance = compliance;
         DataContext = viewModel;
         InitializeComponent();
+        viewCompliance.DataContext = compliance;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         BuildPreviewColumns();
         ApplyDetails();
@@ -69,9 +72,13 @@ public partial class CollectionCompliancePage : INavigationAware
         UpdateTabMinHeight();
     }
 
-    public Task OnNavigatedToAsync() => _viewModel.OnNavigatedToAsync();
+    public async Task OnNavigatedToAsync()
+    {
+        await _viewModel.OnNavigatedToAsync();
+        await _compliance.OnNavigatedToAsync(_viewModel.IsComplianceSection);
+    }
 
-    public Task OnNavigatedFromAsync() => _viewModel.OnNavigatedFromAsync();
+    public Task OnNavigatedFromAsync() => Task.WhenAll(_viewModel.OnNavigatedFromAsync(), _compliance.OnNavigatedFromAsync());
 
     private void OnCollectionsSelectionChanged(object sender, SelectionChangedEventArgs e) =>
         _viewModel.SetSelectedRows(dgCollections.SelectedItems.OfType<CollectionGridRow>());
@@ -88,6 +95,11 @@ public partial class CollectionCompliancePage : INavigationAware
     {
         if (e.PropertyName == nameof(CollectionComplianceViewModel.PreviewColumns)) BuildPreviewColumns();
         if (e.PropertyName == nameof(CollectionComplianceViewModel.ShowDetails)) ApplyDetails();
+        if (e.PropertyName == nameof(CollectionComplianceViewModel.SelectedSection))
+        {
+            if (_viewModel.IsComplianceSection) _ = _compliance.ShowAsync();
+            else _compliance.Hide();
+        }
     }
 
     /// <summary>The preview columns come from the query; each binds to the row's indexer, so a column name with a dot is no binding path.</summary>

@@ -117,7 +117,7 @@ public sealed class CollectionCompliancePageTests
         {
             var harness = new CollectionComplianceHarness();
             arrange?.Invoke(harness);
-            var page = new CollectionCompliancePage(harness.Create());
+            var page = new CollectionCompliancePage(harness.Create(), new ApplicationPackagerEngine.Tests.Compliance.ComplianceHarness().Create());
             var window = new Window { Width = width, Height = height, WindowStyle = WindowStyle.None, Content = page };
             Show(window);
             try
@@ -159,7 +159,9 @@ public sealed class CollectionCompliancePageTests
             Assert.Equal(["Collections", "WQL Editor", "Templates", "Site Queries"], tabs.Items.OfType<TabItem>().Select(t => (string)t.Header));
             var title = Descendants(page).OfType<TextBlock>().Single(t => t.Text == "Collection and Compliance");
             Assert.Same(Application.Current.FindResource("TextFillColorPrimaryBrush"), title.Foreground);
-            Assert.True(ById<FrameworkElement>(page, "btnComplianceBaselines").IsVisible);
+            Assert.DoesNotContain(Descendants(page).OfType<FrameworkElement>(), e => AutomationProperties.GetAutomationId(e) == "btnComplianceBaselines");
+            Assert.True(ById<System.Windows.Controls.RadioButton>(page, "rbSectionCollections").IsChecked);
+            Assert.False(ById<FrameworkElement>(page, "viewCompliance").IsVisible);
 
             var grid = ById<DataGrid>(page, "dgCollections");
             Assert.Equal(["Name", "ID", "Members", "Limiting collection", "Refresh", "Type", "Rules", "Folder"], grid.Columns.Select(c => (string)c.Header));

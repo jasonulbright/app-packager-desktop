@@ -35,7 +35,13 @@ public sealed class ChangePlan
     public bool IsDestructive { get; }
     public bool HasUndo { get; }
 
-    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo);
+    /// <summary>
+    /// The text of a second check box the operator checks before Confirm, for a change with an
+    /// effect beyond ConfigMgr itself; null for none.
+    /// </summary>
+    public string? ExtraConfirmation { get; init; }
+
+    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo) { ExtraConfirmation = ExtraConfirmation };
 }
 
 /// <summary>
@@ -49,12 +55,14 @@ public sealed class ConfirmedChangePlan
 
     public ChangePlan Plan { get; }
 
-    internal static ConfirmedChangePlan Issue(ChangePlanViewModel.IssueKey key, ChangePlan plan, bool destructiveAcknowledged)
+    internal static ConfirmedChangePlan Issue(ChangePlanViewModel.IssueKey key, ChangePlan plan, bool destructiveAcknowledged, bool extraAcknowledged = false)
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(plan);
         if (plan.IsDestructive && !destructiveAcknowledged)
             throw new InvalidOperationException("A destructive plan needs the extra confirmation.");
+        if (plan.ExtraConfirmation is not null && !extraAcknowledged)
+            throw new InvalidOperationException("The plan needs its second confirmation.");
         return new ConfirmedChangePlan(plan.Copy());
     }
 }
@@ -73,6 +81,9 @@ public sealed record ChangePlanItemResult(ChangePlanItem Item, bool Succeeded, s
 
     /// <summary>The item failed after part of its change was made; it counts as failed and as changed.</summary>
     public bool PartialChange { get; init; }
+
+    /// <summary>A step of a change that still runs: shown while the run works, never a result of its own.</summary>
+    public bool Interim { get; init; }
 
     public string OutcomeText => Skipped ? "Skipped" : Succeeded ? "Changed" : "Failed";
 

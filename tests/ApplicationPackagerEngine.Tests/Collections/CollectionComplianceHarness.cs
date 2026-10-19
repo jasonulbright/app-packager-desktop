@@ -400,8 +400,6 @@ internal sealed class CollectionComplianceHarness
     public AppSettings Settings { get; } = new() { SiteCode = "LAB", ProviderMachine = "cm01.lab.local" };
     public CollectionComplianceSettings? Saved { get; set; }
     public Action<CollectionComplianceSettings>? BeforeSave;
-    public string? LaunchMessage;
-    public int Launches;
     public int PreferenceSaves;
     public int SettingsLoads;
 
@@ -450,11 +448,6 @@ internal sealed class CollectionComplianceHarness
             BeforeSave?.Invoke(s);
             Interlocked.Increment(ref PreferenceSaves);
             Saved = s;
-        },
-        () =>
-        {
-            Interlocked.Increment(ref Launches);
-            return Task.FromResult(LaunchMessage);
         },
         Log));
 

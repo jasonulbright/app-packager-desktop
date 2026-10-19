@@ -962,17 +962,42 @@ public sealed class CollectionComplianceViewModelTests
     }
 
     [Fact]
-    public async Task ComplianceBaselinesStartsTheSuiteToolAndShowsItsMessage()
+    public async Task ThePageHasNoCommandThatStartsTheSuiteTool()
+    {
+        Assert.Null(typeof(CollectionComplianceViewModel).GetProperty("OpenComplianceBaselinesCommand"));
+        Assert.DoesNotContain(typeof(CollectionCompliancePageServices).GetProperties(), p => p.Name.Contains("Tool", StringComparison.Ordinal));
+        var viewModel = await new CollectionComplianceHarness().OpenAsync();
+        Assert.True(viewModel.IsCollectionsSection);
+    }
+
+    [Fact]
+    public async Task AVisitThatOpensOnTheComplianceSectionReadsNoCollectionsUntilTheSwitch()
+    {
+        var harness = new CollectionComplianceHarness { Saved = new ApplicationPackagerUI.Models.CollectionComplianceSettings { Section = CollectionComplianceViewModel.ComplianceSection } };
+        var viewModel = await harness.OpenAsync();
+        Assert.True(viewModel.IsComplianceSection);
+        Assert.Equal(0, harness.Service.ListCalls);
+        Assert.Equal(0, harness.Store.Reads);
+
+        viewModel.IsCollectionsSection = true;
+        for (var i = 0; i < 400 && viewModel.Rows.Count < 4; i++) await Task.Delay(10);
+        Assert.Equal(1, harness.Service.ListCalls);
+        Assert.Equal(4, viewModel.Rows.Count);
+        await viewModel.OnNavigatedFromAsync();
+        Assert.Equal(CollectionComplianceViewModel.CollectionsSection, harness.Saved!.Section);
+    }
+
+    [Fact]
+    public async Task TheSectionChoiceIsKept()
     {
         var harness = new CollectionComplianceHarness();
-        var viewModel = harness.Create();
-        await viewModel.OpenComplianceBaselinesCommand.ExecuteAsync(null);
-        Assert.Equal(1, harness.Launches);
-        Assert.Equal(CollectionComplianceViewModel.ComplianceStarted, viewModel.StatusMessage);
-        harness.LaunchMessage = "Collection and Compliance needs AppPackager Suite, which is not installed.";
-        await viewModel.OpenComplianceBaselinesCommand.ExecuteAsync(null);
-        Assert.Equal(harness.LaunchMessage, viewModel.StatusMessage);
-        Assert.Equal(0, harness.Service.ListCalls);
+        var viewModel = await harness.OpenAsync();
+        viewModel.IsComplianceSection = true;
+        await viewModel.OnNavigatedFromAsync();
+        Assert.Equal(CollectionComplianceViewModel.ComplianceSection, harness.Saved!.Section);
+        var again = await harness.OpenAsync();
+        Assert.True(again.IsComplianceSection);
+        Assert.False(again.IsCollectionsSection);
     }
 
     [Fact]

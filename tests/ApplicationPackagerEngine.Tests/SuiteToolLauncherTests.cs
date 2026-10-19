@@ -144,11 +144,11 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheFiveSidebarToolsAndTheComplianceToolNameTheSuiteFoldersAndEntryScripts()
+    public void TheFiveSidebarToolsNameTheSuiteFoldersAndEntryScripts()
     {
-        Assert.Equal(("collection-and-compliance", "collection-and-compliance-manager", "start-ccm.ps1"),
-            (SuiteTools.CollectionAndCompliance.Id, SuiteTools.CollectionAndCompliance.Folder, SuiteTools.CollectionAndCompliance.EntryScript));
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.CollectionCompliance);
+        Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-and-compliance-manager");
+        Assert.Null(typeof(SuiteTools).GetProperty("CollectionAndCompliance"));
         Assert.Equal(
         [
             ("installer-analysis", "installer-analysis", "start-installeranalysis.ps1"),
@@ -172,16 +172,6 @@ public sealed class SuiteToolLauncherTests
         Assert.Null(resolution.Message);
         Assert.Equal(Install + @"\installer-analysis", resolution.Location!.ToolFolder);
         Assert.Equal(Install + @"\installer-analysis\start-installeranalysis.ps1", resolution.Location.EntryScript);
-    }
-
-    [Fact]
-    public void TheComplianceToolOfThePageResolvesLikeASidebarTool()
-    {
-        InstallSuite();
-        InstallTool(SuiteTools.CollectionAndCompliance);
-        var resolution = Launcher_().Resolve(SuiteTools.CollectionAndCompliance);
-        Assert.Null(resolution.Message);
-        Assert.Equal(Install + @"\collection-and-compliance-manager\start-ccm.ps1", resolution.Location!.EntryScript);
     }
 
     [Fact]

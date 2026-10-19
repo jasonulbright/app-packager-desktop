@@ -57,22 +57,58 @@ public sealed class CollectionCompliancePrompts : ICollectionCompliancePrompts
 /// <summary>Reads and writes the page choices in settings.json without touching any other value.</summary>
 public static class CollectionCompliancePreferences
 {
+    // The Collections and Compliance sections save on their own threads; each save reads and
+    // writes the whole file, so two saves at once could drop the other section's choices.
+    private static readonly object FileLock = new();
+
     public static CollectionComplianceSettings? Load(SettingsService settings) => settings.Load().CollectionCompliance;
 
-    /// <summary>False when nothing was written; an unreadable settings file is never replaced.</summary>
-    public static bool Save(SettingsService settings, CollectionComplianceSettings choices)
+    public static ComplianceSettings? LoadCompliance(SettingsService settings) => settings.Load().CollectionCompliance?.Compliance;
+
+    /// <summary>False when nothing was written; an unreadable settings file is never replaced. The Compliance choices stay as stored.</summary>
+    public static bool Save(SettingsService settings, CollectionComplianceSettings choices) =>
+        Update(settings, stored =>
+        {
+            var compliance = stored.CollectionCompliance?.Compliance;
+            stored.CollectionCompliance = new CollectionComplianceSettings
+            {
+                SelectedTab = choices.SelectedTab,
+                DetailTab = choices.DetailTab,
+                DetailsHidden = choices.DetailsHidden,
+                TextFilter = choices.TextFilter,
+                TypeFilter = choices.TypeFilter,
+                OnlyEmpty = choices.OnlyEmpty,
+                OnlyWithDirectMembers = choices.OnlyWithDirectMembers,
+                OnlyWithQueryRules = choices.OnlyWithQueryRules,
+                FolderFilter = choices.FolderFilter,
+                TemplateCategory = choices.TemplateCategory,
+                EditorWidth = choices.EditorWidth,
+                EditorHeight = choices.EditorHeight,
+                Section = choices.Section,
+                Compliance = compliance
+            };
+        });
+
+    /// <summary>Writes the Compliance choices and keeps the Collections choices as stored.</summary>
+    public static bool SaveCompliance(SettingsService settings, ComplianceSettings choices) =>
+        Update(settings, stored => (stored.CollectionCompliance ??= new CollectionComplianceSettings()).Compliance = choices);
+
+    private static bool Update(SettingsService settings, Action<AppSettings> change)
     {
-        try
+        lock (FileLock)
         {
-            var stored = settings.Load();
-            if (settings.IsFileUnreadable) return false;
-            stored.CollectionCompliance = choices;
-            settings.Save(stored);
-            return true;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-        {
-            return false;
+            try
+            {
+                var stored = settings.Load();
+                if (settings.IsFileUnreadable) return false;
+                change(stored);
+                settings.Save(stored);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                return false;
+            }
         }
     }
 }
@@ -105,14 +141,10 @@ public static partial class CollectionComplianceRegistration
                 settings.Load,
                 () => CollectionCompliancePreferences.Load(settings),
                 choices => CollectionCompliancePreferences.Save(settings, choices),
-                async () =>
-                {
-                    var result = await sp.GetRequiredService<SuiteToolLauncher>().LaunchAsync(SuiteTools.CollectionAndCompliance, settings.Load);
-                    return result.Outcome == SuiteToolLaunchOutcome.Failed ? result.Message ?? $"{SuiteTools.CollectionAndCompliance.Title} could not start." : null;
-                },
                 sp.GetRequiredService<IAppLog>());
         });
         services.AddSingleton<CollectionComplianceViewModel>();
+        services.AddCompliancePage();
         services.AddSingleton<CollectionCompliancePage>();
         return services;
     }
