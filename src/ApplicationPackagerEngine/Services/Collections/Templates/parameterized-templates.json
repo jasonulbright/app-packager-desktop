@@ -1,0 +1,199 @@
+[
+  {
+    "Name": "Software Installed by Name",
+    "Category": "Software",
+    "Description": "Finds devices with a specific software title installed (partial match on display name)",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_ADD_REMOVE_PROGRAMS on SMS_G_System_ADD_REMOVE_PROGRAMS.ResourceID = SMS_R_System.ResourceId where SMS_G_System_ADD_REMOVE_PROGRAMS.DisplayName like '%{SoftwareName}%'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{SoftwareName}", "Label": "Software Name", "HelpText": "Partial match (e.g., 'Java', '7-Zip')", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Software Installed by Name with Version Less Than",
+    "Category": "Software",
+    "Description": "Finds devices with a specific software installed where the version is below a specified threshold",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_ADD_REMOVE_PROGRAMS on SMS_G_System_ADD_REMOVE_PROGRAMS.ResourceID = SMS_R_System.ResourceId where SMS_G_System_ADD_REMOVE_PROGRAMS.DisplayName like '%{SoftwareName}%' and SMS_G_System_ADD_REMOVE_PROGRAMS.Version < '{MaxVersion}'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{SoftwareName}", "Label": "Software Name", "HelpText": "Partial match (e.g., 'Java', '7-Zip')", "DefaultValue": "" },
+      { "Placeholder": "{MaxVersion}", "Label": "Maximum Version", "HelpText": "Devices below this version (e.g., '24.0')", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Software NOT Installed",
+    "Category": "Software",
+    "Description": "Finds devices that do NOT have a specific software title installed",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.ResourceId not in (select SMS_G_System_ADD_REMOVE_PROGRAMS.ResourceID from SMS_G_System_ADD_REMOVE_PROGRAMS where SMS_G_System_ADD_REMOVE_PROGRAMS.DisplayName like '%{SoftwareName}%')",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{SoftwareName}", "Label": "Software Name", "HelpText": "Partial match (e.g., 'Java', '7-Zip')", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "OS Build Number",
+    "Category": "Operating System",
+    "Description": "Finds devices running a specific Windows OS build number",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.Build = '{BuildNumber}'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{BuildNumber}", "Label": "OS Build", "HelpText": "e.g., '10.0.22631' for Win11 23H2", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Client Version",
+    "Category": "Clients",
+    "Description": "Finds devices running a specific Configuration Manager client version",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.ClientVersion like '{VersionPattern}%'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{VersionPattern}", "Label": "Version Pattern", "HelpText": "e.g., '5.00.9128' for 2403", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Manufacturer",
+    "Category": "Hardware",
+    "Description": "Finds devices from a specific hardware manufacturer",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Manufacturer like '%{Manufacturer}%'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Manufacturer}", "Label": "Manufacturer", "HelpText": "e.g., 'Dell', 'HP', 'Lenovo'", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Model",
+    "Category": "Hardware",
+    "Description": "Finds devices matching a specific hardware model name",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_COMPUTER_SYSTEM on SMS_G_System_COMPUTER_SYSTEM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_COMPUTER_SYSTEM.Model like '%{Model}%'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Model}", "Label": "Model Name", "HelpText": "e.g., 'OptiPlex', 'ThinkPad'", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Hardware Inventory Not Reporting N Days",
+    "Category": "Client Health",
+    "Description": "Finds devices that have not reported hardware inventory within a specified number of days",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.ResourceId in (select SMS_R_System.ResourceID from SMS_R_System inner join SMS_G_System_WORKSTATION_STATUS on SMS_G_System_WORKSTATION_STATUS.ResourceID = SMS_R_System.ResourceId where DATEDIFF(dd,SMS_G_System_WORKSTATION_STATUS.LastHardwareScan,GetDate()) > {Days})",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Days}", "Label": "Days Threshold", "HelpText": "Number of days since last hardware inventory scan", "DefaultValue": "14" }
+    ]
+  },
+  {
+    "Name": "Software Inventory Not Reporting N Days",
+    "Category": "Client Health",
+    "Description": "Finds devices that have not reported software inventory within a specified number of days",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.ResourceId in (select SMS_R_System.ResourceID from SMS_R_System inner join SMS_G_System_LastSoftwareScan on SMS_G_System_LastSoftwareScan.ResourceID = SMS_R_System.ResourceId where DATEDIFF(dd,SMS_G_System_LastSoftwareScan.LastScanDate,GetDate()) > {Days})",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Days}", "Label": "Days Threshold", "HelpText": "Number of days since last software inventory scan", "DefaultValue": "30" }
+    ]
+  },
+  {
+    "Name": "AD OU Membership",
+    "Category": "Active Directory",
+    "Description": "Finds devices belonging to a specific Active Directory Organizational Unit",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.SystemOUName = '{OUPath}'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{OUPath}", "Label": "OU Distinguished Name", "HelpText": "e.g., 'CONTOSO.COM/WORKSTATIONS/FLOOR2'", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Created Within N Days",
+    "Category": "System Health",
+    "Description": "Finds devices whose Configuration Manager resource record was created within a specified number of days",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where DateDiff(dd,SMS_R_System.CreationDate,GetDate()) <= {Days}",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Days}", "Label": "Days", "HelpText": "Number of days since resource creation (1 = last 24 hours)", "DefaultValue": "1" }
+    ]
+  },
+  {
+    "Name": "Chassis Type",
+    "Category": "Hardware",
+    "Description": "Finds devices matching specific chassis type codes (laptop, desktop, server, etc.)",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_SYSTEM_ENCLOSURE on SMS_G_System_SYSTEM_ENCLOSURE.ResourceID = SMS_R_System.ResourceId where SMS_G_System_SYSTEM_ENCLOSURE.ChassisTypes in ({ChassisTypes})",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{ChassisTypes}", "Label": "Chassis Type Codes", "HelpText": "Laptop: '8','9','10','11','12','14','18','21' / Desktop: '3','4','5','6','7','15','16' / Server: '23'", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "TPM Enabled",
+    "Category": "Hardware",
+    "Description": "Finds devices with a TPM chip that is enabled",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_TPM on SMS_G_System_TPM.ResourceID = SMS_R_System.ResourceId where SMS_G_System_TPM.IsEnabled_InitialValue = 1",
+    "LimitingCollection": "All Systems",
+    "Parameters": []
+  },
+  {
+    "Name": "Disk Free Space Less Than N GB",
+    "Category": "Hardware",
+    "Description": "Finds devices where the C: drive has less than a specified amount of free space",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_LOGICAL_DISK on SMS_G_System_LOGICAL_DISK.ResourceID = SMS_R_System.ResourceId where SMS_G_System_LOGICAL_DISK.DeviceID = 'C:' and SMS_G_System_LOGICAL_DISK.FreeSpace < {FreeSpaceMB}",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{FreeSpaceMB}", "Label": "Free Space (MB)", "HelpText": "Threshold in megabytes (10240 = 10 GB)", "DefaultValue": "10240" }
+    ]
+  },
+  {
+    "Name": "RAM Less Than N MB",
+    "Category": "Hardware",
+    "Description": "Finds devices with total physical memory below a specified threshold",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_X86_PC_MEMORY on SMS_G_System_X86_PC_MEMORY.ResourceID = SMS_R_System.ResourceId where SMS_G_System_X86_PC_MEMORY.TotalPhysicalMemory < {MemoryKB}",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{MemoryKB}", "Label": "Total RAM (KB)", "HelpText": "Threshold in kilobytes (8388608 = 8 GB)", "DefaultValue": "8388608" }
+    ]
+  },
+  {
+    "Name": "IP Subnet",
+    "Category": "Network",
+    "Description": "Finds devices on a specific IP subnet",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.IPSubnets like '{Subnet}%'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Subnet}", "Label": "IP Subnet", "HelpText": "e.g., '10.10.1'", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "Domain",
+    "Category": "Active Directory",
+    "Description": "Finds devices belonging to a specific domain or workgroup",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System where SMS_R_System.ResourceDomainORWorkgroup = '{Domain}'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Domain}", "Label": "Domain Name", "HelpText": "e.g., 'CONTOSO'", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "BIOS Version",
+    "Category": "Hardware",
+    "Description": "Finds devices with a specific BIOS version string (partial match)",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_PC_BIOS on SMS_G_System_PC_BIOS.ResourceID = SMS_R_System.ResourceId where SMS_G_System_PC_BIOS.SMBIOSBIOSVersion like '%{BiosVersion}%'",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{BiosVersion}", "Label": "BIOS Version Pattern", "HelpText": "Partial match on SMBIOS BIOS version string", "DefaultValue": "" }
+    ]
+  },
+  {
+    "Name": "BitLocker Protected",
+    "Category": "Security",
+    "Description": "Finds devices where BitLocker protection is enabled on the C: drive",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_BITLOCKER_DETAILS on SMS_G_System_BITLOCKER_DETAILS.ResourceID = SMS_R_System.ResourceId where SMS_G_System_BITLOCKER_DETAILS.ProtectionStatus = 1 and SMS_G_System_BITLOCKER_DETAILS.DriveLetter = 'C:'",
+    "LimitingCollection": "All Systems",
+    "Parameters": []
+  },
+  {
+    "Name": "Last Boot Within N Days",
+    "Category": "System Health",
+    "Description": "Finds devices that have been rebooted within a specified number of days",
+    "Query": "select SMS_R_SYSTEM.ResourceID,SMS_R_SYSTEM.ResourceType,SMS_R_SYSTEM.Name,SMS_R_SYSTEM.SMSUniqueIdentifier,SMS_R_SYSTEM.ResourceDomainORWorkgroup,SMS_R_SYSTEM.Client from SMS_R_System inner join SMS_G_System_OPERATING_SYSTEM on SMS_G_System_OPERATING_SYSTEM.ResourceID = SMS_R_System.ResourceId where DATEDIFF(dd,SMS_G_System_OPERATING_SYSTEM.LastBootUpTime,GetDate()) <= {Days}",
+    "LimitingCollection": "All Systems",
+    "Parameters": [
+      { "Placeholder": "{Days}", "Label": "Days Since Boot", "HelpText": "Maximum number of days since last reboot", "DefaultValue": "7" }
+    ]
+  }
+]
