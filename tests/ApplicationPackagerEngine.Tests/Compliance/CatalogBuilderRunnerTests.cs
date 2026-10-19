@@ -199,6 +199,40 @@ public sealed class CatalogBuilderRunnerTests : IDisposable
         Assert.Empty(Directory.GetDirectories(Folder));
     }
 
+    [Fact]
+    public async Task RunFoldersLeftByAnEarlierRunAreRemovedAfterADayWithoutFollowingAJunction()
+    {
+        Directory.CreateDirectory(Folder);
+        string Left(int days)
+        {
+            var folder = Path.Combine(Folder, CatalogBuilderRunner.RunFolderPrefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, "New-Old.ps1"), "1");
+            Directory.SetCreationTimeUtc(folder, DateTime.UtcNow.AddDays(-days));
+            return folder;
+        }
+        var old = Left(2);
+        var recent = Left(0);
+        var other = Path.Combine(Folder, "run-keep");
+        Directory.CreateDirectory(other);
+        Directory.SetCreationTimeUtc(other, DateTime.UtcNow.AddDays(-5));
+        var target = Path.Combine(_root, "elsewhere");
+        Directory.CreateDirectory(target);
+        File.WriteAllText(Path.Combine(target, "keep.txt"), "x");
+        var linked = Path.Combine(Folder, CatalogBuilderRunner.RunFolderPrefix + Guid.NewGuid().ToString("N"));
+        Junction(linked, target);
+        var (entry, bytes) = Builder("Write-Output 1");
+
+        var run = await new CatalogBuilderRunner(Folder).RunAsync(entry, bytes, [], _ => { }, TimeSpan.FromMinutes(1), CancellationToken.None);
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.False(Directory.Exists(old));
+        Assert.True(Directory.Exists(recent));
+        Assert.True(Directory.Exists(other));
+        Assert.True(Directory.Exists(linked));
+        Assert.True(File.Exists(Path.Combine(target, "keep.txt")));
+    }
+
     private const string TreeBuilder = """
         $child = Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile','-Command','Start-Sleep -Seconds 120' -PassThru -WindowStyle Hidden
         [Console]::Out.WriteLine('CHILD:' + $child.Id)
