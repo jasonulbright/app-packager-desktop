@@ -16,6 +16,8 @@ using DataGrid = System.Windows.Controls.DataGrid;
 using DataGridCell = System.Windows.Controls.DataGridCell;
 using Point = System.Windows.Point;
 using TabControl = System.Windows.Controls.TabControl;
+using Control = System.Windows.Controls.Control;
+using Brushes = System.Windows.Media.Brushes;
 
 namespace ApplicationPackagerEngine.Tests.MaintenanceWindows;
 
@@ -275,25 +277,207 @@ public sealed class MaintenanceWindowsPageTests
         });
     }
 
+    /// <summary>The main window gives this width to the navigation pane and its border; the page gets the rest.</summary>
+    private const double NavigationPaneWidth = 230;
+
+    private const double ReadableColumnWidth = 60;
+
+    private static double TextWidth(TextBlock style, string text) =>
+        new FormattedText(text, System.Globalization.CultureInfo.InvariantCulture, System.Windows.FlowDirection.LeftToRight,
+            new Typeface(style.FontFamily, style.FontStyle, style.FontWeight, style.FontStretch), style.FontSize, Brushes.Black,
+            VisualTreeHelper.GetDpi(style).PixelsPerDip).WidthIncludingTrailingWhitespace;
+
+    private static System.Windows.Controls.Primitives.DataGridColumnHeader Header(DataGrid grid, string header) =>
+        Descendants(grid).OfType<System.Windows.Controls.Primitives.DataGridColumnHeader>().Single(h => h.Column is not null && Equals(h.Column.Header, header));
+
+    private static System.Windows.Controls.Primitives.Thumb RightGripper(DataGrid grid, string header)
+    {
+        var h = Header(grid, header);
+        return (System.Windows.Controls.Primitives.Thumb)h.Template.FindName("PART_RightHeaderGripper", h);
+    }
+
+    private static void DragRightEdge(DataGrid grid, string header, double change)
+    {
+        var gripper = RightGripper(grid, header);
+        gripper.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0));
+        gripper.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(change, 0));
+        gripper.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(change, 0, false));
+        grid.UpdateLayout();
+        StaTestHelper.Flush();
+    }
+
+    private static void DoubleClickRightEdge(DataGrid grid, string header)
+    {
+        RightGripper(grid, header).RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0,
+            System.Windows.Input.MouseButton.Left) { RoutedEvent = Control.MouseDoubleClickEvent });
+        grid.UpdateLayout();
+        StaTestHelper.Flush();
+    }
+
+    private static void AssertDragWidens(DataGrid grid, string header, double change)
+    {
+        var column = grid.Columns.Single(c => Equals(c.Header, header));
+        var before = column.ActualWidth;
+        DragRightEdge(grid, header, change);
+        Assert.True(column.ActualWidth >= before + change - 1, $"Dragging the {header} edge {change} px moved it from {before} px to {column.ActualWidth} px.");
+    }
+
+    private static System.Windows.Controls.ScrollViewer GridScroller(DataGrid grid) =>
+        Descendants(grid).OfType<System.Windows.Controls.ScrollViewer>().First();
+
+    /// <summary>
+    /// Every column can be resized, has a minimum that holds its header text, and is at least that
+    /// minimum wide; every text column trims with an ellipsis and shows the full text as a tooltip.
+    /// </summary>
+    private static void AssertResizableReadableColumns(DataGrid grid)
+    {
+        Assert.True(grid.CanUserResizeColumns);
+        foreach (var column in grid.Columns)
+        {
+            var name = column.Header as string;
+            Assert.True(column.CanUserResize, $"{name} cannot be resized.");
+            Assert.True(column.ActualWidth >= column.MinWidth - 0.5, $"{name} is {column.ActualWidth} px wide below its minimum {column.MinWidth} px.");
+            if (string.IsNullOrEmpty(name))
+            {
+                Assert.True(column.MinWidth >= 40, $"The unnamed column has a minimum of {column.MinWidth} px.");
+                continue;
+            }
+            Assert.True(column.MinWidth >= ReadableColumnWidth, $"{name} has a minimum of {column.MinWidth} px.");
+            var header = Header(grid, name);
+            var label = Descendants(header).OfType<TextBlock>().First(t => t.Text == name);
+            var needed = TextWidth(label, name) + header.Padding.Left + header.Padding.Right;
+            Assert.True(column.MinWidth >= needed, $"{name} has a minimum of {column.MinWidth} px; its header needs {needed:0} px.");
+            if (column is DataGridTextColumn text)
+            {
+                var style = text.ElementStyle;
+                Assert.NotNull(style);
+                var setters = style.Setters.OfType<Setter>().ToList();
+                Assert.Contains(setters, s => s.Property == TextBlock.TextTrimmingProperty && Equals(s.Value, TextTrimming.CharacterEllipsis));
+                Assert.Contains(setters, s => s.Property == FrameworkElement.ToolTipProperty);
+            }
+        }
+    }
+
+    private static void AssertTextFits(DataGrid grid, string header, IEnumerable<string> texts)
+    {
+        var column = grid.Columns.Single(c => Equals(c.Header, header));
+        var cell = Descendants(grid).OfType<DataGridCell>().First(c => c.Column == column);
+        var block = Descendants(cell).OfType<TextBlock>().First();
+        var chrome = 2 * block.TranslatePoint(new Point(0, 0), cell).X;
+        foreach (var text in texts)
+        {
+            var needed = TextWidth(block, text) + chrome;
+            Assert.True(column.ActualWidth >= needed, $"{header} is {column.ActualWidth} px wide; '{text}' needs {needed:0} px.");
+        }
+    }
+
     [Theory]
     [InlineData(1440)]
     [InlineData(1024)]
-    public void TheWindowsGridKeepsReadableColumnsAtACommonWidth(double width)
+    public void TheWindowsGridKeepsReadableResizableColumnsAtACommonWidth(double width)
     {
         WithPage(ApplicationTheme.Light, (window, page, harness) =>
         {
             var grid = ById<DataGrid>(page, "dgWindows");
+            grid.SelectedIndex = 0;
             window.UpdateLayout();
             StaTestHelper.Flush();
-            var minimum = new Dictionary<string, double>
+            Assert.True(ById<FrameworkElement>(page, "tabWindowDetails").IsVisible);
+            AssertResizableReadableColumns(grid);
+            var scroller = GridScroller(grid);
+            if (width >= 1440)
             {
-                ["Status"] = 80, ["Collection"] = 150, ["Window"] = 160, ["Type"] = 120, ["Recurrence"] = 130,
-                ["Schedule"] = 180, ["Duration"] = 80, ["Next occurrence"] = 130
-            };
-            foreach (var column in grid.Columns)
-                Assert.True(column.ActualWidth >= minimum[(string)column.Header], $"{column.Header} is {column.ActualWidth} px wide at {width} px.");
-            Assert.True(grid.Columns.Single(c => (string)c.Header == "Window").Width.IsStar);
-        }, width);
+                Assert.Equal(0, Grid.GetRow(ById<FrameworkElement>(page, "pnlWindowDetails")));
+                Assert.True(ById<FrameworkElement>(page, "splitWindowDetails").IsVisible);
+                Assert.True(scroller.ScrollableWidth < 1, $"The columns need {scroller.ScrollableWidth:0} px more than the {scroller.ViewportWidth:0} px grid.");
+                AssertTextFits(grid, "Status", ["Enabled", "Disabled"]);
+                AssertTextFits(grid, "Type", MaintenanceWindowsText.WindowTypes.Select(t => t.Text));
+                AssertTextFits(grid, "Recurrence", MaintenanceWindowsText.Kinds.Select(k => k.Text).Append(MaintenanceWindowsText.OtherSchedule));
+                AssertTextFits(grid, "Duration", ["24h 0m"]);
+                AssertTextFits(grid, "Next occurrence", [MaintenanceWindowsText.Time(new DateTime(2026, 12, 28, 22, 0, 0))]);
+                foreach (var name in new[] { "Collection", "Window", "Schedule" })
+                    Assert.True(grid.Columns.Single(c => Equals(c.Header, name)).ActualWidth >= 90, $"{name} is narrower than 90 px.");
+            }
+            else
+            {
+                Assert.True(scroller.ScrollableWidth > 0, "A narrow grid does not scroll sideways.");
+                Assert.Equal(1, Grid.GetRow(ById<FrameworkElement>(page, "pnlWindowDetails")));
+                Assert.False(ById<FrameworkElement>(page, "splitWindowDetails").IsVisible);
+            }
+
+            AssertDragWidens(grid, "Type", 40);
+            AssertResizableReadableColumns(grid);
+            DragRightEdge(grid, "Type", -400);
+            AssertResizableReadableColumns(grid);
+        }, width - NavigationPaneWidth);
+    }
+
+    [Fact]
+    public void AutoSizingATemplateColumnKeepsTheOtherColumnsReadable()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            ById<TabControl>(page, "tabMaintenanceWindows").SelectedIndex = 2;
+            window.UpdateLayout();
+            StaTestHelper.Flush();
+            var grid = ById<DataGrid>(page, "dgTemplates");
+            grid.SelectedIndex = 0;
+            window.UpdateLayout();
+            StaTestHelper.Flush();
+            Assert.True(GridScroller(grid).ScrollableWidth < 1, "A selected template row scrolls the grid sideways.");
+            AssertResizableReadableColumns(grid);
+            AssertTextFits(grid, "Recurrence", MaintenanceWindowsText.Kinds.Select(k => k.Text));
+            AssertTextFits(grid, "Type", MaintenanceWindowsText.WindowTypes.Select(t => t.Text));
+            AssertTextFits(grid, "Duration", ["24h 0m"]);
+            AssertTextFits(grid, "Source", ["Shipped", "User"]);
+            foreach (var header in new[] { "Recurrence", "Type", "Name" })
+            {
+                DoubleClickRightEdge(grid, header);
+                AssertResizableReadableColumns(grid);
+            }
+            AssertDragWidens(grid, "Name", 600);
+            AssertResizableReadableColumns(grid);
+        }, 1440 - NavigationPaneWidth);
+    }
+
+    [Fact]
+    public void TheCoverageGridKeepsReadableResizableColumns()
+    {
+        WithPage(ApplicationTheme.Dark, (window, page, harness) =>
+        {
+            ById<TabControl>(page, "tabMaintenanceWindows").SelectedIndex = 1;
+            window.UpdateLayout();
+            StaTestHelper.Flush();
+            var grid = ById<DataGrid>(page, "dgCoverage");
+            AssertResizableReadableColumns(grid);
+            DoubleClickRightEdge(grid, "Coverage");
+            AssertResizableReadableColumns(grid);
+            AssertDragWidens(grid, "Collection", 600);
+            AssertResizableReadableColumns(grid);
+        }, 1024 - NavigationPaneWidth);
+    }
+
+    [Fact]
+    public void TheApplyTemplateListKeepsReadableResizableColumns()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            var dialog = new MaintenanceApplyTemplateViewModel(harness.Store.Templates, harness.Service.Collections,
+                new Dictionary<string, int>(), _ => Task.FromResult(true));
+            var window = new MaintenanceApplyTemplateWindow(dialog);
+            Show(window);
+            try
+            {
+                var grid = ById<DataGrid>(window, "dgApplyTargets");
+                AssertResizableReadableColumns(grid);
+                DoubleClickRightEdge(grid, "Collection");
+                AssertResizableReadableColumns(grid);
+                AssertDragWidens(grid, "ID", 600);
+                AssertResizableReadableColumns(grid);
+            }
+            finally { window.Close(); }
+        });
     }
 
     [Fact]

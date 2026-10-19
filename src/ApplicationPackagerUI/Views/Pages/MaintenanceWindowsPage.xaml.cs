@@ -22,12 +22,15 @@ public partial class MaintenanceWindowsPage : INavigationAware
 
     /// <summary>
     /// Below this width of the Windows area, the detail panel moves under the grid. Beside the
-    /// grid, the panel and its gap take 376 px; the eight columns need 1050 px at their minimum
-    /// widths, so the grid scrolls sideways until the area is 1426 px wide.
+    /// grid, the panel and its gap take 276 px by default; the five fixed columns take 560 px
+    /// and the three star columns at least 270 px, so the grid scrolls sideways only below
+    /// about 1120 px or after the user widens a column or the panel.
     /// </summary>
     public const double DetailsBesideMinWidth = 1100;
 
     public static bool DetailsBelow(double layoutWidth) => layoutWidth < DetailsBesideMinWidth;
+
+    private GridLength _detailsWidth = new(260);
 
     private void OnWindowsLayoutSizeChanged(object sender, SizeChangedEventArgs e)
     {
@@ -35,8 +38,11 @@ public partial class MaintenanceWindowsPage : INavigationAware
         var below = DetailsBelow(e.NewSize.Width);
         if (below == (Grid.GetRow(pnlWindowDetails) == 1)) return;
         var layout = gridWindowsLayout;
+        if (below) _detailsWidth = layout.ColumnDefinitions[2].Width;
         layout.ColumnDefinitions[1].Width = new GridLength(below ? 0 : 16);
-        layout.ColumnDefinitions[2].Width = new GridLength(below ? 0 : 360);
+        layout.ColumnDefinitions[2].MinWidth = below ? 0 : 220;
+        layout.ColumnDefinitions[2].Width = below ? new GridLength(0) : _detailsWidth;
+        splitWindowDetails.Visibility = below ? Visibility.Collapsed : Visibility.Visible;
         layout.RowDefinitions[1].Height = below ? new GridLength(240) : GridLength.Auto;
         Grid.SetRow(pnlWindowDetails, below ? 1 : 0);
         Grid.SetColumn(pnlWindowDetails, below ? 0 : 2);

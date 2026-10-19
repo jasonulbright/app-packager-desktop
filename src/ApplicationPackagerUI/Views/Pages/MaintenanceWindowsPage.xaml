@@ -43,6 +43,12 @@
             <Setter Property="HeaderTemplate" Value="{StaticResource TabHeaderTemplate}" />
         </Style>
 
+        <!-- The theme's row template puts a 3 px selection bar left of the cells of a selected row; the negative
+             right margin keeps that row as wide as the columns, so selecting a row adds no horizontal scroll. -->
+        <Style x:Key="IndicatorRow" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+            <Setter Property="Margin" Value="0,2,-3,2" />
+        </Style>
+
         <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
@@ -128,24 +134,30 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="360" />
+                            <ColumnDefinition Width="260" MinWidth="220" />
                         </Grid.ColumnDefinitions>
 
                         <DataGrid Grid.Row="0" Grid.Column="0" x:Name="dgWindows" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}"
                                   SelectionChanged="OnWindowsSelectionChanged" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
                                   IsReadOnly="True" HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Extended" GridLinesVisibility="Horizontal"
-                                  HorizontalScrollBarVisibility="Auto" AutomationProperties.AutomationId="dgWindows" AutomationProperties.Name="Maintenance windows">
+                                  HorizontalScrollBarVisibility="Auto" CanUserResizeColumns="True" helpers:DataGridColumnSizing.FixStarWidthsOnResize="True"
+                                  RowStyle="{StaticResource IndicatorRow}" AutomationProperties.AutomationId="dgWindows" AutomationProperties.Name="Maintenance windows">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" MinWidth="80" />
-                                <DataGridTextColumn Header="Collection" Binding="{Binding CollectionName}" Width="2*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Window" Binding="{Binding WindowName}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="130" MinWidth="120" />
-                                <DataGridTextColumn Header="Recurrence" Binding="{Binding Recurrence}" Width="140" MinWidth="130" />
-                                <DataGridTextColumn Header="Schedule" Binding="{Binding ScheduleText}" Width="3*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="90" MinWidth="80" />
-                                <DataGridTextColumn Header="Next occurrence" Binding="{Binding Next}" Width="140" MinWidth="130" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="76" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Collection" Binding="{Binding CollectionName}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Window" Binding="{Binding WindowName}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Recurrence" Binding="{Binding Recurrence}" Width="148" MinWidth="148" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Schedule" Binding="{Binding ScheduleText}" Width="1.5*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="76" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Next occurrence" Binding="{Binding Next}" Width="132" MinWidth="132" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
+
+                        <GridSplitter Grid.Row="0" Grid.Column="1" x:Name="splitWindowDetails" Width="16" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                      ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Background="Transparent" Focusable="True"
+                                      ToolTip="Drag to change the width of the details." AutomationProperties.Name="Details width"
+                                      AutomationProperties.AutomationId="splitWindowDetails" />
 
                         <Border Grid.Row="0" Grid.Column="2" x:Name="pnlWindowDetails" BorderThickness="1" CornerRadius="6" Padding="12"
                                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
@@ -209,9 +221,9 @@
                     <DataGrid Grid.Row="1" x:Name="dgCoverage" ItemsSource="{Binding Coverage}" SelectionChanged="OnCoverageSelectionChanged"
                               AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column"
                               RowHeaderWidth="0" SelectionMode="Extended" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto"
-                              AutomationProperties.AutomationId="dgCoverage" AutomationProperties.Name="Coverage">
+                              helpers:DataGridColumnSizing.FixStarWidthsOnResize="True" RowStyle="{StaticResource IndicatorRow}" AutomationProperties.AutomationId="dgCoverage" AutomationProperties.Name="Coverage">
                         <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="" Width="40" CanUserSort="False">
+                            <DataGridTemplateColumn Header="" Width="40" MinWidth="40" CanUserSort="False">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Grid>
@@ -225,12 +237,12 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Coverage" Binding="{Binding Coverage}" Width="110" />
+                            <DataGridTextColumn Header="Coverage" Binding="{Binding Coverage}" Width="110" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Collection" Binding="{Binding Name}" Width="3*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="ID" Binding="{Binding CollectionId}" Width="100" />
-                            <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="90" />
-                            <DataGridTextColumn Header="Windows" Binding="{Binding WindowCount}" Width="90" />
-                            <DataGridTextColumn Header="Built-in" Binding="{Binding BuiltIn}" Width="80" />
+                            <DataGridTextColumn Header="ID" Binding="{Binding CollectionId}" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="90" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Windows" Binding="{Binding WindowCount}" Width="90" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Built-in" Binding="{Binding BuiltIn}" Width="80" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Folder" Binding="{Binding FolderPath}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                         </DataGrid.Columns>
                     </DataGrid>
@@ -262,14 +274,14 @@
                     </WrapPanel>
                     <DataGrid Grid.Row="1" Grid.Column="0" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
                               AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column"
-                              RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal"
-                              AutomationProperties.AutomationId="dgTemplates" AutomationProperties.Name="Templates">
+                              RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto"
+                              helpers:DataGridColumnSizing.FixStarWidthsOnResize="True" RowStyle="{StaticResource IndicatorRow}" AutomationProperties.AutomationId="dgTemplates" AutomationProperties.Name="Templates">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Recurrence" Binding="{Binding Recurrence}" Width="140" />
-                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="130" />
-                            <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80" />
-                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="80" />
+                            <DataGridTextColumn Header="Recurrence" Binding="{Binding Recurrence}" Width="148" MinWidth="148" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="128" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="76" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="80" MinWidth="68" ElementStyle="{StaticResource TrimmedCell}" />
                         </DataGrid.Columns>
                     </DataGrid>
                     <Border Grid.Row="1" Grid.Column="2" BorderThickness="1" CornerRadius="6" Padding="12"
@@ -317,7 +329,7 @@
                 </DockPanel>
                 <DataGrid Grid.Row="1" ItemsSource="{Binding LastResults}" AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="160"
                           CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
-                          SelectionMode="Single" GridLinesVisibility="Horizontal" AutomationProperties.AutomationId="dgResults" AutomationProperties.Name="Results">
+                          SelectionMode="Single" GridLinesVisibility="Horizontal" RowStyle="{StaticResource IndicatorRow}" AutomationProperties.AutomationId="dgResults" AutomationProperties.Name="Results">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="90" />
                         <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" />
