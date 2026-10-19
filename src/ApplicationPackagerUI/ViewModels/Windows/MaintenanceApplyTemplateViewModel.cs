@@ -13,6 +13,8 @@ public sealed partial class TemplateTargetRow(CollectionInfo collection, int win
     public int WindowCount { get; } = windowCount;
 
     [ObservableProperty] private bool _isChecked;
+
+    public override string ToString() => Name;
 }
 
 /// <summary>

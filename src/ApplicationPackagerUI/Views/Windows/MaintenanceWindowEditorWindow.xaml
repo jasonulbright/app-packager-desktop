@@ -46,6 +46,11 @@
                         <ListBox ItemsSource="{Binding Collections}" SelectedItem="{Binding SelectedCollection}" Height="140"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  IsEnabled="{Binding CanPickCollection}" AutomationProperties.Name="Collection" AutomationProperties.AutomationId="lstCollections">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                    <EventSetter Event="GotKeyboardFocus" Handler="OnCollectionItemFocused" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel>

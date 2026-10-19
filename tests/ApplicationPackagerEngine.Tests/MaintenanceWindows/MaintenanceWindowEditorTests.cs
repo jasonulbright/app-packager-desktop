@@ -28,6 +28,39 @@ public sealed class MaintenanceWindowEditorTests
     };
 
     [Fact]
+    public void EditListsOnlyTheWindowsOwnCollectionAndSelectsIt()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.EditWindow, new FakeProjector(), _ => Task.FromResult(true), () => Now,
+            harness.Service.Collections, harness.Service.Windows);
+        editor.Load(harness.Service.Windows.Single(w => w.WindowName == "Nightly"));
+        var only = Assert.Single(editor.Collections);
+        Assert.Equal("Workstations", only.Collection.Name);
+        Assert.Same(only, editor.SelectedCollection);
+        editor.CollectionFilter = "Kiosk";
+        Assert.Same(only, Assert.Single(editor.Collections));
+        Assert.Same(only, editor.SelectedCollection);
+    }
+
+    [Fact]
+    public void ListItemsNameThemselvesInPlainText()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var window = harness.Service.Windows.Single(w => w.WindowName == "Nightly");
+        Assert.Equal("Workstations (LAB00011)", new CollectionChoice(harness.Workstations).ToString());
+        Assert.Equal("Workstations", new TemplateTargetRow(harness.Workstations, 1).ToString());
+        Assert.Equal("Nightly, Workstations, Weekly at 02:00", new ApplicationPackagerUI.ViewModels.Pages.MaintenanceWindowRow(harness.Workstations, window).ToString());
+        Assert.Equal("Kiosks, no window", new ApplicationPackagerUI.ViewModels.Pages.MaintenanceWindowRow(harness.Kiosks, null).ToString());
+        Assert.Equal("Kiosks, No window", new ApplicationPackagerUI.ViewModels.Pages.CoverageRow(harness.Kiosks, 0).ToString());
+        var template = harness.Store.Templates[0];
+        Assert.Equal("Weekly Sunday 2 AM", template.ToString());
+        Assert.Equal("Weekly Sunday 2 AM, Weekly", new ApplicationPackagerUI.ViewModels.Pages.TemplateRow(template, "text").ToString());
+        var item = new ApplicationPackagerUI.Services.ChangePlanItem("Create", "Kiosks: Nightly", "Detail.");
+        Assert.Equal("Create Kiosks: Nightly", item.ToString());
+        Assert.Equal("Changed, Create Kiosks: Nightly, Created.", new ApplicationPackagerUI.Services.ChangePlanItemResult(item, true, "Created.").ToString());
+    }
+
+    [Fact]
     public void AScheduleThePreviewCannotDescribeShowsAFixedTextWithoutTheExceptionText()
     {
         var projector = new FakeProjector { DescribeFailure = new ArgumentException("raw projector detail") };

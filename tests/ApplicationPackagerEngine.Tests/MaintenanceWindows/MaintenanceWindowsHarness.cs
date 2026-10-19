@@ -45,6 +45,7 @@ internal sealed class FakeProjector : IScheduleProjector
 {
     public IReadOnlyList<DateTime> NextOccurrences(MaintenanceSchedule schedule, DateTime from, int count)
     {
+        if (UseReal) return new ScheduleProjector().NextOccurrences(schedule, from, count);
         var list = new List<DateTime>();
         var next = schedule.Start;
         for (var i = 0; i < 500 && list.Count < count; i++)
@@ -63,7 +64,12 @@ internal sealed class FakeProjector : IScheduleProjector
 
     public Exception? DescribeFailure;
 
-    public string Describe(MaintenanceSchedule schedule) => DescribeFailure is { } failure ? throw failure : $"{schedule.Kind} at {schedule.Start:HH:mm} for {(int)schedule.Duration.TotalMinutes} minutes";
+    /// <summary>True describes and projects with the real projector.</summary>
+    public bool UseReal;
+
+    public string Describe(MaintenanceSchedule schedule) => DescribeFailure is { } failure ? throw failure
+        : UseReal ? new ScheduleProjector().Describe(schedule)
+        : $"{schedule.Kind} at {schedule.Start:HH:mm} for {(int)schedule.Duration.TotalMinutes} minutes";
 
     /// <summary>A reason replaces the real rules when set; otherwise the real rules apply.</summary>
     public Func<MaintenanceSchedule, string?>? Rejects;

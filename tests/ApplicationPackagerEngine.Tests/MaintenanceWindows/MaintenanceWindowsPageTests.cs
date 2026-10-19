@@ -13,6 +13,8 @@ using Wpf.Ui.Appearance;
 using Wpf.Ui.Markup;
 using Application = System.Windows.Application;
 using DataGrid = System.Windows.Controls.DataGrid;
+using DataGridCell = System.Windows.Controls.DataGridCell;
+using Point = System.Windows.Point;
 using TabControl = System.Windows.Controls.TabControl;
 
 namespace ApplicationPackagerEngine.Tests.MaintenanceWindows;
@@ -270,6 +272,150 @@ public sealed class MaintenanceWindowsPageTests
                 }
                 finally { window.Close(); }
             }
+        });
+    }
+
+    [Theory]
+    [InlineData(1440)]
+    [InlineData(1024)]
+    public void TheWindowsGridKeepsReadableColumnsAtACommonWidth(double width)
+    {
+        WithPage(ApplicationTheme.Light, (window, page, harness) =>
+        {
+            var grid = ById<DataGrid>(page, "dgWindows");
+            window.UpdateLayout();
+            StaTestHelper.Flush();
+            var minimum = new Dictionary<string, double>
+            {
+                ["Status"] = 80, ["Collection"] = 150, ["Window"] = 160, ["Type"] = 120, ["Recurrence"] = 130,
+                ["Schedule"] = 180, ["Duration"] = 80, ["Next occurrence"] = 130
+            };
+            foreach (var column in grid.Columns)
+                Assert.True(column.ActualWidth >= minimum[(string)column.Header], $"{column.Header} is {column.ActualWidth} px wide at {width} px.");
+            Assert.True(grid.Columns.Single(c => (string)c.Header == "Window").Width.IsStar);
+        }, width);
+    }
+
+    [Fact]
+    public void ScreenReadersHearPlainNamesForRowsAndItems()
+    {
+        WithPage(ApplicationTheme.Dark, (window, page, harness) =>
+        {
+            var viewModel = (MaintenanceWindowsViewModel)page.DataContext;
+            var grid = ById<DataGrid>(page, "dgWindows");
+            var names = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(grid).GetChildren()
+                .OfType<System.Windows.Automation.Peers.DataGridItemAutomationPeer>().Select(p => p.GetName()).ToList();
+            Assert.Equal(3, names.Count);
+            Assert.Contains("Nightly, Workstations, Weekly at 02:00", names);
+            Assert.All(names, n => Assert.DoesNotContain("{", n));
+
+            var collections = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.NewWindow, harness.Projector, _ => Task.FromResult(true),
+                () => MaintenanceWindowsHarness.Now, harness.Service.Collections, harness.Service.Windows);
+            var editor = new MaintenanceWindowEditorWindow(collections);
+            Show(editor);
+            try
+            {
+                var list = ById<System.Windows.Controls.ListBox>(editor, "lstCollections");
+                var items = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(list).GetChildren().Select(p => p.GetName()).ToList();
+                Assert.Equal(["Kiosks (LAB00012)", "Servers (LAB00010)", "Workstations (LAB00011)"], items);
+            }
+            finally { editor.Close(); }
+        });
+    }
+
+    [Fact]
+    public void KeyboardFocusOnACollectionSelectsIt()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.NewWindow, harness.Projector, _ => Task.FromResult(true),
+                () => MaintenanceWindowsHarness.Now, harness.Service.Collections, harness.Service.Windows);
+            var window = new MaintenanceWindowEditorWindow(editor);
+            Show(window);
+            try
+            {
+                editor.CollectionFilter = "Serv";
+                StaTestHelper.Flush();
+                var list = ById<System.Windows.Controls.ListBox>(window, "lstCollections");
+                var item = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
+                Assert.Null(editor.SelectedCollection);
+                item.RaiseEvent(new System.Windows.Input.KeyboardFocusChangedEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, 0, null, item)
+                    { RoutedEvent = System.Windows.Input.Keyboard.GotKeyboardFocusEvent });
+                Assert.Equal("Servers", editor.SelectedCollection?.Collection.Name);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void TheEditorShowsTheOwnCollectionOfTheWindow()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            for (var i = 0; i < 20; i++) harness.Service.AddCollection($"LAB001{i:00}", $"Area {i:00}");
+            var editor = new MaintenanceWindowEditorViewModel(MaintenanceEditorMode.EditWindow, harness.Projector, _ => Task.FromResult(true),
+                () => MaintenanceWindowsHarness.Now, harness.Service.Collections, harness.Service.Windows);
+            editor.Load(harness.Service.Windows.Single(w => w.WindowName == "Nightly"));
+            var window = new MaintenanceWindowEditorWindow(editor);
+            Show(window);
+            try
+            {
+                var list = ById<System.Windows.Controls.ListBox>(window, "lstCollections");
+                var item = (ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(editor.SelectedCollection);
+                Assert.NotNull(item);
+                Assert.True(item.IsSelected);
+                var top = item.TranslatePoint(new Point(0, 0), list).Y;
+                Assert.True(top >= 0 && top + item.ActualHeight <= list.ActualHeight, $"The item is at {top} in a list of {list.ActualHeight} px.");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void TheApplyTemplateCheckBoxFitsItsColumn()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var harness = new MaintenanceWindowsHarness();
+            var dialog = new MaintenanceApplyTemplateViewModel(harness.Store.Templates, harness.Service.Collections,
+                new Dictionary<string, int>(), _ => Task.FromResult(true));
+            var window = new MaintenanceApplyTemplateWindow(dialog);
+            Show(window);
+            try
+            {
+                var grid = ById<DataGrid>(window, "dgApplyTargets");
+                var cell = Descendants(grid).OfType<DataGridCell>().First(c => c.Column.DisplayIndex == 0);
+                var box = Descendants(cell).OfType<System.Windows.Controls.CheckBox>().Single();
+                var bullet = Descendants(box).OfType<System.Windows.Controls.Primitives.BulletDecorator>().First();
+                var glyph = Descendants(bullet).OfType<Border>().First();
+                Assert.True(bullet.ActualWidth >= glyph.ActualWidth, $"The glyph is {glyph.ActualWidth} px wide in a {bullet.ActualWidth} px space.");
+                var left = glyph.TranslatePoint(new Point(0, 0), cell).X;
+                Assert.True(left >= 0, $"The glyph starts at {left} px.");
+                Assert.True(left + glyph.ActualWidth <= cell.ActualWidth, $"The glyph ends at {left + glyph.ActualWidth} px in a {cell.ActualWidth} px cell.");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void ThePlanDetailWrapsAndHasATooltip()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var detail = "Old: " + string.Join(" ", Enumerable.Repeat("Occurs the Second Tuesday of every 1 months effective 10/14/2026 2:00 AM", 4)) + ".";
+            var plan = new ChangePlan("Remove maintenance window", "Remove window", [new ChangePlanItem("Remove", "Kiosks: Nightly", detail)]);
+            var viewModel = new ChangePlanViewModel(plan, (c, p, ct) => Task.FromResult(new ChangePlanResult([])));
+            var window = new ChangePlanWindow(viewModel);
+            Show(window);
+            try
+            {
+                var text = Descendants(ById<DataGrid>(window, "gridChangePlan")).OfType<TextBlock>().Single(t => t.Text == detail);
+                Assert.Equal(TextWrapping.Wrap, text.TextWrapping);
+                Assert.Equal(detail, text.ToolTip);
+            }
+            finally { window.Close(); }
         });
     }
 

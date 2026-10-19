@@ -50,10 +50,10 @@
                   HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
                   AutomationProperties.AutomationId="dgApplyTargets" AutomationProperties.Name="Target collections">
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="" Width="44" CanUserSort="False">
+                <DataGridTemplateColumn Header="" Width="64" MinWidth="64" CanUserSort="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
+                            <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
                                       AutomationProperties.Name="{Binding Name}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>

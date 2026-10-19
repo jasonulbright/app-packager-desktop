@@ -136,14 +136,14 @@
                                   IsReadOnly="True" HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Extended" GridLinesVisibility="Horizontal"
                                   HorizontalScrollBarVisibility="Auto" AutomationProperties.AutomationId="dgWindows" AutomationProperties.Name="Maintenance windows">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" MinWidth="80" />
                                 <DataGridTextColumn Header="Collection" Binding="{Binding CollectionName}" Width="2*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Window" Binding="{Binding WindowName}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="130" />
-                                <DataGridTextColumn Header="Recurrence" Binding="{Binding Recurrence}" Width="140" />
+                                <DataGridTextColumn Header="Window" Binding="{Binding WindowName}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="130" MinWidth="120" />
+                                <DataGridTextColumn Header="Recurrence" Binding="{Binding Recurrence}" Width="140" MinWidth="130" />
                                 <DataGridTextColumn Header="Schedule" Binding="{Binding ScheduleText}" Width="3*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="80" />
-                                <DataGridTextColumn Header="Next occurrence" Binding="{Binding Next}" Width="140" />
+                                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="90" MinWidth="80" />
+                                <DataGridTextColumn Header="Next occurrence" Binding="{Binding Next}" Width="140" MinWidth="130" />
                             </DataGrid.Columns>
                         </DataGrid>
 

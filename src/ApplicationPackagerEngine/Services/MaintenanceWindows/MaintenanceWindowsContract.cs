@@ -110,7 +110,10 @@ public sealed record MaintenanceTemplate(
     string Description,
     MaintenanceSchedule Schedule,
     string WindowType,
-    bool IsShipped);
+    bool IsShipped)
+{
+    public override string ToString() => Name;
+}
 
 public enum ChangeKind
 {

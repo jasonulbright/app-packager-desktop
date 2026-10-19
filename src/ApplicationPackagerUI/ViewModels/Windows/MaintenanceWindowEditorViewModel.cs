@@ -16,6 +16,8 @@ public sealed record CollectionChoice(CollectionInfo Collection)
 {
     public string Text => $"{Collection.Name} ({Collection.CollectionId})";
     public string FolderPath => string.IsNullOrEmpty(Collection.FolderPath) ? "(root)" : Collection.FolderPath;
+
+    public override string ToString() => Text;
 }
 
 /// <summary>
@@ -203,6 +205,7 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
 
     partial void OnCollectionFilterChanged(string value)
     {
+        if (!CanPickCollection) return;
         var filter = value.Trim();
         var selected = SelectedCollection;
         Collections.Clear();
@@ -236,12 +239,13 @@ public sealed partial class MaintenanceWindowEditorViewModel : ObservableObject
     partial void OnPatchTuesdayOffsetDaysChanged(int value) => UpdatePreview();
     partial void OnWeekdayOffsetDaysChanged(int value) => UpdatePreview();
 
-    /// <summary>Fills the dialog from a window; the collection cannot change in Edit.</summary>
+    /// <summary>Fills the dialog from a window; in Edit the list holds only the window's own collection, which cannot change.</summary>
     public void Load(MaintenanceWindowInfo window)
     {
         Original = window;
         var choice = _allCollections.FirstOrDefault(c => string.Equals(c.Collection.CollectionId, window.CollectionId, StringComparison.OrdinalIgnoreCase))
             ?? new CollectionChoice(new CollectionInfo(window.CollectionId, window.CollectionName, "", 0, false));
+        if (!CanPickCollection) Collections.Clear();
         if (!Collections.Contains(choice)) Collections.Add(choice);
         SelectedCollection = choice;
         Name = window.WindowName;

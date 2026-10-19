@@ -290,13 +290,33 @@ public sealed class MaintenanceWindowsViewModelTests
 
         var item = Assert.Single(Assert.Single(harness.Plans.Shown).Items);
         Assert.Equal("Update", item.Action);
-        Assert.Contains("Old: All deployments, Weekly at 02:00.", item.Detail);
-        Assert.Contains("New: All deployments, Weekly at 02:00 for 120 minutes.", item.Detail);
+        Assert.Contains("Old: All deployments, Weekly at 02:00, duration 4h 0m.", item.Detail);
+        Assert.Contains("New: All deployments, Weekly at 02:00 for 120 minutes, duration 2h 0m.", item.Detail);
         var change = Assert.Single(Assert.Single(harness.Service.Applied));
         Assert.Equal(ChangeKind.Update, change.Kind);
         Assert.Equal(TimeSpan.FromHours(4), change.Before!.Schedule.Duration);
         Assert.Equal(TimeSpan.FromHours(2), change.After!.Schedule.Duration);
         Assert.Equal(change.Before.ServiceWindowId, change.After.ServiceWindowId);
+    }
+
+    [Fact]
+    public async Task AnEditOfTheMinutesOfTheDurationShowsBothDurationsInThePlan()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        var schedule = FakeMaintenanceService.Weekly(new DateTime(2026, 10, 25, 2, 0, 0)) with { Duration = new TimeSpan(2, 15, 0) };
+        harness.Service.AddWindow(harness.Kiosks, "Short", schedule: schedule);
+        var vm = await harness.OpenAsync();
+        Select(vm, "Short");
+        harness.Prompts.Editor = editor =>
+        {
+            editor.DurationMinutes = 30;
+            FakeMaintenancePrompts.Save(editor);
+        };
+        await vm.EditWindowCommand.ExecuteAsync(null);
+
+        var item = Assert.Single(Assert.Single(harness.Plans.Shown).Items);
+        Assert.Matches(@"Old: [^.]*, duration 2h 15m\.", item.Detail);
+        Assert.Matches(@"New: [^.]*, duration 2h 30m\.", item.Detail);
     }
 
     [Fact]
@@ -342,6 +362,36 @@ public sealed class MaintenanceWindowsViewModelTests
         Assert.Equal("Nightly", vm.SelectedRow!.WindowName);
         Assert.Equal(["Nightly"], vm.SelectedWindows.Select(r => r.WindowName));
         Assert.True(vm.RemoveWindowsCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ARenameWhoseCreateFailsSaysNothingWasChangedAndGivesNoRemoveAdvice()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        harness.Service.Fail = change =>
+        {
+            if (change.Kind != ChangeKind.Rename) return null;
+            harness.Service.AddWindow(harness.Workstations, change.NewWindowName!);
+            return FakeMaintenanceService.NameTakenMessage("Workstations", change.NewWindowName!);
+        };
+        var vm = await harness.OpenAsync();
+        Select(vm, "Nightly");
+        harness.Prompts.Editor = editor =>
+        {
+            editor.Name = "Nightly clients";
+            FakeMaintenancePrompts.Save(editor);
+            Assert.False(editor.Saved);
+            Assert.DoesNotContain("Both windows exist", editor.ValidationMessage);
+            editor.CancelCommand.Execute(null);
+        };
+        await vm.EditWindowCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Nightly", "Nightly clients"], vm.Rows.Where(r => r.CollectionName == "Workstations").Select(r => r.WindowName));
+        Assert.Equal("Failed", Assert.Single(vm.LastResults).OutcomeText);
+        Assert.Equal(MaintenanceWindowsViewModel.RenameNotMade("Workstations", "Nightly", "Nightly clients"), vm.StatusMessage);
+        Assert.Contains(MaintenanceWindowsViewModel.NotConfirmed, vm.StatusMessage);
+        Assert.DoesNotContain("Remove", vm.StatusMessage);
+        Assert.DoesNotContain("was created", vm.StatusMessage);
     }
 
     [Fact]
@@ -618,6 +668,23 @@ public sealed class MaintenanceWindowsViewModelTests
     }
 
     // --- Templates and export --------------------------------------------------------------
+
+    [Fact]
+    public async Task ATemplateScheduleShowsNoPlaceholderDateButTheNextOccurrenceIfAppliedToday()
+    {
+        var harness = new MaintenanceWindowsHarness();
+        harness.Projector.UseReal = true;
+        harness.Store.Templates.Clear();
+        harness.Store.Templates.Add(new MaintenanceTemplate("shipped", "Sunday", "Every Sunday.",
+            FakeMaintenanceService.Weekly(new DateTime(2000, 1, 2, 2, 0, 0)), "Any", true));
+        var vm = await harness.OpenAsync();
+
+        var text = Assert.Single(vm.Templates).ScheduleText;
+        Assert.DoesNotContain("2000", text);
+        Assert.DoesNotContain("effective", text);
+        Assert.StartsWith("Occurs every 1 weeks on Sunday", text);
+        Assert.Contains("Next if applied today: Sun 2026-10-25 02:00 to 06:00.", text);
+    }
 
     [Fact]
     public async Task UserTemplatesAreCreatedEditedAndDeletedAndShippedOnesAreProtected()

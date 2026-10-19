@@ -43,6 +43,8 @@ public sealed record MaintenanceWindowRow(CollectionInfo Collection, Maintenance
     public string ScheduleText => Window?.ScheduleText ?? "";
     public string Duration => Window is null || !IsScheduleHeld ? "" : MaintenanceWindowsText.Duration(Window.Schedule.Duration);
     public string Next => Window is null ? "" : MaintenanceWindowsText.Time(Window.NextOccurrence);
+
+    public override string ToString() => Window is null ? $"{CollectionName}, no window" : $"{WindowName}, {CollectionName}, {ScheduleText}";
 }
 
 /// <summary>One row of the Coverage grid.</summary>
@@ -55,6 +57,8 @@ public sealed record CoverageRow(CollectionInfo Collection, int WindowCount)
     public string FolderPath => Collection.FolderPath;
     public int MemberCount => Collection.MemberCount;
     public string BuiltIn => Collection.IsBuiltIn ? "Yes" : "No";
+
+    public override string ToString() => $"{Name}, {Coverage}";
 }
 
 /// <summary>One row of the Templates grid.</summary>
@@ -66,6 +70,8 @@ public sealed record TemplateRow(MaintenanceTemplate Template, string ScheduleTe
     public string Duration => MaintenanceWindowsText.Duration(Template.Schedule.Duration);
     public string Source => Template.IsShipped ? "Shipped" : "User";
     public string Description => Template.Description;
+
+    public override string ToString() => $"{Name}, {Recurrence}";
 }
 
 public sealed record PropertyRow(string Name, string Value);
@@ -100,6 +106,9 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
 
     public static string BothWindowsExist(string collection, string oldName, string newName) =>
         $"Both windows exist on {collection}: {newName} was created, {oldName} was not removed. Select {oldName} and press Remove to remove the old window.";
+
+    public static string RenameNotMade(string collection, string oldName, string newName) =>
+        $"{newName} was not created on {collection} and {oldName} is unchanged. {NotConfirmed}";
 
     public static string AllSkipped(string name) => $"Every selected collection already has a window named {name}. Nothing to change.";
 
@@ -626,7 +635,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             var selected = SelectedTemplate?.Template.Id;
             Templates.Clear();
             foreach (var t in templates.OrderBy(t => t.IsShipped ? 0 : 1).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
-                Templates.Add(new TemplateRow(t, Describe(t.Schedule)));
+                Templates.Add(new TemplateRow(t, TemplateScheduleText(t.Schedule)));
             SelectedTemplate = Templates.FirstOrDefault(t => t.Template.Id == selected);
         }
         catch (Exception ex)
@@ -640,6 +649,22 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     {
         try { return _services.Projector.Describe(schedule); }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return ""; }
+    }
+
+    /// <summary>
+    /// A template's start date is a placeholder; the text describes the schedule as applying
+    /// it today would create it, without the effective date, and adds its first occurrence.
+    /// </summary>
+    private string TemplateScheduleText(MaintenanceSchedule schedule)
+    {
+        var today = schedule.EffectiveOn(_services.Now().Date);
+        var text = Describe(today);
+        var cut = text.IndexOf(" effective ", StringComparison.Ordinal);
+        if (cut > 0) text = text[..cut];
+        if (text.Length == 0) return text;
+        // Project returns either occurrences or one sentence that ends with a period.
+        var next = Project(today, 1)[0];
+        return next.EndsWith('.') ? $"{text}. {next}" : $"{text}. Next if applied today: {next}.";
     }
 
     /// <summary>
@@ -752,7 +777,11 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         LastPlan = outcome.UndoResult is null && plan.UndoChanges().Count > 0 ? plan : null;
     }
 
-    /// <summary>Reads the list again after a write and points at a rename that left both windows.</summary>
+    /// <summary>
+    /// Reads the list again after a write and points at a rename that left both windows. Only
+    /// a rename whose outcome carries an undo created the new window; a failed rename without
+    /// one changed nothing, even when another window already has the new name.
+    /// </summary>
     private async Task AfterWriteAsync(MaintenancePlan? plan)
     {
         var status = StatusMessage;
@@ -762,9 +791,17 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         await LoadAsync();
         if (StatusMessage.Length == 0) StatusMessage = status;
         if (plan is null || _windows is null) return;
+        var outcomes = plan.Outcomes;
         foreach (var entry in plan.Entries.Where(e => e.Change is { Kind: ChangeKind.Rename, NewWindowName: not null }))
         {
             var change = entry.Change!;
+            var outcome = outcomes.FirstOrDefault(o => ReferenceEquals(plan.EntryFor(o.Change), entry));
+            if (outcome is null || outcome.Succeeded) continue;
+            if (outcome.UndoChange is null)
+            {
+                StatusMessage = RenameNotMade(change.CollectionName, change.WindowName, change.NewWindowName!);
+                break;
+            }
             bool Exists(string name) => _windows.Any(w => string.Equals(w.CollectionId, change.CollectionId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(w.WindowName, name, StringComparison.OrdinalIgnoreCase));
             if (!Exists(change.WindowName) || !Exists(change.NewWindowName!)) continue;
@@ -805,17 +842,20 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
                 return (new MaintenancePlan("Update", "Edit maintenance window", "Save changes",
                 [
                     MaintenancePlanEntry.Write(new ChangePlanItem("Update", MaintenanceWindowsText.Target(change.CollectionName, change.WindowName),
-                        $"Old: {MaintenanceWindowsText.WindowType(before.WindowType)}, {before.ScheduleText}. New: {MaintenanceWindowsText.WindowType(after.WindowType)}, {after.ScheduleText}.{KeepsDescriptionText(before)}"), change)
+                        $"Old: {MaintenanceWindowsText.WindowType(before.WindowType)}, {before.ScheduleText}, {DurationText(before)}. New: {MaintenanceWindowsText.WindowType(after.WindowType)}, {after.ScheduleText}, {DurationText(after)}.{KeepsDescriptionText(before)}"), change)
                 ]), null);
             default:
                 if (change.Before is not { } old) return (null, WindowGone(change.CollectionName, change.WindowName));
                 return (new MaintenancePlan("Rename", "Rename maintenance window", "Rename window",
                 [
                     MaintenancePlanEntry.Write(new ChangePlanItem("Rename", MaintenanceWindowsText.Target(change.CollectionName, change.WindowName),
-                        $"New name: {change.NewWindowName}. {change.NewWindowName} is created first; {change.WindowName} is removed only after that. Old: {old.ScheduleText}. New: {after.ScheduleText}.{KeepsDescriptionText(old)}"), change)
+                        $"New name: {change.NewWindowName}. {change.NewWindowName} is created first; {change.WindowName} is removed only after that. Old: {old.ScheduleText}, {DurationText(old)}. New: {after.ScheduleText}, {DurationText(after)}.{KeepsDescriptionText(old)}"), change)
                 ]), null);
         }
     }
+
+    /// <summary>ConfigMgr's schedule text has no duration, so a duration-only edit needs it stated.</summary>
+    private static string DurationText(MaintenanceWindowInfo window) => "duration " + MaintenanceWindowsText.Duration(window.Schedule.Duration);
 
     /// <summary>The editor's Save: one change, its plan, and true when the write changed ConfigMgr.</summary>
     private async Task<bool> SaveWindowAsync(MaintenanceWindowEditorViewModel editor)

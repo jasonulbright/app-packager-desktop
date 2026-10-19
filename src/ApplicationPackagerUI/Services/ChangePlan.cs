@@ -3,7 +3,10 @@ using ApplicationPackagerUI.ViewModels.Windows;
 namespace ApplicationPackagerUI.Services;
 
 /// <summary>One change a plan makes: the action, the object it changes and an optional detail.</summary>
-public sealed record ChangePlanItem(string Action, string Target, string? Detail);
+public sealed record ChangePlanItem(string Action, string Target, string? Detail)
+{
+    public override string ToString() => $"{Action} {Target}";
+}
 
 /// <summary>
 /// What a write operation will change, shown to the operator before anything runs.
@@ -74,6 +77,8 @@ public sealed record ChangePlanItemResult(ChangePlanItem Item, bool Succeeded, s
     public string OutcomeText => Skipped ? "Skipped" : Succeeded ? "Changed" : "Failed";
 
     public static ChangePlanItemResult Skip(ChangePlanItem item, string message) => new(item, false, message) { Skipped = true };
+
+    public override string ToString() => $"{OutcomeText}, {Item}, {Message}";
 }
 
 /// <summary>How a run ended.</summary>

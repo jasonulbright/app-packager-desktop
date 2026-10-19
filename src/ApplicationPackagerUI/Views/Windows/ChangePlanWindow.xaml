@@ -13,6 +13,10 @@
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
+        <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+        </Style>
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -48,7 +52,7 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="*" MinWidth="200" />
-                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*" MinWidth="120" />
+                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
         </DataGrid>
 
@@ -61,7 +65,7 @@
                 <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" />
                 <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="*" MinWidth="180" />
-                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="160" />
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
         </DataGrid>
 
