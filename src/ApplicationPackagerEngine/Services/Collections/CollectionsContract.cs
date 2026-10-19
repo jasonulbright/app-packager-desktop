@@ -5,6 +5,7 @@ public enum CollectionRuleKind { Direct, Query, Include, Exclude }
 /// <param name="FolderPath">The console folder path, for example "Servers\Production"; empty at the root.</param>
 /// <param name="IsBuiltIn">True for a collection whose ID starts with SMS: it cannot be removed or edited here.</param>
 /// <param name="RefreshType">Manual, Periodic, Continuous or Both.</param>
+/// <param name="RefreshSchedule">The ConfigMgr schedule token of the periodic refresh; empty when the collection has none.</param>
 public sealed record CollectionRow(
     string CollectionId,
     string Name,
@@ -18,7 +19,8 @@ public sealed record CollectionRow(
     int DirectRuleCount,
     int QueryRuleCount,
     int IncludeRuleCount,
-    int ExcludeRuleCount);
+    int ExcludeRuleCount,
+    string RefreshSchedule = "");
 
 /// <param name="Expression">The WQL of a query rule; empty for the other kinds.</param>
 /// <param name="ResourceId">The resource of a direct rule; empty for the other kinds.</param>
@@ -48,9 +50,13 @@ public sealed record WqlResult(
     IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyList<string>> FirstRows);
 
-public sealed record SavedQuery(string QueryId, string Name, string Expression, string TargetClassName, string Comment);
+/// <param name="LimitToCollectionId">The collection the query is limited to; empty when it is not limited.</param>
+public sealed record SavedQuery(string QueryId, string Name, string Expression, string TargetClassName, string Comment, string LimitToCollectionId = "");
 
-/// <param name="IsOriginal">True for a template shipped by this product.</param>
+/// <param name="Parameters">The placeholders of a parameterized template as they appear in <paramref name="Expression"/>, for example "{SoftwareName}".</param>
+/// <param name="IsShipped">True for a template shipped with this product; false for a user template.</param>
+/// <param name="ParameterDetails">The label, help text and default value of each placeholder, in the order of <paramref name="Parameters"/>.</param>
+/// <param name="LimitingCollectionName">The limiting collection the template names; empty when it names none.</param>
 public sealed record QueryTemplate(
     string Id,
     string Name,
@@ -58,7 +64,11 @@ public sealed record QueryTemplate(
     string Expression,
     IReadOnlyList<string> Parameters,
     string Description,
-    bool IsOriginal);
+    bool IsShipped,
+    IReadOnlyList<QueryTemplateParameter>? ParameterDetails = null,
+    string LimitingCollectionName = "");
+
+public sealed record QueryTemplateParameter(string Placeholder, string Label, string HelpText, string DefaultValue);
 
 public enum CollectionChangeKind
 {
@@ -78,18 +88,23 @@ public enum CollectionChangeKind
 
 /// <summary>
 /// One change. What each kind reads:
-/// Create creates <see cref="AfterRow"/> (its id is ignored) with the rules in
-/// <see cref="RuleAfter"/> when one is given.
+/// Create creates <see cref="AfterRow"/> (its id is ignored) with the rules in <see cref="Rules"/>,
+/// or with <see cref="RuleAfter"/> when no list is given.
 /// Copy copies the collection <see cref="CollectionId"/> under the name of <see cref="AfterRow"/>.
 /// SetProperties sets name, comment, limiting collection and refresh type of <see cref="AfterRow"/>
 /// on the collection captured in <see cref="BeforeRow"/>.
 /// AddRule and ApplyTemplate add <see cref="RuleAfter"/>; UpdateRule replaces <see cref="RuleBefore"/>
 /// with <see cref="RuleAfter"/>; RemoveRule removes <see cref="RuleBefore"/>.
-/// Evaluate starts a membership update. Remove removes the collection <see cref="BeforeRow"/>.
+/// Evaluate starts a membership update. Remove removes the collection <see cref="BeforeRow"/>;
+/// after preparation <see cref="Rules"/> holds its rules, which the Undo creates again.
 /// SaveQuery creates <see cref="QueryAfter"/>; UpdateQuery sets <see cref="QueryAfter"/> on
 /// <see cref="QueryBefore"/>; DeleteQuery removes <see cref="QueryBefore"/>.
 /// </summary>
-/// <param name="Impact">Plain lines filled by <see cref="ICollectionService.PrepareAsync"/>.</param>
+/// <param name="Impact">
+/// Plain lines for the plan. <see cref="ICollectionService.PrepareAsync"/> keeps the lines of the
+/// request (for example the match count of the last preview) and adds its own.
+/// </param>
+/// <param name="Rules">All rules of the collection for Create and Remove; null for the other kinds.</param>
 public sealed record CollectionChange(
     CollectionChangeKind Kind,
     string CollectionId,
@@ -100,7 +115,8 @@ public sealed record CollectionChange(
     CollectionRule? RuleAfter,
     SavedQuery? QueryBefore,
     SavedQuery? QueryAfter,
-    IReadOnlyList<string> Impact);
+    IReadOnlyList<string> Impact,
+    IReadOnlyList<CollectionRule>? Rules = null);
 
 /// <param name="Message">Plain text for the operator; never raw exception text.</param>
 /// <param name="UndoChange">The change that reverses this one; set on every outcome that changed ConfigMgr and can be reversed.</param>
@@ -142,12 +158,10 @@ public interface ICollectionService
 
 public interface IQueryTemplateStore
 {
+    /// <summary>The shipped templates first, then the user templates.</summary>
     IReadOnlyList<QueryTemplate> All();
 
-    /// <summary>The suite folder the templates were read from; null when none was used.</summary>
-    string? SuiteFolderUsed { get; }
-
-    /// <summary>A plain message about the templates that could not be read; null when there is none.</summary>
+    /// <summary>A plain message about user template files that were skipped; null when there is none.</summary>
     string? Message { get; }
 }
 
