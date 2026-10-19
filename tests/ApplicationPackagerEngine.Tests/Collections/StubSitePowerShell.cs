@@ -11,7 +11,9 @@ namespace ApplicationPackagerEngine.Tests.Collections;
 /// rule cmdlets match a rule name literally and in any case, and a remove by name removes every
 /// rule that matches; collection and query names are unique; a new collection or saved query
 /// gets the next id; a query result is a copy of the object, not a live view; a failed cmdlet
-/// throws; each listed failure happens once, also across runs). It runs the embedded Collections scripts under
+/// throws; each listed failure happens once, also across runs; the folder tree comes from the
+/// Folders and FolderItems options; NoObjectPath drops the property from query results;
+/// KeepSchedule makes a write ignore the schedule it was sent). It runs the embedded Collections scripts under
 /// strict mode as the session host does, or a function of a PowerShell module imported
 /// read-only, and returns the output, the cmdlet calls and the number of query rules on each
 /// collection after every rule change. A script that throws becomes a ScriptFailed session error.
