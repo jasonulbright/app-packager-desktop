@@ -70,7 +70,7 @@ function ConvertTo-CollectionRow {
         $kind = Get-RuleKind $rule
         if ($kind) { $counts[$kind]++ }
     }
-    $path = [string](Get-Prop $Collection 'ObjectPath')
+    $path = ([string](Get-Prop $Collection 'ObjectPath')).Trim()
     if (-not $path -and $null -ne $FolderOf -and $FolderOf.ContainsKey($id)) { $path = [string]$FolderOf[$id] }
     [pscustomobject]@{
         Kind                  = 'Collection'
@@ -91,8 +91,9 @@ function ConvertTo-CollectionRow {
     }
 }
 
-# A site whose SMS_Collection has no ObjectPath gets the folder of each collection from the
-# folder tree: two more queries, only when a row lacks the property.
+# A row without an ObjectPath value gets its folder from the folder tree: two more queries, only
+# when a row lacks the value. Invoke-CMWmiQuery returns ObjectPath empty on some sites although
+# the collection is in a folder.
 function Get-FolderMap {
     $folderOf = @{}
     try {
@@ -130,7 +131,7 @@ function Write-Collections {
     param([object[]]$Collections)
     $folderOf = $null
     foreach ($c in $Collections) {
-        if ($null -eq $folderOf -and $null -eq $c.PSObject.Properties['ObjectPath']) { $folderOf = Get-FolderMap }
+        if ($null -eq $folderOf -and -not ([string](Get-Prop $c 'ObjectPath')).Trim()) { $folderOf = Get-FolderMap }
         ConvertTo-CollectionRow $c $folderOf
     }
 }
@@ -187,7 +188,7 @@ switch ($Operation) {
     }
     'Get' {
         foreach ($c in (Get-Collections $CollectionId)) {
-            ConvertTo-CollectionRow $c $null
+            Write-Collections @($c)
             foreach ($rule in @(Get-Prop $c 'CollectionRules')) {
                 if ($null -ne $rule) { ConvertTo-Rule $CollectionId $rule }
             }

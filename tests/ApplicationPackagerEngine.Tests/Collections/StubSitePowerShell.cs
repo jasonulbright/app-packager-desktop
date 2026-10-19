@@ -62,6 +62,7 @@ internal sealed class StubSitePowerShell : IConfigMgrSession
             $copy.CollectionRules = @($C.CollectionRules | ForEach-Object { $_.PSObject.Copy() })
             $limit = Get-Col $C.LimitToCollectionID
             $copy.LimitToCollectionName = if ($null -ne $limit) { $limit.Name } else { '' }
+            if ($global:Opt.ContainsKey('NoObjectPath')) { $copy.PSObject.Properties.Remove('ObjectPath') }
             $copy
         }
         function global:Write-Count([string]$Id) { $c = Get-Col $Id; $global:Counts.Add($Id + '=' + @($c.CollectionRules | Where-Object { $_.ObjectClass -eq 'SMS_CollectionRuleQuery' }).Count) }
@@ -111,6 +112,8 @@ internal sealed class StubSitePowerShell : IConfigMgrSession
                 $ids = @([regex]::Matches($Matches[1], "CollectionID = '(\w+)'") | ForEach-Object { $_.Groups[1].Value })
                 return @($global:Cols | Where-Object { $ids -contains $_.CollectionID } | ForEach-Object { [pscustomobject]@{ CollectionID = $_.CollectionID; Name = $_.Name } })
             }
+            if ($Query -match 'FROM SMS_ObjectContainerNode WHERE ObjectType = 5000$') { $global:Log.Add('Folders'); return @(V $global:Options 'Folders' @() | Where-Object { $null -ne $_ }) }
+            if ($Query -match 'FROM SMS_ObjectContainerItem WHERE ObjectType = 5000$') { $global:Log.Add('FolderItems'); return @(V $global:Options 'FolderItems' @() | Where-Object { $null -ne $_ }) }
             if ($Query -match 'FROM SMS_R_System WHERE ResourceId = (\d+)$') { if ($global:Resources.ContainsKey($Matches[1])) { return @([pscustomobject]@{ ResourceId = $Matches[1]; Name = $global:Resources[$Matches[1]] }) } else { return @() } }
             if ($Query -match [string](V $global:Options 'Reject' 'xx') -or $Query -notmatch '^\s*select\s') { throw 'The SMS Provider reported an error.' }
             $extra = [int](V $global:Options 'ExtraRows' 0)
