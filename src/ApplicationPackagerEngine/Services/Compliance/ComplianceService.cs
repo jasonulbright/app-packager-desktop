@@ -216,6 +216,44 @@ public sealed partial class ComplianceService : IComplianceService
         return rows;
     }
 
+    // ---- Apply --------------------------------------------------------------------------------
+
+    public async Task<IReadOnlyList<ComplianceOutcome>> ApplyAsync(
+        IReadOnlyList<ComplianceChange> changes, IProgress<ComplianceOutcome> progress, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+        ArgumentNullException.ThrowIfNull(progress);
+        var outcomes = new List<ComplianceOutcome>(changes.Count);
+        var skipped = 0;
+        foreach (var change in changes)
+        {
+            ComplianceOutcome outcome;
+            if (ct.IsCancellationRequested)
+            {
+                outcome = new ComplianceOutcome(change, false, SkippedPrefix + "the run was cancelled before this change.", null, []);
+            }
+            else
+            {
+                try
+                {
+                    outcome = await ApplyOneAsync(change, progress, ct).ConfigureAwait(false) with { Change = change, InProgress = false };
+                }
+                catch (Exception ex)
+                {
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
+                    outcome = Fail(change, "The change stopped with an unexpected error. Refresh the lists to see the current state. The log has the details.");
+                }
+                _log?.Info(LogArea, $"{change.Kind}: {(outcome.Succeeded ? "succeeded" : "not applied")}{(outcome.UndoChange is null ? "" : ", with undo")}.");
+            }
+            if (outcome.Message.StartsWith(SkippedPrefix, StringComparison.Ordinal)) skipped++;
+            outcomes.Add(outcome);
+            progress.Report(outcome);
+        }
+        var succeeded = outcomes.Count(o => o.Succeeded);
+        _log?.Info(LogArea, $"Applied {changes.Count} changes: {succeeded} succeeded, {outcomes.Count - succeeded - skipped} failed, {skipped} skipped.");
+        return outcomes;
+    }
+
     /// <summary>"Every N days" and similar for a simple interval token; the token itself otherwise.</summary>
     public static string ScheduleText(string? token)
     {

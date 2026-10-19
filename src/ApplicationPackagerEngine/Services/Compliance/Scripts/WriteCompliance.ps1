@@ -148,9 +148,9 @@ function Remove-Deployment {
     if ($null -eq $object) { return 'missing' }
     try {
         Remove-CMBaselineDeployment -InputObject $object -Force
-        $steps.Add('removed:' + [string]$Assignment.AssignmentID)
+        $steps.Add('removed:Deployment:' + [string]$Assignment.AssignmentID)
     } catch {
-        if ($null -eq (Get-Assignment ([long]$Assignment.AssignmentID))) { $steps.Add('removed-with-error:' + [string]$Assignment.AssignmentID); return 'ok' }
+        if ($null -eq (Get-Assignment ([long]$Assignment.AssignmentID))) { $steps.Add('removed:Deployment:' + [string]$Assignment.AssignmentID); return 'ok' }
         return 'remove-failed'
     }
     if ($null -ne (Get-Assignment ([long]$Assignment.AssignmentID))) { return 'remove-failed' }
@@ -349,7 +349,7 @@ switch ($Operation) {
             if ($id -notmatch '^\d{1,10}$') { $failed.Add('Deployment:' + $id); continue }
             $a = Get-Assignment ([long]$id)
             if ($null -eq $a) { $steps.Add('gone:Deployment:' + $id); continue }
-            if ((Remove-Deployment $a) -eq 'ok') { $steps.Add('removed:Deployment:' + $id) } else { $failed.Add('Deployment:' + $id) }
+            if ((Remove-Deployment $a) -ne 'ok') { $failed.Add('Deployment:' + $id) }
         }
         foreach ($id in $BaselineIds) {
             if ($id -notmatch '^\d{1,10}$') { $failed.Add('Baseline:' + $id); continue }

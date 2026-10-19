@@ -101,6 +101,8 @@ public sealed class MaintenanceWindowWriterTests
         [
             Path.Combine("ApplicationPackagerEngine", "Services", "Collections", "CollectionsContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "Collections", "CollectionService.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "Compliance", "ComplianceContract.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "Compliance", "ComplianceService.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowsContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowService.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "MaintenanceWindowsPlan.cs"),
