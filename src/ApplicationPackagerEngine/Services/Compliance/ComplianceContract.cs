@@ -63,7 +63,8 @@ public sealed record BaselineRow(
     DateTime? Modified,
     int Compliant = 0,
     int NonCompliant = 0,
-    int Failed = 0);
+    int Failed = 0,
+    bool CountsKnown = true);
 
 /// <param name="Schedule">The evaluation schedule as plain text.</param>
 /// <param name="LastEvaluated">The time ConfigMgr last summarized the compliance state of the deployment.</param>
@@ -81,7 +82,8 @@ public sealed record BaselineDeploymentRow(
     int Error,
     int Unknown,
     DateTime? LastEvaluated,
-    BaselineDeploymentSettings? Settings = null);
+    BaselineDeploymentSettings? Settings = null,
+    bool CountsKnown = true);
 
 /// <summary>The stored values of a baseline deployment that a re-create sets again.</summary>
 /// <param name="ScheduleToken">The ConfigMgr schedule token of the evaluation schedule.</param>
@@ -153,7 +155,8 @@ public sealed record ComplianceRow(
     bool Stale,
     string BaselineId = "",
     string CollectionId = "",
-    string DeploymentId = "");
+    string DeploymentId = "",
+    bool CountsKnown = true);
 
 public enum ComplianceChangeKind
 {

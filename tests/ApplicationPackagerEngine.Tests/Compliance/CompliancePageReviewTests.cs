@@ -220,6 +220,71 @@ public sealed class CompliancePageReviewTests
         Assert.Empty(harness.Service.Applied);
     }
 
+    // ---- Counts ConfigMgr has not summarized ----------------------------------------------------
+
+    [Fact]
+    public async Task CountsThatAreNotKnownShowAsUnknownAndANeverEvaluatedRowSaysSo()
+    {
+        var harness = new ComplianceHarness();
+        var index = harness.Service.Deployments.FindIndex(d => d.DeploymentId == harness.SmbOnWorkstations.DeploymentId);
+        harness.Service.Deployments[index] = harness.Service.Deployments[index] with { Compliant = 0, NonCompliant = 0, Unknown = 0, LastEvaluated = null, CountsKnown = false };
+        var baseline = harness.Service.Baselines.FindIndex(b => b.BaselineId == "CB-TLS");
+        harness.Service.Baselines[baseline] = harness.Service.Baselines[baseline] with { CountsKnown = false };
+        harness.Service.Compliance.Add(new ComplianceRow("TLS Legacy Disable", "Servers", 0, 0, 0, 0, null, true, CountsKnown: false));
+        var viewModel = await LiveAsync(harness);
+
+        var row = viewModel.Live.Deployments.Single(d => d.Row.DeploymentId == harness.SmbOnWorkstations.DeploymentId);
+        Assert.Equal([ComplianceText.UnknownCount, ComplianceText.UnknownCount, ComplianceText.UnknownCount, ComplianceText.UnknownCount], new[] { row.Compliant, row.NonCompliant, row.Error, row.Unknown });
+        Assert.Equal("never", row.LastEvaluated);
+        Assert.Equal("3", viewModel.Live.Deployments.Single(d => d.Row.DeploymentId == harness.SmbOnServers.DeploymentId).Compliant);
+        Assert.Equal(ComplianceText.UnknownCount, viewModel.Live.Baselines.Single(b => b.BaselineId == "CB-TLS").Compliance);
+
+        viewModel.Live.SetSelectedDeployments([row]);
+        await viewModel.Live.DeleteDeploymentsCommand.ExecuteAsync(null);
+        var plan = Assert.Single(harness.Plans.Shown);
+        Assert.Contains("Compliance now: not known", plan.Items[0].Detail);
+
+        viewModel.SelectedTabIndex = ComplianceViewModel.AuditingTab;
+        await viewModel.CurrentTab.EnsureLoadedAsync();
+        var counts = viewModel.Auditing.ComplianceRows.Single(r => r.Row.BaselineName == "TLS Legacy Disable");
+        Assert.Equal(ComplianceText.UnknownCount, counts.Compliant);
+        Assert.Equal("Stale", counts.Freshness);
+        Assert.Equal("never", counts.LastEvaluated);
+    }
+
+    [Fact]
+    public async Task EnablingRemediationWithUnknownCountsDoesNotClaimADeviceCount()
+    {
+        var harness = new ComplianceHarness();
+        var index = harness.Service.Deployments.FindIndex(d => d.DeploymentId == harness.SmbOnServers.DeploymentId);
+        harness.Service.Deployments[index] = harness.Service.Deployments[index] with { CountsKnown = false };
+        var viewModel = await LiveAsync(harness);
+        viewModel.Live.SetSelectedDeployments(viewModel.Live.Deployments.Where(d => d.Row.DeploymentId == harness.SmbOnServers.DeploymentId));
+        await viewModel.Live.EnableRemediationCommand.ExecuteAsync(null);
+        Assert.Equal(ComplianceLiveViewModel.RemediationCheckWithoutCounts(1), Assert.Single(harness.Plans.Shown).ExtraConfirmation);
+    }
+
+    [Fact]
+    public async Task TheUndoOfTheLastChangePassesTheValuesOfTheServiceUndoUnchanged()
+    {
+        var harness = new ComplianceHarness();
+        harness.Service.UndoFill = undo => undo with { Values = new Dictionary<string, string> { ["RestoreKey"] = "token-1" } };
+        var viewModel = await LiveAsync(harness);
+        var live = viewModel.Live;
+        live.SetSelectedDeployments(live.Deployments.Where(d => d.Row.DeploymentId == harness.SmbOnServers.DeploymentId));
+        harness.Dialogs.Picker = p =>
+        {
+            p.Items.Single(i => i.CollectionId == "LAB00011").IsChecked = true;
+            FakeComplianceDialogs.Run(p.AcceptCommand.ExecuteAsync(null));
+        };
+        await live.ReassignCommand.ExecuteAsync(null);
+        await viewModel.Shared.UndoLastCommand.ExecuteAsync(null);
+
+        var undo = Assert.Single(harness.Service.Applied[1]);
+        Assert.Equal(ComplianceChangeKind.Reassign, undo.Kind);
+        Assert.Equal("token-1", undo.Values["RestoreKey"]);
+    }
+
     // ---- Background run after a force close -----------------------------------------------------
 
     /// <summary>Confirms the plan, asks the run to stop and closes the window while the run still works.</summary>

@@ -47,6 +47,9 @@ internal sealed class FakeComplianceService : IComplianceService
 
     /// <summary>Changes a prepared change as the real service fills it from the live state.</summary>
     public Func<ComplianceChange, ComplianceChange>? Prepared;
+
+    /// <summary>Changes the undo change of each outcome as the real service fills it.</summary>
+    public Func<ComplianceChange, ComplianceChange>? UndoFill;
     public Func<ComplianceChange, string?>? Fail;
     public Func<bool>? InConfirmedRun;
     public List<string> Impact { get; } = [];
@@ -170,6 +173,7 @@ internal sealed class FakeComplianceService : IComplianceService
             else if (change.Kind == ComplianceChangeKind.CatalogDeploy && !change.Values.ContainsKey(ComplianceRequests.CreateDependencyKey))
                 outcome = await DeployAsync(change, progress, ct);
             else outcome = Apply(change);
+            if (UndoFill is { } fill && outcome.UndoChange is { } undo) outcome = outcome with { UndoChange = fill(undo) };
             outcomes.Add(outcome);
             progress.Report(outcome);
             await Task.Yield();

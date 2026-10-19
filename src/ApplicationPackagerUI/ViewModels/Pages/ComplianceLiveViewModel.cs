@@ -34,13 +34,18 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
     public static string RemediationCheck(int collections, int devices) =>
         $"I understand that remediation changes registry values on every device of {ComplianceText.Count(collections, "collection")} ({ComplianceText.Count(devices, "device")} with a compliance state now).";
 
+    public static string RemediationCheckWithoutCounts(int collections) =>
+        $"I understand that remediation changes registry values on every device of {ComplianceText.Count(collections, "collection")} (the device count is not known: ConfigMgr has not summarized every deployment).";
+
     /// <summary>The second check box of a plan whose changes turn remediation on or keep it on; null when none does.</summary>
     public static string? RemediationConfirmation(IReadOnlyList<ComplianceChange> changes)
     {
         var remediating = changes.Where(c => ComplianceWriter.NeedsRemediationConfirmation(c) && c.DeploymentBefore is not null).Select(c => c.DeploymentBefore!).ToList();
         if (remediating.Count == 0) return null;
+        var collections = remediating.Select(d => d.CollectionId).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        if (remediating.Any(d => !d.CountsKnown)) return RemediationCheckWithoutCounts(collections);
         var devices = remediating.DistinctBy(d => d.CollectionId, StringComparer.OrdinalIgnoreCase).Sum(d => d.Compliant + d.NonCompliant + d.Error + d.Unknown);
-        return RemediationCheck(remediating.Select(d => d.CollectionId).Distinct(StringComparer.OrdinalIgnoreCase).Count(), devices);
+        return RemediationCheck(collections, devices);
     }
 
     /// <summary>The page lines of a plan entry, then the Impact lines of the service, or the page notes when the service gives none.</summary>
@@ -297,7 +302,9 @@ public sealed partial class ComplianceLiveViewModel : ComplianceTabViewModel
             {
                 var d = change.DeploymentBefore!;
                 var detail = Detail(
-                    $"Removes the deployment ({ComplianceText.Mode(d.RemediateNoncompliant)}). Compliance now: {d.Compliant} compliant, {d.NonCompliant} non-compliant, {d.Error} error, {d.Unknown} unknown.",
+                    $"Removes the deployment ({ComplianceText.Mode(d.RemediateNoncompliant)}). " + (d.CountsKnown
+                        ? $"Compliance now: {d.Compliant} compliant, {d.NonCompliant} non-compliant, {d.Error} error, {d.Unknown} unknown."
+                        : "Compliance now: not known; ConfigMgr has not summarized this deployment."),
                     change, DeleteNote);
                 return CompliancePlanEntry.Write(new ChangePlanItem("Delete", Describe(change), detail), change);
             }).ToList();
