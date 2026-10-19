@@ -6,7 +6,7 @@
     xmlns:vm="clr-namespace:ApplicationPackagerUI.ViewModels.Windows"
     Title="{Binding Title}"
     Width="{Binding Width, Mode=TwoWay}" Height="{Binding Height, Mode=TwoWay}"
-    MinWidth="480" MinHeight="420"
+    MinWidth="{x:Static vm:CollectionEditorViewModel.MinimumWidth}" MinHeight="{x:Static vm:CollectionEditorViewModel.MinimumHeight}"
     WindowStartupLocation="CenterOwner"
     ExtendsContentIntoTitleBar="True"
     WindowBackdropType="Mica">
@@ -34,7 +34,11 @@
 
         <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
 
-        <Grid Grid.Row="1" Margin="16,0,16,8">
+        <!-- The content fills the viewport so the list takes the free height; below the content's
+             minimum height the whole content scrolls instead of passing under the footer. -->
+        <ScrollViewer x:Name="scrollEditor" Grid.Row="1" Margin="16,0,8,8" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      AutomationProperties.AutomationId="scrollEditor">
+        <Grid Margin="0,0,8,0" MinHeight="440" Height="{Binding ViewportHeight, ElementName=scrollEditor}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -102,8 +106,9 @@
                 </ListBox>
             </DockPanel>
         </Grid>
+        </ScrollViewer>
 
-        <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+        <Border x:Name="pnlEditorFooter" Grid.Row="2" AutomationProperties.AutomationId="pnlEditorFooter" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
                     <ui:Button Content="Show plan" Appearance="Primary" MinWidth="110" Margin="0,0,8,0" Command="{Binding SaveCommand}" IsDefault="True"

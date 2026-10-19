@@ -669,6 +669,53 @@ public sealed class CollectionCompliancePageTests
         });
     }
 
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AtItsMinimumSizeThePeriodicEditorShowsEveryControlAboveTheFooter(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var harness = new CollectionComplianceHarness();
+            var editor = new CollectionEditorViewModel(CollectionEditorMode.Edit, harness.Service.Collections, _ => Task.FromResult(true), harness.Servers);
+            var window = new CollectionEditorWindow(editor);
+            Show(window);
+            try
+            {
+                Assert.Equal((CollectionEditorViewModel.MinimumWidth, CollectionEditorViewModel.MinimumHeight), (window.MinWidth, window.MinHeight));
+                window.Width = window.MinWidth;
+                window.Height = window.MinHeight;
+                editor.RefreshType = "Periodic";
+                editor.ShowMessage(CollectionEditorViewModel.RefreshIntervalInvalid);
+                Settle(window);
+                var footer = ById<FrameworkElement>(window, "pnlEditorFooter");
+                var footerTop = footer.TranslatePoint(new Point(0, 0), window).Y;
+                foreach (var id in new[] { "txtCollectionName", "txtCollectionComment", "cboRefreshType", "txtRefreshCount", "cboRefreshUnit", "txtLimitingFilter", "lstLimiting", "txtSelectedLimiting", "btnCollectionSave" })
+                {
+                    var element = ById<FrameworkElement>(window, id);
+                    Assert.True(element.IsVisible, $"{id} is not visible.");
+                    var bounds = element.TransformToAncestor(window).TransformBounds(new Rect(element.RenderSize));
+                    Assert.True(bounds.Right <= window.ActualWidth + 0.5, $"{id} ends at {bounds.Right:0} px in a {window.ActualWidth:0} px window.");
+                    if (id != "btnCollectionSave") Assert.True(bounds.Bottom <= footerTop + 0.5, $"{id} ends at {bounds.Bottom:0} px under the footer at {footerTop:0} px.");
+                }
+                Assert.True(ById<FrameworkElement>(window, "lstLimiting").ActualHeight >= 96, "The limiting collection list is too short to show its items.");
+                Pixels(window, footer, $"Editor-minimum-{theme}");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public async Task ARememberedEditorSizeBelowTheMinimumOpensAtTheMinimum()
+    {
+        var harness = new CollectionComplianceHarness { Saved = new ApplicationPackagerUI.Models.CollectionComplianceSettings { EditorWidth = 480, EditorHeight = 420 } };
+        var viewModel = await harness.OpenAsync();
+        (double Width, double Height) opened = default;
+        harness.Prompts.Editor = e => opened = (e.Width, e.Height);
+        await viewModel.NewCollectionCommand.ExecuteAsync(null);
+        Assert.Equal((CollectionEditorViewModel.MinimumWidth, CollectionEditorViewModel.MinimumHeight), opened);
+    }
+
     [Fact]
     public void AFilterThatHidesTheSelectedLimitingCollectionKeepsIt()
     {

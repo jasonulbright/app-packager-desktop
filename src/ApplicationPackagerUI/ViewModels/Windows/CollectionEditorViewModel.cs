@@ -136,8 +136,19 @@ public sealed partial class CollectionEditorViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private bool _isSaving;
 
+    /// <summary>The smallest window that shows every control of the Periodic editor above the footer.</summary>
+    public const double MinimumWidth = 560;
+    public const double MinimumHeight = 640;
+
     public double Width { get; set; } = 640;
-    public double Height { get; set; } = 640;
+    public double Height { get; set; } = 680;
+
+    /// <summary>A remembered size, raised to the minimum; a value that is not a finite size keeps the default.</summary>
+    public void Restore(double width, double height)
+    {
+        if (double.IsFinite(width) && width > 0) Width = Math.Max(width, MinimumWidth);
+        if (double.IsFinite(height) && height > 0) Height = Math.Max(height, MinimumHeight);
+    }
 
     public void FitTo(double workAreaWidth, double workAreaHeight)
     {

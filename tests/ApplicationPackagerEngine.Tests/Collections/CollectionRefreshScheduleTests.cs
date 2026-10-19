@@ -146,18 +146,18 @@ public sealed class CollectionRefreshScheduleTests
     }
 
     [Fact]
-    public void TheServiceWritesTheRequestedIntervalWhenTheRowStillCarriesAnOlderToken()
+    public async Task TheServiceWritesTheRequestedIntervalWhenTheRowStillCarriesAnOlderToken()
     {
         if (!WindowsPowerShellPresent) return;
         var site = new StubSitePowerShell(State(new { Reject = "xx" },
             new { CollectionID = "SMS00001", Name = "All Systems", LimitToCollectionID = "", Rules = Array.Empty<object>() },
             new { CollectionID = "MCM00020", Name = "Pilot", LimitToCollectionID = "SMS00001", Comment = "", RefreshType = 2, Schedule = Token("Hours", 6), Rules = Array.Empty<object>() }));
         var service = new CollectionService(site, null, () => "t1");
-        var current = service.GetCollectionAsync("MCM00020", CancellationToken.None).GetAwaiter().GetResult()!;
+        var current = (await service.GetCollectionAsync("MCM00020", CancellationToken.None))!;
         var change = new CollectionChange(CollectionChangeKind.SetProperties, "MCM00020", "Pilot", current,
             current with { RefreshInterval = new RefreshInterval(2, "Days") }, null, null, null, null, []);
 
-        var outcome = Assert.Single(service.ApplyAsync([change], new CollectionServiceTests.Recorder<CollectionOutcome>(), CancellationToken.None).GetAwaiter().GetResult());
+        var outcome = Assert.Single(await service.ApplyAsync([change], new CollectionServiceTests.Recorder<CollectionOutcome>(), CancellationToken.None));
 
         Assert.True(outcome.Succeeded, outcome.Message);
         Assert.Equal(new RefreshInterval(2, "Days"), CollectionService.IntervalOf(StoredSchedule(site)));

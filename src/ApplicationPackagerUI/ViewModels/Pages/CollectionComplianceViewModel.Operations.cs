@@ -204,8 +204,7 @@ public sealed partial class CollectionComplianceViewModel
     private CollectionEditorViewModel NewEditor(CollectionEditorMode mode, CollectionRow? original)
     {
         var editor = new CollectionEditorViewModel(mode, _collections ?? [], SaveCollectionAsync, original);
-        if (double.IsFinite(_editorWidth) && _editorWidth >= 400) editor.Width = _editorWidth;
-        if (double.IsFinite(_editorHeight) && _editorHeight >= 400) editor.Height = _editorHeight;
+        editor.Restore(_editorWidth, _editorHeight);
         return editor;
     }
 
