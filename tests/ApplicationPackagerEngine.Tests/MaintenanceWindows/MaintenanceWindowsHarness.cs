@@ -62,6 +62,11 @@ internal sealed class FakeProjector : IScheduleProjector
     }
 
     public string Describe(MaintenanceSchedule schedule) => $"{schedule.Kind} at {schedule.Start:HH:mm} for {(int)schedule.Duration.TotalMinutes} minutes";
+
+    /// <summary>A reason replaces the real rules when set; otherwise the real rules apply.</summary>
+    public Func<MaintenanceSchedule, string?>? Rejects;
+
+    public string? Validate(MaintenanceSchedule schedule) => Rejects is { } rejects ? rejects(schedule) : new ScheduleProjector().Validate(schedule);
 }
 
 /// <summary>A small ConfigMgr site: the collections and windows the fake changes as the real service would.</summary>
