@@ -733,6 +733,37 @@ public sealed class CollectionServiceTests
     }
 
     [Fact]
+    public async Task AStaleRefusedOrUnpreparedChangeIsReportedAsSkipped()
+    {
+        var site = Site();
+        var service = Service(site);
+        var current = (await service.GetCollectionAsync("MCM00014", CancellationToken.None))!;
+        var stale = await service.PrepareAsync(Change(CollectionChangeKind.SetProperties, "MCM00014") with { AfterRow = current with { Comment = "x" } }, CancellationToken.None);
+        site.Find("MCM00014")!.Name = "Renamed by someone";
+
+        var (outcomes, _) = await Apply(service, stale, Change(CollectionChangeKind.Remove, "MCM00014"), Change(CollectionChangeKind.Evaluate, "MCM00099"));
+
+        Assert.All(outcomes, o => Assert.StartsWith(CollectionService.SkippedPrefix, o.Message));
+        Assert.All(outcomes, o => Assert.False(o.Message.StartsWith(CollectionService.SkippedPrefix + CollectionService.SkippedPrefix, StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task SetPropertiesKeepsTheRefreshScheduleConfigMgrHas()
+    {
+        var site = Site();
+        var service = Service(site);
+        var current = (await service.GetCollectionAsync("MCM00014", CancellationToken.None))!;
+        var prepared = await service.PrepareAsync(Change(CollectionChangeKind.SetProperties, "MCM00014") with
+        {
+            AfterRow = current with { Comment = "x", RefreshSchedule = "0001200000100018" }
+        }, CancellationToken.None);
+
+        Assert.Equal(current.RefreshSchedule, prepared.AfterRow!.RefreshSchedule);
+        Assert.True((await Apply(service, prepared)).Outcomes.Single().Succeeded);
+        Assert.Equal(current.RefreshSchedule, site.Find("MCM00014")!.Schedule);
+    }
+
+    [Fact]
     public async Task TheLogHoldsCountsAndOutcomesButNoWqlNamesOrValues()
     {
         var site = Site();

@@ -193,7 +193,7 @@ switch ($Operation) {
         }
     }
     'Detail' {
-        $found = Get-Collections $CollectionId
+        $found = @(Get-Collections $CollectionId)
         foreach ($c in $found) {
             Write-Collections @($c)
             foreach ($rule in @(Get-Prop $c 'CollectionRules')) {
@@ -219,7 +219,7 @@ switch ($Operation) {
         }
     }
     'Impact' {
-        $found = Get-Collections $CollectionId
+        $found = @(Get-Collections $CollectionId)
         foreach ($c in $found) {
             ConvertTo-CollectionRow $c $null
             foreach ($rule in @(Get-Prop $c 'CollectionRules')) {

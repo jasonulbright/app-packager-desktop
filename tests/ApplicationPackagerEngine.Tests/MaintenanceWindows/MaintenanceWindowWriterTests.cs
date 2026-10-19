@@ -97,8 +97,11 @@ public sealed class MaintenanceWindowWriterTests
     {
         // Each file has a reason: the contract declares the method, the service implements it, the
         // writer is its only caller, and the WSUS dialog has an unrelated private method of the same name.
+        // The Collections contract and service declare and implement a method of the same name.
         Assert.Equal(
         [
+            Path.Combine("ApplicationPackagerEngine", "Services", "Collections", "CollectionsContract.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "Collections", "CollectionService.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowsContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "MaintenanceWindows", "MaintenanceWindowService.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "MaintenanceWindowsPlan.cs"),

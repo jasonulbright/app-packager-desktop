@@ -340,8 +340,7 @@ public sealed partial class CollectionService : ICollectionService
             ?? throw new CollectionServiceException(CollectionMissingMessage(after.LimitingCollectionName, after.LimitingCollectionId));
         if (!string.Equals(name, current.Name, StringComparison.OrdinalIgnoreCase))
             await CheckNameFreeAsync(name, ct).ConfigureAwait(false);
-        var schedule = ScheduleOrEmpty(after.RefreshSchedule);
-        if (schedule.Length == 0 && refresh is "Periodic" or "Both") schedule = current.RefreshSchedule;
+        var schedule = current.RefreshSchedule;
 
         var row = current with
         {
@@ -353,8 +352,7 @@ public sealed partial class CollectionService : ICollectionService
         if (!string.Equals(current.LimitingCollectionId, row.LimitingCollectionId, StringComparison.OrdinalIgnoreCase))
             impact.Add($"Limiting collection: {Shown(current.LimitingCollectionName, current.LimitingCollectionId)} -> {Shown(row.LimitingCollectionName, row.LimitingCollectionId)}");
         if (!string.Equals(current.RefreshType, row.RefreshType, StringComparison.Ordinal)) impact.Add($"Refresh: {RefreshText(current.RefreshType)} -> {RefreshText(row.RefreshType)}");
-        if (refresh is "Periodic" or "Both" && !string.Equals(current.RefreshSchedule, row.RefreshSchedule, StringComparison.OrdinalIgnoreCase))
-            impact.Add("The refresh schedule changes.");
+
         if (impact.Count == baseCount)
             throw new CollectionServiceException("The properties are the same as in ConfigMgr. Nothing to change.");
         impact.Add("Undo sets the old values back.");
@@ -491,7 +489,7 @@ public sealed partial class CollectionService : ICollectionService
             case CollectionChangeKind.Create:
             {
                 if (change.AfterRow is not { } after || InvalidCreate(after, change.Rules) is { } invalid)
-                    return Fail(change, InvalidCreate(change.AfterRow, change.Rules) ?? NotPreparedMessage);
+                    return Refused(change, InvalidCreate(change.AfterRow, change.Rules) ?? NotPreparedMessage);
                 var rules = change.Rules ?? (change.RuleAfter is null ? [] : [change.RuleAfter]);
                 var parameters = new ConfigMgrParameters
                 {
@@ -521,8 +519,8 @@ public sealed partial class CollectionService : ICollectionService
             }
             case CollectionChangeKind.Copy:
             {
-                if (!IsCollectionId(change.CollectionId)) return Fail(change, NotPreparedMessage);
-                if (CheckName(change.AfterRow?.Name) is { } invalid) return Fail(change, invalid);
+                if (!IsCollectionId(change.CollectionId)) return Refused(change, NotPreparedMessage);
+                if (CheckName(change.AfterRow?.Name) is { } invalid) return Refused(change, invalid);
                 var name = change.AfterRow!.Name.Trim();
                 var run = await RunWriteAsync(change, new ConfigMgrParameters { { "Operation", "Copy" }, { "CollectionId", change.CollectionId }, { "Name", name } }).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
@@ -532,10 +530,10 @@ public sealed partial class CollectionService : ICollectionService
             }
             case CollectionChangeKind.SetProperties:
             {
-                if (change.BeforeRow is not { } before || change.AfterRow is not { } after) return Fail(change, NotPreparedMessage);
-                if (IsBuiltIn(change.CollectionId)) return Fail(change, BuiltInMessage(change));
-                if (CheckName(after.Name) is { } invalidName) return Fail(change, invalidName);
-                if (!IsCollectionId(after.LimitingCollectionId) || !IsRefreshType(after.RefreshType)) return Fail(change, NotPreparedMessage);
+                if (change.BeforeRow is not { } before || change.AfterRow is not { } after) return Refused(change, NotPreparedMessage);
+                if (IsBuiltIn(change.CollectionId)) return Refused(change, BuiltInMessage(change));
+                if (CheckName(after.Name) is { } invalidName) return Refused(change, invalidName);
+                if (!IsCollectionId(after.LimitingCollectionId) || !IsRefreshType(after.RefreshType)) return Refused(change, NotPreparedMessage);
                 var parameters = Expected(change, before);
                 parameters["Operation"] = "SetProperties";
                 parameters["Name"] = after.Name.Trim();
@@ -553,9 +551,9 @@ public sealed partial class CollectionService : ICollectionService
             case CollectionChangeKind.ApplyTemplate:
             {
                 if (change.Kind == CollectionChangeKind.ApplyTemplate && change.RuleBefore is not null)
-                    return Fail(change, SkippedPrefix + $"collection {Shown(change.CollectionName, change.CollectionId)} already has a query rule named {change.RuleBefore.RuleName}.");
-                if (IsBuiltIn(change.CollectionId)) return Fail(change, BuiltInMessage(change));
-                if (change.RuleAfter is not { } rule || InvalidRule(rule) is not null) return Fail(change, InvalidRule(change.RuleAfter) ?? NotPreparedMessage);
+                    return Refused(change, $"Collection {Shown(change.CollectionName, change.CollectionId)} already has a query rule named {change.RuleBefore.RuleName}.");
+                if (IsBuiltIn(change.CollectionId)) return Refused(change, BuiltInMessage(change));
+                if (change.RuleAfter is not { } rule || InvalidRule(rule) is not null) return Refused(change, InvalidRule(change.RuleAfter) ?? NotPreparedMessage);
                 var parameters = RuleParameters("AddRule", change.CollectionId, rule);
                 parameters["RuleName"] = rule.RuleName ?? "";
                 parameters["Expression"] = rule.Expression ?? "";
@@ -568,8 +566,8 @@ public sealed partial class CollectionService : ICollectionService
             }
             case CollectionChangeKind.RemoveRule:
             {
-                if (change.RuleBefore is not { } rule) return Fail(change, NotPreparedMessage);
-                if (IsBuiltIn(change.CollectionId)) return Fail(change, BuiltInMessage(change));
+                if (change.RuleBefore is not { } rule) return Refused(change, NotPreparedMessage);
+                if (IsBuiltIn(change.CollectionId)) return Refused(change, BuiltInMessage(change));
                 var parameters = RuleParameters("RemoveRule", change.CollectionId, rule);
                 parameters["OldRuleName"] = rule.RuleName ?? "";
                 parameters["OldExpression"] = rule.Expression ?? "";
@@ -582,15 +580,15 @@ public sealed partial class CollectionService : ICollectionService
                 return await ApplyUpdateRuleAsync(change).ConfigureAwait(false);
             case CollectionChangeKind.Evaluate:
             {
-                if (!IsCollectionId(change.CollectionId)) return Fail(change, NotPreparedMessage);
+                if (!IsCollectionId(change.CollectionId)) return Refused(change, NotPreparedMessage);
                 var run = await RunWriteAsync(change, new ConfigMgrParameters { { "Operation", "Evaluate" }, { "CollectionId", change.CollectionId } }).ConfigureAwait(false);
                 if (run.Failure is not null) return run.Failure;
                 return Done(change, $"Started a membership evaluation of collection {Shown(change.CollectionName, change.CollectionId)}. Undo is not applicable.", null);
             }
             case CollectionChangeKind.Remove:
             {
-                if (change.BeforeRow is not { } before || change.Rules is not { } rules) return Fail(change, NotPreparedMessage);
-                if (IsBuiltIn(change.CollectionId)) return Fail(change, BuiltInMessage(change));
+                if (change.BeforeRow is not { } before || change.Rules is not { } rules) return Refused(change, NotPreparedMessage);
+                if (IsBuiltIn(change.CollectionId)) return Refused(change, BuiltInMessage(change));
                 var parameters = Expected(change, before);
                 parameters["Operation"] = "Remove";
                 parameters["ExpectedRuleKeys"] = rules.Select(RuleKey).ToArray();
@@ -600,7 +598,7 @@ public sealed partial class CollectionService : ICollectionService
             }
             case CollectionChangeKind.SaveQuery:
             {
-                if (change.QueryAfter is not { } query || InvalidQuery(query) is not null) return Fail(change, InvalidQuery(change.QueryAfter) ?? NotPreparedMessage);
+                if (change.QueryAfter is not { } query || InvalidQuery(query) is not null) return Refused(change, InvalidQuery(change.QueryAfter) ?? NotPreparedMessage);
                 var run = await RunWriteAsync(change, QueryParameters("SaveQuery", query, null)).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
                 if (run.Result!.Query is not { } saved) return Fail(change, NotReadBackMessage(change));
@@ -610,8 +608,8 @@ public sealed partial class CollectionService : ICollectionService
             case CollectionChangeKind.UpdateQuery:
             {
                 if (change.QueryBefore is not { } before || change.QueryAfter is not { } after || InvalidQuery(after) is not null)
-                    return Fail(change, InvalidQuery(change.QueryAfter) ?? NotPreparedMessage);
-                if (IsBuiltInQuery(before.QueryId)) return Fail(change, BuiltInQueryMessage(before));
+                    return Refused(change, InvalidQuery(change.QueryAfter) ?? NotPreparedMessage);
+                if (IsBuiltInQuery(before.QueryId)) return Refused(change, BuiltInQueryMessage(before));
                 var run = await RunWriteAsync(change, QueryParameters("UpdateQuery", after with { QueryId = before.QueryId }, before)).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
                 if (run.Result!.Query is not { } saved) return Fail(change, NotReadBackMessage(change));
@@ -620,8 +618,8 @@ public sealed partial class CollectionService : ICollectionService
             }
             case CollectionChangeKind.DeleteQuery:
             {
-                if (change.QueryBefore is not { } before) return Fail(change, NotPreparedMessage);
-                if (IsBuiltInQuery(before.QueryId)) return Fail(change, BuiltInQueryMessage(before));
+                if (change.QueryBefore is not { } before) return Refused(change, NotPreparedMessage);
+                if (IsBuiltInQuery(before.QueryId)) return Refused(change, BuiltInQueryMessage(before));
                 var parameters = QueryParameters("DeleteQuery", before, before);
                 var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
                 if (run.Failure is not null) return await ReconcileAsync(change, run).ConfigureAwait(false);
@@ -639,9 +637,9 @@ public sealed partial class CollectionService : ICollectionService
     private async Task<CollectionOutcome> ApplyUpdateRuleAsync(CollectionChange change)
     {
         if (change.RuleBefore is not { Kind: CollectionRuleKind.Query } before || change.RuleAfter is not { Kind: CollectionRuleKind.Query } after)
-            return Fail(change, NotPreparedMessage);
-        if (IsBuiltIn(change.CollectionId)) return Fail(change, BuiltInMessage(change));
-        if (InvalidRule(after) is { } invalid) return Fail(change, invalid);
+            return Refused(change, NotPreparedMessage);
+        if (IsBuiltIn(change.CollectionId)) return Refused(change, BuiltInMessage(change));
+        if (InvalidRule(after) is { } invalid) return Refused(change, invalid);
         var sameName = string.Equals(before.RuleName, after.RuleName, StringComparison.OrdinalIgnoreCase);
         var newName = sameName ? before.RuleName : after.RuleName.Trim();
         var temp = $"{newName} (update {_tempSuffix()})";
@@ -740,42 +738,42 @@ public sealed partial class CollectionService : ICollectionService
                 LogDetail($"{change.Kind} failed after ConfigMgr started the change", result.Detail);
                 return new WriteRun(result, Fail(change, $"ConfigMgr reported an error after it started the change to {target}. The log has the details."), true);
             case "collection-missing":
-                return new WriteRun(result, Fail(change, CollectionMissingMessage(change.CollectionName, change.CollectionId)));
+                return new WriteRun(result, Refused(change, CollectionMissingMessage(change.CollectionName, change.CollectionId)));
             case "built-in":
-                return new WriteRun(result, Fail(change, BuiltInMessage(change)));
+                return new WriteRun(result, Refused(change, BuiltInMessage(change)));
             case "name-taken":
-                return new WriteRun(result, Fail(change, NameTakenMessage(change.AfterRow?.Name ?? "")));
+                return new WriteRun(result, Refused(change, NameTakenMessage(change.AfterRow?.Name ?? "")));
             case "limiting-missing":
-                return new WriteRun(result, Fail(change, $"The limiting collection {change.AfterRow?.LimitingCollectionId} does not exist any more. Select another limiting collection."));
+                return new WriteRun(result, Refused(change, $"The limiting collection {change.AfterRow?.LimitingCollectionId} does not exist any more. Select another limiting collection."));
             case "limiting-self":
-                return new WriteRun(result, Fail(change, "A collection cannot be its own limiting collection."));
+                return new WriteRun(result, Refused(change, "A collection cannot be its own limiting collection."));
             case "changed":
-                return new WriteRun(result, Fail(change, $"Collection {target} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
+                return new WriteRun(result, Refused(change, $"Collection {target} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
             case "rule-taken":
-                return new WriteRun(result, Fail(change, change.Kind == CollectionChangeKind.ApplyTemplate
-                    ? SkippedPrefix + $"collection {target} already has a query rule named {change.RuleAfter?.RuleName}."
+                return new WriteRun(result, Refused(change, change.Kind == CollectionChangeKind.ApplyTemplate
+                    ? $"Collection {target} already has a query rule named {change.RuleAfter?.RuleName}."
                     : $"Collection {target} already has this rule or a query rule with this name."));
             case "rule-missing":
-                return new WriteRun(result, Fail(change, $"The rule {RuleOf(change)} does not exist on {target} any more. Refresh the list."));
+                return new WriteRun(result, Refused(change, $"The rule {RuleOf(change)} does not exist on {target} any more. Refresh the list."));
             case "rule-changed":
-                return new WriteRun(result, Fail(change, $"The rule {RuleOf(change)} on {target} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
+                return new WriteRun(result, Refused(change, $"The rule {RuleOf(change)} on {target} changed after the plan was shown, so it was not changed. Refresh the list and try again."));
             case "rule-duplicate":
-                return new WriteRun(result, Fail(change,
+                return new WriteRun(result, Refused(change,
                     $"More than one query rule on {target} matches the name {RuleOf(change)}. The ConfigMgr cmdlet would remove all of them, so nothing was changed. Rename the rules in the console first."));
             case "target-missing":
-                return new WriteRun(result, Fail(change, $"The device or collection that the rule refers to does not exist any more, or it is collection {target} itself."));
+                return new WriteRun(result, Refused(change, $"The device or collection that the rule refers to does not exist any more, or it is collection {target} itself."));
             case "is-limiting":
-                return new WriteRun(result, Fail(change, $"Collection {target} is the limiting collection of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}), so it is not removed."));
+                return new WriteRun(result, Refused(change, $"Collection {target} is the limiting collection of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}), so it is not removed."));
             case "is-referenced":
-                return new WriteRun(result, Fail(change, $"Collection {target} is in an include or exclude rule of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}). ConfigMgr does not remove it; remove those rules first."));
+                return new WriteRun(result, Refused(change, $"Collection {target} is in an include or exclude rule of {Count(result.References?.Length ?? 0, "collection")} ({string.Join(", ", result.References ?? [])}). ConfigMgr does not remove it; remove those rules first."));
             case "query-missing":
-                return new WriteRun(result, Fail(change, $"The saved query {QueryOf(change)} does not exist any more. Refresh the list."));
+                return new WriteRun(result, Refused(change, $"The saved query {QueryOf(change)} does not exist any more. Refresh the list."));
             case "query-built-in":
-                return new WriteRun(result, Fail(change, $"The saved query {QueryOf(change)} is built in. It is not changed or deleted here."));
+                return new WriteRun(result, Refused(change, $"The saved query {QueryOf(change)} is built in. It is not changed or deleted here."));
             case "query-changed":
-                return new WriteRun(result, Fail(change, QueryChangedMessage(QueryOf(change))));
+                return new WriteRun(result, Refused(change, QueryChangedMessage(QueryOf(change))));
             case "query-name-taken":
-                return new WriteRun(result, Fail(change, $"A saved query named {change.QueryAfter?.Name} exists already."));
+                return new WriteRun(result, Refused(change, $"A saved query named {change.QueryAfter?.Name} exists already."));
             default:
                 LogDetail($"{change.Kind} was not applied", result?.Detail ?? "The script returned no result.");
                 return new WriteRun(result, Fail(change, $"ConfigMgr did not make the change to {target}. The log has the details."), result is null);
@@ -1275,6 +1273,10 @@ public sealed partial class CollectionService : ICollectionService
     }
 
     private static CollectionOutcome Fail(CollectionChange change, string message) => new(change, false, message, null);
+
+    /// <summary>An outcome for a change that was not attempted: refused, stale or not prepared.</summary>
+    private static CollectionOutcome Refused(CollectionChange change, string message) =>
+        new(change, false, message.StartsWith(SkippedPrefix, StringComparison.Ordinal) ? message : SkippedPrefix + message, null);
 
     private static CollectionOutcome Done(CollectionChange change, string message, CollectionChange? undo) => new(change, true, message, undo);
 
