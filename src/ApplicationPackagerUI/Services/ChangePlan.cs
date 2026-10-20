@@ -41,10 +41,16 @@ public sealed class ChangePlan
     /// </summary>
     public string? ExtraConfirmation { get; init; }
 
+    /// <summary>
+    /// The text of a check box that changes how the plan runs and is off until the operator
+    /// selects it; null for none. Confirm does not need it.
+    /// </summary>
+    public string? OptionalChoice { get; init; }
+
     /// <summary>The fixed action name the log uses instead of the title, which can hold object names; null logs a generic name.</summary>
     public string? LogName { get; init; }
 
-    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo) { ExtraConfirmation = ExtraConfirmation, LogName = LogName };
+    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo) { ExtraConfirmation = ExtraConfirmation, OptionalChoice = OptionalChoice, LogName = LogName };
 }
 
 /// <summary>
@@ -54,11 +60,18 @@ public sealed class ChangePlan
 /// </summary>
 public sealed class ConfirmedChangePlan
 {
-    private ConfirmedChangePlan(ChangePlan plan) => Plan = plan;
+    private ConfirmedChangePlan(ChangePlan plan, bool optionChosen)
+    {
+        Plan = plan;
+        OptionChosen = optionChosen;
+    }
 
     public ChangePlan Plan { get; }
 
-    internal static ConfirmedChangePlan Issue(ChangePlanViewModel.IssueKey key, ChangePlan plan, bool destructiveAcknowledged, bool extraAcknowledged = false)
+    /// <summary>True when the plan has an optional choice and the operator selected it.</summary>
+    public bool OptionChosen { get; }
+
+    internal static ConfirmedChangePlan Issue(ChangePlanViewModel.IssueKey key, ChangePlan plan, bool destructiveAcknowledged, bool extraAcknowledged = false, bool optionChosen = false)
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(plan);
@@ -66,7 +79,7 @@ public sealed class ConfirmedChangePlan
             throw new InvalidOperationException("A destructive plan needs the extra confirmation.");
         if (plan.ExtraConfirmation is not null && !extraAcknowledged)
             throw new InvalidOperationException("The plan needs its second confirmation.");
-        return new ConfirmedChangePlan(plan.Copy());
+        return new ConfirmedChangePlan(plan.Copy(), optionChosen && plan.OptionalChoice is not null);
     }
 }
 

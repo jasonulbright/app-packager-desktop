@@ -10,6 +10,7 @@ using ApplicationPackagerUI.ViewModels.Windows;
 using ApplicationPackagerUI.Views.Pages;
 using ApplicationPackagerUI.Views.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wpf.Ui;
 using Wpf.Ui.Controls;
 
@@ -94,11 +95,18 @@ public static class DeploymentHelperPreferences
     }
 }
 
+/// <summary>The audit log path of the page settings, read at every call; an empty setting selects the default under the data root.</summary>
+public sealed class SettingsDeploymentAuditPath(Func<AppSettings> load) : IDeploymentAuditPathProvider
+{
+    public string? AuditLogPath => load().DeploymentHelper?.AuditLogPath?.Trim() is { Length: > 0 } path ? path : null;
+}
+
 public static partial class DeploymentHelperRegistration
 {
     public static IServiceCollection AddDeploymentHelperPage(this IServiceCollection services)
     {
         AddServiceFallbacks(services);
+        services.Replace(ServiceDescriptor.Singleton<IDeploymentAuditPathProvider>(sp => new SettingsDeploymentAuditPath(sp.GetRequiredService<SettingsService>().Load)));
         services.AddSingleton<IDeploymentHelperDialogs, DeploymentHelperDialogs>();
         services.AddSingleton(sp =>
         {

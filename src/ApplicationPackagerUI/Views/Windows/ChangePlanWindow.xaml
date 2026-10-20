@@ -80,6 +80,11 @@
                       Visibility="{Binding HasExtraConfirmation, Converter={StaticResource ChangePlanVisibility}}">
                 <TextBlock Text="{Binding ExtraConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             </CheckBox>
+            <CheckBox x:Name="chkOption" Margin="0,0,0,8" IsChecked="{Binding OptionChosen}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanOption" AutomationProperties.Name="{Binding OptionalChoiceText}"
+                      Visibility="{Binding HasOptionalChoice, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding OptionalChoiceText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
             <TextBlock x:Name="txtStep" Text="{Binding StepText}" Margin="0,0,0,8" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                        AutomationProperties.AutomationId="txtChangePlanStep" AutomationProperties.LiveSetting="Polite"
                        Visibility="{Binding IsBusy, Converter={StaticResource ChangePlanVisibility}}" />

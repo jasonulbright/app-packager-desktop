@@ -38,7 +38,8 @@ public sealed class DeploymentHelperRenderTests
         var h = new DeploymentPageHarness();
         h.Service.Add(DeploymentObjectType.Application, "16777399", LongName, "2026.10.20.1234-preview");
         h.Collections.Add("LAB00099", "Pilot devices of the finance department in the north-west region building seven", @"Deploy\Finance\North-West\Building 7", members: 1234);
-        h.Service.Groups.Add(new DpGroupInfo("Distribution points of the branch offices in the southern region", "{GRP-3}", "Failed", 12, 3, 4, 5));
+        h.Service.Groups.Add(new DpGroupInfo(Name: "Distribution points of the branch offices in the southern region", Id: "{GRP-3}", Status: "Failed",
+            Targeted: 12, Success: 3, InProgress: 4, Error: 5));
         for (var i = 0; i < 6; i++)
             h.Audit.Records.Add(h.Record(i % 2 == 0 ? "Create" : "Undo", DeploymentObjectType.Application, i == 0 ? LongName : $"Application {i}", i % 2 == 0 ? "LAB00010" : "LAB00011",
                 $"{{DEP-{i:0000}-AAAA-BBBB-CCCC-DDDDEEEEFFFF}}", purpose: i % 3 == 0 ? "Required" : "Available", when: new DateTime(2026, 10, 19, 8, i, 0)));
@@ -75,6 +76,7 @@ public sealed class DeploymentHelperRenderTests
         harness.Service.Distributed.Add("16777399");
         form.DpGroups[0].IsChecked = true;
         form.DistributeFirst = true;
+        harness.Plans.RunUndo = true;
         Run(form.DeployCommand.ExecuteAsync(null));
         Run(form.ValidateCommand.ExecuteAsync(null));
         Settle(window);
@@ -211,7 +213,7 @@ public sealed class DeploymentHelperRenderTests
             }
 
             Check(DeploymentHelperViewModel.DeployTab, "scrollDeployTab", "lstObjectType", "cboTemplate", "btnSaveTemplate", "dgObjects", "dgCollections", "cboNotification",
-                "chkRebootOutside", "dgDpGroups", "btnDistribute", "chkCreateNow", "dgChecks", "btnValidate", "btnDeploy");
+                "chkRebootOutside", "txtRequiredOnlyNote", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks", "btnValidate", "btnDeploy");
             Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
             Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
             var header = ById<FrameworkElement>(page, "btnRingDeployment");
@@ -273,11 +275,11 @@ public sealed class DeploymentHelperRenderTests
 
             StaTestHelper.PumpUntil(() => form.DpGroups.Count == 3);
             Settle(window);
-            Assert.True(TabInto(window, ById<UIElement>(page, "cboRerun").IsVisible ? ById<UIElement>(page, "cboRerun") : ById<UIElement>(page, "chkMetered"),
+            Assert.True(TabInto(window, ById<UIElement>(page, "cboNotification"),
                 ById<DataGrid>(page, "dgDpGroups")).IsSelected);
             Run(form.ValidateCommand.ExecuteAsync(null));
             Settle(window);
-            Assert.True(TabInto(window, ById<UIElement>(page, "chkCreateNow").IsEnabled ? ById<UIElement>(page, "chkCreateNow") : ById<UIElement>(page, "chkDistributeFirst"),
+            Assert.True(TabInto(window, ById<UIElement>(page, "chkDistributeFirst"),
                 ById<DataGrid>(page, "dgChecks")).IsSelected);
 
             ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
@@ -299,10 +301,13 @@ public sealed class DeploymentHelperRenderTests
         WithApplication(theme, () =>
         {
             var h = LongHarness();
-            var create = new DeploymentChange(DeploymentChangeKind.Create, h.SevenZip, new DeploymentCollection("LAB00099", "Pilot devices of the finance department", "", 1234),
-                new DeploymentOptions("Required", new DateTime(2026, 10, 20, 7, 0, 0), new DateTime(2026, 10, 22, 8, 0, 0), false, "DisplayAll", true, true, false,
-                    DeploymentText.NetworkBehaviors[0].Value, DeploymentText.RerunBehaviors[0].Value, true, false, true, true, false), [], false, false, false, null,
-                DeploymentText.CheckNames.Select(n => new PreflightCheck(n, "Pass", "")).ToList(), ["The audit log can be written."], null);
+            var create = new DeploymentChange(Kind: DeploymentChangeKind.Create, Object: h.SevenZip,
+                Collection: new DeploymentCollection("LAB00099", "Pilot devices of the finance department", "", 1234),
+                Options: new DeploymentOptions(Purpose: "Required", AvailableTime: new DateTime(2026, 10, 20, 7, 0, 0), Deadline: new DateTime(2026, 10, 22, 8, 0, 0),
+                    UtcBasis: false, UserNotification: "DisplayAll", OverrideServiceWindow: true, RebootOutsideServiceWindow: true, AllowMetered: false,
+                    NetworkBehavior: "", RerunBehavior: "", ShowProgress: true, AllowFallback: false, FallbackToDp: true, PostRebootScan: true, SuppressRestart: false),
+                DpGroups: ["All DPs"], CreateNowContentDistributing: false, RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: null,
+                Checks: DeploymentText.CheckNames.Select(n => new PreflightCheck(Name: n, Result: "Pass", Message: "")).ToList(), Impact: ["The audit log can be written."], CreatedId: null);
             var (plan, problem) = DeploymentText.BuildDeployPlan([create], h.Clock);
             Assert.Null(problem);
             var dialog = new ChangePlanViewModel(plan!.Plan, h.Writer().RunFor(plan), h.Writer().UndoFor(plan));
@@ -318,6 +323,11 @@ public sealed class DeploymentHelperRenderTests
                 Assert.False(dialog.ConfirmCommand.CanExecute(null));
                 extra.IsChecked = true;
                 Assert.True(dialog.ConfirmCommand.CanExecute(null));
+                var option = (CheckBox)window.FindName("chkOption");
+                Assert.True(option.IsVisible);
+                Assert.False(option.IsChecked);
+                Assert.Equal(DeploymentText.CreateNowChoice, dialog.OptionalChoiceText);
+                AssertInside(window, option, window.ActualHeight, "chkOption");
             }
             finally { window.Close(); }
         });

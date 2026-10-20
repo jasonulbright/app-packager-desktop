@@ -76,9 +76,10 @@ public sealed partial class DeploymentTemplateEditorViewModel : ObservableObject
         else if (!IsRequired && string.Equals(Notification.Value, DeploymentText.HideAll, StringComparison.OrdinalIgnoreCase))
             problem = "An Available template cannot hide all notifications: users could not find the deployment in Software Center.";
         else
-            return new DeploymentTemplate(id, name, IsRequired ? DeploymentText.Required : DeploymentText.Available, Notification.Value, UtcBasis,
-                OverrideServiceWindow, RebootOutsideServiceWindow, AllowMetered, AllowBoundaryFallback, AllowMicrosoftUpdate, PostRebootScan,
-                IsRequired ? offset : 0, false);
+            return new DeploymentTemplate(Id: id, Name: name, Purpose: IsRequired ? DeploymentText.Required : DeploymentText.Available,
+                UserNotification: Notification.Value, UtcBasis: UtcBasis, OverrideServiceWindow: OverrideServiceWindow,
+                RebootOutsideServiceWindow: RebootOutsideServiceWindow, AllowMetered: AllowMetered, AllowBoundaryFallback: AllowBoundaryFallback,
+                AllowMicrosoftUpdate: AllowMicrosoftUpdate, PostRebootScan: PostRebootScan, DeadlineOffsetHours: IsRequired ? offset : 0, IsSeeded: false);
         return null;
     }
 

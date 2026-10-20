@@ -85,7 +85,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             .Where(r => EventFilter == AllText || string.Equals(r.Event, EventFilter, StringComparison.OrdinalIgnoreCase))
             .Where(r => TypeFilter == AllText || SameType(r.DeploymentType, TypeFilter))
             .Where(r => text.Length == 0 || Contains(r.ApplicationName, text) || Contains(r.CollectionName, text) || Contains(r.CollectionID, text)
-                || Contains(r.DeploymentID, text) || Contains(r.User, text) || Contains(r.Result, text) || Contains(r.ObjectId, text))
+                || Contains(r.DeploymentID, text) || Contains(r.DeploymentUniqueID, text) || Contains(r.User, text) || Contains(r.Result, text) || Contains(r.ObjectId, text))
             .OrderByDescending(r => r.Timestamp).ToList();
         var keep = Rows.Where(r => wanted.Contains(r.Record)).ToDictionary(r => r.Record);
         Replace(Rows, wanted.Select(r => keep.TryGetValue(r, out var row) ? row : new DeploymentHistoryRow(r)).ToList());
@@ -144,12 +144,20 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             _ => null
         };
 
-    /// <summary>The captured deployment of a create record, for the service to compare before it removes anything.</summary>
+    /// <summary>
+    /// The captured deployment of a create record, for the service to compare before it removes
+    /// anything. The ID is the unique ID the record names; DeploymentID of an application or update
+    /// group record is the numeric assignment ID, which no removal takes.
+    /// </summary>
     public static DeploymentRecord? Captured(DeploymentAuditRecord record)
     {
-        if (TypeOf(record.DeploymentType) is not { } type || record.DeploymentID.Length == 0) return null;
-        return new DeploymentRecord(record.DeploymentID, type, record.ObjectId, record.ApplicationName, record.CollectionID, record.CollectionName,
-            record.DeployPurpose, record.AvailableDateTime ?? record.Timestamp, record.DeadlineDateTime, record.Timestamp, record.User);
+        var id = record.DeploymentUniqueID.Length > 0 ? record.DeploymentUniqueID : record.DeploymentID;
+        if (TypeOf(record.DeploymentType) is not { } type || id.Length == 0) return null;
+        return new DeploymentRecord(DeploymentId: id, Type: type, ObjectId: record.ObjectId, ObjectName: record.ApplicationName,
+            CollectionId: record.CollectionID, CollectionName: record.CollectionName, Purpose: record.DeployPurpose,
+            AvailableTime: record.AvailableDateTime ?? record.Timestamp, Deadline: record.DeadlineDateTime, Created: record.Timestamp, CreatedBy: record.User,
+            UtcBasis: string.Equals(record.TimeBasedOn, "Utc", StringComparison.OrdinalIgnoreCase), Program: record.ProgramName,
+            AssignmentId: record.DeploymentUniqueID.Length > 0 && record.DeploymentID != record.DeploymentUniqueID ? record.DeploymentID : "");
     }
 
     private bool CanRemoveDeployment() => SelectedRow is not null;
@@ -169,7 +177,9 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             Shared.StatusMessage = UnknownType;
             return;
         }
-        var request = new DeploymentChange(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false, existing, [], [], existing.DeploymentId);
+        var request = new DeploymentChange(Kind: DeploymentChangeKind.RemoveDeployment, Object: null, Collection: null, Options: null, DpGroups: [],
+            CreateNowContentDistributing: false, RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: existing, Checks: [], Impact: [],
+            CreatedId: existing.DeploymentId);
         var run = await Shared.RunPlanAsync([request], prepared => DeploymentText.BuildRemovePlan(prepared[0]));
         if (run is not { Outcome.Confirmed: true }) return;
         await Shared.AfterWriteAsync();

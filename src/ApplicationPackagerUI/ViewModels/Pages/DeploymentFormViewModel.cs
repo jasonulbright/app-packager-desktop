@@ -28,6 +28,11 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     public const string TemplateSaveFailed = "The template could not be saved. The log has the details.";
     public const string TemplateNameTaken = "A shipped template has this name. Choose another name.";
     public const string TimeFormatMessage = "Enter the time as hours and minutes, for example 08:30.";
+    public const string RequiredOnlyText =
+        "Rerun, maintenance window, metered connection and restart settings apply to Required deployments only. ConfigMgr ignores them for Available.";
+    public const string LocalNote = "Local time: each client reads the available time and the deadline in its own time zone.";
+    public const string UtcNote = "UTC: the available time and the deadline are UTC times, the same moment on every client.";
+    public const string NoExpirationNote = " No expiration time is set.";
 
     private IReadOnlyList<DeployableObject> _objects = [];
     private IReadOnlyList<CollectionRow> _collections = [];
@@ -58,7 +63,11 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
 
     public IReadOnlyList<DeploymentChoice> Notifications => DeploymentText.Notifications;
     public IReadOnlyList<DeploymentChoice> NetworkBehaviors => DeploymentText.NetworkBehaviors;
+    public IReadOnlyList<DeploymentChoice> SlowNetworkBehaviors => DeploymentText.SlowNetworkBehaviors;
+    public IReadOnlyList<DeploymentChoice> TaskSequenceContents => DeploymentText.TaskSequenceContents;
+    public IReadOnlyList<DeploymentChoice> TaskSequenceAvailabilities => DeploymentText.TaskSequenceAvailabilities;
     public IReadOnlyList<DeploymentChoice> RerunBehaviors => DeploymentText.RerunBehaviors;
+    public string SuppressRestartLabel => DeploymentText.SuppressRestartLabel;
 
     public ObservableCollection<DeploymentObjectRow> Objects { get; } = [];
     public ObservableCollection<DeploymentCollectionRow> Collections { get; } = [];
@@ -72,7 +81,8 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Type), nameof(IsApplication), nameof(IsPackage), nameof(IsTaskSequence), nameof(IsUpdateGroup),
-        nameof(ShowMaintenanceOptions), nameof(ShowMetered), nameof(ShowRerun), nameof(ObjectHeader))]
+        nameof(ShowMaintenanceOptions), nameof(ShowMetered), nameof(ShowRerun), nameof(ShowNotification), nameof(ShowAllowFallback), nameof(ShowContent),
+        nameof(ObjectHeader), nameof(TimeBasisNote))]
     private int _typeIndex;
 
     public DeploymentObjectType Type => (DeploymentObjectType)Math.Clamp(TypeIndex, 0, 3);
@@ -81,9 +91,22 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     public bool IsTaskSequence => Type == DeploymentObjectType.TaskSequence;
     public bool IsUpdateGroup => Type == DeploymentObjectType.SoftwareUpdateGroup;
     public bool ShowMaintenanceOptions => true;
-    public bool ShowMetered => Type != DeploymentObjectType.TaskSequence;
+    public bool ShowMetered => true;
     public bool ShowRerun => Type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence;
+    public bool ShowNotification => DeploymentText.HasNotification(Type);
+    public bool ShowAllowFallback => Type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence;
+
+    /// <summary>False for a software update group: its content is in deployment packages, which the console distributes.</summary>
+    public bool ShowContent => Type != DeploymentObjectType.SoftwareUpdateGroup;
     public string ObjectHeader => DeploymentText.TypePlural(Type);
+
+    /// <summary>True when the settings that ConfigMgr stores for Required only can be changed.</summary>
+    public bool RequiredOnlyEnabled => IsRequired;
+
+    /// <summary>Why the Required-only settings are off; empty for a Required deployment.</summary>
+    public string RequiredOnlyNote => IsRequired ? "" : RequiredOnlyText;
+
+    public string TimeBasisNote => (UtcBasis ? UtcNote : LocalNote) + (Type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence ? NoExpirationNote : "");
 
     [ObservableProperty] private string _objectFilter = "";
     [ObservableProperty] private string _collectionFilter = "";
@@ -98,7 +121,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     [ObservableProperty] private string? _selectedProgram;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Purpose), nameof(IsAvailable))]
+    [NotifyPropertyChangedFor(nameof(Purpose), nameof(IsAvailable), nameof(RequiredOnlyEnabled), nameof(RequiredOnlyNote))]
     private bool _isRequired;
 
     public string Purpose => IsRequired ? DeploymentText.Required : DeploymentText.Available;
@@ -116,7 +139,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     [ObservableProperty] private string _deadlineTimeText = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsLocalTime))]
+    [NotifyPropertyChangedFor(nameof(IsLocalTime), nameof(TimeBasisNote))]
     private bool _utcBasis;
 
     /// <summary>The local time choice of the time basis radio buttons.</summary>
@@ -130,20 +153,19 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     [ObservableProperty] private bool _rebootOutsideServiceWindow;
     [ObservableProperty] private bool _allowMetered;
     [ObservableProperty] private DeploymentChoice _networkBehavior = DeploymentText.NetworkBehaviors[0];
+    [ObservableProperty] private DeploymentChoice _slowNetworkBehavior = DeploymentText.SlowNetworkBehaviors[0];
+    [ObservableProperty] private DeploymentChoice _taskSequenceContent = DeploymentText.TaskSequenceContents[0];
+    [ObservableProperty] private DeploymentChoice _taskSequenceAvailability = DeploymentText.TaskSequenceAvailabilities[0];
     [ObservableProperty] private DeploymentChoice _rerunBehavior = DeploymentText.RerunBehaviors[0];
     [ObservableProperty] private bool _showProgress = true;
     [ObservableProperty] private bool _allowFallback;
     [ObservableProperty] private bool _fallbackToDp = true;
     [ObservableProperty] private bool _postRebootScan = true;
     [ObservableProperty] private bool _suppressRestart;
+    [ObservableProperty] private bool _allowMicrosoftUpdate;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanChooseCreateNow))]
-    private bool _distributeFirst;
-
-    [ObservableProperty] private bool _createNowContentDistributing;
-
-    public bool CanChooseCreateNow => DistributeFirst;
+    /// <summary>Deploy distributes the content to the checked groups first; the plan then offers 'create now'.</summary>
+    [ObservableProperty] private bool _distributeFirst;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasFormMessage))]
@@ -226,18 +248,17 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     partial void OnRebootOutsideServiceWindowChanged(bool value) => FormChanged();
     partial void OnAllowMeteredChanged(bool value) => FormChanged();
     partial void OnNetworkBehaviorChanged(DeploymentChoice value) => FormChanged();
+    partial void OnSlowNetworkBehaviorChanged(DeploymentChoice value) => FormChanged();
+    partial void OnTaskSequenceContentChanged(DeploymentChoice value) => FormChanged();
+    partial void OnTaskSequenceAvailabilityChanged(DeploymentChoice value) => FormChanged();
     partial void OnRerunBehaviorChanged(DeploymentChoice value) => FormChanged();
     partial void OnShowProgressChanged(bool value) => FormChanged();
     partial void OnAllowFallbackChanged(bool value) => FormChanged();
     partial void OnFallbackToDpChanged(bool value) => FormChanged();
     partial void OnPostRebootScanChanged(bool value) => FormChanged();
     partial void OnSuppressRestartChanged(bool value) => FormChanged();
-    partial void OnDistributeFirstChanged(bool value)
-    {
-        if (!value) CreateNowContentDistributing = false;
-        FormChanged();
-    }
-    partial void OnCreateNowContentDistributingChanged(bool value) => FormChanged();
+    partial void OnAllowMicrosoftUpdateChanged(bool value) => FormChanged();
+    partial void OnDistributeFirstChanged(bool value) => FormChanged();
 
     /// <summary>Every change of the form makes the checks of the last Validate stale.</summary>
     private void FormChanged()
@@ -264,14 +285,17 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         RebootOutsideServiceWindow = false;
         AllowMetered = false;
         NetworkBehavior = DeploymentText.NetworkBehaviors[0];
+        SlowNetworkBehavior = DeploymentText.SlowNetworkBehaviors[0];
+        TaskSequenceContent = DeploymentText.TaskSequenceContents[0];
+        TaskSequenceAvailability = DeploymentText.TaskSequenceAvailabilities[0];
         RerunBehavior = DeploymentText.RerunBehaviors[0];
         ShowProgress = true;
         AllowFallback = false;
         FallbackToDp = true;
         PostRebootScan = true;
         SuppressRestart = false;
+        AllowMicrosoftUpdate = false;
         DistributeFirst = false;
-        CreateNowContentDistributing = false;
         FormMessage = "";
         ValidationMessage = "";
         Checks.Clear();
@@ -486,15 +510,40 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
             }
             deadline = due;
         }
-        var options = new DeploymentOptions(Purpose, available, deadline, UtcBasis, Notification.Value,
-            OverrideServiceWindow, RebootOutsideServiceWindow, ShowMetered && AllowMetered,
-            NetworkBehavior.Value, RerunBehavior.Value, ShowProgress, AllowFallback,
-            FallbackToDp, PostRebootScan, SuppressRestart);
-        problem = DeploymentText.ScheduleProblem(options, DeploymentText.Now(Services.Clock, UtcBasis));
+        var required = IsRequired;
+        var type = Type;
+        var options = new DeploymentOptions(
+            Purpose: Purpose,
+            AvailableTime: available,
+            Deadline: deadline,
+            UtcBasis: UtcBasis,
+            UserNotification: Notification.Value,
+            OverrideServiceWindow: required && OverrideServiceWindow,
+            RebootOutsideServiceWindow: required && RebootOutsideServiceWindow,
+            AllowMetered: required && AllowMetered,
+            NetworkBehavior: type switch
+            {
+                DeploymentObjectType.Package => NetworkBehavior.Value,
+                DeploymentObjectType.TaskSequence => TaskSequenceContent.Value,
+                _ => ""
+            },
+            RerunBehavior: ShowRerun ? RerunBehavior.Value : "",
+            ShowProgress: ShowProgress,
+            AllowFallback: ShowAllowFallback && AllowFallback,
+            FallbackToDp: FallbackToDp,
+            PostRebootScan: PostRebootScan,
+            SuppressRestart: required && SuppressRestart,
+            SlowNetworkBehavior: SlowNetworkBehavior.Value,
+            TaskSequenceAvailability: TaskSequenceAvailability.Value,
+            AllowMicrosoftUpdate: AllowMicrosoftUpdate);
+        problem = DeploymentText.ScheduleProblem(type, options, DeploymentText.Now(Services.Clock, UtcBasis));
         return problem is null ? options : null;
     }
 
-    /// <summary>The create request of the form, read once; null with the reason in <see cref="FormMessage"/>.</summary>
+    /// <summary>
+    /// The create request of the form, read once; null with the reason in <see cref="FormMessage"/>.
+    /// The checked DP groups travel with the create only when it distributes first.
+    /// </summary>
     public DeploymentChange? BuildCreateRequest()
     {
         string? problem = null;
@@ -506,9 +555,10 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         else if (ReadOptions(out problem) is { } options)
         {
             var obj = row.Object.Type == DeploymentObjectType.Package ? row.Object with { Program = SelectedProgram! } : row.Object;
-            var groups = DpGroups.Where(g => g.IsChecked).Select(g => g.Name).ToList();
-            request = new DeploymentChange(DeploymentChangeKind.Create, obj, collection.ToCollection(), options, groups,
-                DistributeFirst && CreateNowContentDistributing, false, false, null, [], [], null);
+            IReadOnlyList<string> groups = DistributeFirst && ShowContent ? DpGroups.Where(g => g.IsChecked).Select(g => g.Name).ToList() : [];
+            request = new DeploymentChange(Kind: DeploymentChangeKind.Create, Object: obj, Collection: collection.ToCollection(), Options: options,
+                DpGroups: groups, CreateNowContentDistributing: false, RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: null,
+                Checks: [], Impact: [], CreatedId: null);
         }
         FormMessage = problem ?? "";
         return request;
@@ -529,21 +579,24 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
             return null;
         }
         DpMessage = "";
-        return new DeploymentChange(DeploymentChangeKind.Distribute, row.Object, null, null, groups, false, false, false, null, [], [], null);
+        var obj = row.Object.Type == DeploymentObjectType.Package && !string.IsNullOrEmpty(SelectedProgram) ? row.Object with { Program = SelectedProgram } : row.Object;
+        return new DeploymentChange(Kind: DeploymentChangeKind.Distribute, Object: obj, Collection: null, Options: null, DpGroups: groups,
+            CreateNowContentDistributing: false, RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: null, Checks: [], Impact: [], CreatedId: null);
     }
 
-    private void ShowChecks(IReadOnlyList<PreflightCheck> checks)
+    /// <summary>Lists every check the service reported, the five first; a failed or unknown check blocks, a warning does not.</summary>
+    private void ShowChecks(DeploymentChange prepared)
     {
         Checks.Clear();
-        foreach (var name in DeploymentText.CheckNames)
-        {
-            var check = checks.FirstOrDefault(c => c.Name == name);
-            Checks.Add(new DeploymentCheckRow(name, DeploymentText.CheckLabel(name), check?.Result ?? DeploymentText.Unknown, check?.Message ?? "Not reported."));
-        }
-        foreach (var other in checks.Where(c => !DeploymentText.CheckNames.Contains(c.Name)))
-            Checks.Add(new DeploymentCheckRow(other.Name, DeploymentText.CheckLabel(other.Name), other.Result, other.Message));
-        var failed = Checks.Count(c => c.Result is DeploymentText.Fail or DeploymentText.Unknown);
-        ValidationMessage = failed == 0 ? "Every check passed." : $"{DeploymentText.Count(failed, "check")} did not pass.";
+        var type = prepared.Object?.Type;
+        foreach (var check in DeploymentText.Ordered(prepared.Checks))
+            Checks.Add(new DeploymentCheckRow(Name: check.Name, Check: DeploymentText.CheckLabel(check.Name), Result: check.Result, Message: DeploymentText.CheckMessage(check, type)));
+        var blocking = prepared.Checks.Count(DeploymentText.Blocks);
+        var warnings = prepared.Checks.Count(c => c.Result == DeploymentText.Warn);
+        ValidationMessage = blocking > 0
+            ? $"{DeploymentText.Count(blocking, "check")} did not pass. The deployment is blocked."
+            : warnings == 0 ? "Every check passed."
+            : $"No check blocks the deployment. {(warnings == 1 ? "1 check has a warning: read its message." : $"{warnings} checks have a warning: read their messages.")}";
     }
 
     private bool CanValidate() => !IsValidating;
@@ -574,8 +627,9 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
                 ValidationMessage = ChangedDuringCheck;
                 return;
             }
-            ShowChecks(prepared.Checks);
-            var backdated = DeploymentText.IsBackdated(prepared.Options ?? request.Options!, DeploymentText.Now(Services.Clock, request.Options!.UtcBasis));
+            ShowChecks(prepared);
+            var backdated = prepared.NeedsBackdatedAcknowledgement
+                || DeploymentText.IsBackdated(prepared.Options ?? request.Options!, DeploymentText.Now(Services.Clock, request.Options!.UtcBasis));
             if (backdated) ValidationMessage += " Warning: the available time is in the past; the plan asks for an extra confirmation.";
             Services.Log.Info(DeploymentShared.LogArea, $"Checks ran: {Checks.Count(c => c.Result == DeploymentText.Pass)} of {Checks.Count} passed.");
         }
@@ -602,22 +656,16 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     {
         if (Shared.IsWriting) return;
         if (BuildCreateRequest() is not { } create) return;
-        var requests = new List<DeploymentChange>();
-        if (DistributeFirst)
+        if (DistributeFirst && ShowContent && create.DpGroups.Count == 0)
         {
-            if (create.DpGroups.Count == 0)
-            {
-                FormMessage = NoGroupsChecked;
-                return;
-            }
-            requests.Add(new DeploymentChange(DeploymentChangeKind.Distribute, create.Object, null, null, create.DpGroups, false, false, false, null, [], [], null));
+            FormMessage = NoGroupsChecked;
+            return;
         }
-        requests.Add(create);
         var version = _formVersion;
-        var run = await Shared.RunPlanAsync(requests, prepared => DeploymentText.BuildDeployPlan(prepared, Services.Clock),
+        var run = await Shared.RunPlanAsync([create], prepared => DeploymentText.BuildDeployPlan(prepared, Services.Clock),
             prepared =>
             {
-                if (version == _formVersion && prepared.FirstOrDefault(c => c.Kind == DeploymentChangeKind.Create) is { } done) ShowChecks(done.Checks);
+                if (version == _formVersion && prepared.FirstOrDefault(c => c.Kind == DeploymentChangeKind.Create) is { } done) ShowChecks(done);
             },
             message => FormMessage = message);
         if (run is not { Outcome.Confirmed: true }) return;
@@ -657,6 +705,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         AllowMetered = template.AllowMetered;
         FallbackToDp = template.AllowBoundaryFallback;
         AllowFallback = template.AllowBoundaryFallback;
+        AllowMicrosoftUpdate = template.AllowMicrosoftUpdate;
         PostRebootScan = template.PostRebootScan;
         if (IsRequired && template.DeadlineOffsetHours > 0 && TryTime(AvailableDate, AvailableTimeText, out var available))
         {
@@ -683,8 +732,10 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         var offset = 0;
         if (IsRequired && TryTime(AvailableDate, AvailableTimeText, out var available) && TryTime(DeadlineDate, DeadlineTimeText, out var deadline) && deadline > available)
             offset = (int)Math.Min(int.MaxValue, Math.Round((deadline - available).TotalHours));
-        return new DeploymentTemplate(TemplateIdFor(name), name.Trim(), Purpose, Notification.Value, UtcBasis, OverrideServiceWindow, RebootOutsideServiceWindow,
-            AllowMetered, IsUpdateGroup ? FallbackToDp : AllowFallback || FallbackToDp, false, PostRebootScan, offset, false);
+        return new DeploymentTemplate(Id: TemplateIdFor(name), Name: name.Trim(), Purpose: Purpose, UserNotification: Notification.Value, UtcBasis: UtcBasis,
+            OverrideServiceWindow: OverrideServiceWindow, RebootOutsideServiceWindow: RebootOutsideServiceWindow, AllowMetered: AllowMetered,
+            AllowBoundaryFallback: IsUpdateGroup ? FallbackToDp : AllowFallback || FallbackToDp, AllowMicrosoftUpdate: AllowMicrosoftUpdate,
+            PostRebootScan: PostRebootScan, DeadlineOffsetHours: offset, IsSeeded: false);
     }
 
     /// <summary>Asks for a name and saves the form as a user template.</summary>

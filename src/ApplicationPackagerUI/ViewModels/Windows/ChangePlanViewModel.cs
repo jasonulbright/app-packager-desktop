@@ -79,6 +79,8 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public bool IsDestructive => _plan.IsDestructive;
     public bool HasExtraConfirmation => _plan.ExtraConfirmation is not null;
     public string ExtraConfirmationText => _plan.ExtraConfirmation ?? "";
+    public bool HasOptionalChoice => _plan.OptionalChoice is not null;
+    public string OptionalChoiceText => _plan.OptionalChoice ?? "";
     public ObservableCollection<ChangePlanItem> Items { get; }
     public ObservableCollection<ChangePlanItemResult> ResultRows { get; } = [];
 
@@ -98,6 +100,9 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
     private bool _extraAcknowledged;
+
+    /// <summary>The optional choice of the plan; it changes how the plan runs, not whether Confirm is available.</summary>
+    [ObservableProperty] private bool _optionChosen;
 
     /// <summary>The last step a running change reported; empty when no run works.</summary>
     [ObservableProperty] private string _stepText = "";
@@ -127,7 +132,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     private async Task ConfirmAsync()
     {
         if (!CanConfirm()) return;
-        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged);
+        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged, OptionChosen);
         Stage = ChangePlanStage.Running;
         ResultText = "Running...";
         var result = await RunAsync(_run, "");

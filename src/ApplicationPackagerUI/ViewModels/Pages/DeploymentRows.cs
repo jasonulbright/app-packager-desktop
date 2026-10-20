@@ -7,7 +7,7 @@ public sealed class DeploymentObjectRow(DeployableObject obj)
 {
     public DeployableObject Object { get; } = obj;
     public string Name => Object.Name;
-    public string Version => Object.Version;
+    public string Version => Object.Type == DeploymentObjectType.SoftwareUpdateGroup ? DeploymentText.Count(Object.UpdateCount, "update") : Object.Version;
     public string Id => Object.Id;
     public string Packaged => Object.PackagedByProduct ? "Yes" : "";
 
@@ -62,15 +62,34 @@ public sealed class DeploymentHistoryRow(DeploymentAuditRecord record)
     public string Object => $"{Record.ApplicationName} {Record.ApplicationVersion}".Trim();
     public string Collection => Record.CollectionID.Length > 0 ? $"{Record.CollectionName} ({Record.CollectionID})" : Record.CollectionName;
     public string Purpose => Record.DeployPurpose;
-    public string Deadline => Record.DeadlineDateTime is { } d ? DeploymentText.Time(d) : "";
-    public string DeploymentId => Record.DeploymentID;
-    public string Result => Record.Result;
+    public string Deadline => Record.DeadlineDateTime is { } d ? DeploymentText.Time(d) + (Basis == "UTC" ? " UTC" : "") : "";
+
+    /// <summary>The time basis of the available time and deadline; empty for a record that does not name it.</summary>
+    public string Basis => Record.TimeBasedOn switch
+    {
+        var b when string.Equals(b, "Utc", StringComparison.OrdinalIgnoreCase) => "UTC",
+        var b when string.Equals(b, "LocalTime", StringComparison.OrdinalIgnoreCase) => "Local time",
+        _ => ""
+    };
+
+    /// <summary>The ID the page and Undo use: the unique ID, or the ID of a record that names no other.</summary>
+    public string DeploymentId => Record.DeploymentUniqueID.Length > 0 ? Record.DeploymentUniqueID : Record.DeploymentID;
+
+    /// <summary>The result as a plain word; a Partial create was made with a problem, an Unknown one may exist.</summary>
+    public string Result => Record.Result switch
+    {
+        var r when string.Equals(r, AuditResults.Partial, StringComparison.OrdinalIgnoreCase) => "Partial: made with a problem",
+        var r when string.Equals(r, AuditResults.Unknown, StringComparison.OrdinalIgnoreCase) => "Unknown: check ConfigMgr",
+        var r => r
+    };
+
     public string User => Record.User;
 
-    /// <summary>True for a successful create whose record carries the deployment ID.</summary>
-    public bool CanUndo => string.Equals(Record.Event, "Create", StringComparison.OrdinalIgnoreCase)
-        && Record.DeploymentID.Length > 0
-        && string.Equals(Record.Result, "Success", StringComparison.OrdinalIgnoreCase);
+    /// <summary>True for a create that made its deployment and whose record carries the deployment ID.</summary>
+    public bool CanUndo => string.Equals(Record.Event, AuditEvents.Create, StringComparison.OrdinalIgnoreCase)
+        && DeploymentId.Length > 0
+        && (string.Equals(Record.Result, AuditResults.Success, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Record.Result, AuditResults.Partial, StringComparison.OrdinalIgnoreCase));
 
     public override string ToString() => $"{Time} {Event} {Object}";
 }

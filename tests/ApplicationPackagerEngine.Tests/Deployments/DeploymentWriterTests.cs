@@ -11,13 +11,15 @@ namespace ApplicationPackagerEngine.Tests.Deployments;
 public sealed class DeploymentWriterTests
 {
     private static DeploymentOptions Options(string purpose = "Available", DateTime? available = null, DateTime? deadline = null) =>
-        new(purpose, available ?? new DateTime(2026, 10, 20, 10, 0, 0), deadline, false, "DisplayAll", false, false, false,
-            DeploymentText.NetworkBehaviors[0].Value, DeploymentText.RerunBehaviors[0].Value, true, false, true, true, false);
+        new(Purpose: purpose, AvailableTime: available ?? new DateTime(2026, 10, 20, 10, 0, 0), Deadline: deadline, UtcBasis: false, UserNotification: "DisplayAll",
+            OverrideServiceWindow: false, RebootOutsideServiceWindow: false, AllowMetered: false, NetworkBehavior: DeploymentText.NetworkBehaviors[0].Value,
+            RerunBehavior: DeploymentText.RerunBehaviors[0].Value, ShowProgress: true, AllowFallback: false, FallbackToDp: true, PostRebootScan: true, SuppressRestart: false);
 
     private static DeploymentChange Create(DeploymentPageHarness h, string purpose = "Available", string collection = "LAB00010", DateTime? available = null) =>
-        new(DeploymentChangeKind.Create, h.SevenZip, new DeploymentCollection(collection, "Pilot Workstations", "", 3),
-            Options(purpose, available, purpose == "Required" ? new DateTime(2026, 10, 22, 8, 0, 0) : null), [], false, false, false, null,
-            DeploymentText.CheckNames.Select(n => new PreflightCheck(n, "Pass", "")).ToList(), [], null);
+        new(Kind: DeploymentChangeKind.Create, Object: h.SevenZip, Collection: new DeploymentCollection(collection, "Pilot Workstations", "", 3),
+            Options: Options(purpose, available, purpose == "Required" ? new DateTime(2026, 10, 22, 8, 0, 0) : null), DpGroups: [], CreateNowContentDistributing: false,
+            RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: null,
+            Checks: DeploymentText.CheckNames.Select(n => new PreflightCheck(Name: n, Result: "Pass", Message: "")).ToList(), Impact: [], CreatedId: null);
 
     /// <summary>A plan made by hand, so a test can give a Required change a plan without the second check box.</summary>
     private static DeploymentPlan PlanOf(DeploymentChange change, string? extra = null) =>
@@ -58,14 +60,15 @@ public sealed class DeploymentWriterTests
         var h = new DeploymentPageHarness();
         var available = Create(h) with { RequiredConfirmed = true, BackdatedAcknowledged = true };
         var required = Create(h, "Required");
-        var distribute = new DeploymentChange(DeploymentChangeKind.Distribute, h.SevenZip, null, null, ["All DPs"], false, true, true, null, [], [], null);
-        var (send, held) = DeploymentWriter.Confirmed([available, required, distribute], acknowledged);
+        var distribute = new DeploymentChange(Kind: DeploymentChangeKind.Distribute, Object: h.SevenZip, Collection: null, Options: null, DpGroups: ["All DPs"],
+            CreateNowContentDistributing: true, RequiredConfirmed: true, BackdatedAcknowledged: true, Existing: null, Checks: [], Impact: [], CreatedId: null);
+        var (send, held) = DeploymentWriter.Confirmed([available, required, distribute], acknowledged, backdated: acknowledged, createNow: true);
         Assert.False(send.Single(c => c.Kind == DeploymentChangeKind.Create && c.Options!.Purpose == "Available").RequiredConfirmed);
         Assert.Equal(expected, send.Single(c => c.Kind == DeploymentChangeKind.Create && c.Options!.Purpose == "Available").BackdatedAcknowledged);
         Assert.Equal(acknowledged ? 0 : 1, held.Count);
         if (acknowledged) Assert.True(send.Single(c => c.Options?.Purpose == "Required").RequiredConfirmed);
         var sentDistribute = send.Single(c => c.Kind == DeploymentChangeKind.Distribute);
-        Assert.False(sentDistribute.RequiredConfirmed || sentDistribute.BackdatedAcknowledged);
+        Assert.False(sentDistribute.RequiredConfirmed || sentDistribute.BackdatedAcknowledged || sentDistribute.CreateNowContentDistributing);
     }
 
     [Fact]
@@ -92,12 +95,17 @@ public sealed class DeploymentWriterTests
     {
         var h = new DeploymentPageHarness();
         h.Service.InConfirmedRun = null;
-        var distribute = new DeploymentChange(DeploymentChangeKind.Distribute, h.Notepad, null, null, ["All DPs"], false, false, false, null, [], ["Distribution point group All DPs: NotTargeted now."], null);
-        var create = Create(h) with { Object = h.Notepad, DpGroups = ["All DPs"] };
-        var (plan, problem) = DeploymentText.BuildDeployPlan([distribute, create], h.Clock);
-        Assert.Null(problem);
+        var distribute = new DeploymentChange(Kind: DeploymentChangeKind.Distribute, Object: h.Notepad, Collection: null, Options: null, DpGroups: ["All DPs"],
+            CreateNowContentDistributing: false, RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: null, Checks: [],
+            Impact: ["Distribution point group All DPs: NotTargeted now."], CreatedId: null);
+        var create = Create(h) with { Object = h.Notepad };
+        var plan = new DeploymentPlan("Distribute and deploy", "Deploy Notepad++", "Distribute and deploy",
+        [
+            DeploymentPlanEntry.Write(DeploymentText.DistributeItem(distribute), distribute),
+            DeploymentPlanEntry.Write(new ChangePlanItem("Create deployment", "Notepad++", null), create)
+        ]);
         var writer = h.Writer();
-        var dialog = new ChangePlanViewModel(plan!.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
         h.Service.AfterChange = i =>
         {
             if (i == 0) dialog.RequestCancel();
@@ -138,7 +146,7 @@ public sealed class DeploymentWriterTests
         {
             var change = changes[0];
             var undo = change with { Kind = DeploymentChangeKind.RemoveDeployment, CreatedId = "{DEP-1}" };
-            progress.Report(new DeploymentOutcome(change, true, "Created deployment {DEP-1}.", undo, []));
+            progress.Report(new DeploymentOutcome(Change: change, Succeeded: true, Message: "Created deployment {DEP-1}.", UndoChange: undo, Steps: []));
             throw new InvalidOperationException("session lost");
         }
     }

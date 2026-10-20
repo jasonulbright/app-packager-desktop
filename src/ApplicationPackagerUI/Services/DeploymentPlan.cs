@@ -23,17 +23,23 @@ public sealed class DeploymentPlan
     private readonly List<DeploymentOutcome> _undoOutcomes = [];
 
     public DeploymentPlan(string action, string title, string actionName, IEnumerable<DeploymentPlanEntry> entries, bool isDestructive = false,
-        bool hasUndo = true, string? extraConfirmation = null)
+        bool hasUndo = true, string? extraConfirmation = null, string? optionalChoice = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(action);
         Action = action;
         Entries = entries.ToArray();
         if (Entries.All(e => e.Change is null)) throw new ArgumentException("A deployment plan makes at least one change.", nameof(entries));
-        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo) { ExtraConfirmation = extraConfirmation, LogName = action };
+        Plan = new ChangePlan(title, actionName, Entries.Select(e => e.Item), isDestructive, hasUndo)
+        {
+            ExtraConfirmation = extraConfirmation, OptionalChoice = optionalChoice, LogName = action
+        };
     }
 
     /// <summary>True for a plan made of the undo changes of an earlier run.</summary>
     public bool IsUndo { get; init; }
+
+    /// <summary>True when the second check box names an available time in the past.</summary>
+    public bool AcknowledgesBackdated { get; init; }
 
     /// <summary>The short action name for the log and the site history, for example "Create deployment".</summary>
     public string Action { get; }
@@ -72,7 +78,10 @@ public sealed class DeploymentPlan
         bool Done(DeploymentChange undo) => undoOutcomes.Any(o => o.Succeeded && (ReferenceEquals(o.Change, undo) || SameTarget(o.Change, undo)));
         var left = Outcomes.Where(o => o.UndoChange is { } undo && EntryFor(o.Change) is not null && !Done(undo)).ToList();
         if (left.Count == 0) return null;
-        var copy = new DeploymentPlan(Action, Plan.Title, Plan.ActionName, Entries, Plan.IsDestructive, Plan.HasUndo, Plan.ExtraConfirmation) { IsUndo = IsUndo };
+        var copy = new DeploymentPlan(Action, Plan.Title, Plan.ActionName, Entries, Plan.IsDestructive, Plan.HasUndo, Plan.ExtraConfirmation, Plan.OptionalChoice)
+        {
+            IsUndo = IsUndo, AcknowledgesBackdated = AcknowledgesBackdated
+        };
         foreach (var outcome in left) copy.AddOutcome(outcome);
         return copy;
     }
@@ -110,14 +119,14 @@ public sealed class DeploymentPlan
         return string.Equals(Key(a), Key(b), StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>True when the confirmed plan is this plan: the same items, in the same order, with the same second confirmation.</summary>
+    /// <summary>True when the confirmed plan is this plan: the same items, in the same order, with the same second confirmation and optional choice.</summary>
     public bool IsConfirmedPlan(ConfirmedChangePlan confirmed)
     {
         var items = confirmed.Plan.Items;
         if (items.Count != Entries.Count) return false;
         for (var i = 0; i < items.Count; i++)
             if (!ReferenceEquals(items[i], Entries[i].Item)) return false;
-        return confirmed.Plan.ExtraConfirmation == Plan.ExtraConfirmation;
+        return confirmed.Plan.ExtraConfirmation == Plan.ExtraConfirmation && confirmed.Plan.OptionalChoice == Plan.OptionalChoice;
     }
 }
 
@@ -160,7 +169,8 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
         ArgumentNullException.ThrowIfNull(confirmed);
         ArgumentNullException.ThrowIfNull(plan);
         if (!plan.IsConfirmedPlan(confirmed)) throw new InvalidOperationException("The confirmed plan is not the plan of these changes.");
-        var (changes, held) = Confirmed(plan.Changes, confirmed.Plan.ExtraConfirmation is not null);
+        var acknowledged = confirmed.Plan.ExtraConfirmation is not null;
+        var (changes, held) = Confirmed(plan.Changes, acknowledged, acknowledged && plan.AcknowledgesBackdated, confirmed.OptionChosen);
         plan.ClearOutcomes();
 
         var results = new Dictionary<ChangePlanItem, ChangePlanItemResult>(ReferenceEqualityComparer.Instance);
@@ -172,7 +182,7 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
         }
 
         var reporter = new OutcomeReporter(plan, results, progress, null);
-        foreach (var change in held) reporter.Final(new DeploymentOutcome(change, false, NotAcknowledgedText, null, []));
+        foreach (var change in held) reporter.Final(new DeploymentOutcome(Change: change, Succeeded: false, Message: NotAcknowledgedText, UndoChange: null, Steps: []));
         var stop = SiteOperationOutcome.Failed;
         try
         {
@@ -234,31 +244,40 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
     }
 
     private static DeploymentChange Unacknowledged(DeploymentChange change) =>
-        change.RequiredConfirmed || change.BackdatedAcknowledged ? change with { RequiredConfirmed = false, BackdatedAcknowledged = false } : change;
+        change.RequiredConfirmed || change.BackdatedAcknowledged || change.CreateNowContentDistributing
+            ? change with { RequiredConfirmed = false, BackdatedAcknowledged = false, CreateNowContentDistributing = false }
+            : change;
 
     /// <summary>True when the change creates a deployment that enforces at a deadline.</summary>
     public static bool IsRequiredCreate(DeploymentChange change) =>
         change.Kind == DeploymentChangeKind.Create && string.Equals(change.Options?.Purpose, "Required", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// The changes to send and the changes held back. With <paramref name="acknowledged"/> every
-    /// create carries the acknowledgements; without it a Required create is held back and no change
-    /// carries an acknowledgement, whatever flags the change already had.
+    /// The changes to send and the changes held back; the flags a change already had never travel.
+    /// Without <paramref name="acknowledged"/> a Required create is held back. A create carries
+    /// RequiredConfirmed when it is Required and the plan's second box was acknowledged,
+    /// BackdatedAcknowledged when that box also named the past available time, and
+    /// CreateNowContentDistributing when the operator chose it and the create distributes first.
     /// </summary>
-    public static (IReadOnlyList<DeploymentChange> Send, IReadOnlyList<DeploymentChange> Held) Confirmed(IReadOnlyList<DeploymentChange> changes, bool acknowledged)
+    public static (IReadOnlyList<DeploymentChange> Send, IReadOnlyList<DeploymentChange> Held) Confirmed(
+        IReadOnlyList<DeploymentChange> changes, bool acknowledged, bool backdated, bool createNow)
     {
         var send = new List<DeploymentChange>(changes.Count);
         var held = new List<DeploymentChange>();
         foreach (var change in changes)
         {
-            if (!acknowledged)
+            if (!acknowledged && IsRequiredCreate(change))
             {
-                if (IsRequiredCreate(change)) held.Add(change);
-                else send.Add(Unacknowledged(change));
+                held.Add(change);
                 continue;
             }
             send.Add(change.Kind == DeploymentChangeKind.Create
-                ? change with { RequiredConfirmed = IsRequiredCreate(change), BackdatedAcknowledged = true }
+                ? change with
+                {
+                    RequiredConfirmed = acknowledged && IsRequiredCreate(change),
+                    BackdatedAcknowledged = acknowledged && backdated,
+                    CreateNowContentDistributing = createNow && change.DpGroups.Count > 0
+                }
                 : Unacknowledged(change));
         }
         return (send, held);

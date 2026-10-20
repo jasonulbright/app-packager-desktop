@@ -74,7 +74,7 @@ internal sealed class FakeDeploymentService : IDeploymentService
 
     public DeployableObject Add(DeploymentObjectType type, string id, string name, string version = "1.0", bool packaged = false, bool distributed = true)
     {
-        var obj = new DeployableObject(type, id, name, version, "", packaged);
+        var obj = new DeployableObject(Type: type, Id: id, Name: name, Version: version, Program: "", PackagedByProduct: packaged);
         Objects[type].Add(obj);
         if (distributed) Distributed.Add(id);
         return obj;
@@ -142,13 +142,16 @@ internal sealed class FakeDeploymentService : IDeploymentService
         var collection = request.Collection!;
         var exists = Objects[obj.Type].Any(o => o.Id == obj.Id);
         var duplicate = Deployments.Any(d => d.ObjectId == obj.Id && d.CollectionId == collection.CollectionId);
+        var distributed = Distributed.Contains(obj.Id);
+        // As the service: content that the same change distributes first is a warning, not a failure.
+        var content = distributed ? "Pass" : request.DpGroups.Count > 0 ? "Warn" : "Fail";
         var checks = new List<PreflightCheck>
         {
-            new("TargetExists", exists ? "Pass" : "Fail", exists ? "" : "The object no longer exists."),
-            new("ContentDistributed", Distributed.Contains(obj.Id) ? "Pass" : "Fail", Distributed.Contains(obj.Id) ? "" : "No distribution point group has the content."),
-            new("CollectionValid", "Pass", ""),
-            new("CollectionSafe", collection.CollectionId.StartsWith("SMS", StringComparison.OrdinalIgnoreCase) ? "Fail" : "Pass", ""),
-            new("NoDuplicate", duplicate ? "Fail" : "Pass", duplicate ? "The object already has a deployment to this collection." : "")
+            new(Name: "TargetExists", Result: exists ? "Pass" : "Fail", Message: exists ? "" : "The object no longer exists."),
+            new(Name: "ContentDistributed", Result: content, Message: distributed ? "" : "No distribution point group has the content."),
+            new(Name: "CollectionValid", Result: "Pass", Message: ""),
+            new(Name: "CollectionSafe", Result: collection.CollectionId.StartsWith("SMS", StringComparison.OrdinalIgnoreCase) ? "Fail" : "Pass", Message: ""),
+            new(Name: "NoDuplicate", Result: duplicate ? "Fail" : "Pass", Message: duplicate ? "The object already has a deployment to this collection." : "")
         };
         var members = MemberCounts.TryGetValue(collection.CollectionId, out var count) ? count : collection.MemberCount;
         return request with { Collection = collection with { MemberCount = members }, Checks = checks, Impact = ["The audit log can be written."] };
@@ -164,7 +167,7 @@ internal sealed class FakeDeploymentService : IDeploymentService
         {
             var change = changes[i];
             DeploymentOutcome outcome;
-            if (ct.IsCancellationRequested) outcome = new DeploymentOutcome(change, false, CancelledSkip, null, []);
+            if (ct.IsCancellationRequested) outcome = new DeploymentOutcome(Change: change, Succeeded: false, Message: CancelledSkip, UndoChange: null, Steps: []);
             else outcome = Apply(change);
             outcomes.Add(outcome);
             progress.Report(outcome);
@@ -178,30 +181,35 @@ internal sealed class FakeDeploymentService : IDeploymentService
         lock (Objects)
         {
             if (change.Kind == DeploymentChangeKind.Create && DeploymentWriter.IsRequiredCreate(change) && !change.RequiredConfirmed)
-                return new DeploymentOutcome(change, false, RequiredRefused, null, []);
+                return new DeploymentOutcome(Change: change, Succeeded: false, Message: RequiredRefused, UndoChange: null, Steps: []);
             var failure = Fail?.Invoke(change);
-            if (failure is not null && !(FailAfterWrite && change.Kind == DeploymentChangeKind.Create)) return new DeploymentOutcome(change, false, failure, null, []);
+            if (failure is not null && !(FailAfterWrite && change.Kind == DeploymentChangeKind.Create))
+                return new DeploymentOutcome(Change: change, Succeeded: false, Message: failure, UndoChange: null, Steps: []);
             switch (change.Kind)
             {
                 case DeploymentChangeKind.Create:
                 {
+                    if (change.DpGroups.Count > 0) Distributed.Add(change.Object!.Id);
                     var id = $"{{DEP-{_next++:X4}}}";
-                    var record = new DeploymentRecord(id, change.Object!.Type, change.Object.Id, change.Object.Name, change.Collection!.CollectionId, change.Collection.Name,
-                        change.Options!.Purpose, change.Options.AvailableTime, change.Options.Deadline, new DateTime(2026, 10, 20, 9, 0, 0), @"LAB\admin");
+                    var record = new DeploymentRecord(DeploymentId: id, Type: change.Object!.Type, ObjectId: change.Object.Id, ObjectName: change.Object.Name,
+                        CollectionId: change.Collection!.CollectionId, CollectionName: change.Collection.Name, Purpose: change.Options!.Purpose,
+                        AvailableTime: change.Options.AvailableTime, Deadline: change.Options.Deadline, Created: new DateTime(2026, 10, 20, 9, 0, 0), CreatedBy: @"LAB\admin");
                     Deployments.Add(record);
                     // The flags of the create travel into its undo, so a test proves the writer clears them.
-                    var undo = new DeploymentChange(DeploymentChangeKind.RemoveDeployment, change.Object, change.Collection, null, [], false,
-                        change.RequiredConfirmed, change.BackdatedAcknowledged, record, [], [], id);
-                    return new DeploymentOutcome(change with { CreatedId = id }, failure is null, failure ?? $"Created deployment {id}.", undo, ["Create: done.", "Read back: equal."]);
+                    var undo = new DeploymentChange(Kind: DeploymentChangeKind.RemoveDeployment, Object: change.Object, Collection: change.Collection, Options: null,
+                        DpGroups: [], CreateNowContentDistributing: change.CreateNowContentDistributing, RequiredConfirmed: change.RequiredConfirmed,
+                        BackdatedAcknowledged: change.BackdatedAcknowledged, Existing: record, Checks: [], Impact: [], CreatedId: id);
+                    return new DeploymentOutcome(Change: change with { CreatedId = id }, Succeeded: failure is null, Message: failure ?? $"Created deployment {id}.",
+                        UndoChange: undo, Steps: ["Create: done.", "Read back: equal."]);
                 }
                 case DeploymentChangeKind.Distribute:
                     Distributed.Add(change.Object!.Id);
-                    return new DeploymentOutcome(change, true, $"Requested the content on {change.DpGroups.Count} groups.", null, []);
+                    return new DeploymentOutcome(Change: change, Succeeded: true, Message: $"Requested the content on {change.DpGroups.Count} groups.", UndoChange: null, Steps: []);
                 default:
                     var removed = Deployments.RemoveAll(d => d.DeploymentId == change.Existing!.DeploymentId);
                     return removed > 0
-                        ? new DeploymentOutcome(change, true, "Removed the deployment. It is gone.", null, [])
-                        : new DeploymentOutcome(change, false, "The deployment no longer exists.", null, []);
+                        ? new DeploymentOutcome(Change: change, Succeeded: true, Message: "Removed the deployment. It is gone.", UndoChange: null, Steps: [])
+                        : new DeploymentOutcome(Change: change, Succeeded: false, Message: "The deployment no longer exists.", UndoChange: null, Steps: []);
             }
         }
     }
@@ -342,16 +350,22 @@ internal sealed class DeploymentPageHarness
         Service.Programs["LAB00020"] = ["Install", "Uninstall"];
         Win11 = Service.Add(DeploymentObjectType.TaskSequence, "LAB00030", "Windows 11 Upgrade", "");
         Updates = Service.Add(DeploymentObjectType.SoftwareUpdateGroup, "16777400", "2026-10 Cumulative Updates", "");
-        Service.Groups.Add(new DpGroupInfo("All DPs", "{GRP-1}", "NotTargeted", 0, 0, 0, 0));
-        Service.Groups.Add(new DpGroupInfo("Branch DPs", "{GRP-2}", "InProgress", 3, 1, 2, 0));
+        Service.Groups.Add(new DpGroupInfo(Name: "All DPs", Id: "{GRP-1}", Status: "NotTargeted", Targeted: 0, Success: 0, InProgress: 0, Error: 0));
+        Service.Groups.Add(new DpGroupInfo(Name: "Branch DPs", Id: "{GRP-2}", Status: "InProgress", Targeted: 3, Success: 1, InProgress: 2, Error: 0));
 
         Collections.Add("SMS00001", "All Systems", members: 5);
         Collections.Add("LAB00010", "Pilot Workstations", @"Deploy\Pilot", members: 3);
         Collections.Add("LAB00011", "Server Group A", @"Deploy\Servers", members: 4);
 
-        Templates.Templates.Add(new DeploymentTemplate("workstation-pilot", "Workstation Pilot", "Available", "DisplaySoftwareCenterOnly", false, false, false, false, true, false, true, 0, true));
-        Templates.Templates.Add(new DeploymentTemplate("workstation-production", "Workstation Production", "Required", "DisplayAll", false, false, true, true, true, false, true, 168, true));
-        Templates.Templates.Add(new DeploymentTemplate("lab-nightly", "Lab Nightly", "Required", "HideAll", true, true, false, false, false, false, false, 24, false));
+        Templates.Templates.Add(new DeploymentTemplate(Id: "workstation-pilot", Name: "Workstation Pilot", Purpose: "Available", UserNotification: "DisplaySoftwareCenterOnly",
+            UtcBasis: false, OverrideServiceWindow: false, RebootOutsideServiceWindow: false, AllowMetered: false, AllowBoundaryFallback: true, AllowMicrosoftUpdate: false,
+            PostRebootScan: true, DeadlineOffsetHours: 0, IsSeeded: true));
+        Templates.Templates.Add(new DeploymentTemplate(Id: "workstation-production", Name: "Workstation Production", Purpose: "Required", UserNotification: "DisplayAll",
+            UtcBasis: false, OverrideServiceWindow: false, RebootOutsideServiceWindow: true, AllowMetered: true, AllowBoundaryFallback: true, AllowMicrosoftUpdate: false,
+            PostRebootScan: true, DeadlineOffsetHours: 168, IsSeeded: true));
+        Templates.Templates.Add(new DeploymentTemplate(Id: "lab-nightly", Name: "Lab Nightly", Purpose: "Required", UserNotification: "HideAll",
+            UtcBasis: true, OverrideServiceWindow: true, RebootOutsideServiceWindow: false, AllowMetered: false, AllowBoundaryFallback: false, AllowMicrosoftUpdate: false,
+            PostRebootScan: false, DeadlineOffsetHours: 24, IsSeeded: false));
 
         Service.InConfirmedRun = () => Plans.InRun;
     }
@@ -417,11 +431,15 @@ internal sealed class DeploymentPageHarness
 
     public DeploymentAuditRecord Record(string evt, DeploymentObjectType type, string name, string collectionId, string deploymentId, string result = "Success",
         DateTime? when = null, string purpose = "Available") =>
-        new(when ?? new DateTime(2026, 10, 19, 8, 0, 0), @"LAB\admin", type.ToString(), name, "1.0", collectionId == "LAB00010" ? "Pilot Workstations" : "Server Group A", collectionId, 3,
-            purpose, "Install", purpose == "Required" ? new DateTime(2026, 10, 21, 8, 0, 0) : null, deploymentId, result)
+        new(Timestamp: when ?? new DateTime(2026, 10, 19, 8, 0, 0), User: @"LAB\admin", DeploymentType: type.ToString(), ApplicationName: name, ApplicationVersion: "1.0",
+            CollectionName: collectionId == "LAB00010" ? "Pilot Workstations" : "Server Group A", CollectionID: collectionId, MemberCount: 3,
+            DeployPurpose: purpose, DeployAction: "Install", DeadlineDateTime: purpose == "Required" ? new DateTime(2026, 10, 21, 8, 0, 0) : null,
+            DeploymentID: deploymentId, Result: result)
         {
             Event = evt,
             ObjectId = "16777300",
-            AvailableDateTime = new DateTime(2026, 10, 19, 8, 0, 0)
+            AvailableDateTime = new DateTime(2026, 10, 19, 8, 0, 0),
+            DeploymentUniqueID = deploymentId,
+            TimeBasedOn = "LocalTime"
         };
 }

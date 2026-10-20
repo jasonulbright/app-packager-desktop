@@ -265,7 +265,11 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
 
     private bool CanUndoLast() => !IsWriting && LastPlan is not null;
 
-    /// <summary>Removes the deployments of the last write through a new plan; undo changes that did not succeed stay offered.</summary>
+    /// <summary>
+    /// Removes the deployments of the last write through a new plan made from the prepared removals;
+    /// a removal with a failed or unknown check is skipped with its reasons, and undo changes that
+    /// did not succeed stay offered.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanUndoLast))]
     private async Task UndoLast()
     {
@@ -282,12 +286,19 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
             var entries = prepared.Select((change, i) =>
             {
                 var (entry, _) = undo[i];
-                var detail = string.Join(Environment.NewLine, change.Impact.Append(DeploymentText.UndoNote.Replace("Undo removes", "Removes", StringComparison.Ordinal)));
-                return DeploymentPlanEntry.Write(new ChangePlanItem("Remove deployment", entry.Item.Target, detail), change);
+                var blocked = DeploymentText.Blocking(change).Count > 0;
+                var lines = DeploymentText.CheckLines(change.Checks, change.Existing?.Type).Concat(change.Impact)
+                    .Append(DeploymentText.UndoNote.Replace("Undo removes", "Removes", StringComparison.Ordinal));
+                var item = new ChangePlanItem("Remove deployment", entry.Item.Target, string.Join(Environment.NewLine, lines));
+                return blocked
+                    ? DeploymentPlanEntry.Skip(item, $"{DeploymentWriter.SkippedPrefix}: {DeploymentText.BlockingText(change)}")
+                    : DeploymentPlanEntry.Write(item, change);
             }).ToList();
-            return (new DeploymentPlan("Undo " + last.Action, "Undo: " + last.Plan.Title, $"Remove {DeploymentText.Count(entries.Count, "deployment")}", entries,
+            if (entries.All(e => e.Change is null))
+                return (null, "The deployment cannot be removed: " + string.Join(" ", prepared.Select(DeploymentText.BlockingText)));
+            return (new DeploymentPlan("Undo " + last.Action, "Undo: " + last.Plan.Title, $"Remove {DeploymentText.Count(entries.Count(e => e.Change is not null), "deployment")}", entries,
                 isDestructive: true, hasUndo: false) { IsUndo = true }, null);
-        }, checkState: false);
+        });
         if (run is not { Outcome.Confirmed: true } done) return;
         LastPlan = last.Remaining(done.Plan.Outcomes);
         await AfterWriteAsync();

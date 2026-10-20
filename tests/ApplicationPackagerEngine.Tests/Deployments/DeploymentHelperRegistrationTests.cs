@@ -48,6 +48,23 @@ public sealed class DeploymentHelperRegistrationTests : IDisposable
     }
 
     [Fact]
+    public void TheRegisteredAuditLogFollowsThePageSettingAtEveryCall()
+    {
+        using var provider = Provider();
+        Assert.IsType<SettingsDeploymentAuditPath>(provider.GetRequiredService<IDeploymentAuditPathProvider>());
+        var log = provider.GetRequiredService<IDeploymentAuditLog>();
+        Assert.Equal(DeploymentAuditLog.DefaultPath(), log.Path);
+
+        var settings = provider.GetRequiredService<SettingsService>();
+        var custom = Path.Combine(_root, "custom", "deployment-audit.jsonl");
+        Assert.True(DeploymentHelperPreferences.Save(settings, new ApplicationPackagerUI.Models.DeploymentHelperSettings { AuditLogPath = custom }));
+        Assert.Equal(custom, log.Path);
+
+        Assert.True(DeploymentHelperPreferences.Save(settings, new ApplicationPackagerUI.Models.DeploymentHelperSettings { AuditLogPath = "" }));
+        Assert.Equal(DeploymentAuditLog.DefaultPath(), log.Path);
+    }
+
+    [Fact]
     public void EveryPageTypeHasOneConstructorSoTheContainerCanBuildIt()
     {
         foreach (var type in new[] { typeof(DeploymentHelperViewModel), typeof(DeploymentHelperPage), typeof(DeploymentWriter), typeof(DeploymentHelperDialogs) })

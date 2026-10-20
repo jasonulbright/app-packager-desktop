@@ -269,36 +269,58 @@
                                                         AutomationProperties.Name="Deadline time" AutomationProperties.AutomationId="txtDeadlineTime" />
                                         </StackPanel>
                                     </StackPanel>
-                                    <StackPanel Margin="0,0,24,8">
+                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowNotification, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding Notifications}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text" MinWidth="280"
                                                   AutomationProperties.Name="User notification" AutomationProperties.AutomationId="cboNotification" />
                                     </StackPanel>
                                 </WrapPanel>
+                                <TextBlock Text="{Binding TimeBasisNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtTimeBasisNote" />
                                 <WrapPanel Margin="0,4,0,0">
-                                    <CheckBox Content="Override maintenance windows" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
+                                    <CheckBox Content="Show task sequence progress" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
+                                              Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkShowProgress" />
+                                    <CheckBox Content="Allow fallback to the default site boundary group" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
+                                              Visibility="{Binding ShowAllowFallback, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkAllowFallback" />
+                                    <CheckBox Content="Require a full scan after the restart" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
+                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkPostRebootScan" />
+                                </WrapPanel>
+                                <WrapPanel Margin="0,4,0,0">
+                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="Fast network" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding NetworkBehaviors}" SelectedItem="{Binding NetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
+                                                  AutomationProperties.Name="Fast network" AutomationProperties.AutomationId="cboNetwork" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="Slow network" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding SlowNetworkBehaviors}" SelectedItem="{Binding SlowNetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
+                                                  AutomationProperties.Name="Slow network" AutomationProperties.AutomationId="cboSlowNetwork" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="Available to" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding TaskSequenceAvailabilities}" SelectedItem="{Binding TaskSequenceAvailability}" DisplayMemberPath="Text" MinWidth="260"
+                                                  AutomationProperties.Name="Available to" AutomationProperties.AutomationId="cboTaskSequenceAvailability" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="Content" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding TaskSequenceContents}" SelectedItem="{Binding TaskSequenceContent}" DisplayMemberPath="Text" MinWidth="320"
+                                                  AutomationProperties.Name="Task sequence content" AutomationProperties.AutomationId="cboTaskSequenceContent" />
+                                    </StackPanel>
+                                </WrapPanel>
+                                <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" Margin="0,4,0,4" />
+                                <TextBlock Text="{Binding RequiredOnlyNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRequiredOnlyNote" />
+                                <WrapPanel IsEnabled="{Binding RequiredOnlyEnabled}" AutomationProperties.AutomationId="pnlRequiredOnly">
+                                    <CheckBox Content="Install outside maintenance windows at the deadline" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
                                               AutomationProperties.AutomationId="chkOverrideWindow" />
                                     <CheckBox Content="Allow restart outside maintenance windows" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
                                               AutomationProperties.AutomationId="chkRebootOutside" />
                                     <CheckBox Content="Allow download on a metered connection" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
                                               Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkMetered" />
-                                    <CheckBox Content="Show task sequence progress" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkShowProgress" />
-                                    <CheckBox Content="Allow fallback to unprotected distribution points" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkAllowFallback" />
-                                    <CheckBox Content="Allow fallback to neighbor boundary groups" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
+                                    <CheckBox Content="Allow fallback to the default site boundary group" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
                                               Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkFallbackToDp" />
-                                    <CheckBox Content="Require a full scan after the restart" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
-                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkPostRebootScan" />
-                                    <CheckBox Content="Suppress restarts" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
+                                    <CheckBox Content="Download from Microsoft Update when no distribution point has the content" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
+                                              Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkMicrosoftUpdate" />
+                                    <CheckBox Content="{Binding SuppressRestartLabel}" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
                                               Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkSuppressRestart" />
-                                </WrapPanel>
-                                <WrapPanel Margin="0,4,0,0">
-                                    <StackPanel Margin="0,0,24,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="Network" Style="{StaticResource FieldLabel}" />
-                                        <ComboBox ItemsSource="{Binding NetworkBehaviors}" SelectedItem="{Binding NetworkBehavior}" DisplayMemberPath="Text" MinWidth="300"
-                                                  AutomationProperties.Name="Network" AutomationProperties.AutomationId="cboNetwork" />
-                                    </StackPanel>
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding ShowRerun, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" />
                                         <ComboBox ItemsSource="{Binding RerunBehaviors}" SelectedItem="{Binding RerunBehavior}" DisplayMemberPath="Text" MinWidth="280"
@@ -308,7 +330,8 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlDistribution">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlDistribution"
+                                Visibility="{Binding ShowContent, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel>
                                 <TextBlock Text="Content" Style="{StaticResource CardTitle}" />
                                 <TextBlock Text="Select an object to see the content status of each distribution point group. Check the groups that get the content."
@@ -337,10 +360,8 @@
                                                ToolTip="Reads the content status of the selected object again." AutomationProperties.AutomationId="btnRefreshDpGroups" />
                                     <ui:Button Content="Distribute content" Icon="{ui:SymbolIcon CloudArrowUp24}" Command="{Binding DistributeCommand}" Style="{StaticResource ToolButton}"
                                                ToolTip="Shows a plan that sends the content to the checked groups." AutomationProperties.AutomationId="btnDistribute" />
-                                    <CheckBox Content="Distribute to the checked groups first when I deploy" IsChecked="{Binding DistributeFirst}" Style="{StaticResource Option}"
-                                              AutomationProperties.AutomationId="chkDistributeFirst" />
-                                    <CheckBox Content="Create the deployment now, while the content still distributes" IsChecked="{Binding CreateNowContentDistributing}"
-                                              IsEnabled="{Binding CanChooseCreateNow}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkCreateNow" />
+                                    <CheckBox Content="Distribute to the checked groups first when I deploy (the plan offers to create the deployment while the content distributes)"
+                                              IsChecked="{Binding DistributeFirst}" Style="{StaticResource Option}" AutomationProperties.AutomationId="chkDistributeFirst" />
                                 </WrapPanel>
                                 <TextBlock Text="{Binding DpMessage}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtDpMessage" AutomationProperties.LiveSetting="Polite" />
                             </StackPanel>
@@ -363,7 +384,7 @@
                                            AutomationProperties.AutomationId="txtFormMessage" AutomationProperties.LiveSetting="Assertive" />
                                 <WrapPanel Margin="0,12,0,0">
                                     <ui:Button Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
-                                               ToolTip="Runs the five checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
+                                               ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
                                     <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
                                                ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
                                 </WrapPanel>

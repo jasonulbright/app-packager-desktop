@@ -13,10 +13,10 @@ internal sealed class DeploymentHarness : IDisposable
 
     public readonly string Folder = Path.Combine(Path.GetTempPath(), "apkg-dhsvc-" + Guid.NewGuid().ToString("N"));
 
-    public DeploymentHarness(JsonObject? state = null, IDeploymentSigningCheck? signing = null)
+    public DeploymentHarness(JsonObject? state = null, IDeploymentSigningCheck? signing = null, Func<string?>? auditPath = null)
     {
         Site = new StubDeploymentSite(state ?? StubDeploymentSite.Lab());
-        Audit = new DeploymentAuditLog(() => AuditPath, clock: () => LocalNow, user: () => @"CONTOSO\Admin");
+        Audit = new DeploymentAuditLog(auditPath ?? (() => AuditPath), clock: () => LocalNow, user: () => @"CONTOSO\Admin");
         Collections = new FakeCollections();
         Service = new DeploymentService(Site, Collections, Audit, signing, utcNow: () => UtcNow, local: Local);
     }

@@ -227,7 +227,8 @@ public sealed class DeploymentHelperViewModelTests
         _h.Plans.Shown.Clear();
         await form.DeployCommand.ExecuteAsync(null);
         Assert.Empty(_h.Plans.Shown);
-        Assert.Equal("The deployment cannot be created: No duplicate deployment: The object already has a deployment to this collection.", form.FormMessage);
+        Assert.Equal("The deployment cannot be created: No duplicate deployment: The object already has a deployment to this collection. "
+            + "ConfigMgr does not allow a second deployment of an application to the same collection.", form.FormMessage);
         Assert.Equal(form.FormMessage, form.Shared.StatusMessage);
         Assert.Contains(form.Checks, c => c.Name == DeploymentText.NoDuplicate && c.Result == DeploymentText.Fail);
     }
@@ -241,33 +242,35 @@ public sealed class DeploymentHelperViewModelTests
         Assert.Contains("Content distributed: No distribution point group has the content.", form.FormMessage);
 
         form.DpGroups[0].IsChecked = true;
+        await form.DeployCommand.ExecuteAsync(null);
+        Assert.Empty(_h.Plans.Shown);
+
+        form.DpGroups[0].IsChecked = true;
         form.DistributeFirst = true;
         await form.DeployCommand.ExecuteAsync(null);
         var plan = _h.Plans.Shown.Single();
-        Assert.Equal(["Distribute content", "Create deployment"], plan.Items.Select(i => i.Action));
-        Assert.Contains(DeploymentText.DistributeNoUndo, plan.Items[0].Detail);
-        Assert.Contains("The deployment is created when the content check passes.", plan.Items[1].Detail);
+        Assert.Equal(["Distribute and create deployment"], plan.Items.Select(i => i.Action));
+        Assert.Contains("Distribution point groups: All DPs. The distribution is requested first.", plan.Items[0].Detail);
+        Assert.Contains(DeploymentText.CreateNowHint, plan.Items[0].Detail);
+        Assert.Contains("Check Content distributed: Warn.", plan.Items[0].Detail);
         Assert.Equal("Distribute and deploy", plan.ActionName);
-        var applied = Assert.Single(_h.Service.Applied);
-        Assert.Equal([DeploymentChangeKind.Distribute, DeploymentChangeKind.Create], applied.Select(c => c.Kind));
-        Assert.Equal(["All DPs"], applied[0].DpGroups);
-        Assert.False(applied[1].CreateNowContentDistributing);
+        var applied = Assert.Single(Assert.Single(_h.Service.Applied));
+        Assert.Equal(DeploymentChangeKind.Create, applied.Kind);
+        Assert.Equal(["All DPs"], applied.DpGroups);
+        Assert.False(applied.CreateNowContentDistributing);
     }
 
     [Fact]
-    public async Task TheCreateNowChoiceIsOnlyAvailableWithADistributionAndReachesTheService()
+    public async Task TheCreateNowChoiceIsOnThePlanOfACombinedDeployAndReachesTheService()
     {
         var form = await FormAsync(_h.Notepad);
-        Assert.False(form.CanChooseCreateNow);
         form.DpGroups[1].IsChecked = true;
         form.DistributeFirst = true;
-        form.CreateNowContentDistributing = true;
+        _h.Plans.ChooseOption = true;
         await form.DeployCommand.ExecuteAsync(null);
-        Assert.Contains("The operator chose to create the deployment now", _h.Plans.Shown.Single().Items[1].Detail);
-        Assert.True(_h.Service.Applied.Single()[1].CreateNowContentDistributing);
-
-        form.DistributeFirst = false;
-        Assert.False(form.CreateNowContentDistributing);
+        Assert.Equal(DeploymentText.CreateNowChoice, _h.Plans.Shown.Single().OptionalChoice);
+        Assert.True(_h.Service.Applied.Single().Single().CreateNowContentDistributing);
+        Assert.Equal(["Branch DPs"], _h.Service.Applied.Single().Single().DpGroups);
     }
 
     [Fact]
@@ -510,7 +513,7 @@ public sealed class DeploymentHelperViewModelTests
     [Theory]
     [InlineData(DeploymentObjectType.Application, true, false, false)]
     [InlineData(DeploymentObjectType.Package, true, true, false)]
-    [InlineData(DeploymentObjectType.TaskSequence, false, true, true)]
+    [InlineData(DeploymentObjectType.TaskSequence, true, true, true)]
     [InlineData(DeploymentObjectType.SoftwareUpdateGroup, true, false, false)]
     public async Task OnlyTheOptionsOfTheTypeShow(DeploymentObjectType type, bool metered, bool rerun, bool progress)
     {

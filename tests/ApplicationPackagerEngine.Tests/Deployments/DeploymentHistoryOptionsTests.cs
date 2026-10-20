@@ -43,8 +43,9 @@ public sealed class DeploymentHistoryOptionsTests
     public async Task RemoveDeploymentOfACreateRecordOpensTheRemovePlanAndTheServiceDecides()
     {
         var history = await HistoryAsync();
-        _h.Service.Deployments.Add(new DeploymentRecord("{DEP-0001}", DeploymentObjectType.Application, "16777300", "7-Zip", "LAB00010", "Pilot Workstations",
-            "Available", new DateTime(2026, 10, 19, 8, 0, 0), null, new DateTime(2026, 10, 19, 8, 0, 0), @"LAB\admin"));
+        _h.Service.Deployments.Add(new DeploymentRecord(DeploymentId: "{DEP-0001}", Type: DeploymentObjectType.Application, ObjectId: "16777300", ObjectName: "7-Zip",
+            CollectionId: "LAB00010", CollectionName: "Pilot Workstations", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,
+            Created: new DateTime(2026, 10, 19, 8, 0, 0), CreatedBy: @"LAB\admin"));
         history.SelectedRow = history.Rows.Single(r => r.DeploymentId == "{DEP-0001}");
         await history.RemoveDeploymentCommand.ExecuteAsync(null);
         var plan = _h.Plans.Shown.Single();
