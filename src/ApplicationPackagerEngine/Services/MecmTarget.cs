@@ -146,7 +146,8 @@ public sealed partial class MecmTarget
                     Success = true,
                     ApplicationName = appName,
                     NetworkContentPath = networkContentPath,
-                    CiId = ReadCiId(result.StdOut)
+                    CiId = ReadCiId(result.StdOut),
+                    ModelName = ReadModelName(result.StdOut)
                 };
             }
             else
@@ -549,18 +550,25 @@ public sealed partial class MecmTarget
     }
 
     /// <summary>
-    /// Re-reads the application after the revision cleanup and prints its CI_ID: every
-    /// revision carries its own CI_ID, so the one printed at creation is not the one the
+    /// Re-reads the application after the revision cleanup and prints its CI_ID and ModelName:
+    /// every revision carries its own CI_ID, so the one printed at creation is not the one the
     /// site keeps.
     /// </summary>
     private static void AppendFinalCiId(System.Text.StringBuilder sb, string appName)
     {
         sb.AppendLine($"$finalApp = @(Get-CMApplication -Name '{Esc(appName)}' -DisableWildcardHandling -ErrorAction SilentlyContinue) | Select-Object -First 1");
-        sb.AppendLine("if ($finalApp) { Write-Host \"Final CI_ID: $($finalApp.CI_ID)\" }");
+        sb.AppendLine("if ($finalApp) { Write-Host \"Final CI_ID: $($finalApp.CI_ID)\"; Write-Host \"Final ModelName: $($finalApp.ModelName)\" }");
     }
 
     [System.Text.RegularExpressions.GeneratedRegex(@"^(?:Final )?CI_ID: (\d+)\s*$", System.Text.RegularExpressions.RegexOptions.Multiline)]
     private static partial System.Text.RegularExpressions.Regex CiIdLine();
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^Final ModelName: (ScopeId_[A-Za-z0-9-]+/Application_[A-Za-z0-9-]+)\s*$", System.Text.RegularExpressions.RegexOptions.Multiline)]
+    private static partial System.Text.RegularExpressions.Regex ModelNameLine();
+
+    /// <summary>The ModelName the final re-read printed last; empty when none.</summary>
+    public static string ReadModelName(string? output) =>
+        ModelNameLine().Matches(output ?? "").LastOrDefault()?.Groups[1].Value ?? "";
 
     /// <summary>The CI_ID the script printed last: the final re-read when present, the creation line otherwise; empty when none.</summary>
     public static string ReadCiId(string? output)
@@ -1049,6 +1057,9 @@ public sealed class PackagingResult
     public bool Success { get; init; }
     public string ApplicationName { get; init; } = "";
     public string CiId { get; init; } = "";
+
+    /// <summary>The ModelName of the application, the same for all its revisions and kept on a rename; empty when not read.</summary>
+    public string ModelName { get; init; } = "";
     public string NetworkContentPath { get; init; } = "";
     public string? ErrorMessage { get; init; }
     public bool AlreadyExists { get; init; }

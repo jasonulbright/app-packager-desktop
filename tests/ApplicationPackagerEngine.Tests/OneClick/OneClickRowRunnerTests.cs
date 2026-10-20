@@ -161,6 +161,23 @@ public sealed class OneClickRowRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task AConfigMgrPublishRecordsTheCiIdAndTheModelNameOfTheApplication()
+    {
+        const string model = "ScopeId_X/Application_Widget";
+        var execution = new FakeExecution(Path.Combine(_root, "workbench"))
+        {
+            Package = target => new PackagerExecutionResult { StdOut = "Packaged: Widget 2.0", ConfigMgrCiId = "16780662", ConfigMgrModelName = model }
+        };
+
+        await Runner(execution).RunAsync(Item(true, false, false), Publish, CancellationToken.None);
+
+        var settings = new SettingsService().Load();
+        var environment = ApplicationInventoryProjection.Environments(settings).Single(e => e.Destination == "ConfigMgr").Environment;
+        var state = new ApplicationInventoryService().GetDestinationState("widget", environment, "Publish")!;
+        Assert.Equal(("Widget 2.0", "16780662", model), (state.LastSuccessObjectId, state.ConfigMgrCiId, state.ConfigMgrModelName));
+    }
+
+    [Fact]
     public async Task ARowForWsusAndIntunePublishesToBoth()
     {
         var execution = new FakeExecution(Path.Combine(_root, "workbench"));

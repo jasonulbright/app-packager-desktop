@@ -112,6 +112,7 @@ public sealed record InventoryPackageState(
     DateTimeOffset StagedAt);
 
 /// <param name="ConfigMgrCiId">ConfigMgr publish: the CI_ID the packaging run read back for the application (<c>PackagingResult.CiId</c>); null when not known.</param>
+/// <param name="ConfigMgrModelName">ConfigMgr publish: the ModelName the packaging run read back (<c>PackagingResult.ModelName</c>); null when not known.</param>
 public sealed record InventoryDestinationOutcome(
     string PackagerUid,
     InventoryApplicationIdentity? Application,
@@ -124,10 +125,11 @@ public sealed record InventoryDestinationOutcome(
     string? BuildId = null,
     string? OperationId = null,
     string? Detail = null,
-    string? ConfigMgrCiId = null);
+    string? ConfigMgrCiId = null,
+    string? ConfigMgrModelName = null);
 
 /// <param name="ConfigMgrCiId">ConfigMgr publish: the CI_ID of the application revision the publish left, or one a lookup linked; null when not known.</param>
-/// <param name="ConfigMgrModelName">ConfigMgr publish: the ModelName of the application, the same for all its revisions and kept on a rename; null until a lookup links it.</param>
+/// <param name="ConfigMgrModelName">ConfigMgr publish: the ModelName of the application, the same for all its revisions and kept on a rename; null until the publish reads it or a lookup links it.</param>
 public sealed record InventoryDestinationState(
     string PackagerUid,
     string Destination,

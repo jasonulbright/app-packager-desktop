@@ -292,7 +292,7 @@ public sealed partial class ApplicationInventoryService
                     config_mgr_ci_id, config_mgr_model_name)
                 VALUES($uid, $destination, $environment, $action, $appId, $profileId, $attemptVersion, $outcome,
                     $attemptObject, $attemptAt, $successVersion, $successObject, $successAt, $successBuildId, $detail,
-                    $successCiId, NULL)
+                    $successCiId, $successModel)
                 ON CONFLICT(packager_uid, destination, environment_key, action) DO UPDATE SET
                     config_mgr_ci_id = CASE WHEN $succeeded = 1 AND (destination_inventory.last_success_at IS NULL OR excluded.last_success_at >= destination_inventory.last_success_at)
                         THEN CASE WHEN $successCiId IS NOT NULL THEN $successCiId
@@ -300,7 +300,8 @@ public sealed partial class ApplicationInventoryService
                             ELSE NULL END
                         ELSE destination_inventory.config_mgr_ci_id END,
                     config_mgr_model_name = CASE WHEN $succeeded = 1 AND (destination_inventory.last_success_at IS NULL OR excluded.last_success_at >= destination_inventory.last_success_at)
-                        THEN CASE WHEN $successCiId IS NOT NULL AND $successCiId IS NOT destination_inventory.config_mgr_ci_id THEN NULL
+                        THEN CASE WHEN $successModel IS NOT NULL THEN $successModel
+                            WHEN $successCiId IS NOT NULL AND $successCiId IS NOT destination_inventory.config_mgr_ci_id THEN NULL
                             WHEN $successCiId IS NULL AND excluded.last_success_object_id IS NOT destination_inventory.last_success_object_id THEN NULL
                             ELSE destination_inventory.config_mgr_model_name END
                         ELSE destination_inventory.config_mgr_model_name END,
@@ -333,6 +334,7 @@ public sealed partial class ApplicationInventoryService
             Add(command, "$detail", result.Detail);
             Add(command, "$succeeded", succeeded ? 1 : 0);
             Add(command, "$successCiId", succeeded && IsCiId(result.ConfigMgrCiId) ? result.ConfigMgrCiId!.Trim() : null);
+            Add(command, "$successModel", succeeded && !string.IsNullOrWhiteSpace(result.ConfigMgrModelName) ? result.ConfigMgrModelName.Trim() : null);
             command.ExecuteNonQuery();
             return 0;
         });
