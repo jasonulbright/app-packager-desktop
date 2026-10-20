@@ -157,12 +157,12 @@ public sealed class AnalysisSandboxTests : IDisposable
 }
 
 [Collection(ProcessEnvironmentCollection.Name)]
-public sealed class InstallerAnalysisRegistrationTests : IDisposable
+public sealed class InstallerAnalysisServiceRegistrationTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "apkg-iaservices-" + Guid.NewGuid().ToString("N"));
     private readonly string? _saved = Environment.GetEnvironmentVariable(AppDataPaths.DataRootVariable);
 
-    public InstallerAnalysisRegistrationTests() => Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
+    public InstallerAnalysisServiceRegistrationTests() => Environment.SetEnvironmentVariable(AppDataPaths.DataRootVariable, _root);
 
     public void Dispose()
     {

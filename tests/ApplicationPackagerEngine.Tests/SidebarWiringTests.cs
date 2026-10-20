@@ -44,7 +44,7 @@ public sealed class SidebarWiringTests : IDisposable
         foreach (var type in new[] { typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage),
-                     typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage) })
+                     typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage) })
             services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });
     }
 
@@ -237,7 +237,8 @@ public sealed class SidebarWiringTests : IDisposable
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), items[0].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), items[1].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), items[2].TargetPageType);
-            Assert.All(items.Skip(3), i => Assert.Null(i.TargetPageType));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage), items[3].TargetPageType);
+            Assert.All(items.Skip(4), i => Assert.Null(i.TargetPageType));
             Assert.Equal(8, items.Select(i => ((Wpf.Ui.Controls.SymbolIcon)i.Icon!).Symbol).Distinct().Count());
 
             var dp = items.Single(i => (string)i.Content == "DP Content Manager");
@@ -329,6 +330,32 @@ public sealed class SidebarWiringTests : IDisposable
                 .Invoke(item, null);
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), ShownPage(navigation));
+            Assert.True(item.IsActive);
+            Assert.Empty(starter.Started);
+        });
+    }
+
+    [Fact]
+    public void TheInstallerAnalysisEntryOpensItsPageAndStartsNoTool()
+    {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            var starter = new FakeToolProcessStarter();
+            using var provider = MainWindowServices(s =>
+            {
+                AddPlainPages(s);
+                s.AddSingleton<IToolProcessStarter>(starter);
+            });
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var item = navigation.MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Installer Analysis");
+
+            typeof(Wpf.Ui.Controls.NavigationViewItem).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(item, null);
+
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage), ShownPage(navigation));
             Assert.True(item.IsActive);
             Assert.Empty(starter.Started);
         });
