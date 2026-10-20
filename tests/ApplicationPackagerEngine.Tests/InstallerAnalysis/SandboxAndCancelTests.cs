@@ -46,6 +46,27 @@ public sealed class SandboxAndCancelTests : IDisposable
     }
 
     [Fact]
+    public async Task AnAnalysisThatListsThePayloadReportsTheStepAndReturnsTheList()
+    {
+        var path = WriteZip(_temp.PathOf("bundle.zip"), ("setup/inner.msi", Text("m")), ("readme.txt", Text("r")));
+        var steps = new List<string>();
+
+        var report = await _service.AnalyzeAsync(path, Limits, new SyncProgress(steps.Add), CancellationToken.None);
+
+        Assert.Contains("Listing the payload to find an inner patch", steps);
+        Assert.NotNull(report.Payload);
+        Assert.Contains(report.Payload!, e => e.Path == "setup/inner.msi" && e.InnerType == "MSI");
+    }
+
+    private sealed class SyncProgress(Action<string> report) : IProgress<string>
+    {
+        public void Report(string value)
+        {
+            lock (this) report(value);
+        }
+    }
+
+    [Fact]
     public void TheNsisReaderStopsOnACancelledToken()
     {
         using var cancelled = new CancellationTokenSource();

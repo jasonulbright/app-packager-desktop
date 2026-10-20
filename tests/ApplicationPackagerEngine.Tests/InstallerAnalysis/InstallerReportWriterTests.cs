@@ -129,6 +129,19 @@ public sealed class InstallerReportWriterTests : IDisposable
     }
 
     [Fact]
+    public void AnHtmlReportWithoutAPayloadListSaysWhy()
+    {
+        IInstallerReportWriter writer = Writer();
+        var html = File.ReadAllText(writer.WriteHtml(Report(), null, Registry, "7-Zip was not available"));
+        var listed = File.ReadAllText(writer.WriteHtml(Report(), [new PayloadEntry("a.msi", 1, false, "InnerInstaller", "MSI")], Registry, ""));
+
+        Assert.Contains("<h2>Payload</h2>\r\n<p>The payload was not listed: 7-Zip was not available.</p>", html);
+        Assert.Contains("Registry settings", html);
+        Assert.DoesNotContain("was not listed", listed);
+        Assert.Contains("a.msi", listed);
+    }
+
+    [Fact]
     public void ALinkedReportsFolderIsRefused()
     {
         var real = _temp.PathOf("real");

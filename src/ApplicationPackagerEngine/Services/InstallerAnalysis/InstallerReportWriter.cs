@@ -220,10 +220,12 @@ public sealed class InstallerReportWriter(string? folder = null, Func<DateTimeOf
         return Write("csv", text.ToString());
     }
 
-    public string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry> payload, IReadOnlyList<RegistryWrite> reg)
+    public string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry> payload, IReadOnlyList<RegistryWrite> reg) =>
+        WriteHtml(r, payload ?? [], reg, "");
+
+    public string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry>? payload, IReadOnlyList<RegistryWrite> reg, string notListedReason)
     {
         ArgumentNullException.ThrowIfNull(r);
-        payload ??= [];
         reg ??= [];
         static string E(string v) => WebUtility.HtmlEncode(v);
         var html = new StringBuilder();
@@ -250,7 +252,9 @@ public sealed class InstallerReportWriter(string? folder = null, Func<DateTimeOf
         }
 
         Table("Analysis", Rows(r, reg));
-        if (payload.Count > 0)
+        if (payload is null)
+            html.Append("<h2>Payload</h2>\r\n<p>").Append(E("The payload was not listed" + (string.IsNullOrWhiteSpace(notListedReason) ? "." : ": " + notListedReason.Trim().TrimEnd('.') + "."))).Append("</p>\r\n");
+        else if (payload.Count > 0)
             Table("Payload", new[] { new[] { "Path", "Size", "Kind", "Type" } }
                 .Concat(payload.Select(p => new[] { p.Path, p.Size.ToString(CultureInfo.InvariantCulture), p.Kind, p.InnerType })));
         if (reg.Count > 0)

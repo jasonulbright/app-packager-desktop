@@ -170,12 +170,14 @@ public sealed partial class InstallerAnalysisService
             : " The base MSI is a 64-bit per-machine package.");
     }
     private async Task<EffectiveDetection?> PostPatchFromPayloadAsync(string path, string engine, AnalysisLimits limits, IProgress<string> progress,
-        List<MetadataBlock> metadata, List<string> notes, CancellationToken ct)
+        List<MetadataBlock> metadata, List<string> notes, Action<IReadOnlyList<PayloadEntry>> listed, CancellationToken ct)
     {
         IReadOnlyList<PayloadEntry> payload;
         try
         {
+            progress.Report("Listing the payload to find an inner patch");
             payload = await ListPayloadCoreAsync(path, engine, limits, ct).ConfigureAwait(false);
+            listed(payload);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception)

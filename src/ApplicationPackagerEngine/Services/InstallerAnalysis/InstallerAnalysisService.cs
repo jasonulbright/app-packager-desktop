@@ -114,6 +114,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         var msiProperties = new List<AnalysisFact>();
         EffectiveDetection? postPatch = null;
         var overrides = new DeploymentOverrides();
+        IReadOnlyList<PayloadEntry>? payload = null;
 
         void AddBlock(Func<MetadataBlock> read, string failure)
         {
@@ -159,7 +160,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
 
         if (engine is "SevenZipSfx" or "WinRarSfx" or "ZIP" or "WixBurn" or "Unknown" or "InstallShield" or "AdvancedInstaller")
         {
-            postPatch = await PostPatchFromPayloadAsync(path, engine, limits, progress, metadata, notes, ct).ConfigureAwait(false);
+            postPatch = await PostPatchFromPayloadAsync(path, engine, limits, progress, metadata, notes, list => payload = list, ct).ConfigureAwait(false);
         }
 
         progress.Report("Building the report");
@@ -176,7 +177,8 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         {
             DetectionHint = hint,
             RequestedExecutionLevel = executionLevel,
-            TypeName = TypeDisplayName(engine)
+            TypeName = TypeDisplayName(engine),
+            Payload = payload
         };
     }
 
@@ -383,16 +385,19 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
     {
         using var bounded = CancellationTokenSource.CreateLinkedTokenSource(ct);
         bounded.CancelAfter(limits.Timeout);
+        var task = Task.Run(() => work(bounded.Token), bounded.Token);
         try
         {
-            return await Task.Run(() => work(bounded.Token), bounded.Token).WaitAsync(bounded.Token).ConfigureAwait(false);
+            return await task.WaitAsync(bounded.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            await Settle(task).ConfigureAwait(false);
             throw;
         }
         catch (OperationCanceledException)
         {
+            await Settle(task).ConfigureAwait(false);
             throw new InstallerAnalysisException(timeoutMessage);
         }
         catch (InstallerAnalysisException)
@@ -407,6 +412,15 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         {
             throw new InstallerAnalysisException(failureMessage, ex);
         }
+    }
+
+    /// <summary>The longest wait after a cancel for the work to observe its token; a native call that takes no token can outlast it.</summary>
+    internal static readonly TimeSpan CancelGrace = TimeSpan.FromSeconds(10);
+
+    private static async Task Settle(Task task)
+    {
+        try { await task.WaitAsync(CancelGrace).ConfigureAwait(false); }
+        catch (Exception) { }
     }
 
     internal const string TooLargeNote = "A part of the file is too large to read in memory; it may be damaged.";

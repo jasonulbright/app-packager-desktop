@@ -74,6 +74,9 @@ public sealed record AnalysisReport(string Path, string FileName, long Size, str
 
     /// <summary>The installer type for display (Type is the stable identifier: NativeMSI, InnoSetup, ...).</summary>
     public string TypeName { get; init; } = "";
+
+    /// <summary>The payload list when the analysis already listed it (to find an inner patch); null otherwise.</summary>
+    public IReadOnlyList<PayloadEntry>? Payload { get; init; }
 }
 
 /// <summary>One payload entry. Kind is File or InnerInstaller; InnerType names the inner format (MSI, MSP, EXE, CAB, ...).</summary>
@@ -166,6 +169,13 @@ public interface IInstallerReportWriter
 
     /// <summary>Writes a new HTML file and returns its path.</summary>
     string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry> payload, IReadOnlyList<RegistryWrite> reg);
+
+    /// <summary>
+    /// Writes a new HTML file and returns its path. A null <paramref name="payload"/> writes the plain
+    /// line "The payload was not listed: &lt;reason&gt;." in place of the payload table.
+    /// </summary>
+    string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry>? payload, IReadOnlyList<RegistryWrite> reg, string notListedReason) =>
+        WriteHtml(r, payload ?? [], reg);
 
     /// <summary>The folder new reports are written to.</summary>
     string Folder => "";
