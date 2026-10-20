@@ -267,7 +267,7 @@ public static class InnoSetupReader
     /// stops after maxOutput bytes; callers retry with a larger budget when
     /// the record is longer.
     /// </summary>
-    private static HeaderBlock? ExpandHeaderBlock(string path, long headerOffset, int maxOutput)
+    private static HeaderBlock? ExpandHeaderBlock(string path, long headerOffset, int maxOutput, CancellationToken ct = default)
     {
         DataVersion? version;
         string idText;
@@ -333,7 +333,7 @@ public static class InnoSetupReader
         var props = payload[0];
         var dict = BitConverter.ToUInt32(payload, 1);
         if (dict < 4096) dict = 4096;
-        result.Bytes = LzmaDecoder.Decode(payload, 5, payload.Length - 5, props, dict, maxOutput, out _);
+        result.Bytes = LzmaDecoder.Decode(payload, 5, payload.Length - 5, props, dict, maxOutput, out _, ct);
         return result;
     }
 
@@ -533,7 +533,7 @@ public static class InnoSetupReader
         foreach (var budget in new[] { 4 << 20, 32 << 20, 160 << 20 })
         {
             ct.ThrowIfCancellationRequested();
-            var block = ExpandHeaderBlock(path, offsets.HeaderOffset, budget);
+            var block = ExpandHeaderBlock(path, offsets.HeaderOffset, budget, ct);
             if (block?.Bytes is null)
                 return (rows, block is not null && !string.IsNullOrEmpty(block.Note) ? block.Note : "Setup header block could not be decoded.");
             try
@@ -723,8 +723,9 @@ public static class InnoSetupReader
     /// The key is &lt;AppId&gt;_is1 under HKLM (WOW6432Node when the setup does
     /// not install in 64-bit mode) or under HKCU for PrivilegesRequired=lowest.
     /// </summary>
-    public static InnoSetupMetadata Read(string path)
+    public static InnoSetupMetadata Read(string path, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var meta = new InnoSetupMetadata();
         if (!File.Exists(path)) { meta.Note = "Installer not found: " + path; return meta; }
         meta.RequestedExecutionLevel = PeResources.ReadRequestedExecutionLevel(path);
@@ -737,7 +738,8 @@ public static class InnoSetupReader
         var decodeNote = "";
         foreach (var budget in new[] { 1 << 20, 8 << 20, 48 << 20 })
         {
-            block = ExpandHeaderBlock(path, offsets.HeaderOffset, budget);
+            ct.ThrowIfCancellationRequested();
+            block = ExpandHeaderBlock(path, offsets.HeaderOffset, budget, ct);
             if (block?.Bytes is null) break;
             try
             {
@@ -748,7 +750,7 @@ public static class InnoSetupReader
             {
                 if (block.Bytes.Length < budget) { decodeNote = "Setup header record ends inside the decoded block."; break; }
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 decodeNote = "Setup header record could not be decoded.";
                 break;

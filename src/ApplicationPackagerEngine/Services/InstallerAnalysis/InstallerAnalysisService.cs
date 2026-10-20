@@ -60,7 +60,14 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         Task.Run(() =>
         {
             var full = CheckFile(path, null);
-            return Sha256(full, ct);
+            try
+            {
+                return Sha256(full, ct);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InstallerAnalysisException("The file could not be read to compute its SHA-256; another program may hold it open.", ex);
+            }
         }, ct);
 
     public async Task<AnalysisReport> AnalyzeAsync(string path, AnalysisLimits limits, IProgress<string> progress, CancellationToken ct)
@@ -81,7 +88,9 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         var sha = Sha256(path, ct);
 
         progress.Report("Checking the signature");
+        ct.ThrowIfCancellationRequested();
         var signature = ReadSignature(path, notes);
+        ct.ThrowIfCancellationRequested();
 
         progress.Report("Identifying the installer type");
         ct.ThrowIfCancellationRequested();
@@ -122,15 +131,15 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
                 break;
             case "MSP":
                 progress.Report("Reading the patch metadata");
-                postPatch = ReadMsp(path, null, metadata, notes, ct);
+                postPatch = ReadMsp(path, [], metadata, notes, ct);
                 break;
             case "NSIS":
                 progress.Report("Reading the NSIS script");
-                AddBlock(() => NsisBlock(path, notes), "The NSIS script header could not be read.");
+                AddBlock(() => NsisBlock(path, notes, ct), "The NSIS script header could not be read.");
                 break;
             case "InnoSetup":
                 progress.Report("Reading the Inno Setup header");
-                AddBlock(() => InnoBlock(path, notes), "The Inno Setup header could not be read.");
+                AddBlock(() => InnoBlock(path, notes, ct), "The Inno Setup header could not be read.");
                 break;
             case "Velopack":
                 AddBlock(() => VelopackBlock(path, notes), "The Velopack package inside the setup was not read.");

@@ -62,7 +62,7 @@ public sealed partial class InstallerAnalysisService
     /// </summary>
     private async Task<List<RegistryWrite>> UninstallerRowsAsync(string path, int maxRows, AnalysisLimits limits, List<string> notes, CancellationToken ct)
     {
-        var uninstaller = Path.GetFileName(NsisScriptReader.Read(path).UninstallerPath.Trim('"'));
+        var uninstaller = Path.GetFileName(NsisScriptReader.Read(path, ct).UninstallerPath.Trim('"'));
         if (string.IsNullOrEmpty(uninstaller) || uninstaller.Contains('$')) return [];
         var exe = _findSevenZip();
         if (string.IsNullOrEmpty(exe) || !File.Exists(exe))

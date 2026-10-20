@@ -20,7 +20,7 @@ public static class NsisRegistryReader
     public static (List<RegistryWrite> Rows, string Note) Read(string path, int maxRows, string section = "", CancellationToken ct = default)
     {
         var rows = new List<RegistryWrite>();
-        var ctx = NsisScriptReader.ReadHeaderTable(path);
+        var ctx = NsisScriptReader.ReadHeaderTable(path, NsisScriptReader.WholeFileLimitBytes, ct);
         if (ctx.Header is null)
             return (rows, string.IsNullOrEmpty(ctx.Note) ? "The NSIS script header was not decoded." : ctx.Note);
         var h = ctx.Header;

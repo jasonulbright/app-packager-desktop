@@ -213,7 +213,7 @@ public sealed class DroppedInstallerAnalysisService
         // The compiled script is the authoritative source for an NSIS or Inno
         // Setup drop: it carries the values the installer writes to Add/Remove
         // Programs, so a literal there needs no operator confirmation.
-        var script = msi is null ? CompiledScriptFacts.TryRead(engine, fullPath) : null;
+        var script = msi is null ? CompiledScriptFacts.TryRead(engine, fullPath, ct) : null;
         var scriptSource = script is null ? null : CompiledScriptFacts.SourceName(engine);
 
         // The nuspec inside a Velopack setup is read the same way a compiled

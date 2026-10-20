@@ -10,6 +10,9 @@ public sealed partial class InstallerAnalysisService
 {
     private const int ManifestLimitBytes = 4 * 1024 * 1024;
 
+    /// <summary>The most inner MSIs extracted to find the base of an inner patch.</summary>
+    private const int MaxBaseCandidates = 8;
+
     private static readonly Dictionary<int, string> SummaryNames = new()
     {
         [7] = "Template", [9] = "Revision number", [2] = "Title", [3] = "Subject", [4] = "Author", [5] = "Keywords",
@@ -42,10 +45,10 @@ public sealed partial class InstallerAnalysisService
 
     /// <summary>
     /// Reads a patch's summary information and MsiPatchMetadata, and the effective detection
-    /// target: the first target ProductCode, or the base MSI's when one is given, with the
+    /// target: the first target ProductCode, or that of the candidate base MSI the patch targets, with the
     /// post-patch version from the "Name (version)" convention of the patch DisplayName.
     /// </summary>
-    private EffectiveDetection? ReadMsp(string path, string? baseMsi, List<MetadataBlock> metadata, List<string> notes, CancellationToken ct)
+    private EffectiveDetection? ReadMsp(string path, IReadOnlyList<string> baseMsis, List<MetadataBlock> metadata, List<string> notes, CancellationToken ct)
     {
         Dictionary<string, string> meta;
         try
@@ -90,40 +93,33 @@ public sealed partial class InstallerAnalysisService
         string productCode = targets.FirstOrDefault() ?? "";
         string baseVersion = "";
         string architecture = "";
+        MsiProperties? baseProps = null;
         var explanation = "The ProductCode is the patch's first target; the version is read from the patch DisplayName.";
-        if (baseMsi is not null)
+        if (baseMsis.Count > 0)
         {
-            try
-            {
-                var props = _msi.ReadProperties(baseMsi);
-                if (!string.IsNullOrEmpty(props.ProductCode))
-                {
-                    productCode = props.ProductCode;
-                    baseVersion = props.ProductVersion;
-                    architecture = _msi.ReadTemplateArchitecture(baseMsi);
-                    explanation = "The ProductCode is the base MSI's (" + Path.GetFileName(baseMsi) + "); the version is read from the patch DisplayName.";
-                    if (targets.Count > 0 && !targets.Contains(productCode, StringComparer.OrdinalIgnoreCase))
-                        explanation += " The base ProductCode is not among the patch targets.";
-                }
-            }
+            (string Path, MsiProperties Props)? chosen = null;
+            try { chosen = SelectBaseMsi(targets, baseMsis, _msi); }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 notes.Add("The base MSI next to the patch could not be read.");
             }
+            if (chosen is { } found)
+            {
+                baseProps = found.Props;
+                productCode = found.Props.ProductCode;
+                baseVersion = found.Props.ProductVersion;
+                architecture = Safe(() => _msi.ReadTemplateArchitecture(found.Path), "");
+                explanation = "The ProductCode is the base MSI's (" + Path.GetFileName(found.Path) + "), which the patch targets; the version is read from the patch DisplayName.";
+            }
+            else
+            {
+                explanation = "No MSI next to the patch is among the patch targets; the ProductCode is the patch's first target and the version is read from the patch DisplayName.";
+            }
         }
         if (string.IsNullOrEmpty(productCode)) return null;
 
-        string key;
-        if (architecture.Length == 0)
-        {
-            key = ArpHklm32 + "\\" + productCode;
-            explanation += " The base package architecture is unknown: a 32-bit product registers under WOW6432Node, a 64-bit one under " + ArpHklm64 + ".";
-        }
-        else
-        {
-            key = (architecture.StartsWith("Intel", StringComparison.OrdinalIgnoreCase) && !architecture.Equals("Intel64", StringComparison.OrdinalIgnoreCase)
-                ? ArpHklm32 : ArpHklm64) + "\\" + productCode;
-        }
+        var (key, keyExplanation) = PostPatchKey(productCode, baseProps, architecture);
+        explanation += keyExplanation;
         if (version is null) explanation += " The patch DisplayName carries no version in parentheses.";
         return new EffectiveDetection(productCode, meta.GetValueOrDefault("TargetProductName", ""), version ?? "", key, explanation)
         {
@@ -132,6 +128,47 @@ public sealed partial class InstallerAnalysisService
         };
     }
 
+    /// <summary>
+    /// The candidate MSI whose ProductCode is among the patch targets; with no targets, the only
+    /// candidate that has a ProductCode. Null when none matches. Unreadable candidates are skipped.
+    /// </summary>
+    internal static (string Path, MsiProperties Props)? SelectBaseMsi(IReadOnlyList<string> targets, IReadOnlyList<string> candidates, IMsiInspector inspector)
+    {
+        var read = new List<(string Path, MsiProperties Props)>();
+        foreach (var candidate in candidates)
+        {
+            try
+            {
+                var props = inspector.ReadProperties(candidate);
+                if (!string.IsNullOrEmpty(props.ProductCode)) read.Add((candidate, props));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException) { }
+        }
+        if (targets.Count == 0) return read.Count == 1 ? read[0] : null;
+        foreach (var item in read)
+            if (targets.Contains(item.Props.ProductCode, StringComparer.OrdinalIgnoreCase)) return item;
+        return null;
+    }
+
+    /// <summary>
+    /// The uninstall key the base product registers after the patch: HKCU for a per-user base
+    /// (the ALLUSERS and MSIINSTALLPERUSER rule), otherwise HKLM in the view of the template
+    /// architecture. The explanation names the routing that applied.
+    /// </summary>
+    internal static (string Key, string Explanation) PostPatchKey(string productCode, MsiProperties? props, string templateArchitecture)
+    {
+        if (props is null)
+            return (ArpHklm32 + "\\" + productCode,
+                " The base package was not read, so its architecture is unknown: a 32-bit product registers under WOW6432Node, a 64-bit one under " + ArpHklm64 + ", and a per-user install under HKCU.");
+        if (props.IsPerUser)
+            return (ArpHkcu + "\\" + productCode, " The base MSI installs per user (ALLUSERS " + (props.AllUsers is null ? "not set" : "\"" + props.AllUsers + "\"") + ", MSIINSTALLPERUSER \"" + props.MsiInstallPerUser + "\"), so the key is under HKCU.");
+        if (templateArchitecture.Length == 0)
+            return (ArpHklm32 + "\\" + productCode, " The base package architecture is unknown: a 32-bit product registers under WOW6432Node, a 64-bit one under " + ArpHklm64 + ".");
+        var is32 = templateArchitecture.StartsWith("Intel", StringComparison.OrdinalIgnoreCase) && !templateArchitecture.Equals("Intel64", StringComparison.OrdinalIgnoreCase);
+        return ((is32 ? ArpHklm32 : ArpHklm64) + "\\" + productCode, is32
+            ? " The base MSI is a 32-bit per-machine package, so the key is under WOW6432Node."
+            : " The base MSI is a 64-bit per-machine package.");
+    }
     private async Task<EffectiveDetection?> PostPatchFromPayloadAsync(string path, string engine, AnalysisLimits limits, IProgress<string> progress,
         List<MetadataBlock> metadata, List<string> notes, CancellationToken ct)
     {
@@ -152,35 +189,41 @@ public sealed partial class InstallerAnalysisService
             notes.Add("The inner patch is larger than the extraction limit; the post-patch target was not read.");
             return null;
         }
-        var msi = payload.Where(e => !e.IsDirectory && e.InnerType == "MSI").OrderBy(e => e.Size).FirstOrDefault();
-        var session = _sandbox.NewSession();
+        string? session = null;
         try
         {
+            session = _sandbox.NewSession();
             progress.Report("Extracting " + Path.GetFileName(msp.Path) + " to read the post-patch target");
             var mspPath = await ExtractEntryCoreAsync(path, engine, msp, session, limits, ct).ConfigureAwait(false);
-            string? msiPath = null;
-            if (msi is not null && msi.Size <= limits.MaxExtractBytes)
+            var budget = limits.MaxExtractBytes - msp.Size;
+            var msiPaths = new List<string>();
+            foreach (var msi in payload.Where(e => !e.IsDirectory && e.InnerType == "MSI").OrderBy(e => e.Size).Take(MaxBaseCandidates))
             {
+                if (msi.Size > budget) break;
+                budget -= msi.Size;
                 progress.Report("Extracting " + Path.GetFileName(msi.Path) + " to read the base ProductCode");
-                msiPath = await ExtractEntryCoreAsync(path, engine, msi, session, limits, ct).ConfigureAwait(false);
+                msiPaths.Add(await ExtractEntryCoreAsync(path, engine, msi, session, limits, ct).ConfigureAwait(false));
             }
-            return ReadMsp(mspPath, msiPath, metadata, notes, ct);
+            return ReadMsp(mspPath, msiPaths, metadata, notes, ct);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception)
         {
-            notes.Add("The inner patch could not be extracted; the post-patch target was not read.");
+            notes.Add(session is null
+                ? "The analysis sandbox could not be created; the post-patch target was not read."
+                : "The inner patch could not be extracted; the post-patch target was not read.");
             return null;
         }
         finally
         {
-            try { _sandbox.Release(session); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallerAnalysisException) { }
+            if (session is not null)
+                try { _sandbox.Release(session); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallerAnalysisException) { }
         }
     }
 
-    private static MetadataBlock NsisBlock(string path, List<string> notes)
+    private static MetadataBlock NsisBlock(string path, List<string> notes, CancellationToken ct)
     {
-        var m = NsisScriptReader.Read(path);
+        var m = NsisScriptReader.Read(path, ct);
         var facts = new List<AnalysisFact> { Fact("Compression", m.Compression + (m.Solid ? " solid" : ""), "nsis-compiled-script") };
         if (!m.HeaderAvailable)
         {
@@ -205,9 +248,9 @@ public sealed partial class InstallerAnalysisService
         return new MetadataBlock("NSIS compiled script", facts.Where(f => f.Value.Length > 0).ToList());
     }
 
-    private static MetadataBlock InnoBlock(string path, List<string> notes)
+    private static MetadataBlock InnoBlock(string path, List<string> notes, CancellationToken ct)
     {
-        var m = InnoSetupReader.Read(path);
+        var m = InnoSetupReader.Read(path, ct);
         var facts = new List<AnalysisFact>();
         if (!m.HeaderAvailable)
         {

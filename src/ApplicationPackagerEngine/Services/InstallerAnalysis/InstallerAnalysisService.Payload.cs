@@ -170,6 +170,11 @@ public sealed partial class InstallerAnalysisService
             throw new InstallerAnalysisException("The analysis sandbox cannot be the target folder; choose another folder.");
         if (!Directory.Exists(target)) throw new InstallerAnalysisException("The target folder does not exist.");
         if (AppDataPaths.IsReparsePointDirectory(target)) throw new InstallerAnalysisException("The target folder is a junction or symbolic link; choose another folder.");
+        for (var ancestor = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(target)); ancestor is not null; ancestor = Path.GetDirectoryName(ancestor))
+        {
+            if (AppDataPaths.IsReparsePointDirectory(ancestor))
+                throw new InstallerAnalysisException("A folder on the path of the target folder is a junction or symbolic link; choose another folder.");
+        }
         return await Bounded(token => ExtractPayloadCoreAsync(full, Identify(full, limits, "extracted"), entries, target, limits, token), limits, ct,
             "The extraction stopped at the time limit.", "The payload could not be extracted; the file may be damaged.").ConfigureAwait(false);
     }
@@ -179,13 +184,7 @@ public sealed partial class InstallerAnalysisService
     {
         var baseName = Path.GetFileNameWithoutExtension(path).TrimEnd('.', ' ');
         if (SandboxPath.Normalize(baseName, out _) is null) baseName = "payload";
-        var folder = Path.Combine(target, baseName + " payload");
-        for (var n = 2; Directory.Exists(folder) || File.Exists(folder); n++)
-        {
-            if (n > 1000) throw new InstallerAnalysisException("No free folder name was found in the target folder.");
-            folder = Path.Combine(target, $"{baseName} payload ({n})");
-        }
-        Directory.CreateDirectory(folder);
+        var folder = CreatePayloadFolder(target, baseName);
         var skipped = new List<string>();
         var wanted = entries?.Where(e => !e.IsDirectory).Select(e => e.Path).ToHashSet(StringComparer.Ordinal);
         long bytes = 0;
@@ -261,6 +260,29 @@ public sealed partial class InstallerAnalysisService
         if (exitCode >= 2 && files == 0) throw new InstallerAnalysisException("7-Zip could not extract the payload; the archive may be damaged or encrypted.");
         if (exitCode >= 1) skipped.Add("7-Zip reported warnings; some entries may be missing.");
         return new PayloadExtractResult(folder, files, bytes, skipped);
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true, EntryPoint = "CreateDirectoryW")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool CreateDirectoryNative(string path, IntPtr securityAttributes);
+
+    /// <summary>
+    /// Creates "&lt;name&gt; payload" in <paramref name="target"/>, or "&lt;name&gt; payload (n)" when the name
+    /// is taken. CreateDirectoryW fails on an existing name, so two concurrent extractions never
+    /// share one folder.
+    /// </summary>
+    internal static string CreatePayloadFolder(string target, string baseName)
+    {
+        for (var n = 1; n <= 1000; n++)
+        {
+            var folder = Path.Combine(target, n == 1 ? baseName + " payload" : $"{baseName} payload ({n})");
+            if (CreateDirectoryNative(folder, IntPtr.Zero)) return folder;
+            var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+            // ERROR_ALREADY_EXISTS (183) and ERROR_FILE_EXISTS (80): the name is taken, by a folder or a file.
+            if (error is not 183 and not 80)
+                throw new InstallerAnalysisException("The payload folder could not be created in the target folder.");
+        }
+        throw new InstallerAnalysisException("No free folder name was found in the target folder.");
     }
 
     /// <summary>Deletes every junction, symbolic link and mount point under the folder and returns their paths.</summary>

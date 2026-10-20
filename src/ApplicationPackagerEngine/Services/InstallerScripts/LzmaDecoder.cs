@@ -163,8 +163,9 @@ public sealed class LzmaDecoder
     /// corrupt stream yields fewer bytes and corrupted = true. The output buffer grows with
     /// the bytes produced, so a short stream never allocates the whole requested size.
     /// </summary>
-    public static byte[] Decode(byte[] input, int offset, int length, byte propsByte, uint dictSize, int outSize, out bool corrupted)
+    public static byte[] Decode(byte[] input, int offset, int length, byte propsByte, uint dictSize, int outSize, out bool corrupted, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         if (outSize < 0 || outSize > MaxOutputBytes)
             throw new InvalidDataException("The LZMA output size is outside the decoder limit.");
         var d = new LzmaDecoder
@@ -203,8 +204,10 @@ public sealed class LzmaDecoder
 
         d.RangeInit();
 
+        var steps = 0;
         while (d._outPos < outSize && !d._corrupted)
         {
+            if ((++steps & 0xFFFF) == 0) ct.ThrowIfCancellationRequested();
             var posState = (uint)d._outPos & pbMask;
 
             if (d.DecodeBit(isMatch, (int)((state << NumPosBitsMax) + posState)) == 0)

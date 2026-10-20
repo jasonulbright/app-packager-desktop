@@ -143,7 +143,7 @@ public static class NsisScriptReader
     /// properties byte and a 4-byte dictionary size, optionally preceded by a
     /// 0/1 BCJ filter flag. NSIS bzip2 is a stripped stream and is not decoded.
     /// </summary>
-    private static Expanded ExpandHeader(byte[] bytes, int firstHeader)
+    private static Expanded ExpandHeader(byte[] bytes, int firstHeader, CancellationToken ct)
     {
         var result = new Expanded();
         var rawHeaderLength = BitConverter.ToUInt32(bytes, firstHeader + 20);
@@ -181,7 +181,7 @@ public static class NsisScriptReader
             var props = bytes[p];
             var dict = BitConverter.ToUInt32(bytes, p + 1);
             var want = headerLength + PrefixLength(solid);
-            var output = LzmaDecoder.Decode(bytes, p + 5, end - (p + 5), props, dict, want, out _);
+            var output = LzmaDecoder.Decode(bytes, p + 5, end - (p + 5), props, dict, want, out _, ct);
             if (filtered && output.Length > 0) LzmaDecoder.DecodeBcjX86(output, output.Length);
             return TakeHeader(output, solid);
         }
@@ -197,6 +197,7 @@ public static class NsisScriptReader
                 var read = 0;
                 while (read < want)
                 {
+                    ct.ThrowIfCancellationRequested();
                     var n = ds.Read(output, read, want - read);
                     if (n <= 0) break;
                     read += n;
@@ -204,7 +205,7 @@ public static class NsisScriptReader
                 if (read != want) return null;
                 return TakeHeader(output, solid);
             }
-            catch
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 return null;
             }
@@ -304,8 +305,9 @@ public static class NsisScriptReader
     /// covers it; the whole file is read only when the window misses the
     /// firstheader or truncates the compressed header.
     /// </summary>
-    public static HeaderTable ReadHeaderTable(string path, long maxWholeFileBytes = WholeFileLimitBytes)
+    public static HeaderTable ReadHeaderTable(string path, long maxWholeFileBytes = WholeFileLimitBytes, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var result = new HeaderTable();
 
         static byte[] ReadWindow(string p, long length)
@@ -327,12 +329,13 @@ public static class NsisScriptReader
         var bytes = ReadWindow(path, 16L * 1024 * 1024);
         var fh = FindFirstHeader(bytes, fileLength);
         Expanded? expanded = null;
-        if (fh >= 0) expanded = ExpandHeader(bytes, fh);
+        if (fh >= 0) expanded = ExpandHeader(bytes, fh, ct);
+        ct.ThrowIfCancellationRequested();
         if ((fh < 0 || expanded is { Header: null, TooLarge: false }) && fileLength > bytes.Length && fileLength <= maxWholeFileBytes)
         {
             bytes = ReadWindow(path, fileLength);
             fh = FindFirstHeader(bytes, fileLength);
-            if (fh >= 0) expanded = ExpandHeader(bytes, fh);
+            if (fh >= 0) expanded = ExpandHeader(bytes, fh, ct);
         }
         if (fh < 0 || expanded is null) { result.Note = "NSIS firstheader not found."; return result; }
         result.FirstHeaderFound = true;
@@ -563,13 +566,14 @@ public static class NsisScriptReader
     /// / SetRegView flags in script order. Fields the script computes at run
     /// time stay in NSIS notation.
     /// </summary>
-    public static NsisMetadata Read(string path)
+    public static NsisMetadata Read(string path, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var meta = new NsisMetadata();
         if (!File.Exists(path)) { meta.Note = "Installer not found: " + path; return meta; }
         meta.RequestedExecutionLevel = PeResources.ReadRequestedExecutionLevel(path);
 
-        var ctx = ReadHeaderTable(path);
+        var ctx = ReadHeaderTable(path, WholeFileLimitBytes, ct);
         meta.Compression = ctx.Compression;
         meta.Solid = ctx.Solid;
         if (ctx.Header is null) { meta.Note = ctx.Note; return meta; }
@@ -639,6 +643,7 @@ public static class NsisScriptReader
 
         for (var e = 0; e < ctx.EntriesCount; e++)
         {
+            if ((e & 0xFFF) == 0) ct.ThrowIfCancellationRequested();
             var b = ctx.EntriesOffset + (e * 28);
             var op = BitConverter.ToInt32(h, b);
             if (op != 13 && op != 25 && op != 51 && op != 62) continue;
