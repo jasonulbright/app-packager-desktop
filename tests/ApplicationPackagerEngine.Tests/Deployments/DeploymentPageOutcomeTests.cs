@@ -323,7 +323,7 @@ public sealed class DeploymentPageOutcomeTests
     }
 
     /// <summary>The run counts the change as failed, not changed, shows the service text unchanged and offers no Undo.</summary>
-    private static void AssertFailedWithoutChange(ServicePageHarness h, DeploymentHelperViewModel page, List<DeploymentOutcome> outcomes, string expected)
+    private static void AssertFailedWithoutChange(ServicePageHarness h, DeploymentHelperViewModel page, List<DeploymentOutcome> outcomes, string expected, int distributed = 0)
     {
         var message = Assert.Single(outcomes).Message;
         Assert.StartsWith(expected, message);
@@ -333,7 +333,7 @@ public sealed class DeploymentPageOutcomeTests
         Assert.Equal((0, 1, 0), (result.SucceededCount, result.FailedCount, result.SkippedCount));
         Assert.DoesNotContain(ChangePlanViewModel.FailedText, page.Shared.ResultSummary);
         var entry = h.History.Entries.Last();
-        Assert.Equal((0, 1, 0), (entry.Counts["changed"], entry.Counts["failed"], entry.Counts["skipped"]));
+        Assert.Equal((distributed, 1, 0), (entry.Counts["changed"], entry.Counts["failed"], entry.Counts["skipped"]));
         Assert.False(page.Shared.HasUndo);
     }
 
@@ -435,7 +435,7 @@ public sealed class DeploymentPageOutcomeTests
 
         await form.DeployCommand.ExecuteAsync(null);
 
-        AssertFailedWithoutChange(h, page, outcomes, "The content distribution may have been requested but could not be logged, so the deployment was not created.");
+        AssertFailedWithoutChange(h, page, outcomes, "The content distribution may have been requested but could not be logged, so the deployment was not created.", distributed: 1);
         Assert.Equal(0, h.Engine.CreateCalls);
     }
 
