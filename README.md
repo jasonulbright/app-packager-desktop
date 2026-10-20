@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows and Collection and Compliance are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows) and [Collection and Compliance](#collection-and-compliance). The other five start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these five tools. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance and Installer Analysis are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance) and [Installer Analysis](#installer-analysis). The other four start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these four tools. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -235,6 +235,53 @@ The page follows the light and the dark theme.
 ![The Live CI/CB tab in the dark theme](docs/images/apd9-comp-dark.png)
 
 The files of a catalog run are in the `Collections` folder of the data folder (see [Data and network](#data-and-network)). Each completed run adds one line to the operation history. The line holds counts and no names or script text.
+## Installer Analysis
+
+The **Installer Analysis** page reads a Windows installer on this computer and reports the data that you need to package it. It makes no ConfigMgr connection and no network request, and it needs no elevated rights. It never starts the installer or any file taken out of it. Installers are untrusted input: every reader has limits for size, entry count, depth and time, and a damaged or hostile file gives a plain message.
+
+![The Overview tab for an Inno Setup installer](docs/images/apd10-ia-overview.png)
+
+Drop one file on the page, type a path and press Enter, or select **Open**. A folder, several files and a shortcut give a plain message. The page reads these installer types: NSIS, Inno Setup, InstallShield, WiX Burn, 7-Zip and WinRAR self-extracting archives, BitRock, Advanced Installer, MSI, MSP, MSIX and APPX, `.intunewin`, NuGet packages, PSAppDeployToolkit, Squirrel and Velopack.
+
+The **Overview** tab shows these items:
+
+- **Source facts:** type, architecture, size, SHA-256 and the Authenticode signature with its signer. The page does not fetch certificates from the network, so a file whose intermediate certificate is not cached can show NotTrusted.
+- **Deployment fields:** display name, version, publisher, silent install command, silent uninstall command and the uninstall registry key. The **Confidence** column says **Confirmed** when the page read the value from the installer. It says **Predicted** when the page worked it out, for example when the install folder is chosen at run time. Check a Predicted value before you use it in a detection method.
+- **Install modes:** one row for each mode (per machine and per user) with its switch, folder, uninstall command, registry key, hive, view and context. The registry view is the 32-bit or 64-bit view that the installer writes to.
+- **MSI properties, package metadata and notes:** the notes say plainly what the page could not read, for example an encrypted Inno Setup header or an NSIS header that uses bzip2.
+- **Post-patch target:** for a file that holds a base MSI and an MSP, the page shows the product code, version and registry key that the patched product writes.
+
+A value is only as good as the installer allows. The page checked its predictions against real installs in the lab (an NSIS, an Inno Setup, a BitRock and several MSI installers). An MSI without an `ALLUSERS` property writes its Add/Remove Programs key under `HKLM`, but Windows Installer registers the product for the installing account only. The page says so.
+
+![The MSI Properties tab](docs/images/apd10-ia-msi-properties.png)
+
+The other tabs:
+
+- **MSI Properties:** the full Property table, with a filter.
+- **Payload:** every file in the installer. **Analyze selected** opens an inner installer. **Extract to temp**, **Copy name**, **Copy full path** and **SHA-256** act on the selected row. The SHA-256 of a large file is computed only when you ask, and **Cancel** stops it. **Extract payload** writes the files into a new `<file name> payload` folder inside a folder that you choose. A link in an archive is listed as a link and is never created.
+- **Inner Installers:** the installers inside the payload. **Analyze selected** drills into one. The breadcrumb and **Back** return to the outer file. The depth limit is 5.
+
+![The Inner Installers tab with the breadcrumb](docs/images/apd10-ia-inner.png)
+
+- **File Browser:** the payload as folders, with a filter.
+- **Registry Settings:** the registry values that the installer writes. They come from the MSI Registry table, the NSIS script and the Inno Setup header. Each row shows the origin, action, hive, key, name, value, type, view, section and condition.
+
+![The Registry Settings tab for an NSIS installer](docs/images/apd10-ia-registry.png)
+
+- **Strings:** the readable text in the file (ASCII and UTF-16), with a category and a filter. The page stops at a fixed number of strings.
+
+![The Payload tab with the SHA-256 box](docs/images/apd10-ia-payload.png)
+
+Export and copy:
+
+- **Copy summary** and **Copy JSON** put the analysis on the clipboard. The JSON is a ConfigMgr digest with detection hints for the installer type. The key material of an `.intunewin` file is never shown or exported.
+- **Export CSV** and **Export HTML** write a report to the `InstallerAnalysis` folder of the data folder. A CSV cell that starts with `=`, `+`, `-`, `@`, a tab, a carriage return or a line feed is written as text. The HTML report encodes all text. If 7-Zip is missing, the HTML report says that the payload was not listed. If a list was cancelled or failed, the export is refused and the status says why. **Open folder** opens the reports folder.
+
+The page uses 7-Zip, when it is installed, to list and extract archives. The page does not extract with a 7-Zip older than 25.01, because older versions can write outside the target folder. Analysis and listing still work.
+
+Extracted files go to a private folder under the data folder, one folder for each analysis level. The page removes these folders when you go back a level, when you leave the page, when the application closes, and at the next start. The page refuses entry names that leave the folder (`..\`, absolute paths, device names, alternate data streams) and any link in the target path. A limit stops an archive with too many entries, too much data or an extreme compression ratio before the page writes it. **Recent files** keeps the last 10 paths for the current Windows user; **Clear recent** removes them. A path is never read until you open it. The page keeps no other analysis data on disk.
+
+![The Overview tab in the dark theme](docs/images/apd10-ia-dark.png)
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
