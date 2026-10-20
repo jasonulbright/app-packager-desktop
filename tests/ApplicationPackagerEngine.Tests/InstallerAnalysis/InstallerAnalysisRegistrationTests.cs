@@ -37,6 +37,19 @@ public sealed class InstallerAnalysisRegistrationTests : IDisposable
     }
 
     [Fact]
+    public void ThePageUsesTheContractLimitsAndTheRootOfTheRegisteredSandboxAndNothingCleansAtConstruction()
+    {
+        using var services = new ServiceCollection().AddPackagerServices().AddSidebar().AddInstallerAnalysisPage().BuildServiceProvider();
+        var page = services.GetRequiredService<InstallerAnalysisPageServices>();
+        var sandbox = services.GetRequiredService<IAnalysisSandbox>();
+        Assert.Same(AnalysisLimits.Default, page.Limits);
+        Assert.Same(sandbox, page.Sandbox);
+        Assert.Equal(sandbox.Root, page.SandboxRoot());
+        Assert.Equal(InstallerAnalysisFolders.Temp(), page.SandboxRoot());
+        Assert.False(Directory.Exists(Path.Combine(AppDataPaths.Root, "InstallerAnalysis")));
+    }
+
+    [Fact]
     public async Task TheSandboxLifetimeRemovesOldSessionsAtStartAndEverySessionAtExit()
     {
         var sandbox = new FakeAnalysisSandbox(_root);
@@ -44,7 +57,7 @@ public sealed class InstallerAnalysisRegistrationTests : IDisposable
         var lifetime = new InstallerAnalysisSandboxLifetime(sandbox, log);
         await lifetime.StartAsync(CancellationToken.None);
         await lifetime.StopAsync(CancellationToken.None);
-        Assert.Equal([InstallerAnalysisSandboxLifetime.StartupCleanAge], sandbox.Cleans);
+        Assert.Equal([TimeSpan.FromHours(1)], sandbox.Cleans);
         Assert.Equal(1, sandbox.ReleaseAllCalls);
         Assert.Empty(log.Entries);
     }

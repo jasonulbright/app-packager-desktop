@@ -17,10 +17,20 @@ public sealed record FactRow(string Name, string Value, string Confidence, strin
     public override string ToString() => $"{Name}, {Value}, {Confidence}";
 }
 
-public sealed record ModeRow(string Mode, string Switch, string InstallFolder, string UninstallCommand, string ArpKey, string Hive, string Context)
+public sealed record ModeRow(string Mode, string Default, string Switch, string InstallCommand, string InstallFolder, string UninstallCommand, string ArpKey,
+    string Hive, string View, string Context)
 {
-    public static ModeRow From(InstallMode mode) => new(InstallerAnalysisText.ModeName(mode.Name), mode.Switch, mode.InstallFolder, mode.UninstallCommand,
-        mode.ArpKey, mode.Hive, mode.Context);
+    public static ModeRow From(InstallMode mode) => new(
+        Mode: InstallerAnalysisText.ModeName(mode.Name),
+        Default: mode.IsDefault ? "Yes" : "No",
+        Switch: mode.Switch,
+        InstallCommand: mode.InstallCommand,
+        InstallFolder: mode.InstallFolder,
+        UninstallCommand: mode.UninstallCommand,
+        ArpKey: mode.ArpKey,
+        Hive: mode.Hive,
+        View: InstallerAnalysisText.View(mode.View),
+        Context: mode.Context);
 
     public override string ToString() => $"{Mode}, {Switch}";
 }
@@ -54,6 +64,9 @@ public sealed record RegistryRow(RegistryWrite Write)
     public string Value => Write.Value;
     public string Type => Write.ValueType;
     public string Condition => Write.Condition;
+    public string Action => InstallerAnalysisText.Sentence(Write.Action);
+    public string View => InstallerAnalysisText.View(Write.View);
+    public string Section => Write.Section;
     public string FullKey => string.IsNullOrEmpty(Write.Hive) ? Write.Key : $@"{Write.Hive}\{Write.Key}";
 
     public override string ToString() => $@"{FullKey}, {Name}";
@@ -101,6 +114,20 @@ public static class InstallerAnalysisText
         var v when string.Equals(v, "InnoSetup", StringComparison.OrdinalIgnoreCase) => "Inno Setup",
         var v => v ?? ""
     };
+
+    public static string View(string? value) => value?.Trim() switch
+    {
+        "64" => "64-bit",
+        "32" => "32-bit",
+        var v => v ?? ""
+    };
+
+    /// <summary>The value with its first letter in capitals: "delete key" shows as "Delete key".</summary>
+    public static string Sentence(string? value)
+    {
+        var text = value?.Trim() ?? "";
+        return text.Length == 0 ? "" : char.ToUpperInvariant(text[0]) + text[1..];
+    }
 
     private static string Normalized(string path) => path.Replace('/', '\\').TrimEnd('\\');
 

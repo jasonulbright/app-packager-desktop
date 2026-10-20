@@ -48,30 +48,35 @@ public sealed class InstallerAnalysisRenderTests
     {
         var report = FakeInstallerAnalysisService.Report(path, "WiX Burn",
             notes: ["The NSIS header uses bzip2 compression and is not decoded.", "The payload list stops at the entry limit. " + LongText],
-            postPatch: new EffectiveDetection("{11111111-2222-3333-4444-555555555555}", "Contoso Tool " + LongText, "1.2.4.5", @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{11111111-2222-3333-4444-555555555555}", "The patch raises the version. " + LongText));
+            postPatch: new EffectiveDetection(ProductCode: "{11111111-2222-3333-4444-555555555555}", DisplayName: "Contoso Tool " + LongText, DisplayVersion: "1.2.4.5",
+                ArpKey: @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{11111111-2222-3333-4444-555555555555}", Explanation: "The patch raises the version. " + LongText)
+            { BaseVersion = "1.2.0.0", PatchFile = "Contoso-Update-" + LongText.Replace(' ', '-') + ".msp" });
         h.Service.Reports[path] = report with
         {
             Deployment = [.. report.Deployment, new AnalysisFact("SilentInstall", LongText, "Predicted", "Switch database " + LongText)],
-            Modes = [.. report.Modes.Select(m => m with { InstallFolder = m.InstallFolder + @"\" + LongText, UninstallCommand = m.UninstallCommand + " " + LongText })],
-            MsiProperties = [.. report.MsiProperties, new AnalysisFact("ARPCOMMENTS", LongText, "Confirmed", "Property table")]
+            Modes = [.. report.Modes.Select(m => m with { InstallFolder = m.InstallFolder + @"\" + LongText, UninstallCommand = m.UninstallCommand + " " + LongText, InstallCommand = m.InstallCommand + " " + LongText })],
+            MsiProperties = [.. report.MsiProperties, new AnalysisFact("ARPCOMMENTS", LongText, "Confirmed", "Property table")],
+            DetectionHint = report.DetectionHint + " " + LongText
         };
         h.Service.Payload =
         [
             .. InstallerAnalysisHarness.SamplePayload,
-            new(@"app\" + string.Join(@"\", Enumerable.Repeat("very long folder name", 10)) + @"\tool.exe", 12345, false, "File", ""),
-            new(@"redist\" + LongText.Replace(' ', '_') + ".msi", 999, false, "InnerInstaller", "MSI " + LongText)
+            FakeInstallerAnalysisService.Entry(@"app\" + string.Join(@"\", Enumerable.Repeat("very long folder name", 10)) + @"\tool.exe", 12345),
+            FakeInstallerAnalysisService.Entry(@"redist\" + LongText.Replace(' ', '_') + ".msi", 999, kind: "InnerInstaller", innerType: "MSI " + LongText)
         ];
         h.Service.Registry =
         [
-            new("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso\" + LongText, "Version", "1.2.3", "REG_SZ", "NOT Installed AND " + LongText),
-            new("NsisScript", "HKCU", @"Software\Microsoft\Windows\CurrentVersion\Run", "Contoso", LongText, "REG_EXPAND_SZ", ""),
-            new("InnoSetup", "HKLM", @"SOFTWARE\Classes\.contoso", "", "Contoso.Document", "REG_SZ", "")
+            FakeInstallerAnalysisService.Write("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso\" + LongText, "Version", "1.2.3", condition: "NOT Installed AND " + LongText)
+                with { View = "64", Section = "MainComponent " + LongText },
+            FakeInstallerAnalysisService.Write("NsisScript", "HKCU", @"Software\Microsoft\Windows\CurrentVersion\Run", "Contoso", LongText, "REG_EXPAND_SZ") with { Section = "Startup" },
+            FakeInstallerAnalysisService.Write("InnoSetup", "HKLM", @"SOFTWARE\Classes\.contoso", "", "") with { Action = "delete key", View = "32", Section = "uninsdeletekey" }
         ];
+        h.Service.RegistryNotes = ["The NSIS header uses bzip2 compression and is not decoded; registry changes may be missing. " + LongText];
         h.Service.Strings =
         [
-            new("https://contoso.example/update?channel=" + LongText.Replace(' ', '-'), "Ascii", 4096, "Url"),
-            new(@"C:\Program Files\Contoso\" + LongText, "Utf16", 8192, "Path"),
-            new("{11111111-2222-3333-4444-555555555555}", "Ascii", 16384, "Guid")
+            FakeInstallerAnalysisService.Found("https://contoso.example/update?channel=" + LongText.Replace(' ', '-'), "Ascii", 4096, "Url"),
+            FakeInstallerAnalysisService.Found(@"C:\Program Files\Contoso\" + LongText, "Utf16", 8192, "Path"),
+            FakeInstallerAnalysisService.Found("{11111111-2222-3333-4444-555555555555}", "Ascii", 16384, "Guid")
         ];
     }
 
@@ -133,7 +138,7 @@ public sealed class InstallerAnalysisRenderTests
             Assert.False(ById<FrameworkElement>(page, "pnlBreadcrumb").IsVisible);
             var expected = new Dictionary<string, int>
             {
-                ["dgSource"] = 10, ["dgDeployment"] = 4, ["dgModes"] = 2, ["dgPostPatch"] = 4, ["dgMetadata"] = 2, ["dgMsi"] = 4,
+                ["dgSource"] = 12, ["dgDeployment"] = 4, ["dgModes"] = 2, ["dgPostPatch"] = 6, ["dgMetadata"] = 2, ["dgMsi"] = 4,
                 ["dgPayload"] = 7, ["dgInner"] = 3, ["dgFiles"] = 6, ["dgRegistry"] = 3, ["dgStrings"] = 3
             };
             foreach (var id in GridIds)
@@ -243,10 +248,50 @@ public sealed class InstallerAnalysisRenderTests
                 ("btnExtractPayload", 20), ("btnPayloadOpenFolder", 20), ("dgPayload", 140));
             Check(InstallerAnalysisViewModel.InnerTab, "scrollInnerTab", ("btnInnerAnalyze", 20), ("btnInnerExtract", 20), ("btnInnerOpenFolder", 20), ("dgInner", 140));
             Check(InstallerAnalysisViewModel.FilesTab, "scrollFilesTab", ("cboFileFolder", 20), ("txtFileFilter", 20), ("btnFilesHash", 20), ("dgFiles", 140));
-            Check(InstallerAnalysisViewModel.RegistryTab, "scrollRegistryTab", ("txtRegistryFilter", 20), ("btnRegistryCopyRows", 20), ("dgRegistry", 140));
+            Check(InstallerAnalysisViewModel.RegistryTab, "scrollRegistryTab", ("txtRegistryFilter", 20), ("btnRegistryCopyRows", 20), ("pnlRegistryNotes", 20), ("dgRegistry", 140));
             Check(InstallerAnalysisViewModel.StringsTab, "scrollStringsTab", ("txtStringsFilter", 20), ("cboStringsCategory", 20), ("btnCopyStrings", 20), ("dgStrings", 140));
             Pixels(window, ById<FrameworkElement>(page, "tabInstallerAnalysis"), $"IA-{width}x{height}-{theme}");
         }, width, height);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheModesRegistryAndOverviewShowTheContractFieldsAndTheRegistryNotes(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel) =>
+        {
+            static List<string> Headers(DataGrid grid) => grid.Columns.Select(c => (string)c.Header).ToList();
+            var modes = ShowGrid(window, page, viewModel, "dgModes");
+            Assert.Equal(["Mode", "Default", "Switch", "Install command", "Install folder", "Uninstall command", "ARP key", "Hive", "View", "Context"], Headers(modes));
+            Assert.Equal(["Yes", "No"], viewModel.ModeRows.Select(r => r.Default));
+            var source = ShowGrid(window, page, viewModel, "dgSource");
+            Assert.Contains(source.Items.OfType<NameValueRow>(), r => r.Name == "Detection hint");
+            Assert.Contains(source.Items.OfType<NameValueRow>(), r => r.Name == "Requested execution level" && r.Value == "requireAdministrator");
+            Assert.Contains(ShowGrid(window, page, viewModel, "dgPostPatch").Items.OfType<NameValueRow>(), r => r.Name == "Base version" && r.Value == "1.2.0.0");
+
+            var registry = ShowGrid(window, page, viewModel, "dgRegistry");
+            Assert.Equal(["Origin", "Action", "Hive", "Key", "Name", "Value", "Type", "View", "Section", "Condition"], Headers(registry));
+            Assert.Equal(["Write", "Write", "Delete key"], registry.Items.OfType<RegistryRow>().Select(r => r.Action));
+            var notes = ById<FrameworkElement>(page, "pnlRegistryNotes");
+            Assert.True(notes.IsVisible);
+            AssertInside(window, notes, window.ActualHeight, "pnlRegistryNotes");
+            var note = Descendants(notes).OfType<TextBlock>().Single();
+            Assert.StartsWith("The NSIS header uses bzip2", note.Text);
+            Assert.True(note.ActualHeight > note.FontSize * 1.5, "The long registry note does not wrap.");
+            Pixels(window, notes, $"IA-RegistryNotes-{theme}");
+        });
+    }
+
+    [Fact]
+    public void TheRegistryNotesPanelIsHiddenWhenTheReadHasNoNote()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, viewModel) =>
+        {
+            ShowTab(window, viewModel, InstallerAnalysisViewModel.RegistryTab);
+            Assert.False(ById<FrameworkElement>(page, "pnlRegistryNotes").IsVisible);
+            Assert.True(ById<FrameworkElement>(page, "txtRegistryStatus").IsVisible);
+        }, analyze: false);
     }
 
     [Theory]

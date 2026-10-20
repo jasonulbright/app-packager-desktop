@@ -62,14 +62,14 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     public static string DepthLimitMessage(int depth) =>
         $"The drill-down limit of {depth} levels is reached. Use Extract to copy the inner installer to a folder.";
 
-    /// <summary>The bounds every parser of an analysis keeps to.</summary>
-    public static readonly AnalysisLimits DefaultLimits = new(
-        MaxFileBytes: 8L * 1024 * 1024 * 1024,
-        MaxEntries: 100_000,
-        MaxExtractBytes: 8L * 1024 * 1024 * 1024,
-        MaxDepth: 5,
-        Timeout: TimeSpan.FromMinutes(10),
-        MaxStrings: 50_000);
+    public const string PayloadExtractFailedMessage = "The payload could not be extracted. The log has the details.";
+
+    /// <summary>
+    /// The text the status line shows for a failure: the fixed message of an <see cref="InstallerAnalysisException"/>,
+    /// else <paramref name="fallback"/>. The text of any other exception can hold paths and installer content.
+    /// </summary>
+    public static string PlainMessage(Exception? failure, string fallback) =>
+        failure is InstallerAnalysisException { Message.Length: > 0 } plain ? plain.Message : fallback;
 
     private readonly InstallerAnalysisPageServices _services;
     private readonly List<AnalysisFrame> _frames = [];
@@ -97,6 +97,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         public string PayloadMessage { get; set; } = "";
         public Task? PayloadLoad { get; set; }
         public IReadOnlyList<RegistryWrite>? Registry { get; set; }
+        public IReadOnlyList<string> RegistryNotes { get; set; } = [];
         public string RegistryMessage { get; set; } = "";
         public Task? RegistryLoad { get; set; }
         public IReadOnlyList<InterestingString>? Strings { get; set; }
@@ -181,6 +182,10 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     [ObservableProperty] private string _registryFilter = "";
     [ObservableProperty] private string _registryStatus = "";
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRegistryNotes))]
+    private IReadOnlyList<string> _registryNotes = [];
+
     [ObservableProperty] private IReadOnlyList<StringRow> _stringRows = [];
     [ObservableProperty] private StringRow? _selectedString;
     [ObservableProperty] private string _stringsFilter = "";
@@ -208,6 +213,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     public bool HasNotes => Notes.Count > 0;
     public bool HasPostPatch => Report?.PostPatch is not null;
     public bool HasSignature => Report?.Signature is not null;
+    public bool HasRegistryNotes => RegistryNotes.Count > 0;
     public bool HasBreadcrumb => Breadcrumb.Count > 1;
 
     /// <summary>The number of drill-down levels below the installer the user opened.</summary>
@@ -397,7 +403,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         Exception? failure = null;
         try
         {
-            report = await Task.Run(() => _services.Analysis.AnalyzeAsync(path, _services.Limits, progress, operation.Cancel.Token), operation.Cancel.Token);
+            report = await Task.Run(() => _services.Analysis.AnalyzeAsync(path: path, limits: _services.Limits, progress: progress, ct: operation.Cancel.Token), operation.Cancel.Token);
         }
         catch (Exception ex)
         {
@@ -414,7 +420,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         if (report is null)
         {
-            StatusMessage = FailedMessage;
+            StatusMessage = PlainMessage(failure, FailedMessage);
             _services.Log.Warning(LogArea, $"Analysis failed: file={name} error={failure?.GetType().Name}.");
             return null;
         }
@@ -488,6 +494,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         RegistryRows = [];
         SelectedRegistry = null;
         RegistryStatus = "";
+        RegistryNotes = [];
         StringRows = [];
         SelectedString = null;
         StringsStatus = "";
@@ -508,6 +515,8 @@ public partial class InstallerAnalysisViewModel : ObservableObject
                 new("Product code", patch.ProductCode),
                 new("Display name", patch.DisplayName),
                 new("Display version", patch.DisplayVersion),
+                new("Base version", patch.BaseVersion.Length > 0 ? patch.BaseVersion : "Not read"),
+                new("Patch file", patch.PatchFile.Length > 0 ? patch.PatchFile : "Not named"),
                 new("ARP key", patch.ArpKey)
             ]
             : [];
@@ -532,9 +541,11 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             new("File name", report.FileName),
             new("Size", $"{InstallerAnalysisText.Size(report.Size)} ({report.Size.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} bytes)"),
             new("SHA-256", report.Sha256),
-            new("Type", report.Type),
+            new("Type", report.TypeName.Length > 0 ? report.TypeName : report.Type),
             new("Architecture", report.Architecture)
         };
+        if (report.RequestedExecutionLevel.Length > 0) rows.Add(new("Requested execution level", report.RequestedExecutionLevel));
+        if (report.DetectionHint.Length > 0) rows.Add(new("Detection hint", report.DetectionHint));
         if (report.Signature is { } signature)
         {
             rows.Add(new("Signature", signature.Status));
@@ -644,6 +655,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     private void ShowRegistry()
     {
         var frame = Current;
+        RegistryNotes = frame?.RegistryNotes ?? [];
         if (frame?.Registry is not { } writes)
         {
             RegistryRows = [];
@@ -652,7 +664,8 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         var filter = RegistryFilter.Trim();
         var rows = writes.Select(w => new RegistryRow(w)).ToList();
-        RegistryRows = rows.Where(r => filter.Length == 0 || Has(r.FullKey, filter) || Has(r.Name, filter) || Has(r.Value, filter) || Has(r.Origin, filter) || Has(r.Condition, filter)).ToList();
+        RegistryRows = rows.Where(r => filter.Length == 0 || Has(r.FullKey, filter) || Has(r.Name, filter) || Has(r.Value, filter) || Has(r.Origin, filter) || Has(r.Condition, filter)
+            || Has(r.Action, filter) || Has(r.Section, filter)).ToList();
         if (SelectedRegistry is { } selected && !RegistryRows.Contains(selected)) SelectedRegistry = null;
         RegistryStatus = writes.Count == 0 ? "The installer records no registry writes that can be read."
             : RegistryRows.Count == rows.Count ? InstallerAnalysisText.Count(rows.Count, "registry write")
@@ -708,7 +721,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         var operation = Begin("Listing the payload.");
         try
         {
-            var entries = await Task.Run(() => _services.Analysis.ListPayloadAsync(frame.Path, _services.Limits, operation.Cancel.Token), operation.Cancel.Token);
+            var entries = await Task.Run(() => _services.Analysis.ListPayloadAsync(path: frame.Path, limits: _services.Limits, ct: operation.Cancel.Token), operation.Cancel.Token);
             frame.Payload = entries;
             frame.PayloadMessage = "";
             _services.Log.Info(LogArea, $"Listed the payload: entries={entries.Count} innerInstallers={entries.Count(e => string.Equals(e.Kind, "InnerInstaller", StringComparison.OrdinalIgnoreCase))}.");
@@ -719,7 +732,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            frame.PayloadMessage = "The payload could not be listed. The log has the details.";
+            frame.PayloadMessage = PlainMessage(ex, "The payload could not be listed. The log has the details.");
             _services.Log.Warning(LogArea, $"The payload could not be listed ({ex.GetType().Name}).");
         }
         finally
@@ -746,10 +759,11 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         var operation = Begin("Reading the registry settings.");
         try
         {
-            var writes = await Task.Run(() => _services.Analysis.ReadRegistryWritesAsync(frame.Path, _services.Limits, operation.Cancel.Token), operation.Cancel.Token);
-            frame.Registry = writes;
+            var result = await Task.Run(() => _services.Analysis.ReadRegistryAsync(path: frame.Path, limits: _services.Limits, ct: operation.Cancel.Token), operation.Cancel.Token);
+            frame.Registry = result.Writes;
+            frame.RegistryNotes = result.Notes;
             frame.RegistryMessage = "";
-            _services.Log.Info(LogArea, $"Read the registry settings: writes={writes.Count}.");
+            _services.Log.Info(LogArea, $"Read the registry settings: writes={result.Writes.Count} notes={result.Notes.Count}.");
         }
         catch (Exception ex) when (ex is OperationCanceledException || operation.Cancel.IsCancellationRequested)
         {
@@ -757,7 +771,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            frame.RegistryMessage = "The registry settings could not be read. The log has the details.";
+            frame.RegistryMessage = PlainMessage(ex, "The registry settings could not be read. The log has the details.");
             _services.Log.Warning(LogArea, $"The registry settings could not be read ({ex.GetType().Name}).");
         }
         finally
@@ -784,7 +798,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         var operation = Begin("Reading the strings.");
         try
         {
-            var strings = await Task.Run(() => _services.Analysis.ReadStringsAsync(frame.Path, _services.Limits, operation.Cancel.Token), operation.Cancel.Token);
+            var strings = await Task.Run(() => _services.Analysis.ReadStringsAsync(path: frame.Path, limits: _services.Limits, ct: operation.Cancel.Token), operation.Cancel.Token);
             frame.Strings = strings;
             frame.StringsMessage = strings.Count >= _services.Limits.MaxStrings
                 ? $"The list stops at {_services.Limits.MaxStrings.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} strings."
@@ -797,7 +811,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            frame.StringsMessage = "The strings could not be read. The log has the details.";
+            frame.StringsMessage = PlainMessage(ex, "The strings could not be read. The log has the details.");
             _services.Log.Warning(LogArea, $"The strings could not be read ({ex.GetType().Name}).");
         }
         finally
@@ -876,7 +890,8 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         Exception? failure = null;
         try
         {
-            extracted = await Task.Run(() => _services.Analysis.ExtractEntryAsync(frame.Path, entry, session, _services.Limits, operation.Cancel.Token), operation.Cancel.Token);
+            extracted = await Task.Run(() => _services.Analysis.ExtractEntryAsync(path: frame.Path, entry: entry, sessionFolder: session, limits: _services.Limits, ct: operation.Cancel.Token),
+                operation.Cancel.Token);
         }
         catch (Exception ex)
         {
@@ -892,7 +907,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         if (extracted is null)
         {
-            StatusMessage = ExtractFailedMessage;
+            StatusMessage = PlainMessage(failure, ExtractFailedMessage);
             _services.Log.Warning(LogArea, $"An entry could not be extracted ({failure?.GetType().Name}).");
             return null;
         }
@@ -990,7 +1005,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         var operation = Begin($"Computing the SHA-256 of {row.Name}.");
         string? hash = null;
         Exception? failure = null;
-        try { hash = await Task.Run(() => _services.Analysis.ComputeSha256Async(extracted, operation.Cancel.Token), operation.Cancel.Token); }
+        try { hash = await Task.Run(() => _services.Analysis.ComputeSha256Async(path: extracted, ct: operation.Cancel.Token), operation.Cancel.Token); }
         catch (Exception ex) { failure = ex; }
         var cancelled = operation.Cancel.IsCancellationRequested || failure is OperationCanceledException;
         End(operation);
@@ -998,7 +1013,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         if (cancelled) StatusMessage = "The SHA-256 computation was cancelled.";
         else if (hash is null)
         {
-            StatusMessage = "The SHA-256 could not be computed. The log has the details.";
+            StatusMessage = PlainMessage(failure, "The SHA-256 could not be computed. The log has the details.");
             _services.Log.Warning(LogArea, $"The SHA-256 could not be computed ({failure?.GetType().Name}).");
         }
         else StatusMessage = $"SHA-256 of {row.Name}: {hash}";
@@ -1039,27 +1054,27 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     {
         if (FileEntry(parameter) is not ({ } frame, { } row)) return;
         if (PickTarget($"Copy {row.Name} to a folder") is not { } folder) return;
-        var operation = Begin($"Copying {row.Name}.");
-        Exception? failure = null;
-        try { await Task.Run(() => _services.Analysis.ExtractEntryAsync(frame.Path, row.Entry, folder, _services.Limits, operation.Cancel.Token), operation.Cancel.Token); }
-        catch (Exception ex) { failure = ex; }
-        var cancelled = operation.Cancel.IsCancellationRequested || failure is OperationCanceledException;
-        End(operation);
+        var (result, failure, cancelled) = await ExtractToFolderAsync(frame, [row.Entry], folder, $"Copying {row.Name}.");
         if (cancelled) StatusMessage = "The copy was cancelled.";
-        else if (failure is not null)
+        else if (result is null)
         {
-            StatusMessage = ExtractFailedMessage;
-            _services.Log.Warning(LogArea, $"An inner installer could not be copied ({failure.GetType().Name}).");
+            StatusMessage = PlainMessage(failure, ExtractFailedMessage);
+            _services.Log.Warning(LogArea, $"An inner installer could not be copied ({failure?.GetType().Name}).");
+        }
+        else if (result.Files == 0)
+        {
+            StatusMessage = $"{row.Name} was not copied.{SkippedText(result.Skipped)}";
+            _services.Log.Info(LogArea, $"An inner installer was not copied: skipped={result.Skipped.Count}.");
         }
         else
         {
-            LastExtractFolder = folder;
-            StatusMessage = $"Copied {row.Name} to {folder}.";
+            LastExtractFolder = result.Folder;
+            StatusMessage = $"Copied {row.Name} to {result.Folder}.{SkippedText(result.Skipped)}";
             _services.Log.Info(LogArea, "Copied an inner installer to a chosen folder.");
         }
     }
 
-    /// <summary>Extracts every file of the payload to a folder the user chooses; nothing is started.</summary>
+    /// <summary>Extracts every file of the payload to a new folder inside the folder the user chooses; nothing is started.</summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task ExtractPayload()
     {
@@ -1069,48 +1084,54 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             return;
         }
         if (PickTarget("Extract the payload to a folder") is not { } folder) return;
-        await EnsurePayloadAsync();
-        if (frame.Payload is not { } payload)
+        var (result, failure, cancelled) = await ExtractToFolderAsync(frame, null, folder, $"Extracting the payload of {frame.Name}.");
+        if (cancelled) StatusMessage = "The extraction was cancelled.";
+        else if (result is null)
         {
-            StatusMessage = frame.PayloadMessage.Length > 0 ? frame.PayloadMessage : "The payload could not be listed. The log has the details.";
-            return;
+            StatusMessage = PlainMessage(failure, PayloadExtractFailedMessage);
+            _services.Log.Warning(LogArea, $"The payload could not be extracted ({failure?.GetType().Name}).");
         }
-        var files = payload.Where(e => !e.IsDirectory).ToList();
-        if (files.Count == 0)
+        else if (result.Files == 0)
         {
-            StatusMessage = NoPayloadMessage;
-            return;
+            StatusMessage = NoPayloadMessage + SkippedText(result.Skipped);
+            _services.Log.Info(LogArea, $"The payload extraction wrote no file: skipped={result.Skipped.Count}.");
         }
-        var operation = Begin($"Extracting {InstallerAnalysisText.Count(files.Count, "file")}.");
-        var done = 0;
+        else
+        {
+            LastExtractFolder = result.Folder;
+            StatusMessage = $"Extracted {InstallerAnalysisText.Count(result.Files, "file")} ({InstallerAnalysisText.Size(result.Bytes)}) to {result.Folder}.{SkippedText(result.Skipped)}";
+            _services.Log.Info(LogArea, $"Extracted the payload: files={result.Files} skipped={result.Skipped.Count}.");
+        }
+    }
+
+    /// <summary>
+    /// Runs <see cref="IInstallerAnalysisService.ExtractPayloadAsync"/>: the service writes into a new
+    /// '&lt;file name&gt; payload' folder of <paramref name="folder"/> and refuses sandbox and linked folders.
+    /// </summary>
+    private async Task<(PayloadExtractResult? Result, Exception? Failure, bool Cancelled)> ExtractToFolderAsync(AnalysisFrame frame,
+        IReadOnlyList<PayloadEntry>? entries, string folder, string text)
+    {
+        var operation = Begin(text);
+        PayloadExtractResult? result = null;
         Exception? failure = null;
         try
         {
-            foreach (var entry in files)
-            {
-                operation.Cancel.Token.ThrowIfCancellationRequested();
-                operation.Text = $"Extracting file {done + 1} of {files.Count}.";
-                ProgressText = operation.Text;
-                await Task.Run(() => _services.Analysis.ExtractEntryAsync(frame.Path, entry, folder, _services.Limits, operation.Cancel.Token), operation.Cancel.Token);
-                done++;
-            }
+            result = await Task.Run(() => _services.Analysis.ExtractPayloadAsync(path: frame.Path, entries: entries, targetFolder: folder, limits: _services.Limits,
+                ct: operation.Cancel.Token), operation.Cancel.Token);
         }
         catch (Exception ex) { failure = ex; }
         var cancelled = operation.Cancel.IsCancellationRequested || failure is OperationCanceledException;
         End(operation);
-        LastExtractFolder = done > 0 ? folder : LastExtractFolder;
-        if (cancelled) StatusMessage = $"Extracted {done} of {InstallerAnalysisText.Count(files.Count, "file")} to {folder} before the cancel.";
-        else if (failure is not null)
-        {
-            StatusMessage = $"Extracted {done} of {InstallerAnalysisText.Count(files.Count, "file")} to {folder}. The next file could not be extracted. The log has the details.";
-            _services.Log.Warning(LogArea, $"The payload extraction stopped after {done} of {files.Count} files ({failure.GetType().Name}).");
-        }
-        else
-        {
-            StatusMessage = $"Extracted {InstallerAnalysisText.Count(files.Count, "file")} to {folder}.";
-            _services.Log.Info(LogArea, $"Extracted the payload: files={files.Count}.");
-        }
+        return (cancelled ? null : result, failure, cancelled);
     }
+
+    /// <summary>The skipped entries as one plain sentence after the result; the service words each reason.</summary>
+    private static string SkippedText(IReadOnlyList<string> skipped) => skipped.Count switch
+    {
+        0 => "",
+        1 => $" 1 entry was skipped: {skipped[0]}",
+        _ => $" {skipped.Count.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} entries were skipped. The first: {skipped[0]}"
+    };
 
     private bool CanOpenExtractFolder() => LastExtractFolder is not null;
 
@@ -1140,7 +1161,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     private void CopyRegistryRows()
     {
         if (RegistryRows.Count == 0) { StatusMessage = "No registry write is shown."; return; }
-        var lines = RegistryRows.Select(r => string.Join('\t', r.Origin, r.FullKey, r.Name, r.Value, r.Type, r.Condition));
+        var lines = RegistryRows.Select(r => string.Join('\t', r.Origin, r.Action, r.FullKey, r.Name, r.Value, r.Type, r.View, r.Section, r.Condition));
         Copy(string.Join(Environment.NewLine, lines), $"Copied {InstallerAnalysisText.Count(RegistryRows.Count, "registry write")}.");
     }
 
@@ -1217,7 +1238,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         try { path = await Task.Run(write); }
         catch (Exception ex)
         {
-            StatusMessage = $"The {format} report could not be written. The log has the details.";
+            StatusMessage = PlainMessage(ex, $"The {format} report could not be written. The log has the details.");
             _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }

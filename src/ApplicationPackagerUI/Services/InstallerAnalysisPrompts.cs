@@ -133,16 +133,17 @@ public static partial class InstallerAnalysisRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
+            var sandbox = sp.GetRequiredService<IAnalysisSandbox>();
             return new InstallerAnalysisPageServices(
-                sp.GetRequiredService<IInstallerAnalysisService>(),
-                sp.GetRequiredService<IAnalysisSandbox>(),
-                sp.GetRequiredService<IInstallerReportWriter>(),
-                sp.GetRequiredService<IInstallerAnalysisPrompts>(),
-                () => InstallerAnalysisPreferences.Load(settings),
-                choices => InstallerAnalysisPreferences.Save(settings, choices),
-                sp.GetRequiredService<IAppLog>(),
-                InstallerAnalysisViewModel.DefaultLimits,
-                () => Path.Combine(AppDataPaths.Root, "InstallerAnalysis", "Temp"));
+                Analysis: sp.GetRequiredService<IInstallerAnalysisService>(),
+                Sandbox: sandbox,
+                Reports: sp.GetRequiredService<IInstallerReportWriter>(),
+                Prompts: sp.GetRequiredService<IInstallerAnalysisPrompts>(),
+                LoadPreferences: () => InstallerAnalysisPreferences.Load(settings),
+                SavePreferences: choices => InstallerAnalysisPreferences.Save(settings, choices),
+                Log: sp.GetRequiredService<IAppLog>(),
+                Limits: AnalysisLimits.Default,
+                SandboxRoot: () => sandbox.Root is { Length: > 0 } root ? root : InstallerAnalysisFolders.Temp());
         });
         services.AddSingleton<InstallerAnalysisViewModel>();
         services.AddSingleton<InstallerAnalysisPage>();

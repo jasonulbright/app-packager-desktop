@@ -227,11 +227,14 @@
                                       AutomationProperties.AutomationId="dgModes" AutomationProperties.Name="Install modes">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                    <DataGridTextColumn Header="Switch" Binding="{Binding Switch}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Default" Binding="{Binding Default}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Switch" Binding="{Binding Switch}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Install command" Binding="{Binding InstallCommand}" Width="1.5*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Install folder" Binding="{Binding InstallFolder}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Uninstall command" Binding="{Binding UninstallCommand}" Width="1.5*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="ARP key" Binding="{Binding ArpKey}" Width="1.5*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Hive" Binding="{Binding Hive}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="View" Binding="{Binding View}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Context" Binding="{Binding Context}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -311,7 +314,7 @@
                             <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Computes the SHA-256 of the selected entry." AutomationProperties.AutomationId="btnPayloadHash" />
                             <ui:Button Content="Extract payload" Icon="{ui:SymbolIcon FolderArrowRight24}" Command="{Binding ExtractPayloadCommand}" Style="{StaticResource ToolButton}"
-                                       ToolTip="Extracts every file of the payload to a folder you choose." AutomationProperties.AutomationId="btnExtractPayload" />
+                                       ToolTip="Extracts every file of the payload into a new payload folder inside the folder you choose. Nothing is started." AutomationProperties.AutomationId="btnExtractPayload" />
                             <ui:Button Content="Open extracted folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenExtractFolderCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnPayloadOpenFolder" />
                         </WrapPanel>
@@ -354,7 +357,7 @@
                                        Style="{StaticResource ToolButton}" ToolTip="Extracts the selected inner installer to the temporary analysis folder and analyzes it."
                                        AutomationProperties.AutomationId="btnInnerAnalyze" />
                             <ui:Button Content="Extract" Icon="{ui:SymbolIcon FolderArrowRight24}" Command="{Binding ExtractInnerCommand}" Style="{StaticResource ToolButton}"
-                                       ToolTip="Copies the selected inner installer to a folder you choose. Nothing is started." AutomationProperties.AutomationId="btnInnerExtract" />
+                                       ToolTip="Copies the selected inner installer into a new payload folder inside the folder you choose. Nothing is started." AutomationProperties.AutomationId="btnInnerExtract" />
                             <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnInnerExtractTemp" />
                             <ui:Button Content="Copy name" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyNameCommand}" Style="{StaticResource ToolButton}"
@@ -446,8 +449,9 @@
             <TabItem Header="Registry Settings" AutomationProperties.AutomationId="tabRegistry">
                 <ScrollViewer x:Name="scrollRegistryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollRegistryTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollRegistryTab}" MinHeight="300">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollRegistryTab}" MinHeight="400">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" MinHeight="140" />
@@ -464,7 +468,20 @@
                                        ToolTip="Copies every row the filter shows, one tab-separated line per row." AutomationProperties.AutomationId="btnRegistryCopyRows" />
                         </WrapPanel>
                         <TextBlock Grid.Row="1" Text="{Binding RegistryStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRegistryStatus" />
-                        <DataGrid Grid.Row="2" x:Name="dgRegistry" Style="{StaticResource GridBase}" ItemsSource="{Binding RegistryRows}" SelectedItem="{Binding SelectedRegistry}"
+                        <Border Grid.Row="2" Padding="12,6" CornerRadius="6" BorderThickness="1" Margin="0,0,0,8"
+                                BorderBrush="{DynamicResource SystemFillColorCautionBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                Visibility="{Binding HasRegistryNotes, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlRegistryNotes">
+                            <ScrollViewer MaxHeight="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <ItemsControl ItemsSource="{Binding RegistryNotes}" AutomationProperties.Name="Registry notes" AutomationProperties.AutomationId="lstRegistryNotes">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                        <DataGrid Grid.Row="3" x:Name="dgRegistry" Style="{StaticResource GridBase}" ItemsSource="{Binding RegistryRows}" SelectedItem="{Binding SelectedRegistry}"
                                   AutomationProperties.AutomationId="dgRegistry" AutomationProperties.Name="Registry writes">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
@@ -474,12 +491,15 @@
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Origin" Binding="{Binding Origin}" Width="130" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Hive" Binding="{Binding Hive}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="3*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="3*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Condition" Binding="{Binding Condition}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="View" Binding="{Binding View}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Section" Binding="{Binding Section}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Condition" Binding="{Binding Condition}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>

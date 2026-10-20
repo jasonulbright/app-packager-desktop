@@ -63,7 +63,7 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
         var viewModel = await _h.OpenPageAsync();
         var path = _h.Installer();
         _h.Service.Reports[path] = FakeInstallerAnalysisService.Report(path, notes: ["The NSIS header uses bzip2 and is not decoded."],
-            postPatch: new EffectiveDetection("{AAAA}", "Contoso Tool", "1.2.4", @"HKLM\...\{AAAA}", "The patch raises the version."));
+            postPatch: new EffectiveDetection(ProductCode: "{AAAA}", DisplayName: "Contoso Tool", DisplayVersion: "1.2.4", ArpKey: @"HKLM\...\{AAAA}", Explanation: "The patch raises the version."));
 
         await viewModel.OpenAsync("  \"" + path + "\" ");
 
@@ -94,8 +94,8 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     public async Task ThePayloadRegistryAndStringsLoadWhenTheirTabFirstShowsAndOnlyOnce()
     {
         _h.Service.Payload = InstallerAnalysisHarness.SamplePayload;
-        _h.Service.Registry = [new("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso", "Version", "1.2.3", "REG_SZ", "NOT Installed")];
-        _h.Service.Strings = [new("https://contoso.example/update", "Ascii", 4096, "Url"), new(@"C:\Program Files\Contoso", "Utf16", 8192, "Path")];
+        _h.Service.Registry = [FakeInstallerAnalysisService.Write("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso", "Version", "1.2.3", condition: "NOT Installed")];
+        _h.Service.Strings = [FakeInstallerAnalysisService.Found("https://contoso.example/update", "Ascii", 4096, "Url"), FakeInstallerAnalysisService.Found(@"C:\Program Files\Contoso", "Utf16", 8192, "Path")];
         var (viewModel, _) = await AnalyzedAsync();
         Assert.Equal(0, _h.Service.PayloadCalls + _h.Service.RegistryCalls + _h.Service.StringsCalls);
         Assert.Equal(InstallerAnalysisViewModel.LoadOnShowMessage, viewModel.RegistryStatus);
@@ -278,8 +278,8 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     public async Task TheLogNamesTheFileButNeverItsFolderOrItsContent()
     {
         _h.Service.Payload = InstallerAnalysisHarness.SamplePayload;
-        _h.Service.Registry = [new("NsisScript", "HKLM", @"SOFTWARE\Secret", "Token", "s3cr3t-value", "REG_SZ", "")];
-        _h.Service.Strings = [new("password=hunter2", "Ascii", 1, "Other")];
+        _h.Service.Registry = [FakeInstallerAnalysisService.Write("NsisScript", "HKLM", @"SOFTWARE\Secret", "Token", "s3cr3t-value")];
+        _h.Service.Strings = [FakeInstallerAnalysisService.Found("password=hunter2", "Ascii", 1, "Other")];
         var (viewModel, path) = await AnalyzedAsync();
         foreach (var tab in new[] { InstallerAnalysisViewModel.PayloadTab, InstallerAnalysisViewModel.RegistryTab, InstallerAnalysisViewModel.StringsTab })
             viewModel.SelectedTabIndex = tab;
@@ -400,6 +400,21 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task ExtractToTempShowsThePlainServiceMessageAndNeverTheTextOfAnotherFailure()
+    {
+        var viewModel = await WithPayloadAsync();
+        var row = viewModel.PayloadRows.Single(r => r.Name == "contoso.exe");
+        _h.Service.ExtractFailure = new InstallerAnalysisException("The entry is larger than the extraction limit; it was not extracted.");
+        await viewModel.ExtractToTempCommand.ExecuteAsync(row);
+        Assert.Equal("The entry is larger than the extraction limit; it was not extracted.", viewModel.StatusMessage);
+        _h.Service.ExtractFailure = new IOException(@"disk full at C:\Users\op\secret");
+        await viewModel.ExtractToTempCommand.ExecuteAsync(row);
+        Assert.Equal(InstallerAnalysisViewModel.ExtractFailedMessage, viewModel.StatusMessage);
+        Assert.Null(viewModel.LastExtractFolder);
+        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("secret") || e.Message.Contains("extraction limit"));
+    }
+
+    [Fact]
     public async Task TheHashCanBeCancelled()
     {
         var viewModel = await WithPayloadAsync();
@@ -461,24 +476,75 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ExtractPayloadWritesEveryFileToTheChosenFolderAndAFailureNamesTheCount()
+    public async Task ExtractPayloadAsksTheServiceForEveryEntryAndOpensTheNewPayloadFolder()
     {
         var viewModel = await WithPayloadAsync();
         var folder = Directory.CreateDirectory(Path.Combine(_h.Root, "out")).FullName;
         _h.Prompts.Folder = folder;
         await viewModel.ExtractPayloadCommand.ExecuteAsync(null);
-        Assert.Equal(4, _h.Service.Extractions.Count);
-        Assert.All(_h.Service.Extractions, e => Assert.Equal(folder, e.Folder));
-        Assert.DoesNotContain(_h.Service.Extractions, e => e.Entry.IsDirectory);
-        Assert.Equal($"Extracted 4 files to {folder}.", viewModel.StatusMessage);
-        Assert.Equal(folder, viewModel.LastExtractFolder);
-        Assert.Empty(_h.Sandbox.Created);
 
-        _h.Service.Extractions.Clear();
-        _h.Service.ExtractFailAfter = 2;
+        var call = Assert.Single(_h.Service.PayloadExtractions);
+        Assert.Null(call.Entries);
+        Assert.Equal(folder, call.Target);
+        Assert.Empty(_h.Service.Extractions);
+        Assert.Empty(_h.Sandbox.Created);
+        var payloadFolder = Path.Combine(folder, "setup payload");
+        Assert.True(File.Exists(Path.Combine(payloadFolder, @"app\contoso.exe")));
+        Assert.Equal($"Extracted 4 files (28 MB) to {payloadFolder}.", viewModel.StatusMessage);
+        Assert.Equal(payloadFolder, viewModel.LastExtractFolder);
+        viewModel.OpenExtractFolderCommand.Execute(null);
+        Assert.Equal([payloadFolder], _h.Prompts.OpenedFolders);
+    }
+
+    [Fact]
+    public async Task ExtractPayloadNeedsNoPayloadListAndNamesTheSkippedEntries()
+    {
+        var (viewModel, _) = await AnalyzedAsync();
+        _h.Service.Payload = InstallerAnalysisHarness.SamplePayload;
+        _h.Service.PayloadExtractSkipped = [@"..\evil.dll: The path leaves the target folder.", "b: The entry is a symbolic link."];
+        _h.Prompts.Folder = Directory.CreateDirectory(Path.Combine(_h.Root, "out")).FullName;
         await viewModel.ExtractPayloadCommand.ExecuteAsync(null);
-        Assert.Equal($"Extracted 2 of 4 files to {folder}. The next file could not be extracted. The log has the details.", viewModel.StatusMessage);
-        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("disk full"));
+
+        Assert.Equal(0, _h.Service.PayloadCalls);
+        Assert.EndsWith(@" 2 entries were skipped. The first: ..\evil.dll: The path leaves the target folder.", viewModel.StatusMessage);
+        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("evil"));
+
+        _h.Service.Payload = [];
+        _h.Service.PayloadExtractSkipped = [];
+        await viewModel.ExtractPayloadCommand.ExecuteAsync(null);
+        Assert.Equal(InstallerAnalysisViewModel.NoPayloadMessage, viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ExtractPayloadShowsTheServiceMessageOfAPlainFailureAndNeverTheTextOfAnyOtherFailure()
+    {
+        var viewModel = await WithPayloadAsync();
+        _h.Prompts.Folder = Directory.CreateDirectory(Path.Combine(_h.Root, "out")).FullName;
+        _h.Service.PayloadExtractFailure = new InstallerAnalysisException("7-Zip is not installed; the payload of this installer type is listed with 7-Zip. Install 7-Zip to list and extract it.");
+        await viewModel.ExtractPayloadCommand.ExecuteAsync(null);
+        Assert.Equal("7-Zip is not installed; the payload of this installer type is listed with 7-Zip. Install 7-Zip to list and extract it.", viewModel.StatusMessage);
+
+        _h.Service.PayloadExtractFailure = new IOException(@"disk full at C:\Users\op\secret");
+        await viewModel.ExtractPayloadCommand.ExecuteAsync(null);
+        Assert.Equal(InstallerAnalysisViewModel.PayloadExtractFailedMessage, viewModel.StatusMessage);
+        Assert.Null(viewModel.LastExtractFolder);
+        Assert.Contains(_h.Log.Entries, e => e.Message.Contains("IOException"));
+        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("secret") || e.Message.Contains("7-Zip is not installed"));
+    }
+
+    [Fact]
+    public async Task ExtractPayloadCanBeCancelled()
+    {
+        var viewModel = await WithPayloadAsync();
+        _h.Prompts.Folder = Directory.CreateDirectory(Path.Combine(_h.Root, "out")).FullName;
+        _h.Service.PayloadExtractGate = new TaskCompletionSource();
+        var running = viewModel.ExtractPayloadCommand.ExecuteAsync(null);
+        await Wait.UntilAsync(() => _h.Service.PayloadExtractions.Count == 1 && viewModel.IsBusy, "the extraction");
+        Assert.Equal("Extracting the payload of setup.exe.", viewModel.ProgressText);
+        viewModel.CancelCommand.Execute(null);
+        await running;
+        Assert.Equal("The extraction was cancelled.", viewModel.StatusMessage);
+        Assert.False(viewModel.IsBusy);
     }
 
     [Fact]
@@ -489,16 +555,120 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
         viewModel.SelectedInner = viewModel.InnerRows.Single(r => r.Name == "setup.msi");
         _h.Prompts.Folder = null;
         await viewModel.ExtractInnerCommand.ExecuteAsync(null);
-        Assert.Empty(_h.Service.Extractions);
+        Assert.Empty(_h.Service.PayloadExtractions);
 
         var folder = Directory.CreateDirectory(Path.Combine(_h.Root, "inner-out")).FullName;
         _h.Prompts.Folder = folder;
         await viewModel.ExtractInnerCommand.ExecuteAsync(null);
-        var extraction = Assert.Single(_h.Service.Extractions);
-        Assert.Equal(folder, extraction.Folder);
-        Assert.Equal("setup.msi", extraction.Entry.Path);
-        Assert.Equal($"Copied setup.msi to {folder}.", viewModel.StatusMessage);
+        var call = Assert.Single(_h.Service.PayloadExtractions);
+        Assert.Equal(folder, call.Target);
+        Assert.Same(viewModel.SelectedInner.Entry, Assert.Single(call.Entries!));
+        Assert.Empty(_h.Service.Extractions);
+        Assert.Empty(_h.Sandbox.Created);
+        var payloadFolder = Path.Combine(folder, "setup payload");
+        Assert.True(File.Exists(Path.Combine(payloadFolder, "setup.msi")));
+        Assert.Equal($"Copied setup.msi to {payloadFolder}.", viewModel.StatusMessage);
+        Assert.Equal(payloadFolder, viewModel.LastExtractFolder);
         Assert.Equal(["Copy setup.msi to a folder", "Copy setup.msi to a folder"], _h.Prompts.FolderTitles);
+    }
+
+    [Fact]
+    public async Task ExtractOfAnInnerInstallerThatTheServiceSkipsSaysSoAndAFailureShowsOnlyAPlainMessage()
+    {
+        var viewModel = await WithPayloadAsync();
+        viewModel.SelectedTabIndex = InstallerAnalysisViewModel.InnerTab;
+        viewModel.SelectedInner = viewModel.InnerRows.Single(r => r.Name == "setup.msi");
+        _h.Prompts.Folder = Directory.CreateDirectory(Path.Combine(_h.Root, "inner-out")).FullName;
+        _h.Service.PayloadExtractWritesNothing = true;
+        _h.Service.PayloadExtractSkipped = ["setup.msi: The name is a device name."];
+        await viewModel.ExtractInnerCommand.ExecuteAsync(null);
+        Assert.Equal("setup.msi was not copied. 1 entry was skipped: setup.msi: The name is a device name.", viewModel.StatusMessage);
+        Assert.Null(viewModel.LastExtractFolder);
+
+        _h.Service.PayloadExtractFailure = new UnauthorizedAccessException(@"Access to C:\Users\op\secret denied");
+        await viewModel.ExtractInnerCommand.ExecuteAsync(null);
+        Assert.Equal(InstallerAnalysisViewModel.ExtractFailedMessage, viewModel.StatusMessage);
+        _h.Service.PayloadExtractFailure = new InstallerAnalysisException("The target folder is a junction or symbolic link; choose another folder.");
+        await viewModel.ExtractInnerCommand.ExecuteAsync(null);
+        Assert.Equal("The target folder is a junction or symbolic link; choose another folder.", viewModel.StatusMessage);
+        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("secret"));
+    }
+
+    [Fact]
+    public async Task APlainServiceFailureIsShownAsItIsOnEveryViewAndAnyOtherFailureGivesTheFixedMessage()
+    {
+        var viewModel = await _h.OpenPageAsync();
+        _h.Service.AnalyzeFailure = new InstallerAnalysisException("The file is larger than the analysis limit of 8 GB.");
+        await viewModel.OpenAsync(_h.Installer());
+        Assert.Equal("The file is larger than the analysis limit of 8 GB.", viewModel.StatusMessage);
+
+        _h.Service.AnalyzeFailure = null;
+        _h.Service.PayloadFailure = new InstallerAnalysisException("7-Zip cannot open this file as an archive; it has no payload to list.");
+        _h.Service.RegistryFailure = new InvalidDataException(@"bad table at C:\Users\op\secret");
+        await viewModel.OpenAsync(_h.Installer());
+        viewModel.SelectedTabIndex = InstallerAnalysisViewModel.PayloadTab;
+        viewModel.SelectedTabIndex = InstallerAnalysisViewModel.RegistryTab;
+        await Wait.UntilAsync(() => !viewModel.IsBusy && viewModel.RegistryStatus.Contains("could not"), "the failures");
+        Assert.Equal("7-Zip cannot open this file as an archive; it has no payload to list.", viewModel.InnerStatus);
+        Assert.Equal("The registry settings could not be read. The log has the details.", viewModel.RegistryStatus);
+        Assert.DoesNotContain(_h.Log.Entries, e => e.Message.Contains("secret") || e.Message.Contains("7-Zip cannot"));
+    }
+
+    [Fact]
+    public async Task TheRegistryTabShowsTheReadNotesAndTheActionViewAndSectionOfEachChange()
+    {
+        _h.Service.Registry =
+        [
+            FakeInstallerAnalysisService.Write("NsisScript", "HKLM", @"Software\Contoso", "Version", "1.2.3") with { View = "32", Section = "Main" },
+            FakeInstallerAnalysisService.Write("MsiRegistryTable", "HKCU", @"Software\Contoso\Old", "", "") with { Action = "delete key", Section = "RegComponent" }
+        ];
+        _h.Service.RegistryNotes = ["The NSIS header uses bzip2 and is not decoded; registry changes may be missing."];
+        var (viewModel, _) = await AnalyzedAsync();
+        Assert.False(viewModel.HasRegistryNotes);
+        viewModel.SelectedTabIndex = InstallerAnalysisViewModel.RegistryTab;
+        await Wait.UntilAsync(() => viewModel.RegistryRows.Count == 2 && !viewModel.IsBusy, "the registry rows");
+
+        Assert.True(viewModel.HasRegistryNotes);
+        Assert.Equal(["The NSIS header uses bzip2 and is not decoded; registry changes may be missing."], viewModel.RegistryNotes);
+        Assert.Equal(["Write", "Delete key"], viewModel.RegistryRows.Select(r => r.Action));
+        Assert.Equal(["32-bit", ""], viewModel.RegistryRows.Select(r => r.View));
+        Assert.Equal(["Main", "RegComponent"], viewModel.RegistryRows.Select(r => r.Section));
+        viewModel.RegistryFilter = "regcomp";
+        Assert.Single(viewModel.RegistryRows);
+        viewModel.RegistryFilter = "";
+        viewModel.CopyRegistryRowsCommand.Execute(null);
+        Assert.Equal(string.Join('\t', "NSIS script", "Write", @"HKLM\Software\Contoso", "Version", "1.2.3", "REG_SZ", "32-bit", "Main", ""),
+            _h.Prompts.Copied.Single().Split(Environment.NewLine)[0]);
+
+        await viewModel.OpenAsync(_h.Installer("next.exe"));
+        Assert.False(viewModel.HasRegistryNotes);
+    }
+
+    [Fact]
+    public async Task TheOverviewShowsTheTypeNameExecutionLevelDetectionHintModeDetailsAndPatchBase()
+    {
+        var viewModel = await _h.OpenPageAsync();
+        var path = _h.Installer("update.msp");
+        _h.Service.Reports[path] = FakeInstallerAnalysisService.Report(path, "MSP",
+            postPatch: new EffectiveDetection(ProductCode: "{AAAA}", DisplayName: "Contoso Tool", DisplayVersion: "1.2.4", ArpKey: @"HKLM\...\{AAAA}", Explanation: "From the patch.")
+            { BaseVersion = "1.2.0", PatchFile = "update.msp" });
+        await viewModel.OpenAsync(path);
+
+        Assert.Equal("Nullsoft Scriptable Install System", viewModel.SourceRows.Single(r => r.Name == "Type").Value);
+        Assert.Equal("requireAdministrator", viewModel.SourceRows.Single(r => r.Name == "Requested execution level").Value);
+        Assert.StartsWith(@"Registry: HKLM\SOFTWARE", viewModel.SourceRows.Single(r => r.Name == "Detection hint").Value);
+        Assert.Equal(["Yes", "No"], viewModel.ModeRows.Select(m => m.Default));
+        Assert.Equal(["64-bit", ""], viewModel.ModeRows.Select(m => m.View));
+        Assert.Equal(["setup.exe /S /AllUsers", "setup.exe /S /CurrentUser"], viewModel.ModeRows.Select(m => m.InstallCommand));
+        Assert.Contains(viewModel.PostPatchRows, r => r.Name == "Base version" && r.Value == "1.2.0");
+        Assert.Contains(viewModel.PostPatchRows, r => r.Name == "Patch file" && r.Value == "update.msp");
+
+        var plain = _h.Installer("plain.exe");
+        var report = FakeInstallerAnalysisService.Report(plain);
+        _h.Service.Reports[plain] = report with { TypeName = "", DetectionHint = "", RequestedExecutionLevel = "" };
+        await viewModel.OpenAsync(plain);
+        Assert.Equal("NSIS", viewModel.SourceRows.Single(r => r.Name == "Type").Value);
+        Assert.DoesNotContain(viewModel.SourceRows, r => r.Name is "Requested execution level" or "Detection hint");
     }
 
     [Fact]
@@ -516,7 +686,7 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     public async Task TheExportsReadTheViewsTheyNeedAndTheOpenFolderButtonOpensTheLastReportFolder()
     {
         _h.Service.Payload = InstallerAnalysisHarness.SamplePayload;
-        _h.Service.Registry = [new("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso", "Version", "1.2.3", "REG_SZ", "")];
+        _h.Service.Registry = [FakeInstallerAnalysisService.Write("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso", "Version", "1.2.3")];
         var (viewModel, _) = await AnalyzedAsync();
         Assert.False(viewModel.OpenReportsFolderCommand.CanExecute(null));
 
@@ -712,10 +882,10 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     {
         _h.Service.Registry =
         [
-            new("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso", "", "1", "REG_DWORD", ""),
-            new("NsisScript", "HKCU", @"Software\Contoso", "Path", @"C:\Contoso", "REG_SZ", "")
+            FakeInstallerAnalysisService.Write("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso", "", "1", "REG_DWORD"),
+            FakeInstallerAnalysisService.Write("NsisScript", "HKCU", @"Software\Contoso", "Path", @"C:\Contoso")
         ];
-        _h.Service.Strings = [new("one", "Ascii", 0, "Other"), new("two", "Ascii", 4, "Other")];
+        _h.Service.Strings = [FakeInstallerAnalysisService.Found("one", "Ascii", 0, "Other"), FakeInstallerAnalysisService.Found("two", "Ascii", 4, "Other")];
         var (viewModel, _) = await AnalyzedAsync();
         viewModel.SelectedTabIndex = InstallerAnalysisViewModel.RegistryTab;
         viewModel.SelectedTabIndex = InstallerAnalysisViewModel.StringsTab;

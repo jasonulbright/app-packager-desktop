@@ -23,7 +23,7 @@ internal sealed class FakeInstallerAnalysisService : IInstallerAnalysisService
     public TaskCompletionSource? ExtractGate { get; set; }
     public List<(string Path, PayloadEntry Entry, string Folder)> Extractions { get; } = [];
     public List<string> Progress { get; } = [];
-    public int ExtractFailAfter { get; set; } = int.MaxValue;
+    public Exception? ExtractFailure { get; set; }
 
     /// <summary>Where an extracted entry lands; the default is a real file in the folder.</summary>
     public Func<PayloadEntry, string, string> ExtractTo { get; set; } = (entry, folder) =>
@@ -40,22 +40,50 @@ internal sealed class FakeInstallerAnalysisService : IInstallerAnalysisService
     public int StringsCalls => Count("strings");
 
     public static AnalysisReport Report(string path, string type = "NSIS", IReadOnlyList<string>? notes = null, EffectiveDetection? postPatch = null) => new(
-        path, Path.GetFileName(path), 1_234_567, new string('A', 64), type, "x64",
-        new SignatureFact("Valid", "CN=Contoso Ltd", "CN=Contoso CA", "0123456789ABCDEF0123456789ABCDEF01234567", true),
+        Path: path,
+        FileName: Path.GetFileName(path),
+        Size: 1_234_567,
+        Sha256: new string('A', 64),
+        Type: type,
+        Architecture: "x64",
+        Signature: new SignatureFact(Status: "Valid", Subject: "CN=Contoso Ltd", Issuer: "CN=Contoso CA", Thumbprint: "0123456789ABCDEF0123456789ABCDEF01234567", Timestamped: true),
+        Deployment:
         [
             new("DisplayName", "Contoso Tool", "Confirmed", "NSIS script"),
             new("DisplayVersion", "1.2.3", "Predicted", "File version"),
             new("Publisher", "", "None", "")
         ],
+        Modes:
         [
-            new("PerMachine", "/S /AllUsers", @"C:\Program Files\Contoso", @"""C:\Program Files\Contoso\uninst.exe"" /S", @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Contoso", "HKLM", "System"),
-            new("PerUser", "/S /CurrentUser", @"%LOCALAPPDATA%\Programs\Contoso", @"""%LOCALAPPDATA%\Programs\Contoso\uninst.exe"" /S", @"HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Contoso", "HKCU", "User")
+            new InstallMode(Name: "PerMachine", Switch: "/S /AllUsers", InstallFolder: @"C:\Program Files\Contoso", UninstallCommand: @"""C:\Program Files\Contoso\uninst.exe"" /S",
+                ArpKey: @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Contoso", Hive: "HKLM", Context: "System")
+            { IsDefault = true, View = "64", InstallCommand = "setup.exe /S /AllUsers" },
+            new InstallMode(Name: "PerUser", Switch: "/S /CurrentUser", InstallFolder: @"%LOCALAPPDATA%\Programs\Contoso", UninstallCommand: @"""%LOCALAPPDATA%\Programs\Contoso\uninst.exe"" /S",
+                ArpKey: @"HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Contoso", Hive: "HKCU", Context: "User")
+            { InstallCommand = "setup.exe /S /CurrentUser" }
         ],
-        [new MetadataBlock("NSIS script", [new("Compression", "LZMA", "Confirmed", "Header"), new("Unicode", "Yes", "Confirmed", "Header")])],
-        [new("ProductName", "Contoso Tool", "Confirmed", "Property table"), new("ProductCode", "{11111111-2222-3333-4444-555555555555}", "Confirmed", "Property table"),
-         new("ALLUSERS", "1", "Confirmed", "Property table")],
-        postPatch,
-        notes ?? []);
+        Metadata: [new MetadataBlock(Title: "NSIS script", Facts: [new("Compression", "LZMA", "Confirmed", "Header"), new("Unicode", "Yes", "Confirmed", "Header")])],
+        MsiProperties:
+        [
+            new("ProductName", "Contoso Tool", "Confirmed", "Property table"), new("ProductCode", "{11111111-2222-3333-4444-555555555555}", "Confirmed", "Property table"),
+            new("ALLUSERS", "1", "Confirmed", "Property table")
+        ],
+        PostPatch: postPatch,
+        Notes: notes ?? [])
+    {
+        TypeName = "Nullsoft Scriptable Install System",
+        DetectionHint = @"Registry: HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Contoso DisplayVersion >= 1.2.3",
+        RequestedExecutionLevel = "requireAdministrator"
+    };
+
+    public static PayloadEntry Entry(string path, long size, bool isDirectory = false, string kind = "File", string innerType = "") =>
+        new(Path: path, Size: size, IsDirectory: isDirectory, Kind: kind, InnerType: innerType);
+
+    public static RegistryWrite Write(string origin, string hive, string key, string name, string value, string valueType = "REG_SZ", string condition = "") =>
+        new(Origin: origin, Hive: hive, Key: key, Name: name, Value: value, ValueType: valueType, Condition: condition);
+
+    public static InterestingString Found(string text, string encoding, long offset, string category) =>
+        new(Text: text, Encoding: encoding, Offset: offset, Category: category);
 
     public Task<AnalysisReport> AnalyzeAsync(string path, AnalysisLimits limits, IProgress<string> progress, CancellationToken ct) => Run("analyze", path, ct, async () =>
     {
@@ -76,19 +104,45 @@ internal sealed class FakeInstallerAnalysisService : IInstallerAnalysisService
     public Task<IReadOnlyList<RegistryWrite>> ReadRegistryWritesAsync(string path, AnalysisLimits limits, CancellationToken ct) =>
         Run("registry", path, ct, () => Task.FromResult(Registry));
 
+    public IReadOnlyList<string> RegistryNotes { get; set; } = [];
+    public Exception? RegistryFailure { get; set; }
+
+    public Task<RegistryReadResult> ReadRegistryAsync(string path, AnalysisLimits limits, CancellationToken ct) => Run("registry", path, ct, () =>
+        RegistryFailure is not null ? Task.FromException<RegistryReadResult>(RegistryFailure) : Task.FromResult(new RegistryReadResult(Writes: Registry, Notes: RegistryNotes)));
+
+    public List<(string Path, IReadOnlyList<PayloadEntry>? Entries, string Target)> PayloadExtractions { get; } = [];
+    public Exception? PayloadExtractFailure { get; set; }
+    public TaskCompletionSource? PayloadExtractGate { get; set; }
+    public IReadOnlyList<string> PayloadExtractSkipped { get; set; } = [];
+    public bool PayloadExtractWritesNothing { get; set; }
+
+    /// <summary>Writes each wanted file under a new '&lt;file name&gt; payload' folder of the target, as the real service does.</summary>
+    public Task<PayloadExtractResult> ExtractPayloadAsync(string path, IReadOnlyList<PayloadEntry>? entries, string targetFolder, AnalysisLimits limits, CancellationToken ct) =>
+        Run("extractpayload", path, ct, async () =>
+        {
+            lock (PayloadExtractions) PayloadExtractions.Add((path, entries, targetFolder));
+            if (PayloadExtractGate is not null) await PayloadExtractGate.Task.WaitAsync(ct);
+            if (PayloadExtractFailure is not null) throw PayloadExtractFailure;
+            var folder = Path.Combine(targetFolder, Path.GetFileNameWithoutExtension(path) + " payload");
+            Directory.CreateDirectory(folder);
+            var files = PayloadExtractWritesNothing ? new List<PayloadEntry>() : (entries ?? Payload).Where(e => !e.IsDirectory).ToList();
+            foreach (var entry in files)
+            {
+                var file = Path.Combine(folder, entry.Path);
+                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                File.WriteAllText(file, "extracted " + entry.Path);
+            }
+            return new PayloadExtractResult(Folder: folder, Files: files.Count, Bytes: files.Sum(f => f.Size), Skipped: PayloadExtractSkipped);
+        });
+
     public Task<IReadOnlyList<InterestingString>> ReadStringsAsync(string path, AnalysisLimits limits, CancellationToken ct) =>
         Run("strings", path, ct, () => Task.FromResult(Strings));
 
     public Task<string> ExtractEntryAsync(string path, PayloadEntry entry, string sessionFolder, AnalysisLimits limits, CancellationToken ct) => Run("extract", path, ct, async () =>
     {
         if (ExtractGate is not null) await ExtractGate.Task.WaitAsync(ct);
-        int done;
-        lock (Extractions)
-        {
-            done = Extractions.Count;
-            Extractions.Add((path, entry, sessionFolder));
-        }
-        if (done >= ExtractFailAfter) throw new IOException("disk full at " + sessionFolder);
+        lock (Extractions) Extractions.Add((path, entry, sessionFolder));
+        if (ExtractFailure is not null) throw ExtractFailure;
         return ExtractTo(entry, sessionFolder);
     });
 
@@ -128,6 +182,7 @@ internal sealed class FakeAnalysisSandbox(string root) : IAnalysisSandbox
 
     public void ReleaseAll() => ReleaseAllCalls++;
     public void CleanOldSessions(TimeSpan olderThan) => Cleans.Add(olderThan);
+    public string Root => root;
 }
 
 internal sealed class FakeInstallerReportWriter(string reportsFolder) : IInstallerReportWriter
@@ -222,7 +277,7 @@ internal sealed class InstallerAnalysisHarness : IDisposable
     public InstallerAnalysisSettings? Saved { get; set; }
     public int PreferenceReads { get; private set; }
     public int SaveCount { get; private set; }
-    public AnalysisLimits Limits { get; set; } = InstallerAnalysisViewModel.DefaultLimits;
+    public AnalysisLimits Limits { get; set; } = AnalysisLimits.Default;
 
     public InstallerAnalysisHarness()
     {
@@ -263,11 +318,11 @@ internal sealed class InstallerAnalysisHarness : IDisposable
 
     public static readonly PayloadEntry[] SamplePayload =
     [
-        new("app", 0, true, "File", ""),
-        new(@"app\contoso.exe", 2048, false, "File", ""),
-        new(@"app\readme.txt", 10, false, "File", ""),
-        new(@"redist\vc_redist.x64.exe", 25_000_000, false, "InnerInstaller", "WiX Burn"),
-        new("setup.msi", 4_000_000, false, "InnerInstaller", "MSI")
+        FakeInstallerAnalysisService.Entry("app", 0, isDirectory: true),
+        FakeInstallerAnalysisService.Entry(@"app\contoso.exe", 2048),
+        FakeInstallerAnalysisService.Entry(@"app\readme.txt", 10),
+        FakeInstallerAnalysisService.Entry(@"redist\vc_redist.x64.exe", 25_000_000, kind: "InnerInstaller", innerType: "WiX Burn"),
+        FakeInstallerAnalysisService.Entry("setup.msi", 4_000_000, kind: "InnerInstaller", innerType: "MSI")
     ];
 
     public void Dispose()
