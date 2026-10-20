@@ -60,6 +60,21 @@ public sealed class PayloadExtractionTests : IDisposable
     }
 
     [Fact]
+    public async Task ASevenZipSfxAnalyzedWithout7ZipSaysThePostPatchTargetWasNotRead()
+    {
+        var path = _temp.PathOf("sfx.exe");
+        var bytes = new byte[4096];
+        bytes[0] = (byte)'M'; bytes[1] = (byte)'Z';
+        new byte[] { 0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C }.CopyTo(bytes, 2048);
+        File.WriteAllBytes(path, bytes);
+
+        var report = await _noSevenZip.AnalyzeAsync(path, Limits, new Progress<string>(), CancellationToken.None);
+
+        Assert.Equal("SevenZipSfx", report.Type);
+        Assert.Contains(report.Notes, n => n.StartsWith("7-Zip was not found", StringComparison.Ordinal) && n.Contains("post-patch target"));
+    }
+
+    [Fact]
     public async Task ThePayloadReasonNamesInnoSetupAndAMissing7ZipAndNothingForAnMsi()
     {
         Assert.Equal(PayloadNotListedException.InnoSetupMessage, await _noSevenZip.PayloadUnavailableReasonAsync(Fixture("inno-admin-670.bin"), Limits, CancellationToken.None));

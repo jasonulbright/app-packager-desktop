@@ -180,6 +180,11 @@ public sealed partial class InstallerAnalysisService
             listed(payload);
         }
         catch (OperationCanceledException) { throw; }
+        catch (SevenZipNotFoundException) when (engine is "SevenZipSfx" or "WinRarSfx")
+        {
+            notes.Add("7-Zip was not found, so the payload was not listed; an inner patch and its post-patch target were not read.");
+            return null;
+        }
         catch (Exception)
         {
             return null;
