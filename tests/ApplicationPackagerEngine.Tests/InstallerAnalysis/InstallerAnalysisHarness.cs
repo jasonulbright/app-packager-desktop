@@ -98,7 +98,7 @@ internal sealed class FakeInstallerAnalysisService : IInstallerAnalysisService
     {
         if (PayloadGate is not null) await PayloadGate.Task.WaitAsync(ct);
         if (PayloadFailure is not null) throw PayloadFailure;
-        return Payload;
+        return PayloadByPath.TryGetValue(path, out var own) ? own : Payload;
     });
 
     public Task<IReadOnlyList<RegistryWrite>> ReadRegistryWritesAsync(string path, AnalysisLimits limits, CancellationToken ct) =>
@@ -116,15 +116,26 @@ internal sealed class FakeInstallerAnalysisService : IInstallerAnalysisService
     public IReadOnlyList<string> PayloadExtractSkipped { get; set; } = [];
     public bool PayloadExtractWritesNothing { get; set; }
 
+    /// <summary>Creates the payload folder and one file before the gate and the failure, as a run stopped part way.</summary>
+    public bool PayloadExtractLeavesPartial { get; set; }
+
     /// <summary>Writes each wanted file under a new '&lt;file name&gt; payload' folder of the target, as the real service does.</summary>
     public Task<PayloadExtractResult> ExtractPayloadAsync(string path, IReadOnlyList<PayloadEntry>? entries, string targetFolder, AnalysisLimits limits, CancellationToken ct) =>
         Run("extractpayload", path, ct, async () =>
         {
             lock (PayloadExtractions) PayloadExtractions.Add((path, entries, targetFolder));
+            var baseName = Path.GetFileNameWithoutExtension(path);
+            var folder = Path.Combine(targetFolder, baseName + " payload");
+            for (var n = 2; Directory.Exists(folder); n++) folder = Path.Combine(targetFolder, $"{baseName} payload ({n})");
+            if (PayloadExtractLeavesPartial)
+            {
+                Directory.CreateDirectory(folder);
+                File.WriteAllText(Path.Combine(folder, "first.bin"), "written before the stop");
+            }
             if (PayloadExtractGate is not null) await PayloadExtractGate.Task.WaitAsync(ct);
             if (PayloadExtractFailure is not null) throw PayloadExtractFailure;
-            var folder = Path.Combine(targetFolder, Path.GetFileNameWithoutExtension(path) + " payload");
             Directory.CreateDirectory(folder);
+            File.Delete(Path.Combine(folder, "first.bin"));
             var files = PayloadExtractWritesNothing ? new List<PayloadEntry>() : (entries ?? Payload).Where(e => !e.IsDirectory).ToList();
             foreach (var entry in files)
             {
@@ -152,10 +163,25 @@ internal sealed class FakeInstallerAnalysisService : IInstallerAnalysisService
         return new string('F', 64);
     });
 
+    /// <summary>Calls held open by "kind:path" until the source completes.</summary>
+    public ConcurrentDictionary<string, TaskCompletionSource> Holds { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>A held call ignores the cancel and returns its result late, as a service that does not stop in time.</summary>
+    public bool HoldsIgnoreCancel { get; set; }
+
+    public Dictionary<string, IReadOnlyList<PayloadEntry>> PayloadByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public TaskCompletionSource Hold(string kind, string path) => Holds[$"{kind}:{path}"] = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private async Task<T> Run<T>(string kind, string path, CancellationToken ct, Func<Task<T>> body)
     {
         Calls.Enqueue($"{kind}:{path}");
         ct.ThrowIfCancellationRequested();
+        if (Holds.TryGetValue($"{kind}:{path}", out var hold))
+        {
+            if (HoldsIgnoreCancel) await hold.Task;
+            else await hold.Task.WaitAsync(ct);
+        }
         return await body();
     }
 }
@@ -176,8 +202,8 @@ internal sealed class FakeAnalysisSandbox(string root) : IAnalysisSandbox
 
     public void Release(string session)
     {
-        lock (Released) Released.Add(session);
         if (Directory.Exists(session)) Directory.Delete(session, true);
+        lock (Released) Released.Add(session);
     }
 
     public void ReleaseAll() => ReleaseAllCalls++;
@@ -191,6 +217,9 @@ internal sealed class FakeInstallerReportWriter(string reportsFolder) : IInstall
     public List<(string Format, int Payload, int Registry)> Written { get; } = [];
     public Exception? Failure { get; set; }
 
+    /// <summary>Blocks every write until set.</summary>
+    public ManualResetEventSlim? Gate { get; set; }
+
     public string Summary(AnalysisReport r) => $"Summary of {r.FileName}";
 
     public string Json(AnalysisReport r, bool includeKeyMaterial)
@@ -203,8 +232,12 @@ internal sealed class FakeInstallerReportWriter(string reportsFolder) : IInstall
 
     public string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry> payload, IReadOnlyList<RegistryWrite> reg) => Write("html", payload.Count, reg.Count);
 
+    public int WritesStarted;
+
     private string Write(string format, int payload, int registry)
     {
+        Interlocked.Increment(ref WritesStarted);
+        Gate?.Wait(TimeSpan.FromSeconds(10));
         if (Failure is not null) throw Failure;
         lock (Written) Written.Add((format, payload, registry));
         Directory.CreateDirectory(reportsFolder);
@@ -279,6 +312,9 @@ internal sealed class InstallerAnalysisHarness : IDisposable
     public int SaveCount { get; private set; }
     public AnalysisLimits Limits { get; set; } = AnalysisLimits.Default;
 
+    /// <summary>Blocks the read of the saved choices until set.</summary>
+    public ManualResetEventSlim? PreferencesGate { get; set; }
+
     public InstallerAnalysisHarness()
     {
         Directory.CreateDirectory(Files);
@@ -300,6 +336,7 @@ internal sealed class InstallerAnalysisHarness : IDisposable
         () =>
         {
             PreferenceReads++;
+            PreferencesGate?.Wait(TimeSpan.FromSeconds(10));
             return Saved;
         },
         settings =>

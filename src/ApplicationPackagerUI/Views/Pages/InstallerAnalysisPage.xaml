@@ -78,7 +78,25 @@
                 <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
                 <Setter Property="CellStyle" Value="{StaticResource TabStopCell}" />
                 <Setter Property="helpers:DataGridKeyboard.SelectsFocusedRow" Value="True" />
+                <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnGridPreviewMouseRightButtonDown" />
             </Style>
+
+            <!-- The SHA-256 result under the status line of the Payload, Inner Installers and File Browser tabs; its content is the page view model. -->
+            <DataTemplate x:Key="HashPanelTemplate">
+                <Grid Margin="0,0,0,8" Visibility="{Binding HasHash, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlHash">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" MinWidth="160" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding HashLabel}" Style="{StaticResource Note}" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" Margin="0,0,8,0" ToolTip="{Binding HashLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding HashResult, Mode=OneWay}" IsReadOnly="True" VerticalAlignment="Center" FontFamily="Consolas"
+                             AutomationProperties.Name="{Binding HashLabel}" AutomationProperties.AutomationId="txtHash" />
+                    <ui:Button Grid.Column="2" Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyHashCommand}" Margin="8,0,0,0"
+                               ToolTip="Copies the SHA-256 value." AutomationProperties.Name="Copy the SHA-256" AutomationProperties.AutomationId="btnCopyHash" />
+                </Grid>
+            </DataTemplate>
 
             <!-- The Overview grids size to their rows; the Overview scroller moves them. -->
             <Style x:Key="SectionGrid" TargetType="DataGrid" BasedOn="{StaticResource GridBase}">
@@ -275,7 +293,7 @@
                             <RowDefinition Height="*" MinHeight="140" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
-                            <ui:TextBox Text="{Binding MsiFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by property or value" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox Text="{Binding MsiFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by property or value" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="MSI property filter" AutomationProperties.AutomationId="txtMsiFilter" />
                             <TextBlock Text="{Binding MsiCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtMsiCount" />
                         </WrapPanel>
@@ -300,7 +318,7 @@
                             <RowDefinition Height="*" MinHeight="140" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
-                            <ui:TextBox Text="{Binding PayloadFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by path or type" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox Text="{Binding PayloadFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by path or type" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="240" Margin="0,0,8,8" AutomationProperties.Name="Payload filter" AutomationProperties.AutomationId="txtPayloadFilter" />
                             <ui:Button Content="Analyze selected" Appearance="Primary" Icon="{ui:SymbolIcon BoxSearch24}" Command="{Binding AnalyzeSelectedCommand}"
                                        Style="{StaticResource ToolButton}" ToolTip="Extracts the selected entry to the temporary analysis folder and analyzes it."
@@ -318,23 +336,26 @@
                             <ui:Button Content="Open extracted folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenExtractFolderCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnPayloadOpenFolder" />
                         </WrapPanel>
-                        <TextBlock Grid.Row="1" Text="{Binding PayloadStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtPayloadStatus" />
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="{Binding PayloadStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtPayloadStatus" />
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource HashPanelTemplate}" Focusable="False" />
+                        </StackPanel>
                         <DataGrid Grid.Row="2" x:Name="dgPayload" Style="{StaticResource GridBase}" ItemsSource="{Binding PayloadRows}" SelectedItem="{Binding SelectedPayload}"
                                   AutomationProperties.AutomationId="dgPayload" AutomationProperties.Name="Payload entries">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" />
-                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" />
+                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                     <Separator />
-                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" />
-                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" />
+                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                     <Separator />
-                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" />
+                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="3*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
@@ -367,24 +388,27 @@
                             <ui:Button Content="Open extracted folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenExtractFolderCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnInnerOpenFolder" />
                         </WrapPanel>
-                        <TextBlock Grid.Row="1" Text="{Binding InnerStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtInnerStatus" />
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="{Binding InnerStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtInnerStatus" />
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource HashPanelTemplate}" Focusable="False" />
+                        </StackPanel>
                         <DataGrid Grid.Row="2" x:Name="dgInner" Style="{StaticResource GridBase}" ItemsSource="{Binding InnerRows}" SelectedItem="{Binding SelectedInner}"
                                   AutomationProperties.AutomationId="dgInner" AutomationProperties.Name="Inner installers">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" />
-                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" />
+                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                     <Separator />
-                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" />
-                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" />
+                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                     <Separator />
-                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" />
+                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="140" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
@@ -410,7 +434,7 @@
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <ui:TextBox Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by file name" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by file name" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="220" Margin="0,0,8,8" AutomationProperties.Name="File filter" AutomationProperties.AutomationId="txtFileFilter" />
                             <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnFilesExtractTemp" />
@@ -421,24 +445,27 @@
                             <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnFilesHash" />
                         </WrapPanel>
-                        <TextBlock Grid.Row="1" Text="{Binding FileStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtFileStatus" />
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="{Binding FileStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtFileStatus" />
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource HashPanelTemplate}" Focusable="False" />
+                        </StackPanel>
                         <DataGrid Grid.Row="2" x:Name="dgFiles" Style="{StaticResource GridBase}" ItemsSource="{Binding FileRows}" SelectedItem="{Binding SelectedFile}"
                                   AutomationProperties.AutomationId="dgFiles" AutomationProperties.Name="Files">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" />
-                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" />
+                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                     <Separator />
-                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" />
-                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" />
+                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                     <Separator />
-                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" />
+                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
@@ -457,7 +484,7 @@
                             <RowDefinition Height="*" MinHeight="140" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
-                            <ui:TextBox Text="{Binding RegistryFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by key, name, value, origin or condition"
+                            <ui:TextBox Text="{Binding RegistryFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by key, name, value, origin or condition"
                                         Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Registry filter"
                                         AutomationProperties.AutomationId="txtRegistryFilter" />
                             <ui:Button Content="Copy key" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyRegistryKeyCommand}" Style="{StaticResource ToolButton}"
@@ -485,8 +512,8 @@
                                   AutomationProperties.AutomationId="dgRegistry" AutomationProperties.Name="Registry writes">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="Copy key" Command="{Binding CopyRegistryKeyCommand}" />
-                                    <MenuItem Header="Copy value" Command="{Binding CopyRegistryValueCommand}" />
+                                    <MenuItem Header="Copy key" Command="{Binding CopyRegistryKeyCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy value" Command="{Binding CopyRegistryValueCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>
@@ -516,7 +543,7 @@
                             <RowDefinition Height="*" MinHeight="140" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
-                            <ui:TextBox Text="{Binding StringsFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter the strings" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox Text="{Binding StringsFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter the strings" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="String filter" AutomationProperties.AutomationId="txtStringsFilter" />
                             <ComboBox ItemsSource="{Binding StringCategories}" SelectedItem="{Binding StringsCategory}" MinWidth="160" Margin="0,0,8,8"
                                       AutomationProperties.Name="Category" AutomationProperties.AutomationId="cboStringsCategory" />
@@ -530,7 +557,7 @@
                                   AutomationProperties.AutomationId="dgStrings" AutomationProperties.Name="Strings">
                             <DataGrid.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="Copy string" Command="{Binding CopyStringCommand}" />
+                                    <MenuItem Header="Copy string" Command="{Binding CopyStringCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
                                 </ContextMenu>
                             </DataGrid.ContextMenu>
                             <DataGrid.Columns>

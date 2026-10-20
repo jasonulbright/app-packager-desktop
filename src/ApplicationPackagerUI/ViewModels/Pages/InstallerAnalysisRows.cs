@@ -55,8 +55,13 @@ public sealed class PayloadRow(PayloadEntry entry)
     public override string ToString() => $"{Name}, {Kind}";
 }
 
-public sealed record RegistryRow(RegistryWrite Write)
+/// <summary>
+/// One registry write. A class, not a record: two equal writes are two rows, and a grid keeps its
+/// selection only on the same row object.
+/// </summary>
+public sealed class RegistryRow(RegistryWrite write)
 {
+    public RegistryWrite Write { get; } = write;
     public string Origin => InstallerAnalysisText.Origin(Write.Origin);
     public string Hive => Write.Hive;
     public string Key => Write.Key;
@@ -72,8 +77,10 @@ public sealed record RegistryRow(RegistryWrite Write)
     public override string ToString() => $@"{FullKey}, {Name}";
 }
 
-public sealed record StringRow(InterestingString Item)
+/// <summary>One found string; a class for the same reason as <see cref="RegistryRow"/>.</summary>
+public sealed class StringRow(InterestingString item)
 {
+    public InterestingString Item { get; } = item;
     public string Text => Item.Text;
     public string Encoding => string.Equals(Item.Encoding, "Utf16", StringComparison.OrdinalIgnoreCase) ? "UTF-16" : "ASCII";
     public string Offset => "0x" + Item.Offset.ToString("X8", CultureInfo.InvariantCulture);

@@ -640,7 +640,9 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
         Assert.Equal(string.Join('\t', "NSIS script", "Write", @"HKLM\Software\Contoso", "Version", "1.2.3", "REG_SZ", "32-bit", "Main", ""),
             _h.Prompts.Copied.Single().Split(Environment.NewLine)[0]);
 
+        _h.Service.RegistryNotes = [];
         await viewModel.OpenAsync(_h.Installer("next.exe"));
+        await Wait.UntilAsync(() => !viewModel.IsBusy, "the registry read of the next installer");
         Assert.False(viewModel.HasRegistryNotes);
     }
 
@@ -707,12 +709,20 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     public async Task AFailedExportShowsAPlainMessageAndTheExportsNeedAnAnalysis()
     {
         var viewModel = await _h.OpenPageAsync();
+        Assert.False(viewModel.ExportCsvCommand.CanExecute(null));
+        Assert.False(viewModel.ExportHtmlCommand.CanExecute(null));
+        Assert.False(viewModel.CopySummaryCommand.CanExecute(null));
+        Assert.False(viewModel.CopyJsonCommand.CanExecute(null));
         await viewModel.ExportCsvCommand.ExecuteAsync(null);
         Assert.Equal(InstallerAnalysisViewModel.NoAnalysisMessage, viewModel.StatusMessage);
         viewModel.CopyJsonCommand.Execute(null);
         Assert.Equal(InstallerAnalysisViewModel.NoAnalysisMessage, viewModel.StatusMessage);
 
         await viewModel.OpenAsync(_h.Installer());
+        Assert.True(viewModel.ExportCsvCommand.CanExecute(null));
+        Assert.True(viewModel.ExportHtmlCommand.CanExecute(null));
+        Assert.True(viewModel.CopySummaryCommand.CanExecute(null));
+        Assert.True(viewModel.CopyJsonCommand.CanExecute(null));
         _h.Writer.Failure = new UnauthorizedAccessException(@"Access to C:\Users\op\AppPackager\Reports denied");
         await viewModel.ExportHtmlCommand.ExecuteAsync(null);
         Assert.Equal("The HTML report could not be written. The log has the details.", viewModel.StatusMessage);

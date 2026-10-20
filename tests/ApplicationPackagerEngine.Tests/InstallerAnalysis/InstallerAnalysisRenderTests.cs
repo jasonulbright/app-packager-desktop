@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using ApplicationPackagerEngine.Services;
@@ -11,6 +12,7 @@ using Wpf.Ui.Appearance;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
 using DataGrid = System.Windows.Controls.DataGrid;
 using DataGridRow = System.Windows.Controls.DataGridRow;
+using MenuItem = System.Windows.Controls.MenuItem;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using TabControl = System.Windows.Controls.TabControl;
 using DataObject = System.Windows.DataObject;
@@ -464,6 +466,124 @@ public sealed class InstallerAnalysisRenderTests
                 window.Close();
             }
         });
+    }
+
+    private static void RightClick(Window window, DataGrid grid, object item)
+    {
+        grid.ScrollIntoView(item);
+        Settle(window);
+        var row = Assert.IsAssignableFrom<DataGridRow>(grid.ItemContainerGenerator.ContainerFromItem(item));
+        var cell = Descendants(row).OfType<System.Windows.Controls.DataGridCell>().First();
+        // The input manager raises the tunnelling and the bubbling mouse-down; each element turns them into its right-button events.
+        foreach (var routed in new[] { Mouse.PreviewMouseDownEvent, Mouse.MouseDownEvent })
+            cell.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Right) { RoutedEvent = routed, Source = cell });
+        Settle(window);
+    }
+
+    private static MenuItem OpenMenuItem(Window window, DataGrid grid, string header)
+    {
+        var menu = grid.ContextMenu!;
+        menu.PlacementTarget = grid;
+        menu.IsOpen = true;
+        Settle(window);
+        return menu.Items.OfType<MenuItem>().Single(m => (string)m.Header == header);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ARightClickSelectsTheRowUnderThePointerAndTheMenuActsOnThatRow(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel) =>
+        {
+            foreach (var (id, select, pick) in new (string, Action<PayloadRow>, Func<PayloadRow?>)[]
+                     {
+                         ("dgPayload", r => viewModel.SelectedPayload = r, () => viewModel.SelectedPayload),
+                         ("dgInner", r => viewModel.SelectedInner = r, () => viewModel.SelectedInner),
+                         ("dgFiles", r => viewModel.SelectedFile = r, () => viewModel.SelectedFile)
+                     })
+            {
+                var grid = ShowGrid(window, page, viewModel, id);
+                var rows = grid.Items.OfType<PayloadRow>().Where(r => !r.Entry.IsDirectory).ToList();
+                select(rows[0]);
+                Settle(window);
+                RightClick(window, grid, rows[1]);
+                Assert.Same(rows[1], pick());
+                Assert.Same(rows[1], grid.SelectedItem);
+                var item = OpenMenuItem(window, grid, "Copy name");
+                item.Command.Execute(item.CommandParameter);
+                grid.ContextMenu!.IsOpen = false;
+                Assert.Equal($"Copied the name {rows[1].Name}.", viewModel.StatusMessage);
+            }
+
+            var registry = ShowGrid(window, page, viewModel, "dgRegistry");
+            viewModel.SelectedRegistry = viewModel.RegistryRows[0];
+            Settle(window);
+            RightClick(window, registry, viewModel.RegistryRows[2]);
+            Assert.Same(viewModel.RegistryRows[2], viewModel.SelectedRegistry);
+            var strings = ShowGrid(window, page, viewModel, "dgStrings");
+            viewModel.SelectedString = viewModel.StringRows[0];
+            Settle(window);
+            RightClick(window, strings, viewModel.StringRows[2]);
+            Assert.Same(viewModel.StringRows[2], viewModel.SelectedString);
+            var copy = OpenMenuItem(window, strings, "Copy string");
+            copy.Command.Execute(copy.CommandParameter);
+            strings.ContextMenu!.IsOpen = false;
+            Assert.Equal("Copied the string.", viewModel.StatusMessage);
+        });
+    }
+
+    [Fact]
+    public void TheFiltersWaitForTypingToPauseAndThePathBoxDoesNot()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, viewModel) =>
+        {
+            foreach (var (id, tab) in new[] { ("txtMsiFilter", InstallerAnalysisViewModel.MsiTab), ("txtPayloadFilter", InstallerAnalysisViewModel.PayloadTab),
+                         ("txtFileFilter", InstallerAnalysisViewModel.FilesTab), ("txtRegistryFilter", InstallerAnalysisViewModel.RegistryTab), ("txtStringsFilter", InstallerAnalysisViewModel.StringsTab) })
+            {
+                ShowTab(window, viewModel, tab);
+                Assert.Equal(250, BindingOperations.GetBinding(ById<System.Windows.Controls.TextBox>(page, id), System.Windows.Controls.TextBox.TextProperty)!.Delay);
+            }
+            Assert.Equal(0, BindingOperations.GetBinding(ById<System.Windows.Controls.TextBox>(page, "txtInstallerPath"), System.Windows.Controls.TextBox.TextProperty)!.Delay);
+        }, analyze: false);
+    }
+
+    [Fact]
+    public void TheSizeColumnsSortByTheByteCount()
+    {
+        WithPage(ApplicationTheme.Light, (window, page, viewModel) =>
+        {
+            foreach (var id in new[] { "dgPayload", "dgInner", "dgFiles" })
+            {
+                ShowTab(window, viewModel, TabOf(id));
+                var column = ById<DataGrid>(page, id).Columns.Single(c => (string)c.Header == "Size");
+                Assert.Equal("Entry.Size", column.SortMemberPath);
+            }
+        }, analyze: false);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48)]
+    [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48)]
+    public void TheHashShowsInAReadOnlyBoxWithACopyButton(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel) =>
+        {
+            ShowTab(window, viewModel, InstallerAnalysisViewModel.PayloadTab);
+            Assert.False(ById<FrameworkElement>(page, "pnlHash").IsVisible);
+            Run(viewModel.HashCommand.ExecuteAsync(viewModel.PayloadRows.Single(r => r.Name == "contoso.exe")));
+            StaTestHelper.PumpUntil(() => !viewModel.IsBusy);
+            Settle(window);
+            var box = ById<System.Windows.Controls.TextBox>(page, "txtHash");
+            Assert.True(box.IsReadOnly);
+            Assert.Equal(new string('F', 64), box.Text);
+            Assert.Equal("SHA-256 of contoso.exe", AutomationProperties.GetName(box));
+            AssertInside(window, box, window.ActualHeight, "txtHash");
+            AssertInside(window, ById<FrameworkElement>(page, "btnCopyHash"), window.ActualHeight, "btnCopyHash");
+            var tabs = ById<FrameworkElement>(page, "tabInstallerAnalysis");
+            Assert.True(tabs.ActualHeight >= 220, $"The tabs get {tabs.ActualHeight:0} px at {width}x{height} with the SHA-256 shown.");
+            Pixels(window, ById<FrameworkElement>(page, "pnlHash"), $"IA-Hash-{theme}");
+        }, width, height);
     }
 
     [Fact]
