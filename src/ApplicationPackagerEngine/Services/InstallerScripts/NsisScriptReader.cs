@@ -32,6 +32,8 @@ public sealed class NsisMetadata
     /// <summary>Every value the script writes under the chosen ARP key, in NSIS notation.</summary>
     public Dictionary<string, string> ArpValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> InstallDirCandidates { get; set; } = [];
+    /// <summary>True when run-time script code chooses the install folder; see <see cref="InstallBranch.InstallDirPredicted"/>.</summary>
+    public bool InstallDirPredicted { get; set; }
     public string RequestedExecutionLevel { get; set; } = "";
     /// <summary>"all" or "current": the shell folder context the install folder resolves in.</summary>
     public string ShellVarContext { get; set; } = "current";
@@ -85,6 +87,12 @@ public static class NsisScriptReader
     private static readonly Regex UserFolders = new(@"^\$(LOCALAPPDATA|APPDATA|PROFILE)", RegexOptions.Compiled);
     private static readonly Regex UserFoldersWide = new(@"^\$(LOCALAPPDATA|APPDATA|PROFILE|DOCUMENTS|DESKTOP)", RegexOptions.Compiled);
     private static readonly Regex DriveOrShare = new(@"^[A-Za-z]:\\", RegexOptions.Compiled);
+    private static readonly Regex LooksLikeFolder = new(@"^(\$[A-Za-z_]|[A-Za-z]:\\|\\\\)", RegexOptions.Compiled);
+    // Header offsets of the callback entry indexes, .onInit (108) to .onRebootFailed (144); -1 when absent.
+    private const int CallbackFirstOffset = 108;
+    private const int CallbackLastOffset = 144;
+    private const int SectionCodeOffset = 12;
+    private const int OpCall = 5;
 
     private static readonly Encoding Latin1 = Encoding.Latin1;
 
@@ -560,6 +568,90 @@ public static class NsisScriptReader
         return (RootKeyName(u & 0x9FFFFFFF), view);
     }
 
+    /// <summary>$PROGRAMFILES64\X for $PROGRAMFILES\X (also $PROGRAMFILES32 and the COMMONFILES pair); null otherwise.</summary>
+    private static string? SixtyFourBitTwin(string folder)
+    {
+        var m = Regex.Match(folder, @"^\$(PROGRAMFILES|COMMONFILES)(32)?(\\.*)?$");
+        return m.Success ? "$" + m.Groups[1].Value + "64" + m.Groups[3].Value : null;
+    }
+
+    /// <summary>
+    /// Marks the entries that run as part of .onInit: the function's own entries and those of
+    /// every function it calls, transitively. makensis writes each function as one contiguous
+    /// run of entries, so a function ends where the next function, section or callback begins.
+    /// A silent install runs .onInit but no page callback.
+    /// </summary>
+    internal static bool[] OnInitEntries(HeaderTable ctx)
+    {
+        var h = ctx.Header!;
+        var count = ctx.EntriesCount;
+        var inInit = new bool[count];
+        if (h.Length < CallbackLastOffset + 4) return inInit;
+        var onInit = BitConverter.ToInt32(h, CallbackFirstOffset);
+        if (onInit < 0 || onInit >= count) return inInit;
+
+        var starts = new SortedSet<int>();
+        for (var o = CallbackFirstOffset; o <= CallbackLastOffset; o += 4)
+        {
+            var v = BitConverter.ToInt32(h, o);
+            if (v >= 0 && v < count) starts.Add(v);
+        }
+        for (var s = 0; s < ctx.SectionsCount; s++)
+        {
+            var at = ctx.SectionsOffset + (s * ctx.SectionSize) + SectionCodeOffset;
+            if (at < 0 || at + 4 > h.Length) break;
+            var v = BitConverter.ToInt32(h, at);
+            if (v >= 0 && v < count) starts.Add(v);
+        }
+        // Page callbacks (pre, show, leave at page offsets 8, 12, 16) start functions that nothing calls.
+        var pagesOffset = BitConverter.ToInt32(h, 4);
+        var pagesCount = BitConverter.ToInt32(h, 8);
+        if (pagesCount > 0 && pagesOffset > 0 && ctx.SectionsOffset > pagesOffset)
+        {
+            var pageSize = (ctx.SectionsOffset - pagesOffset) / pagesCount;
+            for (var pg = 0; pg < pagesCount && pageSize >= 20; pg++)
+                for (var o = 8; o <= 16; o += 4)
+                {
+                    var at = pagesOffset + (pg * pageSize) + o;
+                    if (at + 4 > h.Length) break;
+                    var v = BitConverter.ToInt32(h, at);
+                    if (v >= 0 && v < count) starts.Add(v);
+                }
+        }
+        int CallTarget(int e)
+        {
+            var b = ctx.EntriesOffset + (e * 28);
+            if (BitConverter.ToInt32(h, b) != OpCall) return -1;
+            // A second parameter of 0 marks a call to a named function; 1 marks a call to a label.
+            if (BitConverter.ToInt32(h, b + 8) != 0) return -1;
+            var target = BitConverter.ToInt32(h, b + 4) - 1;
+            return target >= 0 && target < count ? target : -1;
+        }
+        for (var e = 0; e < count; e++)
+        {
+            var target = CallTarget(e);
+            if (target >= 0) starts.Add(target);
+        }
+
+        var pending = new Stack<int>();
+        var visited = new HashSet<int>();
+        pending.Push(onInit);
+        while (pending.Count > 0)
+        {
+            var start = pending.Pop();
+            if (!visited.Add(start)) continue;
+            var end = starts.GetViewBetween(start + 1, int.MaxValue).Min;
+            if (end <= start) end = count;
+            for (var e = start; e < end; e++)
+            {
+                inInit[e] = true;
+                var target = CallTarget(e);
+                if (target >= 0 && !visited.Contains(target)) pending.Push(target);
+            }
+        }
+        return inInit;
+    }
+
     /// <summary>
     /// Decompresses the header block and walks the entry list for
     /// WriteUninstaller, the ARP WriteRegStr calls and the SetShellVarContext
@@ -602,6 +694,8 @@ public static class NsisScriptReader
         var instDirAssignments = new List<string>();
         var userVars = new Dictionary<string, string>(StringComparer.Ordinal);
         var lastInstDirResolvable = false;
+        var inInit = OnInitEntries(ctx);
+        var initInstDirs = new List<string>();
 
         // $N / $RN at the start of a value is replaced with the last literal
         // assigned to that user variable during the walk.
@@ -620,7 +714,11 @@ public static class NsisScriptReader
             // assigned earlier in the walk (electron-builder builds $INSTDIR from $0).
             var indirect = Regex.Match(value, @"^(\$(?:R?\d))(\\.*)?$");
             if (indirect.Success && userVars.TryGetValue(indirect.Groups[1].Value, out var literal))
+            {
+                // The last literal of the variable in code order can come from unrelated code (a number, a flag).
+                if (!LooksLikeFolder.IsMatch(literal)) { lastInstDirResolvable = false; return; }
                 value = literal + indirect.Groups[2].Value;
+            }
             // StrCpy $INSTDIR "$INSTDIR\<suffix>" extends the assignment right before it.
             var suffixMatch = Regex.Match(value, @"^\$INSTDIR(\\.*)$");
             if (suffixMatch.Success)
@@ -669,7 +767,11 @@ public static class NsisScriptReader
                         break;
                     }
                     if (p0 != 21 || p2 != 0 || p3 != 0) break;
-                    AddCandidate(ctx.Str(p1));
+                    var instDir = ctx.Str(p1);
+                    AddCandidate(instDir);
+                    if (inInit[e] && LooksLikeFolder.IsMatch(instDir) && !Unresolvable.IsMatch(instDir) && !instDir.Contains("$INSTDIR", StringComparison.Ordinal)
+                        && !initInstDirs.Contains(instDir))
+                        initInstDirs.Add(instDir);
                     break;
                 }
                 case 62:
@@ -746,6 +848,30 @@ public static class NsisScriptReader
             resolvedFromCandidate = true;
         }
 
+        // .onInit runs on a silent install and can replace the compiled InstallDir. Its conditions
+        // are not evaluated. The x64 build of a 32-bit stub compiles $PROGRAMFILES\X and moves it to
+        // $PROGRAMFILES64\X on x64 Windows, the only target here, so that twin replaces InstallDir;
+        // any other .onInit folder is an alternative branch and leaves InstallDir predicted.
+        var compiledInstallDir = meta.InstallDir;
+        var initApplied = false;
+        var initAlternatives = new List<string>();
+        if (!resolvedFromCandidate)
+        {
+            var twin = SixtyFourBitTwin(meta.InstallDir);
+            if (twin is not null && initInstDirs.Contains(twin, StringComparer.OrdinalIgnoreCase))
+            {
+                meta.InstallDir = twin;
+                initApplied = true;
+            }
+            else
+            {
+                initAlternatives = initInstDirs.Where(v => !string.Equals(v, meta.InstallDir, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+        }
+        // A placeholder InstallDir with one run-time assignment has no other folder to land in.
+        var installDirPredicted = (resolvedFromCandidate && instDirAssignments.Count > 1) || initApplied || initAlternatives.Count > 0;
+        meta.InstallDirPredicted = installDirPredicted;
+
         // SHCTX resolves through the shell context in force when the section
         // runs: a script that switches to all users and either elevates or
         // targets a machine folder registers under HKLM.
@@ -780,13 +906,14 @@ public static class NsisScriptReader
         if (arpValues.TryGetValue("Publisher", out var pub)) meta.Publisher = Literal(pub);
         if (string.IsNullOrEmpty(meta.DisplayName) && !string.IsNullOrEmpty(meta.Name) && !meta.Name.Contains('$')) meta.DisplayName = meta.Name;
 
-        InstallBranch ResolveBranch(string installDir, bool allUsersFolders, string root, string modeSwitch)
+        InstallBranch ResolveBranch(string installDir, bool allUsersFolders, string root, string modeSwitch, bool predicted)
         {
             var branch = new InstallBranch
             {
                 InstallDir = installDir,
                 UninstallerPath = uninstallerPath,
-                InstallArgs = ("/S " + modeSwitch).Trim()
+                InstallArgs = ("/S " + modeSwitch).Trim(),
+                InstallDirPredicted = predicted
             };
             var dirWindows = ToWindowsPath(installDir, "", allUsersFolders);
             branch.InstallDirWindows = dirWindows;
@@ -836,7 +963,7 @@ public static class NsisScriptReader
             return branch;
         }
 
-        var defaultBranch = ResolveBranch(meta.InstallDir, mapAllUsers, arpRoot, "");
+        var defaultBranch = ResolveBranch(meta.InstallDir, mapAllUsers, arpRoot, "", installDirPredicted);
         meta.InstallDirWindows = defaultBranch.InstallDirWindows;
         meta.UninstallerPathWindows = defaultBranch.UninstallerPathWindows;
         meta.SilentUninstallCommand = defaultBranch.SilentUninstallCommand;
@@ -846,7 +973,15 @@ public static class NsisScriptReader
         meta.RegistryView = defaultBranch.RegistryView;
         meta.InstallContext = defaultBranch.InstallContext;
         if (resolvedFromCandidate)
-            meta.Note = "Install directory is assigned at run time; using " + meta.InstallDir + " of " + string.Join(" | ", instDirAssignments) + ".";
+            meta.Note = "Install directory is assigned at run time; using " + meta.InstallDir + " of " + string.Join(" | ", instDirAssignments)
+                + (installDirPredicted ? "; the folder and the uninstall command are predicted." : ".");
+        else if (initApplied)
+            meta.Note = ".onInit sets $INSTDIR to " + meta.InstallDir + " at run time in place of InstallDir " + (compiledInstallDir.Length > 0 ? compiledInstallDir : "(none)")
+                + "; the conditions around the assignment are not evaluated, so the folder and the uninstall command are predicted"
+                + (meta.InstallDirRegKey.Length > 0 ? ". An earlier install found through InstallDirRegKey " + meta.InstallDirRegKey.TrimEnd('\\') + " keeps its own folder." : ".");
+        else if (initAlternatives.Count > 0)
+            meta.Note = ".onInit can set $INSTDIR at run time to " + string.Join(" | ", initAlternatives) + " in place of InstallDir " + meta.InstallDir
+                + "; the conditions are not evaluated, so the folder and the uninstall command are predicted.";
         else if (!defaultBranch.Resolved && !string.IsNullOrEmpty(meta.InstallDir))
             meta.Note = "Install directory is not resolvable before install: " + meta.InstallDir;
 
@@ -868,12 +1003,12 @@ public static class NsisScriptReader
         if (defaultMode == "CurrentUser" && machineDir is not null && !string.IsNullOrEmpty(meta.AllUsersSwitch))
         {
             var root = arpRootRaw == "SHCTX" ? "HKLM" : arpRoot;
-            variants["AllUsers"] = ResolveBranch(machineDir, true, root, meta.AllUsersSwitch);
+            variants["AllUsers"] = ResolveBranch(machineDir, true, root, meta.AllUsersSwitch, instDirAssignments.Contains(machineDir));
         }
         else if (defaultMode == "AllUsers" && userDir is not null && !string.IsNullOrEmpty(meta.CurrentUserSwitch))
         {
             var root = arpRootRaw == "SHCTX" ? "HKCU" : arpRoot;
-            variants["CurrentUser"] = ResolveBranch(userDir, false, root, meta.CurrentUserSwitch);
+            variants["CurrentUser"] = ResolveBranch(userDir, false, root, meta.CurrentUserSwitch, instDirAssignments.Contains(userDir));
         }
         meta.ModeVariants = variants;
         meta.InstallModes = [.. new[] { "CurrentUser", "AllUsers" }.Where(variants.ContainsKey)];

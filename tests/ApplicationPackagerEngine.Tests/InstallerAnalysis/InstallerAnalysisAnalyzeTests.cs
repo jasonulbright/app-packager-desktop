@@ -51,6 +51,17 @@ public sealed class InstallerAnalysisAnalyzeTests : IDisposable
     }
 
     [Fact]
+    public async Task AnNsisFolderSetInOnInitGivesAPredictedUninstallCommandWithANote()
+    {
+        var r = await Analyze(Fixture("nsis-mk-oninit-pf64.bin"));
+
+        var uninstall = r.Deployment.Single(f => f.Name == "UninstallCommand");
+        Assert.Equal(@"""%ProgramW6432%\Probe64\uninstall.exe"" /S", uninstall.Value);
+        Assert.Equal("Predicted", uninstall.Confidence);
+        Assert.Contains(".onInit sets $INSTDIR", Value(r, "Notes"));
+    }
+
+    [Fact]
     public async Task EveryPropertyTableRowIsListedInTableOrder()
     {
         var path = _temp.PathOf("props.msi");

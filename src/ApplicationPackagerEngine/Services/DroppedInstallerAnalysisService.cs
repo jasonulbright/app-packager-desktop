@@ -293,6 +293,8 @@ public sealed class DroppedInstallerAnalysisService
             ? ProposedField.Confirmed("", "msi-uninstalls-by-product-code")
             : velopack is not null
                 ? ProposedField.Confirmed(velopack.SilentUninstallCommand, VelopackSource)
+            : branch is { SilentUninstallCommand: { Length: > 0 }, InstallDirPredicted: true }
+                ? ProposedField.Predicted(branch.SilentUninstallCommand, scriptSource!)
             : branch is { SilentUninstallCommand: { Length: > 0 } }
                 ? ProposedField.Confirmed(branch.SilentUninstallCommand, scriptSource!)
                 : ProposedField.Predicted(switches.UninstallCommand, switchSource);
