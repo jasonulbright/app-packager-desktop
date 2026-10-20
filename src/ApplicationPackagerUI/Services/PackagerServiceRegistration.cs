@@ -79,6 +79,10 @@ public static class PackagerServiceRegistration
                 () => SessionConnection(settings), sp.GetRequiredService<IAppLog>());
         });
         services.AddSingleton<IComplianceReportWriter>(_ => new ComplianceReportWriter());
+
+        services.AddSingleton<IAnalysisSandbox>(_ => new AnalysisSandbox());
+        services.AddSingleton<IInstallerAnalysisService>(sp => new InstallerAnalysisService(sp.GetRequiredService<IAnalysisSandbox>()));
+        services.AddSingleton<IInstallerReportWriter>(_ => new InstallerReportWriter());
         return services;
     }
 
