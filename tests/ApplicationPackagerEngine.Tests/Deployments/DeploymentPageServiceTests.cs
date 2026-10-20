@@ -64,7 +64,7 @@ internal sealed class ServicePageHarness : IDisposable
         Paths = new SettingsDeploymentAuditPath(() => Settings);
         Engine = new DeploymentHarness(state, signing, () => Paths.AuditLogPath);
         Service = new HookedDeploymentService(Engine.Service);
-        Writer = new DeploymentWriter(Service, History, Log, () => "LAB");
+        Writer = new DeploymentWriter(Service, History, Log, () => "LAB", _ => Task.FromResult(true));
     }
 
     public AppSettings Settings { get; }
@@ -82,7 +82,7 @@ internal sealed class ServicePageHarness : IDisposable
     public DeploymentPageServices Services() => new(
         Deployments: Service, Collections: Engine.Collections, AuditLog: Engine.Audit, Templates: Templates, Reports: new FakeDeploymentReports(),
         Dialogs: new FakeDeploymentDialogs(), Plans: Plans, Writer: Writer, LoadSettings: () => Settings, LoadPreferences: () => Settings.DeploymentHelper,
-        SavePreferences: s => Settings.DeploymentHelper = s, StartRingTool: () => Task.FromResult<string?>(null), Log: Log, Clock: Clock);
+        SavePreferences: s => { Settings.DeploymentHelper = s; return true; }, StartRingTool: () => Task.FromResult<string?>(null), Log: Log, Clock: Clock);
 
     public async Task<DeploymentHelperViewModel> OpenAsync()
     {

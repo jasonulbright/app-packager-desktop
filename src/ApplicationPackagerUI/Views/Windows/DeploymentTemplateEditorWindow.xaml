@@ -17,8 +17,16 @@
             <Setter Property="Margin" Value="0,8,0,4" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
+        <!-- A string Content renders as one non-wrapping line, which the minimum width clips. -->
         <Style x:Key="Option" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
             <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="520" />
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </ui:FluentWindow.Resources>
 

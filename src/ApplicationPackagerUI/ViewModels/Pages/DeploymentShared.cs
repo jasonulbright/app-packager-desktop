@@ -18,7 +18,7 @@ public sealed record DeploymentPageServices(
     DeploymentWriter Writer,
     Func<AppSettings> LoadSettings,
     Func<DeploymentHelperSettings?> LoadPreferences,
-    Action<DeploymentHelperSettings> SavePreferences,
+    Func<DeploymentHelperSettings, bool> SavePreferences,
     Func<Task<string?>> StartRingTool,
     IAppLog Log,
     TimeProvider Clock);
@@ -41,11 +41,15 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
 
     private bool _background;
     private readonly List<Func<Task>> _refreshers = [];
+    private CancellationTokenSource _visit = new();
 
     public DeploymentPageServices Services { get; } = services;
 
     /// <summary>Changes when the operator leaves the page; a result that belongs to an older value is discarded.</summary>
     public int Generation { get; private set; }
+
+    /// <summary>Cancelled when the operator leaves the page; every read of the visit takes it.</summary>
+    public CancellationToken VisitToken => _visit.Token;
 
     public bool IsActive { get; set; }
 
@@ -61,8 +65,9 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
 
     [ObservableProperty] private bool _showResultRows = true;
 
+    /// <summary>The last confirmed plan with its outcomes; it outlives the visit, so its Undo stays offered until a new run replaces it.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasUndo))]
+    [NotifyPropertyChangedFor(nameof(HasUndo), nameof(HasResultPanel))]
     [NotifyCanExecuteChangedFor(nameof(UndoLastCommand))]
     private DeploymentPlan? _lastPlan;
 
@@ -73,6 +78,7 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
     public bool HasConnectionMessage => ConnectionMessage.Length > 0;
     public bool HasResults => LastResults.Count > 0;
     public bool HasUndo => LastPlan is not null;
+    public bool HasResultPanel => HasResults || HasUndo;
 
     /// <summary>Registers the refresh of a tab; it runs after each write.</summary>
     public void OnAfterWrite(Func<Task> refresh) => _refreshers.Add(refresh);
@@ -105,17 +111,31 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
             _ => ex.GetType().Name
         };
 
-    /// <summary>Releases the shared data; a result that arrives later is discarded.</summary>
+    /// <summary>
+    /// Releases the data of the visit and cancels its reads; a result that arrives later is
+    /// discarded. The last plan stays, so its Undo is offered on the next visit.
+    /// </summary>
     public void Release()
     {
         Generation++;
         IsActive = false;
+        var visit = _visit;
+        _visit = new CancellationTokenSource();
+        try { visit.Cancel(); } catch (AggregateException ex) { Services.Log.Warning(LogArea, $"A read did not stop cleanly ({ex.InnerException?.GetType().Name})."); }
         StatusMessage = "";
         ConnectionMessage = "";
-        LastPlan = null;
         LastResults.Clear();
+        NotifyResults();
+        ResultSummary = LastPlan is { } last ? LastChangeText(last) : "";
+    }
+
+    /// <summary>The summary of a plan whose result rows were released.</summary>
+    public static string LastChangeText(DeploymentPlan plan) => $"{plan.Plan.Title}: Undo last change can remove what it created.";
+
+    private void NotifyResults()
+    {
         OnPropertyChanged(nameof(HasResults));
-        ResultSummary = "";
+        OnPropertyChanged(nameof(HasResultPanel));
     }
 
     /// <summary>
@@ -161,14 +181,19 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
             else
             {
                 StatusMessage = "Reading the current state.";
+                var visit = VisitToken;
                 try
                 {
                     ready = await Task.Run(async () =>
                     {
                         var list = new List<DeploymentChange>(requests.Count);
-                        foreach (var request in requests) list.Add(await Services.Deployments.PrepareAsync(request, CancellationToken.None));
+                        foreach (var request in requests) list.Add(await Services.Deployments.PrepareAsync(request, visit));
                         return (IReadOnlyList<DeploymentChange>)list;
-                    });
+                    }, visit);
+                }
+                catch (OperationCanceledException) when (visit.IsCancellationRequested)
+                {
+                    return null;
                 }
                 catch (Exception ex)
                 {
@@ -217,14 +242,13 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
         }
         finally
         {
-            if (IsActive)
-            {
-                if (offerUndo && plan.UndoChanges().Count > 0) LastPlan = plan;
-                StatusMessage = BackgroundRunEndedText;
-            }
+            if (offerUndo && plan.UndoChanges().Count > 0) LastPlan = plan;
+            if (IsActive) StatusMessage = BackgroundRunEndedText;
+            else if (LastPlan is { } last && !HasResults) ResultSummary = LastChangeText(last);
             _background = false;
             IsWriting = false;
         }
+        await AfterWriteAsync();
     }
 
     private void ShowOutcome(DeploymentPlan plan, ChangePlanOutcome outcome)
@@ -242,7 +266,7 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
             foreach (var row in undo.Items) LastResults.Add(row with { Message = "Undo: " + row.Message });
             summary += " Undo: " + undo.Summary;
         }
-        OnPropertyChanged(nameof(HasResults));
+        NotifyResults();
         ResultSummary = $"{plan.Plan.Title}: {summary}";
         StatusMessage = ResultSummary;
         LastPlan = outcome.UndoResult is null

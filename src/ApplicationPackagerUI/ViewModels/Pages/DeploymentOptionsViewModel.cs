@@ -14,6 +14,7 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
     public const string ReadFailedText = "The options could not be read. The log has the details.";
     public const string PathNotRooted = "Enter a full path, for example D:\\Logs\\deployment-audit.jsonl or \\\\server\\share\\deployment-audit.jsonl, or leave it empty for the default.";
     public const string ShippedReadOnly = "Shipped templates cannot be changed or deleted. Save a copy under another name.";
+    public const string PathNotSaved = "The path was not saved. The settings file could not be written. The log has the details.";
     public const string TemplateDeleteFailed = "The template could not be deleted. The log has the details.";
 
     private bool _busy;
@@ -21,8 +22,8 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
     protected override bool NeedsSite => false;
     protected override string ReadFailed => ReadFailedText;
 
-    /// <summary>Writes the audit log path to the page choices; set by the page.</summary>
-    public Func<string, Task>? SaveAuditPath { get; set; }
+    /// <summary>Writes the audit log path to the page choices; false when nothing was written. Set by the page.</summary>
+    public Func<string, Task<bool>>? SaveAuditPath { get; set; }
 
     /// <summary>The saved audit log path; set by the page.</summary>
     public Func<string>? SavedAuditPath { get; set; }
@@ -114,7 +115,12 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
         try
         {
             AuditLogPath = AuditLogPath.Trim();
-            if (SaveAuditPath is { } save) await save(AuditLogPath);
+            if (SaveAuditPath is { } save && !await save(AuditLogPath))
+            {
+                ProbeText = PathNotSaved;
+                ProbeWritable = false;
+                return;
+            }
             await ProbeAsync();
         }
         finally { _busy = false; }

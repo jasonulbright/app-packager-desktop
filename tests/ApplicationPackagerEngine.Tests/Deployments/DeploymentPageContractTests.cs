@@ -88,7 +88,7 @@ public sealed class DeploymentPageContractTests
 
         var plan = _h.Plans.Shown.Single();
         Assert.Equal("Create the deployment now, while the content is still distributing.", plan.OptionalChoice);
-        Assert.Contains("Without the box 'Create the deployment now' the deployment is created only when the content check passes.", plan.Items.Single().Detail);
+        Assert.Contains(DeploymentText.CreateNowHint, plan.Items.Single().Detail);
         Assert.Null(plan.ExtraConfirmation);
         var first = _h.Service.Applied.Single().Single();
         Assert.Equal(["All DPs"], first.DpGroups);
