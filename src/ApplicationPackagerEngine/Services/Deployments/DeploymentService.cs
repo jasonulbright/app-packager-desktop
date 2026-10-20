@@ -99,7 +99,14 @@ public sealed partial class DeploymentService : IDeploymentService
 
     internal sealed record TruncatedRow(string? Kind, int Shown, int Total);
 
-    internal sealed record ProofRow(string? Kind, string? DeploymentId, string? Created, string? CreatedBy, bool Owned, string? Account = null);
+    /// <param name="Problem">Empty when both values were read; else message-missing, time-missing or account-missing.</param>
+    internal sealed record ProofRow(string? Kind, string? DeploymentId, string? Created, string? CreatedBy, bool Owned, string? Account = null, string? Problem = null);
+
+    /// <summary>One revision of an application model; Modified is the UTC time the revision was made.</summary>
+    internal sealed record RevisionRow(string? Kind, string? CiId, int Version, string? Modified, string? Name);
+
+    /// <summary>A deployment as ConfigMgr holds it now, with every revision of its application model (empty for another type).</summary>
+    internal sealed record SiteDeployment(DeploymentRow Row, IReadOnlyList<RevisionRow> Revisions);
 
     internal sealed record ContentRow(string? Kind, string? PackageId, string? Name, int Targeted, int Success, int InProgress, int Errors, bool Distributed);
 
@@ -269,13 +276,15 @@ public sealed partial class DeploymentService : IDeploymentService
                 state.Content.Select(x => (x.PackageId ?? "").ToUpperInvariant()).Distinct().Order(StringComparer.Ordinal).ToList(), c.MemberCount)
             : null;
 
-    private async Task<(bool Read, DeploymentRow? Row)> ReadDeploymentOrNullAsync(DeploymentObjectType type, string? deploymentId)
+    private async Task<(bool Read, SiteDeployment? Site)> ReadDeploymentOrNullAsync(DeploymentObjectType type, string? deploymentId)
     {
         if (!IsDeploymentId(type, deploymentId)) return (false, null);
         try
         {
             var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Deployment" }, { "Type", type.ToString() }, { "DeploymentId", deploymentId } }, CancellationToken.None).ConfigureAwait(false);
-            return (true, Rows<DeploymentRow>(output, "Deployment").FirstOrDefault());
+            return Rows<DeploymentRow>(output, "Deployment").FirstOrDefault() is { } row
+                ? (true, new SiteDeployment(row, Rows<RevisionRow>(output, "Revision")))
+                : (true, null);
         }
         catch (DeploymentServiceException)
         {

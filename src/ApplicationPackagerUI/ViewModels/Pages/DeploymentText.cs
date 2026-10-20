@@ -370,11 +370,15 @@ public static class DeploymentText
     /// </summary>
     public const string HistoryUndoLimit = "Undo from History checks the audit record against the site; it cannot stop a process of the same account that forges both.";
 
-    /// <summary>The plan that removes one deployment; null with the reasons when a check of the prepared removal blocks it.</summary>
+    /// <summary>
+    /// The plan that removes one deployment, with the values ConfigMgr holds for it; null with the
+    /// reasons when a check of the prepared removal blocks it or the deployment was not read.
+    /// </summary>
     public static (DeploymentPlan? Plan, string? Problem) BuildRemovePlan(DeploymentChange remove)
     {
-        if (remove.Existing is not { } existing) return (null, "The deployment is not known. Refresh the history.");
+        if (remove.Existing is null) return (null, "The deployment is not known. Refresh the history.");
         if (Blocking(remove).Count > 0) return (null, "The deployment cannot be removed: " + BlockingText(remove));
+        if (remove.Site is not { } existing) return (null, "The deployment could not be read from ConfigMgr. Validate again.");
         var lines = new List<string>
         {
             $"Deployment ID: {existing.DeploymentId}.",

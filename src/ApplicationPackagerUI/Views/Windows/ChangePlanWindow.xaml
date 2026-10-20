@@ -19,6 +19,9 @@
         <Style x:Key="TopCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
             <Setter Property="VerticalAlignment" Value="Top" />
         </Style>
+        <Style x:Key="ActionCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
         <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
@@ -56,7 +59,7 @@
                   AutomationProperties.AutomationId="gridChangePlan" AutomationProperties.Name="Changes"
                   Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140" ElementStyle="{StaticResource TopCell}" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="170" MinWidth="{x:Static vm:ChangePlanViewModel.ActionColumnMinWidth}" ElementStyle="{StaticResource ActionCell}" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource WrappedCell}" />
                 <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="4*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
@@ -69,7 +72,7 @@
                   Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" ElementStyle="{StaticResource TopCell}" />
-                <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" ElementStyle="{StaticResource TopCell}" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="150" MinWidth="{x:Static vm:ChangePlanViewModel.ActionColumnMinWidth}" ElementStyle="{StaticResource ActionCell}" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="3*" MinWidth="180" ElementStyle="{StaticResource WrappedCell}" />
                 <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="4*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>

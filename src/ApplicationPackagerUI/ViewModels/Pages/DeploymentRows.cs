@@ -88,11 +88,11 @@ public sealed class DeploymentHistoryRow(DeploymentAuditRecord record)
     /// <summary>Whether the record's chain is intact, as the reports name it; empty for a record that was not read from a log.</summary>
     public string VerifiedText => AuditVerification.Text(Record);
 
-    /// <summary>The mark of the Verified column: a check mark for an intact record, an exclamation mark for any other read record.</summary>
+    /// <summary>The Verified cell: a check mark and Verified for an intact record, an exclamation mark and Not verified for any other read record.</summary>
     public string Verified => Record.Verified switch
     {
-        true => "✓",
-        false => "!",
+        true => "✓ " + AuditVerification.Verified,
+        false => "! " + AuditVerification.NotVerified,
         null => ""
     };
 

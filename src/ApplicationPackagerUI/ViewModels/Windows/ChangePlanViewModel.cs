@@ -29,6 +29,12 @@ public sealed partial class ChangePlanViewModel : ObservableObject
 
     public static readonly TimeSpan DefaultForceCloseDelay = TimeSpan.FromSeconds(10);
 
+    /// <summary>The longest Action text of the plans of every page; the Action column wraps it into whole words.</summary>
+    public const string LongestAction = "Distribute and create Required deployment";
+
+    /// <summary>The width of the Action column at which the longest word of every plan action fits on one line.</summary>
+    public const double ActionColumnMinWidth = 120;
+
     /// <summary>
     /// The capability <see cref="ConfirmedChangePlan.Issue"/> requires. The constructor is
     /// private and the only instance is stored in a private field of this view model.

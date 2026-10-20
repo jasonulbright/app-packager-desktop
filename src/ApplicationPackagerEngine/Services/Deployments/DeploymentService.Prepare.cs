@@ -330,31 +330,70 @@ public sealed partial class DeploymentService
     {
         var existing = request.Existing ?? throw new DeploymentServiceException("Select the deployment to remove.");
         var checks = new List<PreflightCheck>();
-        var (read, row) = IsDeploymentId(existing.Type, existing.DeploymentId)
+        var (read, site) = IsDeploymentId(existing.Type, existing.DeploymentId)
             ? await ReadDeploymentOrNullAsync(existing.Type, existing.DeploymentId).ConfigureAwait(false)
             : (true, null);
         if (!read) checks.Add(Check(DeploymentCheckNames.TargetExists, DeploymentCheckResults.Unknown, "The deployment could not be read from ConfigMgr. Try again."));
-        else if (row is null) checks.Add(Check(DeploymentCheckNames.TargetExists, DeploymentCheckResults.Fail, $"Deployment {existing.DeploymentId} does not exist any more."));
+        else if (site is null) checks.Add(Check(DeploymentCheckNames.TargetExists, DeploymentCheckResults.Fail, $"Deployment {existing.DeploymentId} does not exist any more."));
         else
         {
             checks.Add(Check(DeploymentCheckNames.TargetExists, DeploymentCheckResults.Pass, $"Deployment {existing.DeploymentId} exists."));
-            var differences = Differences(existing, row);
-            checks.Add(differences.Count == 0
-                ? Check(Unchanged, DeploymentCheckResults.Pass, "The deployment holds the captured object, collection, purpose and times.")
-                : Check(Unchanged, DeploymentCheckResults.Fail, $"The deployment changed since it was captured ({string.Join(", ", differences)}), so it is not removed."));
+            var differences = Differences(existing, site.Row);
+            var revision = _created.ContainsKey(existing.DeploymentId) ? null : RevisionProblem(existing, site);
+            checks.Add(differences.Count > 0
+                ? Check(Unchanged, DeploymentCheckResults.Fail, $"The deployment changed since it was captured ({string.Join(", ", differences)}), so it is not removed.")
+                : revision is not null
+                    ? Check(Unchanged, DeploymentCheckResults.Fail, $"{Sentence(revision)}, so it is not removed.")
+                    : Check(Unchanged, DeploymentCheckResults.Pass, "The deployment holds the captured object, collection, purpose and times."));
         }
-        var ownership = read && row is not null
-            ? await OwnershipAsync(existing, row).ConfigureAwait(false)
+        var ownership = read && site is not null
+            ? await OwnershipAsync(existing, site).ConfigureAwait(false)
             : new OwnershipVerdict(DeploymentCheckResults.Unknown, "not checked: the deployment could not be read.");
         checks.Add(Check(CreatedHere, ownership.Result, Sentence(ownership.Reason)));
         var probe = _audit.Probe();
         checks.Add(Check(DeploymentCheckNames.AuditLog, probe.Writable ? DeploymentCheckResults.Pass : DeploymentCheckResults.Fail, probe.Message));
+        var held = site is null ? null : ToRecord(existing.Type, site.Row);
         var lines = new List<string>
         {
-            $"Removes the {existing.Purpose} deployment {existing.DeploymentId} of {Noun(existing.Type).ToLowerInvariant()} {Shown(existing.ObjectName, existing.ObjectId)} from collection {Shown(existing.CollectionName, existing.CollectionId)}.",
+            held is null
+                ? $"Removes deployment {existing.DeploymentId}."
+                : $"Removes the {held.Purpose} deployment {held.DeploymentId} of {Noun(held.Type).ToLowerInvariant()} {Shown(held.ObjectName, held.ObjectId)} from collection {Shown(held.CollectionName, held.CollectionId)}.",
             "Software that clients already installed stays installed. Devices that have not installed it yet do not get it."
         };
-        return request with { Checks = checks, Impact = lines };
+        return request with { Checks = checks, Impact = lines, Site = held };
+    }
+
+    /// <summary>
+    /// Why an application deployment does not hold the revision a captured record names; null
+    /// when it does, and for the other types, whose object ID never changes. The deployment holds
+    /// the latest revision of its model, so the record's CI_ID must be the revision that was the
+    /// latest when ConfigMgr created the deployment, and the deployment must hold that revision or
+    /// a later one of the same model.
+    /// </summary>
+    internal static string? RevisionProblem(DeploymentRecord captured, SiteDeployment site)
+    {
+        if (captured.Type != DeploymentObjectType.Application) return null;
+        var row = site.Row;
+        var id = captured.ObjectId.Trim();
+        var application = $"application {Shown(row.ObjectName, row.ObjectId)}";
+        if (ParseUtc(row.Created) is not { } created)
+            return $"ConfigMgr holds no creation time for deployment {row.DeploymentId}, so the revision it was made with is not known";
+        var revisions = site.Revisions.Select(r => (Id: r.CiId ?? "", r.Version, Modified: ParseUtc(r.Modified))).ToList();
+        if (revisions.Count == 0 || revisions.Any(r => r.Id.Length == 0 || r.Modified is null))
+            return $"the revisions of {application} could not be read, so the revision the deployment was made with is not known";
+        if (!revisions.Any(r => string.Equals(r.Id, id, StringComparison.Ordinal)))
+            return $"the audit record names application {id}, which is not a revision of {application}, the application of the deployment";
+        var named = revisions.First(r => string.Equals(r.Id, id, StringComparison.Ordinal));
+        var made = revisions.Where(r => r.Modified <= created).OrderByDescending(r => r.Version).Select(r => r.Id).FirstOrDefault();
+        if (made is null)
+            return $"no revision of {application} existed when deployment {row.DeploymentId} was created at {TimeText(created)} UTC";
+        if (!string.Equals(made, id, StringComparison.Ordinal))
+            return $"deployment {row.DeploymentId} was created at {TimeText(created)} UTC with revision {made} of {application}, and the audit record names revision {id}"
+                + (named.Modified > created ? $", which was made later, at {TimeText(named.Modified!.Value)} UTC" : ", an earlier one");
+        var held = revisions.Where(r => string.Equals(r.Id, row.ObjectId, StringComparison.Ordinal)).Select(r => (int?)r.Version).FirstOrDefault();
+        if (held is null || held < named.Version)
+            return $"deployment {row.DeploymentId} holds {row.ObjectId}, which is not revision {id} of {application} or a later one";
+        return null;
     }
 
     /// <summary>The captured values a stored deployment no longer holds.</summary>
@@ -385,7 +424,8 @@ public sealed partial class DeploymentService
 
     /// <param name="Result">Pass, Fail or Unknown.</param>
     /// <param name="Reason">Starts in lower case, so it reads after "Skipped: " and as a sentence.</param>
-    internal sealed record OwnershipVerdict(string Result, string Reason);
+    /// <param name="Site">The deployment as ConfigMgr holds it, when it was read.</param>
+    internal sealed record OwnershipVerdict(string Result, string Reason, SiteDeployment? Site = null);
 
     private static string Sentence(string reason) => reason.Length == 0 ? reason : char.ToUpperInvariant(reason[0]) + reason[1..];
 
@@ -405,25 +445,15 @@ public sealed partial class DeploymentService
             : [TimeZoneInfo.ConvertTimeToUtc(local, _local)];
     }
 
-    /// <summary>
-    /// The values of the deployment that differ from the audit record. Unlike
-    /// <see cref="Differences"/>, an application must also keep the CI_ID the record names: a new
-    /// revision or a rename gives the application a new CI_ID, so its History Undo is refused.
-    /// </summary>
-    private static List<string> OwnershipDifferences(DeploymentRecord captured, DeploymentRow row)
-    {
-        var diff = Differences(captured, row);
-        if (!diff.Contains("object") && !string.Equals(row.ObjectId, captured.ObjectId, StringComparison.OrdinalIgnoreCase)) diff.Add("object id");
-        return diff;
-    }
 
     /// <summary>
     /// Whether this product made the deployment. A deployment this service created in this
     /// process is owned. Otherwise the audit log must hold a create of it with Result Success or
     /// Partial whose Chain is intact, and ConfigMgr must show the record's account as the creator,
     /// a creation time within <see cref="CreationTolerance"/> of both the record's CreatedUtc and
-    /// its Timestamp (before or after), and the values the record holds. Anything that cannot be
-    /// shown refuses the removal.
+    /// its Timestamp (before or after), and the values the record holds; an application record
+    /// must name the revision that was the latest when ConfigMgr created the deployment (see
+    /// <see cref="RevisionProblem"/>). Anything that cannot be shown refuses the removal.
     /// <para>
     /// Limit: a process of the same account that can write the audit log and read the deployment
     /// can write a record with a valid Chain and every matching value, and that record passes.
@@ -431,10 +461,10 @@ public sealed partial class DeploymentService
     /// check adds no power to it; the check stops mistakes and casual edits of the log.
     /// </para>
     /// </summary>
-    private async Task<OwnershipVerdict> OwnershipAsync(DeploymentRecord existing, DeploymentRow? row)
+    private async Task<OwnershipVerdict> OwnershipAsync(DeploymentRecord existing, SiteDeployment? site)
     {
         var id = existing.DeploymentId;
-        if (_created.ContainsKey(id)) return new(DeploymentCheckResults.Pass, "this product created the deployment in this session.");
+        if (_created.ContainsKey(id)) return new(DeploymentCheckResults.Pass, "this product created the deployment in this session.", site);
         IReadOnlyList<DeploymentAuditRecord> records;
         try
         {
@@ -452,13 +482,15 @@ public sealed partial class DeploymentService
             return new(DeploymentCheckResults.Fail,
                 $"the audit record of the create of deployment {id} cannot be verified: it was changed or added after it was written, or it was written before the audit log protected its records. It is not removed. Remove the deployment in the console if it must go.");
 
-        if (row is null)
+        if (site is null)
         {
             var (read, found) = await ReadDeploymentOrNullAsync(existing.Type, id).ConfigureAwait(false);
             if (!read) return new(DeploymentCheckResults.Unknown, $"deployment {id} could not be read from ConfigMgr, so it is not known whether this product created it. It is not removed. Try again.");
             if (found is null) return new(DeploymentCheckResults.Fail, $"deployment {id} does not exist any more.");
-            row = found;
+            site = found;
         }
+        var row = site.Row;
+        var fromMessage = existing.Type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence;
         ProofRow? proof;
         try
         {
@@ -472,37 +504,48 @@ public sealed partial class DeploymentService
         {
             return new(DeploymentCheckResults.Unknown, $"ConfigMgr could not be read, so it is not known who created deployment {id}. It is not removed. Try again.");
         }
-        if (proof is null) return new(DeploymentCheckResults.Fail, $"deployment {id} does not exist any more.");
+        if (proof is null) return new(DeploymentCheckResults.Fail, $"deployment {id} does not exist any more.", site);
+        const string RemoveInConsole = "It is not removed. Remove it in the console if it must go.";
+        if (proof.Problem == "message-missing")
+            return new(DeploymentCheckResults.Fail,
+                $"ConfigMgr holds no status message 30006 for deployment {id}. This message shows who created the deployment and when. The site writes it some seconds after a create and deletes old status messages. It is not removed. Try again in one minute; if the message is still missing, remove the deployment in the console if it must go.", site);
         var created = ParseUtc(proof.Created);
-        if (created is null || string.IsNullOrWhiteSpace(proof.CreatedBy))
-            return new(DeploymentCheckResults.Fail, existing.Type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence
-                ? $"ConfigMgr no longer holds the status message that shows who created deployment {id} and when (message 30006; the site deletes old status messages), so it cannot be shown that this product created it. It is not removed. Remove it in the console if it must go."
-                : $"ConfigMgr holds no creation time or creator for deployment {id}, so it cannot be shown that this product created it. It is not removed. Remove it in the console if it must go.");
+        if (created is null)
+            return new(DeploymentCheckResults.Fail, fromMessage
+                ? $"the status message 30006 of deployment {id} holds no time that can be read, so it cannot be shown that this product created it. {RemoveInConsole}"
+                : $"ConfigMgr holds no creation time for deployment {id}, so it cannot be shown that this product created it. {RemoveInConsole}", site);
+        if (string.IsNullOrWhiteSpace(proof.CreatedBy))
+            return new(DeploymentCheckResults.Fail, fromMessage
+                ? $"the status message 30006 of deployment {id} names no account, so it cannot be shown that this product created it. {RemoveInConsole}"
+                : $"ConfigMgr holds no creator for deployment {id}, so it cannot be shown that this product created it. {RemoveInConsole}", site);
 
         string? first = null;
         var minutes = CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture);
+        var source = fromMessage ? " (status message 30006)" : "";
         foreach (var record in intact)
         {
             var written = WrittenUtc(record.Timestamp);
+            var captured = DeploymentChangeBuilder.RemoveFromAudit(record with { Verified = null })?.Existing;
+            List<string> differences = captured is null ? [] : Differences(captured, row);
             var problem = !string.Equals(record.User.Trim(), proof.CreatedBy.Trim(), StringComparison.OrdinalIgnoreCase)
-                ? $"ConfigMgr shows that {proof.CreatedBy} created deployment {id}, and the audit record names {record.User}"
+                ? $"ConfigMgr shows that {proof.CreatedBy} created deployment {id}{source}, and the audit record names {record.User}"
                 : (created.Value - record.CreatedUtc!.Value).Duration() > CreationTolerance
-                    ? $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC, and the audit record says the create started at {TimeText(record.CreatedUtc.Value)} UTC, more than {minutes} minutes apart"
+                    ? $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC{source}, and the audit record says the create started at {TimeText(record.CreatedUtc.Value)} UTC, more than {minutes} minutes apart"
                     : !written.Any(w => (created.Value - w).Duration() <= CreationTolerance)
                         ? written.Count == 0
                             ? $"the audit record of deployment {id} has a time that does not exist in the time zone of this computer"
-                            : $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC, and the audit record was written at {TimeText(written[0])} UTC, more than {minutes} minutes apart"
-                        : DeploymentChangeBuilder.RemoveFromAudit(record with { Verified = null })?.Existing is not { } captured
+                            : $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC{source}, and the audit record was written at {TimeText(written[0])} UTC, more than {minutes} minutes apart"
+                        : captured is null
                             ? $"the audit record of deployment {id} lacks a value the comparison needs"
-                            : OwnershipDifferences(captured, row) is { Count: > 0 } differences
+                            : differences.Count > 0
                                 ? $"deployment {id} holds other values than the audit record ({string.Join(", ", differences)})"
-                                : null;
+                                : RevisionProblem(captured, site);
             if (problem is null)
                 return new(DeploymentCheckResults.Pass,
-                    $"this product created the deployment: the audit record of its create is intact, and ConfigMgr shows the same account and a creation time of {TimeText(created.Value)} UTC, within {CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes of the record.");
+                    $"this product created the deployment: the audit record of its create is intact, and ConfigMgr shows the same account and a creation time of {TimeText(created.Value)} UTC, within {CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes of the record.", site);
             first ??= problem;
         }
-        return new(DeploymentCheckResults.Fail, $"{first}, so it cannot be shown that this product created it. It is not removed.");
+        return new(DeploymentCheckResults.Fail, $"{first}, so it cannot be shown that this product created it. It is not removed.", site);
     }
 }
 

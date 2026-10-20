@@ -106,7 +106,7 @@ public sealed class DeploymentHistoryVerificationTests : IDisposable
         await page.History.RemoveDeploymentCommand.ExecuteAsync(null);
 
         Assert.Equal(verifiedText, row.VerifiedText);
-        Assert.Equal("!", row.Verified);
+        Assert.Equal("! Not verified", row.Verified);
         Assert.StartsWith(verifiedText, page.History.SelectedDetails);
         Assert.Equal("This record cannot be checked (the log was edited or its chain is broken): Undo from History is refused. Remove the deployment in the console.",
             page.Shared.StatusMessage);
@@ -124,7 +124,7 @@ public sealed class DeploymentHistoryVerificationTests : IDisposable
 
         var row = await HistoryCreateAsync(page);
 
-        Assert.Equal(("✓", "Verified"), (row.Verified, row.VerifiedText));
+        Assert.Equal(("✓ Verified", "Verified"), (row.Verified, row.VerifiedText));
         Assert.StartsWith("Verified" + Environment.NewLine + "Message: Created the Available deployment of package", page.History.SelectedDetails);
         Assert.DoesNotContain("Unclear", page.History.SelectedDetails);
     }

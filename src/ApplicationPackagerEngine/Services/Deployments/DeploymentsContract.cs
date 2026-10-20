@@ -148,6 +148,13 @@ public sealed record DeploymentChange(
 
     /// <summary>Create: the state PrepareAsync read; ApplyAsync refuses a create without it.</summary>
     public DeploymentPreparedState? Prepared { get; init; }
+
+    /// <summary>
+    /// RemoveDeployment: the deployment as ConfigMgr holds it at PrepareAsync, with the object
+    /// name and ID ConfigMgr holds now; null when it could not be read. A plan names the object
+    /// from it, never from <see cref="Existing"/>.
+    /// </summary>
+    public DeploymentRecord? Site { get; init; }
 }
 
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when the change was not attempted.</param>

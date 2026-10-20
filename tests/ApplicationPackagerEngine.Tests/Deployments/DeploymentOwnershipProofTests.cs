@@ -247,8 +247,8 @@ public sealed class DeploymentOwnershipProofTests
         var prepared = await HistoryUndo(later);
 
         Assert.Equal("Fail", CreatedHere(prepared).Result);
-        Assert.Contains("no longer holds the status message", CreatedHere(prepared).Message);
-        Assert.Contains("message 30006", CreatedHere(prepared).Message);
+        Assert.Contains("holds no status message 30006 for deployment", CreatedHere(prepared).Message);
+        Assert.Contains("Try again in one minute", CreatedHere(prepared).Message);
         Assert.Single(later.Site.List("Adverts"));
         Assert.Contains(later.Site.Runs, r => (string?)r.Parameters["Operation"] == "Proof" && (int?)r.Parameters["ProofReads"] == 1);
     }

@@ -144,8 +144,8 @@ internal sealed class FakeDeploymentService : IDeploymentService
                 {
                     Impact = request.DpGroups.Select(g => $"Distribution point group {g}: {(Distributed.Contains(request.Object!.Id) ? "Distributed" : "NotTargeted")} now.").ToList()
                 },
-                _ => Deployments.Any(d => d.DeploymentId == request.Existing!.DeploymentId)
-                    ? request with { Impact = [$"The deployment {request.Existing!.DeploymentId} exists and has the captured values."] }
+                _ => Deployments.FirstOrDefault(d => d.DeploymentId == request.Existing!.DeploymentId) is { } held
+                    ? request with { Impact = [$"The deployment {request.Existing!.DeploymentId} exists and has the captured values."], Site = held }
                     : throw new DeploymentServiceException($"The deployment {request.Existing!.DeploymentId} no longer exists. Nothing was changed.")
             };
             Prepared.Add(prepared);

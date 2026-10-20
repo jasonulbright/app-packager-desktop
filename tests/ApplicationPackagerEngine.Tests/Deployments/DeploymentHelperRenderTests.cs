@@ -524,10 +524,24 @@ public sealed class DeploymentHelperRenderTests
             var headerBounds = header.TransformToAncestor(window).TransformBounds(new Rect(header.RenderSize));
             Assert.True(header.IsVisible && headerBounds.Right <= gridBounds.Left + scroller.ViewportWidth + 0.5,
                 $"Verified ends at {headerBounds.Right - gridBounds.Left:0} px in a {scroller.ViewportWidth:0} px grid at {width}x{height}.");
-            var marks = Descendants(grid).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "✓" or "!").ToList();
-            Assert.Equal(["!", "!", "✓"], marks.Select(t => t.Text).Order(StringComparer.Ordinal));
-            Assert.All(marks, t => Assert.True(t.ActualWidth > 2 && t.ActualHeight > 8, $"The mark {t.Text} is {t.ActualWidth:0}x{t.ActualHeight:0} px."));
+            var marks = Descendants(grid).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "✓ Verified" or "! Not verified").ToList();
+            Assert.Equal(["! Not verified", "! Not verified", "✓ Verified"], marks.Select(t => t.Text).Order(StringComparer.Ordinal));
+            foreach (var mark in marks)
+            {
+                var whole = new FormattedText(mark.Text, System.Globalization.CultureInfo.CurrentCulture, mark.FlowDirection,
+                    new Typeface(mark.FontFamily, mark.FontStyle, mark.FontWeight, mark.FontStretch), mark.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(mark).PixelsPerDip);
+                Assert.True(whole.WidthIncludingTrailingWhitespace <= mark.ActualWidth + 0.5, $"'{mark.Text}' needs {whole.WidthIncludingTrailingWhitespace:0} px and shows {mark.ActualWidth:0} px at {width}x{height}.");
+                Assert.Equal(mark.ToolTip, System.Windows.Automation.AutomationProperties.GetName(mark));
+            }
             Assert.Contains(marks, t => Equals(t.ToolTip, "Verified"));
+            Assert.Contains(marks, t => Equals(t.ToolTip, "Not verified (written before the chain)"));
+            foreach (var cell in Descendants(grid).OfType<DataGridCell>().Where(c => Equals(c.Column?.Header, "Event")))
+            {
+                var text = Descendants(cell).OfType<TextBlock>().Single();
+                var need = new FormattedText(text.Text, System.Globalization.CultureInfo.CurrentCulture, text.FlowDirection,
+                    new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch), text.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(text).PixelsPerDip);
+                Assert.True(need.WidthIncludingTrailingWhitespace <= text.ActualWidth + 0.5, $"Event '{text.Text}' needs {need.WidthIncludingTrailingWhitespace:0} px and shows {text.ActualWidth:0} px at {width}x{height}.");
+            }
 
             var details = ById<System.Windows.Controls.TextBox>(page, "txtHistoryDetails");
             Assert.False(details.IsVisible);
@@ -635,6 +649,64 @@ public sealed class DeploymentHelperRenderTests
                     var top = text.TranslatePoint(new System.Windows.Point(0, 0), row).Y;
                     Assert.True(top < 16, $"'{text.Text[..Math.Min(20, text.Text.Length)]}' starts {top:0} px below the top of a {row.ActualHeight:0} px row.");
                 }
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    /// <summary>The longest Action texts of the plans of the Deployment, Compliance, Collections and Maintenance Windows pages.</summary>
+    private static readonly string[] LongActions =
+        [ChangePlanViewModel.LongestAction, "Create Required deployment", "Undo Disable remediation", "Undo Set properties", "Remove deployment", "Distribute content"];
+
+    private static void AssertWholeWords(DataGrid grid, string header, string where)
+    {
+        var cells = Descendants(grid).OfType<DataGridCell>().Where(c => Equals(c.Column?.Header, header)).ToList();
+        Assert.Equal(LongActions.Length, cells.Count);
+        foreach (var cell in cells)
+        {
+            var text = Descendants(cell).OfType<TextBlock>().Single();
+            Assert.Equal(TextWrapping.Wrap, text.TextWrapping);
+            Assert.Equal(TextTrimming.None, text.TextTrimming);
+            foreach (var word in text.Text.Split(' '))
+            {
+                var need = new FormattedText(word, System.Globalization.CultureInfo.CurrentCulture, text.FlowDirection,
+                    new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch), text.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(text).PixelsPerDip);
+                Assert.True(need.Width <= text.ActualWidth + 0.5, $"'{word}' of '{text.Text}' needs {need.Width:0} px; the {header} cell shows {text.ActualWidth:0} px ({where}).");
+            }
+            var clip = System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(text)?.Bounds;
+            Assert.True(clip is null || clip.Value.Height >= text.ActualHeight - 0.5, $"'{text.Text}' is cut to {clip?.Height:0} of {text.ActualHeight:0} px ({where}).");
+            Assert.True(cell.ActualHeight >= text.ActualHeight, $"'{text.Text}' is {text.ActualHeight:0} px high in a {cell.ActualHeight:0} px cell ({where}).");
+        }
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light, 620)]
+    [InlineData(ApplicationTheme.Dark, 620)]
+    [InlineData(ApplicationTheme.Light, 820)]
+    [InlineData(ApplicationTheme.Dark, 820)]
+    public void ThePlanAndResultGridsShowTheLongestActionOfEveryPlanInWholeWords(ApplicationTheme theme, double width)
+    {
+        Assert.Equal(ChangePlanViewModel.LongestAction, LongActions.MaxBy(a => a.Length));
+        WithApplication(theme, () =>
+        {
+            var items = LongActions.Select(a => new ChangePlanItem(a, "7-Zip to Pilot devices of the finance department", "One line.")).ToList();
+            var plan = new ChangePlan("Deploy", "Create deployment", items);
+            var dialog = new ChangePlanViewModel(plan, (c, p, ct) => Task.FromResult(new ChangePlanResult(items.Select(i => new ChangePlanItemResult(i, true, "Done.")).ToList())));
+            var window = new ChangePlanWindow(dialog) { Width = width };
+            Show(window);
+            try
+            {
+                Settle(window);
+                var planGrid = (DataGrid)window.FindName("gridPlan");
+                Assert.True(planGrid.Columns[0].ActualWidth >= ChangePlanViewModel.ActionColumnMinWidth);
+                AssertWholeWords(planGrid, "Action", $"plan, {theme}, {width} px");
+
+                Run(dialog.ConfirmCommand.ExecuteAsync(null));
+                Settle(window);
+                var resultGrid = (DataGrid)window.FindName("gridResult");
+                Assert.True(resultGrid.IsVisible);
+                Assert.True(resultGrid.Columns[1].ActualWidth >= ChangePlanViewModel.ActionColumnMinWidth);
+                AssertWholeWords(resultGrid, "Action", $"result, {theme}, {width} px");
             }
             finally { window.Close(); }
         });

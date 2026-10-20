@@ -583,7 +583,8 @@ public sealed partial class DeploymentService
         using var reservation = _audit.Reserve();
         if (!reservation.Probe.Writable) return Refused(change, $"the audit log cannot be written, so nothing was removed. {reservation.Probe.Message}");
 
-        var obj = change.Object ?? new DeployableObject(existing.Type, existing.ObjectId, existing.ObjectName, "", existing.Program, false);
+        var held = ownership.Site is { } site ? ToRecord(existing.Type, site.Row) : existing;
+        var obj = (change.Object ?? new DeployableObject(existing.Type, existing.ObjectId, existing.ObjectName, "", existing.Program, false)) with { Name = held.ObjectName.Length > 0 ? held.ObjectName : existing.ObjectName };
         var parameters = new ConfigMgrParameters
         {
             { "Operation", "Remove" }, { "Type", existing.Type.ToString() }, { "DeploymentId", existing.DeploymentId }, { "ObjectId", existing.ObjectId }, { "CollectionId", existing.CollectionId!.ToUpperInvariant() },
@@ -593,7 +594,7 @@ public sealed partial class DeploymentService
         if (existing.Type == DeploymentObjectType.Application && NumberRegex().IsMatch(modelId)) parameters["ModelId"] = modelId;
         if (existing.Type == DeploymentObjectType.Package) parameters.AddSecret("Program", existing.Program ?? "");
         var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
-        var what = $"deployment {existing.DeploymentId} of {Noun(existing.Type).ToLowerInvariant()} {Shown(existing.ObjectName, existing.ObjectId)} from collection {Shown(existing.CollectionName, existing.CollectionId)}";
+        var what = $"deployment {existing.DeploymentId} of {Noun(existing.Type).ToLowerInvariant()} {Shown(held.ObjectName, held.ObjectId)} from collection {Shown(held.CollectionName, held.CollectionId)}";
         DeploymentOutcome outcome = run.Result?.Status switch
         {
             "ok" => Done(change, $"Removed {what}. Software that clients already installed stays installed.", null, run.Steps),
@@ -609,14 +610,14 @@ public sealed partial class DeploymentService
         {
             if (run.Uncertain)
             {
-                var (read, row) = await ReadDeploymentOrNullAsync(existing.Type, existing.DeploymentId).ConfigureAwait(false);
-                outcome = read && row is null
+                var (read, after) = await ReadDeploymentOrNullAsync(existing.Type, existing.DeploymentId).ConfigureAwait(false);
+                outcome = read && after is null
                     ? Done(change, $"Removed {what}; ConfigMgr reported an error, and the read-back shows it is gone. Software that clients already installed stays installed.", null, [])
                     : Fail(change, $"The result of the removal of {what} is not known. Check it in the console.");
             }
             else outcome = run.Failure ?? Fail(change, $"ConfigMgr did not remove {what}. The log has the details.");
         }
-        var record = BaseRecord(obj with { Name = existing.ObjectName }, new DeploymentCollection(existing.CollectionId!, existing.CollectionName, "", 0) { }, existing.CollectionId!,
+        var record = BaseRecord(obj, new DeploymentCollection(existing.CollectionId!, held.CollectionName, "", 0) { }, existing.CollectionId!,
             existing.Purpose, existing.Deadline, existing.AssignmentId is { Length: > 0 } a ? a : existing.DeploymentId, outcome.Succeeded ? AuditResults.Success : AuditResults.Failed) with
         {
             MemberCount = null,

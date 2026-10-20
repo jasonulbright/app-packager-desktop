@@ -333,12 +333,15 @@ function Get-DuplicateKeys {
 # nothing. The site deletes old status messages, so for an older advertisement the proof is empty.
 function Get-CreationProof {
     param([string]$Id, [object]$Raw)
-    $proof = [pscustomobject]@{ Kind = 'Proof'; DeploymentId = $Id; Created = ''; CreatedBy = ''; Account = $Account; Owned = $false }
+    # Problem: '' when both values were read; 'message-missing' (no 30006 message for the
+    # advertisement), 'time-missing' or 'account-missing' (the message or deployment lacks it).
+    $proof = [pscustomobject]@{ Kind = 'Proof'; DeploymentId = $Id; Created = ''; CreatedBy = ''; Account = $Account; Owned = $false; Problem = '' }
     if ($Type -in 'Application', 'SoftwareUpdateGroup') {
         $proof.Created = Get-UtcText (Get-Prop $Raw 'CreationTime')
         $proof.CreatedBy = [string](Get-Prop $Raw 'LastModifiedBy')
     } elseif ($Id -match '^[A-Za-z0-9]{8}$') {
-        for ($attempt = 0; $attempt -lt $ProofReads -and -not $proof.Created; $attempt++) {
+        $proof.Problem = 'message-missing'
+        for ($attempt = 0; $attempt -lt $ProofReads -and $proof.Problem -eq 'message-missing'; $attempt++) {
             if ($attempt -gt 0) { Start-Sleep -Seconds 2 }
             foreach ($a in @(Invoke-Query ("SELECT RecordID, AttributeTime FROM SMS_StatMsgAttributes WHERE AttributeID = 401 AND AttributeValue = '{0}'" -f $Id.ToUpperInvariant()))) {
                 $record = [string](Get-Prop $a 'RecordID')
@@ -348,9 +351,14 @@ function Get-CreationProof {
                 $by = Invoke-Query ("SELECT RecordID, AttributeValue FROM SMS_StatMsgAttributes WHERE RecordID = {0} AND AttributeID = 403" -f $record) | Select-Object -First 1
                 $proof.Created = Get-UtcTextOfUtc (Get-Prop $message 'Time')
                 $proof.CreatedBy = [string](Get-Prop $by 'AttributeValue')
+                $proof.Problem = ''
                 break
             }
         }
+    }
+    if (-not $proof.Problem) {
+        if (-not $proof.Created) { $proof.Problem = 'time-missing' }
+        elseif (-not $proof.CreatedBy) { $proof.Problem = 'account-missing' }
     }
     $proof.Owned = Test-Owned $proof
     return $proof
@@ -365,6 +373,43 @@ function Test-Owned {
     # Parsed without the Z: ParseExact reads a Z as UTC and converts the value to local time.
     $created = [datetime]::ParseExact($Proof.Created.TrimEnd('Z'), $TimeFormat, $Invariant)
     return $created -ge $start.AddMinutes(-2)
+}
+
+# Every revision of an application model. AssignedCIs of an application deployment follows the
+# latest revision of the model and keeps no trace of the revision deployed (verified on CM01: an
+# assignment made on revision 2 holds the CI_ID of revision 3 with its LastModificationTime
+# unchanged), so the revision a deployment was made with is the latest one whose DateLastModified
+# is not after the CreationTime of the deployment.
+function Get-Revisions {
+    param([string]$Model)
+    if ($Type -ne 'Application' -or $Model -notmatch '^[0-9]{1,10}$') { return @() }
+    @(Invoke-Query ('SELECT CI_ID, ModelID, CIVersion, DateLastModified, LocalizedDisplayName FROM SMS_Application WHERE ModelID = ' + $Model) |
+        ForEach-Object { [pscustomobject]@{ Kind = 'Revision'; CiId = [string]$_.CI_ID; Version = [int](Get-Prop $_ 'CIVersion'); Modified = (Get-UtcText (Get-Prop $_ 'DateLastModified')); Name = [string](Get-Prop $_ 'LocalizedDisplayName') } })
+}
+
+# The name ConfigMgr holds now for the object of a deployment.
+function Get-SiteObjectName {
+    param([object]$Row, [object[]]$Revisions)
+    switch ($Type) {
+        'Application' {
+            $current = @($Revisions | Where-Object { $_.CiId -eq [string]$Row.ObjectId }) | Select-Object -First 1
+            if ($null -ne $current) { return [string]$current.Name }
+            return [string]$Row.ObjectName
+        }
+        'Package' {
+            if ($Row.ObjectId -notmatch '^[A-Za-z0-9]{8}$') { return '' }
+            return [string](Get-Prop (Invoke-Query ("SELECT PackageID, Name, Version, SourceVersion FROM SMS_Package WHERE PackageID = '{0}'" -f $Row.ObjectId) | Select-Object -First 1) 'Name')
+        }
+        'TaskSequence' {
+            if ($Row.ObjectId -notmatch '^[A-Za-z0-9]{8}$') { return '' }
+            return [string](Get-Prop (Invoke-Query ("SELECT PackageID, Name, Description, SourceVersion FROM SMS_TaskSequencePackage WHERE PackageID = '{0}'" -f $Row.ObjectId) | Select-Object -First 1) 'Name')
+        }
+        'SoftwareUpdateGroup' {
+            if ($Row.ObjectId -notmatch '^[0-9]{1,10}$') { return '' }
+            return [string](Get-Prop (Invoke-Query ('SELECT CI_ID, LocalizedDisplayName, NumberOfUpdates, CIVersion FROM SMS_AuthorizationList WHERE CI_ID = ' + $Row.ObjectId) | Select-Object -First 1) 'LocalizedDisplayName')
+        }
+    }
+    return ''
 }
 
 # ---- Compare ---------------------------------------------------------------------------------
@@ -819,7 +864,11 @@ switch ($Operation) {
         $raw = Get-RawDeploymentById $DeploymentId
         if ($null -ne $raw) {
             $names = Get-CollectionNames @([string](Get-Prop $raw 'TargetCollectionID'), [string](Get-Prop $raw 'CollectionID'))
-            ConvertTo-DeploymentRow $raw $names
+            $row = ConvertTo-DeploymentRow $raw $names
+            $revisions = @(Get-Revisions ([string]$row.ModelId))
+            $row.ObjectName = Get-SiteObjectName $row $revisions
+            $row
+            $revisions
         }
         Write-Result 'done'
     }

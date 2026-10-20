@@ -96,7 +96,6 @@
             </Style>
 
             <Style x:Key="VerifiedCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
-                <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
                 <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
@@ -469,9 +468,9 @@
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Event" Binding="{Binding Event}" Width="72" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="84" MinWidth="84" ElementStyle="{StaticResource VerifiedCell}" />
-                                <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Deployment ID" Binding="{Binding DeploymentId}" Width="*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="98" MinWidth="98" ElementStyle="{StaticResource VerifiedCell}" />
+                                <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Deployment ID" Binding="{Binding DeploymentId}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Purpose" Binding="{Binding Purpose}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
