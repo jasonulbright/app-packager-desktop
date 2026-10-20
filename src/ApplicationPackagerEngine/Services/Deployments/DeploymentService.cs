@@ -237,6 +237,49 @@ public sealed partial class DeploymentService : IDeploymentService
         return parameters;
     }
 
+    // ---- Apply --------------------------------------------------------------------------------
+
+    public async Task<IReadOnlyList<DeploymentOutcome>> ApplyAsync(IReadOnlyList<DeploymentChange> changes, IProgress<DeploymentOutcome> progress, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+        ArgumentNullException.ThrowIfNull(progress);
+        var outcomes = new List<DeploymentOutcome>(changes.Count);
+        var skipped = 0;
+        foreach (var change in changes)
+        {
+            DeploymentOutcome outcome;
+            if (ct.IsCancellationRequested)
+            {
+                outcome = new DeploymentOutcome(change, false, SkippedPrefix + "the run was cancelled before this change.", null, []);
+            }
+            else
+            {
+                try
+                {
+                    outcome = change.Kind switch
+                    {
+                        DeploymentChangeKind.Create => await ApplyCreateAsync(change).ConfigureAwait(false),
+                        DeploymentChangeKind.Distribute => await ApplyDistributeAsync(change).ConfigureAwait(false),
+                        DeploymentChangeKind.RemoveDeployment => await ApplyRemoveAsync(change).ConfigureAwait(false),
+                        _ => Refused(change, "The change kind is not known.")
+                    };
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
+                    outcome = Fail(change, "The change stopped with an unexpected error. Refresh the lists to see the current state. The log has the details.");
+                }
+                _log?.Info(LogArea, $"{change.Kind}: {(outcome.Succeeded ? "succeeded" : "not applied")}{(outcome.UndoChange is null ? "" : ", with undo")}.");
+            }
+            if (outcome.Message.StartsWith(SkippedPrefix, StringComparison.Ordinal)) skipped++;
+            outcomes.Add(outcome);
+            progress.Report(outcome);
+        }
+        var succeeded = outcomes.Count(o => o.Succeeded);
+        _log?.Info(LogArea, $"Applied {changes.Count} changes: {succeeded} succeeded, {outcomes.Count - succeeded - skipped} failed, {skipped} skipped.");
+        return outcomes;
+    }
+
     // ---- Session helpers ----------------------------------------------------------------------
 
     private async Task<ConfigMgrCommandResult> ReadAsync(ConfigMgrParameters parameters, CancellationToken ct)
