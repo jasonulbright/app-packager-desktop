@@ -27,6 +27,9 @@ public interface IDeploymentHelperDialogs
 
     Task<bool> ConfirmDeleteTemplateAsync(string name);
 
+    /// <summary>Asks the operator to confirm the removal that <paramref name="text"/> names; false when declined or closed.</summary>
+    Task<bool> ConfirmRemoveDeploymentAsync(string text);
+
     void OpenFolder(string folder);
 }
 
@@ -55,6 +58,26 @@ public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDe
             DefaultButton = ContentDialogButton.Close
         };
         return await dialogs.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
+    }
+
+    /// <summary>
+    /// A modal message box over the active window: the change plan window is modal, so a content
+    /// dialog of the main window cannot take input while it is open.
+    /// </summary>
+    public async Task<bool> ConfirmRemoveDeploymentAsync(string text)
+    {
+        var box = new Wpf.Ui.Controls.MessageBox
+        {
+            Title = "Remove deployment",
+            Content = new System.Windows.Controls.TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 460 },
+            PrimaryButtonText = "Remove deployment",
+            CloseButtonText = "Cancel",
+            IsPrimaryButtonEnabled = true,
+            IsSecondaryButtonEnabled = false
+        };
+        var owner = DiscoveryPrompt.UsableOwner(Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow);
+        if (owner is not null) box.Owner = owner;
+        return await box.ShowDialogAsync(true, CancellationToken.None) == Wpf.Ui.Controls.MessageBoxResult.Primary;
     }
 
     public void OpenFolder(string folder)
@@ -115,7 +138,8 @@ public static partial class DeploymentHelperRegistration
                 sp.GetRequiredService<IDeploymentService>(),
                 sp.GetRequiredService<ISiteOperationHistory>(),
                 sp.GetRequiredService<IAppLog>(),
-                () => PackagerServiceRegistration.SessionConnection(settings).Key);
+                () => PackagerServiceRegistration.SessionConnection(settings).Key,
+                sp.GetRequiredService<IDeploymentHelperDialogs>().ConfirmRemoveDeploymentAsync);
         });
         services.AddSingleton(sp =>
         {

@@ -18,6 +18,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     public const string NotLoaded = "The audit log was not read. Select Refresh, then export.";
     public const string NoDeploymentId = "Select a create record that names its deployment ID.";
     public const string UnknownType = "The record does not name a known object type, so the deployment cannot be removed from here.";
+    public static readonly string CappedNote = $"The list shows the newest {MaxRecords} records of the audit log. Older records are in the file.";
     public static string ReportFailed(string format) => $"The {format} report could not be written. The log has the details.";
 
     private IReadOnlyList<DeploymentAuditRecord> _records = [];
@@ -34,6 +35,13 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     [ObservableProperty] private string _typeFilter = AllText;
     [ObservableProperty] private string _rowCount = "";
     [ObservableProperty] private string _logPath = "";
+
+    /// <summary>True when the read returned the most records it reads, so older records may be left out.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CapNote))]
+    private bool _isCapped;
+
+    public string CapNote => IsCapped ? CappedNote : "";
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RemoveDeploymentCommand))]
@@ -56,6 +64,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         {
             _records = records;
             LogPath = path;
+            IsCapped = records.Count >= MaxRecords;
             ApplyFilter();
             Services.Log.Info(DeploymentShared.LogArea, $"Read {records.Count} audit records.");
         });
@@ -68,14 +77,14 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         Rows.Clear();
         RowCount = "";
         LogPath = "";
+        IsCapped = false;
         TextFilter = "";
         EventFilter = AllText;
         TypeFilter = AllText;
         LastReportFolder = null;
     }
 
-    private static bool SameType(string recorded, string wanted) =>
-        string.Equals(recorded.Replace(" ", "", StringComparison.Ordinal), wanted, StringComparison.OrdinalIgnoreCase);
+    private static bool SameType(string recorded, string wanted) => TypeOf(recorded) is { } type && TypeOf(wanted) == type;
 
     private void ApplyFilter()
     {
@@ -129,7 +138,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             Services.Log.Warning(DeploymentShared.LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }
-        Shared.StatusMessage = $"Saved the {format} report to {path}: {DeploymentText.Count(rows.Count, "record")}, the rows the filters show.";
+        Shared.StatusMessage = $"Saved the {format} report to {path}: {DeploymentText.Count(rows.Count, "record")}, the rows the filters show." + (IsCapped ? " " + CappedNote : "");
         Services.Log.Info(DeploymentShared.LogArea, $"Saved a {format} report with {rows.Count} rows.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }
@@ -138,16 +147,17 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         recorded.Replace(" ", "", StringComparison.Ordinal).ToLowerInvariant() switch
         {
             "application" or "app" or "apps" => DeploymentObjectType.Application,
-            "package" => DeploymentObjectType.Package,
-            "tasksequence" => DeploymentObjectType.TaskSequence,
-            "softwareupdategroup" or "sug" => DeploymentObjectType.SoftwareUpdateGroup,
+            "package" or "packages" => DeploymentObjectType.Package,
+            "tasksequence" or "tasksequences" => DeploymentObjectType.TaskSequence,
+            "softwareupdategroup" or "softwareupdategroups" or "sug" => DeploymentObjectType.SoftwareUpdateGroup,
             _ => null
         };
 
     /// <summary>
     /// The captured deployment of a create record, for the service to compare before it removes
-    /// anything. The ID is the unique ID the record names; DeploymentID of an application or update
-    /// group record is the numeric assignment ID, which no removal takes.
+    /// anything; the only place the page turns an audit record into a removal. The ID is the unique
+    /// ID the record names; DeploymentID of an application or update group record is the numeric
+    /// assignment ID, which no removal takes.
     /// </summary>
     public static DeploymentRecord? Captured(DeploymentAuditRecord record)
     {

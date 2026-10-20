@@ -212,13 +212,91 @@ public sealed class DeploymentHelperRenderTests
                 }
             }
 
-            Check(DeploymentHelperViewModel.DeployTab, "scrollDeployTab", "lstObjectType", "cboTemplate", "btnSaveTemplate", "dgObjects", "dgCollections", "cboNotification",
+            Check(DeploymentHelperViewModel.DeployTab, "scrollDeployTab", "lstObjectType", "cboTemplate", "btnSaveTemplate", "btnDeployRefresh", "btnDeployCancel", "dgObjects", "dgCollections", "cboNotification",
                 "chkRebootOutside", "txtRequiredOnlyNote", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks", "btnValidate", "btnDeploy");
-            Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
-            Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
+            Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryCancel", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
+            Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "btnOptionsRefresh", "btnOptionsCancel", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
             var header = ById<FrameworkElement>(page, "btnRingDeployment");
             Assert.True(header.TransformToAncestor(window).TransformBounds(new Rect(header.RenderSize)).Right <= window.ActualWidth + 0.5);
         }, width, height);
+    }
+
+    /// <summary>Every visible check box shows its whole text: no text line runs past the right or bottom edge of its box.</summary>
+    private static int AssertCheckBoxTextFits(Window window, DependencyObject root, string where)
+    {
+        var count = 0;
+        foreach (var box in Descendants(root).OfType<CheckBox>().Where(b => b.IsVisible))
+        {
+            var boxBounds = box.TransformToAncestor(window).TransformBounds(new Rect(box.RenderSize));
+            foreach (var text in Descendants(box).OfType<TextBlock>().Where(t => t.IsVisible && t.Text.Length > 0))
+            {
+                count++;
+                var bounds = text.TransformToAncestor(window).TransformBounds(new Rect(text.RenderSize));
+                Assert.True(bounds.Right <= boxBounds.Right + 0.5 && bounds.Bottom <= boxBounds.Bottom + 0.5,
+                    $"{where}: the text of {AutomationProperties.GetAutomationId(box)} ends at {bounds.Right:0},{bounds.Bottom:0} px, its box at {boxBounds.Right:0},{boxBounds.Bottom:0} px.");
+                Assert.True(boxBounds.Right <= window.ActualWidth + 0.5, $"{where}: {AutomationProperties.GetAutomationId(box)} ends at {boxBounds.Right:0} px in a {window.ActualWidth:0} px window.");
+            }
+        }
+        return count;
+    }
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void EveryCheckBoxOfThePageShowsItsWholeText(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            viewModel.Deploy.IsRequired = true;
+            var seen = 0;
+            foreach (var type in Enum.GetValues<DeploymentObjectType>())
+            {
+                viewModel.Deploy.TypeIndex = (int)type;
+                Settle(window);
+                seen += AssertCheckBoxTextFits(window, ById<FrameworkElement>(page, "scrollDeployTab"), $"{type} at {width}x{height}");
+            }
+            Assert.True(seen >= 12, $"Only {seen} check box texts were measured.");
+            AssertCheckBoxTextFits(window, page, $"page at {width}x{height}");
+        }, width, height);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryCheckBoxOfTheTemplateEditorShowsItsWholeTextAtTheMinimumSize(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var h = new DeploymentPageHarness();
+            var window = new DeploymentTemplateEditorWindow(new DeploymentTemplateEditorViewModel(h.Templates.Templates[2], h.Templates.All(), (_, _) => Task.FromResult(true)));
+            Show(window);
+            try
+            {
+                window.Width = window.MinWidth;
+                window.Height = window.MinHeight;
+                Settle(window);
+                Assert.True(AssertCheckBoxTextFits(window, window, "template editor") >= 7);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheDeployAndOptionsTabsHaveRefreshAndCancel(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Assert.Same(viewModel.Deploy.RefreshCommand, ById<System.Windows.Controls.Primitives.ButtonBase>(page, "btnDeployRefresh").Command);
+            Assert.Same(viewModel.Deploy.CancelLoadCommand, ById<System.Windows.Controls.Primitives.ButtonBase>(page, "btnDeployCancel").Command);
+            ShowTab(window, viewModel, DeploymentHelperViewModel.OptionsTab);
+            Assert.Same(viewModel.Options.RefreshCommand, ById<System.Windows.Controls.Primitives.ButtonBase>(page, "btnOptionsRefresh").Command);
+            Assert.Same(viewModel.Options.CancelLoadCommand, ById<System.Windows.Controls.Primitives.ButtonBase>(page, "btnOptionsCancel").Command);
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            Assert.Same(viewModel.History.CancelLoadCommand, ById<System.Windows.Controls.Primitives.ButtonBase>(page, "btnHistoryCancel").Command);
+            Assert.True(ById<FrameworkElement>(page, "txtHistoryCap").Visibility != Visibility.Visible);
+        });
     }
 
     private static T? Ancestor<T>(DependencyObject? element) where T : DependencyObject

@@ -33,8 +33,11 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
             SavedAuditPath = () => _auditLogPath,
             SaveAuditPath = async path =>
             {
+                var previous = _auditLogPath;
                 _auditLogPath = path;
-                await SaveAsync();
+                if (await SaveAsync()) return true;
+                _auditLogPath = previous;
+                return false;
             }
         };
         Deploy.ChoicesChanged += (_, _) => SaveLater();
@@ -138,22 +141,29 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
         _ = SaveAsync();
     }
 
-    /// <summary>Saves run one at a time and each reads the choices when its turn comes, so the last write holds the newest.</summary>
-    public async Task SaveAsync()
+    /// <summary>
+    /// Saves run one at a time and each reads the choices when its turn comes, so the last write
+    /// holds the newest. False when nothing was written; the stored choices stay as they were, so
+    /// the next save tries again.
+    /// </summary>
+    public async Task<bool> SaveAsync()
     {
         await _preferencesLoad;
         await _saveLock.WaitAsync();
         try
         {
             var choices = Current();
-            if (Same(_stored, choices)) return;
-            _stored = choices;
-            try { await Task.Run(() => Shared.Services.SavePreferences(choices)); }
+            if (Same(_stored, choices)) return true;
+            bool saved;
+            try { saved = await Task.Run(() => Shared.Services.SavePreferences(choices)); }
             catch (Exception ex)
             {
-                _stored = null;
+                saved = false;
                 Shared.Services.Log.Warning(DeploymentShared.LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
             }
+            if (saved) _stored = choices;
+            else Shared.Services.Log.Warning(DeploymentShared.LogArea, "The page choices were not saved.");
+            return saved;
         }
         finally { _saveLock.Release(); }
     }

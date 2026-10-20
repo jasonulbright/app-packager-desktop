@@ -62,7 +62,11 @@ public abstract partial class DeploymentTabViewModel(DeploymentShared shared) : 
     private void CancelLoad()
     {
         try { _cts?.Cancel(); } catch (ObjectDisposedException) { }
+        CancelOtherReads();
     }
+
+    /// <summary>Cancels the reads of the tab that run outside <see cref="LoadAsync"/>.</summary>
+    protected virtual void CancelOtherReads() { }
 
     private async Task RunLoadAsync()
     {
@@ -73,12 +77,14 @@ public abstract partial class DeploymentTabViewModel(DeploymentShared shared) : 
             IsLoaded = false;
             return;
         }
-        using var cts = new CancellationTokenSource();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(Shared.VisitToken);
         _cts = cts;
         IsLoading = true;
         try
         {
             var show = await Task.Run(() => ReadAsync(cts.Token), cts.Token);
+            // A read that does not observe the token still ends as cancelled when the operator cancelled it.
+            cts.Token.ThrowIfCancellationRequested();
             if (generation != Shared.Generation || mine != _loadGeneration) return;
             show();
             IsLoaded = true;

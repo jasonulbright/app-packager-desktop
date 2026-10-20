@@ -136,8 +136,11 @@ public sealed class DeploymentPlan
 /// the changes of that plan's items and nothing else. A Required create reaches the service with
 /// its acknowledgement only when the confirmed plan asked the second check box.
 /// </summary>
-public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationHistory history, IAppLog log, Func<string> siteTarget)
+public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationHistory history, IAppLog log, Func<string> siteTarget,
+    Func<string, Task<bool>> confirmRemoval)
 {
+    public const string RemovalNotConfirmed = "Skipped: the removal was not confirmed. Nothing was changed.";
+
     public const string ToolName = "Deployment Helper";
     public const string LogArea = "Deployments";
     public const string NoResultText = "No result: the service did not report this change.";
@@ -162,7 +165,40 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
 
     public ChangePlanRun RunFor(DeploymentPlan plan) => (confirmed, progress, ct) => Track(ApplyAsync(confirmed, plan, progress, ct));
 
-    public ChangePlanRun UndoFor(DeploymentPlan plan) => (confirmed, progress, ct) => Track(UndoAsync(confirmed, plan, progress, ct));
+    /// <summary>
+    /// The Undo of the plan window. The plan the operator confirmed created the deployments, so
+    /// their removal asks its own confirmation first; a declined removal changes nothing and the
+    /// Undo stays offered on the page.
+    /// </summary>
+    public ChangePlanRun UndoFor(DeploymentPlan plan) => async (confirmed, progress, ct) =>
+    {
+        var undo = plan.UndoChanges();
+        if (undo.Count > 0 && !await confirmRemoval(RemovalQuestion(undo.Select(u => u.Undo).ToList())))
+        {
+            log.Info(LogArea, $"Undo {plan.Action}: the removal was not confirmed.");
+            var rows = undo.Select(u => ChangePlanItemResult.Skip(u.Entry.Item, RemovalNotConfirmed)).ToList();
+            foreach (var row in rows) progress.Report(row);
+            return new ChangePlanResult(rows, ChangePlanStop.Completed);
+        }
+        return await Track(UndoAsync(confirmed, plan, progress, ct));
+    };
+
+    /// <summary>The question that names each deployment the Undo removes.</summary>
+    public static string RemovalQuestion(IReadOnlyList<DeploymentChange> removals)
+    {
+        static string Name(DeploymentChange change)
+        {
+            var existing = change.Existing;
+            var obj = existing?.ObjectName is { Length: > 0 } name ? name : change.Object?.Name ?? existing?.ObjectId ?? "";
+            var collectionName = existing?.CollectionName is { Length: > 0 } c ? c : change.Collection?.Name ?? "";
+            var collectionId = existing?.CollectionId is { Length: > 0 } id ? id : change.Collection?.CollectionId ?? "";
+            var collection = collectionId.Length > 0 ? $"{collectionName} ({collectionId})".Trim() : collectionName;
+            return $"{obj} from {collection}";
+        }
+        var names = removals.Select(Name).ToList();
+        var subject = names.Count == 1 ? "the deployment " + names[0] : "the deployments " + string.Join("; ", names);
+        return $"Remove {subject}? Software that clients already installed stays installed.";
+    }
 
     public async Task<ChangePlanResult> ApplyAsync(ConfirmedChangePlan confirmed, DeploymentPlan plan, IProgress<ChangePlanItemResult> progress, CancellationToken ct)
     {

@@ -124,7 +124,7 @@ public sealed class DeploymentWriterTests
         var h = new DeploymentPageHarness();
         var create = Create(h);
         var plan = PlanOf(create);
-        var writer = new DeploymentWriter(new ThrowingAfterOutcome(), h.History, h.Log, () => "LAB");
+        var writer = new DeploymentWriter(new ThrowingAfterOutcome(), h.History, h.Log, () => "LAB", _ => Task.FromResult(true));
         var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
         await dialog.ConfirmCommand.ExecuteAsync(null);
         var row = Assert.Single(dialog.ResultRows);

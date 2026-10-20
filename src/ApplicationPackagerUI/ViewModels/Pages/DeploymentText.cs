@@ -45,7 +45,9 @@ public static class DeploymentText
     public const string UndoNote = "Undo removes the deployment. Software that clients already installed stays installed.";
     public const string DistributeNoUndo = "No Undo: the content stays on the distribution points. An audit record is written for each request.";
     public const string CreateNowChoice = "Create the deployment now, while the content is still distributing.";
-    public const string CreateNowHint = "Without the box 'Create the deployment now' the deployment is created only when the content check passes. Otherwise the create is skipped and can run again later.";
+    public const string CreateNowHint =
+        "Create the deployment now: with the box checked, the deployment is created at once, while the content distributes. "
+        + "Without it, the deployment is created only when the content check passes; when the check does not pass, the create is skipped and can run again later.";
     public const string SuppressRestartLabel = "Suppress restarts on servers and workstations (devices do not restart after the installation)";
 
     public static IReadOnlyList<DeploymentChoice> Notifications { get; } =

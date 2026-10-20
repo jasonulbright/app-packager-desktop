@@ -72,6 +72,20 @@ internal sealed class FakeDeploymentService : IDeploymentService
     public List<IReadOnlyList<DeploymentChange>> Applied { get; } = [];
     public List<DeploymentChange> Prepared { get; } = [];
 
+    /// <summary>The tokens each read received, so a test can prove that leaving the page cancels them.</summary>
+    public List<CancellationToken> ListTokens { get; } = [];
+    public List<CancellationToken> GroupTokens { get; } = [];
+    public List<CancellationToken> PrepareTokens { get; } = [];
+
+    /// <summary>Holds every ApplyAsync until the test releases it; the hold ignores the cancel, as a provider call that does not return.</summary>
+    public TaskCompletionSource? ApplyGate;
+
+    /// <summary>True makes the fake finish every change after a cancel, as a provider call that already started.</summary>
+    public bool IgnoreCancel;
+
+    /// <summary>Called for each outcome, as the real service appends its audit record.</summary>
+    public Action<DeploymentOutcome>? Audited;
+
     public DeployableObject Add(DeploymentObjectType type, string id, string name, string version = "1.0", bool packaged = false, bool distributed = true)
     {
         var obj = new DeployableObject(Type: type, Id: id, Name: name, Version: version, Program: "", PackagedByProduct: packaged);
@@ -84,6 +98,7 @@ internal sealed class FakeDeploymentService : IDeploymentService
     {
         Interlocked.Increment(ref ListCalls);
         lock (ListedTypes) ListedTypes.Add(type);
+        lock (ListTokens) ListTokens.Add(ct);
         TaskCompletionSource? gate;
         lock (ListGates) ListGates.TryGetValue(type, out gate);
         if (gate is not null) await gate.Task.WaitAsync(ct);
@@ -102,6 +117,7 @@ internal sealed class FakeDeploymentService : IDeploymentService
     public async Task<IReadOnlyList<DpGroupInfo>> ListDpGroupsAsync(DeployableObject obj, CancellationToken ct)
     {
         Interlocked.Increment(ref GroupCalls);
+        lock (GroupTokens) GroupTokens.Add(ct);
         if (GroupGate is { } gate) await gate.Task.WaitAsync(ct);
         lock (Objects)
             return Groups.Select(g => Distributed.Contains(obj.Id) ? g with { Status = "Distributed", Success = g.Targeted } : g).ToList();
@@ -115,6 +131,7 @@ internal sealed class FakeDeploymentService : IDeploymentService
     public async Task<DeploymentChange> PrepareAsync(DeploymentChange request, CancellationToken ct)
     {
         Interlocked.Increment(ref PrepareCalls);
+        lock (PrepareTokens) PrepareTokens.Add(ct);
         if (PrepareGate is { } gate) await gate.Task.WaitAsync(ct);
         if (PrepareFails?.Invoke(request) is { } failure) throw failure;
         DeploymentChange prepared;
@@ -162,14 +179,16 @@ internal sealed class FakeDeploymentService : IDeploymentService
         if (InConfirmedRun is { } inRun) Assert.True(inRun(), "A write ran outside a confirmed change plan.");
         lock (Applied) Applied.Add(changes);
         await Task.Yield();
+        if (ApplyGate is { } hold) await hold.Task;
         var outcomes = new List<DeploymentOutcome>();
         for (var i = 0; i < changes.Count; i++)
         {
             var change = changes[i];
             DeploymentOutcome outcome;
-            if (ct.IsCancellationRequested) outcome = new DeploymentOutcome(Change: change, Succeeded: false, Message: CancelledSkip, UndoChange: null, Steps: []);
+            if (!IgnoreCancel && ct.IsCancellationRequested) outcome = new DeploymentOutcome(Change: change, Succeeded: false, Message: CancelledSkip, UndoChange: null, Steps: []);
             else outcome = Apply(change);
             outcomes.Add(outcome);
+            Audited?.Invoke(outcome);
             progress.Report(outcome);
             AfterChange?.Invoke(i);
         }
@@ -293,6 +312,8 @@ internal sealed class FakeDeploymentDialogs : IDeploymentHelperDialogs
     public Action<TextPromptViewModel>? Prompt;
     public Action<DeploymentTemplateEditorViewModel>? Editor;
     public bool ConfirmDelete = true;
+    public bool ConfirmRemoval = true;
+    public List<string> RemovalPrompts { get; } = [];
     public List<string> OpenedFolders { get; } = [];
     public int Prompts;
     public int Editors;
@@ -310,6 +331,12 @@ internal sealed class FakeDeploymentDialogs : IDeploymentHelperDialogs
     }
 
     public Task<bool> ConfirmDeleteTemplateAsync(string name) => Task.FromResult(ConfirmDelete);
+
+    public Task<bool> ConfirmRemoveDeploymentAsync(string text)
+    {
+        lock (RemovalPrompts) RemovalPrompts.Add(text);
+        return Task.FromResult(ConfirmRemoval);
+    }
 
     public void OpenFolder(string folder) => OpenedFolders.Add(folder);
 }
@@ -333,6 +360,9 @@ internal sealed class DeploymentPageHarness
     public Action<DeploymentHelperSettings>? BeforeSave;
     public int PreferenceLoads;
     public int PreferenceSaves;
+
+    /// <summary>False makes every save of the page choices report that nothing was written.</summary>
+    public bool SaveSucceeds = true;
     public int RingStarts;
     public string? RingProblem;
 
@@ -370,7 +400,7 @@ internal sealed class DeploymentPageHarness
         Service.InConfirmedRun = () => Plans.InRun;
     }
 
-    public DeploymentWriter Writer() => new(Service, History, Log, () => "LAB");
+    public DeploymentWriter Writer() => new(Service, History, Log, () => "LAB", Dialogs.ConfirmRemoveDeploymentAsync);
 
     public DeploymentPageServices Services() => new(Service, Collections, Audit, Templates, Reports, Dialogs, Plans, Writer(), () => Settings,
         () =>
@@ -382,7 +412,9 @@ internal sealed class DeploymentPageHarness
         {
             BeforeSave?.Invoke(s);
             Interlocked.Increment(ref PreferenceSaves);
+            if (!SaveSucceeds) return false;
             Saved = s;
+            return true;
         },
         () =>
         {

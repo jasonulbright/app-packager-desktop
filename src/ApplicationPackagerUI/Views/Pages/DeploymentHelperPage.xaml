@@ -42,8 +42,16 @@
                 <Setter Property="Margin" Value="0,0,8,8" />
             </Style>
 
+            <!-- A string Content renders as one non-wrapping line, which a narrow window clips. -->
             <Style x:Key="Option" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
                 <Setter Property="Margin" Value="0,0,16,8" />
+                <Setter Property="ContentTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="560" />
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="Card" TargetType="Border">
@@ -167,6 +175,12 @@
                             <ui:Button Content="Save as template" Icon="{ui:SymbolIcon Save24}" Command="{Binding SaveAsTemplateCommand}" VerticalAlignment="Top"
                                        ToolTip="Saves the purpose, notification, time basis and options as a user template." Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnSaveTemplate" />
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" VerticalAlignment="Top"
+                                       ToolTip="Reads the objects, the collections and the templates again." Style="{StaticResource ToolButton}"
+                                       AutomationProperties.Name="Refresh objects and collections" AutomationProperties.AutomationId="btnDeployRefresh" />
+                            <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" VerticalAlignment="Top"
+                                       ToolTip="Stops the read of the objects and collections." Style="{StaticResource ToolButton}"
+                                       AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnDeployCancel" />
                             <TextBlock Text="{Binding TemplateMessage}" Style="{StaticResource Note}" VerticalAlignment="Top" Margin="0,6,0,8" MaxWidth="420"
                                        AutomationProperties.AutomationId="txtTemplateMessage" />
                         </WrapPanel>
@@ -416,6 +430,8 @@
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4">
                             <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnHistoryRefresh" />
+                            <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Stops the read of the audit log." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnHistoryCancel" />
                             <ui:Button Content="Remove deployment" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveDeploymentCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that removes the deployment of the selected create record." AutomationProperties.AutomationId="btnRemoveDeployment" />
                             <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
@@ -425,10 +441,14 @@
                             <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnHistoryFolder" />
                         </WrapPanel>
-                        <TextBlock Grid.Row="2" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHistoryPath">
-                            <Run Text="Audit log:" />
-                            <Run Text="{Binding LogPath, Mode=OneWay}" />
-                        </TextBlock>
+                        <StackPanel Grid.Row="2" Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource Note}" AutomationProperties.AutomationId="txtHistoryPath">
+                                <Run Text="Audit log:" />
+                                <Run Text="{Binding LogPath, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock Text="{Binding CapNote}" Style="{StaticResource Warning}" Margin="0,4,0,0" Visibility="{Binding IsCapped, Converter={StaticResource BoolToVisibility}}"
+                                       AutomationProperties.AutomationId="txtHistoryCap" />
+                        </StackPanel>
                         <DataGrid Grid.Row="3" x:Name="dgHistory" Style="{StaticResource GridBase}" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" MinHeight="160"
                                   AutomationProperties.AutomationId="dgHistory" AutomationProperties.Name="Audit records">
                             <DataGrid.Columns>
@@ -451,6 +471,13 @@
                 <ScrollViewer x:Name="scrollOptionsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollOptionsTab">
                     <StackPanel>
+                        <WrapPanel Margin="0,0,0,4">
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Reads the templates, the audit log check and the connection again." AutomationProperties.Name="Refresh options"
+                                       AutomationProperties.AutomationId="btnOptionsRefresh" />
+                            <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Stops the read of the options." AutomationProperties.Name="Cancel the read" AutomationProperties.AutomationId="btnOptionsCancel" />
+                        </WrapPanel>
                         <Border Style="{StaticResource Card}" Margin="0,0,0,12" AutomationProperties.AutomationId="pnlAuditLog">
                             <StackPanel>
                                 <TextBlock Text="Audit log" Style="{StaticResource CardTitle}" />
@@ -517,7 +544,7 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="3" x:Name="pnlDeploymentResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding Shared.HasResults, Converter={StaticResource BoolToVisibility}}"
+        <Border Grid.Row="3" x:Name="pnlDeploymentResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding Shared.HasResultPanel, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDeploymentResults">
             <Grid>
                 <Grid.RowDefinitions>

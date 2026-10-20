@@ -23,7 +23,8 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     public const string BuiltInRefused = "Built-in collections cannot be chosen. Pick a device collection that was made at the site.";
     public const string ValidateAgain = "The form changed after the checks ran. Select Validate again.";
     public const string ChangedDuringCheck = "The form changed while the checks ran. The result was discarded. Select Validate again.";
-    public const string ValidateFailed = "The checks could not run. The log has the details.";
+    public const string WrittenText = "A change was written to ConfigMgr. Select Validate again to check the current state.";
+    public const string ValidateFailed ="The checks could not run. The log has the details.";
     public const string NoGroupsChecked = "Check at least one distribution point group.";
     public const string TemplateSaveFailed = "The template could not be saved. The log has the details.";
     public const string TemplateNameTaken = "A shipped template has this name. Choose another name.";
@@ -42,6 +43,10 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     private int _validationGeneration;
     private bool _applying;
     private string? _templateId;
+    private CancellationTokenSource? _objectsCts;
+
+    /// <summary>True when <see cref="DpMessage"/> answers the last action, not the state of the group list.</summary>
+    private bool _dpActionMessage;
 
     public DeploymentFormViewModel(DeploymentShared shared) : base(shared)
     {
@@ -218,8 +223,8 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         FormChanged();
         Programs.Clear();
         SelectedProgram = null;
-        DpGroups.Clear();
-        DpMessage = "";
+        ClearDpGroups();
+        SetDpMessage("", action: false);
         if (value is not null && Shared.IsActive) _ = LoadDetailsAsync(value);
     }
 
@@ -260,13 +265,31 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     partial void OnAllowMicrosoftUpdateChanged(bool value) => FormChanged();
     partial void OnDistributeFirstChanged(bool value) => FormChanged();
 
-    /// <summary>Every change of the form makes the checks of the last Validate stale.</summary>
+    /// <summary>Every change of the form makes the checks of the last Validate and the message of the last action stale.</summary>
     private void FormChanged()
     {
         _formVersion++;
+        FormMessage = "";
+        if (_dpActionMessage) SetDpMessage("", action: false);
+        InvalidateChecks(ValidateAgain);
+    }
+
+    private void InvalidateChecks(string message)
+    {
         if (Checks.Count == 0) return;
         Checks.Clear();
-        ValidationMessage = ValidateAgain;
+        ValidationMessage = message;
+    }
+
+    private void SetDpMessage(string message, bool action)
+    {
+        DpMessage = message;
+        _dpActionMessage = action && message.Length > 0;
+    }
+
+    private void OnDpGroupChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DpGroupRow.IsChecked)) FormChanged();
     }
 
     /// <summary>The form as a new visit shows it: Available now, the defaults of the source tool.</summary>
@@ -339,14 +362,22 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         var mine = ++_objectGeneration;
         var generation = Shared.Generation;
         var type = Type;
+        CancelObjectRead();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(Shared.VisitToken);
+        _objectsCts = cts;
         IsLoading = true;
         try
         {
-            var objects = await Task.Run(() => Services.Deployments.ListObjectsAsync(type, CancellationToken.None));
+            var objects = await Task.Run(() => Services.Deployments.ListObjectsAsync(type, cts.Token), cts.Token);
+            cts.Token.ThrowIfCancellationRequested();
             if (mine != _objectGeneration || generation != Shared.Generation || type != Type) return;
             _objects = objects;
             ApplyObjectFilter();
             Services.Log.Info(DeploymentShared.LogArea, $"Read {objects.Count} objects.");
+        }
+        catch (OperationCanceledException)
+        {
+            if (mine == _objectGeneration && generation == Shared.Generation) Shared.StatusMessage = ReadCancelled;
         }
         catch (Exception ex)
         {
@@ -356,9 +387,17 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         }
         finally
         {
+            if (ReferenceEquals(_objectsCts, cts)) _objectsCts = null;
             if (mine == _objectGeneration) IsLoading = false;
         }
     }
+
+    private void CancelObjectRead()
+    {
+        try { _objectsCts?.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
+    protected override void CancelOtherReads() => CancelObjectRead();
 
     private void ShowTemplates(IReadOnlyList<DeploymentTemplate> templates, string? message)
     {
@@ -417,13 +456,14 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         IsLoadingDetails = true;
         try
         {
+            var visit = Shared.VisitToken;
             var (programs, groups) = await Task.Run(async () =>
             {
                 IReadOnlyList<string> p = row.Object.Type == DeploymentObjectType.Package
-                    ? await Services.Deployments.ListProgramsAsync(row.Object.Id, CancellationToken.None) : [];
-                var g = await Services.Deployments.ListDpGroupsAsync(row.Object, CancellationToken.None);
+                    ? await Services.Deployments.ListProgramsAsync(row.Object.Id, visit) : [];
+                var g = await Services.Deployments.ListDpGroupsAsync(row.Object, visit);
                 return (p, g);
-            });
+            }, visit);
             if (mine != _detailGeneration || generation != Shared.Generation || !ReferenceEquals(SelectedObject, row)) return;
             Programs.Clear();
             foreach (var program in programs) Programs.Add(program);
@@ -433,7 +473,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         catch (Exception ex)
         {
             if (mine != _detailGeneration || generation != Shared.Generation) return;
-            DpMessage = DeploymentShared.PlainMessage(ex, DetailsFailed);
+            SetDpMessage(DeploymentShared.PlainMessage(ex, DetailsFailed), action: false);
             Services.Log.Warning(DeploymentShared.LogArea, $"The DP groups or programs could not be read ({DeploymentShared.FailureName(ex)}).");
         }
         finally
@@ -445,10 +485,20 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     private void ShowDpGroups(IReadOnlyList<DpGroupInfo> groups)
     {
         var checkedNames = DpGroups.Where(g => g.IsChecked).Select(g => g.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        DpGroups.Clear();
+        ClearDpGroups();
         foreach (var group in groups.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase))
-            DpGroups.Add(new DpGroupRow(group) { IsChecked = checkedNames.Contains(group.Name) });
-        DpMessage = groups.Count == 0 ? "The site has no distribution point groups." : "";
+        {
+            var row = new DpGroupRow(group) { IsChecked = checkedNames.Contains(group.Name) };
+            row.PropertyChanged += OnDpGroupChanged;
+            DpGroups.Add(row);
+        }
+        SetDpMessage(groups.Count == 0 ? "The site has no distribution point groups." : "", action: false);
+    }
+
+    private void ClearDpGroups()
+    {
+        foreach (var row in DpGroups) row.PropertyChanged -= OnDpGroupChanged;
+        DpGroups.Clear();
     }
 
     private bool CanRefreshDpGroups() => SelectedObject is not null && !IsLoadingDetails;
@@ -468,13 +518,13 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         Objects.Clear();
         Collections.Clear();
         Programs.Clear();
-        DpGroups.Clear();
+        ClearDpGroups();
         Templates.Clear();
         ObjectFilter = "";
         CollectionFilter = "";
         ObjectCount = "";
         CollectionCount = "";
-        DpMessage = "";
+        SetDpMessage("", action: false);
         CollectionMessage = "";
         TemplateMessage = "";
         IsValidating = false;
@@ -569,16 +619,16 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     {
         if (SelectedObject is not { } row)
         {
-            DpMessage = PickObject;
+            SetDpMessage(PickObject, action: true);
             return null;
         }
         var groups = DpGroups.Where(g => g.IsChecked).Select(g => g.Name).ToList();
         if (groups.Count == 0)
         {
-            DpMessage = NoGroupsChecked;
+            SetDpMessage(NoGroupsChecked, action: true);
             return null;
         }
-        DpMessage = "";
+        SetDpMessage("", action: false);
         var obj = row.Object.Type == DeploymentObjectType.Package && !string.IsNullOrEmpty(SelectedProgram) ? row.Object with { Program = SelectedProgram } : row.Object;
         return new DeploymentChange(Kind: DeploymentChangeKind.Distribute, Object: obj, Collection: null, Options: null, DpGroups: groups,
             CreateNowContentDistributing: false, RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: null, Checks: [], Impact: [], CreatedId: null);
@@ -619,7 +669,8 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         ValidationMessage = "Running the checks.";
         try
         {
-            var prepared = await Task.Run(() => Services.Deployments.PrepareAsync(request, CancellationToken.None));
+            var visit = Shared.VisitToken;
+            var prepared = await Task.Run(() => Services.Deployments.PrepareAsync(request, visit), visit);
             if (mine != _validationGeneration || generation != Shared.Generation) return;
             if (version != _formVersion)
             {
@@ -678,14 +729,17 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     {
         if (Shared.IsWriting) return;
         if (BuildDistributeRequest() is not { } request) return;
-        var run = await Shared.RunPlanAsync([request], prepared => DeploymentText.BuildDeployPlan(prepared, Services.Clock), report: message => DpMessage = message);
+        var run = await Shared.RunPlanAsync([request], prepared => DeploymentText.BuildDeployPlan(prepared, Services.Clock), report: message => SetDpMessage(message, action: true));
         if (run is not { Outcome.Confirmed: true }) return;
         await Shared.AfterWriteAsync();
     }
 
-    /// <summary>Reads the DP group status again after a write; the object lists stay.</summary>
+    /// <summary>Drops the checks, which describe the state before the write, and reads the DP group status again; the object lists stay.</summary>
     public async Task RefreshAfterDeployAsync()
     {
+        _validationGeneration++;
+        IsValidating = false;
+        InvalidateChecks(WrittenText);
         if (SelectedObject is { } row && Shared.IsActive) await LoadDetailsAsync(row);
     }
 
@@ -734,7 +788,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
             offset = (int)Math.Min(int.MaxValue, Math.Round((deadline - available).TotalHours));
         return new DeploymentTemplate(Id: TemplateIdFor(name), Name: name.Trim(), Purpose: Purpose, UserNotification: Notification.Value, UtcBasis: UtcBasis,
             OverrideServiceWindow: OverrideServiceWindow, RebootOutsideServiceWindow: RebootOutsideServiceWindow, AllowMetered: AllowMetered,
-            AllowBoundaryFallback: IsUpdateGroup ? FallbackToDp : AllowFallback || FallbackToDp, AllowMicrosoftUpdate: AllowMicrosoftUpdate,
+            AllowBoundaryFallback: IsUpdateGroup ? FallbackToDp : AllowFallback, AllowMicrosoftUpdate: AllowMicrosoftUpdate,
             PostRebootScan: PostRebootScan, DeadlineOffsetHours: offset, IsSeeded: false);
     }
 
