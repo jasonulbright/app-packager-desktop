@@ -62,6 +62,42 @@ public sealed class InstallerAnalysisAnalyzeTests : IDisposable
     }
 
     [Fact]
+    public async Task AnMsiWithoutAllUsersSaysTheProductIsRegisteredForTheInstallingAccount()
+    {
+        var path = _temp.PathOf("noallusers.msi");
+        using (var b = new TestMsiBuilder(path))
+        {
+            b.Property("ProductCode", "{BBBBBBBB-1111-2222-3333-444444444444}").Property("ProductName", "Sample").Property("ProductVersion", "1.0.0")
+             .Property("Manufacturer", "Contoso").Template("Intel;1033");
+        }
+
+        var r = await Analyze(path);
+
+        Assert.Equal(@"HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{BBBBBBBB-1111-2222-3333-444444444444}", Value(r, "UninstallRegistryKey"));
+        var context = r.Deployment.Single(f => f.Name == "InstallContext");
+        Assert.Equal("ARP key under HKLM; the product is registered for the installing account only (no ALLUSERS property)", context.Value);
+        Assert.Equal("msi-property-table", context.Source);
+        Assert.Equal(context.Value, Assert.Single(r.Modes).Context);
+        Assert.Contains(r.Notes, n => n.Contains("installing account's profile", StringComparison.Ordinal) && n.Contains("ALLUSERS=1", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AnMsiWithAllUsersOneStaysPerMachine()
+    {
+        var path = _temp.PathOf("allusers.msi");
+        using (var b = new TestMsiBuilder(path))
+        {
+            b.Property("ProductCode", "{CCCCCCCC-1111-2222-3333-444444444444}").Property("ProductName", "Sample").Property("ProductVersion", "1.0.0")
+             .Property("ALLUSERS", "1").Template("x64;1033");
+        }
+
+        var r = await Analyze(path);
+
+        Assert.Equal("PerMachine", Value(r, "InstallContext"));
+        Assert.DoesNotContain(r.Notes, n => n.Contains("installing account", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task EveryPropertyTableRowIsListedInTableOrder()
     {
         var path = _temp.PathOf("props.msi");

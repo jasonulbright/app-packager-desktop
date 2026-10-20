@@ -206,6 +206,15 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         public bool CommandsRefused;
     }
 
+    // Without ALLUSERS, Windows Installer writes the uninstall key under HKLM but registers the
+    // product for the installing account only (UserData of that SID, AssignmentType 0).
+    private const string InstallingAccountContext = "ARP key under HKLM; the product is registered for the installing account only (no ALLUSERS property)";
+    private const string InstallingAccountNote = "The MSI has no ALLUSERS property: detection by the uninstall key under HKLM is right, but per-user shortcuts and files land in the installing account's profile (the SYSTEM profile when the deployment runs as SYSTEM). Add ALLUSERS=1 to the install command for a per-machine install.";
+
+    private static bool NoAllUsers(List<AnalysisFact> msiProperties) =>
+        msiProperties.Count > 0 && !msiProperties.Any(p => p.Name == "ALLUSERS")
+        && msiProperties.FirstOrDefault(p => p.Name == "MSIINSTALLPERUSER")?.Value != "1";
+
     private const string UnsafeCommandNote = "A proposed command line was dropped: text read from the installer holds characters that a command line cannot carry safely.";
     private const string ProductCodeNote = "The ProductCode is not a GUID; no msiexec uninstall command is proposed.";
 
@@ -278,6 +287,11 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
             facts.Add(From("UninstallRegistryKey", drop?.UninstallRegistryKey));
         if (o.InstallContext.Length > 0)
             facts.Add(new AnalysisFact("InstallContext", o.InstallContext, o.ArpKeySource == "engine-convention" ? "Predicted" : "Confirmed", o.ArpKeySource));
+        else if (engine == "NativeMSI" && drop is { InstallContext: "Machine" } && NoAllUsers(msiProperties))
+        {
+            facts.Add(new AnalysisFact("InstallContext", InstallingAccountContext, "Confirmed", "msi-property-table"));
+            notes.Add(InstallingAccountNote);
+        }
         else
             facts.Add(new AnalysisFact("InstallContext", drop is null ? "" : drop.InstallContext == "User" ? "PerUser" : "PerMachine",
                 drop is null ? "None" : "Predicted", drop is null ? "none" : "analysis"));
@@ -308,8 +322,9 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         {
             var perUser = drop.InstallContext == "User";
             var key = drop.UninstallRegistryKey.Value;
+            var context = perUser ? "PerUser" : NoAllUsers(msiProperties) ? InstallingAccountContext : "PerMachine";
             modes.Add(new InstallMode(perUser ? "PerUser" : "PerMachine", "", "", $"msiexec.exe /x \"{drop.ProductCode.Value}\" /qn /norestart",
-                key, perUser ? "HKCU" : "HKLM", perUser ? "PerUser" : "PerMachine")
+                key, perUser ? "HKCU" : "HKLM", context)
             {
                 IsDefault = true,
                 View = perUser ? "" : key.Contains("WOW6432Node", StringComparison.OrdinalIgnoreCase) ? "32" : "64",
