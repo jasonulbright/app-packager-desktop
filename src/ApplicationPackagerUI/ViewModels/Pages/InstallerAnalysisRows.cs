@@ -48,9 +48,11 @@ public sealed class PayloadRow(PayloadEntry entry)
     public string Name => InstallerAnalysisText.EntryName(Entry.Path);
     public string Folder => InstallerAnalysisText.EntryFolder(Entry.Path);
     public string Size => Entry.IsDirectory ? "" : InstallerAnalysisText.Size(Entry.Size);
-    public string Kind => Entry.IsDirectory ? "Folder" : IsInnerInstaller ? "Inner installer" : "File";
+    public string Kind => Entry.IsDirectory ? "Folder" : IsInnerInstaller ? "Inner installer" : IsLink ? "Link" : "File";
+    public string Description => Entry.Description;
     public string Type => Entry.InnerType;
     public bool IsInnerInstaller => string.Equals(Entry.Kind, "InnerInstaller", StringComparison.OrdinalIgnoreCase);
+    public bool IsLink => string.Equals(Entry.Kind, "Link", StringComparison.OrdinalIgnoreCase);
 
     public override string ToString() => $"{Name}, {Kind}";
 }

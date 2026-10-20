@@ -357,7 +357,8 @@
                                 <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="3*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -467,6 +468,7 @@
                                 <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>

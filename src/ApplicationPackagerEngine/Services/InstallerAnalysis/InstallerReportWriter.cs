@@ -258,8 +258,8 @@ public sealed class InstallerReportWriter(string? folder = null, Func<DateTimeOf
         if (payload is null)
             html.Append("<h2>Payload</h2>\r\n<p>").Append(E("The payload was not listed" + (string.IsNullOrWhiteSpace(notListedReason) ? "." : ": " + notListedReason.Trim().TrimEnd('.') + "."))).Append("</p>\r\n");
         else if (payload.Count > 0)
-            Table("Payload", [62, 12, 13, 13], new[] { new[] { "Path", "Size", "Kind", "Type" } }
-                .Concat(payload.Select(p => new[] { p.Path, p.Size.ToString(CultureInfo.InvariantCulture), p.Kind, p.InnerType })));
+            Table("Payload", [48, 10, 10, 10, 22], new[] { new[] { "Path", "Size", "Kind", "Type", "Description" } }
+                .Concat(payload.Select(p => new[] { p.Path, p.Size.ToString(CultureInfo.InvariantCulture), p.Kind, p.InnerType, p.Description })));
         if (reg.Count > 0)
             Table("Registry settings", [7, 6, 22, 11, 20, 7, 7, 5, 7, 8], new[] { RegistryColumns }.Concat(reg.Select(RegistryRow)));
         html.Append("</body></html>\r\n");

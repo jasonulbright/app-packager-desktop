@@ -120,6 +120,8 @@ public sealed class SevenZipPolicyTests : IDisposable
         var result = await service.ExtractPayloadAsync(path, null, Target(), Limits, CancellationToken.None);
 
         Assert.Equal("Link; it is not extracted", payload.Single(e => e.Path == "evil").Description);
+        Assert.Equal("Link", payload.Single(e => e.Path == "evil").Kind);
+        Assert.Equal("File", payload.Single(e => e.Path == "ok.txt").Kind);
         Assert.Equal("", payload.Single(e => e.Path == "ok.txt").Description);
         Assert.Equal(1, result.Files);
         Assert.Contains(result.Skipped, s => s.StartsWith("evil:", StringComparison.Ordinal) && s.Contains("link"));

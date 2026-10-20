@@ -63,18 +63,27 @@ public sealed partial class InstallerAnalysisService
         if (ZipEngines.Contains(engine) || engine == "Velopack")
         {
             using var zip = BoundedZip.Open(path, limits.MaxEntries, "listed", velopack: engine == "Velopack");
-            return zip.Entries(limits.MaxEntries)
-                .Select(e => Classify(e.FullName, e.Length, BoundedZip.IsDirectory(e), engine))
-                .ToList();
+            return zip.Entries(limits.MaxEntries).Select(e =>
+            {
+                if (BoundedZip.IsSymbolicLink(e)) return new PayloadEntry(e.FullName, e.Length, false, "Link", "") { Description = LinkDescription };
+                var isDirectory = BoundedZip.IsDirectory(e);
+                // The Windows attribute byte keeps FILE_ATTRIBUTE_REPARSE_POINT; the entry data is the reparse buffer, not a link and not an installer.
+                if ((e.ExternalAttributes & (int)FileAttributes.ReparsePoint) != 0)
+                    return new PayloadEntry(e.FullName, isDirectory ? 0 : e.Length, isDirectory, "File", "")
+                    { Description = isDirectory ? StoredFolderDescription : StoredFileDescription };
+                return Classify(e.FullName, e.Length, isDirectory, engine);
+            }).ToList();
         }
         var tool = SevenZip();
         var entries = await tool.ListAsync(path, limits, ct).ConfigureAwait(false);
         return entries.Select(e => e.IsLink
-            ? new PayloadEntry(e.Path, e.Size, false, "File", "") { Description = LinkDescription }
+            ? new PayloadEntry(e.Path, e.Size, false, "Link", "") { Description = LinkDescription }
             : Classify(e.Path, e.Size, e.IsDirectory, engine)).ToList();
     }
 
     private const string LinkDescription = "Link; it is not extracted";
+    private const string StoredFileDescription = "Stored as a plain file by the archive format; links are not created";
+    private const string StoredFolderDescription = "Stored as a plain folder by the archive format; links are not created";
 
     private static bool IsBuiltInContainer(string engine) => engine is "NativeMSI" or "MSP" or "Velopack" || ZipEngines.Contains(engine);
 

@@ -60,6 +60,34 @@ public sealed class PayloadExtractionTests : IDisposable
     }
 
     [Fact]
+    public async Task AZipEntryWithTheReparseAttributeIsAPlainFileAndAUnixSymlinkIsALink()
+    {
+        var path = _temp.PathOf("links.zip");
+        using (var stream = File.Create(path))
+        using (var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create))
+        {
+            var reparse = zip.CreateEntry("tool.lnk.exe");
+            reparse.ExternalAttributes = 0x420;
+            using (var s = reparse.Open()) s.Write(new byte[176]);
+            var folder = zip.CreateEntry("junction/");
+            folder.ExternalAttributes = 0x410;
+            var symlink = zip.CreateEntry("evil");
+            symlink.ExternalAttributes = 0xA1FF << 16;
+            using (var s = symlink.Open()) s.Write(Text("../outside"));
+            using (var s = zip.CreateEntry("plain.txt").Open()) s.Write(Text("x"));
+        }
+
+        var payload = await _noSevenZip.ListPayloadAsync(path, Limits, CancellationToken.None);
+
+        var stored = payload.Single(e => e.Path == "tool.lnk.exe");
+        Assert.Equal("File", stored.Kind);
+        Assert.Equal("Stored as a plain file by the archive format; links are not created", stored.Description);
+        Assert.Equal("Stored as a plain folder by the archive format; links are not created", payload.Single(e => e.Path == "junction/").Description);
+        Assert.Equal("Link", payload.Single(e => e.Path == "evil").Kind);
+        Assert.Equal("", payload.Single(e => e.Path == "plain.txt").Description);
+    }
+
+    [Fact]
     public async Task AZipPackageListsAndExtractsWithout7ZipAndMarksInnerInstallers()
     {
         var path = WriteZip(_temp.PathOf("bundle.zip"), ("setup/inner.msi", Text("msi")), ("readme.txt", Text("hello")), ("tools/app.exe", Text("MZ")));

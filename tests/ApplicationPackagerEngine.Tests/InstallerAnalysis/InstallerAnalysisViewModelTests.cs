@@ -31,6 +31,18 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     }
 
     [Fact]
+    public void ALinkEntryShowsAsALinkWithItsDescriptionAndAStoredLinkAsAFile()
+    {
+        var link = new PayloadRow(new PayloadEntry("evil", 0, false, "Link", "") { Description = "Link; it is not extracted" });
+        var stored = new PayloadRow(new PayloadEntry("tool.lnk", 176, false, "File", "") { Description = "Stored as a plain file by the archive format; links are not created" });
+
+        Assert.Equal("Link", link.Kind);
+        Assert.Equal("Link; it is not extracted", link.Description);
+        Assert.Equal("File", stored.Kind);
+        Assert.Equal("Stored as a plain file by the archive format; links are not created", stored.Description);
+    }
+
+    [Fact]
     public void TheConstructorReadsNothing()
     {
         var viewModel = _h.Create();
