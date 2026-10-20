@@ -90,11 +90,6 @@ public partial class App : Application
     {
         base.OnExit(e);
 
-        if (_host is not null)
-        {
-            var host = _host;
-            HostShutdown.StopAndWait(host.StopAsync, ExitStopTimeout);
-            host.Dispose();
-        }
+        AppShutdown.Complete(_host, ExitStopTimeout, () => Environment.Exit(e.ApplicationExitCode));
     }
 }
