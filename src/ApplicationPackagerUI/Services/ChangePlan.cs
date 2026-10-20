@@ -127,6 +127,12 @@ public sealed record ChangePlanResult(IReadOnlyList<ChangePlanItemResult> Items,
     /// <summary>False when the run changed nothing that its undo reverses; null leaves Undo to the counts.</summary>
     public bool? UndoAvailable { get; init; }
 
+    /// <summary>True for an undo the operator declined before it started: nothing ran, so the earlier result and its Undo stay.</summary>
+    public bool Declined { get; init; }
+
+    /// <summary>A sentence the summary ends with; null for none.</summary>
+    public string? Note { get; init; }
+
     public string Summary => (SkippedCount == 0
         ? $"{SucceededCount} changed, {FailedCount} failed."
         : $"{SucceededCount} changed, {FailedCount} failed, {SkippedCount} skipped.")
@@ -135,7 +141,8 @@ public sealed record ChangePlanResult(IReadOnlyList<ChangePlanItemResult> Items,
             0 => "",
             1 => " 1 failed change was made in part; Undo can reverse it.",
             var n => $" {n} failed changes were made in part; Undo can reverse them."
-        };
+        }
+        + (Note is { Length: > 0 } note ? " " + note : "");
 }
 
 /// <summary>What happened in the change plan window.</summary>

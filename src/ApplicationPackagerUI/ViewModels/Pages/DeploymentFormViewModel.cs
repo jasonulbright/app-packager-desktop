@@ -148,9 +148,30 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         set => IsRequired = !value;
     }
 
-    [ObservableProperty] private DateTime? _availableDate;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AvailableDateTip))]
+    private DateTime? _availableDate;
+
     [ObservableProperty] private string _availableTimeText = "";
-    [ObservableProperty] private DateTime? _deadlineDate;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DeadlineDateTip))]
+    private DateTime? _deadlineDate;
+
+    /// <summary>The date with its weekday; the date box shows the short date.</summary>
+    public string? AvailableDateTip => LongDate(AvailableDate);
+
+    public string? DeadlineDateTip => LongDate(DeadlineDate);
+
+    // The long date pattern of some cultures has no weekday.
+    private static string? LongDate(DateTime? date)
+    {
+        if (date is not { } day) return null;
+        var culture = CultureInfo.CurrentCulture;
+        var text = day.ToString("D", culture);
+        var weekday = day.ToString("dddd", culture);
+        return text.Contains(weekday, StringComparison.CurrentCultureIgnoreCase) ? text : $"{weekday}, {text}";
+    }
     [ObservableProperty] private string _deadlineTimeText = "";
 
     [ObservableProperty]
@@ -481,9 +502,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
                 return (p, g);
             }, visit);
             if (mine != _detailGeneration || generation != Shared.Generation || !ReferenceEquals(SelectedObject, row)) return;
-            Programs.Clear();
-            foreach (var program in programs) Programs.Add(program);
-            if (Programs.Count == 1) SelectedProgram = Programs[0];
+            ShowPrograms(programs);
             ShowDpGroups(groups);
         }
         catch (Exception ex)
@@ -496,6 +515,23 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         {
             if (mine == _detailGeneration) IsLoadingDetails = false;
         }
+    }
+
+    /// <summary>
+    /// Shows the programs of the package and keeps the chosen one while the package still has it.
+    /// Clearing the list makes the bound program box set the choice to null, so an unchanged list stays as it is.
+    /// </summary>
+    private void ShowPrograms(IReadOnlyList<string> programs)
+    {
+        var chosen = SelectedProgram;
+        if (Programs.SequenceEqual(programs, StringComparer.Ordinal))
+        {
+            if (chosen is null && Programs.Count == 1) SelectedProgram = Programs[0];
+            return;
+        }
+        Programs.Clear();
+        foreach (var program in programs) Programs.Add(program);
+        SelectedProgram = chosen is not null && Programs.Contains(chosen) ? chosen : Programs.Count == 1 ? Programs[0] : null;
     }
 
     private void ShowDpGroups(IReadOnlyList<DpGroupInfo> groups)

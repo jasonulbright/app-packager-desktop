@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
@@ -271,7 +272,7 @@
                                     <StackPanel Margin="0,0,24,8">
                                         <TextBlock Text="Available" Style="{StaticResource FieldLabel}" />
                                         <StackPanel Orientation="Horizontal">
-                                            <DatePicker SelectedDate="{Binding AvailableDate}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
+                                            <DatePicker SelectedDate="{Binding AvailableDate}" SelectedDateFormat="Short" ToolTip="{Binding AvailableDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Available date"
                                                         AutomationProperties.AutomationId="dpAvailableDate" />
                                             <ui:TextBox Text="{Binding AvailableTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:30"
                                                         AutomationProperties.Name="Available time" AutomationProperties.AutomationId="txtAvailableTime" />
@@ -280,7 +281,7 @@
                                     <StackPanel Margin="0,0,24,8" Visibility="{Binding IsRequired, Converter={StaticResource BoolToVisibility}}">
                                         <TextBlock Text="Deadline" Style="{StaticResource FieldLabel}" />
                                         <StackPanel Orientation="Horizontal">
-                                            <DatePicker SelectedDate="{Binding DeadlineDate}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
+                                            <DatePicker SelectedDate="{Binding DeadlineDate}" SelectedDateFormat="Short" ToolTip="{Binding DeadlineDateTip}" Width="150" Margin="0,0,8,0" AutomationProperties.Name="Deadline date"
                                                         AutomationProperties.AutomationId="dpDeadlineDate" />
                                             <ui:TextBox Text="{Binding DeadlineTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="18:00"
                                                         AutomationProperties.Name="Deadline time" AutomationProperties.AutomationId="txtDeadlineTime" />
@@ -294,11 +295,11 @@
                                 </WrapPanel>
                                 <TextBlock Text="{Binding TimeBasisNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtTimeBasisNote" />
                                 <WrapPanel Margin="0,4,0,0">
-                                    <CheckBox Content="Show task sequence progress" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.ShowProgressLabel}" IsChecked="{Binding ShowProgress}" Style="{StaticResource Option}"
                                               Visibility="{Binding IsTaskSequence, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkShowProgress" />
-                                    <CheckBox Content="Allow fallback to the default site boundary group" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding AllowFallback}" Style="{StaticResource Option}"
                                               Visibility="{Binding ShowAllowFallback, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkAllowFallback" />
-                                    <CheckBox Content="Require a full scan after the restart" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.FullScanLabel}" IsChecked="{Binding PostRebootScan}" Style="{StaticResource Option}"
                                               Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkPostRebootScan" />
                                 </WrapPanel>
                                 <WrapPanel Margin="0,4,0,0">
@@ -326,15 +327,15 @@
                                 <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" Margin="0,4,0,4" />
                                 <TextBlock Text="{Binding RequiredOnlyNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRequiredOnlyNote" />
                                 <WrapPanel IsEnabled="{Binding RequiredOnlyEnabled}" AutomationProperties.AutomationId="pnlRequiredOnly">
-                                    <CheckBox Content="Install outside maintenance windows at the deadline" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.OverrideWindowLabel}" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
                                               AutomationProperties.AutomationId="chkOverrideWindow" />
-                                    <CheckBox Content="Allow restart outside maintenance windows" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.RebootOutsideLabel}" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
                                               AutomationProperties.AutomationId="chkRebootOutside" />
-                                    <CheckBox Content="Allow download on a metered connection" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.MeteredLabel}" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
                                               Visibility="{Binding ShowMetered, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkMetered" />
-                                    <CheckBox Content="Allow fallback to the default site boundary group" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.FallbackLabel}" IsChecked="{Binding FallbackToDp}" Style="{StaticResource Option}"
                                               Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkFallbackToDp" />
-                                    <CheckBox Content="Download from Microsoft Update when no distribution point has the content" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
+                                    <CheckBox Content="{x:Static pages:DeploymentText.MicrosoftUpdateLabel}" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
                                               Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkMicrosoftUpdate" />
                                     <CheckBox Content="{Binding SuppressRestartLabel}" IsChecked="{Binding SuppressRestart}" Style="{StaticResource Option}"
                                               Visibility="{Binding IsUpdateGroup, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="chkSuppressRestart" />
@@ -356,10 +357,11 @@
                                 <DataGrid x:Name="dgDpGroups" Style="{StaticResource GridBase}" ItemsSource="{Binding DpGroups}" MaxHeight="220" MinHeight="96"
                                           AutomationProperties.AutomationId="dgDpGroups" AutomationProperties.Name="Distribution point groups">
                                     <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="" Width="44" MinWidth="44">
+                                        <DataGridTemplateColumn Header="" Width="56" MinWidth="56">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0"
+                                                    <!-- The default padding leaves the box less width than it draws, which cuts the box in half. -->
+                                                    <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
                                                               AutomationProperties.Name="{Binding Name}" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -400,7 +402,7 @@
                                 <TextBlock Text="{Binding FormMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0" Visibility="{Binding HasFormMessage, Converter={StaticResource BoolToVisibility}}"
                                            AutomationProperties.AutomationId="txtFormMessage" AutomationProperties.LiveSetting="Assertive" />
                                 <WrapPanel Margin="0,12,0,0">
-                                    <ui:Button Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
+                                    <ui:Button x:Name="btnValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
                                                ToolTip="Runs the checks and the schedule rules. Nothing is changed." AutomationProperties.AutomationId="btnValidate" />
                                     <ui:Button Content="Deploy" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding DeployCommand}" Style="{StaticResource ToolButton}"
                                                ToolTip="Shows the plan of the deployment. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnDeploy" />
@@ -452,18 +454,19 @@
                             <TextBlock Text="{Binding CapNote}" Style="{StaticResource Warning}" Margin="0,4,0,0" Visibility="{Binding IsCapped, Converter={StaticResource BoolToVisibility}}"
                                        AutomationProperties.AutomationId="txtHistoryCap" />
                         </StackPanel>
+                        <!-- Result and Deployment ID come before the wide columns, so a narrow window shows them without a sideways scroll; Time stays when the grid scrolls. -->
                         <DataGrid Grid.Row="3" x:Name="dgHistory" Style="{StaticResource GridBase}" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" MinHeight="160"
-                                  AutomationProperties.AutomationId="dgHistory" AutomationProperties.Name="Audit records">
+                                  FrozenColumnCount="1" AutomationProperties.AutomationId="dgHistory" AutomationProperties.Name="Audit records">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Event" Binding="{Binding Event}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Deployment ID" Binding="{Binding DeploymentId}" Width="*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Purpose" Binding="{Binding Purpose}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="130" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Deployment ID" Binding="{Binding DeploymentId}" Width="*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>

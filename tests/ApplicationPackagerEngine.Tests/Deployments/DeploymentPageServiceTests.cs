@@ -452,8 +452,8 @@ public sealed class DeploymentPageServiceTests
         Assert.Contains("Start-CMContentDistribution:All DPs", h.Engine.Site.Log);
         Assert.Equal(0, h.Engine.CreateCalls);
         var row = page.Shared.LastResults.Single();
-        Assert.True(row.Skipped);
-        Assert.StartsWith("Skipped", row.Message);
+        Assert.False(row.Skipped);
+        Assert.StartsWith(DeploymentWriter.DistributionOnlyText, row.Message);
         Assert.False(page.Shared.HasUndo);
     }
 

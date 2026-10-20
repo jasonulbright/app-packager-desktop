@@ -25,6 +25,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public const string CancelledReason = "No result: the run was cancelled before this change reported.";
     public const string FailedReason = "No result: the run failed before this change reported.";
     public const string DetachedReason = "No result: the window was closed while the run was still working.";
+    public const string UndoDeclinedText = "Undo was not confirmed. Nothing was changed. Undo is still available.";
 
     public static readonly TimeSpan DefaultForceCloseDelay = TimeSpan.FromSeconds(10);
 
@@ -152,6 +153,14 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         ResultText = "Undoing...";
         var result = await RunAsync(_undo!, "Undo: ");
         if (IsDetached) return;
+        if (result.Declined && Outcome.Result is { } done)
+        {
+            ResultRows.Clear();
+            foreach (var row in done.Items) ResultRows.Add(row with { Message = SecretMask.Apply(row.Message) });
+            ResultText = $"{done.Summary} {UndoDeclinedText}";
+            Stage = ChangePlanStage.Done;
+            return;
+        }
         Outcome = Outcome with { UndoResult = result };
         Stage = ChangePlanStage.Undone;
     }

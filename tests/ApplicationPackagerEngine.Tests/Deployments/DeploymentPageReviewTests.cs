@@ -294,7 +294,9 @@ public sealed class DeploymentPageReviewTests
         Assert.Single(_h.Service.Applied);
         Assert.Single(_h.Service.Deployments);
         Assert.True(form.Shared.HasUndo);
-        Assert.Contains(DeploymentWriter.RemovalNotConfirmed, form.Shared.LastResults.Select(r => r.Message.Replace("Undo: ", "", StringComparison.Ordinal)));
+        Assert.Equal("Changed", Assert.Single(form.Shared.LastResults).OutcomeText);
+        Assert.True(_h.Plans.LastViewModel!.UndoCommand.CanExecute(null));
+        Assert.EndsWith(ChangePlanViewModel.UndoDeclinedText, _h.Plans.LastViewModel.ResultText);
     }
 
     [Fact]
