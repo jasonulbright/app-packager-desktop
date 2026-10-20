@@ -48,8 +48,11 @@ public sealed class DeploymentHelperViewModelTests
         Assert.Equal(3, form.Templates.Count);
         Assert.Equal("Workstation Pilot", form.Templates[0].Name);
 
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (_h.Service.ListGates) _h.Service.ListGates[DeploymentObjectType.Package] = gate;
         form.TypeIndex = (int)DeploymentObjectType.Package;
         Assert.Empty(form.Objects);
+        gate.SetResult();
         await DeploymentPageHarness.WaitAsync(() => form.Objects.Count == 1 && !form.IsLoading);
         Assert.Equal(["Office Tools"], form.Objects.Select(o => o.Name));
         Assert.True(form.IsPackage);

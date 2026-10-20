@@ -240,13 +240,17 @@ public sealed class DeploymentPageContractTests
         {
             Event = "Create", ObjectId = "LAB00020", AvailableDateTime = new DateTime(2026, 10, 21, 9, 0, 0), DeploymentUniqueID = "MCM20020", ProgramName = "Install", TimeBasedOn = "Utc"
         };
-        var captured = DeploymentHistoryViewModel.Captured(record)!;
+        var captured = DeploymentChangeBuilder.RemoveFromAudit(record)!.Existing!;
         Assert.Equal(("MCM20020", true, "Install"), (captured.DeploymentId, captured.UtcBasis, captured.Program));
         Assert.True(new DeploymentHistoryRow(record).CanUndo);
 
-        var application = record with { DeploymentType = "Application", DeploymentID = "16777500", DeploymentUniqueID = "{AB-1}", Result = "Success", TimeBasedOn = "LocalTime" };
-        Assert.Equal("{AB-1}", DeploymentHistoryViewModel.Captured(application)!.DeploymentId);
-        Assert.False(DeploymentHistoryViewModel.Captured(application)!.UtcBasis);
+        const string unique = "{0A1B2C3D-4E5F-4061-8293-A4B5C6D7E8F9}";
+        var application = record with
+        {
+            DeploymentType = "Application", ObjectId = "16777300", DeploymentID = "16777500", DeploymentUniqueID = unique, Result = "Success", TimeBasedOn = "LocalTime", ProgramName = ""
+        };
+        var app = DeploymentChangeBuilder.RemoveFromAudit(application)!.Existing!;
+        Assert.Equal((unique, false, "16777500"), (app.DeploymentId, app.UtcBasis, app.AssignmentId));
 
         Assert.False(new DeploymentHistoryRow(record with { Result = "Failed" }).CanUndo);
         Assert.False(new DeploymentHistoryRow(record with { Result = "Unknown" }).CanUndo);

@@ -294,15 +294,22 @@ internal sealed class FakeDeploymentTemplates : IDeploymentTemplateStore
 internal sealed class FakeDeploymentReports : IDeploymentReportWriter
 {
     public List<IReadOnlyList<DeploymentAuditRecord>> Written { get; } = [];
+    public List<string?> Notes { get; } = [];
     public Exception? Failure;
 
-    public string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows) => Write(rows, "csv");
-    public string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows) => Write(rows, "html");
+    public string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows) => Write(rows, "csv", null);
+    public string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows) => Write(rows, "html", null);
+    public string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows, string? note) => Write(rows, "csv", note);
+    public string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows, string? note) => Write(rows, "html", note);
 
-    private string Write(IReadOnlyList<DeploymentAuditRecord> rows, string extension)
+    private string Write(IReadOnlyList<DeploymentAuditRecord> rows, string extension, string? note)
     {
         if (Failure is { } failure) throw failure;
-        lock (Written) Written.Add(rows);
+        lock (Written)
+        {
+            Written.Add(rows);
+            Notes.Add(note);
+        }
         return $@"C:\Data\Deployments\Reports\deployments.{extension}";
     }
 }

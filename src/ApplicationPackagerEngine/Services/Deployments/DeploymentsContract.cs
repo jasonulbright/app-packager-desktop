@@ -333,6 +333,12 @@ public interface IDeploymentReportWriter
 {
     string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows);
     string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows);
+
+    /// <summary>The CSV with <paramref name="note"/>, when not empty, as a last row whose Event is Note.</summary>
+    string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows, string? note) => WriteCsv(rows);
+
+    /// <summary>The HTML with <paramref name="note"/>, when not empty, in the header.</summary>
+    string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows, string? note) => WriteHtml(rows);
 }
 
 public enum DeploymentFailureKind

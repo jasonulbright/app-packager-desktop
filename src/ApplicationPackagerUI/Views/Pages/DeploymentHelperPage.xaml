@@ -209,6 +209,9 @@
                                         <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" AutomationProperties.Name="Program"
                                                   AutomationProperties.AutomationId="cboProgram" />
                                     </StackPanel>
+                                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding ObjectListNote}" Style="{StaticResource Warning}" Margin="0,8,0,0"
+                                               Visibility="{Binding HasObjectListNote, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtObjectListNote"
+                                               AutomationProperties.LiveSetting="Polite" />
                                     <DataGrid x:Name="dgObjects" Style="{StaticResource GridBase}" ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}" Height="240"
                                               AutomationProperties.AutomationId="dgObjects" AutomationProperties.Name="Objects">
                                         <DataGrid.Columns>

@@ -10,7 +10,7 @@ public sealed class DeploymentHistoryOptionsTests
 
     private async Task<DeploymentHistoryViewModel> HistoryAsync()
     {
-        _h.Audit.Records.Add(_h.Record("Create", DeploymentObjectType.Application, "7-Zip", "LAB00010", "{DEP-0001}", when: new DateTime(2026, 10, 19, 8, 0, 0)));
+        _h.Audit.Records.Add(_h.Record("Create", DeploymentObjectType.Application, "7-Zip", "LAB00010", "{0A1B2C3D-0000-4000-8000-000000000001}", when: new DateTime(2026, 10, 19, 8, 0, 0)));
         _h.Audit.Records.Add(_h.Record("Distribute", DeploymentObjectType.Application, "7-Zip", "LAB00010", "", when: new DateTime(2026, 10, 19, 7, 0, 0)));
         _h.Audit.Records.Add(_h.Record("Create", DeploymentObjectType.Package, "Office Tools", "LAB00011", "", "Failed", new DateTime(2026, 10, 18, 7, 0, 0)));
         _h.Audit.Records.Add(_h.Record("Undo", DeploymentObjectType.Application, "=cmd|' /C calc'!A0", "LAB00011", "{DEP-0009}", when: new DateTime(2026, 10, 17, 7, 0, 0)));
@@ -43,19 +43,19 @@ public sealed class DeploymentHistoryOptionsTests
     public async Task RemoveDeploymentOfACreateRecordOpensTheRemovePlanAndTheServiceDecides()
     {
         var history = await HistoryAsync();
-        _h.Service.Deployments.Add(new DeploymentRecord(DeploymentId: "{DEP-0001}", Type: DeploymentObjectType.Application, ObjectId: "16777300", ObjectName: "7-Zip",
+        _h.Service.Deployments.Add(new DeploymentRecord(DeploymentId: "{0A1B2C3D-0000-4000-8000-000000000001}", Type: DeploymentObjectType.Application, ObjectId: "16777300", ObjectName: "7-Zip",
             CollectionId: "LAB00010", CollectionName: "Pilot Workstations", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,
             Created: new DateTime(2026, 10, 19, 8, 0, 0), CreatedBy: @"LAB\admin"));
-        history.SelectedRow = history.Rows.Single(r => r.DeploymentId == "{DEP-0001}");
+        history.SelectedRow = history.Rows.Single(r => r.DeploymentId == "{0A1B2C3D-0000-4000-8000-000000000001}");
         await history.RemoveDeploymentCommand.ExecuteAsync(null);
         var plan = _h.Plans.Shown.Single();
         Assert.True(plan.IsDestructive);
         Assert.False(plan.HasUndo);
-        Assert.Contains("Deployment ID: {DEP-0001}.", plan.Items[0].Detail);
+        Assert.Contains("Deployment ID: {0A1B2C3D-0000-4000-8000-000000000001}.", plan.Items[0].Detail);
         Assert.Contains("this product created it", plan.Items[0].Detail);
         var change = _h.Service.Applied.Single().Single();
         Assert.Equal(DeploymentChangeKind.RemoveDeployment, change.Kind);
-        Assert.Equal("{DEP-0001}", change.Existing!.DeploymentId);
+        Assert.Equal("{0A1B2C3D-0000-4000-8000-000000000001}", change.Existing!.DeploymentId);
         Assert.Equal(DeploymentObjectType.Application, change.Existing.Type);
         Assert.Equal("LAB00010", change.Existing.CollectionId);
         Assert.Empty(_h.Service.Deployments);
@@ -72,9 +72,9 @@ public sealed class DeploymentHistoryOptionsTests
         await history.RemoveDeploymentCommand.ExecuteAsync(null);
         Assert.Equal(DeploymentHistoryViewModel.NoDeploymentId, history.Shared.StatusMessage);
 
-        history.SelectedRow = history.Rows.Single(r => r.DeploymentId == "{DEP-0001}");
+        history.SelectedRow = history.Rows.Single(r => r.DeploymentId == "{0A1B2C3D-0000-4000-8000-000000000001}");
         await history.RemoveDeploymentCommand.ExecuteAsync(null);
-        Assert.Equal("The deployment {DEP-0001} no longer exists. Nothing was changed.", history.Shared.StatusMessage);
+        Assert.Equal("The deployment {0A1B2C3D-0000-4000-8000-000000000001} no longer exists. Nothing was changed.", history.Shared.StatusMessage);
         Assert.Empty(_h.Plans.Shown);
         Assert.Empty(_h.Service.Applied);
     }

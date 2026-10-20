@@ -13,12 +13,16 @@ internal sealed class DeploymentHarness : IDisposable
 
     public readonly string Folder = Path.Combine(Path.GetTempPath(), "apkg-dhsvc-" + Guid.NewGuid().ToString("N"));
 
-    public DeploymentHarness(JsonObject? state = null, IDeploymentSigningCheck? signing = null, Func<string?>? auditPath = null)
+    /// <param name="maxRows">The row limit of the object and deployment lists.</param>
+    /// <param name="failAppend">Picks the appends of the service, counted from 0, that throw.</param>
+    public DeploymentHarness(JsonObject? state = null, IDeploymentSigningCheck? signing = null, Func<string?>? auditPath = null, int maxRows = 1000,
+        Func<int, Exception?>? failAppend = null)
     {
         Site = new StubDeploymentSite(state ?? StubDeploymentSite.Lab());
         Audit = new DeploymentAuditLog(auditPath ?? (() => AuditPath), clock: () => LocalNow, user: () => @"CONTOSO\Admin");
         Collections = new FakeCollections();
-        Service = new DeploymentService(Site, Collections, Audit, signing, utcNow: () => UtcNow, local: Local);
+        IDeploymentAuditLog audit = failAppend is null ? Audit : new AppendFailingAudit(Audit, failAppend);
+        Service = new DeploymentService(Site, Collections, audit, signing, utcNow: () => UtcNow, local: Local) { MaxListRows = maxRows };
     }
 
     public StubDeploymentSite Site { get; }
@@ -98,6 +102,25 @@ internal sealed class DeploymentHarness : IDisposable
         public Task<IReadOnlyList<SavedQuery>> ListSavedQueriesAsync(CancellationToken ct) => throw new NotSupportedException();
         public Task<CollectionChange> PrepareAsync(CollectionChange request, CancellationToken ct) => throw new NotSupportedException();
         public Task<IReadOnlyList<CollectionOutcome>> ApplyAsync(IReadOnlyList<CollectionChange> changes, IProgress<CollectionOutcome> progress, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    /// <summary>The real log with the appends a function picks throwing.</summary>
+    internal sealed class AppendFailingAudit(DeploymentAuditLog inner, Func<int, Exception?> fail) : IDeploymentAuditLog
+    {
+        private int _appends;
+        private Exception? Next() => fail(Interlocked.Increment(ref _appends) - 1);
+        public AuditProbe Probe() => inner.Probe();
+        public AuditWrite Append(DeploymentAuditRecord r) => Next() is { } ex ? throw ex : inner.Append(r);
+        public IReadOnlyList<DeploymentAuditRecord> Read(int max) => inner.Read(max);
+        public string Path => inner.Path;
+        public IDeploymentAuditReservation Reserve() => new Reservation(this, inner.Reserve());
+
+        private sealed class Reservation(AppendFailingAudit owner, IDeploymentAuditReservation held) : IDeploymentAuditReservation
+        {
+            public AuditProbe Probe => held.Probe;
+            public AuditWrite Append(DeploymentAuditRecord r) => owner.Next() is { } ex ? throw ex : held.Append(r);
+            public void Dispose() => held.Dispose();
+        }
     }
 
     internal sealed class FakeSigning(IReadOnlySet<string> packaged, string? refusal = null, bool fail = false) : IDeploymentSigningCheck

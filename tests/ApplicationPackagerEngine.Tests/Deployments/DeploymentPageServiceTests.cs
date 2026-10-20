@@ -20,18 +20,29 @@ internal sealed class LabClock : TimeProvider
 internal sealed class HookedDeploymentService(IDeploymentService inner) : IDeploymentService
 {
     public List<IReadOnlyList<DeploymentChange>> Applied { get; } = [];
+    public List<DeploymentChange> Prepared { get; } = [];
     public Action<DeploymentOutcome>? OnOutcome;
+
+    /// <summary>Runs before the changes reach the service; a test can change the site between Prepare and Apply here.</summary>
+    public Action<IReadOnlyList<DeploymentChange>>? BeforeApply;
 
     public Task<IReadOnlyList<DeployableObject>> ListObjectsAsync(DeploymentObjectType type, CancellationToken ct) => inner.ListObjectsAsync(type, ct);
     public Task<IReadOnlyList<string>> ListProgramsAsync(string packageId, CancellationToken ct) => inner.ListProgramsAsync(packageId, ct);
     public Task<IReadOnlyList<DeploymentCollection>> ListCollectionsAsync(CancellationToken ct) => inner.ListCollectionsAsync(ct);
     public Task<IReadOnlyList<DpGroupInfo>> ListDpGroupsAsync(DeployableObject obj, CancellationToken ct) => inner.ListDpGroupsAsync(obj, ct);
     public Task<IReadOnlyList<DeploymentRecord>> ListDeploymentsAsync(DeployableObject obj, CancellationToken ct) => inner.ListDeploymentsAsync(obj, ct);
-    public Task<DeploymentChange> PrepareAsync(DeploymentChange request, CancellationToken ct) => inner.PrepareAsync(request, ct);
+
+    public async Task<DeploymentChange> PrepareAsync(DeploymentChange request, CancellationToken ct)
+    {
+        var prepared = await inner.PrepareAsync(request, ct);
+        lock (Prepared) Prepared.Add(prepared);
+        return prepared;
+    }
 
     public Task<IReadOnlyList<DeploymentOutcome>> ApplyAsync(IReadOnlyList<DeploymentChange> changes, IProgress<DeploymentOutcome> progress, CancellationToken ct)
     {
         lock (Applied) Applied.Add(changes);
+        BeforeApply?.Invoke(changes);
         return inner.ApplyAsync(changes, new Hook(progress, this), ct);
     }
 
@@ -53,7 +64,7 @@ internal sealed class ServicePageHarness : IDisposable
 {
     public readonly string Folder = Path.Combine(Path.GetTempPath(), "apkg-dhpage-" + Guid.NewGuid().ToString("N"));
 
-    public ServicePageHarness(JsonObject? state = null, IDeploymentSigningCheck? signing = null)
+    public ServicePageHarness(JsonObject? state = null, IDeploymentSigningCheck? signing = null, int maxRows = 1000, Func<int, Exception?>? failAppend = null)
     {
         Settings = new AppSettings
         {
@@ -62,7 +73,7 @@ internal sealed class ServicePageHarness : IDisposable
             DeploymentHelper = new DeploymentHelperSettings { AuditLogPath = FirstPath }
         };
         Paths = new SettingsDeploymentAuditPath(() => Settings);
-        Engine = new DeploymentHarness(state, signing, () => Paths.AuditLogPath);
+        Engine = new DeploymentHarness(state, signing, () => Paths.AuditLogPath, maxRows, failAppend);
         Service = new HookedDeploymentService(Engine.Service);
         Writer = new DeploymentWriter(Service, History, Log, () => "LAB", _ => Task.FromResult(true));
     }

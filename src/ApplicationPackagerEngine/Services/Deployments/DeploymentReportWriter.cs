@@ -21,20 +21,30 @@ public sealed class DeploymentReportWriter(string? folder = null, Func<DateTimeO
 
     public static string DefaultFolder() => Path.Combine(AppDataPaths.Root, "Deployments", "Reports");
 
-    public string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows)
+    public const string NoteEvent = "Note";
+
+    public string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows) => WriteCsv(rows, null);
+
+    public string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows) => WriteHtml(rows, null);
+
+    /// <summary>
+    /// The note goes into a last row, never into a line before the header: a spreadsheet reads
+    /// every line as data.
+    /// </summary>
+    public string WriteCsv(IReadOnlyList<DeploymentAuditRecord> rows, string? note)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        var (columns, values) = Table(rows);
+        var (columns, values) = Table(rows, string.IsNullOrWhiteSpace(note) ? null : note);
         var text = new StringBuilder();
         text.Append(string.Join(",", columns.Select(ReportFile.Cell))).Append("\r\n");
         foreach (var row in values) text.Append(string.Join(",", row.Select(ReportFile.Cell))).Append("\r\n");
         return Write("csv", text.ToString());
     }
 
-    public string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows)
+    public string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows, string? note)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        var (columns, values) = Table(rows);
+        var (columns, values) = Table(rows, null);
         var generated = _clock().ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
         var html = new StringBuilder();
         html.Append("<!DOCTYPE html>\r\n<html lang=\"en\"><head><meta charset=\"utf-8\">")
@@ -46,7 +56,9 @@ public sealed class DeploymentReportWriter(string? folder = null, Func<DateTimeO
             .Append("th{border-bottom:2px solid #333}")
             .Append("</style></head><body>\r\n<h1>Deployment history</h1>\r\n")
             .Append("<p>Generated ").Append(Encode(generated)).Append(". Records: ")
-            .Append(values.Count.ToString(CultureInfo.InvariantCulture)).Append(".</p>\r\n<table><thead><tr>");
+            .Append(values.Count.ToString(CultureInfo.InvariantCulture)).Append(".</p>\r\n");
+        if (!string.IsNullOrWhiteSpace(note)) html.Append("<p class=\"note\">").Append(Encode(note)).Append("</p>\r\n");
+        html.Append("<table><thead><tr>");
         foreach (var column in columns) html.Append("<th>").Append(Encode(column)).Append("</th>");
         html.Append("</tr></thead><tbody>\r\n");
         foreach (var row in values)
@@ -59,17 +71,14 @@ public sealed class DeploymentReportWriter(string? folder = null, Func<DateTimeO
         return Write("html", html.ToString());
     }
 
-    private static (List<string> Columns, List<List<string>> Rows) Table(IReadOnlyList<DeploymentAuditRecord> records)
+    private static (List<string> Columns, List<List<string>> Rows) Table(IReadOnlyList<DeploymentAuditRecord> records, string? note)
     {
         var columns = new List<string>();
-        var maps = new List<Dictionary<string, string>>();
-        foreach (var record in records)
-        {
-            var map = Fields(record);
+        var maps = records.Select(Fields).ToList();
+        if (note is not null) maps.Add(new Dictionary<string, string>(StringComparer.Ordinal) { ["Event"] = NoteEvent, ["Message"] = note });
+        foreach (var map in maps)
             foreach (var name in map.Keys)
                 if (!columns.Contains(name)) columns.Add(name);
-            maps.Add(map);
-        }
         return (columns, maps.Select(m => columns.Select(c => m.TryGetValue(c, out var v) ? v : "").ToList()).ToList());
     }
 

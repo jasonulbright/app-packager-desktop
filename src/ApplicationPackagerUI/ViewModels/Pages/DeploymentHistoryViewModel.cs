@@ -17,7 +17,8 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     public const string NothingToExport = "The list has no rows to export.";
     public const string NotLoaded = "The audit log was not read. Select Refresh, then export.";
     public const string NoDeploymentId = "Select a create record that names its deployment ID.";
-    public const string UnknownType = "The record does not name a known object type, so the deployment cannot be removed from here.";
+    public const string NotRemovable =
+        "The record does not hold every value the removal compares (type, IDs, purpose, times and time basis), so the deployment cannot be removed from here. Remove it in the console.";
     public static readonly string CappedNote = $"The list shows the newest {MaxRecords} records of the audit log. Older records are in the file.";
     public static string ReportFailed(string format) => $"The {format} report could not be written. The log has the details.";
 
@@ -117,7 +118,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     }
 
     /// <summary>Writes the rows the filters show; refuses when the last read did not succeed.</summary>
-    private async Task ExportAsync(string format, Func<IReadOnlyList<DeploymentAuditRecord>, string> write)
+    private async Task ExportAsync(string format, Func<IReadOnlyList<DeploymentAuditRecord>, string?, string> write)
     {
         if (!IsLoaded)
         {
@@ -131,7 +132,8 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             return;
         }
         string path;
-        try { path = await Task.Run(() => write(rows)); }
+        var note = IsCapped ? CappedNote : null;
+        try { path = await Task.Run(() => write(rows, note)); }
         catch (Exception ex)
         {
             Shared.StatusMessage = ex is DeploymentServiceException d ? SecretMask.Apply(d.Message) : ReportFailed(format);
@@ -153,23 +155,6 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             _ => null
         };
 
-    /// <summary>
-    /// The captured deployment of a create record, for the service to compare before it removes
-    /// anything; the only place the page turns an audit record into a removal. The ID is the unique
-    /// ID the record names; DeploymentID of an application or update group record is the numeric
-    /// assignment ID, which no removal takes.
-    /// </summary>
-    public static DeploymentRecord? Captured(DeploymentAuditRecord record)
-    {
-        var id = record.DeploymentUniqueID.Length > 0 ? record.DeploymentUniqueID : record.DeploymentID;
-        if (TypeOf(record.DeploymentType) is not { } type || id.Length == 0) return null;
-        return new DeploymentRecord(DeploymentId: id, Type: type, ObjectId: record.ObjectId, ObjectName: record.ApplicationName,
-            CollectionId: record.CollectionID, CollectionName: record.CollectionName, Purpose: record.DeployPurpose,
-            AvailableTime: record.AvailableDateTime ?? record.Timestamp, Deadline: record.DeadlineDateTime, Created: record.Timestamp, CreatedBy: record.User,
-            UtcBasis: string.Equals(record.TimeBasedOn, "Utc", StringComparison.OrdinalIgnoreCase), Program: record.ProgramName,
-            AssignmentId: record.DeploymentUniqueID.Length > 0 && record.DeploymentID != record.DeploymentUniqueID ? record.DeploymentID : "");
-    }
-
     private bool CanRemoveDeployment() => SelectedRow is not null;
 
     /// <summary>Shows the plan that removes the deployment of the selected create record.</summary>
@@ -182,14 +167,11 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             Shared.StatusMessage = NoDeploymentId;
             return;
         }
-        if (Captured(row.Record) is not { } existing)
+        if (DeploymentChangeBuilder.RemoveFromAudit(row.Record) is not { } request)
         {
-            Shared.StatusMessage = UnknownType;
+            Shared.StatusMessage = NotRemovable;
             return;
         }
-        var request = new DeploymentChange(Kind: DeploymentChangeKind.RemoveDeployment, Object: null, Collection: null, Options: null, DpGroups: [],
-            CreateNowContentDistributing: false, RequiredConfirmed: false, BackdatedAcknowledged: false, Existing: existing, Checks: [], Impact: [],
-            CreatedId: existing.DeploymentId);
         var run = await Shared.RunPlanAsync([request], prepared => DeploymentText.BuildRemovePlan(prepared[0]));
         if (run is not { Outcome.Confirmed: true }) return;
         await Shared.AfterWriteAsync();

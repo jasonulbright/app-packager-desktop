@@ -25,6 +25,9 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     public const string ChangedDuringCheck = "The form changed while the checks ran. The result was discarded. Select Validate again.";
     public const string WrittenText = "A change was written to ConfigMgr. Select Validate again to check the current state.";
     public const string ValidateFailed ="The checks could not run. The log has the details.";
+    public const string StalePlanMarker = "Skipped: the plan is stale";
+    public const string StalePlanText =
+        "The object or the collection changed after the checks ran, so nothing was created. The form is kept. Select Validate again, then Deploy.";
     public const string NoGroupsChecked = "Check at least one distribution point group.";
     public const string TemplateSaveFailed = "The template could not be saved. The log has the details.";
     public const string TemplateNameTaken = "A shipped template has this name. Choose another name.";
@@ -112,6 +115,13 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
     public string RequiredOnlyNote => IsRequired ? "" : RequiredOnlyText;
 
     public string TimeBasisNote => (UtcBasis ? UtcNote : LocalNote) + (Type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence ? NoExpirationNote : "");
+
+    /// <summary>The note of the service when it cut the object list; empty otherwise.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasObjectListNote))]
+    private string _objectListNote = "";
+
+    public bool HasObjectListNote => ObjectListNote.Length > 0;
 
     [ObservableProperty] private string _objectFilter = "";
     [ObservableProperty] private string _collectionFilter = "";
@@ -212,6 +222,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         Objects.Clear();
         _objects = [];
         ObjectCount = "";
+        ObjectListNote = "";
         if (Shared.IsActive && IsLoaded) _ = ReloadObjectsAsync();
     }
 
@@ -351,6 +362,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
             }
             _objectGeneration++;
             _objects = objects;
+            ObjectListNote = ListNote(objects);
             ApplyObjectFilter();
             Services.Log.Info(DeploymentShared.LogArea, $"Read {objects.Count} objects and {collections.Count} collections.");
         };
@@ -372,6 +384,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
             cts.Token.ThrowIfCancellationRequested();
             if (mine != _objectGeneration || generation != Shared.Generation || type != Type) return;
             _objects = objects;
+            ObjectListNote = ListNote(objects);
             ApplyObjectFilter();
             Services.Log.Info(DeploymentShared.LogArea, $"Read {objects.Count} objects.");
         }
@@ -391,6 +404,9 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
             if (mine == _objectGeneration) IsLoading = false;
         }
     }
+
+    private static string ListNote<T>(IReadOnlyList<T> rows) =>
+        rows is DeploymentList<T> { Truncated: true } cut ? SecretMask.Apply(cut.Note ?? "") : "";
 
     private void CancelObjectRead()
     {
@@ -523,6 +539,7 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
         ObjectFilter = "";
         CollectionFilter = "";
         ObjectCount = "";
+        ObjectListNote = "";
         CollectionCount = "";
         SetDpMessage("", action: false);
         CollectionMessage = "";
@@ -719,8 +736,19 @@ public sealed partial class DeploymentFormViewModel : DeploymentTabViewModel
                 if (version == _formVersion && prepared.FirstOrDefault(c => c.Kind == DeploymentChangeKind.Create) is { } done) ShowChecks(done);
             },
             message => FormMessage = message);
-        if (run is not { Outcome.Confirmed: true }) return;
+        if (run is not { Outcome.Confirmed: true } done) return;
         await Shared.AfterWriteAsync();
+        if (done.Plan.Outcomes.Any(o => o.Message.StartsWith(StalePlanMarker, StringComparison.Ordinal))) ShowStalePlan();
+    }
+
+    /// <summary>Drops the checks of the stale plan and keeps the form, so Validate reads the current state.</summary>
+    private void ShowStalePlan()
+    {
+        _validationGeneration++;
+        IsValidating = false;
+        Checks.Clear();
+        ValidationMessage = StalePlanText;
+        FormMessage = StalePlanText;
     }
 
     /// <summary>Distributes the content of the selected object to the checked DP groups through a plan.</summary>

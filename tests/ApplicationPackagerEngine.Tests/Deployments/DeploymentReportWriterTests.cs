@@ -70,6 +70,56 @@ public sealed class DeploymentReportWriterTests : IDisposable
         Assert.Contains("Records: 1.", html);
     }
 
+    private const string HostileNote = "=cmd|' /C calc'!A0 <script>alert(1)</script> \"quoted\", next";
+
+    [Fact]
+    public void ACsvNoteIsALastRowWithTheEventNoteAfterTheHeaderAndTheRecords()
+    {
+        var rows = new[] { Parse("{\"Timestamp\":\"2026-09-01T10:00:00\",\"DeploymentType\":\"Application\",\"Result\":\"Success\"}") };
+
+        var lines = File.ReadAllLines(Writer().WriteCsv(rows, HostileNote));
+
+        Assert.Equal("\"Timestamp\",\"DeploymentType\",\"Result\",\"Event\",\"Message\"", lines[0]);
+        Assert.Equal("\"2026-09-01T10:00:00\",\"Application\",\"Success\",\"Create\",\"\"", lines[1]);
+        Assert.Equal("\"\",\"\",\"\",\"Note\",\"'" + HostileNote.Replace("\"", "\"\"") + "\"", lines[2]);
+        Assert.Equal(3, lines.Length);
+    }
+
+    [Fact]
+    public void ACsvNoteUsesTheMessageColumnTheRecordsHave()
+    {
+        var rows = new[] { Parse("{\"Event\":\"Undo\",\"Message\":\"Removed.\",\"Result\":\"Success\"}") };
+
+        var lines = File.ReadAllLines(Writer().WriteCsv(rows, "The list shows the newest 2000 records of the audit log."));
+
+        Assert.Equal("\"Result\",\"Event\",\"Message\"", lines[0]);
+        Assert.Equal("\"\",\"Note\",\"The list shows the newest 2000 records of the audit log.\"", lines[^1]);
+    }
+
+    [Fact]
+    public void WithoutANoteTheReportsAreTheSameAsBefore()
+    {
+        var rows = new[] { Parse("{\"Timestamp\":\"2026-09-01T10:00:00\",\"Result\":\"Success\"}") };
+        Assert.Equal(File.ReadAllText(Writer().WriteCsv(rows)), File.ReadAllText(Writer().WriteCsv(rows, null)));
+        Assert.Equal(File.ReadAllText(Writer().WriteCsv(rows)), File.ReadAllText(Writer().WriteCsv(rows, "  ")));
+        Assert.DoesNotContain("class=\"note\"", File.ReadAllText(Writer().WriteHtml(rows, "")));
+        Assert.Equal(File.ReadAllText(Writer().WriteHtml(rows)), File.ReadAllText(Writer().WriteHtml(rows, null)));
+    }
+
+    [Fact]
+    public void AnHtmlNoteIsEncodedInTheHeaderAndAddsNoRow()
+    {
+        var rows = new[] { Parse("{\"Timestamp\":\"2026-09-01T10:00:00\",\"Result\":\"Success\"}") };
+
+        var html = File.ReadAllText(Writer().WriteHtml(rows, HostileNote));
+
+        Assert.DoesNotContain("<script>", html);
+        Assert.Contains("<p class=\"note\">=cmd|&#39; /C calc&#39;!A0 &lt;script&gt;alert(1)&lt;/script&gt; &quot;quoted&quot;, next</p>", html);
+        Assert.True(html.IndexOf("class=\"note\"", StringComparison.Ordinal) < html.IndexOf("<table>", StringComparison.Ordinal));
+        Assert.Contains("Records: 1.", html);
+        Assert.DoesNotContain(">Note<", html);
+    }
+
     [Fact]
     public void AReportsFolderThatIsAJunctionIsRefused()
     {
