@@ -80,7 +80,7 @@ public sealed partial class InstallerAnalysisService
             if (entry is null) return [];
             var extracted = await ExtractEntryCoreAsync(path, "NSIS", entry, session, limits, ct).ConfigureAwait(false);
             var (rows, note) = NsisRegistryReader.Read(extracted, maxRows, "Uninstaller", ct);
-            if (rows.Count == 0 && note.Length > 0) notes.Add("Uninstaller: " + note);
+            if (note.Length > 0) notes.Add("Uninstaller: " + note);
             return rows;
         }
         catch (OperationCanceledException) { throw; }

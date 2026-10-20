@@ -39,10 +39,22 @@ public static class InstallerStringScanner
         return "Other";
     }
 
-    public static IReadOnlyList<InterestingString> Scan(string path, int minLength, int maxStrings, long maxBytes, CancellationToken ct)
+    /// <summary>The most strings one scan returns, whatever the requested limit.</summary>
+    public const int MaxResults = 1_000_000;
+
+    public static IReadOnlyList<InterestingString> Scan(string path, int minLength, int maxStrings, long maxBytes, CancellationToken ct) =>
+        Scan(path, minLength, maxStrings, maxBytes, ct, out _);
+
+    /// <summary>
+    /// The scan, with the number of strings held for duplicate detection. Only kept strings are
+    /// held, so that number never exceeds the result count.
+    /// </summary>
+    internal static IReadOnlyList<InterestingString> Scan(string path, int minLength, int maxStrings, long maxBytes, CancellationToken ct, out int tracked)
     {
         minLength = Math.Max(3, minLength);
+        maxStrings = Math.Min(maxStrings, MaxResults);
         var results = new List<InterestingString>();
+        tracked = 0;
         if (maxStrings <= 0) return results;
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var otherLimit = Math.Max(1, maxStrings / 2);
@@ -53,13 +65,15 @@ public static class InstallerStringScanner
         {
             if (full || run.Length < minLength) return;
             var text = run.ToString();
-            if (!seen.Add(encoding + "\0" + text)) return;
+            var key = encoding + "\0" + text;
+            if (seen.Contains(key)) return;
             var category = Categorize(text);
             if (category == "Other")
             {
                 if (others >= otherLimit || text.Length < Math.Max(minLength, 8) || !Wordy.IsMatch(text)) return;
                 others++;
             }
+            seen.Add(key);
             results.Add(new InterestingString(text, encoding, offset, category));
             if (results.Count >= maxStrings) full = true;
         }

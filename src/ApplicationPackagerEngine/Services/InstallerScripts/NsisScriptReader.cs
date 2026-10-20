@@ -592,10 +592,7 @@ public static class NsisScriptReader
         // it), so flags are read as "seen anywhere" plus "last value before the
         // ARP write" and resolved against the chosen folder afterwards.
         var allUsersSeen = false;
-        var regView64 = false;
-        var regViewPrevious = false;
-        var lastRegViewValue = -1;
-        var regView32Seen = false;
+        var regView = new NsisRegView();
         var arpCandidates = new List<(string Subkey, string Root, string ForcedView, bool SeqView64, Dictionary<string, string> Values)>();
         var uninstallerPath = "";
         var instDirAssignments = new List<string>();
@@ -653,22 +650,8 @@ public static class NsisScriptReader
             {
                 case 13:
                 {
-                    if (p2 != 0)
-                    {
-                        // SetRegView lastused swaps the current and previous views.
-                        if (p0 == 12) (regView64, regViewPrevious) = (regViewPrevious, regView64);
-                        break;
-                    }
-                    int.TryParse(ctx.Str(p1), out var value);
-                    if (p0 == 1 && value != 0) allUsersSeen = true;
-                    if (p0 == 12)
-                    {
-                        // SetRegView 64 stores KEY_WOW64_64KEY (256), SetRegView 32 KEY_WOW64_32KEY (512), default 0.
-                        regViewPrevious = regView64;
-                        regView64 = value == 256;
-                        lastRegViewValue = value;
-                        if (value == 512) regView32Seen = true;
-                    }
+                    regView.Apply(p0, p2, () => ctx.Str(p1));
+                    if (p0 == 1 && p2 == 0 && int.TryParse(ctx.Str(p1), out var context) && context != 0) allUsersSeen = true;
                     break;
                 }
                 case 25:
@@ -702,7 +685,7 @@ public static class NsisScriptReader
                     {
                         var rootInfo = ResolveRegistryRoot(p0);
                         var rootName = rootInfo.Name is "HKCU" or "HKLM" or "SHCTX" ? rootInfo.Name : "";
-                        arpCandidates.Add((subkey, rootName, rootInfo.View, regView64, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)));
+                        arpCandidates.Add((subkey, rootName, rootInfo.View, regView.Is64, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)));
                         index = arpCandidates.Count - 1;
                     }
                     var valueName = ctx.Str(p2);
@@ -736,7 +719,7 @@ public static class NsisScriptReader
             if (pick.ForcedView == "64") arpView64 = true;
             else if (pick.ForcedView == "32") arpView64 = false;
             else if (pick.SeqView64) arpView64 = true;
-            else if (lastRegViewValue == 256 && !regView32Seen) { arpView64 = true; regViewFromInit = true; }
+            else if (regView.InitSets64) { arpView64 = true; regViewFromInit = true; }
         }
         meta.ArpValues = arpValues;
         meta.InstallDirCandidates = [.. instDirAssignments];

@@ -14,7 +14,8 @@ public static class NsisRegistryReader
 
     /// <summary>
     /// Reads at most <paramref name="maxRows"/> rows. The note is empty when the header
-    /// decoded and every row fitted; otherwise it says why rows are missing.
+    /// decoded, every row fitted and no view was inferred; otherwise it says why rows are missing
+    /// or which rows take the 64-bit view from .onInit.
     /// </summary>
     public static (List<RegistryWrite> Rows, string Note) Read(string path, int maxRows, string section = "", CancellationToken ct = default)
     {
@@ -46,9 +47,9 @@ public static class NsisRegistryReader
             return "(function)";
         }
 
-        var regView64 = false;
-        var regView32 = false;
-        var regViewPrevious = false;
+        var regView = new NsisRegView();
+        var defaultViewRows = new List<int>();
+        var limitNote = "";
         for (var e = 0; e < ctx.EntriesCount; e++)
         {
             if ((e & 0xFFF) == 0) ct.ThrowIfCancellationRequested();
@@ -63,20 +64,20 @@ public static class NsisRegistryReader
             var p5 = BitConverter.ToInt32(h, b + 24);
             if (op == 13)
             {
-                if (p0 != 12) continue;
-                if (p2 != 0) { (regView64, regViewPrevious) = (regViewPrevious, regView64); continue; }
-                int.TryParse(ctx.Str(p1), out var value);
-                regViewPrevious = regView64;
-                // SetRegView 64 stores KEY_WOW64_64KEY (256), SetRegView 32 KEY_WOW64_32KEY (512).
-                regView64 = value == 256;
-                regView32 = value == 512;
+                regView.Apply(p0, p2, () => ctx.Str(p1));
                 continue;
             }
             if (rows.Count >= maxRows)
-                return (rows, $"Only the first {maxRows} registry instructions are listed.");
+            {
+                // The walk goes on without rows so the script-wide SetRegView facts stay complete.
+                limitNote = $"Only the first {maxRows} registry instructions are listed.";
+                continue;
+            }
 
             var root = NsisScriptReader.ResolveRegistryRoot(op == 51 ? p0 : p1);
-            var view = root.View is "32" or "64" ? root.View : regView64 ? "64" : regView32 ? "32" : "";
+            var forced = root.View is "32" or "64";
+            var view = forced ? root.View : regView.Current;
+            if (!forced && view.Length == 0) defaultViewRows.Add(rows.Count);
             var sectionName = string.IsNullOrEmpty(section) ? SectionOf(e) : section + ": " + SectionOf(e);
             var hive = root.Name == "SHCTX" ? "SHCTX" : root.Name;
             var condition = root.Name == "SHCTX" ? "HKLM after SetShellVarContext all, otherwise HKCU" : "";
@@ -106,6 +107,14 @@ public static class NsisRegistryReader
                 });
             }
         }
-        return (rows, "");
+
+        var notes = new List<string>();
+        if (regView.InitSets64 && defaultViewRows.Count > 0)
+        {
+            foreach (var index in defaultViewRows) rows[index] = rows[index] with { View = "64" };
+            notes.Add("The script's last SetRegView is 64 and it never selects 32, so SetRegView 64 runs in .onInit: rows before it in code order are shown in the 64-bit view.");
+        }
+        if (limitNote.Length > 0) notes.Add(limitNote);
+        return (rows, string.Join(" ", notes));
     }
 }
