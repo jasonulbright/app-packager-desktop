@@ -129,6 +129,31 @@ public sealed class InstallerReportWriterTests : IDisposable
     }
 
     [Fact]
+    public void EveryHtmlTableFixesItsColumnWidthsSoALongValueCannotSqueezeTheOtherColumns()
+    {
+        var longValue = string.Join(", ", Enumerable.Range(1, 60).Select(i => "VeryLongArpValueName" + i)) + new string('x', 400);
+        var report = Report(new AnalysisFact("ARP values", longValue, "Confirmed", "nsis-compiled-script"));
+        RegistryWrite[] registry = [new("NsisScript", "HKLM", @"Software\" + new string('k', 300), "Name", longValue, "REG_SZ", "") { View = "64", Section = "Main" }];
+        PayloadEntry[] payload = [new(@"dir\" + new string('p', 300) + ".dll", 1, false, "File", "")];
+
+        var html = File.ReadAllText(Writer().WriteHtml(report, payload, registry));
+
+        Assert.Contains("table-layout:fixed", html);
+        Assert.DoesNotContain("word-break:break-word", html);
+        Assert.Contains("overflow-wrap:break-word", html);
+        var tables = System.Text.RegularExpressions.Regex.Matches(html, "<table>(.*?)</table>", System.Text.RegularExpressions.RegexOptions.Singleline);
+        Assert.Equal(3, tables.Count);
+        foreach (System.Text.RegularExpressions.Match table in tables)
+        {
+            var widths = System.Text.RegularExpressions.Regex.Matches(table.Value, "<col style=\"width:(\\d+)%\">").Select(m => int.Parse(m.Groups[1].Value)).ToList();
+            var headers = System.Text.RegularExpressions.Regex.Matches(table.Value, "<th>").Count;
+            Assert.Equal(headers, widths.Count);
+            Assert.Equal(100, widths.Sum());
+            Assert.All(widths, w => Assert.True(w >= 5));
+        }
+    }
+
+    [Fact]
     public void AnHtmlReportWithoutAPayloadListSaysWhy()
     {
         IInstallerReportWriter writer = Writer();

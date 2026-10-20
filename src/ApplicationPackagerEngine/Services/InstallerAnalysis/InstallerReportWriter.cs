@@ -233,13 +233,16 @@ public sealed class InstallerReportWriter(string? folder = null, Func<DateTimeOf
             .Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\">")
             .Append("<title>Installer analysis</title><style>")
             .Append("body{font-family:\"Segoe UI\",Arial,sans-serif;margin:20px}table{border-collapse:collapse;width:100%;margin-bottom:24px}")
-            .Append("th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #ccc;vertical-align:top;word-break:break-word}th{border-bottom:2px solid #333}")
+            .Append("table{table-layout:fixed;min-width:900px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ccc;vertical-align:top;overflow-wrap:break-word}th{border-bottom:2px solid #333}")
             .Append("</style></head><body>\r\n<h1>Installer analysis: ").Append(E(r.FileName)).Append("</h1>\r\n<p>Generated ")
             .Append(E(_clock().ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture))).Append(".</p>\r\n");
 
-        void Table(string title, IEnumerable<string[]> rows)
+        // Fixed column shares: with automatic layout one long value shrinks every other column to a letter or two.
+        void Table(string title, int[] widths, IEnumerable<string[]> rows)
         {
-            html.Append("<h2>").Append(E(title)).Append("</h2>\r\n<table>");
+            html.Append("<h2>").Append(E(title)).Append("</h2>\r\n<table><colgroup>");
+            foreach (var w in widths) html.Append("<col style=\"width:").Append(w.ToString(CultureInfo.InvariantCulture)).Append("%\">");
+            html.Append("</colgroup>");
             var first = true;
             foreach (var row in rows)
             {
@@ -251,14 +254,14 @@ public sealed class InstallerReportWriter(string? folder = null, Func<DateTimeOf
             html.Append("</table>\r\n");
         }
 
-        Table("Analysis", Rows(r, reg));
+        Table("Analysis", [14, 17, 41, 12, 16], Rows(r, reg));
         if (payload is null)
             html.Append("<h2>Payload</h2>\r\n<p>").Append(E("The payload was not listed" + (string.IsNullOrWhiteSpace(notListedReason) ? "." : ": " + notListedReason.Trim().TrimEnd('.') + "."))).Append("</p>\r\n");
         else if (payload.Count > 0)
-            Table("Payload", new[] { new[] { "Path", "Size", "Kind", "Type" } }
+            Table("Payload", [62, 12, 13, 13], new[] { new[] { "Path", "Size", "Kind", "Type" } }
                 .Concat(payload.Select(p => new[] { p.Path, p.Size.ToString(CultureInfo.InvariantCulture), p.Kind, p.InnerType })));
         if (reg.Count > 0)
-            Table("Registry settings", new[] { RegistryColumns }.Concat(reg.Select(RegistryRow)));
+            Table("Registry settings", [7, 6, 22, 11, 20, 7, 7, 5, 7, 8], new[] { RegistryColumns }.Concat(reg.Select(RegistryRow)));
         html.Append("</body></html>\r\n");
         return Write("html", html.ToString());
     }
