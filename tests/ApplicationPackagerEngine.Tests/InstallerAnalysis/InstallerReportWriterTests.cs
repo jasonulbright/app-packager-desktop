@@ -142,6 +142,18 @@ public sealed class InstallerReportWriterTests : IDisposable
     }
 
     [Fact]
+    public void AnHtmlReportWithANullPayloadWritesTheEncodedReasonAndNoPayloadTable()
+    {
+        IInstallerReportWriter writer = Writer();
+        var html = File.ReadAllText(writer.WriteHtml(Report(), null, Registry, "7-Zip was not found <in \"PATH\"> & elsewhere"));
+
+        Assert.Contains("<p>The payload was not listed: 7-Zip was not found &lt;in &quot;PATH&quot;&gt; &amp; elsewhere.</p>", html);
+        Assert.DoesNotContain("<in", html);
+        Assert.DoesNotContain("<th>Path</th>", html);
+        Assert.DoesNotContain("<th>Kind</th>", html);
+    }
+
+    [Fact]
     public void ALinkedReportsFolderIsRefused()
     {
         var real = _temp.PathOf("real");

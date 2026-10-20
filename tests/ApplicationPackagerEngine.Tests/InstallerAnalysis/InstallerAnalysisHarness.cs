@@ -232,6 +232,15 @@ internal sealed class FakeInstallerReportWriter(string reportsFolder) : IInstall
 
     public string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry> payload, IReadOnlyList<RegistryWrite> reg) => Write("html", payload.Count, reg.Count);
 
+    /// <summary>The not-listed reason of each HTML write; a null payload is recorded as a payload count of -1.</summary>
+    public List<string> HtmlReasons { get; } = [];
+
+    public string WriteHtml(AnalysisReport r, IReadOnlyList<PayloadEntry>? payload, IReadOnlyList<RegistryWrite> reg, string notListedReason)
+    {
+        lock (HtmlReasons) HtmlReasons.Add(notListedReason);
+        return Write("html", payload?.Count ?? -1, reg.Count);
+    }
+
     public int WritesStarted;
 
     private string Write(string format, int payload, int registry)

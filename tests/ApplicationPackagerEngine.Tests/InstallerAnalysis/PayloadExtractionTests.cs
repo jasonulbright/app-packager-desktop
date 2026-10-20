@@ -197,7 +197,7 @@ public sealed class PayloadExtractionTests : IDisposable
     [Fact]
     public async Task Without7ZipAnExecutablePayloadGivesAPlainMessage()
     {
-        var ex = await Assert.ThrowsAsync<InstallerAnalysisException>(() =>
+        var ex = await Assert.ThrowsAsync<SevenZipNotFoundException>(() =>
             _noSevenZip.ListPayloadAsync(Fixture("nsis-mk-lzma-solid-unicode.bin"), Limits, CancellationToken.None));
 
         Assert.StartsWith("7-Zip is not installed;", ex.Message);

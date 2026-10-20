@@ -109,7 +109,11 @@ public sealed record InterestingString(string Text, string Encoding, long Offset
 public sealed record PayloadExtractResult(string Folder, int Files, long Bytes, IReadOnlyList<string> Skipped);
 
 /// <summary>A failure with a fixed, plain message that the page shows as it is.</summary>
-public sealed class InstallerAnalysisException(string message, Exception? inner = null) : Exception(message, inner);
+public class InstallerAnalysisException(string message, Exception? inner = null) : Exception(message, inner);
+
+/// <summary>The payload of this installer type is listed with 7-Zip, and 7-Zip was not found.</summary>
+public sealed class SevenZipNotFoundException()
+    : InstallerAnalysisException("7-Zip is not installed; the payload of this installer type is listed with 7-Zip. Install 7-Zip to list and extract it.");
 
 public interface IInstallerAnalysisService
 {

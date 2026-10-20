@@ -706,6 +706,71 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task TheHtmlExportWritesTheListedPayload()
+    {
+        _h.Service.Payload = InstallerAnalysisHarness.SamplePayload;
+        var (viewModel, _) = await AnalyzedAsync();
+
+        await viewModel.ExportHtmlCommand.ExecuteAsync(null);
+
+        Assert.Equal([("html", 5, 0)], _h.Writer.Written);
+        Assert.Equal([""], _h.Writer.HtmlReasons);
+        Assert.Equal($"Saved the HTML report to {Path.Combine(_h.Reports, "report-1.html")}.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task WithoutSevenZipTheHtmlExportLeavesThePayloadOutAndSaysWhy()
+    {
+        _h.Service.PayloadFailure = new SevenZipNotFoundException();
+        var (viewModel, _) = await AnalyzedAsync();
+
+        await viewModel.ExportCsvCommand.ExecuteAsync(null);
+        Assert.Equal(0, _h.Service.PayloadCalls);
+        await viewModel.ExportHtmlCommand.ExecuteAsync(null);
+
+        Assert.Equal([("csv", 0, 0), ("html", -1, 0)], _h.Writer.Written);
+        Assert.Equal([InstallerAnalysisViewModel.SevenZipNotFoundReason], _h.Writer.HtmlReasons);
+        Assert.Equal($"Saved the HTML report to {Path.Combine(_h.Reports, "report-2.html")}. The payload was left out: 7-Zip was not found.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ACancelledOrFailedPayloadListStillRefusesTheHtmlExport()
+    {
+        var (viewModel, _) = await AnalyzedAsync();
+        _h.Service.PayloadGate = new TaskCompletionSource();
+        var export = viewModel.ExportHtmlCommand.ExecuteAsync(null);
+        await Wait.UntilAsync(() => _h.Service.PayloadCalls == 1, "the payload list");
+        viewModel.CancelCommand.Execute(null);
+        await export;
+
+        Assert.Empty(_h.Writer.Written);
+        Assert.Equal(InstallerAnalysisViewModel.NotWrittenMessage("HTML", "Listing the payload was cancelled. Open the tab again to list it."), viewModel.StatusMessage);
+
+        _h.Service.PayloadGate = null;
+        _h.Service.PayloadFailure = new InstallerAnalysisException("The archive has more than 10 entries; it was not listed.");
+        await viewModel.ExportHtmlCommand.ExecuteAsync(null);
+
+        Assert.Empty(_h.Writer.Written);
+        Assert.Equal(InstallerAnalysisViewModel.NotWrittenMessage("HTML", "The archive has more than 10 entries; it was not listed."), viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task APayloadTheAnalysisListedIsShownAndExportedWithoutASecondList()
+    {
+        var path = _h.Installer();
+        _h.Service.Reports[path] = FakeInstallerAnalysisService.Report(path) with { Payload = InstallerAnalysisHarness.SamplePayload };
+        var viewModel = await _h.OpenPageAsync();
+        await viewModel.OpenAsync(path);
+
+        viewModel.SelectedTabIndex = InstallerAnalysisViewModel.PayloadTab;
+        await viewModel.ExportHtmlCommand.ExecuteAsync(null);
+
+        Assert.Equal(5, viewModel.PayloadRows.Count);
+        Assert.Equal([("html", 5, 0)], _h.Writer.Written);
+        Assert.Equal(0, _h.Service.PayloadCalls);
+    }
+
+    [Fact]
     public async Task AFailedExportShowsAPlainMessageAndTheExportsNeedAnAnalysis()
     {
         var viewModel = await _h.OpenPageAsync();

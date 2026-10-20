@@ -65,6 +65,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     public static string DepthLimitMessage(int depth) =>
         $"The drill-down limit of {depth} levels is reached. Use Extract to copy the inner installer to a folder.";
 
+    public const string SevenZipNotFoundReason = "7-Zip was not found";
     public const string PayloadExtractFailedMessage = "The payload could not be extracted. The log has the details.";
 
     /// <summary>The status line for an export whose data did not load; nothing is written.</summary>
@@ -116,8 +117,11 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         public string? Session { get; set; }
 
         public List<FactRow>? MsiRows { get; set; }
-        public IReadOnlyList<PayloadEntry>? Payload { get; set; }
+        public IReadOnlyList<PayloadEntry>? Payload { get; set; } = report.Payload;
         public List<PayloadRow>? PayloadRows { get; set; }
+
+        /// <summary>Set when the payload could not be listed for a reason the HTML report states in place of the payload.</summary>
+        public string? PayloadLeftOutReason { get; set; }
         public List<PayloadRow> InnerRows { get; set; } = [];
         public List<PayloadRow> FileRows { get; set; } = [];
         public IReadOnlyList<string> Folders { get; set; } = [AllFolders];
@@ -842,15 +846,18 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             frame.Payload = entries;
             frame.PayloadRows = null;
             frame.PayloadMessage = "";
+            frame.PayloadLeftOutReason = null;
             _services.Log.Info(LogArea, $"Listed the payload: entries={entries.Count} innerInstallers={entries.Count(e => string.Equals(e.Kind, "InnerInstaller", StringComparison.OrdinalIgnoreCase))}.");
         }
         catch (Exception ex) when (ex is OperationCanceledException || operation.Cancel.IsCancellationRequested)
         {
             frame.PayloadMessage = "Listing the payload was cancelled. Open the tab again to list it.";
+            frame.PayloadLeftOutReason = null;
         }
         catch (Exception ex)
         {
             frame.PayloadMessage = PlainMessage(ex, "The payload could not be listed. The log has the details.");
+            frame.PayloadLeftOutReason = ex is SevenZipNotFoundException ? SevenZipNotFoundReason : null;
             _services.Log.Warning(LogArea, $"The payload could not be listed ({ex.GetType().Name}).");
         }
         finally
@@ -1424,7 +1431,9 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         var generation = _generation;
         await EnsurePayloadAsync();
         if (!IsCurrent(frame, generation)) return;
-        if (frame.Payload is not { } payload)
+        var payload = frame.Payload;
+        var leftOut = payload is null ? frame.PayloadLeftOutReason : null;
+        if (payload is null && leftOut is null)
         {
             StatusMessage = NotWrittenMessage("HTML", frame.PayloadMessage.Length > 0 ? frame.PayloadMessage : "The payload was not listed.");
             return;
@@ -1436,11 +1445,12 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             StatusMessage = NotWrittenMessage("HTML", frame.RegistryMessage.Length > 0 ? frame.RegistryMessage : "The registry settings were not read.");
             return;
         }
-        await ExportAsync(frame, generation, "HTML", () => _services.Reports.WriteHtml(frame.Report, payload, registry));
+        await ExportAsync(frame, generation, "HTML", () => _services.Reports.WriteHtml(frame.Report, payload, registry, leftOut ?? ""),
+            leftOut is null ? "" : $" The payload was left out: {leftOut}.");
     }
 
     /// <summary>Writes a report as tracked work; the result shows only while the same analysis is shown.</summary>
-    private async Task ExportAsync(AnalysisFrame frame, int generation, string format, Func<string> write)
+    private async Task ExportAsync(AnalysisFrame frame, int generation, string format, Func<string> write, string savedNote = "")
     {
         var operation = Begin($"Writing the {format} report.");
         string? path = null;
@@ -1456,7 +1466,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             return;
         }
         LastReportFolder = Path.GetDirectoryName(path);
-        StatusMessage = $"Saved the {format} report to {path}.";
+        StatusMessage = $"Saved the {format} report to {path}.{savedNote}";
         _services.Log.Info(LogArea, $"Saved a {format} report.");
     }
 

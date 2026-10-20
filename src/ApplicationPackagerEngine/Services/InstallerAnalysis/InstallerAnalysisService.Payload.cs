@@ -82,7 +82,7 @@ public sealed partial class InstallerAnalysisService
     {
         var exe = _findSevenZip();
         if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
-            throw new InstallerAnalysisException("7-Zip is not installed; the payload of this installer type is listed with 7-Zip. Install 7-Zip to list and extract it.");
+            throw new SevenZipNotFoundException();
         return new SevenZipTool(exe);
     }
 
