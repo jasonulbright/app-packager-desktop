@@ -11,7 +11,11 @@ using ApplicationPackagerUI.Views.Pages;
 using ApplicationPackagerUI.Views.Windows;
 using Wpf.Ui.Appearance;
 using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
+using Button = System.Windows.Controls.Button;
 using CheckBox = System.Windows.Controls.CheckBox;
+using ComboBox = System.Windows.Controls.ComboBox;
+using DataGridCell = System.Windows.Controls.DataGridCell;
+using DatePicker = System.Windows.Controls.DatePicker;
 using DataGrid = System.Windows.Controls.DataGrid;
 using DataGridRow = System.Windows.Controls.DataGridRow;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -369,6 +373,154 @@ public sealed class DeploymentHelperRenderTests
             var template = TabInto(window, ById<UIElement>(page, "btnNewTemplate"), ById<DataGrid>(page, "dgTemplates"));
             Assert.Same(template.Item, viewModel.Options.SelectedTemplate);
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AConfirmedCreateKeepsTheObjectAndTheProgramOfThePackageAndClearsOnlyTheChecks(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var form = viewModel.Deploy;
+            form.TypeIndex = (int)DeploymentObjectType.Package;
+            StaTestHelper.PumpUntil(() => !form.IsLoading && form.Objects.Count > 0);
+            form.SelectedObject = form.Objects.Single(o => o.Object.Id == harness.Office.Id);
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails && form.Programs.Count == 2);
+            Settle(window);
+            form.SelectedProgram = "Uninstall";
+            form.SelectedCollection = form.Collections.Single(c => c.CollectionId == "LAB00010");
+            Settle(window);
+            Run(form.ValidateCommand.ExecuteAsync(null));
+            Assert.NotEmpty(form.Checks);
+
+            Run(form.DeployCommand.ExecuteAsync(null));
+            StaTestHelper.PumpUntil(() => !form.IsLoadingDetails);
+            Settle(window);
+
+            Assert.Single(harness.Service.Deployments);
+            Assert.Equal(harness.Office.Id, form.SelectedObject?.Object.Id);
+            Assert.Equal("LAB00010", form.SelectedCollection?.CollectionId);
+            Assert.Equal("Uninstall", form.SelectedProgram);
+            Assert.Equal("Uninstall", ById<ComboBox>(page, "cboProgram").SelectedItem);
+            Assert.Empty(form.Checks);
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ValidateKeepsTheFocusOnItsButtonAndDeployIsTheNextTabStop(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            var validate = ById<Button>(page, "btnValidate");
+            var deploy = ById<Button>(page, "btnDeploy");
+            validate.BringIntoView();
+            Settle(window);
+            Assert.True(Keyboard.Focus(validate) == validate);
+            harness.Service.PrepareGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            validate.Command.Execute(null);
+            Settle(window);
+            Assert.False(validate.IsEnabled);
+            harness.Service.PrepareGate.SetResult();
+            StaTestHelper.PumpUntil(() => !viewModel.Deploy.IsValidating && validate.IsEnabled);
+            Settle(window);
+
+            Assert.NotEmpty(viewModel.Deploy.Checks);
+            Assert.Same(validate, Keyboard.FocusedElement);
+            var presses = 0;
+            while (!ReferenceEquals(Keyboard.FocusedElement, deploy) && presses < 10)
+            {
+                ((UIElement)Keyboard.FocusedElement).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+                Settle(window);
+                presses++;
+            }
+            Assert.True(presses <= 3, $"Deploy is {presses} Tab presses after Validate.");
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void TheCheckBoxOfEachDpGroupFitsItsCell(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            var grid = ById<DataGrid>(page, "dgDpGroups");
+            grid.BringIntoView();
+            Settle(window);
+            var boxes = Descendants(grid).OfType<CheckBox>().Where(b => b.IsVisible).ToList();
+            Assert.Equal(3, boxes.Count);
+            foreach (var box in boxes)
+            {
+                var cell = Assert.IsType<DataGridCell>(Ancestor<DataGridCell>(box), exactMatch: false);
+                var cellBounds = cell.TransformToAncestor(window).TransformBounds(new Rect(cell.RenderSize));
+                var boxBounds = box.TransformToAncestor(window).TransformBounds(new Rect(box.RenderSize));
+                Assert.True(boxBounds.Left >= cellBounds.Left - 0.5 && boxBounds.Right <= cellBounds.Right + 0.5,
+                    $"The check box spans {boxBounds.Left:0} to {boxBounds.Right:0} px in a cell from {cellBounds.Left:0} to {cellBounds.Right:0} px.");
+                var needed = box.DesiredSize.Width - box.Margin.Left - box.Margin.Right;
+                Assert.True(needed <= box.ActualWidth + 0.5, $"The check box needs {needed:0} px and has {box.ActualWidth:0} px.");
+                foreach (var part in Descendants(box).OfType<FrameworkElement>().Where(e => e.IsVisible && e.ActualWidth > 0))
+                {
+                    var partBounds = part.TransformToAncestor(window).TransformBounds(new Rect(part.RenderSize));
+                    Assert.True(partBounds.Left >= cellBounds.Left - 0.5 && partBounds.Right <= cellBounds.Right + 0.5,
+                        $"{part.Name} of the check box spans {partBounds.Left:0} to {partBounds.Right:0} px, the cell {cellBounds.Left:0} to {cellBounds.Right:0} px.");
+                    var clip = System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(part)?.Bounds;
+                    Assert.True(clip is null || (clip.Value.Width >= part.ActualWidth - 0.5 && clip.Value.Height >= part.ActualHeight - 0.5),
+                        $"{part.Name} of the check box is {part.ActualWidth:0}x{part.ActualHeight:0} px and shows {clip?.Width:0}x{clip?.Height:0} px.");
+                }
+            }
+        }, width, height);
+    }
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void TheHistoryShowsResultAndDeploymentIdWithoutASidewaysScroll(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            var grid = ById<DataGrid>(page, "dgHistory");
+            grid.BringIntoView();
+            Settle(window);
+            Assert.True(grid.FrozenColumnCount >= 1);
+            var scroller = Descendants(grid).OfType<ScrollViewer>().First();
+            Assert.Equal(0, scroller.HorizontalOffset);
+            var gridBounds = grid.TransformToAncestor(window).TransformBounds(new Rect(grid.RenderSize));
+            foreach (var name in new[] { "Time", "Event", "Result", "Object", "Deployment ID" })
+            {
+                var header = Descendants(grid).OfType<System.Windows.Controls.Primitives.DataGridColumnHeader>().Single(h => Equals(h.Column?.Header, name));
+                var bounds = header.TransformToAncestor(window).TransformBounds(new Rect(header.RenderSize));
+                Assert.True(header.IsVisible && bounds.Right <= gridBounds.Left + scroller.ViewportWidth + 0.5,
+                    $"{name} ends at {bounds.Right - gridBounds.Left:0} px in a {scroller.ViewportWidth:0} px grid at {width}x{height}.");
+            }
+        }, width, height);
+    }
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void TheDatePickersShowTheirWholeDate(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            viewModel.Deploy.IsRequired = true;
+            viewModel.Deploy.AvailableDate = new DateTime(2026, 9, 30);
+            viewModel.Deploy.DeadlineDate = new DateTime(2026, 9, 30);
+            Settle(window);
+            foreach (var id in new[] { "dpAvailableDate", "dpDeadlineDate" })
+            {
+                var picker = ById<DatePicker>(page, id);
+                picker.BringIntoView();
+                Settle(window);
+                var text = Descendants(picker).OfType<System.Windows.Controls.Primitives.DatePickerTextBox>().Single();
+                Assert.NotEmpty(text.Text);
+                Assert.True(text.ExtentWidth <= text.ViewportWidth + 0.5, $"{id} shows '{text.Text}' in {text.ViewportWidth:0} px; it needs {text.ExtentWidth:0} px.");
+                Assert.Contains("2026", picker.ToolTip as string ?? "");
+                Assert.Contains(new DateTime(2026, 9, 30).ToString("dddd", System.Globalization.CultureInfo.CurrentCulture), picker.ToolTip as string ?? "");
+            }
+        }, width, height);
     }
 
     [Theory]

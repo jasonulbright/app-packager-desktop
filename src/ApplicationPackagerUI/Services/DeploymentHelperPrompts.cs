@@ -61,23 +61,13 @@ public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDe
     }
 
     /// <summary>
-    /// A modal message box over the active window: the change plan window is modal, so a content
-    /// dialog of the main window cannot take input while it is open.
+    /// A modal window owned by the change plan window: that window is modal, so a content dialog
+    /// of the main window cannot take input while it is open.
     /// </summary>
-    public async Task<bool> ConfirmRemoveDeploymentAsync(string text)
+    public Task<bool> ConfirmRemoveDeploymentAsync(string text)
     {
-        var box = new Wpf.Ui.Controls.MessageBox
-        {
-            Title = "Remove deployment",
-            Content = new System.Windows.Controls.TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 460 },
-            PrimaryButtonText = "Remove deployment",
-            CloseButtonText = "Cancel",
-            IsPrimaryButtonEnabled = true,
-            IsSecondaryButtonEnabled = false
-        };
-        var owner = DiscoveryPrompt.UsableOwner(Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow);
-        if (owner is not null) box.Owner = owner;
-        return await box.ShowDialogAsync(true, CancellationToken.None) == Wpf.Ui.Controls.MessageBoxResult.Primary;
+        var owner = RemovalConfirmWindow.OwnerFor(Application.Current?.Windows.OfType<Window>() ?? [], Application.Current?.MainWindow);
+        return Task.FromResult(RemovalConfirmWindow.Ask(owner, text));
     }
 
     public void OpenFolder(string folder)

@@ -214,7 +214,19 @@ public static class DeploymentText
 
     private static string YesNo(bool value) => value ? "yes" : "no";
 
-    /// <summary>The options of the type; the settings ConfigMgr ignores for Available are named only for Required.</summary>
+    public const string ShowProgressLabel = "Show task sequence progress";
+    public const string FallbackLabel = "Allow fallback to the default site boundary group";
+    public const string FullScanLabel = "Require a full scan after the restart";
+    public const string OverrideWindowLabel = "Install outside maintenance windows at the deadline";
+    public const string RebootOutsideLabel = "Allow restart outside maintenance windows";
+    public const string MeteredLabel = "Allow download on a metered connection";
+    public const string MicrosoftUpdateLabel = "Download from Microsoft Update when no distribution point has the content";
+    public const string SuppressRestartShortLabel = "Suppress restarts on servers and workstations";
+
+    /// <summary>
+    /// The options of the type with the labels of the form. The settings ConfigMgr ignores for
+    /// Available are named only for Required; the maintenance window settings are in the Required lines.
+    /// </summary>
     public static string OptionsLine(DeploymentObjectType type, DeploymentOptions options)
     {
         var required = string.Equals(options.Purpose, Required, StringComparison.OrdinalIgnoreCase);
@@ -222,35 +234,33 @@ public static class DeploymentText
         switch (type)
         {
             case DeploymentObjectType.Package:
-                parts.Add($"fast network: {ChoiceText(NetworkBehaviors, options.NetworkBehavior).ToLowerInvariant()}");
-                parts.Add($"slow network: {ChoiceText(SlowNetworkBehaviors, options.SlowNetworkBehavior).ToLowerInvariant()}");
-                parts.Add($"fallback to the default site boundary group {YesNo(options.AllowFallback)}");
+                parts.Add($"Fast network: {ChoiceText(NetworkBehaviors, options.NetworkBehavior)}");
+                parts.Add($"Slow network: {ChoiceText(SlowNetworkBehaviors, options.SlowNetworkBehavior)}");
+                parts.Add($"{FallbackLabel}: {YesNo(options.AllowFallback)}");
                 break;
             case DeploymentObjectType.TaskSequence:
-                parts.Add($"available to: {ChoiceText(TaskSequenceAvailabilities, options.TaskSequenceAvailability).ToLowerInvariant()}");
-                parts.Add($"content: {ChoiceText(TaskSequenceContents, options.NetworkBehavior).ToLowerInvariant()}");
-                parts.Add($"show progress {YesNo(options.ShowProgress)}");
-                parts.Add($"fallback to the default site boundary group {YesNo(options.AllowFallback)}");
+                parts.Add($"Available to: {ChoiceText(TaskSequenceAvailabilities, options.TaskSequenceAvailability)}");
+                parts.Add($"Content: {ChoiceText(TaskSequenceContents, options.NetworkBehavior)}");
+                parts.Add($"{ShowProgressLabel}: {YesNo(options.ShowProgress)}");
+                parts.Add($"{FallbackLabel}: {YesNo(options.AllowFallback)}");
                 break;
             case DeploymentObjectType.SoftwareUpdateGroup:
-                parts.Add($"full scan after restart {YesNo(options.PostRebootScan)}");
+                parts.Add($"{FullScanLabel}: {YesNo(options.PostRebootScan)}");
                 break;
         }
         if (required)
         {
             if (type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence)
-                parts.Add(ChoiceText(RerunBehaviors, options.RerunBehavior).ToLowerInvariant());
-            parts.Add($"install outside maintenance windows {YesNo(options.OverrideServiceWindow)}");
-            parts.Add($"restart outside maintenance windows {YesNo(options.RebootOutsideServiceWindow)}");
-            parts.Add($"metered connection {YesNo(options.AllowMetered)}");
+                parts.Add($"Rerun behavior: {ChoiceText(RerunBehaviors, options.RerunBehavior)}");
+            parts.Add($"{MeteredLabel}: {YesNo(options.AllowMetered)}");
             if (type == DeploymentObjectType.SoftwareUpdateGroup)
             {
-                parts.Add($"fallback to the default site boundary group {YesNo(options.FallbackToDp)}");
-                parts.Add($"download from Microsoft Update {YesNo(options.AllowMicrosoftUpdate)}");
-                parts.Add($"suppress restarts on servers and workstations {YesNo(options.SuppressRestart)}");
+                parts.Add($"{FallbackLabel}: {YesNo(options.FallbackToDp)}");
+                parts.Add($"{MicrosoftUpdateLabel}: {YesNo(options.AllowMicrosoftUpdate)}");
+                parts.Add($"{SuppressRestartShortLabel}: {YesNo(options.SuppressRestart)}");
             }
         }
-        var line = parts.Count == 0 ? "Options: none for this type." : $"Options: {string.Join(", ", parts)}.";
+        var line = parts.Count == 0 ? "Options: none for this type." : $"Options: {string.Join("; ", parts)}.";
         return required ? line : line + " The rerun, maintenance window, metered connection and restart settings apply to Required deployments only.";
     }
 
@@ -277,7 +287,10 @@ public static class DeploymentText
         return parts.Count == 0 ? "" : $"I understand that {string.Join(", and that ", parts)}.";
     }
 
-    /// <summary>The detail lines of a create, made from the prepared change only.</summary>
+    /// <summary>
+    /// The detail lines of a create, made from the prepared change only. The service's Impact of a
+    /// create restates these facts in its own words, so it is not added: each fact is stated once.
+    /// </summary>
     public static IReadOnlyList<string> CreateLines(DeploymentChange create, bool backdated)
     {
         var options = create.Options!;
@@ -291,11 +304,11 @@ public static class DeploymentText
         lines.Add(OptionsLine(create.Object!.Type, options));
         if (create.DpGroups.Count > 0)
         {
-            lines.Add($"Distribution point groups: {string.Join(", ", create.DpGroups)}. The distribution is requested first.");
+            lines.Add($"Distribution point groups: {string.Join(", ", create.DpGroups)}. The distribution is requested first. "
+                + "The distribution has no Undo: the content stays on the distribution points.");
             lines.Add(CreateNowHint);
         }
         lines.AddRange(CheckLines(create.Checks, create.Object.Type));
-        lines.AddRange(create.Impact);
         if (required)
         {
             lines.Add($"Required: clients install at the deadline on every device of the collection ({Count(create.Collection?.MemberCount ?? 0, "device")} now).");
@@ -303,7 +316,7 @@ public static class DeploymentText
             lines.Add(options.RebootOutsideServiceWindow ? "Devices can restart outside maintenance windows." : "Restarts wait for a maintenance window.");
         }
         if (backdated) lines.Add("Warning: the available time is in the past.");
-        if (!create.Impact.Contains(UndoNote)) lines.Add(UndoNote);
+        lines.Add(UndoNote);
         return lines;
     }
 

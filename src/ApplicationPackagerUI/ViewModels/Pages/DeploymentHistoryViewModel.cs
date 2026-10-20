@@ -172,8 +172,26 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             Shared.StatusMessage = NotRemovable;
             return;
         }
+        if (request.Object is { Type: DeploymentObjectType.SoftwareUpdateGroup, UpdateCount: 0 } group && Shared.ConnectionProblem() is null)
+            request = request with { Object = group with { UpdateCount = await UpdateCountAsync(group.Id) } };
         var run = await Shared.RunPlanAsync([request], prepared => DeploymentText.BuildRemovePlan(prepared[0]));
         if (run is not { Outcome.Confirmed: true }) return;
         await Shared.AfterWriteAsync();
+    }
+
+    /// <summary>The number of updates of the group as the group list reads it; 0 when the list cannot be read.</summary>
+    private async Task<int> UpdateCountAsync(string groupId)
+    {
+        try
+        {
+            var visit = Shared.VisitToken;
+            var groups = await Task.Run(() => Services.Deployments.ListObjectsAsync(DeploymentObjectType.SoftwareUpdateGroup, visit), visit);
+            return groups.FirstOrDefault(g => string.Equals(g.Id, groupId, StringComparison.OrdinalIgnoreCase))?.UpdateCount ?? 0;
+        }
+        catch (Exception ex)
+        {
+            Services.Log.Warning(DeploymentShared.LogArea, $"The update count of a group could not be read ({DeploymentShared.FailureName(ex)}).");
+            return 0;
+        }
     }
 }

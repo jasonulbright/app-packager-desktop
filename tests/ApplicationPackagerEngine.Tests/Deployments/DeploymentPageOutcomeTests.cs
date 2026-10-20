@@ -122,6 +122,45 @@ public sealed class DeploymentPageOutcomeTests
     }
 
     [Fact]
+    public async Task ACombinedRunThatDistributesAndSkipsTheCreateSaysSoAndCountsTheDistribution()
+    {
+        using var h = new ServicePageHarness(WithPackageWithoutContent());
+        var page = await h.OpenAsync();
+        var form = await ServicePageHarness.PickAsync(page, DeploymentObjectType.Package, "MCM0001C");
+        form.DpGroups.Single(g => g.Name == "All DPs").IsChecked = true;
+        form.DistributeFirst = true;
+
+        await form.DeployCommand.ExecuteAsync(null);
+
+        Assert.Empty(h.Engine.Site.List("Adverts"));
+        var row = Assert.Single(page.Shared.LastResults);
+        Assert.Equal("Changed", row.OutcomeText);
+        Assert.StartsWith(DeploymentWriter.DistributionOnlyText, row.Message);
+        Assert.Contains("1 changed, 0 failed. " + DeploymentWriter.DistributionOnlyText, page.Shared.ResultSummary);
+        Assert.False(page.Shared.HasUndo);
+        Assert.Equal(1, h.History.Entries.Single().Counts["changed"]);
+    }
+
+    [Fact]
+    public async Task TheHistoryUndoOfAnUpdateGroupCarriesTheUpdateCountOfTheGroupList()
+    {
+        using var h = new ServicePageHarness();
+        var page = await h.OpenAsync();
+        var form = await ServicePageHarness.PickAsync(page, DeploymentObjectType.SoftwareUpdateGroup, "16778893");
+        var count = form.SelectedObject!.Object.UpdateCount;
+        Assert.True(count > 0);
+        Tomorrow(form);
+        await form.DeployCommand.ExecuteAsync(null);
+
+        var history = await HistoryAsync(page);
+        history.SelectedRow = history.Rows.Single(r => r.Event == "Create");
+        await history.RemoveDeploymentCommand.ExecuteAsync(null);
+
+        var removal = Assert.Single(h.Service.Applied.Last());
+        Assert.Equal(count, removal.Object!.UpdateCount);
+    }
+
+    [Fact]
     public async Task TheCombinedPlanAndThePageUndoSendThePreparedChangesWithTheirPreparedState()
     {
         using var h = new ServicePageHarness(WithPackageWithoutContent());

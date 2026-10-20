@@ -176,12 +176,33 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
         if (undo.Count > 0 && !await confirmRemoval(RemovalQuestion(undo.Select(u => u.Undo).ToList())))
         {
             log.Info(LogArea, $"Undo {plan.Action}: the removal was not confirmed.");
-            var rows = undo.Select(u => ChangePlanItemResult.Skip(u.Entry.Item, RemovalNotConfirmed)).ToList();
-            foreach (var row in rows) progress.Report(row);
-            return new ChangePlanResult(rows, ChangePlanStop.Completed);
+            return new ChangePlanResult(undo.Select(u => ChangePlanItemResult.Skip(u.Entry.Item, RemovalNotConfirmed)).ToList()) { Declined = true };
         }
         return await Track(UndoAsync(confirmed, plan, progress, ct));
     };
+
+    public const string DistributionOnlyText = "Distribution requested, deployment not created.";
+
+    /// <summary>The step line the service reports for each DP group it requested the content on.</summary>
+    public const string DistributionRequestedStep = "Requested distribution to DP group";
+
+    /// <summary>
+    /// True for the outcome of a create that requested its distribution and then created no
+    /// deployment on purpose: ConfigMgr changed (the content goes out) and nothing can be undone.
+    /// A create whose distribution could not be logged is a failure, not this.
+    /// </summary>
+    public static bool DistributionOnly(DeploymentOutcome outcome) =>
+        outcome.Change.Kind == DeploymentChangeKind.Create && outcome.Change.DpGroups.Count > 0 && outcome.UndoChange is null
+        && (outcome.Succeeded || outcome.Message.StartsWith(SkippedPrefix, StringComparison.OrdinalIgnoreCase))
+        && outcome.Steps.Any(s => s.StartsWith(DistributionRequestedStep, StringComparison.Ordinal));
+
+    /// <summary>The row message of a distribution-only create: the plain result, then the reason the service gave.</summary>
+    public static string DistributionOnlyMessage(string message)
+    {
+        var reason = message.StartsWith(SkippedPrefix, StringComparison.OrdinalIgnoreCase) ? message[SkippedPrefix.Length..].TrimStart(':', ' ') : message.Trim();
+        if (reason.StartsWith(DistributionOnlyText, StringComparison.OrdinalIgnoreCase)) reason = reason[DistributionOnlyText.Length..].TrimStart();
+        return reason.Length == 0 ? DistributionOnlyText : $"{DistributionOnlyText} {char.ToUpperInvariant(reason[0])}{reason[1..]}";
+    }
 
     /// <summary>The question that names each deployment the Undo removes.</summary>
     public static string RemovalQuestion(IReadOnlyList<DeploymentChange> removals)
@@ -226,7 +247,12 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
             foreach (var outcome in outcomes) reporter.Final(outcome);
             var rows = new ChangePlanResult(plan.Entries.Select(e => results.TryGetValue(e.Item, out var r) ? r : new ChangePlanItemResult(e.Item, false, NoResultText)).ToList());
             var cancelled = ct.IsCancellationRequested && LeftUndone(plan.Entries.Where(e => e.Change is not null).Select(e => e.Item), rows.Items);
-            var result = rows with { Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed, UndoAvailable = plan.UndoChanges().Count > 0 };
+            var result = rows with
+            {
+                Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed,
+                UndoAvailable = plan.UndoChanges().Count > 0,
+                Note = plan.Outcomes.Any(DistributionOnly) ? DistributionOnlyText : null
+            };
             stop = Outcome(result, cancelled);
             return result;
         }
@@ -375,7 +401,9 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
                 // undo whose message starts with the skipped prefix.
                 var skipped = !value.Succeeded && value.UndoChange is null
                     && value.Message.StartsWith(SkippedPrefix, StringComparison.OrdinalIgnoreCase);
-                result = skipped
+                result = undoEntry is null && DistributionOnly(value)
+                    ? new ChangePlanItemResult(entry.Item, true, DistributionOnlyMessage(message))
+                    : skipped
                     ? ChangePlanItemResult.Skip(entry.Item, message)
                     : new ChangePlanItemResult(entry.Item, value.Succeeded, message) { PartialChange = !value.Succeeded && value.UndoChange is not null };
                 results[entry.Item] = result;

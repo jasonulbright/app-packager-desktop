@@ -151,6 +151,94 @@ public sealed class DeploymentWriterTests
         }
     }
 
+    /// <summary>A service that answers every change with the outcome the test gives.</summary>
+    private sealed class ScriptedOutcome(Func<DeploymentChange, DeploymentOutcome> answer) : IDeploymentService
+    {
+        public Task<IReadOnlyList<DeployableObject>> ListObjectsAsync(DeploymentObjectType type, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<string>> ListProgramsAsync(string packageId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DeploymentCollection>> ListCollectionsAsync(CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DpGroupInfo>> ListDpGroupsAsync(DeployableObject obj, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DeploymentRecord>> ListDeploymentsAsync(DeployableObject obj, CancellationToken ct) => throw new NotSupportedException();
+        public Task<DeploymentChange> PrepareAsync(DeploymentChange request, CancellationToken ct) => Task.FromResult(request);
+
+        public Task<IReadOnlyList<DeploymentOutcome>> ApplyAsync(IReadOnlyList<DeploymentChange> changes, IProgress<DeploymentOutcome> progress, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<DeploymentOutcome>>(changes.Select(answer).ToList());
+    }
+
+    private const string SkippedAfterDistribution =
+        "Skipped: the content of 7-Zip is not fully distributed yet, so the deployment was not created. Create it again when the content check passes.";
+
+    public static TheoryData<bool, string> DistributionOnlyShapes() => new()
+    {
+        { false, SkippedAfterDistribution },
+        { true, "Distribution requested, deployment not created. The content is still distributing." }
+    };
+
+    [Theory]
+    [MemberData(nameof(DistributionOnlyShapes))]
+    public async Task ACombinedRunThatRequestedTheDistributionAndSkippedTheCreateCountsTheDistribution(bool succeeded, string message)
+    {
+        var h = new DeploymentPageHarness();
+        var create = Create(h) with { DpGroups = ["All DPs"] };
+        var plan = PlanOf(create);
+        var service = new ScriptedOutcome(c => new DeploymentOutcome(Change: c, Succeeded: succeeded, Message: message, UndoChange: null, Steps: ["Requested distribution to DP group All DPs."]));
+        var writer = new DeploymentWriter(service, h.History, h.Log, () => "LAB", _ => Task.FromResult(true));
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(dialog.ResultRows);
+        Assert.Equal("Changed", row.OutcomeText);
+        Assert.StartsWith(DeploymentWriter.DistributionOnlyText, row.Message);
+        Assert.Equal("1 changed, 0 failed. Distribution requested, deployment not created.", dialog.Outcome.Result!.Summary);
+        Assert.False(dialog.UndoCommand.CanExecute(null));
+        Assert.Empty(plan.UndoChanges());
+        var entry = h.History.Entries.Single();
+        Assert.Equal(1, entry.Counts["changed"]);
+        Assert.Equal(SiteOperationOutcome.Succeeded, entry.Outcome);
+    }
+
+    [Fact]
+    public async Task ACreateWhoseDistributionCouldNotBeLoggedStaysAFailure()
+    {
+        var h = new DeploymentPageHarness();
+        var plan = PlanOf(Create(h) with { DpGroups = ["All DPs"] });
+        var service = new ScriptedOutcome(c => new DeploymentOutcome(Change: c, Succeeded: false,
+            Message: "The content distribution may have been requested but could not be logged, so the deployment was not created.", UndoChange: null,
+            Steps: ["Requested distribution to DP group All DPs."]));
+        var writer = new DeploymentWriter(service, h.History, h.Log, () => "LAB", _ => Task.FromResult(true));
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+        Assert.Equal("Failed", Assert.Single(dialog.ResultRows).OutcomeText);
+        Assert.Equal("0 changed, 1 failed.", dialog.Outcome.Result!.Summary);
+    }
+
+    [Fact]
+    public async Task TheDialogKeepsUndoAfterADeclinedRemovalAndRemovesOnTheNextConfirm()
+    {
+        var h = new DeploymentPageHarness();
+        h.Service.InConfirmedRun = null;
+        var plan = PlanOf(Create(h));
+        var writer = h.Writer();
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+        h.Dialogs.ConfirmRemoval = false;
+        await dialog.UndoCommand.ExecuteAsync(null);
+
+        Assert.Equal(ChangePlanStage.Done, dialog.Stage);
+        Assert.True(dialog.UndoCommand.CanExecute(null));
+        Assert.True(dialog.ShowUndo);
+        Assert.Null(dialog.Outcome.UndoResult);
+        Assert.Equal("Changed", Assert.Single(dialog.ResultRows).OutcomeText);
+        Assert.EndsWith(ChangePlanViewModel.UndoDeclinedText, dialog.ResultText);
+        Assert.Single(h.Service.Deployments);
+
+        h.Dialogs.ConfirmRemoval = true;
+        await dialog.UndoCommand.ExecuteAsync(null);
+        Assert.Equal(ChangePlanStage.Undone, dialog.Stage);
+        Assert.Empty(h.Service.Deployments);
+        Assert.Equal(2, h.Dialogs.RemovalPrompts.Count);
+    }
+
     [Fact]
     public void EveryWriterMethodThatWritesTakesAConfirmedPlan()
     {

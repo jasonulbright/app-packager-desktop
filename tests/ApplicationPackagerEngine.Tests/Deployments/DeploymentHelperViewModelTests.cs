@@ -137,8 +137,8 @@ public sealed class DeploymentHelperViewModelTests
         Assert.Contains("Collection: Pilot Workstations (LAB00010), 3 members now.", item.Detail);
         Assert.Contains("Purpose: Available. Available: 2026-10-20 09:05 local time.", item.Detail);
         Assert.Contains("Check No duplicate deployment: Pass.", item.Detail);
-        Assert.Contains("The audit log can be written.", item.Detail);
-        Assert.Contains(DeploymentText.UndoNote, item.Detail);
+        Assert.DoesNotContain("The audit log can be written.", item.Detail);
+        Assert.Single(item.Detail!.Split(Environment.NewLine), l => l == DeploymentText.UndoNote);
         Assert.True(plan.HasUndo);
         Assert.Null(plan.ExtraConfirmation);
         Assert.Equal("Create deployment", plan.ActionName);
