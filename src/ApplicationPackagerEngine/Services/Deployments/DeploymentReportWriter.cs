@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
-using System.Text.Json;
 
 namespace ApplicationPackagerEngine.Services;
 
@@ -74,42 +73,40 @@ public sealed class DeploymentReportWriter(string? folder = null, Func<DateTimeO
         return (columns, maps.Select(m => columns.Select(c => m.TryGetValue(c, out var v) ? v : "").ToList()).ToList());
     }
 
-    /// <summary>The properties a record carries, in the order of the record type and then its other fields.</summary>
+    /// <summary>The properties a record carries with a value, in the order of the record type and then its other fields.</summary>
     private static Dictionary<string, string> Fields(DeploymentAuditRecord r)
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
         void Add(string name, string? value)
         {
-            if (value is not null) map[name] = value;
+            if (!string.IsNullOrEmpty(value)) map[name] = value;
         }
-        void AddJson(string name, JsonElement? value)
-        {
-            if (value is { ValueKind: not (JsonValueKind.Null or JsonValueKind.Undefined) }) map[name] = DeploymentAuditLog.Text(value);
-        }
-        Add("Timestamp", r.Timestamp);
+        static string? Time(DateTime? value) => value is { } v && v != default ? v.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture) : null;
+        Add("Timestamp", Time(r.Timestamp));
         Add("User", r.User);
         Add("DeploymentType", r.DeploymentType);
         Add("ApplicationName", r.ApplicationName);
         Add("ApplicationVersion", r.ApplicationVersion);
         Add("CollectionName", r.CollectionName);
         Add("CollectionID", r.CollectionID);
-        AddJson("MemberCount", r.MemberCount);
+        Add("MemberCount", r.MemberCount?.ToString(CultureInfo.InvariantCulture));
         Add("DeployPurpose", r.DeployPurpose);
         Add("DeployAction", r.DeployAction);
-        Add("DeadlineDateTime", r.DeadlineDateTime);
-        AddJson("DeploymentID", r.DeploymentID);
+        Add("DeadlineDateTime", Time(r.DeadlineDateTime));
+        Add("DeploymentID", r.DeploymentID);
         Add("Result", r.Result);
         Add("Event", r.Event);
+        Add("ObjectId", r.ObjectId);
+        Add("AvailableDateTime", Time(r.AvailableDateTime));
+        Add("Message", r.Message);
         Add("Source", r.Source);
         Add("DeploymentUniqueID", r.DeploymentUniqueID);
-        Add("ObjectID", r.ObjectID);
         Add("ProgramName", r.ProgramName);
-        Add("AvailableDateTime", r.AvailableDateTime);
         Add("TimeBasedOn", r.TimeBasedOn);
         Add("DistributionPointGroups", r.DistributionPointGroups);
         Add("Undoes", r.Undoes);
-        foreach (var (name, value) in r.Extra ?? [])
-            if (!map.ContainsKey(name)) map[name] = DeploymentAuditLog.Text(value);
+        foreach (var (name, value) in r.Extra)
+            if (!map.ContainsKey(name)) map[name] = value;
         return map;
     }
 

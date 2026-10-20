@@ -33,7 +33,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
     ];
 
     private static readonly JsonSerializerOptions WriteOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-    private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
+    
 
     private readonly Func<string?> _path;
     private readonly IAppLog? _log;
@@ -169,21 +169,79 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         }
     }
 
-    private string Serialize(DeploymentAuditRecord record)
+    private const string TimeFormat = "yyyy-MM-dd'T'HH:mm:ss";
+
+    private string Serialize(DeploymentAuditRecord r)
     {
-        var node = JsonSerializer.SerializeToNode(record, ReadOptions)!.AsObject();
-        node["Timestamp"] = record.Timestamp ?? _clock().ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
-        node["User"] = record.User ?? _user();
-        node["Source"] = record.Source ?? SourceName;
-        node.Remove(nameof(DeploymentAuditRecord.Extra));
-        var ordered = new JsonObject();
-        foreach (var name in SuiteOrder) ordered[name] = node[name]?.DeepClone();
-        foreach (var (name, value) in node)
-            if (!SuiteOrder.Contains(name) && value is not null) ordered[name] = value.DeepClone();
-        foreach (var (name, value) in record.Extra ?? [])
-            if (!ordered.ContainsKey(name)) ordered[name] = JsonNode.Parse(value.GetRawText());
-        return ordered.ToJsonString(WriteOptions);
+        static JsonNode? Time(DateTime? value) => value is { } v ? JsonValue.Create(v.ToString(TimeFormat, CultureInfo.InvariantCulture)) : null;
+        static JsonNode? Id(string value) =>
+            string.IsNullOrEmpty(value) ? null
+            : long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? JsonValue.Create(number) : JsonValue.Create(value);
+        var o = new JsonObject
+        {
+            ["Timestamp"] = Time(r.Timestamp == default ? _clock() : r.Timestamp),
+            ["User"] = string.IsNullOrEmpty(r.User) ? _user() : r.User,
+            ["DeploymentType"] = r.DeploymentType,
+            ["ApplicationName"] = r.ApplicationName,
+            ["ApplicationVersion"] = r.ApplicationVersion,
+            ["CollectionName"] = r.CollectionName,
+            ["CollectionID"] = r.CollectionID,
+            ["MemberCount"] = r.MemberCount is { } members ? JsonValue.Create(members) : null,
+            ["DeployPurpose"] = r.DeployPurpose,
+            ["DeployAction"] = r.DeployAction,
+            ["DeadlineDateTime"] = Time(r.DeadlineDateTime),
+            ["DeploymentID"] = Id(r.DeploymentID),
+            ["Result"] = r.Result,
+            ["Event"] = r.Event,
+            ["ObjectId"] = r.ObjectId,
+            ["AvailableDateTime"] = Time(r.AvailableDateTime),
+            ["Message"] = r.Message,
+            ["Source"] = string.IsNullOrEmpty(r.Source) ? SourceName : r.Source,
+            ["DeploymentUniqueID"] = r.DeploymentUniqueID,
+            ["ProgramName"] = r.ProgramName,
+            ["TimeBasedOn"] = r.TimeBasedOn,
+            ["DistributionPointGroups"] = r.DistributionPointGroups,
+            ["Undoes"] = r.Undoes
+        };
+        foreach (var (name, value) in r.Extra)
+            if (!o.ContainsKey(name)) o[name] = value;
+        return o.ToJsonString(WriteOptions);
     }
+
+    private static readonly HashSet<string> Named = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Timestamp", "User", "DeploymentType", "ApplicationName", "ApplicationVersion", "CollectionName", "CollectionID", "MemberCount", "DeployPurpose",
+        "DeployAction", "DeadlineDateTime", "DeploymentID", "Result", "Event", "ObjectId", "AvailableDateTime", "Message", "Source", "DeploymentUniqueID",
+        "ProgramName", "TimeBasedOn", "DistributionPointGroups", "Undoes"
+    };
+
+    /// <summary>A line read into a record; null when the line is not a JSON object.</summary>
+    internal static DeploymentAuditRecord? Parse(string line)
+    {
+        if (JsonNode.Parse(line) is not JsonObject o) return null;
+        string S(string name) => o.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value is { } v ? NodeText(v) : "";
+        DateTime? T(string name) => DateTime.TryParse(S(name), CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? t : null;
+        var members = int.TryParse(S("MemberCount"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var m) ? m : (int?)null;
+        var eventName = S("Event");
+        return new DeploymentAuditRecord(T("Timestamp") ?? default, S("User"), S("DeploymentType"), S("ApplicationName"), S("ApplicationVersion"), S("CollectionName"),
+            S("CollectionID"), members, S("DeployPurpose"), S("DeployAction"), T("DeadlineDateTime"), S("DeploymentID"), S("Result"))
+        {
+            Event = eventName.Length > 0 ? eventName : "Create",
+            ObjectId = S("ObjectId"),
+            AvailableDateTime = T("AvailableDateTime"),
+            Message = S("Message"),
+            Source = S("Source"),
+            DeploymentUniqueID = S("DeploymentUniqueID"),
+            ProgramName = S("ProgramName"),
+            TimeBasedOn = S("TimeBasedOn"),
+            DistributionPointGroups = S("DistributionPointGroups"),
+            Undoes = S("Undoes"),
+            Extra = o.Where(p => !Named.Contains(p.Key)).Select(p => new KeyValuePair<string, string>(p.Key, p.Value is null ? "" : NodeText(p.Value))).ToList()
+        };
+    }
+
+    private static string NodeText(JsonNode node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : node.ToJsonString();
 
     public IReadOnlyList<DeploymentAuditRecord> Read(int max)
     {
@@ -194,7 +252,8 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         try
         {
             if (!File.Exists(path)) return [];
-            if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)) throw new DeploymentServiceException("The audit log file is a symbolic link or another reparse point, so it was not read.");
+            if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+                throw new DeploymentServiceException("The audit log file is a symbolic link or another reparse point, so it was not read.", DeploymentFailureKind.Storage);
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var start = Math.Max(0, stream.Length - MaxReadBytes);
             stream.Seek(start, SeekOrigin.Begin);
@@ -209,11 +268,10 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log?.Warning(LogArea, $"The audit log could not be read ({ex.GetType().Name}).");
-            throw new DeploymentServiceException($"The audit log could not be read: {path}. Check that the folder can be reached.");
+            throw new DeploymentServiceException($"The audit log could not be read: {path}. Check that the folder can be reached.", DeploymentFailureKind.Storage);
         }
 
-        var text = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF');
-        var lines = text.Split('\n');
+        var lines = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Split('\n');
         var records = new List<DeploymentAuditRecord>();
         for (var i = lines.Length - 1; i >= 0 && records.Count < max; i--)
         {
@@ -221,7 +279,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             if (line.Length == 0) continue;
             try
             {
-                if (JsonSerializer.Deserialize<DeploymentAuditRecord>(line, ReadOptions) is { } record) records.Add(record);
+                if (Parse(line) is { } record) records.Add(record);
                 else SkippedLines++;
             }
             catch (JsonException)
@@ -234,28 +292,14 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         return records;
     }
 
-    /// <summary>A JSON value as text: a string as is, a number in invariant form, null and absent as empty.</summary>
-    public static string Text(JsonElement? value) => value is not { } v ? "" : v.ValueKind switch
-    {
-        JsonValueKind.String => v.GetString() ?? "",
-        JsonValueKind.Null or JsonValueKind.Undefined => "",
-        _ => v.GetRawText()
-    };
-
     private sealed class Reservation(DeploymentAuditLog owner, FileStream? stream, AuditProbe probe) : IDeploymentAuditReservation
     {
-        private bool _written;
-
         public AuditProbe Probe { get; } = probe;
 
         public AuditWrite Append(DeploymentAuditRecord r)
         {
             ArgumentNullException.ThrowIfNull(r);
-            if (stream is null) return new AuditWrite(false, Probe.Message);
-            if (_written) return new AuditWrite(false, "A reservation holds one record. Nothing was written.");
-            var result = owner.Write(stream, r);
-            _written = result.Written;
-            return result;
+            return stream is null ? new AuditWrite(false, Probe.Message) : owner.Write(stream, r);
         }
 
         public void Dispose() => stream?.Dispose();

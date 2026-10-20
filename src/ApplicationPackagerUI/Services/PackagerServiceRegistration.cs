@@ -3,6 +3,7 @@ using ApplicationPackagerEngine.Services.ConfigMgrSession;
 using ApplicationPackagerEngine.Services.Logging;
 using ApplicationPackagerUI.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ApplicationPackagerUI.Services;
 
@@ -79,6 +80,22 @@ public static class PackagerServiceRegistration
                 () => SessionConnection(settings), sp.GetRequiredService<IAppLog>());
         });
         services.AddSingleton<IComplianceReportWriter>(_ => new ComplianceReportWriter());
+
+        services.TryAddSingleton<IDeploymentAuditPathProvider>(_ => new DefaultDeploymentAuditPath());
+        services.AddSingleton<IDeploymentAuditLog>(sp =>
+        {
+            var paths = sp.GetRequiredService<IDeploymentAuditPathProvider>();
+            return new DeploymentAuditLog(() => paths.AuditLogPath, sp.GetRequiredService<IAppLog>());
+        });
+        services.AddSingleton<IDeploymentTemplateStore>(sp => new DeploymentTemplateStore(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IDeploymentReportWriter>(_ => new DeploymentReportWriter());
+        services.AddSingleton<IDeploymentSigningCheck>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            return new ProductSigningCheck(sp.GetRequiredService<ApplicationInventoryService>(), () => SessionConnection(settings), () => settings.Load().ScriptSigning, sp.GetRequiredService<IAppLog>());
+        });
+        services.AddSingleton<IDeploymentService>(sp => new DeploymentService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<ICollectionService>(),
+            sp.GetRequiredService<IDeploymentAuditLog>(), sp.GetRequiredService<IDeploymentSigningCheck>(), sp.GetRequiredService<IAppLog>()));
 
         services.AddSingleton<IAnalysisSandbox>(_ => new AnalysisSandbox());
         services.AddSingleton<IInstallerAnalysisService>(sp => new InstallerAnalysisService(sp.GetRequiredService<IAnalysisSandbox>()));

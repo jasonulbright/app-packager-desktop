@@ -343,6 +343,26 @@ public sealed partial class ApplicationInventoryService
             Text(reader, 7), MaybeTime(reader, 8), Text(reader, 9), Text(reader, 10));
     }
 
+    /// <summary>Every destination record of one environment and action whose last success named an object.</summary>
+    public IReadOnlyList<InventoryDestinationState> GetSucceededDestinations(InventoryEnvironmentIdentity environment, string action)
+    {
+        ValidateEnvironment(environment);
+        Required(action, nameof(action));
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT packager_uid, application_id, profile_id, last_attempt_version, last_attempt_outcome, last_attempt_object_id, last_attempt_at, last_success_version, last_success_object_id, last_success_at, last_success_build_id, last_attempt_detail FROM destination_inventory WHERE destination = $destination AND environment_key = $environment AND action = $action AND last_success_object_id IS NOT NULL";
+        Add(command, "$destination", environment.Destination);
+        Add(command, "$environment", environment.Key);
+        Add(command, "$action", action);
+        using var reader = command.ExecuteReader();
+        var result = new List<InventoryDestinationState>();
+        while (reader.Read())
+            result.Add(new InventoryDestinationState(reader.GetString(0), environment.Destination, environment.Key, action, Text(reader, 1), Text(reader, 2),
+                Text(reader, 3), ParseOutcome(reader.GetString(4)), Text(reader, 5), MaybeTime(reader, 6), Text(reader, 7),
+                Text(reader, 8), MaybeTime(reader, 9), Text(reader, 10), Text(reader, 11)));
+        return result;
+    }
+
     public InventoryRefusalState? GetLatestRefusal(string packagerUid, InventoryEnvironmentIdentity environment, string action)
     {
         Required(packagerUid, nameof(packagerUid));

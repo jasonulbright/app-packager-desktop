@@ -1,0 +1,320 @@
+using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using ApplicationPackagerEngine.Services.ConfigMgrSession;
+
+namespace ApplicationPackagerEngine.Tests.Deployments;
+
+/// <summary>
+/// A ConfigMgr site in a child Windows PowerShell: stub cmdlets and WMI queries over a JSON state
+/// that store what the lab site stores (CM01, 5.2603): times as the wall-clock text given, an
+/// application deadline of local or unspecified kind with a UTC basis shifted by four hours,
+/// the package and task sequence flags in AdvertFlags and RemoteClientFlags, an expiration enabled
+/// by -UseUtcForExpireSchedule, a task sequence -DeploymentOption RunFromDistributionPoint ignored,
+/// the rerun behavior, the maintenance-window settings, metered and restart suppression ignored for
+/// Available, an application deployment refused without content or when the application is already
+/// deployed to the collection, the slow network value RunProgramFromDistributionPoint refused, and
+/// a second deployment of a package, task sequence or update group to one collection allowed.
+/// A query the stub does not know throws, as an unknown WQL class would. Each listed failure
+/// ("create:Type", "after-create:Type", "remove:Id", "after-remove:Id", "distribute:GroupName",
+/// "query:Class") happens once, also across runs. Option "CreateTwice:Type" makes a create store
+/// two deployments; option "HideNew" hides new deployments from queries.
+/// </summary>
+internal sealed class StubDeploymentSite : IConfigMgrSession
+{
+    private const string Harness = """
+        param([string]$StatePath, [string]$ScriptPath, [string]$ParametersPath, [string]$OutPath)
+        $ErrorActionPreference = 'Stop'
+        $state = Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
+        function global:V([object]$Object, [string]$Name, [object]$Default) { if ($null -eq $Object) { return $Default }; $p = $Object.PSObject.Properties[$Name]; if ($null -eq $p -or $null -eq $p.Value) { return $Default }; return $p.Value }
+        function global:L([object]$List) { $r = [System.Collections.Generic.List[object]]::new(); foreach ($x in @($List)) { if ($null -ne $x) { $r.Add($x) } }; return ,$r }
+        $global:Log = [System.Collections.Generic.List[string]]::new()
+        $global:Opt = @{}
+        foreach ($p in $state.Options.PSObject.Properties) { $global:Opt[$p.Name] = $p.Value }
+        $global:FailLeft = [System.Collections.Generic.List[string]]::new()
+        foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
+        function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove($Key)) { throw "The SMS Provider reported an error: SECRET-DETAIL-1234 ($Key)." } }
+        $global:S = @{}
+        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments') { $global:S[$k] = L (V $state $k @()) }
+        $global:NextAssignment = [long](V $state 'NextAssignment' 16777400)
+        $global:NextAdvert = [int](V $state 'NextAdvert' 32)
+        $global:NewKeys = [System.Collections.Generic.List[string]]::new()
+        $global:Fmt = 'yyyy-MM-ddTHH:mm:ss'
+        $global:Created = [datetime]::SpecifyKind([datetime]::Parse([string](V $state.Options 'CreatedUtc' '2026-10-20T12:00:30'), [Globalization.CultureInfo]::InvariantCulture), 'Utc').ToLocalTime()
+        function global:Dt([string]$Text) { if (-not $Text) { return $null }; [datetime]::ParseExact($Text, $global:Fmt, [Globalization.CultureInfo]::InvariantCulture) }
+        function global:Tx([object]$Value) { if ($Value -isnot [datetime]) { return '' }; $Value.ToString($global:Fmt, [Globalization.CultureInfo]::InvariantCulture) }
+        function global:Copy-Row([object]$O) {
+            $c = $O.PSObject.Copy()
+            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
+            if ($null -ne $c.PSObject.Properties['AssignedSchedule']) { $c.AssignedSchedule = @(@($c.AssignedSchedule) | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ StartTime = (Dt ([string]$_.StartTime)); IsGMT = [bool]$_.IsGMT } }) }
+            return $c
+        }
+        function global:Hidden([object]$O, [string]$Key) { return $global:Opt.ContainsKey('HideNew') -and $global:NewKeys.Contains([string]$O.$Key) }
+        function global:Ids([string]$Where, [string]$Name) { @([regex]::Matches($Where, "$Name = '([^']+)'") | ForEach-Object { $_.Groups[1].Value }) }
+        function global:Invoke-CMWmiQuery {
+            [CmdletBinding()] param([string]$Query, [string]$Option)
+            $global:Log.Add('Query')
+            if ($Query -match 'FROM (\w+)') { Test-Fail ('query:' + $Matches[1]) }
+            switch -Regex ($Query) {
+                'FROM SMS_Application WHERE IsLatest = 1$' { return @($global:S.Applications | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_Application WHERE CI_ID = (\d+)$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.CI_ID -eq $id } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_Application WHERE ModelID = (\d+) AND IsLatest = 1$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.ModelID -eq $id } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_Package WHERE PackageType = 0$' { return @($global:S.Packages | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_Package WHERE PackageID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Packages | Where-Object { $_.PackageID -eq $id } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_Program WHERE PackageID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Packages | Where-Object { $_.PackageID -eq $id } | ForEach-Object { foreach ($n in @($_.Programs)) { [pscustomobject]@{ PackageID = $id; ProgramName = [string]$n } } }) }
+                'FROM SMS_TaskSequencePackage$' { return @($global:S.TaskSequences | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_TaskSequencePackage WHERE PackageID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.TaskSequences | Where-Object { $_.PackageID -eq $id } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_AuthorizationList$' { return @($global:S.Groups | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_AuthorizationList WHERE CI_ID = (\d+)$' { $id = $Matches[1]; return @($global:S.Groups | Where-Object { [string]$_.CI_ID -eq $id } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_ObjectContentExtraInfo WHERE ObjectID = '([^']+)'$" { $id = $Matches[1]; return @($global:S.Applications | Where-Object { $_.ModelName -eq $id -and $null -ne $_.PSObject.Properties['ContentPackageID'] } | ForEach-Object { $c = V $_ 'Content' $null; [pscustomobject]@{ PackageID = $_.ContentPackageID; Targeted = [int](V $c 'Targeted' 0); NumberSuccess = [int](V $c 'Success' 0); NumberInProgress = [int](V $c 'InProgress' 0); NumberErrors = [int](V $c 'Errors' 0) } }) }
+                "FROM SMS_ObjectContentExtraInfo WHERE PackageID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Packages | Where-Object { $_.PackageID -eq $id -and $null -ne $_.PSObject.Properties['Content'] } | ForEach-Object { $c = $_.Content; [pscustomobject]@{ PackageID = $id; Targeted = [int](V $c 'Targeted' 0); NumberSuccess = [int](V $c 'Success' 0); NumberInProgress = [int](V $c 'InProgress' 0); NumberErrors = [int](V $c 'Errors' 0) } }) }
+                "FROM SMS_TaskSequencePackageReference WHERE PackageID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.TaskSequences | Where-Object { $_.PackageID -eq $id } | ForEach-Object { foreach ($r in @(V $_ 'References' @())) { [pscustomobject]@{ RefPackageID = $r.RefPackageID; ObjectName = $r.ObjectName; Targeted = [int]$r.Targeted; NumberSuccess = [int]$r.Success; NumberInProgress = [int](V $r 'InProgress' 0); NumberErrors = [int](V $r 'Errors' 0) } } }) }
+                "SELECT CollectionID, Name, CollectionType, MemberCount FROM SMS_Collection WHERE CollectionID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Collections | Where-Object { $_.CollectionID -eq $id } | ForEach-Object { Copy-Row $_ }) }
+                'SELECT CollectionID, Name FROM SMS_Collection WHERE (.+)$' { $ids = Ids $Matches[1] 'CollectionID'; return @($global:S.Collections | Where-Object { $ids -contains $_.CollectionID } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_ApplicationAssignment WHERE AppModelID = (\d+)( AND TargetCollectionID = '(\w+)')?$" { $m = $Matches[1]; $c = $Matches[3]; return @($global:S.AppAssignments | Where-Object { [string]$_.AppModelID -eq $m -and (-not $c -or $_.TargetCollectionID -eq $c) -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_ApplicationAssignment WHERE AssignmentUniqueID = '([^']+)'$" { $id = $Matches[1]; return @($global:S.AppAssignments | Where-Object { $_.AssignmentUniqueID -eq $id -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_UpdateGroupAssignment WHERE AssignedUpdateGroup = (\d+)( AND TargetCollectionID = '(\w+)')?$" { $m = $Matches[1]; $c = $Matches[3]; return @($global:S.UgAssignments | Where-Object { [string]$_.AssignedUpdateGroup -eq $m -and (-not $c -or $_.TargetCollectionID -eq $c) -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_UpdateGroupAssignment WHERE AssignmentUniqueID = '([^']+)'$" { $id = $Matches[1]; return @($global:S.UgAssignments | Where-Object { $_.AssignmentUniqueID -eq $id -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_Advertisement WHERE PackageID = '(\w+)'( AND CollectionID = '(\w+)')?$" { $p = $Matches[1]; $c = $Matches[3]; return @($global:S.Adverts | Where-Object { $_.PackageID -eq $p -and (-not $c -or $_.CollectionID -eq $c) -and -not (Hidden $_ 'AdvertisementID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_Advertisement WHERE AdvertisementID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Adverts | Where-Object { $_.AdvertisementID -eq $id -and -not (Hidden $_ 'AdvertisementID') } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_DistributionPointGroup$' { return @($global:S.DpGroups | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_DPGroupContentInfo WHERE GroupID = '([^']+)' AND \((.+)\)$" { $g = $Matches[1]; $ids = Ids $Matches[2] 'PackageID'; return @($global:S.DpGroupContent | Where-Object { $_.GroupID -eq $g -and $ids -contains $_.PackageID } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_DPGroupContentInfo WHERE (.+)$' { $ids = Ids $Matches[1] 'PackageID'; return @($global:S.DpGroupContent | Where-Object { $ids -contains $_.PackageID } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_DPGroupDistributionStatusDetails WHERE (.+)$' { $ids = Ids $Matches[1] 'PackageID'; return @($global:S.DpStatus | Where-Object { $ids -contains $_.PackageID } | ForEach-Object { Copy-Row $_ }) }
+            }
+            throw "Unknown query: $Query"
+        }
+        function global:New-CMSchedule { [CmdletBinding()] param([datetime]$Start, [switch]$Nonrecurring, [switch]$IsUtc) [pscustomobject]@{ StartTime = (Tx $Start); IsGMT = [bool]$IsUtc } }
+        function global:Content-Ok([object]$App) { $c = V $App 'Content' $null; return [int](V $c 'Targeted' 0) -gt 0 }
+        function global:Make-Many([string]$Type, [scriptblock]$Make) { $times = if ($global:Opt.ContainsKey('CreateTwice:' + $Type)) { 2 } else { 1 }; for ($k = 0; $k -lt $times; $k++) { & $Make } }
+        function global:Notify-Fields([string]$Notification) { switch ($Notification) { 'DisplayAll' { @{ UI = $true; Notify = $true } } 'DisplaySoftwareCenterOnly' { @{ UI = $true; Notify = $false } } default { @{ UI = $false; Notify = $false } } } }
+        function global:New-CMApplicationDeployment {
+            [CmdletBinding()] param([int]$Id, [string]$CollectionId, [string]$DeployAction, [string]$DeployPurpose, [datetime]$AvailableDateTime, [object]$DeadlineDateTime, [string]$TimeBaseOn, [string]$UserNotification, [bool]$OverrideServiceWindow, [bool]$RebootOutsideServiceWindow, [bool]$UseMeteredNetwork)
+            $global:Log.Add('New-CMApplicationDeployment:' + $DeployPurpose)
+            Test-Fail 'create:Application'
+            $app = $global:S.Applications | Where-Object { [string]$_.CI_ID -eq [string]$Id } | Select-Object -First 1
+            if ($null -eq $app) { throw 'No object corresponds to the specified parameters.' }
+            if (-not (Content-Ok $app)) { throw 'There are no distribution points or distribution point groups in this application, please add one to this application before deploying it.' }
+            if (@($global:S.AppAssignments | Where-Object { [string]$_.AppModelID -eq [string]$app.ModelID -and $_.TargetCollectionID -eq $CollectionId }).Count -gt 0) { throw "The application '$($app.LocalizedDisplayName)' has already been deployed to the collection." }
+            $required = $DeployPurpose -eq 'Required'
+            $deadline = ''
+            if ($required) { $d = [datetime]$DeadlineDateTime; if ($TimeBaseOn -eq 'Utc' -and $d.Kind -ne 'Utc') { $d = $d.AddHours(4) }; $deadline = Tx $d }
+            $n = Notify-Fields $UserNotification
+            Make-Many 'Application' {
+                $uid = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'
+                $global:S.AppAssignments.Add([pscustomobject]@{ AssignmentID = $global:NextAssignment; AssignmentUniqueID = $uid; AssignedCIs = @([long]$app.CI_ID); AppModelID = [long]$app.ModelID; ApplicationName = $app.LocalizedDisplayName
+                    TargetCollectionID = $CollectionId; OfferTypeID = $(if ($required) { 0 } else { 2 }); StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { $deadline } else { $null }); UseGMTTimes = ($TimeBaseOn -eq 'Utc')
+                    UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $OverrideServiceWindow); RebootOutsideOfServiceWindows = ($required -and $RebootOutsideServiceWindow)
+                    DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx $global:Created); LastModifiedBy = 'CONTOSO\Admin' })
+                $global:NewKeys.Add($uid); $global:NextAssignment++
+            }
+            Test-Fail 'after-create:Application'
+        }
+        function global:New-Advert([string]$PackageId, [string]$ProgramName, [string]$CollectionId, [bool]$Required, [datetime]$Available, [bool]$UtcAvailable, [bool]$UtcExpire, [object[]]$Schedule, [long]$Advert, [long]$Remote) {
+            $id = 'MCM2' + ('{0:X4}' -f $global:NextAdvert); $global:NextAdvert++
+            $global:S.Adverts.Add([pscustomobject]@{ AdvertisementID = $id; PackageID = $PackageId; ProgramName = $ProgramName; CollectionID = $CollectionId; OfferType = $(if ($Required) { 0 } else { 2 })
+                PresentTime = (Tx $Available); PresentTimeIsGMT = $UtcAvailable; ExpirationTimeEnabled = $UtcExpire; AssignedScheduleEnabled = $Required; AssignedSchedule = @($(if ($Required) { $Schedule } else { @() }))
+                AdvertFlags = $Advert; RemoteClientFlags = $Remote })
+            $global:NewKeys.Add($id)
+        }
+        function global:Rerun-Bit([string]$Rerun, [bool]$Required) { if (-not $Required) { return 0x800 }; switch ($Rerun) { 'NeverRerunDeployedProgram' { 0x1000 } 'RerunIfFailedPreviousAttempt' { 0x2000 } 'RerunIfSucceededOnPreviousAttempt' { 0x4000 } default { 0x800 } } }
+        function global:New-CMPackageDeployment {
+            [CmdletBinding()] param([switch]$StandardProgram, [string]$PackageId, [string]$ProgramName, [string]$CollectionId, [string]$DeployPurpose, [datetime]$AvailableDateTime, [string]$FastNetworkOption, [string]$SlowNetworkOption, [bool]$AllowFallback, [bool]$UseUtcForAvailableSchedule, [bool]$UseUtcForExpireSchedule, [object[]]$Schedule, [string]$RerunBehavior, [bool]$SoftwareInstallation, [bool]$SystemRestart, [bool]$UseMeteredNetwork)
+            $global:Log.Add('New-CMPackageDeployment:' + $DeployPurpose)
+            Test-Fail 'create:Package'
+            if ($SlowNetworkOption -eq 'RunProgramFromDistributionPoint') { throw "The value 'RunProgramFromDistributionPoint' is not recognized for the parameter 'SlowNetworkOption'." }
+            $required = $DeployPurpose -eq 'Required'
+            $advert = 0x10000 -bor $(if ($AllowFallback) { 0 } else { 0x20000 }) -bor $(if ($required) { 0x2000000 } else { 0 }) -bor $(if ($required -and $SoftwareInstallation) { 0x100000 } else { 0 }) -bor $(if ($required -and $SystemRestart) { 0x200000 } else { 0 })
+            $remote = 0x8000 -bor $(if ($FastNetworkOption -eq 'RunProgramFromDistributionPoint') { 0x8 } else { 0x10 }) -bor $(if ($SlowNetworkOption -eq 'DownloadContentFromDistributionPointAndLocally') { 0x40 } else { 0x20 }) -bor (Rerun-Bit $RerunBehavior $required) -bor $(if ($required -and $UseMeteredNetwork) { 0x40000 } else { 0 })
+            Make-Many 'Package' { New-Advert $PackageId $ProgramName $CollectionId $required $AvailableDateTime $UseUtcForAvailableSchedule $UseUtcForExpireSchedule $Schedule $advert $remote }
+            Test-Fail 'after-create:Package'
+        }
+        function global:New-CMTaskSequenceDeployment {
+            [CmdletBinding()] param([string]$TaskSequencePackageId, [string]$CollectionId, [string]$DeployPurpose, [datetime]$AvailableDateTime, [string]$Availability, [bool]$ShowTaskSequenceProgress, [bool]$AllowFallback, [string]$DeploymentOption, [bool]$UseUtcForAvailableSchedule, [bool]$UseUtcForExpireSchedule, [object[]]$Schedule, [string]$RerunBehavior, [bool]$SoftwareInstallation, [bool]$SystemRestart, [bool]$UseMeteredNetwork)
+            $global:Log.Add('New-CMTaskSequenceDeployment:' + $DeployPurpose)
+            Test-Fail 'create:TaskSequence'
+            if ($DeploymentOption -eq 'DownloadAllContentLocallyBeforeStartingTaskSequence' -and $Availability -ne 'Clients') { throw 'Please make sure the deployment is available to client only since the deployment works with the option DownloadAllContentLocallyBeforeStartingTaskSequence.' }
+            $required = $DeployPurpose -eq 'Required'
+            $availabilityBits = switch ($Availability) { 'ClientsMediaAndPxe' { 0x40000 } 'MediaAndPxe' { 0x10040000 } 'MediaAndPxeHidden' { 0x30040000 } default { 0 } }
+            $advert = 0x90000 -bor $availabilityBits -bor $(if ($ShowTaskSequenceProgress) { 0x800000 } else { 0 }) -bor $(if ($AllowFallback) { 0 } else { 0x20000 }) -bor $(if ($required) { 0x2000000 } else { 0 }) -bor $(if ($required -and $SoftwareInstallation) { 0x100000 } else { 0 }) -bor $(if ($required -and $SystemRestart) { 0x200000 } else { 0 })
+            $option = switch ($DeploymentOption) { 'DownloadAllContentLocallyBeforeStartingTaskSequence' { 0x50 } default { 0x300 } }
+            $remote = 0x8000 -bor $option -bor (Rerun-Bit $RerunBehavior $required) -bor $(if ($required -and $UseMeteredNetwork) { 0x40000 } else { 0 })
+            Make-Many 'TaskSequence' { New-Advert $TaskSequencePackageId '*' $CollectionId $required $AvailableDateTime $UseUtcForAvailableSchedule $UseUtcForExpireSchedule $Schedule $advert $remote }
+            Test-Fail 'after-create:TaskSequence'
+        }
+        function global:New-CMSoftwareUpdateDeployment {
+            [CmdletBinding()] param([string]$SoftwareUpdateGroupId, [string]$CollectionId, [string]$DeploymentType, [datetime]$AvailableDateTime, [object]$DeadlineDateTime, [string]$TimeBasedOn, [string]$UserNotification, [bool]$RequirePostRebootFullScan, [switch]$AcceptEula, [bool]$SoftwareInstallation, [bool]$AllowRestart, [bool]$UseMeteredNetwork, [bool]$RestartServer, [bool]$RestartWorkstation, [string]$ProtectedType, [string]$UnprotectedType, [bool]$DownloadFromMicrosoftUpdate)
+            $global:Log.Add('New-CMSoftwareUpdateDeployment:' + $DeploymentType)
+            Test-Fail 'create:SoftwareUpdateGroup'
+            $required = $DeploymentType -eq 'Required'
+            $n = Notify-Fields $UserNotification
+            $locality = if ($required) { 0x50 -bor $(if ($UnprotectedType -eq 'NoInstall') { 0x20000 } else { 0 }) -bor $(if ($UseMeteredNetwork) { 0x80000 } else { 0 }) -bor $(if ($DownloadFromMicrosoftUpdate) { 0x40000 } else { 0 }) } else { 0x10 }
+            Make-Many 'SoftwareUpdateGroup' {
+                $uid = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'
+                $global:S.UgAssignments.Add([pscustomobject]@{ AssignmentID = $global:NextAssignment; AssignmentUniqueID = $uid; AssignedUpdateGroup = [long]$SoftwareUpdateGroupId; TargetCollectionID = $CollectionId
+                    StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { Tx ([datetime]$DeadlineDateTime) } else { $null }); UseGMTTimes = ($TimeBasedOn -eq 'Utc')
+                    UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $SoftwareInstallation); RebootOutsideOfServiceWindows = ($required -and $AllowRestart)
+                    SuppressReboot = $(if ($required) { $(if ($RestartServer) { 2 } else { 0 }) -bor $(if ($RestartWorkstation) { 1 } else { 0 }) } else { 0 }); RequirePostRebootFullScan = $RequirePostRebootFullScan
+                    DPLocality = $locality; CreationTime = (Tx $global:Created); LastModifiedBy = 'CONTOSO\Admin' })
+                $global:NewKeys.Add($uid); $global:NextAssignment++
+            }
+            Test-Fail 'after-create:SoftwareUpdateGroup'
+        }
+        function global:Remove-Deployment([string]$List, [string]$Key, [string]$Id) {
+            $global:Log.Add('Remove:' + $Id)
+            Test-Fail ('remove:' + $Id)
+            $found = @($global:S[$List] | Where-Object { $_.$Key -eq $Id })
+            if ($found.Count -eq 0) { throw 'No object corresponds to the specified parameters.' }
+            foreach ($f in $found) { [void]$global:S[$List].Remove($f) }
+            Test-Fail ('after-remove:' + $Id)
+        }
+        function global:Remove-CMApplicationDeployment { [CmdletBinding()] param([string]$DeploymentId, [switch]$Force) Remove-Deployment 'AppAssignments' 'AssignmentUniqueID' $DeploymentId }
+        function global:Remove-CMSoftwareUpdateDeployment { [CmdletBinding()] param([string]$DeploymentId, [switch]$Force) Remove-Deployment 'UgAssignments' 'AssignmentUniqueID' $DeploymentId }
+        function global:Remove-CMPackageDeployment { [CmdletBinding()] param([string]$DeploymentId, [switch]$Force) Remove-Deployment 'Adverts' 'AdvertisementID' $DeploymentId }
+        function global:Remove-CMTaskSequenceDeployment { [CmdletBinding()] param([string]$DeploymentId, [switch]$Force) Remove-Deployment 'Adverts' 'AdvertisementID' $DeploymentId }
+        function global:Start-CMContentDistribution {
+            [CmdletBinding()] param([string]$ApplicationId, [string]$PackageId, [string]$TaskSequenceId, [string]$DistributionPointGroupName)
+            $global:Log.Add('Start-CMContentDistribution:' + $DistributionPointGroupName)
+            Test-Fail ('distribute:' + $DistributionPointGroupName)
+            $group = $global:S.DpGroups | Where-Object { $_.Name -eq $DistributionPointGroupName } | Select-Object -First 1
+            if ($null -eq $group) { throw 'No object corresponds to the specified parameters.' }
+            $ids = @()
+            if ($ApplicationId) { $ids = @($global:S.Applications | Where-Object { [string]$_.CI_ID -eq $ApplicationId } | ForEach-Object { $_.ContentPackageID }) }
+            if ($PackageId) { $ids = @($PackageId) }
+            if ($TaskSequenceId) { $ids = @($global:S.TaskSequences | Where-Object { $_.PackageID -eq $TaskSequenceId } | ForEach-Object { @(V $_ 'References' @()) | ForEach-Object { $_.RefPackageID } }) }
+            $new = @($ids | Where-Object { $id = $_; @($global:S.DpGroupContent | Where-Object { $_.GroupID -eq $group.GroupID -and $_.PackageID -eq $id }).Count -eq 0 })
+            if ($new.Count -eq 0) { throw 'The content has already been targeted to this distribution point group.' }
+            foreach ($id in $new) { $global:S.DpGroupContent.Add([pscustomobject]@{ GroupID = $group.GroupID; PackageID = $id }); $global:S.DpStatus.Add([pscustomobject]@{ GroupID = $group.GroupID; PackageID = $id; DPName = 'DP01'; MessageState = 2 }) }
+        }
+
+        Set-StrictMode -Version 2.0
+        $parameters = @{}
+        foreach ($p in (Get-Content -LiteralPath $ParametersPath -Raw | ConvertFrom-Json).PSObject.Properties) { $parameters[$p.Name] = $p.Value }
+        $block = [scriptblock]::Create((Get-Content -LiteralPath $ScriptPath -Raw))
+        $out = @(); $thrown = ''
+        try { $out = @(& $block @parameters 3>$null) } catch { $thrown = [string]$_.Exception.Message }
+        Set-StrictMode -Off
+        $state.Options | Add-Member -NotePropertyName Fail -NotePropertyValue @($global:FailLeft) -Force
+        $next = [pscustomobject]@{ Options = $state.Options; NextAssignment = $global:NextAssignment; NextAdvert = $global:NextAdvert }
+        foreach ($k in $global:S.Keys) { $next | Add-Member -NotePropertyName $k -NotePropertyValue @($global:S[$k]) }
+        $document = [pscustomobject]@{ Output = $out; Thrown = $thrown; Log = @($global:Log); State = $next }
+        [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding $false))
+        """;
+
+    private JsonObject _state;
+
+    public StubDeploymentSite(JsonObject state)
+    {
+        Assert.True(File.Exists(Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe")),
+            "Windows PowerShell 5.1 is not on this computer, so the Deployments script cannot be tested.");
+        _state = state;
+    }
+
+    public List<string> Log { get; } = [];
+
+    public List<(string Script, Dictionary<string, object?> Parameters)> Runs { get; } = [];
+
+    /// <summary>Called before each script run; lets a test change the site between a plan and its write.</summary>
+    public Action<Dictionary<string, object?>, StubDeploymentSite>? BeforeRun { get; set; }
+
+    /// <summary>Called after each script run; a returned exception is thrown although the run's changes stay made.</summary>
+    public Func<Dictionary<string, object?>, Exception?>? AfterRun { get; set; }
+
+    public JsonObject State => _state;
+
+    public JsonArray List(string name) => _state[name] as JsonArray ?? (JsonArray)(_state[name] = new JsonArray());
+
+    public void Fail(params string[] failures)
+    {
+        var options = _state["Options"]!.AsObject();
+        if (options["Fail"] is not JsonArray list) options["Fail"] = list = new JsonArray();
+        foreach (var f in failures) list.Add(f);
+    }
+
+    public void SetOption(string name, JsonNode? value) => _state["Options"]!.AsObject()[name] = value;
+
+    /// <summary>
+    /// A site with one application with content (CI 16779607, model 16778866), one without
+    /// (16779604), a package MCM0001B with two programs and content, a task sequence MCM00030 with
+    /// one distributed reference, a software update group 16778893, the empty device collection
+    /// MCM00098, a user collection MCM00099, the built-in SMS00001 and the DP group All DPs.
+    /// </summary>
+    public static JsonObject Lab() => JsonNode.Parse("""
+        {
+          "Options": {},
+          "Applications": [
+            { "CI_ID": 16779607, "ModelID": 16778866, "ModelName": "ScopeId_89DF871C-6222-4BDF-8BB7-75CBCCF9821E/Application_422a4a5c-3d5d-46b0-9986-7254de924002", "LocalizedDisplayName": "7-Zip (x64 edition) - 26.03", "SoftwareVersion": "26.03", "IsExpired": false, "ContentPackageID": "MCM00035", "Content": { "Targeted": 1, "Success": 1 } },
+            { "CI_ID": 16779604, "ModelID": 16778870, "ModelName": "ScopeId_89DF871C-6222-4BDF-8BB7-75CBCCF9821E/Application_b802345b-cfc1-4259-95ac-3e7f2c4bdbf1", "LocalizedDisplayName": "7-Zip 26.03 (x64 edition)", "SoftwareVersion": "26.03", "IsExpired": false, "ContentPackageID": "MCM00036", "Content": { "Targeted": 0, "Success": 0 } }
+          ],
+          "Packages": [ { "PackageID": "MCM0001B", "Name": "CMCO-CANARY-Package", "Version": "1", "Programs": [ "CMCO-CANARY-Run", "CMCO-CANARY-RunAvailable" ], "Content": { "Targeted": 1, "Success": 1 } } ],
+          "TaskSequences": [ { "PackageID": "MCM00030", "Name": "DH Test TS", "References": [ { "RefPackageID": "MCM0001B", "ObjectName": "CMCO-CANARY-Package", "Targeted": 1, "Success": 1 } ] } ],
+          "Groups": [ { "CI_ID": 16778893, "LocalizedDisplayName": "202609-W11-25H2", "NumberOfUpdates": 2 } ],
+          "Collections": [
+            { "CollectionID": "MCM00098", "Name": "DH-Test-1", "CollectionType": 2, "MemberCount": 0 },
+            { "CollectionID": "MCM00099", "Name": "Users", "CollectionType": 1, "MemberCount": 3 },
+            { "CollectionID": "SMS00001", "Name": "All Systems", "CollectionType": 2, "MemberCount": 8 }
+          ],
+          "DpGroups": [ { "GroupID": "{D921E77B-3F7D-4555-83D8-522461F5388F}", "Name": "All DPs", "MemberCount": 1 } ],
+          "DpGroupContent": [ { "GroupID": "{D921E77B-3F7D-4555-83D8-522461F5388F}", "PackageID": "MCM00035" } ],
+          "DpStatus": [ { "GroupID": "{D921E77B-3F7D-4555-83D8-522461F5388F}", "PackageID": "MCM00035", "DPName": "CM01.CONTOSO.COM", "MessageState": 1 } ],
+          "AppAssignments": [], "Adverts": [], "UgAssignments": []
+        }
+        """)!.AsObject();
+
+    public Task<ConfigMgrCommandResult> InvokeAsync(ConfigMgrScript script, ConfigMgrParameters? parameters = null, CancellationToken ct = default, TimeSpan? timeout = null)
+    {
+        ct.ThrowIfCancellationRequested();
+        var values = (parameters ?? new ConfigMgrParameters()).ToDictionary(p => p.Key, p => p.Value);
+        Runs.Add((script.Name, values));
+        BeforeRun?.Invoke(values, this);
+        var (output, thrown) = Run(script.Text, JsonSerializer.Serialize(values));
+        if (AfterRun?.Invoke(values) is { } after) return Task.FromException<ConfigMgrCommandResult>(after);
+        if (thrown.Length > 0)
+            return Task.FromException<ConfigMgrCommandResult>(new ConfigMgrSessionException(ConfigMgrFailure.ScriptFailed, $"The ConfigMgr command {script.Name} failed: {thrown}"));
+        return Task.FromResult(new ConfigMgrCommandResult(output, []));
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private (List<JsonElement> Output, string Thrown) Run(string scriptText, string parametersJson)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "apkg-dhstub-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var harness = Path.Combine(folder, "harness.ps1");
+            var statePath = Path.Combine(folder, "state.json");
+            var parametersPath = Path.Combine(folder, "parameters.json");
+            var scriptPath = Path.Combine(folder, "script.ps1");
+            var outPath = Path.Combine(folder, "out.json");
+            File.WriteAllText(harness, Harness, new System.Text.UTF8Encoding(true));
+            File.WriteAllText(statePath, _state.ToJsonString(), new System.Text.UTF8Encoding(true));
+            File.WriteAllText(parametersPath, parametersJson, new System.Text.UTF8Encoding(true));
+            File.WriteAllText(scriptPath, scriptText, new System.Text.UTF8Encoding(true));
+            var psi = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", harness, "-StatePath", statePath, "-ScriptPath", scriptPath, "-ParametersPath", parametersPath, "-OutPath", outPath })
+                psi.ArgumentList.Add(arg);
+            using var process = Process.Start(psi)!;
+            var error = process.StandardError.ReadToEndAsync();
+            _ = process.StandardOutput.ReadToEnd();
+            Assert.True(process.WaitForExit(120_000), "The stub site did not finish.");
+            Assert.True(File.Exists(outPath), "The stub site wrote no result: " + error.Result);
+            using var document = JsonDocument.Parse(File.ReadAllText(outPath));
+            var root = document.RootElement;
+            _state = JsonNode.Parse(root.GetProperty("State").GetRawText())!.AsObject();
+            Log.AddRange(Elements(root.GetProperty("Log")).Select(e => e.GetString() ?? ""));
+            return (Elements(root.GetProperty("Output")), root.GetProperty("Thrown").GetString() ?? "");
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
+    }
+
+    private static List<JsonElement> Elements(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.Array => value.EnumerateArray().Select(e => e.Clone()).ToList(),
+        JsonValueKind.Null or JsonValueKind.Undefined => [],
+        _ => [value.Clone()]
+    };
+}

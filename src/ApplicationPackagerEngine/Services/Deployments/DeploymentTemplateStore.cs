@@ -127,7 +127,7 @@ public sealed partial class DeploymentTemplateStore : IDeploymentTemplateStore
             throw new DeploymentServiceException("Select the purpose of the template: Available or Required.");
         if (!DeploymentScheduleRules.Notifications.Contains(t.UserNotification))
             throw new DeploymentServiceException("Select the user notification of the template.");
-        if (t.DefaultDeadlineOffsetHours is < 0 or > MaxDeadlineOffsetHours)
+        if (t.DeadlineOffsetHours is < 0 or > MaxDeadlineOffsetHours)
             throw new DeploymentServiceException($"The deadline offset must be 0 to {MaxDeadlineOffsetHours} hours.");
         if (!string.IsNullOrEmpty(t.Id)) CheckUserId(t.Id);
 
@@ -257,8 +257,8 @@ public sealed partial class DeploymentTemplateStore : IDeploymentTemplateStore
             ["AllowMeteredConnection"] = t.AllowMetered,
             ["AllowBoundaryFallback"] = t.AllowBoundaryFallback,
             ["AllowMicrosoftUpdate"] = t.AllowMicrosoftUpdate,
-            ["RequirePostRebootFullScan"] = t.RequirePostRebootFullScan,
-            ["DefaultDeadlineOffsetHours"] = t.DefaultDeadlineOffsetHours
+            ["RequirePostRebootFullScan"] = t.PostRebootScan,
+            ["DefaultDeadlineOffsetHours"] = t.DeadlineOffsetHours
         };
         if (File.Exists(path) && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
             throw new IOException("The template file is a reparse point.");

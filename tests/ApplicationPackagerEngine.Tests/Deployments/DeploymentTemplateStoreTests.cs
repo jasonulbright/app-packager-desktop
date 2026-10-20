@@ -43,7 +43,7 @@ public sealed class DeploymentTemplateStoreTests : IDisposable
         Assert.True(root.GetProperty("RequirePostRebootFullScan").GetBoolean());
         Assert.Equal(72, root.GetProperty("DefaultDeadlineOffsetHours").GetInt32());
         var server = all.Single(t => t.Name == "Server Production");
-        Assert.Equal(("HideAll", 168), (server.UserNotification, server.DefaultDeadlineOffsetHours));
+        Assert.Equal(("HideAll", 168), (server.UserNotification, server.DeadlineOffsetHours));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class DeploymentTemplateStoreTests : IDisposable
         var mine = Assert.Single(all);
         Assert.Equal(("Mine", "Mine", true, false), (mine.Id, mine.Name, mine.UtcBasis, mine.IsSeeded));
         Assert.True(mine.AllowBoundaryFallback);
-        Assert.True(mine.RequirePostRebootFullScan);
+        Assert.True(mine.PostRebootScan);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class DeploymentTemplateStoreTests : IDisposable
         var saved = Assert.Single(store.All());
 
         Assert.Equal(new DeploymentTemplate("Saved", "Saved", "Required", "HideAll", false, true, false, false, false, true, false, 24, false), saved);
-        store.Save(saved with { DefaultDeadlineOffsetHours = 12 });
+        store.Save(saved with { DeadlineOffsetHours = 12 });
         var text = File.ReadAllText(Path.Combine(Folder, "Saved.json"));
         Assert.DoesNotContain("TargetCollection", text);
         Assert.Contains("\"DefaultDeadlineOffsetHours\": 12", text);

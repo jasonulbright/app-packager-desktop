@@ -15,7 +15,7 @@ public sealed class DeploymentReportWriterTests : IDisposable
 
     private DeploymentReportWriter Writer(string? folder = null) => new(folder ?? _folder, () => Now);
 
-    private static DeploymentAuditRecord Parse(string json) => JsonSerializer.Deserialize<DeploymentAuditRecord>(json)!;
+    private static DeploymentAuditRecord Parse(string json) => DeploymentAuditLog.Parse(json)!;
 
     [Fact]
     public void TheCsvHasTheUnionOfAllRecordPropertiesInFirstSeenOrder()
@@ -24,17 +24,17 @@ public sealed class DeploymentReportWriterTests : IDisposable
         {
             Parse("{\"Timestamp\":\"2026-09-01T10:00:00\",\"DeploymentType\":\"Application\",\"DeploymentID\":16777327,\"Result\":\"Success\"}"),
             Parse("{\"Timestamp\":\"2026-09-02T10:00:00\",\"DeploymentType\":\"SUG\",\"Result\":\"Success\",\"PlanName\":\"Rings\",\"RingIndex\":2}"),
-            Parse("{\"Timestamp\":\"2026-09-03T10:00:00\",\"Event\":\"RemoveDeployment\",\"Undoes\":\"MCM20015\",\"Result\":\"Success\"}")
+            Parse("{\"Timestamp\":\"2026-09-03T10:00:00\",\"Event\":\"Undo\",\"Undoes\":\"MCM20015\",\"Result\":\"Success\"}")
         };
 
         var path = Writer().WriteCsv(rows);
 
         Assert.Equal(Path.Combine(_folder, "deployment-history-20261020-093005.csv"), path);
         var lines = File.ReadAllLines(path);
-        Assert.Equal("\"Timestamp\",\"DeploymentType\",\"DeploymentID\",\"Result\",\"PlanName\",\"RingIndex\",\"Event\",\"Undoes\"", lines[0]);
-        Assert.Equal("\"2026-09-01T10:00:00\",\"Application\",\"16777327\",\"Success\",\"\",\"\",\"\",\"\"", lines[1]);
-        Assert.Equal("\"2026-09-02T10:00:00\",\"SUG\",\"\",\"Success\",\"Rings\",\"2\",\"\",\"\"", lines[2]);
-        Assert.Equal("\"2026-09-03T10:00:00\",\"\",\"\",\"Success\",\"\",\"\",\"RemoveDeployment\",\"MCM20015\"", lines[3]);
+        Assert.Equal("\"Timestamp\",\"DeploymentType\",\"DeploymentID\",\"Result\",\"Event\",\"PlanName\",\"RingIndex\",\"Undoes\"", lines[0]);
+        Assert.Equal("\"2026-09-01T10:00:00\",\"Application\",\"16777327\",\"Success\",\"Create\",\"\",\"\",\"\"", lines[1]);
+        Assert.Equal("\"2026-09-02T10:00:00\",\"SUG\",\"\",\"Success\",\"Create\",\"Rings\",\"2\",\"\"", lines[2]);
+        Assert.Equal("\"2026-09-03T10:00:00\",\"\",\"\",\"Success\",\"Undo\",\"\",\"\",\"MCM20015\"", lines[3]);
         Assert.Equal([0xEF, 0xBB, 0xBF], File.ReadAllBytes(path)[..3]);
     }
 
@@ -49,7 +49,7 @@ public sealed class DeploymentReportWriterTests : IDisposable
     [InlineData("  =1")]
     public void ACellThatStartsAFormulaIsPrefixed(string text)
     {
-        var record = new DeploymentAuditRecord { ApplicationName = text, Result = "Success" };
+        var record = new DeploymentAuditRecord(default, "", "", text, "", "", "", null, "", "", null, "", "Success");
         var csv = File.ReadAllText(Writer().WriteCsv([record]));
         Assert.Contains("\"'" + text.Replace("\"", "\"\"") + "\"", csv);
     }

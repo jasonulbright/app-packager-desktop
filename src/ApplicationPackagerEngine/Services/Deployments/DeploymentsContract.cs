@@ -1,6 +1,3 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 namespace ApplicationPackagerEngine.Services;
 
 public enum DeploymentObjectType { Application, Package, TaskSequence, SoftwareUpdateGroup }
@@ -178,47 +175,58 @@ public interface IDeploymentService
     Task<IReadOnlyList<DeploymentOutcome>> ApplyAsync(IReadOnlyList<DeploymentChange> changes, IProgress<DeploymentOutcome> progress, CancellationToken ct);
 }
 
+
 /// <param name="Writable">True when an append can run now.</param>
 public sealed record AuditProbe(bool Writable, string Message);
 
-public sealed record AuditWrite(bool Written, string Message);
+public sealed record AuditWrite(bool Succeeded, string Message);
 
 /// <summary>
-/// One line of the audit log. The property names are those the suite tool writes, so records of
-/// both tools can share one file; the properties after <see cref="Result"/> are written by this
-/// product only. Properties a record carries that this type does not name are kept in <see cref="Extra"/>.
+/// One line of the audit log. The positional members carry the names the suite tool writes, so
+/// records of both tools can share one file; the other members are written by this product only.
+/// Properties a line carries that this type does not name are kept in <see cref="Extra"/> as text.
 /// </summary>
-public sealed class DeploymentAuditRecord
+/// <param name="Timestamp">Local time of the record; default means the time of the append.</param>
+/// <param name="DeploymentID">The AssignmentID of an application or software update group deployment, the AdvertisementID otherwise.</param>
+/// <param name="Result">Success, Partial (ConfigMgr made the deployment and reported a problem), Failed or Unknown; a suite record holds 'Failed: text'.</param>
+public sealed record DeploymentAuditRecord(
+    DateTime Timestamp,
+    string User,
+    string DeploymentType,
+    string ApplicationName,
+    string ApplicationVersion,
+    string CollectionName,
+    string CollectionID,
+    int? MemberCount,
+    string DeployPurpose,
+    string DeployAction,
+    DateTime? DeadlineDateTime,
+    string DeploymentID,
+    string Result)
 {
-    public string? Timestamp { get; set; }
-    public string? User { get; set; }
-    public string? DeploymentType { get; set; }
-    public string? ApplicationName { get; set; }
-    public string? ApplicationVersion { get; set; }
-    public string? CollectionName { get; set; }
-    public string? CollectionID { get; set; }
-    public JsonElement? MemberCount { get; set; }
-    public string? DeployPurpose { get; set; }
-    public string? DeployAction { get; set; }
-    public string? DeadlineDateTime { get; set; }
-    public JsonElement? DeploymentID { get; set; }
-    public string? Result { get; set; }
+    /// <summary>Create, Distribute or Undo.</summary>
+    public string Event { get; init; } = "Create";
+    public string ObjectId { get; init; } = "";
+    public DateTime? AvailableDateTime { get; init; }
 
-    /// <summary>Create, Distribute or RemoveDeployment.</summary>
-    public string? Event { get; set; }
-    public string? Source { get; set; }
-    public string? DeploymentUniqueID { get; set; }
-    public string? ObjectID { get; set; }
-    public string? ProgramName { get; set; }
-    public string? AvailableDateTime { get; set; }
-    public string? TimeBasedOn { get; set; }
-    public string? DistributionPointGroups { get; set; }
+    /// <summary>The plain outcome text.</summary>
+    public string Message { get; init; } = "";
 
-    /// <summary>RemoveDeployment: the DeploymentUniqueID of the create it undoes.</summary>
-    public string? Undoes { get; set; }
+    public string Source { get; init; } = "";
 
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? Extra { get; set; }
+    /// <summary>The deployment ID the page and Undo use: AssignmentUniqueID or AdvertisementID.</summary>
+    public string DeploymentUniqueID { get; init; } = "";
+    public string ProgramName { get; init; } = "";
+
+    /// <summary>LocalTime or Utc.</summary>
+    public string TimeBasedOn { get; init; } = "";
+    public string DistributionPointGroups { get; init; } = "";
+
+    /// <summary>Undo: the DeploymentUniqueID of the create it undoes.</summary>
+    public string Undoes { get; init; } = "";
+
+    /// <summary>Further properties of the line, such as the ring fields of the suite tool, in file order.</summary>
+    public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];
 }
 
 public interface IDeploymentAuditLog
@@ -228,23 +236,31 @@ public interface IDeploymentAuditLog
 
     /// <summary>The last <paramref name="max"/> records, oldest first; a line that cannot be read is skipped.</summary>
     IReadOnlyList<DeploymentAuditRecord> Read(int max);
+
+    /// <summary>The file the log uses now; it follows the setting at each call.</summary>
     string Path { get; }
 
     /// <summary>
-    /// Probes the log and keeps it open for the append that follows, so that a program that
-    /// opens the file between the two cannot make the append fail.
+    /// Probes the log and keeps it open for the appends that follow, so that a program that
+    /// opens the file between the probe and an append cannot make the append fail.
     /// </summary>
     IDeploymentAuditReservation Reserve() => new UnheldAuditReservation(this);
 }
 
-/// <summary>A probe and the one append that follows it.</summary>
+/// <summary>The audit log path the page sets; null or empty means the default under the data root.</summary>
+public interface IDeploymentAuditPathProvider
+{
+    string? AuditLogPath { get; }
+}
+
+/// <summary>A probe and the appends that follow it.</summary>
 public interface IDeploymentAuditReservation : IDisposable
 {
     AuditProbe Probe { get; }
     AuditWrite Append(DeploymentAuditRecord r);
 }
 
-/// <summary>A reservation that holds nothing: the probe and the append each open the log.</summary>
+/// <summary>A reservation that holds nothing: the probe and each append open the log.</summary>
 public sealed class UnheldAuditReservation(IDeploymentAuditLog log) : IDeploymentAuditReservation
 {
     public AuditProbe Probe { get; } = log.Probe();
@@ -253,9 +269,11 @@ public sealed class UnheldAuditReservation(IDeploymentAuditLog log) : IDeploymen
 }
 
 /// <summary>
-/// A deployment template. The JSON property names are those of the suite tool's template files;
-/// nothing about collections or objects is stored.
+/// A deployment template; nothing about collections or objects is stored. The files use the
+/// property names of the suite tool's template files (RequirePostRebootFullScan, DefaultDeadlineOffsetHours).
 /// </summary>
+/// <param name="DeadlineOffsetHours">Hours from the available time to the deadline of a Required deployment; 0 for none.</param>
+/// <param name="IsSeeded">True for the four defaults the app writes; a user template never replaces one.</param>
 public sealed record DeploymentTemplate(
     string Id,
     string Name,
@@ -267,8 +285,8 @@ public sealed record DeploymentTemplate(
     bool AllowMetered,
     bool AllowBoundaryFallback,
     bool AllowMicrosoftUpdate,
-    bool RequirePostRebootFullScan,
-    int DefaultDeadlineOffsetHours,
+    bool PostRebootScan,
+    int DeadlineOffsetHours,
     bool IsSeeded);
 
 public interface IDeploymentTemplateStore
@@ -277,7 +295,7 @@ public interface IDeploymentTemplateStore
     void Save(DeploymentTemplate t);
     void Delete(string id);
 
-    /// <summary>A plain note about the last read, such as a file that could not be read; null when there is none.</summary>
+    /// <summary>A plain note about files that could not be read, or null.</summary>
     string? Message { get; }
 }
 
@@ -287,5 +305,28 @@ public interface IDeploymentReportWriter
     string WriteHtml(IReadOnlyList<DeploymentAuditRecord> rows);
 }
 
-/// <summary>A refusal or failure with a plain message for the page.</summary>
-public sealed class DeploymentServiceException(string message) : Exception(message);
+public enum DeploymentFailureKind
+{
+    /// <summary>The request is not valid or a rule refuses it.</summary>
+    Refused,
+
+    /// <summary>The object, collection or deployment changed or does not exist any more.</summary>
+    Stale,
+
+    /// <summary>ConfigMgr could not be read.</summary>
+    Session,
+
+    /// <summary>A file or folder could not be read or written.</summary>
+    Storage
+}
+
+/// <summary>A plain refusal or failure of the deployment services; the message is safe to show.</summary>
+public sealed class DeploymentServiceException(string message, DeploymentFailureKind kind = DeploymentFailureKind.Refused) : Exception(message)
+{
+    public DeploymentFailureKind Kind { get; } = kind;
+}
+/// <summary>The audit log path when no page setting is registered: the default under the data root.</summary>
+public sealed class DefaultDeploymentAuditPath : IDeploymentAuditPathProvider
+{
+    public string? AuditLogPath => null;
+}

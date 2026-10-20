@@ -20,23 +20,21 @@ public sealed class DeploymentAuditLogTests : IDisposable
     private DeploymentAuditLog Log(string? path = null) =>
         new(() => path ?? LogPath, clock: () => new DateTime(2026, 10, 20, 9, 30, 5), user: () => @"CONTOSO\Admin");
 
-    internal static DeploymentAuditRecord Record(string result = "Success", string id = "MCM20015") => new()
-    {
-        DeploymentType = "Package", ApplicationName = "Pkg", ApplicationVersion = "Run", CollectionName = "Pilot", CollectionID = "MCM00098",
-        MemberCount = JsonSerializer.SerializeToElement(3), DeployPurpose = "Available", DeployAction = "Install", DeadlineDateTime = null,
-        DeploymentID = JsonSerializer.SerializeToElement(id), Result = result, Event = "Create", DeploymentUniqueID = id, ObjectID = "MCM0001B",
-        ProgramName = "Run", AvailableDateTime = "2026-10-20T10:00:00", TimeBasedOn = "LocalTime"
-    };
+    internal static DeploymentAuditRecord Record(string result = "Success", string id = "MCM20015") =>
+        new(default, "", "Package", "Pkg", "Run", "Pilot", "MCM00098", 3, "Available", "Install", null, id, result)
+        {
+            Event = "Create", DeploymentUniqueID = id, ObjectId = "MCM0001B", ProgramName = "Run", AvailableDateTime = new DateTime(2026, 10, 20, 10, 0, 0), TimeBasedOn = "LocalTime"
+        };
 
     [Fact]
     public void AnAppendWritesOneCompactLineWithTheSuiteFieldsFirstAndTheOwnFieldsAfter()
     {
         var log = Log();
-        Assert.True(log.Append(Record()).Written);
+        Assert.True(log.Append(Record()).Succeeded);
 
         var line = Assert.Single(File.ReadAllLines(LogPath));
         Assert.StartsWith("{\"Timestamp\":\"2026-10-20T09:30:05\",\"User\":\"CONTOSO\\\\Admin\",\"DeploymentType\":\"Package\",\"ApplicationName\":\"Pkg\",\"ApplicationVersion\":\"Run\",\"CollectionName\":\"Pilot\",\"CollectionID\":\"MCM00098\",\"MemberCount\":3,\"DeployPurpose\":\"Available\",\"DeployAction\":\"Install\",\"DeadlineDateTime\":null,\"DeploymentID\":\"MCM20015\",\"Result\":\"Success\",\"Event\":\"Create\"", line);
-        Assert.Contains("\"Source\":\"Application Packager\"", line);
+        Assert.Contains("\"ObjectId\":\"MCM0001B\",\"AvailableDateTime\":\"2026-10-20T10:00:00\",\"Message\":\"\",\"Source\":\"Application Packager\"", line);
         Assert.EndsWith("\r\n", File.ReadAllText(LogPath));
     }
 
@@ -47,7 +45,7 @@ public sealed class DeploymentAuditLogTests : IDisposable
         var before = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes("{\"Timestamp\":\"2026-01-01T00:00:00\",\"Result\":\"Success\",\"PlanName\":\"Rings\"}\r\n")).ToArray();
         File.WriteAllBytes(LogPath, before);
 
-        Assert.True(Log().Append(Record()).Written);
+        Assert.True(Log().Append(Record()).Succeeded);
 
         var after = File.ReadAllBytes(LogPath);
         Assert.Equal(before, after[..before.Length]);
@@ -82,9 +80,13 @@ public sealed class DeploymentAuditLogTests : IDisposable
 
         Assert.Equal(2, records.Count);
         Assert.Equal(1, log.SkippedLines);
-        Assert.Equal("16777327", DeploymentAuditLog.Text(records[0].DeploymentID));
-        Assert.Equal("Workstations", records[0].Extra!["PlanName"].GetString());
-        Assert.Equal("", DeploymentAuditLog.Text(records[1].DeploymentID));
+        Assert.Equal("16777327", records[0].DeploymentID);
+        Assert.Equal(12, records[0].MemberCount);
+        Assert.Equal("Create", records[0].Event);
+        Assert.Equal(new DateTime(2026, 9, 1, 10, 0, 0), records[0].Timestamp);
+        Assert.Equal([new("PlanName", "Workstations"), new("RingIndex", "1")], records[0].Extra);
+        Assert.Equal("", records[1].DeploymentID);
+        Assert.Equal("Failed: x", records[1].Result);
     }
 
     [Fact]
@@ -121,7 +123,7 @@ public sealed class DeploymentAuditLogTests : IDisposable
             Assert.False(probe.Writable);
             Assert.Contains("another program has it open", probe.Message);
             var write = Log().Append(Record());
-            Assert.False(write.Written);
+            Assert.False(write.Succeeded);
             Assert.DoesNotContain("process", write.Message);
         }
         Assert.Equal(0, new FileInfo(LogPath).Length);
@@ -134,7 +136,7 @@ public sealed class DeploymentAuditLogTests : IDisposable
         using (new FileStream(LogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
         {
             Assert.True(Log().Probe().Writable);
-            Assert.True(Log().Append(Record()).Written);
+            Assert.True(Log().Append(Record()).Succeeded);
         }
     }
 
@@ -147,7 +149,7 @@ public sealed class DeploymentAuditLogTests : IDisposable
             Assert.True(reservation.Probe.Writable);
             Assert.Throws<IOException>(() => new FileStream(LogPath, FileMode.Open, FileAccess.Read, FileShare.Read).Dispose());
             Assert.Empty(log.Read(10));
-            Assert.True(reservation.Append(Record()).Written);
+            Assert.True(reservation.Append(Record()).Succeeded);
         }
         Assert.Single(log.Read(10));
         using var reader = new FileStream(LogPath, FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -161,7 +163,7 @@ public sealed class DeploymentAuditLogTests : IDisposable
         using var reservation = Log().Reserve();
 
         Assert.False(reservation.Probe.Writable);
-        Assert.False(reservation.Append(Record()).Written);
+        Assert.False(reservation.Append(Record()).Succeeded);
     }
 
     [Fact]
@@ -188,7 +190,7 @@ public sealed class DeploymentAuditLogTests : IDisposable
 
         Assert.False(probe.Writable);
         Assert.Contains("junction or symbolic link", probe.Message);
-        Assert.False(Log().Append(Record()).Written);
+        Assert.False(Log().Append(Record()).Succeeded);
         Assert.Empty(Directory.GetFiles(target));
     }
 
