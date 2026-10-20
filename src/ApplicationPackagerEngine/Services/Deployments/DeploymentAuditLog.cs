@@ -13,6 +13,15 @@ namespace ApplicationPackagerEngine.Services;
 /// file is opened for writing with FileShare.Read, so a program that holds the file open without
 /// sharing write access makes the probe and the append fail alike. A reservation keeps the file
 /// open from the probe to the append.
+/// <para>
+/// Each line this product writes ends with a "Chain" property: the lowercase hex SHA-256 of the
+/// hash of the line before it, a line feed, and the line's JSON text without the Chain property.
+/// The hash of a line is its Chain value, or the SHA-256 of its trimmed text when it has none
+/// (a line of the suite tool or a damaged line); the first line follows 64 zeros. A read marks
+/// a record Verified only when its Chain matches. The chain detects accidental edits, inserted
+/// or removed lines and casual forgery only: the hash uses no secret, so anyone who can write
+/// the file can recompute every Chain after a change.
+/// </para>
 /// </summary>
 public sealed class DeploymentAuditLog : IDeploymentAuditLog
 {
@@ -104,7 +113,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         }
         catch (IOException ex) when (IsSharing(ex))
         {
-            return (null, $"The audit log cannot be written now: another program has it open: {path}. Close that program and try again.");
+            return (null, $"The audit log cannot be written now: another session of this product is making a change and holds it, or another program has it open: {path}. Try again when that session finishes, or close that program.");
         }
         catch (IOException)
         {
@@ -134,21 +143,23 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
 
     private AuditWrite Write(FileStream stream, DeploymentAuditRecord record)
     {
-        byte[] line;
+        string body;
         try
         {
-            line = Encoding.UTF8.GetBytes(Serialize(record) + "\r\n");
+            body = Serialize(record);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException)
         {
             _log?.Warning(LogArea, $"An audit record could not be written ({ex.GetType().Name}).");
             return new AuditWrite(false, "The audit record could not be built. Nothing was written.");
         }
-        if (line.Length > MaxRecordBytes) return new AuditWrite(false, "The audit record is too large. Nothing was written.");
+        if (Encoding.UTF8.GetByteCount(body) + ChainSuffixLength + 2 > MaxRecordBytes) return new AuditWrite(false, "The audit record is too large. Nothing was written.");
         lock (_gate)
         {
             try
             {
+                var previous = PreviousLineHash(stream);
+                var line = Encoding.UTF8.GetBytes(Chained(body, previous) + "\r\n");
                 var length = stream.Seek(0, SeekOrigin.End);
                 if (length > 0)
                 {
@@ -169,11 +180,76 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         }
     }
 
+    // ---- Chain --------------------------------------------------------------------------------
+
+    private const string ChainName = "Chain";
+    private const string ChainPrefix = ",\"" + ChainName + "\":\"";
+
+    /// <summary>The length of ,"Chain":"&lt;64 hex&gt;"} at the end of a chained line.</summary>
+    private const int ChainSuffixLength = 76;
+
+    /// <summary>The hash the first line of the log follows.</summary>
+    internal static readonly string ChainStart = new('0', 64);
+
+    /// <summary>The most bytes read back from the end of the log to find the line an append follows.</summary>
+    private const int MaxTailBytes = 1024 * 1024;
+
+    private static string Sha256(string text) => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(text)));
+
+    /// <summary>The line without white space at its ends and without a byte order mark.</summary>
+    private static string Normalized(string line) => line.Trim().Trim('﻿').Trim();
+
+    /// <summary>The JSON object of a chained line without its Chain property, and the Chain value; null when the line carries no Chain.</summary>
+    private static (string Body, string Chain)? SplitChain(string line)
+    {
+        if (line.Length <= ChainSuffixLength || !line.EndsWith("\"}", StringComparison.Ordinal)) return null;
+        var start = line.Length - ChainSuffixLength;
+        if (string.CompareOrdinal(line, start, ChainPrefix, 0, ChainPrefix.Length) != 0) return null;
+        var chain = line.Substring(start + ChainPrefix.Length, 64);
+        if (!chain.All(c => char.IsAsciiDigit(c) || c is >= 'a' and <= 'f')) return null;
+        return (line[..start] + "}", chain);
+    }
+
+    /// <summary>The hash the next line follows: the Chain value of a chained line, the SHA-256 of any other line.</summary>
+    internal static string LineHash(string line)
+    {
+        var normalized = Normalized(line);
+        return SplitChain(normalized) is { } split ? split.Chain : Sha256(normalized);
+    }
+
+    private static string ChainOf(string body, string previousHash) => Sha256(previousHash + "\n" + body);
+
+    private static string Chained(string body, string previousHash) => body[..^1] + ChainPrefix + ChainOf(body, previousHash) + "\"}";
+
+    /// <summary>True when the line carries a Chain that matches its own text and the hash of the line before it.</summary>
+    internal static bool ChainMatches(string line, string previousHash) =>
+        SplitChain(Normalized(line)) is { } split && string.Equals(ChainOf(split.Body, previousHash), split.Chain, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The hash of the last line of the log, read from the held stream. A last line longer than the
+    /// read window yields a hash no read reproduces, so the record that follows reads as unverified.
+    /// </summary>
+    private static string PreviousLineHash(FileStream stream)
+    {
+        var length = stream.Seek(0, SeekOrigin.End);
+        if (length == 0) return ChainStart;
+        var count = (int)Math.Min(length, MaxTailBytes);
+        var buffer = new byte[count];
+        stream.Seek(length - count, SeekOrigin.Begin);
+        stream.ReadExactly(buffer);
+        var text = Encoding.UTF8.GetString(buffer).TrimEnd();
+        if (Normalized(text).Length == 0) return count == length ? ChainStart : Sha256(text);
+        var lastBreak = text.LastIndexOf('\n');
+        if (lastBreak < 0 && count < length) return Sha256("unreadable\n" + text);
+        return LineHash(text[(lastBreak + 1)..]);
+    }
+
     private const string TimeFormat = "yyyy-MM-dd'T'HH:mm:ss";
 
     private string Serialize(DeploymentAuditRecord r)
     {
         static JsonNode? Time(DateTime? value) => value is { } v ? JsonValue.Create(v.ToString(TimeFormat, CultureInfo.InvariantCulture)) : null;
+        static JsonNode? UtcTime(DateTime? value) => value is { } v ? JsonValue.Create(v.ToString(TimeFormat, CultureInfo.InvariantCulture) + "Z") : null;
         static JsonNode? Id(string value) =>
             string.IsNullOrEmpty(value) ? null
             : long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) ? JsonValue.Create(number) : JsonValue.Create(value);
@@ -202,10 +278,12 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             ["TimeBasedOn"] = r.TimeBasedOn,
             ["DistributionPointGroups"] = r.DistributionPointGroups,
             ["Undoes"] = r.Undoes,
-            ["ModelId"] = string.IsNullOrEmpty(r.ModelId) ? null : r.ModelId
+            ["ModelId"] = string.IsNullOrEmpty(r.ModelId) ? null : r.ModelId,
+            ["CreatedUtc"] = UtcTime(r.CreatedUtc),
+            ["UnclearDeploymentIds"] = string.IsNullOrEmpty(r.UnclearDeploymentIds) ? null : r.UnclearDeploymentIds
         };
         foreach (var (name, value) in r.Extra)
-            if (!o.ContainsKey(name)) o[name] = value;
+            if (!o.ContainsKey(name) && !string.Equals(name, ChainName, StringComparison.OrdinalIgnoreCase)) o[name] = value;
         return o.ToJsonString(WriteOptions);
     }
 
@@ -213,7 +291,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
     {
         "Timestamp", "User", "DeploymentType", "ApplicationName", "ApplicationVersion", "CollectionName", "CollectionID", "MemberCount", "DeployPurpose",
         "DeployAction", "DeadlineDateTime", "DeploymentID", "Result", "Event", "ObjectId", "AvailableDateTime", "Message", "Source", "DeploymentUniqueID",
-        "ProgramName", "TimeBasedOn", "DistributionPointGroups", "Undoes", "ModelId"
+        "ProgramName", "TimeBasedOn", "DistributionPointGroups", "Undoes", "ModelId", "CreatedUtc", "UnclearDeploymentIds", ChainName
     };
 
     /// <summary>A line read into a record; null when the line is not a JSON object.</summary>
@@ -238,7 +316,9 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             DistributionPointGroups = S("DistributionPointGroups"),
             Undoes = S("Undoes"),
             ModelId = S("ModelId"),
-            Extra = o.Where(p => !Named.Contains(p.Key)).Select(p => new KeyValuePair<string, string>(p.Key, p.Value is null ? "" : NodeText(p.Value))).ToList()
+            CreatedUtc = DeploymentService.ParseUtc(S("CreatedUtc")),
+            UnclearDeploymentIds = S("UnclearDeploymentIds"),
+            Extra =o.Where(p => !Named.Contains(p.Key)).Select(p => new KeyValuePair<string, string>(p.Key, p.Value is null ? "" : NodeText(p.Value))).ToList()
         };
     }
 
@@ -251,6 +331,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         var path = Path;
         if (max <= 0 || !IsFullFilePath(path)) return [];
         byte[] bytes;
+        var cut = false;
         try
         {
             if (!File.Exists(path)) return [];
@@ -263,6 +344,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             stream.ReadExactly(bytes);
             if (start > 0)
             {
+                cut = true;
                 var firstBreak = Array.IndexOf(bytes, (byte)'\n');
                 bytes = firstBreak < 0 ? [] : bytes[(firstBreak + 1)..];
             }
@@ -273,15 +355,16 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             throw new DeploymentServiceException($"The audit log could not be read: {path}. Check that the folder can be reached.", DeploymentFailureKind.Storage);
         }
 
-        var lines = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Split('\n');
+        var lines = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Split('\n').Select(Normalized).Where(l => l.Length > 0).ToArray();
         var records = new List<DeploymentAuditRecord>();
         for (var i = lines.Length - 1; i >= 0 && records.Count < max; i--)
         {
-            var line = lines[i].Trim();
-            if (line.Length == 0) continue;
+            var line = lines[i];
             try
             {
-                if (Parse(line) is { } record) records.Add(record);
+                // The line before the first line of a cut window is not read, so that line cannot be verified.
+                var previous = i > 0 ? LineHash(lines[i - 1]) : cut ? null : ChainStart;
+                if (Parse(line) is { } record) records.Add(record with { Verified = previous is not null && ChainMatches(line, previous) });
                 else SkippedLines++;
             }
             catch (JsonException)

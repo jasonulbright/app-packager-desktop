@@ -71,7 +71,7 @@ public sealed partial class DeploymentService
 
         var probe = _audit.Probe();
         checks.Add(Check(DeploymentCheckNames.AuditLog, probe.Writable ? DeploymentCheckResults.Pass : DeploymentCheckResults.Fail, probe.Message));
-        var (signingCheck, packaged) = SigningCheck(current, options, state?.NameCount);
+        var (signingCheck, packaged) = SigningCheck(current, options, state);
         checks.Add(signingCheck);
         current = current with { PackagedByProduct = packaged ?? current.PackagedByProduct };
 
@@ -172,19 +172,21 @@ public sealed partial class DeploymentService
             : Check(name, DeploymentCheckResults.Pass, $"No deployment of this object to collection {collectionId} exists.");
     }
 
-    private (PreflightCheck Check, bool? Packaged) SigningCheck(DeployableObject obj, DeploymentOptions options, int? nameCount)
+    private (PreflightCheck Check, bool? Packaged) SigningCheck(DeployableObject obj, DeploymentOptions options, StateRead? state)
     {
         const string name = DeploymentCheckNames.Signing;
         if (obj.Type != DeploymentObjectType.Application || _signing is null)
             return (Check(name, DeploymentCheckResults.Pass, "The script-signing rule applies only to applications this product packaged."), null);
         try
         {
-            var packaged = _signing.PackagedApplications().Contains(obj.Name);
+            var site = SiteApplicationOf(state) ?? new SiteApplication(obj.Name, obj.Id, "", []);
+            var packaged = _signing.IsPackaged(site);
             if (options.Purpose != DeploymentPurposes.Required)
                 return packaged
                     ? (Check(name, DeploymentCheckResults.Pass, "This product packaged the application. The script-signing rule applies to Required deployments only."), true)
                     : (Check(name, DeploymentCheckResults.Pass, "This product did not package the application, so the script-signing rule does not apply."), false);
-            if (SigningRefusal(obj.Name, nameCount) is { } refusal) return (Check(name, DeploymentCheckResults.Fail, refusal), packaged);
+            if (SigningRefusal(site, state?.NameCount) is { } refusal) return (Check(name, DeploymentCheckResults.Fail, refusal), packaged);
+            packaged = _signing.IsPackaged(site);
             return packaged
                 ? (Check(name, DeploymentCheckResults.Pass, "This product packaged the application, and the script-signing policy allows a Required deployment of it."), true)
                 : (Check(name, DeploymentCheckResults.Pass, "This product did not package the application, so the script-signing rule does not apply."), false);
@@ -196,19 +198,21 @@ public sealed partial class DeploymentService
     }
 
     /// <summary>
-    /// The refusal of the signing rule for a Required deployment of an application with these
-    /// names, or null. The rule matches by name, so a name that is not unique on the site, or a
-    /// count that was not read, is refused. Throws <see cref="DeploymentServiceException"/> when
-    /// the packaged applications cannot be read.
+    /// The refusal of the signing rule for a Required deployment of the application the site
+    /// holds, or null. The rule matches the inventory by ModelName or revision CI_ID first and by
+    /// name only for records without either, so a name that is not unique on the site, or a count
+    /// that was not read, is refused. Throws <see cref="DeploymentServiceException"/> when the
+    /// packaged applications cannot be read.
     /// </summary>
-    private string? SigningRefusal(string siteName, int? nameCount, string? plannedName = null)
+    private string? SigningRefusal(SiteApplication? site, int? nameCount, string? plannedName = null)
     {
         if (_signing is null) return null;
+        var siteName = site?.Name ?? "";
         if (nameCount != 1)
             return nameCount is null
                 ? "the number of applications with this name could not be read, so the script-signing rule cannot be applied to a Required deployment. Try again."
                 : $"{nameCount.Value.ToString(CultureInfo.InvariantCulture)} applications on the site are named {siteName}, so the script-signing rule cannot tell which one this product packaged. A Required deployment is refused. Rename one of them in the console.";
-        return _signing.RequiredDeploymentRefusal(siteName)
+        return _signing.RequiredDeploymentRefusal(site ?? new SiteApplication("", "", "", []))
             ?? (plannedName is { Length: > 0 } && !string.Equals(plannedName, siteName, StringComparison.OrdinalIgnoreCase) ? _signing.RequiredDeploymentRefusal(plannedName) : null);
     }
 
@@ -339,13 +343,10 @@ public sealed partial class DeploymentService
                 ? Check(Unchanged, DeploymentCheckResults.Pass, "The deployment holds the captured object, collection, purpose and times.")
                 : Check(Unchanged, DeploymentCheckResults.Fail, $"The deployment changed since it was captured ({string.Join(", ", differences)}), so it is not removed."));
         }
-        var ownership = Ownership(existing.DeploymentId);
-        checks.Add(ownership switch
-        {
-            true => Check(CreatedHere, DeploymentCheckResults.Pass, "This product created the deployment (the audit log has its create)."),
-            false => Check(CreatedHere, DeploymentCheckResults.Fail, "This product did not create the deployment, so it does not remove it."),
-            null => Check(CreatedHere, DeploymentCheckResults.Unknown, "The audit log could not be read, so it is not known whether this product created the deployment. It is not removed.")
-        });
+        var ownership = read && row is not null
+            ? await OwnershipAsync(existing, row).ConfigureAwait(false)
+            : new OwnershipVerdict(DeploymentCheckResults.Unknown, "not checked: the deployment could not be read.");
+        checks.Add(Check(CreatedHere, ownership.Result, Sentence(ownership.Reason)));
         var probe = _audit.Probe();
         checks.Add(Check(DeploymentCheckNames.AuditLog, probe.Writable ? DeploymentCheckResults.Pass : DeploymentCheckResults.Fail, probe.Message));
         var lines = new List<string>
@@ -375,21 +376,94 @@ public sealed partial class DeploymentService
         return diff;
     }
 
-    /// <summary>True when this product created the deployment; null when the audit log cannot be read.</summary>
-    private bool? Ownership(string deploymentId)
+    /// <summary>
+    /// The largest difference between the time an audit record says a create started and the
+    /// creation time ConfigMgr holds for the deployment: the create call itself, the delay of the
+    /// status message, and clock skew between this computer and the site server.
+    /// </summary>
+    public static readonly TimeSpan CreationTolerance = TimeSpan.FromMinutes(5);
+
+    /// <param name="Result">Pass, Fail or Unknown.</param>
+    /// <param name="Reason">Starts in lower case, so it reads after "Skipped: " and as a sentence.</param>
+    internal sealed record OwnershipVerdict(string Result, string Reason);
+
+    private static string Sentence(string reason) => reason.Length == 0 ? reason : char.ToUpperInvariant(reason[0]) + reason[1..];
+
+    internal static string NotCreatedHereReason(string deploymentId) => $"deployment {deploymentId} was not created by this product, so it is not removed.";
+
+    /// <summary>
+    /// Whether this product made the deployment. A deployment this service created in this
+    /// process is owned. Otherwise the audit log must hold a create of it with Result Success or
+    /// Partial whose Chain is intact, and ConfigMgr must show the record's account as the creator,
+    /// a creation time within <see cref="CreationTolerance"/> of the record's CreatedUtc, and the
+    /// values the record holds. Anything that cannot be shown refuses the removal.
+    /// </summary>
+    private async Task<OwnershipVerdict> OwnershipAsync(DeploymentRecord existing, DeploymentRow? row)
     {
-        if (_created.ContainsKey(deploymentId)) return true;
+        var id = existing.DeploymentId;
+        if (_created.ContainsKey(id)) return new(DeploymentCheckResults.Pass, "this product created the deployment in this session.");
+        IReadOnlyList<DeploymentAuditRecord> records;
         try
         {
-            var records = _audit.Read(OwnershipRecords);
-            return records.Any(r => r.Event == AuditEvents.Create
-                && string.Equals(r.DeploymentUniqueID, deploymentId, StringComparison.OrdinalIgnoreCase)
-                && r.Result is AuditResults.Success or AuditResults.Partial);
+            records = _audit.Read(OwnershipRecords);
         }
         catch (DeploymentServiceException)
         {
-            return null;
+            return new(DeploymentCheckResults.Unknown, $"the audit log could not be read, so it is not known whether this product created deployment {id}. It is not removed.");
         }
+        var creates = records.Where(r => r.Event == AuditEvents.Create && r.Result is AuditResults.Success or AuditResults.Partial
+            && string.Equals(r.DeploymentUniqueID, id, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (creates.Count == 0) return new(DeploymentCheckResults.Fail, NotCreatedHereReason(id));
+        var intact = creates.Where(r => r.Verified == true && r.CreatedUtc is not null && r.User.Length > 0).ToList();
+        if (intact.Count == 0)
+            return new(DeploymentCheckResults.Fail,
+                $"the audit record of the create of deployment {id} cannot be verified: it was changed or added after it was written, or it was written before the audit log protected its records. It is not removed. Remove the deployment in the console if it must go.");
+
+        if (row is null)
+        {
+            var (read, found) = await ReadDeploymentOrNullAsync(existing.Type, id).ConfigureAwait(false);
+            if (!read) return new(DeploymentCheckResults.Unknown, $"deployment {id} could not be read from ConfigMgr, so it is not known whether this product created it. It is not removed. Try again.");
+            if (found is null) return new(DeploymentCheckResults.Fail, $"deployment {id} does not exist any more.");
+            row = found;
+        }
+        ProofRow? proof;
+        try
+        {
+            var parameters = new ConfigMgrSession.ConfigMgrParameters
+            {
+                { "Operation", "Proof" }, { "Type", existing.Type.ToString() }, { "ObjectId", existing.ObjectId.Trim().ToUpperInvariant() }, { "DeploymentId", id }, { "ProofReads", 1 }
+            };
+            proof = Rows<ProofRow>(await ReadAsync(parameters, CancellationToken.None).ConfigureAwait(false), "Proof").FirstOrDefault();
+        }
+        catch (DeploymentServiceException)
+        {
+            return new(DeploymentCheckResults.Unknown, $"ConfigMgr could not be read, so it is not known who created deployment {id}. It is not removed. Try again.");
+        }
+        if (proof is null) return new(DeploymentCheckResults.Fail, $"deployment {id} does not exist any more.");
+        var created = ParseUtc(proof.Created);
+        if (created is null || string.IsNullOrWhiteSpace(proof.CreatedBy))
+            return new(DeploymentCheckResults.Fail, existing.Type is DeploymentObjectType.Package or DeploymentObjectType.TaskSequence
+                ? $"ConfigMgr no longer holds the status message that shows who created deployment {id} and when (message 30006; the site deletes old status messages), so it cannot be shown that this product created it. It is not removed. Remove it in the console if it must go."
+                : $"ConfigMgr holds no creation time or creator for deployment {id}, so it cannot be shown that this product created it. It is not removed. Remove it in the console if it must go.");
+
+        string? first = null;
+        foreach (var record in intact)
+        {
+            var problem = !string.Equals(record.User.Trim(), proof.CreatedBy.Trim(), StringComparison.OrdinalIgnoreCase)
+                ? $"ConfigMgr shows that {proof.CreatedBy} created deployment {id}, and the audit record names {record.User}"
+                : (created.Value - record.CreatedUtc!.Value).Duration() > CreationTolerance
+                    ? $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC, and the audit record says the create started at {TimeText(record.CreatedUtc.Value)} UTC, more than {CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes apart"
+                    : DeploymentChangeBuilder.RemoveFromAudit(record with { Verified = null })?.Existing is not { } captured
+                        ? $"the audit record of deployment {id} lacks a value the comparison needs"
+                        : Differences(captured, row) is { Count: > 0 } differences
+                            ? $"deployment {id} holds other values than the audit record ({string.Join(", ", differences)})"
+                            : null;
+            if (problem is null)
+                return new(DeploymentCheckResults.Pass,
+                    $"this product created the deployment: the audit record of its create is intact, and ConfigMgr shows the same account and a creation time of {TimeText(created.Value)} UTC, within {CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes of the record.");
+            first ??= problem;
+        }
+        return new(DeploymentCheckResults.Fail, $"{first}, so it cannot be shown that this product created it. It is not removed.");
     }
 }
 

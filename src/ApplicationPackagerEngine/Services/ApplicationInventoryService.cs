@@ -288,10 +288,22 @@ public sealed partial class ApplicationInventoryService
             using var command = Command(connection, transaction, """
                 INSERT INTO destination_inventory(packager_uid, destination, environment_key, action, application_id,
                     profile_id, last_attempt_version, last_attempt_outcome, last_attempt_object_id, last_attempt_at,
-                    last_success_version, last_success_object_id, last_success_at, last_success_build_id, last_attempt_detail)
+                    last_success_version, last_success_object_id, last_success_at, last_success_build_id, last_attempt_detail,
+                    config_mgr_ci_id, config_mgr_model_name)
                 VALUES($uid, $destination, $environment, $action, $appId, $profileId, $attemptVersion, $outcome,
-                    $attemptObject, $attemptAt, $successVersion, $successObject, $successAt, $successBuildId, $detail)
+                    $attemptObject, $attemptAt, $successVersion, $successObject, $successAt, $successBuildId, $detail,
+                    $successCiId, NULL)
                 ON CONFLICT(packager_uid, destination, environment_key, action) DO UPDATE SET
+                    config_mgr_ci_id = CASE WHEN $succeeded = 1 AND (destination_inventory.last_success_at IS NULL OR excluded.last_success_at >= destination_inventory.last_success_at)
+                        THEN CASE WHEN $successCiId IS NOT NULL THEN $successCiId
+                            WHEN excluded.last_success_object_id IS destination_inventory.last_success_object_id THEN destination_inventory.config_mgr_ci_id
+                            ELSE NULL END
+                        ELSE destination_inventory.config_mgr_ci_id END,
+                    config_mgr_model_name = CASE WHEN $succeeded = 1 AND (destination_inventory.last_success_at IS NULL OR excluded.last_success_at >= destination_inventory.last_success_at)
+                        THEN CASE WHEN $successCiId IS NOT NULL AND $successCiId IS NOT destination_inventory.config_mgr_ci_id THEN NULL
+                            WHEN $successCiId IS NULL AND excluded.last_success_object_id IS NOT destination_inventory.last_success_object_id THEN NULL
+                            ELSE destination_inventory.config_mgr_model_name END
+                        ELSE destination_inventory.config_mgr_model_name END,
                     application_id = COALESCE(excluded.application_id, destination_inventory.application_id),
                     profile_id = COALESCE(excluded.profile_id, destination_inventory.profile_id),
                     last_attempt_version = CASE WHEN destination_inventory.last_attempt_at IS NULL OR excluded.last_attempt_at >= destination_inventory.last_attempt_at THEN excluded.last_attempt_version ELSE destination_inventory.last_attempt_version END,
@@ -320,8 +332,43 @@ public sealed partial class ApplicationInventoryService
             Add(command, "$successBuildId", succeeded ? result.BuildId : null);
             Add(command, "$detail", result.Detail);
             Add(command, "$succeeded", succeeded ? 1 : 0);
+            Add(command, "$successCiId", succeeded && IsCiId(result.ConfigMgrCiId) ? result.ConfigMgrCiId!.Trim() : null);
             command.ExecuteNonQuery();
             return 0;
+        });
+    }
+
+    private static bool IsCiId(string? value) => value is { Length: > 0 } v && v.Trim() is { Length: > 0 and <= 10 } t && t.All(char.IsAsciiDigit);
+
+    /// <summary>
+    /// Links a publish record to the ConfigMgr application a lookup identified: sets the CI_ID and
+    /// the ModelName of the record of <paramref name="packagerUid"/> when the record has no
+    /// ModelName yet and still names <paramref name="applicationName"/> as its last success.
+    /// Returns true when the record was changed.
+    /// </summary>
+    public bool LinkConfigMgrApplication(string packagerUid, InventoryEnvironmentIdentity environment, string action, string applicationName, string ciId, string modelName)
+    {
+        Required(packagerUid, nameof(packagerUid));
+        ValidateEnvironment(environment);
+        Required(action, nameof(action));
+        Required(applicationName, nameof(applicationName));
+        if (!IsCiId(ciId)) throw new ArgumentException("A CI_ID is a number.", nameof(ciId));
+        Required(modelName, nameof(modelName));
+        return Mutate((connection, transaction) =>
+        {
+            using var command = Command(connection, transaction, """
+                UPDATE destination_inventory SET config_mgr_ci_id = $ciId, config_mgr_model_name = $model
+                WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action
+                    AND last_success_object_id = $name AND config_mgr_model_name IS NULL
+                """);
+            Add(command, "$ciId", ciId.Trim());
+            Add(command, "$model", modelName.Trim());
+            Add(command, "$uid", packagerUid);
+            Add(command, "$destination", environment.Destination);
+            Add(command, "$environment", environment.Key);
+            Add(command, "$action", action);
+            Add(command, "$name", applicationName);
+            return command.ExecuteNonQuery() > 0;
         });
     }
 
@@ -331,7 +378,7 @@ public sealed partial class ApplicationInventoryService
         Required(action, nameof(action));
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT application_id, profile_id, last_attempt_version, last_attempt_outcome, last_attempt_object_id, last_attempt_at, last_success_version, last_success_object_id, last_success_at, last_success_build_id, last_attempt_detail FROM destination_inventory WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action";
+        command.CommandText = "SELECT application_id, profile_id, last_attempt_version, last_attempt_outcome, last_attempt_object_id, last_attempt_at, last_success_version, last_success_object_id, last_success_at, last_success_build_id, last_attempt_detail, config_mgr_ci_id, config_mgr_model_name FROM destination_inventory WHERE packager_uid = $uid AND destination = $destination AND environment_key = $environment AND action = $action";
         Add(command, "$uid", packagerUid);
         Add(command, "$destination", environment.Destination);
         Add(command, "$environment", environment.Key);
@@ -340,7 +387,7 @@ public sealed partial class ApplicationInventoryService
         if (!reader.Read()) return null;
         return new InventoryDestinationState(packagerUid, environment.Destination, environment.Key, action, Text(reader, 0), Text(reader, 1),
             Text(reader, 2), ParseOutcome(reader.GetString(3)), Text(reader, 4), MaybeTime(reader, 5), Text(reader, 6),
-            Text(reader, 7), MaybeTime(reader, 8), Text(reader, 9), Text(reader, 10));
+            Text(reader, 7), MaybeTime(reader, 8), Text(reader, 9), Text(reader, 10), Text(reader, 11), Text(reader, 12));
     }
 
     /// <summary>Every destination record of one environment and action whose last success named an object.</summary>
@@ -350,7 +397,7 @@ public sealed partial class ApplicationInventoryService
         Required(action, nameof(action));
         using var connection = Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT packager_uid, application_id, profile_id, last_attempt_version, last_attempt_outcome, last_attempt_object_id, last_attempt_at, last_success_version, last_success_object_id, last_success_at, last_success_build_id, last_attempt_detail FROM destination_inventory WHERE destination = $destination AND environment_key = $environment AND action = $action AND last_success_object_id IS NOT NULL";
+        command.CommandText = "SELECT packager_uid, application_id, profile_id, last_attempt_version, last_attempt_outcome, last_attempt_object_id, last_attempt_at, last_success_version, last_success_object_id, last_success_at, last_success_build_id, last_attempt_detail, config_mgr_ci_id, config_mgr_model_name FROM destination_inventory WHERE destination = $destination AND environment_key = $environment AND action = $action AND last_success_object_id IS NOT NULL";
         Add(command, "$destination", environment.Destination);
         Add(command, "$environment", environment.Key);
         Add(command, "$action", action);
@@ -359,7 +406,7 @@ public sealed partial class ApplicationInventoryService
         while (reader.Read())
             result.Add(new InventoryDestinationState(reader.GetString(0), environment.Destination, environment.Key, action, Text(reader, 1), Text(reader, 2),
                 Text(reader, 3), ParseOutcome(reader.GetString(4)), Text(reader, 5), MaybeTime(reader, 6), Text(reader, 7),
-                Text(reader, 8), MaybeTime(reader, 9), Text(reader, 10), Text(reader, 11)));
+                Text(reader, 8), MaybeTime(reader, 9), Text(reader, 10), Text(reader, 11), Text(reader, 12), Text(reader, 13)));
         return result;
     }
 
@@ -661,6 +708,35 @@ public sealed partial class ApplicationInventoryService
             );
             """;
         command.ExecuteNonQuery();
+        AddColumnWhenMissing(connection, "destination_inventory", "config_mgr_ci_id");
+        AddColumnWhenMissing(connection, "destination_inventory", "config_mgr_model_name");
+    }
+
+    /// <summary>
+    /// Adds a nullable TEXT column to a table of an older database. A release that does not know
+    /// the column ignores it, and two processes that open the database at once both succeed.
+    /// </summary>
+    private static void AddColumnWhenMissing(SQLiteConnection connection, string table, string column)
+    {
+        bool Exists()
+        {
+            using var info = connection.CreateCommand();
+            info.CommandText = $"PRAGMA table_info({table})";
+            using var reader = info.ExecuteReader();
+            while (reader.Read())
+                if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+        if (Exists()) return;
+        try
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} TEXT";
+            alter.ExecuteNonQuery();
+        }
+        catch (SQLiteException) when (Exists())
+        {
+        }
     }
 
     private SQLiteConnection Open()

@@ -89,13 +89,17 @@ public sealed partial class DeploymentService : IDeploymentService
 
     // ---- Script output shapes ----------------------------------------------------------------
 
-    internal sealed record ObjectRow(string? Kind, string? Id, string? Name, string? Version, string? ModelId, int UpdateCount, string? Program = null, bool Retired = false, string? Revision = null);
+    internal sealed record ObjectRow(string? Kind, string? Id, string? Name, string? Version, string? ModelId, int UpdateCount, string? Program = null, bool Retired = false, string? Revision = null,
+        string? ModelName = null);
 
     internal sealed record NameCountRow(string? Kind, int Count);
 
+    /// <summary>Application: the CI_IDs of every revision of the application's model.</summary>
+    internal sealed record RevisionsRow(string? Kind, string[]? CiIds);
+
     internal sealed record TruncatedRow(string? Kind, int Shown, int Total);
 
-    internal sealed record ProofRow(string? Kind, string? DeploymentId, string? Created, string? CreatedBy, bool Owned);
+    internal sealed record ProofRow(string? Kind, string? DeploymentId, string? Created, string? CreatedBy, bool Owned, string? Account = null);
 
     internal sealed record ContentRow(string? Kind, string? PackageId, string? Name, int Targeted, int Success, int InProgress, int Errors, bool Distributed);
 
@@ -115,20 +119,24 @@ public sealed partial class DeploymentService : IDeploymentService
 
     internal sealed record GroupResultRow(string? Kind, string? GroupId, string? Status, string? Detail, string[]? Missing);
 
-    internal sealed record ResultRow(string? Kind, string? Status, string? Detail, string[]? Steps, string? CreatedId, string[]? Differences, string[]? Ids);
+    /// <param name="Account">The account of the ConfigMgr session, as ConfigMgr records a creator.</param>
+    internal sealed record ResultRow(string? Kind, string? Status, string? Detail, string[]? Steps, string? CreatedId, string[]? Differences, string[]? Ids, string? Account = null);
 
     /// <summary>The state a Prepare and a create read: the object, its content, the collection and the deployments of the object to it.</summary>
     /// <param name="NameCount">Required application: the number of latest applications with the object's name; null when not read.</param>
-    internal sealed record StateRead(ObjectRow? Object, IReadOnlyList<ContentRow> Content, bool ContentRead, CollectionReadRow? Collection, SnapshotRow? Snapshot, int? NameCount = null);
+    /// <param name="RevisionIds">Application: the CI_IDs of every revision of its model; null when not read.</param>
+    internal sealed record StateRead(ObjectRow? Object, IReadOnlyList<ContentRow> Content, bool ContentRead, CollectionReadRow? Collection, SnapshotRow? Snapshot, int? NameCount = null,
+        IReadOnlyList<string>? RevisionIds = null);
 
     // ---- Reads --------------------------------------------------------------------------------
 
     public async Task<IReadOnlyList<DeployableObject>> ListObjectsAsync(DeploymentObjectType type, CancellationToken ct)
     {
         var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Objects" }, { "Type", type.ToString() }, { "MaxRows", MaxListRows } }, ct).ConfigureAwait(false);
-        var packaged = type == DeploymentObjectType.Application ? PackagedNames() : null;
-        var rows = Rows<ObjectRow>(output, "Object")
-            .Select(r => new DeployableObject(type, r.Id ?? "", r.Name ?? "", r.Version ?? "", "", packaged?.Contains(r.Name ?? "") == true, r.ModelId ?? "", r.UpdateCount))
+        var objects = Rows<ObjectRow>(output, "Object");
+        var packaged = type == DeploymentObjectType.Application ? PackagedFlags(objects) : null;
+        var rows = objects
+            .Select((r, i) => new DeployableObject(type, r.Id ?? "", r.Name ?? "", r.Version ?? "", "", packaged?[i] == true, r.ModelId ?? "", r.UpdateCount))
             .OrderBy(o => o.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
         _log?.Info(LogArea, $"Listed {rows.Count} objects of type {type}.");
         return Limited(rows, output, $"{Noun(type)} list");
@@ -142,18 +150,30 @@ public sealed partial class DeploymentService : IDeploymentService
             $"The {what.ToLowerInvariant()} shows the first {cut.Shown.ToString(CultureInfo.InvariantCulture)} of {cut.Total.ToString(CultureInfo.InvariantCulture)} rows. Use the console for the rest.");
     }
 
-    private IReadOnlySet<string>? PackagedNames()
+    /// <summary>
+    /// Whether this product packaged each listed application, after linking the inventory records
+    /// that hold no ConfigMgr identity yet to the listed applications; null when not known.
+    /// </summary>
+    private bool[]? PackagedFlags(IReadOnlyList<ObjectRow> rows)
     {
         if (_signing is null) return null;
+        var applications = rows.Select(r => new SiteApplication(r.Name ?? "", r.Id ?? "", r.ModelName ?? "", r.Id is { Length: > 0 } id ? [id] : [])).ToList();
         try
         {
-            return _signing.PackagedApplications();
+            _signing.Link(applications);
+            return applications.Select(_signing.IsPackaged).ToArray();
         }
         catch (DeploymentServiceException)
         {
             return null;
         }
     }
+
+    /// <summary>The application a state read found, as the signing rule matches it; null for another type or a missing object.</summary>
+    internal static SiteApplication? SiteApplicationOf(StateRead? state) =>
+        state?.Object is { } o
+            ? new SiteApplication(o.Name ?? "", o.Id ?? "", o.ModelName ?? "", state.RevisionIds ?? [])
+            : null;
 
     public async Task<IReadOnlyList<string>> ListProgramsAsync(string packageId, CancellationToken ct)
     {
@@ -238,7 +258,8 @@ public sealed partial class DeploymentService : IDeploymentService
             Rows<ReadFlag>(output, "ContentRead").FirstOrDefault()?.Read ?? false,
             Rows<CollectionReadRow>(output, "Collection").FirstOrDefault(),
             Rows<SnapshotRow>(output, "Snapshot").FirstOrDefault(),
-            Rows<NameCountRow>(output, "NameCount").FirstOrDefault()?.Count);
+            Rows<NameCountRow>(output, "NameCount").FirstOrDefault()?.Count,
+            Rows<RevisionsRow>(output, "Revisions").FirstOrDefault()?.CiIds);
     }
 
     /// <summary>The state values a create is checked against: the object revision, its content and the collection size.</summary>

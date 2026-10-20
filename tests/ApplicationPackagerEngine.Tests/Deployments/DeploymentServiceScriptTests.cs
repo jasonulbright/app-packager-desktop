@@ -413,6 +413,7 @@ public sealed class DeploymentServiceScriptTests
     {
         using var h = new DeploymentHarness();
         h.Site.SetOption("CreateTwice:Package", true);
+        h.Site.SetOption("NoReturn", true);
 
         var outcome = await h.PrepareAndApplyAsync(Create(Package, Options(DeploymentObjectType.Package)));
 
@@ -510,7 +511,7 @@ public sealed class DeploymentServiceScriptTests
         Assert.Equal("Warn", waiting.Checks.Single(c => c.Name == "ContentDistributed").Result);
         Assert.Contains(waiting.Impact, l => l.StartsWith("First requests content distribution"));
         var skipped = (await h.ApplyAsync(waiting)).Single();
-        Assert.StartsWith("Skipped: the content of package", skipped.Message);
+        Assert.StartsWith("Skipped: content distribution was requested; the deployment was not created because the content of package", skipped.Message);
         Assert.Contains(skipped.Steps, s => s.StartsWith("Requested distribution"));
         Assert.Equal(0, h.CreateCalls);
 

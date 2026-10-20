@@ -152,7 +152,15 @@ public sealed record DeploymentChange(
 
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when the change was not attempted.</param>
 /// <param name="UndoChange">The RemoveDeployment that undoes a create; null for every other change.</param>
-public sealed record DeploymentOutcome(DeploymentChange Change, bool Succeeded, string Message, DeploymentChange? UndoChange, IReadOnlyList<string> Steps);
+public sealed record DeploymentOutcome(DeploymentChange Change, bool Succeeded, string Message, DeploymentChange? UndoChange, IReadOnlyList<string> Steps)
+{
+    /// <summary>
+    /// Create with DP groups: the outcome of the content distribution the create requested first,
+    /// as a Distribute change of its own. It counts as a change when it succeeded, also when the
+    /// create itself was skipped or failed. Null when the create requested no distribution.
+    /// </summary>
+    public DeploymentOutcome? Distribution { get; init; }
+}
 
 public static class DeploymentCheckResults
 {
@@ -254,6 +262,19 @@ public sealed record DeploymentAuditRecord(
 
     /// <summary>The ModelID of the application of an application record.</summary>
     public string ModelId { get; init; } = "";
+
+    /// <summary>Create: the UTC time the create started; the History Undo compares it with the creation time ConfigMgr holds.</summary>
+    public DateTime? CreatedUtc { get; init; }
+
+    /// <summary>Create whose result is not known: the IDs of the new deployments that appeared, separated by "; ".</summary>
+    public string UnclearDeploymentIds { get; init; } = "";
+
+    /// <summary>
+    /// True when the record was read from the log and its Chain value matches its fields and the
+    /// line before it; false when it was read and does not match or carries no Chain; null when
+    /// the record was not read from a log. A record that is not true never allows a History Undo.
+    /// </summary>
+    public bool? Verified { get; init; }
 
     /// <summary>Further properties of the line, such as the ring fields of the suite tool, in file order.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];

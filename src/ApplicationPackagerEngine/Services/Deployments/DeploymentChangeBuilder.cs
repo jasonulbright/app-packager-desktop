@@ -8,12 +8,14 @@ public static class DeploymentChangeBuilder
     /// <summary>
     /// The RemoveDeployment that undoes the create of an audit record this product wrote, with the
     /// deployment as the record captured it; null when the record is not a create of this product
-    /// that made a deployment, or lacks a value the removal compares. The service still re-reads
-    /// the deployment, compares it with the captured values and checks that this product made it.
+    /// that made a deployment, was read from the log without an intact Chain, or lacks a value the
+    /// removal compares. The service still re-reads the log and the deployment, compares the
+    /// deployment with the record and checks the creator and creation time ConfigMgr holds.
     /// </summary>
     public static DeploymentChange? RemoveFromAudit(DeploymentAuditRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
+        if (record.Verified == false) return null;
         if (record.Event != AuditEvents.Create || record.Result is not (AuditResults.Success or AuditResults.Partial)) return null;
         if (TypeOf(record.DeploymentType) is not { } type) return null;
         var id = record.DeploymentUniqueID.Trim();
@@ -32,10 +34,19 @@ public static class DeploymentChangeBuilder
 
         var existing = new DeploymentRecord(id, type, objectId, record.ApplicationName, collectionId, record.CollectionName, record.DeployPurpose,
             available, required ? record.DeadlineDateTime : null, record.Timestamp, record.User, record.TimeBasedOn == "Utc", program, assignment, modelId);
-        var obj = new DeployableObject(type, objectId, record.ApplicationName, type == DeploymentObjectType.Package ? "" : record.ApplicationVersion, program, false, modelId);
+        var obj = new DeployableObject(type, objectId, record.ApplicationName, type == DeploymentObjectType.Package ? "" : record.ApplicationVersion, program, false, modelId,
+            type == DeploymentObjectType.SoftwareUpdateGroup ? UpdateCountOf(record.ApplicationVersion) : 0);
         var collection = new DeploymentCollection(collectionId, record.CollectionName, "", record.MemberCount ?? 0);
         return new DeploymentChange(DeploymentChangeKind.RemoveDeployment, obj, collection, null, [], false, false, false, existing, [],
             [$"Removes deployment {id} of {DeploymentService.ObjectText(obj)} from collection {DeploymentService.Shown(record.CollectionName, collectionId)}.", DeploymentService.UndoNote], id);
+    }
+
+    /// <summary>The update count of a software update group record, which this product writes as "(N updates)"; 0 when the text holds none.</summary>
+    internal static int UpdateCountOf(string text)
+    {
+        var value = text.Trim();
+        if (!value.StartsWith('(') || !value.EndsWith(" updates)", StringComparison.Ordinal)) return 0;
+        return int.TryParse(value[1..^" updates)".Length], NumberStyles.None, CultureInfo.InvariantCulture, out var count) ? count : 0;
     }
 
     /// <summary>The object type of a DeploymentType value of the audit log, also as the suite tool writes it.</summary>

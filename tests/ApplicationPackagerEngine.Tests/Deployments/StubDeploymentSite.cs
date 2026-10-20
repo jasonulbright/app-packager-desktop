@@ -22,7 +22,11 @@ namespace ApplicationPackagerEngine.Tests.Deployments;
 /// raises status message 30006 with its ID and account unless option "NoStatus" is set; option
 /// "CreatedBy" sets the account a create records (default: the account running the tests);
 /// option "ForeignOnReadBack:Type" adds a deployment of another admin to the same object and
-/// collection when the create reads its new deployment back.
+/// collection when the create reads its new deployment back. The create cmdlets return the
+/// deployment they made, as on CM01, unless option "NoReturn" is set. Option "ForeignOnCreate:Type"
+/// adds a second deployment by the same account right after the create (a script that runs at
+/// the same time), "ForeignOffsetSeconds" moves its creation time. Option "CreatedNow" records the
+/// real time of each create instead of "CreatedUtc". "Revisions" holds earlier application revisions.
 /// </summary>
 internal sealed class StubDeploymentSite : IConfigMgrSession
 {
@@ -39,7 +43,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
         function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove($Key)) { throw "The SMS Provider reported an error: SECRET-DETAIL-1234 ($Key)." } }
         $global:S = @{}
-        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments','StatusMessages') { $global:S[$k] = L (V $state $k @()) }
+        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments','StatusMessages','Revisions') { $global:S[$k] = L (V $state $k @()) }
         $global:NextAssignment = [long](V $state 'NextAssignment' 16777400)
         $global:NextAdvert = [int](V $state 'NextAdvert' 32)
         $global:NewKeys = [System.Collections.Generic.List[string]]::new()
@@ -79,6 +83,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                 'FROM SMS_Application WHERE IsLatest = 1$' { return @($global:S.Applications | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE CI_ID = (\d+)$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.CI_ID -eq $id } | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE ModelID = (\d+) AND IsLatest = 1$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.ModelID -eq $id } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_Application WHERE ModelID = (\d+)$' { $id = $Matches[1]; return @(@($global:S.Applications) + @($global:S.Revisions) | Where-Object { [string]$_.ModelID -eq $id } | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Package WHERE PackageType = 0$' { return @($global:S.Packages | ForEach-Object { Copy-Row $_ }) }
                 "FROM SMS_Package WHERE PackageID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Packages | Where-Object { $_.PackageID -eq $id } | ForEach-Object { Copy-Row $_ }) }
                 "FROM SMS_Program WHERE PackageID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Packages | Where-Object { $_.PackageID -eq $id } | ForEach-Object { foreach ($n in @($_.Programs)) { [pscustomobject]@{ PackageID = $id; ProgramName = [string]$n } } }) }
@@ -107,6 +112,26 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
             }
             throw "Unknown query: $Query"
         }
+        function global:Stamp { if ($global:Opt.ContainsKey('CreatedNow')) { return [datetime]::Now }; return $global:Created }
+        function global:Add-Twin([string]$List, [string]$Key, [string]$Id) {
+            $row = $global:S[$List] | Where-Object { $_.$Key -eq $Id } | Select-Object -First 1
+            $f = $row.PSObject.Copy()
+            $time = (Stamp).AddSeconds([int]$(if ($global:Opt.ContainsKey('ForeignOffsetSeconds')) { $global:Opt['ForeignOffsetSeconds'] } else { 0 }))
+            if ($Key -eq 'AdvertisementID') {
+                $f.AdvertisementID = 'MCM2' + ('{0:X4}' -f $global:NextAdvert); $global:NextAdvert++
+                $global:S.StatusMessages.Add([pscustomobject]@{ RecordID = $global:NextRecord; MessageID = 30006; Time = (Tx $time.ToUniversalTime()); AdvertisementID = $f.AdvertisementID; User = $global:CreatedBy }); $global:NextRecord++
+            } else {
+                $f.AssignmentUniqueID = '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}'; $f.AssignmentID = $global:NextAssignment; $global:NextAssignment++
+                $f.CreationTime = Tx $time
+            }
+            $global:S[$List].Add($f)
+        }
+        function global:Made-Since([string]$List, [string]$Key, [int]$Start, [string]$Type) {
+            $first = if ($global:NewKeys.Count -gt $Start) { $global:NewKeys[$Start] } else { $null }
+            if ($null -ne $first -and $global:Opt.ContainsKey('ForeignOnCreate:' + $Type)) { Add-Twin $List $Key $first }
+            Test-Fail ('after-create:' + $Type)
+            if ($null -ne $first -and -not $global:Opt.ContainsKey('NoReturn')) { $global:S[$List] | Where-Object { $_.$Key -eq $first } | Select-Object -First 1 | ForEach-Object { Copy-Row $_ } }
+        }
         function global:New-CMSchedule { [CmdletBinding()] param([datetime]$Start, [switch]$Nonrecurring, [switch]$IsUtc) [pscustomobject]@{ StartTime = (Tx $Start); IsGMT = [bool]$IsUtc } }
         function global:Content-Ok([object]$App) { $c = V $App 'Content' $null; return [int](V $c 'Targeted' 0) -gt 0 }
         function global:Make-Many([string]$Type, [scriptblock]$Make) { $times = if ($global:Opt.ContainsKey('CreateTwice:' + $Type)) { 2 } else { 1 }; for ($k = 0; $k -lt $times; $k++) { & $Make } }
@@ -115,6 +140,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
             [CmdletBinding()] param([int]$Id, [string]$CollectionId, [string]$DeployAction, [string]$DeployPurpose, [datetime]$AvailableDateTime, [object]$DeadlineDateTime, [string]$TimeBaseOn, [string]$UserNotification, [bool]$OverrideServiceWindow, [bool]$RebootOutsideServiceWindow, [bool]$UseMeteredNetwork)
             $global:Log.Add('New-CMApplicationDeployment:' + $DeployPurpose)
             Test-Fail 'create:Application'
+            $n0 = $global:NewKeys.Count
             $app = $global:S.Applications | Where-Object { [string]$_.CI_ID -eq [string]$Id } | Select-Object -First 1
             if ($null -eq $app) { throw 'No object corresponds to the specified parameters.' }
             if (-not (Content-Ok $app)) { throw 'There are no distribution points or distribution point groups in this application, please add one to this application before deploying it.' }
@@ -128,17 +154,17 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                 $global:S.AppAssignments.Add([pscustomobject]@{ AssignmentID = $global:NextAssignment; AssignmentUniqueID = $uid; AssignedCIs = @([long]$app.CI_ID); AppModelID = [long]$app.ModelID; ApplicationName = $app.LocalizedDisplayName
                     TargetCollectionID = $CollectionId; OfferTypeID = $(if ($required) { 0 } else { 2 }); StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { $deadline } else { $null }); UseGMTTimes = ($TimeBaseOn -eq 'Utc')
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $OverrideServiceWindow); RebootOutsideOfServiceWindows = ($required -and $RebootOutsideServiceWindow)
-                    DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx $global:Created); LastModifiedBy = $global:CreatedBy })
+                    DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
-            Test-Fail 'after-create:Application'
+            Made-Since 'AppAssignments' 'AssignmentUniqueID' $n0 'Application'
         }
         function global:New-Advert([string]$PackageId, [string]$ProgramName, [string]$CollectionId, [bool]$Required, [datetime]$Available, [bool]$UtcAvailable, [bool]$UtcExpire, [object[]]$Schedule, [long]$Advert, [long]$Remote) {
             $id = 'MCM2' + ('{0:X4}' -f $global:NextAdvert); $global:NextAdvert++
             $global:S.Adverts.Add([pscustomobject]@{ AdvertisementID = $id; PackageID = $PackageId; ProgramName = $ProgramName; CollectionID = $CollectionId; OfferType = $(if ($Required) { 0 } else { 2 })
                 PresentTime = (Tx $Available); PresentTimeIsGMT = $UtcAvailable; ExpirationTimeEnabled = $UtcExpire; AssignedScheduleEnabled = $Required; AssignedSchedule = @($(if ($Required) { $Schedule } else { @() }))
                 AdvertFlags = $Advert; RemoteClientFlags = $Remote })
-            if (-not $global:Opt.ContainsKey('NoStatus')) { $global:S.StatusMessages.Add([pscustomobject]@{ RecordID = $global:NextRecord; MessageID = 30006; Time = (Tx $global:Created.ToUniversalTime()); AdvertisementID = $id; User = $global:CreatedBy }); $global:NextRecord++ }
+            if (-not $global:Opt.ContainsKey('NoStatus')) { $global:S.StatusMessages.Add([pscustomobject]@{ RecordID = $global:NextRecord; MessageID = 30006; Time = (Tx (Stamp).ToUniversalTime()); AdvertisementID = $id; User = $global:CreatedBy }); $global:NextRecord++ }
             $global:NewKeys.Add($id)
         }
         function global:Rerun-Bit([string]$Rerun, [bool]$Required) { if (-not $Required) { return 0x800 }; switch ($Rerun) { 'NeverRerunDeployedProgram' { 0x1000 } 'RerunIfFailedPreviousAttempt' { 0x2000 } 'RerunIfSucceededOnPreviousAttempt' { 0x4000 } default { 0x800 } } }
@@ -146,17 +172,19 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
             [CmdletBinding()] param([switch]$StandardProgram, [string]$PackageId, [string]$ProgramName, [string]$CollectionId, [string]$DeployPurpose, [datetime]$AvailableDateTime, [string]$FastNetworkOption, [string]$SlowNetworkOption, [bool]$AllowFallback, [bool]$UseUtcForAvailableSchedule, [bool]$UseUtcForExpireSchedule, [object[]]$Schedule, [string]$RerunBehavior, [bool]$SoftwareInstallation, [bool]$SystemRestart, [bool]$UseMeteredNetwork)
             $global:Log.Add('New-CMPackageDeployment:' + $DeployPurpose)
             Test-Fail 'create:Package'
+            $n0 = $global:NewKeys.Count
             if ($SlowNetworkOption -eq 'RunProgramFromDistributionPoint') { throw "The value 'RunProgramFromDistributionPoint' is not recognized for the parameter 'SlowNetworkOption'." }
             $required = $DeployPurpose -eq 'Required'
             $advert = 0x10000 -bor $(if ($AllowFallback) { 0 } else { 0x20000 }) -bor $(if ($required) { 0x2000000 } else { 0 }) -bor $(if ($required -and $SoftwareInstallation) { 0x100000 } else { 0 }) -bor $(if ($required -and $SystemRestart) { 0x200000 } else { 0 })
             $remote = 0x8000 -bor $(if ($FastNetworkOption -eq 'RunProgramFromDistributionPoint') { 0x8 } else { 0x10 }) -bor $(if ($SlowNetworkOption -eq 'DownloadContentFromDistributionPointAndLocally') { 0x40 } else { 0x20 }) -bor (Rerun-Bit $RerunBehavior $required) -bor $(if ($required -and $UseMeteredNetwork) { 0x40000 } else { 0 })
             Make-Many 'Package' { New-Advert $PackageId $ProgramName $CollectionId $required $AvailableDateTime $UseUtcForAvailableSchedule $UseUtcForExpireSchedule $Schedule $advert $remote }
-            Test-Fail 'after-create:Package'
+            Made-Since 'Adverts' 'AdvertisementID' $n0 'Package'
         }
         function global:New-CMTaskSequenceDeployment {
             [CmdletBinding()] param([string]$TaskSequencePackageId, [string]$CollectionId, [string]$DeployPurpose, [datetime]$AvailableDateTime, [string]$Availability, [bool]$ShowTaskSequenceProgress, [bool]$AllowFallback, [string]$DeploymentOption, [bool]$UseUtcForAvailableSchedule, [bool]$UseUtcForExpireSchedule, [object[]]$Schedule, [string]$RerunBehavior, [bool]$SoftwareInstallation, [bool]$SystemRestart, [bool]$UseMeteredNetwork)
             $global:Log.Add('New-CMTaskSequenceDeployment:' + $DeployPurpose)
             Test-Fail 'create:TaskSequence'
+            $n0 = $global:NewKeys.Count
             if ($DeploymentOption -eq 'DownloadAllContentLocallyBeforeStartingTaskSequence' -and $Availability -ne 'Clients') { throw 'Please make sure the deployment is available to client only since the deployment works with the option DownloadAllContentLocallyBeforeStartingTaskSequence.' }
             $required = $DeployPurpose -eq 'Required'
             $availabilityBits = switch ($Availability) { 'ClientsMediaAndPxe' { 0x40000 } 'MediaAndPxe' { 0x10040000 } 'MediaAndPxeHidden' { 0x30040000 } default { 0 } }
@@ -164,12 +192,13 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
             $option = switch ($DeploymentOption) { 'DownloadAllContentLocallyBeforeStartingTaskSequence' { 0x50 } default { 0x300 } }
             $remote = 0x8000 -bor $option -bor (Rerun-Bit $RerunBehavior $required) -bor $(if ($required -and $UseMeteredNetwork) { 0x40000 } else { 0 })
             Make-Many 'TaskSequence' { New-Advert $TaskSequencePackageId '*' $CollectionId $required $AvailableDateTime $UseUtcForAvailableSchedule $UseUtcForExpireSchedule $Schedule $advert $remote }
-            Test-Fail 'after-create:TaskSequence'
+            Made-Since 'Adverts' 'AdvertisementID' $n0 'TaskSequence'
         }
         function global:New-CMSoftwareUpdateDeployment {
             [CmdletBinding()] param([string]$SoftwareUpdateGroupId, [string]$CollectionId, [string]$DeploymentType, [datetime]$AvailableDateTime, [object]$DeadlineDateTime, [string]$TimeBasedOn, [string]$UserNotification, [bool]$RequirePostRebootFullScan, [switch]$AcceptEula, [bool]$SoftwareInstallation, [bool]$AllowRestart, [bool]$UseMeteredNetwork, [bool]$RestartServer, [bool]$RestartWorkstation, [string]$ProtectedType, [string]$UnprotectedType, [bool]$DownloadFromMicrosoftUpdate)
             $global:Log.Add('New-CMSoftwareUpdateDeployment:' + $DeploymentType)
             Test-Fail 'create:SoftwareUpdateGroup'
+            $n0 = $global:NewKeys.Count
             $required = $DeploymentType -eq 'Required'
             $n = Notify-Fields $UserNotification
             $locality = if ($required) { 0x50 -bor $(if ($UnprotectedType -eq 'NoInstall') { 0x20000 } else { 0 }) -bor $(if ($UseMeteredNetwork) { 0x80000 } else { 0 }) -bor $(if ($DownloadFromMicrosoftUpdate) { 0x40000 } else { 0 }) } else { 0x10 }
@@ -179,10 +208,10 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                     StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { Tx ([datetime]$DeadlineDateTime) } else { $null }); UseGMTTimes = ($TimeBasedOn -eq 'Utc')
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $SoftwareInstallation); RebootOutsideOfServiceWindows = ($required -and $AllowRestart)
                     SuppressReboot = $(if ($required) { $(if ($RestartServer) { 2 } else { 0 }) -bor $(if ($RestartWorkstation) { 1 } else { 0 }) } else { 0 }); RequirePostRebootFullScan = $RequirePostRebootFullScan
-                    DPLocality = $locality; CreationTime = (Tx $global:Created); LastModifiedBy = $global:CreatedBy })
+                    DPLocality = $locality; CreationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
-            Test-Fail 'after-create:SoftwareUpdateGroup'
+            Made-Since 'UgAssignments' 'AssignmentUniqueID' $n0 'SoftwareUpdateGroup'
         }
         function global:Remove-Deployment([string]$List, [string]$Key, [string]$Id) {
             $global:Log.Add('Remove:' + $Id)

@@ -27,7 +27,8 @@ param(
     [bool]$RequireContent = $true,
     [string[]]$GroupIds = @(),
     [ValidatePattern('^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})?$')][string]$RunStart = '',
-    [ValidateRange(1, 5000)][int]$MaxRows = 1000
+    [ValidateRange(1, 5000)][int]$MaxRows = 1000,
+    [ValidateRange(1, 15)][int]$ProofReads = 15
 )
 
 # Only the validated IDs above, the IDs read back from the provider and the patterns checked
@@ -39,6 +40,9 @@ $CMPSSuppressFastNotUsedCheck = $true
 $steps = New-Object System.Collections.Generic.List[string]
 $TimeFormat = 'yyyy-MM-ddTHH:mm:ss'
 $Invariant = [System.Globalization.CultureInfo]::InvariantCulture
+# ConfigMgr records this account as the creator of what this session makes (verified on CM01:
+# LastModifiedBy and attribute 403 of message 30006 equal the Windows identity name).
+$Account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
 function Get-Prop {
     param([object]$Object, [string]$Property)
@@ -93,7 +97,7 @@ function Test-ObjectIdForm {
 
 function Write-Result {
     param([string]$Status, [string]$Detail = '', [string]$CreatedId = '', [string[]]$Differences = @(), [string[]]$Ids = @())
-    [pscustomobject]@{ Kind = 'Result'; Status = $Status; Detail = $Detail; Steps = @($steps); CreatedId = $CreatedId; Differences = @($Differences); Ids = @($Ids) }
+    [pscustomobject]@{ Kind = 'Result'; Status = $Status; Detail = $Detail; Steps = @($steps); CreatedId = $CreatedId; Differences = @($Differences); Ids = @($Ids); Account = $Account }
 }
 
 # ---- Objects ---------------------------------------------------------------------------------
@@ -325,18 +329,16 @@ function Get-DuplicateKeys {
 # SMS_Advertisement carries neither, so the audit status message 30006 the provider raises for a
 # new advertisement stands in (attribute 401 AdvertisementID, 403 the account). The status system
 # can insert that message many seconds after the create returns, so it is read up to
-# $StatusMessageReads times, 2 s apart; a missing message leaves the creation time empty, which
-# proves nothing.
-$StatusMessageReads = 15
+# $ProofReads times, 2 s apart; a missing message leaves the creation time empty, which proves
+# nothing. The site deletes old status messages, so for an older advertisement the proof is empty.
 function Get-CreationProof {
     param([string]$Id, [object]$Raw)
-    $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $proof = [pscustomobject]@{ Kind = 'Proof'; DeploymentId = $Id; Created = ''; CreatedBy = ''; Account = $account; Owned = $false }
+    $proof = [pscustomobject]@{ Kind = 'Proof'; DeploymentId = $Id; Created = ''; CreatedBy = ''; Account = $Account; Owned = $false }
     if ($Type -in 'Application', 'SoftwareUpdateGroup') {
         $proof.Created = Get-UtcText (Get-Prop $Raw 'CreationTime')
         $proof.CreatedBy = [string](Get-Prop $Raw 'LastModifiedBy')
     } elseif ($Id -match '^[A-Za-z0-9]{8}$') {
-        for ($attempt = 0; $attempt -lt $StatusMessageReads -and -not $proof.Created; $attempt++) {
+        for ($attempt = 0; $attempt -lt $ProofReads -and -not $proof.Created; $attempt++) {
             if ($attempt -gt 0) { Start-Sleep -Seconds 2 }
             foreach ($a in @(Invoke-Query ("SELECT RecordID, AttributeTime FROM SMS_StatMsgAttributes WHERE AttributeID = 401 AND AttributeValue = '{0}'" -f $Id.ToUpperInvariant()))) {
                 $record = [string](Get-Prop $a 'RecordID')
@@ -444,7 +446,7 @@ function New-Deployment {
                 $p.DeadlineDateTime = ConvertFrom-TimeText $Deadline $kind
                 $p.OverrideServiceWindow = $Override; $p.RebootOutsideServiceWindow = $Reboot; $p.UseMeteredNetwork = $Metered
             }
-            New-CMApplicationDeployment @p 3>$null | Out-Null
+            return (@(New-CMApplicationDeployment @p 3>$null) | Select-Object -Last 1)
         }
         'Package' {
             $p = @{ StandardProgram = $true; PackageId = [string]$Object.Id; ProgramName = [string]$Object.Program; CollectionId = $Collection.CollectionId; DeployPurpose = $Purpose
@@ -454,7 +456,7 @@ function New-Deployment {
                 $schedule = if ($Utc) { New-CMSchedule -Start (ConvertFrom-TimeText $Deadline Local) -Nonrecurring -IsUtc } else { New-CMSchedule -Start (ConvertFrom-TimeText $Deadline Local) -Nonrecurring }
                 $p.Schedule = @($schedule); $p.RerunBehavior = $Rerun; $p.SoftwareInstallation = $Override; $p.SystemRestart = $Reboot; $p.UseMeteredNetwork = $Metered
             }
-            New-CMPackageDeployment @p 3>$null | Out-Null
+            return (@(New-CMPackageDeployment @p 3>$null) | Select-Object -Last 1)
         }
         'TaskSequence' {
             $p = @{ TaskSequencePackageId = [string]$Object.Id; CollectionId = $Collection.CollectionId; DeployPurpose = $Purpose; AvailableDateTime = $availableTime
@@ -464,7 +466,7 @@ function New-Deployment {
                 $schedule = if ($Utc) { New-CMSchedule -Start (ConvertFrom-TimeText $Deadline Local) -Nonrecurring -IsUtc } else { New-CMSchedule -Start (ConvertFrom-TimeText $Deadline Local) -Nonrecurring }
                 $p.Schedule = @($schedule); $p.RerunBehavior = $Rerun; $p.SoftwareInstallation = $Override; $p.SystemRestart = $Reboot; $p.UseMeteredNetwork = $Metered
             }
-            New-CMTaskSequenceDeployment @p 3>$null | Out-Null
+            return (@(New-CMTaskSequenceDeployment @p 3>$null) | Select-Object -Last 1)
         }
         'SoftwareUpdateGroup' {
             $p = @{ SoftwareUpdateGroupId = [string]$Object.Id; CollectionId = $Collection.CollectionId; DeploymentType = $Purpose; AvailableDateTime = $availableTime
@@ -477,9 +479,44 @@ function New-Deployment {
                 $p.UnprotectedType = $(if ($FallbackToDp) { 'UnprotectedDistributionPoint' } else { 'NoInstall' })
                 $p.DownloadFromMicrosoftUpdate = $AllowMicrosoftUpdate
             }
-            New-CMSoftwareUpdateDeployment @p 3>$null | Out-Null
+            return (@(New-CMSoftwareUpdateDeployment @p 3>$null) | Select-Object -Last 1)
         }
     }
+}
+
+# The key of the deployment object a create cmdlet returned; empty when it returned nothing
+# usable.
+function Get-ReturnedKey {
+    param([object]$Returned)
+    if ($null -eq $Returned) { return '' }
+    $name = if ($Type -in 'Application', 'SoftwareUpdateGroup') { 'AssignmentUniqueID' } else { 'AdvertisementID' }
+    $key = try { [string]$Returned.$name } catch { '' }
+    if ($Type -in 'Application', 'SoftwareUpdateGroup') { if ($key -notmatch '^\{[0-9A-Fa-f-]{36}\}$') { return '' } }
+    elseif ($key -notmatch '^[A-Za-z0-9]{8}$') { return '' }
+    return $key
+}
+
+# Of several new deployments, the one this account made during the create call: its creation
+# time lies within one second of the call (whole seconds; the clocks of this computer and the
+# site server must agree). Every proof read is kept in $ProofRows; none or more than one match
+# leaves the result unknown.
+$ProofRows = New-Object System.Collections.Generic.List[object]
+function Find-OwnByCreation {
+    param([string[]]$Keys, [datetime]$CallStart, [datetime]$CallEnd)
+    $from = (New-Object DateTime ($CallStart.Ticks - $CallStart.Ticks % [TimeSpan]::TicksPerSecond)).AddSeconds(-1)
+    $to = $CallEnd.AddSeconds(1)
+    $mine = @()
+    foreach ($key in $Keys) {
+        $raw = Get-RawDeploymentById $key
+        if ($null -eq $raw) { continue }
+        $proof = Get-CreationProof $key $raw
+        $ProofRows.Add($proof)
+        if (-not $proof.Created -or $proof.CreatedBy -ne $Account) { continue }
+        $created = [datetime]::ParseExact($proof.Created.TrimEnd('Z'), $TimeFormat, $Invariant)
+        if ($created -ge $from -and $created -le $to) { $mine += $key }
+    }
+    if ($mine.Count -eq 1) { return $mine[0] }
+    return ''
 }
 
 function Test-CreateTarget {
@@ -513,13 +550,16 @@ function Invoke-Create {
         return
     }
     $thrown = ''
+    $returned = ''
+    $callStart = [DateTime]::UtcNow
     try {
-        New-Deployment $object $collection
+        $returned = Get-ReturnedKey (New-Deployment $object $collection)
         $steps.Add('created')
     } catch {
         $thrown = $_.Exception.Message
         $steps.Add('create-error')
     }
+    $callEnd = [DateTime]::UtcNow
     try {
         $after = @(Get-RawDeployments $object $collection.CollectionId)
     } catch {
@@ -529,16 +569,26 @@ function Invoke-Create {
     $made = @($after | Where-Object { $beforeKeys -notcontains (Get-DeploymentKey $_) })
     if ($made.Count -eq 0) { Write-Result 'create-failed' $thrown; return }
     $madeKeys = @($made | ForEach-Object { Get-DeploymentKey $_ })
-    if ($made.Count -gt 1) { Write-Result 'create-unclear' $thrown '' @() $madeKeys; return }
-    $stored = Get-RawDeploymentById $madeKeys[0]
+    # The create cmdlets of all four types return the object they made (verified on CM01), so
+    # its key names this run's deployment among others that appeared at the same time.
+    $ours = ''
+    if ($returned -and $madeKeys -contains $returned) { $ours = $returned }
+    elseif ($made.Count -gt 1) {
+        $ours = Find-OwnByCreation $madeKeys $callStart $callEnd
+        $ProofRows
+        if (-not $ours) { Write-Result 'create-unclear' $thrown '' @() $madeKeys; return }
+    }
+    else { $ours = $madeKeys[0] }
+    $stored = Get-RawDeploymentById $ours
     # After an error the one new deployment can be another session's; only a proven creation
     # time and account make it this run's.
-    if ($thrown) {
+    if ($thrown -and $made.Count -eq 1) {
         if ($null -eq $stored) { Write-Result 'create-unclear' $thrown '' @() $madeKeys; return }
-        $proof = Get-CreationProof $madeKeys[0] $stored
+        $proof = Get-CreationProof $ours $stored
         $proof
         if (-not $proof.Owned) { Write-Result 'create-unclear' $thrown '' @() $madeKeys; return }
     }
+    $madeKeys = @($ours)
     if ($null -eq $stored) { Write-Result 'readback-failed' $thrown $madeKeys[0]; return }
     $names = @{ ([string]$collection.CollectionId) = [string]$collection.Name }
     $row = ConvertTo-DeploymentRow $stored $names
@@ -643,8 +693,8 @@ function Write-Limited {
 function Get-Objects {
     $rows = switch ($Type) {
         'Application' {
-            Invoke-Query 'SELECT CI_ID, ModelID, LocalizedDisplayName, SoftwareVersion, IsExpired FROM SMS_Application WHERE IsLatest = 1' | Where-Object { -not [bool](Get-Prop $_ 'IsExpired') } |
-                ForEach-Object { [pscustomobject]@{ Kind = 'Object'; Id = [string]$_.CI_ID; Name = [string](Get-Prop $_ 'LocalizedDisplayName'); Version = [string](Get-Prop $_ 'SoftwareVersion'); ModelId = [string](Get-Prop $_ 'ModelID'); UpdateCount = 0 } }
+            Invoke-Query 'SELECT CI_ID, ModelID, ModelName, LocalizedDisplayName, SoftwareVersion, IsExpired FROM SMS_Application WHERE IsLatest = 1' | Where-Object { -not [bool](Get-Prop $_ 'IsExpired') } |
+                ForEach-Object { [pscustomobject]@{ Kind = 'Object'; Id = [string]$_.CI_ID; Name = [string](Get-Prop $_ 'LocalizedDisplayName'); Version = [string](Get-Prop $_ 'SoftwareVersion'); ModelId = [string](Get-Prop $_ 'ModelID'); ModelName = [string](Get-Prop $_ 'ModelName'); UpdateCount = 0 } }
         }
         'Package' {
             Invoke-Query 'SELECT PackageID, Name, Version FROM SMS_Package WHERE PackageType = 0' |
@@ -708,6 +758,14 @@ function Get-State {
             try {
                 $same = @(Invoke-Query 'SELECT CI_ID, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1' | Where-Object { [string](Get-Prop $_ 'LocalizedDisplayName') -eq [string]$object.Name })
                 [pscustomobject]@{ Kind = 'NameCount'; Count = $same.Count }
+            } catch { }
+        }
+        # A rename or any other edit makes a new revision with a new CI_ID; the model keeps its
+        # ModelID and ModelName, and the earlier revisions keep their CI_IDs (verified on CM01).
+        if ($Type -eq 'Application' -and [string]$object.ModelId -match '^[0-9]{1,10}$') {
+            try {
+                $revisions = @(Invoke-Query ('SELECT CI_ID, ModelID FROM SMS_Application WHERE ModelID = ' + [string]$object.ModelId) | ForEach-Object { [string]$_.CI_ID })
+                [pscustomobject]@{ Kind = 'Revisions'; CiIds = @($revisions) }
             } catch { }
         }
         if ($Type -ne 'SoftwareUpdateGroup') {

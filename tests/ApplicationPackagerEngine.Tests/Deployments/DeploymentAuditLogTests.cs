@@ -213,6 +213,84 @@ public sealed class DeploymentAuditLogTests : IDisposable
         Assert.Equal(@"\\server\share\dh\audit.jsonl", new DeploymentAuditLog(() => @"\\server\share\dh\audit.jsonl").Path);
     }
 
+    // ---- Chain ---------------------------------------------------------------------------------
+
+    [Fact]
+    public void EachRecordCarriesAChainOverItsFieldsAndTheLineBeforeAndReadsAsVerified()
+    {
+        var log = Log();
+        Assert.True(log.Append(Record(id: "MCM20015")).Succeeded);
+        Assert.True(log.Append(Record(id: "MCM20016") with { CreatedUtc = new DateTime(2026, 10, 20, 13, 30, 5, DateTimeKind.Utc) }).Succeeded);
+
+        var lines = File.ReadAllLines(LogPath);
+        Assert.All(lines, l => Assert.Matches("""
+            ,"Chain":"[0-9a-f]{64}"}$
+            """.Trim(), l));
+        Assert.Contains("\"CreatedUtc\":\"2026-10-20T13:30:05Z\"", lines[1]);
+        Assert.True(DeploymentAuditLog.ChainMatches(lines[0], DeploymentAuditLog.ChainStart));
+        Assert.True(DeploymentAuditLog.ChainMatches(lines[1], DeploymentAuditLog.LineHash(lines[0])));
+        var records = log.Read(10);
+        Assert.All(records, r => Assert.True(r.Verified));
+        Assert.Equal(new DateTime(2026, 10, 20, 13, 30, 5, DateTimeKind.Utc), records[1].CreatedUtc);
+        Assert.DoesNotContain(records[1].Extra, p => p.Key == "Chain");
+    }
+
+    [Fact]
+    public void AnEditedLineAndALineAddedByHandReadAsUnverifiedAndTheRestStaysVerified()
+    {
+        var log = Log();
+        log.Append(Record(id: "MCM20015"));
+        log.Append(Record(id: "MCM20016"));
+        log.Append(Record(id: "MCM20017"));
+        var lines = File.ReadAllLines(LogPath).ToList();
+        lines[1] = lines[1].Replace("\"CollectionName\":\"Pilot\"", "\"CollectionName\":\"Other\"", StringComparison.Ordinal);
+        lines.Add("""{"Timestamp":"2026-10-20T08:49:00","User":"CONTOSO\\Admin","DeploymentType":"Package","Event":"Create","Result":"Success","DeploymentUniqueID":"MCM20038"}""");
+        File.WriteAllLines(LogPath, lines);
+
+        var records = log.Read(10);
+
+        Assert.Equal([true, false, true, false], records.Select(r => r.Verified == true));
+        Assert.Null(DeploymentChangeBuilder.RemoveFromAudit(records[1]));
+    }
+
+    [Fact]
+    public void ARecordAfterARemovedLineReadsAsUnverifiedAndANewAppendFollowsTheLastLine()
+    {
+        var log = Log();
+        log.Append(Record(id: "MCM20015"));
+        log.Append(Record(id: "MCM20016"));
+        log.Append(Record(id: "MCM20017"));
+        var lines = File.ReadAllLines(LogPath).ToList();
+        lines.RemoveAt(1);
+        File.WriteAllLines(LogPath, lines);
+        log.Append(Record(id: "MCM20018"));
+
+        Assert.Equal([true, false, true], log.Read(10).Select(r => r.Verified == true));
+    }
+
+    [Fact]
+    public void ASuiteLineBetweenRecordsIsPartOfTheChain()
+    {
+        var log = Log();
+        log.Append(Record(id: "MCM20015"));
+        File.AppendAllText(LogPath, "{\"Timestamp\":\"2026-10-20T09:00:00\",\"Result\":\"Success\",\"PlanName\":\"Rings\"}\r\n");
+        log.Append(Record(id: "MCM20016"));
+
+        var records = log.Read(10);
+        Assert.Equal([true, false, true], records.Select(r => r.Verified == true));
+
+        var lines = File.ReadAllLines(LogPath);
+        File.WriteAllLines(LogPath, [lines[0], lines[1].Replace("Rings", "Other", StringComparison.Ordinal), lines[2]]);
+        Assert.False(log.Read(10)[2].Verified);
+    }
+
+    [Fact]
+    public void ARecordNotReadFromALogIsNeitherVerifiedNorRefused()
+    {
+        Assert.Null(Record().Verified);
+        Assert.NotNull(DeploymentChangeBuilder.RemoveFromAudit(Record() with { ObjectId = "MCM0001B", CollectionID = "MCM00098" }));
+    }
+
     private static void Junction(string link, string target)
     {
         var psi = new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };

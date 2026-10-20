@@ -371,6 +371,7 @@ public sealed class DeploymentPageOutcomeTests
     {
         using var h = new ServicePageHarness();
         h.Engine.Site.SetOption("CreateTwice:Package", true);
+        h.Engine.Site.SetOption("NoReturn", true);
         var page = await h.OpenAsync();
         var form = await ServicePageHarness.PickAsync(page, DeploymentObjectType.Package, "MCM0001B");
         var outcomes = Record(h);

@@ -35,24 +35,48 @@ public sealed partial class DeploymentService
             return Refused(change, CreateNowWithoutDistributionMessage);
         var requiredApplication = obj.Type == DeploymentObjectType.Application && options.Purpose == DeploymentPurposes.Required && _signing is not null;
 
+        // The target lock comes first: a second session that waits for the same object and
+        // collection then reads the lock as the cause, not the audit log the first session holds.
+        using var targetLock = _targetLock.TryAcquire(LockKey(obj), collectionId);
+        if (targetLock is null) return Refused(change, TargetBusyMessage);
         using var reservation = _audit.Reserve();
         if (!reservation.Probe.Writable)
             return Refused(change, $"the audit log cannot be written, so the deployment was not created. {reservation.Probe.Message}");
-        using var targetLock = _targetLock.TryAcquire(LockKey(obj), collectionId);
-        if (targetLock is null) return Refused(change, TargetBusyMessage);
 
         var steps = new List<string>();
+        DeploymentOutcome? distributed = null;
         if (change.DpGroups is { Count: > 0 })
         {
             var distribution = await DistributeAsync(obj, change.DpGroups).ConfigureAwait(false);
             steps.AddRange(distribution.Steps);
             var written = SafeAppend(reservation, () => DistributionRecord(obj, change.DpGroups, distribution));
+            distributed = DistributionOutcome(change, obj, distribution, written);
             if (!written.Succeeded)
-                return Fail(change, $"The content distribution may have been requested but could not be logged, so the deployment was not created. {written.Message}") with { Steps = steps };
+                return Fail(change, $"The content distribution may have been requested but could not be logged, so the deployment was not created. {written.Message}") with { Steps = steps, Distribution = distributed };
             if (!distribution.Requested)
-                return Fail(change, $"The content distribution failed, so the deployment was not created. {distribution.Message}") with { Steps = steps };
+                return Fail(change, $"The content distribution failed, so the deployment was not created. {distribution.Message}") with { Steps = steps, Distribution = distributed };
         }
+        var outcome = await CreateAfterDistributionAsync(change, obj, collectionId, options, prepared, requiredApplication, reservation, steps).ConfigureAwait(false);
+        if (distributed is null) return outcome;
+        return outcome.Message.StartsWith(SkippedPrefix, StringComparison.Ordinal)
+            ? outcome with { Message = SkippedPrefix + "content distribution was requested; the deployment was not created because " + outcome.Message[SkippedPrefix.Length..], Distribution = distributed }
+            : outcome with { Distribution = distributed };
+    }
 
+    /// <summary>The Distribute outcome of the distribution a combined create requested first.</summary>
+    private static DeploymentOutcome DistributionOutcome(DeploymentChange change, DeployableObject obj, DistributionRun run, AuditWrite written)
+    {
+        var distribute = new DeploymentChange(DeploymentChangeKind.Distribute, obj, null, null, change.DpGroups, false, false, false, null, change.Checks, [], null);
+        var message = run.Requested
+            ? $"Requested the distribution of {ObjectText(obj)} to {Count(change.DpGroups.Count, "DP group")}. {NoDistributionUndo}"
+            : $"The distribution of {ObjectText(obj)} did not finish: {run.Message} {NoDistributionUndo}";
+        if (!written.Succeeded) message += $" The audit record could not be written: {written.Message}";
+        return new DeploymentOutcome(distribute, run.Requested, message, null, run.Steps);
+    }
+
+    private async Task<DeploymentOutcome> CreateAfterDistributionAsync(DeploymentChange change, DeployableObject obj, string collectionId, DeploymentOptions options,
+        DeploymentPreparedState prepared, bool requiredApplication, IDeploymentAuditReservation reservation, List<string> steps)
+    {
         StateRead state;
         try
         {
@@ -68,7 +92,7 @@ public sealed partial class DeploymentService
         {
             try
             {
-                if (SigningRefusal(state.Object!.Name ?? "", state.NameCount, obj.Name) is { } refusal) return Refused(change, refusal) with { Steps = steps };
+                if (SigningRefusal(SiteApplicationOf(state), state.NameCount, obj.Name) is { } refusal) return Refused(change, refusal) with { Steps = steps };
             }
             catch (DeploymentServiceException ex)
             {
@@ -79,7 +103,12 @@ public sealed partial class DeploymentService
             return Refused(change, "the existing deployments could not be read, so the duplicate check failed and nothing was created.") with { Steps = steps };
         if ((snapshot.Duplicates ?? []).Length > 0)
             return Refused(change, $"{ObjectText(obj)} is now deployed to collection {collectionId} (deployment ID {string.Join(", ", snapshot.Duplicates!)}), so no duplicate was created.") with { Steps = steps };
-        var current = obj with { ModelId = state.Object!.ModelId ?? obj.ModelId, Program = obj.Type == DeploymentObjectType.Package ? state.Object.Program ?? obj.Program : obj.Program };
+        var current = obj with
+        {
+            ModelId = state.Object!.ModelId ?? obj.ModelId,
+            Program = obj.Type == DeploymentObjectType.Package ? state.Object.Program ?? obj.Program : obj.Program,
+            UpdateCount = obj.Type == DeploymentObjectType.SoftwareUpdateGroup ? state.Object.UpdateCount : obj.UpdateCount
+        };
 
         var runStart = _utcNow();
         var parameters = CreateParameters(current, collectionId, options, !change.CreateNowContentDistributing);
@@ -100,7 +129,7 @@ public sealed partial class DeploymentService
         AuditWrite audit;
         try
         {
-            audit = SafeAppend(reservation, () => CreateRecord(change, current, collectionId, options, outcome));
+            audit = SafeAppend(reservation, () => CreateRecord(change, current, collectionId, options, outcome, runStart, run.Result));
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -256,7 +285,9 @@ public sealed partial class DeploymentService
                     UndoFromPlan(change, obj, collectionId, options, result.CreatedId ?? ""), steps);
             case "create-unclear":
                 var ids = result.Ids ?? [];
-                return Fail(change, $"The result of the create of {target} is not known: {(ids.Length > 1 ? $"{ids.Length} new deployments appeared ({string.Join(", ", ids)})" : ids.Length == 1 ? $"ConfigMgr reported an error, and new deployment {ids[0]} cannot be shown to be made by this account during this run" : "the deployments could not be read after the create")}. Check the deployments in the console. Undo is not available because a deployment found now cannot be shown to come from this change.") with { Steps = steps };
+                if (ids.Length > 1)
+                    return Fail(change, $"The result of the create of {target} is not known: {ids.Length} new deployments appeared: {string.Join("; ", ids.Select(i => CreationText(i, run.Proofs)))}. They have the same object, collection and account, so this product cannot tell which one it made. Check them in the console and remove the one that must not stay there. Undo is not available because neither deployment can be shown to come from this change.") with { Steps = steps };
+                return Fail(change, $"The result of the create of {target} is not known: {(ids.Length == 1 ? $"ConfigMgr reported an error, and new deployment {ids[0]} cannot be shown to be made by this account during this run" : "the deployments could not be read after the create")}. Check the deployments in the console. Undo is not available because a deployment found now cannot be shown to come from this change.") with { Steps = steps };
             case "create-failed":
                 return Fail(change, $"ConfigMgr did not create the deployment of {target}. The log has the details.") with { Steps = steps };
             case "duplicate":
@@ -311,6 +342,12 @@ public sealed partial class DeploymentService
             [], [$"Removes deployment {found.DeploymentId}, which the create made.", UndoNote], found.DeploymentId);
         return Partial(change, $"ConfigMgr reported an error during the create of {target}, but deployment {found.DeploymentId} appeared with the planned values, was not there before the create, and was made by this account during this run. Undo removes it.", undo, steps);
     }
+
+    /// <summary>A deployment ID with the creator and creation time ConfigMgr holds for it, when the script read them.</summary>
+    private static string CreationText(string id, IReadOnlyList<ProofRow> proofs) =>
+        proofs.FirstOrDefault(p => string.Equals(p.DeploymentId, id, StringComparison.OrdinalIgnoreCase)) is { } proof && ParseUtc(proof.Created) is { } created
+            ? $"{id} (made by {(string.IsNullOrWhiteSpace(proof.CreatedBy) ? "an account not known" : proof.CreatedBy)} at {created.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)} UTC)"
+            : $"{id} (creation time not known)";
 
     private static string OthersText(ResultRow result, string? ours) =>
         (result.Ids ?? []).Length == 0 ? ""
@@ -421,11 +458,15 @@ public sealed partial class DeploymentService
         _ => name.ToLowerInvariant()
     };
 
-    private static DeploymentAuditRecord CreateRecord(DeploymentChange change, DeployableObject obj, string collectionId, DeploymentOptions options, DeploymentOutcome outcome)
+    /// <param name="runStart">The UTC time the create started; the History Undo compares it with the creation time ConfigMgr holds.</param>
+    /// <param name="result">The result of the create script: its account becomes the record's user, as ConfigMgr names the creator.</param>
+    private static DeploymentAuditRecord CreateRecord(DeploymentChange change, DeployableObject obj, string collectionId, DeploymentOptions options, DeploymentOutcome outcome,
+        DateTime runStart, ResultRow? result)
     {
         var id = outcome.UndoChange?.CreatedId ?? "";
         var stored = outcome.UndoChange?.Existing;
         var assignment = stored?.AssignmentId;
+        var unclear = result?.Status == "create-unclear" ? string.Join("; ", (result.Ids ?? []).Where(i => IsDeploymentId(obj.Type, i))) : "";
         return BaseRecord(obj, change.Collection, collectionId, stored?.Purpose is { Length: > 0 } purpose ? purpose : options.Purpose, stored is null ? options.Deadline : stored.Deadline,
             assignment is { Length: > 0 } ? assignment : id,
             outcome.Succeeded ? AuditResults.Success
@@ -439,7 +480,10 @@ public sealed partial class DeploymentService
             DeploymentUniqueID = id,
             ProgramName = obj.Type == DeploymentObjectType.Package ? stored?.Program is { Length: > 0 } program ? program : obj.Program : "",
             ModelId = obj.Type == DeploymentObjectType.Application ? stored?.ModelId is { Length: > 0 } model ? model : obj.ModelId ?? "" : "",
-            Message = outcome.Message
+            Message = outcome.Message,
+            User = result?.Account is { Length: > 0 } account ? account : "",
+            CreatedUtc = DateTime.SpecifyKind(runStart, DateTimeKind.Utc),
+            UnclearDeploymentIds = unclear
         };
     }
 
@@ -529,11 +573,8 @@ public sealed partial class DeploymentService
         if (change.Existing is not { } existing || !IsDeploymentId(existing.Type, existing.DeploymentId) || !IsObjectId(existing.Type, existing.ObjectId))
             return Refused(change, NotPreparedMessage);
         if (!PackageIdRegex().IsMatch(existing.CollectionId ?? "")) return Refused(change, NotPreparedMessage);
-        switch (Ownership(existing.DeploymentId))
-        {
-            case false: return Refused(change, $"deployment {existing.DeploymentId} was not created by this product, so it is not removed.");
-            case null: return Refused(change, $"the audit log could not be read, so it is not known whether this product created deployment {existing.DeploymentId}. It is not removed.");
-        }
+        var ownership = await OwnershipAsync(existing, null).ConfigureAwait(false);
+        if (ownership.Result != DeploymentCheckResults.Pass) return Refused(change, ownership.Reason);
         using var reservation = _audit.Reserve();
         if (!reservation.Probe.Writable) return Refused(change, $"the audit log cannot be written, so nothing was removed. {reservation.Probe.Message}");
 
@@ -594,7 +635,11 @@ public sealed partial class DeploymentService
     /// One write script run. <c>Uncertain</c> marks a failure that can follow a change ConfigMgr
     /// already made: the session failed during the write.
     /// </summary>
-    private sealed record WriteRun(ResultRow? Result, IReadOnlyList<DeploymentRow> Rows, IReadOnlyList<GroupResultRow> Groups, DeploymentOutcome? Failure, bool Uncertain, IReadOnlyList<string> Steps);
+    private sealed record WriteRun(ResultRow? Result, IReadOnlyList<DeploymentRow> Rows, IReadOnlyList<GroupResultRow> Groups, DeploymentOutcome? Failure, bool Uncertain, IReadOnlyList<string> Steps)
+    {
+        /// <summary>The creation proofs the create script read for new deployments.</summary>
+        public IReadOnlyList<ProofRow> Proofs { get; init; } = [];
+    }
 
     private async Task<WriteRun> RunWriteAsync(DeploymentChange? change, ConfigMgrParameters parameters)
     {
@@ -631,7 +676,7 @@ public sealed partial class DeploymentService
         if (!string.IsNullOrWhiteSpace(result.Detail))
             _log?.Warning(LogArea, $"{parameters["Operation"]} returned {result.Status}: {CollectionService.FailureKinds(result.Detail)}.");
         var steps = (result.Steps ?? []).Select(StepLine).ToList();
-        return new WriteRun(result, Rows<DeploymentRow>(output, "Deployment"), Rows<GroupResultRow>(output, "Group"), null, false, steps);
+        return new WriteRun(result, Rows<DeploymentRow>(output, "Deployment"), Rows<GroupResultRow>(output, "Group"), null, false, steps) { Proofs = Rows<ProofRow>(output, "Proof") };
     }
 
     private static string StepLine(string step) => step switch
