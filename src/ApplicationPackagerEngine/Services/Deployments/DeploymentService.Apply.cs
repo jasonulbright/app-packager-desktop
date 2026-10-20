@@ -13,9 +13,6 @@ public sealed partial class DeploymentService
     internal const string BackdatedNotConfirmedMessage =
         "The available time is in the past and needs its own confirmation, so nothing was created.";
 
-    /// <summary>A create that ends in an error may still finish in the provider; a deployment made this long before the run is not the run's.</summary>
-    private static readonly TimeSpan ClockSkew = TimeSpan.FromMinutes(2);
-
     // ---- Create -------------------------------------------------------------------------------
 
     private async Task<DeploymentOutcome> ApplyCreateAsync(DeploymentChange change)
@@ -27,35 +24,31 @@ public sealed partial class DeploymentService
         var collectionId = (collection.CollectionId ?? "").Trim().ToUpperInvariant();
         if (!IsObjectId(obj.Type, obj.Id) || !PackageIdRegex().IsMatch(collectionId)) return Refused(change, NotPreparedMessage);
         if (IsBuiltInCollection(collectionId)) return Refused(change, $"Collection {collectionId} is a built-in collection. Deployments to built-in collections are blocked.");
-        if (options.Purpose != DeploymentPurposes.Required) options = options with { Deadline = null };
+        if (change.Prepared is not { } prepared) return Refused(change, NotPreparedMessage);
+        options = Seconds(options);
         if (options.Purpose == DeploymentPurposes.Required && !change.RequiredConfirmed) return Refused(change, RequiredNotConfirmedMessage);
         var verdict = DeploymentScheduleRules.Check(obj.Type, options, NowIn(options.UtcBasis));
         if (verdict.Error is { } scheduleError) return Refused(change, scheduleError);
         if (DeploymentScheduleRules.OptionProblem(obj.Type, options) is { } optionProblem) return Refused(change, optionProblem);
         if (verdict.Backdated && !change.BackdatedAcknowledged) return Refused(change, BackdatedNotConfirmedMessage);
-        if (obj.Type == DeploymentObjectType.Application && options.Purpose == DeploymentPurposes.Required && _signing is not null)
-        {
-            try
-            {
-                if (_signing.RequiredDeploymentRefusal(obj.Name) is { } refusal) return Refused(change, refusal);
-            }
-            catch (DeploymentServiceException ex)
-            {
-                return Refused(change, ex.Message);
-            }
-        }
+        if (change.CreateNowContentDistributing && (change.DpGroups is not { Count: > 0 } || !ContentInProgress(change)))
+            return Refused(change, CreateNowWithoutDistributionMessage);
+        var requiredApplication = obj.Type == DeploymentObjectType.Application && options.Purpose == DeploymentPurposes.Required && _signing is not null;
 
         using var reservation = _audit.Reserve();
         if (!reservation.Probe.Writable)
             return Refused(change, $"the audit log cannot be written, so the deployment was not created. {reservation.Probe.Message}");
+        using var targetLock = _targetLock.TryAcquire(LockKey(obj), collectionId);
+        if (targetLock is null) return Refused(change, TargetBusyMessage);
 
         var steps = new List<string>();
         if (change.DpGroups is { Count: > 0 })
         {
             var distribution = await DistributeAsync(obj, change.DpGroups).ConfigureAwait(false);
             steps.AddRange(distribution.Steps);
-            var written = reservation.Append(DistributionRecord(obj, change.DpGroups, distribution));
-            if (!written.Succeeded) steps.Add($"The audit record of the distribution could not be written: {written.Message}");
+            var written = SafeAppend(reservation, () => DistributionRecord(obj, change.DpGroups, distribution));
+            if (!written.Succeeded)
+                return Fail(change, $"The content distribution may have been requested but could not be logged, so the deployment was not created. {written.Message}") with { Steps = steps };
             if (!distribution.Requested)
                 return Fail(change, $"The content distribution failed, so the deployment was not created. {distribution.Message}") with { Steps = steps };
         }
@@ -63,27 +56,56 @@ public sealed partial class DeploymentService
         StateRead state;
         try
         {
-            state = await ReadStateAsync(obj, collectionId, CancellationToken.None).ConfigureAwait(false);
+            state = await ReadStateAsync(obj, collectionId, options.Purpose, CancellationToken.None).ConfigureAwait(false);
         }
         catch (DeploymentServiceException ex)
         {
             return Refused(change, $"the current state could not be read, so nothing was created. {ex.Message}") with { Steps = steps };
         }
         if (Stale(obj, collectionId, state) is { } stale) return Refused(change, stale) with { Steps = steps };
+        if (StalePlan(obj, options, prepared, state) is { } changed) return Refused(change, changed) with { Steps = steps };
+        if (requiredApplication)
+        {
+            try
+            {
+                if (SigningRefusal(state.Object!.Name ?? "", state.NameCount, obj.Name) is { } refusal) return Refused(change, refusal) with { Steps = steps };
+            }
+            catch (DeploymentServiceException ex)
+            {
+                return Refused(change, ex.Message) with { Steps = steps };
+            }
+        }
         if (state.Snapshot is not { Read: true } snapshot)
             return Refused(change, "the existing deployments could not be read, so the duplicate check failed and nothing was created.") with { Steps = steps };
         if ((snapshot.Duplicates ?? []).Length > 0)
             return Refused(change, $"{ObjectText(obj)} is now deployed to collection {collectionId} (deployment ID {string.Join(", ", snapshot.Duplicates!)}), so no duplicate was created.") with { Steps = steps };
-        var current = obj with { Id = state.Object!.Id ?? obj.Id, ModelId = state.Object.ModelId ?? obj.ModelId, Program = obj.Type == DeploymentObjectType.Package ? state.Object.Program ?? obj.Program : obj.Program };
+        var current = obj with { ModelId = state.Object!.ModelId ?? obj.ModelId, Program = obj.Type == DeploymentObjectType.Package ? state.Object.Program ?? obj.Program : obj.Program };
 
         var runStart = _utcNow();
         var parameters = CreateParameters(current, collectionId, options, !change.CreateNowContentDistributing);
+        parameters["RunStart"] = TimeText(runStart);
         var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
         steps.AddRange(run.Steps);
-        var outcome = await CreateOutcomeAsync(change with { Object = current, Options = options }, current, collectionId, options, run, snapshot, runStart, steps).ConfigureAwait(false);
+        var planned = change with { Object = current, Options = options };
+        DeploymentOutcome outcome;
+        try
+        {
+            outcome = await CreateOutcomeAsync(planned, current, collectionId, options, run, snapshot, runStart, steps).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            outcome = AfterCreateFailure(planned, current, collectionId, options, run, steps, ex);
+        }
 
-        var record = CreateRecord(change, current, collectionId, options, outcome);
-        var audit = reservation.Append(record);
+        AuditWrite audit;
+        try
+        {
+            audit = SafeAppend(reservation, () => CreateRecord(change, current, collectionId, options, outcome));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            audit = new AuditWrite(false, $"The audit record could not be built ({ex.GetType().Name}).");
+        }
         if (!audit.Succeeded)
         {
             var id = outcome.UndoChange?.CreatedId;
@@ -97,6 +119,50 @@ public sealed partial class DeploymentService
         return outcome;
     }
 
+    internal const string CreateNowWithoutDistributionMessage =
+        "'Create now, content still distributing' applies only to a plan that requests the content distribution first and shows it in progress. Nothing was created.";
+
+    internal const string TargetBusyMessage =
+        "another session of this product is creating a deployment of the same object to this collection now, or the lock file next to the audit log cannot be made. Nothing was created. Try again when that session finishes.";
+
+    private static bool ContentInProgress(DeploymentChange change) =>
+        change.Checks.Any(c => c.Name == DeploymentCheckNames.ContentDistributed && c.Result == DeploymentCheckResults.Warn
+            && c.Message.StartsWith("Content distribution in progress", StringComparison.Ordinal));
+
+    /// <summary>The application lock key is the ModelID: it stays the same across revisions.</summary>
+    private static string LockKey(DeployableObject obj) =>
+        obj.Type == DeploymentObjectType.Application && NumberRegex().IsMatch(obj.ModelId ?? "") ? "M" + obj.ModelId : obj.Id.Trim().ToUpperInvariant();
+
+    /// <summary>An append that reports every failure, also one the log does not expect, as a failed write.</summary>
+    private AuditWrite SafeAppend(IDeploymentAuditReservation reservation, Func<DeploymentAuditRecord> record)
+    {
+        try
+        {
+            return reservation.Append(record());
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            TryWarn($"An audit record could not be written ({ex.GetType().Name}).");
+            return new AuditWrite(false, "the append failed. The log has the details.");
+        }
+    }
+
+    /// <summary>
+    /// The outcome when building the result of a create failed: a deployment the script read back
+    /// keeps its Undo, which removes it only while it holds the planned values.
+    /// </summary>
+    private DeploymentOutcome AfterCreateFailure(DeploymentChange change, DeployableObject obj, string collectionId, DeploymentOptions options, WriteRun run, List<string> steps, Exception ex)
+    {
+        TryWarn($"The result of a create could not be processed ({ex.GetType().Name}).");
+        var id = run.Result?.CreatedId ?? "";
+        var target = $"{ObjectText(obj)} to collection {collectionId}";
+        if (run.Result?.Status is "ok" or "created-with-error" or "stored-differs" or "readback-failed" or "concurrent" && UndoFromPlan(change, obj, collectionId, options, id) is { } undo)
+            return new DeploymentOutcome(change, false,
+                $"ConfigMgr created the deployment of {target} (deployment ID {id}), but its result could not be processed. Check it in the console. Undo removes it when it still holds the planned values.", undo, steps);
+        return new DeploymentOutcome(change, false,
+            $"The result of the create of {target} is not known: its result could not be processed. Check the deployments in the console. Undo is not available because a deployment found now cannot be shown to come from this change.", null, steps);
+    }
+
     private string? Stale(DeployableObject obj, string collectionId, StateRead state)
     {
         if (state.Object is not { } o) return $"{ObjectText(obj)} does not exist any more. Nothing was created.";
@@ -104,6 +170,41 @@ public sealed partial class DeploymentService
         if (obj.Type == DeploymentObjectType.Package && string.IsNullOrEmpty(o.Program)) return $"package {Shown(o.Name, o.Id)} has no program {obj.Program} any more. Nothing was created.";
         if (state.Collection is not { } c) return $"collection {collectionId} does not exist any more. Nothing was created.";
         if (c.CollectionType != 2) return $"collection {Shown(c.Name, c.CollectionId)} is not a device collection. Nothing was created.";
+        return null;
+    }
+
+    internal const string StalePlanPrefix = "the plan is stale, refresh the plan: ";
+
+    private static string RevisionText(string revision) => revision.Length > 0 ? revision : "none";
+
+    /// <summary>A warning that cannot replace the outcome it describes, also when the log fails.</summary>
+    private void TryWarn(string message)
+    {
+        try
+        {
+            _log?.Warning(LogArea, message);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// The difference between the state Prepare read and the state now: another object ID or
+    /// revision, other content, or for Required more collection members. Fewer members only
+    /// narrow a deployment, and an Available deployment installs nothing by itself.
+    /// </summary>
+    private static string? StalePlan(DeployableObject obj, DeploymentOptions options, DeploymentPreparedState prepared, StateRead state)
+    {
+        var now = PreparedState(state)!;
+        if (!string.Equals(obj.Id.Trim(), prepared.ObjectId, StringComparison.OrdinalIgnoreCase) || !string.Equals(now.ObjectId, prepared.ObjectId, StringComparison.OrdinalIgnoreCase))
+            return StalePlanPrefix + $"{ObjectText(obj)} is now {Noun(obj.Type).ToLowerInvariant()} ID {now.ObjectId} (a new revision or another object). Nothing was created.";
+        if (!string.Equals(now.Revision, prepared.Revision, StringComparison.Ordinal))
+            return StalePlanPrefix + $"{ObjectText(obj)} changed since the plan was shown (revision {RevisionText(prepared.Revision)} is now {RevisionText(now.Revision)}). Nothing was created.";
+        if (!now.ContentIds.SequenceEqual(prepared.ContentIds, StringComparer.OrdinalIgnoreCase))
+            return StalePlanPrefix + $"the content that {ObjectText(obj)} references changed since the plan was shown ({string.Join(", ", prepared.ContentIds)} is now {string.Join(", ", now.ContentIds)}). Nothing was created.";
+        if (options.Purpose == DeploymentPurposes.Required && now.MemberCount > prepared.MemberCount)
+            return StalePlanPrefix + $"the collection has {Count(now.MemberCount, "member")} now and had {prepared.MemberCount.ToString(CultureInfo.InvariantCulture)} when the plan was shown. A Required deployment installs on every member. Nothing was created.";
         return null;
     }
 
@@ -147,12 +248,15 @@ public sealed partial class DeploymentService
             case "created-with-error" when stored is not null:
                 return Partial(change, $"ConfigMgr created the deployment of {target} (deployment ID {stored.DeploymentId}) and then reported an error. The stored values equal the plan. Undo removes it.", Undo(change, obj, stored), steps);
             case "stored-differs" when stored is not null:
-                return Partial(change, $"ConfigMgr created the deployment of {target} (deployment ID {stored.DeploymentId}) but stored other values than the plan: {string.Join(", ", (result.Differences ?? []).Select(SettingText))}. Check it in the console or remove it with Undo.", Undo(change, obj, stored), steps);
+                return Partial(change, $"ConfigMgr created the deployment of {target} (deployment ID {stored.DeploymentId}) but stored other values than the plan: {string.Join(", ", (result.Differences ?? []).Select(SettingText))}. Check it in the console or remove it with Undo.{OthersText(result, stored.DeploymentId)}", Undo(change, obj, stored), steps);
+            case "concurrent" when stored is not null:
+                return Partial(change, $"ConfigMgr created the deployment of {target} (deployment ID {stored.DeploymentId}). The stored values equal the plan.{OthersText(result, stored.DeploymentId)}", Undo(change, obj, stored), steps);
             case "readback-failed":
                 return Partial(change, $"ConfigMgr created the deployment of {target} (deployment ID {result.CreatedId}), but it could not be read back, so its stored values are not known. Undo removes it when it still holds the planned values.",
                     UndoFromPlan(change, obj, collectionId, options, result.CreatedId ?? ""), steps);
             case "create-unclear":
-                return Fail(change, $"The result of the create of {target} is not known: {((result.Ids ?? []).Length > 1 ? $"{(result.Ids ?? []).Length} new deployments appeared ({string.Join(", ", result.Ids!)})" : "the deployments could not be read after the create")}. Check the deployments in the console. Undo is not available because a deployment found now cannot be shown to come from this change.") with { Steps = steps };
+                var ids = result.Ids ?? [];
+                return Fail(change, $"The result of the create of {target} is not known: {(ids.Length > 1 ? $"{ids.Length} new deployments appeared ({string.Join(", ", ids)})" : ids.Length == 1 ? $"ConfigMgr reported an error, and new deployment {ids[0]} cannot be shown to be made by this account during this run" : "the deployments could not be read after the create")}. Check the deployments in the console. Undo is not available because a deployment found now cannot be shown to come from this change.") with { Steps = steps };
             case "create-failed":
                 return Fail(change, $"ConfigMgr did not create the deployment of {target}. The log has the details.") with { Steps = steps };
             case "duplicate":
@@ -180,26 +284,37 @@ public sealed partial class DeploymentService
         var target = $"{ObjectText(obj)} to collection {collectionId}";
         var unknown = $"The result of the create of {target} is not known: ConfigMgr reported an error during the create. Check the deployments in the console. Undo is not available because a deployment found now cannot be shown to come from this change.";
         IReadOnlyList<DeploymentRow> rows;
+        ProofRow? proof;
         try
         {
-            rows = Rows<DeploymentRow>(await ReadAsync(ObjectParameters("Deployments", obj), CancellationToken.None).ConfigureAwait(false), "Deployment");
+            var parameters = ObjectParameters("Deployments", obj);
+            parameters["CollectionId"] = collectionId;
+            rows = Rows<DeploymentRow>(await ReadAsync(parameters, CancellationToken.None).ConfigureAwait(false), "Deployment");
+            var before = (snapshot.Ids ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            rows = rows.Where(d => string.Equals(d.CollectionId, collectionId, StringComparison.OrdinalIgnoreCase) && !before.Contains(d.DeploymentId ?? "")
+                && (obj.Type != DeploymentObjectType.Package || string.Equals(d.Program, obj.Program, StringComparison.OrdinalIgnoreCase))).ToList();
+            if (rows.Count != 1 || !IsDeploymentId(obj.Type, rows[0].DeploymentId)) return Fail(change, unknown) with { Steps = steps };
+            var proofParameters = ObjectParameters("Proof", obj);
+            proofParameters["DeploymentId"] = rows[0].DeploymentId;
+            proofParameters["RunStart"] = TimeText(runStart);
+            proof = Rows<ProofRow>(await ReadAsync(proofParameters, CancellationToken.None).ConfigureAwait(false), "Proof").FirstOrDefault();
         }
         catch (DeploymentServiceException)
         {
             return Fail(change, unknown) with { Steps = steps };
         }
-        var before = (snapshot.Ids ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var candidates = rows.Where(d => string.Equals(d.CollectionId, collectionId, StringComparison.OrdinalIgnoreCase) && !before.Contains(d.DeploymentId ?? "")
-            && (obj.Type != DeploymentObjectType.Package || string.Equals(d.Program, obj.Program, StringComparison.OrdinalIgnoreCase))).ToList();
-        if (candidates.Count != 1) return Fail(change, unknown) with { Steps = steps };
-        var found = ToRecord(obj.Type, candidates[0]) with { ObjectName = obj.Name };
-        var recent = found.Created == DateTime.MinValue || found.Created >= runStart - ClockSkew;
-        if (StoredDifferences(obj.Type, candidates[0], options).Count > 0 || !recent) return Fail(change, unknown) with { Steps = steps };
+        var found = ToRecord(obj.Type, rows[0]) with { ObjectName = obj.Name };
+        if (StoredDifferences(obj.Type, rows[0], options).Count > 0 || proof is not { Owned: true } || !string.Equals(proof.DeploymentId, found.DeploymentId, StringComparison.OrdinalIgnoreCase))
+            return Fail(change, unknown) with { Steps = steps };
         _created[found.DeploymentId] = 0;
         var undo = new DeploymentChange(DeploymentChangeKind.RemoveDeployment, obj, change.Collection, null, [], false, false, false, found with { ObjectName = obj.Name },
             [], [$"Removes deployment {found.DeploymentId}, which the create made.", UndoNote], found.DeploymentId);
-        return Partial(change, $"ConfigMgr reported an error during the create of {target}, but deployment {found.DeploymentId} appeared with the planned purpose and times and was not there before the create. Check its other settings in the console. Undo removes it.", undo, steps);
+        return Partial(change, $"ConfigMgr reported an error during the create of {target}, but deployment {found.DeploymentId} appeared with the planned values, was not there before the create, and was made by this account during this run. Undo removes it.", undo, steps);
     }
+
+    private static string OthersText(ResultRow result, string? ours) =>
+        (result.Ids ?? []).Length == 0 ? ""
+            : $" A second deployment of the same object to this collection exists (made by someone else at the same time): {string.Join(", ", result.Ids!)}. The one made here is {ours}; Undo removes only that one.";
 
     /// <summary>The planned settings a stored deployment does not hold; the same rules as the read-back in the script.</summary>
     internal static List<string> StoredDifferences(DeploymentObjectType type, DeploymentRow r, DeploymentOptions o)
@@ -265,9 +380,12 @@ public sealed partial class DeploymentService
             [$"Removes deployment {deploymentId} of {ObjectText(obj)} from collection {collectionId}.", UndoNote], deploymentId);
     }
 
-    private static DeploymentRecord PlannedRecord(DeployableObject obj, string collectionId, DeploymentOptions options, string deploymentId) =>
-        new(deploymentId, obj.Type, obj.Id, obj.Name, collectionId, "", options.Purpose,
-            options.AvailableTime, options.Purpose == DeploymentPurposes.Required ? options.Deadline : null, DateTime.MinValue, "", options.UtcBasis, obj.Program ?? "");
+    private static DeploymentRecord PlannedRecord(DeployableObject obj, string collectionId, DeploymentOptions options, string deploymentId)
+    {
+        var planned = Seconds(options);
+        return new(deploymentId, obj.Type, obj.Id, obj.Name, collectionId, "", planned.Purpose, planned.AvailableTime, planned.Deadline, DateTime.MinValue, "", planned.UtcBasis,
+            obj.Type == DeploymentObjectType.Package ? obj.Program ?? "" : "", ModelId: obj.Type == DeploymentObjectType.Application ? obj.ModelId ?? "" : "");
+    }
 
     private static string StatusText(string? status) => status switch
     {
@@ -306,8 +424,9 @@ public sealed partial class DeploymentService
     private static DeploymentAuditRecord CreateRecord(DeploymentChange change, DeployableObject obj, string collectionId, DeploymentOptions options, DeploymentOutcome outcome)
     {
         var id = outcome.UndoChange?.CreatedId ?? "";
-        var assignment = outcome.UndoChange?.Existing?.AssignmentId;
-        return BaseRecord(obj, change.Collection, collectionId, options.Purpose, options.Deadline,
+        var stored = outcome.UndoChange?.Existing;
+        var assignment = stored?.AssignmentId;
+        return BaseRecord(obj, change.Collection, collectionId, stored?.Purpose is { Length: > 0 } purpose ? purpose : options.Purpose, stored is null ? options.Deadline : stored.Deadline,
             assignment is { Length: > 0 } ? assignment : id,
             outcome.Succeeded ? AuditResults.Success
             : id.Length > 0 ? AuditResults.Partial
@@ -315,9 +434,11 @@ public sealed partial class DeploymentService
             : AuditResults.Failed) with
         {
             Event = AuditEvents.Create,
-            AvailableDateTime = options.AvailableTime,
-            TimeBasedOn = options.UtcBasis ? "Utc" : "LocalTime",
+            AvailableDateTime = stored?.AvailableTime ?? options.AvailableTime,
+            TimeBasedOn = (stored?.UtcBasis ?? options.UtcBasis) ? "Utc" : "LocalTime",
             DeploymentUniqueID = id,
+            ProgramName = obj.Type == DeploymentObjectType.Package ? stored?.Program is { Length: > 0 } program ? program : obj.Program : "",
+            ModelId = obj.Type == DeploymentObjectType.Application ? stored?.ModelId is { Length: > 0 } model ? model : obj.ModelId ?? "" : "",
             Message = outcome.Message
         };
     }
@@ -422,7 +543,8 @@ public sealed partial class DeploymentService
             { "Operation", "Remove" }, { "Type", existing.Type.ToString() }, { "DeploymentId", existing.DeploymentId }, { "ObjectId", existing.ObjectId }, { "CollectionId", existing.CollectionId!.ToUpperInvariant() },
             { "Purpose", existing.Purpose }, { "Available", TimeText(existing.AvailableTime) }, { "Deadline", existing.Deadline is { } d ? TimeText(d) : "" }, { "Utc", existing.UtcBasis }
         };
-        if (existing.Type == DeploymentObjectType.Application && NumberRegex().IsMatch(obj.ModelId ?? "")) parameters["ModelId"] = obj.ModelId;
+        var modelId = existing.ModelId is { Length: > 0 } captured ? captured : obj.ModelId ?? "";
+        if (existing.Type == DeploymentObjectType.Application && NumberRegex().IsMatch(modelId)) parameters["ModelId"] = modelId;
         if (existing.Type == DeploymentObjectType.Package) parameters.AddSecret("Program", existing.Program ?? "");
         var run = await RunWriteAsync(change, parameters).ConfigureAwait(false);
         var what = $"deployment {existing.DeploymentId} of {Noun(existing.Type).ToLowerInvariant()} {Shown(existing.ObjectName, existing.ObjectId)} from collection {Shown(existing.CollectionName, existing.CollectionId)}";
@@ -515,6 +637,7 @@ public sealed partial class DeploymentService
     private static string StepLine(string step) => step switch
     {
         "created" => "Created the deployment.",
+        "relist-failed" => "The deployments of the object to the collection could not be read again after the create, so a deployment someone else made at the same time is not known.",
         "create-error" => "ConfigMgr reported an error during the create.",
         "removed" => "Removed the deployment.",
         "remove-error" => "ConfigMgr reported an error during the removal.",

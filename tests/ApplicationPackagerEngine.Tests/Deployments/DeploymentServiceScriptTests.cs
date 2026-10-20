@@ -383,7 +383,7 @@ public sealed class DeploymentServiceScriptTests
         var outcome = (await h.ApplyAsync(prepared)).Single();
 
         Assert.False(outcome.Succeeded);
-        Assert.Contains("appeared with the planned purpose and times", outcome.Message);
+        Assert.Contains("appeared with the planned values", outcome.Message);
         Assert.Equal((string)h.Stored("UgAssignments")["AssignmentUniqueID"]!, outcome.UndoChange!.CreatedId);
         Assert.Equal("Partial", h.Audit.Read(10).Single().Result);
     }

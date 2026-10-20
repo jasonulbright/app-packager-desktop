@@ -161,7 +161,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
                 stream.Flush(flushToDisk: true);
                 return new AuditWrite(true, "The audit record was written.");
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 _log?.Warning(LogArea, $"An audit record could not be written ({ex.GetType().Name}).");
                 return new AuditWrite(false, $"The audit record could not be written to {Path}. Check that the folder can be reached and has free space.");
@@ -201,7 +201,8 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             ["ProgramName"] = r.ProgramName,
             ["TimeBasedOn"] = r.TimeBasedOn,
             ["DistributionPointGroups"] = r.DistributionPointGroups,
-            ["Undoes"] = r.Undoes
+            ["Undoes"] = r.Undoes,
+            ["ModelId"] = string.IsNullOrEmpty(r.ModelId) ? null : r.ModelId
         };
         foreach (var (name, value) in r.Extra)
             if (!o.ContainsKey(name)) o[name] = value;
@@ -212,7 +213,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
     {
         "Timestamp", "User", "DeploymentType", "ApplicationName", "ApplicationVersion", "CollectionName", "CollectionID", "MemberCount", "DeployPurpose",
         "DeployAction", "DeadlineDateTime", "DeploymentID", "Result", "Event", "ObjectId", "AvailableDateTime", "Message", "Source", "DeploymentUniqueID",
-        "ProgramName", "TimeBasedOn", "DistributionPointGroups", "Undoes"
+        "ProgramName", "TimeBasedOn", "DistributionPointGroups", "Undoes", "ModelId"
     };
 
     /// <summary>A line read into a record; null when the line is not a JSON object.</summary>
@@ -236,6 +237,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             TimeBasedOn = S("TimeBasedOn"),
             DistributionPointGroups = S("DistributionPointGroups"),
             Undoes = S("Undoes"),
+            ModelId = S("ModelId"),
             Extra = o.Where(p => !Named.Contains(p.Key)).Select(p => new KeyValuePair<string, string>(p.Key, p.Value is null ? "" : NodeText(p.Value))).ToList()
         };
     }

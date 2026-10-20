@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Objects', 'Programs', 'DpGroups', 'Deployments', 'State', 'Deployment', 'Create', 'Distribute', 'Remove')][string]$Operation,
+    [ValidateSet('Objects', 'Programs', 'DpGroups', 'Deployments', 'State', 'Deployment', 'Proof', 'Create', 'Distribute', 'Remove')][string]$Operation,
     [ValidateSet('', 'Application', 'Package', 'TaskSequence', 'SoftwareUpdateGroup')][string]$Type = '',
     [ValidatePattern('^([0-9]{1,10}|[A-Za-z0-9]{8})?$')][string]$ObjectId = '',
     [ValidatePattern('^[0-9]{0,10}$')][string]$ModelId = '',
@@ -26,6 +26,7 @@ param(
     [ValidateSet('', 'Clients', 'ClientsMediaAndPxe', 'MediaAndPxe', 'MediaAndPxeHidden')][string]$Availability = '',
     [bool]$RequireContent = $true,
     [string[]]$GroupIds = @(),
+    [ValidatePattern('^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})?$')][string]$RunStart = '',
     [ValidateRange(1, 5000)][int]$MaxRows = 1000
 )
 
@@ -72,6 +73,13 @@ function Get-UtcText {
     return [datetime]::SpecifyKind($Value, [System.DateTimeKind]::Local).ToUniversalTime().ToString($TimeFormat + 'Z', $Invariant)
 }
 
+# The Time of SMS_StatusMessage comes back as the UTC wall-clock value without an offset.
+function Get-UtcTextOfUtc {
+    param([object]$Value)
+    if ($Value -isnot [datetime]) { return '' }
+    return $Value.ToString($TimeFormat + 'Z', $Invariant)
+}
+
 function Test-Bit {
     param([object]$Value, [long]$Mask)
     if ($null -eq $Value) { return $false }
@@ -103,28 +111,31 @@ function Get-ObjectRow {
                 $model = [string](Get-Prop $byCi 'ModelID')
             }
             if ($model -notmatch '^[0-9]{1,10}$') { return $null }
-            $a = Invoke-Query ('SELECT CI_ID, ModelID, ModelName, LocalizedDisplayName, SoftwareVersion, IsExpired FROM SMS_Application WHERE ModelID = ' + $model + ' AND IsLatest = 1') | Select-Object -First 1
+            $a = Invoke-Query ('SELECT CI_ID, ModelID, ModelName, LocalizedDisplayName, SoftwareVersion, IsExpired, CIVersion FROM SMS_Application WHERE ModelID = ' + $model + ' AND IsLatest = 1') | Select-Object -First 1
             if ($null -eq $a) { return $null }
             return [pscustomobject]@{ Kind = 'Object'; Id = [string]$a.CI_ID; Name = [string](Get-Prop $a 'LocalizedDisplayName'); Version = [string](Get-Prop $a 'SoftwareVersion')
-                ModelId = [string](Get-Prop $a 'ModelID'); ModelName = [string](Get-Prop $a 'ModelName'); UpdateCount = 0; Program = ''; Retired = [bool](Get-Prop $a 'IsExpired') }
+                ModelId = [string](Get-Prop $a 'ModelID'); ModelName = [string](Get-Prop $a 'ModelName'); UpdateCount = 0; Program = ''; Retired = [bool](Get-Prop $a 'IsExpired')
+                Revision = ([string]$a.CI_ID + '.' + [string](Get-Prop $a 'CIVersion')) }
         }
         'Package' {
-            $p = Invoke-Query ("SELECT PackageID, Name, Version FROM SMS_Package WHERE PackageID = '{0}'" -f $ObjectId) | Select-Object -First 1
+            $p = Invoke-Query ("SELECT PackageID, Name, Version, SourceVersion FROM SMS_Package WHERE PackageID = '{0}'" -f $ObjectId) | Select-Object -First 1
             if ($null -eq $p) { return $null }
             $programs = @(Invoke-Query ("SELECT PackageID, ProgramName FROM SMS_Program WHERE PackageID = '{0}'" -f $ObjectId) | Where-Object { [string](Get-Prop $_ 'ProgramName') -eq $Program })
             return [pscustomobject]@{ Kind = 'Object'; Id = [string]$p.PackageID; Name = [string](Get-Prop $p 'Name'); Version = [string](Get-Prop $p 'Version')
-                ModelId = ''; ModelName = ''; UpdateCount = 0; Program = $(if ($programs.Count -gt 0) { [string](Get-Prop $programs[0] 'ProgramName') } else { '' }); Retired = $false }
+                ModelId = ''; ModelName = ''; UpdateCount = 0; Program = $(if ($programs.Count -gt 0) { [string](Get-Prop $programs[0] 'ProgramName') } else { '' }); Retired = $false
+                Revision = [string](Get-Prop $p 'SourceVersion') }
         }
         'TaskSequence' {
-            $t = Invoke-Query ("SELECT PackageID, Name, Description FROM SMS_TaskSequencePackage WHERE PackageID = '{0}'" -f $ObjectId) | Select-Object -First 1
+            $t = Invoke-Query ("SELECT PackageID, Name, Description, SourceVersion FROM SMS_TaskSequencePackage WHERE PackageID = '{0}'" -f $ObjectId) | Select-Object -First 1
             if ($null -eq $t) { return $null }
-            return [pscustomobject]@{ Kind = 'Object'; Id = [string]$t.PackageID; Name = [string](Get-Prop $t 'Name'); Version = ''; ModelId = ''; ModelName = ''; UpdateCount = 0; Program = ''; Retired = $false }
+            return [pscustomobject]@{ Kind = 'Object'; Id = [string]$t.PackageID; Name = [string](Get-Prop $t 'Name'); Version = ''; ModelId = ''; ModelName = ''; UpdateCount = 0; Program = ''; Retired = $false
+                Revision = [string](Get-Prop $t 'SourceVersion') }
         }
         'SoftwareUpdateGroup' {
-            $g = Invoke-Query ('SELECT CI_ID, LocalizedDisplayName, NumberOfUpdates FROM SMS_AuthorizationList WHERE CI_ID = ' + $ObjectId) | Select-Object -First 1
+            $g = Invoke-Query ('SELECT CI_ID, LocalizedDisplayName, NumberOfUpdates, CIVersion FROM SMS_AuthorizationList WHERE CI_ID = ' + $ObjectId) | Select-Object -First 1
             if ($null -eq $g) { return $null }
             return [pscustomobject]@{ Kind = 'Object'; Id = [string]$g.CI_ID; Name = [string](Get-Prop $g 'LocalizedDisplayName'); Version = ''; ModelId = ''; ModelName = ''
-                UpdateCount = [int](Get-Prop $g 'NumberOfUpdates'); Program = ''; Retired = $false }
+                UpdateCount = [int](Get-Prop $g 'NumberOfUpdates'); Program = ''; Retired = $false; Revision = [string](Get-Prop $g 'CIVersion') }
         }
     }
     return $null
@@ -308,6 +319,52 @@ function Get-DuplicateKeys {
     @($Raw | Where-Object { $Type -ne 'Package' -or [string](Get-Prop $_ 'ProgramName') -eq [string]$Object.Program } | ForEach-Object { Get-DeploymentKey $_ })
 }
 
+# ---- Ownership proof -------------------------------------------------------------------------
+
+# When and by whom a deployment was made. An assignment carries CreationTime and LastModifiedBy.
+# SMS_Advertisement carries neither, so the audit status message 30006 the provider raises for a
+# new advertisement stands in (attribute 401 AdvertisementID, 403 the account). The status system
+# can insert that message many seconds after the create returns, so it is read up to
+# $StatusMessageReads times, 2 s apart; a missing message leaves the creation time empty, which
+# proves nothing.
+$StatusMessageReads = 15
+function Get-CreationProof {
+    param([string]$Id, [object]$Raw)
+    $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $proof = [pscustomobject]@{ Kind = 'Proof'; DeploymentId = $Id; Created = ''; CreatedBy = ''; Account = $account; Owned = $false }
+    if ($Type -in 'Application', 'SoftwareUpdateGroup') {
+        $proof.Created = Get-UtcText (Get-Prop $Raw 'CreationTime')
+        $proof.CreatedBy = [string](Get-Prop $Raw 'LastModifiedBy')
+    } elseif ($Id -match '^[A-Za-z0-9]{8}$') {
+        for ($attempt = 0; $attempt -lt $StatusMessageReads -and -not $proof.Created; $attempt++) {
+            if ($attempt -gt 0) { Start-Sleep -Seconds 2 }
+            foreach ($a in @(Invoke-Query ("SELECT RecordID, AttributeTime FROM SMS_StatMsgAttributes WHERE AttributeID = 401 AND AttributeValue = '{0}'" -f $Id.ToUpperInvariant()))) {
+                $record = [string](Get-Prop $a 'RecordID')
+                if ($record -notmatch '^[0-9]{1,20}$') { continue }
+                $message = Invoke-Query ("SELECT RecordID, MessageID, Time FROM SMS_StatusMessage WHERE RecordID = {0} AND MessageID = 30006" -f $record) | Select-Object -First 1
+                if ($null -eq $message) { continue }
+                $by = Invoke-Query ("SELECT RecordID, AttributeValue FROM SMS_StatMsgAttributes WHERE RecordID = {0} AND AttributeID = 403" -f $record) | Select-Object -First 1
+                $proof.Created = Get-UtcTextOfUtc (Get-Prop $message 'Time')
+                $proof.CreatedBy = [string](Get-Prop $by 'AttributeValue')
+                break
+            }
+        }
+    }
+    $proof.Owned = Test-Owned $proof
+    return $proof
+}
+
+# A deployment is this run's when it was made by the account of this session no earlier than two
+# minutes before the run started (clock skew between this computer and the site server).
+function Test-Owned {
+    param([object]$Proof)
+    if (-not $RunStart -or -not $Proof.Created -or -not $Proof.CreatedBy -or $Proof.CreatedBy -ne $Proof.Account) { return $false }
+    $start = [datetime]::ParseExact($RunStart, $TimeFormat, $Invariant)
+    # Parsed without the Z: ParseExact reads a Z as UTC and converts the value to local time.
+    $created = [datetime]::ParseExact($Proof.Created.TrimEnd('Z'), $TimeFormat, $Invariant)
+    return $created -ge $start.AddMinutes(-2)
+}
+
 # ---- Compare ---------------------------------------------------------------------------------
 
 # The settings ConfigMgr stores that differ from the requested ones. The cmdlets ignore the
@@ -474,14 +531,26 @@ function Invoke-Create {
     $madeKeys = @($made | ForEach-Object { Get-DeploymentKey $_ })
     if ($made.Count -gt 1) { Write-Result 'create-unclear' $thrown '' @() $madeKeys; return }
     $stored = Get-RawDeploymentById $madeKeys[0]
+    # After an error the one new deployment can be another session's; only a proven creation
+    # time and account make it this run's.
+    if ($thrown) {
+        if ($null -eq $stored) { Write-Result 'create-unclear' $thrown '' @() $madeKeys; return }
+        $proof = Get-CreationProof $madeKeys[0] $stored
+        $proof
+        if (-not $proof.Owned) { Write-Result 'create-unclear' $thrown '' @() $madeKeys; return }
+    }
     if ($null -eq $stored) { Write-Result 'readback-failed' $thrown $madeKeys[0]; return }
     $names = @{ ([string]$collection.CollectionId) = [string]$collection.Name }
     $row = ConvertTo-DeploymentRow $stored $names
     $row.ObjectName = [string]$object.Name
     $row
     $differences = @(Compare-Stored $row $object)
-    $status = if ($differences.Count -gt 0) { 'stored-differs' } elseif ($thrown) { 'created-with-error' } else { 'ok' }
-    Write-Result $status $thrown $madeKeys[0] $differences
+    # ConfigMgr allows a second package, task sequence or update group deployment to one
+    # collection; one made by someone else after the check above is reported, not removed.
+    $others = @()
+    try { $others = @(Get-DuplicateKeys $object @(Get-RawDeployments $object $collection.CollectionId) | Where-Object { $_ -ne $madeKeys[0] }) } catch { $steps.Add('relist-failed') }
+    $status = if ($differences.Count -gt 0) { 'stored-differs' } elseif ($others.Count -gt 0) { 'concurrent' } elseif ($thrown) { 'created-with-error' } else { 'ok' }
+    Write-Result $status $thrown $madeKeys[0] $differences $others
 }
 
 # ---- Distribute ------------------------------------------------------------------------------
@@ -564,25 +633,33 @@ function Invoke-Remove {
 
 # ---- Reads -----------------------------------------------------------------------------------
 
+# At most MaxRows rows, and a Truncated row with the total when ConfigMgr holds more.
+function Write-Limited {
+    param([object[]]$Rows)
+    $Rows | Select-Object -First $MaxRows
+    if ($Rows.Count -gt $MaxRows) { [pscustomobject]@{ Kind = 'Truncated'; Shown = $MaxRows; Total = $Rows.Count } }
+}
+
 function Get-Objects {
-    switch ($Type) {
+    $rows = switch ($Type) {
         'Application' {
             Invoke-Query 'SELECT CI_ID, ModelID, LocalizedDisplayName, SoftwareVersion, IsExpired FROM SMS_Application WHERE IsLatest = 1' | Where-Object { -not [bool](Get-Prop $_ 'IsExpired') } |
-                Select-Object -First $MaxRows | ForEach-Object { [pscustomobject]@{ Kind = 'Object'; Id = [string]$_.CI_ID; Name = [string](Get-Prop $_ 'LocalizedDisplayName'); Version = [string](Get-Prop $_ 'SoftwareVersion'); ModelId = [string](Get-Prop $_ 'ModelID'); UpdateCount = 0 } }
+                ForEach-Object { [pscustomobject]@{ Kind = 'Object'; Id = [string]$_.CI_ID; Name = [string](Get-Prop $_ 'LocalizedDisplayName'); Version = [string](Get-Prop $_ 'SoftwareVersion'); ModelId = [string](Get-Prop $_ 'ModelID'); UpdateCount = 0 } }
         }
         'Package' {
-            Invoke-Query 'SELECT PackageID, Name, Version FROM SMS_Package WHERE PackageType = 0' | Select-Object -First $MaxRows |
+            Invoke-Query 'SELECT PackageID, Name, Version FROM SMS_Package WHERE PackageType = 0' |
                 ForEach-Object { [pscustomobject]@{ Kind = 'Object'; Id = [string]$_.PackageID; Name = [string](Get-Prop $_ 'Name'); Version = [string](Get-Prop $_ 'Version'); ModelId = ''; UpdateCount = 0 } }
         }
         'TaskSequence' {
-            Invoke-Query 'SELECT PackageID, Name FROM SMS_TaskSequencePackage' | Select-Object -First $MaxRows |
+            Invoke-Query 'SELECT PackageID, Name FROM SMS_TaskSequencePackage' |
                 ForEach-Object { [pscustomobject]@{ Kind = 'Object'; Id = [string]$_.PackageID; Name = [string](Get-Prop $_ 'Name'); Version = ''; ModelId = ''; UpdateCount = 0 } }
         }
         'SoftwareUpdateGroup' {
-            Invoke-Query 'SELECT CI_ID, LocalizedDisplayName, NumberOfUpdates FROM SMS_AuthorizationList' | Select-Object -First $MaxRows |
+            Invoke-Query 'SELECT CI_ID, LocalizedDisplayName, NumberOfUpdates FROM SMS_AuthorizationList' |
                 ForEach-Object { [pscustomobject]@{ Kind = 'Object'; Id = [string]$_.CI_ID; Name = [string](Get-Prop $_ 'LocalizedDisplayName'); Version = ''; ModelId = ''; UpdateCount = [int](Get-Prop $_ 'NumberOfUpdates') } }
         }
     }
+    Write-Limited @($rows | Where-Object { $null -ne $_ })
 }
 
 function Get-DpGroups {
@@ -625,6 +702,14 @@ function Get-State {
     $object = Get-ObjectRow
     if ($null -ne $object) {
         $object
+        # The signing rule of a Required application deployment matches the application by name,
+        # so the number of latest applications with that name is part of the state.
+        if ($Type -eq 'Application' -and $Purpose -eq 'Required') {
+            try {
+                $same = @(Invoke-Query 'SELECT CI_ID, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1' | Where-Object { [string](Get-Prop $_ 'LocalizedDisplayName') -eq [string]$object.Name })
+                [pscustomobject]@{ Kind = 'NameCount'; Count = $same.Count }
+            } catch { }
+        }
         if ($Type -ne 'SoftwareUpdateGroup') {
             try { Get-ContentRows $object; [pscustomobject]@{ Kind = 'ContentRead'; Read = $true } } catch { [pscustomobject]@{ Kind = 'ContentRead'; Read = $false; Detail = $_.Exception.Message } }
         }
@@ -655,9 +740,20 @@ switch ($Operation) {
         if (-not (Test-ObjectIdForm)) { return }
         $object = Get-ObjectRow
         if ($null -eq $object) { Write-Result 'object-missing'; return }
-        $raw = @(Get-RawDeployments $object | Select-Object -First $MaxRows)
+        # The deployments of one collection, which the reconcile after a failed create reads, are
+        # never cut; the list of all deployments of the object is cut at MaxRows and says so.
+        $all = @(Get-RawDeployments $object $CollectionId)
+        $raw = @(if ($CollectionId) { $all } else { $all | Select-Object -First $MaxRows })
         $names = Get-CollectionNames @($raw | ForEach-Object { [string](Get-Prop $_ 'TargetCollectionID'); [string](Get-Prop $_ 'CollectionID') })
         foreach ($d in $raw) { $row = ConvertTo-DeploymentRow $d $names; $row.ObjectName = [string]$object.Name; $row }
+        if ($all.Count -gt $raw.Count) { [pscustomobject]@{ Kind = 'Truncated'; Shown = $raw.Count; Total = $all.Count } }
+        Write-Result 'done'
+    }
+    'Proof' {
+        if (-not (Test-ObjectIdForm)) { Write-Result 'invalid'; return }
+        $raw = Get-RawDeploymentById $DeploymentId
+        if ($null -eq $raw) { Write-Result 'missing'; return }
+        Get-CreationProof $DeploymentId $raw
         Write-Result 'done'
     }
     'State' { Get-State }

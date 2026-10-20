@@ -18,7 +18,11 @@ namespace ApplicationPackagerEngine.Tests.Deployments;
 /// A query the stub does not know throws, as an unknown WQL class would. Each listed failure
 /// ("create:Type", "after-create:Type", "remove:Id", "after-remove:Id", "distribute:GroupName",
 /// "query:Class") happens once, also across runs. Option "CreateTwice:Type" makes a create store
-/// two deployments; option "HideNew" hides new deployments from queries.
+/// two deployments; option "HideNew" hides new deployments from queries. A new advertisement
+/// raises status message 30006 with its ID and account unless option "NoStatus" is set; option
+/// "CreatedBy" sets the account a create records (default: the account running the tests);
+/// option "ForeignOnReadBack:Type" adds a deployment of another admin to the same object and
+/// collection when the create reads its new deployment back.
 /// </summary>
 internal sealed class StubDeploymentSite : IConfigMgrSession
 {
@@ -35,17 +39,33 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
         function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove($Key)) { throw "The SMS Provider reported an error: SECRET-DETAIL-1234 ($Key)." } }
         $global:S = @{}
-        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments') { $global:S[$k] = L (V $state $k @()) }
+        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments','StatusMessages') { $global:S[$k] = L (V $state $k @()) }
         $global:NextAssignment = [long](V $state 'NextAssignment' 16777400)
         $global:NextAdvert = [int](V $state 'NextAdvert' 32)
         $global:NewKeys = [System.Collections.Generic.List[string]]::new()
+        $global:NextRecord = [long](V $state 'NextRecord' 72057594038098400)
+        $global:CreatedBy = [string](V $state.Options 'CreatedBy' ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name))
+        function global:Start-Sleep { param([int]$Seconds) $global:Log.Add('Sleep') }
+        function global:Add-Foreign([string]$List, [string]$Key, [object]$Row) {
+            $f = $Row.PSObject.Copy()
+            $f.$Key = if ($Key -eq 'AdvertisementID') { 'MCM2' + ('{0:X4}' -f $global:NextAdvert) } else { '{' + [guid]::NewGuid().ToString().ToUpperInvariant() + '}' }
+            if ($Key -eq 'AdvertisementID') { $global:NextAdvert++ }
+            if ($null -ne $f.PSObject.Properties['LastModifiedBy']) { $f.LastModifiedBy = 'CONTOSO\OtherAdmin' }
+            $global:S[$List].Add($f)
+        }
+        function global:Foreign-OnReadBack([string]$List, [string]$Key, [string]$Id, [string]$Type) {
+            if (-not $global:Opt.ContainsKey('ForeignOnReadBack:' + $Type) -or -not $global:NewKeys.Contains($Id)) { return }
+            $global:Opt.Remove('ForeignOnReadBack:' + $Type)
+            $row = $global:S[$List] | Where-Object { $_.$Key -eq $Id } | Select-Object -First 1
+            if ($null -ne $row) { Add-Foreign $List $Key $row }
+        }
         $global:Fmt = 'yyyy-MM-ddTHH:mm:ss'
         $global:Created = [datetime]::SpecifyKind([datetime]::Parse([string](V $state.Options 'CreatedUtc' '2026-10-20T12:00:30'), [Globalization.CultureInfo]::InvariantCulture), 'Utc').ToLocalTime()
         function global:Dt([string]$Text) { if (-not $Text) { return $null }; [datetime]::ParseExact($Text, $global:Fmt, [Globalization.CultureInfo]::InvariantCulture) }
         function global:Tx([object]$Value) { if ($Value -isnot [datetime]) { return '' }; $Value.ToString($global:Fmt, [Globalization.CultureInfo]::InvariantCulture) }
         function global:Copy-Row([object]$O) {
             $c = $O.PSObject.Copy()
-            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
+            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime','Time') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
             if ($null -ne $c.PSObject.Properties['AssignedSchedule']) { $c.AssignedSchedule = @(@($c.AssignedSchedule) | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ StartTime = (Dt ([string]$_.StartTime)); IsGMT = [bool]$_.IsGMT } }) }
             return $c
         }
@@ -72,11 +92,14 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                 "SELECT CollectionID, Name, CollectionType, MemberCount FROM SMS_Collection WHERE CollectionID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Collections | Where-Object { $_.CollectionID -eq $id } | ForEach-Object { Copy-Row $_ }) }
                 'SELECT CollectionID, Name FROM SMS_Collection WHERE (.+)$' { $ids = Ids $Matches[1] 'CollectionID'; return @($global:S.Collections | Where-Object { $ids -contains $_.CollectionID } | ForEach-Object { Copy-Row $_ }) }
                 "FROM SMS_ApplicationAssignment WHERE AppModelID = (\d+)( AND TargetCollectionID = '(\w+)')?$" { $m = $Matches[1]; $c = $Matches[3]; return @($global:S.AppAssignments | Where-Object { [string]$_.AppModelID -eq $m -and (-not $c -or $_.TargetCollectionID -eq $c) -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
-                "FROM SMS_ApplicationAssignment WHERE AssignmentUniqueID = '([^']+)'$" { $id = $Matches[1]; return @($global:S.AppAssignments | Where-Object { $_.AssignmentUniqueID -eq $id -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_ApplicationAssignment WHERE AssignmentUniqueID = '([^']+)'$" { $id = $Matches[1]; Foreign-OnReadBack 'AppAssignments' 'AssignmentUniqueID' $id 'Application'; return @($global:S.AppAssignments | Where-Object { $_.AssignmentUniqueID -eq $id -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
                 "FROM SMS_UpdateGroupAssignment WHERE AssignedUpdateGroup = (\d+)( AND TargetCollectionID = '(\w+)')?$" { $m = $Matches[1]; $c = $Matches[3]; return @($global:S.UgAssignments | Where-Object { [string]$_.AssignedUpdateGroup -eq $m -and (-not $c -or $_.TargetCollectionID -eq $c) -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
-                "FROM SMS_UpdateGroupAssignment WHERE AssignmentUniqueID = '([^']+)'$" { $id = $Matches[1]; return @($global:S.UgAssignments | Where-Object { $_.AssignmentUniqueID -eq $id -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_UpdateGroupAssignment WHERE AssignmentUniqueID = '([^']+)'$" { $id = $Matches[1]; Foreign-OnReadBack 'UgAssignments' 'AssignmentUniqueID' $id 'SoftwareUpdateGroup'; return @($global:S.UgAssignments | Where-Object { $_.AssignmentUniqueID -eq $id -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
                 "FROM SMS_Advertisement WHERE PackageID = '(\w+)'( AND CollectionID = '(\w+)')?$" { $p = $Matches[1]; $c = $Matches[3]; return @($global:S.Adverts | Where-Object { $_.PackageID -eq $p -and (-not $c -or $_.CollectionID -eq $c) -and -not (Hidden $_ 'AdvertisementID') } | ForEach-Object { Copy-Row $_ }) }
-                "FROM SMS_Advertisement WHERE AdvertisementID = '(\w+)'$" { $id = $Matches[1]; return @($global:S.Adverts | Where-Object { $_.AdvertisementID -eq $id -and -not (Hidden $_ 'AdvertisementID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_Advertisement WHERE AdvertisementID = '(\w+)'$" { $id = $Matches[1]; $a = $global:S.Adverts | Where-Object { $_.AdvertisementID -eq $id } | Select-Object -First 1; if ($null -ne $a) { Foreign-OnReadBack 'Adverts' 'AdvertisementID' $id $(if ($a.ProgramName -eq '*') { 'TaskSequence' } else { 'Package' }) }; return @($global:S.Adverts | Where-Object { $_.AdvertisementID -eq $id -and -not (Hidden $_ 'AdvertisementID') } | ForEach-Object { Copy-Row $_ }) }
+                "SELECT RecordID, AttributeTime FROM SMS_StatMsgAttributes WHERE AttributeID = 401 AND AttributeValue = '(\w+)'$" { $id = $Matches[1]; return @($global:S.StatusMessages | Where-Object { $_.AdvertisementID -eq $id } | ForEach-Object { [pscustomobject]@{ RecordID = $_.RecordID; AttributeTime = (Dt $_.Time) } }) }
+                'FROM SMS_StatusMessage WHERE RecordID = (\d+) AND MessageID = 30006$' { $id = $Matches[1]; return @($global:S.StatusMessages | Where-Object { [string]$_.RecordID -eq $id -and [int]$_.MessageID -eq 30006 } | ForEach-Object { Copy-Row $_ }) }
+                'SELECT RecordID, AttributeValue FROM SMS_StatMsgAttributes WHERE RecordID = (\d+) AND AttributeID = 403$' { $id = $Matches[1]; return @($global:S.StatusMessages | Where-Object { [string]$_.RecordID -eq $id } | ForEach-Object { [pscustomobject]@{ RecordID = $_.RecordID; AttributeValue = $_.User } }) }
                 'FROM SMS_DistributionPointGroup$' { return @($global:S.DpGroups | ForEach-Object { Copy-Row $_ }) }
                 "FROM SMS_DPGroupContentInfo WHERE GroupID = '([^']+)' AND \((.+)\)$" { $g = $Matches[1]; $ids = Ids $Matches[2] 'PackageID'; return @($global:S.DpGroupContent | Where-Object { $_.GroupID -eq $g -and $ids -contains $_.PackageID } | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_DPGroupContentInfo WHERE (.+)$' { $ids = Ids $Matches[1] 'PackageID'; return @($global:S.DpGroupContent | Where-Object { $ids -contains $_.PackageID } | ForEach-Object { Copy-Row $_ }) }
@@ -105,7 +128,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                 $global:S.AppAssignments.Add([pscustomobject]@{ AssignmentID = $global:NextAssignment; AssignmentUniqueID = $uid; AssignedCIs = @([long]$app.CI_ID); AppModelID = [long]$app.ModelID; ApplicationName = $app.LocalizedDisplayName
                     TargetCollectionID = $CollectionId; OfferTypeID = $(if ($required) { 0 } else { 2 }); StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { $deadline } else { $null }); UseGMTTimes = ($TimeBaseOn -eq 'Utc')
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $OverrideServiceWindow); RebootOutsideOfServiceWindows = ($required -and $RebootOutsideServiceWindow)
-                    DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx $global:Created); LastModifiedBy = 'CONTOSO\Admin' })
+                    DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx $global:Created); LastModifiedBy = $global:CreatedBy })
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
             Test-Fail 'after-create:Application'
@@ -115,6 +138,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
             $global:S.Adverts.Add([pscustomobject]@{ AdvertisementID = $id; PackageID = $PackageId; ProgramName = $ProgramName; CollectionID = $CollectionId; OfferType = $(if ($Required) { 0 } else { 2 })
                 PresentTime = (Tx $Available); PresentTimeIsGMT = $UtcAvailable; ExpirationTimeEnabled = $UtcExpire; AssignedScheduleEnabled = $Required; AssignedSchedule = @($(if ($Required) { $Schedule } else { @() }))
                 AdvertFlags = $Advert; RemoteClientFlags = $Remote })
+            if (-not $global:Opt.ContainsKey('NoStatus')) { $global:S.StatusMessages.Add([pscustomobject]@{ RecordID = $global:NextRecord; MessageID = 30006; Time = (Tx $global:Created.ToUniversalTime()); AdvertisementID = $id; User = $global:CreatedBy }); $global:NextRecord++ }
             $global:NewKeys.Add($id)
         }
         function global:Rerun-Bit([string]$Rerun, [bool]$Required) { if (-not $Required) { return 0x800 }; switch ($Rerun) { 'NeverRerunDeployedProgram' { 0x1000 } 'RerunIfFailedPreviousAttempt' { 0x2000 } 'RerunIfSucceededOnPreviousAttempt' { 0x4000 } default { 0x800 } } }
@@ -155,7 +179,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                     StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { Tx ([datetime]$DeadlineDateTime) } else { $null }); UseGMTTimes = ($TimeBasedOn -eq 'Utc')
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $SoftwareInstallation); RebootOutsideOfServiceWindows = ($required -and $AllowRestart)
                     SuppressReboot = $(if ($required) { $(if ($RestartServer) { 2 } else { 0 }) -bor $(if ($RestartWorkstation) { 1 } else { 0 }) } else { 0 }); RequirePostRebootFullScan = $RequirePostRebootFullScan
-                    DPLocality = $locality; CreationTime = (Tx $global:Created); LastModifiedBy = 'CONTOSO\Admin' })
+                    DPLocality = $locality; CreationTime = (Tx $global:Created); LastModifiedBy = $global:CreatedBy })
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
             Test-Fail 'after-create:SoftwareUpdateGroup'
@@ -195,7 +219,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         try { $out = @(& $block @parameters 3>$null) } catch { $thrown = [string]$_.Exception.Message }
         Set-StrictMode -Off
         $state.Options | Add-Member -NotePropertyName Fail -NotePropertyValue @($global:FailLeft) -Force
-        $next = [pscustomobject]@{ Options = $state.Options; NextAssignment = $global:NextAssignment; NextAdvert = $global:NextAdvert }
+        $next = [pscustomobject]@{ Options = $state.Options; NextAssignment = $global:NextAssignment; NextAdvert = $global:NextAdvert; NextRecord = $global:NextRecord }
         foreach ($k in $global:S.Keys) { $next | Add-Member -NotePropertyName $k -NotePropertyValue @($global:S[$k]) }
         $document = [pscustomobject]@{ Output = $out; Thrown = $thrown; Log = @($global:Log); State = $next }
         [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding $false))

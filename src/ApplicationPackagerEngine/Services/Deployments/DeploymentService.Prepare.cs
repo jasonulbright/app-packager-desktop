@@ -35,8 +35,7 @@ public sealed partial class DeploymentService
     {
         var obj = request.Object ?? throw new DeploymentServiceException("Select the object to deploy.");
         var collection = request.Collection ?? throw new DeploymentServiceException("Select the device collection.");
-        var options = request.Options ?? throw new DeploymentServiceException("Enter the deployment settings.");
-        if (options.Purpose != DeploymentPurposes.Required) options = options with { Deadline = null };
+        var options = Seconds(request.Options ?? throw new DeploymentServiceException("Enter the deployment settings."));
         var collectionId = (collection.CollectionId ?? "").Trim().ToUpperInvariant();
         var checks = new List<PreflightCheck>();
 
@@ -45,7 +44,7 @@ public sealed partial class DeploymentService
         try
         {
             if (!IsObjectId(obj.Type, obj.Id)) throw new DeploymentServiceException($"The ID of the {Noun(obj.Type).ToLowerInvariant()} is not valid.");
-            state = await ReadStateAsync(obj, PackageIdRegex().IsMatch(collectionId) ? collectionId : "", ct).ConfigureAwait(false);
+            state = await ReadStateAsync(obj, PackageIdRegex().IsMatch(collectionId) ? collectionId : "", options.Purpose, ct).ConfigureAwait(false);
         }
         catch (DeploymentServiceException ex)
         {
@@ -72,7 +71,7 @@ public sealed partial class DeploymentService
 
         var probe = _audit.Probe();
         checks.Add(Check(DeploymentCheckNames.AuditLog, probe.Writable ? DeploymentCheckResults.Pass : DeploymentCheckResults.Fail, probe.Message));
-        var (signingCheck, packaged) = SigningCheck(current, options);
+        var (signingCheck, packaged) = SigningCheck(current, options, state?.NameCount);
         checks.Add(signingCheck);
         current = current with { PackagedByProduct = packaged ?? current.PackagedByProduct };
 
@@ -85,9 +84,22 @@ public sealed partial class DeploymentService
             DpGroups = request.DpGroups ?? [],
             Checks = checks,
             Impact = CreateImpact(request, current, refreshed, options, state),
-            NeedsBackdatedAcknowledgement = verdict.Backdated
+            NeedsBackdatedAcknowledgement = verdict.Backdated,
+            Prepared = PreparedState(state)
         };
     }
+
+    /// <summary>
+    /// The options with the times cut to whole seconds and no deadline for Available: ConfigMgr
+    /// stores seconds, so a finer planned time would never equal the stored one.
+    /// </summary>
+    internal static DeploymentOptions Seconds(DeploymentOptions options) => options with
+    {
+        AvailableTime = Second(options.AvailableTime),
+        Deadline = options.Purpose == DeploymentPurposes.Required && options.Deadline is { } d ? Second(d) : null
+    };
+
+    private static DateTime Second(DateTime value) => new(value.Ticks - value.Ticks % TimeSpan.TicksPerSecond, value.Kind);
 
     private static PreflightCheck TargetCheck(DeployableObject obj, StateRead? state, string? readProblem)
     {
@@ -160,7 +172,7 @@ public sealed partial class DeploymentService
             : Check(name, DeploymentCheckResults.Pass, $"No deployment of this object to collection {collectionId} exists.");
     }
 
-    private (PreflightCheck Check, bool? Packaged) SigningCheck(DeployableObject obj, DeploymentOptions options)
+    private (PreflightCheck Check, bool? Packaged) SigningCheck(DeployableObject obj, DeploymentOptions options, int? nameCount)
     {
         const string name = DeploymentCheckNames.Signing;
         if (obj.Type != DeploymentObjectType.Application || _signing is null)
@@ -168,17 +180,36 @@ public sealed partial class DeploymentService
         try
         {
             var packaged = _signing.PackagedApplications().Contains(obj.Name);
-            if (!packaged) return (Check(name, DeploymentCheckResults.Pass, "This product did not package the application, so the script-signing rule does not apply."), false);
             if (options.Purpose != DeploymentPurposes.Required)
-                return (Check(name, DeploymentCheckResults.Pass, "This product packaged the application. The script-signing rule applies to Required deployments only."), true);
-            return _signing.RequiredDeploymentRefusal(obj.Name) is { } refusal
-                ? (Check(name, DeploymentCheckResults.Fail, refusal), true)
-                : (Check(name, DeploymentCheckResults.Pass, "This product packaged the application, and the script-signing policy allows a Required deployment of it."), true);
+                return packaged
+                    ? (Check(name, DeploymentCheckResults.Pass, "This product packaged the application. The script-signing rule applies to Required deployments only."), true)
+                    : (Check(name, DeploymentCheckResults.Pass, "This product did not package the application, so the script-signing rule does not apply."), false);
+            if (SigningRefusal(obj.Name, nameCount) is { } refusal) return (Check(name, DeploymentCheckResults.Fail, refusal), packaged);
+            return packaged
+                ? (Check(name, DeploymentCheckResults.Pass, "This product packaged the application, and the script-signing policy allows a Required deployment of it."), true)
+                : (Check(name, DeploymentCheckResults.Pass, "This product did not package the application, so the script-signing rule does not apply."), false);
         }
         catch (DeploymentServiceException ex)
         {
             return (Check(name, DeploymentCheckResults.Unknown, ex.Message), null);
         }
+    }
+
+    /// <summary>
+    /// The refusal of the signing rule for a Required deployment of an application with these
+    /// names, or null. The rule matches by name, so a name that is not unique on the site, or a
+    /// count that was not read, is refused. Throws <see cref="DeploymentServiceException"/> when
+    /// the packaged applications cannot be read.
+    /// </summary>
+    private string? SigningRefusal(string siteName, int? nameCount, string? plannedName = null)
+    {
+        if (_signing is null) return null;
+        if (nameCount != 1)
+            return nameCount is null
+                ? "the number of applications with this name could not be read, so the script-signing rule cannot be applied to a Required deployment. Try again."
+                : $"{nameCount.Value.ToString(CultureInfo.InvariantCulture)} applications on the site are named {siteName}, so the script-signing rule cannot tell which one this product packaged. A Required deployment is refused. Rename one of them in the console.";
+        return _signing.RequiredDeploymentRefusal(siteName)
+            ?? (plannedName is { Length: > 0 } && !string.Equals(plannedName, siteName, StringComparison.OrdinalIgnoreCase) ? _signing.RequiredDeploymentRefusal(plannedName) : null);
     }
 
     private static List<string> CreateImpact(DeploymentChange request, DeployableObject obj, DeploymentCollection collection, DeploymentOptions o, StateRead? state)
@@ -330,7 +361,11 @@ public sealed partial class DeploymentService
     {
         var diff = new List<string>();
         if (!string.Equals(row.CollectionId, captured.CollectionId, StringComparison.OrdinalIgnoreCase)) diff.Add("collection");
-        if (!string.Equals(row.ObjectId, captured.ObjectId, StringComparison.OrdinalIgnoreCase)
+        if (captured.Type == DeploymentObjectType.Application && captured.ModelId is { Length: > 0 })
+        {
+            if (!string.Equals(row.ModelId, captured.ModelId, StringComparison.Ordinal)) diff.Add("object");
+        }
+        else if (!string.Equals(row.ObjectId, captured.ObjectId, StringComparison.OrdinalIgnoreCase)
             && !(captured.Type == DeploymentObjectType.Application && string.Equals(row.ModelId, captured.ObjectId, StringComparison.Ordinal))) diff.Add("object");
         if (captured.Type == DeploymentObjectType.Package && !string.Equals(row.Program, captured.Program, StringComparison.OrdinalIgnoreCase)) diff.Add("program");
         if (!string.Equals(row.Purpose, captured.Purpose, StringComparison.Ordinal)) diff.Add("purpose");

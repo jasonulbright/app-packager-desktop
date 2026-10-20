@@ -71,6 +71,7 @@ public sealed record PreflightCheck(string Name, string Result, string Message);
 /// or task sequence deployment. Times are the stored wall-clock values in the deployment's time basis.
 /// </summary>
 /// <param name="AssignmentId">The numeric AssignmentID of an application or software update group deployment; empty for the other types.</param>
+/// <param name="ModelId">The ModelID of the application of an application deployment; empty for the other types.</param>
 public sealed record DeploymentRecord(
     string DeploymentId,
     DeploymentObjectType Type,
@@ -85,7 +86,30 @@ public sealed record DeploymentRecord(
     string CreatedBy,
     bool UtcBasis = false,
     string Program = "",
-    string AssignmentId = "");
+    string AssignmentId = "",
+    string ModelId = "");
+
+/// <summary>
+/// The state of the object and the collection that PrepareAsync read. A create whose object or
+/// collection no longer matches it is skipped as stale.
+/// </summary>
+/// <param name="ObjectId">The CI_ID of the latest application revision, or the ID of the other types.</param>
+/// <param name="Revision">The latest CI_ID and CIVersion of an application, the SourceVersion of a package or task sequence, the CIVersion of a software update group.</param>
+/// <param name="ContentIds">The content package IDs the object references, sorted.</param>
+/// <param name="MemberCount">The member count of the collection at Prepare.</param>
+public sealed record DeploymentPreparedState(string ObjectId, string Revision, IReadOnlyList<string> ContentIds, int MemberCount);
+
+/// <summary>A list that may hold fewer rows than ConfigMgr has.</summary>
+/// <param name="Note">A plain note when <paramref name="Truncated"/> is true.</param>
+public sealed class DeploymentList<T>(IReadOnlyList<T> rows, bool truncated = false, string? note = null) : IReadOnlyList<T>
+{
+    public bool Truncated { get; } = truncated;
+    public string? Note { get; } = note;
+    public int Count => rows.Count;
+    public T this[int index] => rows[index];
+    public IEnumerator<T> GetEnumerator() => rows.GetEnumerator();
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+}
 
 public enum DeploymentChangeKind { Create, Distribute, RemoveDeployment }
 
@@ -121,6 +145,9 @@ public sealed record DeploymentChange(
 
     /// <summary>True for a Required create: it needs <see cref="RequiredConfirmed"/>.</summary>
     public bool NeedsRequiredConfirmation => Kind == DeploymentChangeKind.Create && Options?.Purpose == DeploymentPurposes.Required;
+
+    /// <summary>Create: the state PrepareAsync read; ApplyAsync refuses a create without it.</summary>
+    public DeploymentPreparedState? Prepared { get; init; }
 }
 
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when the change was not attempted.</param>
@@ -224,6 +251,9 @@ public sealed record DeploymentAuditRecord(
 
     /// <summary>Undo: the DeploymentUniqueID of the create it undoes.</summary>
     public string Undoes { get; init; } = "";
+
+    /// <summary>The ModelID of the application of an application record.</summary>
+    public string ModelId { get; init; } = "";
 
     /// <summary>Further properties of the line, such as the ring fields of the suite tool, in file order.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];

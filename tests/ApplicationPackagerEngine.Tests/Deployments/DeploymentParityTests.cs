@@ -130,7 +130,14 @@ public sealed class DeploymentParityTests
             var level = verdict.Blocked ? "Error" : verdict.Warnings.Count > 0 ? "Warn" : "Info";
             Assert.True((!verdict.Blocked, level) == expected, $"Case {i}: ours {(!verdict.Blocked, level)}, suite {expected}.");
         }
-        Assert.Equal(File.Exists(Path.Combine(SourceRoot, "start-deploymenthelper.ps1")), source?.Ran ?? false);
+        AssertSourceUsed(source);
+    }
+
+    /// <summary>The suite tool ran when it is on this computer; otherwise the fixed cases above stood in for it.</summary>
+    private static void AssertSourceUsed(SourceResults? source)
+    {
+        var present = File.Exists(Path.Combine(SourceRoot, @"Module\DeploymentHelperCommon.psm1")) && File.Exists(Path.Combine(SourceRoot, "start-deploymenthelper.ps1"));
+        Assert.True(present == (source?.Ran == true), present ? "The suite tool is on this computer but its results were not used." : "The suite tool is not on this computer, so the fixed cases must be used.");
     }
 
     [Fact]
@@ -140,7 +147,7 @@ public sealed class DeploymentParityTests
         for (var i = 0; i < NotificationCases.Length; i++)
         {
             var c = NotificationCases[i];
-            Assert.Equal(c.Ok, source?.Notification[i] ?? c.Ok);
+            if (source is not null) Assert.Equal(c.Ok, source.Notification[i]);
             var deadline = c.Purpose == "Required" ? 120 : (int?)null;
             foreach (var type in new[] { DeploymentObjectType.Application, DeploymentObjectType.SoftwareUpdateGroup })
                 Assert.Equal(c.Ok, !DeploymentScheduleRules.Check(type, Options(c.Purpose, 60, deadline, c.Notification), Now).Blocked);
@@ -148,16 +155,18 @@ public sealed class DeploymentParityTests
         for (var i = 0; i < CollectionCases.Length; i++)
         {
             var c = CollectionCases[i];
-            Assert.Equal(c.BuiltIn, source?.BuiltIn[i] ?? c.BuiltIn);
+            if (source is not null) Assert.Equal(c.BuiltIn, source.BuiltIn[i]);
             Assert.Equal(c.BuiltIn, c.Id.Length > 0 && DeploymentService.IsBuiltInCollection(c.Id));
         }
+        AssertSourceUsed(source);
     }
 
     [Fact]
     public void AuditRecordsStartWithTheSuiteFieldsInTheSuiteOrder()
     {
         string[] suite = ["Timestamp", "User", "DeploymentType", "ApplicationName", "ApplicationVersion", "CollectionName", "CollectionID", "MemberCount", "DeployPurpose", "DeployAction", "DeadlineDateTime", "DeploymentID", "Result"];
-        Assert.Equal(suite, Source.Value?.RecordFields ?? suite);
+        if (Source.Value is { } source) Assert.Equal(suite, source.RecordFields);
+        AssertSourceUsed(Source.Value);
         var folder = Path.Combine(Path.GetTempPath(), "apkg-dhparity-log-" + Guid.NewGuid().ToString("N"));
         try
         {
@@ -178,9 +187,25 @@ public sealed class DeploymentParityTests
     public void TheSuiteProbeAndAppendBehaveLikeTheseWithAReaderHoldingTheLog()
     {
         var source = Source.Value;
-        if (source is null) return;
-        Assert.Equal((false, false), (source.ProbeWithReader, source.AppendWithReader));
-        Assert.Equal((false, false), (source.ProbeWithSharingReader, source.AppendWithSharingReader));
+        AssertSourceUsed(source);
+        if (source is not null)
+        {
+            Assert.Equal((false, false), (source.ProbeWithReader, source.AppendWithReader));
+            Assert.Equal((false, false), (source.ProbeWithSharingReader, source.AppendWithSharingReader));
+        }
+        var folder = Path.Combine(Path.GetTempPath(), "apkg-dhparity-reader-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var path = Path.Combine(folder, "a.jsonl");
+            var log = new DeploymentAuditLog(() => path);
+            Assert.True(log.Append(DeploymentAuditLogTests.Record()).Succeeded);
+            using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                Assert.Equal((false, false), (log.Probe().Writable, log.Append(DeploymentAuditLogTests.Record()).Succeeded));
+        }
+        finally
+        {
+            try { Directory.Delete(folder, recursive: true); } catch (IOException) { }
+        }
     }
 
     [Fact]
@@ -188,6 +213,7 @@ public sealed class DeploymentParityTests
     {
         var source = Source.Value;
         var seeds = DeploymentTemplateStore.Seeds.OrderBy(s => s.Name, StringComparer.Ordinal).ToList();
+        AssertSourceUsed(source);
         if (source is null)
         {
             Assert.Equal(["Server Pilot", "Server Production", "Workstation Pilot", "Workstation Production"], seeds.Select(s => s.Name));

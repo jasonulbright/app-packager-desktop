@@ -37,6 +37,7 @@ public sealed partial class DeploymentService : IDeploymentService
     private readonly IAppLog? _log;
     private readonly Func<DateTime> _utcNow;
     private readonly TimeZoneInfo _local;
+    private readonly IDeploymentTargetLock _targetLock;
 
     /// <summary>The deployment IDs this service created in this process; an Undo of one of them is owned without the log.</summary>
     private readonly ConcurrentDictionary<string, byte> _created = new(StringComparer.OrdinalIgnoreCase);
@@ -48,7 +49,8 @@ public sealed partial class DeploymentService : IDeploymentService
         IDeploymentSigningCheck? signing = null,
         IAppLog? log = null,
         Func<DateTime>? utcNow = null,
-        TimeZoneInfo? local = null)
+        TimeZoneInfo? local = null,
+        IDeploymentTargetLock? targetLock = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _collections = collections ?? throw new ArgumentNullException(nameof(collections));
@@ -57,10 +59,14 @@ public sealed partial class DeploymentService : IDeploymentService
         _log = log;
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
         _local = local ?? TimeZoneInfo.Local;
+        _targetLock = targetLock ?? new DeploymentTargetLock(() => _audit.Path);
     }
 
     /// <summary>The most audit records read to decide whether this product created a deployment.</summary>
     public int OwnershipRecords { get; init; } = 100_000;
+
+    /// <summary>The most rows a list of objects or of the deployments of an object holds.</summary>
+    public int MaxListRows { get; init; } = 1000;
 
     [GeneratedRegex("^[0-9]{1,10}$")]
     private static partial Regex NumberRegex();
@@ -83,7 +89,13 @@ public sealed partial class DeploymentService : IDeploymentService
 
     // ---- Script output shapes ----------------------------------------------------------------
 
-    internal sealed record ObjectRow(string? Kind, string? Id, string? Name, string? Version, string? ModelId, int UpdateCount, string? Program = null, bool Retired = false);
+    internal sealed record ObjectRow(string? Kind, string? Id, string? Name, string? Version, string? ModelId, int UpdateCount, string? Program = null, bool Retired = false, string? Revision = null);
+
+    internal sealed record NameCountRow(string? Kind, int Count);
+
+    internal sealed record TruncatedRow(string? Kind, int Shown, int Total);
+
+    internal sealed record ProofRow(string? Kind, string? DeploymentId, string? Created, string? CreatedBy, bool Owned);
 
     internal sealed record ContentRow(string? Kind, string? PackageId, string? Name, int Targeted, int Success, int InProgress, int Errors, bool Distributed);
 
@@ -106,19 +118,28 @@ public sealed partial class DeploymentService : IDeploymentService
     internal sealed record ResultRow(string? Kind, string? Status, string? Detail, string[]? Steps, string? CreatedId, string[]? Differences, string[]? Ids);
 
     /// <summary>The state a Prepare and a create read: the object, its content, the collection and the deployments of the object to it.</summary>
-    internal sealed record StateRead(ObjectRow? Object, IReadOnlyList<ContentRow> Content, bool ContentRead, CollectionReadRow? Collection, SnapshotRow? Snapshot);
+    /// <param name="NameCount">Required application: the number of latest applications with the object's name; null when not read.</param>
+    internal sealed record StateRead(ObjectRow? Object, IReadOnlyList<ContentRow> Content, bool ContentRead, CollectionReadRow? Collection, SnapshotRow? Snapshot, int? NameCount = null);
 
     // ---- Reads --------------------------------------------------------------------------------
 
     public async Task<IReadOnlyList<DeployableObject>> ListObjectsAsync(DeploymentObjectType type, CancellationToken ct)
     {
-        var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Objects" }, { "Type", type.ToString() } }, ct).ConfigureAwait(false);
+        var output = await ReadAsync(new ConfigMgrParameters { { "Operation", "Objects" }, { "Type", type.ToString() }, { "MaxRows", MaxListRows } }, ct).ConfigureAwait(false);
         var packaged = type == DeploymentObjectType.Application ? PackagedNames() : null;
         var rows = Rows<ObjectRow>(output, "Object")
             .Select(r => new DeployableObject(type, r.Id ?? "", r.Name ?? "", r.Version ?? "", "", packaged?.Contains(r.Name ?? "") == true, r.ModelId ?? "", r.UpdateCount))
             .OrderBy(o => o.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
         _log?.Info(LogArea, $"Listed {rows.Count} objects of type {type}.");
-        return rows;
+        return Limited(rows, output, $"{Noun(type)} list");
+    }
+
+    private DeploymentList<T> Limited<T>(List<T> rows, ConfigMgrCommandResult output, string what)
+    {
+        if (Rows<TruncatedRow>(output, "Truncated").FirstOrDefault() is not { } cut) return new DeploymentList<T>(rows);
+        _log?.Warning(LogArea, $"A list was cut at {cut.Shown} of {cut.Total} rows.");
+        return new DeploymentList<T>(rows, true,
+            $"The {what.ToLowerInvariant()} shows the first {cut.Shown.ToString(CultureInfo.InvariantCulture)} of {cut.Total.ToString(CultureInfo.InvariantCulture)} rows. Use the console for the rest.");
     }
 
     private IReadOnlySet<string>? PackagedNames()
@@ -179,19 +200,24 @@ public sealed partial class DeploymentService : IDeploymentService
     public async Task<IReadOnlyList<DeploymentRecord>> ListDeploymentsAsync(DeployableObject obj, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(obj);
-        var output = await ReadAsync(ObjectParameters("Deployments", obj), ct).ConfigureAwait(false);
+        var parameters = ObjectParameters("Deployments", obj);
+        parameters["MaxRows"] = MaxListRows;
+        var output = await ReadAsync(parameters, ct).ConfigureAwait(false);
         if (Rows<ResultRow>(output, "Result").FirstOrDefault()?.Status == "object-missing")
             throw new DeploymentServiceException($"{Noun(obj.Type)} {Shown(obj.Name, obj.Id)} does not exist any more. Refresh the list.");
         var rows = Rows<DeploymentRow>(output, "Deployment").Select(r => ToRecord(obj.Type, r)).OrderBy(r => r.CollectionName, StringComparer.CurrentCultureIgnoreCase).ToList();
         _log?.Info(LogArea, $"Listed {rows.Count} deployments of one {obj.Type}.");
-        return rows;
+        return Limited(rows, output, "deployment list");
     }
 
     internal static DeploymentRecord ToRecord(DeploymentObjectType type, DeploymentRow r) => new(
         r.DeploymentId ?? "", type, r.ObjectId ?? "", r.ObjectName ?? "", r.CollectionId ?? "", r.CollectionName ?? "", r.Purpose ?? "",
         ParseTime(r.Available) ?? DateTime.MinValue, ParseTime(r.Deadline),
-        DateTime.TryParseExact(r.Created ?? "", "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var created) ? created : DateTime.MinValue,
-        r.CreatedBy ?? "", r.Utc, r.Program ?? "", r.AssignmentId ?? "");
+        ParseUtc(r.Created) ?? DateTime.MinValue,
+        r.CreatedBy ?? "", r.Utc, r.Program ?? "", r.AssignmentId ?? "", type == DeploymentObjectType.Application ? r.ModelId ?? "" : "");
+
+    internal static DateTime? ParseUtc(string? text) =>
+        DateTime.TryParseExact(text ?? "", "yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var value) ? value : null;
 
     internal static DateTime? ParseTime(string? text) =>
         DateTime.TryParseExact(text ?? "", TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? value : null;
@@ -200,18 +226,27 @@ public sealed partial class DeploymentService : IDeploymentService
 
     internal static string TimeText(DateTime value) => value.ToString(TimeFormat, CultureInfo.InvariantCulture);
 
-    private async Task<StateRead> ReadStateAsync(DeployableObject obj, string collectionId, CancellationToken ct)
+    private async Task<StateRead> ReadStateAsync(DeployableObject obj, string collectionId, string purpose, CancellationToken ct)
     {
         var parameters = ObjectParameters("State", obj);
         parameters["CollectionId"] = collectionId;
+        if (purpose is DeploymentPurposes.Available or DeploymentPurposes.Required) parameters["Purpose"] = purpose;
         var output = await ReadAsync(parameters, ct).ConfigureAwait(false);
         return new StateRead(
             Rows<ObjectRow>(output, "Object").FirstOrDefault(),
             Rows<ContentRow>(output, "Content"),
             Rows<ReadFlag>(output, "ContentRead").FirstOrDefault()?.Read ?? false,
             Rows<CollectionReadRow>(output, "Collection").FirstOrDefault(),
-            Rows<SnapshotRow>(output, "Snapshot").FirstOrDefault());
+            Rows<SnapshotRow>(output, "Snapshot").FirstOrDefault(),
+            Rows<NameCountRow>(output, "NameCount").FirstOrDefault()?.Count);
     }
+
+    /// <summary>The state values a create is checked against: the object revision, its content and the collection size.</summary>
+    internal static DeploymentPreparedState? PreparedState(StateRead? state) =>
+        state?.Object is { } o && state.Collection is { } c
+            ? new DeploymentPreparedState(o.Id ?? "", o.Revision ?? "",
+                state.Content.Select(x => (x.PackageId ?? "").ToUpperInvariant()).Distinct().Order(StringComparer.Ordinal).ToList(), c.MemberCount)
+            : null;
 
     private async Task<(bool Read, DeploymentRow? Row)> ReadDeploymentOrNullAsync(DeploymentObjectType type, string? deploymentId)
     {
