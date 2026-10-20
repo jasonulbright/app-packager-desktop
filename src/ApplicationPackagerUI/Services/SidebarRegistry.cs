@@ -15,6 +15,7 @@ public static class SidebarIds
     public const string DetectionTester = "detection-tester";
     public const string MaintenanceWindows = "maintenance-windows";
     public const string CollectionCompliance = "collection-and-compliance";
+    public const string InstallerAnalysis = "installer-analysis";
 }
 
 /// <summary>
@@ -71,6 +72,10 @@ public sealed class SidebarRegistry
         registry.Register(new SidebarItemDefinition(SidebarIds.CollectionCompliance, "Collection and Compliance", "ShieldCheckmark24", SidebarItemKind.Page)
         {
             PageType = typeof(CollectionCompliancePage)
+        });
+        registry.Register(new SidebarItemDefinition(SidebarIds.InstallerAnalysis, "Installer Analysis", "BoxSearch24", SidebarItemKind.Page)
+        {
+            PageType = typeof(InstallerAnalysisPage)
         });
         foreach (var tool in SuiteTools.All)
         {

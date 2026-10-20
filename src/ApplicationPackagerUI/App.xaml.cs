@@ -73,6 +73,7 @@ public partial class App : Application
                 services.AddDetectionTesterPage();
                 services.AddMaintenanceWindowsPage();
                 services.AddCollectionCompliancePage();
+                services.AddInstallerAnalysisPage();
 
                 services.AddHostedService<ApplicationHostService>();
             })
