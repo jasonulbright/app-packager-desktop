@@ -20,8 +20,11 @@ public sealed class HandleCountCollection
 [Collection(HandleCountCollection.Name)]
 public sealed class InstallerAnalysisHandleTests(ITestOutputHelper output) : IDisposable
 {
-    private const int Cycles = 50;
-    private const int AllowedGrowth = 20;
+    private const int WarmUpCycles = 10;
+    private const int Windows = 5;
+    private const int CyclesPerWindow = 20;
+    private const int MinimumWindowGrowthForLeak = 5;
+    private const int TotalGrowthCap = 100;
 
     private readonly InstallerAnalysisTempFolder _temp = new();
 
@@ -64,18 +67,31 @@ public sealed class InstallerAnalysisHandleTests(ITestOutputHelper output) : IDi
         await page.OnNavigatedFromAsync();
     }
 
+    /// <summary>
+    /// The process handle count also moves with the thread pool size (a thread and its events per
+    /// pool thread), so one reading can grow without a leak. A handle kept per cycle grows every
+    /// window by at least the window length; pool growth stops after the first windows.
+    /// </summary>
     [Fact]
-    public async Task FiftyOpenAndCloseCyclesKeepNoHandle()
+    public async Task OpenAndCloseCyclesKeepNoHandle()
     {
         string[] files = [SevenZipMsi, Fixture("nsis-mk-lzma-solid-unicode.bin"), Fixture("inno-admin-670.bin"), Fixture("nsis-mk-oninit-pf64.bin")];
-        for (var i = 0; i < 3; i++) await CycleAsync(files);
-        var before = Settled();
+        for (var i = 0; i < WarmUpCycles; i++) await CycleAsync(files);
 
-        for (var i = 0; i < Cycles; i++) await CycleAsync(files);
-        var after = Settled();
+        var readings = new List<(int Handles, long PrivateBytes)> { Settled() };
+        for (var window = 0; window < Windows; window++)
+        {
+            for (var i = 0; i < CyclesPerWindow; i++) await CycleAsync(files);
+            readings.Add(Settled());
+        }
 
-        output.WriteLine($"Handles {before.Handles} -> {after.Handles}; private bytes {before.PrivateBytes / (1024 * 1024)} MB -> {after.PrivateBytes / (1024 * 1024)} MB after {Cycles} cycles of {files.Length} files.");
-        Assert.True(after.Handles - before.Handles < AllowedGrowth,
-            $"The handle count grew from {before.Handles} to {after.Handles} over {Cycles} cycles.");
+        var growth = readings.Zip(readings.Skip(1), (before, after) => after.Handles - before.Handles).ToArray();
+        var total = readings[^1].Handles - readings[0].Handles;
+        output.WriteLine($"Handles per reading: {string.Join(" -> ", readings.Select(r => r.Handles))}; growth per window of {CyclesPerWindow} cycles: {string.Join(", ", growth)}.");
+        output.WriteLine($"Private bytes {readings[0].PrivateBytes / (1024 * 1024)} MB -> {readings[^1].PrivateBytes / (1024 * 1024)} MB after {Windows * CyclesPerWindow} cycles of {files.Length} files.");
+        Assert.True(growth.Min() < MinimumWindowGrowthForLeak,
+            $"The handle count grew in every window of {CyclesPerWindow} cycles: {string.Join(", ", growth)}.");
+        Assert.True(total < TotalGrowthCap,
+            $"The handle count grew from {readings[0].Handles} to {readings[^1].Handles} over {Windows * CyclesPerWindow} cycles.");
     }
 }

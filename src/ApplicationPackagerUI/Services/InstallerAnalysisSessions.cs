@@ -105,12 +105,20 @@ public static partial class InstallerAnalysisSessions
 public static class HostShutdown
 {
     /// <summary>True when the stop finished within the timeout; the stop token is cancelled at the timeout.</summary>
-    public static bool StopAndWait(Func<CancellationToken, Task> stop, TimeSpan timeout)
+    public static bool StopAndWait(Func<CancellationToken, Task> stop, TimeSpan timeout) =>
+        StopAndWait(stop, timeout, static (running, limit) => running.Wait(limit));
+
+    /// <summary>
+    /// The stop starts on a dedicated thread: a thread-pool work item can stay queued past the
+    /// timeout when the pool is saturated, and the host is then disposed before its stop begins.
+    /// </summary>
+    public static bool StopAndWait(Func<CancellationToken, Task> stop, TimeSpan timeout, Func<Task, TimeSpan, bool> wait)
     {
         // Not disposed: a stop that outlives the wait still reads the token.
         var cancel = new CancellationTokenSource(timeout);
-        var running = Task.Run(() => stop(cancel.Token));
-        try { return running.Wait(timeout); }
+        var running = Task.Factory.StartNew(() => stop(cancel.Token), CancellationToken.None,
+            TaskCreationOptions.LongRunning | TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
+        try { return wait(running, timeout); }
         catch (AggregateException) { return false; }
         finally { cancel.Cancel(); }
     }
