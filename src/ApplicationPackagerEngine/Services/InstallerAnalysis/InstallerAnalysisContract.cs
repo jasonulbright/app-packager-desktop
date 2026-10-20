@@ -66,6 +66,9 @@ public sealed record AnalysisReport(string Path, string FileName, long Size, str
 
     /// <summary>The manifest requestedExecutionLevel of an executable; empty otherwise.</summary>
     public string RequestedExecutionLevel { get; init; } = "";
+
+    /// <summary>The installer type for display (Type is the stable identifier: NativeMSI, InnoSetup, ...).</summary>
+    public string TypeName { get; init; } = "";
 }
 
 /// <summary>One payload entry. Kind is File or InnerInstaller; InnerType names the inner format (MSI, MSP, EXE, CAB, ...).</summary>

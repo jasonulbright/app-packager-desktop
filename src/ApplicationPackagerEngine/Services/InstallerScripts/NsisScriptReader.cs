@@ -55,6 +55,12 @@ public static class NsisScriptReader
 {
     private const int FirstHeaderSize = 28;
 
+    /// <summary>
+    /// The largest file read whole when the leading window misses the header. A header sits
+    /// right after the stub, so a larger file is reported as not found instead of being loaded.
+    /// </summary>
+    public const long WholeFileLimitBytes = 512L * 1024 * 1024;
+
     // CSIDL pairs (current user, all users) as makensis encodes the built-in
     // shell constants; the ProgramFiles family uses a registry lookup instead.
     private static readonly Dictionary<string, string> ShellNames = new(StringComparer.OrdinalIgnoreCase)
@@ -284,14 +290,14 @@ public static class NsisScriptReader
     /// covers it; the whole file is read only when the window misses the
     /// firstheader or truncates the compressed header.
     /// </summary>
-    public static HeaderTable ReadHeaderTable(string path)
+    public static HeaderTable ReadHeaderTable(string path, long maxWholeFileBytes = WholeFileLimitBytes)
     {
         var result = new HeaderTable();
 
         static byte[] ReadWindow(string p, long length)
         {
             using var fs = File.OpenRead(p);
-            var take = (int)Math.Min(fs.Length, length);
+            var take = (int)Math.Min(Math.Min(fs.Length, length), Array.MaxLength);
             var buffer = new byte[take];
             var read = 0;
             while (read < take)
@@ -308,7 +314,7 @@ public static class NsisScriptReader
         var fh = FindFirstHeader(bytes, fileLength);
         Expanded? expanded = null;
         if (fh >= 0) expanded = ExpandHeader(bytes, fh);
-        if ((fh < 0 || expanded?.Header is null) && fileLength > bytes.Length)
+        if ((fh < 0 || expanded?.Header is null) && fileLength > bytes.Length && fileLength <= maxWholeFileBytes)
         {
             bytes = ReadWindow(path, fileLength);
             fh = FindFirstHeader(bytes, fileLength);
