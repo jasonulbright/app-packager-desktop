@@ -109,8 +109,9 @@ public sealed class RegistryAndStringsTests : IDisposable
             Assert.Equal(20, (await Registry(Corpus.InnoModes)).Writes.Count);
             ran++;
         }
-        if (Corpus.Has(Corpus.NsisMultiMode) && ArchiveExtractionService.FindSevenZip() is not null)
+        if (Corpus.Has(Corpus.NsisMultiMode))
         {
+            Assert.True(ArchiveExtractionService.FindSevenZip() is not null, "7-Zip is not installed on this machine; the uninstaller rows of an NSIS installer are read with 7-Zip 25.01 or later.");
             var rows = (await Registry(Corpus.NsisMultiMode)).Writes;
             Assert.Equal(23, rows.Count);
             Assert.Equal(6, rows.Count(r => r.Section.StartsWith("Uninstaller", StringComparison.Ordinal)));

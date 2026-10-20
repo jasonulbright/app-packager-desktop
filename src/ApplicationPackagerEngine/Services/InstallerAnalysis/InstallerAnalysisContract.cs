@@ -6,8 +6,13 @@ namespace ApplicationPackagerEngine.Services;
 /// </summary>
 public sealed record AnalysisLimits(long MaxFileBytes, int MaxEntries, long MaxExtractBytes, int MaxDepth, TimeSpan Timeout, int MaxStrings)
 {
-    /// <summary>The highest compressed-to-expanded ratio an archive entry may have before it is refused.</summary>
-    public int MaxCompressionRatio { get; init; } = 1000;
+    /// <summary>
+    /// The highest expanded-to-compressed ratio an archive entry may have before it is refused.
+    /// Deflate reaches about 1030 on uniform data, so the limit sits well below that maximum.
+    /// </summary>
+    public int MaxCompressionRatio { get; init; } = DefaultCompressionRatio;
+
+    public const int DefaultCompressionRatio = 200;
 
     /// <summary>Shortest printable run the string scan reports.</summary>
     public int MinStringLength { get; init; } = 6;
@@ -15,7 +20,7 @@ public sealed record AnalysisLimits(long MaxFileBytes, int MaxEntries, long MaxE
     public static AnalysisLimits Default { get; } = new(
         MaxFileBytes: 8L * 1024 * 1024 * 1024,
         MaxEntries: 100_000,
-        MaxExtractBytes: 8L * 1024 * 1024 * 1024,
+        MaxExtractBytes: 4L * 1024 * 1024 * 1024,
         MaxDepth: 5,
         Timeout: TimeSpan.FromMinutes(5),
         MaxStrings: 20_000);

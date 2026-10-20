@@ -91,7 +91,7 @@ internal sealed class BoundedZip : IDisposable
             ?? Archive.Entries.FirstOrDefault(e => string.Equals(e.FullName, name, StringComparison.OrdinalIgnoreCase));
         if (entry is null) return null;
         using var buffer = new MemoryStream();
-        Copy(entry, buffer, maxBytes, 1000, CancellationToken.None);
+        Copy(entry, buffer, maxBytes, AnalysisLimits.DefaultCompressionRatio, CancellationToken.None);
         buffer.Position = 0;
         using var reader = new StreamReader(buffer, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         return reader.ReadToEnd();

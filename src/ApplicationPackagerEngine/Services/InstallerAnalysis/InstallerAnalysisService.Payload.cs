@@ -69,8 +69,14 @@ public sealed partial class InstallerAnalysisService
         }
         var tool = SevenZip();
         var entries = await tool.ListAsync(path, limits, ct).ConfigureAwait(false);
-        return entries.Select(e => Classify(e.Path, e.Size, e.IsDirectory, engine)).ToList();
+        return entries.Select(e => e.IsLink
+            ? new PayloadEntry(e.Path, e.Size, false, "File", "") { Description = LinkDescription }
+            : Classify(e.Path, e.Size, e.IsDirectory, engine)).ToList();
     }
+
+    private const string LinkDescription = "Link; it is not extracted";
+
+    private static bool IsBuiltInContainer(string engine) => engine is "NativeMSI" or "MSP" or "Velopack" || ZipEngines.Contains(engine);
 
     private SevenZipTool SevenZip()
     {
@@ -78,6 +84,22 @@ public sealed partial class InstallerAnalysisService
         if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
             throw new InstallerAnalysisException("7-Zip is not installed; the payload of this installer type is listed with 7-Zip. Install 7-Zip to list and extract it.");
         return new SevenZipTool(exe);
+    }
+
+    /// <summary>
+    /// The 7-Zip used to extract. A version older than <see cref="SevenZipTool.MinimumExtractionVersion"/>
+    /// can write outside the target through a link in the archive, so it is refused; listing still uses it.
+    /// </summary>
+    private SevenZipTool SevenZipForExtraction()
+    {
+        var tool = SevenZip();
+        var version = SevenZipTool.ReadVersion(tool.ExePath);
+        var minimum = SevenZipTool.MinimumExtractionVersion;
+        if (version is null)
+            throw new InstallerAnalysisException($"The version of 7-Zip ({tool.ExePath}) could not be read; extraction is refused. Install 7-Zip {minimum.Major}.{minimum.Minor:00} or later from https://www.7-zip.org. Listing and analysis still work.");
+        if (version < minimum)
+            throw new InstallerAnalysisException($"7-Zip {version.Major}.{version.Minor:00} ({tool.ExePath}) is older than {minimum.Major}.{minimum.Minor:00} and can write outside the extraction folder through a link in an archive; extraction is refused. Install 7-Zip {minimum.Major}.{minimum.Minor:00} or later from https://www.7-zip.org. Listing and analysis still work.");
+        return tool;
     }
 
     public async Task<string> ExtractEntryAsync(string path, PayloadEntry entry, string sessionFolder, AnalysisLimits limits, CancellationToken ct)
@@ -106,6 +128,16 @@ public sealed partial class InstallerAnalysisService
     {
         if (entry.Size > limits.MaxExtractBytes)
             throw new InstallerAnalysisException("The entry is larger than the extraction limit; it was not extracted.");
+        SevenZipTool? tool = null;
+        if (!IsBuiltInContainer(engine))
+        {
+            tool = SevenZipForExtraction();
+            var listed = (await tool.ListAsync(path, limits, ct).ConfigureAwait(false)).FirstOrDefault(e => e.Path == entry.Path)
+                ?? throw new InstallerAnalysisException("The entry is not in the archive.");
+            if (listed.IsLink) throw new InstallerAnalysisException("The entry is a link; it is not extracted.");
+            if (listed.Size > limits.MaxExtractBytes)
+                throw new InstallerAnalysisException("The entry is larger than the extraction limit; it was not extracted.");
+        }
         var folder = Path.Combine(session, "e-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(folder);
         var target = SandboxPath.Resolve(folder, entry.Path.Trim('<', '>'), out var reason)
@@ -141,8 +173,7 @@ public sealed partial class InstallerAnalysisService
             return target;
         }
 
-        var tool = SevenZip();
-        var (exitCode, overLimit, timedOut) = await tool.ExtractAsync(path, [entry.Path], folder, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
+        var (exitCode, overLimit, timedOut) = await tool!.ExtractAsync(path, [entry.Path], null, folder, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
         RemoveLinks(folder);
         if (overLimit)
         {
@@ -182,13 +213,46 @@ public sealed partial class InstallerAnalysisService
     private async Task<PayloadExtractResult> ExtractPayloadCoreAsync(string path, string engine, IReadOnlyList<PayloadEntry>? entries, string target,
         AnalysisLimits limits, CancellationToken ct)
     {
-        var baseName = Path.GetFileNameWithoutExtension(path).TrimEnd('.', ' ');
-        if (SandboxPath.Normalize(baseName, out _) is null) baseName = "payload";
-        var folder = CreatePayloadFolder(target, baseName);
         var skipped = new List<string>();
         var wanted = entries?.Where(e => !e.IsDirectory).Select(e => e.Path).ToHashSet(StringComparer.Ordinal);
         long bytes = 0;
         var files = 0;
+
+        // 7-Zip archives are listed first: links and refused names are left out, and the listed
+        // sizes are checked against the limit before anything is written.
+        SevenZipTool? tool = null;
+        List<string>? names = null;
+        var excluded = new List<string>();
+        if (!IsBuiltInContainer(engine))
+        {
+            tool = SevenZipForExtraction();
+            var listing = await tool.ListAsync(path, limits, ct).ConfigureAwait(false);
+            var selected = listing.Where(e => (!e.IsDirectory || e.IsLink) && (wanted is null || wanted.Contains(e.Path))).ToList();
+            if (wanted is not null)
+                foreach (var missing in wanted.Except(selected.Select(e => e.Path), StringComparer.Ordinal)) skipped.Add(missing + ": The entry is not in the archive.");
+            names = wanted is null ? null : [];
+            long listedBytes = 0;
+            foreach (var e in selected)
+            {
+                string? reason = null;
+                if (e.IsLink) reason = "The entry is a link; it is not extracted.";
+                else if (SandboxPath.Normalize(e.Path, out var why) is null) reason = why;
+                if (reason is not null)
+                {
+                    skipped.Add(e.Path + ": " + reason);
+                    excluded.Add(e.Path);
+                    continue;
+                }
+                listedBytes += e.Size;
+                names?.Add(e.Path);
+            }
+            if (listedBytes > limits.MaxExtractBytes)
+                throw new InstallerAnalysisException($"The payload is larger than the extraction limit of {FormatBytes(limits.MaxExtractBytes)}; nothing was extracted.");
+        }
+
+        var baseName = Path.GetFileNameWithoutExtension(path).TrimEnd('.', ' ');
+        if (SandboxPath.Normalize(baseName, out _) is null) baseName = "payload";
+        var folder = CreatePayloadFolder(target, baseName);
 
         if (engine is "NativeMSI" or "MSP")
         {
@@ -236,21 +300,15 @@ public sealed partial class InstallerAnalysisService
             return new PayloadExtractResult(folder, files, bytes, skipped);
         }
 
-        var tool = SevenZip();
-        List<string>? names = null;
-        if (wanted is not null)
-        {
-            names = [];
-            foreach (var name in wanted)
-            {
-                if (SandboxPath.Normalize(name, out var reason) is null) skipped.Add(name + ": " + reason);
-                else names.Add(name);
-            }
-            if (names.Count == 0) return new PayloadExtractResult(folder, 0, 0, skipped);
-        }
-        var (exitCode, overLimit, timedOut) = await tool.ExtractAsync(path, names, folder, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
+        if (names is { Count: 0 }) return new PayloadExtractResult(folder, 0, 0, skipped);
+        var (exitCode, overLimit, timedOut) = await tool!.ExtractAsync(path, names, names is null ? excluded : null, folder, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
         foreach (var link in RemoveLinks(folder)) skipped.Add(Path.GetRelativePath(folder, link) + ": The entry is a link; it was removed.");
-        if (overLimit) throw new InstallerAnalysisException("The payload expands beyond the extraction limit; extraction stopped and the partial files are in " + folder + ".");
+        if (overLimit)
+        {
+            // 7-Zip sets each file to its declared size before it writes, so a stopped run can leave large files behind.
+            AnalysisSandbox.DeleteTree(folder);
+            throw new InstallerAnalysisException("The payload expands beyond the extraction limit; extraction stopped and the partial files were removed.");
+        }
         if (timedOut) throw new InstallerAnalysisException("The extraction stopped at the time limit.");
         foreach (var file in new DirectoryInfo(folder).EnumerateFiles("*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint }))
         {

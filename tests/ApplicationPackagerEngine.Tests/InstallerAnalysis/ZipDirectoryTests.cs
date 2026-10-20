@@ -170,6 +170,27 @@ public sealed class ZipDirectoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ADeflateEntryNearTheFormatMaximumRatioIsRefusedWithTheDefaultLimits()
+    {
+        var path = _temp.PathOf("zeros.zip");
+        using (var stream = File.Create(path))
+        using (var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create))
+        using (var entry = zip.CreateEntry("zeros.msi", System.IO.Compression.CompressionLevel.SmallestSize).Open())
+        {
+            var block = new byte[1024 * 1024];
+            for (var i = 0; i < 64; i++) entry.Write(block);
+        }
+        var target = _temp.PathOf("out");
+        Directory.CreateDirectory(target);
+
+        var ex = await Assert.ThrowsAsync<InstallerAnalysisException>(() => _service.ExtractPayloadAsync(path, null, target, AnalysisLimits.Default, CancellationToken.None));
+
+        Assert.Equal("The entry expands far beyond its compressed size; it was not extracted.", ex.Message);
+        Assert.Equal(200, AnalysisLimits.Default.MaxCompressionRatio);
+        Assert.Equal(4L * 1024 * 1024 * 1024, AnalysisLimits.Default.MaxExtractBytes);
+    }
+
+    [Fact]
     public void AFileWithoutAnEndRecordIsNotAZip()
     {
         var path = _temp.PathOf("plain.bin");

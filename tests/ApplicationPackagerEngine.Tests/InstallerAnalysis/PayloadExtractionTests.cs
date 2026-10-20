@@ -224,7 +224,7 @@ public sealed class PayloadExtractionTests : IDisposable
         var sevenZip = ArchiveExtractionService.FindSevenZip();
         var fallback = await _noSevenZip.ListPayloadAsync(SevenZipMsi, Limits, CancellationToken.None);
         Assert.NotEmpty(fallback);
-        if (sevenZip is null) return;
+        Assert.True(sevenZip is not null, "7-Zip is not installed on this machine; install 7-Zip 25.01 or later to run this test.");
 
         var payload = await _service.ListPayloadAsync(Fixture("nsis-mk-lzma-solid-unicode.bin"), Limits, CancellationToken.None);
         var file = payload.First(e => !e.IsDirectory);
