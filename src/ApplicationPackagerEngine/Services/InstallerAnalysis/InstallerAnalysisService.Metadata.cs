@@ -389,11 +389,11 @@ public sealed partial class InstallerAnalysisService
             {
                 case "MSIX":
                 case "MsixBundle":
-                    ReadMsix(zip, engine, metadata, o);
+                    ReadMsix(zip, engine, metadata, o, notes);
                     break;
                 case "NuGet":
                 case "Chocolatey":
-                    ReadNuspec(zip, entries, engine, metadata, o);
+                    ReadNuspec(zip, entries, engine, metadata, o, notes);
                     break;
                 case "Intunewin":
                     ReadIntunewin(zip, metadata, o);
@@ -415,7 +415,7 @@ public sealed partial class InstallerAnalysisService
         }
     }
 
-    private static void ReadMsix(BoundedZip zip, string engine, List<MetadataBlock> metadata, DeploymentOverrides o)
+    private static void ReadMsix(BoundedZip zip, string engine, List<MetadataBlock> metadata, DeploymentOverrides o, List<string> notes)
     {
         var bundle = engine == "MsixBundle";
         var doc = ParseXml(zip.ReadText(bundle ? "AppxMetadata/AppxBundleManifest.xml" : "AppxManifest.xml", ManifestLimitBytes));
@@ -462,14 +462,20 @@ public sealed partial class InstallerAnalysisService
         o.Publisher = publisherDisplay.StartsWith("ms-resource:", StringComparison.OrdinalIgnoreCase) || publisherDisplay.Length == 0 ? publisher : publisherDisplay;
         o.ProductCode = name;
         o.Architecture = arch is "x64" or "x86" or "arm64" or "neutral" ? (arch == "arm64" ? "ARM64" : arch) : arch;
-        if (name.Length > 0)
+        if (ProposedCommand.IsMsixName(name))
         {
             o.DetectionHint = $"MSIX family-name detection: Get-AppxPackage -Name {name}" + (family.Length > 0 ? $" (family {family})." : ".");
             o.UninstallCommand = $"Get-AppxPackage -Name '{name}' | Remove-AppxPackage";
         }
+        else if (name.Length > 0)
+        {
+            o.CommandsRefused = true;
+            o.DetectionHint = "MSIX family-name detection; the identity name is not valid and is not shown in a command.";
+            notes.Add("The MSIX identity name is not a valid package name (3 to 50 letters, digits, dots and dashes); no uninstall command is proposed.");
+        }
     }
 
-    private static void ReadNuspec(BoundedZip zip, IReadOnlyList<System.IO.Compression.ZipArchiveEntry> entries, string engine, List<MetadataBlock> metadata, DeploymentOverrides o)
+    private static void ReadNuspec(BoundedZip zip, IReadOnlyList<System.IO.Compression.ZipArchiveEntry> entries, string engine, List<MetadataBlock> metadata, DeploymentOverrides o, List<string> notes)
     {
         var nuspec = entries.FirstOrDefault(e => !e.FullName.Contains('/') && e.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidDataException("The package has no nuspec.");
@@ -496,6 +502,15 @@ public sealed partial class InstallerAnalysisService
         o.DisplayVersion = version;
         o.Publisher = Child(meta, "authors");
         o.ProductCode = id;
+        if (!ProposedCommand.IsNuGetId(id) || !ProposedCommand.IsNuGetVersion(version))
+        {
+            o.CommandsRefused = true;
+            o.DetectionHint = engine == "Chocolatey"
+                ? "Chocolatey package detection; the package id or version is not valid and is not shown in a command."
+                : "NuGet packages are a package source, not an installer; detection follows the consumer.";
+            notes.Add("The package id or version is not a valid NuGet value (id: letters, digits, dots, dashes and underscores; version: numbers with optional labels); no install or uninstall command is proposed.");
+            return;
+        }
         if (engine == "Chocolatey")
         {
             o.InstallCommand = $"choco install {id} --version={version} -y --source=\"<SourceDirOrFeed>\"";

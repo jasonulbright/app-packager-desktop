@@ -844,7 +844,7 @@ public static class InnoSetupReader
             if (dirResolved && uninstallable)
             {
                 var uninstallerWindows = ToWindowsPath(meta.UninstallerPath, meta.Is64BitInstallMode, branchPerUser, dirWindows);
-                if (!uninstallerWindows.Contains('{'))
+                if (!uninstallerWindows.Contains('{') && CommandLineText.IsQuotablePath(uninstallerWindows))
                 {
                     b.UninstallerPathWindows = uninstallerWindows;
                     b.SilentUninstallCommand = "\"" + uninstallerWindows + "\" " + SilentArgs;

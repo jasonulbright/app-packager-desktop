@@ -795,7 +795,7 @@ public static class NsisScriptReader
             if (!string.IsNullOrEmpty(uninstallerPath))
             {
                 branch.UninstallerPathWindows = ToWindowsPath(uninstallerPath, dirWindows, allUsersFolders);
-                if (dirResolved && !branch.UninstallerPathWindows.Contains('$'))
+                if (dirResolved && !branch.UninstallerPathWindows.Contains('$') && CommandLineText.IsQuotablePath(branch.UninstallerPathWindows))
                     branch.SilentUninstallCommand = "\"" + branch.UninstallerPathWindows + "\" " + branch.InstallArgs;
             }
             if (!string.IsNullOrEmpty(arpSubkey))

@@ -163,7 +163,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         }
 
         progress.Report("Building the report");
-        var deployment = DeploymentFacts(drop, engine, fileName, overrides, msiProperties);
+        var deployment = DeploymentFacts(drop, engine, fileName, overrides, msiProperties, notes);
         var modes = Modes(drop, engine, fileName, msiProperties);
         var architecture = !string.IsNullOrEmpty(overrides.Architecture) ? overrides.Architecture : drop?.Architecture ?? "";
         var hint = !string.IsNullOrEmpty(overrides.DetectionHint) ? overrides.DetectionHint : DetectionHint(drop, engine, deployment);
@@ -195,10 +195,28 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         public string DetectionHint = "";
         public string Source = "";
         public string InstallContext = "";
+
+        /// <summary>True when the reader found the values a command is built from invalid; no command is proposed.</summary>
+        public bool CommandsRefused;
     }
 
-    private List<AnalysisFact> DeploymentFacts(DroppedInstallerAnalysis? drop, string engine, string fileName, DeploymentOverrides o, List<AnalysisFact> msiProperties)
+    private const string UnsafeCommandNote = "A proposed command line was dropped: text read from the installer holds characters that a command line cannot carry safely.";
+    private const string ProductCodeNote = "The ProductCode is not a GUID; no msiexec uninstall command is proposed.";
+
+    /// <summary>
+    /// Builds the deployment fields. Commands a format reader generates (overrides) are Predicted and
+    /// their inputs were validated by that reader; every other command passes
+    /// <see cref="ProposedCommand.IsSafeCommandLine"/> or is dropped with a note.
+    /// </summary>
+    private List<AnalysisFact> DeploymentFacts(DroppedInstallerAnalysis? drop, string engine, string fileName, DeploymentOverrides o, List<AnalysisFact> msiProperties, List<string> notes)
     {
+        string Checked(string command)
+        {
+            if (command.Length == 0 || ProposedCommand.IsSafeCommandLine(command)) return command;
+            notes.Add(UnsafeCommandNote);
+            return "";
+        }
+
         var facts = new List<AnalysisFact>();
         AnalysisFact From(string name, ProposedField? field, string overrideValue = "", string overrideSource = "")
         {
@@ -216,30 +234,33 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
 
         var install = o.InstallCommand;
         var installSource = o.Source;
-        var installConfidence = "Confirmed";
-        if (string.IsNullOrEmpty(install) && drop is not null)
+        var installConfidence = "Predicted";
+        if (string.IsNullOrEmpty(install) && drop is not null && !o.CommandsRefused)
         {
             installSource = drop.InstallArgs.Source;
             installConfidence = drop.InstallArgs.Confidence.ToString();
-            install = engine is "NativeMSI" or "MSP" || string.IsNullOrWhiteSpace(drop.InstallArgs.Value)
+            install = Checked(engine is "NativeMSI" or "MSP" || string.IsNullOrWhiteSpace(drop.InstallArgs.Value)
                 ? drop.InstallCommand
-                : "\"" + fileName + "\" " + drop.InstallArgs.Value;
+                : "\"" + fileName + "\" " + drop.InstallArgs.Value);
         }
         facts.Add(new AnalysisFact("InstallCommand", install ?? "", string.IsNullOrEmpty(install) ? "None" : installConfidence, installSource));
 
         string uninstall;
         string uninstallConfidence;
         string uninstallSource;
-        if (!string.IsNullOrEmpty(o.UninstallCommand)) { uninstall = o.UninstallCommand; uninstallConfidence = "Confirmed"; uninstallSource = o.Source; }
+        if (!string.IsNullOrEmpty(o.UninstallCommand)) { uninstall = o.UninstallCommand; uninstallConfidence = "Predicted"; uninstallSource = o.Source; }
+        else if (o.CommandsRefused) { uninstall = ""; uninstallConfidence = "None"; uninstallSource = o.Source; }
         else if (engine == "NativeMSI" && drop is { ProductCode.HasValue: true })
         {
-            uninstall = $"msiexec.exe /x \"{drop.ProductCode.Value}\" /qn /norestart";
+            var valid = ProposedCommand.IsProductCode(drop.ProductCode.Value);
+            if (!valid) notes.Add(ProductCodeNote);
+            uninstall = valid ? $"msiexec.exe /x \"{drop.ProductCode.Value}\" /qn /norestart" : "";
             uninstallConfidence = "Confirmed";
             uninstallSource = "msi-property-table";
         }
         else
         {
-            uninstall = drop?.UninstallCommand.Value ?? "";
+            uninstall = Checked(drop?.UninstallCommand.Value ?? "");
             uninstallConfidence = drop?.UninstallCommand.Confidence.ToString() ?? "None";
             uninstallSource = drop?.UninstallCommand.Source ?? "none";
         }
@@ -263,20 +284,21 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
     {
         var modes = new List<InstallMode>();
         if (drop is null) return modes;
+        static string Checked(string command) => ProposedCommand.IsSafeCommandLine(command) ? command : "";
         foreach (var name in drop.InstallModes)
         {
             if (!drop.ModeBranches.TryGetValue(name, out var b)) continue;
             var isDefault = string.Equals(name, drop.DefaultInstallMode, StringComparison.OrdinalIgnoreCase);
             var modeSwitch = Regex.Match(b.InstallArgs, @"(?i)(/allusers|/currentuser)").Value;
-            modes.Add(new InstallMode(name == "AllUsers" ? "PerMachine" : "PerUser", modeSwitch, b.InstallDirWindows, b.SilentUninstallCommand,
+            modes.Add(new InstallMode(name == "AllUsers" ? "PerMachine" : "PerUser", modeSwitch, b.InstallDirWindows, Checked(b.SilentUninstallCommand),
                 b.UninstallRegistryKey, b.RegistryHive, b.InstallContext)
             {
                 IsDefault = isDefault,
                 View = b.RegistryView,
-                InstallCommand = "\"" + fileName + "\" " + b.InstallArgs
+                InstallCommand = Checked("\"" + fileName + "\" " + b.InstallArgs)
             });
         }
-        if (modes.Count == 0 && engine == "NativeMSI" && drop.ProductCode.HasValue)
+        if (modes.Count == 0 && engine == "NativeMSI" && drop.ProductCode.HasValue && ProposedCommand.IsProductCode(drop.ProductCode.Value))
         {
             var perUser = drop.InstallContext == "User";
             var key = drop.UninstallRegistryKey.Value;
