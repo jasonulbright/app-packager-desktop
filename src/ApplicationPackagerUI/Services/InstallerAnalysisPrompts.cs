@@ -66,7 +66,7 @@ public sealed class InstallerAnalysisPrompts : IInstallerAnalysisPrompts
 
     public void OpenFolder(string folder)
     {
-        try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"")); }
+        try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\""))?.Dispose(); }
         catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException) { }
     }
 }
