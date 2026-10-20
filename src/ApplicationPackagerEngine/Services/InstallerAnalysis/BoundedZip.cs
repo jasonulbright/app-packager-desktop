@@ -27,14 +27,21 @@ internal sealed class BoundedZip : IDisposable
         Archive = archive;
     }
 
-    /// <summary>Opens the zip at the start of the file, or the package a Velopack setup stub embeds.</summary>
-    public static BoundedZip Open(string path, bool velopack = false)
+    /// <summary>
+    /// Opens the zip at the start of the file, or the package a Velopack setup stub embeds. The
+    /// central directory is checked against <paramref name="maxEntries"/> and its size limit before
+    /// the archive reads it; the refusal message ends with "it was not <paramref name="verb"/>.".
+    /// </summary>
+    public static BoundedZip Open(string path, int maxEntries, string verb, bool velopack = false)
     {
         var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
         try
         {
             if (!velopack)
+            {
+                ZipCentralDirectory.Check(file, maxEntries, verb);
                 return new BoundedZip(file, null, file, new ZipArchive(file, ZipArchiveMode.Read, leaveOpen: true));
+            }
 
             var head = new byte[(int)Math.Min(InstallerSignatureScanner.ScanWindowBytes, file.Length)];
             file.ReadExactly(head, 0, head.Length);
@@ -44,7 +51,17 @@ internal sealed class BoundedZip : IDisposable
                 throw new InvalidDataException("The Velopack package offset or length is outside the file.");
             var mapping = MemoryMappedFile.CreateFromFile(file, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
             var view = mapping.CreateViewStream(header.Offset, header.Length, MemoryMappedFileAccess.Read);
-            return new BoundedZip(file, mapping, view, new ZipArchive(view, ZipArchiveMode.Read, leaveOpen: true));
+            try
+            {
+                ZipCentralDirectory.Check(view, maxEntries, verb);
+                return new BoundedZip(file, mapping, view, new ZipArchive(view, ZipArchiveMode.Read, leaveOpen: true));
+            }
+            catch
+            {
+                view.Dispose();
+                mapping.Dispose();
+                throw;
+            }
         }
         catch
         {
@@ -56,51 +73,10 @@ internal sealed class BoundedZip : IDisposable
     /// <summary>The central directory entries, at most <paramref name="maxEntries"/>; throws past the limit.</summary>
     public IReadOnlyList<ZipArchiveEntry> Entries(int maxEntries)
     {
-        if (DeclaredEntryCount(_view) is { } declared && declared > maxEntries)
-            throw new InstallerAnalysisException($"The archive has more than {maxEntries:N0} entries; it was not listed.");
         var entries = Archive.Entries;
         if (entries.Count > maxEntries)
             throw new InstallerAnalysisException($"The archive has more than {maxEntries:N0} entries; it was not listed.");
         return entries;
-    }
-
-    /// <summary>
-    /// The entry count the end-of-central-directory record declares (the zip64 record when
-    /// the classic field is saturated), read before the archive builds its entry list.
-    /// </summary>
-    internal static long? DeclaredEntryCount(Stream stream)
-    {
-        const int Tail = 65557;
-        var length = stream.Length;
-        var take = (int)Math.Min(length, Tail);
-        if (take < 22) return null;
-        var buffer = new byte[take];
-        stream.Position = length - take;
-        stream.ReadExactly(buffer, 0, take);
-        for (var i = take - 22; i >= 0; i--)
-        {
-            if (BitConverter.ToUInt32(buffer, i) != 0x06054b50) continue;
-            long count = BitConverter.ToUInt16(buffer, i + 10);
-            if (count == 0xFFFF && i >= 20 && BitConverter.ToUInt32(buffer, i - 20) == 0x07064b50)
-            {
-                var zip64 = (long)BitConverter.ToUInt64(buffer, i - 12);
-                if (zip64 >= 0 && zip64 + 56 <= length)
-                {
-                    var record = new byte[56];
-                    stream.Position = zip64;
-                    stream.ReadExactly(record, 0, 56);
-                    if (BitConverter.ToUInt32(record, 0) == 0x06064b50)
-                    {
-                        var total = BitConverter.ToUInt64(record, 32);
-                        count = total > long.MaxValue ? long.MaxValue : (long)total;
-                    }
-                }
-            }
-            stream.Position = 0;
-            return count;
-        }
-        stream.Position = 0;
-        return null;
     }
 
     public static bool IsSymbolicLink(ZipArchiveEntry entry) => ((entry.ExternalAttributes >> 16) & 0xF000) == UnixSymlink;

@@ -126,8 +126,14 @@ public static class NsisScriptReader
         public string Compression = "";
         public bool Solid;
         public bool Filtered;
+        public bool TooLarge;
         public string Note = "";
     }
+
+    /// <summary>The largest decompressed header block the reader accepts.</summary>
+    public const int MaxHeaderBytes = 64 * 1024 * 1024;
+
+    public const string HeaderTooLargeNote = "The NSIS header length field is larger than the 64 MB limit; the header was not decoded.";
 
     /// <summary>
     /// Decompresses the header block that follows the firstheader. Solid
@@ -139,9 +145,17 @@ public static class NsisScriptReader
     /// </summary>
     private static Expanded ExpandHeader(byte[] bytes, int firstHeader)
     {
-        var headerLength = (int)BitConverter.ToUInt32(bytes, firstHeader + 20);
-        var dataStart = firstHeader + FirstHeaderSize;
         var result = new Expanded();
+        var rawHeaderLength = BitConverter.ToUInt32(bytes, firstHeader + 20);
+        // The field sizes the decode buffer; it is checked before anything is allocated from it.
+        if (rawHeaderLength > MaxHeaderBytes)
+        {
+            result.Note = HeaderTooLargeNote;
+            result.TooLarge = true;
+            return result;
+        }
+        var headerLength = (int)rawHeaderLength;
+        var dataStart = firstHeader + FirstHeaderSize;
         if (dataStart + 8 > bytes.Length) { result.Note = "Installer data block is truncated."; return result; }
 
         bool IsLzmaAt(int p) =>
@@ -314,7 +328,7 @@ public static class NsisScriptReader
         var fh = FindFirstHeader(bytes, fileLength);
         Expanded? expanded = null;
         if (fh >= 0) expanded = ExpandHeader(bytes, fh);
-        if ((fh < 0 || expanded?.Header is null) && fileLength > bytes.Length && fileLength <= maxWholeFileBytes)
+        if ((fh < 0 || expanded is { Header: null, TooLarge: false }) && fileLength > bytes.Length && fileLength <= maxWholeFileBytes)
         {
             bytes = ReadWindow(path, fileLength);
             fh = FindFirstHeader(bytes, fileLength);

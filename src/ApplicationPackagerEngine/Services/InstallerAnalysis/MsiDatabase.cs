@@ -174,12 +174,16 @@ internal readonly struct MsiRecord(MsiHandle handle)
         uint length = 0;
         var error = MsiNative.MsiRecordGetStringW(handle, field, null, ref length);
         if (error != MsiNative.Success && error != MsiNative.MoreData) return null;
-        var take = (uint)Math.Min(length, (uint)maxChars);
-        var buffer = new char[length + 1];
-        length++;
-        error = MsiNative.MsiRecordGetStringW(handle, field, buffer, ref length);
-        if (error != MsiNative.Success) return null;
-        return new string(buffer, 0, (int)Math.Min(length, take));
+        // The buffer is sized from the limit, never from the length the record reports; a longer
+        // value comes back cut to the buffer with ERROR_MORE_DATA.
+        var capacity = (uint)Math.Max(1, Math.Min((long)length, Math.Max(0, maxChars))) + 1;
+        var buffer = new char[capacity];
+        var size = capacity;
+        error = MsiNative.MsiRecordGetStringW(handle, field, buffer, ref size);
+        if (error == MsiNative.Success) return new string(buffer, 0, (int)Math.Min(size, capacity - 1));
+        if (error != MsiNative.MoreData) return null;
+        var end = Array.IndexOf(buffer, '\0');
+        return new string(buffer, 0, end < 0 ? (int)capacity - 1 : end);
     }
 
     /// <summary>The integer field, or null for a null field.</summary>

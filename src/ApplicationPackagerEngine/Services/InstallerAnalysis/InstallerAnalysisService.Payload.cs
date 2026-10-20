@@ -21,7 +21,7 @@ public sealed partial class InstallerAnalysisService
     public async Task<IReadOnlyList<PayloadEntry>> ListPayloadAsync(string path, AnalysisLimits limits, CancellationToken ct)
     {
         var full = CheckFile(path, limits);
-        return await Bounded(token => ListPayloadCoreAsync(full, InstallerSignatureScanner.Identify(full), limits, token), limits, ct,
+        return await Bounded(token => ListPayloadCoreAsync(full, Identify(full, limits, "listed"), limits, token), limits, ct,
             "Listing the payload stopped at the time limit.", "The payload could not be listed; the file may be damaged.").ConfigureAwait(false);
     }
 
@@ -62,7 +62,7 @@ public sealed partial class InstallerAnalysisService
         }
         if (ZipEngines.Contains(engine) || engine == "Velopack")
         {
-            using var zip = BoundedZip.Open(path, velopack: engine == "Velopack");
+            using var zip = BoundedZip.Open(path, limits.MaxEntries, "listed", velopack: engine == "Velopack");
             return zip.Entries(limits.MaxEntries)
                 .Select(e => Classify(e.FullName, e.Length, BoundedZip.IsDirectory(e), engine))
                 .ToList();
@@ -86,7 +86,7 @@ public sealed partial class InstallerAnalysisService
         var full = CheckFile(path, limits);
         var session = CheckSessionFolder(sessionFolder);
         if (entry.IsDirectory) throw new InstallerAnalysisException("A folder cannot be extracted as one entry; use Extract payload.");
-        return await Bounded(token => ExtractEntryCoreAsync(full, InstallerSignatureScanner.Identify(full), entry, session, limits, token), limits, ct,
+        return await Bounded(token => ExtractEntryCoreAsync(full, Identify(full, limits, "extracted"), entry, session, limits, token), limits, ct,
             "The extraction stopped at the time limit.", "The entry could not be extracted; the file may be damaged.").ConfigureAwait(false);
     }
 
@@ -124,7 +124,7 @@ public sealed partial class InstallerAnalysisService
         }
         if (ZipEngines.Contains(engine) || engine == "Velopack")
         {
-            using var zip = BoundedZip.Open(path, velopack: engine == "Velopack");
+            using var zip = BoundedZip.Open(path, limits.MaxEntries, "extracted", velopack: engine == "Velopack");
             var zipEntry = zip.Entries(limits.MaxEntries).FirstOrDefault(e => e.FullName == entry.Path)
                 ?? throw new InstallerAnalysisException("The entry is not in the package.");
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -170,7 +170,7 @@ public sealed partial class InstallerAnalysisService
             throw new InstallerAnalysisException("The analysis sandbox cannot be the target folder; choose another folder.");
         if (!Directory.Exists(target)) throw new InstallerAnalysisException("The target folder does not exist.");
         if (AppDataPaths.IsReparsePointDirectory(target)) throw new InstallerAnalysisException("The target folder is a junction or symbolic link; choose another folder.");
-        return await Bounded(token => ExtractPayloadCoreAsync(full, InstallerSignatureScanner.Identify(full), entries, target, limits, token), limits, ct,
+        return await Bounded(token => ExtractPayloadCoreAsync(full, Identify(full, limits, "extracted"), entries, target, limits, token), limits, ct,
             "The extraction stopped at the time limit.", "The payload could not be extracted; the file may be damaged.").ConfigureAwait(false);
     }
 
@@ -211,7 +211,7 @@ public sealed partial class InstallerAnalysisService
         }
         if (ZipEngines.Contains(engine) || engine == "Velopack")
         {
-            using var zip = BoundedZip.Open(path, velopack: engine == "Velopack");
+            using var zip = BoundedZip.Open(path, limits.MaxEntries, "extracted", velopack: engine == "Velopack");
             foreach (var entry in zip.Entries(limits.MaxEntries))
             {
                 ct.ThrowIfCancellationRequested();

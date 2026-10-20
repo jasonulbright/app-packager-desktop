@@ -81,6 +81,7 @@ public static class VelopackMetadataReader
             using var mapping = MemoryMappedFile.CreateFromFile(
                 stream, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
             using var view = mapping.CreateViewStream(header.Offset, header.Length, MemoryMappedFileAccess.Read);
+            ZipCentralDirectory.Check(view, InstallerSignatureScanner.MaxLayoutEntries, "read");
             using var archive = new ZipArchive(view, ZipArchiveMode.Read, leaveOpen: true);
 
             var entries = archive.Entries.Where(e => RootNuspecPattern.IsMatch(e.FullName)).ToList();

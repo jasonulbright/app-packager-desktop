@@ -71,6 +71,9 @@ public static class InnoSetupReader
 
     private static readonly uint[] CrcTable = BuildCrcTable();
 
+    /// <summary>The largest stored setup-0 block the reader loads.</summary>
+    public const long MaxStoredHeaderBytes = 64L * 1024 * 1024;
+
     private static uint[] BuildCrcTable()
     {
         var t = new uint[256];
@@ -307,7 +310,8 @@ public static class InnoSetupReader
             compressed = blockHeader[4 + sizeWidth] != 0;
             if (actualCrc != expectedCrc) return Fail("Header block checksum mismatch.");
             var available = fs.Length - fs.Position;
-            var take = (int)Math.Min(storedSize, Math.Min(available, 256L * 1024 * 1024));
+            if (storedSize < 0 || storedSize > MaxStoredHeaderBytes) return Fail("The setup header block size field is larger than the 64 MB limit; the header was not decoded.", crcOk: true);
+            var take = (int)Math.Min(storedSize, available);
             raw = br.ReadBytes(take);
         }
 

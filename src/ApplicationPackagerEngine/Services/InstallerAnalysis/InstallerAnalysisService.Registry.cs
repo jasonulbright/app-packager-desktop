@@ -16,7 +16,7 @@ public sealed partial class InstallerAnalysisService
 
     private async Task<RegistryReadResult> ReadRegistryCoreAsync(string path, AnalysisLimits limits, CancellationToken ct)
     {
-        var engine = InstallerSignatureScanner.Identify(path);
+        var engine = Identify(path, limits, "read");
         var notes = new List<string>();
         switch (engine)
         {

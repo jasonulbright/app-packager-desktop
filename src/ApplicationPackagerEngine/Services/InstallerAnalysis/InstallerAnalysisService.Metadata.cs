@@ -300,7 +300,7 @@ public sealed partial class InstallerAnalysisService
     {
         try
         {
-            using var zip = BoundedZip.Open(path);
+            using var zip = BoundedZip.Open(path, limits.MaxEntries, "read");
             var entries = zip.Entries(limits.MaxEntries);
             ct.ThrowIfCancellationRequested();
             switch (engine)

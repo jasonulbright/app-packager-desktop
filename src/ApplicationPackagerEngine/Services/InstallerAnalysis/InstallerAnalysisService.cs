@@ -85,7 +85,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
 
         progress.Report("Identifying the installer type");
         ct.ThrowIfCancellationRequested();
-        var engine = InstallerSignatureScanner.Identify(path);
+        var engine = Identify(path, limits, "read");
         var isPe = IsPe(path);
         var executionLevel = isPe ? Safe(() => PeResources.ReadRequestedExecutionLevel(path), "") : "";
         if (isPe) metadata.Add(VersionResourceBlock(path));
@@ -110,7 +110,8 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         {
             ct.ThrowIfCancellationRequested();
             try { metadata.Add(read()); }
-            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException) { notes.Add(failure); }
+            catch (OutOfMemoryException) { notes.Add(TooLargeNote); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { notes.Add(failure); }
         }
 
         switch (engine)
@@ -298,6 +299,21 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
 
     // ---- shared helpers ------------------------------------------------------------------
 
+    private static readonly HashSet<string> ZipExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".zip", ".nupkg", ".msix", ".appx", ".msixbundle", ".appxbundle", ".intunewin"
+    };
+
+    /// <summary>
+    /// The engine name. A zip-based file is first checked against the entry and central
+    /// directory limits, so no reader loads an oversized central directory.
+    /// </summary>
+    private static string Identify(string path, AnalysisLimits limits, string verb)
+    {
+        if (ZipExtensions.Contains(Path.GetExtension(path))) ZipCentralDirectory.Check(path, limits.MaxEntries, verb);
+        return InstallerSignatureScanner.Identify(path);
+    }
+
     private static string CheckFile(string path, AnalysisLimits? limits)
     {
         if (string.IsNullOrWhiteSpace(path)) throw new InstallerAnalysisException("No file was given.");
@@ -345,11 +361,17 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         {
             throw;
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
+        catch (OutOfMemoryException ex)
+        {
+            throw new InstallerAnalysisException(TooLargeNote, ex);
+        }
+        catch (Exception ex)
         {
             throw new InstallerAnalysisException(failureMessage, ex);
         }
     }
+
+    internal const string TooLargeNote = "A part of the file is too large to read in memory; it may be damaged.";
 
     private static string Sha256(string path, CancellationToken ct)
     {

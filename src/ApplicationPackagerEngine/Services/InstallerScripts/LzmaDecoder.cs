@@ -138,23 +138,42 @@ public sealed class LzmaDecoder
         return 16 + BitTreeDecode(ld.High, 0, 8);
     }
 
-    private void PutByte(byte b) => _out[_outPos++] = b;
+    /// <summary>The largest output one <see cref="Decode"/> call produces; a larger request is refused before any allocation.</summary>
+    public const int MaxOutputBytes = 256 * 1024 * 1024;
+
+    private const int InitialOutputBytes = 64 * 1024;
+
+    private int _outLimit;
+
+    private void PutByte(byte b)
+    {
+        if (_outPos == _out.Length)
+        {
+            var grown = (int)Math.Min(_outLimit, Math.Max(InitialOutputBytes, (long)_out.Length * 2));
+            Array.Resize(ref _out, grown);
+        }
+        _out[_outPos++] = b;
+    }
 
     private byte GetByte(uint dist) => _out[_outPos - (int)dist];
 
     /// <summary>
     /// Decodes outSize bytes from the raw LZMA data (no props header) at
     /// input[offset..]. Returns the bytes actually produced; a truncated or
-    /// corrupt stream yields fewer bytes and corrupted = true.
+    /// corrupt stream yields fewer bytes and corrupted = true. The output buffer grows with
+    /// the bytes produced, so a short stream never allocates the whole requested size.
     /// </summary>
     public static byte[] Decode(byte[] input, int offset, int length, byte propsByte, uint dictSize, int outSize, out bool corrupted)
     {
+        if (outSize < 0 || outSize > MaxOutputBytes)
+            throw new InvalidDataException("The LZMA output size is outside the decoder limit.");
         var d = new LzmaDecoder
         {
             _in = input,
             _pos = offset,
             _end = offset + length,
-            _out = new byte[outSize],
+            _out = new byte[Math.Min(outSize, InitialOutputBytes)],
+            _outLimit = outSize,
             _outPos = 0
         };
 
@@ -296,7 +315,7 @@ public sealed class LzmaDecoder
         }
 
         corrupted = d._corrupted || d._outPos < outSize;
-        if (d._outPos == outSize) return d._out;
+        if (d._outPos == d._out.Length) return d._out;
         var partial = new byte[d._outPos];
         Array.Copy(d._out, partial, d._outPos);
         return partial;
