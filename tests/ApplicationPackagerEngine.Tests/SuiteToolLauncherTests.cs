@@ -120,7 +120,7 @@ public sealed class SuiteToolLauncherTests
     private const string Install = Local + @"\AppPackagerSuite";
     private const string Launcher = Install + @"\app-packager-suite\start-suite.ps1";
     private const string Settings = Install + @"\app-packager-suite\suite.settings.json";
-    private static readonly SuiteTool Helper = SuiteTools.All.Single(t => t.Id == "deployment-helper");
+    private static readonly SuiteTool Helper = SuiteTools.DeploymentHelper;
 
     private readonly FakeSuiteFileSystem _files = new();
     private readonly FakeSuiteEnvironment _environment = new();
@@ -144,15 +144,17 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheFourSidebarToolsNameTheSuiteFoldersAndEntryScripts()
+    public void TheThreeSidebarToolsAndTheRingDeploymentToolNameTheSuiteFoldersAndEntryScripts()
     {
+        Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DeploymentHelper || t.Folder == "deployment-helper");
+        Assert.Equal(("deployment-helper", "Deployment Helper", "deployment-helper", "start-deploymenthelper.ps1", "Rocket24"),
+            (SuiteTools.DeploymentHelper.Id, SuiteTools.DeploymentHelper.Title, SuiteTools.DeploymentHelper.Folder, SuiteTools.DeploymentHelper.EntryScript, SuiteTools.DeploymentHelper.Symbol));
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.CollectionCompliance);
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.InstallerAnalysis || t.Folder == "installer-analysis");
         Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-and-compliance-manager");
         Assert.Null(typeof(SuiteTools).GetProperty("CollectionAndCompliance"));
         Assert.Equal(
         [
-            ("deployment-helper", "deployment-helper", "start-deploymenthelper.ps1"),
             ("dp-content-manager", "dp-content-manager", "start-dpcontentmgr.ps1"),
             ("pivots-and-scripts", "pivots-and-scripts", "start-pivotsandscripts.ps1"),
             ("site-hygiene", "site-hygiene", "start-sitehygiene.ps1")
@@ -631,7 +633,7 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         return (new SuiteToolLauncher(files, environment, starter, new RecordingSuiteLog()), starter);
     }
 
-    private static readonly SuiteTool Helper = SuiteTools.All.Single(t => t.Id == "deployment-helper");
+    private static readonly SuiteTool Helper = SuiteTools.DeploymentHelper;
 
     [Fact]
     public async Task ASiteCodeTheOperatorNeverSavedIsNotPassed()
@@ -864,10 +866,24 @@ public sealed class SuiteToolRegistryTests
     }
 
     [Fact]
+    public void TheDeploymentHelperEntryIsAMovablePageWithItsSavedIdAndIcon()
+    {
+        var registry = SidebarRegistry.CreateDefault();
+        var item = registry.Find("deployment-helper")!;
+        Assert.Equal(SidebarIds.DeploymentHelper, item.Id);
+        Assert.Equal(SidebarItemKind.Page, item.Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), item.PageType);
+        Assert.Null(item.Activate);
+        Assert.False(item.IsPinned);
+        Assert.Equal("Rocket24", item.Symbol);
+        Assert.Equal(8, registry.Items.ToList().IndexOf(item));
+    }
+
+    [Fact]
     public void EveryOtherToolEntryIsAMovableToolWithAnAction()
     {
-        var tools = SidebarRegistry.CreateDefault().Items.Skip(8).ToList();
-        Assert.Equal(4, tools.Count);
+        var tools = SidebarRegistry.CreateDefault().Items.Skip(9).ToList();
+        Assert.Equal(3, tools.Count);
         foreach (var item in tools)
         {
             Assert.Equal(SidebarItemKind.Tool, item.Kind);

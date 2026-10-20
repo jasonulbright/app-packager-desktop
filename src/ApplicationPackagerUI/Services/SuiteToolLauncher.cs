@@ -14,9 +14,12 @@ public sealed record SuiteTool(string Id, string Title, string Folder, string En
 /// <summary>The suite tools that have a sidebar entry, in the default sidebar order.</summary>
 public static class SuiteTools
 {
+    /// <summary>Started from the Deployment Helper page for ring deployments; the sidebar entry opens the page.</summary>
+    public static SuiteTool DeploymentHelper { get; } =
+        new("deployment-helper", "Deployment Helper", "deployment-helper", "start-deploymenthelper.ps1", "Rocket24");
+
     public static IReadOnlyList<SuiteTool> All { get; } =
     [
-        new("deployment-helper", "Deployment Helper", "deployment-helper", "start-deploymenthelper.ps1", "Rocket24"),
         new("dp-content-manager", "DP Content Manager", "dp-content-manager", "start-dpcontentmgr.ps1", "Server24"),
         new("pivots-and-scripts", "Pivots and Scripts", "pivots-and-scripts", "start-pivotsandscripts.ps1", "Code24"),
         new("site-hygiene", "Site Hygiene", "site-hygiene", "start-sitehygiene.ps1", "Broom24")

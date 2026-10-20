@@ -1,0 +1,357 @@
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Services;
+using ApplicationPackagerUI.ViewModels.Pages;
+using ApplicationPackagerUI.ViewModels.Windows;
+using ApplicationPackagerUI.Views.Pages;
+using ApplicationPackagerUI.Views.Windows;
+using Wpf.Ui.Appearance;
+using static ApplicationPackagerEngine.Tests.Compliance.RenderKit;
+using CheckBox = System.Windows.Controls.CheckBox;
+using DataGrid = System.Windows.Controls.DataGrid;
+using DataGridRow = System.Windows.Controls.DataGridRow;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using ListBox = System.Windows.Controls.ListBox;
+using TabControl = System.Windows.Controls.TabControl;
+
+namespace ApplicationPackagerEngine.Tests.Deployments;
+
+/// <summary>The Deployment Helper page and its dialogs in real windows, over fake services, in both themes.</summary>
+[Collection(ProcessEnvironmentCollection.Name)]
+public sealed class DeploymentHelperRenderTests
+{
+    /// <summary>The main window gives this width to the navigation pane and its border; the page gets the rest.</summary>
+    private const double NavigationPaneWidth = 230;
+    private const double CollapsedPaneWidth = 48;
+
+    private const string LongName = "Contoso Enterprise Line of Business Application Suite with a very long display name for wrapping checks";
+
+    // The checks come first: a selection in the object or collection grid changes the form, which clears the checks.
+    private static readonly string[] AllGrids = ["dgChecks", "dgDpGroups", "dgObjects", "dgCollections"];
+
+    private static DeploymentPageHarness LongHarness()
+    {
+        var h = new DeploymentPageHarness();
+        h.Service.Add(DeploymentObjectType.Application, "16777399", LongName, "2026.10.20.1234-preview");
+        h.Collections.Add("LAB00099", "Pilot devices of the finance department in the north-west region building seven", @"Deploy\Finance\North-West\Building 7", members: 1234);
+        h.Service.Groups.Add(new DpGroupInfo("Distribution points of the branch offices in the southern region", "{GRP-3}", "Failed", 12, 3, 4, 5));
+        for (var i = 0; i < 6; i++)
+            h.Audit.Records.Add(h.Record(i % 2 == 0 ? "Create" : "Undo", DeploymentObjectType.Application, i == 0 ? LongName : $"Application {i}", i % 2 == 0 ? "LAB00010" : "LAB00011",
+                $"{{DEP-{i:0000}-AAAA-BBBB-CCCC-DDDDEEEEFFFF}}", purpose: i % 3 == 0 ? "Required" : "Available", when: new DateTime(2026, 10, 19, 8, i, 0)));
+        return h;
+    }
+
+    private static void WithPage(ApplicationTheme theme, Action<Window, DeploymentHelperPage, DeploymentHelperViewModel, DeploymentPageHarness> test,
+        double width = 1440 - NavigationPaneWidth, double height = 900 - 48)
+    {
+        WithApplication(theme, () =>
+        {
+            var harness = LongHarness();
+            var viewModel = harness.Create();
+            var page = new DeploymentHelperPage(viewModel);
+            var window = new Window { Width = width, Height = height, WindowStyle = WindowStyle.None, Content = page };
+            Show(window);
+            try
+            {
+                Run(page.OnNavigatedToAsync());
+                Settle(window);
+                test(window, page, viewModel, harness);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    /// <summary>Fills the Deploy tab: an object with its DP groups, a collection, the checks and the result of one deploy.</summary>
+    private static void Fill(Window window, DeploymentHelperViewModel viewModel, DeploymentPageHarness harness)
+    {
+        var form = viewModel.Deploy;
+        form.SelectedObject = form.Objects.Single(o => o.Name == LongName);
+        form.SelectedCollection = form.Collections.Single(c => c.CollectionId == "LAB00099");
+        StaTestHelper.PumpUntil(() => form.DpGroups.Count == 3);
+        harness.Service.Distributed.Add("16777399");
+        form.DpGroups[0].IsChecked = true;
+        form.DistributeFirst = true;
+        Run(form.DeployCommand.ExecuteAsync(null));
+        Run(form.ValidateCommand.ExecuteAsync(null));
+        Settle(window);
+    }
+
+    private static void ShowTab(Window window, DeploymentHelperViewModel viewModel, int tab)
+    {
+        viewModel.SelectedTabIndex = tab;
+        Run(viewModel.CurrentTab.LoadTask);
+        Settle(window);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheThreeTabsRenderWithLongValues(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var tabs = ById<TabControl>(page, "tabDeploymentHelper");
+            Assert.Equal(["Deploy", "History", "Options"], tabs.Items.OfType<TabItem>().Select(t => (string)t.Header));
+            Assert.Equal(["Applications", "Packages", "Task Sequences", "Software Update Groups"], ById<ListBox>(page, "lstObjectType").Items.Cast<string>());
+            Fill(window, viewModel, harness);
+            Assert.Equal(2, ById<DataGrid>(page, "dgDeploymentResults").Items.Count);
+            Assert.Equal(5, ById<DataGrid>(page, "dgChecks").Items.Count);
+            Assert.True(ById<FrameworkElement>(page, "btnRingDeployment").IsVisible);
+
+            viewModel.Deploy.IsRequired = true;
+            Settle(window);
+            Assert.True(ById<FrameworkElement>(page, "dpDeadlineDate").IsVisible);
+            viewModel.Deploy.TypeIndex = (int)DeploymentObjectType.Package;
+            Settle(window);
+            Assert.True(ById<FrameworkElement>(page, "cboProgram").IsVisible);
+            Assert.True(ById<FrameworkElement>(page, "cboRerun").IsVisible);
+            Assert.False(ById<FrameworkElement>(page, "chkShowProgress").IsVisible);
+
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            Assert.Equal(6, ById<DataGrid>(page, "dgHistory").Items.Count);
+            ShowTab(window, viewModel, DeploymentHelperViewModel.OptionsTab);
+            Assert.Equal(3, ById<DataGrid>(page, "dgTemplates").Items.Count);
+            Assert.True(ById<FrameworkElement>(page, "txtAuditProbe").IsVisible);
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
+    [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
+    [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
+    [InlineData(ApplicationTheme.Dark, 1440 - CollapsedPaneWidth)]
+    public void EveryGridShowsAllItsColumnsAt1440Pixels(ApplicationTheme theme, double width)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            Assert.True(page.PickersSideBySide);
+            foreach (var id in AllGrids.Append("dgDeploymentResults"))
+            {
+                var grid = ById<DataGrid>(page, id);
+                AssertResizableReadableColumns(grid);
+                AssertNoSidewaysScroll(grid, id);
+            }
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            AssertResizableReadableColumns(ById<DataGrid>(page, "dgHistory"));
+            AssertNoSidewaysScroll(ById<DataGrid>(page, "dgHistory"), "dgHistory");
+            ShowTab(window, viewModel, DeploymentHelperViewModel.OptionsTab);
+            AssertResizableReadableColumns(ById<DataGrid>(page, "dgTemplates"));
+            AssertNoSidewaysScroll(ById<DataGrid>(page, "dgTemplates"), "dgTemplates");
+        }, width);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void EveryGridShowsReadableRowsAndAVisibleSelection(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            foreach (var id in AllGrids.Append("dgDeploymentResults"))
+            {
+                var grid = ById<DataGrid>(page, id);
+                grid.BringIntoView();
+                Settle(window);
+                AssertReadableRowsAndVisibleSelection(window, grid, $"{id}-{theme}");
+            }
+            var types = ById<ListBox>(page, "lstObjectType");
+            types.BringIntoView();
+            Settle(window);
+            AssertReadableListAndVisibleSelection(window, types, $"lstObjectType-{theme}");
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            AssertReadableRowsAndVisibleSelection(window, ById<DataGrid>(page, "dgHistory"), $"dgHistory-{theme}");
+            ShowTab(window, viewModel, DeploymentHelperViewModel.OptionsTab);
+            AssertReadableRowsAndVisibleSelection(window, ById<DataGrid>(page, "dgTemplates"), $"dgTemplates-{theme}");
+        });
+    }
+
+    /// <summary>The element lies inside the scroller's width and is reachable by a vertical scroll.</summary>
+    private static void AssertReachable(ScrollViewer scroller, FrameworkElement element, string id)
+    {
+        Assert.True(element.IsVisible, $"{id} is not visible.");
+        var bounds = element.TransformToAncestor(scroller).TransformBounds(new Rect(element.RenderSize));
+        Assert.True(bounds.Left >= -0.5 && bounds.Right <= scroller.ViewportWidth + 0.5, $"{id} spans {bounds.Left:0} to {bounds.Right:0} px in a {scroller.ViewportWidth:0} px tab.");
+        Assert.True(bounds.Bottom + scroller.VerticalOffset <= scroller.ExtentHeight + 0.5, $"{id} ends below the area the tab scrolls to.");
+    }
+
+    public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
+    {
+        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
+    };
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void EveryTabFitsItsWidthAndScrollsToEveryControl(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel, harness);
+            Assert.Equal(width >= 1000 + 48, page.PickersSideBySide);
+            void Check(int tab, string scrollId, params string[] ids)
+            {
+                ShowTab(window, viewModel, tab);
+                var scroller = ById<ScrollViewer>(page, scrollId);
+                Assert.True(scroller.ScrollableWidth < 1, $"{scrollId} scrolls sideways by {scroller.ScrollableWidth:0} px at {width}x{height}.");
+                foreach (var id in ids)
+                {
+                    var element = ById<FrameworkElement>(page, id);
+                    element.BringIntoView();
+                    Settle(window);
+                    AssertReachable(scroller, element, id);
+                }
+            }
+
+            Check(DeploymentHelperViewModel.DeployTab, "scrollDeployTab", "lstObjectType", "cboTemplate", "btnSaveTemplate", "dgObjects", "dgCollections", "cboNotification",
+                "chkRebootOutside", "dgDpGroups", "btnDistribute", "chkCreateNow", "dgChecks", "btnValidate", "btnDeploy");
+            Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
+            Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
+            var header = ById<FrameworkElement>(page, "btnRingDeployment");
+            Assert.True(header.TransformToAncestor(window).TransformBounds(new Rect(header.RenderSize)).Right <= window.ActualWidth + 0.5);
+        }, width, height);
+    }
+
+    private static T? Ancestor<T>(DependencyObject? element) where T : DependencyObject
+    {
+        while (element is not null and not T) element = element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element);
+        return element as T;
+    }
+
+    private static void Press(Window window, Key key)
+    {
+        var target = Assert.IsAssignableFrom<UIElement>(Keyboard.FocusedElement);
+        var source = PresentationSource.FromVisual(target)!;
+        var preview = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent };
+        target.RaiseEvent(preview);
+        if (!preview.Handled) target.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, key) { RoutedEvent = Keyboard.KeyDownEvent });
+        Settle(window);
+    }
+
+    /// <summary>Presses Tab from <paramref name="start"/> until the focus is inside the grid; fails with the focus path when it never gets there.</summary>
+    private static DataGridRow TabInto(Window window, UIElement start, DataGrid grid)
+    {
+        Assert.True(Keyboard.Focus(start) == start || start.IsKeyboardFocusWithin, $"{AutomationProperties.GetAutomationId(start)} takes no focus.");
+        Settle(window);
+        var path = new List<string>();
+        for (var i = 0; i < 40; i++)
+        {
+            ((UIElement)Keyboard.FocusedElement).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            Settle(window);
+            var focused = Keyboard.FocusedElement as DependencyObject;
+            path.Add(focused is FrameworkElement f ? $"{f.GetType().Name}({AutomationProperties.GetAutomationId(f)})" : focused?.GetType().Name ?? "none");
+            if (focused is not null && Ancestor<DataGrid>(focused) == grid) return Assert.IsType<DataGridRow>(Ancestor<DataGridRow>(focused), exactMatch: false);
+        }
+        Assert.Fail($"Tab never reaches {AutomationProperties.GetAutomationId(grid)}: {string.Join(" > ", path)}");
+        return null!;
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TabReachesEveryGridAndTheArrowKeysSelectTheFocusedRow(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var form = viewModel.Deploy;
+            form.SelectedObject = null;
+            Settle(window);
+            var objects = TabInto(window, ById<UIElement>(page, "txtObjectFilter"), ById<DataGrid>(page, "dgObjects"));
+            Assert.Same(objects.Item, form.SelectedObject);
+            Press(window, Key.Down);
+            Assert.Same(form.Objects[1], form.SelectedObject);
+
+            var collections = TabInto(window, ById<UIElement>(page, "txtCollectionFilter"), ById<DataGrid>(page, "dgCollections"));
+            Assert.Same(collections.Item, form.SelectedCollection);
+
+            StaTestHelper.PumpUntil(() => form.DpGroups.Count == 3);
+            Settle(window);
+            Assert.True(TabInto(window, ById<UIElement>(page, "cboRerun").IsVisible ? ById<UIElement>(page, "cboRerun") : ById<UIElement>(page, "chkMetered"),
+                ById<DataGrid>(page, "dgDpGroups")).IsSelected);
+            Run(form.ValidateCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.True(TabInto(window, ById<UIElement>(page, "chkCreateNow").IsEnabled ? ById<UIElement>(page, "chkCreateNow") : ById<UIElement>(page, "chkDistributeFirst"),
+                ById<DataGrid>(page, "dgChecks")).IsSelected);
+
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            var history = TabInto(window, ById<UIElement>(page, "btnHistoryRefresh"), ById<DataGrid>(page, "dgHistory"));
+            Assert.Same(history.Item, viewModel.History.SelectedRow);
+            Assert.True(viewModel.History.RemoveDeploymentCommand.CanExecute(null));
+
+            ShowTab(window, viewModel, DeploymentHelperViewModel.OptionsTab);
+            var template = TabInto(window, ById<UIElement>(page, "btnNewTemplate"), ById<DataGrid>(page, "dgTemplates"));
+            Assert.Same(template.Item, viewModel.Options.SelectedTemplate);
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheRequiredPlanShowsTheSecondCheckBoxAndConfirmStaysOffUntilItIsChecked(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var h = LongHarness();
+            var create = new DeploymentChange(DeploymentChangeKind.Create, h.SevenZip, new DeploymentCollection("LAB00099", "Pilot devices of the finance department", "", 1234),
+                new DeploymentOptions("Required", new DateTime(2026, 10, 20, 7, 0, 0), new DateTime(2026, 10, 22, 8, 0, 0), false, "DisplayAll", true, true, false,
+                    DeploymentText.NetworkBehaviors[0].Value, DeploymentText.RerunBehaviors[0].Value, true, false, true, true, false), [], false, false, false, null,
+                DeploymentText.CheckNames.Select(n => new PreflightCheck(n, "Pass", "")).ToList(), ["The audit log can be written."], null);
+            var (plan, problem) = DeploymentText.BuildDeployPlan([create], h.Clock);
+            Assert.Null(problem);
+            var dialog = new ChangePlanViewModel(plan!.Plan, h.Writer().RunFor(plan), h.Writer().UndoFor(plan));
+            var window = new ChangePlanWindow(dialog);
+            Show(window);
+            try
+            {
+                var extra = (CheckBox)window.FindName("chkExtra");
+                Assert.True(extra.IsVisible);
+                Assert.Contains("Required deployment installs 7-Zip", dialog.ExtraConfirmationText);
+                Assert.Contains("is in the past", dialog.ExtraConfirmationText);
+                AssertInside(window, extra, window.ActualHeight, "chkExtra");
+                Assert.False(dialog.ConfirmCommand.CanExecute(null));
+                extra.IsChecked = true;
+                Assert.True(dialog.ConfirmCommand.CanExecute(null));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheTemplateEditorShowsEveryInputAtItsMinimumSize(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var h = new DeploymentPageHarness();
+            var editor = new DeploymentTemplateEditorViewModel(h.Templates.Templates[2], h.Templates.All(), (_, _) => Task.FromResult(true));
+            var window = new DeploymentTemplateEditorWindow(editor);
+            Show(window);
+            try
+            {
+                window.Width = window.MinWidth;
+                window.Height = window.MinHeight;
+                Settle(window);
+                var footer = ById<FrameworkElement>(window, "btnTemplateSave");
+                AssertInside(window, footer, window.ActualHeight, "btnTemplateSave");
+                var scroller = ById<ScrollViewer>(window, "scrollTemplateEditor");
+                foreach (var id in new[] { "txtTemplateName", "txtTemplateOffset", "cboTemplateNotification", "chkTemplateScan" })
+                {
+                    var element = ById<FrameworkElement>(window, id);
+                    element.BringIntoView();
+                    Settle(window);
+                    AssertReachable(scroller, element, id);
+                }
+                Assert.Equal("Lab Nightly", editor.Name);
+            }
+            finally { window.Close(); }
+        });
+    }
+}
