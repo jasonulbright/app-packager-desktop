@@ -392,11 +392,44 @@ public sealed partial class DeploymentService
     internal static string NotCreatedHereReason(string deploymentId) => $"deployment {deploymentId} was not created by this product, so it is not removed.";
 
     /// <summary>
+    /// The UTC times a local Timestamp of the audit log stands for in the time zone of this
+    /// computer: two in the repeated hour of a change to standard time, none in the skipped hour.
+    /// A record written on a computer in another time zone does not match and is refused.
+    /// </summary>
+    private List<DateTime> WrittenUtc(DateTime timestamp)
+    {
+        var local = DateTime.SpecifyKind(timestamp, DateTimeKind.Unspecified);
+        if (timestamp == default || _local.IsInvalidTime(local)) return [];
+        return _local.IsAmbiguousTime(local)
+            ? _local.GetAmbiguousTimeOffsets(local).Select(o => DateTime.SpecifyKind(local - o, DateTimeKind.Utc)).ToList()
+            : [TimeZoneInfo.ConvertTimeToUtc(local, _local)];
+    }
+
+    /// <summary>
+    /// The values of the deployment that differ from the audit record. Unlike
+    /// <see cref="Differences"/>, an application must also keep the CI_ID the record names: a new
+    /// revision or a rename gives the application a new CI_ID, so its History Undo is refused.
+    /// </summary>
+    private static List<string> OwnershipDifferences(DeploymentRecord captured, DeploymentRow row)
+    {
+        var diff = Differences(captured, row);
+        if (!diff.Contains("object") && !string.Equals(row.ObjectId, captured.ObjectId, StringComparison.OrdinalIgnoreCase)) diff.Add("object id");
+        return diff;
+    }
+
+    /// <summary>
     /// Whether this product made the deployment. A deployment this service created in this
     /// process is owned. Otherwise the audit log must hold a create of it with Result Success or
     /// Partial whose Chain is intact, and ConfigMgr must show the record's account as the creator,
-    /// a creation time within <see cref="CreationTolerance"/> of the record's CreatedUtc, and the
-    /// values the record holds. Anything that cannot be shown refuses the removal.
+    /// a creation time within <see cref="CreationTolerance"/> of both the record's CreatedUtc and
+    /// its Timestamp (before or after), and the values the record holds. Anything that cannot be
+    /// shown refuses the removal.
+    /// <para>
+    /// Limit: a process of the same account that can write the audit log and read the deployment
+    /// can write a record with a valid Chain and every matching value, and that record passes.
+    /// Such a process can also remove the deployment with the ConfigMgr cmdlets directly, so the
+    /// check adds no power to it; the check stops mistakes and casual edits of the log.
+    /// </para>
     /// </summary>
     private async Task<OwnershipVerdict> OwnershipAsync(DeploymentRecord existing, DeploymentRow? row)
     {
@@ -447,17 +480,23 @@ public sealed partial class DeploymentService
                 : $"ConfigMgr holds no creation time or creator for deployment {id}, so it cannot be shown that this product created it. It is not removed. Remove it in the console if it must go.");
 
         string? first = null;
+        var minutes = CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture);
         foreach (var record in intact)
         {
+            var written = WrittenUtc(record.Timestamp);
             var problem = !string.Equals(record.User.Trim(), proof.CreatedBy.Trim(), StringComparison.OrdinalIgnoreCase)
                 ? $"ConfigMgr shows that {proof.CreatedBy} created deployment {id}, and the audit record names {record.User}"
                 : (created.Value - record.CreatedUtc!.Value).Duration() > CreationTolerance
-                    ? $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC, and the audit record says the create started at {TimeText(record.CreatedUtc.Value)} UTC, more than {CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes apart"
-                    : DeploymentChangeBuilder.RemoveFromAudit(record with { Verified = null })?.Existing is not { } captured
-                        ? $"the audit record of deployment {id} lacks a value the comparison needs"
-                        : Differences(captured, row) is { Count: > 0 } differences
-                            ? $"deployment {id} holds other values than the audit record ({string.Join(", ", differences)})"
-                            : null;
+                    ? $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC, and the audit record says the create started at {TimeText(record.CreatedUtc.Value)} UTC, more than {minutes} minutes apart"
+                    : !written.Any(w => (created.Value - w).Duration() <= CreationTolerance)
+                        ? written.Count == 0
+                            ? $"the audit record of deployment {id} has a time that does not exist in the time zone of this computer"
+                            : $"ConfigMgr shows that deployment {id} was created at {TimeText(created.Value)} UTC, and the audit record was written at {TimeText(written[0])} UTC, more than {minutes} minutes apart"
+                        : DeploymentChangeBuilder.RemoveFromAudit(record with { Verified = null })?.Existing is not { } captured
+                            ? $"the audit record of deployment {id} lacks a value the comparison needs"
+                            : OwnershipDifferences(captured, row) is { Count: > 0 } differences
+                                ? $"deployment {id} holds other values than the audit record ({string.Join(", ", differences)})"
+                                : null;
             if (problem is null)
                 return new(DeploymentCheckResults.Pass,
                     $"this product created the deployment: the audit record of its create is intact, and ConfigMgr shows the same account and a creation time of {TimeText(created.Value)} UTC, within {CreationTolerance.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes of the record.");

@@ -364,6 +364,12 @@ public static class DeploymentText
             string.Join(Environment.NewLine, lines));
     }
 
+    /// <summary>
+    /// A process of the same account that can write the audit log and read the deployment can write a
+    /// record that passes every check; that account can also remove deployments with the cmdlets directly.
+    /// </summary>
+    public const string HistoryUndoLimit = "Undo from History checks the audit record against the site; it cannot stop a process of the same account that forges both.";
+
     /// <summary>The plan that removes one deployment; null with the reasons when a check of the prepared removal blocks it.</summary>
     public static (DeploymentPlan? Plan, string? Problem) BuildRemovePlan(DeploymentChange remove)
     {
@@ -381,6 +387,7 @@ public static class DeploymentText
         lines.AddRange(CheckLines(remove.Checks, existing.Type));
         lines.AddRange(remove.Impact);
         lines.Add("Removes the deployment only when it still has these values and this product created it. Software that clients already installed stays installed.");
+        lines.Add(HistoryUndoLimit);
         var item = new ChangePlanItem("Remove deployment", $"{existing.ObjectName} from {existing.CollectionName}", string.Join(Environment.NewLine, lines));
         return (new DeploymentPlan("Remove deployment", $"Remove the deployment of {existing.ObjectName}", "Remove deployment",
             [DeploymentPlanEntry.Write(item, remove)], isDestructive: true, hasUndo: false), null);

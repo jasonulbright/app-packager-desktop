@@ -235,37 +235,166 @@ public sealed class DeploymentAuditLogTests : IDisposable
         Assert.DoesNotContain(records[1].Extra, p => p.Key == "Chain");
     }
 
-    [Fact]
-    public void AnEditedLineAndALineAddedByHandReadAsUnverifiedAndTheRestStaysVerified()
+    private const string V = AuditVerification.Verified;
+    private static string Broken(int line) => $"Not verified (chain broken at line {line})";
+
+    /// <summary>Five chained records MCM20011 to MCM20015; returns their lines.</summary>
+    private List<string> FiveRecords(DeploymentAuditLog log)
     {
-        var log = Log();
-        log.Append(Record(id: "MCM20015"));
-        log.Append(Record(id: "MCM20016"));
-        log.Append(Record(id: "MCM20017"));
-        var lines = File.ReadAllLines(LogPath).ToList();
-        lines[1] = lines[1].Replace("\"CollectionName\":\"Pilot\"", "\"CollectionName\":\"Other\"", StringComparison.Ordinal);
-        lines.Add("""{"Timestamp":"2026-10-20T08:49:00","User":"CONTOSO\\Admin","DeploymentType":"Package","Event":"Create","Result":"Success","DeploymentUniqueID":"MCM20038"}""");
-        File.WriteAllLines(LogPath, lines);
+        for (var i = 11; i <= 15; i++) Assert.True(log.Append(Record(id: $"MCM200{i}")).Succeeded);
+        return File.ReadAllLines(LogPath).ToList();
+    }
 
-        var records = log.Read(10);
+    private static string[] Texts(DeploymentAuditLog log) => log.Read(100).Select(AuditVerification.Text).ToArray();
 
-        Assert.Equal([true, false, true, false], records.Select(r => r.Verified == true));
-        Assert.Null(DeploymentChangeBuilder.RemoveFromAudit(records[1]));
+    /// <summary>The line a forger writes with a Chain recomputed over the given lines before it.</summary>
+    private string ChainedAfter(IEnumerable<string> before, DeploymentAuditRecord record)
+    {
+        var path = Path.Combine(_folder, "forge", Guid.NewGuid().ToString("N") + ".jsonl");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllLines(path, before);
+        Assert.True(Log(path).Append(record).Succeeded);
+        return File.ReadAllLines(path).Last();
     }
 
     [Fact]
-    public void ARecordAfterARemovedLineReadsAsUnverifiedAndANewAppendFollowsTheLastLine()
+    public void AnEditedMiddleLineBreaksTheChainFromThatLineOnward()
     {
         var log = Log();
-        log.Append(Record(id: "MCM20015"));
-        log.Append(Record(id: "MCM20016"));
-        log.Append(Record(id: "MCM20017"));
-        var lines = File.ReadAllLines(LogPath).ToList();
+        var lines = FiveRecords(log);
+        lines[2] = lines[2].Replace("\"CollectionName\":\"Pilot\"", "\"CollectionName\":\"Other\"", StringComparison.Ordinal);
+        File.WriteAllLines(LogPath, lines);
+
+        var records = log.Read(100);
+
+        Assert.Equal([V, V, Broken(3), Broken(3), Broken(3)], records.Select(AuditVerification.Text));
+        Assert.Equal([true, true, false, false, false], records.Select(r => r.Verified == true));
+        Assert.All(records.Skip(2), r => Assert.Null(DeploymentChangeBuilder.RemoveFromAudit(r)));
+    }
+
+    [Fact]
+    public void ADeletedLineBreaksTheChainAtTheLineThatFollowedIt()
+    {
+        var log = Log();
+        var lines = FiveRecords(log);
         lines.RemoveAt(1);
         File.WriteAllLines(LogPath, lines);
-        log.Append(Record(id: "MCM20018"));
 
-        Assert.Equal([true, false, true], log.Read(10).Select(r => r.Verified == true));
+        Assert.Equal([V, Broken(2), Broken(2), Broken(2)], Texts(log));
+    }
+
+    [Fact]
+    public void AnInsertedLineWithItsOwnRecomputedChainBreaksTheChainAtTheLineAfterIt()
+    {
+        var log = Log();
+        var lines = FiveRecords(log);
+        lines.Insert(2, ChainedAfter(lines.Take(2), Record(id: "MCM20038")));
+        File.WriteAllLines(LogPath, lines);
+
+        Assert.Equal([V, V, V, Broken(4), Broken(4), Broken(4)], Texts(log));
+    }
+
+    [Fact]
+    public void AnInsertedLineWithoutAChainReadsAsNoChainAndBreaksTheChainAtTheLineAfterIt()
+    {
+        var log = Log();
+        var lines = FiveRecords(log);
+        lines.Insert(2, """{"Timestamp":"2026-10-20T08:00:00","User":"CONTOSO\\Admin","DeploymentType":"Package","Event":"Create","Result":"Success","Source":"Application Packager","DeploymentUniqueID":"MCM20038"}""");
+        File.WriteAllLines(LogPath, lines);
+
+        Assert.Equal([V, V, AuditVerification.NoChain, Broken(4), Broken(4), Broken(4)], Texts(log));
+    }
+
+    [Fact]
+    public void TwoSwappedLinesBreakTheChainAtTheFirstOfThem()
+    {
+        var log = Log();
+        var lines = FiveRecords(log);
+        (lines[1], lines[2]) = (lines[2], lines[1]);
+        File.WriteAllLines(LogPath, lines);
+
+        Assert.Equal([V, Broken(2), Broken(2), Broken(2), Broken(2)], Texts(log));
+    }
+
+    [Fact]
+    public void ATruncatedTailLeavesTheRecordsBeforeItVerifiedAndAPartLineIsSkipped()
+    {
+        var log = Log();
+        var lines = FiveRecords(log);
+        File.WriteAllLines(LogPath, lines.Take(3));
+        Assert.Equal([V, V, V], Texts(log));
+
+        File.WriteAllText(LogPath, string.Join("\r\n", lines.Take(3)) + "\r\n" + lines[3][..40]);
+        Assert.Equal([V, V, V], Texts(log));
+        Assert.Equal(1, log.SkippedLines);
+    }
+
+    [Fact]
+    public void ARecordAppendedWithAValidChainAfterABreakStaysNotVerified()
+    {
+        var log = Log();
+        var lines = FiveRecords(log);
+        lines[1] = lines[1].Replace("\"MemberCount\":3", "\"MemberCount\":4", StringComparison.Ordinal);
+        File.WriteAllLines(LogPath, lines);
+        Assert.True(log.Append(Record(id: "MCM20016")).Succeeded);
+        File.AppendAllText(LogPath, ChainedAfter(File.ReadAllLines(LogPath), Record(id: "MCM20017")) + "\r\n");
+
+        Assert.True(DeploymentAuditLog.ChainMatches(File.ReadAllLines(LogPath).Last(), DeploymentAuditLog.LineHash(File.ReadAllLines(LogPath)[^2])));
+        Assert.Equal([V, Broken(2), Broken(2), Broken(2), Broken(2), Broken(2), Broken(2)], Texts(log));
+    }
+
+    [Fact]
+    public void ACorruptLinePresentWhenTheNextRecordWasWrittenIsSkippedAndBreaksNothing()
+    {
+        var log = Log();
+        log.Append(Record(id: "MCM20011"));
+        File.AppendAllText(LogPath, "{\"Timestamp\":\"2026-10-20T09:00:00\",\"Res\r\n");
+        log.Append(Record(id: "MCM20012"));
+
+        Assert.Equal([V, V], Texts(log));
+        Assert.Equal(1, log.SkippedLines);
+    }
+
+    [Fact]
+    public void AChainedLineDamagedIntoTextThatIsNotJsonIsSkippedAndBreaksTheChainAtItsLine()
+    {
+        var log = Log();
+        var lines = FiveRecords(log);
+        lines[2] = lines[2].Replace("\"DeploymentType\":\"Package\"", "\"DeploymentType\":Package\"", StringComparison.Ordinal);
+        File.WriteAllLines(LogPath, lines);
+
+        Assert.Equal([V, V, Broken(3), Broken(3)], Texts(log));
+        Assert.Equal(1, log.SkippedLines);
+    }
+
+    [Fact]
+    public void LinesWithoutAChainBeforeTheFirstChainedLineAreTheAnchorsPastAndBreakNothing()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+        const string old = """{"Timestamp":"2026-10-01T10:00:00","User":"LAB\\admin","DeploymentType":"Package","Result":"Success","Event":"Create","Source":"Application Packager","DeploymentUniqueID":"MCM20001"}""";
+        File.WriteAllText(LogPath, old + "\r\n" + old.Replace("MCM20001", "MCM20002", StringComparison.Ordinal) + "\r\n");
+        var log = Log();
+        log.Append(Record(id: "MCM20011"));
+        log.Append(Record(id: "MCM20012"));
+        File.AppendAllText(LogPath, old.Replace("MCM20001", "MCM20003", StringComparison.Ordinal) + "\r\n");
+        log.Append(Record(id: "MCM20013"));
+
+        Assert.Equal([AuditVerification.BeforeChain, AuditVerification.BeforeChain, V, V, AuditVerification.NoChain, V], Texts(log));
+    }
+
+    [Fact]
+    public void TheLineNumbersOfACutWindowCountTheLinesBeforeIt()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+        File.WriteAllLines(LogPath, Enumerable.Range(0, 300).Select(i => "{\"Pad\":\"" + new string('x', 60_000) + "\"}"));
+        var log = Log();
+        var lines = FiveRecords(log);
+        lines[303] = lines[303].Replace("\"MemberCount\":3", "\"MemberCount\":4", StringComparison.Ordinal);
+        File.WriteAllLines(LogPath, lines);
+
+        var texts = Texts(log);
+
+        Assert.Equal([V, V, Broken(304), Broken(304)], texts[^4..]);
     }
 
     [Fact]

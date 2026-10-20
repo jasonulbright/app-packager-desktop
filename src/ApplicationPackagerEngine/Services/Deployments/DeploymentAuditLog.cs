@@ -17,10 +17,21 @@ namespace ApplicationPackagerEngine.Services;
 /// Each line this product writes ends with a "Chain" property: the lowercase hex SHA-256 of the
 /// hash of the line before it, a line feed, and the line's JSON text without the Chain property.
 /// The hash of a line is its Chain value, or the SHA-256 of its trimmed text when it has none
-/// (a line of the suite tool or a damaged line); the first line follows 64 zeros. A read marks
-/// a record Verified only when its Chain matches. The chain detects accidental edits, inserted
-/// or removed lines and casual forgery only: the hash uses no secret, so anyone who can write
-/// the file can recompute every Chain after a change.
+/// (a line of the suite tool or a damaged line); the first line follows 64 zeros.
+/// </para>
+/// <para>
+/// A read recomputes the chain from the start of what it reads: each Chain is compared with the
+/// SHA-256 of the recomputed hash of the line before it and the line's own text, never with the
+/// Chain value the line before it stores. The first chained line is the anchor; lines without a
+/// Chain before it read as written before the chain and do not break it. From the first Chain
+/// that does not match, every later line reads as not verified, with that line number, whatever
+/// its own Chain holds. A line without a Chain after the anchor (a suite tool line, a forged
+/// line) is not verified and its text still feeds the chain, so it breaks nothing by itself. A
+/// line that is not JSON is skipped as a record and feeds the chain the same way; when it still
+/// ends with a Chain that does not match, the chain breaks at that line. Removing lines at the
+/// end of the file is not detected. The chain detects accidental edits, inserted, removed or
+/// swapped lines and casual forgery only: the hash uses no secret, so anyone who can write the
+/// file can recompute every Chain after a change.
 /// </para>
 /// </summary>
 public sealed class DeploymentAuditLog : IDeploymentAuditLog
@@ -332,6 +343,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         if (max <= 0 || !IsFullFilePath(path)) return [];
         byte[] bytes;
         var cut = false;
+        long firstLine = 1;
         try
         {
             if (!File.Exists(path)) return [];
@@ -339,6 +351,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
                 throw new DeploymentServiceException("The audit log file is a symbolic link or another reparse point, so it was not read.", DeploymentFailureKind.Storage);
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var start = Math.Max(0, stream.Length - MaxReadBytes);
+            var before = start > 0 ? LineBreaksBefore(stream, start) : 0;
             stream.Seek(start, SeekOrigin.Begin);
             bytes = new byte[stream.Length - start];
             stream.ReadExactly(bytes);
@@ -347,6 +360,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
                 cut = true;
                 var firstBreak = Array.IndexOf(bytes, (byte)'\n');
                 bytes = firstBreak < 0 ? [] : bytes[(firstBreak + 1)..];
+                firstLine = before + 2;
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -355,17 +369,15 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             throw new DeploymentServiceException($"The audit log could not be read: {path}. Check that the folder can be reached.", DeploymentFailureKind.Storage);
         }
 
-        var lines = Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Split('\n').Select(Normalized).Where(l => l.Length > 0).ToArray();
+        var lines = ChainStates(Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Split('\n'), firstLine, cut);
         var records = new List<DeploymentAuditRecord>();
-        for (var i = lines.Length - 1; i >= 0 && records.Count < max; i--)
+        for (var i = lines.Count - 1; i >= 0 && records.Count < max; i--)
         {
             var line = lines[i];
             try
             {
-                // The line before the first line of a cut window is not read, so that line cannot be verified.
-                var previous = i > 0 ? LineHash(lines[i - 1]) : cut ? null : ChainStart;
-                if (Parse(line) is { } record)
-                    records.Add(record with { Verified = previous is not null && ChainMatches(line, previous), HasChain = SplitChain(Normalized(line)) is not null });
+                if (Parse(line.Text) is { } record)
+                    records.Add(record with { Verified = line.Verified, HasChain = line.HasChain, AfterChainStart = line.AfterChainStart, ChainBrokenAt = line.BrokenAt });
                 else SkippedLines++;
             }
             catch (JsonException)
@@ -376,6 +388,65 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         records.Reverse();
         if (SkippedLines > 0) _log?.Warning(LogArea, $"Skipped {SkippedLines} audit log lines that could not be read.");
         return records;
+    }
+
+    private sealed record LineState(string Text, bool Verified, bool HasChain, bool AfterChainStart, long? BrokenAt);
+
+    /// <summary>
+    /// The chain state of every line that is not empty, in file order. <paramref name="firstLine"/>
+    /// is the file line number of the first entry. The line before the first line of a cut window
+    /// is not read, so that line is not verified and its stored Chain is the hash the next line follows.
+    /// </summary>
+    private static List<LineState> ChainStates(string[] physical, long firstLine, bool cut)
+    {
+        var states = new List<LineState>(physical.Length);
+        var previous = cut ? null : ChainStart;
+        var anchored = false;
+        long? broken = null;
+        for (var k = 0; k < physical.Length; k++)
+        {
+            var text = Normalized(physical[k]);
+            if (text.Length == 0) continue;
+            var number = firstLine + k;
+            var afterAnchor = anchored;
+            var verified = false;
+            string hash;
+            if (SplitChain(text) is { } split)
+            {
+                if (previous is null) hash = split.Chain;
+                else
+                {
+                    hash = ChainOf(split.Body, previous);
+                    if (string.Equals(hash, split.Chain, StringComparison.Ordinal)) verified = broken is null;
+                    else broken ??= number;
+                }
+                anchored = true;
+                states.Add(new LineState(text, verified, true, afterAnchor, broken));
+            }
+            else
+            {
+                hash = Sha256(text);
+                states.Add(new LineState(text, false, false, afterAnchor, broken));
+            }
+            previous = hash;
+        }
+        return states;
+    }
+
+    /// <summary>The number of line feeds in the first <paramref name="end"/> bytes of the stream.</summary>
+    private static long LineBreaksBefore(FileStream stream, long end)
+    {
+        stream.Seek(0, SeekOrigin.Begin);
+        var buffer = new byte[64 * 1024];
+        long count = 0, read = 0;
+        while (read < end)
+        {
+            var n = stream.Read(buffer, 0, (int)Math.Min(buffer.Length, end - read));
+            if (n <= 0) break;
+            count += buffer.AsSpan(0, n).Count((byte)'\n');
+            read += n;
+        }
+        return count;
     }
 
     private sealed class Reservation(DeploymentAuditLog owner, FileStream? stream, AuditProbe probe) : IDeploymentAuditReservation

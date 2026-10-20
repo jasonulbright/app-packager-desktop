@@ -613,6 +613,36 @@ public sealed class DeploymentHelperRenderTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
+    public void EveryCellOfATallPlanRowStartsAtTheTopOfTheRow(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var detail = string.Join(Environment.NewLine, Enumerable.Range(1, 60).Select(i => $"Line {i}: {LongName}."));
+            var plan = new ChangePlan("Deploy", "Create deployment", [new ChangePlanItem("Create deployment", "7-Zip to Pilot", detail), new ChangePlanItem("Distribute content", "7-Zip", "One line.")]);
+            var window = new ChangePlanWindow(new ChangePlanViewModel(plan, (c, p, ct) => Task.FromResult(new ChangePlanResult([]))));
+            Show(window);
+            try
+            {
+                var grid = (DataGrid)window.FindName("gridPlan");
+                Settle(window);
+                var row = Row(grid, 0);
+                Assert.True(row.ActualHeight > window.ActualHeight, $"The row is {row.ActualHeight:0} px high.");
+                var cells = Descendants(row).OfType<DataGridCell>().ToList();
+                Assert.Equal(3, cells.Count);
+                foreach (var cell in cells)
+                {
+                    var text = Descendants(cell).OfType<TextBlock>().First(t => t.Text.Length > 0);
+                    var top = text.TranslatePoint(new System.Windows.Point(0, 0), row).Y;
+                    Assert.True(top < 16, $"'{text.Text[..Math.Min(20, text.Text.Length)]}' starts {top:0} px below the top of a {row.ActualHeight:0} px row.");
+                }
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
     public void TheTemplateEditorShowsEveryInputAtItsMinimumSize(ApplicationTheme theme)
     {
         WithApplication(theme, () =>

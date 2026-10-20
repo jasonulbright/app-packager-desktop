@@ -42,7 +42,7 @@ public sealed class DeploymentHistoryVerificationTests : IDisposable
         var records = log.Read(10);
 
         Assert.Equal([(false, false), (false, false), (true, true), (false, true)], records.Select(r => (r.Verified == true, r.HasChain)));
-        Assert.Equal(["Not verified (no chain)", AuditVerification.BeforeChain, AuditVerification.Verified, AuditVerification.NotVerified], records.Select(AuditVerification.Text));
+        Assert.Equal(["Not verified (no chain)", AuditVerification.BeforeChain, AuditVerification.Verified, "Not verified (chain broken at line 4)"], records.Select(AuditVerification.Text));
         Assert.Equal("Not verified (written before the chain)", AuditVerification.BeforeChain);
         Assert.Equal("", AuditVerification.Text(Record("Not read")));
     }
@@ -91,7 +91,7 @@ public sealed class DeploymentHistoryVerificationTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false, "Not verified")]
+    [InlineData(false, "Not verified (chain broken at line 1)")]
     [InlineData(true, "Not verified (written before the chain)")]
     public async Task AHistoryUndoOfARecordThatCannotBeCheckedIsRefusedWithAPlainMessage(bool stripChain, string verifiedText)
     {
@@ -150,6 +150,22 @@ public sealed class DeploymentHistoryVerificationTests : IDisposable
         Assert.Empty(later.Plans.Shown);
         Assert.Empty(later.Service.Applied);
         Assert.Single(later.Engine.Site.List("Adverts"));
+    }
+
+    [Fact]
+    public async Task TheHistoryUndoPlanSaysThatASameAccountForgeryOfTheRecordAndTheSiteIsNotStopped()
+    {
+        using var first = new ServicePageHarness();
+        await CreatePackageAsync(first);
+        using var later = new ServicePageHarness(first.Engine.Site.State);
+        later.Settings.DeploymentHelper!.AuditLogPath = first.FirstPath;
+        var page = await later.OpenAsync();
+
+        await HistoryCreateAsync(page);
+        await page.History.RemoveDeploymentCommand.ExecuteAsync(null);
+
+        var detail = later.Plans.Shown.Single().Items.Single().Detail;
+        Assert.Contains("Undo from History checks the audit record against the site; it cannot stop a process of the same account that forges both.", detail);
     }
 
     [Fact]

@@ -72,6 +72,99 @@ public sealed class DeploymentOwnershipProofTests
         }
     }
 
+    /// <summary>The one field a forger changes in a copy of a record that matches the script-made deployment.</summary>
+    public static TheoryData<DeploymentObjectType, string> OneField()
+    {
+        var data = new TheoryData<DeploymentObjectType, string>();
+        foreach (var type in new[] { DeploymentObjectType.Application, DeploymentObjectType.Package, DeploymentObjectType.TaskSequence, DeploymentObjectType.SoftwareUpdateGroup })
+        {
+            foreach (var field in new[] { "CreatedUtc-earlier", "CreatedUtc-later", "Timestamp-earlier", "Timestamp-later", "User", "AvailableDateTime", "ObjectId", "CollectionID" })
+                data.Add(type, field);
+            if (type == DeploymentObjectType.Package) data.Add(type, "ProgramName");
+        }
+        return data;
+    }
+
+    private static string OtherObjectId(DeploymentObjectType type) => type switch
+    {
+        DeploymentObjectType.Application => "16779604",
+        DeploymentObjectType.Package => "MCM0001C",
+        DeploymentObjectType.TaskSequence => "MCM00031",
+        _ => "16778894"
+    };
+
+    private static DeploymentAuditRecord Forged(DeploymentAuditRecord made, DeploymentObjectType type, string field)
+    {
+        var shift = TimeSpan.FromHours(4.5);
+        return field switch
+        {
+            "CreatedUtc-earlier" => made with { CreatedUtc = made.CreatedUtc!.Value - shift },
+            "CreatedUtc-later" => made with { CreatedUtc = made.CreatedUtc!.Value + shift },
+            "Timestamp-earlier" => made with { Timestamp = made.Timestamp - shift },
+            "Timestamp-later" => made with { Timestamp = made.Timestamp + shift },
+            "User" => made with { User = @"CONTOSO\OtherAdmin" },
+            "AvailableDateTime" => made with { AvailableDateTime = made.AvailableDateTime!.Value.AddDays(1) },
+            "ObjectId" => made with { ObjectId = OtherObjectId(type) },
+            "CollectionID" => made with { CollectionID = "MCM00099" },
+            "ProgramName" => made with { ProgramName = "CMCO-CANARY-Repair" },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(Types))]
+    public async Task ACopyOfTheMatchingRecordWithAValidChainPassesBecauseTheSameAccountCanForgeIt(DeploymentObjectType type)
+    {
+        var (script, made) = await MadeElsewhere(type, "2026-10-20T12:00:30");
+        using (script)
+        {
+            using var h = new DeploymentHarness(script.Site.State);
+            Assert.True(h.Audit.Append(made).Succeeded);
+
+            Assert.Equal("Pass", CreatedHere(await HistoryUndo(h)).Result);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(OneField))]
+    public async Task AForgedRecordWithAValidChainAndOneFieldThatDiffersFromTheSiteIsRefused(DeploymentObjectType type, string field)
+    {
+        var (script, made) = await MadeElsewhere(type, "2026-10-20T12:00:30");
+        using (script)
+        {
+            using var h = new DeploymentHarness(script.Site.State);
+            Assert.True(h.Audit.Append(Forged(made, type, field)).Succeeded);
+
+            var prepared = await HistoryUndo(h);
+            Assert.Equal("Fail", CreatedHere(prepared).Result);
+
+            var forced = prepared with { Checks = prepared.Checks.Select(c => c with { Result = "Pass" }).ToList() };
+            var refused = (await h.ApplyAsync(forced)).Single();
+            Assert.False(refused.Succeeded, refused.Message);
+            Assert.StartsWith("Skipped: ", refused.Message);
+            Assert.Single(h.Site.List(ListOf(type)));
+            Assert.DoesNotContain(h.Site.Log, l => l.StartsWith("Remove:", StringComparison.Ordinal));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Types))]
+    public async Task TheLabCaseARecordTimeFourAndAHalfHoursBeforeTheCreationIsRefusedNamingBothTimes(DeploymentObjectType type)
+    {
+        var (script, made) = await MadeElsewhere(type, "2026-10-20T12:00:30");
+        using (script)
+        {
+            using var h = new DeploymentHarness(script.Site.State);
+            Assert.True(h.Audit.Append(made with { Timestamp = new DateTime(2026, 10, 20, 3, 30, 0) }).Succeeded);
+
+            var check = CreatedHere(await HistoryUndo(h));
+
+            Assert.Equal("Fail", check.Result);
+            Assert.Contains("was created at 2026-10-20T12:00:30 UTC", check.Message);
+            Assert.Contains("the audit record was written at 2026-10-20T07:30:00 UTC", check.Message);
+        }
+    }
+
     [Theory]
     [InlineData("2026-10-20T12:04:30", true)]
     [InlineData("2026-10-20T11:55:30", true)]

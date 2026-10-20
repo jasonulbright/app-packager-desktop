@@ -282,6 +282,12 @@ public sealed record DeploymentAuditRecord(
     /// <summary>True when the line read from the log carries a Chain property, intact or not.</summary>
     public bool HasChain { get; init; }
 
+    /// <summary>True when the line read from the log comes after the first line that carries a Chain.</summary>
+    public bool AfterChainStart { get; init; }
+
+    /// <summary>The file line number of the first Chain that does not match, when the line is at or after it.</summary>
+    public long? ChainBrokenAt { get; init; }
+
     /// <summary>Further properties of the line, such as the ring fields of the suite tool, in file order.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];
 }
@@ -294,10 +300,14 @@ public static class AuditVerification
     public const string BeforeChain = "Not verified (written before the chain)";
     public const string NoChain = "Not verified (no chain)";
 
+    public static string BrokenAt(long line) => $"Not verified (chain broken at line {line.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+
     /// <summary>
-    /// Verified, Not verified for a line whose Chain does not match, the before-the-chain text for a
-    /// line of this product without a Chain, the no-chain text for a line of another tool; empty
-    /// for a record that was not read from a log.
+    /// Verified; the broken-chain text with the line number for a line at or after the first Chain
+    /// that does not match; Not verified for another line whose Chain cannot be checked; the
+    /// no-chain text for a line without a Chain after the first chained line or of another tool;
+    /// the before-the-chain text for a line of this product without a Chain before the first
+    /// chained line; empty for a record that was not read from a log.
     /// </summary>
     public static string Text(DeploymentAuditRecord record)
     {
@@ -306,7 +316,9 @@ public static class AuditVerification
         {
             null => "",
             true => Verified,
+            false when record.ChainBrokenAt is { } line => BrokenAt(line),
             false when record.HasChain => NotVerified,
+            false when record.AfterChainStart => NoChain,
             false when string.Equals(record.Source, DeploymentAuditLog.SourceName, StringComparison.Ordinal) => BeforeChain,
             false => NoChain
         };

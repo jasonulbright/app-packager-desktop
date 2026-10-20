@@ -13,7 +13,13 @@
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
-        <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+        <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+        </Style>
+        <Style x:Key="TopCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
         </Style>
@@ -46,11 +52,11 @@
 
         <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
-                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel" CellStyle="{StaticResource PlanGridCell}"
                   AutomationProperties.AutomationId="gridChangePlan" AutomationProperties.Name="Changes"
                   Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="140" ElementStyle="{StaticResource TopCell}" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource WrappedCell}" />
                 <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="4*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
@@ -58,12 +64,12 @@
 
         <DataGrid Grid.Row="2" x:Name="gridResult" ItemsSource="{Binding ResultRows}" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
-                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel" CellStyle="{StaticResource PlanGridCell}"
                   AutomationProperties.AutomationId="gridChangePlanResult" AutomationProperties.Name="Results"
                   Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" />
-                <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" />
+                <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" ElementStyle="{StaticResource TopCell}" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="120" ElementStyle="{StaticResource TopCell}" />
                 <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="3*" MinWidth="180" ElementStyle="{StaticResource WrappedCell}" />
                 <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="4*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
             </DataGrid.Columns>
