@@ -82,15 +82,6 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     private Task _preferencesLoad = Task.CompletedTask;
     private InstallerAnalysisSettings? _storedChoices;
 
-    public InstallerAnalysisViewModel(IInstallerAnalysisService analysis, IAnalysisSandbox sandbox, IInstallerReportWriter reports,
-        IInstallerAnalysisPrompts prompts, SettingsService settings, IAppLog log)
-        : this(new InstallerAnalysisPageServices(analysis, sandbox, reports, prompts,
-            () => InstallerAnalysisPreferences.Load(settings),
-            choices => InstallerAnalysisPreferences.Save(settings, choices),
-            log, DefaultLimits, () => Path.Combine(AppDataPaths.Root, "InstallerAnalysis", "Temp")))
-    {
-    }
-
     public InstallerAnalysisViewModel(InstallerAnalysisPageServices services)
     {
         _services = services;

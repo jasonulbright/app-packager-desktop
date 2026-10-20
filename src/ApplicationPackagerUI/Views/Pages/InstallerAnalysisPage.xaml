@@ -528,7 +528,7 @@
         <DockPanel Grid.Row="5" Margin="0,8,0,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top"
                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}">
-                <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="12,0,8,0" />
+                <ui:ProgressRing IsIndeterminate="{Binding IsBusy}" Width="16" Height="16" Margin="12,0,8,0" />
                 <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Note}" MaxWidth="420" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                            ToolTip="{Binding ProgressText}" AutomationProperties.AutomationId="txtProgress" AutomationProperties.LiveSetting="Polite" />
             </StackPanel>
