@@ -857,7 +857,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         catch (Exception ex)
         {
             frame.PayloadMessage = PlainMessage(ex, "The payload could not be listed. The log has the details.");
-            frame.PayloadLeftOutReason = ex is SevenZipNotFoundException ? SevenZipNotFoundReason : null;
+            frame.PayloadLeftOutReason = ex switch { SevenZipNotFoundException => SevenZipNotFoundReason, PayloadNotListedException => ex.Message.TrimEnd('.'), _ => null };
             _services.Log.Warning(LogArea, $"The payload could not be listed ({ex.GetType().Name}).");
         }
         finally
@@ -1245,6 +1245,20 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         if (Current is not { } frame)
         {
             StatusMessage = NoAnalysisMessage;
+            return;
+        }
+        // A payload that cannot be listed cannot be extracted; say why before asking for a folder.
+        var generation = _generation;
+        var unavailable = frame.Payload is null && frame.PayloadLeftOutReason is not null ? frame.PayloadMessage : null;
+        if (unavailable is null && frame.Payload is null)
+        {
+            try { unavailable = await Task.Run(() => _services.Analysis.PayloadUnavailableReasonAsync(path: frame.Path, limits: _services.Limits, ct: CancellationToken.None)); }
+            catch (Exception) { unavailable = null; }
+            if (!IsCurrent(frame, generation)) return;
+        }
+        if (unavailable is not null)
+        {
+            StatusMessage = unavailable;
             return;
         }
         if (PickTarget("Extract the payload to a folder") is not { } folder) return;

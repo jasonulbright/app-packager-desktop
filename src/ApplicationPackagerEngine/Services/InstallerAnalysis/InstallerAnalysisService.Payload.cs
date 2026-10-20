@@ -53,6 +53,7 @@ public sealed partial class InstallerAnalysisService
 
     private async Task<IReadOnlyList<PayloadEntry>> ListPayloadCoreAsync(string path, string engine, AnalysisLimits limits, CancellationToken ct)
     {
+        RefuseUnlistable(engine);
         if (engine is "NativeMSI" or "MSP")
         {
             using var db = MsiDatabase.Open(path, patch: engine == "MSP");
@@ -79,6 +80,22 @@ public sealed partial class InstallerAnalysisService
         return entries.Select(e => e.IsLink
             ? new PayloadEntry(e.Path, e.Size, false, "Link", "") { Description = LinkDescription }
             : Classify(e.Path, e.Size, e.IsDirectory, engine)).ToList();
+    }
+
+    public Task<string?> PayloadUnavailableReasonAsync(string path, AnalysisLimits limits, CancellationToken ct) => Task.Run<string?>(() =>
+    {
+        var full = CheckFile(path, limits);
+        var engine = Identify(full, limits, "extracted");
+        if (engine == "InnoSetup") return PayloadNotListedException.InnoSetupMessage;
+        if (IsBuiltInContainer(engine)) return null;
+        var exe = _findSevenZip();
+        return string.IsNullOrEmpty(exe) || !File.Exists(exe) ? new SevenZipNotFoundException().Message : null;
+    }, ct);
+
+    // 7-Zip opens an Inno Setup setup as a plain PE file and lists its sections, not the payload.
+    private static void RefuseUnlistable(string engine)
+    {
+        if (engine == "InnoSetup") throw new PayloadNotListedException(PayloadNotListedException.InnoSetupMessage);
     }
 
     private const string LinkDescription = "Link; it is not extracted";
@@ -222,6 +239,7 @@ public sealed partial class InstallerAnalysisService
     private async Task<PayloadExtractResult> ExtractPayloadCoreAsync(string path, string engine, IReadOnlyList<PayloadEntry>? entries, string target,
         AnalysisLimits limits, CancellationToken ct)
     {
+        RefuseUnlistable(engine);
         var skipped = new List<string>();
         var wanted = entries?.Where(e => !e.IsDirectory).Select(e => e.Path).ToHashSet(StringComparer.Ordinal);
         long bytes = 0;

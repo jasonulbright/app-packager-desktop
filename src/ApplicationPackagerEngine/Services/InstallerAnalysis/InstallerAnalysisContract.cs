@@ -115,6 +115,12 @@ public class InstallerAnalysisException(string message, Exception? inner = null)
 public sealed class SevenZipNotFoundException()
     : InstallerAnalysisException("7-Zip is not installed; the payload of this installer type is listed with 7-Zip. Install 7-Zip to list and extract it.");
 
+/// <summary>The payload of this installer type cannot be listed by any reader the analysis has; the message says why.</summary>
+public sealed class PayloadNotListedException(string message) : InstallerAnalysisException(message)
+{
+    public const string InnoSetupMessage = "Inno Setup compresses its payload into the setup's own data streams, and 7-Zip has no Inno Setup support, so the payload is not listed or extracted. The Overview and Registry Settings tabs read the Inno Setup header.";
+}
+
 public interface IInstallerAnalysisService
 {
     Task<AnalysisReport> AnalyzeAsync(string path, AnalysisLimits limits, IProgress<string> progress, CancellationToken ct);
@@ -137,6 +143,12 @@ public interface IInstallerAnalysisService
     /// </summary>
     Task<PayloadExtractResult> ExtractPayloadAsync(string path, IReadOnlyList<PayloadEntry>? entries, string targetFolder, AnalysisLimits limits, CancellationToken ct) =>
         throw new NotSupportedException();
+
+    /// <summary>
+    /// The plain reason the payload cannot be extracted (7-Zip not found, a format with no payload
+    /// reader), or null when extraction can be tried. Reads only the file head; lists nothing.
+    /// </summary>
+    Task<string?> PayloadUnavailableReasonAsync(string path, AnalysisLimits limits, CancellationToken ct) => Task.FromResult<string?>(null);
 
     /// <summary>The registry changes with plain notes (format not read, header not decoded, limit reached).</summary>
     async Task<RegistryReadResult> ReadRegistryAsync(string path, AnalysisLimits limits, CancellationToken ct) =>

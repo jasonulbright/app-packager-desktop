@@ -60,6 +60,28 @@ public sealed class PayloadExtractionTests : IDisposable
     }
 
     [Fact]
+    public async Task ThePayloadReasonNamesInnoSetupAndAMissing7ZipAndNothingForAnMsi()
+    {
+        Assert.Equal(PayloadNotListedException.InnoSetupMessage, await _noSevenZip.PayloadUnavailableReasonAsync(Fixture("inno-admin-670.bin"), Limits, CancellationToken.None));
+        Assert.Equal(new SevenZipNotFoundException().Message, await _noSevenZip.PayloadUnavailableReasonAsync(Fixture("nsis-mk-lzma-ansi.bin"), Limits, CancellationToken.None));
+        Assert.Null(await _noSevenZip.PayloadUnavailableReasonAsync(SevenZipMsi, Limits, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AnInnoSetupPayloadIsNotListedAndSaysWhy()
+    {
+        var path = Fixture("inno-admin-670.bin");
+
+        var listing = await Assert.ThrowsAsync<PayloadNotListedException>(() => _noSevenZip.ListPayloadAsync(path, Limits, CancellationToken.None));
+        var extraction = await Assert.ThrowsAsync<PayloadNotListedException>(() =>
+            _noSevenZip.ExtractPayloadAsync(path, null, _temp.Root, Limits, CancellationToken.None));
+
+        Assert.Equal(PayloadNotListedException.InnoSetupMessage, listing.Message);
+        Assert.Equal(PayloadNotListedException.InnoSetupMessage, extraction.Message);
+        Assert.Contains("Inno Setup", listing.Message);
+    }
+
+    [Fact]
     public async Task AZipEntryWithTheReparseAttributeIsAPlainFileAndAUnixSymlinkIsALink()
     {
         var path = _temp.PathOf("links.zip");

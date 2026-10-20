@@ -746,6 +746,34 @@ public sealed class InstallerAnalysisViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task WithoutSevenZipExtractPayloadSaysSoBeforeAskingForAFolder()
+    {
+        _h.Service.PayloadFailure = new SevenZipNotFoundException();
+        var (viewModel, _) = await AnalyzedAsync();
+        _h.Prompts.Folder = Directory.CreateDirectory(Path.Combine(_h.Root, "out")).FullName;
+
+        await viewModel.ExtractPayloadCommand.ExecuteAsync(null);
+
+        Assert.Empty(_h.Prompts.FolderTitles);
+        Assert.Empty(_h.Service.PayloadExtractions);
+        Assert.Equal(new SevenZipNotFoundException().Message, viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public async Task AnUnlistablePayloadIsLeftOutOfTheHtmlExportWithItsReason()
+    {
+        _h.Service.PayloadFailure = new PayloadNotListedException(PayloadNotListedException.InnoSetupMessage);
+        var (viewModel, _) = await AnalyzedAsync();
+
+        await viewModel.ExportHtmlCommand.ExecuteAsync(null);
+        await viewModel.ExtractPayloadCommand.ExecuteAsync(null);
+
+        Assert.Equal([PayloadNotListedException.InnoSetupMessage.TrimEnd('.')], _h.Writer.HtmlReasons);
+        Assert.Empty(_h.Prompts.FolderTitles);
+        Assert.Equal(PayloadNotListedException.InnoSetupMessage, viewModel.StatusMessage);
+    }
+
+    [Fact]
     public async Task ACancelledOrFailedPayloadListStillRefusesTheHtmlExport()
     {
         var (viewModel, _) = await AnalyzedAsync();

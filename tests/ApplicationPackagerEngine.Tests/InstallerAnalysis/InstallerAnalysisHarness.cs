@@ -94,6 +94,9 @@ internal sealed class FakeInstallerAnalysisService : IInstallerAnalysisService
         return Reports.TryGetValue(path, out var report) ? report : Report(path);
     });
 
+    public Task<string?> PayloadUnavailableReasonAsync(string path, AnalysisLimits limits, CancellationToken ct) =>
+        Task.FromResult(PayloadFailure is SevenZipNotFoundException or PayloadNotListedException ? PayloadFailure.Message : null);
+
     public Task<IReadOnlyList<PayloadEntry>> ListPayloadAsync(string path, AnalysisLimits limits, CancellationToken ct) => Run("payload", path, ct, async () =>
     {
         if (PayloadGate is not null) await PayloadGate.Task.WaitAsync(ct);
