@@ -175,10 +175,123 @@ public sealed class SevenZipPolicyTests : IDisposable
         var path = Zeros("zeros.bin");
         var folder = Directory.CreateDirectory(_temp.PathOf("watch")).FullName;
 
-        var (_, overLimit, timedOut) = await new SevenZipTool(exe).ExtractAsync(path, null, null, folder, 8L * 1024 * 1024, TimeSpan.FromSeconds(60), CancellationToken.None);
+        var (_, overLimit, timedOut) = await new SevenZipTool(exe).ExtractAsync(path, null, null, folder, null, 8L * 1024 * 1024, TimeSpan.FromSeconds(60), CancellationToken.None);
 
         Assert.True(overLimit);
         Assert.False(timedOut);
+    }
+
+    [Fact]
+    public async Task TheEntryListFilesAreWrittenInTheGivenFolderAndRemovedAfterTheRun()
+    {
+        var exe = RequireSevenZip();
+        var zip = WriteZip(_temp.PathOf("two.zip"), ("a.txt", Text("A")), ("b.txt", Text("B")), ("c.txt", Text("C")));
+        var output = Directory.CreateDirectory(_temp.PathOf("list-out")).FullName;
+        var session = _sandbox.NewSession();
+        var created = new List<string>();
+        var tool = new SevenZipTool(exe) { ListFileCreated = created.Add };
+
+        var (exitCode, _, _) = await tool.ExtractAsync(zip, ["a.txt", "b.txt"], ["b.txt"], output, session, 1024 * 1024, TimeSpan.FromSeconds(60), CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        Assert.Equal(2, created.Count);
+        Assert.All(created, f => Assert.Equal(session, Path.GetDirectoryName(f)));
+        Assert.All(created, f => Assert.False(File.Exists(f)));
+        Assert.Equal(["a.txt"], Directory.GetFiles(output).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public async Task AnEntryListWithoutAListFolderIsRefusedBefore7ZipStarts()
+    {
+        var exe = RequireSevenZip();
+        var zip = WriteZip(_temp.PathOf("one.zip"), ("a.txt", Text("A")));
+        var started = false;
+        var tool = new SevenZipTool(exe) { AssignJob = _ => { started = true; return null; } };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => tool.ExtractAsync(zip, ["a.txt"], null, Target(), null, 1024, TimeSpan.FromSeconds(60), CancellationToken.None));
+
+        Assert.False(started);
+    }
+
+    [Fact]
+    public void Every7ZipRunIsPutInAKillOnCloseJob()
+    {
+        Assert.Equal((Func<System.Diagnostics.Process, IDisposable?>)KillOnCloseJob.TryAssign, new SevenZipTool("7z.exe").AssignJob);
+    }
+
+    [Fact]
+    public async Task A7ZipRunThatCannotJoinAJobIsEndedAndRefused()
+    {
+        var exe = RequireSevenZip();
+        System.Diagnostics.Process? child = null;
+        var tool = new SevenZipTool(exe) { AssignJob = p => { child = System.Diagnostics.Process.GetProcessById(p.Id); return null; } };
+
+        var ex = await Assert.ThrowsAsync<InstallerAnalysisException>(() => tool.ListAsync(Fixture("nsis-mk-lzma-solid-unicode.bin"), Limits, CancellationToken.None));
+
+        Assert.NotNull(child);
+        using (child) Assert.True(child!.HasExited);
+        Assert.Equal(SevenZipTool.NoJobMessage, ex.Message);
+    }
+
+    [Fact]
+    public void TheSweepRemovesOnlyListFilesOlderThanADayAndNeverFollowsALink()
+    {
+        var folder = Directory.CreateDirectory(_temp.PathOf("sweep")).FullName;
+        var outside = Directory.CreateDirectory(_temp.PathOf("outside")).FullName;
+        string Old(string path)
+        {
+            File.WriteAllText(path, "x");
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-2));
+            return path;
+        }
+        var stale = Old(Path.Combine(folder, "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt"));
+        var fresh = Path.Combine(folder, "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt");
+        File.WriteAllText(fresh, "x");
+        var other = Old(Path.Combine(folder, "other-" + Guid.NewGuid().ToString("N") + ".txt"));
+        var nested = Directory.CreateDirectory(Path.Combine(folder, "sub")).FullName;
+        var deeper = Old(Path.Combine(nested, "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt"));
+        var target = Old(Path.Combine(outside, "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt"));
+        Junction(Path.Combine(folder, "apd-7z-junction.txt"), outside);
+        string? link = null;
+        try
+        {
+            link = Path.Combine(folder, "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt");
+            File.CreateSymbolicLink(link, target);
+            File.SetLastWriteTimeUtc(link, DateTime.UtcNow.AddDays(-2));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            link = null;
+        }
+
+        InstallerAnalysisTempFiles.RemoveStaleListFiles(folder, TimeSpan.FromDays(1));
+
+        Assert.False(File.Exists(stale));
+        Assert.True(File.Exists(fresh));
+        Assert.True(File.Exists(other));
+        Assert.True(File.Exists(deeper));
+        Assert.True(File.Exists(target));
+        Assert.True(Directory.Exists(Path.Combine(folder, "apd-7z-junction.txt")));
+        if (link is not null) Assert.NotNull(new FileInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public async Task ExtractingSelectedEntriesToAChosenFolderLeavesNoListFileOrSession()
+    {
+        RequireSevenZip();
+        var service = new InstallerAnalysisService(_sandbox);
+        var path = Fixture("nsis-mk-lzma-solid-unicode.bin");
+        var payload = await service.ListPayloadAsync(path, Limits, CancellationToken.None);
+        var one = payload.First(e => !e.IsDirectory && e.Size > 0);
+
+        var result = await service.ExtractPayloadAsync(path, [one], Target(), Limits, CancellationToken.None);
+        var session = _sandbox.NewSession();
+        var extracted = await service.ExtractEntryAsync(path, one, session, Limits, CancellationToken.None);
+
+        Assert.Equal(1, result.Files);
+        Assert.Equal([session], Directory.GetDirectories(_sandbox.Root));
+        Assert.Empty(Directory.GetFiles(session));
+        Assert.True(File.Exists(extracted));
     }
 
     [Fact]

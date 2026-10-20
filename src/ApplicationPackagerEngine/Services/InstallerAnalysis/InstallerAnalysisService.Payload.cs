@@ -199,7 +199,7 @@ public sealed partial class InstallerAnalysisService
             return target;
         }
 
-        var (exitCode, overLimit, timedOut) = await tool!.ExtractAsync(path, [entry.Path], null, folder, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
+        var (exitCode, overLimit, timedOut) = await tool!.ExtractAsync(path, [entry.Path], null, folder, session, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
         RemoveLinks(folder);
         if (overLimit)
         {
@@ -328,7 +328,19 @@ public sealed partial class InstallerAnalysisService
         }
 
         if (names is { Count: 0 }) return new PayloadExtractResult(folder, 0, 0, skipped);
-        var (exitCode, overLimit, timedOut) = await tool!.ExtractAsync(path, names, names is null ? excluded : null, folder, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
+        var listExcluded = names is null ? excluded : null;
+        var listSession = names is not null || listExcluded is { Count: > 0 } ? _sandbox.NewSession() : null;
+        int exitCode;
+        bool overLimit, timedOut;
+        try
+        {
+            (exitCode, overLimit, timedOut) = await tool!.ExtractAsync(path, names, listExcluded, folder, listSession, limits.MaxExtractBytes, limits.Timeout, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            if (listSession is not null)
+                try { _sandbox.Release(listSession); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallerAnalysisException) { }
+        }
         foreach (var link in RemoveLinks(folder)) skipped.Add(Path.GetRelativePath(folder, link) + ": The entry is a link; it was removed.");
         if (overLimit)
         {

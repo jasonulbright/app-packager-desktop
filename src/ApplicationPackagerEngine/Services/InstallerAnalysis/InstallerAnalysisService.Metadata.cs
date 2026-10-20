@@ -428,8 +428,25 @@ public sealed partial class InstallerAnalysisService
                 ? "The uninstaller name " + p.UninstallerName + " is set by an action in the project."
                 : "The project sets no uninstallerName; " + uninstaller + " is the InstallBuilder default.");
 
+        const string SilentSwitch = "--mode unattended --unattendedmodeui none";
+        if (!p.UnattendedModeHandled)
+            notes.Add("No rule in the project tests the unattended mode; " + SilentSwitch + " is the InstallBuilder switch for a silent run.");
+        var install = "\"" + Path.GetFileName(path) + "\" " + SilentSwitch;
+        overrides.Mode = new InstallMode("PerMachine", SilentSwitch, p.InstallDir, overrides.UninstallCommand, overrides.ArpKey,
+            overrides.ArpKey.Length > 0 ? "HKLM" : "", "PerMachine")
+        {
+            IsDefault = true,
+            View = overrides.ArpKey.Length > 0 ? (view64 ? "64" : "32") : "",
+            InstallCommand = ProposedCommand.IsSafeCommandLine(install) ? install : ""
+        };
+        overrides.Notes = "BitRock InstallBuilder. Silent install and uninstall: " + SilentSwitch + ". The uninstaller is " + uninstaller
+            + (p.InstallDir.Length > 0 ? " in the install folder (default " + p.InstallDir + ")." : " in the install folder.");
+
         return new MetadataBlock("BitRock InstallBuilder project", new List<AnalysisFact>
         {
+            Fact("Unattended mode", p.UnattendedModeHandled ? "handled by the project (rules test installer_ui unattended)" : "InstallBuilder switch; no rule in the project tests it",
+                Source, p.UnattendedModeHandled ? "Confirmed" : "Predicted"),
+            Fact("unattendedModeUI", p.UnattendedModeUI, Source),
             Fact("shortName", p.ShortName, Source),
             Fact("fullName", p.FullName, Source),
             Fact("version", p.Version, Source),

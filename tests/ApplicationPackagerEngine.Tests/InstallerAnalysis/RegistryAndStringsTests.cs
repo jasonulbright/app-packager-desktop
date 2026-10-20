@@ -92,6 +92,60 @@ public sealed class RegistryAndStringsTests : IDisposable
         Assert.Equal(["Registry settings are read from MSI, NSIS and Inno Setup installers."], zip.Notes);
     }
 
+    [Theory]
+    [InlineData(true, 0, "", true, "x86", "64")]
+    [InlineData(true, 0, "", false, "x86", "32")]
+    [InlineData(true, 1, "", true, "x86", "32")]
+    [InlineData(true, 2, "", false, "x86", "64")]
+    [InlineData(true, 3, "", false, "x86", "64")]
+    [InlineData(true, 4, "", true, "x86", "32")]
+    [InlineData(true, 4, "", false, "x64", "64")]
+    [InlineData(false, 0, "", true, "x86", "64")]
+    [InlineData(false, 0, "", false, "x86", "32")]
+    [InlineData(false, 0, "32bit", true, "x86", "32")]
+    [InlineData(false, 0, "64bit", false, "x86", "64")]
+    public void TheInnoRegistryViewFollowsTheEntryBitnessOrTheInstallMode(bool v700, int bitness, string flag, bool is64BitMode, string setupArchitecture, string view)
+    {
+        var flags = flag.Length == 0 ? new List<string>() : [flag];
+
+        Assert.Equal(view, ApplicationPackagerEngine.Services.InstallerScripts.InnoSetupReader.RegistryView(v700, bitness, flags, is64BitMode, setupArchitecture));
+    }
+
+    [Fact]
+    public async Task InnoRegistryRowsHaveAViewAndShowTheirFlagsInTheCondition()
+    {
+        var ran = 0;
+        if (Corpus.Has(Corpus.InnoGit))
+        {
+            var rows = (await Registry(Corpus.InnoGit)).Writes;
+            Assert.Equal(46, rows.Count);
+            Assert.All(rows, r => Assert.Equal("64", r.View));
+            Assert.All(rows, r => Assert.DoesNotContain("unins", r.Section));
+            Assert.Equal([("", 14), ("assoc", 18), ("assoc_sh", 10), ("consolefont", 4)],
+                rows.GroupBy(r => r.Section).Select(g => (g.Key, g.Count())).OrderBy(g => g.Key, StringComparer.Ordinal));
+            Assert.DoesNotContain(rows, r => r.Condition.Contains("Components:", StringComparison.Ordinal));
+            Assert.Contains(rows, r => r.Key == @"Console\Git Bash" && r.Condition == "Flags: createvalueifdoesntexist uninsdeletevalue uninsdeletekeyifempty");
+            ran++;
+        }
+        if (Corpus.Has(Corpus.InnoCrystalDiskInfo))
+        {
+            var rows = (await Registry(Corpus.InnoCrystalDiskInfo)).Writes;
+            Assert.Equal(2, rows.Count);
+            Assert.All(rows, r => Assert.Equal(("64", ""), (r.View, r.Section)));
+            Assert.Contains(rows, r => r.Key == @"Software\Crystal Dew World\CrystalDiskInfo" && r.Condition == "Flags: uninsdeletekey dontcreatekey");
+            Assert.Contains(rows, r => r.Key == @"Software\Crystal Dew World" && r.Condition == "Flags: uninsdeletekeyifempty dontcreatekey");
+            ran++;
+        }
+        if (Corpus.Has(Corpus.InnoModes))
+        {
+            var rows = (await Registry(Corpus.InnoModes)).Writes;
+            Assert.Equal(3, rows.Count(r => r.View == "32" && r.Condition.StartsWith("Check: IsAdminInstallMode", StringComparison.Ordinal)));
+            Assert.All(rows, r => Assert.Contains(r.View, new[] { "32", "64" }));
+            ran++;
+        }
+        Assert.True(ran > 0, "No Inno Setup installer of the corpus is on this workstation.");
+    }
+
     [Fact]
     public async Task WorkstationInstallersGiveTheirKnownRegistryRows()
     {
@@ -101,7 +155,7 @@ public sealed class RegistryAndStringsTests : IDisposable
             var rows = (await Registry(Corpus.InnoGit)).Writes;
             Assert.Equal(46, rows.Count);
             Assert.Contains(rows, r => r.Origin == "InnoSetup" && r.Hive == "HKLM" && r.Key == @"Software\GitForWindows"
-                && r.Name == "CurrentVersion" && r.Value == "2.56.0.2" && r.Condition == "Check: IsAdmin");
+                && r.Name == "CurrentVersion" && r.Value == "2.56.0.2" && r.Condition == "Check: IsAdmin; Flags: uninsdeletevalue uninsdeletekeyifempty");
             ran++;
         }
         if (Corpus.Has(Corpus.InnoModes))

@@ -98,7 +98,7 @@ public sealed record RegistryWrite(string Origin, string Hive, string Key, strin
     /// <summary>"64", "32" or empty: the registry view in effect at the change.</summary>
     public string View { get; init; } = "";
 
-    /// <summary>The MSI component, NSIS section or Inno Setup flags the change belongs to.</summary>
+    /// <summary>The MSI component, NSIS section or Inno Setup components the change belongs to.</summary>
     public string Section { get; init; } = "";
 }
 

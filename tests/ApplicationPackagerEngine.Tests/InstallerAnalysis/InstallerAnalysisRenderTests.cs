@@ -71,7 +71,7 @@ public sealed class InstallerAnalysisRenderTests
             FakeInstallerAnalysisService.Write("MsiRegistryTable", "HKLM", @"SOFTWARE\Contoso\" + LongText, "Version", "1.2.3", condition: "NOT Installed AND " + LongText)
                 with { View = "64", Section = "MainComponent " + LongText },
             FakeInstallerAnalysisService.Write("NsisScript", "HKCU", @"Software\Microsoft\Windows\CurrentVersion\Run", "Contoso", LongText, "REG_EXPAND_SZ") with { Section = "Startup" },
-            FakeInstallerAnalysisService.Write("InnoSetup", "HKLM", @"SOFTWARE\Classes\.contoso", "", "") with { Action = "delete key", View = "32", Section = "uninsdeletekey" }
+            FakeInstallerAnalysisService.Write("InnoSetup", "HKLM", @"SOFTWARE\Classes\.contoso", "", "", condition: "Flags: uninsdeletekey") with { Action = "delete key", View = "32", Section = "main" }
         ];
         h.Service.RegistryNotes = ["The NSIS header uses bzip2 compression and is not decoded; registry changes may be missing. " + LongText];
         h.Service.Strings =

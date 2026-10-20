@@ -34,6 +34,16 @@ internal sealed class SevenZipTool(string exePath)
 
     public long MaxOutputChars { get; init; } = DefaultMaxOutputChars;
 
+    /// <summary>Puts the started 7-Zip in a kill-on-close job, so it ends with this process; null when that is not possible.</summary>
+    internal Func<Process, IDisposable?> AssignJob { get; init; } = KillOnCloseJob.TryAssign;
+
+    /// <summary>Called with the path of each entry list file once it is written.</summary>
+    internal Action<string>? ListFileCreated { get; init; }
+
+    public const string ListFilePattern = "apd-7z-*.txt";
+
+    public const string NoJobMessage = "7-Zip could not be started in a job that ends it with the application; it was stopped.";
+
     /// <summary>The major and minor file version of the executable, or null when it has none.</summary>
     public static Version? ReadVersion(string exe)
     {
@@ -140,11 +150,15 @@ internal sealed class SevenZipTool(string exePath)
     /// Extracts the named entries (all entries when <paramref name="names"/> is null), without
     /// the <paramref name="excluded"/> ones, with their folders into <paramref name="outputFolder"/>.
     /// The folder's size is watched while 7-Zip runs, and the run ends when it passes
-    /// <paramref name="maxBytes"/>.
+    /// <paramref name="maxBytes"/>. The entry lists are written to <paramref name="listFolder"/>,
+    /// a sandbox session folder outside <paramref name="outputFolder"/>, so the size watcher does
+    /// not count them and a list left by an ended process goes with its session.
     /// </summary>
     public async Task<(int ExitCode, bool OverLimit, bool TimedOut)> ExtractAsync(
-        string archive, IReadOnlyList<string>? names, IReadOnlyList<string>? excluded, string outputFolder, long maxBytes, TimeSpan timeout, CancellationToken ct)
+        string archive, IReadOnlyList<string>? names, IReadOnlyList<string>? excluded, string outputFolder, string? listFolder, long maxBytes, TimeSpan timeout, CancellationToken ct)
     {
+        if ((names is not null || excluded is { Count: > 0 }) && string.IsNullOrEmpty(listFolder))
+            throw new ArgumentException("An entry list needs a folder for its list file.", nameof(listFolder));
         Directory.CreateDirectory(outputFolder);
         var listFiles = new List<string>();
         try
@@ -152,10 +166,10 @@ internal sealed class SevenZipTool(string exePath)
             var args = new List<string> { "x", "-y", "-bd", "-spd", "-sccUTF-8", "-o" + outputFolder };
             async Task AddList(string switchName, IReadOnlyList<string> entries)
             {
-                // The list files live outside the output folder so the size watcher does not count them.
-                var listFile = Path.Combine(Path.GetTempPath(), "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt");
+                var listFile = Path.Combine(listFolder!, "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt");
                 listFiles.Add(listFile);
                 await File.WriteAllLinesAsync(listFile, entries, new UTF8Encoding(false), ct).ConfigureAwait(false);
+                ListFileCreated?.Invoke(listFile);
                 args.Add(switchName + listFile);
             }
             if (names is not null || excluded is { Count: > 0 }) args.Add("-scsUTF-8");
@@ -192,6 +206,14 @@ internal sealed class SevenZipTool(string exePath)
 
         using var process = new Process { StartInfo = start };
         process.Start();
+        // The application exits through Environment.Exit, which skips this method's cleanup;
+        // the job ends 7-Zip when the application's handle to it closes.
+        using var job = AssignJob(process);
+        if (job is null)
+        {
+            BoundedProcessRunner.Terminate(process);
+            throw new InstallerAnalysisException(NoJobMessage);
+        }
         process.StandardInput.Close();
         var stopped = false;
         var outputOverLimit = false;
@@ -307,5 +329,34 @@ internal sealed class SevenZipTool(string exePath)
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         return total;
+    }
+}
+
+/// <summary>Removes 7-Zip entry list files left in a folder such as the user's Temp folder.</summary>
+public static class InstallerAnalysisTempFiles
+{
+    public static readonly TimeSpan StaleListFileAge = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Deletes the list files directly in <paramref name="folder"/> last written before
+    /// <paramref name="olderThan"/>. Subfolders are not searched and a link is never deleted
+    /// or followed.
+    /// </summary>
+    public static void RemoveStaleListFiles(string folder, TimeSpan olderThan)
+    {
+        var cutoff = DateTime.UtcNow - olderThan;
+        try
+        {
+            foreach (var file in new DirectoryInfo(folder).EnumerateFiles(SevenZipTool.ListFilePattern,
+                         new EnumerationOptions { AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true, RecurseSubdirectories = false }))
+            {
+                try
+                {
+                    if ((file.Attributes & FileAttributes.ReparsePoint) == 0 && file.LastWriteTimeUtc < cutoff) file.Delete();
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 }

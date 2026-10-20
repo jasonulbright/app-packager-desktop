@@ -40,6 +40,7 @@ internal static class InstallerAnalysisTestFiles
         public const string InnoModes = @"C:\temp\ap\PathCopyCopy\PathCopyCopy20.0.exe";
         public const string InnoLowest = @"C:\temp\ap\Greenshot\1.3.323\Greenshot-INSTALLER-1.3.323-RELEASE.exe";
         public const string InnoGit = @"C:\ProgramData\PatchMyPC\Git-2.56.0.2.exe";
+        public const string InnoCrystalDiskInfo = @"C:\ProgramData\PatchMyPC\CrystalDiskInfo-9.9.3.exe";
         public const string MsiWinDirStat = @"C:\ProgramData\PatchMyPC\WinDirStat-2.9.2.msi";
         public const string MsiAdobeBase = @"C:\temp\ap\AdobeReader\26.002.21931\AcroRead.msi";
         public const string MspAdobe = @"C:\temp\ap\AdobeReader\26.002.21931\AcroRdrDCUpd2600221931.msp";

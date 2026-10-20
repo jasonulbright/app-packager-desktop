@@ -65,6 +65,14 @@ public sealed class BitRockProjectTests : IDisposable
                     </ruleList>
                 </registrySet>
             </postUninstallerCreationActionList>
+            <readyToInstallActionList>
+                <actionGroup>
+                    <ruleList>
+                        <compareText><logic>equals</logic><text>${installer_ui}</text><value>unattended</value></compareText>
+                    </ruleList>
+                </actionGroup>
+            </readyToInstallActionList>
+            <unattendedModeUI>minimal</unattendedModeUI>
             <productDisplayName>${product_fullname} 13</productDisplayName>
             <requireInstallationByRootUser>${admin_rights}</requireInstallationByRootUser>
             <vendor>PostgreSQL Global Development Group</vendor>
@@ -218,6 +226,74 @@ public sealed class BitRockProjectTests : IDisposable
     }
 
     [Fact]
+    public void TheProjectsUnattendedModeRulesAndUiAreRead()
+    {
+        var handled = BitRockProjectReader.Read(WriteSetup("pg.exe", PostgreSqlShape), CancellationToken.None)!;
+        var plain = BitRockProjectReader.Read(WriteSetup("plain.exe", "<project><shortName>a</shortName><fullName>A</fullName><version>1</version></project>"), CancellationToken.None)!;
+
+        Assert.True(handled.UnattendedModeHandled);
+        Assert.Equal("minimal", handled.UnattendedModeUI);
+        Assert.False(plain.UnattendedModeHandled);
+        Assert.Equal("", plain.UnattendedModeUI);
+    }
+
+    [Fact]
+    public async Task TheInstallModesTableHasTheProjectsUnattendedMode()
+    {
+        var path = WriteSetup("postgresql-13.23-1-windows-x64.exe", PostgreSqlShape);
+        var service = new InstallerAnalysisService(new AnalysisSandbox(_temp.PathOf("sandbox")), () => null);
+
+        var r = await service.AnalyzeAsync(path, AnalysisLimits.Default, new Progress<string>(), CancellationToken.None);
+
+        var mode = Assert.Single(r.Modes);
+        Assert.Equal("PerMachine", mode.Name);
+        Assert.True(mode.IsDefault);
+        Assert.Equal("--mode unattended --unattendedmodeui none", mode.Switch);
+        Assert.Equal(@"%ProgramW6432%\PostgreSQL\13", mode.InstallFolder);
+        Assert.Equal(@"""postgresql-13.23-1-windows-x64.exe"" --mode unattended --unattendedmodeui none", mode.InstallCommand);
+        Assert.Equal(@"""%ProgramW6432%\PostgreSQL\13\uninstall-postgresql.exe"" --mode unattended --unattendedmodeui none", mode.UninstallCommand);
+        Assert.Equal(@"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 13", mode.ArpKey);
+        Assert.Equal(("HKLM", "64", "PerMachine"), (mode.Hive, mode.View, mode.Context));
+        var unattended = r.Metadata.Single(b => b.Title == "BitRock InstallBuilder project").Facts.Single(f => f.Name == "Unattended mode");
+        Assert.Equal("Confirmed", unattended.Confidence);
+    }
+
+    [Fact]
+    public async Task AProjectWithoutUnattendedRulesGivesAPredictedMode()
+    {
+        var path = WriteSetup("app.exe", """
+            <project>
+                <shortName>app</shortName><fullName>Sample App</fullName><version>2.1</version>
+                <windows64bitMode>1</windows64bitMode>
+                <parameterList>
+                    <directoryParameter name="installdir" default="${platform_install_prefix}/${product_shortname}-${product_version}"/>
+                </parameterList>
+            </project>
+            """);
+        var service = new InstallerAnalysisService(new AnalysisSandbox(_temp.PathOf("sandbox")), () => null);
+
+        var r = await service.AnalyzeAsync(path, AnalysisLimits.Default, new Progress<string>(), CancellationToken.None);
+
+        Assert.Equal("--mode unattended --unattendedmodeui none", Assert.Single(r.Modes).Switch);
+        var unattended = r.Metadata.Single(b => b.Title == "BitRock InstallBuilder project").Facts.Single(f => f.Name == "Unattended mode");
+        Assert.Equal("Predicted", unattended.Confidence);
+    }
+
+    [Fact]
+    public async Task TheNotesNameTheProjectsUninstallerAndNotTheGenericOne()
+    {
+        var path = WriteSetup("postgresql-13.23-1-windows-x64.exe", PostgreSqlShape);
+        var service = new InstallerAnalysisService(new AnalysisSandbox(_temp.PathOf("sandbox")), () => null);
+
+        var r = await service.AnalyzeAsync(path, AnalysisLimits.Default, new Progress<string>(), CancellationToken.None);
+
+        var notes = r.Deployment.Single(f => f.Name == "Notes").Value;
+        Assert.Contains("uninstall-postgresql.exe", notes);
+        Assert.DoesNotContain(@"\uninstall.exe", notes);
+        Assert.DoesNotContain("%INSTALLDIR%", notes);
+    }
+
+    [Fact]
     public async Task ThePostgreSql13SetupMatchesTheLabInstall()
     {
         if (!File.Exists(PostgreSql13)) return;
@@ -229,5 +305,12 @@ public sealed class BitRockProjectTests : IDisposable
         Assert.Equal(@"HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PostgreSQL 13", V("UninstallRegistryKey"));
         Assert.Equal("13.23-1", V("DisplayVersion"));
         Assert.Equal(@"""%ProgramW6432%\PostgreSQL\13\uninstall-postgresql.exe"" --mode unattended --unattendedmodeui none", V("UninstallCommand"));
+        Assert.Contains("uninstall-postgresql.exe", V("Notes"));
+        Assert.DoesNotContain(@"\uninstall.exe", V("Notes"));
+        var mode = Assert.Single(r.Modes);
+        Assert.Equal(@"%ProgramW6432%\PostgreSQL\13", mode.InstallFolder);
+        Assert.Equal("--mode unattended --unattendedmodeui none", mode.Switch);
+        Assert.Equal("64", mode.View);
+        Assert.Equal("Confirmed", r.Metadata.Single(b => b.Title == "BitRock InstallBuilder project").Facts.Single(f => f.Name == "Unattended mode").Confidence);
     }
 }

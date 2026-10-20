@@ -166,7 +166,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
 
         progress.Report("Building the report");
         var deployment = DeploymentFacts(drop, engine, fileName, overrides, msiProperties, notes);
-        var modes = Modes(drop, engine, fileName, msiProperties);
+        var modes = Modes(drop, engine, fileName, msiProperties, overrides);
         var architecture = !string.IsNullOrEmpty(overrides.Architecture) ? overrides.Architecture : drop?.Architecture ?? "";
         var hint = !string.IsNullOrEmpty(overrides.DetectionHint) ? overrides.DetectionHint : DetectionHint(drop, engine, deployment);
         if (!isPe && engine is not ("NativeMSI" or "MSP") && !ZipEngines.Contains(engine) && engine != "Unknown")
@@ -198,6 +198,10 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         public string DetectionHint = "";
         public string Source = "";
         public string InstallContext = "";
+        public string Notes = "";
+
+        /// <summary>The one install mode the format reader resolved; null when the generic proposal supplies the modes.</summary>
+        public InstallMode? Mode;
 
         /// <summary>Deployment field names whose override value is a prediction.</summary>
         public readonly HashSet<string> PredictedFields = new(StringComparer.Ordinal);
@@ -295,14 +299,21 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         else
             facts.Add(new AnalysisFact("InstallContext", drop is null ? "" : drop.InstallContext == "User" ? "PerUser" : "PerMachine",
                 drop is null ? "None" : "Predicted", drop is null ? "none" : "analysis"));
-        if (drop is not null && !string.IsNullOrWhiteSpace(drop.Notes))
+        if (o.Notes.Length > 0)
+            facts.Add(new AnalysisFact("Notes", o.Notes, "Predicted", o.Source));
+        else if (drop is not null && !string.IsNullOrWhiteSpace(drop.Notes))
             facts.Add(new AnalysisFact("Notes", drop.Notes, "Predicted", "analysis"));
         return facts;
     }
 
-    private static List<InstallMode> Modes(DroppedInstallerAnalysis? drop, string engine, string fileName, List<AnalysisFact> msiProperties)
+    private static List<InstallMode> Modes(DroppedInstallerAnalysis? drop, string engine, string fileName, List<AnalysisFact> msiProperties, DeploymentOverrides o)
     {
         var modes = new List<InstallMode>();
+        if (o.Mode is not null)
+        {
+            modes.Add(o.Mode);
+            return modes;
+        }
         if (drop is null) return modes;
         static string Checked(string command) => ProposedCommand.IsSafeCommandLine(command) ? command : "";
         foreach (var name in drop.InstallModes)

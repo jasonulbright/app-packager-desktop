@@ -539,7 +539,7 @@ public static class InnoSetupReader
             try
             {
                 var header = ParseSetupHeader(block.Bytes, block.Version!);
-                var note = ReadRegistryList(block.Bytes, block.Version!, header, rows, maxRows, ct);
+                var note = ReadRegistryList(block.Bytes, block.Version!, header, rows, maxRows, InstallerSignatureScanner.ReadPeArchitecture(path), ct);
                 return (rows, note);
             }
             catch (EndOfStreamException)
@@ -556,9 +556,34 @@ public static class InnoSetupReader
         return (rows, "Setup entry lists exceed the decode budget.");
     }
 
-    private static string ReadRegistryList(byte[] data, DataVersion version, SetupHeader header, List<RegistryWrite> rows, int maxRows, CancellationToken ct)
+    /// <summary>
+    /// The registry view of one [Registry] entry on 64-bit Windows. From data version 7.0 the
+    /// entry carries a TSetupEntryBitness byte (install default, 32-bit, 64-bit, native,
+    /// current process); before it the 32bit and 64bit option flags. Without either, the entry
+    /// follows the install mode: 64-bit in 64-bit install mode, otherwise the 32-bit view.
+    /// "Current process" follows the setup executable's architecture.
+    /// </summary>
+    internal static string RegistryView(bool v700, int bitness, IReadOnlyCollection<string> flags, bool is64BitInstallMode, string setupArchitecture)
+    {
+        var mode = is64BitInstallMode ? "64" : "32";
+        if (!v700) return flags.Contains("64bit") ? "64" : flags.Contains("32bit") ? "32" : mode;
+        return bitness switch
+        {
+            1 => "32",
+            2 or 3 => "64",
+            4 => setupArchitecture is "x64" or "ARM64" ? "64" : "32",
+            _ => mode
+        };
+    }
+
+    /// <summary>64-bit install mode on an x64 host: an ArchitecturesInstallIn64BitMode expression naming x64 (6.3+) or the x64 flag (older).</summary>
+    internal static bool Is64BitMode(string architecturesInstallIn64BitMode) =>
+        Regex.IsMatch(architecturesInstallIn64BitMode, @"(?i)(?<!not\s+)\b(x64compatible|x64os|x64|win64)\b");
+
+    private static string ReadRegistryList(byte[] data, DataVersion version, SetupHeader header, List<RegistryWrite> rows, int maxRows, string setupArchitecture, CancellationToken ct)
     {
         var v = version.Value;
+        var is64BitMode = Is64BitMode(header.ArchitecturesInstallIn64BitMode ?? "");
         if (v < Ver(6, 0, 0)) return "Registry entries are read for setup data 6.0.0 and later; this installer is " + version.Text + ".";
         if (!header.FixedDecoded) return "Registry entries follow header fields that did not decode.";
 
@@ -637,20 +662,21 @@ public static class InnoSetupReader
             if (rows.Count >= maxRows) return $"Only the first {maxRows} registry entries are listed.";
 
             var flags = Enumerable.Range(0, RegistryFlagNames.Length).Where(b => (options & (1 << b)) != 0).Select(b => RegistryFlagNames[b]).ToList();
-            var view = v700 ? BitnessNames[bitness] : flags.Contains("64bit") ? "64" : flags.Contains("32bit") ? "32" : "";
+            var view = RegistryView(v700, bitness, flags, is64BitMode, setupArchitecture);
             var action = flags.Contains("deletekey") ? "delete key"
                 : flags.Contains("deletevalue") ? (type != 0 ? "delete value, then write" : "delete value")
                 : type == 0 ? "create key" : "write";
             var conditions = new List<string>();
-            if (components.Length > 0) conditions.Add("Components: " + components);
             if (tasks.Length > 0) conditions.Add("Tasks: " + tasks);
             if (languages.Length > 0) conditions.Add("Languages: " + languages);
             if (check.Length > 0) conditions.Add("Check: " + check);
+            var otherFlags = flags.Where(f => f is not "32bit" and not "64bit").ToList();
+            if (otherFlags.Count > 0) conditions.Add("Flags: " + string.Join(" ", otherFlags));
             rows.Add(new RegistryWrite("InnoSetup", root, subkey, valueName, valueData, RegistryTypeNames[type], string.Join("; ", conditions))
             {
                 Action = action,
                 View = view,
-                Section = string.Join(" ", flags.Where(f => f is not "32bit" and not "64bit"))
+                Section = components
             });
         }
         return "";
@@ -794,9 +820,7 @@ public static class InnoSetupReader
             meta.Note = header.FixedNote;
         }
 
-        // 64-bit install mode on an x64 host: an expression naming x64 (6.3+)
-        // or the x64 flag (older). The ARP key and Program Files folder follow it.
-        meta.Is64BitInstallMode = Regex.IsMatch(meta.ArchitecturesInstallIn64BitMode, @"(?i)(?<!not\s+)\b(x64compatible|x64os|x64|win64)\b");
+        meta.Is64BitInstallMode = Is64BitMode(meta.ArchitecturesInstallIn64BitMode);
 
         var perUser = meta.PrivilegesRequired == "lowest";
         meta.InstallContext = header.FixedDecoded ? (perUser ? "PerUser" : "PerMachine") : "";

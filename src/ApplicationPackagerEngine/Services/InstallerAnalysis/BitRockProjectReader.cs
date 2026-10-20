@@ -32,6 +32,10 @@ public sealed class BitRockProject
     /// <summary>The default install folder in environment-variable form; empty when it is not resolvable.</summary>
     public string InstallDir { get; init; } = "";
     public string RequireInstallationByRootUser { get; init; } = "";
+    /// <summary>True when a rule in the project tests installer_ui for unattended, the mode "--mode unattended" selects.</summary>
+    public bool UnattendedModeHandled { get; init; }
+    /// <summary>The project's unattendedModeUI default (none, minimal, minimalWithDialogs); empty when not set.</summary>
+    public string UnattendedModeUI { get; init; } = "";
 }
 
 /// <summary>
@@ -257,7 +261,10 @@ public static class BitRockProjectReader
             UninstallerName = uninstallerName,
             UninstallerNameSource = uninstallerSource,
             InstallDir = installDir,
-            RequireInstallationByRootUser = Top(root, "requireInstallationByRootUser")
+            RequireInstallationByRootUser = Top(root, "requireInstallationByRootUser"),
+            UnattendedModeHandled = root.Descendants().Any(e => e.Name.LocalName == "compareText"
+                && Value(e, "text") == "${installer_ui}" && Value(e, "value") == "unattended"),
+            UnattendedModeUI = Top(root, "unattendedModeUI")
         };
     }
 }

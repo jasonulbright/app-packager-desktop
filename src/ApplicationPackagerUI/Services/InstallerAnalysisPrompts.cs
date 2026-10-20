@@ -96,9 +96,10 @@ public static class InstallerAnalysisPreferences
 
 /// <summary>
 /// Removes at start the sessions whose owner process has ended (and old sessions without an owner
-/// file), and every session of this process at exit.
+/// file) and stale 7-Zip list files in the Temp folder, and every session of this process at exit.
 /// </summary>
-public sealed class InstallerAnalysisSandboxLifetime(IAnalysisSandbox sandbox, IAppLog log, Func<int, long, bool>? isAlive = null) : IHostedService
+/// <param name="tempFolder">The folder swept for stale 7-Zip list files; the default is the user's Temp folder.</param>
+public sealed class InstallerAnalysisSandboxLifetime(IAnalysisSandbox sandbox, IAppLog log, Func<int, long, bool>? isAlive = null, string? tempFolder = null) : IHostedService
 {
     /// <summary>A session without an owner file and younger than this can be one another instance is creating.</summary>
     public static readonly TimeSpan StartupCleanAge = TimeSpan.FromHours(1);
@@ -108,8 +109,13 @@ public sealed class InstallerAnalysisSandboxLifetime(IAnalysisSandbox sandbox, I
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _clean = Task.Run(() => Guard("The old analysis sessions could not be removed",
-            () => InstallerAnalysisSessions.CleanAbandoned(sandbox, _isAlive, StartupCleanAge)), CancellationToken.None);
+        _clean = Task.Run(() =>
+        {
+            Guard("The old analysis sessions could not be removed",
+                () => InstallerAnalysisSessions.CleanAbandoned(sandbox, _isAlive, StartupCleanAge));
+            Guard("The old 7-Zip list files could not be removed",
+                () => InstallerAnalysisTempFiles.RemoveStaleListFiles(tempFolder ?? Path.GetTempPath(), InstallerAnalysisTempFiles.StaleListFileAge));
+        }, CancellationToken.None);
         return Task.CompletedTask;
     }
 

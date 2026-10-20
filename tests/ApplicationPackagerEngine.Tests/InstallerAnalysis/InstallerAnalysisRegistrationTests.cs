@@ -74,6 +74,21 @@ public sealed class InstallerAnalysisRegistrationTests : IDisposable
     }
 
     [Fact]
+    public async Task TheSandboxLifetimeRemovesStale7ZipListFilesFromTheTempFolderAtStart()
+    {
+        var temp = Directory.CreateDirectory(Path.Combine(_root, "user-temp")).FullName;
+        var stale = Path.Combine(temp, "apd-7z-" + Guid.NewGuid().ToString("N") + ".txt");
+        File.WriteAllText(stale, "a.txt");
+        File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddDays(-2));
+        var lifetime = new InstallerAnalysisSandboxLifetime(new FakeAnalysisSandbox(_root), new RecordingAnalysisLog(), (_, _) => false, temp);
+
+        await lifetime.StartAsync(CancellationToken.None);
+        await lifetime.StopAsync(CancellationToken.None);
+
+        Assert.False(File.Exists(stale));
+    }
+
+    [Fact]
     public async Task ASandboxThatCannotBeRemovedIsLoggedByTypeAndNeverStopsTheApplication()
     {
         var log = new RecordingAnalysisLog();
