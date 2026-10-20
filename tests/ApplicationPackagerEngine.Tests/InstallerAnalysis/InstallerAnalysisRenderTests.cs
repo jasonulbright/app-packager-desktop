@@ -204,6 +204,9 @@ public sealed class InstallerAnalysisRenderTests
         Assert.True(element.ActualHeight >= minHeight - 0.5, $"{id} is {element.ActualHeight:0} px high, below {minHeight} px.");
     }
 
+    /// <summary>A header row and six rows of a grid: the least a list tab gives its grid at any window size.</summary>
+    private const double GridMinHeight = 250;
+
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
     {
         { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
@@ -245,13 +248,13 @@ public sealed class InstallerAnalysisRenderTests
             }
 
             Check(InstallerAnalysisViewModel.OverviewTab, "scrollOverview", ("pnlNotes", 20), ("dgSource", 100), ("dgModes", 60), ("dgMetadata", 60));
-            Check(InstallerAnalysisViewModel.MsiTab, "scrollMsiTab", ("txtMsiFilter", 20), ("dgMsi", 140));
+            Check(InstallerAnalysisViewModel.MsiTab, "scrollMsiTab", ("txtMsiFilter", 20), ("dgMsi", GridMinHeight));
             Check(InstallerAnalysisViewModel.PayloadTab, "scrollPayloadTab", ("txtPayloadFilter", 20), ("btnPayloadAnalyze", 20), ("btnPayloadHash", 20),
-                ("btnExtractPayload", 20), ("btnPayloadOpenFolder", 20), ("dgPayload", 140));
-            Check(InstallerAnalysisViewModel.InnerTab, "scrollInnerTab", ("btnInnerAnalyze", 20), ("btnInnerExtract", 20), ("btnInnerOpenFolder", 20), ("dgInner", 140));
-            Check(InstallerAnalysisViewModel.FilesTab, "scrollFilesTab", ("cboFileFolder", 20), ("txtFileFilter", 20), ("btnFilesHash", 20), ("dgFiles", 140));
-            Check(InstallerAnalysisViewModel.RegistryTab, "scrollRegistryTab", ("txtRegistryFilter", 20), ("btnRegistryCopyRows", 20), ("pnlRegistryNotes", 20), ("dgRegistry", 140));
-            Check(InstallerAnalysisViewModel.StringsTab, "scrollStringsTab", ("txtStringsFilter", 20), ("cboStringsCategory", 20), ("btnCopyStrings", 20), ("dgStrings", 140));
+                ("btnExtractPayload", 20), ("btnPayloadOpenFolder", 20), ("dgPayload", GridMinHeight));
+            Check(InstallerAnalysisViewModel.InnerTab, "scrollInnerTab", ("btnInnerAnalyze", 20), ("btnInnerExtract", 20), ("btnInnerOpenFolder", 20), ("dgInner", GridMinHeight));
+            Check(InstallerAnalysisViewModel.FilesTab, "scrollFilesTab", ("cboFileFolder", 20), ("txtFileFilter", 20), ("btnFilesHash", 20), ("dgFiles", GridMinHeight));
+            Check(InstallerAnalysisViewModel.RegistryTab, "scrollRegistryTab", ("txtRegistryFilter", 20), ("btnRegistryCopyRows", 20), ("pnlRegistryNotes", 20), ("dgRegistry", GridMinHeight));
+            Check(InstallerAnalysisViewModel.StringsTab, "scrollStringsTab", ("txtStringsFilter", 20), ("cboStringsCategory", 20), ("btnCopyStrings", 20), ("dgStrings", GridMinHeight));
             Pixels(window, ById<FrameworkElement>(page, "tabInstallerAnalysis"), $"IA-{width}x{height}-{theme}");
         }, width, height);
     }

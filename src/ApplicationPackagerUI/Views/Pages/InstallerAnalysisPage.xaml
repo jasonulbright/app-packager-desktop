@@ -287,10 +287,10 @@
             <TabItem Header="MSI Properties" AutomationProperties.AutomationId="tabMsiProperties">
                 <ScrollViewer x:Name="scrollMsiTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollMsiTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollMsiTab}" MinHeight="260">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollMsiTab}" MinHeight="340">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="140" />
+                            <RowDefinition Height="*" MinHeight="250" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding MsiFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by property or value" Icon="{ui:SymbolIcon Search24}"
@@ -311,11 +311,11 @@
             <TabItem Header="Payload" AutomationProperties.AutomationId="tabPayload">
                 <ScrollViewer x:Name="scrollPayloadTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollPayloadTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPayloadTab}" MinHeight="300">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPayloadTab}" MinHeight="480">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="140" />
+                            <RowDefinition Height="*" MinHeight="250" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding PayloadFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by path or type" Icon="{ui:SymbolIcon Search24}"
@@ -368,11 +368,11 @@
             <TabItem Header="Inner Installers" AutomationProperties.AutomationId="tabInnerInstallers">
                 <ScrollViewer x:Name="scrollInnerTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollInnerTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollInnerTab}" MinHeight="300">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollInnerTab}" MinHeight="440">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="140" />
+                            <RowDefinition Height="*" MinHeight="250" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:Button Content="Analyze selected" Appearance="Primary" Icon="{ui:SymbolIcon BoxSearch24}" Command="{Binding AnalyzeSelectedCommand}"
@@ -420,11 +420,11 @@
             <TabItem Header="File Browser" AutomationProperties.AutomationId="tabFileBrowser">
                 <ScrollViewer x:Name="scrollFilesTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollFilesTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollFilesTab}" MinHeight="300">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollFilesTab}" MinHeight="440">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="140" />
+                            <RowDefinition Height="*" MinHeight="250" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ComboBox ItemsSource="{Binding FileFolders}" SelectedItem="{Binding SelectedFolder}" Width="260" Margin="0,0,8,8"
@@ -478,12 +478,12 @@
             <TabItem Header="Registry Settings" AutomationProperties.AutomationId="tabRegistry">
                 <ScrollViewer x:Name="scrollRegistryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollRegistryTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollRegistryTab}" MinHeight="400">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollRegistryTab}" MinHeight="480">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="140" />
+                            <RowDefinition Height="*" MinHeight="250" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding RegistryFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by key, name, value, origin or condition"
@@ -538,11 +538,11 @@
             <TabItem Header="Strings" AutomationProperties.AutomationId="tabStrings">
                 <ScrollViewer x:Name="scrollStringsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollStringsTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollStringsTab}" MinHeight="300">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollStringsTab}" MinHeight="420">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="140" />
+                            <RowDefinition Height="*" MinHeight="250" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0">
                             <ui:TextBox Text="{Binding StringsFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter the strings" Icon="{ui:SymbolIcon Search24}"
