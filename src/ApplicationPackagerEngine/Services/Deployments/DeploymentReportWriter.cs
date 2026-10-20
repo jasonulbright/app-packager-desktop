@@ -104,6 +104,7 @@ public sealed class DeploymentReportWriter(string? folder = null, Func<DateTimeO
         Add("DeadlineDateTime", Time(r.DeadlineDateTime));
         Add("DeploymentID", r.DeploymentID);
         Add("Result", r.Result);
+        Add(VerifiedColumn, AuditVerification.Text(r));
         Add("Event", r.Event);
         Add("ObjectId", r.ObjectId);
         Add("AvailableDateTime", Time(r.AvailableDateTime));
@@ -114,10 +115,14 @@ public sealed class DeploymentReportWriter(string? folder = null, Func<DateTimeO
         Add("TimeBasedOn", r.TimeBasedOn);
         Add("DistributionPointGroups", r.DistributionPointGroups);
         Add("Undoes", r.Undoes);
+        Add("UnclearDeploymentIds", r.UnclearDeploymentIds);
+        // A Verified property of the line itself is not shown: only the read decides that column.
         foreach (var (name, value) in r.Extra)
-            if (!map.ContainsKey(name)) map[name] = value;
+            if (!map.ContainsKey(name) && !string.Equals(name, VerifiedColumn, StringComparison.OrdinalIgnoreCase)) map[name] = value;
         return map;
     }
+
+    private const string VerifiedColumn = "Verified";
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 

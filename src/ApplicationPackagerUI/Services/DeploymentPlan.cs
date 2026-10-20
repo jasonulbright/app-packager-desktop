@@ -189,12 +189,27 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
     /// <summary>
     /// True for the outcome of a create that requested its distribution and then created no
     /// deployment on purpose: ConfigMgr changed (the content goes out) and nothing can be undone.
-    /// A create whose distribution could not be logged is a failure, not this.
+    /// <see cref="DeploymentOutcome.Distribution"/> decides; an outcome without it counts by its
+    /// step line. A create whose distribution could not be logged is a failure, not this.
     /// </summary>
     public static bool DistributionOnly(DeploymentOutcome outcome) =>
-        outcome.Change.Kind == DeploymentChangeKind.Create && outcome.Change.DpGroups.Count > 0 && outcome.UndoChange is null
+        outcome.Change.Kind == DeploymentChangeKind.Create && outcome.UndoChange is null
         && (outcome.Succeeded || outcome.Message.StartsWith(SkippedPrefix, StringComparison.OrdinalIgnoreCase))
-        && outcome.Steps.Any(s => s.StartsWith(DistributionRequestedStep, StringComparison.Ordinal));
+        && (outcome.Distribution is { } distribution
+            ? distribution.Succeeded
+            : outcome.Change.DpGroups.Count > 0 && outcome.Steps.Any(s => s.StartsWith(DistributionRequestedStep, StringComparison.Ordinal)));
+
+    /// <summary>
+    /// True for a failed create without an undo whose <see cref="DeploymentOutcome.Distribution"/>
+    /// succeeded: the row stays a failure, and the distribution counts as a change of the run.
+    /// </summary>
+    public static bool DistributedBeforeFailure(DeploymentOutcome outcome) =>
+        outcome.Change.Kind == DeploymentChangeKind.Create && !outcome.Succeeded && outcome.UndoChange is null
+        && !DistributionOnly(outcome) && outcome.Distribution is { Succeeded: true };
+
+    /// <summary>The sentence a result row ends with when its create names new deployments it cannot tell apart; empty otherwise.</summary>
+    public static string UnclearText(DeploymentOutcome outcome) =>
+        outcome.UnclearDeploymentIds.Count == 0 ? "" : $"New deployments to check: {string.Join("; ", outcome.UnclearDeploymentIds)}.";
 
     /// <summary>The row message of a distribution-only create: the plain result, then the reason the service gave.</summary>
     public static string DistributionOnlyMessage(string message)
@@ -247,13 +262,14 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
             foreach (var outcome in outcomes) reporter.Final(outcome);
             var rows = new ChangePlanResult(plan.Entries.Select(e => results.TryGetValue(e.Item, out var r) ? r : new ChangePlanItemResult(e.Item, false, NoResultText)).ToList());
             var cancelled = ct.IsCancellationRequested && LeftUndone(plan.Entries.Where(e => e.Change is not null).Select(e => e.Item), rows.Items);
+            var distributed = plan.Outcomes.Count(DistributedBeforeFailure);
             var result = rows with
             {
                 Stop = cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed,
                 UndoAvailable = plan.UndoChanges().Count > 0,
-                Note = plan.Outcomes.Any(DistributionOnly) ? DistributionOnlyText : null
+                Note = plan.Outcomes.Any(DistributionOnly) || distributed > 0 ? DistributionOnlyText : null
             };
-            stop = Outcome(result, cancelled);
+            stop = Outcome(result, cancelled, distributed);
             return result;
         }
         catch (OperationCanceledException)
@@ -263,7 +279,7 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
         }
         finally
         {
-            Record(plan.Action, stop, results.Values);
+            Record(plan.Action, stop, results.Values, plan.Outcomes.Count(DistributedBeforeFailure));
         }
     }
 
@@ -345,10 +361,11 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
         return (send, held);
     }
 
-    private static SiteOperationOutcome Outcome(ChangePlanResult result, bool cancelled) =>
+    /// <param name="distributed">Failed creates whose distribution was requested: each counts as a change.</param>
+    private static SiteOperationOutcome Outcome(ChangePlanResult result, bool cancelled, int distributed = 0) =>
         cancelled ? SiteOperationOutcome.Cancelled
         : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
-        : result.SucceededCount > 0 || result.PartialCount > 0 ? SiteOperationOutcome.PartlySucceeded
+        : result.SucceededCount > 0 || result.PartialCount > 0 || distributed > 0 ? SiteOperationOutcome.PartlySucceeded
         : SiteOperationOutcome.Failed;
 
     private static bool LeftUndone(IEnumerable<ChangePlanItem> writes, IReadOnlyList<ChangePlanItemResult> rows)
@@ -357,10 +374,10 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
         return rows.Any(r => items.Contains(r.Item) && (r.Skipped || r.Message == NoResultText));
     }
 
-    private void Record(string action, SiteOperationOutcome outcome, IEnumerable<ChangePlanItemResult> results)
+    private void Record(string action, SiteOperationOutcome outcome, IEnumerable<ChangePlanItemResult> results, int distributed = 0)
     {
         var rows = results.ToList();
-        var changed = rows.Count(r => !r.Skipped && (r.Succeeded || r.PartialChange));
+        var changed = rows.Count(r => !r.Skipped && (r.Succeeded || r.PartialChange)) + distributed;
         var failed = rows.Count(r => !r.Succeeded && !r.Skipped);
         var skipped = rows.Count(r => r.Skipped);
         log.Info(LogArea, $"{action}: outcome={outcome} changed={changed} failed={failed} skipped={skipped}.");
@@ -397,6 +414,8 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
                 if (undoEntry is null) plan.AddOutcome(value);
                 else plan.AddUndoOutcome(value);
                 var message = SecretMask.Apply(value.Message);
+                if (value.UnclearDeploymentIds.Any(id => !message.Contains(id, StringComparison.OrdinalIgnoreCase)))
+                    message = $"{message.TrimEnd()} {UnclearText(value)}";
                 // A cancelled run returns the changes it did not start as failed outcomes without an
                 // undo whose message starts with the skipped prefix.
                 var skipped = !value.Succeeded && value.UndoChange is null

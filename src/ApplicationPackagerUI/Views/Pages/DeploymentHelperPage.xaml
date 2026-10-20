@@ -95,6 +95,13 @@
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
 
+            <Style x:Key="VerifiedCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
+            </Style>
+
             <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
                 <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
             </Style>
@@ -422,6 +429,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4">
                             <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by object, collection, deployment ID or user"
@@ -459,8 +467,9 @@
                                   FrozenColumnCount="1" AutomationProperties.AutomationId="dgHistory" AutomationProperties.Name="Audit records">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Event" Binding="{Binding Event}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Event" Binding="{Binding Event}" Width="72" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" Width="84" MinWidth="84" ElementStyle="{StaticResource VerifiedCell}" />
                                 <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Deployment ID" Binding="{Binding DeploymentId}" Width="*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
@@ -469,6 +478,10 @@
                                 <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="130" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
+                        <TextBox Grid.Row="4" x:Name="txtHistoryDetails" Text="{Binding SelectedDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                                 MaxHeight="96" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0"
+                                 Visibility="{Binding HasSelectedDetails, Converter={StaticResource BoolToVisibility}}"
+                                 AutomationProperties.Name="Details of the selected record" AutomationProperties.AutomationId="txtHistoryDetails" />
                     </Grid>
                 </ScrollViewer>
             </TabItem>
@@ -556,6 +569,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <DockPanel Grid.Row="0" Margin="0,0,0,8">
                     <ui:Button DockPanel.Dock="Right" Content="Undo last change" Icon="{ui:SymbolIcon ArrowUndo24}" Command="{Binding Shared.UndoLastCommand}"
@@ -576,6 +590,11 @@
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                     </DataGrid.Columns>
                 </DataGrid>
+                <DockPanel Grid.Row="2" Margin="0,8,0,0" Visibility="{Binding Shared.HasUnclearDeploymentIds, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock DockPanel.Dock="Left" Text="New deployments to check in the console:" Style="{StaticResource Warning}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBox Text="{Binding Shared.UnclearDeploymentIds, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                             AutomationProperties.Name="New deployments to check in the console" AutomationProperties.AutomationId="txtUnclearDeploymentIds" />
+                </DockPanel>
             </Grid>
         </Border>
 

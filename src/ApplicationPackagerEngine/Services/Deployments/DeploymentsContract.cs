@@ -160,6 +160,9 @@ public sealed record DeploymentOutcome(DeploymentChange Change, bool Succeeded, 
     /// create itself was skipped or failed. Null when the create requested no distribution.
     /// </summary>
     public DeploymentOutcome? Distribution { get; init; }
+
+    /// <summary>Create whose result is not known: the IDs of the new deployments that appeared, as the audit record holds them; empty otherwise.</summary>
+    public IReadOnlyList<string> UnclearDeploymentIds { get; init; } = [];
 }
 
 public static class DeploymentCheckResults
@@ -276,8 +279,38 @@ public sealed record DeploymentAuditRecord(
     /// </summary>
     public bool? Verified { get; init; }
 
+    /// <summary>True when the line read from the log carries a Chain property, intact or not.</summary>
+    public bool HasChain { get; init; }
+
     /// <summary>Further properties of the line, such as the ring fields of the suite tool, in file order.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];
+}
+
+/// <summary>The plain text of <see cref="DeploymentAuditRecord.Verified"/> that the History tab and the reports show.</summary>
+public static class AuditVerification
+{
+    public const string Verified = "Verified";
+    public const string NotVerified = "Not verified";
+    public const string BeforeChain = "Not verified (written before the chain)";
+    public const string NoChain = "Not verified (no chain)";
+
+    /// <summary>
+    /// Verified, Not verified for a line whose Chain does not match, the before-the-chain text for a
+    /// line of this product without a Chain, the no-chain text for a line of another tool; empty
+    /// for a record that was not read from a log.
+    /// </summary>
+    public static string Text(DeploymentAuditRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        return record.Verified switch
+        {
+            null => "",
+            true => Verified,
+            false when record.HasChain => NotVerified,
+            false when string.Equals(record.Source, DeploymentAuditLog.SourceName, StringComparison.Ordinal) => BeforeChain,
+            false => NoChain
+        };
+    }
 }
 
 public interface IDeploymentAuditLog

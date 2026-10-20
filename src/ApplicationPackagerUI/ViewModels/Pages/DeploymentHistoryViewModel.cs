@@ -1,6 +1,7 @@
 using System.IO;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Logging;
+using ApplicationPackagerUI.Services;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
@@ -19,7 +20,12 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     public const string NoDeploymentId = "Select a create record that names its deployment ID.";
     public const string NotRemovable =
         "The record does not hold every value the removal compares (type, IDs, purpose, times and time basis), so the deployment cannot be removed from here. Remove it in the console.";
+    public const string ChainRefused =
+        "This record cannot be checked (the log was edited or its chain is broken): Undo from History is refused. Remove the deployment in the console.";
     public static readonly string CappedNote = $"The list shows the newest {MaxRecords} records of the audit log. Older records are in the file.";
+
+    /// <summary>The refusal of a History Undo that the service could not prove this product made, with the service's message as it is.</summary>
+    public static string HistoryUndoRefused(string serviceMessage) => $"Undo from History is refused: {serviceMessage}";
     public static string ReportFailed(string format) => $"The {format} report could not be written. The log has the details.";
 
     private IReadOnlyList<DeploymentAuditRecord> _records = [];
@@ -46,7 +52,13 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RemoveDeploymentCommand))]
+    [NotifyPropertyChangedFor(nameof(SelectedDetails), nameof(HasSelectedDetails))]
     private DeploymentHistoryRow? _selectedRow;
+
+    /// <summary>The details line of the selected record: whether it is verified, its message and the unclear deployment IDs.</summary>
+    public string SelectedDetails => SelectedRow?.Details ?? "";
+
+    public bool HasSelectedDetails => SelectedDetails.Length > 0;
 
     /// <summary>The folder of the last report written; null before the first export.</summary>
     [ObservableProperty]
@@ -95,7 +107,8 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             .Where(r => EventFilter == AllText || string.Equals(r.Event, EventFilter, StringComparison.OrdinalIgnoreCase))
             .Where(r => TypeFilter == AllText || SameType(r.DeploymentType, TypeFilter))
             .Where(r => text.Length == 0 || Contains(r.ApplicationName, text) || Contains(r.CollectionName, text) || Contains(r.CollectionID, text)
-                || Contains(r.DeploymentID, text) || Contains(r.DeploymentUniqueID, text) || Contains(r.User, text) || Contains(r.Result, text) || Contains(r.ObjectId, text))
+                || Contains(r.DeploymentID, text) || Contains(r.DeploymentUniqueID, text) || Contains(r.User, text) || Contains(r.Result, text) || Contains(r.ObjectId, text)
+                || Contains(r.UnclearDeploymentIds, text))
             .OrderByDescending(r => r.Timestamp).ToList();
         var keep = Rows.Where(r => wanted.Contains(r.Record)).ToDictionary(r => r.Record);
         Replace(Rows, wanted.Select(r => keep.TryGetValue(r, out var row) ? row : new DeploymentHistoryRow(r)).ToList());
@@ -167,6 +180,11 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             Shared.StatusMessage = NoDeploymentId;
             return;
         }
+        if (row.Record.Verified == false)
+        {
+            Shared.StatusMessage = ChainRefused;
+            return;
+        }
         if (DeploymentChangeBuilder.RemoveFromAudit(row.Record) is not { } request)
         {
             Shared.StatusMessage = NotRemovable;
@@ -174,9 +192,19 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         }
         if (request.Object is { Type: DeploymentObjectType.SoftwareUpdateGroup, UpdateCount: 0 } group && Shared.ConnectionProblem() is null)
             request = request with { Object = group with { UpdateCount = await UpdateCountAsync(group.Id) } };
-        var run = await Shared.RunPlanAsync([request], prepared => DeploymentText.BuildRemovePlan(prepared[0]));
+        var run = await Shared.RunPlanAsync([request], prepared => RemovePlan(prepared[0]));
         if (run is not { Outcome.Confirmed: true }) return;
         await Shared.AfterWriteAsync();
+    }
+
+    /// <summary>The removal plan; a failed ownership check refuses it with the service's own message first.</summary>
+    private static (DeploymentPlan? Plan, string? Problem) RemovePlan(DeploymentChange prepared)
+    {
+        var ownership = prepared.Checks.FirstOrDefault(c => c.Name == DeploymentText.CreatedHere && DeploymentText.Blocks(c));
+        if (ownership is null) return DeploymentText.BuildRemovePlan(prepared);
+        var others = DeploymentText.Blocking(prepared).Where(c => !ReferenceEquals(c, ownership))
+            .Select(c => $"{DeploymentText.CheckLabel(c.Name)}: {DeploymentText.CheckMessage(c, prepared.Existing?.Type)}");
+        return (null, string.Join(" ", others.Prepend(HistoryUndoRefused(ownership.Message))));
     }
 
     /// <summary>The number of updates of the group as the group list reads it; 0 when the list cannot be read.</summary>

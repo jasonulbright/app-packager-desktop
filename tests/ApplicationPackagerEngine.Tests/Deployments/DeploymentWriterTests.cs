@@ -212,6 +212,76 @@ public sealed class DeploymentWriterTests
         Assert.Equal("0 changed, 1 failed.", dialog.Outcome.Result!.Summary);
     }
 
+    private static DeploymentOutcome Distribution(DeploymentChange create, bool succeeded) =>
+        new(Change: create with { Kind = DeploymentChangeKind.Distribute, Collection = null, Options = null }, Succeeded: succeeded,
+            Message: succeeded ? "Requested the distribution of 7-Zip to 1 DP group." : "The distribution of 7-Zip did not finish.", UndoChange: null, Steps: []);
+
+    private static async Task<(ChangePlanViewModel Dialog, DeploymentPageHarness Harness)> RunAsync(Func<DeploymentChange, DeploymentOutcome> answer)
+    {
+        var h = new DeploymentPageHarness();
+        var plan = PlanOf(Create(h) with { DpGroups = ["All DPs"] });
+        var writer = new DeploymentWriter(new ScriptedOutcome(answer), h.History, h.Log, () => "LAB", _ => Task.FromResult(true));
+        var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+        return (dialog, h);
+    }
+
+    [Fact]
+    public async Task TheDistributionMemberCountsASkippedCreateAsAChangeWithoutTheStepLine()
+    {
+        var (dialog, h) = await RunAsync(c => new DeploymentOutcome(Change: c, Succeeded: false,
+            Message: "Skipped: content distribution was requested; the deployment was not created because the content is still distributing.", UndoChange: null, Steps: [])
+        {
+            Distribution = Distribution(c, true)
+        });
+
+        Assert.Equal("Changed", Assert.Single(dialog.ResultRows).OutcomeText);
+        Assert.Equal("1 changed, 0 failed. Distribution requested, deployment not created.", dialog.Outcome.Result!.Summary);
+        Assert.Equal(1, h.History.Entries.Single().Counts["changed"]);
+    }
+
+    [Fact]
+    public async Task AFailedDistributionMemberWinsOverTheStepLine()
+    {
+        var (dialog, h) = await RunAsync(c => new DeploymentOutcome(Change: c, Succeeded: false,
+            Message: "Skipped: the content of 7-Zip is not fully distributed yet.", UndoChange: null, Steps: ["Requested distribution to DP group All DPs."])
+        {
+            Distribution = Distribution(c, false)
+        });
+
+        Assert.Equal("Skipped", Assert.Single(dialog.ResultRows).OutcomeText);
+        Assert.Equal(0, h.History.Entries.Single().Counts["changed"]);
+    }
+
+    [Fact]
+    public async Task AFailedCreateWhoseDistributionSucceededCountsTheDistributionAsAChange()
+    {
+        var (dialog, h) = await RunAsync(c => new DeploymentOutcome(Change: c, Succeeded: false,
+            Message: "The content distribution may have been requested but could not be logged, so the deployment was not created.", UndoChange: null, Steps: [])
+        {
+            Distribution = Distribution(c, true)
+        });
+
+        Assert.Equal("Failed", Assert.Single(dialog.ResultRows).OutcomeText);
+        Assert.Equal("0 changed, 1 failed. Distribution requested, deployment not created.", dialog.Outcome.Result!.Summary);
+        var entry = h.History.Entries.Single();
+        Assert.Equal((1, 1), (entry.Counts["changed"], entry.Counts["failed"]));
+        Assert.Equal(SiteOperationOutcome.PartlySucceeded, entry.Outcome);
+        Assert.False(dialog.UndoCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task AnUnclearCreateNamesItsNewDeploymentsInTheResultRow()
+    {
+        var (dialog, _) = await RunAsync(c => new DeploymentOutcome(Change: c, Succeeded: false,
+            Message: "The result of the create of 7-Zip is not known. Check the deployments in the console.", UndoChange: null, Steps: [])
+        {
+            UnclearDeploymentIds = ["MCM2004F", "MCM20050"]
+        });
+
+        Assert.EndsWith("New deployments to check: MCM2004F; MCM20050.", Assert.Single(dialog.ResultRows).Message);
+    }
+
     [Fact]
     public async Task TheDialogKeepsUndoAfterADeclinedRemovalAndRemovesOnTheNextConfirm()
     {

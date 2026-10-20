@@ -233,6 +233,7 @@ public sealed class DeploymentOwnershipProofTests
         var record = h.Audit.Read(10).Single();
         Assert.Equal("Unknown", record.Result);
         Assert.Equal(string.Join("; ", ids), record.UnclearDeploymentIds);
+        Assert.Equal(ids, outcome.UnclearDeploymentIds);
         Assert.Equal("", record.DeploymentUniqueID);
         Assert.Equal(2, h.Site.List(ListOf(type)).Count);
     }

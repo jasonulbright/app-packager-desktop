@@ -65,6 +65,13 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
 
     [ObservableProperty] private bool _showResultRows = true;
 
+    /// <summary>The new deployments the last run could not tell apart, separated by "; "; empty when none.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUnclearDeploymentIds))]
+    private string _unclearDeploymentIds = "";
+
+    public bool HasUnclearDeploymentIds => UnclearDeploymentIds.Length > 0;
+
     /// <summary>The last confirmed plan with its outcomes; it outlives the visit, so its Undo stays offered until a new run replaces it.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasUndo), nameof(HasResultPanel))]
@@ -125,6 +132,7 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
         StatusMessage = "";
         ConnectionMessage = "";
         LastResults.Clear();
+        UnclearDeploymentIds = "";
         NotifyResults();
         ResultSummary = LastPlan is { } last ? LastChangeText(last) : "";
     }
@@ -260,6 +268,7 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
         }
         LastResults.Clear();
         foreach (var row in result.Items) LastResults.Add(row);
+        UnclearDeploymentIds = string.Join("; ", plan.Outcomes.SelectMany(o => o.UnclearDeploymentIds).Distinct(StringComparer.OrdinalIgnoreCase));
         var summary = result.Summary;
         if (outcome.UndoResult is { } undo)
         {

@@ -364,7 +364,8 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             {
                 // The line before the first line of a cut window is not read, so that line cannot be verified.
                 var previous = i > 0 ? LineHash(lines[i - 1]) : cut ? null : ChainStart;
-                if (Parse(line) is { } record) records.Add(record with { Verified = previous is not null && ChainMatches(line, previous) });
+                if (Parse(line) is { } record)
+                    records.Add(record with { Verified = previous is not null && ChainMatches(line, previous), HasChain = SplitChain(Normalized(line)) is not null });
                 else SkippedLines++;
             }
             catch (JsonException)

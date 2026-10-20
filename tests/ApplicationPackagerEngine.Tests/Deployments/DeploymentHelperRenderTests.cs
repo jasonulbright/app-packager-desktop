@@ -501,6 +501,53 @@ public sealed class DeploymentHelperRenderTests
 
     [Theory]
     [MemberData(nameof(Sizes))]
+    public void TheHistoryShowsTheVerifiedMarkAndACopyableDetailsLine(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var records = harness.Audit.Records;
+            records[0] = records[0] with { Verified = true, HasChain = true, Message = "Created the deployment of " + LongName + "." };
+            records[2] = records[2] with
+            {
+                Verified = false, HasChain = false, Source = DeploymentAuditLog.SourceName, Result = "Unknown",
+                UnclearDeploymentIds = "{DEP-0007-AAAA-BBBB-CCCC-DDDDEEEEFFFF}; {DEP-0008-AAAA-BBBB-CCCC-DDDDEEEEFFFF}"
+            };
+            records[4] = records[4] with { Verified = false, HasChain = true };
+            ShowTab(window, viewModel, DeploymentHelperViewModel.HistoryTab);
+            var grid = ById<DataGrid>(page, "dgHistory");
+            grid.BringIntoView();
+            Settle(window);
+
+            var scroller = Descendants(grid).OfType<ScrollViewer>().First();
+            var gridBounds = grid.TransformToAncestor(window).TransformBounds(new Rect(grid.RenderSize));
+            var header = Descendants(grid).OfType<System.Windows.Controls.Primitives.DataGridColumnHeader>().Single(h => Equals(h.Column?.Header, "Verified"));
+            var headerBounds = header.TransformToAncestor(window).TransformBounds(new Rect(header.RenderSize));
+            Assert.True(header.IsVisible && headerBounds.Right <= gridBounds.Left + scroller.ViewportWidth + 0.5,
+                $"Verified ends at {headerBounds.Right - gridBounds.Left:0} px in a {scroller.ViewportWidth:0} px grid at {width}x{height}.");
+            var marks = Descendants(grid).OfType<TextBlock>().Where(t => t.IsVisible && t.Text is "✓" or "!").ToList();
+            Assert.Equal(["!", "!", "✓"], marks.Select(t => t.Text).Order(StringComparer.Ordinal));
+            Assert.All(marks, t => Assert.True(t.ActualWidth > 2 && t.ActualHeight > 8, $"The mark {t.Text} is {t.ActualWidth:0}x{t.ActualHeight:0} px."));
+            Assert.Contains(marks, t => Equals(t.ToolTip, "Verified"));
+
+            var details = ById<System.Windows.Controls.TextBox>(page, "txtHistoryDetails");
+            Assert.False(details.IsVisible);
+            viewModel.History.SelectedRow = viewModel.History.Rows.Single(r => ReferenceEquals(r.Record, records[2]));
+            Settle(window);
+            Assert.True(details.IsReadOnly);
+            Assert.Equal("Not verified (written before the chain)" + Environment.NewLine
+                + "Unclear deployment IDs: {DEP-0007-AAAA-BBBB-CCCC-DDDDEEEEFFFF}; {DEP-0008-AAAA-BBBB-CCCC-DDDDEEEEFFFF}", details.Text);
+            details.BringIntoView();
+            Settle(window);
+            AssertReachable(ById<ScrollViewer>(page, "scrollHistoryTab"), details, "txtHistoryDetails");
+            Assert.True(details.ExtentHeight <= details.ViewportHeight + 0.5, $"The details need {details.ExtentHeight:0} px and show {details.ViewportHeight:0} px at {width}x{height}.");
+            details.SelectAll();
+            Assert.Equal(details.Text, details.SelectedText);
+            AssertReadableRowsAndVisibleSelection(window, grid, $"dgHistory-verified-{theme}-{width}");
+        }, width, height);
+    }
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
     public void TheDatePickersShowTheirWholeDate(ApplicationTheme theme, double width, double height)
     {
         WithPage(theme, (window, page, viewModel, harness) =>

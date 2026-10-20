@@ -85,6 +85,25 @@ public sealed class DeploymentHistoryRow(DeploymentAuditRecord record)
 
     public string User => Record.User;
 
+    /// <summary>Whether the record's chain is intact, as the reports name it; empty for a record that was not read from a log.</summary>
+    public string VerifiedText => AuditVerification.Text(Record);
+
+    /// <summary>The mark of the Verified column: a check mark for an intact record, an exclamation mark for any other read record.</summary>
+    public string Verified => Record.Verified switch
+    {
+        true => "✓",
+        false => "!",
+        null => ""
+    };
+
+    /// <summary>The details line: the verified text, the message and the unclear deployment IDs, one per line.</summary>
+    public string Details => string.Join(Environment.NewLine, new[]
+    {
+        VerifiedText,
+        Record.Message.Length > 0 ? "Message: " + Record.Message : "",
+        Record.UnclearDeploymentIds.Length > 0 ? "Unclear deployment IDs: " + Record.UnclearDeploymentIds : ""
+    }.Where(line => line.Length > 0));
+
     /// <summary>True for a create that made its deployment and whose record carries the deployment ID.</summary>
     public bool CanUndo => string.Equals(Record.Event, AuditEvents.Create, StringComparison.OrdinalIgnoreCase)
         && DeploymentId.Length > 0

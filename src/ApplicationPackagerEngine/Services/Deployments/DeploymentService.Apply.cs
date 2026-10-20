@@ -125,6 +125,7 @@ public sealed partial class DeploymentService
         {
             outcome = AfterCreateFailure(planned, current, collectionId, options, run, steps, ex);
         }
+        if (UnclearIds(current.Type, run.Result) is { Count: > 0 } unclear) outcome = outcome with { UnclearDeploymentIds = unclear };
 
         AuditWrite audit;
         try
@@ -466,7 +467,7 @@ public sealed partial class DeploymentService
         var id = outcome.UndoChange?.CreatedId ?? "";
         var stored = outcome.UndoChange?.Existing;
         var assignment = stored?.AssignmentId;
-        var unclear = result?.Status == "create-unclear" ? string.Join("; ", (result.Ids ?? []).Where(i => IsDeploymentId(obj.Type, i))) : "";
+        var unclear = string.Join("; ", UnclearIds(obj.Type, result));
         return BaseRecord(obj, change.Collection, collectionId, stored?.Purpose is { Length: > 0 } purpose ? purpose : options.Purpose, stored is null ? options.Deadline : stored.Deadline,
             assignment is { Length: > 0 } ? assignment : id,
             outcome.Succeeded ? AuditResults.Success
@@ -486,6 +487,10 @@ public sealed partial class DeploymentService
             UnclearDeploymentIds = unclear
         };
     }
+
+    /// <summary>The new deployments a create whose result is not known reported; empty for every other result.</summary>
+    private static IReadOnlyList<string> UnclearIds(DeploymentObjectType type, ResultRow? result) =>
+        result?.Status == "create-unclear" ? (result.Ids ?? []).Where(i => IsDeploymentId(type, i)).ToList() : [];
 
     private static DeploymentAuditRecord BaseRecord(DeployableObject obj, DeploymentCollection? collection, string collectionId, string purpose, DateTime? deadline, string deploymentId, string result) =>
         new(default, "", obj.Type == DeploymentObjectType.SoftwareUpdateGroup ? "SUG" : obj.Type.ToString(), obj.Name,
