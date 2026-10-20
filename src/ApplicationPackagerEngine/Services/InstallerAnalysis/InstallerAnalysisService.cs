@@ -149,7 +149,8 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
                 AddBlock(() => BurnBlock(path, overrides, notes), "The WiX Burn bundle header could not be read.");
                 break;
             case "BitRock":
-                notes.Add("The BitRock uninstall key is the engine convention: the setup carries no registry view this analysis reads, so the view follows the setup's PE architecture (x86: WOW6432Node).");
+                progress.Report("Reading the BitRock project");
+                AddBlock(() => BitRockBlock(path, overrides, notes, ct), "The BitRock project could not be read.");
                 break;
         }
         if (ZipEngines.Contains(engine))
@@ -198,6 +199,9 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         public string Source = "";
         public string InstallContext = "";
 
+        /// <summary>Deployment field names whose override value is a prediction.</summary>
+        public readonly HashSet<string> PredictedFields = new(StringComparer.Ordinal);
+
         /// <summary>True when the reader found the values a command is built from invalid; no command is proposed.</summary>
         public bool CommandsRefused;
     }
@@ -222,7 +226,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         var facts = new List<AnalysisFact>();
         AnalysisFact From(string name, ProposedField? field, string overrideValue = "", string overrideSource = "")
         {
-            if (!string.IsNullOrEmpty(overrideValue)) return new AnalysisFact(name, overrideValue, "Confirmed", overrideSource);
+            if (!string.IsNullOrEmpty(overrideValue)) return new AnalysisFact(name, overrideValue, o.PredictedFields.Contains(name) ? "Predicted" : "Confirmed", overrideSource);
             if (field is null || !field.HasValue) return new AnalysisFact(name, "", "None", field?.Source ?? "none");
             return new AnalysisFact(name, field.Value, field.Confidence.ToString(), field.Source);
         }

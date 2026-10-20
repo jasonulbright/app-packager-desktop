@@ -363,6 +363,83 @@ public sealed partial class InstallerAnalysisService
         }.Where(f => f.Value.Length > 0).ToList());
     }
 
+    /// <summary>
+    /// The BitRock project: name, vendor, version, uninstaller and key name as read; the registry
+    /// view from windows64bitMode, or from the stub architecture when the project does not set it.
+    /// A value the project does not hold (a default key name, the install folder from actions) is
+    /// Predicted with a note.
+    /// </summary>
+    private static MetadataBlock BitRockBlock(string path, DeploymentOverrides overrides, List<string> notes, CancellationToken ct)
+    {
+        var p = BitRockProjectReader.Read(path, ct);
+        var stub = InstallerSignatureScanner.ReadPeArchitecture(path);
+        if (p is null)
+        {
+            notes.Add("The BitRock project was not found in the setup; the uninstall key is the engine convention and its view follows the setup's PE architecture (x86: WOW6432Node).");
+            return new MetadataBlock("BitRock InstallBuilder project", [Fact("Project", "not found", "bitrock-project")]);
+        }
+
+        var view64 = p.Windows64BitMode ?? stub is "x64" or "ARM64";
+        var viewRead = p.Windows64BitMode is not null || stub is "x86" or "x64" or "ARM64";
+        const string Source = "bitrock-project";
+        overrides.Source = Source;
+        overrides.DisplayName = p.DisplayName;
+        overrides.DisplayVersion = p.DisplayVersion;
+        if (p.DisplayVersionConditional)
+        {
+            overrides.PredictedFields.Add("DisplayVersion");
+            notes.Add("DisplayVersion " + p.DisplayVersion + " is written by a registry action whose rules test more than the platform; without it the key holds the project version " + p.Version + ".");
+        }
+        overrides.Publisher = p.Vendor;
+        if (p.Windows64BitMode == true) overrides.Architecture = "x64";
+        overrides.InstallContext = "PerMachine";
+        if (p.ArpKeyName.Length > 0)
+        {
+            overrides.ArpKey = (view64 ? ArpHklm64 : ArpHklm32) + "\\" + p.ArpKeyName;
+            overrides.ArpKeySource = p.ArpKeyNameInProject && viewRead ? Source : "engine-convention";
+            overrides.DetectionHint = "Registry key " + overrides.ArpKey + ", value DisplayVersion " + p.DisplayVersion + ".";
+            if (!p.ArpKeyNameInProject)
+                notes.Add("The project sets no windowsARPRegistryPrefix; the uninstall key name \"" + p.ArpKeyName + "\" is the InstallBuilder default (full name and version).");
+        }
+        if (p.Windows64BitMode is null)
+            notes.Add("The project does not set windows64bitMode; the uninstall key view follows the setup's PE architecture (" + (stub.Length > 0 ? stub : "not read") + ").");
+        if (p.RequireInstallationByRootUser != "1")
+            notes.Add("The project does not require administrator rights (requireInstallationByRootUser " + (p.RequireInstallationByRootUser.Length > 0 ? p.RequireInstallationByRootUser : "not set")
+                + "); the key is under HKLM when the setup runs as an administrator or SYSTEM.");
+
+        var uninstaller = p.UninstallerName + ".exe";
+        var command = "\"" + p.InstallDir + "\\" + uninstaller + "\" --mode unattended --unattendedmodeui none";
+        if (p.InstallDir.Length > 0 && CommandLineText.IsQuotablePath(p.InstallDir + "\\" + uninstaller) && ProposedCommand.IsSafeCommandLine(command))
+        {
+            overrides.UninstallCommand = command;
+            notes.Add("The install folder " + p.InstallDir + " is the default the project's own actions compute; an install to another folder moves the uninstaller with it. The uninstall key's UninstallString names the folder used.");
+        }
+        else
+        {
+            notes.Add("The install folder is computed at run time; the uninstaller is " + uninstaller + " in the install folder, and the uninstall key's UninstallString names it.");
+        }
+        if (p.UninstallerNameSource != "project")
+            notes.Add(p.UninstallerNameSource == "action"
+                ? "The uninstaller name " + p.UninstallerName + " is set by an action in the project."
+                : "The project sets no uninstallerName; " + uninstaller + " is the InstallBuilder default.");
+
+        return new MetadataBlock("BitRock InstallBuilder project", new List<AnalysisFact>
+        {
+            Fact("shortName", p.ShortName, Source),
+            Fact("fullName", p.FullName, Source),
+            Fact("version", p.Version, Source),
+            Fact("vendor", p.Vendor, Source),
+            Fact("productDisplayName", p.DisplayName, Source),
+            Fact("DisplayVersion", p.DisplayVersion, Source),
+            Fact("windows64bitMode", p.Windows64BitMode switch { true => "1", false => "0", null => "" }, Source),
+            Fact("Stub architecture", stub, "pe-header"),
+            Fact("Uninstall key name", p.ArpKeyName, Source, p.ArpKeyNameInProject ? "Confirmed" : "Predicted"),
+            Fact("Uninstaller", uninstaller, Source, p.UninstallerNameSource == "project" ? "Confirmed" : "Predicted"),
+            Fact("Default install folder", p.InstallDir, Source, "Predicted"),
+            Fact("requireInstallationByRootUser", p.RequireInstallationByRootUser, Source)
+        }.Where(f => f.Value.Length > 0).ToList());
+    }
+
     // ---- zip-based packages ------------------------------------------------------------
 
     private static XDocument? ParseXml(string? text)
