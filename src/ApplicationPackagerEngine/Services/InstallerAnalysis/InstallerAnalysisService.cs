@@ -136,7 +136,10 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
                 AddBlock(() => VelopackBlock(path, notes), "The Velopack package inside the setup was not read.");
                 break;
             case "WixBurn":
-                AddBlock(() => BurnBlock(path, drop?.Architecture ?? "", overrides), "The WiX Burn bundle header could not be read.");
+                AddBlock(() => BurnBlock(path, overrides, notes), "The WiX Burn bundle header could not be read.");
+                break;
+            case "BitRock":
+                notes.Add("The BitRock uninstall key is the engine convention: the setup carries no registry view this analysis reads, so the view follows the setup's PE architecture (x86: WOW6432Node).");
                 break;
         }
         if (ZipEngines.Contains(engine))
@@ -182,6 +185,7 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
         public string Architecture = "";
         public string DetectionHint = "";
         public string Source = "";
+        public string InstallContext = "";
     }
 
     private List<AnalysisFact> DeploymentFacts(DroppedInstallerAnalysis? drop, string engine, string fileName, DeploymentOverrides o, List<AnalysisFact> msiProperties)
@@ -236,8 +240,11 @@ public sealed partial class InstallerAnalysisService : IInstallerAnalysisService
             facts.Add(new AnalysisFact("UninstallRegistryKey", o.ArpKey, o.ArpKeySource == "engine-convention" ? "Predicted" : "Confirmed", o.ArpKeySource));
         else
             facts.Add(From("UninstallRegistryKey", drop?.UninstallRegistryKey));
-        facts.Add(new AnalysisFact("InstallContext", drop is null ? "" : drop.InstallContext == "User" ? "PerUser" : "PerMachine",
-            drop is null ? "None" : "Predicted", drop is null ? "none" : "analysis"));
+        if (o.InstallContext.Length > 0)
+            facts.Add(new AnalysisFact("InstallContext", o.InstallContext, o.ArpKeySource == "engine-convention" ? "Predicted" : "Confirmed", o.ArpKeySource));
+        else
+            facts.Add(new AnalysisFact("InstallContext", drop is null ? "" : drop.InstallContext == "User" ? "PerUser" : "PerMachine",
+                drop is null ? "None" : "Predicted", drop is null ? "none" : "analysis"));
         if (drop is not null && !string.IsNullOrWhiteSpace(drop.Notes))
             facts.Add(new AnalysisFact("Notes", drop.Notes, "Predicted", "analysis"));
         return facts;

@@ -260,23 +260,62 @@ public sealed partial class InstallerAnalysisService
     }
 
     /// <summary>
-    /// The bundle id from the .wixburn section. A per-machine bundle registers under that id;
-    /// the 32-bit Burn engine writes to the 32-bit registry view.
+    /// The bundle id from the .wixburn section and the registration scope from the bundle
+    /// manifest. Burn registers under the bundle id: a per-user bundle under HKCU, a per-machine
+    /// bundle under HKLM in the registry view of the engine stub (x86: WOW6432Node). The key is
+    /// Confirmed only when both the scope and the stub architecture were read.
     /// </summary>
-    private static MetadataBlock BurnBlock(string path, string architecture, DeploymentOverrides overrides)
+    private MetadataBlock BurnBlock(string path, DeploymentOverrides overrides, List<string> notes)
     {
         var bundleId = WixBurnBundleReader.ReadBundleId(path);
         if (bundleId is null) return new MetadataBlock("WiX Burn bundle", [Fact("BundleId", "not found", "wixburn-section")]);
-        var root = architecture.Equals("x86", StringComparison.OrdinalIgnoreCase) ? ArpHklm32 : ArpHklm64;
-        overrides.ArpKey = root + "\\" + bundleId;
-        overrides.ArpKeySource = "wixburn-section";
+        var architecture = InstallerSignatureScanner.ReadPeArchitecture(path);
+
+        BurnManifest? manifest = null;
+        var reason = "";
+        string? session = null;
+        try
+        {
+            session = _sandbox.NewSession();
+            manifest = WixBurnBundleReader.ReadManifest(path, session, out reason);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallerAnalysisException)
+        {
+            reason = "The bundle manifest could not be read.";
+        }
+        finally
+        {
+            if (session is not null)
+                try { _sandbox.Release(session); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InstallerAnalysisException) { }
+        }
+
+        var perMachine = manifest?.PerMachine;
+        var archKnown = architecture is "x86" or "x64" or "ARM64";
+        string key;
+        if (perMachine == false) key = ArpHkcu + "\\" + bundleId;
+        else key = (architecture == "x86" || !archKnown ? ArpHklm32 : ArpHklm64) + "\\" + bundleId;
+        var confirmed = perMachine is not null && (perMachine == false || archKnown);
+
+        overrides.ArpKey = key;
+        overrides.ArpKeySource = confirmed ? "burn-manifest" : "engine-convention";
         overrides.ProductCode = bundleId;
         overrides.Source = "wixburn-section";
+        overrides.InstallContext = perMachine == false ? "PerUser" : "PerMachine";
+        if (!confirmed)
+        {
+            notes.Add(perMachine is null
+                ? "The bundle scope was not read (" + reason.TrimEnd('.') + "); the uninstall key assumes a per-machine bundle. A per-user bundle registers under HKCU."
+                : "The engine architecture was not read from the PE header; the uninstall key assumes the 32-bit view.");
+        }
+        var scope = perMachine switch { true => "per-machine", false => "per-user", null => "not read" };
         return new MetadataBlock("WiX Burn bundle", new List<AnalysisFact>
         {
             Fact("BundleId", bundleId, "wixburn-section"),
-            Fact("Registration", "Per-machine bundles register under the BundleId; a per-user bundle registers under HKCU.", "wixburn-section", "Predicted")
-        });
+            Fact("Scope", scope, perMachine is null ? "none" : "burn-manifest", perMachine is null ? "None" : "Confirmed"),
+            Fact("Engine architecture", architecture, "pe-header"),
+            Fact("Bundle version", manifest?.Version, "burn-manifest"),
+            Fact("Registration", key, confirmed ? "burn-manifest" : "engine-convention", confirmed ? "Confirmed" : "Predicted")
+        }.Where(f => f.Value.Length > 0).ToList());
     }
 
     // ---- zip-based packages ------------------------------------------------------------
