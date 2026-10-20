@@ -53,11 +53,14 @@ public sealed class InstallerAnalysisRegistrationTests : IDisposable
     public async Task TheSandboxLifetimeRemovesOldSessionsAtStartAndEverySessionAtExit()
     {
         var sandbox = new FakeAnalysisSandbox(_root);
+        var abandoned = Directory.CreateDirectory(Path.Combine(_root, "20260101-000000-0123abcd")).FullName;
+        InstallerAnalysisSessions.WriteOwner(abandoned, processId: 4242, startTicks: 1);
         var log = new RecordingAnalysisLog();
-        var lifetime = new InstallerAnalysisSandboxLifetime(sandbox, log);
+        var lifetime = new InstallerAnalysisSandboxLifetime(sandbox, log, (_, _) => false);
         await lifetime.StartAsync(CancellationToken.None);
         await lifetime.StopAsync(CancellationToken.None);
-        Assert.Equal([TimeSpan.FromHours(1)], sandbox.Cleans);
+        Assert.Equal([abandoned], sandbox.Released);
+        Assert.Empty(sandbox.Cleans);
         Assert.Equal(1, sandbox.ReleaseAllCalls);
         Assert.Empty(log.Entries);
     }

@@ -94,23 +94,28 @@ public static class InstallerAnalysisPreferences
     }
 }
 
-/// <summary>Removes the analysis sessions an earlier run left behind at start, and every session at exit.</summary>
-public sealed class InstallerAnalysisSandboxLifetime(IAnalysisSandbox sandbox, IAppLog log) : IHostedService
+/// <summary>
+/// Removes at start the sessions whose owner process has ended (and old sessions without an owner
+/// file), and every session of this process at exit.
+/// </summary>
+public sealed class InstallerAnalysisSandboxLifetime(IAnalysisSandbox sandbox, IAppLog log, Func<int, long, bool>? isAlive = null) : IHostedService
 {
-    /// <summary>A session younger than this can belong to another running instance of the desktop.</summary>
+    /// <summary>A session without an owner file and younger than this can be one another instance is creating.</summary>
     public static readonly TimeSpan StartupCleanAge = TimeSpan.FromHours(1);
 
+    private readonly Func<int, long, bool> _isAlive = isAlive ?? InstallerAnalysisSessions.IsAlive;
     private Task _clean = Task.CompletedTask;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _clean = Task.Run(() => Guard("The old analysis sessions could not be removed", () => sandbox.CleanOldSessions(StartupCleanAge)), CancellationToken.None);
+        _clean = Task.Run(() => Guard("The old analysis sessions could not be removed",
+            () => InstallerAnalysisSessions.CleanAbandoned(sandbox, _isAlive, StartupCleanAge)), CancellationToken.None);
         return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        await _clean;
+        await _clean.ConfigureAwait(false);
         Guard("The analysis sessions could not be removed at exit", sandbox.ReleaseAll);
     }
 
@@ -147,7 +152,7 @@ public static partial class InstallerAnalysisRegistration
         });
         services.AddSingleton<InstallerAnalysisViewModel>();
         services.AddSingleton<InstallerAnalysisPage>();
-        services.AddHostedService<InstallerAnalysisSandboxLifetime>();
+        services.AddHostedService(sp => new InstallerAnalysisSandboxLifetime(sp.GetRequiredService<IAnalysisSandbox>(), sp.GetRequiredService<IAppLog>()));
         return services;
     }
 

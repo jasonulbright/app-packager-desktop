@@ -46,6 +46,20 @@ public partial class InstallerAnalysisPage : INavigationAware
         }
     }
 
+    // A right-click does not select a row by itself, so a context menu action would run on the row selected before.
+    private void OnGridPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.DataGrid grid) return;
+        for (var element = e.OriginalSource as DependencyObject; element is not null && !ReferenceEquals(element, grid);
+             element = element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element))
+        {
+            if (element is not System.Windows.Controls.DataGridRow row) continue;
+            if (!row.IsSelected) grid.SelectedItem = row.Item;
+            row.Focus();
+            return;
+        }
+    }
+
     // An Overview grid sizes to its rows, so its own scroller cannot move; the wheel goes to the Overview scroller.
     private void OnSectionGridPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {

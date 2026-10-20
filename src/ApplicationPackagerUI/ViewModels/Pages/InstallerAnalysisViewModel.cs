@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Logging;
 using ApplicationPackagerUI.Models;
@@ -44,6 +46,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     public const string InvalidPathMessage = "The path is not valid.";
     public const string OneFileMessage = "Drop one file at a time.";
     public const string FolderMessage = "A folder cannot be analyzed. Open one installer file.";
+    public const string ShortcutMessage = "A shortcut cannot be analyzed. Drop or open the installer file itself.";
     public const string NoAnalysisMessage = "Open an installer first.";
     public const string SelectEntryMessage = "Select an entry first.";
     public const string FolderEntryMessage = "Select a file, not a folder.";
@@ -64,6 +67,9 @@ public partial class InstallerAnalysisViewModel : ObservableObject
 
     public const string PayloadExtractFailedMessage = "The payload could not be extracted. The log has the details.";
 
+    /// <summary>The status line for an export whose data did not load; nothing is written.</summary>
+    public static string NotWrittenMessage(string format, string reason) => $"The {format} report was not written. {reason}".TrimEnd();
+
     /// <summary>
     /// The text the status line shows for a failure: the fixed message of an <see cref="InstallerAnalysisException"/>,
     /// else <paramref name="fallback"/>. The text of any other exception can hold paths and installer content.
@@ -71,14 +77,26 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     public static string PlainMessage(Exception? failure, string fallback) =>
         failure is InstallerAnalysisException { Message.Length: > 0 } plain ? plain.Message : fallback;
 
+    /// <summary>The text with every control and line-separator character replaced, so one log entry stays one line.</summary>
+    public static string LogText(string? text) =>
+        string.Create((text ?? "").Length, text ?? "", static (span, source) =>
+        {
+            for (var i = 0; i < source.Length; i++)
+            {
+                var c = source[i];
+                var category = char.GetUnicodeCategory(c);
+                span[i] = char.IsControl(c) || category is UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator ? '?' : c;
+            }
+        });
+
     private readonly InstallerAnalysisPageServices _services;
     private readonly List<AnalysisFrame> _frames = [];
     private readonly List<Operation> _running = [];
     private readonly SemaphoreSlim _saveLock = new(1, 1);
     private int _generation;
-    private string? _session;
     private bool _preferencesLoaded;
     private bool _applyingPreferences;
+    private bool _tabChosen;
     private Task _preferencesLoad = Task.CompletedTask;
     private InstallerAnalysisSettings? _storedChoices;
 
@@ -93,14 +111,25 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         public string Name { get; } = name;
         public AnalysisReport Report { get; } = report;
         public int SelectedTab { get; set; }
+
+        /// <summary>The sandbox session that holds what this level extracted; released when the level is left.</summary>
+        public string? Session { get; set; }
+
+        public List<FactRow>? MsiRows { get; set; }
         public IReadOnlyList<PayloadEntry>? Payload { get; set; }
+        public List<PayloadRow>? PayloadRows { get; set; }
+        public List<PayloadRow> InnerRows { get; set; } = [];
+        public List<PayloadRow> FileRows { get; set; } = [];
+        public IReadOnlyList<string> Folders { get; set; } = [AllFolders];
         public string PayloadMessage { get; set; } = "";
         public Task? PayloadLoad { get; set; }
         public IReadOnlyList<RegistryWrite>? Registry { get; set; }
+        public List<RegistryRow> RegistryRows { get; set; } = [];
         public IReadOnlyList<string> RegistryNotes { get; set; } = [];
         public string RegistryMessage { get; set; } = "";
         public Task? RegistryLoad { get; set; }
         public IReadOnlyList<InterestingString>? Strings { get; set; }
+        public List<StringRow> StringRows { get; set; } = [];
         public string StringsMessage { get; set; } = "";
         public Task? StringsLoad { get; set; }
         public Dictionary<string, string> Extracted { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -139,6 +168,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasReport), nameof(HasNotes), nameof(HasPostPatch), nameof(HasSignature))]
+    [NotifyCanExecuteChangedFor(nameof(CopySummaryCommand), nameof(CopyJsonCommand), nameof(ExportCsvCommand), nameof(ExportHtmlCommand))]
     private AnalysisReport? _report;
 
     [ObservableProperty] private IReadOnlyList<BreadcrumbSegment> _breadcrumb = [];
@@ -193,6 +223,13 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     [ObservableProperty] private string _stringsStatus = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHash))]
+    [NotifyCanExecuteChangedFor(nameof(CopyHashCommand))]
+    private string _hashResult = "";
+
+    [ObservableProperty] private string _hashLabel = "";
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OpenRecentCommand))]
     private string? _selectedRecent;
 
@@ -215,11 +252,15 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     public bool HasSignature => Report?.Signature is not null;
     public bool HasRegistryNotes => RegistryNotes.Count > 0;
     public bool HasBreadcrumb => Breadcrumb.Count > 1;
+    public bool HasHash => HashResult.Length > 0;
 
     /// <summary>The number of drill-down levels below the installer the user opened.</summary>
     public int Depth => Math.Max(0, _frames.Count - 1);
 
     private AnalysisFrame? Current => _frames.Count == 0 ? null : _frames[^1];
+
+    /// <summary>True while the frame is shown and no later request replaced the one that started the work.</summary>
+    private bool IsCurrent(AnalysisFrame frame, int generation) => generation == _generation && ReferenceEquals(frame, Current);
 
     partial void OnNotesChanged(IReadOnlyList<string> value) => OnPropertyChanged(nameof(HasNotes));
     partial void OnBreadcrumbChanged(IReadOnlyList<BreadcrumbSegment> value) => OnPropertyChanged(nameof(HasBreadcrumb));
@@ -235,20 +276,20 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         await _preferencesLoad;
     }
 
-    /// <summary>Cancels the work, waits for it to stop, releases the sandbox session and every result.</summary>
+    /// <summary>Cancels the work, waits for it to stop, releases every sandbox session and every result.</summary>
     public async Task OnNavigatedFromAsync()
     {
         var stopping = CancelAll();
         _generation++;
+        var sessions = TakeSessions(_frames);
         _frames.Clear();
         ClearView();
         StatusMessage = "";
+        PathText = "";
         LastExtractFolder = null;
         LastReportFolder = null;
         await WaitForAsync(stopping);
-        var session = _session;
-        _session = null;
-        if (session is not null) await ReleaseAsync(session);
+        foreach (var session in sessions) await ReleaseAsync(session);
         await SavePreferencesAsync();
     }
 
@@ -265,6 +306,31 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         {
             _services.Log.Warning(LogArea, $"The analysis session could not be removed ({ex.GetType().Name}).");
         }
+    }
+
+    private static List<string> TakeSessions(IEnumerable<AnalysisFrame> frames)
+    {
+        var sessions = new List<string>();
+        foreach (var frame in frames)
+        {
+            if (frame.Session is { } session) sessions.Add(session);
+            frame.Session = null;
+            frame.Extracted.Clear();
+        }
+        return sessions;
+    }
+
+    /// <summary>Releases the sessions of frames that are no longer shown once the cancelled work that may still write into them stops.</summary>
+    private void ReleaseLater(IEnumerable<AnalysisFrame> dropped, IReadOnlyList<Task> stopping)
+    {
+        var sessions = TakeSessions(dropped);
+        if (sessions.Count > 0) _ = ReleaseAfterAsync(stopping, sessions);
+    }
+
+    private async Task ReleaseAfterAsync(IReadOnlyList<Task> stopping, List<string> sessions)
+    {
+        await WaitForAsync(stopping);
+        foreach (var session in sessions) await ReleaseAsync(session);
     }
 
     // ---- Work tracking ----
@@ -345,9 +411,29 @@ public partial class InstallerAnalysisViewModel : ObservableObject
 
     private static string Clean(string? input) => (input ?? "").Trim().Trim('"').Trim();
 
-    /// <summary>Checks the path and analyzes the file; the drill-down stack starts again from it.</summary>
+    private enum PathKind { File, Folder, Missing, Cancelled }
+
+    /// <summary>Checks the path on a pool thread: a share that does not answer blocks there, not in the window, and Cancel ends the wait.</summary>
+    private async Task<PathKind> CheckPathAsync(string path)
+    {
+        var operation = Begin("Checking the path.");
+        try
+        {
+            return await Task.Run(() => Directory.Exists(path) ? PathKind.Folder : File.Exists(path) ? PathKind.File : PathKind.Missing)
+                .WaitAsync(operation.Cancel.Token);
+        }
+        catch (OperationCanceledException) { return PathKind.Cancelled; }
+        finally { End(operation); }
+    }
+
+    /// <summary>
+    /// Checks the path and analyzes the file; the drill-down stack starts again from it. Every attempt,
+    /// a refused one too, cancels the work of the previous request so its late result is discarded.
+    /// </summary>
     public async Task OpenAsync(string? input)
     {
+        var stopping = CancelAll();
+        var generation = ++_generation;
         var path = Clean(input);
         if (path.Length == 0)
         {
@@ -360,29 +446,34 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             StatusMessage = InvalidPathMessage;
             return;
         }
-        if (Directory.Exists(path))
+        if (string.Equals(Path.GetExtension(path), ".lnk", StringComparison.OrdinalIgnoreCase))
         {
-            StatusMessage = FolderMessage;
+            StatusMessage = ShortcutMessage;
             return;
         }
-        if (!File.Exists(path))
+        var kind = await CheckPathAsync(path);
+        if (generation != _generation) return;
+        switch (kind)
         {
-            StatusMessage = MissingFileMessage(path);
-            return;
+            case PathKind.Cancelled:
+                StatusMessage = CancelledMessage;
+                return;
+            case PathKind.Folder:
+                StatusMessage = FolderMessage;
+                return;
+            case PathKind.Missing:
+                StatusMessage = MissingFileMessage(path);
+                return;
         }
 
         PathText = path;
-        CancelAll();
-        var generation = ++_generation;
-        var old = _session;
-        _session = null;
-        if (old is not null) _ = ReleaseAsync(old);
+        ReleaseLater(_frames.ToList(), stopping);
         _frames.Clear();
         ClearView();
         AddRecent(path);
 
         var name = Path.GetFileName(path);
-        var report = await AnalyzeCoreAsync(path, name, generation);
+        var report = await AnalyzeCoreAsync(path, name, generation, depth: 0);
         if (report is null) return;
         _frames.Add(new AnalysisFrame(path, name, report));
         ShowFrame(_frames[^1], restoreTab: false);
@@ -390,8 +481,10 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     }
 
     /// <summary>Runs one analysis off the UI thread; null when it failed, was cancelled or was superseded.</summary>
-    private async Task<AnalysisReport?> AnalyzeCoreAsync(string path, string name, int generation)
+    private async Task<AnalysisReport?> AnalyzeCoreAsync(string path, string name, int generation, int depth)
     {
+        // Below the top level the name comes from inside the installer; the log names only the depth.
+        var subject = depth == 0 ? $"file={LogText(name)}" : $"depth={depth}";
         var operation = Begin($"Analyzing {name}.");
         var progress = new StepProgress(step =>
         {
@@ -421,11 +514,11 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         if (report is null)
         {
             StatusMessage = PlainMessage(failure, FailedMessage);
-            _services.Log.Warning(LogArea, $"Analysis failed: file={name} error={failure?.GetType().Name}.");
+            _services.Log.Warning(LogArea, $"Analysis failed: {subject} error={failure?.GetType().Name}.");
             return null;
         }
         _services.Log.Info(LogArea,
-            $"Analyzed: type={report.Type} architecture={report.Architecture} modes={report.Modes.Count} msiProperties={report.MsiProperties.Count} notes={report.Notes.Count} depth={_frames.Count} file={name}.");
+            $"Analyzed: type={LogText(report.Type)} architecture={LogText(report.Architecture)} modes={report.Modes.Count} msiProperties={report.MsiProperties.Count} notes={report.Notes.Count} {subject}.");
         return report;
     }
 
@@ -446,11 +539,6 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     private async Task OpenRecent()
     {
         if (SelectedRecent is not { Length: > 0 } path) return;
-        if (!File.Exists(path))
-        {
-            StatusMessage = MissingFileMessage(path);
-            return;
-        }
         await OpenAsync(path);
     }
 
@@ -498,7 +586,14 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         StringRows = [];
         SelectedString = null;
         StringsStatus = "";
+        ClearHash();
         OnPropertyChanged(nameof(Depth));
+    }
+
+    private void ClearHash()
+    {
+        HashResult = "";
+        HashLabel = "";
     }
 
     private void ShowFrame(AnalysisFrame frame, bool restoreTab)
@@ -539,7 +634,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         var rows = new List<NameValueRow>
         {
             new("File name", report.FileName),
-            new("Size", $"{InstallerAnalysisText.Size(report.Size)} ({report.Size.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} bytes)"),
+            new("Size", $"{InstallerAnalysisText.Size(report.Size)} ({report.Size.ToString("N0", CultureInfo.InvariantCulture)} bytes)"),
             new("SHA-256", report.Sha256),
             new("Type", report.TypeName.Length > 0 ? report.TypeName : report.Type),
             new("Architecture", report.Architecture)
@@ -560,6 +655,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
 
     partial void OnSelectedTabIndexChanged(int value)
     {
+        if (!_applyingPreferences) _tabChosen = true;
         if (Current is { } frame) frame.SelectedTab = value;
         LoadForTab(value);
         SaveChoicesLater();
@@ -583,13 +679,25 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     }
 
     // ---- Filters ----
+    // Each filter rebuilds only its own list. The rows of a frame are built once, so a filtered list
+    // holds the same row objects and a grid keeps its selection on them.
 
     partial void OnMsiFilterChanged(string value) => ApplyMsiFilter();
-    partial void OnPayloadFilterChanged(string value) => ShowPayload();
+    partial void OnPayloadFilterChanged(string value) => ApplyPayloadFilter();
     partial void OnFileFilterChanged(string value) => ApplyFileFilter();
-    partial void OnSelectedFolderChanged(string value) => ApplyFileFilter();
     partial void OnRegistryFilterChanged(string value) => ShowRegistry();
     partial void OnStringsFilterChanged(string value) => ShowStrings();
+
+    partial void OnSelectedFolderChanged(string value)
+    {
+        // A combo box whose item list is replaced writes null back through its binding.
+        if (value is null)
+        {
+            SelectedFolder = AllFolders;
+            return;
+        }
+        ApplyFileFilter();
+    }
 
     partial void OnStringsCategoryChanged(string value)
     {
@@ -599,14 +707,21 @@ public partial class InstallerAnalysisViewModel : ObservableObject
 
     private static bool Has(string? text, string filter) => (text ?? "").Contains(filter, StringComparison.OrdinalIgnoreCase);
 
+    private static string Counted(int shown, int all, string singular, string? plural = null) =>
+        shown == all ? InstallerAnalysisText.Count(all, singular, plural) : $"{shown} of {InstallerAnalysisText.Count(all, singular, plural)}";
+
     private void ApplyMsiFilter()
     {
-        var all = Report?.MsiProperties ?? [];
+        if (Current is not { } frame)
+        {
+            MsiRows = [];
+            MsiCount = "";
+            return;
+        }
+        var all = frame.MsiRows ??= frame.Report.MsiProperties.Select(FactRow.From).ToList();
         var filter = MsiFilter.Trim();
-        MsiRows = all.Where(p => filter.Length == 0 || Has(p.Name, filter) || Has(p.Value, filter)).Select(FactRow.From).ToList();
-        MsiCount = Report is null ? "" : MsiRows.Count == all.Count
-            ? InstallerAnalysisText.Count(all.Count, "property", "properties")
-            : $"{MsiRows.Count} of {InstallerAnalysisText.Count(all.Count, "property", "properties")}";
+        MsiRows = filter.Length == 0 ? all : all.Where(p => Has(p.Name, filter) || Has(p.Value, filter)).ToList();
+        MsiCount = Counted(MsiRows.Count, all.Count, "property", "properties");
     }
 
     private void ShowPayload()
@@ -624,32 +739,42 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             FileStatus = message;
             return;
         }
-        var rows = payload.Select(e => new PayloadRow(e)).ToList();
-        var filter = PayloadFilter.Trim();
-        PayloadRows = Keep(rows.Where(r => filter.Length == 0 || Has(r.Path, filter) || Has(r.Type, filter)).ToList(), SelectedPayload, s => SelectedPayload = s);
-        PayloadStatus = PayloadRows.Count == rows.Count
-            ? InstallerAnalysisText.Count(rows.Count, "entry", "entries")
-            : $"{PayloadRows.Count} of {InstallerAnalysisText.Count(rows.Count, "entry", "entries")}";
-        InnerRows = Keep(rows.Where(r => r.IsInnerInstaller).ToList(), SelectedInner, s => SelectedInner = s);
+        if (frame.PayloadRows is null)
+        {
+            var rows = payload.Select(e => new PayloadRow(e)).ToList();
+            frame.PayloadRows = rows;
+            frame.InnerRows = rows.Where(r => r.IsInnerInstaller).ToList();
+            frame.FileRows = rows.Where(r => !r.Entry.IsDirectory).ToList();
+            frame.Folders = [AllFolders, .. frame.FileRows.Select(r => r.Folder).Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(f => f == InstallerAnalysisText.TopLevel ? "" : f, StringComparer.OrdinalIgnoreCase)];
+        }
+        ApplyPayloadFilter();
+        InnerRows = Keep(frame.InnerRows, SelectedInner, s => SelectedInner = s);
         InnerStatus = InnerRows.Count == 0 ? "The payload holds no inner installer." : InstallerAnalysisText.Count(InnerRows.Count, "inner installer");
-        var folders = rows.Where(r => !r.Entry.IsDirectory).Select(r => r.Folder).Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(f => f == InstallerAnalysisText.TopLevel ? "" : f, StringComparer.OrdinalIgnoreCase).ToList();
-        FileFolders = [AllFolders, .. folders];
+        if (!FileFolders.SequenceEqual(frame.Folders, StringComparer.Ordinal)) FileFolders = frame.Folders;
         if (!FileFolders.Contains(SelectedFolder)) SelectedFolder = AllFolders;
         ApplyFileFilter();
     }
 
+    private void ApplyPayloadFilter()
+    {
+        if (Current?.PayloadRows is not { } rows) return;
+        var filter = PayloadFilter.Trim();
+        PayloadRows = Keep(filter.Length == 0 ? rows : rows.Where(r => Has(r.Path, filter) || Has(r.Type, filter)).ToList(), SelectedPayload, s => SelectedPayload = s);
+        PayloadStatus = Counted(PayloadRows.Count, rows.Count, "entry", "entries");
+    }
+
     private void ApplyFileFilter()
     {
-        if (Current?.Payload is not { } payload) return;
-        var files = payload.Where(e => !e.IsDirectory).Select(e => new PayloadRow(e)).ToList();
+        if (Current is not { PayloadRows: not null } frame) return;
+        var files = frame.FileRows;
         var filter = FileFilter.Trim();
-        var folder = SelectedFolder;
-        FileRows = Keep(files.Where(r => (folder == AllFolders || string.Equals(r.Folder, folder, StringComparison.OrdinalIgnoreCase))
-            && (filter.Length == 0 || Has(r.Name, filter))).ToList(), SelectedFile, s => SelectedFile = s);
-        FileStatus = FileRows.Count == files.Count
-            ? InstallerAnalysisText.Count(files.Count, "file")
-            : $"{FileRows.Count} of {InstallerAnalysisText.Count(files.Count, "file")}";
+        var folder = SelectedFolder ?? AllFolders;
+        var shown = filter.Length == 0 && folder == AllFolders
+            ? files
+            : files.Where(r => (folder == AllFolders || string.Equals(r.Folder, folder, StringComparison.OrdinalIgnoreCase)) && (filter.Length == 0 || Has(r.Name, filter))).ToList();
+        FileRows = Keep(shown, SelectedFile, s => SelectedFile = s);
+        FileStatus = Counted(FileRows.Count, files.Count, "file");
     }
 
     private void ShowRegistry()
@@ -663,13 +788,10 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             return;
         }
         var filter = RegistryFilter.Trim();
-        var rows = writes.Select(w => new RegistryRow(w)).ToList();
-        RegistryRows = rows.Where(r => filter.Length == 0 || Has(r.FullKey, filter) || Has(r.Name, filter) || Has(r.Value, filter) || Has(r.Origin, filter) || Has(r.Condition, filter)
-            || Has(r.Action, filter) || Has(r.Section, filter)).ToList();
-        if (SelectedRegistry is { } selected && !RegistryRows.Contains(selected)) SelectedRegistry = null;
-        RegistryStatus = writes.Count == 0 ? "The installer records no registry writes that can be read."
-            : RegistryRows.Count == rows.Count ? InstallerAnalysisText.Count(rows.Count, "registry write")
-            : $"{RegistryRows.Count} of {InstallerAnalysisText.Count(rows.Count, "registry write")}";
+        var rows = frame.RegistryRows;
+        RegistryRows = Keep(filter.Length == 0 ? rows : rows.Where(r => Has(r.FullKey, filter) || Has(r.Name, filter) || Has(r.Value, filter) || Has(r.Origin, filter)
+            || Has(r.Condition, filter) || Has(r.Action, filter) || Has(r.Section, filter)).ToList(), SelectedRegistry, s => SelectedRegistry = s);
+        RegistryStatus = writes.Count == 0 ? "The installer records no registry writes that can be read." : Counted(RegistryRows.Count, rows.Count, "registry write");
     }
 
     private void ShowStrings()
@@ -683,23 +805,18 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         var filter = StringsFilter.Trim();
         var category = StringsCategory == AllCategories ? "" : StringsCategory;
-        var rows = strings.Where(s => (category.Length == 0 || string.Equals(s.Category, category, StringComparison.OrdinalIgnoreCase))
-            && (filter.Length == 0 || Has(s.Text, filter))).Select(s => new StringRow(s)).ToList();
-        StringRows = rows;
-        if (SelectedString is { } selected && !rows.Contains(selected)) SelectedString = null;
-        StringsStatus = rows.Count == strings.Count ? InstallerAnalysisText.Count(strings.Count, "string")
-            : $"{rows.Count} of {InstallerAnalysisText.Count(strings.Count, "string")}";
+        var rows = frame.StringRows;
+        StringRows = Keep(category.Length == 0 && filter.Length == 0 ? rows
+            : rows.Where(s => (category.Length == 0 || string.Equals(s.Category, category, StringComparison.OrdinalIgnoreCase)) && (filter.Length == 0 || Has(s.Text, filter))).ToList(),
+            SelectedString, s => SelectedString = s);
+        StringsStatus = Counted(StringRows.Count, strings.Count, "string");
+        if (frame.StringsMessage.Length > 0) StringsStatus = $"{StringsStatus} {frame.StringsMessage}";
     }
 
-    /// <summary>Keeps the selection when the same entry is still listed; the row objects are new after every filter.</summary>
-    private static IReadOnlyList<PayloadRow> Keep(List<PayloadRow> rows, PayloadRow? selected, Action<PayloadRow?> select)
+    /// <summary>Clears the selection when the selected row is no longer listed.</summary>
+    private static IReadOnlyList<T> Keep<T>(IReadOnlyList<T> rows, T? selected, Action<T?> select) where T : class
     {
-        if (selected is not null)
-        {
-            var same = rows.FirstOrDefault(r => ReferenceEquals(r.Entry, selected.Entry));
-            if (same is null) select(null);
-            else rows[rows.IndexOf(same)] = selected;
-        }
+        if (selected is not null && !rows.Any(r => ReferenceEquals(r, selected))) select(null);
         return rows;
     }
 
@@ -723,6 +840,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         {
             var entries = await Task.Run(() => _services.Analysis.ListPayloadAsync(path: frame.Path, limits: _services.Limits, ct: operation.Cancel.Token), operation.Cancel.Token);
             frame.Payload = entries;
+            frame.PayloadRows = null;
             frame.PayloadMessage = "";
             _services.Log.Info(LogArea, $"Listed the payload: entries={entries.Count} innerInstallers={entries.Count(e => string.Equals(e.Kind, "InnerInstaller", StringComparison.OrdinalIgnoreCase))}.");
         }
@@ -760,6 +878,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         try
         {
             var result = await Task.Run(() => _services.Analysis.ReadRegistryAsync(path: frame.Path, limits: _services.Limits, ct: operation.Cancel.Token), operation.Cancel.Token);
+            frame.RegistryRows = result.Writes.Select(w => new RegistryRow(w)).ToList();
             frame.Registry = result.Writes;
             frame.RegistryNotes = result.Notes;
             frame.RegistryMessage = "";
@@ -799,9 +918,10 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         try
         {
             var strings = await Task.Run(() => _services.Analysis.ReadStringsAsync(path: frame.Path, limits: _services.Limits, ct: operation.Cancel.Token), operation.Cancel.Token);
+            frame.StringRows = strings.Select(s => new StringRow(s)).ToList();
             frame.Strings = strings;
             frame.StringsMessage = strings.Count >= _services.Limits.MaxStrings
-                ? $"The list stops at {_services.Limits.MaxStrings.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} strings."
+                ? $"The list stops at {_services.Limits.MaxStrings.ToString("N0", CultureInfo.InvariantCulture)} strings."
                 : "";
             _services.Log.Info(LogArea, $"Read the strings: count={strings.Count}.");
         }
@@ -819,12 +939,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             End(operation);
             frame.StringsLoad = null;
         }
-        if (ReferenceEquals(frame, Current))
-        {
-            var limit = frame.Strings is not null ? frame.StringsMessage : "";
-            ShowStrings();
-            if (limit.Length > 0) StringsStatus = $"{StringsStatus} {limit}";
-        }
+        if (ReferenceEquals(frame, Current)) ShowStrings();
     }
 
     // ---- Entry actions ----
@@ -857,41 +972,65 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         return (frame, row);
     }
 
-    private async Task<string?> SessionAsync()
+    /// <summary>
+    /// The frame's sandbox session, created on first use with this process as its owner. A session
+    /// created after the frame was left, or after its operation was cancelled, is released at once.
+    /// </summary>
+    private async Task<string?> SessionAsync(AnalysisFrame frame, Operation operation)
     {
-        if (_session is { } existing) return existing;
+        if (frame.Session is { } existing) return existing;
+        string created;
         try
         {
-            var created = await Task.Run(_services.Sandbox.NewSession);
-            if (_session is { } raced)
+            created = await Task.Run(() =>
             {
-                _ = ReleaseAsync(created);
-                return raced;
-            }
-            _session = created;
-            return created;
+                var session = _services.Sandbox.NewSession();
+                try { InstallerAnalysisSessions.MarkOwner(session); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    _services.Log.Warning(LogArea, $"The analysis session owner could not be written ({ex.GetType().Name}).");
+                }
+                return session;
+            });
         }
         catch (Exception ex)
         {
-            StatusMessage = "The temporary analysis folder could not be created. The log has the details.";
+            if (!operation.Cancel.IsCancellationRequested && _frames.Contains(frame))
+                StatusMessage = "The temporary analysis folder could not be created. The log has the details.";
             _services.Log.Warning(LogArea, $"The analysis session could not be created ({ex.GetType().Name}).");
             return null;
         }
+        if (operation.Cancel.IsCancellationRequested || !_frames.Contains(frame))
+        {
+            _ = ReleaseAsync(created);
+            return null;
+        }
+        if (frame.Session is { } raced)
+        {
+            _ = ReleaseAsync(created);
+            return raced;
+        }
+        frame.Session = created;
+        return created;
     }
 
-    /// <summary>The entry's copy inside the sandbox session, extracted once per frame; null when it failed or was cancelled.</summary>
+    /// <summary>The entry's copy inside the frame's sandbox session, extracted once per frame; null when it failed or was cancelled.</summary>
     private async Task<string?> ExtractToSessionAsync(AnalysisFrame frame, PayloadEntry entry, Func<bool> stillWanted)
     {
         if (frame.Extracted.TryGetValue(entry.Path, out var known) && File.Exists(known)) return known;
-        var session = await SessionAsync();
-        if (session is null) return null;
         var operation = Begin($"Extracting {InstallerAnalysisText.EntryName(entry.Path)}.");
         string? extracted = null;
         Exception? failure = null;
+        var noSession = false;
         try
         {
-            extracted = await Task.Run(() => _services.Analysis.ExtractEntryAsync(path: frame.Path, entry: entry, sessionFolder: session, limits: _services.Limits, ct: operation.Cancel.Token),
-                operation.Cancel.Token);
+            var session = await SessionAsync(frame, operation);
+            if (session is null) noSession = true;
+            else
+            {
+                extracted = await Task.Run(() => _services.Analysis.ExtractEntryAsync(path: frame.Path, entry: entry, sessionFolder: session, limits: _services.Limits, ct: operation.Cancel.Token),
+                    operation.Cancel.Token);
+            }
         }
         catch (Exception ex)
         {
@@ -899,12 +1038,13 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
         var cancelled = operation.Cancel.IsCancellationRequested || failure is OperationCanceledException;
         End(operation);
-        if (!stillWanted()) return null;
+        if (!stillWanted() || !_frames.Contains(frame)) return null;
         if (cancelled)
         {
             StatusMessage = "The extraction was cancelled.";
             return null;
         }
+        if (noSession) return null;
         if (extracted is null)
         {
             StatusMessage = PlainMessage(failure, ExtractFailedMessage);
@@ -931,8 +1071,8 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         frame.SelectedTab = SelectedTabIndex;
         var extracted = await ExtractToSessionAsync(frame, row.Entry, () => generation == _generation);
         if (extracted is null || generation != _generation) return;
-        var report = await AnalyzeCoreAsync(extracted, row.Name, generation);
-        if (report is null || !ReferenceEquals(frame, Current)) return;
+        var report = await AnalyzeCoreAsync(extracted, row.Name, generation, depth: _frames.Count);
+        if (report is null || !IsCurrent(frame, generation)) return;
         _frames.Add(new AnalysisFrame(extracted, row.Name, report));
         ShowFrame(_frames[^1], restoreTab: false);
         StatusMessage = $"Analyzed {row.Name}, level {Depth} of {_services.Limits.MaxDepth}.";
@@ -951,11 +1091,15 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         GoTo(segment.Level);
     }
 
+    /// <summary>Shows a parent level; the levels below it are dropped and what they extracted is removed.</summary>
     private void GoTo(int level)
     {
-        CancelAll();
+        var stopping = CancelAll();
         _generation++;
+        var dropped = _frames.GetRange(level + 1, _frames.Count - level - 1);
         _frames.RemoveRange(level + 1, _frames.Count - level - 1);
+        ReleaseLater(dropped, stopping);
+        ClearHash();
         ShowFrame(_frames[^1], restoreTab: true);
         StatusMessage = $"Back to {_frames[^1].Name}.";
     }
@@ -1016,7 +1160,19 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             StatusMessage = PlainMessage(failure, "The SHA-256 could not be computed. The log has the details.");
             _services.Log.Warning(LogArea, $"The SHA-256 could not be computed ({failure?.GetType().Name}).");
         }
-        else StatusMessage = $"SHA-256 of {row.Name}: {hash}";
+        else
+        {
+            HashLabel = $"SHA-256 of {row.Name}";
+            HashResult = hash;
+            StatusMessage = $"SHA-256 of {row.Name}: {hash}";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(HasHash))]
+    private void CopyHash()
+    {
+        if (!HasHash) return;
+        Copy(HashResult, "Copied the SHA-256.");
     }
 
     /// <summary>A plain reason the folder cannot take extracted files, or null when it can.</summary>
@@ -1054,11 +1210,12 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     {
         if (FileEntry(parameter) is not ({ } frame, { } row)) return;
         if (PickTarget($"Copy {row.Name} to a folder") is not { } folder) return;
-        var (result, failure, cancelled) = await ExtractToFolderAsync(frame, [row.Entry], folder, $"Copying {row.Name}.");
-        if (cancelled) StatusMessage = "The copy was cancelled.";
+        var (result, failure, cancelled, partial) = await ExtractToFolderAsync(frame, [row.Entry], folder, $"Copying {row.Name}.");
+        if (!_frames.Contains(frame)) return;
+        if (cancelled) StatusMessage = "The copy was cancelled." + PartialText(partial);
         else if (result is null)
         {
-            StatusMessage = PlainMessage(failure, ExtractFailedMessage);
+            StatusMessage = PlainMessage(failure, ExtractFailedMessage) + PartialText(partial);
             _services.Log.Warning(LogArea, $"An inner installer could not be copied ({failure?.GetType().Name}).");
         }
         else if (result.Files == 0)
@@ -1084,11 +1241,12 @@ public partial class InstallerAnalysisViewModel : ObservableObject
             return;
         }
         if (PickTarget("Extract the payload to a folder") is not { } folder) return;
-        var (result, failure, cancelled) = await ExtractToFolderAsync(frame, null, folder, $"Extracting the payload of {frame.Name}.");
-        if (cancelled) StatusMessage = "The extraction was cancelled.";
+        var (result, failure, cancelled, partial) = await ExtractToFolderAsync(frame, null, folder, $"Extracting the payload of {frame.Name}.");
+        if (!_frames.Contains(frame)) return;
+        if (cancelled) StatusMessage = "The extraction was cancelled." + PartialText(partial);
         else if (result is null)
         {
-            StatusMessage = PlainMessage(failure, PayloadExtractFailedMessage);
+            StatusMessage = PlainMessage(failure, PayloadExtractFailedMessage) + PartialText(partial);
             _services.Log.Warning(LogArea, $"The payload could not be extracted ({failure?.GetType().Name}).");
         }
         else if (result.Files == 0)
@@ -1104,25 +1262,55 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         }
     }
 
+    private static string PartialText(string? partial) =>
+        partial is null ? "" : $" The folder {partial} holds the files extracted before the stop.";
+
+    /// <summary>The name of the folder <see cref="IInstallerAnalysisService.ExtractPayloadAsync"/> creates: '&lt;file name&gt; payload', then ' (2)' and up.</summary>
+    private static string PayloadFolderBase(string installer)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(installer).TrimEnd('.', ' ');
+        return SandboxPath.Normalize(baseName, out _) is null ? "payload" : baseName;
+    }
+
+    private static HashSet<string> PayloadFolders(string target, string baseName)
+    {
+        var pattern = new Regex("^" + Regex.Escape(baseName + " payload") + @"( \(\d+\))?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        try
+        {
+            return Directory.EnumerateDirectories(target).Where(d => pattern.IsMatch(Path.GetFileName(d))).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return []; }
+    }
+
     /// <summary>
     /// Runs <see cref="IInstallerAnalysisService.ExtractPayloadAsync"/>: the service writes into a new
     /// '&lt;file name&gt; payload' folder of <paramref name="folder"/> and refuses sandbox and linked folders.
+    /// After a cancel or a failure, Partial names the payload folder that appeared during this run, when exactly one did.
     /// </summary>
-    private async Task<(PayloadExtractResult? Result, Exception? Failure, bool Cancelled)> ExtractToFolderAsync(AnalysisFrame frame,
+    private async Task<(PayloadExtractResult? Result, Exception? Failure, bool Cancelled, string? Partial)> ExtractToFolderAsync(AnalysisFrame frame,
         IReadOnlyList<PayloadEntry>? entries, string folder, string text)
     {
         var operation = Begin(text);
+        var baseName = PayloadFolderBase(frame.Path);
         PayloadExtractResult? result = null;
         Exception? failure = null;
+        HashSet<string> before = [];
         try
         {
+            before = await Task.Run(() => PayloadFolders(folder, baseName));
             result = await Task.Run(() => _services.Analysis.ExtractPayloadAsync(path: frame.Path, entries: entries, targetFolder: folder, limits: _services.Limits,
                 ct: operation.Cancel.Token), operation.Cancel.Token);
         }
         catch (Exception ex) { failure = ex; }
         var cancelled = operation.Cancel.IsCancellationRequested || failure is OperationCanceledException;
+        string? partial = null;
+        if (cancelled || result is null)
+        {
+            var created = (await Task.Run(() => PayloadFolders(folder, baseName))).Except(before, StringComparer.OrdinalIgnoreCase).ToList();
+            if (created.Count == 1) partial = created[0];
+        }
         End(operation);
-        return (cancelled ? null : result, failure, cancelled);
+        return (cancelled ? null : result, failure, cancelled, partial);
     }
 
     /// <summary>The skipped entries as one plain sentence after the result; the service words each reason.</summary>
@@ -1130,7 +1318,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     {
         0 => "",
         1 => $" 1 entry was skipped: {skipped[0]}",
-        _ => $" {skipped.Count.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} entries were skipped. The first: {skipped[0]}"
+        _ => $" {skipped.Count.ToString("N0", CultureInfo.InvariantCulture)} entries were skipped. The first: {skipped[0]}"
     };
 
     private bool CanOpenExtractFolder() => LastExtractFolder is not null;
@@ -1181,7 +1369,9 @@ public partial class InstallerAnalysisViewModel : ObservableObject
 
     // ---- Exports ----
 
-    [RelayCommand]
+    private bool CanExport() => HasReport;
+
+    [RelayCommand(CanExecute = nameof(CanExport))]
     private void CopySummary()
     {
         if (Report is not { } report) { StatusMessage = NoAnalysisMessage; return; }
@@ -1197,7 +1387,7 @@ public partial class InstallerAnalysisViewModel : ObservableObject
     }
 
     /// <summary>Copies the ConfigMgr digest; key material of a .intunewin package is never included.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanExport))]
     private void CopyJson()
     {
         if (Report is not { } report) { StatusMessage = NoAnalysisMessage; return; }
@@ -1212,34 +1402,57 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         Copy(text, "Copied the JSON digest.");
     }
 
-    [RelayCommand(AllowConcurrentExecutions = true)]
+    [RelayCommand(CanExecute = nameof(CanExport), AllowConcurrentExecutions = true)]
     private async Task ExportCsv()
     {
         if (Current is not { } frame) { StatusMessage = NoAnalysisMessage; return; }
+        var generation = _generation;
         await EnsureRegistryAsync();
-        IReadOnlyList<RegistryWrite> registry = frame.Registry ?? [];
-        await ExportAsync("CSV", () => _services.Reports.WriteCsv(frame.Report, registry));
+        if (!IsCurrent(frame, generation)) return;
+        if (frame.Registry is not { } registry)
+        {
+            StatusMessage = NotWrittenMessage("CSV", frame.RegistryMessage.Length > 0 ? frame.RegistryMessage : "The registry settings were not read.");
+            return;
+        }
+        await ExportAsync(frame, generation, "CSV", () => _services.Reports.WriteCsv(frame.Report, registry));
     }
 
-    [RelayCommand(AllowConcurrentExecutions = true)]
+    [RelayCommand(CanExecute = nameof(CanExport), AllowConcurrentExecutions = true)]
     private async Task ExportHtml()
     {
         if (Current is not { } frame) { StatusMessage = NoAnalysisMessage; return; }
+        var generation = _generation;
         await EnsurePayloadAsync();
+        if (!IsCurrent(frame, generation)) return;
+        if (frame.Payload is not { } payload)
+        {
+            StatusMessage = NotWrittenMessage("HTML", frame.PayloadMessage.Length > 0 ? frame.PayloadMessage : "The payload was not listed.");
+            return;
+        }
         await EnsureRegistryAsync();
-        IReadOnlyList<PayloadEntry> payload = frame.Payload ?? [];
-        IReadOnlyList<RegistryWrite> registry = frame.Registry ?? [];
-        await ExportAsync("HTML", () => _services.Reports.WriteHtml(frame.Report, payload, registry));
+        if (!IsCurrent(frame, generation)) return;
+        if (frame.Registry is not { } registry)
+        {
+            StatusMessage = NotWrittenMessage("HTML", frame.RegistryMessage.Length > 0 ? frame.RegistryMessage : "The registry settings were not read.");
+            return;
+        }
+        await ExportAsync(frame, generation, "HTML", () => _services.Reports.WriteHtml(frame.Report, payload, registry));
     }
 
-    private async Task ExportAsync(string format, Func<string> write)
+    /// <summary>Writes a report as tracked work; the result shows only while the same analysis is shown.</summary>
+    private async Task ExportAsync(AnalysisFrame frame, int generation, string format, Func<string> write)
     {
-        string path;
+        var operation = Begin($"Writing the {format} report.");
+        string? path = null;
+        Exception? failure = null;
         try { path = await Task.Run(write); }
-        catch (Exception ex)
+        catch (Exception ex) { failure = ex; }
+        End(operation);
+        if (!IsCurrent(frame, generation)) return;
+        if (path is null)
         {
-            StatusMessage = PlainMessage(ex, $"The {format} report could not be written. The log has the details.");
-            _services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
+            StatusMessage = PlainMessage(failure, $"The {format} report could not be written. The log has the details.");
+            _services.Log.Warning(LogArea, $"The {format} report could not be written ({failure?.GetType().Name}).");
             return;
         }
         LastReportFolder = Path.GetDirectoryName(path);
@@ -1264,6 +1477,10 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         _ = SavePreferencesAsync();
     }
 
+    /// <summary>
+    /// Applies the saved choices. A tab, filter or file the user chose while the read ran is kept:
+    /// the saved value applies only where the page still holds its default.
+    /// </summary>
     private async Task ApplyPreferencesAsync()
     {
         InstallerAnalysisSettings? saved;
@@ -1281,19 +1498,21 @@ public partial class InstallerAnalysisViewModel : ObservableObject
         _applyingPreferences = true;
         try
         {
-            SelectedTabIndex = saved.SelectedTab is >= 0 and < TabCount ? saved.SelectedTab : OverviewTab;
-            MsiFilter = saved.MsiFilter ?? "";
-            PayloadFilter = saved.PayloadFilter ?? "";
-            FileFilter = saved.FileFilter ?? "";
-            RegistryFilter = saved.RegistryFilter ?? "";
-            StringsFilter = saved.StringsFilter ?? "";
-            StringsCategory = StringCategories.FirstOrDefault(c => string.Equals(c, saved.StringsCategory, StringComparison.OrdinalIgnoreCase)) ?? AllCategories;
+            if (!_tabChosen) SelectedTabIndex = saved.SelectedTab is >= 0 and < TabCount ? saved.SelectedTab : OverviewTab;
+            if (MsiFilter.Length == 0) MsiFilter = saved.MsiFilter ?? "";
+            if (PayloadFilter.Length == 0) PayloadFilter = saved.PayloadFilter ?? "";
+            if (FileFilter.Length == 0) FileFilter = saved.FileFilter ?? "";
+            if (RegistryFilter.Length == 0) RegistryFilter = saved.RegistryFilter ?? "";
+            if (StringsFilter.Length == 0) StringsFilter = saved.StringsFilter ?? "";
+            if (StringsCategory == AllCategories)
+                StringsCategory = StringCategories.FirstOrDefault(c => string.Equals(c, saved.StringsCategory, StringComparison.OrdinalIgnoreCase)) ?? AllCategories;
+            var merged = RecentFiles.Concat((saved.RecentFiles ?? []).Where(p => !string.IsNullOrWhiteSpace(p)))
+                .Distinct(StringComparer.OrdinalIgnoreCase).Take(RecentLimit).ToList();
             RecentFiles.Clear();
-            foreach (var path in (saved.RecentFiles ?? []).Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase).Take(RecentLimit))
-                RecentFiles.Add(path);
+            foreach (var path in merged) RecentFiles.Add(path);
         }
         finally { _applyingPreferences = false; }
-        _storedChoices = CurrentChoices();
+        _storedChoices = saved;
     }
 
     private InstallerAnalysisSettings CurrentChoices() => new()
