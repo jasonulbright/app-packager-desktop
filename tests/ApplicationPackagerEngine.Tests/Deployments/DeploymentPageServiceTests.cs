@@ -238,7 +238,7 @@ public sealed class DeploymentPageServiceTests
         page.History.SelectedRow = page.History.Rows.Single(r => r.Event == "Create");
         await page.History.RemoveDeploymentCommand.ExecuteAsync(null);
         Assert.Empty(h.Plans.Shown);
-        Assert.StartsWith("The deployment cannot be removed: Deployment unchanged:", page.Shared.StatusMessage);
+        Assert.StartsWith($"Undo from History is refused: Deployment {stored["AssignmentUniqueID"]} changed since it was captured (deadline), so it is not removed.", page.Shared.StatusMessage);
         Assert.Single(h.Engine.Site.List("AppAssignments"));
 
         stored = h.Engine.Stored("AppAssignments");

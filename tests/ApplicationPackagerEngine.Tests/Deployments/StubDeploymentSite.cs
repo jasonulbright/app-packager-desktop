@@ -27,8 +27,9 @@ namespace ApplicationPackagerEngine.Tests.Deployments;
 /// adds a second deployment by the same account right after the create (a script that runs at
 /// the same time), "ForeignOffsetSeconds" moves its creation time. Option "CreatedNow" records the
 /// real time of each create instead of "CreatedUtc". "Revisions" holds earlier application revisions,
-/// each with its own CI_ID, CIVersion and DateLastModified; an application deployment holds the
-/// CI_ID of the latest revision of its model in AssignedCIs, as on CM01.
+/// each with its own CI_ID, CIVersion and DateLastModified and the DateCreated of the model, which every
+/// revision shares; an application deployment holds the CI_ID of the latest revision of its model in
+/// AssignedCIs and keeps its CreationTime and LastModificationTime when a revision is added, as on CM01.
 /// </summary>
 internal sealed class StubDeploymentSite : IConfigMgrSession
 {
@@ -71,7 +72,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         function global:Tx([object]$Value) { if ($Value -isnot [datetime]) { return '' }; $Value.ToString($global:Fmt, [Globalization.CultureInfo]::InvariantCulture) }
         function global:Copy-Row([object]$O) {
             $c = $O.PSObject.Copy()
-            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime','Time','DateLastModified') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
+            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime','LastModificationTime','Time','DateLastModified','DateCreated') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
             if ($null -ne $c.PSObject.Properties['AssignedSchedule']) { $c.AssignedSchedule = @(@($c.AssignedSchedule) | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ StartTime = (Dt ([string]$_.StartTime)); IsGMT = [bool]$_.IsGMT } }) }
             if ($null -ne $c.PSObject.Properties['AppModelID']) { $latest = $global:S.Applications | Where-Object { [string]$_.ModelID -eq [string]$c.AppModelID } | Select-Object -First 1; if ($null -ne $latest) { $c.AssignedCIs = @([long]$latest.CI_ID) } }
             return $c
@@ -157,7 +158,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                 $global:S.AppAssignments.Add([pscustomobject]@{ AssignmentID = $global:NextAssignment; AssignmentUniqueID = $uid; AssignedCIs = @([long]$app.CI_ID); AppModelID = [long]$app.ModelID; ApplicationName = $app.LocalizedDisplayName
                     TargetCollectionID = $CollectionId; OfferTypeID = $(if ($required) { 0 } else { 2 }); StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { $deadline } else { $null }); UseGMTTimes = ($TimeBaseOn -eq 'Utc')
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $OverrideServiceWindow); RebootOutsideOfServiceWindows = ($required -and $RebootOutsideServiceWindow)
-                    DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
+                    DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx (Stamp)); LastModificationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
             Made-Since 'AppAssignments' 'AssignmentUniqueID' $n0 'Application'
@@ -299,8 +300,8 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         {
           "Options": {},
           "Applications": [
-            { "CI_ID": 16779607, "ModelID": 16778866, "ModelName": "ScopeId_89DF871C-6222-4BDF-8BB7-75CBCCF9821E/Application_422a4a5c-3d5d-46b0-9986-7254de924002", "LocalizedDisplayName": "7-Zip (x64 edition) - 26.03", "SoftwareVersion": "26.03", "IsExpired": false, "CIVersion": 13, "DateLastModified": "2026-10-01T09:00:00", "ContentPackageID": "MCM00035", "Content": { "Targeted": 1, "Success": 1 } },
-            { "CI_ID": 16779604, "ModelID": 16778870, "ModelName": "ScopeId_89DF871C-6222-4BDF-8BB7-75CBCCF9821E/Application_b802345b-cfc1-4259-95ac-3e7f2c4bdbf1", "LocalizedDisplayName": "7-Zip 26.03 (x64 edition)", "SoftwareVersion": "26.03", "IsExpired": false, "CIVersion": 11, "DateLastModified": "2026-10-01T09:00:00", "ContentPackageID": "MCM00036", "Content": { "Targeted": 0, "Success": 0 } }
+            { "CI_ID": 16779607, "ModelID": 16778866, "ModelName": "ScopeId_89DF871C-6222-4BDF-8BB7-75CBCCF9821E/Application_422a4a5c-3d5d-46b0-9986-7254de924002", "LocalizedDisplayName": "7-Zip (x64 edition) - 26.03", "SoftwareVersion": "26.03", "IsExpired": false, "CIVersion": 13, "DateLastModified": "2026-10-01T09:00:00", "DateCreated": "2026-09-15T13:40:47", "ContentPackageID": "MCM00035", "Content": { "Targeted": 1, "Success": 1 } },
+            { "CI_ID": 16779604, "ModelID": 16778870, "ModelName": "ScopeId_89DF871C-6222-4BDF-8BB7-75CBCCF9821E/Application_b802345b-cfc1-4259-95ac-3e7f2c4bdbf1", "LocalizedDisplayName": "7-Zip 26.03 (x64 edition)", "SoftwareVersion": "26.03", "IsExpired": false, "CIVersion": 11, "DateLastModified": "2026-10-01T09:00:00", "DateCreated": "2026-09-15T13:42:20", "ContentPackageID": "MCM00036", "Content": { "Targeted": 0, "Success": 0 } }
           ],
           "Packages": [ { "PackageID": "MCM0001B", "Name": "CMCO-CANARY-Package", "Version": "1", "Programs": [ "CMCO-CANARY-Run", "CMCO-CANARY-RunAvailable" ], "Content": { "Targeted": 1, "Success": 1 } } ],
           "TaskSequences": [ { "PackageID": "MCM00030", "Name": "DH Test TS", "References": [ { "RefPackageID": "MCM0001B", "ObjectName": "CMCO-CANARY-Package", "Targeted": 1, "Success": 1 } ] } ],

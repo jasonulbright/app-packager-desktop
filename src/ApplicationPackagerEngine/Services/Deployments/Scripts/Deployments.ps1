@@ -379,7 +379,8 @@ function Test-Owned {
 # latest revision of the model and keeps no trace of the revision deployed (verified on CM01: an
 # assignment made on revision 2 holds the CI_ID of revision 3 with its LastModificationTime
 # unchanged), so the revision a deployment was made with is the latest one whose DateLastModified
-# is not after the CreationTime of the deployment.
+# is not after the CreationTime of the deployment. DateCreated holds the creation time of the
+# model and is the same on every revision, so it cannot date a revision (verified on CM01).
 function Get-Revisions {
     param([string]$Model)
     if ($Type -ne 'Application' -or $Model -notmatch '^[0-9]{1,10}$') { return @() }
@@ -699,6 +700,12 @@ function Invoke-Remove {
     if ($row.CollectionId -ne $CollectionId) { $diff.Add('Collection') }
     if ($Type -eq 'Application') { if ($ModelId -and $row.ModelId -ne $ModelId) { $diff.Add('Object') } elseif (-not $ModelId -and $row.ObjectId -ne $ObjectId) { $diff.Add('Object') } }
     elseif ($row.ObjectId -ne $ObjectId) { $diff.Add('Object') }
+    # AssignedCIs follows the latest revision, so the requested CI_ID must be a revision of the
+    # deployment's model that existed when the deployment was created.
+    if ($Type -eq 'Application') {
+        $named = @(Get-Revisions ([string]$row.ModelId) | Where-Object { $_.CiId -eq $ObjectId }) | Select-Object -First 1
+        if ($null -eq $named -or -not $named.Modified -or -not $row.Created -or [string]::CompareOrdinal([string]$named.Modified, [string]$row.Created) -gt 0) { $diff.Add('Object') }
+    }
     if ($Type -eq 'Package' -and $row.Program -ne $Program) { $diff.Add('Object') }
     if ($row.Purpose -ne $Purpose) { $diff.Add('Purpose') }
     if ($row.Available -ne $Available) { $diff.Add('AvailableTime') }

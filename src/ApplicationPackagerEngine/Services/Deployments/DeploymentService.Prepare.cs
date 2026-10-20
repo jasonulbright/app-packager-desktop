@@ -339,7 +339,7 @@ public sealed partial class DeploymentService
         {
             checks.Add(Check(DeploymentCheckNames.TargetExists, DeploymentCheckResults.Pass, $"Deployment {existing.DeploymentId} exists."));
             var differences = Differences(existing, site.Row);
-            var revision = _created.ContainsKey(existing.DeploymentId) ? null : RevisionProblem(existing, site);
+            var revision = RevisionProblem(existing, site);
             checks.Add(differences.Count > 0
                 ? Check(Unchanged, DeploymentCheckResults.Fail, $"The deployment changed since it was captured ({string.Join(", ", differences)}), so it is not removed.")
                 : revision is not null
@@ -447,9 +447,34 @@ public sealed partial class DeploymentService
 
 
     /// <summary>
+    /// The verdict for a deployment this service created in this process. The deployment ID
+    /// proves only the creation: the captured object must still be the one the deployment holds
+    /// (see <see cref="Differences"/> and <see cref="RevisionProblem"/>), because a History Undo
+    /// in the same session captures the object from an audit record.
+    /// </summary>
+    private async Task<OwnershipVerdict> CreatedInSessionAsync(DeploymentRecord existing, SiteDeployment? site)
+    {
+        var id = existing.DeploymentId;
+        if (site is null)
+        {
+            var (read, found) = await ReadDeploymentOrNullAsync(existing.Type, id).ConfigureAwait(false);
+            if (!read) return new(DeploymentCheckResults.Unknown, $"deployment {id} could not be read from ConfigMgr, so it is not known whether it holds the captured object. It is not removed. Try again.");
+            if (found is null) return new(DeploymentCheckResults.Fail, $"deployment {id} does not exist any more.");
+            site = found;
+        }
+        var differences = Differences(existing, site.Row);
+        var problem = differences.Count > 0
+            ? $"deployment {id} changed since it was captured ({string.Join(", ", differences)})"
+            : RevisionProblem(existing, site);
+        return problem is null
+            ? new(DeploymentCheckResults.Pass, "this product created the deployment in this session.", site)
+            : new(DeploymentCheckResults.Fail, $"{problem}, so it is not removed.", site);
+    }
+
+    /// <summary>
     /// Whether this product made the deployment. A deployment this service created in this
-    /// process is owned. Otherwise the audit log must hold a create of it with Result Success or
-    /// Partial whose Chain is intact, and ConfigMgr must show the record's account as the creator,
+    /// process is owned when it still holds the captured object (see <see cref="CreatedInSessionAsync"/>).
+    /// Otherwise the audit log must hold a create of it with Result Success or Partial whose Chain is intact, and ConfigMgr must show the record's account as the creator,
     /// a creation time within <see cref="CreationTolerance"/> of both the record's CreatedUtc and
     /// its Timestamp (before or after), and the values the record holds; an application record
     /// must name the revision that was the latest when ConfigMgr created the deployment (see
@@ -464,7 +489,7 @@ public sealed partial class DeploymentService
     private async Task<OwnershipVerdict> OwnershipAsync(DeploymentRecord existing, SiteDeployment? site)
     {
         var id = existing.DeploymentId;
-        if (_created.ContainsKey(id)) return new(DeploymentCheckResults.Pass, "this product created the deployment in this session.", site);
+        if (_created.ContainsKey(id)) return await CreatedInSessionAsync(existing, site).ConfigureAwait(false);
         IReadOnlyList<DeploymentAuditRecord> records;
         try
         {
