@@ -229,6 +229,27 @@ public interface IDeploymentAuditLog
     /// <summary>The last <paramref name="max"/> records, oldest first; a line that cannot be read is skipped.</summary>
     IReadOnlyList<DeploymentAuditRecord> Read(int max);
     string Path { get; }
+
+    /// <summary>
+    /// Probes the log and keeps it open for the append that follows, so that a program that
+    /// opens the file between the two cannot make the append fail.
+    /// </summary>
+    IDeploymentAuditReservation Reserve() => new UnheldAuditReservation(this);
+}
+
+/// <summary>A probe and the one append that follows it.</summary>
+public interface IDeploymentAuditReservation : IDisposable
+{
+    AuditProbe Probe { get; }
+    AuditWrite Append(DeploymentAuditRecord r);
+}
+
+/// <summary>A reservation that holds nothing: the probe and the append each open the log.</summary>
+public sealed class UnheldAuditReservation(IDeploymentAuditLog log) : IDeploymentAuditReservation
+{
+    public AuditProbe Probe { get; } = log.Probe();
+    public AuditWrite Append(DeploymentAuditRecord r) => log.Append(r);
+    public void Dispose() { }
 }
 
 /// <summary>
