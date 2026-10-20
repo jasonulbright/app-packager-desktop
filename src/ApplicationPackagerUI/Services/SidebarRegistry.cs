@@ -16,6 +16,7 @@ public static class SidebarIds
     public const string MaintenanceWindows = "maintenance-windows";
     public const string CollectionCompliance = "collection-and-compliance";
     public const string InstallerAnalysis = "installer-analysis";
+    public const string DeploymentHelper = "deployment-helper";
 }
 
 /// <summary>
@@ -76,6 +77,10 @@ public sealed class SidebarRegistry
         registry.Register(new SidebarItemDefinition(SidebarIds.InstallerAnalysis, "Installer Analysis", "BoxSearch24", SidebarItemKind.Page)
         {
             PageType = typeof(InstallerAnalysisPage)
+        });
+        registry.Register(new SidebarItemDefinition(SidebarIds.DeploymentHelper, SuiteTools.DeploymentHelper.Title, SuiteTools.DeploymentHelper.Symbol, SidebarItemKind.Page)
+        {
+            PageType = typeof(DeploymentHelperPage)
         });
         foreach (var tool in SuiteTools.All)
         {

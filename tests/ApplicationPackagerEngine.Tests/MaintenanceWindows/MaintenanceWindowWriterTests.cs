@@ -109,6 +109,9 @@ public sealed class MaintenanceWindowWriterTests
             Path.Combine("ApplicationPackagerUI", "Services", "CollectionsPlan.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "Compliance", "ComplianceContract.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "CompliancePlan.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "Deployments", "DeploymentsContract.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "DeploymentPlan.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "DeploymentServiceFallbacks.cs"),
             Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
         ];
         var found = FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant));
