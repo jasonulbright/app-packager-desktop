@@ -324,6 +324,32 @@ internal sealed class FakeDeploymentDialogs : IDeploymentHelperDialogs
     public List<string> OpenedFolders { get; } = [];
     public int Prompts;
     public int Editors;
+    public int RingEditors;
+    public Action<RingPlanEditorViewModel>? RingEditor;
+
+    /// <summary>The collection ID the picker returns; null closes it without a pick.</summary>
+    public string? PickedCollection;
+    public List<string> PickerTitles { get; } = [];
+    public bool ConfirmDeletePlan = true;
+    public int PlanDeletePrompts;
+
+    public void ShowRingPlanEditor(RingPlanEditorViewModel editor)
+    {
+        RingEditors++;
+        RingEditor?.Invoke(editor);
+    }
+
+    public CollectionRow? PickCollection(string title, IReadOnlyList<CollectionRow> collections, string? currentId)
+    {
+        PickerTitles.Add(title);
+        return PickedCollection is null ? null : collections.SingleOrDefault(c => c.CollectionId == PickedCollection);
+    }
+
+    public Task<bool> ConfirmDeleteRingPlanAsync(string name)
+    {
+        PlanDeletePrompts++;
+        return Task.FromResult(ConfirmDeletePlan);
+    }
 
     public void ShowTextPrompt(TextPromptViewModel prompt)
     {
@@ -370,8 +396,10 @@ internal sealed class DeploymentPageHarness
 
     /// <summary>False makes every save of the page choices report that nothing was written.</summary>
     public bool SaveSucceeds = true;
-    public int RingStarts;
-    public string? RingProblem;
+
+    public FakeRingService Rings { get; } = new();
+    public RingPlan PilotRings { get; }
+    public RingPlan SeedRings { get; }
 
     public DeployableObject SevenZip { get; }
     public DeployableObject Notepad { get; }
@@ -405,9 +433,27 @@ internal sealed class DeploymentPageHarness
             PostRebootScan: false, DeadlineOffsetHours: 24, IsSeeded: false));
 
         Service.InConfirmedRun = () => Plans.InRun;
+
+        Rings.MemberCounts["LAB00010"] = 3;
+        Rings.MemberCounts["LAB00011"] = 4;
+        Rings.MemberCounts["LAB00012"] = 40;
+        SeedRings = new RingPlan(Name: "Workstation-Rings", Description: "Pilot, early and broad workstations.", HoldLaterRings: false, TimeBasedOn: "LocalTime",
+            Rings: [FakeRingService.Ring("Pilot", "", ""), FakeRingService.Ring("Broad", "", "", "Required", 7, 9)], IsSeed: true);
+        PilotRings = new RingPlan(Name: "Pilot-Rings", Description: "Three rings over one week.", HoldLaterRings: false, TimeBasedOn: "LocalTime",
+            Rings:
+            [
+                FakeRingService.Ring("Pilot", "LAB00010", "Pilot Workstations", threshold: 90),
+                FakeRingService.Ring("Early", "LAB00011", "Server Group A", "Required", 1, 3),
+                FakeRingService.Ring("Broad", "LAB00012", "Broad Workstations", "Required", 7, 9)
+            ], IsSeed: false);
+        Rings.Plans.Add(SeedRings);
+        Rings.Plans.Add(PilotRings);
+        Rings.InConfirmedRun = () => Plans.InRun;
     }
 
     public DeploymentWriter Writer() => new(Service, History, Log, () => "LAB", Dialogs.ConfirmRemoveDeploymentAsync);
+
+    public RingWriter RingWriter() => new(Rings, History, Log, () => "LAB", Dialogs.ConfirmRemoveDeploymentAsync);
 
     public DeploymentPageServices Services() => new(Service, Collections, Audit, Templates, Reports, Dialogs, Plans, Writer(), () => Settings,
         () =>
@@ -423,12 +469,7 @@ internal sealed class DeploymentPageHarness
             Saved = s;
             return true;
         },
-        () =>
-        {
-            RingStarts++;
-            return Task.FromResult(RingProblem);
-        },
-        Log, Clock);
+        Rings, RingWriter(), Log, Clock);
 
     public DeploymentHelperViewModel Create() => new(Services());
 

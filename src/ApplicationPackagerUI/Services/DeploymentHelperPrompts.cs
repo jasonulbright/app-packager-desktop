@@ -31,6 +31,14 @@ public interface IDeploymentHelperDialogs
     Task<bool> ConfirmRemoveDeploymentAsync(string text);
 
     void OpenFolder(string folder);
+
+    /// <summary>Shows the ring plan editor until the operator closes it or a save is reported.</summary>
+    void ShowRingPlanEditor(RingPlanEditorViewModel editor);
+
+    /// <summary>Asks the operator for one device collection; null when the dialog was closed without a pick.</summary>
+    CollectionRow? PickCollection(string title, IReadOnlyList<CollectionRow> collections, string? currentId);
+
+    Task<bool> ConfirmDeleteRingPlanAsync(string name);
 }
 
 public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDeploymentHelperDialogs
@@ -75,6 +83,35 @@ public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDe
         try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"")); }
         catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException) { }
     }
+
+    public void ShowRingPlanEditor(RingPlanEditorViewModel editor) => ShowModal(new RingPlanEditorWindow(editor));
+
+    public CollectionRow? PickCollection(string title, IReadOnlyList<CollectionRow> collections, string? currentId)
+    {
+        var picker = new RingCollectionPickerViewModel(title, collections, currentId);
+        ShowModal(new RingCollectionPickerWindow(picker));
+        return picker.Result;
+    }
+
+    public async Task<bool> ConfirmDeleteRingPlanAsync(string name)
+    {
+        var dialog = new ContentDialog
+        {
+            Title = "Delete ring plan",
+            Content = $"Delete the ring plan {name}? Runs made with it keep their run files and their deployments.",
+            PrimaryButtonText = "Delete plan",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        return await dialogs.ShowAsync(dialog, CancellationToken.None) == ContentDialogResult.Primary;
+    }
+}
+
+/// <summary>The ring folders of the page settings, read at every call; an empty setting selects the default under the data root.</summary>
+public sealed class SettingsRingFolders(Func<AppSettings> load)
+{
+    public string? RingsFolder => load().DeploymentHelper?.RingsFolder?.Trim() is { Length: > 0 } path ? path : null;
+    public string? RunsFolder => load().DeploymentHelper?.RunsFolder?.Trim() is { Length: > 0 } path ? path : null;
 }
 
 /// <summary>Reads and writes the page choices in settings.json without touching any other value.</summary>
@@ -131,10 +168,21 @@ public static partial class DeploymentHelperRegistration
                 () => PackagerServiceRegistration.SessionConnection(settings).Key,
                 sp.GetRequiredService<IDeploymentHelperDialogs>().ConfirmRemoveDeploymentAsync);
         });
+        services.AddRingServiceFallback();
+        services.AddSingleton(sp => new SettingsRingFolders(sp.GetRequiredService<SettingsService>().Load));
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
-            var launcher = sp.GetRequiredService<SuiteToolLauncher>();
+            return new RingWriter(
+                sp.GetRequiredService<IRingService>(),
+                sp.GetRequiredService<ISiteOperationHistory>(),
+                sp.GetRequiredService<IAppLog>(),
+                () => PackagerServiceRegistration.SessionConnection(settings).Key,
+                sp.GetRequiredService<IDeploymentHelperDialogs>().ConfirmRemoveDeploymentAsync);
+        });
+        services.AddSingleton(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
             return new DeploymentPageServices(
                 sp.GetRequiredService<IDeploymentService>(),
                 sp.GetRequiredService<ICollectionService>(),
@@ -147,16 +195,8 @@ public static partial class DeploymentHelperRegistration
                 settings.Load,
                 () => DeploymentHelperPreferences.Load(settings),
                 choices => DeploymentHelperPreferences.Save(settings, choices),
-                async () =>
-                {
-                    var result = await launcher.LaunchAsync(SuiteTools.DeploymentHelper, settings.Load);
-                    return result.Outcome switch
-                    {
-                        SuiteToolLaunchOutcome.Failed => result.Message ?? $"{SuiteTools.DeploymentHelper.Title} could not start.",
-                        SuiteToolLaunchOutcome.StillStarting => result.Message ?? $"{SuiteTools.DeploymentHelper.Title} is still starting.",
-                        _ => null
-                    };
-                },
+                sp.GetRequiredService<IRingService>(),
+                sp.GetRequiredService<RingWriter>(),
                 sp.GetRequiredService<IAppLog>(),
                 TimeProvider.System);
         });

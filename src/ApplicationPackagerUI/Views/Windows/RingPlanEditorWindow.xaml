@@ -1,0 +1,220 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.RingPlanEditorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    Title="{Binding Title}"
+    Width="900" Height="720"
+    MinWidth="640" MinHeight="560"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="EditorVisibility" />
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Margin" Value="0,8,0,4" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+            <!-- A string Content renders as one non-wrapping line, which the minimum width clips. -->
+            <Style x:Key="Option" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                <Setter Property="Margin" Value="0,0,16,6" />
+                <Setter Property="ContentTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="520" />
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="ToolButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Setter Property="Margin" Value="0,0,8,8" />
+            </Style>
+            <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+            <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+            </Style>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.AutomationId="scrollRingPlanEditor">
+            <StackPanel Margin="16,0,16,8">
+                <TextBlock Text="Plan name" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                <ui:TextBox x:Name="txtName" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Plan name"
+                            AutomationProperties.AutomationId="txtRingPlanName" />
+                <TextBlock Text="Description" Style="{StaticResource FieldLabel}" />
+                <ui:TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Plan description"
+                            AutomationProperties.AutomationId="txtRingPlanDescription" />
+                <TextBlock Text="Time basis" Style="{StaticResource FieldLabel}" />
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton Content="Local time" GroupName="RingPlanBasis" IsChecked="{Binding IsLocalTime}" Margin="0,0,16,0" AutomationProperties.AutomationId="rbRingPlanLocal" />
+                    <RadioButton Content="UTC" GroupName="RingPlanBasis" IsChecked="{Binding IsUtc}" AutomationProperties.AutomationId="rbRingPlanUtc" />
+                </StackPanel>
+                <CheckBox Content="Hold later rings: a run creates the first ring, and Promote creates each later ring after the previous ring was checked"
+                          IsChecked="{Binding HoldLaterRings}" Style="{StaticResource Option}" Margin="0,8,0,6" AutomationProperties.AutomationId="chkRingPlanHold" />
+
+                <TextBlock Text="Rings, in order" Style="{StaticResource FieldLabel}" />
+                <WrapPanel>
+                    <ui:Button Content="Add ring" Icon="{ui:SymbolIcon Add24}" Command="{Binding AddRingCommand}" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRingAdd" />
+                    <ui:Button Content="Remove ring" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveRingCommand}" Style="{StaticResource ToolButton}" AutomationProperties.AutomationId="btnRingRemove" />
+                    <ui:Button Content="Move up" Icon="{ui:SymbolIcon ArrowUp24}" Command="{Binding MoveUpCommand}" Style="{StaticResource ToolButton}"
+                               AutomationProperties.Name="Move the ring up" AutomationProperties.AutomationId="btnRingUp" />
+                    <ui:Button Content="Move down" Icon="{ui:SymbolIcon ArrowDown24}" Command="{Binding MoveDownCommand}" Style="{StaticResource ToolButton}"
+                               AutomationProperties.Name="Move the ring down" AutomationProperties.AutomationId="btnRingDown" />
+                    <ui:Button Content="Duplicate ring" Icon="{ui:SymbolIcon Copy24}" Command="{Binding DuplicateRingCommand}" Style="{StaticResource ToolButton}"
+                               AutomationProperties.AutomationId="btnRingDuplicate" />
+                    <ui:Button Content="Add rings from collections" Icon="{ui:SymbolIcon Organization24}" Command="{Binding AddRingsFromCollectionsCommand}" Style="{StaticResource ToolButton}"
+                               ToolTip="Adds one ring for each collection you check, named after the collection, with the offsets below." AutomationProperties.AutomationId="btnRingsFromCollections" />
+                    <CheckBox Content="Sort the new rings by collection name" IsChecked="{Binding SortNewRingsByName}" Style="{StaticResource Option}" VerticalAlignment="Center"
+                              AutomationProperties.AutomationId="chkRingSortByName" />
+                </WrapPanel>
+                <WrapPanel>
+                    <StackPanel Margin="0,0,16,8">
+                        <TextBlock Text="First available, days" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding FirstOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="110" AutomationProperties.Name="First available offset in days"
+                                    AutomationProperties.AutomationId="txtFillFirst" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,16,8">
+                        <TextBlock Text="Days between rings" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding DaysBetweenText, UpdateSourceTrigger=PropertyChanged}" Width="110" AutomationProperties.Name="Days between rings"
+                                    AutomationProperties.AutomationId="txtFillBetween" />
+                    </StackPanel>
+                    <StackPanel Margin="0,0,16,8">
+                        <TextBlock Text="Days to the deadline" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding DeadlineDaysText, UpdateSourceTrigger=PropertyChanged}" Width="110" AutomationProperties.Name="Days from the available time to the deadline"
+                                    AutomationProperties.AutomationId="txtFillDeadline" />
+                    </StackPanel>
+                    <ui:Button Content="Fill offsets" Icon="{ui:SymbolIcon CalendarLtr24}" Command="{Binding FillOffsetsCommand}" Style="{StaticResource ToolButton}" VerticalAlignment="Bottom"
+                               ToolTip="Sets the offsets of every ring from these fields. Each ring stays editable after." AutomationProperties.Name="Fill the offsets of every ring"
+                               AutomationProperties.AutomationId="btnFillOffsets" />
+                </WrapPanel>
+                <TextBlock Text="{Binding RingPosition}" Style="{StaticResource FieldLabel}" AutomationProperties.AutomationId="txtRingPosition" />
+                <DataGrid x:Name="dgEditorRings" ItemsSource="{Binding Rings}" SelectedItem="{Binding SelectedRing}" AutoGenerateColumns="False" CanUserAddRows="False"
+                          CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" RowHeaderWidth="0" GridLinesVisibility="Horizontal" SelectionMode="Single"
+                          CanUserResizeColumns="True" HorizontalScrollBarVisibility="Auto" MinHeight="96" MaxHeight="220" CanUserSortColumns="False"
+                          EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True"
+                          RowStyle="{StaticResource SelectableRow}" CellStyle="{StaticResource TabStopCell}"
+                          helpers:DataGridKeyboard.SelectsFocusedRow="True" helpers:DataGridRightClick.SelectsRow="True" helpers:DataGridColumnSizing.FixStarWidthsOnResize="True"
+                          AutomationProperties.Name="Rings of the plan" AutomationProperties.AutomationId="dgEditorRings">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Purpose" Binding="{Binding Purpose}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Available" Binding="{Binding AvailableOffsetText}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Deadline" Binding="{Binding DeadlineOffsetText}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <Border Visibility="{Binding HasSelectedRing, Converter={StaticResource EditorVisibility}}">
+                <StackPanel>
+                <WrapPanel Margin="0,8,0,0">
+                    <ui:Button Content="Apply to all rings" Icon="{ui:SymbolIcon CopySelect24}" Command="{Binding ApplyToAllCommand}" Style="{StaticResource ToolButton}"
+                               ToolTip="Copies the checked settings of the selected ring to every ring of the plan." AutomationProperties.Name="Apply the settings of the selected ring to all rings"
+                               AutomationProperties.AutomationId="btnRingApplyAll" />
+                    <CheckBox Content="Purpose" IsChecked="{Binding ApplyPurpose}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyPurpose" />
+                    <CheckBox Content="User notification" IsChecked="{Binding ApplyNotification}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyNotification" />
+                    <CheckBox Content="Maintenance window, metered and package options" IsChecked="{Binding ApplyOptions}" Style="{StaticResource Option}" VerticalAlignment="Center"
+                              AutomationProperties.AutomationId="chkApplyOptions" />
+                </WrapPanel>
+                <StackPanel DataContext="{Binding SelectedRing}">
+                    <TextBlock Text="Ring name" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Ring name" AutomationProperties.AutomationId="txtRingName" />
+                    <TextBlock Text="Device collection" Style="{StaticResource FieldLabel}" />
+                    <DockPanel>
+                        <ui:Button DockPanel.Dock="Right" Content="Pick collection" Icon="{ui:SymbolIcon Organization24}" Margin="8,0,0,0"
+                                   Command="{Binding DataContext.PickCollectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   AutomationProperties.Name="Pick the collection of the ring" AutomationProperties.AutomationId="btnRingPickCollection" />
+                        <TextBlock Text="{Binding Collection}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   AutomationProperties.AutomationId="txtRingCollection" />
+                    </DockPanel>
+                    <TextBlock Text="Purpose" Style="{StaticResource FieldLabel}" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="Available" GroupName="RingPurpose" IsChecked="{Binding IsAvailable}" Margin="0,0,16,0" AutomationProperties.AutomationId="rbRingAvailable" />
+                        <RadioButton Content="Required" GroupName="RingPurpose" IsChecked="{Binding IsRequired}" AutomationProperties.AutomationId="rbRingRequired" />
+                    </StackPanel>
+                    <WrapPanel Margin="0,4,0,0">
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Text="Available, days after the plan start" Style="{StaticResource FieldLabel}" />
+                            <ui:TextBox Text="{Binding AvailableOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left"
+                                        AutomationProperties.Name="Available offset in days" AutomationProperties.AutomationId="txtRingAvailableOffset" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,24,0" Visibility="{Binding IsRequired, Converter={StaticResource EditorVisibility}}">
+                            <TextBlock Text="Deadline, days after the plan start" Style="{StaticResource FieldLabel}" />
+                            <ui:TextBox Text="{Binding DeadlineOffsetText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left"
+                                        AutomationProperties.Name="Deadline offset in days" AutomationProperties.AutomationId="txtRingDeadlineOffset" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,24,0">
+                            <TextBlock Text="Success threshold, % (empty for none)" Style="{StaticResource FieldLabel}" />
+                            <ui:TextBox Text="{Binding ThresholdText, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left"
+                                        AutomationProperties.Name="Success threshold in percent" AutomationProperties.AutomationId="txtRingThreshold" />
+                        </StackPanel>
+                    </WrapPanel>
+                    <TextBlock Text="User notification" Style="{StaticResource FieldLabel}" />
+                    <ComboBox ItemsSource="{Binding DataContext.Notifications, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Notification}" DisplayMemberPath="Text"
+                              AutomationProperties.Name="User notification of the ring" AutomationProperties.AutomationId="cboRingNotification" />
+                    <TextBlock Text="Distribution point group (empty for none)" Style="{StaticResource FieldLabel}" />
+                    <ui:TextBox Text="{Binding DpGroup, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Distribution point group of the ring"
+                                AutomationProperties.AutomationId="txtRingDpGroup" />
+                    <TextBlock Text="Required only" Style="{StaticResource FieldLabel}" />
+                    <WrapPanel IsEnabled="{Binding IsRequired}">
+                        <CheckBox Content="Install outside maintenance windows at the deadline" IsChecked="{Binding OverrideServiceWindow}" Style="{StaticResource Option}"
+                                  AutomationProperties.AutomationId="chkRingOverride" />
+                        <CheckBox Content="Allow restart outside maintenance windows" IsChecked="{Binding RebootOutsideServiceWindow}" Style="{StaticResource Option}"
+                                  AutomationProperties.AutomationId="chkRingReboot" />
+                        <CheckBox Content="Allow download on a metered connection" IsChecked="{Binding AllowMetered}" Style="{StaticResource Option}"
+                                  AutomationProperties.AutomationId="chkRingMetered" />
+                    </WrapPanel>
+                    <TextBlock Text="Package options (a run of another type ignores them)" Style="{StaticResource FieldLabel}" />
+                    <WrapPanel>
+                        <StackPanel Margin="0,0,16,8">
+                            <TextBlock Text="Fast network" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding DataContext.FastNetworks, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding FastNetwork}"
+                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Fast network of the ring" AutomationProperties.AutomationId="cboRingFast" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,16,8">
+                            <TextBlock Text="Slow network" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding DataContext.SlowNetworks, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding SlowNetwork}"
+                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Slow network of the ring" AutomationProperties.AutomationId="cboRingSlow" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,16,8">
+                            <TextBlock Text="Rerun behavior" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding DataContext.Reruns, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding Rerun}"
+                                      DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Rerun behavior of the ring" AutomationProperties.AutomationId="cboRingRerun" />
+                        </StackPanel>
+                    </WrapPanel>
+                </StackPanel>
+                </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+            <DockPanel>
+                <WrapPanel DockPanel.Dock="Right">
+                    <ui:Button Content="Save plan" Appearance="Primary" MinWidth="120" Margin="0,0,8,0" Command="{Binding SaveCommand}" AutomationProperties.AutomationId="btnRingPlanSave" />
+                    <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnRingPlanCancel" />
+                </WrapPanel>
+                <TextBlock Text="{Binding ValidationMessage}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
+                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtRingPlanMessage" AutomationProperties.LiveSetting="Assertive" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

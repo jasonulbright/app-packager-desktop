@@ -28,6 +28,9 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
     /// <summary>The saved audit log path; set by the page.</summary>
     public Func<string>? SavedAuditPath { get; set; }
 
+    /// <summary>The ring folders with their check; set by the page.</summary>
+    public RingFolderOptionsViewModel? RingFolders { get; init; }
+
     /// <summary>Raised after a template was added, changed or deleted.</summary>
     public event EventHandler? TemplatesChanged;
 
@@ -52,8 +55,10 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
         var path = Services.AuditLog.Path;
         var settings = Services.LoadSettings();
         var problem = CollectionComplianceViewModel.ConnectionProblem(settings);
+        var ringProbe = RingFolders?.ProbeNow();
         return Task.FromResult<Action>(() =>
         {
+            RingFolders?.Show(ringProbe);
             ShowTemplates(templates, message);
             AuditLogPath = SavedAuditPath?.Invoke() ?? "";
             ShowProbe(probe, path);
@@ -81,6 +86,7 @@ public sealed partial class DeploymentOptionsViewModel(DeploymentShared shared) 
 
     protected override void ReleaseData()
     {
+        RingFolders?.Release();
         Templates.Clear();
         SelectedTemplate = null;
         AuditLogPath = "";

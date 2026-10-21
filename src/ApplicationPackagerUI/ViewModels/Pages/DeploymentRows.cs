@@ -85,6 +85,12 @@ public sealed class DeploymentHistoryRow(DeploymentAuditRecord record)
 
     public string User => Record.User;
 
+    /// <summary>The ring fields; empty for a record of a single deployment.</summary>
+    public string PlanName => RingAuditFields.Get(Record, RingAuditFields.PlanName);
+    public string RingIndex => RingAuditFields.Get(Record, RingAuditFields.RingIndex);
+    public string RingName => RingAuditFields.Get(Record, RingAuditFields.RingName);
+    public string RunId => RingAuditFields.Get(Record, RingAuditFields.RunId);
+
     /// <summary>Whether the record's chain is intact, as the reports name it; empty for a record that was not read from a log.</summary>
     public string VerifiedText => AuditVerification.Text(Record);
 
