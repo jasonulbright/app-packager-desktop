@@ -155,7 +155,13 @@ public sealed record DeploymentChange(
     /// from it, never from <see cref="Existing"/>.
     /// </summary>
     public DeploymentRecord? Site { get; init; }
+
+    /// <summary>The ring run the change belongs to; its audit records carry the ring fields. Null for a single deployment.</summary>
+    public DeploymentRingContext? Ring { get; init; }
 }
+
+/// <summary>The ring fields of an audit record: the plan, the ring and the run.</summary>
+public sealed record DeploymentRingContext(string PlanName, int RingIndex, string RingName, string RunId);
 
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when the change was not attempted.</param>
 /// <param name="UndoChange">The RemoveDeployment that undoes a create; null for every other change.</param>
@@ -295,7 +301,28 @@ public sealed record DeploymentAuditRecord(
     /// <summary>The file line number of the first Chain that does not match, when the line is at or after it.</summary>
     public long? ChainBrokenAt { get; init; }
 
-    /// <summary>Further properties of the line, such as the ring fields of the suite tool, in file order.</summary>
+    /// <summary>Ring records: the plan of the run, kept in <see cref="Extra"/> as the suite tool names it; empty for a single deployment.</summary>
+    public string PlanName => ExtraText("PlanName");
+
+    /// <summary>Ring records: the ring, 1 for the first; null for a single deployment.</summary>
+    public int? RingIndex => int.TryParse(ExtraText("RingIndex"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index) ? index : null;
+
+    public string RingName => ExtraText("RingName");
+
+    /// <summary>Ring records: the RunId of the run file; empty for a single deployment.</summary>
+    public string RunId => ExtraText("RunId");
+
+    private string ExtraText(string name) => Extra.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value ?? "";
+
+    /// <summary>The record with the ring fields of <paramref name="ring"/> in <see cref="Extra"/>; unchanged for null.</summary>
+    public DeploymentAuditRecord WithRing(DeploymentRingContext? ring) => ring is null ? this : this with
+    {
+        Extra = Extra.Where(p => p.Key is not ("PlanName" or "RingIndex" or "RingName" or "RunId"))
+            .Concat([new("PlanName", ring.PlanName), new("RingIndex", ring.RingIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)), new("RingName", ring.RingName), new("RunId", ring.RunId)])
+            .ToList()
+    };
+
+    /// <summary>Further properties of the line, such as the ring fields, in file order.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];
 }
 

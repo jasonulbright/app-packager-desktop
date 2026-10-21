@@ -46,7 +46,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
         function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove($Key)) { throw "The SMS Provider reported an error: SECRET-DETAIL-1234 ($Key)." } }
         $global:S = @{}
-        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments','StatusMessages','Revisions') { $global:S[$k] = L (V $state $k @()) }
+        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments','StatusMessages','Revisions','Summaries') { $global:S[$k] = L (V $state $k @()) }
         $global:NextAssignment = [long](V $state 'NextAssignment' 16777400)
         $global:NextAdvert = [int](V $state 'NextAdvert' 32)
         $global:NewKeys = [System.Collections.Generic.List[string]]::new()
@@ -72,7 +72,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         function global:Tx([object]$Value) { if ($Value -isnot [datetime]) { return '' }; $Value.ToString($global:Fmt, [Globalization.CultureInfo]::InvariantCulture) }
         function global:Copy-Row([object]$O) {
             $c = $O.PSObject.Copy()
-            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime','LastModificationTime','Time','DateLastModified','DateCreated') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
+            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime','LastModificationTime','Time','DateLastModified','DateCreated','SummarizationTime') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
             if ($null -ne $c.PSObject.Properties['AssignedSchedule']) { $c.AssignedSchedule = @(@($c.AssignedSchedule) | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ StartTime = (Dt ([string]$_.StartTime)); IsGMT = [bool]$_.IsGMT } }) }
             if ($null -ne $c.PSObject.Properties['AppModelID']) { $latest = $global:S.Applications | Where-Object { [string]$_.ModelID -eq [string]$c.AppModelID } | Select-Object -First 1; if ($null -ne $latest) { $c.AssignedCIs = @([long]$latest.CI_ID) } }
             return $c
@@ -84,6 +84,10 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
             $global:Log.Add('Query')
             if ($Query -match 'FROM (\w+)') { Test-Fail ('query:' + $Matches[1]) }
             switch -Regex ($Query) {
+                "FROM SMS_ApplicationAssignment WHERE AssignmentUniqueID = '[^']+' OR " { $ids = Ids $Query 'AssignmentUniqueID'; return @($global:S.AppAssignments | Where-Object { $ids -contains $_.AssignmentUniqueID -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_UpdateGroupAssignment WHERE AssignmentUniqueID = '[^']+' OR " { $ids = Ids $Query 'AssignmentUniqueID'; return @($global:S.UgAssignments | Where-Object { $ids -contains $_.AssignmentUniqueID -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_Advertisement WHERE AdvertisementID = '[^']+' OR " { $ids = Ids $Query 'AdvertisementID'; return @($global:S.Adverts | Where-Object { $ids -contains $_.AdvertisementID -and -not (Hidden $_ 'AdvertisementID') } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_DeploymentSummary WHERE (.+)$' { $w = $Matches[1]; $ids = Ids $w 'DeploymentID'; $nums = @([regex]::Matches($w, 'AssignmentID = (\d+)') | ForEach-Object { $_.Groups[1].Value }); return @($global:S.Summaries | Where-Object { $ids -contains [string]$_.DeploymentID -or $nums -contains [string]$_.AssignmentID } | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE IsLatest = 1$' { return @($global:S.Applications | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE CI_ID = (\d+)$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.CI_ID -eq $id } | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE ModelID = (\d+) AND IsLatest = 1$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.ModelID -eq $id } | ForEach-Object { Copy-Row $_ }) }

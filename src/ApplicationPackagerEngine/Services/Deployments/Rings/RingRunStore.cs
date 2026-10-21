@@ -225,7 +225,8 @@ public sealed class RingRunStore
             (RingPlanStore.Text(r, "DPGroup") ?? "").Trim(), threshold)
         {
             Definition = definition,
-            CreatingAtUtc = Utc(RingPlanStore.Text(r, "CreatingAtUtc"))
+            CreatingAtUtc = Utc(RingPlanStore.Text(r, "CreatingAtUtc")),
+            CreatingBy = Empty(RingPlanStore.Text(r, "CreatingBy"))
         };
     }
 
@@ -518,6 +519,7 @@ public sealed class RingRunStore
             if (old is null) Set(r, "AssignmentID", (JsonNode?)null);
             Set(r, "CreatingAt", ring.CreatingAt?.ToString(DateFormat, CultureInfo.InvariantCulture));
             Set(r, "CreatingAtUtc", ring.CreatingAtUtc is { } cu ? cu.ToString(DateFormat, CultureInfo.InvariantCulture) + "Z" : null);
+            Set(r, "CreatingBy", ring.CreatingBy);
             if (old is null) { Set(r, "CreatedAt", (JsonNode?)null); Set(r, "RemovedAt", (JsonNode?)null); }
             if (previous != ring.Status)
             {

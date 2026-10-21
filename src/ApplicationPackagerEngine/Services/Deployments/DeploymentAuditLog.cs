@@ -294,7 +294,10 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             ["UnclearDeploymentIds"] = string.IsNullOrEmpty(r.UnclearDeploymentIds) ? null : r.UnclearDeploymentIds
         };
         foreach (var (name, value) in r.Extra)
-            if (!o.ContainsKey(name) && !string.Equals(name, ChainName, StringComparison.OrdinalIgnoreCase)) o[name] = value;
+            if (!o.ContainsKey(name) && !string.Equals(name, ChainName, StringComparison.OrdinalIgnoreCase))
+                o[name] = string.Equals(name, "RingIndex", StringComparison.Ordinal) && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ring)
+                    ? JsonValue.Create(ring)
+                    : value;
         return o.ToJsonString(WriteOptions);
     }
 
@@ -329,7 +332,7 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             ModelId = S("ModelId"),
             CreatedUtc = DeploymentService.ParseUtc(S("CreatedUtc")),
             UnclearDeploymentIds = S("UnclearDeploymentIds"),
-            Extra =o.Where(p => !Named.Contains(p.Key)).Select(p => new KeyValuePair<string, string>(p.Key, p.Value is null ? "" : NodeText(p.Value))).ToList()
+            Extra = o.Where(p => !Named.Contains(p.Key)).Select(p => new KeyValuePair<string, string>(p.Key, p.Value is null ? "" : NodeText(p.Value))).ToList()
         };
     }
 

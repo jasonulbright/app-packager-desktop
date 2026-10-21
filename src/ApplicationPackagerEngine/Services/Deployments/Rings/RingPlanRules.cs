@@ -20,7 +20,7 @@ public sealed record RingThreshold(bool Met, double? Percent, string Reason);
 /// </summary>
 public static class RingPlanRules
 {
-    public const int MaxRings = 50;
+    public const int MaxRings = RingPlanLimits.MaxRings;
     public const int MaxOffsetDays = 3650;
     public const int MaxNameLength = 64;
     public const string LocalTime = "LocalTime";

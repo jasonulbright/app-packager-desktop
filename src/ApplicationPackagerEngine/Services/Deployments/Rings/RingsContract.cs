@@ -70,6 +70,9 @@ public sealed record RingRunRing(int Index, string Name, string CollectionId, st
     /// <summary>The UTC time the create started, when the run file holds it; null otherwise.</summary>
     public DateTime? CreatingAtUtc { get; init; }
 
+    /// <summary>The account that started the create, when the run file holds it; null otherwise.</summary>
+    public string? CreatingBy { get; init; }
+
     /// <summary>A plain note of the last Reconcile about this ring (an unresolved create, a read error); empty otherwise. Not stored in the file.</summary>
     public string Note { get; init; } = "";
 }
@@ -213,6 +216,13 @@ public interface IRingService
 
     /// <summary>A plain note about run files that could not be read by the last list, or null.</summary>
     string? RunMessage => null;
+}
+
+/// <summary>The limits of ring plans and runs.</summary>
+public static class RingPlanLimits
+{
+    /// <summary>The most rings a plan or a run holds: a safety cap; a plan with more rings is refused with a message that names it.</summary>
+    public const int MaxRings = 100;
 }
 
 public static class RingStatuses

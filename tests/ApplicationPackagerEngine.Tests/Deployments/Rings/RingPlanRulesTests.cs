@@ -50,8 +50,11 @@ public sealed class RingPlanRulesTests
         { "bad rerun", Plan(Ring("QA", rerun: "Sometimes")), "rerun behavior 'Sometimes' is not valid" },
         { "bad task sequence availability", Plan(Ring("QA", availability: "Everywhere")), "task sequence availability 'Everywhere' is not valid" },
         { "wildcard dp group", Plan(Ring("QA", dpGroup: "All [DPs]")), "has a wildcard or control character" },
-        { "too many rings", Plan(Enumerable.Range(1, 500).Select(i => Ring("R" + i, purpose: "Available", available: i % 3000)).ToArray()), "at most 50 rings" },
-        { "fifty rings load", Plan(Enumerable.Range(1, 50).Select(i => Ring("R" + i, purpose: "Available", available: i)).ToArray()), null },
+        { "too many rings", Plan(Enumerable.Range(1, 500).Select(i => Ring("R" + i, purpose: "Available", available: i % 3000)).ToArray()), "at most 100 rings" },
+        { "101 rings name the cap", Plan(Enumerable.Range(1, 101).Select(i => Ring("R" + i, purpose: "Available", available: i)).ToArray()), "The plan has 101 rings. A plan can have at most 100 rings." },
+        { "one ring loads", Plan(Ring("Only", "MCM00098")), null },
+        { "thirteen required rings in order load", Plan(Enumerable.Range(1, 13).Select(i => Ring("R" + i, "MCM0" + (1000 + i).ToString(System.Globalization.CultureInfo.InvariantCulture), available: i * 2, deadline: i * 2 + 1)).ToArray()), null },
+        { "a hundred rings load", Plan(Enumerable.Range(1, 100).Select(i => Ring("R" + i, purpose: "Available", available: i)).ToArray()), null },
         { "long ring name", Plan(Ring(new string('x', 65))), "needs a name of at most 64 characters" }
     };
 

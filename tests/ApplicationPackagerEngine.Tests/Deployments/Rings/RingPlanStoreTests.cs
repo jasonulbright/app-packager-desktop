@@ -114,11 +114,11 @@ public sealed class RingPlanStoreTests : IDisposable
         var store = Store();
         store.List();
         var big = UserPlan() with { Rings = Enumerable.Range(1, 500).Select(i => RingPlanRulesTests.Ring("R" + i, purpose: "Available", available: i)).ToList() };
-        Assert.Contains("at most 50 rings", Assert.Throws<DeploymentServiceException>(() => store.Save(big, false)).Message);
+        Assert.Contains("at most 100 rings", Assert.Throws<DeploymentServiceException>(() => store.Save(big, false)).Message);
         File.WriteAllText(Path.Combine(Folder, "Big.json"), new JsonObject { ["Name"] = "Big", ["Rings"] = new JsonArray(Enumerable.Range(1, 500).Select(i => (JsonNode)new JsonObject { ["Name"] = "R" + i, ["Purpose"] = "Available" }).ToArray()) }.ToJsonString());
         Assert.DoesNotContain(store.List(), p => p.Name == "Big");
         Assert.Contains("Big.json", store.Message);
-        Assert.Contains("at most 50 rings", store.Message);
+        Assert.Contains("at most 100 rings", store.Message);
     }
 
     [Fact]
