@@ -58,7 +58,7 @@ public sealed record RingExpansionRow(int Index, string Name, string CollectionI
 
 /// <summary>One ring of a run file.</summary>
 /// <param name="Status">Held, Creating, Created, Removed or Cancelled.</param>
-/// <param name="CreatingAt">The wall-clock time in the run's time basis at which the create started; null unless Creating.</param>
+/// <param name="CreatingAt">The local time of the computer that started the create, as the run file holds it; null unless Creating.</param>
 /// <param name="DeploymentId">The AssignmentUniqueID of an application or update group deployment, the AdvertisementID otherwise.</param>
 /// <param name="ShiftedMinutes">The minutes Promote moved the ring's times later.</param>
 public sealed record RingRunRing(int Index, string Name, string CollectionId, string CollectionName, string Purpose, DateTime AvailableTime, DateTime? Deadline,
@@ -66,6 +66,12 @@ public sealed record RingRunRing(int Index, string Name, string CollectionId, st
 {
     /// <summary>The ring's options as the run file holds them; null for a ring whose fields cannot be read.</summary>
     public RingDefinition? Definition { get; init; }
+
+    /// <summary>The UTC time the create started, when the run file holds it; null otherwise.</summary>
+    public DateTime? CreatingAtUtc { get; init; }
+
+    /// <summary>A plain note of the last Reconcile about this ring (an unresolved create, a read error); empty otherwise. Not stored in the file.</summary>
+    public string Note { get; init; } = "";
 }
 
 /// <summary>A run file. ObjectId is the CI_ID of an application or update group and the PackageID of a package or task sequence.</summary>
