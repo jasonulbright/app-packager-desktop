@@ -154,7 +154,7 @@ public sealed class RingPlanRulesTests
         else Assert.True(result.Errors.Any(e => e.Message.Contains(expected, StringComparison.Ordinal)), $"{name}: got {string.Join(" | ", result.Errors.Select(e => e.Message))}");
     }
 
-    public static TheoryData<string, string, string?, string, int> ShiftCases() => new()
+    public static TheoryData<string, string?, string, string, int> ShiftCases() => new()
     {
         // available, deadline, now, expected minutes
         { "2026-10-20T08:00:00", "2026-10-22T08:00:00", "2026-10-20T12:00:00", "deadline ahead", 0 },

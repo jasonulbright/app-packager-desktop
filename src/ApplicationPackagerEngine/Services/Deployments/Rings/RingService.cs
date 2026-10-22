@@ -410,9 +410,9 @@ public sealed class RingService : IRingService
         };
         foreach (var row in rows.OrderBy(r => r.Index))
         {
-            var ring = row.Definition ?? (row.Index >= 1 && row.Index <= plan.Rings.Count ? plan.Rings[row.Index - 1] : Plain(new RingRunRing(row.Index, row.Name, row.CollectionId, row.CollectionName,
+            var ring = row.Definition ?? (row.Index >= 1 && row.Index <= plan.Rings.Count ? plan.Rings[row.Index - 1] : Plain(new RingRunRing(row.Index, row.Name, row.CollectionId ?? "", row.CollectionName ?? "",
                 row.Purpose, row.AvailableTime, row.Deadline, RingStatuses.Held, null, null, 0, row.DpGroup, row.SuccessThresholdPercent)));
-            ring = ring with { CollectionId = row.CollectionId, CollectionName = row.CollectionName, Purpose = row.Purpose, DpGroup = row.DpGroup, SuccessThresholdPercent = row.SuccessThresholdPercent };
+            ring = ring with { CollectionId = row.CollectionId ?? "", CollectionName = row.CollectionName ?? "", Purpose = row.Purpose, DpGroup = row.DpGroup, SuccessThresholdPercent = row.SuccessThresholdPercent };
             var rowChecks = rules.Errors.Where(e => e.Index == row.Index).Select(e => Fail(e.Message))
                 .Concat(rules.Warnings.Where(w => w.Index == row.Index).Select(w => Check(DeploymentCheckResults.Warn, w.Message))).ToList();
             var id = (row.CollectionId ?? "").Trim().ToUpperInvariant();
@@ -520,10 +520,12 @@ public sealed class RingService : IRingService
 
     private async Task<RingChange> PrepareUndoRunAsync(RingChange request, CancellationToken ct)
     {
-        var run = FindOpen(request.RunId);
+        var (run, closed) = Locate(request.RunId);
         var checks = new List<PreflightCheck>();
         if (run.Rings.Any(r => r.Status == RingStatuses.Creating))
             checks.Add(Fail("A ring of the run has a create whose result is not known. Reconcile the run first."));
+        if (closed && run.Rings.All(r => r.Status != RingStatuses.Created))
+            checks.Add(Fail("The run is closed and holds no created deployment, so there is nothing to undo."));
         IReadOnlyList<DeploymentAuditRecord> records = [];
         try
         {
@@ -570,9 +572,11 @@ public sealed class RingService : IRingService
         }
         var cancelled = run.Rings.Where(r => r.Status == RingStatuses.Held).Select(r => r.Index).Order().ToList();
         if (cancelled.Count > 0) impact.Add($"Cancels {Count(cancelled.Count, "held ring")} ({string.Join(", ", cancelled)}). Held rings were never created, so nothing changes in ConfigMgr for them.");
-        impact.Add(kept.Count == 0
-            ? "Then closes the run."
-            : $"The run stays open because {Count(kept.Count, "deployment")} is kept.");
+        impact.Add(closed
+            ? "The run is closed and stays closed; its rings are marked Removed or Cancelled."
+            : kept.Count == 0
+                ? "Then closes the run."
+                : $"The run stays open because {Count(kept.Count, "deployment")} is kept.");
         impact.Add("Software that clients already installed stays installed.");
         return request with { Rows = [.. rows.OrderBy(r => r.Index)], RingChanges = removes, Checks = checks, Impact = impact, Fingerprint = run.Fingerprint, KeptRings = [.. kept.Order()], CancelledRings = cancelled };
     }
@@ -770,14 +774,16 @@ public sealed class RingService : IRingService
         }
     }
 
-    /// <summary>The open run under its lock, read again; a refusal when the file changed since Prepare.</summary>
-    private (RingRun Run, IDisposable Lock)? Locked(RingChange change, out string? problem)
+    /// <summary>The run under its lock, read again; a refusal when the file changed since Prepare. A closed run is found only with <paramref name="allowClosed"/>.</summary>
+    private (RingRun Run, IDisposable Lock, bool Closed)? Locked(RingChange change, out string? problem, bool allowClosed = false)
     {
         problem = null;
         RingRun found;
+        var closed = false;
         try
         {
-            found = FindOpen(change.RunId);
+            if (allowClosed) (found, closed) = Locate(change.RunId);
+            else found = FindOpen(change.RunId);
         }
         catch (DeploymentServiceException ex)
         {
@@ -787,7 +793,7 @@ public sealed class RingService : IRingService
         IDisposable held;
         try
         {
-            held = _runs.Lock(found.FileName);
+            held = _runs.Lock(found.FileName, closed);
         }
         catch (DeploymentServiceException ex)
         {
@@ -796,20 +802,27 @@ public sealed class RingService : IRingService
         }
         try
         {
-            var run = _runs.Read(found.FileName);
+            var run = _runs.Read(found.FileName, closed);
             if (!string.Equals(run.Fingerprint, change.Fingerprint, StringComparison.Ordinal))
             {
                 held.Dispose();
                 problem = "the run file changed since the plan was shown, so nothing was changed. Prepare the action again.";
                 return null;
             }
-            return (run, held);
+            return (run, held, closed);
         }
         catch
         {
             held.Dispose();
             throw;
         }
+    }
+
+    /// <summary>The open or closed run with the RunId and whether it is in the closed folder.</summary>
+    private (RingRun Run, bool Closed) Locate(string? runId)
+    {
+        if (string.IsNullOrWhiteSpace(runId)) throw new DeploymentServiceException("Select a run.");
+        return _runs.Locate(runId) ?? throw new DeploymentServiceException("The run file is not in the runs folder or its closed folder any more. Refresh the runs.", DeploymentFailureKind.Stale);
     }
 
     private async Task<RingOutcome> ApplyPromoteAsync(RingChange change, IProgress<RingOutcome> progress)
@@ -845,7 +858,7 @@ public sealed class RingService : IRingService
     private async Task<RingOutcome> ApplyUndoRunAsync(RingChange change, IProgress<RingOutcome> progress)
     {
         if (Unprepared(change) is { } unprepared) return Refused(change, unprepared);
-        if (Locked(change, out var problem) is not { } locked) return Refused(change, problem!);
+        if (Locked(change, out var problem, allowClosed: true) is not { } locked) return Refused(change, problem!);
         using var held = locked.Lock;
         var run = locked.Run;
         if (run.Rings.Any(r => r.Status == RingStatuses.Creating)) return Refused(change, "a ring of the run has a create whose result is not known. Reconcile the run first.", run);
@@ -872,12 +885,12 @@ public sealed class RingService : IRingService
             Rings = [.. run.Rings.Select(r => removed.Contains(r.Index) ? r with { Status = RingStatuses.Removed }
                 : r.Status == RingStatuses.Held ? r with { Status = RingStatuses.Cancelled } : r)]
         };
-        updated = _runs.Save(updated);
+        updated = _runs.Save(updated, locked.Closed);
         var kept = updated.Rings.Where(r => r.Status == RingStatuses.Created).ToList();
-        if (kept.Count == 0) updated = _runs.Close(updated);
+        if (kept.Count == 0 && !locked.Closed) updated = _runs.Close(updated);
         var message = kept.Count == 0
-            ? $"Undid the run: removed {Count(removed.Count, "deployment")}, cancelled {Count(change.CancelledRings.Count, "held ring")} and closed the run. Software that clients already installed stays installed."
-            : $"Removed {Count(removed.Count, "deployment")} of the run. {Count(kept.Count, "deployment")} {(kept.Count == 1 ? "was" : "were")} kept: {string.Join(" ", kept.Select(r => failed.FirstOrDefault(f => f.StartsWith(Label(r.Index, r.Name), StringComparison.Ordinal)) ?? $"{Label(r.Index, r.Name)}: deployment {r.DeploymentId} was kept because it failed a check of the plan."))} The run stays open.";
+            ? $"Undid the run: removed {Count(removed.Count, "deployment")}, cancelled {Count(change.CancelledRings.Count, "held ring")}; {(locked.Closed ? "the run stays closed" : "the run is closed")}. Software that clients already installed stays installed."
+            : $"Removed {Count(removed.Count, "deployment")} of the run. {Count(kept.Count, "deployment")} {(kept.Count == 1 ? "was" : "were")} kept: {string.Join(" ", kept.Select(r => failed.FirstOrDefault(f => f.StartsWith(Label(r.Index, r.Name), StringComparison.Ordinal)) ?? $"{Label(r.Index, r.Name)}: deployment {r.DeploymentId} was kept because it failed a check of the plan."))} The run stays {(locked.Closed ? "closed" : "open")}.";
         return new RingOutcome(change, kept.Count == 0, message, outcomes, null, []) { Run = updated };
     }
 

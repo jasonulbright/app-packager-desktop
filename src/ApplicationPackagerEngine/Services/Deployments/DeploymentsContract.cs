@@ -314,10 +314,12 @@ public sealed record DeploymentAuditRecord(
 
     private string ExtraText(string name) => Extra.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value ?? "";
 
+    private static readonly HashSet<string> RingKeys = new(StringComparer.OrdinalIgnoreCase) { "PlanName", "RingIndex", "RingName", "RunId" };
+
     /// <summary>The record with the ring fields of <paramref name="ring"/> in <see cref="Extra"/>; unchanged for null.</summary>
     public DeploymentAuditRecord WithRing(DeploymentRingContext? ring) => ring is null ? this : this with
     {
-        Extra = Extra.Where(p => p.Key is not ("PlanName" or "RingIndex" or "RingName" or "RunId"))
+        Extra = Extra.Where(p => !RingKeys.Contains(p.Key))
             .Concat([new("PlanName", ring.PlanName), new("RingIndex", ring.RingIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)), new("RingName", ring.RingName), new("RunId", ring.RunId)])
             .ToList()
     };

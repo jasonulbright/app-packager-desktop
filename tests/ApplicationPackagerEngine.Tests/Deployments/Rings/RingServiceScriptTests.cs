@@ -440,6 +440,29 @@ public sealed class RingServiceScriptTests
     }
 
     [Fact]
+    public async Task UndoRunWorksOnARunThatReconcileClosedAndTheRunStaysClosed()
+    {
+        using var h = new RingHarness();
+        var run = h.Run((await h.CreateRunAsync(RingHarness.ThreeRings(), App)).Run!.RunId);
+        Assert.True((await h.Service.ReconcileAsync(run.RunId, CancellationToken.None)).IsClosed);
+        Assert.Empty(h.Runs.List(false, out _));
+        await Assert.ThrowsAsync<DeploymentServiceException>(() => h.PrepareAsync(RingHarness.Request(RingChangeKind.CloseRun, run.RunId)));
+        await Assert.ThrowsAsync<DeploymentServiceException>(() => h.PrepareAsync(RingHarness.Request(RingChangeKind.Promote, run.RunId, 2)));
+        var undo = await h.PrepareAsync(RingHarness.Request(RingChangeKind.UndoRun, run.RunId));
+        Assert.False(undo.Blocked, string.Join(" | ", undo.Checks.Select(c => c.Message)));
+        Assert.Equal(3, undo.RingChanges.Count);
+        Assert.Contains(undo.Impact, l => l.Contains("stays closed", StringComparison.Ordinal));
+        var outcome = await h.ApplyAsync(undo);
+        Assert.True(outcome.Succeeded, outcome.Message);
+        Assert.Empty(h.Site.List("AppAssignments"));
+        var closed = Assert.Single(h.Runs.List(true, out _));
+        Assert.True(closed.IsClosed);
+        Assert.All(closed.Rings, r => Assert.Equal(RingStatuses.Removed, r.Status));
+        Assert.Empty(h.Runs.List(false, out _));
+        Assert.True((await h.PrepareAsync(RingHarness.Request(RingChangeKind.UndoRun, run.RunId))).Blocked);
+    }
+
+    [Fact]
     public async Task CloseRunCancelsHeldRingsAndMovesTheFile()
     {
         using var h = new RingHarness();

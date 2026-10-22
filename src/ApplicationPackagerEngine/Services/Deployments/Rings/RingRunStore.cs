@@ -123,15 +123,32 @@ public sealed class RingRunStore
         return List(true, out _).FirstOrDefault(r => string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>An open run file read now, with its fingerprint.</summary>
-    public RingRun Read(string fileName) => ReadFile(OpenPath(fileName), false).Run;
+    /// <summary>The run with the RunId and whether its file is in the closed folder; null when neither folder holds it.</summary>
+    public (RingRun Run, bool InClosedFolder)? Locate(string runId)
+    {
+        var open = List(false, out _).FirstOrDefault(r => string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+        if (open is not null) return (open, false);
+        var closed = List(true, out _).FirstOrDefault(r => string.Equals(r.RunId, runId, StringComparison.OrdinalIgnoreCase));
+        return closed is null ? null : (closed, true);
+    }
 
-    internal string OpenPath(string fileName)
+    /// <summary>A run file of the open folder, or of the closed folder, read now with its fingerprint.</summary>
+    public RingRun Read(string fileName, bool closedFolder = false) => ReadFile(PathOf(fileName, closedFolder), closedFolder).Run;
+
+    internal string OpenPath(string fileName) => PathOf(fileName, false);
+
+    internal string PathOf(string fileName, bool closedFolder)
     {
         var name = Path.GetFileName(fileName ?? "");
         if (name.Length == 0 || !string.Equals(name, fileName, StringComparison.Ordinal) || !name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
             throw new DeploymentServiceException("The run file name is not valid.");
-        return Path.Combine(CheckedFolder(), name);
+        var folder = CheckedFolder();
+        if (closedFolder)
+        {
+            folder = Path.Combine(folder, ClosedFolderName);
+            if (Directory.Exists(folder) && new DirectoryInfo(folder).Attributes.HasFlag(FileAttributes.ReparsePoint)) throw new DeploymentServiceException(LinkMessage, DeploymentFailureKind.Storage);
+        }
+        return Path.Combine(folder, name);
     }
 
     internal sealed record RunFile(RingRun Run, JsonObject Json, string Path);
@@ -301,9 +318,9 @@ public sealed class RingRunStore
     }
 
     /// <summary>Takes the lock of an open run; throws a plain refusal that names the lock file and its owner when another session holds it.</summary>
-    public IDisposable Lock(string fileName)
+    public IDisposable Lock(string fileName, bool closedFolder = false)
     {
-        var runPath = OpenPath(fileName);
+        var runPath = PathOf(fileName, closedFolder);
         var path = runPath + ".lock";
         var token = Guid.NewGuid().ToString("N");
         FileStream stream;
@@ -401,11 +418,11 @@ public sealed class RingRunStore
     /// Saves the run over the file it was read from (the caller holds the lock and read the file
     /// under it) and returns it as read back. Properties the run does not model stay as the file held them.
     /// </summary>
-    public RingRun Save(RingRun run)
+    public RingRun Save(RingRun run, bool closedFolder = false)
     {
         ArgumentNullException.ThrowIfNull(run);
-        var path = OpenPath(run.FileName);
-        var current = ReadFile(path, false);
+        var path = PathOf(run.FileName, closedFolder);
+        var current = ReadFile(path, closedFolder);
         var json = ToJson(run, current.Json, null);
         try
         {
@@ -427,7 +444,7 @@ public sealed class RingRunStore
             _log?.Warning(LogArea, $"A ring run file could not be saved ({ex.GetType().Name}).");
             throw new DeploymentServiceException("The run file could not be saved. Check that the ring runs folder can be written.", DeploymentFailureKind.Storage);
         }
-        return ReadFile(path, false).Run;
+        return ReadFile(path, closedFolder).Run;
     }
 
     /// <summary>Stamps ClosedAt, saves and moves the run to the closed folder under a free name; returns the closed run.</summary>
