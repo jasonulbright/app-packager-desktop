@@ -29,6 +29,6 @@ public sealed class UnavailableRingService : IRingService
     public Task<RingRun> ReconcileAsync(string runId, CancellationToken ct) => throw new DeploymentServiceException(Text);
     public Task<RingChange> PrepareAsync(RingChange request, CancellationToken ct) => throw new DeploymentServiceException(Text);
     public Task<IReadOnlyList<RingOutcome>> ApplyAsync(IReadOnlyList<RingChange> changes, IProgress<RingOutcome> progress, CancellationToken ct) => throw new DeploymentServiceException(Text);
-    public RingFolderProbe ProbeFolders() => new(PlanFolder: "", RunFolder: "", PlanFolderWritable: false, RunFolderWritable: false, LockCreatable: false, IsUnc: false,
-        StaleLockAge: TimeSpan.FromHours(1), Message: Text);
+    public RingFolderProbe ProbeFolders() => new(PlansFolder: "", PlansWritable: false, RunsFolder: "", RunsWritable: false, LockCreated: false, IsUnc: false,
+        Message: Text, StaleLockAge: TimeSpan.FromHours(1));
 }

@@ -47,8 +47,8 @@ internal sealed class FakeRingService : IRingService
     public List<(RingPlan Plan, bool Replace)> Saved { get; } = [];
     public List<string> Deleted { get; } = [];
     public List<CancellationToken> Tokens { get; } = [];
-    public RingFolderProbe NextProbe { get; set; } = new(PlanFolder: @"C:\Data\Deployments\Rings", RunFolder: @"C:\Data\Deployments\Rings\runs",
-        PlanFolderWritable: true, RunFolderWritable: true, LockCreatable: true, IsUnc: false, StaleLockAge: TimeSpan.FromHours(2), Message: "");
+    public RingFolderProbe NextProbe { get; set; } = new(PlansFolder: @"C:\Data\Deployments\Rings", PlansWritable: true, RunsFolder: @"C:\Data\Deployments\Rings\runs",
+        RunsWritable: true, LockCreated: true, IsUnc: false, Message: "", StaleLockAge: TimeSpan.FromHours(2));
 
     private void Token(CancellationToken ct)
     {

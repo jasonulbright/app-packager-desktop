@@ -268,6 +268,9 @@
                                AutomationProperties.LiveSetting="Polite" />
                     <TextBlock Text="{Binding RunsMessage}" Style="{StaticResource Warning}" Margin="0,0,0,8" Visibility="{Binding HasRunsMessage, Converter={StaticResource BoolToVisibility}}"
                                AutomationProperties.AutomationId="txtRingRunsMessage" AutomationProperties.LiveSetting="Assertive" />
+                    <TextBlock Text="{Binding LockMessage}" Style="{StaticResource Warning}" Margin="0,0,0,8" Visibility="{Binding HasLockMessage, Converter={StaticResource BoolToVisibility}}"
+                               AutomationProperties.AutomationId="txtRingLockMessage" AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock Text="{Binding RunListNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRingRunListNote" />
                     <DataGrid x:Name="dgRingRuns" Style="{StaticResource GridBase}" ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" MinHeight="96" MaxHeight="220"
                               AutomationProperties.AutomationId="dgRingRuns" AutomationProperties.Name="Ring runs">
                         <DataGrid.Columns>

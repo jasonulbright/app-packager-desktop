@@ -16,6 +16,8 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="PickerVisibility" />
+            <helpers:BindingProxy x:Key="PickerProxy" Data="{Binding}" />
             <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
@@ -51,7 +53,14 @@
                   helpers:DataGridKeyboard.SelectsFocusedRow="True" helpers:DataGridRightClick.SelectsRow="True" helpers:DataGridColumnSizing.FixStarWidthsOnResize="True"
                   MouseDoubleClick="OnGridDoubleClick" AutomationProperties.Name="Device collections" AutomationProperties.AutomationId="dgPickerCollections">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                <DataGridTemplateColumn Header="" Width="48" MinWidth="48" Visibility="{Binding Data.MultiSelect, Source={StaticResource PickerProxy}, Converter={StaticResource PickerVisibility}}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanCheck}" HorizontalAlignment="Center" MinWidth="0" Padding="0"
+                                      AutomationProperties.Name="{Binding Name}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="ID" Binding="{Binding CollectionId}" Width="96" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                 <DataGridTextColumn Header="Folder" Binding="{Binding FolderPath}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
@@ -62,7 +71,11 @@
         <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
             <DockPanel>
                 <WrapPanel DockPanel.Dock="Right">
-                    <ui:Button Content="Pick" Appearance="Primary" MinWidth="100" Margin="0,0,8,0" Command="{Binding PickCommand}" IsDefault="True"
+                    <ui:Button Content="Check shown" MinWidth="100" Margin="0,0,8,0" Command="{Binding CheckShownCommand}" Visibility="{Binding MultiSelect, Converter={StaticResource PickerVisibility}}"
+                               AutomationProperties.Name="Check every collection the filter shows" AutomationProperties.AutomationId="btnPickerCheckShown" />
+                    <ui:Button Content="Clear" MinWidth="80" Margin="0,0,8,0" Command="{Binding ClearChecksCommand}" Visibility="{Binding MultiSelect, Converter={StaticResource PickerVisibility}}"
+                               AutomationProperties.Name="Clear every check" AutomationProperties.AutomationId="btnPickerClear" />
+                    <ui:Button Content="{Binding PickText}" Appearance="Primary" MinWidth="100" Margin="0,0,8,0" Command="{Binding PickCommand}" IsDefault="True"
                                AutomationProperties.Name="Pick the selected collection" AutomationProperties.AutomationId="btnPickerPick" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnPickerCancel" />
                 </WrapPanel>

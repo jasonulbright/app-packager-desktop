@@ -39,6 +39,9 @@ public interface IDeploymentHelperDialogs
     CollectionRow? PickCollection(string title, IReadOnlyList<CollectionRow> collections, string? currentId);
 
     Task<bool> ConfirmDeleteRingPlanAsync(string name);
+
+    /// <summary>Asks the operator to check device collections; the checked ones in the order shown, empty when the dialog was closed.</summary>
+    IReadOnlyList<CollectionRow> PickCollections(string title, IReadOnlyList<CollectionRow> collections);
 }
 
 public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDeploymentHelperDialogs
@@ -93,6 +96,13 @@ public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDe
         return picker.Result;
     }
 
+    public IReadOnlyList<CollectionRow> PickCollections(string title, IReadOnlyList<CollectionRow> collections)
+    {
+        var picker = new RingCollectionPickerViewModel(title, collections, null, multiSelect: true);
+        ShowModal(new RingCollectionPickerWindow(picker));
+        return picker.Results;
+    }
+
     public async Task<bool> ConfirmDeleteRingPlanAsync(string name)
     {
         var dialog = new ContentDialog
@@ -108,9 +118,9 @@ public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDe
 }
 
 /// <summary>The ring folders of the page settings, read at every call; an empty setting selects the default under the data root.</summary>
-public sealed class SettingsRingFolders(Func<AppSettings> load)
+public sealed class SettingsRingFolders(Func<AppSettings> load) : IRingFolderPathProvider
 {
-    public string? RingsFolder => load().DeploymentHelper?.RingsFolder?.Trim() is { Length: > 0 } path ? path : null;
+    public string? PlansFolder => load().DeploymentHelper?.RingsFolder?.Trim() is { Length: > 0 } path ? path : null;
     public string? RunsFolder => load().DeploymentHelper?.RunsFolder?.Trim() is { Length: > 0 } path ? path : null;
 }
 
@@ -169,7 +179,7 @@ public static partial class DeploymentHelperRegistration
                 sp.GetRequiredService<IDeploymentHelperDialogs>().ConfirmRemoveDeploymentAsync);
         });
         services.AddRingServiceFallback();
-        services.AddSingleton(sp => new SettingsRingFolders(sp.GetRequiredService<SettingsService>().Load));
+        services.Replace(ServiceDescriptor.Singleton<IRingFolderPathProvider>(sp => new SettingsRingFolders(sp.GetRequiredService<SettingsService>().Load)));
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();

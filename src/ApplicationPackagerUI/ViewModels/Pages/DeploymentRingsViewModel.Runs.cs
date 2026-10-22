@@ -59,9 +59,30 @@ public sealed partial class DeploymentRingsViewModel
             foreach (var ring in value.Run.Rings.OrderBy(r => r.Index)) RunRings.Add(new RingRunRingRow(ring, value.Run.TimeBasedOn));
         IsLoadingCounts = false;
         UpdatePromote();
+        LockMessage = value?.Run.Lock is { } held ? LockText(held) : "";
         if (value is { Run.IsClosed: false } && Shared.IsActive && CollectionComplianceViewModel.ConnectionProblem(Services.LoadSettings()) is null)
             CountsTask = LoadCountsAsync(value.Run);
     }
+
+    /// <summary>The lock file of the selected run with its owner and age; empty when the run has no lock file.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLockMessage))]
+    private string _lockMessage = "";
+
+    public bool HasLockMessage => LockMessage.Length > 0;
+
+    /// <summary>A note about run files the last list could not read; empty when every file was read.</summary>
+    [ObservableProperty] private string _runListNote = "";
+
+    public static string LockText(RingLockInfo held) =>
+        $"Another session holds the lock of this run: {SecretMask.Apply(held.Owner)}, {RingFolderOptionsViewModel.AgeText(held.Age)} ago. Lock file: {held.Path}. "
+        + (held.Stale
+            ? "The lock is older than the stale lock age. When that session ended, remove the lock file by hand; it is never removed automatically."
+            : "Promote, Reconcile, Close and Undo run wait until that session releases it.");
+
+    /// <summary>True when Undo run can be offered: an open run, or a closed run that still has a created deployment.</summary>
+    public static bool CanUndo(RingRun? run) =>
+        run is not null && (!run.IsClosed || run.Rings.Any(r => string.Equals(r.Status, RingStatuses.Created, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>The read of the live counts started last, or a completed task.</summary>
     public Task CountsTask { get; private set; } = Task.CompletedTask;
@@ -101,6 +122,7 @@ public sealed partial class DeploymentRingsViewModel
         foreach (var run in wanted) Runs.Add(new RingRunRow(run));
         // New rows replace the old ones, so the selection moves to the new row of the same run and its live counts are read again.
         SelectedRun = Runs.FirstOrDefault(r => string.Equals(r.RunId, selected, StringComparison.OrdinalIgnoreCase));
+        RunListNote = Services.Rings.RunMessage is { Length: > 0 } note ? SecretMask.Apply(note) : "";
         var open = wanted.Count(r => !r.IsClosed);
         RunCount = wanted.Count == open ? DeploymentText.Count(open, "open run") : $"{DeploymentText.Count(open, "open run")}, {DeploymentText.Count(wanted.Count - open, "closed run")}";
     }
@@ -268,8 +290,13 @@ public sealed partial class DeploymentRingsViewModel
 
     private bool CanChangeRun() => !Shared.IsWriting && SelectedRun is { Run.IsClosed: false };
 
-    /// <summary>Shows the destructive plan that removes the deployments this run created, cancels its held rings and closes it.</summary>
-    [RelayCommand(CanExecute = nameof(CanChangeRun))]
+    private bool CanUndoRun() => !Shared.IsWriting && CanUndo(SelectedRun?.Run);
+
+    /// <summary>
+    /// Shows the destructive plan that removes the deployments this run created, cancels its held
+    /// rings and closes it; a closed run that still has a created deployment can be undone too.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanUndoRun))]
     private async Task UndoRun()
     {
         if (SelectedRun?.Run is not { } run)
@@ -277,9 +304,9 @@ public sealed partial class DeploymentRingsViewModel
             RunsMessage = PickRun;
             return;
         }
-        if (run.IsClosed)
+        if (!CanUndo(run))
         {
-            RunsMessage = RunClosed;
+            RunsMessage = "The run is closed and has no created deployment. There is nothing to undo.";
             return;
         }
         var request = new RingChange(Kind: RingChangeKind.UndoRun, Plan: null, Object: null, Rows: [], PlanStart: null, RunId: run.RunId, RingIndex: null,

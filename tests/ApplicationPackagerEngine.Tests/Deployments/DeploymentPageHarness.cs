@@ -345,6 +345,15 @@ internal sealed class FakeDeploymentDialogs : IDeploymentHelperDialogs
         return PickedCollection is null ? null : collections.SingleOrDefault(c => c.CollectionId == PickedCollection);
     }
 
+    /// <summary>The collection IDs the multi-select picker returns, in this order.</summary>
+    public List<string> PickedCollections { get; } = [];
+
+    public IReadOnlyList<CollectionRow> PickCollections(string title, IReadOnlyList<CollectionRow> collections)
+    {
+        PickerTitles.Add(title);
+        return PickedCollections.Select(id => collections.Single(c => c.CollectionId == id)).ToList();
+    }
+
     public Task<bool> ConfirmDeleteRingPlanAsync(string name)
     {
         PlanDeletePrompts++;

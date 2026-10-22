@@ -76,14 +76,14 @@ public sealed partial class RingFolderOptionsViewModel(DeploymentShared shared) 
             ProbeWritable = false;
             return;
         }
-        PlanFolderInUse = probe.PlanFolder;
-        RunFolderInUse = probe.RunFolder;
-        ProbeWritable = probe.PlanFolderWritable && probe.RunFolderWritable && probe.LockCreatable;
+        PlanFolderInUse = probe.PlansFolder;
+        RunFolderInUse = probe.RunsFolder;
+        ProbeWritable = probe.PlansWritable && probe.RunsWritable && probe.LockCreated;
         var parts = new List<string>
         {
-            probe.PlanFolderWritable ? "The plan folder can be written." : "The plan folder cannot be written: plans cannot be saved.",
-            probe.RunFolderWritable ? "The run folder can be written." : "The run folder cannot be written: no run can start.",
-            probe.LockCreatable ? "A lock file can be made in the run folder." : "No lock file can be made in the run folder: Promote, Reconcile, Close and Undo run are refused.",
+            probe.PlansWritable ? "The plan folder can be written." : "The plan folder cannot be written: plans cannot be saved.",
+            probe.RunsWritable ? "The run folder can be written." : "The run folder cannot be written: no run can start.",
+            probe.LockCreated ? "A lock file can be made in the run folder." : "No lock file can be made in the run folder: Promote, Reconcile, Close and Undo run are refused.",
             probe.IsUnc
                 ? "The run folder is a share: the locks protect every session that uses this folder."
                 : "The run folder is on this computer: the locks protect only the sessions that use this folder."
@@ -130,7 +130,7 @@ public sealed partial class RingFolderOptionsViewModel(DeploymentShared shared) 
         var probe = await Task.Run(ProbeNow);
         if (mine != _generation || generation != Shared.Generation) return;
         ShowProbe(probe);
-        Shared.Services.Log.Info(DeploymentShared.LogArea, $"Rings: folder check: writable={probe?.RunFolderWritable == true} lock={probe?.LockCreatable == true}.");
+        Shared.Services.Log.Info(DeploymentShared.LogArea, $"Rings: folder check: writable={probe?.RunsWritable == true} lock={probe?.LockCreated == true}.");
     }
 
     public void Release()

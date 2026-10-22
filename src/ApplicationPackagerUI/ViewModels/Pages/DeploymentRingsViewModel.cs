@@ -301,7 +301,8 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     {
         PlansMessage = "";
         var editor = new RingPlanEditorViewModel(plan, copy, _plans, _collections, SavePlanAsync,
-            current => Services.Dialogs.PickCollection("Pick the collection of the ring", _collections, current));
+            current => Services.Dialogs.PickCollection("Pick the collection of the ring", _collections, current),
+            () => Services.Dialogs.PickCollections("Check the collections: one ring for each", _collections));
         Services.Dialogs.ShowRingPlanEditor(editor);
     }
 

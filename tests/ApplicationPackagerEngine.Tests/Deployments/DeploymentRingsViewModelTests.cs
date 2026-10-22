@@ -382,7 +382,7 @@ public sealed class DeploymentRingsViewModelTests
         await rings.PromoteRingCommand.ExecuteAsync(null);
         var plan = _h.Plans.Shown.Single();
         Assert.Equal("Create Required deployment", plan.Items.Single().Action);
-        Assert.StartsWith("I understand that the Required ring Early installs software on every device of Server Group A (4 devices now)", plan.ExtraConfirmation);
+        Assert.StartsWith("I understand that the Required ring Early installs software on every device of Collection LAB00011 (4 devices now)", plan.ExtraConfirmation);
         var sent = _h.Rings.Applied.Single().Single();
         Assert.Equal((RingChangeKind.Promote, 2, true), (sent.Kind, sent.RingIndex, sent.RequiredConfirmed));
         Assert.Equal("v1", sent.Fingerprint);
@@ -463,8 +463,9 @@ public sealed class DeploymentRingsViewModelTests
         await WaitAsync(() => rings.Runs.Count == 2);
         Assert.True(rings.Runs.Last().Run.IsClosed);
         rings.SelectedRun = rings.Runs.Last();
-        Assert.False(rings.UndoRunCommand.CanExecute(null));
+        Assert.True(rings.UndoRunCommand.CanExecute(null));
         Assert.False(rings.CloseRunCommand.CanExecute(null));
+        Assert.False(rings.PromoteRingCommand.CanExecute(null));
         Assert.Equal("The run is closed. Nothing can be promoted.", rings.PromoteReason);
     }
 
@@ -824,7 +825,7 @@ public sealed class DeploymentRingsViewModelTests
 
         folders.RingsFolder = @"\\fs01\deploy$\Rings";
         folders.RunsFolder = @"\\fs01\deploy$\Rings\runs";
-        _h.Rings.NextProbe = _h.Rings.NextProbe with { IsUnc = true, LockCreatable = false };
+        _h.Rings.NextProbe = _h.Rings.NextProbe with { IsUnc = true, LockCreated = false };
         await folders.SaveFoldersCommand.ExecuteAsync(null);
         Assert.Equal((@"\\fs01\deploy$\Rings", @"\\fs01\deploy$\Rings\runs"), (_h.Saved!.RingsFolder, _h.Saved.RunsFolder));
         Assert.Contains("No lock file can be made in the run folder", folders.ProbeText);
@@ -868,15 +869,15 @@ public sealed class DeploymentRingsViewModelTests
     [Fact]
     public async Task UndoFromHistoryWorksForARingRecordAsForASingleOne()
     {
-        _h.Service.Deployments.Add(new DeploymentRecord(DeploymentId: "{DEP-2}", Type: DeploymentObjectType.Application, ObjectId: "16777300", ObjectName: "7-Zip",
+        _h.Service.Deployments.Add(new DeploymentRecord(DeploymentId: "{0A1B2C3D-0000-4000-8000-000000000002}", Type: DeploymentObjectType.Application, ObjectId: "16777300", ObjectName: "7-Zip",
             CollectionId: "LAB00010", CollectionName: "Pilot Workstations", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,
             Created: new DateTime(2026, 10, 19, 8, 0, 0), CreatedBy: @"LAB\admin"));
-        _h.Audit.Records.Add(RingRecord("RUN-100", 1, "Pilot", "{DEP-2}"));
+        _h.Audit.Records.Add(RingRecord("RUN-100", 1, "Pilot", "{0A1B2C3D-0000-4000-8000-000000000002}"));
         var page = await _h.OpenAsync(DeploymentHelperViewModel.HistoryTab);
         page.History.SelectedRow = page.History.Rows.Single();
         await page.History.RemoveDeploymentCommand.ExecuteAsync(null);
         Assert.Equal("Remove deployment", _h.Plans.Shown.Single().Items.Single().Action);
-        Assert.Equal("{DEP-2}", _h.Service.Applied.Single().Single().Existing!.DeploymentId);
+        Assert.Equal("{0A1B2C3D-0000-4000-8000-000000000002}", _h.Service.Applied.Single().Single().Existing!.DeploymentId);
         Assert.Empty(_h.Service.Deployments);
     }
 

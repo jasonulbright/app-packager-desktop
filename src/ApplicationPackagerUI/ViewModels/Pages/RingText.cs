@@ -117,16 +117,13 @@ public static class RingText
     /// The text of the second check box of a run or a Promote: the number of Required rings it
     /// creates now with their devices in total, and the past available times, as they apply.
     /// </summary>
-    public static string SecondConfirmation(IReadOnlyList<RingExpansionRow> required, IReadOnlyList<RingExpansionRow> backdated, string basis)
+    public static string SecondConfirmation(int requiredRings, int devices, RingExpansionRow? single, IReadOnlyList<RingExpansionRow> backdated, string basis)
     {
         var parts = new List<string>();
-        if (required.Count > 0)
-        {
-            var devices = required.Sum(r => r.MemberCount);
-            parts.Add(required.Count == 1
-                ? $"the Required ring {required[0].Name} installs software on every device of {required[0].CollectionName} ({DeploymentText.Count(devices, "device")} now) at the deadline {Time(required[0].Deadline)} {basis}"
-                : $"{required.Count.ToString(CultureInfo.CurrentCulture)} Required rings enforce on {DeploymentText.Count(devices, "device")} in total at their deadlines");
-        }
+        if (requiredRings > 0)
+            parts.Add(requiredRings == 1 && single is not null
+                ? $"the Required ring {single.Name} installs software on every device of {single.CollectionName} ({DeploymentText.Count(devices, "device")} now) at the deadline {Time(single.Deadline)} {basis}"
+                : $"{requiredRings.ToString(CultureInfo.CurrentCulture)} Required rings enforce on {DeploymentText.Count(devices, "device")} in total at their deadlines");
         if (backdated.Count > 0)
             parts.Add(backdated.Count == 1
                 ? $"the available time of ring {backdated[0].Name} is in the past, so its deployment is available at once"
@@ -151,12 +148,14 @@ public static class RingText
         var rows = prepared.Rows.OrderBy(r => r.Index).ToList();
         var now = CreatedNow(rows, plan.HoldLaterRings);
         var blocking = Blocking(prepared, now);
-        if (blocking.Count > 0) return (null, "The run cannot be created: " + BlockingText(blocking));
+        if (blocking.Count > 0 || prepared.Blocked) return (null, "The run cannot be created: " + BlockingText(blocking));
         var basis = Basis(plan.TimeBasedOn);
         var clockNow = Now(clock, plan.TimeBasedOn);
         var past = rows.Where(r => IsRequired(r.Purpose) && r.Deadline is { } d && d <= clockNow).ToList();
         if (past.Count > 0) return (null, $"The deadline of ring {past[0].Name} is in the past. Choose a later plan start and select Expand again.");
-        var required = now.Where(r => IsRequired(r.Purpose)).ToList();
+        var requiredRows = now.Where(r => IsRequired(r.Purpose)).ToList();
+        var requiredRings = prepared.RingChanges.Count > 0 ? prepared.RequiredRings : requiredRows.Count;
+        var requiredDevices = prepared.RingChanges.Count > 0 ? prepared.RequiredDevices : requiredRows.Sum(r => r.MemberCount);
         var backdated = Backdated(now, prepared, clockNow);
         var entries = rows.Select(row =>
         {
@@ -174,13 +173,16 @@ public static class RingText
                     + (plan.HoldLaterRings ? "later rings held for Promote." : "every ring created now with its own dates."), RunFileNote, UndoRunNote, first.Detail ?? "" })
             }
         };
-        var extra = required.Count > 0 || backdated.Count > 0 ? SecondConfirmation(required, backdated, basis) : null;
+        var extra = requiredRings > 0 || backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
+            ? SecondConfirmation(requiredRings, requiredDevices, requiredRows.Count == 1 ? requiredRows[0] : null, backdated, basis)
+            : null;
         var distributes = now.Any(r => r.DpGroup.Length > 0);
-        var actionName = required.Count > 0 ? $"Create run with {DeploymentText.Count(required.Count, "Required ring")}" : "Create run";
+        var actionName = requiredRings > 0 ? $"Create run with {DeploymentText.Count(requiredRings, "Required ring")}" : "Create run";
         return (new RingRunPlan("Create ring run", $"Ring run of {obj.Name} with {plan.Name}", actionName, prepared, entries,
             extraConfirmation: extra, optionalChoice: distributes ? DeploymentText.CreateNowChoice : null)
         {
-            NeedsRequiredConfirmation = required.Count > 0, AcknowledgesBackdated = backdated.Count > 0
+            NeedsRequiredConfirmation = requiredRings > 0 || prepared.NeedsRequiredConfirmation,
+            AcknowledgesBackdated = backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
         }, null);
     }
 
@@ -190,7 +192,7 @@ public static class RingText
         if (prepared.Kind != RingChangeKind.Promote || prepared.Rows.Count != 1) return (null, "The ring could not be prepared. Select Refresh and reconcile, then Promote again.");
         var row = prepared.Rows[0];
         var blocking = Blocking(prepared, prepared.Rows);
-        if (blocking.Count > 0) return (null, $"Ring {row.Name} cannot be promoted: " + BlockingText(blocking));
+        if (blocking.Count > 0 || prepared.Blocked) return (null, $"Ring {row.Name} cannot be promoted: " + BlockingText(blocking));
         var basis = Basis(timeBasedOn);
         var obj = prepared.RingChanges.FirstOrDefault()?.Object ?? prepared.Object;
         var lines = new List<string>();
@@ -198,16 +200,21 @@ public static class RingText
         lines.Add(RingLines(row, basis, created: true));
         lines.AddRange(prepared.Impact);
         lines.Add(UndoRunNote);
-        RingExpansionRow[] required = IsRequired(row.Purpose) ? [row] : [];
+        var required = prepared.NeedsRequiredConfirmation || IsRequired(row.Purpose);
+        var devices = prepared.RingChanges.Count > 0 ? prepared.RequiredDevices : row.MemberCount;
         var backdated = Backdated([row], prepared, Now(clock, timeBasedOn));
-        var action = required.Length > 0 ? "Create Required deployment" : "Create deployment";
+        if (prepared.ShiftMinutes > 0)
+            lines.Insert(1, $"The deadline of this ring passed: this ring and every later held ring move {DeploymentText.Count(prepared.ShiftMinutes, "minute")} later, so each keeps its time from available to deadline.");
+        var action = required ? "Create Required deployment" : "Create deployment";
         var item = new ChangePlanItem(action, $"Ring {row.Name}: {obj?.Name} to {row.CollectionName} ({row.CollectionId})", string.Join(Environment.NewLine, lines));
-        var extra = required.Length > 0 || backdated.Count > 0 ? SecondConfirmation(required, backdated, basis) : null;
-        return (new RingRunPlan("Promote ring", $"Promote ring {row.Name}", required.Length > 0 ? "Promote Required ring" : "Promote ring", prepared,
+        var extra = required || backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
+            ? SecondConfirmation(required ? 1 : 0, devices, row, backdated, basis)
+            : null;
+        return (new RingRunPlan("Promote ring", $"Promote ring {row.Name}", required ? "Promote Required ring" : "Promote ring", prepared,
             [new RingPlanEntry(item, RingEntryKind.Promote, row.CollectionId)], extraConfirmation: extra,
             optionalChoice: row.DpGroup.Length > 0 ? DeploymentText.CreateNowChoice : null)
         {
-            NeedsRequiredConfirmation = required.Length > 0, AcknowledgesBackdated = backdated.Count > 0
+            NeedsRequiredConfirmation = required, AcknowledgesBackdated = backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
         }, null);
     }
 
