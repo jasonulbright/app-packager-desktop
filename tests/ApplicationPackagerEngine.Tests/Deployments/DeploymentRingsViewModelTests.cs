@@ -777,6 +777,33 @@ public sealed class DeploymentRingsViewModelTests
         Assert.All(dialog.ResultRows, r => Assert.Equal(RingWriter.NotAcknowledgedText, r.Message));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ACancelBetweenRingsKeepsTheCreatedRingAndReportsTheRestAsSkipped(bool ignoreCancel)
+    {
+        var rings = await ExpandedAsync();
+        var prepared = await _h.Rings.PrepareAsync(rings.BuildRunRequest()!, CancellationToken.None);
+        var (plan, _) = RingText.BuildCreateRunPlan(prepared, _h.Clock);
+        _h.Rings.InConfirmedRun = null;
+        _h.Rings.IgnoreCancel = ignoreCancel;
+        var dialog = new ChangePlanViewModel(plan!.Plan, _h.RingWriter().RunFor(plan)) { ExtraAcknowledged = true };
+        _h.Rings.AfterRing = i =>
+        {
+            if (i == 0) dialog.RequestCancel();
+        };
+        await dialog.ConfirmCommand.ExecuteAsync(null);
+        var rows = dialog.ResultRows;
+        Assert.True(rows[0].Succeeded);
+        if (ignoreCancel) Assert.All(rows, r => Assert.True(r.Succeeded));
+        else
+        {
+            Assert.All(rows.Skip(1), r => Assert.True(r.Skipped));
+            Assert.Equal(FakeRingService.CancelledSkip, rows[1].Message);
+            Assert.Equal(SiteOperationOutcome.Cancelled, _h.History.Entries.Single().Outcome);
+        }
+    }
+
     [Fact]
     public void TheWriterSendsEachFlagOnlyAsThePlanAskedAndClearsThePartOneFlags()
     {
