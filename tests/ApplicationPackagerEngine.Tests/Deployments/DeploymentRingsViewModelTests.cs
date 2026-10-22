@@ -794,6 +794,7 @@ public sealed class DeploymentRingsViewModelTests
         };
         await dialog.ConfirmCommand.ExecuteAsync(null);
         var rows = dialog.ResultRows;
+        Assert.Equal(3, rows.Count);
         Assert.True(rows[0].Succeeded);
         if (ignoreCancel) Assert.All(rows, r => Assert.True(r.Succeeded));
         else
