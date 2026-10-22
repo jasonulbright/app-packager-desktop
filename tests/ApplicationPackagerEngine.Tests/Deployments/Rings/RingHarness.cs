@@ -17,19 +17,30 @@ internal sealed class RingHarness : IDisposable
     private readonly DeploymentHarness _deployments;
     public DateTime UtcNow = DeploymentHarness.UtcNow;
 
-    public RingHarness(JsonObject? state = null)
+    /// <param name="waves">Further empty device collections MCMW0001, MCMW0002 and on, named "Wave 01 10%" and on.</param>
+    public RingHarness(JsonObject? state = null, int waves = 0)
     {
         var lab = state ?? StubDeploymentSite.Lab();
         var collections = lab["Collections"]!.AsArray();
         collections.Add(JsonNode.Parse("""{ "CollectionID": "MCM0009A", "Name": "DH-Test-2", "CollectionType": 2, "MemberCount": 0 }"""));
         collections.Add(JsonNode.Parse("""{ "CollectionID": "MCM0009B", "Name": "DH-Test-3", "CollectionType": 2, "MemberCount": 1 }"""));
+        foreach (var wave in Waves(waves)) collections.Add(new JsonObject { ["CollectionID"] = wave.CollectionId, ["Name"] = wave.Name, ["CollectionType"] = 2, ["MemberCount"] = 0 });
         _deployments = new DeploymentHarness(lab);
         _deployments.Collections.Rows.Add(DeploymentHarness.FakeCollections.Row(C2, "DH-Test-2", false, 0));
         _deployments.Collections.Rows.Add(DeploymentHarness.FakeCollections.Row(C3, "DH-Test-3", false, 1));
+        foreach (var wave in Waves(waves)) _deployments.Collections.Rows.Add(DeploymentHarness.FakeCollections.Row(wave.CollectionId, wave.Name, false, 0));
         Plans = new RingPlanStore(() => Path.Combine(_deployments.Folder, "Rings"));
         Runs = new RingRunStore(() => Path.Combine(_deployments.Folder, "Rings", "runs"), utcNow: () => UtcNow, local: DeploymentHarness.Local, user: () => Account);
         Service = new RingService(_deployments.Service, _deployments.Service, _deployments.Audit, Plans, Runs, utcNow: () => UtcNow, local: DeploymentHarness.Local);
     }
+
+    public static IReadOnlyList<DeploymentCollection> Waves(int count) =>
+        [.. Enumerable.Range(1, count).Select(i => new DeploymentCollection("MCMW" + i.ToString("0000", System.Globalization.CultureInfo.InvariantCulture), $"Wave {i:00} 10%", "Rings", 0))];
+
+    /// <summary>A plan of one ring per wave collection: a day apart, a Required deadline one day after each ring's available time.</summary>
+    public static RingPlan WavePlan(int count, bool hold = false, string purpose = "Available") =>
+        new($"Waves-{count}", "", hold, "LocalTime", RingPlanBuilder.FromCollections(Waves(count), purpose, 0, 1, 1,
+            userNotification: purpose == "Required" ? "HideAll" : "DisplaySoftwareCenterOnly"), false);
 
     /// <summary>The account of this process, which the stub site records as the creator.</summary>
     public static string Account => System.Security.Principal.WindowsIdentity.GetCurrent().Name;
