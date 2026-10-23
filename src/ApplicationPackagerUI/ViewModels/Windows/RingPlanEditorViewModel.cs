@@ -27,7 +27,7 @@ public sealed partial class RingEditorRow : ObservableObject
         _name = r.Name;
         _collectionId = r.CollectionId;
         _collectionName = r.CollectionName;
-        _isRequired = RingText.IsRequired(r.Purpose);
+        _purpose = RingText.IsRequired(r.Purpose) ? DeploymentText.Required : DeploymentText.Available;
         _availableOffsetText = r.AvailableOffsetDays.ToString(CultureInfo.InvariantCulture);
         _deadlineOffsetText = r.DeadlineOffsetDays?.ToString(CultureInfo.InvariantCulture) ?? "";
         _notification = DeploymentText.Notifications.FirstOrDefault(n => string.Equals(n.Value, r.UserNotification, StringComparison.OrdinalIgnoreCase))
@@ -74,9 +74,10 @@ public sealed partial class RingEditorRow : ObservableObject
     [NotifyPropertyChangedFor(nameof(Collection))]
     private string _collectionName;
 
+    /// <summary>Available or Required; the only stored purpose of the row, so no binding writes a second member back.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Purpose), nameof(IsAvailable))]
-    private bool _isRequired;
+    [NotifyPropertyChangedFor(nameof(IsRequired))]
+    private string _purpose;
 
     [ObservableProperty] private string _availableOffsetText;
     [ObservableProperty] private string _deadlineOffsetText;
@@ -90,12 +91,10 @@ public sealed partial class RingEditorRow : ObservableObject
     [ObservableProperty] private DeploymentChoice _slowNetwork;
     [ObservableProperty] private DeploymentChoice _rerun;
 
-    public string Purpose => IsRequired ? DeploymentText.Required : DeploymentText.Available;
-
-    public bool IsAvailable
+    public bool IsRequired
     {
-        get => !IsRequired;
-        set => IsRequired = !value;
+        get => RingText.IsRequired(Purpose);
+        set => Purpose = value ? DeploymentText.Required : DeploymentText.Available;
     }
 
     public string Collection => CollectionId.Length == 0 ? "(no collection)" : $"{CollectionName} ({CollectionId})";

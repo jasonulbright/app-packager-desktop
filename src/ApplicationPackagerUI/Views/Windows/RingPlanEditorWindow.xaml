@@ -17,6 +17,7 @@
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="EditorVisibility" />
+            <helpers:EnumToBooleanConverter x:Key="PurposeIs" />
             <Style x:Key="FieldLabel" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Margin" Value="0,8,0,4" />
@@ -148,8 +149,11 @@
                     </DockPanel>
                     <TextBlock Text="Purpose" Style="{StaticResource FieldLabel}" />
                     <StackPanel Orientation="Horizontal">
-                        <RadioButton Content="Available" GroupName="RingPurpose" IsChecked="{Binding IsAvailable}" Margin="0,0,16,0" AutomationProperties.AutomationId="rbRingAvailable" />
-                        <RadioButton Content="Required" GroupName="RingPurpose" IsChecked="{Binding IsRequired}" AutomationProperties.AutomationId="rbRingRequired" />
+                        <!-- The detail panel changes its ring under the buttons; the converter writes only a checked button, so the group's uncheck never reaches the previous ring. -->
+                        <RadioButton Content="Available" GroupName="RingPurpose" Margin="0,0,16,0" AutomationProperties.AutomationId="rbRingAvailable"
+                                     IsChecked="{Binding Purpose, Converter={StaticResource PurposeIs}, ConverterParameter=Available}" />
+                        <RadioButton Content="Required" GroupName="RingPurpose" AutomationProperties.AutomationId="rbRingRequired"
+                                     IsChecked="{Binding Purpose, Converter={StaticResource PurposeIs}, ConverterParameter=Required}" />
                     </StackPanel>
                     <WrapPanel Margin="0,4,0,0">
                         <StackPanel Margin="0,0,24,0">
