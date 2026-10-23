@@ -253,7 +253,7 @@ public sealed class RingService : IRingService
         if (RunProblem(run) is { } unreadable)
         {
             _log?.Warning(LogArea, "Reconcile left a ring run file with unreadable values unchanged.");
-            return current with { Rings = [.. current.Rings.Select(r => r with { Note = string.Join(" ", new[] { r.Note, unreadable + " Reconcile did not change the run file." }.Where(n => n.Length > 0)) })] };
+            return run with { Rings = [.. run.Rings.Select(r => r with { Note = string.Join(" ", new[] { notes.GetValueOrDefault(r.Index, ""), unreadable + " Reconcile did not change the run file." }.Where(n => n.Length > 0)) })] };
         }
         if (changed) current = Runs.Save(current, held);
         if (Finished(current.Rings))
@@ -545,6 +545,7 @@ public sealed class RingService : IRingService
         var deadline = ring.Deadline?.AddMinutes(shift);
         var row = new RingExpansionRow(ring.Index, ring.Name, ring.CollectionId, ring.CollectionName, 0, ring.Purpose, available, deadline, ring.DpGroup, ring.SuccessThresholdPercent, []) { Definition = ring.Definition };
         var rules = RingPlanRules.CheckRows([row], now);
+        checks.AddRange(RingPlanRules.CheckRun(run.Rings, index, shift).Select(Fail));
         checks.AddRange(rules.Errors.Select(e => Fail(e.Message)));
         checks.AddRange(rules.Warnings.Select(w => Check(DeploymentCheckResults.Warn, w.Message)));
         var impact = new List<string> { $"Promotes {Label(ring.Index, ring.Name)} of plan {run.PlanName} for {(obj is null ? run.ObjectName : DeploymentService.ObjectText(obj))}." };
@@ -926,6 +927,7 @@ public sealed class RingService : IRingService
         var run = locked.Run;
         if (PromoteProblem(run, index) is { } promote) return Refused(change, promote, run);
         if (RunProblem(run) is { } unreadable) return Refused(change, unreadable, run);
+        if (RingPlanRules.CheckRun(run.Rings, index, change.ShiftMinutes) is { Count: > 0 } runErrors) return Refused(change, string.Join(" ", runErrors), run);
         if (await ThresholdProblemAsync(run, index, CancellationToken.None).ConfigureAwait(false) is { } gate) return Refused(change, gate, run);
         if (change.ShiftMinutes != 0)
         {

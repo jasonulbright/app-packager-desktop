@@ -10,7 +10,7 @@ public sealed record RingRuleResult(IReadOnlyList<(int Index, string Message)> E
 }
 
 /// <summary>Whether a ring's success rate opens Promote of the next ring.</summary>
-/// <param name="Percent">The success rate rounded to one decimal; null when not known.</param>
+/// <param name="Percent">The success rate rounded to one decimal, for display only; a rate below the threshold is never shown at or above it; null when not known.</param>
 public sealed record RingThreshold(bool Met, double? Percent, string Reason);
 
 /// <summary>
@@ -197,6 +197,46 @@ public static class RingPlanRules
     }
 
     /// <summary>
+    /// The rules of a whole run that a Promote checks, with the promoted ring and every later Held
+    /// ring moved by <paramref name="shiftMinutes"/>: at most <see cref="MaxRings"/> rings, a
+    /// collection for each live ring (Held, Creating, Created), no built-in collection, no collection
+    /// shared by two live rings, and for the live Required rings a deadline later than the available
+    /// time and later than the deadline of the nearest earlier live Required ring.
+    /// </summary>
+    public static IReadOnlyList<string> CheckRun(IReadOnlyList<RingRunRing> rings, int promoted, int shiftMinutes)
+    {
+        ArgumentNullException.ThrowIfNull(rings);
+        var errors = new List<string>();
+        if (rings.Count > MaxRings) errors.Add($"The run has {rings.Count.ToString(CultureInfo.InvariantCulture)} rings. A run can have at most {MaxRings.ToString(CultureInfo.InvariantCulture)} rings.");
+        var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        DateTime? lastDeadline = null;
+        var lastLabel = "";
+        foreach (var r in rings.OrderBy(r => r.Index))
+        {
+            var label = Label(r.Index, r.Name);
+            var id = (r.CollectionId ?? "").Trim().ToUpperInvariant();
+            if (DeploymentService.IsBuiltInCollection(id)) errors.Add($"{label} targets built-in collection {id}. Built-in collections are blocked.");
+            if (r.Status is not (RingStatuses.Held or RingStatuses.Creating or RingStatuses.Created)) continue;
+            if (id.Length == 0) errors.Add($"{label} has no target collection.");
+            else if (seen.TryGetValue(id, out var other)) errors.Add($"{label} targets {id}, which {other} also targets. Rings must not share a collection.");
+            else seen[id] = label;
+            if (r.Purpose != DeploymentPurposes.Required) continue;
+            var shift = r.Status == RingStatuses.Held && r.Index >= promoted ? shiftMinutes : 0;
+            if (r.Deadline is not { } planned)
+            {
+                errors.Add($"{label} is Required and has no deadline.");
+                continue;
+            }
+            var deadline = planned.AddMinutes(shift);
+            if (deadline <= r.AvailableTime.AddMinutes(shift)) errors.Add($"{label} deadline {Text(deadline)} must be later than its available time {Text(r.AvailableTime.AddMinutes(shift))}.");
+            if (lastDeadline is { } previous && deadline <= previous) errors.Add($"{label} deadline {Text(deadline)} must be later than the {lastLabel} deadline {Text(previous)}.");
+            lastDeadline = deadline;
+            lastLabel = label;
+        }
+        return errors;
+    }
+
+    /// <summary>
     /// The minutes a Held ring whose deadline passed moves later so that it becomes available at the
     /// next whole minute and keeps its available-to-deadline gap; 0 when the deadline is ahead or
     /// there is none.
@@ -221,9 +261,12 @@ public static class RingPlanRules
         if (!counts.CountsKnown)
             return new RingThreshold(false, null, $"The site has not summarized this ring yet; the {shown}% threshold cannot be checked.");
         if (counts.Targeted <= 0) return new RingThreshold(false, 0, $"No clients targeted yet; the threshold is {shown}%.");
+        // The gate compares whole numbers: a rate such as 99.95 that rounds to 100 must not meet a 100% threshold.
+        var met = (long)counts.Success * 100 >= (long)t * counts.Targeted;
         var percent = Math.Round(counts.Success * 100.0 / counts.Targeted, 1, MidpointRounding.ToEven);
+        if (!met && percent >= t) percent = Math.Floor(counts.Success * 1000.0 / counts.Targeted) / 10;
         var text = percent.ToString("0.#", CultureInfo.InvariantCulture);
-        return percent >= t
+        return met
             ? new RingThreshold(true, percent, "")
             : new RingThreshold(false, percent, $"Success {text}% is below the {shown}% threshold.");
     }
