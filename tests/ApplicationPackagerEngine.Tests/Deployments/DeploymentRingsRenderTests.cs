@@ -132,7 +132,7 @@ public sealed class DeploymentRingsRenderTests
             t.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(t).PixelsPerDip).WidthIncludingTrailingWhitespace;
 
     /// <summary>Every date cell shows its whole text and every ring cell at least its first 18 characters; returns the number of cells checked.</summary>
-    private static int AssertDatesAndRingsFit(Window window, DataGrid grid, string where)
+    private static int AssertDatesAndRingsFit(Window window, DataGrid grid, string where, HashSet<string> seen)
     {
         var checkedCells = 0;
         for (var i = 0; i < Math.Min(grid.Items.Count, 3); i++)
@@ -149,6 +149,7 @@ public sealed class DeploymentRingsRenderTests
                 var needed = TextWidth(text, isDate ? text.Text : text.Text[..Math.Min(RingCharacters, text.Text.Length)]);
                 Assert.True(text.ActualWidth + 0.5 >= needed, $"{where}: the {header} cell '{text.Text}' shows {text.ActualWidth:0} px of the {needed:0} px it needs.");
                 checkedCells++;
+                seen.Add($"{AutomationProperties.GetAutomationId(grid)}.{header}");
             }
         }
         return checkedCells;
@@ -169,14 +170,17 @@ public sealed class DeploymentRingsRenderTests
         WithRings(theme, 13, (window, page, viewModel, harness) =>
         {
             var cells = 0;
+            var seen = new HashSet<string>();
             foreach (var id in RingGrids)
             {
                 var grid = ById<DataGrid>(page, id);
                 grid.BringIntoView();
                 Settle(window);
-                cells += AssertDatesAndRingsFit(window, grid, $"{id} at {width}x{height}");
+                cells += AssertDatesAndRingsFit(window, grid, $"{id} at {width}x{height}", seen);
             }
             Assert.True(cells >= 20, $"Only {cells} date and ring cells were checked.");
+            Assert.Superset(new HashSet<string> { "dgRingPreview.Available", "dgRingPreview.Deadline", "dgRingPreview.Ring", "dgRingChecks.Ring", "dgRingRuns.Started",
+                "dgRingRuns.Run", "dgRingRuns.Plan", "dgRingRunRings.Available", "dgRingRunRings.Deadline", "dgRingRunRings.Ring" }, seen);
         }, width, height);
     }
 
