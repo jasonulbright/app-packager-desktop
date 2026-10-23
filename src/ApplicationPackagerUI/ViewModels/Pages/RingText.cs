@@ -100,19 +100,19 @@ public static class RingText
         var ringChecks = listed.SelectMany(r => r.Checks).ToList();
         return listed.SelectMany(r => r.Checks.Where(DeploymentText.Blocks).Select(c => (r.Name, c)))
             .Concat(RunOnly(change.Checks, listed).Where(DeploymentText.Blocks).Select(c => ("Run", c)))
-            .Concat(change.RingChanges.SelectMany(c => c.Checks.Where(k => DeploymentText.Blocks(k) && !ringChecks.Any(r => Repeats(k, r))).Select(k => (c.Collection?.Name ?? "", k))))
+            .Concat(change.RingChanges.SelectMany(c => c.Checks.Where(k => DeploymentText.Blocks(k) && !ringChecks.Contains(k)).Select(k => (c.Collection?.Name ?? "", k))))
             .Distinct()
             .ToList();
     }
 
-    /// <summary>True when <paramref name="copy"/> repeats <paramref name="ring"/>: the ring services copy each ring check into the run checks with the ring label in front.</summary>
-    private static bool Repeats(PreflightCheck copy, PreflightCheck ring) =>
-        copy.Name == ring.Name && copy.Result == ring.Result
-        && (copy.Message == ring.Message || copy.Message.EndsWith(": " + ring.Message, StringComparison.Ordinal));
+    /// <summary>True when <paramref name="copy"/> repeats the check <paramref name="check"/> of <paramref name="row"/>: the ring services copy each ring check into the run checks with the ring label in front.</summary>
+    private static bool Repeats(PreflightCheck copy, RingExpansionRow row, PreflightCheck check) =>
+        copy.Name == check.Name && copy.Result == check.Result
+        && (copy.Message == (check.Message.StartsWith("Ring ", StringComparison.Ordinal) ? check.Message : $"{RingPlanRules.Label(row.Index, row.Name)}: {check.Message}"));
 
     /// <summary>The run checks without the copies of the checks of <paramref name="rows"/>, which the rows list themselves.</summary>
     public static IReadOnlyList<PreflightCheck> RunOnly(IReadOnlyList<PreflightCheck> runChecks, IReadOnlyList<RingExpansionRow> rows) =>
-        runChecks.Where(c => !rows.Any(r => r.Checks.Any(k => Repeats(c, k)))).ToList();
+        runChecks.Where(c => !rows.Any(r => r.Checks.Any(k => Repeats(c, r, k)))).ToList();
 
     public static string BlockingText(IReadOnlyList<(string Ring, PreflightCheck Check)> blocking) =>
         string.Join(" ", blocking.Select(b => $"{(b.Ring == "Run" ? "" : $"Ring {b.Ring}: ")}{DeploymentText.CheckLabel(b.Check.Name)}: {DeploymentText.CheckMessage(b.Check, null)}"));

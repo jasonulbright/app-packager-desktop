@@ -168,7 +168,7 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
             return c with
             {
                 Rows = rows,
-                Checks = [.. c.Checks, check with { Message = $"Ring 2 (Wave 1): {Message}" }],
+                Checks = [.. c.Checks, check with { Message = $"{RingPlanRules.Label(2, "Wave 1")}: {Message}" }],
                 RingChanges = [.. c.RingChanges.Select(k => k.Ring?.RingIndex == 2 ? k with { Checks = [.. k.Checks, check] } : k)]
             };
         };
