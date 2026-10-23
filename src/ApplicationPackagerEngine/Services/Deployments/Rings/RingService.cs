@@ -268,6 +268,16 @@ public sealed class RingService : IRingService
         var recorded = run.Rings.Where(r => r.Index != ring.Index).Select(r => r.DeploymentId).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         var matches = candidates.Where(c => c.CreatedUtc is { } created && created >= startUtc.Value - CreationSkew
             && string.Equals(c.CreatedBy.Trim(), account.Trim(), StringComparison.OrdinalIgnoreCase) && c.Differences.Count == 0 && !recorded.Contains(c.Deployment.DeploymentId)).ToList();
+        // A deployment that holds the ring's values but whose creator and time ConfigMgr does not
+        // show yet may be the ring's own: it is neither adopted nor ignored.
+        var unproven = candidates.Where(c => (c.CreatedUtc is null || string.IsNullOrWhiteSpace(c.CreatedBy))
+            && (c.CreatedUtc is not { } at || at >= startUtc.Value - CreationSkew)
+            && (string.IsNullOrWhiteSpace(c.CreatedBy) || string.Equals(c.CreatedBy.Trim(), account.Trim(), StringComparison.OrdinalIgnoreCase))
+            && c.Differences.Count == 0 && !recorded.Contains(c.Deployment.DeploymentId)).ToList();
+        if (matches.Count + unproven.Count > 1)
+            return ring with { Note = $"{Count(matches.Count + unproven.Count, "deployment")} match this ring ({string.Join(", ", matches.Concat(unproven).Select(m => m.Deployment.DeploymentId))}). Remove the ones that must not stay in the console, then reconcile again." };
+        if (unproven.Count == 1)
+            return ring with { Note = $"Deployment {unproven[0].Deployment.DeploymentId} holds the ring's values, but ConfigMgr does not show yet who created it and when. The ring stays Creating; reconcile again in a minute." };
         if (matches.Count == 1)
             return ring with
             {

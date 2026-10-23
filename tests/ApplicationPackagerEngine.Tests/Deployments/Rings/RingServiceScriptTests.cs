@@ -94,7 +94,7 @@ public sealed class RingServiceScriptTests
         var outcome = await h.CreateRunAsync(RingHarness.ThreeRings(hold: true), App);
         var run = h.Run(outcome.Run!.RunId);
         var refused = await h.PrepareAsync(RingHarness.Request(RingChangeKind.Promote, run.RunId, 2));
-        Assert.Contains(refused.Checks, c => c.Result == "Fail" && c.Message.Contains("has not summarized this ring yet; the 90% threshold", StringComparison.Ordinal));
+        Assert.Contains(refused.Checks, c => c.Result == "Fail" && c.Message.Contains("No clients targeted yet; the threshold is 90%.", StringComparison.Ordinal));
 
         h.Summarize(run.Rings[0].DeploymentId!, 10, 8);
         var counts = await h.Service.LiveCountsAsync(run, CancellationToken.None);
@@ -302,6 +302,32 @@ public sealed class RingServiceScriptTests
     }
 
     [Fact]
+    public async Task APackageDeploymentWhoseStatusMessageIsLateKeepsTheRingCreatingUntilTheMessageArrives()
+    {
+        using var h = new RingHarness();
+        h.Site.SetOption("NoStatus", true);
+        var plan = RingHarness.ThreeRings(hold: true);
+        var package = DeploymentHarness.Package;
+        var run = h.Runs.Create(new RingRun(Guid.NewGuid().ToString(), "", plan.Name, true, "LocalTime", DeploymentObjectType.Package, package.Id, package.Name, package.Program, RingHarness.Account,
+            h.UtcNow, [.. RingPlanRules.Expand(plan, RingHarness.Start, DeploymentHarness.Local).Select(r => new RingRunRing(r.Index, r.Name, r.CollectionId, "", r.Purpose, r.AvailableTime, r.Deadline,
+                r.Index == 1 ? RingStatuses.Creating : RingStatuses.Held, r.Index == 1 ? DeploymentHarness.LocalNow : null, null, 0, "", r.SuccessThresholdPercent)
+            { Definition = r.Definition, CreatingAtUtc = r.Index == 1 ? h.UtcNow : null, CreatingBy = r.Index == 1 ? RingHarness.Account : null })], false), package.Id);
+        var options = RingPlanRules.Options(DeploymentObjectType.Package, plan.Rings[0], RingHarness.Start, null, false);
+        var made = (await h.Deployments.ApplyAsync([await h.Deployments.PrepareAsync(DeploymentHarness.Create(package, options), CancellationToken.None)], new Progress<DeploymentOutcome>(), CancellationToken.None)).Single();
+        Assert.True(made.Succeeded, made.Message);
+        var id = made.UndoChange!.CreatedId!;
+
+        h.UtcNow = h.UtcNow.AddMinutes(6);
+        var waiting = (await h.Service.ReconcileAsync(run.RunId, CancellationToken.None)).Rings[0];
+        Assert.Equal(RingStatuses.Creating, waiting.Status);
+        Assert.Contains("does not show yet who created it", waiting.Note);
+
+        h.Site.List("StatusMessages").Add(new JsonObject { ["RecordID"] = 72057594038099999, ["MessageID"] = 30006, ["Time"] = "2026-10-20T12:00:40", ["AdvertisementID"] = id, ["User"] = RingHarness.Account });
+        var adopted = (await h.Service.ReconcileAsync(run.RunId, CancellationToken.None)).Rings[0];
+        Assert.Equal((RingStatuses.Created, id), (adopted.Status, adopted.DeploymentId));
+    }
+
+    [Fact]
     public async Task ReconcileKeepsTwoMatchingDeploymentsBlocked()
     {
         var (h, run) = await CreatingRunAsync(twice: true);
@@ -369,7 +395,8 @@ public sealed class RingServiceScriptTests
         h.Site.Fail("query:SMS_ApplicationAssignment");
         Assert.Equal(RingStatuses.Created, (await h.Service.ReconcileAsync(run.RunId, CancellationToken.None)).Rings[0].Status);
 
-        Assert.Equal(RingLiveStates.Found, (await h.Service.LiveCountsAsync(run, CancellationToken.None))[0].State);
+        var created = (await h.Service.LiveCountsAsync(run, CancellationToken.None))[0];
+        Assert.Equal((RingLiveStates.Summarized, 0, true), (created.State, created.Targeted, created.CountsKnown));
         h.Site.Fail("query:SMS_DeploymentSummary");
         var unsummarized = await h.Service.LiveCountsAsync(run, CancellationToken.None);
         Assert.Equal((RingLiveStates.Found, false), (unsummarized[0].State, unsummarized[0].CountsKnown));

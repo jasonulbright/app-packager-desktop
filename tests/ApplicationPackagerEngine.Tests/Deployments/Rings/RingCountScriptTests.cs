@@ -41,7 +41,7 @@ public sealed class RingCountScriptTests
         var live = await h.Service.LiveCountsAsync(run, CancellationToken.None);
         Assert.Equal(1, h.Site.Runs.Count - runsBefore);
         Assert.Equal(2, Queries(h) - queries);
-        Assert.All(live, l => Assert.Equal(RingLiveStates.Found, l.State));
+        Assert.All(live, l => Assert.Equal((RingLiveStates.Summarized, 0), (l.State, l.Targeted)));
         foreach (var ring in run.Rings) h.Summarize(ring.DeploymentId!, 2, 2);
         Assert.All(await h.Service.LiveCountsAsync(run, CancellationToken.None), l => Assert.Equal((RingLiveStates.Summarized, 2, 2), (l.State, l.Targeted, l.Success)));
 

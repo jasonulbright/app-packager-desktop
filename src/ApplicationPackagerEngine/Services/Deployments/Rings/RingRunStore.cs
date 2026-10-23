@@ -329,7 +329,9 @@ public sealed class RingRunStore
             if (!File.Exists(runPath)) throw new DeploymentServiceException("The run file does not exist any more. Refresh the runs.", DeploymentFailureKind.Stale);
             stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
         }
-        catch (IOException) when (File.Exists(path))
+        // A lock file that another session is deleting refuses the open with access denied (seen
+        // over SMB on CM01), so a refusal while the file exists means the lock is held.
+        catch (Exception ex) when ((ex is IOException || ex is UnauthorizedAccessException) && File.Exists(path))
         {
             throw new DeploymentServiceException(LockedMessage(LockInfo(runPath) ?? new RingLockInfo(path, "an unknown session", TimeSpan.Zero, false)));
         }

@@ -94,12 +94,14 @@ internal sealed class RingHarness : IDisposable
 
     public IReadOnlyList<DeploymentAuditRecord> Records => Audit.Read(1000);
 
-    /// <summary>A summary row as CM01 holds it for a deployment.</summary>
+    /// <summary>The summary row of a deployment as CM01 holds it after clients report; replaces the row the create made.</summary>
     public void Summarize(string deploymentId, int targeted, int success, int errors = 0, int inProgress = 0, int unknown = 0)
     {
         var assignment = Site.List("AppAssignments").Concat(Site.List("UgAssignments")).OfType<JsonObject>()
             .FirstOrDefault(a => (string?)a["AssignmentUniqueID"] == deploymentId)?["AssignmentID"]?.GetValue<long>();
-        Site.List("Summaries").Add(new JsonObject
+        var summaries = Site.List("Summaries");
+        foreach (var old in summaries.OfType<JsonObject>().Where(s => string.Equals((string?)s["DeploymentID"], deploymentId, StringComparison.OrdinalIgnoreCase)).ToList()) summaries.Remove(old);
+        summaries.Add(new JsonObject
         {
             ["DeploymentID"] = deploymentId, ["AssignmentID"] = assignment ?? 0, ["CollectionID"] = C1, ["NumberTargeted"] = targeted, ["NumberSuccess"] = success,
             ["NumberErrors"] = errors, ["NumberInProgress"] = inProgress, ["NumberUnknown"] = unknown, ["NumberOther"] = 0, ["SummarizationTime"] = "2026-10-20T08:30:00"

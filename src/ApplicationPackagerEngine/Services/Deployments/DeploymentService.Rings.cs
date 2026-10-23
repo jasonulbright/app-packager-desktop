@@ -97,7 +97,9 @@ public sealed partial class DeploymentService : IDeploymentSiteReader
         {
             var proofParameters = ObjectParameters("Proof", obj);
             proofParameters["DeploymentId"] = row.DeploymentId;
-            proofParameters["ProofReads"] = 1;
+            // The status message 30006 that proves a package or task sequence deployment's creator can
+            // reach the site many seconds after the create (seen on CM01), so the read waits for it.
+            proofParameters["ProofReads"] = 15;
             var proof = Rows<ProofRow>(await ReadAsync(proofParameters, ct).ConfigureAwait(false), "Proof").FirstOrDefault();
             result.Add(new DeploymentCandidate(ToRecord(obj.Type, row) with { ObjectName = obj.Name }, ParseUtc(proof?.Created), proof?.CreatedBy ?? "", StoredDifferences(obj.Type, row, seconds)));
         }

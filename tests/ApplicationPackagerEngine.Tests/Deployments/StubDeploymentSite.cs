@@ -163,9 +163,16 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                     TargetCollectionID = $CollectionId; OfferTypeID = $(if ($required) { 0 } else { 2 }); StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { $deadline } else { $null }); UseGMTTimes = ($TimeBaseOn -eq 'Utc')
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $OverrideServiceWindow); RebootOutsideOfServiceWindows = ($required -and $RebootOutsideServiceWindow)
                     DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx (Stamp)); LastModificationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
+                Add-Summary $uid $global:NextAssignment $CollectionId 1
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
             Made-Since 'AppAssignments' 'AssignmentUniqueID' $n0 'Application'
+        }
+        function global:Add-Summary([string]$Key, [long]$Assignment, [string]$Collection, [int]$Feature) {
+            if ($global:Opt.ContainsKey('NoSummary')) { return }
+            $members = [int](V ($global:S.Collections | Where-Object { $_.CollectionID -eq $Collection } | Select-Object -First 1) 'MemberCount' 0)
+            $global:S.Summaries.Add([pscustomobject]@{ DeploymentID = $Key; AssignmentID = $Assignment; FeatureType = $Feature; CollectionID = $Collection; NumberTargeted = $members; NumberSuccess = 0
+                NumberErrors = 0; NumberInProgress = 0; NumberUnknown = 0; NumberOther = 0; SummarizationTime = (Tx (Stamp)) })
         }
         function global:New-Advert([string]$PackageId, [string]$ProgramName, [string]$CollectionId, [bool]$Required, [datetime]$Available, [bool]$UtcAvailable, [bool]$UtcExpire, [object[]]$Schedule, [long]$Advert, [long]$Remote) {
             $id = 'MCM2' + ('{0:X4}' -f $global:NextAdvert); $global:NextAdvert++
@@ -173,6 +180,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                 PresentTime = (Tx $Available); PresentTimeIsGMT = $UtcAvailable; ExpirationTimeEnabled = $UtcExpire; AssignedScheduleEnabled = $Required; AssignedSchedule = @($(if ($Required) { $Schedule } else { @() }))
                 AdvertFlags = $Advert; RemoteClientFlags = $Remote })
             if (-not $global:Opt.ContainsKey('NoStatus')) { $global:S.StatusMessages.Add([pscustomobject]@{ RecordID = $global:NextRecord; MessageID = 30006; Time = (Tx (Stamp).ToUniversalTime()); AdvertisementID = $id; User = $global:CreatedBy }); $global:NextRecord++ }
+            Add-Summary $id 0 $CollectionId $(if ($ProgramName -eq '*') { 7 } else { 2 })
             $global:NewKeys.Add($id)
         }
         function global:Rerun-Bit([string]$Rerun, [bool]$Required) { if (-not $Required) { return 0x800 }; switch ($Rerun) { 'NeverRerunDeployedProgram' { 0x1000 } 'RerunIfFailedPreviousAttempt' { 0x2000 } 'RerunIfSucceededOnPreviousAttempt' { 0x4000 } default { 0x800 } } }
@@ -217,6 +225,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $SoftwareInstallation); RebootOutsideOfServiceWindows = ($required -and $AllowRestart)
                     SuppressReboot = $(if ($required) { $(if ($RestartServer) { 2 } else { 0 }) -bor $(if ($RestartWorkstation) { 1 } else { 0 }) } else { 0 }); RequirePostRebootFullScan = $RequirePostRebootFullScan
                     DPLocality = $locality; CreationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
+                Add-Summary $uid $global:NextAssignment $CollectionId 5
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
             Made-Since 'UgAssignments' 'AssignmentUniqueID' $n0 'SoftwareUpdateGroup'
