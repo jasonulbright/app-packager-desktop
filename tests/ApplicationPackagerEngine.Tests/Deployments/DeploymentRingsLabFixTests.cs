@@ -370,6 +370,34 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Equal(lines.Length, lines.Distinct().Count());
     }
 
+    [Fact]
+    public async Task ThePageStatusLineDropsARefusalWhenTheFormChangesAndALockMessageAfterASuccessfulReload()
+    {
+        var h = new DeploymentPageHarness();
+        h.Rings.AfterPrepare = c => c.Kind == RingChangeKind.CreateRun
+            ? c with { Checks = [new PreflightCheck(Name: "PlanRules", Result: "Fail", Message: "The deadline of ring Wave 1 is in the past.")] }
+            : c;
+        h.Rings.Plans.Add(Plan("Other Rings", required: false));
+        var (rings, _) = await ExpandedAsync(Plan("Three Rings", required: false), h);
+        await rings.CreateRunCommand.ExecuteAsync(null);
+        Assert.StartsWith("The run cannot be created", rings.Shared.StatusMessage);
+        rings.SelectedPlan = rings.Plans.Single(p => p.Name == "Other Rings");
+        Assert.Equal("", rings.Shared.StatusMessage);
+
+        h.Rings.AfterPrepare = null;
+        h.Rings.AddRun("RUN-100", h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Held", null, "Available"));
+        await rings.LoadRunsAsync();
+        rings.SelectedRun = rings.Runs.Single(r => r.RunId == "RUN-100");
+        await rings.CountsTask;
+        h.Rings.LockOwner = @"LAB\other on WS02, process 4242, since 2026-10-20 08:55";
+        await rings.PromoteRingCommand.ExecuteAsync(null);
+        Assert.Contains("Lock file: RUN-100.lock", rings.Shared.StatusMessage);
+        h.Rings.LockOwner = null;
+        await rings.ReconcileCommand.ExecuteAsync(null);
+        Assert.Equal("Reconciled 1 run.", rings.RunsMessage);
+        Assert.Equal("", rings.Shared.StatusMessage);
+    }
+
     private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
         new DeploymentRecord(DeploymentId: $"{{DEP-{i:000}}}", Type: DeploymentObjectType.Package, ObjectId: "LAB000A0", ObjectName: "Contoso Fonts 1.0",
             CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,

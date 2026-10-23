@@ -99,11 +99,28 @@ public sealed partial class DeploymentRingsViewModel
     }
     partial void OnHoldLaterRingsChanged(bool value) => InvalidateChecks(ValidateAgain);
 
+    /// <summary>The page status line text of the last refused Rings action; empty when the line holds no refusal of this tab.</summary>
+    private string _refusal = "";
+
+    private void ShowRefusal(string message)
+    {
+        _refusal = message;
+        Shared.StatusMessage = message;
+    }
+
+    /// <summary>Clears the page status line only while it still shows the refusal of this tab, so a newer message of another action stays.</summary>
+    private void ClearRefusal()
+    {
+        if (_refusal.Length > 0 && Shared.StatusMessage == _refusal) Shared.StatusMessage = "";
+        _refusal = "";
+    }
+
     /// <summary>A change of the object, the plan or the start makes the expansion and the checks stale.</summary>
     private void FormChanged()
     {
         _formVersion++;
         FormMessage = "";
+        ClearRefusal();
         if (PreviewRows.Count > 0)
         {
             PreviewRows.Clear();
@@ -177,6 +194,7 @@ public sealed partial class DeploymentRingsViewModel
     private async Task Expand()
     {
         if (IsExpanding) return;
+        ClearRefusal();
         if (Shared.ConnectionProblem() is { } connection)
         {
             FormMessage = connection;
@@ -310,6 +328,7 @@ public sealed partial class DeploymentRingsViewModel
     private async Task Validate()
     {
         if (IsValidating) return;
+        ClearRefusal();
         if (Shared.ConnectionProblem() is { } connection)
         {
             FormMessage = connection;
@@ -392,10 +411,11 @@ public sealed partial class DeploymentRingsViewModel
     {
         void Refuse(string message)
         {
-            Shared.StatusMessage = message;
+            ShowRefusal(message);
             report?.Invoke(message);
         }
 
+        ClearRefusal();
         RunsMessage = "";
         if (Shared.IsWriting)
         {

@@ -65,7 +65,11 @@ public sealed partial class DeploymentRingsViewModel
     {
         var value = newValue;
         var sameRun = string.Equals(oldValue?.RunId, newValue?.RunId, StringComparison.OrdinalIgnoreCase);
-        if (!sameRun) RunsMessage = "";
+        if (!sameRun)
+        {
+            RunsMessage = "";
+            ClearRefusal();
+        }
         var selectedRing = sameRun ? SelectedRunRing?.Index : null;
         _countsGeneration++;
         _counts = [];
@@ -165,6 +169,7 @@ public sealed partial class DeploymentRingsViewModel
             cts.Token.ThrowIfCancellationRequested();
             if (mine != _runsGeneration || generation != Shared.Generation) return;
             ShowRuns(runs, showClosed);
+            ClearRefusal();
         }
         catch (OperationCanceledException)
         {
@@ -276,6 +281,7 @@ public sealed partial class DeploymentRingsViewModel
             return;
         }
         var generation = Shared.Generation;
+        ClearRefusal();
         var ids = Runs.Where(r => !r.Run.IsClosed).Select(r => r.RunId).ToList();
         Shared.IsWriting = true;
         var problems = new List<string>();
