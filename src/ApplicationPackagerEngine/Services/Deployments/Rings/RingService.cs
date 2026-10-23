@@ -94,6 +94,8 @@ public sealed class RingService : IRingService
 
     public RingPlan? SavePlan(RingPlan plan, bool replace) => _plans.Save(plan, replace);
 
+    public RingPlan? SavePlan(RingPlan plan, bool replace, string? expectedFileStamp) => _plans.Save(plan, replace, expectedFileStamp);
+
     public void DeletePlan(string name) => _plans.Delete(name);
 
     public string? RunMessage { get; private set; }

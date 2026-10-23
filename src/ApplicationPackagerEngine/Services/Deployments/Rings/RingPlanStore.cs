@@ -138,8 +138,10 @@ public sealed partial class RingPlanStore
     }
 
     /// <summary>Validates and writes the plan as &lt;name&gt;.json; returns the plan as listed.</summary>
-    public RingPlan Save(RingPlan plan, bool replace)
+    /// <param name="expectedFileStamp">A replace is refused unless the plan file still has this stamp; null takes the stamp the plan carries, and no stamp skips the check.</param>
+    public RingPlan Save(RingPlan plan, bool replace, string? expectedFileStamp = null)
     {
+        var stamp = expectedFileStamp ?? (replace && plan?.FileStamp is { Length: > 0 } carried ? carried : null);
         ArgumentNullException.ThrowIfNull(plan);
         var name = (plan.Name ?? "").Trim();
         if (NameProblem(name) is { } nameProblem) throw new DeploymentServiceException(nameProblem);
@@ -147,6 +149,7 @@ public sealed partial class RingPlanStore
         var normalized = Normalize(plan with { Name = name, IsSeed = false });
         var errors = RingPlanRules.Validate(normalized);
         if (errors.Count > 0) throw new DeploymentServiceException("The plan cannot be saved: " + string.Join(" ", errors));
+        var written = "";
         lock (_gate)
         {
             var folder = CheckedFolder();
@@ -161,7 +164,7 @@ public sealed partial class RingPlanStore
                     throw new DeploymentServiceException($"A plan named {name} exists. Choose another name.");
                 if (File.Exists(path) && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
                     throw new DeploymentServiceException("The plan file is a symbolic link or another reparse point, so it was not written.", DeploymentFailureKind.Storage);
-                Write(path, normalized);
+                written = Write(path, normalized, replace, stamp, name);
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
@@ -170,7 +173,7 @@ public sealed partial class RingPlanStore
             }
         }
         _log?.Info(LogArea, $"Saved a ring plan with {normalized.Rings.Count} rings.");
-        return normalized with { FileName = name + ".json" };
+        return normalized with { FileName = name + ".json", FileStamp = written };
     }
 
     public void Delete(string name)
@@ -188,7 +191,7 @@ public sealed partial class RingPlanStore
                 if (file is null) throw new DeploymentServiceException($"Plan {value} does not exist any more.", DeploymentFailureKind.Stale);
                 if (File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint))
                     throw new DeploymentServiceException("The plan file is a symbolic link or another reparse point, so it was not deleted.", DeploymentFailureKind.Storage);
-                File.Delete(file);
+                using (PlanLock(file, value)) File.Delete(file);
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
@@ -218,7 +221,14 @@ public sealed partial class RingPlanStore
         foreach (var seed in Seeds)
         {
             var path = Path.Combine(folder, seed.FileName);
-            if (!File.Exists(path)) Write(path, seed);
+            if (File.Exists(path)) continue;
+            try
+            {
+                Write(path, seed, false, null, seed.Name);
+            }
+            catch (DeploymentServiceException) when (File.Exists(path))
+            {
+            }
         }
         _log?.Info(LogArea, "Wrote the two seed ring plans.");
     }
@@ -233,10 +243,12 @@ public sealed partial class RingPlanStore
             var info = new FileInfo(file);
             if (info.Attributes.HasFlag(FileAttributes.ReparsePoint)) return (null, "the file is a symbolic link or another reparse point.");
             if (info.Length > MaxFileBytes) return (null, $"the file is larger than {(MaxFileBytes / 1024).ToString(CultureInfo.InvariantCulture)} KB.");
-            if (JsonNode.Parse(File.ReadAllText(file, Encoding.UTF8)) is not JsonObject o) return (null, "the file does not hold a plan.");
+            var bytes = File.ReadAllBytes(file);
+            var stamp = RingRunStore.Fingerprint(bytes, File.GetLastWriteTimeUtc(file));
+            if (JsonNode.Parse(Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF')) is not JsonObject o) return (null, "the file does not hold a plan.");
             var (plan, problem) = Parse(o);
             if (plan is null) return (null, problem);
-            plan = plan with { FileName = Path.GetFileName(file), IsSeed = IsSeed(plan.Name) };
+            plan = plan with { FileName = Path.GetFileName(file), IsSeed = IsSeed(plan.Name), FileStamp = stamp };
             var errors = RingPlanRules.Validate(plan);
             if (errors.Count > 0) return (null, string.Join(" ", errors));
             return (plan, "");
@@ -367,7 +379,47 @@ public sealed partial class RingPlanStore
         return o;
     }
 
-    private static void Write(string path, RingPlan plan)
+    /// <summary>The stamp of a plan file now; null when it cannot be read.</summary>
+    private static string? StampOf(string path)
+    {
+        try
+        {
+            return RingRunStore.Fingerprint(File.ReadAllBytes(path), File.GetLastWriteTimeUtc(path));
+        }
+        catch (Exception ex) when (IsStorageFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A stamp that matches no file: a plan whose file could not be read back must be opened again before a replace.</summary>
+    private const string UnreadStamp = "unread";
+
+    /// <summary>
+    /// The lock file of one plan file, made with CreateNew and deleted when disposed: every write and
+    /// delete of the plan holds it, so a stamp check and the move that follows are one step for all
+    /// sessions that use the folder.
+    /// </summary>
+    private static FileStream PlanLock(string path, string name)
+    {
+        var lockPath = path + ".lock";
+        try
+        {
+            return new FileStream(lockPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose);
+        }
+        catch (IOException) when (File.Exists(lockPath))
+        {
+            throw new DeploymentServiceException($"Another session is saving or deleting plan {name} now, so nothing was changed. Try again; if no session is working on it, delete {lockPath} by hand.", DeploymentFailureKind.Stale);
+        }
+    }
+
+    /// <summary>
+    /// Writes a temporary file and moves it to the plan file under the plan's lock. A new plan moves
+    /// without overwrite, so of two sessions that create the same name one is refused; a replace with
+    /// a stamp is refused when the file changed since the stamp was read. Returns the stamp of the
+    /// file this call wrote.
+    /// </summary>
+    private static string Write(string path, RingPlan plan, bool replace, string? stamp, string name)
     {
         var o = new JsonObject
         {
@@ -381,14 +433,37 @@ public sealed partial class RingPlanStore
         try
         {
             File.WriteAllText(temp, o.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }), Utf8Bom);
-            File.Move(temp, path, overwrite: true);
+            using (PlanLock(path, name))
+            {
+                if (!replace)
+                {
+                    try
+                    {
+                        File.Move(temp, path, overwrite: false);
+                    }
+                    catch (IOException) when (File.Exists(path))
+                    {
+                        throw new DeploymentServiceException($"A plan named {name} exists. Choose another name.");
+                    }
+                }
+                else
+                {
+                    if (stamp is not null)
+                    {
+                        if (!File.Exists(path)) throw new DeploymentServiceException($"Plan {name} does not exist any more. It was not saved; save it as a new plan.", DeploymentFailureKind.Stale);
+                        if (StampOf(path) is not { } now || !string.Equals(now, stamp, StringComparison.Ordinal))
+                            throw new DeploymentServiceException($"Plan {name} changed since it was opened (another session saved it), so it was not saved. Open it again, then edit it.", DeploymentFailureKind.Stale);
+                    }
+                    File.Move(temp, path, overwrite: true);
+                }
+                return StampOf(path) ?? UnreadStamp;
+            }
         }
         finally
         {
             if (File.Exists(temp)) File.Delete(temp);
         }
     }
-
     internal static bool IsStorageFailure(Exception ex) =>
         ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or ArgumentException or NotSupportedException;
 }

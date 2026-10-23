@@ -40,7 +40,11 @@ public sealed record RingDefinition(
 /// <param name="TimeBasedOn">LocalTime or Utc.</param>
 /// <param name="IsSeed">True for the two plans the app writes; a seed is never replaced or deleted, only copied.</param>
 /// <param name="FileName">The file name of the plan in the plans folder; empty for a plan that was not read from a file.</param>
-public sealed record RingPlan(string Name, string Description, bool HoldLaterRings, string TimeBasedOn, IReadOnlyList<RingDefinition> Rings, bool IsSeed, string FileName = "");
+public sealed record RingPlan(string Name, string Description, bool HoldLaterRings, string TimeBasedOn, IReadOnlyList<RingDefinition> Rings, bool IsSeed, string FileName = "")
+{
+    /// <summary>The version stamp of the plan file when it was read or written (write time, length, content hash); empty for a plan not read from a file. A replace that carries it is refused when the file changed since.</summary>
+    public string FileStamp { get; init; } = "";
+}
 
 /// <summary>
 /// One ring expanded for one plan start. Times are wall-clock values in the plan's time basis.
@@ -207,6 +211,9 @@ public interface IRingService
 
     /// <summary>Validates and writes the plan; refuses a seed name and, without <paramref name="replace"/>, a name that is taken.</summary>
     RingPlan? SavePlan(RingPlan plan, bool replace);
+
+    /// <summary>As <see cref="SavePlan(RingPlan, bool)"/>; a replace is refused when the plan file no longer has <paramref name="expectedFileStamp"/> (null: the stamp the plan carries).</summary>
+    RingPlan? SavePlan(RingPlan plan, bool replace, string? expectedFileStamp) => SavePlan(plan, replace);
 
     /// <summary>Deletes a user plan; refuses a seed.</summary>
     void DeletePlan(string name);
