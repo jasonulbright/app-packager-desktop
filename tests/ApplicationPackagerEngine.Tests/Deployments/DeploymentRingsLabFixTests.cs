@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
 using ApplicationPackagerUI.ViewModels.Windows;
 using ApplicationPackagerUI.Views.Windows;
@@ -119,6 +120,76 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
             Assert.False(editor.HasChanges);
             Assert.True(editor.ConfirmClose());
             Assert.Equal(0, asked);
+        });
+    }
+
+    private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
+        new DeploymentRecord(DeploymentId: $"{{DEP-{i:000}}}", Type: DeploymentObjectType.Package, ObjectId: "LAB000A0", ObjectName: "Contoso Fonts 1.0",
+            CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,
+            Created: new DateTime(2026, 10, 19, 8, 0, 0), CreatedBy: @"LAB\admin"), [], [], null);
+
+    [Fact]
+    public void TheRemovalQuestionOfManyDeploymentsStatesTheCountAndListsOneDeploymentPerLine()
+    {
+        var text = DeploymentWriter.RemovalQuestion(Enumerable.Range(1, 100).Select(Removal).ToList());
+        var lines = text.Split(Environment.NewLine);
+        Assert.Equal("Remove these 100 deployments? Software that clients already installed stays installed.", lines[0]);
+        Assert.Equal(101, lines.Length);
+        Assert.Equal("Contoso Fonts 1.0 from RG-Test-C100 (LABC0100)", lines[^1]);
+        Assert.Equal("Remove the deployment Contoso Fonts 1.0 from RG-Test-C001 (LABC0001)? Software that clients already installed stays installed.",
+            DeploymentWriter.RemovalQuestion([Removal(1)]));
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light, 1080 - 48)]
+    [InlineData(ApplicationTheme.Dark, 1080 - 48)]
+    [InlineData(ApplicationTheme.Light, 768 - 40)]
+    [InlineData(ApplicationTheme.Dark, 768 - 40)]
+    public void TheRemovalQuestionOf100DeploymentsScrollsAndKeepsItsButtonsInsideTheWorkArea(ApplicationTheme theme, double workArea)
+    {
+        WithApplication(theme, () =>
+        {
+            var window = new RemovalConfirmWindow(DeploymentWriter.RemovalQuestion(Enumerable.Range(1, 100).Select(Removal).ToList()));
+            window.FitWorkArea(workArea);
+            Show(window);
+            try
+            {
+                Settle(window);
+                Assert.True(window.ActualHeight <= workArea + 0.5, $"The question is {window.ActualHeight:0} px high in a {workArea:0} px work area.");
+                foreach (var id in new[] { "btnRemovalConfirm", "btnRemovalCancel" })
+                    AssertInside(window, ById<FrameworkElement>(window, id), window.ActualHeight, id);
+                var scroller = ById<ScrollViewer>(window, "scrollRemovalQuestion");
+                Assert.True(scroller.ScrollableHeight > 0, "The list of 100 deployments does not scroll.");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheChangePlanOf100RingsKeepsItsCheckBoxesAndButtonsVisible(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var rows = Enumerable.Range(1, 100).Select(i => new RingExpansionRow(Index: i, Name: $"Wave {i} of the finance department rollout", CollectionId: $"LABC{i:0000}",
+                CollectionName: $"Finance {i}", MemberCount: 10, Purpose: "Required", AvailableTime: new DateTime(2026, 10, 1), Deadline: new DateTime(2026, 10, 3),
+                DpGroup: "", SuccessThresholdPercent: null, Checks: [])).ToList();
+            var extra = RingText.SecondConfirmation(100, 1000, null, rows, "local time");
+            Assert.DoesNotContain("Wave 50", extra);
+            var items = Enumerable.Range(1, 100).Select(i => new ChangePlanItem("Remove deployment", $"Ring Wave {i}: Contoso Fonts 1.0 from Finance {i} (LABC{i:0000})",
+                string.Join(Environment.NewLine, Enumerable.Repeat("A line of detail that the plan shows for this ring.", 6)))).ToList();
+            var plan = new ChangePlanWindow(new ChangePlanViewModel(new ChangePlan("Undo ring run", "Remove 100 deployments", items, isDestructive: true) { ExtraConfirmation = extra },
+                (_, _, _) => Task.FromResult(new ChangePlanResult([]))));
+            Show(plan);
+            try
+            {
+                plan.Height = 768 - 40;
+                Settle(plan);
+                foreach (var id in new[] { "chkChangePlanDestructive", "chkChangePlanExtra", "btnChangePlanConfirm", "btnChangePlanCancel" })
+                    AssertInside(plan, ById<FrameworkElement>(plan, id), plan.ActualHeight, id);
+            }
+            finally { plan.Close(); }
         });
     }
 

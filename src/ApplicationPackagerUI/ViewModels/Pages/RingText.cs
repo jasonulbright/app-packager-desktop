@@ -166,6 +166,9 @@ public static class RingText
     /// The text of the second check box of a run or a Promote: the number of Required rings it
     /// creates now with their devices in total, and the past available times, as they apply.
     /// </summary>
+    /// <summary>A check box text names at most this many rings; more are counted, so the box stays a few lines high.</summary>
+    public const int MaxNamedRings = 5;
+
     public const string BackdatedSentence = "the available time of a ring this change creates is in the past, so its deployment is available at once";
 
     /// <param name="anyBackdated">True when the service reports an available time in the past that <paramref name="backdated"/> does not name; the sentence then names it in general.</param>
@@ -179,7 +182,9 @@ public static class RingText
         if (backdated.Count > 0)
             parts.Add(backdated.Count == 1
                 ? $"the available time of ring {backdated[0].Name} is in the past, so its deployment is available at once"
-                : $"the available times of rings {string.Join(", ", backdated.Select(r => r.Name))} are in the past, so their deployments are available at once");
+                : backdated.Count <= MaxNamedRings
+                    ? $"the available times of rings {string.Join(", ", backdated.Select(r => r.Name))} are in the past, so their deployments are available at once"
+                    : $"the available times of {backdated.Count.ToString(CultureInfo.CurrentCulture)} rings are in the past (first ring {backdated[0].Name}), so their deployments are available at once");
         else if (anyBackdated) parts.Add(BackdatedSentence);
         return parts.Count == 0 ? "" : $"I understand that {string.Join(", and that ", parts)}.";
     }
