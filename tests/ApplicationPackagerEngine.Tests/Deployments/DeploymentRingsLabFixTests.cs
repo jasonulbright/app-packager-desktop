@@ -317,6 +317,58 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Single(last, l => l is "The run file moves to the closed folder." or "Then closes the run.");
     }
 
+    private static readonly System.Text.RegularExpressions.Regex WrongArticle = new(@"\ba [AEIOUaeiou]|\ban [^AEIOUaeiou\s]", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>The stored values of the option lists that differ from their labels, such as RerunIfFailedPreviousAttempt.</summary>
+    private static IEnumerable<string> RawOptionValues() =>
+        new[] { DeploymentText.NetworkBehaviors, DeploymentText.SlowNetworkBehaviors, DeploymentText.RerunBehaviors, DeploymentText.TaskSequenceAvailabilities,
+                DeploymentText.TaskSequenceContents, DeploymentText.Notifications }
+            .SelectMany(l => l).Select(c => c.Value).Where(v => System.Text.RegularExpressions.Regex.IsMatch(v, "^[A-Z][a-z]+(?:[A-Z][a-z]*)+$")).Distinct();
+
+    public static TheoryData<string, string> TypesAndPurposes() => new()
+    {
+        { "Application", "Available" }, { "Application", "Required" }, { "Package", "Available" }, { "Package", "Required" },
+        { "TaskSequence", "Available" }, { "TaskSequence", "Required" }, { "SoftwareUpdateGroup", "Available" }, { "SoftwareUpdateGroup", "Required" }
+    };
+
+    [Theory]
+    [MemberData(nameof(TypesAndPurposes))]
+    public async Task ThePromoteAndRunPlansUsePlainOptionLabelsAndTheRightArticle(string typeName, string purpose)
+    {
+        var obj = DeploymentHarness.Of(Enum.Parse<DeploymentObjectType>(typeName));
+        var required = purpose == "Required";
+        var basePlan = RingHarness.ThreeRings(hold: true, purpose: purpose);
+        var plan = basePlan with
+        {
+            Rings = [basePlan.Rings[0], basePlan.Rings[1] with
+            {
+                FastNetworkOption = "RunProgramFromDistributionPoint", SlowNetworkOption = "DownloadContentFromDistributionPointAndLocally", RerunBehavior = "RerunIfFailedPreviousAttempt",
+                TaskSequenceAvailability = "ClientsMediaAndPxe", UserNotification = "DisplaySoftwareCenterOnly", OverrideServiceWindow = true
+            }, basePlan.Rings[2]]
+        };
+        using var h = new RingHarness();
+        var created = await h.CreateRunAsync(plan, obj, required);
+        Assert.True(created.Succeeded, created.Message);
+        var run = h.Run(created.Run!.RunId);
+        h.Summarize(run.Rings[0].DeploymentId!, 10, 10);
+        var prepared = await h.PrepareAsync(RingHarness.Request(RingChangeKind.Promote, run.RunId, 2, required));
+        var (promote, problem) = RingText.BuildPromotePlan(prepared, TimeProvider.System, run.TimeBasedOn);
+        Assert.True(promote is not null, problem);
+
+        var runPrepared = await h.PrepareAsync(RingHarness.CreateRun(plan with { HoldLaterRings = false }, obj, await h.ExpandAsync(plan with { HoldLaterRings = false }, obj), required));
+        var (createRun, runProblem) = RingText.BuildCreateRunPlan(runPrepared, TimeProvider.System);
+        var texts = promote!.Plan.Items.Concat(createRun?.Plan.Items ?? []).Select(i => i.Detail ?? "").ToList();
+        Assert.True(createRun is not null || runProblem is not null);
+        foreach (var text in texts)
+        {
+            Assert.False(WrongArticle.IsMatch(text), $"{typeName} {purpose}: '{WrongArticle.Match(text).Value}' in: {text}");
+            foreach (var raw in RawOptionValues())
+                Assert.False(System.Text.RegularExpressions.Regex.IsMatch(text, $@"\b{raw}\b"), $"{typeName} {purpose}: the raw option name {raw} in: {text}");
+        }
+        var lines = promote.Plan.Items.Single().Detail!.Split(Environment.NewLine);
+        Assert.Equal(lines.Length, lines.Distinct().Count());
+    }
+
     private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
         new DeploymentRecord(DeploymentId: $"{{DEP-{i:000}}}", Type: DeploymentObjectType.Package, ObjectId: "LAB000A0", ObjectName: "Contoso Fonts 1.0",
             CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,

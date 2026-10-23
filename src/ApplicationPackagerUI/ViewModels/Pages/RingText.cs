@@ -170,7 +170,6 @@ public static class RingText
         IReadOnlyList<string> groups = change is not null ? change.DpGroups : row.DpGroup.Length > 0 && type != DeploymentObjectType.SoftwareUpdateGroup ? [row.DpGroup] : [];
         if (groups.Count > 0)
             lines.Add($"Distribution point group: {string.Join(", ", groups)}. The distribution is requested first and has no Undo. " + DeploymentText.CreateNowHint);
-        if (change is not null) lines.AddRange(change.Impact);
         if (row.SuccessThresholdPercent is { } threshold)
             lines.Add($"Success threshold: {Threshold(threshold)}. The next ring can be promoted when this ring reaches it.");
         lines.AddRange(DeploymentText.CheckLines(row.Checks));
@@ -273,6 +272,8 @@ public static class RingText
         }, null);
     }
 
+    private const string ServiceShiftLine = "The planned deadline ";
+
     /// <summary>The plan of a Promote: the ring, its collection with the member count now, the deadline shift and the checks.</summary>
     public static (RingRunPlan? Plan, string? Problem) BuildPromotePlan(RingChange prepared, TimeProvider clock, string timeBasedOn)
     {
@@ -286,7 +287,8 @@ public static class RingText
         if (obj is not null) lines.Add($"Object: {ObjectText(obj)}.");
         var change = ChangeOf(prepared, row) ?? prepared.RingChanges.FirstOrDefault();
         lines.Add(RingLines(row, basis, created: true, prepared, change));
-        lines.AddRange(prepared.Impact);
+        // The impact of the ring's create and the service's deadline shift line restate the ring lines and the shift sentence below in raw option names.
+        lines.AddRange(prepared.Impact.Where(l => change?.Impact.Contains(l) != true && !l.StartsWith(ServiceShiftLine, StringComparison.Ordinal)));
         lines.Add(UndoRunNote);
         var required = prepared.NeedsRequiredConfirmation;
         var devices = prepared.RequiredDevices;
