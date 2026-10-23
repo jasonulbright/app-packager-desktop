@@ -315,7 +315,7 @@ public sealed partial class DeploymentService : IDeploymentService
             DeploymentOutcome outcome;
             if (ct.IsCancellationRequested)
             {
-                outcome = new DeploymentOutcome(change, false, SkippedPrefix + "the run was cancelled before this change.", null, []);
+                outcome = new DeploymentOutcome(change, false, SkippedPrefix + "the run was cancelled before this change.", null, []) { NotCreated = true };
             }
             else
             {

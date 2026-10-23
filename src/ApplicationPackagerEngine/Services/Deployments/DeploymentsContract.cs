@@ -176,6 +176,13 @@ public sealed record DeploymentOutcome(DeploymentChange Change, bool Succeeded, 
 
     /// <summary>Create whose result is not known: the IDs of the new deployments that appeared, as the audit record holds them; empty otherwise.</summary>
     public IReadOnlyList<string> UnclearDeploymentIds { get; init; } = [];
+
+    /// <summary>
+    /// True when the change made nothing in ConfigMgr for certain: it was refused or skipped, or
+    /// ConfigMgr reported that it made nothing (a failed content distribution of a combined create
+    /// included). False when something was made or the result is not known.
+    /// </summary>
+    public bool NotCreated { get; init; }
 }
 
 public static class DeploymentCheckResults

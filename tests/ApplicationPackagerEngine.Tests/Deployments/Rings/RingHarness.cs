@@ -18,7 +18,7 @@ internal sealed class RingHarness : IDisposable
     public DateTime UtcNow = DeploymentHarness.UtcNow;
 
     /// <param name="waves">Further empty device collections MCMW0001, MCMW0002 and on, named "Wave 01 10%" and on.</param>
-    public RingHarness(JsonObject? state = null, int waves = 0)
+    public RingHarness(JsonObject? state = null, int waves = 0, Action<RingRun>? beforeSave = null)
     {
         var lab = state ?? StubDeploymentSite.Lab();
         var collections = lab["Collections"]!.AsArray();
@@ -30,7 +30,7 @@ internal sealed class RingHarness : IDisposable
         _deployments.Collections.Rows.Add(DeploymentHarness.FakeCollections.Row(C3, "DH-Test-3", false, 1));
         foreach (var wave in Waves(waves)) _deployments.Collections.Rows.Add(DeploymentHarness.FakeCollections.Row(wave.CollectionId, wave.Name, false, 0));
         Plans = new RingPlanStore(() => Path.Combine(_deployments.Folder, "Rings"));
-        Runs = new RingRunStore(() => Path.Combine(_deployments.Folder, "Rings", "runs"), utcNow: () => UtcNow, local: DeploymentHarness.Local, user: () => Account);
+        Runs = new RingRunStore(() => Path.Combine(_deployments.Folder, "Rings", "runs"), utcNow: () => UtcNow, local: DeploymentHarness.Local, user: () => Account) { BeforeSave = beforeSave };
         Service = new RingService(_deployments.Service, _deployments.Service, _deployments.Audit, Plans, Runs, utcNow: () => UtcNow, local: DeploymentHarness.Local);
     }
 

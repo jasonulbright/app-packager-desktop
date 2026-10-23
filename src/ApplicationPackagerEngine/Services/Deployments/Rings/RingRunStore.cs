@@ -59,6 +59,9 @@ public sealed class RingRunStore
 
     public string ClosedFolder => Path.Combine(Folder, ClosedFolderName);
 
+    /// <summary>Runs at the start of each save, inside its storage failure handling.</summary>
+    internal Action<RingRun>? BeforeSave { get; init; }
+
     /// <summary>The account a new run file names as its creator.</summary>
     public string User => _user();
 
@@ -429,6 +432,7 @@ public sealed class RingRunStore
         var json = ToJson(run, current.Json, null);
         try
         {
+            BeforeSave?.Invoke(run);
             if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
                 throw new DeploymentServiceException("The run file is a symbolic link or another reparse point, so it was not written.", DeploymentFailureKind.Storage);
             var temp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";

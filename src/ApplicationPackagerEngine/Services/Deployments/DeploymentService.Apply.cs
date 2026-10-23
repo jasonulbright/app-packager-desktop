@@ -55,9 +55,9 @@ public sealed partial class DeploymentService
             var written = SafeAppend(reservation, () => DistributionRecord(obj, change.DpGroups, distribution).WithRing(change.Ring));
             distributed = DistributionOutcome(change, obj, distribution, written);
             if (!written.Succeeded)
-                return Fail(change, $"The content distribution may have been requested but could not be logged, so the deployment was not created. {written.Message}") with { Steps = steps, Distribution = distributed };
+                return Fail(change, $"The content distribution may have been requested but could not be logged, so the deployment was not created. {written.Message}") with { Steps = steps, Distribution = distributed, NotCreated = true };
             if (!distribution.Requested)
-                return Fail(change, $"The content distribution failed, so the deployment was not created. {distribution.Message}") with { Steps = steps, Distribution = distributed };
+                return Fail(change, $"The content distribution failed, so the deployment was not created. {distribution.Message}") with { Steps = steps, Distribution = distributed, NotCreated = true };
         }
         var outcome = await CreateAfterDistributionAsync(change, obj, collectionId, options, prepared, requiredApplication, reservation, steps).ConfigureAwait(false);
         if (distributed is null) return outcome;
@@ -293,7 +293,7 @@ public sealed partial class DeploymentService
                     return Fail(change, $"The result of the create of {target} is not known: {ids.Length} new deployments appeared: {string.Join("; ", ids.Select(i => CreationText(i, run.Proofs)))}. They have the same object, collection and account, so this product cannot tell which one it made. Check them in the console and remove the one that must not stay there. Undo is not available because neither deployment can be shown to come from this change.") with { Steps = steps };
                 return Fail(change, $"The result of the create of {target} is not known: {(ids.Length == 1 ? $"ConfigMgr reported an error, and new deployment {ids[0]} cannot be shown to be made by this account during this run" : "the deployments could not be read after the create")}. Check the deployments in the console. Undo is not available because a deployment found now cannot be shown to come from this change.") with { Steps = steps };
             case "create-failed":
-                return Fail(change, $"{NotCreatedPrefix}{target}. The log has the details.") with { Steps = steps };
+                return Fail(change, $"{NotCreatedPrefix}{target}. The log has the details.") with { Steps = steps, NotCreated = true };
             case "duplicate":
                 return Refused(change, $"{target} is now deployed (deployment ID {string.Join(", ", result.Ids ?? [])}), so no duplicate was created.") with { Steps = steps };
             case "content-missing":
@@ -305,7 +305,7 @@ public sealed partial class DeploymentService
             case "invalid":
                 return Refused(change, NotPreparedMessage) with { Steps = steps };
         }
-        if (!run.Uncertain) return (run.Failure ?? Fail(change, $"{NotCreatedPrefix}{target}. The log has the details.")) with { Steps = steps };
+        if (!run.Uncertain) return (run.Failure ?? Fail(change, $"{NotCreatedPrefix}{target}. The log has the details.")) with { Steps = steps, NotCreated = true };
         return await ReconcileAsync(change, obj, collectionId, options, snapshot, runStart, steps).ConfigureAwait(false);
     }
 
@@ -708,7 +708,7 @@ public sealed partial class DeploymentService
 
     /// <summary>An outcome for a change that was not attempted: refused, stale or not prepared.</summary>
     private static DeploymentOutcome Refused(DeploymentChange change, string message) =>
-        new(change, false, message.StartsWith(SkippedPrefix, StringComparison.Ordinal) ? message : SkippedPrefix + message, null, []);
+        new(change, false, message.StartsWith(SkippedPrefix, StringComparison.Ordinal) ? message : SkippedPrefix + message, null, []) { NotCreated = true };
 
     private static DeploymentOutcome Done(DeploymentChange change, string message, DeploymentChange? undo, IReadOnlyList<string> steps) =>
         new(change, true, message, undo, steps);

@@ -368,13 +368,16 @@ public sealed class RingService : IRingService
 
     private static IEnumerable<string> RingLines(int index, string name, IEnumerable<string> lines) => lines.Select(l => $"{Label(index, name)}: {l}");
 
-    /// <summary>The status a ring takes after its create: Created with an ID, Held when nothing was attempted or ConfigMgr made nothing, Creating when the result is not known.</summary>
+    /// <summary>The status a ring takes after its create: Created with an ID, Held when the deployment service marks that nothing was created, Creating when the result is not known.</summary>
     private static (string Status, string? Id) After(DeploymentOutcome outcome)
     {
         if (outcome.UndoChange?.CreatedId is { Length: > 0 } id) return (RingStatuses.Created, id);
-        if (outcome.Message.StartsWith(Skipped, StringComparison.Ordinal) || outcome.Message.StartsWith(DeploymentService.NotCreatedPrefix, StringComparison.Ordinal)) return (RingStatuses.Held, null);
+        if (outcome.NotCreated) return (RingStatuses.Held, null);
         return (RingStatuses.Creating, null);
     }
+
+    private static DeploymentOutcome NotAttempted(DeploymentChange change, string text) =>
+        new(change, false, text.StartsWith(Skipped, StringComparison.Ordinal) ? text : Skipped + text, null, []) { NotCreated = true };
 
     private static RingChange UndoRequest(string runId) => new(RingChangeKind.UndoRun, null, null, [], null, runId, null, false, false, false, [], [], [], null);
 
@@ -674,19 +677,42 @@ public sealed class RingService : IRingService
     /// <summary>One ring's create with the run lock held: Creating saved first, the create, then the status it ended in.</summary>
     private async Task<(DeploymentOutcome Outcome, RingRun Run, string? SaveProblem)> CreateRingAsync(RingRun run, int index, DeploymentChange prepared, RingChange change)
     {
-        var current = _runs.Read(run.FileName);
-        var account = _runs.User;
-        current = current with { Rings = [.. current.Rings.Select(r => r.Index == index ? r with { Status = RingStatuses.Creating, CreatingAt = LocalNow, CreatingAtUtc = UtcNow, CreatingBy = account, DeploymentId = null } : r)] };
-        current = _runs.Save(current);
+        var label = Label(index, prepared.Ring?.RingName ?? run.Rings.FirstOrDefault(r => r.Index == index)?.Name ?? "");
+        RingRun current;
+        try
+        {
+            current = _runs.Read(run.FileName);
+            var ring = current.Rings.FirstOrDefault(r => r.Index == index);
+            if (ring?.Status != RingStatuses.Held)
+            {
+                var text = $"{label} is {ring?.Status ?? "missing"} in the run file, not Held: another writer changed the run. Nothing was created for this ring; refresh the runs.";
+                return (NotAttempted(prepared, text), current, text);
+            }
+            var account = _runs.User;
+            current = _runs.Save(current with { Rings = [.. current.Rings.Select(r => r.Index == index ? r with { Status = RingStatuses.Creating, CreatingAt = LocalNow, CreatingAtUtc = UtcNow, CreatingBy = account, DeploymentId = null } : r)] });
+        }
+        catch (DeploymentServiceException ex)
+        {
+            var text = $"The run file could not be updated before the create of {label}, so the ring was not attempted. {ex.Message}";
+            return (NotAttempted(prepared, text), run, text);
+        }
         var context = (prepared.Ring ?? new DeploymentRingContext(run.PlanName, index, "", run.RunId)) with { RunId = run.RunId };
-        var ringChange = prepared with { RequiredConfirmed = change.RequiredConfirmed, BackdatedAcknowledged = change.BackdatedAcknowledged, Ring = context };
+        var ringChange = prepared with
+        {
+            RequiredConfirmed = change.RequiredConfirmed,
+            BackdatedAcknowledged = change.BackdatedAcknowledged,
+            CreateNowContentDistributing = change.CreateNowContentDistributing && prepared.DpGroups is { Count: > 0 } && ContentInProgress(prepared),
+            Ring = context
+        };
         var outcome = (await _deployments.ApplyAsync([ringChange], new Progress<DeploymentOutcome>(), CancellationToken.None).ConfigureAwait(false)).Single();
         var (status, id) = After(outcome);
         try
         {
-            current = _runs.Save(current with
+            // Read again so the save changes only this ring of what the file holds now.
+            var latest = _runs.Read(run.FileName);
+            current = _runs.Save(latest with
             {
-                Rings = [.. current.Rings.Select(r => r.Index == index
+                Rings = [.. latest.Rings.Select(r => r.Index == index
                     ? status == RingStatuses.Creating ? r : r with { Status = status, DeploymentId = id, CreatingAt = null, CreatingAtUtc = null, CreatingBy = null }
                     : r)]
             });
@@ -744,12 +770,12 @@ public sealed class RingService : IRingService
                 var label = Label(index, ringChange.Ring.RingName);
                 if (stop is not null && !ct.IsCancellationRequested)
                 {
-                    outcomes.Add(new DeploymentOutcome(ringChange, false, Skipped + "an earlier ring of the run was not created, so this ring was not attempted.", null, []));
+                    outcomes.Add(NotAttempted(ringChange, "an earlier ring of the run did not succeed, so this ring was not attempted."));
                     continue;
                 }
                 if (ct.IsCancellationRequested)
                 {
-                    outcomes.Add(new DeploymentOutcome(ringChange, false, Skipped + "the run was cancelled before this ring.", null, []));
+                    outcomes.Add(NotAttempted(ringChange, "the run was cancelled before this ring."));
                     stop = "the run was cancelled";
                     continue;
                 }
@@ -758,17 +784,23 @@ public sealed class RingService : IRingService
                 outcomes.Add(outcome);
                 steps.Add($"{label}: {outcome.Message}");
                 if (saveProblem is not null) { steps.Add($"{label}: {saveProblem}"); stop = saveProblem; }
-                else if (After(outcome).Status != RingStatuses.Created) stop = $"{label} was not created: {outcome.Message}";
+                else if (!outcome.Succeeded)
+                    stop = After(outcome).Status == RingStatuses.Created ? $"{label} was created with a problem: {outcome.Message}" : $"{label} was not created: {outcome.Message}";
                 progress.Report(new RingOutcome(change, outcome.Succeeded, $"{label}: {outcome.Message}", [.. outcomes], null, [.. steps]) { Final = false, Run = run });
             }
         }
         var created = outcomes.Count(o => After(o).Status == RingStatuses.Created);
+        var unknown = outcomes.Count(o => After(o).Status == RingStatuses.Creating);
         var finalRun = TryRead(run);
         var message = stop is null
             ? plan.HoldLaterRings
                 ? $"Created ring 1 of plan {plan.Name}. {Count(change.Rows.Count - 1, "later ring")} {(change.Rows.Count - 1 == 1 ? "is" : "are")} held for Promote."
                 : $"Created {Count(created, "deployment")} of plan {plan.Name}, one per ring. ConfigMgr enforces each ring's times."
-            : $"The run stopped: {stop} {Count(created, "deployment")} of the run {(created == 1 ? "was" : "were")} created and stay{(created == 1 ? "s" : "")}; Undo run removes them.";
+            : unknown > 0
+                ? $"The run stopped: {stop} {Count(created, "deployment")} of the run {(created == 1 ? "was" : "were")} created; the result of {Count(unknown, "ring")} is not known. Reconcile the run before Promote or Undo run."
+            : created == 0
+                ? $"The run stopped: {stop} Nothing was created."
+                : $"The run stopped: {stop} {Count(created, "deployment")} of the run {(created == 1 ? "was" : "were")} created and stay{(created == 1 ? "s" : "")}; Undo run removes them.";
         return new RingOutcome(change, stop is null, message, outcomes, created > 0 ? UndoRequest(run.RunId) : null, steps) { Run = finalRun };
     }
 
@@ -859,10 +891,11 @@ public sealed class RingService : IRingService
         var label = Label(index, change.RingChanges[0].Ring?.RingName ?? "");
         var created = After(outcome).Status == RingStatuses.Created;
         var message = saveProblem is not null ? $"{label}: {outcome.Message} {saveProblem}"
-            : created ? $"Promoted {label}: {outcome.Message}"
+            : created && outcome.Succeeded ? $"Promoted {label}: {outcome.Message}"
+            : created ? $"{label} was created with a problem: {outcome.Message}"
             : outcome.Message.StartsWith(Skipped, StringComparison.Ordinal) ? outcome.Message
             : $"{label} was not promoted: {outcome.Message}";
-        return new RingOutcome(change, created && saveProblem is null, message, [outcome], created ? UndoRequest(run.RunId) : null, [.. outcome.Steps]) { Run = TryRead(current) };
+        return new RingOutcome(change, outcome.Succeeded && saveProblem is null, message, [outcome], created ? UndoRequest(run.RunId) : null, [.. outcome.Steps]) { Run = TryRead(current) };
     }
 
     private async Task<RingOutcome> ApplyUndoRunAsync(RingChange change, IProgress<RingOutcome> progress)
