@@ -236,7 +236,7 @@ public sealed class RingParityTests
     }
 
     [Fact]
-    public void EachToolReadsTheOthersRunFiles()
+    public async Task EachToolReadsTheOthersRunFiles()
     {
         if (!File.Exists(Path.Combine(SourceRoot, @"Module\DeploymentHelperCommon.psm1")))
         {
@@ -281,7 +281,7 @@ public sealed class RingParityTests
             var error = process.StandardError.ReadToEndAsync();
             _ = process.StandardOutput.ReadToEnd();
             Assert.True(process.WaitForExit(120_000));
-            Assert.True(File.Exists(Path.Combine(folder, "out.json")), "The suite module wrote no result: " + error.Result);
+            Assert.True(File.Exists(Path.Combine(folder, "out.json")), "The suite module wrote no result: " + await error);
             using var result = JsonDocument.Parse(File.ReadAllText(Path.Combine(folder, "out.json")).TrimStart('﻿'));
             var r = result.RootElement;
             Assert.Equal(2, r.GetProperty("Next").GetInt32());

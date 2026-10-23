@@ -429,11 +429,11 @@ public sealed class RingService : IRingService
             var held = plan.HoldLaterRings && row.Index != rows.Min(r => r.Index);
             if (id.Length == 8 && !DeploymentService.IsBuiltInCollection(id))
             {
-                var change = RingCreate(obj.Type, obj, ring, id, row.CollectionName, row.MemberCount, row.AvailableTime, row.Deadline, utc, request,
+                var change = RingCreate(obj.Type, obj, ring, id, row.CollectionName ?? "", row.MemberCount, row.AvailableTime, row.Deadline, utc, request,
                     new DeploymentRingContext(plan.Name, row.Index, row.Name, ""));
                 var prepared = await PrepareRingAsync(change, ct).ConfigureAwait(false);
                 rowChecks.AddRange(prepared.Checks);
-                preparedRows.Add(row with { CollectionId = id, CollectionName = prepared.Collection?.Name ?? row.CollectionName, MemberCount = prepared.Collection?.MemberCount ?? row.MemberCount, Checks = rowChecks });
+                preparedRows.Add(row with { CollectionId = id, CollectionName = prepared.Collection?.Name ?? row.CollectionName ?? "", MemberCount = prepared.Collection?.MemberCount ?? row.MemberCount, Checks = rowChecks });
                 impact.AddRange(RingLines(row.Index, row.Name, held ? [$"held: created later by Promote. {prepared.Impact.FirstOrDefault(l => l.StartsWith("Creates a", StringComparison.Ordinal)) ?? ""}"] : prepared.Impact));
                 if (!held) ringChanges.Add(prepared);
             }
