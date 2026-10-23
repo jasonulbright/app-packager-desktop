@@ -123,6 +123,26 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         });
     }
 
+    [Fact]
+    public void ANewPlanStartsWithoutRingsTakes100CollectionsAndRefusesAnEmptySave()
+    {
+        var chosen = Enumerable.Range(1, 100).Select(i => Row($"LABH{i:0000}", $"Wave {i}")).ToList();
+        var editor = new RingPlanEditorViewModel(null, false, [], Collections, (_, _) => Task.FromResult(true), _ => null, () => chosen);
+        Assert.Empty(editor.Rings);
+        Assert.Null(editor.SelectedRing);
+        Assert.False(editor.HasChanges);
+        editor.Name = "Empty";
+        Assert.Null(editor.Build(out var problem));
+        Assert.Equal(RingPlanEditorViewModel.NoRings, problem);
+
+        editor.DaysBetweenText = "1";
+        editor.AddRingsFromCollectionsCommand.Execute(null);
+        Assert.Equal(100, editor.Rings.Count);
+        Assert.Equal("Wave 1", editor.Rings[0].Name);
+        Assert.NotNull(editor.Build(out problem));
+        Assert.Null(problem);
+    }
+
     private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
         new DeploymentRecord(DeploymentId: $"{{DEP-{i:000}}}", Type: DeploymentObjectType.Package, ObjectId: "LAB000A0", ObjectName: "Contoso Fonts 1.0",
             CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,

@@ -181,7 +181,7 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
     public const string NameRequired = "Enter a plan name.";
     public const string NameInvalid = "Use letters, digits, spaces, dots, hyphens and underscores in the plan name. It starts with a letter or a digit and has no '..'.";
     public const string NameReserved = "This name is reserved by Windows for a device. Choose another name.";
-    public const string NoRings = "Add at least one ring.";
+    public const string NoRings = "The plan has no rings. Select Add ring or Add rings from collections.";
 
     private static readonly Regex NamePattern = new(@"^[A-Za-z0-9][A-Za-z0-9 ._-]*$", RegexOptions.CultureInvariant);
 
@@ -227,8 +227,7 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
         _holdLaterRings = original?.HoldLaterRings ?? false;
         _isUtc = original is not null && RingText.IsUtc(original.TimeBasedOn);
         foreach (var ring in original?.Rings ?? []) Rings.Add(new RingEditorRow(ring));
-        if (Rings.Count == 0) Rings.Add(new RingEditorRow { Name = "Ring 1" });
-        _selectedRing = Rings[0];
+        _selectedRing = Rings.FirstOrDefault();
         _start = Snapshot();
     }
 

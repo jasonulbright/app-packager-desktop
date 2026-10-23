@@ -717,6 +717,7 @@ public sealed class DeploymentRingsViewModelTests
         _h.Dialogs.RingEditor = e => editor = e;
         rings.NewPlanCommand.Execute(null);
         editor!.Name = "Kiosks";
+        editor.AddRingCommand.Execute(null);
         editor.SelectedRing = editor.Rings[0];
         _h.Dialogs.PickedCollection = "LAB00010";
         editor.PickCollectionCommand.Execute(null);
