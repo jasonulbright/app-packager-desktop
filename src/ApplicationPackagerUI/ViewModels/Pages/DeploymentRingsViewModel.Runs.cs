@@ -12,6 +12,8 @@ public sealed partial class DeploymentRingsViewModel
     public const string RunClosed = "The run is closed. Nothing can be changed.";
 
     private int _runsGeneration;
+    private int _runLoads;
+    private int _runLoadEpoch;
     private int _countsGeneration;
     private CancellationTokenSource? _runsCts;
     private Dictionary<int, RingLiveCounts> _counts = [];
@@ -50,8 +52,10 @@ public sealed partial class DeploymentRingsViewModel
     /// <summary>The state of Promote for the selected run with the counts read last.</summary>
     public RingPromoteState Promote => RingText.PromoteState(SelectedRun?.Run, _counts);
 
-    partial void OnSelectedRunChanged(RingRunRow? value)
+    partial void OnSelectedRunChanged(RingRunRow? oldValue, RingRunRow? newValue)
     {
+        var value = newValue;
+        if (!string.Equals(oldValue?.RunId, newValue?.RunId, StringComparison.OrdinalIgnoreCase)) RunsMessage = "";
         _countsGeneration++;
         _counts = [];
         RunRings.Clear();
@@ -130,12 +134,15 @@ public sealed partial class DeploymentRingsViewModel
     /// <summary>Reads the runs again and keeps the selected run; a read that ends after a newer read or the visit is discarded.</summary>
     public async Task LoadRunsAsync()
     {
-        var mine = ++_runsGeneration;
+        var mine = Interlocked.Increment(ref _runsGeneration);
         var generation = Shared.Generation;
         var showClosed = ShowClosedRuns;
         try { _runsCts?.Cancel(); } catch (ObjectDisposedException) { }
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(Shared.VisitToken);
         _runsCts = cts;
+        RunsMessage = "";
+        var epoch = _runLoadEpoch;
+        _runLoads++;
         IsLoadingRuns = true;
         try
         {
@@ -157,7 +164,12 @@ public sealed partial class DeploymentRingsViewModel
         finally
         {
             if (ReferenceEquals(_runsCts, cts)) _runsCts = null;
-            if (mine == _runsGeneration) IsLoadingRuns = false;
+            // A load started before the release counts in the old epoch only.
+            if (epoch == _runLoadEpoch)
+            {
+                _runLoads = Math.Max(0, _runLoads - 1);
+                IsLoadingRuns = _runLoads > 0;
+            }
         }
     }
 
@@ -194,9 +206,21 @@ public sealed partial class DeploymentRingsViewModel
         try { _runsCts?.Cancel(); } catch (ObjectDisposedException) { }
     }
 
+    /// <summary>
+    /// Starts a read of the runs by the tab load: a read that <see cref="LoadRunsAsync"/> started before is
+    /// cancelled and its result discarded, and the tab load shows its runs only while no newer read started.
+    /// Runs off the UI thread.
+    /// </summary>
+    private int BeginTabRunsRead()
+    {
+        var mine = Interlocked.Increment(ref _runsGeneration);
+        try { Volatile.Read(ref _runsCts)?.Cancel(); } catch (ObjectDisposedException) { }
+        return mine;
+    }
+
     private void ReleaseRuns()
     {
-        _runsGeneration++;
+        Interlocked.Increment(ref _runsGeneration);
         _countsGeneration++;
         CancelRunReads();
         _runsCts = null;
@@ -208,6 +232,8 @@ public sealed partial class DeploymentRingsViewModel
         RunsMessage = "";
         RunCount = "";
         PromoteReason = "";
+        _runLoads = 0;
+        _runLoadEpoch++;
         IsLoadingRuns = false;
         IsLoadingCounts = false;
         ShowClosedRuns = false;
@@ -311,7 +337,7 @@ public sealed partial class DeploymentRingsViewModel
         }
         var request = new RingChange(Kind: RingChangeKind.UndoRun, Plan: null, Object: null, Rows: [], PlanStart: null, RunId: run.RunId, RingIndex: null,
             RequiredConfirmed: false, BackdatedAcknowledged: false, CreateNowContentDistributing: false, RingChanges: [], Impact: [], Checks: [], Fingerprint: null);
-        var result = await RunRingPlanAsync(request, prepared => RingText.BuildUndoRunPlan(prepared, RunName(run)), null, message => RunsMessage = message);
+        var result = await RunRingPlanAsync(request, prepared => RingText.BuildUndoRunPlan(prepared, RunName(run), run), null, message => RunsMessage = message);
         if (result is { Outcome.Confirmed: true }) await AfterRingWriteAsync();
     }
 

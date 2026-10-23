@@ -69,8 +69,34 @@ public sealed partial class DeploymentRingsViewModel
             : "The plan uses local time: each client reads the ring times in its own time zone."
         : "";
 
-    partial void OnPlanStartDateChanged(DateTime? value) => FormChanged();
-    partial void OnPlanStartTimeTextChanged(string value) => FormChanged();
+    /// <summary>True once the operator set the plan start; a plan change then keeps it.</summary>
+    private bool _startEdited;
+    private bool _settingStart;
+
+    partial void OnPlanStartDateChanged(DateTime? value) => StartChanged();
+    partial void OnPlanStartTimeTextChanged(string value) => StartChanged();
+
+    private void StartChanged()
+    {
+        if (!_settingStart) _startEdited = true;
+        FormChanged();
+    }
+
+    /// <summary>The next five-minute mark on the clock of the plan's time basis, unless the operator set the start.</summary>
+    private void DefaultStart(string? timeBasedOn, bool force = false)
+    {
+        if (_startEdited && !force) return;
+        var now = DeploymentText.Now(Services.Clock, timeBasedOn is not null && RingText.IsUtc(timeBasedOn));
+        var start = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0).AddMinutes(5 - now.Minute % 5);
+        _settingStart = true;
+        try
+        {
+            PlanStartDate = start.Date;
+            PlanStartTimeText = start.ToString(DeploymentText.TimeFormat, CultureInfo.InvariantCulture);
+        }
+        finally { _settingStart = false; }
+        _startEdited = false;
+    }
     partial void OnHoldLaterRingsChanged(bool value) => InvalidateChecks(ValidateAgain);
 
     /// <summary>A change of the object, the plan or the start makes the expansion and the checks stale.</summary>
@@ -98,10 +124,7 @@ public sealed partial class DeploymentRingsViewModel
 
     private void ResetForm()
     {
-        var now = Services.Clock.GetLocalNow().DateTime;
-        var start = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0).AddMinutes(5 - now.Minute % 5);
-        PlanStartDate = start.Date;
-        PlanStartTimeText = start.ToString(DeploymentText.TimeFormat, CultureInfo.InvariantCulture);
+        DefaultStart(SelectedPlan?.Plan.TimeBasedOn, force: true);
         HoldLaterRings = false;
         FormMessage = "";
         ValidationMessage = "";
@@ -373,6 +396,7 @@ public sealed partial class DeploymentRingsViewModel
             report?.Invoke(message);
         }
 
+        RunsMessage = "";
         if (Shared.IsWriting)
         {
             Refuse(_background ? DeploymentShared.BackgroundRunText : WriteRunning);

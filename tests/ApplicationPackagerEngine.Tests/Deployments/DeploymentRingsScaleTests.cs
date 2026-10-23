@@ -274,13 +274,16 @@ public sealed class DeploymentRingsScaleTests
     public void OnlyTheRingWriterCallsTheRingServiceWrite()
     {
         static string P(string file) => Path.Combine("ApplicationPackagerUI", "Services", file);
+        // The ring writer, the page services record and the registrations name the ring service; nothing else may.
         var naming = UiFilesWith(new Regex(@"\bIRingService\b", RegexOptions.CultureInvariant));
-        Assert.Equal([P("DeploymentHelperPrompts.cs"), P("RingRunPlan.cs"), Path.Combine("ApplicationPackagerUI", "ViewModels", "Pages", "DeploymentShared.cs")],
+        Assert.Equal([P("DeploymentHelperPrompts.cs"), P("PackagerServiceRegistration.cs"), P("RingRunPlan.cs"), Path.Combine("ApplicationPackagerUI", "ViewModels", "Pages", "DeploymentShared.cs")],
             naming.Order(StringComparer.OrdinalIgnoreCase).ToList());
         Assert.Matches(@"\bservice\s*\.\s*ApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), P("RingRunPlan.cs")))));
-        foreach (var file in UiFilesWith(new Regex(@"\bRings\b|\bRingWriter\b", RegexOptions.CultureInvariant)).Where(f => !f.EndsWith("RingRunPlan.cs", StringComparison.Ordinal)
-                     && !f.EndsWith("Plan.cs", StringComparison.Ordinal)))
-            Assert.DoesNotMatch(@"\.\s*ApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), file))));
+        // Every write call of the desktop is in one of the page writers; each writer serves only its own service.
+        Assert.Equal([P("CollectionsPlan.cs"), P("CompliancePlan.cs"), P("DeploymentPlan.cs"), P("MaintenanceWindowsPlan.cs"), P("RingRunPlan.cs")],
+            UiFilesWith(new Regex(@"\.\s*ApplyAsync\b", RegexOptions.CultureInvariant)).ToList());
+        foreach (var writer in new[] { "CollectionsPlan.cs", "CompliancePlan.cs", "DeploymentPlan.cs", "MaintenanceWindowsPlan.cs" })
+            Assert.DoesNotMatch(@"\bIRingService\b|\bRingChange\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), P(writer)))));
     }
 
     [Fact]

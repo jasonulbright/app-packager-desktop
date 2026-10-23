@@ -25,6 +25,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     private IReadOnlyList<RingPlan> _plans = [];
     private string? _planName;
     private bool _applying;
+    private RingPlan? _refreshedPlan;
     private int _objectGeneration;
     private int _programGeneration;
     private CancellationTokenSource? _objectsCts;
@@ -106,10 +107,15 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
 
     partial void OnSelectedProgramChanged(string? value) => FormChanged();
 
-    partial void OnSelectedPlanChanged(RingPlanRow? value)
+    partial void OnSelectedPlanChanged(RingPlanRow? oldValue, RingPlanRow? newValue)
     {
         FormChanged();
-        if (value is not null) HoldLaterRings = value.Plan.HoldLaterRings;
+        var value = newValue;
+        var before = _applying ? _refreshedPlan : oldValue?.Plan;
+        // A refresh that brings a changed file of the same plan keeps the operator's choices for this run.
+        var samePlan = _applying && before is not null && value is not null && string.Equals(before.Name, value.Name, StringComparison.OrdinalIgnoreCase);
+        if (value is not null && !samePlan) HoldLaterRings = value.Plan.HoldLaterRings;
+        if (value is not null && (!samePlan || RingText.IsUtc(before!.TimeBasedOn) != RingText.IsUtc(value.Plan.TimeBasedOn))) DefaultStart(value.Plan.TimeBasedOn);
         if (_applying || value is null) return;
         _planName = value.Name;
         ChoicesChanged?.Invoke(this, EventArgs.Empty);
@@ -122,6 +128,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         var plans = Services.Rings.ListPlans();
         var planNote = Services.Rings.PlanMessage;
         var showClosed = ShowClosedRuns;
+        var runsRead = BeginTabRunsRead();
         var runs = await ReadRunsAsync(showClosed, ct);
         var type = Type;
         var site = CollectionComplianceViewModel.ConnectionProblem(Services.LoadSettings()) is null;
@@ -132,7 +139,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
             ShowPlans(plans, planNote);
             _collections = collections;
             OnPropertyChanged(nameof(CollectionList));
-            ShowRuns(runs, showClosed);
+            if (runsRead == Volatile.Read(ref _runsGeneration) && showClosed == ShowClosedRuns) ShowRuns(runs, showClosed);
             if (type != Type)
             {
                 if (site) _ = ReloadObjectsAsync();
@@ -227,14 +234,22 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     {
         _plans = plans;
         var selected = SelectedPlan?.Name ?? _planName;
+        _refreshedPlan = SelectedPlan?.Plan;
         _applying = true;
         try
         {
-            Plans.Clear();
-            foreach (var plan in plans.OrderBy(p => p.IsSeed ? 0 : 1).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)) Plans.Add(new RingPlanRow(plan));
+            // A plan whose content did not change keeps its row, so the selection, the expansion and the run choices stay.
+            var old = Plans.ToList();
+            var rows = plans.OrderBy(p => p.IsSeed ? 0 : 1).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(p => old.FirstOrDefault(r => RingPlanRow.SameContent(r.Plan, p)) ?? new RingPlanRow(p)).ToList();
+            Replace(Plans, rows);
             SelectedPlan = Plans.FirstOrDefault(p => string.Equals(p.Name, selected, StringComparison.OrdinalIgnoreCase));
         }
-        finally { _applying = false; }
+        finally
+        {
+            _applying = false;
+            _refreshedPlan = null;
+        }
         PlanListNote = note is null ? "" : SecretMask.Apply(note);
     }
 
@@ -302,7 +317,8 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         PlansMessage = "";
         var editor = new RingPlanEditorViewModel(plan, copy, _plans, _collections, SavePlanAsync,
             current => Services.Dialogs.PickCollection("Pick the collection of the ring", _collections, current),
-            () => Services.Dialogs.PickCollections("Check the collections: one ring for each", _collections));
+            () => Services.Dialogs.PickCollections("Check the collections: one ring for each", _collections),
+            Services.Dialogs.ConfirmDiscardRingPlanChanges);
         Services.Dialogs.ShowRingPlanEditor(editor);
     }
 
@@ -311,15 +327,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         var original = editor.Original;
         var replace = original is not null && !editor.IsCopy && string.Equals(original.Name, plan.Name, StringComparison.OrdinalIgnoreCase);
         RingPlan? saved;
-        try
-        {
-            saved = await Task.Run(() =>
-            {
-                var result = Services.Rings.SavePlan(plan, replace);
-                if (result is not null && original is not null && !editor.IsCopy && !replace) Services.Rings.DeletePlan(original.Name);
-                return result;
-            });
-        }
+        try { saved = await Task.Run(() => Services.Rings.SavePlan(plan, replace)); }
         catch (Exception ex)
         {
             editor.ShowMessage(ex is DeploymentServiceException d ? SecretMask.Apply(d.Message) : PlanSaveFailed);
@@ -333,10 +341,23 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
             return false;
         }
         Services.Log.Info(DeploymentShared.LogArea, $"Rings: saved a plan with {saved.Rings.Count} rings.");
+        // The new file is written, so a failed removal of the old name leaves two plans; the save itself is done.
+        string? oldKept = null;
+        if (original is not null && !editor.IsCopy && !replace)
+        {
+            try { await Task.Run(() => Services.Rings.DeletePlan(original.Name)); }
+            catch (Exception ex)
+            {
+                oldKept = original.Name;
+                Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the plan under its old name could not be deleted ({ex.GetType().Name}).");
+            }
+        }
         _planName = saved.Name;
         await ReloadPlansAsync();
         SelectedPlan = Plans.FirstOrDefault(p => string.Equals(p.Name, saved.Name, StringComparison.OrdinalIgnoreCase));
-        PlansMessage = $"Saved the plan {saved.Name}.";
+        PlansMessage = oldKept is null
+            ? $"Saved the plan {saved.Name}."
+            : $"The plan was saved as {saved.Name}; the old plan {oldKept} could not be removed. Delete it in the list when its file can be changed.";
         ChoicesChanged?.Invoke(this, EventArgs.Empty);
         return true;
     }

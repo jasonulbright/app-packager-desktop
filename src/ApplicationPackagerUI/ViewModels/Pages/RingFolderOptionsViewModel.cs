@@ -93,10 +93,21 @@ public sealed partial class RingFolderOptionsViewModel(DeploymentShared shared) 
         StaleLockText = $"A lock file older than {AgeText(probe.StaleLockAge)} is reported as stale. It is never removed automatically: remove it by hand when the message names a session that ended.";
     }
 
+    public const string WriteRunningText = "A change is running. Save the folders after it ends: the lock files of the running change are in the current runs folder.";
+
+    /// <summary>Called after the folders were saved, so the Rings tab reads the plans and runs of the new folders. Set by the page.</summary>
+    public Action? FoldersChanged { get; init; }
+
     [RelayCommand]
     private async Task SaveFolders()
     {
         if (_busy) return;
+        if (Shared.IsWriting)
+        {
+            ProbeText = WriteRunningText;
+            ProbeWritable = false;
+            return;
+        }
         if ((FolderProblem(RingsFolder) ?? FolderProblem(RunsFolder)) is { } problem)
         {
             ProbeText = problem;
@@ -115,6 +126,7 @@ public sealed partial class RingFolderOptionsViewModel(DeploymentShared shared) 
                 return;
             }
             Shared.Services.Log.Info(DeploymentShared.LogArea, "Rings: saved the ring folders.");
+            FoldersChanged?.Invoke();
             await ProbeAsync();
         }
         finally { _busy = false; }

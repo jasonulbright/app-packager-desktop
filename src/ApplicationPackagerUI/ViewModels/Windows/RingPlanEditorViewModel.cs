@@ -6,28 +6,63 @@ using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
 
-/// <summary>One ring of the plan editor; the texts are parsed when the plan is saved.</summary>
+/// <summary>
+/// One ring of the plan editor; the texts are parsed when the plan is saved. The row keeps the ring it
+/// was made from: a field the operator did not change keeps the ring's own value, also a value the
+/// editor has no choice for, so a save never resets a setting.
+/// </summary>
 public sealed partial class RingEditorRow : ObservableObject
 {
+    private static readonly RingDefinition Blank = new(Name: "", CollectionId: "", CollectionName: "", Purpose: DeploymentText.Available, AvailableOffsetDays: 0,
+        DeadlineOffsetDays: null, UserNotification: DeploymentText.Notifications[0].Value, OverrideServiceWindow: false, RebootOutsideServiceWindow: false, AllowMetered: false,
+        DpGroup: "", SuccessThresholdPercent: null, FastNetworkOption: null, SlowNetworkOption: null, RerunBehavior: null);
+
+    private readonly RingDefinition _original;
+    private readonly RowState _initial;
+
     public RingEditorRow(RingDefinition? ring = null)
     {
-        _name = ring?.Name ?? "";
-        _collectionId = ring?.CollectionId ?? "";
-        _collectionName = ring?.CollectionName ?? "";
-        _isRequired = ring is not null && RingText.IsRequired(ring.Purpose);
-        _availableOffsetText = (ring?.AvailableOffsetDays ?? 0).ToString(CultureInfo.InvariantCulture);
-        _deadlineOffsetText = ring?.DeadlineOffsetDays?.ToString(CultureInfo.InvariantCulture) ?? "";
-        _notification = DeploymentText.Notifications.FirstOrDefault(n => string.Equals(n.Value, ring?.UserNotification, StringComparison.OrdinalIgnoreCase))
+        _original = ring ?? Blank;
+        var r = _original;
+        _name = r.Name;
+        _collectionId = r.CollectionId;
+        _collectionName = r.CollectionName;
+        _isRequired = RingText.IsRequired(r.Purpose);
+        _availableOffsetText = r.AvailableOffsetDays.ToString(CultureInfo.InvariantCulture);
+        _deadlineOffsetText = r.DeadlineOffsetDays?.ToString(CultureInfo.InvariantCulture) ?? "";
+        _notification = DeploymentText.Notifications.FirstOrDefault(n => string.Equals(n.Value, r.UserNotification, StringComparison.OrdinalIgnoreCase))
             ?? DeploymentText.Notifications[0];
-        _overrideServiceWindow = ring?.OverrideServiceWindow ?? false;
-        _rebootOutsideServiceWindow = ring?.RebootOutsideServiceWindow ?? false;
-        _allowMetered = ring?.AllowMetered ?? false;
-        _dpGroup = ring?.DpGroup ?? "";
-        _thresholdText = ring?.SuccessThresholdPercent?.ToString(CultureInfo.InvariantCulture) ?? "";
-        _fastNetwork = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.FastNetworkChoices, ring?.FastNetworkOption);
-        _slowNetwork = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.SlowNetworkChoices, ring?.SlowNetworkOption);
-        _rerun = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.RerunChoices, ring?.RerunBehavior);
+        _overrideServiceWindow = r.OverrideServiceWindow;
+        _rebootOutsideServiceWindow = r.RebootOutsideServiceWindow;
+        _allowMetered = r.AllowMetered;
+        _dpGroup = r.DpGroup;
+        _thresholdText = r.SuccessThresholdPercent?.ToString(CultureInfo.InvariantCulture) ?? "";
+        _fastNetwork = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.FastNetworkChoices, r.FastNetworkOption);
+        _slowNetwork = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.SlowNetworkChoices, r.SlowNetworkOption);
+        _rerun = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.RerunChoices, r.RerunBehavior);
+        _allowBoundaryFallback = r.AllowBoundaryFallback;
+        _allowMicrosoftUpdate = r.AllowMicrosoftUpdate;
+        _requirePostRebootFullScan = r.RequirePostRebootFullScan;
+        _showTaskSequenceProgress = r.ShowTaskSequenceProgress;
+        _taskSequenceAvailability = DeploymentText.TaskSequenceAvailabilities.FirstOrDefault(c => string.Equals(c.Value, r.TaskSequenceAvailability, StringComparison.OrdinalIgnoreCase))
+            ?? DeploymentText.TaskSequenceAvailabilities[0];
+        _taskSequenceContent = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.TaskSequenceContentChoices, r.TaskSequenceDeploymentOption);
+        _initial = State();
     }
+
+    private sealed record RowState(string Name, string CollectionId, string CollectionName, bool IsRequired, string AvailableOffsetText, string DeadlineOffsetText,
+        DeploymentChoice Notification, string DpGroup, string ThresholdText, DeploymentChoice FastNetwork, DeploymentChoice SlowNetwork, DeploymentChoice Rerun,
+        DeploymentChoice TaskSequenceAvailability, DeploymentChoice TaskSequenceContent);
+
+    private RowState State() => new(Name, CollectionId, CollectionName, IsRequired, AvailableOffsetText, DeadlineOffsetText, Notification, DpGroup, ThresholdText,
+        FastNetwork, SlowNetwork, Rerun, TaskSequenceAvailability, TaskSequenceContent);
+
+    [ObservableProperty] private bool _allowBoundaryFallback;
+    [ObservableProperty] private bool _allowMicrosoftUpdate;
+    [ObservableProperty] private bool _requirePostRebootFullScan;
+    [ObservableProperty] private bool _showTaskSequenceProgress;
+    [ObservableProperty] private DeploymentChoice _taskSequenceAvailability;
+    [ObservableProperty] private DeploymentChoice _taskSequenceContent;
 
     [ObservableProperty] private string _name;
 
@@ -67,12 +102,68 @@ public sealed partial class RingEditorRow : ObservableObject
 
     private static int? Number(string text) => int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null;
 
-    /// <summary>The ring as the inputs hold it, without the plan rules: a text that is not a number reads as 0 or no value.</summary>
-    public RingDefinition ToDefinition() => new(Name: Name.Trim(), CollectionId: CollectionId.Trim(), CollectionName: CollectionName.Trim(), Purpose: Purpose,
-        AvailableOffsetDays: Number(AvailableOffsetText) ?? 0, DeadlineOffsetDays: IsRequired ? Number(DeadlineOffsetText) : null, UserNotification: Notification.Value,
-        OverrideServiceWindow: OverrideServiceWindow, RebootOutsideServiceWindow: RebootOutsideServiceWindow, AllowMetered: AllowMetered, DpGroup: DpGroup.Trim(),
-        SuccessThresholdPercent: Number(ThresholdText), FastNetworkOption: FastNetwork.Value.Length == 0 ? null : FastNetwork.Value,
-        SlowNetworkOption: SlowNetwork.Value.Length == 0 ? null : SlowNetwork.Value, RerunBehavior: Rerun.Value.Length == 0 ? null : Rerun.Value);
+    private static string? Optional(DeploymentChoice choice) => choice.Value.Length == 0 ? null : choice.Value;
+
+    /// <summary>
+    /// The ring as the inputs hold it, without the plan rules: a text that is not a number reads as 0 or
+    /// no value. A field the operator did not change keeps the value of the ring the row was made from.
+    /// </summary>
+    public RingDefinition ToDefinition()
+    {
+        var o = _original;
+        var i = _initial;
+        var purposeKept = IsRequired == i.IsRequired;
+        return o with
+        {
+            Name = Name == i.Name ? o.Name : Name.Trim(),
+            CollectionId = CollectionId == i.CollectionId ? o.CollectionId : CollectionId.Trim(),
+            CollectionName = CollectionName == i.CollectionName ? o.CollectionName : CollectionName.Trim(),
+            Purpose = purposeKept ? o.Purpose : Purpose,
+            AvailableOffsetDays = AvailableOffsetText == i.AvailableOffsetText ? o.AvailableOffsetDays : Number(AvailableOffsetText) ?? 0,
+            DeadlineOffsetDays = purposeKept && DeadlineOffsetText == i.DeadlineOffsetText ? o.DeadlineOffsetDays : IsRequired ? Number(DeadlineOffsetText) : null,
+            UserNotification = ReferenceEquals(Notification, i.Notification) ? o.UserNotification : Notification.Value,
+            OverrideServiceWindow = OverrideServiceWindow,
+            RebootOutsideServiceWindow = RebootOutsideServiceWindow,
+            AllowMetered = AllowMetered,
+            DpGroup = DpGroup == i.DpGroup ? o.DpGroup : DpGroup.Trim(),
+            SuccessThresholdPercent = ThresholdText == i.ThresholdText ? o.SuccessThresholdPercent : Number(ThresholdText),
+            FastNetworkOption = ReferenceEquals(FastNetwork, i.FastNetwork) ? o.FastNetworkOption : Optional(FastNetwork),
+            SlowNetworkOption = ReferenceEquals(SlowNetwork, i.SlowNetwork) ? o.SlowNetworkOption : Optional(SlowNetwork),
+            RerunBehavior = ReferenceEquals(Rerun, i.Rerun) ? o.RerunBehavior : Optional(Rerun),
+            AllowBoundaryFallback = AllowBoundaryFallback,
+            AllowMicrosoftUpdate = AllowMicrosoftUpdate,
+            RequirePostRebootFullScan = RequirePostRebootFullScan,
+            ShowTaskSequenceProgress = ShowTaskSequenceProgress,
+            TaskSequenceAvailability = ReferenceEquals(TaskSequenceAvailability, i.TaskSequenceAvailability) ? o.TaskSequenceAvailability : TaskSequenceAvailability.Value,
+            TaskSequenceDeploymentOption = ReferenceEquals(TaskSequenceContent, i.TaskSequenceContent) ? o.TaskSequenceDeploymentOption : Optional(TaskSequenceContent)
+        };
+    }
+
+    /// <summary>Sets the inputs of the settings <paramref name="settings"/> names from <paramref name="ring"/>.</summary>
+    internal void Take(RingDefinition ring, RingSettings settings)
+    {
+        if (settings.HasFlag(RingSettings.Purpose))
+        {
+            IsRequired = RingText.IsRequired(ring.Purpose);
+            if (ring.DeadlineOffsetDays is { } d) DeadlineOffsetText = d.ToString(CultureInfo.InvariantCulture);
+        }
+        if (settings.HasFlag(RingSettings.Notification))
+            Notification = DeploymentText.Notifications.FirstOrDefault(n => string.Equals(n.Value, ring.UserNotification, StringComparison.OrdinalIgnoreCase)) ?? Notification;
+        if (!settings.HasFlag(RingSettings.Options)) return;
+        OverrideServiceWindow = ring.OverrideServiceWindow;
+        RebootOutsideServiceWindow = ring.RebootOutsideServiceWindow;
+        AllowMetered = ring.AllowMetered;
+        FastNetwork = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.FastNetworkChoices, ring.FastNetworkOption);
+        SlowNetwork = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.SlowNetworkChoices, ring.SlowNetworkOption);
+        Rerun = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.RerunChoices, ring.RerunBehavior);
+        AllowBoundaryFallback = ring.AllowBoundaryFallback;
+        AllowMicrosoftUpdate = ring.AllowMicrosoftUpdate;
+        RequirePostRebootFullScan = ring.RequirePostRebootFullScan;
+        ShowTaskSequenceProgress = ring.ShowTaskSequenceProgress;
+        TaskSequenceAvailability = DeploymentText.TaskSequenceAvailabilities.FirstOrDefault(c => string.Equals(c.Value, ring.TaskSequenceAvailability, StringComparison.OrdinalIgnoreCase))
+            ?? TaskSequenceAvailability;
+        TaskSequenceContent = RingPlanEditorViewModel.Choice(RingPlanEditorViewModel.TaskSequenceContentChoices, ring.TaskSequenceDeploymentOption);
+    }
 
     public override string ToString() => $"{Name} {Collection}";
 }
@@ -106,15 +197,21 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
     public static IReadOnlyList<DeploymentChoice> SlowNetworkChoices { get; } = [DefaultChoice, .. DeploymentText.SlowNetworkBehaviors];
     public static IReadOnlyList<DeploymentChoice> RerunChoices { get; } = [DefaultChoice, .. DeploymentText.RerunBehaviors];
 
+    /// <summary>The content choices of a task sequence; the default follows the availability: all content first for clients only, else when needed.</summary>
+    public static IReadOnlyList<DeploymentChoice> TaskSequenceContentChoices { get; } =
+        [new("", "(default: all content first for clients only, else when needed)"), .. DeploymentText.TaskSequenceContents];
+
     private readonly IReadOnlyList<RingPlan> _existing;
     private readonly Func<RingPlanEditorViewModel, RingPlan, Task<bool>> _save;
     private readonly Func<string?, CollectionRow?> _pick;
     private readonly Func<IReadOnlyList<CollectionRow>> _pickMany;
-    private readonly IRingPlanBuilder _builder;
+    private readonly Func<bool> _confirmDiscard;
+    private readonly (string Name, string Description, bool Hold, bool Utc, IReadOnlyList<RingDefinition> Rings) _start;
 
+    /// <param name="confirmDiscard">Asks whether unsaved changes may be discarded; true closes the editor.</param>
     public RingPlanEditorViewModel(RingPlan? original, bool copy, IReadOnlyList<RingPlan> existing, IReadOnlyList<CollectionRow> collections,
         Func<RingPlanEditorViewModel, RingPlan, Task<bool>> save, Func<string?, CollectionRow?> pickCollection,
-        Func<IReadOnlyList<CollectionRow>>? pickCollections = null, IRingPlanBuilder? builder = null)
+        Func<IReadOnlyList<CollectionRow>>? pickCollections = null, Func<bool>? confirmDiscard = null)
     {
         Original = original;
         IsCopy = copy && original is not null;
@@ -122,7 +219,7 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
         _save = save;
         _pick = pickCollection;
         _pickMany = pickCollections ?? (() => []);
-        _builder = builder ?? LocalRingPlanBuilder.Instance;
+        _confirmDiscard = confirmDiscard ?? (() => true);
         Rings.CollectionChanged += (_, _) => OnPropertyChanged(nameof(RingPosition));
         Collections = collections;
         Title = original is null ? "New ring plan" : IsCopy ? $"Copy ring plan {original.Name}" : $"Edit ring plan {original.Name}";
@@ -133,7 +230,25 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
         foreach (var ring in original?.Rings ?? []) Rings.Add(new RingEditorRow(ring));
         if (Rings.Count == 0) Rings.Add(new RingEditorRow { Name = "Ring 1" });
         _selectedRing = Rings[0];
+        _start = Snapshot();
     }
+
+    private (string Name, string Description, bool Hold, bool Utc, IReadOnlyList<RingDefinition> Rings) Snapshot() =>
+        (Name, Description, HoldLaterRings, IsUtc, Rings.Select(r => r.ToDefinition()).ToList());
+
+    /// <summary>True when the inputs differ from the plan the editor opened with.</summary>
+    public bool HasChanges
+    {
+        get
+        {
+            var now = Snapshot();
+            return now.Name != _start.Name || now.Description != _start.Description || now.Hold != _start.Hold || now.Utc != _start.Utc
+                || !now.Rings.SequenceEqual(_start.Rings);
+        }
+    }
+
+    /// <summary>True when the editor may close: after a save, without changes, or when the operator agreed to discard the changes.</summary>
+    public bool ConfirmClose() => Saved || !HasChanges || _confirmDiscard();
 
     public RingPlan? Original { get; }
 
@@ -146,6 +261,8 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
     public IReadOnlyList<DeploymentChoice> FastNetworks => FastNetworkChoices;
     public IReadOnlyList<DeploymentChoice> SlowNetworks => SlowNetworkChoices;
     public IReadOnlyList<DeploymentChoice> Reruns => RerunChoices;
+    public IReadOnlyList<DeploymentChoice> TaskSequenceAvailabilities => DeploymentText.TaskSequenceAvailabilities;
+    public IReadOnlyList<DeploymentChoice> TaskSequenceContents => TaskSequenceContentChoices;
     public ObservableCollection<RingEditorRow> Rings { get; } = [];
 
     public bool Saved { get; private set; }
@@ -321,7 +438,6 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
         if (picked.Count == 0) return;
         var used = Rings.Select(r => r.CollectionId.Trim()).Where(id => id.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var chosen = picked.Where(c => !c.IsBuiltIn && used.Add(c.CollectionId)).ToList();
-        if (SortNewRingsByName) chosen = chosen.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
         var skipped = picked.Count - chosen.Count;
         var room = MaxRings - Rings.Count;
         if (chosen.Count > room)
@@ -331,7 +447,13 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
         }
         // The new rings continue the offsets of the rings already in the plan.
         var start = Rings.Count == 0 ? first : first + Rings.Count * between;
-        foreach (var ring in _builder.FromCollections(chosen, start, between, deadline)) Rings.Add(new RingEditorRow(ring));
+        var (made, problem) = RingPlanHelpers.FromCollections(chosen, SortNewRingsByName, start, between, deadline);
+        if (problem is not null)
+        {
+            ValidationMessage = problem;
+            return;
+        }
+        foreach (var ring in made) Rings.Add(new RingEditorRow(ring));
         if (Rings.Count > 0) SelectedRing = Rings[^1];
         ValidationMessage = $"Added {DeploymentText.Count(chosen.Count, "ring")}." + (skipped > 0 ? $" {DeploymentText.Count(skipped, "collection")} already in the plan or built in {(skipped == 1 ? "was" : "were")} left out." : "");
     }
@@ -341,7 +463,12 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
     private void FillOffsets()
     {
         if (!TryHelperNumbers(out var first, out var between, out var deadline)) return;
-        var filled = _builder.FillOffsets(Rings.Select(r => r.ToDefinition()).ToList(), first, between, deadline);
+        var (filled, problem) = RingPlanHelpers.FillOffsets(Rings.Select(r => r.ToDefinition()).ToList(), first, between, deadline);
+        if (problem is not null)
+        {
+            ValidationMessage = problem;
+            return;
+        }
         for (var i = 0; i < Rings.Count && i < filled.Count; i++)
         {
             Rings[i].AvailableOffsetText = filled[i].AvailableOffsetDays.ToString(CultureInfo.InvariantCulture);
@@ -363,27 +490,13 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
             return;
         }
         var deadline = TryDays(DeadlineDaysText, out var days) && days >= 1 ? days : 2;
-        var applied = _builder.ApplyToAll(Rings.Select(r => r.ToDefinition()).ToList(), source.ToDefinition(), settings, deadline);
-        for (var i = 0; i < Rings.Count && i < applied.Count; i++)
+        var (applied, problem) = RingPlanHelpers.ApplyToAll(Rings.Select(r => r.ToDefinition()).ToList(), source.ToDefinition(), settings, deadline);
+        if (problem is not null)
         {
-            var row = Rings[i];
-            var ring = applied[i];
-            if (settings.HasFlag(RingSettings.Purpose))
-            {
-                row.IsRequired = RingText.IsRequired(ring.Purpose);
-                if (ring.DeadlineOffsetDays is { } d) row.DeadlineOffsetText = d.ToString(CultureInfo.InvariantCulture);
-            }
-            if (settings.HasFlag(RingSettings.Notification)) row.Notification = source.Notification;
-            if (settings.HasFlag(RingSettings.Options))
-            {
-                row.OverrideServiceWindow = ring.OverrideServiceWindow;
-                row.RebootOutsideServiceWindow = ring.RebootOutsideServiceWindow;
-                row.AllowMetered = ring.AllowMetered;
-                row.FastNetwork = source.FastNetwork;
-                row.SlowNetwork = source.SlowNetwork;
-                row.Rerun = source.Rerun;
-            }
+            ValidationMessage = problem;
+            return;
         }
+        for (var i = 0; i < Rings.Count && i < applied.Count; i++) Rings[i].Take(applied[i], settings);
         ValidationMessage = $"Applied the settings of ring {source.Name.Trim()} to {DeploymentText.Count(Rings.Count, "ring")}.";
     }
 
@@ -424,7 +537,6 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
             var ring = row.Name.Trim();
             var label = ring.Length == 0 ? $"Ring {(Rings.IndexOf(row) + 1).ToString(CultureInfo.CurrentCulture)}" : $"Ring {ring}";
             int? deadline = null;
-            int? threshold = null;
             if (ring.Length == 0) problem = $"{label} has no name. Enter a ring name.";
             else if (ring.Length > MaxNameLength) problem = $"{label}: use at most {MaxNameLength.ToString(CultureInfo.CurrentCulture)} characters in the ring name.";
             else if (!names.Add(ring)) problem = $"Two rings are named {ring}. Each ring needs its own name.";
@@ -443,24 +555,17 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
                 problem = $"{label}: the deadline must be later than the deadline of ring {last.Name} ({last.Deadline.ToString(CultureInfo.CurrentCulture)} days).";
             else if (row.ThresholdText.Trim().Length > 0 && (!int.TryParse(row.ThresholdText.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var percent) || percent > 100))
                 problem = $"{label}: enter the success threshold as a whole percentage from 0 to 100, or leave it empty for no gate.";
-            else if (!row.IsRequired && string.Equals(row.Notification.Value, DeploymentText.HideAll, StringComparison.OrdinalIgnoreCase))
+            else if (!row.IsRequired && string.Equals(row.ToDefinition().UserNotification, DeploymentText.HideAll, StringComparison.OrdinalIgnoreCase))
                 problem = $"{label}: an Available ring cannot hide all notifications: users could not find it in Software Center.";
             if (problem is not null) return null;
 
-            if (row.ThresholdText.Trim().Length > 0) threshold = int.Parse(row.ThresholdText.Trim(), CultureInfo.InvariantCulture);
             collections[row.CollectionId.Trim()] = ring;
             if (row.IsRequired) lastRequired = (ring, deadline!.Value);
-            rings.Add(new RingDefinition(Name: ring, CollectionId: row.CollectionId.Trim(), CollectionName: row.CollectionName.Trim(), Purpose: row.Purpose,
-                AvailableOffsetDays: int.Parse(row.AvailableOffsetText.Trim(), CultureInfo.InvariantCulture), DeadlineOffsetDays: row.IsRequired ? deadline : null,
-                UserNotification: row.Notification.Value, OverrideServiceWindow: row.IsRequired && row.OverrideServiceWindow,
-                RebootOutsideServiceWindow: row.IsRequired && row.RebootOutsideServiceWindow, AllowMetered: row.IsRequired && row.AllowMetered,
-                DpGroup: row.DpGroup.Trim(), SuccessThresholdPercent: threshold,
-                FastNetworkOption: row.FastNetwork.Value.Length == 0 ? null : row.FastNetwork.Value,
-                SlowNetworkOption: row.SlowNetwork.Value.Length == 0 ? null : row.SlowNetwork.Value,
-                RerunBehavior: row.Rerun.Value.Length == 0 ? null : row.Rerun.Value));
+            rings.Add(row.ToDefinition());
         }
-        return new RingPlan(Name: name, Description: Description.Trim(), HoldLaterRings: HoldLaterRings, TimeBasedOn: IsUtc ? RingText.Utc : RingText.LocalTime,
-            Rings: rings, IsSeed: false);
+        var description = Original is { } o && Description == _start.Description ? o.Description : Description.Trim();
+        var basis = Original is { } p && IsUtc == RingText.IsUtc(p.TimeBasedOn) ? p.TimeBasedOn : IsUtc ? RingText.Utc : RingText.LocalTime;
+        return new RingPlan(Name: name, Description: description, HoldLaterRings: HoldLaterRings, TimeBasedOn: basis, Rings: rings, IsSeed: false);
     }
 
     private bool CanSave() => !IsBusy;
@@ -485,6 +590,7 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Closes the editor; the window asks <see cref="ConfirmClose"/> first, so unsaved changes are discarded only when the operator agrees.</summary>
     [RelayCommand]
     private void Cancel()
     {

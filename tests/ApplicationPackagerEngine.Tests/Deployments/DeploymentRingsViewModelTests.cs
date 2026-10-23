@@ -483,8 +483,12 @@ public sealed class DeploymentRingsViewModelTests
 
         var plan = _h.Plans.Shown.Single();
         Assert.True(plan.IsDestructive);
-        Assert.Equal(["Remove deployment", "Keep deployment", "Cancel held ring", "Close run"], plan.Items.Select(i => i.Action));
+        // A kept deployment keeps the run open, so the plan has no Close run line.
+        Assert.Equal(["Remove deployment", "Keep deployment", "Cancel held ring"], plan.Items.Select(i => i.Action));
+        Assert.Equal(["Ring Pilot: 7-Zip from Pilot Workstations (LAB00010)", "Ring Early: Collection LAB00011 (LAB00011)", "Ring Broad: Collection LAB00012 (LAB00012)"],
+            plan.Items.Select(i => i.Target));
         Assert.Contains("Another process changed the deadline.", plan.Items[1].Detail);
+        Assert.Contains("The run stays open because 1 deployment is kept.", plan.Items[2].Detail);
         Assert.Equal("Remove the deployment 7-Zip from Pilot Workstations (LAB00010)? Software that clients already installed stays installed.", _h.Dialogs.RemovalPrompts.Single());
         var sent = _h.Rings.Applied.Single().Single();
         Assert.Equal(RingChangeKind.UndoRun, sent.Kind);
@@ -493,8 +497,35 @@ public sealed class DeploymentRingsViewModelTests
         Assert.True(rows[1].Skipped);
         Assert.StartsWith("Skipped: kept because a check did not pass.", rows[1].Message);
         Assert.Equal(RingWriter.CancelledText, rows[2].Message);
-        Assert.Equal(RingWriter.ClosedText, rows[3].Message);
+        Assert.Equal("1 created, 1 removed, 1 cancelled", rings.Runs.Single().Rings);
+    }
+
+    [Fact]
+    public async Task UndoRunOfAnOpenRunWithoutAKeptDeploymentEndsWithCloseRun()
+    {
+        _h.Rings.AddRun("RUN-100", _h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Broad", "LAB00012", "Held", null, "Required"));
+        var rings = await RunSelectedAsync();
+        await rings.UndoRunCommand.ExecuteAsync(null);
+        var plan = _h.Plans.Shown.Single();
+        Assert.Equal(["Remove deployment", "Cancel held ring", "Close run"], plan.Items.Select(i => i.Action));
+        Assert.Equal("Ring Broad: Collection LAB00012 (LAB00012)", plan.Items[1].Target);
+        Assert.Equal(RingWriter.ClosedText, Dialog.ResultRows[2].Message);
         Assert.Empty(rings.Runs);
+    }
+
+    [Fact]
+    public async Task UndoRunOfAClosedRunRemovesItsDeploymentsAndHasNoCloseLine()
+    {
+        var run = _h.Rings.AddRun("RUN-100", _h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Removed", null, "Available"));
+        lock (_h.Rings.Runs) _h.Rings.Runs[0] = run with { IsClosed = true };
+        var rings = await RingsAsync();
+        rings.ShowClosedRuns = true;
+        await rings.LoadRunsAsync();
+        rings.SelectedRun = rings.Runs.Single();
+        await rings.UndoRunCommand.ExecuteAsync(null);
+        var plan = _h.Plans.Shown.Single();
+        Assert.Equal(["Remove deployment"], plan.Items.Select(i => i.Action));
+        Assert.Contains("The run is closed and stays closed.", plan.Items[0].Detail);
     }
 
     [Fact]

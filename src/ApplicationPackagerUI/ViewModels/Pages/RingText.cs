@@ -94,7 +94,37 @@ public static class RingText
     public static IReadOnlyList<RingExpansionRow> CreatedNow(IReadOnlyList<RingExpansionRow> rows, bool hold) =>
         hold ? rows.OrderBy(r => r.Index).Take(1).ToList() : rows.OrderBy(r => r.Index).ToList();
 
-    private static string RingLines(RingExpansionRow row, string basis, bool created)
+    /// <summary>The prepared create of a ring: by the ring index the service sets, else by the collection.</summary>
+    public static DeploymentChange? ChangeOf(RingChange prepared, RingExpansionRow row) =>
+        prepared.RingChanges.FirstOrDefault(c => c.Ring?.RingIndex == row.Index)
+        ?? prepared.RingChanges.FirstOrDefault(c => c.Ring is null && string.Equals(c.Collection?.CollectionId, row.CollectionId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The deployment settings a ring gets: from the prepared create of a ring created now, else from the
+    /// ring of the plan with the defaults the ring services apply, so a held ring shows its settings too.
+    /// </summary>
+    public static IReadOnlyList<string> OptionLines(DeploymentObjectType type, DeploymentOptions options)
+    {
+        var lines = new List<string>();
+        if (DeploymentText.HasNotification(type)) lines.Add($"User notification: {DeploymentText.ChoiceText(DeploymentText.Notifications, options.UserNotification)}.");
+        lines.Add(DeploymentText.OptionsLine(type, options));
+        if (IsRequired(options.Purpose))
+        {
+            lines.Add(options.OverrideServiceWindow ? "The installation runs outside maintenance windows." : "The installation waits for a maintenance window.");
+            lines.Add(options.RebootOutsideServiceWindow ? "Devices can restart outside maintenance windows." : "Restarts wait for a maintenance window.");
+        }
+        return lines;
+    }
+
+    private static DeploymentOptions? OptionsOf(RingChange prepared, RingExpansionRow row, DeploymentChange? change, bool utc)
+    {
+        if (change?.Options is { } options) return options;
+        if (prepared.Object is not { } obj) return null;
+        var ring = row.Definition ?? (prepared.Plan is { } plan && row.Index >= 1 && row.Index <= plan.Rings.Count ? plan.Rings[row.Index - 1] : null);
+        return ring is null ? null : RingPlanRules.Options(obj.Type, ring with { Purpose = row.Purpose }, row.AvailableTime, row.Deadline, utc);
+    }
+
+    private static string RingLines(RingExpansionRow row, string basis, bool created, RingChange? prepared = null, DeploymentChange? change = null)
     {
         var lines = new List<string>
         {
@@ -102,8 +132,14 @@ public static class RingText
             $"Purpose: {(IsRequired(row.Purpose) ? DeploymentText.Required : DeploymentText.Available)}. Available: {Time(row.AvailableTime)} {basis}."
                 + (IsRequired(row.Purpose) && row.Deadline is { } deadline ? $" Deadline: {Time(deadline)} {basis}." : "")
         };
-        if (row.DpGroup.Length > 0)
-            lines.Add($"Distribution point group: {row.DpGroup}. The distribution is requested first and has no Undo. " + DeploymentText.CreateNowHint);
+        var type = change?.Object?.Type ?? prepared?.Object?.Type;
+        var utc = change?.Options?.UtcBasis ?? (prepared?.Plan is { } plan && IsUtc(plan.TimeBasedOn));
+        if (prepared is not null && type is { } t && OptionsOf(prepared, row, change, utc) is { } options)
+            lines.AddRange(OptionLines(t, options));
+        IReadOnlyList<string> groups = change is not null ? change.DpGroups : row.DpGroup.Length > 0 && type != DeploymentObjectType.SoftwareUpdateGroup ? [row.DpGroup] : [];
+        if (groups.Count > 0)
+            lines.Add($"Distribution point group: {string.Join(", ", groups)}. The distribution is requested first and has no Undo. " + DeploymentText.CreateNowHint);
+        if (change is not null) lines.AddRange(change.Impact);
         if (row.SuccessThresholdPercent is { } threshold)
             lines.Add($"Success threshold: {Threshold(threshold)}. The next ring can be promoted when this ring reaches it.");
         lines.AddRange(DeploymentText.CheckLines(row.Checks));
@@ -117,7 +153,10 @@ public static class RingText
     /// The text of the second check box of a run or a Promote: the number of Required rings it
     /// creates now with their devices in total, and the past available times, as they apply.
     /// </summary>
-    public static string SecondConfirmation(int requiredRings, int devices, RingExpansionRow? single, IReadOnlyList<RingExpansionRow> backdated, string basis)
+    public const string BackdatedSentence = "the available time of a ring this change creates is in the past, so its deployment is available at once";
+
+    /// <param name="anyBackdated">True when the service reports an available time in the past that <paramref name="backdated"/> does not name; the sentence then names it in general.</param>
+    public static string SecondConfirmation(int requiredRings, int devices, RingExpansionRow? single, IReadOnlyList<RingExpansionRow> backdated, string basis, bool anyBackdated = false)
     {
         var parts = new List<string>();
         if (requiredRings > 0)
@@ -128,12 +167,22 @@ public static class RingText
             parts.Add(backdated.Count == 1
                 ? $"the available time of ring {backdated[0].Name} is in the past, so its deployment is available at once"
                 : $"the available times of rings {string.Join(", ", backdated.Select(r => r.Name))} are in the past, so their deployments are available at once");
+        else if (anyBackdated) parts.Add(BackdatedSentence);
         return parts.Count == 0 ? "" : $"I understand that {string.Join(", and that ", parts)}.";
     }
 
     private static IReadOnlyList<RingExpansionRow> Backdated(IReadOnlyList<RingExpansionRow> rows, RingChange prepared, DateTime now) =>
         rows.Where(r => r.AvailableTime < now.AddMinutes(-1)
             || prepared.RingChanges.Any(c => c.NeedsBackdatedAcknowledgement && string.Equals(c.Collection?.CollectionId, r.CollectionId, StringComparison.OrdinalIgnoreCase))).ToList();
+
+    /// <summary>
+    /// True when a ring the change creates now distributes content first: the prepared creates name a DP group.
+    /// The ring services leave the DP group out for a software update group, so such a ring never offers the choice.
+    /// </summary>
+    private static bool Distributes(RingChange prepared, IReadOnlyList<RingExpansionRow> now, DeploymentObjectType? type) =>
+        prepared.RingChanges.Count > 0
+            ? now.Any(r => ChangeOf(prepared, r) is { DpGroups.Count: > 0 })
+            : type != DeploymentObjectType.SoftwareUpdateGroup && now.Any(r => r.DpGroup.Length > 0);
 
     private static string ObjectText(DeployableObject? obj) => obj is null ? "" : DeploymentText.Object(obj);
 
@@ -161,7 +210,8 @@ public static class RingText
         {
             var created = now.Contains(row);
             var action = created ? IsRequired(row.Purpose) ? "Create Required deployment" : "Create deployment" : "Hold ring";
-            var item = new ChangePlanItem(action, $"Ring {row.Name}: {obj.Name} to {row.CollectionName} ({row.CollectionId})", RingLines(row, basis, created));
+            var item = new ChangePlanItem(action, $"Ring {row.Name}: {obj.Name} to {row.CollectionName} ({row.CollectionId})",
+                RingLines(row, basis, created, prepared, created ? ChangeOf(prepared, row) : null));
             return new RingPlanEntry(item, created ? RingEntryKind.Create : RingEntryKind.Hold, row.CollectionId);
         }).ToList();
         var first = entries[0].Item;
@@ -174,9 +224,10 @@ public static class RingText
             }
         };
         var extra = requiredRings > 0 || backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
-            ? SecondConfirmation(requiredRings, requiredDevices, requiredRows.Count == 1 ? requiredRows[0] : null, backdated, basis)
+            ? SecondConfirmation(requiredRings, requiredDevices, requiredRows.Count == 1 ? requiredRows[0] : null, backdated, basis, prepared.NeedsBackdatedAcknowledgement)
             : null;
-        var distributes = now.Any(r => r.DpGroup.Length > 0);
+        if (string.IsNullOrEmpty(extra)) extra = null;
+        var distributes = Distributes(prepared, now, obj.Type);
         var actionName = requiredRings > 0 ? $"Create run with {DeploymentText.Count(requiredRings, "Required ring")}" : "Create run";
         return (new RingRunPlan("Create ring run", $"Ring run of {obj.Name} with {plan.Name}", actionName, prepared, entries,
             extraConfirmation: extra, optionalChoice: distributes ? DeploymentText.CreateNowChoice : null)
@@ -197,7 +248,8 @@ public static class RingText
         var obj = prepared.RingChanges.FirstOrDefault()?.Object ?? prepared.Object;
         var lines = new List<string>();
         if (obj is not null) lines.Add($"Object: {ObjectText(obj)}.");
-        lines.Add(RingLines(row, basis, created: true));
+        var change = ChangeOf(prepared, row) ?? prepared.RingChanges.FirstOrDefault();
+        lines.Add(RingLines(row, basis, created: true, prepared, change));
         lines.AddRange(prepared.Impact);
         lines.Add(UndoRunNote);
         var required = prepared.NeedsRequiredConfirmation || IsRequired(row.Purpose);
@@ -208,29 +260,41 @@ public static class RingText
         var action = required ? "Create Required deployment" : "Create deployment";
         var item = new ChangePlanItem(action, $"Ring {row.Name}: {obj?.Name} to {row.CollectionName} ({row.CollectionId})", string.Join(Environment.NewLine, lines));
         var extra = required || backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
-            ? SecondConfirmation(required ? 1 : 0, devices, row, backdated, basis)
+            ? SecondConfirmation(required ? 1 : 0, devices, row, backdated, basis, prepared.NeedsBackdatedAcknowledgement)
             : null;
+        if (string.IsNullOrEmpty(extra)) extra = null;
         return (new RingRunPlan("Promote ring", $"Promote ring {row.Name}", required ? "Promote Required ring" : "Promote ring", prepared,
             [new RingPlanEntry(item, RingEntryKind.Promote, row.CollectionId)], extraConfirmation: extra,
-            optionalChoice: row.DpGroup.Length > 0 ? DeploymentText.CreateNowChoice : null)
+            optionalChoice: (change is not null ? change.DpGroups.Count > 0 : Distributes(prepared, [row], obj?.Type)) ? DeploymentText.CreateNowChoice : null)
         {
             NeedsRequiredConfirmation = required, AcknowledgesBackdated = backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
         }, null);
     }
 
     /// <summary>
-    /// The destructive plan of Undo run: each deployment the run created with its proof state, the
-    /// held rings it cancels and the close of the run. A deployment whose check fails is kept and named.
+    /// The destructive plan of Undo run, one line per ring it touches: "Remove deployment" for each
+    /// created deployment that passes its checks (with its proof state), "Keep deployment" for each one a
+    /// check keeps (with the reason), "Cancel held ring" for each held ring, and "Close run" only when
+    /// the undo closes the run: an open run without a kept deployment. A closed run stays closed; a run
+    /// with a kept deployment stays open.
     /// </summary>
-    public static (RingRunPlan? Plan, string? Problem) BuildUndoRunPlan(RingChange prepared, string runName)
+    public static (RingRunPlan? Plan, string? Problem) BuildUndoRunPlan(RingChange prepared, string runName, RingRun run)
     {
         if (prepared.Kind != RingChangeKind.UndoRun) return (null, "The run could not be prepared. Select Refresh and reconcile, then Undo run again.");
+        var blocking = Blocking(prepared, []);
+        if (blocking.Count > 0) return (null, "The run cannot be undone: " + BlockingText(blocking));
+        RingRunRing? RingOf(DeploymentChange c) =>
+            run.Rings.FirstOrDefault(r => c.Ring is { } ring && r.Index == ring.RingIndex)
+            ?? run.Rings.FirstOrDefault(r => r.DeploymentId is { Length: > 0 } id && string.Equals(id, c.Existing?.DeploymentId ?? c.CreatedId, StringComparison.OrdinalIgnoreCase));
         var entries = new List<RingPlanEntry>();
+        var handled = new HashSet<int>();
         foreach (var removal in prepared.RingChanges)
         {
+            var ring = RingOf(removal);
+            if (ring is not null) handled.Add(ring.Index);
             var existing = removal.Site ?? removal.Existing;
             var id = removal.Existing?.DeploymentId ?? removal.CreatedId ?? "";
-            var target = existing is null ? id : $"{existing.ObjectName} from {existing.CollectionName} ({existing.CollectionId})";
+            var target = (ring is null ? "" : $"Ring {ring.Name}: ") + (existing is null ? id : $"{existing.ObjectName} from {existing.CollectionName} ({existing.CollectionId})");
             var lines = new List<string> { $"Deployment ID: {id}." };
             lines.AddRange(DeploymentText.CheckLines(removal.Checks, existing?.Type));
             lines.AddRange(removal.Impact);
@@ -243,15 +307,45 @@ public static class RingText
             lines.Add("Removes the deployment only when it still has these values and this run created it. Software that clients already installed stays installed.");
             entries.Add(new RingPlanEntry(new ChangePlanItem("Remove deployment", target, string.Join(Environment.NewLine, lines)), RingEntryKind.Remove, id));
         }
-        foreach (var held in prepared.Rows.OrderBy(r => r.Index))
+        foreach (var index in prepared.KeptRings.Where(i => !handled.Contains(i)).Order())
+        {
+            var ring = run.Rings.FirstOrDefault(r => r.Index == index);
+            var row = prepared.Rows.FirstOrDefault(r => r.Index == index);
+            var checks = row?.Checks ?? [];
+            var failed = DeploymentText.Ordered(checks).Where(DeploymentText.Blocks).Select(c => $"{DeploymentText.CheckLabel(c.Name)}: {DeploymentText.CheckMessage(c, run.ObjectType)}");
+            var reason = $"{DeploymentWriter.SkippedPrefix}: kept because a check did not pass. {string.Join(" ", failed)}".TrimEnd();
+            var name = ring?.Name ?? row?.Name ?? index.ToString(CultureInfo.CurrentCulture);
+            var lines = new List<string> { $"Deployment ID: {ring?.DeploymentId}." };
+            lines.AddRange(DeploymentText.CheckLines(checks, run.ObjectType));
+            lines.Add(reason);
+            entries.Add(new RingPlanEntry(new ChangePlanItem("Keep deployment", $"Ring {name}: {ring?.CollectionName ?? row?.CollectionName} ({ring?.CollectionId ?? row?.CollectionId})",
+                string.Join(Environment.NewLine, lines)), RingEntryKind.Keep, ring?.DeploymentId ?? "", reason));
+        }
+        var cancelled = prepared.CancelledRings.Count > 0
+            ? prepared.CancelledRings.Select(i => run.Rings.FirstOrDefault(r => r.Index == i)).OfType<RingRunRing>()
+            : run.Rings.Where(r => string.Equals(r.Status, Held, StringComparison.OrdinalIgnoreCase));
+        foreach (var held in cancelled.OrderBy(r => r.Index))
             entries.Add(new RingPlanEntry(new ChangePlanItem("Cancel held ring", $"Ring {held.Name}: {held.CollectionName} ({held.CollectionId})",
                 "The run file marks the ring Cancelled. Nothing changes in ConfigMgr."), RingEntryKind.Cancel, held.CollectionId));
-        var removals = entries.Where(e => e.Kind == RingEntryKind.Remove).ToList();
-        var closeLines = prepared.Impact.Append("The run file moves to the closed folder.").Append(ProofLimit);
-        entries.Add(new RingPlanEntry(new ChangePlanItem("Close run", runName, string.Join(Environment.NewLine, closeLines)), RingEntryKind.Close, prepared.RunId ?? ""));
-        var question = removals.Count == 0 ? null
+        var removals = entries.Count(e => e.Kind == RingEntryKind.Remove);
+        var kept = entries.Count(e => e.Kind == RingEntryKind.Keep);
+        var closes = !run.IsClosed && kept == 0;
+        var finalLines = prepared.Impact.ToList();
+        finalLines.Add(closes ? "The run file moves to the closed folder."
+            : run.IsClosed ? "The run is closed and stays closed."
+            : $"The run stays open because {DeploymentText.Count(kept, "deployment")} is kept.");
+        finalLines.Add(ProofLimit);
+        if (closes) entries.Add(new RingPlanEntry(new ChangePlanItem("Close run", runName, string.Join(Environment.NewLine, finalLines)), RingEntryKind.Close, prepared.RunId ?? ""));
+        if (!entries.Any(e => e.Writes))
+            return (null, "Nothing of this run can be undone: " + string.Join(" ", entries.Select(e => e.Reason).OfType<string>()));
+        if (!closes)
+        {
+            var last = entries[^1];
+            entries[^1] = last with { Item = last.Item with { Detail = string.Join(Environment.NewLine, new[] { last.Item.Detail ?? "" }.Concat(finalLines)) } };
+        }
+        var question = removals == 0 ? null
             : DeploymentWriter.RemovalQuestion(prepared.RingChanges.Where(c => DeploymentText.Blocking(c).Count == 0).ToList());
-        return (new RingRunPlan("Undo ring run", $"Undo the ring run {runName}", removals.Count > 0 ? $"Remove {DeploymentText.Count(removals.Count, "deployment")}" : "Undo run",
+        return (new RingRunPlan("Undo ring run", $"Undo the ring run {runName}", removals > 0 ? $"Remove {DeploymentText.Count(removals, "deployment")}" : "Undo run",
             prepared, entries, isDestructive: true, removalQuestion: question), null);
     }
 

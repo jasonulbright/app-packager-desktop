@@ -205,8 +205,10 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
             var rows = Complete(plan, results, progress);
             var cancelled = ct.IsCancellationRequested && rows.Any(r => r.Skipped || r.Message == DeploymentWriter.NoResultText);
             var result = new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed) { UndoAvailable = false };
+            // A run that stopped at a ring reports the later rings as skipped, not failed, so the service's own result decides too.
+            var stopped = plan.LastOutcome is { Succeeded: false };
             stop = cancelled ? SiteOperationOutcome.Cancelled
-                : result.FailedCount == 0 ? SiteOperationOutcome.Succeeded
+                : result.FailedCount == 0 && !stopped ? SiteOperationOutcome.Succeeded
                 : result.SucceededCount > 0 || result.PartialCount > 0 ? SiteOperationOutcome.PartlySucceeded
                 : SiteOperationOutcome.Failed;
             return result;

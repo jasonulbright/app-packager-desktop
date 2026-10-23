@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerUI.ViewModels.Windows;
@@ -22,7 +23,8 @@ public sealed partial class RingCollectionChoice(CollectionRow row) : Observable
 
 /// <summary>
 /// A dialog that picks device collections: filter as you type, the folder shown, built-in collections listed and refused.
-/// The single picker returns the selected collection; the multi-select picker returns the checked ones in the order shown.
+/// The list is sorted by folder, then by name with numbers read as numbers. The single picker returns the selected
+/// collection; the multi-select picker returns the checked ones in the order shown.
 /// </summary>
 public sealed partial class RingCollectionPickerViewModel : ObservableObject
 {
@@ -34,7 +36,8 @@ public sealed partial class RingCollectionPickerViewModel : ObservableObject
     {
         Title = title;
         MultiSelect = multiSelect;
-        _all = collections.OrderBy(c => c.IsBuiltIn ? 1 : 0).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Select(c => new RingCollectionChoice(c)).ToList();
+        _all = collections.OrderBy(c => c.IsBuiltIn ? 1 : 0).ThenBy(c => c.FolderPath, NaturalNameComparer.Instance).ThenBy(c => c.Name, NaturalNameComparer.Instance)
+            .Select(c => new RingCollectionChoice(c)).ToList();
         foreach (var row in _all) row.PropertyChanged += (_, _) => UpdateCount();
         ApplyFilter();
         SelectedCollection = Collections.FirstOrDefault(c => string.Equals(c.CollectionId, currentId, StringComparison.OrdinalIgnoreCase));
@@ -52,6 +55,9 @@ public sealed partial class RingCollectionPickerViewModel : ObservableObject
     public IReadOnlyList<CollectionRow> Results { get; private set; } = [];
 
     public event EventHandler? CloseRequested;
+
+    /// <summary>The rows in the order the grid shows them, after a sort by a column header; null uses the list order. Set by the window.</summary>
+    public Func<IReadOnlyList<RingCollectionChoice>>? ShownOrder { get; set; }
 
     [ObservableProperty] private string _filter = "";
     [ObservableProperty] private string _count = "";
@@ -103,8 +109,9 @@ public sealed partial class RingCollectionPickerViewModel : ObservableObject
     {
         if (MultiSelect)
         {
-            // The order of the list as shown, then the checked rows the filter hides, in the same sort order.
-            var checkedRows = Collections.Concat(_all.Except(Collections)).Where(c => c.IsChecked && c.CanCheck).Select(c => c.Row).ToList();
+            // The order of the list as shown (a column the operator sorted by included), then the checked rows the filter hides.
+            var shown = ShownOrder?.Invoke() ?? Collections;
+            var checkedRows = shown.Concat(_all.Except(shown)).Where(c => c.IsChecked && c.CanCheck).Select(c => c.Row).ToList();
             if (checkedRows.Count == 0)
             {
                 Message = NoneChecked;
