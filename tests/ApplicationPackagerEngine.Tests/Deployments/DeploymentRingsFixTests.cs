@@ -43,12 +43,12 @@ public sealed class DeploymentRingsFixTests
                 UserNotification: "DisplaySoftwareCenterOnly", OverrideServiceWindow: true, RebootOutsideServiceWindow: true, AllowMetered: true, DpGroup: "Branch DPs",
                 SuccessThresholdPercent: 95, FastNetworkOption: "RunProgramFromDistributionPoint", SlowNetworkOption: "DownloadContentFromDistributionPointAndLocally",
                 RerunBehavior: "AlwaysRerunProgram", AllowBoundaryFallback: false, AllowMicrosoftUpdate: true, RequirePostRebootFullScan: false, ShowTaskSequenceProgress: false,
-                TaskSequenceAvailability: "MediaAndPxe", TaskSequenceDeploymentOption: "DownloadAllContentLocallyBeforeStartingTaskSequence"),
+                TaskSequenceAvailability: "MediaAndPxe", TaskSequenceDeploymentOption: "DownloadContentLocallyWhenNeededByRunningTaskSequence"),
             new RingDefinition(Name: "Shops", CollectionId: "LAB00011", CollectionName: "Server Group A", Purpose: "Required", AvailableOffsetDays: 3, DeadlineOffsetDays: 5,
                 UserNotification: "HideAll", OverrideServiceWindow: true, RebootOutsideServiceWindow: false, AllowMetered: true, DpGroup: "All DPs",
                 SuccessThresholdPercent: 80, FastNetworkOption: "RunProgramFromDistributionPoint", SlowNetworkOption: "DownloadContentFromDistributionPointAndLocally",
                 RerunBehavior: "RerunIfFailedPreviousAttempt", AllowBoundaryFallback: false, AllowMicrosoftUpdate: true, RequirePostRebootFullScan: false,
-                ShowTaskSequenceProgress: false, TaskSequenceAvailability: "ClientsMediaAndPxe", TaskSequenceDeploymentOption: "DownloadContentLocallyWhenNeededByRunningTaskSequence")
+                ShowTaskSequenceProgress: false, TaskSequenceAvailability: "Clients", TaskSequenceDeploymentOption: "DownloadAllContentLocallyBeforeStartingTaskSequence")
         ], IsSeed: false, FileName: "Kiosk-Rings.json");
 
     private static RingPlanEditorViewModel Editor(RingPlan? plan, bool copy = false, IReadOnlyList<RingPlan>? existing = null, Func<IReadOnlyList<CollectionRow>>? pickMany = null,
@@ -110,14 +110,14 @@ public sealed class DeploymentRingsFixTests
         editor.Rings[1].IsRequired = false;
         editor.ApplyToAllCommand.Execute(null);
         Assert.Equal("DisplaySoftwareCenterOnly", editor.Rings[1].ToDefinition().UserNotification);
-        Assert.Equal(("ClientsMediaAndPxe", false, "RerunIfFailedPreviousAttempt"),
+        Assert.Equal(("Clients", false, "RerunIfFailedPreviousAttempt"),
             (editor.Rings[1].ToDefinition().TaskSequenceAvailability, editor.Rings[1].ToDefinition().AllowBoundaryFallback, editor.Rings[1].ToDefinition().RerunBehavior));
 
         editor.ApplyNotification = false;
         editor.ApplyOptions = true;
         editor.ApplyToAllCommand.Execute(null);
         var second = editor.Rings[1].ToDefinition();
-        Assert.Equal(("MediaAndPxe", "DownloadAllContentLocallyBeforeStartingTaskSequence", "AlwaysRerunProgram", true),
+        Assert.Equal(("MediaAndPxe", "DownloadContentLocallyWhenNeededByRunningTaskSequence", "AlwaysRerunProgram", true),
             (second.TaskSequenceAvailability, second.TaskSequenceDeploymentOption, second.RerunBehavior, second.RebootOutsideServiceWindow));
     }
 
@@ -588,8 +588,8 @@ public sealed class DeploymentRingsFixTests
         var prepared = await h.Rings.PrepareAsync(rings.BuildRunRequest()!, CancellationToken.None);
         var (plan, _) = RingText.BuildCreateRunPlan(prepared, h.Clock);
         var held = plan!.Plan.Items[1].Detail!;
-        Assert.Contains("Available to: Clients, media and PXE", held);
-        Assert.Contains("Content: Download content locally when the task sequence needs it", held);
+        Assert.Contains("Available to: Configuration Manager clients only", held);
+        Assert.Contains("Content: Download all content locally before the task sequence starts", held);
         Assert.Contains($"{DeploymentText.ShowProgressLabel}: no", held);
         Assert.Contains("Distribution point group: All DPs.", held);
     }

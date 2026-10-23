@@ -294,6 +294,22 @@ public static class RingPlanRules
         };
     }
 
+    /// <summary>
+    /// The first option of the ring that a run of a type with its own options (package, task sequence)
+    /// refuses at Validate, with the type named; null when a run of every type accepts the options.
+    /// </summary>
+    public static string? OptionProblem(RingDefinition ring)
+    {
+        ArgumentNullException.ThrowIfNull(ring);
+        foreach (var type in new[] { DeploymentObjectType.Package, DeploymentObjectType.TaskSequence })
+        {
+            var options = Options(type, ring, DateTime.MinValue, null, false);
+            if (DeploymentScheduleRules.OptionProblem(type, options) is { } problem)
+                return $"{(type == DeploymentObjectType.Package ? "package" : "task sequence")} options: {problem}";
+        }
+        return null;
+    }
+
     /// <summary>The current wall-clock time in the plan's time basis.</summary>
     public static DateTime NowIn(string timeBasedOn, DateTime utcNow, TimeZoneInfo? local = null) =>
         DeploymentScheduleRules.NowIn(timeBasedOn == Utc, utcNow, local);

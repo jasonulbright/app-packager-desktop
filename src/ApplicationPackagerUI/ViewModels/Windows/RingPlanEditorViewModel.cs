@@ -555,6 +555,8 @@ public sealed partial class RingPlanEditorViewModel : ObservableObject
                 problem = $"{label}: enter the success threshold as a whole percentage from 0 to 100, or leave it empty for no gate.";
             else if (!row.IsRequired && string.Equals(row.ToDefinition().UserNotification, DeploymentText.HideAll, StringComparison.OrdinalIgnoreCase))
                 problem = $"{label}: an Available ring cannot hide all notifications: users could not find it in Software Center.";
+            else if (RingPlanRules.OptionProblem(row.ToDefinition()) is { } options)
+                problem = $"{label}: {options}";
             if (problem is not null) return null;
 
             collections[row.CollectionId.Trim()] = ring;

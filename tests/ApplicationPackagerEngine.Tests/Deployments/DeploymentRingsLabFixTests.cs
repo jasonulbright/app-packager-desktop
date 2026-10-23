@@ -203,6 +203,23 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Empty(h.Rings.Applied);
     }
 
+    [Fact]
+    public async Task TheEditorRefusesATaskSequenceOptionCombinationThatValidateBlocks()
+    {
+        var plan = Plan("Three Rings", required: false);
+        var editor = Editor(plan, copy: false);
+        editor.Rings[1].TaskSequenceAvailability = DeploymentText.TaskSequenceAvailabilities.Single(c => c.Value == "MediaAndPxeHidden");
+        editor.Rings[1].TaskSequenceContent = RingPlanEditorViewModel.TaskSequenceContentChoices.Single(c => c.Value == "DownloadAllContentLocallyBeforeStartingTaskSequence");
+        await editor.SaveCommand.ExecuteAsync(null);
+        Assert.False(editor.Saved);
+        Assert.Equal("Ring Wave 1: task sequence options: Download all content before the task sequence starts works only when the task sequence is available to clients only.",
+            editor.ValidationMessage);
+
+        editor.Rings[1].TaskSequenceAvailability = DeploymentText.TaskSequenceAvailabilities.Single(c => c.Value == "Clients");
+        await editor.SaveCommand.ExecuteAsync(null);
+        Assert.True(editor.Saved);
+    }
+
     private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
         new DeploymentRecord(DeploymentId: $"{{DEP-{i:000}}}", Type: DeploymentObjectType.Package, ObjectId: "LAB000A0", ObjectName: "Contoso Fonts 1.0",
             CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,
