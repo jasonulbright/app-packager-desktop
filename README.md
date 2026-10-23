@@ -284,7 +284,7 @@ Extracted files go to a private folder under the data folder, one folder for eac
 ![The Overview tab in the dark theme](docs/images/apd10-ia-dark.png)
 ## Deployment Helper
 
-The **Deployment Helper** page creates one deployment of an application, a package, a task sequence or a software update group to a device collection. A Required deployment is enforced on every device of its collection, and the clients then try to install the software, so every step is checked and every change shows a plan first. Nothing changes until you read the plan, select the confirmation box and select the action button. The page connects to the SMS Provider through the ConfigMgr session of the application and makes no other network request. Deployment of one object to a series of rings is not part of this page yet. The **Ring deployment** button starts the suite tool Deployment Helper for that.
+The **Deployment Helper** page creates one deployment of an application, a package, a task sequence or a software update group to a device collection. A Required deployment is enforced on every device of its collection, and the clients then try to install the software, so every step is checked and every change shows a plan first. Nothing changes until you read the plan, select the confirmation box and select the action button. The page connects to the SMS Provider through the ConfigMgr session of the application and makes no other network request. The **Rings** tab deploys one object to a series of collections, see [Rings](#rings).
 
 ![The Deploy tab after Validate, with the checks and the result of an Undo](docs/images/apd11-dh-deploy.png)
 
@@ -326,6 +326,35 @@ The **Options** tab sets the audit log path and shows whether the log can be wri
 ![The Options tab with the audit log and the templates](docs/images/apd11-dh-options.png)
 
 The page saves the selected tab, type and template for the current Windows user. Each completed run adds one line to the operation history, with counts only.
+### Rings
+
+The **Rings** tab deploys one object to any number of collections, from 1 up to 100. A plan lists the rings in order. Each ring names a device collection, a purpose, an available offset and a deadline offset in days from the plan start, and the options of the object type. A run turns one object and one plan into ordinary deployments, one for each ring. ConfigMgr does not know that they form a sequence. The page keeps that in a run file. You create the collections yourself, for example ten 10 % collections with a membership query on the resource ID, plus a pilot and a final ring.
+
+![The Rings tab with a 13-ring plan expanded](docs/images/apd12-rings-new-run.png)
+
+- **Plans:** the shipped plans are examples (Workstation-Rings with four rings and Server-Rings with two). They name no collection, so they cannot run until you set one for each ring. **New**, **Edit**, **Copy** and **Delete** change your own plans. A plan is a JSON file, and the plan editor keeps every option of a ring that you do not change. A plan file can be shared with the suite tool Deployment Helper, because both tools use the same file format.
+- **Plan editor:** add, remove, duplicate and move rings. **Add rings from collections** makes one ring for each collection that you select in the picker, sorted by name with numbers in number order (Wave 2 before Wave 10), or in the order of the picker. **Fill offsets** sets the first available offset, the days between rings and the days to each deadline, and you can still change every ring. The plan checks these rules: rings do not share a collection, a built-in collection (ID starts with `SMS`) is refused, a Required deadline is later than the available time and later than the deadline of the previous Required ring, and a deadline in the past is refused. A plan over 100 rings is refused.
+- **New run:** select the object, the plan and the plan start, and **Expand**. The preview shows each ring with its collection, member count, purpose and times. **Set collection** changes the collection of a ring for this run only. **Validate** runs the checks of the single deployment page for every ring and the rules of the plan.
+- **All at once or hold:** by default the run creates every ring now with its own future dates, and ConfigMgr enforces the schedule. With **Hold later rings**, the run creates only the first ring. **Promote** creates the next ring after you look at the live counts of the previous ring. Nothing is promoted by itself.
+- **Create run:** one plan lists every deployment that the run creates, with the options of each ring, held rings included. Required rings need the extra box: it names the number of Required rings and the number of devices in total. The service refuses each Required ring without it.
+
+![The plan editor with a plan of 13 rings](docs/images/apd12-rings-plan-editor.png)
+
+![The plan of a run with Required rings and its second confirmation](docs/images/apd12-rings-plan-required.png)
+
+- **If a ring fails:** a run stops at the first ring that is not fully created. The rings before it stay, the rings after it are not tried, and the result says so. **Undo run** removes the rings that were created.
+- **Open runs:** each run shows its rings with the status Created, Creating, Held, Removed or Cancelled, and the live counts from the site: targeted, success, error, in progress and unknown. A count that the site has not summarized shows `unknown`. **Refresh and reconcile** reads the counts and checks the runs against the site.
+
+![Open runs with live counts and a held run](docs/images/apd12-rings-open-runs.png)
+
+- **Promote:** the previous ring must be created. The page checks that the object is still the same, runs the checks of the deployment page again, and re-reads the live counts. If a ring has a success threshold, the success rate of the previous ring must reach it. A ring with no counts keeps the gate shut, and the page names the reason. If the deadline of the ring has passed, the plan offers to move that ring and every later held ring by the same time, so the ring keeps its time from available to deadline. A Required ring needs its own extra box.
+- **Undo run:** it removes only the deployments that this run created. The page checks each deployment against the audit log, the site and the run file, as Undo from History does. A deployment that fails a check is kept, and the plan names it and the reason. Held rings are cancelled. A closed run that still has created rings can be undone from **Show closed runs**. A deployment made by another run, by the Deploy tab or by hand is never removed.
+- **Close run:** closes a run without removing anything. A finished run closes itself at the next Refresh and reconcile.
+- **Crash and stale state:** a ring is saved as Creating before the page creates it. After a crash, **Refresh and reconcile** adopts exactly one deployment that matches the ring and can be proven to belong to this run. If two match, the ring stays blocked. If none appears within 5 minutes, the ring returns to Held. **Abandon ring** lets you return a ring in Creating to Held yourself, after a plan that says a deployment may exist. A ring is marked Removed only when ConfigMgr no longer has the deployment, never because a summary row is missing.
+- **Run files and locks:** the plans and run files are in the `Deployments\Rings` folder of the data folder. The **Options** tab sets both folders, and a share path is allowed so that a team can share runs. **Check** shows whether the folders are writable and a lock can be created. Promote, Undo run, Close and Reconcile take a lock file next to the run file and read the run file again under the lock. If another session holds the lock, the page names the lock file and its owner. A lock older than one hour is reported as stale and is never removed: another session may still be running, so check before you remove it by hand. A run file that cannot be read shows "Unreadable ring N", and Promote and Undo run stay off for it.
+- **History:** every ring create, Promote, Undo, Close, cancelled ring and Abandon adds a record to the audit log, with the plan name, ring number, ring name and run ID. History shows these columns and a Run filter.
+
+Limits: the lock only protects sessions that share the same runs folder, and the site cannot stop another administrator from creating a deployment of the same object. Undo from History checks the audit record against the site, and it cannot stop a process of the same account that forges both. A ring that the page cannot prove to belong to a run is kept, not removed.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
