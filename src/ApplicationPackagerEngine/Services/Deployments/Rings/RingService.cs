@@ -26,11 +26,21 @@ public sealed class RingService : IRingService
 {
     public const string LogArea = "Deployments";
 
-    /// <summary>A Creating ring with no matching deployment returns to Held after this time.</summary>
+    /// <summary>
+    /// A Creating ring with no matching deployment returns to Held after this time. It is also the
+    /// adoption window: a deployment ConfigMgr shows as made later than the create start plus this
+    /// time is never adopted.
+    /// </summary>
     public static readonly TimeSpan CreatingWait = TimeSpan.FromMinutes(5);
 
     /// <summary>A deployment made this much before the recorded create start still counts: clock skew between this computer and the site server.</summary>
     public static readonly TimeSpan CreationSkew = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// A Creating ring that Reconcile still cannot resolve this long after its create started gets
+    /// a note that offers Abandon Creating ring; nothing is abandoned without the operator.
+    /// </summary>
+    public static readonly TimeSpan AbandonAfter = TimeSpan.FromHours(1);
 
     private static readonly string Skipped = DeploymentService.SkippedPrefix;
 
@@ -43,6 +53,13 @@ public sealed class RingService : IRingService
     private readonly Func<DateTime> _utcNow;
     private readonly TimeZoneInfo _local;
     private readonly SemaphoreSlim _gate = new(1, 1);
+
+    /// <summary>The run store of the current operation, pinned to one folder at its start.</summary>
+    private readonly AsyncLocal<RingRunStore?> _pinned = new();
+
+    private RingRunStore Runs => _pinned.Value ?? _runs;
+
+    private void Pin() => _pinned.Value = _runs.Pinned();
 
     public RingService(IDeploymentService deployments, IDeploymentSiteReader site, IDeploymentAuditLog audit, RingPlanStore plans, RingRunStore runs, IAppLog? log = null,
         Func<DateTime>? utcNow = null, TimeZoneInfo? local = null)
@@ -167,7 +184,7 @@ public sealed class RingService : IRingService
     public Task<IReadOnlyList<RingRun>> ListRunsAsync(bool closed, CancellationToken ct) => Task.Run(() =>
     {
         ct.ThrowIfCancellationRequested();
-        var runs = _runs.List(closed, out var message);
+        var runs = _runs.Pinned().List(closed, out var message);
         RunMessage = message;
         return runs;
     }, ct);
@@ -202,9 +219,10 @@ public sealed class RingService : IRingService
 
     public async Task<RingRun> ReconcileAsync(string runId, CancellationToken ct)
     {
+        Pin();
         var found = FindOpen(runId);
-        using var held = _runs.Lock(found.FileName);
-        var run = _runs.Read(found.FileName);
+        using var held = Runs.Lock(found.FileName);
+        var run = Runs.Read(found.FileName);
         var rings = run.Rings.ToList();
         var changed = false;
         for (var i = 0; i < rings.Count; i++)
@@ -232,10 +250,10 @@ public sealed class RingService : IRingService
         }
         var notes = rings.ToDictionary(r => r.Index, r => r.Note);
         var current = run with { Rings = rings };
-        if (changed) current = _runs.Save(current);
+        if (changed) current = Runs.Save(current, held);
         if (Finished(current.Rings))
         {
-            current = _runs.Close(current);
+            current = Runs.Close(current, held);
             _log?.Info(LogArea, "Reconcile closed a finished ring run.");
         }
         _log?.Info(LogArea, $"Reconciled a ring run: {rings.Count(r => r.Status == RingStatuses.Created)} created, {rings.Count(r => r.Status == RingStatuses.Creating)} unresolved, {rings.Count(r => r.Status == RingStatuses.Removed)} removed.");
@@ -252,13 +270,21 @@ public sealed class RingService : IRingService
     {
         if (ObjectOf(run) is not { } obj)
             return ring with { Note = "This run was written by another tool without the application CI_ID, so the create cannot be resolved here. Reconcile it in that tool." };
+        if (ring.Problem.Length > 0 || ring.Definition is null)
+            return ring with { Note = $"{(ring.Problem.Length > 0 ? ring.Problem : "The options of the ring cannot be read.")} The create cannot be resolved; check the deployments in the console." };
         var startUtc = ring.CreatingAtUtc ?? LocalToUtc(ring.CreatingAt);
         if (startUtc is null) return ring with { Note = "The run file holds no time for this create, so it cannot be resolved. Check the deployments in the console." };
-        var options = RingPlanRules.Options(run.ObjectType, ring.Definition ?? Plain(ring), ring.AvailableTime, ring.Deadline, run.TimeBasedOn == RingPlanRules.Utc);
+        var options = RingPlanRules.Options(run.ObjectType, ring.Definition, ring.AvailableTime, ring.Deadline, run.TimeBasedOn == RingPlanRules.Utc);
         IReadOnlyList<DeploymentCandidate> candidates;
+        IReadOnlySet<string> otherRuns;
+        IReadOnlyList<DeploymentAuditRecord> records;
         try
         {
             candidates = await _site.CandidatesAsync(obj, ring.CollectionId, options, ct).ConfigureAwait(false);
+            otherRuns = Runs.OtherRunDeploymentIds(run.RunId, out var unreadable);
+            if (unreadable is not null)
+                return ring with { Note = $"A run file cannot be read, so it cannot be shown that a deployment belongs to no other run ({unreadable}). The ring stays Creating." };
+            records = _audit.Read(OwnershipRecords);
         }
         catch (DeploymentServiceException ex)
         {
@@ -266,18 +292,27 @@ public sealed class RingService : IRingService
         }
         var account = ring.CreatingBy ?? run.CreatedBy;
         var recorded = run.Rings.Where(r => r.Index != ring.Index).Select(r => r.DeploymentId).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var matches = candidates.Where(c => c.CreatedUtc is { } created && created >= startUtc.Value - CreationSkew
-            && string.Equals(c.CreatedBy.Trim(), account.Trim(), StringComparison.OrdinalIgnoreCase) && c.Differences.Count == 0 && !recorded.Contains(c.Deployment.DeploymentId)).ToList();
+        // A deployment another run lists, or whose create record names another run, another ring or
+        // no run (a single deployment), belongs to someone else even when it holds the same values.
+        bool Foreign(DeploymentCandidate c) => recorded.Contains(c.Deployment.DeploymentId) || otherRuns.Contains(c.Deployment.DeploymentId)
+            || records.Any(r => r.Event == AuditEvents.Create && string.Equals(r.DeploymentUniqueID, c.Deployment.DeploymentId, StringComparison.OrdinalIgnoreCase)
+                && !(string.Equals(r.RunId, run.RunId, StringComparison.OrdinalIgnoreCase) && r.RingIndex == ring.Index));
+        bool InWindow(DateTime created) => created >= startUtc.Value - CreationSkew && created <= startUtc.Value + CreatingWait;
+        var own = candidates.Where(c => c.Differences.Count == 0 && !Foreign(c)).ToList();
+        var matches = own.Where(c => c.CreatedUtc is { } created && InWindow(created)
+            && string.Equals(c.CreatedBy.Trim(), account.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
         // A deployment that holds the ring's values but whose creator and time ConfigMgr does not
         // show yet may be the ring's own: it is neither adopted nor ignored.
-        var unproven = candidates.Where(c => (c.CreatedUtc is null || string.IsNullOrWhiteSpace(c.CreatedBy))
-            && (c.CreatedUtc is not { } at || at >= startUtc.Value - CreationSkew)
-            && (string.IsNullOrWhiteSpace(c.CreatedBy) || string.Equals(c.CreatedBy.Trim(), account.Trim(), StringComparison.OrdinalIgnoreCase))
-            && c.Differences.Count == 0 && !recorded.Contains(c.Deployment.DeploymentId)).ToList();
+        var unproven = own.Where(c => (c.CreatedUtc is null || string.IsNullOrWhiteSpace(c.CreatedBy))
+            && (c.CreatedUtc is not { } at || InWindow(at))
+            && (string.IsNullOrWhiteSpace(c.CreatedBy) || string.Equals(c.CreatedBy.Trim(), account.Trim(), StringComparison.OrdinalIgnoreCase))).ToList();
+        var abandon = UtcNow - startUtc.Value >= AbandonAfter
+            ? $" The create started more than {AbandonAfter.TotalMinutes.ToString(CultureInfo.InvariantCulture)} minutes ago. Check collection {ring.CollectionId} in the console; if no deployment of this ring must stay there, use Abandon Creating ring."
+            : "";
         if (matches.Count + unproven.Count > 1)
-            return ring with { Note = $"{Count(matches.Count + unproven.Count, "deployment")} match this ring ({string.Join(", ", matches.Concat(unproven).Select(m => m.Deployment.DeploymentId))}). Remove the ones that must not stay in the console, then reconcile again." };
+            return ring with { Note = $"{Count(matches.Count + unproven.Count, "deployment")} match this ring ({string.Join(", ", matches.Concat(unproven).Select(m => m.Deployment.DeploymentId))}). Remove the ones that must not stay in the console, then reconcile again.{abandon}" };
         if (unproven.Count == 1)
-            return ring with { Note = $"Deployment {unproven[0].Deployment.DeploymentId} holds the ring's values, but ConfigMgr does not show yet who created it and when. The ring stays Creating; reconcile again in a minute." };
+            return ring with { Note = $"Deployment {unproven[0].Deployment.DeploymentId} holds the ring's values, but ConfigMgr does not show yet who created it and when. The ring stays Creating; reconcile again in a minute.{abandon}" };
         if (matches.Count == 1)
             return ring with
             {
@@ -314,7 +349,7 @@ public sealed class RingService : IRingService
     private RingRun FindOpen(string? runId)
     {
         if (string.IsNullOrWhiteSpace(runId)) throw new DeploymentServiceException("Select a run.");
-        return _runs.Find(runId) ?? throw new DeploymentServiceException("The run is closed or its file is not in the runs folder any more. Refresh the runs.", DeploymentFailureKind.Stale);
+        return Runs.Find(runId) ?? throw new DeploymentServiceException("The run is closed or its file is not in the runs folder any more. Refresh the runs.", DeploymentFailureKind.Stale);
     }
 
     /// <summary>The run's object for the deployment service; null for an application run of another tool that holds no CI_ID.</summary>
@@ -323,6 +358,10 @@ public sealed class RingService : IRingService
         if (!DeploymentService.IsObjectId(run.ObjectType, run.ObjectId)) return null;
         return new DeployableObject(run.ObjectType, run.ObjectId, run.ObjectName, "", run.Program, false, run.ModelId);
     }
+
+    /// <summary>The problems of the run file that block Promote and Undo run; null when there are none.</summary>
+    private static string? RunProblem(RingRun run) =>
+        run.Problems.Count == 0 ? null : $"The run file cannot be used for this action: {string.Join(" ", run.Problems)} Fix the run file or close the run.";
 
     private static RingDefinition Plain(RingRunRing ring) =>
         new(ring.Name, ring.CollectionId, ring.CollectionName, ring.Purpose, 0, null, "DisplayAll", false, false, false, ring.DpGroup, ring.SuccessThresholdPercent, null, null, null);
@@ -389,6 +428,7 @@ public sealed class RingService : IRingService
     public async Task<RingChange> PrepareAsync(RingChange request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
+        Pin();
         var prepared = request.Kind switch
         {
             RingChangeKind.CreateRun => await PrepareCreateRunAsync(request, ct).ConfigureAwait(false),
@@ -419,7 +459,7 @@ public sealed class RingService : IRingService
                 ? $"Starts a run of plan {plan.Name} for {DeploymentService.ObjectText(obj)}: creates ring 1 now and holds {Count(rows.Count - 1, "later ring")} for Promote."
                 : $"Starts a run of plan {plan.Name} for {DeploymentService.ObjectText(obj)}: creates {Count(rows.Count, "deployment")}, one per ring, in ring order. The run stops at the first ring that is not created.",
             utc ? "All times are UTC." : "All times are the local time of the clients.",
-            $"A run file is written to {_runs.Folder} before the first create."
+            $"A run file is written to {Runs.Folder} before the first create."
         };
         foreach (var row in rows.OrderBy(r => r.Index))
         {
@@ -487,6 +527,7 @@ public sealed class RingService : IRingService
         var ring = run.Rings.FirstOrDefault(r => r.Index == index) ?? throw new DeploymentServiceException($"Ring {index.ToString(CultureInfo.InvariantCulture)} is not in this run.");
         var checks = new List<PreflightCheck>();
         if (PromoteProblem(run, index) is { } problem) checks.Add(Fail(problem));
+        if (RunProblem(run) is { } unreadable) checks.Add(Fail(unreadable));
         if (await ThresholdProblemAsync(run, index, ct).ConfigureAwait(false) is { } gate) checks.Add(Fail(gate));
         var obj = ObjectOf(run);
         if (obj is null) checks.Add(Fail("This run was written by another tool without the application CI_ID. Promote it in that tool."));
@@ -502,9 +543,9 @@ public sealed class RingService : IRingService
         if (shift > 0)
             impact.Add($"The planned deadline {ring.Deadline!.Value.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)} has passed. This ring and every later held ring moves {shift.ToString(CultureInfo.InvariantCulture)} minutes later, so the ring keeps its time from available to deadline.");
         var ringChanges = new List<DeploymentChange>();
-        if (obj is not null && ring.CollectionId.Length == 8 && !DeploymentService.IsBuiltInCollection(ring.CollectionId))
+        if (obj is not null && ring.Definition is not null && run.Problems.Count == 0 && ring.CollectionId.Length == 8 && !DeploymentService.IsBuiltInCollection(ring.CollectionId))
         {
-            var change = RingCreate(run.ObjectType, obj, (ring.Definition ?? Plain(ring)) with { DpGroup = ring.DpGroup }, ring.CollectionId, ring.CollectionName, 0, available, deadline,
+            var change = RingCreate(run.ObjectType, obj, ring.Definition with { DpGroup = ring.DpGroup }, ring.CollectionId, ring.CollectionName, 0, available, deadline,
                 run.TimeBasedOn == RingPlanRules.Utc, request, new DeploymentRingContext(run.PlanName, ring.Index, ring.Name, run.RunId));
             var prepared = await PrepareRingAsync(change, ct).ConfigureAwait(false);
             if (IdentityProblem(run, prepared.Object) is { } identity) checks.Add(Fail(identity));
@@ -539,6 +580,7 @@ public sealed class RingService : IRingService
             checks.Add(Fail("A ring of the run has a create whose result is not known. Reconcile the run first."));
         if (closed && run.Rings.All(r => r.Status != RingStatuses.Created))
             checks.Add(Fail("The run is closed and holds no created deployment, so there is nothing to undo."));
+        if (RunProblem(run) is { } unreadable) checks.Add(Fail(unreadable));
         IReadOnlyList<DeploymentAuditRecord> records = [];
         try
         {
@@ -554,16 +596,19 @@ public sealed class RingService : IRingService
         var impact = new List<string> { $"Undoes the run of plan {run.PlanName} for {run.ObjectName}." };
         foreach (var ring in run.Rings.Where(r => r.Status == RingStatuses.Created).OrderByDescending(r => r.Index))
         {
+            // Only a create record bound to this run and this ring proves the deployment is the run's
+            // own; a genuine record of another run or of a single deployment never does.
             var record = records.LastOrDefault(r => r.Event == AuditEvents.Create && r.Result is AuditResults.Success or AuditResults.Partial
-                    && string.Equals(r.DeploymentUniqueID, ring.DeploymentId, StringComparison.OrdinalIgnoreCase) && string.Equals(r.RunId, run.RunId, StringComparison.OrdinalIgnoreCase))
-                ?? records.LastOrDefault(r => r.Event == AuditEvents.Create && r.Result is AuditResults.Success or AuditResults.Partial
-                    && string.Equals(r.DeploymentUniqueID, ring.DeploymentId, StringComparison.OrdinalIgnoreCase));
+                && string.Equals(r.DeploymentUniqueID, ring.DeploymentId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(r.RunId, run.RunId, StringComparison.OrdinalIgnoreCase) && r.RingIndex == ring.Index
+                && string.Equals(r.ObjectId.Trim(), run.ObjectId.Trim(), StringComparison.OrdinalIgnoreCase)
+                && string.Equals(r.CollectionID.Trim(), ring.CollectionId.Trim(), StringComparison.OrdinalIgnoreCase));
             var remove = record is null ? null : DeploymentChangeBuilder.RemoveFromAudit(record);
             List<PreflightCheck> ringChecks;
             if (remove is null)
             {
                 ringChecks = [new PreflightCheck(DeploymentService.CreatedHere, DeploymentCheckResults.Fail,
-                    $"The audit log holds no intact record of the create of deployment {ring.DeploymentId}, so it cannot be shown that this product created it.")];
+                    $"Deployment {ring.DeploymentId} cannot be proven to belong to this run: the audit log holds no intact create record of it for this run, ring {ring.Index.ToString(CultureInfo.InvariantCulture)}, object {run.ObjectId} and collection {ring.CollectionId}.")];
             }
             else
             {
@@ -616,6 +661,7 @@ public sealed class RingService : IRingService
     {
         ArgumentNullException.ThrowIfNull(changes);
         ArgumentNullException.ThrowIfNull(progress);
+        Pin();
         var outcomes = new List<RingOutcome>();
         foreach (var change in changes)
         {
@@ -675,21 +721,21 @@ public sealed class RingService : IRingService
     }
 
     /// <summary>One ring's create with the run lock held: Creating saved first, the create, then the status it ended in.</summary>
-    private async Task<(DeploymentOutcome Outcome, RingRun Run, string? SaveProblem)> CreateRingAsync(RingRun run, int index, DeploymentChange prepared, RingChange change)
+    private async Task<(DeploymentOutcome Outcome, RingRun Run, string? SaveProblem)> CreateRingAsync(RingRunLock held, RingRun run, int index, DeploymentChange prepared, RingChange change)
     {
         var label = Label(index, prepared.Ring?.RingName ?? run.Rings.FirstOrDefault(r => r.Index == index)?.Name ?? "");
         RingRun current;
         try
         {
-            current = _runs.Read(run.FileName);
+            current = Runs.Read(run.FileName);
             var ring = current.Rings.FirstOrDefault(r => r.Index == index);
             if (ring?.Status != RingStatuses.Held)
             {
                 var text = $"{label} is {ring?.Status ?? "missing"} in the run file, not Held: another writer changed the run. Nothing was created for this ring; refresh the runs.";
                 return (NotAttempted(prepared, text), current, text);
             }
-            var account = _runs.User;
-            current = _runs.Save(current with { Rings = [.. current.Rings.Select(r => r.Index == index ? r with { Status = RingStatuses.Creating, CreatingAt = LocalNow, CreatingAtUtc = UtcNow, CreatingBy = account, DeploymentId = null } : r)] });
+            var account = Runs.User;
+            current = Runs.Save(current with { Rings = [.. current.Rings.Select(r => r.Index == index ? r with { Status = RingStatuses.Creating, CreatingAt = LocalNow, CreatingAtUtc = UtcNow, CreatingBy = account, DeploymentId = null } : r)] }, held);
         }
         catch (DeploymentServiceException ex)
         {
@@ -709,13 +755,13 @@ public sealed class RingService : IRingService
         try
         {
             // Read again so the save changes only this ring of what the file holds now.
-            var latest = _runs.Read(run.FileName);
-            current = _runs.Save(latest with
+            var latest = Runs.Read(run.FileName);
+            current = Runs.Save(latest with
             {
                 Rings = [.. latest.Rings.Select(r => r.Index == index
                     ? status == RingStatuses.Creating ? r : r with { Status = status, DeploymentId = id, CreatingAt = null, CreatingAtUtc = null, CreatingBy = null }
                     : r)]
-            });
+            }, held);
             return (outcome, current, null);
         }
         catch (DeploymentServiceException ex)
@@ -738,26 +784,18 @@ public sealed class RingService : IRingService
         var obj = first.Object!;
         var key = obj.Type == DeploymentObjectType.Application && first.Prepared!.ContentIds.Count == 1 ? first.Prepared.ContentIds[0] : obj.Id;
         var run = new RingRun(Guid.NewGuid().ToString(), "", plan.Name, plan.HoldLaterRings, plan.TimeBasedOn, obj.Type, obj.Id, obj.Name, obj.Type == DeploymentObjectType.Package ? obj.Program : "",
-            _runs.User, UtcNow, [.. change.Rows.OrderBy(r => r.Index).Select(r => new RingRunRing(r.Index, r.Name, r.CollectionId, r.CollectionName, r.Purpose, r.AvailableTime, r.Deadline,
+            Runs.User, UtcNow, [.. change.Rows.OrderBy(r => r.Index).Select(r => new RingRunRing(r.Index, r.Name, r.CollectionId, r.CollectionName, r.Purpose, r.AvailableTime, r.Deadline,
                 RingStatuses.Held, null, null, 0, r.DpGroup, r.SuccessThresholdPercent) { Definition = (r.Definition ?? Plain(new RingRunRing(r.Index, r.Name, r.CollectionId, r.CollectionName, r.Purpose,
                     r.AvailableTime, r.Deadline, RingStatuses.Held, null, null, 0, r.DpGroup, r.SuccessThresholdPercent))) with { CollectionId = r.CollectionId, CollectionName = r.CollectionName } })], false)
         { ModelId = obj.ModelId ?? "" };
+        RingRunLock held;
         try
         {
-            run = _runs.Create(run, key);
+            (run, held) = Runs.CreateLocked(run, key);
         }
         catch (DeploymentServiceException ex)
         {
             return Refused(change, $"the run file could not be written, so nothing was created. {ex.Message}");
-        }
-        IDisposable held;
-        try
-        {
-            held = _runs.Lock(run.FileName);
-        }
-        catch (DeploymentServiceException ex)
-        {
-            return Refused(change, ex.Message, run);
         }
         var outcomes = new List<DeploymentOutcome>();
         var steps = new List<string>();
@@ -779,7 +817,8 @@ public sealed class RingService : IRingService
                     stop = "the run was cancelled";
                     continue;
                 }
-                var (outcome, current, saveProblem) = await CreateRingAsync(run, index, ringChange, change).ConfigureAwait(false);
+                held.Touch();
+                var (outcome, current, saveProblem) = await CreateRingAsync(held, run, index, ringChange, change).ConfigureAwait(false);
                 run = current;
                 outcomes.Add(outcome);
                 steps.Add($"{label}: {outcome.Message}");
@@ -808,7 +847,7 @@ public sealed class RingService : IRingService
     {
         try
         {
-            return _runs.Read(run.FileName);
+            return Runs.Read(run.FileName);
         }
         catch (DeploymentServiceException)
         {
@@ -817,7 +856,7 @@ public sealed class RingService : IRingService
     }
 
     /// <summary>The run under its lock, read again; a refusal when the file changed since Prepare. A closed run is found only with <paramref name="allowClosed"/>.</summary>
-    private (RingRun Run, IDisposable Lock, bool Closed)? Locked(RingChange change, out string? problem, bool allowClosed = false)
+    private (RingRun Run, RingRunLock Lock, bool Closed)? Locked(RingChange change, out string? problem, bool allowClosed = false)
     {
         problem = null;
         RingRun found;
@@ -832,10 +871,10 @@ public sealed class RingService : IRingService
             problem = ex.Message;
             return null;
         }
-        IDisposable held;
+        RingRunLock held;
         try
         {
-            held = _runs.Lock(found.FileName, closed);
+            held = Runs.Lock(found.FileName, closed);
         }
         catch (DeploymentServiceException ex)
         {
@@ -844,7 +883,7 @@ public sealed class RingService : IRingService
         }
         try
         {
-            var run = _runs.Read(found.FileName, closed);
+            var run = Runs.Read(found.FileName, closed);
             if (!string.Equals(run.Fingerprint, change.Fingerprint, StringComparison.Ordinal))
             {
                 held.Dispose();
@@ -864,7 +903,7 @@ public sealed class RingService : IRingService
     private (RingRun Run, bool Closed) Locate(string? runId)
     {
         if (string.IsNullOrWhiteSpace(runId)) throw new DeploymentServiceException("Select a run.");
-        return _runs.Locate(runId) ?? throw new DeploymentServiceException("The run file is not in the runs folder or its closed folder any more. Refresh the runs.", DeploymentFailureKind.Stale);
+        return Runs.Locate(runId) ?? throw new DeploymentServiceException("The run file is not in the runs folder or its closed folder any more. Refresh the runs.", DeploymentFailureKind.Stale);
     }
 
     private async Task<RingOutcome> ApplyPromoteAsync(RingChange change, IProgress<RingOutcome> progress)
@@ -877,17 +916,18 @@ public sealed class RingService : IRingService
         using var held = locked.Lock;
         var run = locked.Run;
         if (PromoteProblem(run, index) is { } promote) return Refused(change, promote, run);
+        if (RunProblem(run) is { } unreadable) return Refused(change, unreadable, run);
         if (await ThresholdProblemAsync(run, index, CancellationToken.None).ConfigureAwait(false) is { } gate) return Refused(change, gate, run);
         if (change.ShiftMinutes != 0)
         {
-            run = _runs.Save(run with
+            run = Runs.Save(run with
             {
                 Rings = [.. run.Rings.Select(r => r.Index >= index && r.Status == RingStatuses.Held
                     ? r with { AvailableTime = r.AvailableTime.AddMinutes(change.ShiftMinutes), Deadline = r.Deadline?.AddMinutes(change.ShiftMinutes), ShiftedMinutes = r.ShiftedMinutes + change.ShiftMinutes }
                     : r)]
-            });
+            }, held);
         }
-        var (outcome, current, saveProblem) = await CreateRingAsync(run, index, change.RingChanges[0], change).ConfigureAwait(false);
+        var (outcome, current, saveProblem) = await CreateRingAsync(held, run, index, change.RingChanges[0], change).ConfigureAwait(false);
         var label = Label(index, change.RingChanges[0].Ring?.RingName ?? "");
         var created = After(outcome).Status == RingStatuses.Created;
         var message = saveProblem is not null ? $"{label}: {outcome.Message} {saveProblem}"
@@ -905,6 +945,7 @@ public sealed class RingService : IRingService
         using var held = locked.Lock;
         var run = locked.Run;
         if (run.Rings.Any(r => r.Status == RingStatuses.Creating)) return Refused(change, "a ring of the run has a create whose result is not known. Reconcile the run first.", run);
+        if (RunProblem(run) is { } unreadable) return Refused(change, unreadable, run);
         var outcomes = new List<DeploymentOutcome>();
         var removed = new HashSet<int>();
         var failed = new List<string>();
@@ -928,9 +969,28 @@ public sealed class RingService : IRingService
             Rings = [.. run.Rings.Select(r => removed.Contains(r.Index) ? r with { Status = RingStatuses.Removed }
                 : r.Status == RingStatuses.Held ? r with { Status = RingStatuses.Cancelled } : r)]
         };
-        updated = _runs.Save(updated, locked.Closed);
+        try
+        {
+            updated = Runs.Save(updated, held, locked.Closed);
+        }
+        catch (DeploymentServiceException ex)
+        {
+            return new RingOutcome(change, false,
+                $"Removed {Count(removed.Count, "deployment")} of the run, but the run file could not be updated: {ex.Message} The run file still lists the removed deployments as Created; Reconcile marks them Removed.",
+                outcomes, null, []) { Run = TryRead(run) };
+        }
         var kept = updated.Rings.Where(r => r.Status == RingStatuses.Created).ToList();
-        if (kept.Count == 0 && !locked.Closed) updated = _runs.Close(updated);
+        if (kept.Count == 0 && !locked.Closed)
+        {
+            try
+            {
+                updated = Runs.Close(updated, held);
+            }
+            catch (DeploymentServiceException ex)
+            {
+                return new RingOutcome(change, false, $"Undid the run, but it could not be closed: {ex.Message} Close the run when the folder can be written.", outcomes, null, []) { Run = TryRead(updated) };
+            }
+        }
         var message = kept.Count == 0
             ? $"Undid the run: removed {Count(removed.Count, "deployment")}, cancelled {Count(change.CancelledRings.Count, "held ring")}; {(locked.Closed ? "the run stays closed" : "the run is closed")}. Software that clients already installed stays installed."
             : $"Removed {Count(removed.Count, "deployment")} of the run. {Count(kept.Count, "deployment")} {(kept.Count == 1 ? "was" : "were")} kept: {string.Join(" ", kept.Select(r => failed.FirstOrDefault(f => f.StartsWith(Label(r.Index, r.Name), StringComparison.Ordinal)) ?? $"{Label(r.Index, r.Name)}: deployment {r.DeploymentId} was kept because it failed a check of the plan."))} The run stays {(locked.Closed ? "closed" : "open")}.";
@@ -945,7 +1005,7 @@ public sealed class RingService : IRingService
         var run = locked.Run;
         if (run.Rings.Any(r => r.Status == RingStatuses.Creating)) return Refused(change, "a ring of the run has a create whose result is not known. Reconcile the run first.", run);
         var cancelled = run.Rings.Count(r => r.Status == RingStatuses.Held);
-        var closed = _runs.Close(run with { Rings = [.. run.Rings.Select(r => r.Status == RingStatuses.Held ? r with { Status = RingStatuses.Cancelled } : r)] });
+        var closed = Runs.Close(run with { Rings = [.. run.Rings.Select(r => r.Status == RingStatuses.Held ? r with { Status = RingStatuses.Cancelled } : r)] }, held);
         return new RingOutcome(change, true, $"Closed the run of plan {run.PlanName}{(cancelled > 0 ? $" and cancelled {Count(cancelled, "held ring")}" : "")}. The deployments of the run stay in ConfigMgr.", [], null, []) { Run = closed };
     }
 }

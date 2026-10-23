@@ -75,6 +75,13 @@ public sealed record RingRunRing(int Index, string Name, string CollectionId, st
 
     /// <summary>A plain note of the last Reconcile about this ring (an unresolved create, a read error); empty otherwise. Not stored in the file.</summary>
     public string Note { get; init; } = "";
+
+    /// <summary>
+    /// "Unreadable ring N ..." when a value of the ring in the file cannot be read (options, threshold,
+    /// shifted minutes, status); empty otherwise. Such a ring blocks Promote and Undo run of its run.
+    /// Not stored in the file.
+    /// </summary>
+    public string Problem { get; init; } = "";
 }
 
 /// <summary>A run file. ObjectId is the CI_ID of an application or update group and the PackageID of a package or task sequence.</summary>
@@ -91,6 +98,12 @@ public sealed record RingRun(string RunId, string FileName, string PlanName, boo
 
     /// <summary>The ModelID of an application; empty for other types and for a run written by another tool.</summary>
     public string ModelId { get; init; } = "";
+
+    /// <summary>
+    /// Why the run cannot be promoted or undone as the file holds it: more rings than the cap of
+    /// <see cref="RingPlanLimits.MaxRings"/>, and the Problem of every unreadable ring; empty when it can.
+    /// </summary>
+    public IReadOnlyList<string> Problems { get; init; } = [];
 }
 
 /// <summary>A lock file of a run.</summary>

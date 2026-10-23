@@ -249,6 +249,7 @@ public sealed class RingParityTests
         {
             var store = new RingRunStore(() => folder, utcNow: () => DeploymentHarness.UtcNow, local: DeploymentHarness.Local, user: () => @"CONTOSO\Admin");
             var ours = store.Create(RingRunStoreTests.NewRun(rings: 4), "MCM0001B");
+            using (var held = store.Lock(ours.FileName))
             ours = store.Save(ours with
             {
                 Rings = [.. ours.Rings.Select(r => r.Index switch
@@ -257,7 +258,7 @@ public sealed class RingParityTests
                     4 => r with { Status = RingStatuses.Cancelled },
                     _ => r
                 })]
-            });
+            }, held);
             var script = Path.Combine(folder, "compat.ps1");
             File.WriteAllText(script, """
                 param([string]$Source, [string]$Folder, [string]$Ours)

@@ -54,7 +54,7 @@ public sealed class RingRunStoreTests : IDisposable
         var first = store.Create(NewRun(), "MCM0001B");
         var second = store.Create(NewRun(), "MCM0001B");
         Assert.Equal("Office_Rings_MCM0001B_20261020-080000-2.json", second.FileName);
-        store.Close(first);
+        using (var held = store.Lock(first.FileName)) store.Close(first, held);
         var third = store.Create(NewRun(), "MCM0001B");
         Assert.Equal("Office_Rings_MCM0001B_20261020-080000-3.json", third.FileName);
         Assert.Equal("../evil", NewRun("../evil").PlanName);
@@ -68,7 +68,8 @@ public sealed class RingRunStoreTests : IDisposable
         var run = store.Create(NewRun(), "MCM0001B");
         Directory.CreateDirectory(store.ClosedFolder);
         File.WriteAllText(Path.Combine(store.ClosedFolder, run.FileName), "{ \"keep\": true }");
-        var closed = store.Close(run);
+        using var held = store.Lock(run.FileName);
+        var closed = store.Close(run, held);
         Assert.Equal("Office_Rings_MCM0001B_20261020-080000-2.json", closed.FileName);
         Assert.True(closed.IsClosed);
         Assert.Contains("keep", File.ReadAllText(Path.Combine(store.ClosedFolder, run.FileName)));
@@ -90,7 +91,8 @@ public sealed class RingRunStoreTests : IDisposable
         Assert.NotEqual(run.Fingerprint, read.Fingerprint);
         var rings = read.Rings.ToList();
         rings[0] = rings[0] with { Status = RingStatuses.Created, DeploymentId = "MCM20040" };
-        var saved = store.Save(read with { Rings = rings });
+        using var held = store.Lock(run.FileName);
+        var saved = store.Save(read with { Rings = rings }, held);
         Assert.Equal(RingStatuses.Created, saved.Rings[0].Status);
         var after = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
         Assert.Equal("kept", after["Foreign"]!.GetValue<string>());
@@ -132,7 +134,7 @@ public sealed class RingRunStoreTests : IDisposable
         Assert.Contains(@"CONTOSO\Other on CLIENT09", refused.Message);
         Assert.Contains("180 minutes ago", refused.Message);
         Assert.Contains("older than 60 minutes", refused.Message);
-        Assert.Contains("delete that file by hand", refused.Message);
+        Assert.Contains("check before you remove the lock", refused.Message);
         Assert.True(File.Exists(lockPath));
         Assert.True(store.List(false, out _).Single().Lock!.Stale);
     }

@@ -295,7 +295,7 @@ public sealed class RingServiceScriptTests
         if (created)
         {
             var options = RingPlanRules.Options(DeploymentObjectType.Application, plan.Rings[0], RingHarness.Start, null, false);
-            var outcome = (await h.Deployments.ApplyAsync([await h.Deployments.PrepareAsync(DeploymentHarness.Create(App, options), CancellationToken.None)], new Progress<DeploymentOutcome>(), CancellationToken.None)).Single();
+            var outcome = (await h.Deployments.ApplyAsync([(await h.Deployments.PrepareAsync(DeploymentHarness.Create(App, options), CancellationToken.None)) with { Ring = new DeploymentRingContext(plan.Name, 1, "QA", run.RunId) }], new Progress<DeploymentOutcome>(), CancellationToken.None)).Single();
             Assert.True(outcome.Succeeded || twice, outcome.Message);
         }
         return (h, run);
@@ -313,7 +313,7 @@ public sealed class RingServiceScriptTests
                 r.Index == 1 ? RingStatuses.Creating : RingStatuses.Held, r.Index == 1 ? DeploymentHarness.LocalNow : null, null, 0, "", r.SuccessThresholdPercent)
             { Definition = r.Definition, CreatingAtUtc = r.Index == 1 ? h.UtcNow : null, CreatingBy = r.Index == 1 ? RingHarness.Account : null })], false), package.Id);
         var options = RingPlanRules.Options(DeploymentObjectType.Package, plan.Rings[0], RingHarness.Start, null, false);
-        var made = (await h.Deployments.ApplyAsync([await h.Deployments.PrepareAsync(DeploymentHarness.Create(package, options), CancellationToken.None)], new Progress<DeploymentOutcome>(), CancellationToken.None)).Single();
+        var made = (await h.Deployments.ApplyAsync([(await h.Deployments.PrepareAsync(DeploymentHarness.Create(package, options), CancellationToken.None)) with { Ring = new DeploymentRingContext(plan.Name, 1, "QA", run.RunId) }], new Progress<DeploymentOutcome>(), CancellationToken.None)).Single();
         Assert.True(made.Succeeded, made.Message);
         var id = made.UndoChange!.CreatedId!;
 
