@@ -39,6 +39,9 @@ internal sealed class FakeRingService : IRingService
     public Exception? SaveFailure;
     public bool SaveReturnsNull;
     public Func<RingExpansionRow, string?>? FailRing;
+
+    /// <summary>A ring whose create ConfigMgr reports as not made: the outcome is marked NotCreated and the ring stays Held.</summary>
+    public Func<RingExpansionRow, string?>? NotCreatedRing;
     public Func<RingChange, RingChange>? AfterPrepare;
     public Func<bool>? InConfirmedRun;
     public bool IgnoreCancel;
@@ -64,15 +67,26 @@ internal sealed class FakeRingService : IRingService
             UserNotification: "DisplayAll", OverrideServiceWindow: false, RebootOutsideServiceWindow: false, AllowMetered: false, DpGroup: dpGroup,
             SuccessThresholdPercent: threshold, FastNetworkOption: null, SlowNetworkOption: null, RerunBehavior: null);
 
+    /// <summary>Set, the plans are the files of this real store: list, save with the file stamp and delete go to it.</summary>
+    public RingPlanStore? PlanStore;
+
     public IReadOnlyList<RingPlan> ListPlans()
     {
         Interlocked.Increment(ref ListPlanCalls);
+        if (PlanStore is { } store) return store.List();
         lock (Plans) return Plans.ToList();
     }
 
-    public RingPlan? SavePlan(RingPlan plan, bool replace)
+    public RingPlan? SavePlan(RingPlan plan, bool replace) => SavePlan(plan, replace, null);
+
+    public RingPlan? SavePlan(RingPlan plan, bool replace, string? expectedFileStamp)
     {
         if (SaveFailure is { } failure) throw failure;
+        if (PlanStore is { } store)
+        {
+            lock (Plans) Saved.Add((plan, replace));
+            return store.Save(plan, replace, expectedFileStamp);
+        }
         lock (Plans)
         {
             Saved.Add((plan, replace));
@@ -90,6 +104,11 @@ internal sealed class FakeRingService : IRingService
     public void DeletePlan(string name)
     {
         if (DeleteFailure is { } failure) throw failure;
+        if (PlanStore is { } store)
+        {
+            store.Delete(name);
+            return;
+        }
         lock (Plans)
         {
             if (Plans.Any(p => p.IsSeed && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))) throw new DeploymentServiceException("A shipped plan cannot be deleted.");
@@ -275,6 +294,21 @@ internal sealed class FakeRingService : IRingService
                 };
                 break;
             }
+            case RingChangeKind.AbandonRing:
+            {
+                CheckLock(request.RunId!);
+                var run = RunOf(request.RunId!);
+                var ring = run.Rings.Single(r => r.Index == request.RingIndex);
+                var row = new RingExpansionRow(Index: ring.Index, Name: ring.Name, CollectionId: ring.CollectionId, CollectionName: ring.CollectionName, MemberCount: 0,
+                    Purpose: ring.Purpose, AvailableTime: ring.AvailableTime, Deadline: ring.Deadline, DpGroup: ring.DpGroup, SuccessThresholdPercent: ring.SuccessThresholdPercent, Checks: []);
+                prepared = request with
+                {
+                    Rows = [row], Fingerprint = Fingerprint(run.RunId),
+                    Checks = ring.Status == "Creating" ? [Pass("RingStatus")] : [new PreflightCheck(Name: "RingStatus", Result: "Fail", Message: $"Ring {ring.Name} is not Creating.")],
+                    Impact = [$"A deployment of ring {ring.Name} may exist in collection {ring.CollectionId}."]
+                };
+                break;
+            }
             default:
             {
                 CheckLock(request.RunId!);
@@ -303,6 +337,7 @@ internal sealed class FakeRingService : IRingService
                 RingChangeKind.CreateRun => CreateRun(change, progress, ct),
                 RingChangeKind.Promote => Promote(change),
                 RingChangeKind.UndoRun => Undo(change),
+                RingChangeKind.AbandonRing => Abandon(change),
                 _ => Close(change)
             };
             outcomes.Add(outcome);
@@ -320,6 +355,8 @@ internal sealed class FakeRingService : IRingService
             return new DeploymentOutcome(Change: change, Succeeded: false, Message: RequiredRefused, UndoChange: null, Steps: []);
         if (FailRing?.Invoke(row) is { } failure)
             return new DeploymentOutcome(Change: change, Succeeded: false, Message: failure, UndoChange: null, Steps: []);
+        if (NotCreatedRing?.Invoke(row) is { } nothing)
+            return new DeploymentOutcome(Change: change, Succeeded: false, Message: nothing, UndoChange: null, Steps: []) { NotCreated = true };
         id = $"MCM{_nextDeployment++:X5}";
         var undo = change with { Kind = DeploymentChangeKind.RemoveDeployment, CreatedId = id };
         return new DeploymentOutcome(Change: change with { CreatedId = id }, Succeeded: true, Message: $"Created deployment {id}.", UndoChange: undo, Steps: ["Create: done.", "Read back: equal."]);
@@ -400,6 +437,14 @@ internal sealed class FakeRingService : IRingService
         Replace(run with { Rings = rings, IsClosed = closes });
         return new RingOutcome(Change: change, Succeeded: true, Message: closes ? "The run was undone and closed." : "The run was undone; it stays open for the kept deployments.",
             RingOutcomes: outcomes, UndoChange: null, Steps: []);
+    }
+
+    private RingOutcome Abandon(RingChange change)
+    {
+        if (Stale(change)) return new RingOutcome(Change: change, Succeeded: false, Message: StaleRun, RingOutcomes: [], UndoChange: null, Steps: []);
+        var run = RunOf(change.RunId!);
+        Replace(run with { Rings = run.Rings.Select(r => r.Index == change.RingIndex ? r with { Status = "Held", CreatingAt = null } : r).ToList() });
+        return new RingOutcome(Change: change, Succeeded: true, Message: "The ring is Held again.", RingOutcomes: [], UndoChange: null, Steps: []);
     }
 
     private RingOutcome Close(RingChange change)

@@ -164,7 +164,7 @@ public sealed class DeploymentRingsScaleTests
         var (editor, picks) = Editor(collections);
         picks.Add(collections);
         editor.AddRingsFromCollectionsCommand.Execute(null);
-        Assert.Equal(1, editor.Rings.Count);
+        Assert.Single(editor.Rings);
         Assert.StartsWith("A plan holds at most 100 rings.", editor.ValidationMessage);
         editor.Rings.Clear();
         editor.AddRingsFromCollectionsCommand.Execute(null);

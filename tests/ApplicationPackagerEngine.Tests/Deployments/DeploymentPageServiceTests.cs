@@ -516,7 +516,7 @@ public sealed class DeploymentPageServiceTests
         Assert.False(row.PartialChange);
         Assert.StartsWith("The result of the create", row.Message);
         Assert.False(page.Shared.HasUndo);
-        Assert.Empty(h.Plans.LastViewModel!.Outcome.Result!.Items.Where(i => i.PartialChange));
+        Assert.DoesNotContain(h.Plans.LastViewModel!.Outcome.Result!.Items, i => i.PartialChange);
     }
 
     private static async Task<DeploymentPlan> PlanOfAsync(ServicePageHarness h, params DeploymentChange[] requests)

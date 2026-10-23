@@ -15,6 +15,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     public const string ReadFailedText = "The ring plans and runs could not be read. The log has the details.";
     public const string ObjectsFailedText = "The objects could not be read. The log has the details.";
     public const string PlanSaveFailed = "The plan could not be saved. The log has the details.";
+    public const string PlanFileChanged = "The plan file changed since you opened it: reload it. Nothing was saved; your edits stay in this window.";
     public const string PlanDeleteFailed = "The plan could not be deleted. The log has the details.";
     public const string SeedReadOnly = "Shipped plans cannot be changed or deleted. Copy the plan and change the copy.";
     public const string PickPlan = "Pick a ring plan in the list.";
@@ -315,6 +316,8 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     private void OpenEditor(RingPlan? plan, bool copy)
     {
         PlansMessage = "";
+        // A row whose content did not change keeps its plan, so the plan of the last read carries the current file stamp.
+        if (plan is not null) plan = _plans.FirstOrDefault(p => string.Equals(p.Name, plan.Name, StringComparison.OrdinalIgnoreCase)) ?? plan;
         var editor = new RingPlanEditorViewModel(plan, copy, _plans, _collections, SavePlanAsync,
             current => Services.Dialogs.PickCollection("Pick the collection of the ring", _collections, current),
             () => Services.Dialogs.PickCollections("Check the collections: one ring for each", _collections),
@@ -326,11 +329,17 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     {
         var original = editor.Original;
         var replace = original is not null && !editor.IsCopy && string.Equals(original.Name, plan.Name, StringComparison.OrdinalIgnoreCase);
+        var stamp = replace ? original!.FileStamp : null;
         RingPlan? saved;
-        try { saved = await Task.Run(() => Services.Rings.SavePlan(plan, replace)); }
+        try { saved = await Task.Run(() => Services.Rings.SavePlan(plan, replace, stamp)); }
         catch (Exception ex)
         {
-            editor.ShowMessage(ex is DeploymentServiceException d ? SecretMask.Apply(d.Message) : PlanSaveFailed);
+            editor.ShowMessage(ex switch
+            {
+                DeploymentServiceException { Kind: DeploymentFailureKind.Stale } when replace => PlanFileChanged,
+                DeploymentServiceException d => SecretMask.Apply(d.Message),
+                _ => PlanSaveFailed
+            });
             Services.Log.Warning(DeploymentShared.LogArea, $"Rings: a plan could not be saved ({ex.GetType().Name}).");
             return false;
         }
@@ -353,6 +362,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
             }
         }
         _planName = saved.Name;
+        _plans = [.. _plans.Where(p => !string.Equals(p.Name, saved.Name, StringComparison.OrdinalIgnoreCase)), saved];
         await ReloadPlansAsync();
         SelectedPlan = Plans.FirstOrDefault(p => string.Equals(p.Name, saved.Name, StringComparison.OrdinalIgnoreCase));
         PlansMessage = oldKept is null

@@ -90,7 +90,7 @@ public sealed partial class RingFolderOptionsViewModel(DeploymentShared shared) 
         };
         if (probe.Message.Length > 0) parts.Add(SecretMask.Apply(probe.Message));
         ProbeText = string.Join(" ", parts);
-        StaleLockText = $"A lock file older than {AgeText(probe.StaleLockAge)} is reported as stale. It is never removed automatically: remove it by hand when the message names a session that ended.";
+        StaleLockText = $"A lock file older than {AgeText(probe.StaleLockAge)} is reported as stale. It is never removed automatically. Another session may still be running: check before you remove the lock file by hand.";
     }
 
     public const string WriteRunningText = "A change is running. Save the folders after it ends: the lock files of the running change are in the current runs folder.";

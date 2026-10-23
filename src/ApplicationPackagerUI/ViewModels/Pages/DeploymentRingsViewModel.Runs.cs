@@ -25,7 +25,16 @@ public sealed partial class DeploymentRingsViewModel
     [NotifyPropertyChangedFor(nameof(HasSelectedRun))]
     private RingRunRow? _selectedRun;
 
-    [ObservableProperty] private RingRunRingRow? _selectedRunRing;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AbandonRingCommand))]
+    private RingRunRingRow? _selectedRunRing;
+
+    /// <summary>The values of the selected run file that cannot be read; they block Promote and Undo run. Empty when every value was read.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRunProblems))]
+    private string _runProblems = "";
+
+    public bool HasRunProblems => RunProblems.Length > 0;
 
     /// <summary>Lists the closed runs after the open ones; a closed run is read only.</summary>
     [ObservableProperty] private bool _showClosedRuns;
@@ -55,12 +64,17 @@ public sealed partial class DeploymentRingsViewModel
     partial void OnSelectedRunChanged(RingRunRow? oldValue, RingRunRow? newValue)
     {
         var value = newValue;
-        if (!string.Equals(oldValue?.RunId, newValue?.RunId, StringComparison.OrdinalIgnoreCase)) RunsMessage = "";
+        var sameRun = string.Equals(oldValue?.RunId, newValue?.RunId, StringComparison.OrdinalIgnoreCase);
+        if (!sameRun) RunsMessage = "";
+        var selectedRing = sameRun ? SelectedRunRing?.Index : null;
         _countsGeneration++;
         _counts = [];
+        SelectedRunRing = null;
         RunRings.Clear();
         if (value is not null)
             foreach (var ring in value.Run.Rings.OrderBy(r => r.Index)) RunRings.Add(new RingRunRingRow(ring, value.Run.TimeBasedOn));
+        SelectedRunRing = RunRings.FirstOrDefault(r => r.Index == selectedRing);
+        RunProblems = RingText.ProblemText(value?.Run);
         IsLoadingCounts = false;
         UpdatePromote();
         LockMessage = value?.Run.Lock is { } held ? LockText(held) : "";
@@ -81,7 +95,7 @@ public sealed partial class DeploymentRingsViewModel
     public static string LockText(RingLockInfo held) =>
         $"Another session holds the lock of this run: {SecretMask.Apply(held.Owner)}, {RingFolderOptionsViewModel.AgeText(held.Age)} ago. Lock file: {held.Path}. "
         + (held.Stale
-            ? "The lock is older than the stale lock age. When that session ended, remove the lock file by hand; it is never removed automatically."
+            ? "The lock is older than the stale lock age. Another session may still be running: check before you remove the lock file by hand. It is never removed automatically."
             : "Promote, Reconcile, Close and Undo run wait until that session releases it.");
 
     /// <summary>True when Undo run can be offered: an open run, or a closed run that still has a created deployment.</summary>
@@ -108,6 +122,7 @@ public sealed partial class DeploymentRingsViewModel
         PromoteRingCommand.NotifyCanExecuteChanged();
         UndoRunCommand.NotifyCanExecuteChanged();
         CloseRunCommand.NotifyCanExecuteChanged();
+        AbandonRingCommand.NotifyCanExecuteChanged();
     }
 
     private async Task<IReadOnlyList<RingRun>> ReadRunsAsync(bool showClosed, CancellationToken ct)
@@ -232,6 +247,7 @@ public sealed partial class DeploymentRingsViewModel
         RunsMessage = "";
         RunCount = "";
         PromoteReason = "";
+        RunProblems = "";
         _runLoads = 0;
         _runLoadEpoch++;
         IsLoadingRuns = false;
@@ -316,7 +332,7 @@ public sealed partial class DeploymentRingsViewModel
 
     private bool CanChangeRun() => !Shared.IsWriting && SelectedRun is { Run.IsClosed: false };
 
-    private bool CanUndoRun() => !Shared.IsWriting && CanUndo(SelectedRun?.Run);
+    private bool CanUndoRun() => !Shared.IsWriting && CanUndo(SelectedRun?.Run) && SelectedRun?.Run.Problems.Count == 0;
 
     /// <summary>
     /// Shows the destructive plan that removes the deployments this run created, cancels its held
@@ -333,6 +349,11 @@ public sealed partial class DeploymentRingsViewModel
         if (!CanUndo(run))
         {
             RunsMessage = "The run is closed and has no created deployment. There is nothing to undo.";
+            return;
+        }
+        if (run.Problems.Count > 0)
+        {
+            RunsMessage = RingText.ProblemText(run);
             return;
         }
         var request = new RingChange(Kind: RingChangeKind.UndoRun, Plan: null, Object: null, Rows: [], PlanStart: null, RunId: run.RunId, RingIndex: null,
@@ -358,6 +379,38 @@ public sealed partial class DeploymentRingsViewModel
         var request = new RingChange(Kind: RingChangeKind.CloseRun, Plan: null, Object: null, Rows: [], PlanStart: null, RunId: run.RunId, RingIndex: null,
             RequiredConfirmed: false, BackdatedAcknowledged: false, CreateNowContentDistributing: false, RingChanges: [], Impact: [], Checks: [], Fingerprint: null);
         var result = await RunRingPlanAsync(request, prepared => RingText.BuildClosePlan(prepared, RunName(run)), null, message => RunsMessage = message);
+        if (result is { Outcome.Confirmed: true }) await AfterRingWriteAsync();
+    }
+
+    private bool CanAbandonRing() =>
+        !Shared.IsWriting && SelectedRun is { Run.IsClosed: false } && SelectedRunRing is { } ring
+        && string.Equals(ring.Ring.Status, RingStatuses.Creating, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Shows the plan that returns the selected ring in Creating to Held when Reconcile cannot prove
+    /// its create; the plan names the deployment that may exist and asks its own check box.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanAbandonRing))]
+    private async Task AbandonRing()
+    {
+        if (SelectedRun?.Run is not { } run || SelectedRunRing?.Ring is not { } ring)
+        {
+            RunsMessage = "Select a run and its ring in Creating.";
+            return;
+        }
+        if (run.IsClosed)
+        {
+            RunsMessage = RunClosed;
+            return;
+        }
+        if (!string.Equals(ring.Status, RingStatuses.Creating, StringComparison.OrdinalIgnoreCase))
+        {
+            RunsMessage = $"Ring {ring.Name} is {ring.Status.ToLowerInvariant()}. Only a ring in Creating can be abandoned.";
+            return;
+        }
+        var request = new RingChange(Kind: RingChangeKind.AbandonRing, Plan: null, Object: null, Rows: [], PlanStart: null, RunId: run.RunId, RingIndex: ring.Index,
+            RequiredConfirmed: false, BackdatedAcknowledged: false, CreateNowContentDistributing: false, RingChanges: [], Impact: [], Checks: [], Fingerprint: null);
+        var result = await RunRingPlanAsync(request, prepared => RingText.BuildAbandonPlan(prepared, RunName(run)), null, message => RunsMessage = message);
         if (result is { Outcome.Confirmed: true }) await AfterRingWriteAsync();
     }
 

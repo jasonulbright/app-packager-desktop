@@ -874,7 +874,7 @@ public sealed class DeploymentRingsViewModelTests
         Assert.Equal(1, _h.Rings.ProbeCalls);
         Assert.Contains("A lock file can be made in the run folder.", folders.ProbeText);
         Assert.Contains("only the sessions that use this folder", folders.ProbeText);
-        Assert.Equal("A lock file older than 2 hours is reported as stale. It is never removed automatically: remove it by hand when the message names a session that ended.",
+        Assert.Equal("A lock file older than 2 hours is reported as stale. It is never removed automatically. Another session may still be running: check before you remove the lock file by hand.",
             folders.StaleLockText);
 
         folders.RunsFolder = "relative\\runs";

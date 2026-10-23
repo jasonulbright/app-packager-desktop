@@ -34,7 +34,8 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     protected override string ReadFailed => ReadFailedText;
 
     public ObservableCollection<DeploymentHistoryRow> Rows { get; } = [];
-    public IReadOnlyList<string> Events { get; } = [AllText, "Create", "Distribute", "Undo"];
+    public IReadOnlyList<string> Events { get; } =
+        [AllText, AuditEvents.Create, "Distribute", "Undo", .. new[] { AuditEvents.Close, AuditEvents.CancelRing, AuditEvents.Abandon }.Select(DeploymentHistoryRow.EventLabel)];
     public IReadOnlyList<string> Types { get; } = [AllText, .. Enum.GetValues<DeploymentObjectType>().Select(t => t.ToString())];
 
     [ObservableProperty] private string _textFilter = "";
@@ -127,7 +128,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         var selected = SelectedRow?.Record;
         var text = TextFilter.Trim();
         var wanted = _records
-            .Where(r => EventFilter == AllText || string.Equals(r.Event, EventFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(r => EventFilter == AllText || string.Equals(DeploymentHistoryRow.EventLabel(r.Event), EventFilter, StringComparison.OrdinalIgnoreCase))
             .Where(r => TypeFilter == AllText || SameType(r.DeploymentType, TypeFilter))
             .Where(r => RunFilter is null or AllText || string.Equals(RingAuditFields.Get(r, RingAuditFields.RunId), RunFilter, StringComparison.OrdinalIgnoreCase))
             .Where(r => text.Length == 0 || Contains(r.ApplicationName, text) || Contains(r.CollectionName, text) || Contains(r.CollectionID, text)

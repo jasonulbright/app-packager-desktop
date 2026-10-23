@@ -82,7 +82,7 @@ public sealed class RingRunRow(RingRun run)
     public string Object => $"{Run.ObjectName}{(Run.Program.Length > 0 ? $" ({Run.Program})" : "")}";
     public string Type => DeploymentText.TypeName(Run.ObjectType);
     public string Started => DeploymentText.Time(Run.CreatedUtc.ToLocalTime());
-    public string Rings => RingText.StatusLine(Run);
+    public string Rings => RingText.StatusLine(Run) + (Run.Problems.Count > 0 ? $", {DeploymentText.Count(Run.Problems.Count, "problem")}" : "");
     public string CreatedBy => Run.CreatedBy;
 
     public override string ToString() => $"{RunId} {Plan} {Object}";
@@ -94,12 +94,12 @@ public sealed partial class RingRunRingRow(RingRunRing ring, string timeBasedOn)
     public RingRunRing Ring { get; } = ring;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Targeted), nameof(Success), nameof(Error), nameof(InProgress), nameof(Unknown), nameof(SuccessRate), nameof(CountsNote))]
+    [NotifyPropertyChangedFor(nameof(Targeted), nameof(Success), nameof(Error), nameof(InProgress), nameof(Unknown), nameof(SuccessRate), nameof(CountsNote), nameof(Detail))]
     private RingLiveCounts? _counts;
 
     public int Index => Ring.Index;
     public string Name => Ring.Name;
-    public string Status => Ring.Status;
+    public string Status => Ring.Problem.Length > 0 ? $"{Ring.Status} (unreadable)" : Ring.Status;
     public string Collection => $"{Ring.CollectionName} ({Ring.CollectionId})";
     public string Purpose => Ring.Purpose;
     public string Available => RingText.Time(Ring.AvailableTime) + (RingText.IsUtc(timeBasedOn) ? " UTC" : "");
@@ -115,10 +115,13 @@ public sealed partial class RingRunRingRow(RingRunRing ring, string timeBasedOn)
     public string Error => Count(c => c.Error);
     public string InProgress => Count(c => c.InProgress);
     public string Unknown => Count(c => c.Unknown);
-    public string SuccessRate => RingText.SuccessRate(Counts) is { } rate ? $"{rate.ToString("0", CultureInfo.CurrentCulture)} %" : "";
+    public string SuccessRate => RingText.ShownRate(Counts, Ring.SuccessThresholdPercent) is { } rate ? RingText.Percent(rate) : "";
 
     /// <summary>The message of the live counts: why they are not known, or that the deployment was not found by its ID.</summary>
     public string CountsNote => Counts?.Message ?? "";
+
+    /// <summary>The notes of the selected ring, one per line: a value the run file holds that cannot be read, the note of the last Reconcile and the note of the live counts.</summary>
+    public string Detail => string.Join(Environment.NewLine, new[] { Ring.Problem, Ring.Note, CountsNote }.Where(line => line.Length > 0));
 
     public override string ToString() => $"{Name} {Status}";
 }

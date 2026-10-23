@@ -43,19 +43,31 @@ public static class RingText
         return string.Join(", ", parts) + (run.IsClosed ? " (closed)" : "");
     }
 
-    /// <summary>The ring's own success rate as a percentage; null when the counts are not known or nothing is targeted.</summary>
-    public static double? SuccessRate(RingLiveCounts? counts) =>
-        counts is { CountsKnown: true, Targeted: > 0 } c ? c.Success * 100.0 / c.Targeted : null;
+    /// <summary>
+    /// The success rate the page shows, as the ring services round it: one decimal, and never at or
+    /// above a threshold the counts do not meet (2000 of 2001 is 99.9, not 100). Without a threshold
+    /// the rate is rounded against 100, so 100 means every targeted client succeeded. Null when the
+    /// counts are not known or nothing is targeted.
+    /// </summary>
+    public static double? ShownRate(RingLiveCounts? counts, int? threshold) =>
+        counts is { CountsKnown: true, Targeted: > 0 } ? RingPlanRules.Threshold(counts, threshold ?? 100).Percent : null;
+
+    public static string Percent(double rate) => $"{rate.ToString("0.#", CultureInfo.CurrentCulture)} %";
+
+    /// <summary>The problems of a run file that block Promote and Undo run, as one line; empty when the run has none.</summary>
+    public static string ProblemText(RingRun? run) =>
+        run is { Problems.Count: > 0 } r ? "Promote and Undo run are not available until the run file is corrected: " + string.Join(" ", r.Problems) : "";
 
     /// <summary>
     /// The next held ring and whether its Promote can run: the ring before it must be Created, and a
-    /// success threshold on that ring needs its live counts at or above the threshold. The service
-    /// reads the counts again before the plan; this state only decides the button.
+    /// success threshold on that ring needs its live counts to meet it by the rule of the ring services.
+    /// The service reads the counts again before the plan; this state only decides the button.
     /// </summary>
     public static RingPromoteState PromoteState(RingRun? run, IReadOnlyDictionary<int, RingLiveCounts> counts)
     {
         if (run is null) return new RingPromoteState(null, false, "Select a run.");
         if (run.IsClosed) return new RingPromoteState(null, false, "The run is closed. Nothing can be promoted.");
+        if (run.Problems.Count > 0) return new RingPromoteState(null, false, ProblemText(run));
         var rings = run.Rings.OrderBy(r => r.Index).ToList();
         var index = rings.FindIndex(r => string.Equals(r.Status, Held, StringComparison.OrdinalIgnoreCase));
         if (index < 0) return new RingPromoteState(null, false, "No ring of this run is held.");
@@ -68,12 +80,13 @@ public static class RingText
         if (previous.SuccessThresholdPercent is { } threshold)
         {
             counts.TryGetValue(previous.Index, out var live);
-            if (SuccessRate(live) is not { } rate)
-                return new RingPromoteState(next, false,
-                    $"Ring {previous.Name} needs {Threshold(threshold)} success before ring {next.Name}, and its live counts are not known yet. Select Refresh and reconcile, then try again.");
-            if (rate < threshold)
-                return new RingPromoteState(next, false,
-                    $"Ring {previous.Name} has {rate.ToString("0", CultureInfo.CurrentCulture)} % success ({live!.Success.ToString(CultureInfo.CurrentCulture)} of {live.Targeted.ToString(CultureInfo.CurrentCulture)}); ring {next.Name} needs {Threshold(threshold)}.");
+            var gate = RingPlanRules.Threshold(live, threshold);
+            if (!gate.Met)
+                return ShownRate(live, threshold) is { } rate
+                    ? new RingPromoteState(next, false,
+                        $"Ring {previous.Name} has {Percent(rate)} success ({live!.Success.ToString(CultureInfo.CurrentCulture)} of {live.Targeted.ToString(CultureInfo.CurrentCulture)}); ring {next.Name} needs {Threshold(threshold)}.")
+                    : new RingPromoteState(next, false,
+                        $"Ring {previous.Name} needs {Threshold(threshold)} success before ring {next.Name}, and its live counts are not known yet. Select Refresh and reconcile, then try again.");
         }
         return new RingPromoteState(next, true, $"Promote creates the deployment of ring {next.Name}. The live counts are read again before the plan.");
     }
@@ -203,8 +216,8 @@ public static class RingText
         var past = rows.Where(r => IsRequired(r.Purpose) && r.Deadline is { } d && d <= clockNow).ToList();
         if (past.Count > 0) return (null, $"The deadline of ring {past[0].Name} is in the past. Choose a later plan start and select Expand again.");
         var requiredRows = now.Where(r => IsRequired(r.Purpose)).ToList();
-        var requiredRings = prepared.RingChanges.Count > 0 ? prepared.RequiredRings : requiredRows.Count;
-        var requiredDevices = prepared.RingChanges.Count > 0 ? prepared.RequiredDevices : requiredRows.Sum(r => r.MemberCount);
+        var requiredRings = prepared.RequiredRings;
+        var requiredDevices = prepared.RequiredDevices;
         var backdated = Backdated(now, prepared, clockNow);
         var entries = rows.Select(row =>
         {
@@ -252,8 +265,8 @@ public static class RingText
         lines.Add(RingLines(row, basis, created: true, prepared, change));
         lines.AddRange(prepared.Impact);
         lines.Add(UndoRunNote);
-        var required = prepared.NeedsRequiredConfirmation || IsRequired(row.Purpose);
-        var devices = prepared.RingChanges.Count > 0 ? prepared.RequiredDevices : row.MemberCount;
+        var required = prepared.NeedsRequiredConfirmation;
+        var devices = prepared.RequiredDevices;
         var backdated = Backdated([row], prepared, Now(clock, timeBasedOn));
         if (prepared.ShiftMinutes > 0)
             lines.Insert(1, $"The deadline of this ring passed: this ring and every later held ring move {DeploymentText.Count(prepared.ShiftMinutes, "minute")} later, so each keeps its time from available to deadline.");
@@ -282,7 +295,7 @@ public static class RingText
     {
         if (prepared.Kind != RingChangeKind.UndoRun) return (null, "The run could not be prepared. Select Refresh and reconcile, then Undo run again.");
         var blocking = Blocking(prepared, []);
-        if (blocking.Count > 0) return (null, "The run cannot be undone: " + BlockingText(blocking));
+        if (blocking.Count > 0 || prepared.Blocked) return (null, "The run cannot be undone: " + BlockingText(blocking));
         RingRunRing? RingOf(DeploymentChange c) =>
             run.Rings.FirstOrDefault(r => c.Ring is { } ring && r.Index == ring.RingIndex)
             ?? run.Rings.FirstOrDefault(r => r.DeploymentId is { Length: > 0 } id && string.Equals(id, c.Existing?.DeploymentId ?? c.CreatedId, StringComparison.OrdinalIgnoreCase));
@@ -321,9 +334,7 @@ public static class RingText
             entries.Add(new RingPlanEntry(new ChangePlanItem("Keep deployment", $"Ring {name}: {ring?.CollectionName ?? row?.CollectionName} ({ring?.CollectionId ?? row?.CollectionId})",
                 string.Join(Environment.NewLine, lines)), RingEntryKind.Keep, ring?.DeploymentId ?? "", reason));
         }
-        var cancelled = prepared.CancelledRings.Count > 0
-            ? prepared.CancelledRings.Select(i => run.Rings.FirstOrDefault(r => r.Index == i)).OfType<RingRunRing>()
-            : run.Rings.Where(r => string.Equals(r.Status, Held, StringComparison.OrdinalIgnoreCase));
+        var cancelled = prepared.CancelledRings.Select(i => run.Rings.FirstOrDefault(r => r.Index == i)).OfType<RingRunRing>();
         foreach (var held in cancelled.OrderBy(r => r.Index))
             entries.Add(new RingPlanEntry(new ChangePlanItem("Cancel held ring", $"Ring {held.Name}: {held.CollectionName} ({held.CollectionId})",
                 "The run file marks the ring Cancelled. Nothing changes in ConfigMgr."), RingEntryKind.Cancel, held.CollectionId));
@@ -354,7 +365,7 @@ public static class RingText
     {
         if (prepared.Kind != RingChangeKind.CloseRun) return (null, "The run could not be prepared. Select Refresh and reconcile, then Close run again.");
         var blocking = Blocking(prepared, []);
-        if (blocking.Count > 0) return (null, "The run cannot be closed: " + BlockingText(blocking));
+        if (blocking.Count > 0 || prepared.Blocked) return (null, "The run cannot be closed: " + BlockingText(blocking));
         var lines = prepared.Impact.Concat(
         [
             "The run file moves to the closed folder. No deployment is changed.",
@@ -362,5 +373,33 @@ public static class RingText
         ]);
         return (new RingRunPlan("Close ring run", $"Close the ring run {runName}", "Close run", prepared,
             [new RingPlanEntry(new ChangePlanItem("Close run", runName, string.Join(Environment.NewLine, lines)), RingEntryKind.Close, prepared.RunId ?? "")]), null);
+    }
+
+    private static string CollectionText(string name, string id) => name.Length > 0 ? $"{name} ({id})" : id;
+
+    /// <summary>
+    /// The plan of Abandon ring: the ring in Creating returns to Held. Its own check box names the risk
+    /// that a deployment of the ring exists and stays outside the run; the change runs only with it.
+    /// </summary>
+    public static (RingRunPlan? Plan, string? Problem) BuildAbandonPlan(RingChange prepared, string runName)
+    {
+        if (prepared.Kind != RingChangeKind.AbandonRing || prepared.Rows.Count != 1)
+            return (null, "The ring could not be prepared. Select Refresh and reconcile, then Abandon ring again.");
+        var row = prepared.Rows[0];
+        var blocking = Blocking(prepared, []);
+        if (blocking.Count > 0 || prepared.Blocked) return (null, $"Ring {row.Name} cannot be abandoned: " + BlockingText(blocking));
+        var collection = CollectionText(row.CollectionName, row.CollectionId);
+        var lines = prepared.Impact.Concat(
+        [
+            $"Run: {runName}.",
+            "The run file marks the ring Held. Nothing is created or removed in ConfigMgr."
+        ]);
+        var extra = $"I understand that a deployment of ring {row.Name} may exist in {collection}, that the run does not remove it, and that I check the collection in the console.";
+        return (new RingRunPlan("Abandon ring", $"Abandon the create of ring {row.Name}", "Abandon ring", prepared,
+            [new RingPlanEntry(new ChangePlanItem("Abandon ring", $"Ring {row.Name}: {collection}", string.Join(Environment.NewLine, lines)), RingEntryKind.Abandon, row.CollectionId)],
+            extraConfirmation: extra)
+        {
+            RequiresExtraConfirmation = true
+        }, null);
     }
 }

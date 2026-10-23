@@ -26,7 +26,10 @@ public enum RingEntryKind
     Cancel,
 
     /// <summary>Moves the run file to the closed folder.</summary>
-    Close
+    Close,
+
+    /// <summary>Returns a ring in Creating to Held in the run file; nothing changes in ConfigMgr.</summary>
+    Abandon
 }
 
 /// <summary>
@@ -36,7 +39,7 @@ public enum RingEntryKind
 public sealed record RingPlanEntry(ChangePlanItem Item, RingEntryKind Kind, string Key, string? Reason = null)
 {
     /// <summary>True for a line whose change the service makes.</summary>
-    public bool Writes => Kind is RingEntryKind.Create or RingEntryKind.Promote or RingEntryKind.Remove or RingEntryKind.Cancel or RingEntryKind.Close;
+    public bool Writes => Kind is RingEntryKind.Create or RingEntryKind.Promote or RingEntryKind.Remove or RingEntryKind.Cancel or RingEntryKind.Close or RingEntryKind.Abandon;
 }
 
 /// <summary>
@@ -80,6 +83,9 @@ public sealed class RingRunPlan
 
     /// <summary>True when the second check box also names an available time in the past.</summary>
     public bool AcknowledgesBackdated { get; init; }
+
+    /// <summary>True when the change runs only after the operator checked the plan's own check box, as for Abandon ring.</summary>
+    public bool RequiresExtraConfirmation { get; init; }
 
     public IReadOnlyList<RingOutcome> Outcomes
     {
@@ -128,6 +134,8 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
     public const string ClosedText = "The run was closed. Its file moved to the closed folder.";
     public const string NotAcknowledgedText =
         "Skipped: a Required ring installs software on every device of its collection, and the plan did not ask the second confirmation for it. Nothing was changed. Show the plan again.";
+    public const string UnconfirmedText = "Skipped: the plan did not ask its own confirmation. Nothing was changed. Show the plan again.";
+    public const string NothingCreatedText = "Nothing was created.";
 
     private readonly object _runLock = new();
     private Task _running = Task.CompletedTask;
@@ -187,9 +195,10 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
         var acknowledged = confirmed.Plan.ExtraConfirmation is not null;
         plan.ClearOutcomes();
         foreach (var entry in plan.Entries.Where(e => e.Kind == RingEntryKind.Keep)) Report(ChangePlanItemResult.Skip(entry.Item, entry.Reason ?? DeploymentWriter.SkippedPrefix + "."));
-        if (plan.NeedsRequiredConfirmation && !acknowledged)
+        if ((plan.NeedsRequiredConfirmation || plan.RequiresExtraConfirmation) && !acknowledged)
         {
-            foreach (var entry in plan.Entries.Where(e => e.Kind != RingEntryKind.Keep)) Report(ChangePlanItemResult.Skip(entry.Item, NotAcknowledgedText));
+            var refusal = plan.NeedsRequiredConfirmation ? NotAcknowledgedText : UnconfirmedText;
+            foreach (var entry in plan.Entries.Where(e => e.Kind != RingEntryKind.Keep)) Report(ChangePlanItemResult.Skip(entry.Item, refusal));
             Record(plan.Action, SiteOperationOutcome.Failed, results);
             return new ChangePlanResult(plan.Entries.Select(e => results[e.Item]).ToList());
         }
@@ -306,7 +315,9 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
                     var entry = EntryOf(ring.Change);
                     if (entry is null || results.ContainsKey(entry.Item)) continue;
                     var message = SecretMask.Apply(ring.Message);
-                    var skipped = !ring.Succeeded && ring.UndoChange is null && ring.Message.StartsWith(DeploymentWriter.SkippedPrefix, StringComparison.OrdinalIgnoreCase);
+                    var notAttempted = ring.Message.StartsWith(DeploymentWriter.SkippedPrefix, StringComparison.OrdinalIgnoreCase);
+                    var skipped = !ring.Succeeded && ring.UndoChange is null && (notAttempted || ring.NotCreated && ring.Distribution is not { Succeeded: true });
+                    if (skipped && !notAttempted) message = $"{NothingCreatedText} {message}";
                     result = skipped
                         ? ChangePlanItemResult.Skip(entry.Item, message)
                         : new ChangePlanItemResult(entry.Item, ring.Succeeded, message) { PartialChange = !ring.Succeeded && ring.UndoChange is not null };
