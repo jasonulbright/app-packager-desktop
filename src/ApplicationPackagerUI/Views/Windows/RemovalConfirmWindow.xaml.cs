@@ -10,9 +10,17 @@ namespace ApplicationPackagerUI.Views.Windows;
 /// </summary>
 public partial class RemovalConfirmWindow
 {
-    public RemovalConfirmWindow(string question)
+    public RemovalConfirmWindow(string question) : this(question, "Remove deployment", "_Remove deployment")
+    {
+    }
+
+    /// <param name="confirmText">The text of the button that confirms; an underscore marks its access key.</param>
+    public RemovalConfirmWindow(string question, string title, string confirmText)
     {
         InitializeComponent();
+        Title = title;
+        titleBar.Title = title;
+        btnRemove.Content = confirmText;
         txtQuestion.Text = question;
         Loaded += (_, _) => FocusCancel();
         Activated += (_, _) => FocusCancel();
@@ -46,9 +54,11 @@ public partial class RemovalConfirmWindow
     }
 
     /// <summary>Shows the question modally over <paramref name="owner"/>; false when declined or closed.</summary>
-    public static bool Ask(Window? owner, string question)
+    public static bool Ask(Window? owner, string question) => Ask(owner, new RemovalConfirmWindow(question));
+
+    /// <summary>Shows <paramref name="window"/> modally over <paramref name="owner"/>; false when declined or closed.</summary>
+    public static bool Ask(Window? owner, RemovalConfirmWindow window)
     {
-        var window = new RemovalConfirmWindow(question);
         if (owner is not null) window.Owner = owner;
         else window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         window.ShowDialog();

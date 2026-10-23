@@ -42,6 +42,9 @@ public interface IDeploymentHelperDialogs
 
     /// <summary>Asks the operator to check device collections; the checked ones in the order shown, empty when the dialog was closed.</summary>
     IReadOnlyList<CollectionRow> PickCollections(string title, IReadOnlyList<CollectionRow> collections);
+
+    /// <summary>Asks whether the unsaved changes of the ring plan editor may be discarded; false keeps the editor open.</summary>
+    bool ConfirmDiscardRingPlanChanges();
 }
 
 public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDeploymentHelperDialogs
@@ -101,6 +104,16 @@ public sealed class DeploymentHelperDialogs(IContentDialogService dialogs) : IDe
         var picker = new RingCollectionPickerViewModel(title, collections, null, multiSelect: true);
         ShowModal(new RingCollectionPickerWindow(picker));
         return picker.Results;
+    }
+
+    public const string DiscardQuestion = "The changes to this ring plan are not saved. Discard them? Select Cancel to keep editing.";
+
+    /// <summary>A modal window owned by the editor window: the editor is modal, so a content dialog of the main window cannot take input while it is open.</summary>
+    public bool ConfirmDiscardRingPlanChanges()
+    {
+        var windows = Application.Current?.Windows.OfType<Window>().ToList() ?? [];
+        var owner = DiscoveryPrompt.UsableOwner(windows.OfType<RingPlanEditorWindow>().LastOrDefault(w => w.IsVisible) ?? windows.FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow);
+        return RemovalConfirmWindow.Ask(owner, new RemovalConfirmWindow(DiscardQuestion, "Discard changes", "_Discard changes"));
     }
 
     public async Task<bool> ConfirmDeleteRingPlanAsync(string name)

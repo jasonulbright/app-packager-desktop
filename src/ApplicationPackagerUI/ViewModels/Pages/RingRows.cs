@@ -14,6 +14,11 @@ public sealed class RingPlanRow(RingPlan plan)
     public string Source => Plan.IsSeed ? "Shipped" : "User";
     public string Description => Plan.Description;
 
+    /// <summary>True when both plans hold the same values; the ring list compares ring by ring.</summary>
+    public static bool SameContent(RingPlan a, RingPlan b) =>
+        a.Name == b.Name && a.Description == b.Description && a.HoldLaterRings == b.HoldLaterRings && a.TimeBasedOn == b.TimeBasedOn && a.IsSeed == b.IsSeed
+        && a.FileName == b.FileName && a.Rings.SequenceEqual(b.Rings);
+
     public override string ToString() => Name;
 }
 

@@ -354,6 +354,16 @@ internal sealed class FakeDeploymentDialogs : IDeploymentHelperDialogs
         return PickedCollections.Select(id => collections.Single(c => c.CollectionId == id)).ToList();
     }
 
+    /// <summary>The answer to the discard question of the plan editor.</summary>
+    public bool ConfirmDiscard = true;
+    public int DiscardPrompts;
+
+    public bool ConfirmDiscardRingPlanChanges()
+    {
+        DiscardPrompts++;
+        return ConfirmDiscard;
+    }
+
     public Task<bool> ConfirmDeleteRingPlanAsync(string name)
     {
         PlanDeletePrompts++;

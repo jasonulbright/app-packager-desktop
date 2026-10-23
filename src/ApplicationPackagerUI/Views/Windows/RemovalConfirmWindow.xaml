@@ -19,7 +19,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Remove deployment" ShowMinimize="False" ShowMaximize="False" />
+        <ui:TitleBar Grid.Row="0" x:Name="titleBar" Title="Remove deployment" ShowMinimize="False" ShowMaximize="False" />
 
         <TextBlock Grid.Row="1" x:Name="txtQuestion" Margin="16,4,16,16" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                    AutomationProperties.AutomationId="txtRemovalQuestion" />

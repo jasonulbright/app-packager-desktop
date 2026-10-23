@@ -18,7 +18,7 @@ public partial class RingPlanEditorWindow
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (_viewModel.IsBusy) e.Cancel = true;
+        if (_viewModel.IsBusy || !_viewModel.ConfirmClose()) e.Cancel = true;
         base.OnClosing(e);
     }
 }

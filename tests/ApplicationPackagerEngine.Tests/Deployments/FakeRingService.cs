@@ -82,8 +82,11 @@ internal sealed class FakeRingService : IRingService
         }
     }
 
+    public Exception? DeleteFailure;
+
     public void DeletePlan(string name)
     {
+        if (DeleteFailure is { } failure) throw failure;
         lock (Plans)
         {
             if (Plans.Any(p => p.IsSeed && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))) throw new DeploymentServiceException("A shipped plan cannot be deleted.");

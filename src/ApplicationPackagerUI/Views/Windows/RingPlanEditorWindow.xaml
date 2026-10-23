@@ -83,7 +83,8 @@
                                AutomationProperties.AutomationId="btnRingDuplicate" />
                     <ui:Button Content="Add rings from collections" Icon="{ui:SymbolIcon Organization24}" Command="{Binding AddRingsFromCollectionsCommand}" Style="{StaticResource ToolButton}"
                                ToolTip="Adds one ring for each collection you check, named after the collection, with the offsets below." AutomationProperties.AutomationId="btnRingsFromCollections" />
-                    <CheckBox Content="Sort the new rings by collection name" IsChecked="{Binding SortNewRingsByName}" Style="{StaticResource Option}" VerticalAlignment="Center"
+                    <CheckBox Content="Sort the new rings by collection name (Zone 2 before Zone 10); clear it to keep the order the picker shows"
+                              IsChecked="{Binding SortNewRingsByName}" Style="{StaticResource Option}" VerticalAlignment="Center"
                               AutomationProperties.AutomationId="chkRingSortByName" />
                 </WrapPanel>
                 <WrapPanel>
@@ -131,8 +132,8 @@
                                AutomationProperties.AutomationId="btnRingApplyAll" />
                     <CheckBox Content="Purpose" IsChecked="{Binding ApplyPurpose}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyPurpose" />
                     <CheckBox Content="User notification" IsChecked="{Binding ApplyNotification}" Style="{StaticResource Option}" VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyNotification" />
-                    <CheckBox Content="Maintenance window, metered and package options" IsChecked="{Binding ApplyOptions}" Style="{StaticResource Option}" VerticalAlignment="Center"
-                              AutomationProperties.AutomationId="chkApplyOptions" />
+                    <CheckBox Content="Maintenance window, metered, package, task sequence and update group options" IsChecked="{Binding ApplyOptions}" Style="{StaticResource Option}"
+                              VerticalAlignment="Center" AutomationProperties.AutomationId="chkApplyOptions" />
                 </WrapPanel>
                 <StackPanel DataContext="{Binding SelectedRing}">
                     <TextBlock Text="Ring name" Style="{StaticResource FieldLabel}" />
@@ -200,6 +201,35 @@
                                       DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Rerun behavior of the ring" AutomationProperties.AutomationId="cboRingRerun" />
                         </StackPanel>
                     </WrapPanel>
+                    <Expander Header="Advanced options: task sequence and software update group" Margin="0,8,0,0" AutomationProperties.Name="Advanced options of the ring"
+                              AutomationProperties.AutomationId="expRingAdvanced">
+                        <StackPanel Margin="0,4,0,0">
+                            <TextBlock Text="Task sequence options (a run of another type ignores them)" Style="{StaticResource FieldLabel}" />
+                            <WrapPanel>
+                                <StackPanel Margin="0,0,16,8">
+                                    <TextBlock Text="Make available to" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                                    <ComboBox ItemsSource="{Binding DataContext.TaskSequenceAvailabilities, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding TaskSequenceAvailability}"
+                                              DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Task sequence availability of the ring"
+                                              AutomationProperties.AutomationId="cboRingTsAvailability" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,16,8">
+                                    <TextBlock Text="Content" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                                    <ComboBox ItemsSource="{Binding DataContext.TaskSequenceContents, RelativeSource={RelativeSource AncestorType=Window}}" SelectedItem="{Binding TaskSequenceContent}"
+                                              DisplayMemberPath="Text" MinWidth="240" MaxWidth="420" AutomationProperties.Name="Task sequence content option of the ring"
+                                              AutomationProperties.AutomationId="cboRingTsContent" />
+                                </StackPanel>
+                            </WrapPanel>
+                            <CheckBox Content="Show task sequence progress" IsChecked="{Binding ShowTaskSequenceProgress}" Style="{StaticResource Option}"
+                                      AutomationProperties.AutomationId="chkRingTsProgress" />
+                            <TextBlock Text="Software update group options (a run of another type ignores them)" Style="{StaticResource FieldLabel}" />
+                            <CheckBox Content="Allow fallback to the default site boundary group" IsChecked="{Binding AllowBoundaryFallback}" Style="{StaticResource Option}"
+                                      AutomationProperties.AutomationId="chkRingSugFallback" />
+                            <CheckBox Content="Download from Microsoft Update when no distribution point has the content" IsChecked="{Binding AllowMicrosoftUpdate}" Style="{StaticResource Option}"
+                                      AutomationProperties.AutomationId="chkRingSugMicrosoftUpdate" />
+                            <CheckBox Content="Require a full scan after the restart" IsChecked="{Binding RequirePostRebootFullScan}" Style="{StaticResource Option}"
+                                      AutomationProperties.AutomationId="chkRingSugFullScan" />
+                        </StackPanel>
+                    </Expander>
                 </StackPanel>
                 </StackPanel>
                 </Border>
