@@ -251,6 +251,53 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
             RingText.PromoteState(run, new Dictionary<int, RingLiveCounts> { [1] = none }).Reason);
     }
 
+    [Fact]
+    public async Task AnUndoRunThatKeepsDeploymentsReportsRemovedAndKeptAndCountsNoFailure()
+    {
+        var h = new DeploymentPageHarness();
+        h.Rings.AddRun("RUN-100", h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Created", null, "Required"),
+            ("Wide", "LAB00013", "Created", null, "Available"), ("Broad", "LAB00012", "Held", null, "Required"));
+        h.Rings.ChangedByOthers.Add("MCM20001");
+        h.Rings.ChangedByOthers.Add("MCM20002");
+        var rings = (await h.OpenAsync(DeploymentHelperViewModel.RingsTab)).Rings;
+        rings.SelectedRun = rings.Runs.Single(r => r.RunId == "RUN-100");
+        await rings.CountsTask;
+        await rings.UndoRunCommand.ExecuteAsync(null);
+
+        var plan = h.Plans.Shown.Single();
+        Assert.Contains("The run stays open because 2 deployments are kept.", plan.Items[^1].Detail);
+        Assert.Single(plan.Items[^1].Detail!.Split(Environment.NewLine), l => l.StartsWith("The run stays open", StringComparison.Ordinal));
+        var lastLines = plan.Items[^1].Detail!.Split(Environment.NewLine);
+        Assert.Equal(lastLines.Length, lastLines.Distinct().Count());
+        var earlier = plan.Items.Take(plan.Items.Count - 1).SelectMany(i => i.Detail!.Split(Environment.NewLine)).ToHashSet();
+        var cancelLines = plan.Items[^1].Detail!.Split(Environment.NewLine).Skip(1);
+        Assert.DoesNotContain(cancelLines, l => earlier.Contains(l));
+        var dialog = h.Plans.LastViewModel!;
+        Assert.Equal(["Changed", "Skipped", "Skipped", "Changed"], dialog.ResultRows.Select(r => r.OutcomeText));
+        Assert.Equal(RingWriter.CancelledText, dialog.ResultRows[3].Message);
+        Assert.StartsWith("1 removed, 2 kept, 1 held ring cancelled. Kept: Ring Early: ", dialog.ResultText);
+        Assert.DoesNotContain("failed", dialog.ResultText);
+        var entry = h.History.Entries.Last();
+        Assert.Equal(SiteOperationOutcome.PartlySucceeded, entry.Outcome);
+        Assert.Equal((2, 0, 2), (entry.Counts["changed"], entry.Counts["failed"], entry.Counts["kept"]));
+    }
+
+    [Fact]
+    public async Task TheUndoPlanOfTheRingServiceStatesEachFactOnce()
+    {
+        using var h = new RingHarness();
+        var outcome = await h.CreateRunAsync(RingHarness.ThreeRings(hold: true), DeploymentHarness.App);
+        var run = h.Run(outcome.Run!.RunId);
+        var prepared = await h.PrepareAsync(RingHarness.Request(RingChangeKind.UndoRun, run.RunId, null));
+        var (plan, problem) = RingText.BuildUndoRunPlan(prepared, run.RunId, run);
+        Assert.Null(problem);
+        Assert.Equal(["Remove deployment", "Cancel held ring", "Cancel held ring", "Close run"], plan!.Plan.Items.Select(i => i.Action));
+        var last = plan.Plan.Items[^1].Detail!.Split(Environment.NewLine);
+        Assert.Equal(last.Length, last.Distinct().Count());
+        Assert.DoesNotContain(last, l => l.StartsWith("Ring ", StringComparison.Ordinal) || l.StartsWith("Cancels ", StringComparison.Ordinal));
+        Assert.Single(last, l => l is "The run file moves to the closed folder." or "Then closes the run.");
+    }
+
     private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
         new DeploymentRecord(DeploymentId: $"{{DEP-{i:000}}}", Type: DeploymentObjectType.Package, ObjectId: "LAB000A0", ObjectName: "Contoso Fonts 1.0",
             CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,

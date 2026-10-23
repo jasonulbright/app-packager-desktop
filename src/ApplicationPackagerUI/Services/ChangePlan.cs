@@ -133,7 +133,11 @@ public sealed record ChangePlanResult(IReadOnlyList<ChangePlanItemResult> Items,
     /// <summary>A sentence the summary ends with; null for none.</summary>
     public string? Note { get; init; }
 
-    public string Summary => (SkippedCount == 0
+    /// <summary>The first sentence of the summary in the words of the operation, for example "2 removed, 1 kept."; null uses the counts.</summary>
+    public string? Headline { get; init; }
+
+    public string Summary => (Headline is { Length: > 0 } headline ? headline
+        : SkippedCount == 0
         ? $"{SucceededCount} changed, {FailedCount} failed."
         : $"{SucceededCount} changed, {FailedCount} failed, {SkippedCount} skipped.")
         + PartialCount switch

@@ -647,7 +647,7 @@ public sealed class RingService : IRingService
             ? "The run is closed and stays closed; its rings are marked Removed or Cancelled."
             : kept.Count == 0
                 ? "Then closes the run."
-                : $"The run stays open because {Count(kept.Count, "deployment")} is kept.");
+                : $"The run stays open because {Count(kept.Count, "deployment")} {(kept.Count == 1 ? "is" : "are")} kept.");
         impact.Add("Software that clients already installed stays installed.");
         return request with { Rows = [.. rows.OrderBy(r => r.Index)], RingChanges = removes, Checks = checks, Impact = impact, Fingerprint = run.Fingerprint, KeptRings = [.. kept.Order()], CancelledRings = cancelled };
     }

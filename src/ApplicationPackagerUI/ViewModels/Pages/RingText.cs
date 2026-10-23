@@ -314,6 +314,9 @@ public static class RingText
     /// the undo closes the run: an open run without a kept deployment. A closed run stays closed; a run
     /// with a kept deployment stays open.
     /// </summary>
+    /// <summary>The impact lines of an Undo run that a ring line or the plan's own state line already states.</summary>
+    private static readonly string[] RepeatedImpact = ["Ring ", "Cancels ", "Then closes the run.", "The run stays open", "The run is closed and stays closed"];
+
     public static (RingRunPlan? Plan, string? Problem) BuildUndoRunPlan(RingChange prepared, string runName, RingRun run)
     {
         if (prepared.Kind != RingChangeKind.UndoRun) return (null, "The run could not be prepared. Select Refresh and reconcile, then Undo run again.");
@@ -364,10 +367,10 @@ public static class RingText
         var removals = entries.Count(e => e.Kind == RingEntryKind.Remove);
         var kept = entries.Count(e => e.Kind == RingEntryKind.Keep);
         var closes = !run.IsClosed && kept == 0;
-        var finalLines = prepared.Impact.ToList();
+        var finalLines = prepared.Impact.Where(l => !RepeatedImpact.Any(p => l.StartsWith(p, StringComparison.Ordinal))).ToList();
         finalLines.Add(closes ? "The run file moves to the closed folder."
             : run.IsClosed ? "The run is closed and stays closed."
-            : $"The run stays open because {DeploymentText.Count(kept, "deployment")} is kept.");
+            : $"The run stays open because {DeploymentText.Count(kept, "deployment")} {(kept == 1 ? "is" : "are")} kept.");
         finalLines.Add(ProofLimit);
         if (closes) entries.Add(new RingPlanEntry(new ChangePlanItem("Close run", runName, string.Join(Environment.NewLine, finalLines)), RingEntryKind.Close, prepared.RunId ?? ""));
         if (!entries.Any(e => e.Writes))

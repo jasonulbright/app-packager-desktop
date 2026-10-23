@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.IO;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Logging;
+using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerUI.Services;
 
@@ -207,17 +209,25 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
             confirmed.OptionChosen && plan.Plan.OptionalChoice is not null);
         var reporter = new OutcomeReporter(plan, results, progress);
         var stop = SiteOperationOutcome.Failed;
+        var kept = new HashSet<ChangePlanItem>(ReferenceEqualityComparer.Instance);
         try
         {
             IReadOnlyList<RingOutcome> outcomes = await Task.Run(() => service.ApplyAsync([change], reporter, ct), ct).ConfigureAwait(true);
             foreach (var outcome in outcomes) reporter.Report(outcome);
+            if (plan.Change.Kind == RingChangeKind.UndoRun)
+                foreach (var entry in plan.Entries.Where(e => e.Kind is RingEntryKind.Keep or RingEntryKind.Remove && Get(results, e.Item) is { Skipped: true }))
+                    kept.Add(entry.Item);
             var rows = Complete(plan, results, progress);
             var cancelled = ct.IsCancellationRequested && rows.Any(r => r.Skipped || r.Message == DeploymentWriter.NoResultText);
-            var result = new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed) { UndoAvailable = false };
+            var result = new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed)
+            {
+                UndoAvailable = false, Headline = plan.Change.Kind == RingChangeKind.UndoRun && !cancelled ? UndoHeadline(plan, rows, kept) : null
+            };
             // A run that stopped at a ring reports the later rings as skipped, not failed, so the service's own result decides too.
-            var stopped = plan.LastOutcome is { Succeeded: false };
+            // An Undo run that keeps a deployment does not succeed as a whole either; its kept deployments count as kept, not failed.
+            var stopped = plan.LastOutcome is { Succeeded: false } && (plan.Change.Kind != RingChangeKind.UndoRun || kept.Count == 0);
             stop = cancelled ? SiteOperationOutcome.Cancelled
-                : result.FailedCount == 0 && !stopped ? SiteOperationOutcome.Succeeded
+                : result.FailedCount == 0 && !stopped && kept.Count == 0 ? SiteOperationOutcome.Succeeded
                 : result.SucceededCount > 0 || result.PartialCount > 0 ? SiteOperationOutcome.PartlySucceeded
                 : SiteOperationOutcome.Failed;
             return result;
@@ -229,8 +239,35 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
         }
         finally
         {
-            Record(plan.Action, stop, results);
+            Record(plan.Action, stop, results, kept);
         }
+    }
+
+    /// <summary>The first sentence of an Undo run result: the deployments removed and kept, the held rings cancelled, and the reason of each kept deployment.</summary>
+    private static string UndoHeadline(RingRunPlan plan, IReadOnlyList<ChangePlanItemResult> rows, HashSet<ChangePlanItem> kept)
+    {
+        int Count(RingEntryKind kind, Func<ChangePlanItemResult, bool> test) => plan.Entries.Zip(rows).Count(p => p.First.Kind == kind && test(p.Second));
+        var removed = Count(RingEntryKind.Remove, r => r.Succeeded && !r.Skipped);
+        var cancelledRings = Count(RingEntryKind.Cancel, r => r.Succeeded && !r.Skipped);
+        var failed = rows.Count(r => !r.Succeeded && !r.Skipped);
+        var skipped = rows.Count(r => r.Skipped && !kept.Contains(r.Item));
+        var parts = new List<string> { $"{removed.ToString(CultureInfo.CurrentCulture)} removed", $"{kept.Count.ToString(CultureInfo.CurrentCulture)} kept" };
+        if (cancelledRings > 0) parts.Add($"{DeploymentText.Count(cancelledRings, "held ring")} cancelled");
+        if (failed > 0) parts.Add($"{failed.ToString(CultureInfo.CurrentCulture)} failed");
+        if (skipped > 0) parts.Add($"{skipped.ToString(CultureInfo.CurrentCulture)} skipped");
+        var text = string.Join(", ", parts) + ".";
+        var reasons = rows.Where(r => kept.Contains(r.Item)).Select(r => $"{r.Item.Target}: {Reason(r.Message)}").ToList();
+        if (reasons.Count == 0) return text;
+        text += " Kept: " + string.Join(" ", reasons.Take(MaxKeptReasons));
+        return reasons.Count > MaxKeptReasons ? $"{text} {DeploymentText.Count(reasons.Count - MaxKeptReasons, "more kept deployment")}: the rows name each." : text;
+    }
+
+    private const int MaxKeptReasons = 5;
+
+    private static string Reason(string message)
+    {
+        var text = message.StartsWith(DeploymentService.SkippedPrefix, StringComparison.OrdinalIgnoreCase) ? message[DeploymentService.SkippedPrefix.Length..] : message;
+        return text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
     }
 
     /// <summary>
@@ -256,7 +293,7 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
             ChangePlanItemResult row = entry.Kind switch
             {
                 RingEntryKind.Hold => ChangePlanItemResult.Skip(entry.Item, last is { Succeeded: true } ? HeldText : anyRing ? StoppedText : message),
-                RingEntryKind.Cancel when last is { Succeeded: true } => new ChangePlanItemResult(entry.Item, true, CancelledText),
+                RingEntryKind.Cancel when last is { Succeeded: true } || CancelledIn(last, entry.Key) => new ChangePlanItemResult(entry.Item, true, CancelledText),
                 RingEntryKind.Close when last is { Succeeded: true } => new ChangePlanItemResult(entry.Item, true, ClosedText),
                 _ when last is null => new ChangePlanItemResult(entry.Item, false, DeploymentWriter.NoResultText),
                 RingEntryKind.Create when anyRing && !last.Succeeded => ChangePlanItemResult.Skip(entry.Item, StoppedText),
@@ -271,6 +308,10 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
         return rows;
     }
 
+    /// <summary>True when the run file the service returned marks the held ring of <paramref name="collectionId"/> Cancelled, also after an outcome that did not succeed as a whole.</summary>
+    private static bool CancelledIn(RingOutcome? outcome, string collectionId) =>
+        outcome?.Run?.Rings.Any(r => string.Equals(r.CollectionId, collectionId, StringComparison.OrdinalIgnoreCase) && r.Status == RingStatuses.Cancelled) == true;
+
     private static bool Has(Dictionary<ChangePlanItem, ChangePlanItemResult> results, ChangePlanItem item)
     {
         lock (results) return results.ContainsKey(item);
@@ -281,19 +322,21 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
         lock (results) return results.TryGetValue(item, out var row) ? row : null;
     }
 
-    private void Record(string action, SiteOperationOutcome outcome, Dictionary<ChangePlanItem, ChangePlanItemResult> results)
+    private void Record(string action, SiteOperationOutcome outcome, Dictionary<ChangePlanItem, ChangePlanItemResult> results, IReadOnlySet<ChangePlanItem>? kept = null)
     {
         List<ChangePlanItemResult> rows;
         lock (results) rows = results.Values.ToList();
         var changed = rows.Count(r => !r.Skipped && (r.Succeeded || r.PartialChange));
         var failed = rows.Count(r => !r.Succeeded && !r.Skipped);
-        var skipped = rows.Count(r => r.Skipped);
-        log.Info(DeploymentWriter.LogArea, $"{action}: outcome={outcome} changed={changed} failed={failed} skipped={skipped}.");
+        var keptCount = kept is null ? 0 : rows.Count(r => r.Skipped && kept.Contains(r.Item));
+        var skipped = rows.Count(r => r.Skipped) - keptCount;
+        var counts = new Dictionary<string, int> { ["changed"] = changed, ["failed"] = failed, ["skipped"] = skipped };
+        if (keptCount > 0) counts["kept"] = keptCount;
+        log.Info(DeploymentWriter.LogArea, $"{action}: outcome={outcome} changed={changed} failed={failed} skipped={skipped} kept={keptCount}.");
         string target;
         try { target = siteTarget(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { target = ""; }
-        history.Record(new SiteOperationEntry(DeploymentWriter.ToolName, action, target, outcome,
-            new Dictionary<string, int> { ["changed"] = changed, ["failed"] = failed, ["skipped"] = skipped }));
+        history.Record(new SiteOperationEntry(DeploymentWriter.ToolName, action, target, outcome, counts));
     }
 
     /// <summary>Turns the ring outcomes of each reported change into the results of their plan lines, each once.</summary>
