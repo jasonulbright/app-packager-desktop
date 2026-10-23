@@ -161,22 +161,31 @@ public sealed class RingRunStoreTests : IDisposable
         var max = 0;
         var wins = 0;
         var refusals = 0;
-        Parallel.For(0, 400, new ParallelOptions { MaxDegreeOfParallelism = 8 }, _ =>
+        // Dedicated threads: a loaded thread pool can run every iteration of a Parallel.For on one thread, and then no lock is ever refused.
+        using var start = new ManualResetEventSlim();
+        var threads = Enumerable.Range(0, 8).Select(_ => new Thread(() =>
         {
-            try
+            start.Wait();
+            for (var i = 0; i < 50; i++)
             {
-                using var held = Store().Lock(run.FileName);
-                var now = Interlocked.Increment(ref holders);
-                lock (store) max = Math.Max(max, now);
-                Interlocked.Increment(ref wins);
-                Thread.SpinWait(2000);
-                Interlocked.Decrement(ref holders);
+                try
+                {
+                    using var held = Store().Lock(run.FileName);
+                    var now = Interlocked.Increment(ref holders);
+                    lock (store) max = Math.Max(max, now);
+                    Interlocked.Increment(ref wins);
+                    Thread.SpinWait(2000);
+                    Interlocked.Decrement(ref holders);
+                }
+                catch (DeploymentServiceException)
+                {
+                    Interlocked.Increment(ref refusals);
+                }
             }
-            catch (DeploymentServiceException)
-            {
-                Interlocked.Increment(ref refusals);
-            }
-        });
+        })).ToList();
+        threads.ForEach(t => t.Start());
+        start.Set();
+        threads.ForEach(t => t.Join());
         Assert.Equal(1, max);
         Assert.True(wins > 0 && refusals > 0, $"wins {wins}, refusals {refusals}");
         Assert.False(File.Exists(Path.Combine(Folder, run.FileName + ".lock")));

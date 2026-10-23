@@ -217,10 +217,12 @@ public sealed class ConfigMgrSessionProcessTests
     {
         // No connect is possible without a site, so the host is driven through a factory
         // that skips the connect by answering it in the test.
+        // The command timeout also covers the start of the new PowerShell process, which takes
+        // several seconds while the rest of the suite loads the machine.
         var factory = new ConnectSkippingFactory();
         await using var host = new ConfigMgrSessionHost(
             () => new ConfigMgrConnection("ABC", "unused"), factory, null,
-            new ConfigMgrSessionOptions { CommandTimeout = TimeSpan.FromSeconds(2) }, () => null);
+            new ConfigMgrSessionOptions { CommandTimeout = TimeSpan.FromSeconds(10) }, () => null);
 
         var failure = await Assert.ThrowsAsync<ConfigMgrSessionException>(() => host.InvokeAsync(ConfigMgrScript.FromText("Sleep", "Start-Sleep -Seconds 60")));
         Assert.Equal(ConfigMgrFailure.Timeout, failure.Failure);
