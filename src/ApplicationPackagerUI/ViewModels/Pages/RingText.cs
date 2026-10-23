@@ -92,11 +92,27 @@ public static class RingText
     }
 
     /// <summary>The checks that stop a ring change: every failed or unknown check of the change and of the rings it creates now.</summary>
-    public static IReadOnlyList<(string Ring, PreflightCheck Check)> Blocking(RingChange change, IEnumerable<RingExpansionRow> rows) =>
-        change.Checks.Where(DeploymentText.Blocks).Select(c => ("Run", c))
-            .Concat(rows.SelectMany(r => r.Checks.Where(DeploymentText.Blocks).Select(c => (r.Name, c))))
-            .Concat(change.RingChanges.SelectMany(c => c.Checks.Where(DeploymentText.Blocks).Select(k => (c.Collection?.Name ?? "", k))))
+    public static IReadOnlyList<(string Ring, PreflightCheck Check)> Blocking(RingChange change, IEnumerable<RingExpansionRow> rows)
+    {
+        // Only the copies of the listed rings are dropped: RingChange.Blocked also counts the copies of held rings,
+        // so a held ring's failure still refuses the run and the text has to name it.
+        var listed = rows.ToList();
+        var ringChecks = listed.SelectMany(r => r.Checks).ToList();
+        return listed.SelectMany(r => r.Checks.Where(DeploymentText.Blocks).Select(c => (r.Name, c)))
+            .Concat(RunOnly(change.Checks, listed).Where(DeploymentText.Blocks).Select(c => ("Run", c)))
+            .Concat(change.RingChanges.SelectMany(c => c.Checks.Where(k => DeploymentText.Blocks(k) && !ringChecks.Any(r => Repeats(k, r))).Select(k => (c.Collection?.Name ?? "", k))))
+            .Distinct()
             .ToList();
+    }
+
+    /// <summary>True when <paramref name="copy"/> repeats <paramref name="ring"/>: the ring services copy each ring check into the run checks with the ring label in front.</summary>
+    private static bool Repeats(PreflightCheck copy, PreflightCheck ring) =>
+        copy.Name == ring.Name && copy.Result == ring.Result
+        && (copy.Message == ring.Message || copy.Message.EndsWith(": " + ring.Message, StringComparison.Ordinal));
+
+    /// <summary>The run checks without the copies of the checks of <paramref name="rows"/>, which the rows list themselves.</summary>
+    public static IReadOnlyList<PreflightCheck> RunOnly(IReadOnlyList<PreflightCheck> runChecks, IReadOnlyList<RingExpansionRow> rows) =>
+        runChecks.Where(c => !rows.Any(r => r.Checks.Any(k => Repeats(c, k)))).ToList();
 
     public static string BlockingText(IReadOnlyList<(string Ring, PreflightCheck Check)> blocking) =>
         string.Join(" ", blocking.Select(b => $"{(b.Ring == "Run" ? "" : $"Ring {b.Ring}: ")}{DeploymentText.CheckLabel(b.Check.Name)}: {DeploymentText.CheckMessage(b.Check, null)}"));

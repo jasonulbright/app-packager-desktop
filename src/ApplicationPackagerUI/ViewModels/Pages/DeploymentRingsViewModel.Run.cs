@@ -281,7 +281,7 @@ public sealed partial class DeploymentRingsViewModel
     private void ShowChecks(RingChange prepared)
     {
         Checks.Clear();
-        foreach (var check in DeploymentText.Ordered(prepared.Checks))
+        foreach (var check in DeploymentText.Ordered(RingText.RunOnly(prepared.Checks, prepared.Rows)))
             Checks.Add(new RingCheckRow(Ring: "Run", Check: DeploymentText.CheckLabel(check.Name), Result: check.Result, Message: DeploymentText.CheckMessage(check, prepared.Object?.Type)));
         foreach (var ring in prepared.Rows.OrderBy(r => r.Index))
         {

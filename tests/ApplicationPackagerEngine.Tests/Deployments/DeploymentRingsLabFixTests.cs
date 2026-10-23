@@ -143,6 +143,66 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         Assert.Null(problem);
     }
 
+    private static async Task<(DeploymentRingsViewModel Rings, DeploymentPageHarness H)> ExpandedAsync(RingPlan plan, DeploymentPageHarness? harness = null, bool hold = false)
+    {
+        var h = harness ?? new DeploymentPageHarness();
+        h.Rings.Plans.Add(plan);
+        var rings = (await h.OpenAsync(DeploymentHelperViewModel.RingsTab)).Rings;
+        rings.SelectedObject = rings.Objects.Single(o => o.Object.Id == h.SevenZip.Id);
+        rings.SelectedPlan = rings.Plans.Single(p => p.Name == plan.Name);
+        rings.HoldLaterRings = hold;
+        await rings.ExpandCommand.ExecuteAsync(null);
+        return (rings, h);
+    }
+
+    [Fact]
+    public async Task AValidateFailureOfARingIsListedOnceWithThePlainLabelOfThePlanRules()
+    {
+        const string Message = "The deadline of ring Wave 1 is earlier than the deadline of ring Pilot.";
+        var h = new DeploymentPageHarness();
+        h.Rings.AfterPrepare = c =>
+        {
+            if (c.Kind != RingChangeKind.CreateRun) return c;
+            var check = new PreflightCheck(RingPlanRules.CheckName, DeploymentCheckResults.Fail, Message);
+            var rows = c.Rows.Select(r => r.Index == 2 ? r with { Checks = [.. r.Checks, check] } : r).ToList();
+            return c with
+            {
+                Rows = rows,
+                Checks = [.. c.Checks, check with { Message = $"Ring 2 (Wave 1): {Message}" }],
+                RingChanges = [.. c.RingChanges.Select(k => k.Ring?.RingIndex == 2 ? k with { Checks = [.. k.Checks, check] } : k)]
+            };
+        };
+        var (rings, _) = await ExpandedAsync(Plan("Three Rings", required: false), h);
+        await rings.ValidateCommand.ExecuteAsync(null);
+        var failed = rings.Checks.Where(c => c.Result == DeploymentCheckResults.Fail).ToList();
+        Assert.Equal(("Wave 1", "Plan rules", Message), Assert.Single(failed) is var f ? (f.Ring, f.Check, f.Message) : default);
+        Assert.Equal("1 check did not pass. The run is blocked.", rings.ValidationMessage);
+        Assert.DoesNotContain(rings.Checks, c => c.Check == RingPlanRules.CheckName);
+
+        await rings.CreateRunCommand.ExecuteAsync(null);
+        Assert.Equal($"The run cannot be created: Ring Wave 1: Plan rules: {Message}", rings.FormMessage);
+    }
+
+    [Fact]
+    public async Task AFailedCheckOfAHeldRingStillRefusesTheRunAndNamesItsReason()
+    {
+        const string Message = "Ring 3 (Wave 2) names collection LAB00012, which does not exist.";
+        var h = new DeploymentPageHarness();
+        h.Rings.AfterPrepare = c =>
+        {
+            if (c.Kind != RingChangeKind.CreateRun) return c;
+            var check = new PreflightCheck(RingPlanRules.CheckName, DeploymentCheckResults.Fail, Message);
+            return c with { Rows = [.. c.Rows.Select(r => r.Index == 3 ? r with { Checks = [check] } : r)], Checks = [.. c.Checks, check] };
+        };
+        var (rings, _) = await ExpandedAsync(Plan("Three Rings", required: false), h, hold: true);
+        await rings.ValidateCommand.ExecuteAsync(null);
+        Assert.Equal(("Wave 2", "Plan rules"), Assert.Single(rings.Checks, c => c.Result == DeploymentCheckResults.Fail) is var f ? (f.Ring, f.Check) : default);
+
+        await rings.CreateRunCommand.ExecuteAsync(null);
+        Assert.Equal($"The run cannot be created: Plan rules: {Message}", rings.FormMessage);
+        Assert.Empty(h.Rings.Applied);
+    }
+
     private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
         new DeploymentRecord(DeploymentId: $"{{DEP-{i:000}}}", Type: DeploymentObjectType.Package, ObjectId: "LAB000A0", ObjectName: "Contoso Fonts 1.0",
             CollectionId: $"LABC{i:0000}", CollectionName: $"RG-Test-C{i:000}", Purpose: "Available", AvailableTime: new DateTime(2026, 10, 19, 8, 0, 0), Deadline: null,
