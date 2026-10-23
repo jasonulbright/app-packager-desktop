@@ -47,6 +47,9 @@
                        AutomationProperties.AutomationId="txtChangePlanResult" AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />
+            <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="120" Margin="0,6,0,0"
+                     VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
+                     Visibility="{Binding HasNotes, Converter={StaticResource ChangePlanVisibility}}" />
             <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,6,0,0" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtChangePlanForceClose" AutomationProperties.LiveSetting="Assertive"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
@@ -90,6 +93,11 @@
                       AutomationProperties.AutomationId="chkChangePlanExtra" AutomationProperties.Name="{Binding ExtraConfirmationText}"
                       Visibility="{Binding HasExtraConfirmation, Converter={StaticResource ChangePlanVisibility}}">
                 <TextBlock Text="{Binding ExtraConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
+            <CheckBox x:Name="chkSecond" Margin="0,0,0,8" IsChecked="{Binding SecondAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanSecond" AutomationProperties.Name="{Binding SecondConfirmationText}"
+                      Visibility="{Binding HasSecondConfirmation, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding SecondConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             </CheckBox>
             <CheckBox x:Name="chkOption" Margin="0,0,0,8" IsChecked="{Binding OptionChosen}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanOption" AutomationProperties.Name="{Binding OptionalChoiceText}"
