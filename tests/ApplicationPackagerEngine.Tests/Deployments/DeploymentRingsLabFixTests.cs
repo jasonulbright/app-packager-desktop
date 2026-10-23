@@ -355,10 +355,11 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         var (promote, problem) = RingText.BuildPromotePlan(prepared, TimeProvider.System, run.TimeBasedOn);
         Assert.True(promote is not null, problem);
 
-        var runPrepared = await h.PrepareAsync(RingHarness.CreateRun(plan with { HoldLaterRings = false }, obj, await h.ExpandAsync(plan with { HoldLaterRings = false }, obj), required));
-        var (createRun, runProblem) = RingText.BuildCreateRunPlan(runPrepared, TimeProvider.System);
-        var texts = promote!.Plan.Items.Concat(createRun?.Plan.Items ?? []).Select(i => i.Detail ?? "").ToList();
-        Assert.True(createRun is not null || runProblem is not null);
+        using var fresh = new RingHarness();
+        var runPrepared = await fresh.PrepareAsync(RingHarness.CreateRun(plan with { HoldLaterRings = false }, obj, await fresh.ExpandAsync(plan with { HoldLaterRings = false }, obj), required));
+        var (createRun, runProblem) = RingText.BuildCreateRunPlan(runPrepared, new FixedClock(new DateTimeOffset(RingHarness.Start.AddHours(-1), TimeSpan.Zero), TimeZoneInfo.Utc));
+        Assert.True(createRun is not null, runProblem);
+        var texts = promote!.Plan.Items.Concat(createRun.Plan.Items).Select(i => i.Detail ?? "").ToList();
         foreach (var text in texts)
         {
             Assert.False(WrongArticle.IsMatch(text), $"{typeName} {purpose}: '{WrongArticle.Match(text).Value}' in: {text}");
