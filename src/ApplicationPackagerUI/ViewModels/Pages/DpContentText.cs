@@ -74,7 +74,7 @@ public static class DpContentText
         var entries = new List<DpContentPlanEntry>(prepared.Pairs.Count);
         foreach (var pair in prepared.Pairs)
         {
-            var lines = new List<string> { $"State now: {pair.StateName}." };
+            var lines = new List<string> { kind == DpContentChangeKind.DistributeAgain ? $"State before the removal: {pair.StateName}." : $"State now: {pair.StateName}." };
             if (removal && remaining.TryGetValue(pair.PackageId, out var left))
                 lines.Add(left == 0 ? "No DP holds the content after this plan." : $"DPs that hold the content after this plan: {DpContentStates.Number(left)}.");
             if (index.ContentById.TryGetValue(pair.PackageId, out var content))

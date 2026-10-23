@@ -84,11 +84,12 @@
         <!-- A long confirmation text scrolls here, so the footer buttons stay inside the window. -->
         <ScrollViewer Grid.Row="3" MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
         <StackPanel Margin="16,0,16,0">
-            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8"
-                      Content="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
+            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8" AutomationProperties.Name="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
                       IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanDestructive"
-                      Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}" />
+                      Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
             <CheckBox x:Name="chkExtra" Margin="0,0,0,8" IsChecked="{Binding ExtraAcknowledged}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanExtra" AutomationProperties.Name="{Binding ExtraConfirmationText}"
                       Visibility="{Binding HasExtraConfirmation, Converter={StaticResource ChangePlanVisibility}}">

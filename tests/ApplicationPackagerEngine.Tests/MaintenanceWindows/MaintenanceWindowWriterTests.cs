@@ -117,6 +117,10 @@ public sealed class MaintenanceWindowWriterTests
             Path.Combine("ApplicationPackagerEngine", "Services", "Deployments", "Rings", "RingsContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "Deployments", "Rings", "RingService.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "RingRunPlan.cs"),
+            // The DP content service declares its write; the page writer is its only caller. The fallback stand-in goes when the service is registered.
+            Path.Combine("ApplicationPackagerEngine", "Services", "DpContent", "DpContentContract.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "DpContentPlan.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "DpContentServiceFallbacks.cs"),
             Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
         ];
         var found = FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant));

@@ -20,7 +20,13 @@ public partial class DpContentManagerPage : INavigationAware
         foreach (var grid in SortedGrids()) grid.Sorting += OnGridSorting;
         viewModel.PropertyChanged += OnViewModelChanged;
         Loaded += (_, _) => ShowSorts();
+        SizeChanged += (_, e) => dgDpContentResults.MaxHeight = e.NewSize.Height < ShortHeight ? ShortResultsHeight : TallResultsHeight;
     }
+
+    /// <summary>Below this page height the result rows take less room, so the tabs keep a usable height at 900x600.</summary>
+    public const double ShortHeight = 700;
+    public const double ShortResultsHeight = 64;
+    public const double TallResultsHeight = 140;
 
     public Task OnNavigatedToAsync() => _viewModel.OnNavigatedToAsync();
 
