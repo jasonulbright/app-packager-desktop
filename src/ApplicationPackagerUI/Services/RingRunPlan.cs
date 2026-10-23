@@ -134,6 +134,7 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
     public const string StoppedText = "Skipped: the run stopped before this ring. Nothing was created for it.";
     public const string CancelledText = "Cancelled in the run file. No deployment was changed.";
     public const string ClosedText = "The run was closed. Its file moved to the closed folder.";
+    public const string StaysOpenText = "Skipped: a deployment of the run was kept, so the run stays open.";
     public const string NotAcknowledgedText =
         "Skipped: a Required ring installs software on every device of its collection, and the plan did not ask the second confirmation for it. Nothing was changed. Show the plan again.";
     public const string UnconfirmedText = "Skipped: the plan did not ask its own confirmation. Nothing was changed. Show the plan again.";
@@ -250,12 +251,13 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
         var removed = Count(RingEntryKind.Remove, r => r.Succeeded && !r.Skipped);
         var cancelledRings = Count(RingEntryKind.Cancel, r => r.Succeeded && !r.Skipped);
         var failed = rows.Count(r => !r.Succeeded && !r.Skipped);
-        var skipped = rows.Count(r => r.Skipped && !kept.Contains(r.Item));
+        var staysOpen = rows.Any(r => r.Message == StaysOpenText);
+        var skipped = rows.Count(r => r.Skipped && !kept.Contains(r.Item) && r.Message != StaysOpenText);
         var parts = new List<string> { $"{removed.ToString(CultureInfo.CurrentCulture)} removed", $"{kept.Count.ToString(CultureInfo.CurrentCulture)} kept" };
         if (cancelledRings > 0) parts.Add($"{DeploymentText.Count(cancelledRings, "held ring")} cancelled");
         if (failed > 0) parts.Add($"{failed.ToString(CultureInfo.CurrentCulture)} failed");
         if (skipped > 0) parts.Add($"{skipped.ToString(CultureInfo.CurrentCulture)} skipped");
-        var text = string.Join(", ", parts) + ".";
+        var text = string.Join(", ", parts) + "." + (staysOpen ? " The run stays open." : "");
         var reasons = rows.Where(r => kept.Contains(r.Item)).Select(r => $"{r.Item.Target}: {Reason(r.Message)}").ToList();
         if (reasons.Count == 0) return text;
         text += " Kept: " + string.Join(" ", reasons.Take(MaxKeptReasons));
@@ -295,6 +297,7 @@ public sealed class RingWriter(IRingService service, ISiteOperationHistory histo
                 RingEntryKind.Hold => ChangePlanItemResult.Skip(entry.Item, last is { Succeeded: true } ? HeldText : anyRing ? StoppedText : message),
                 RingEntryKind.Cancel when last is { Succeeded: true } || CancelledIn(last, entry.Key) => new ChangePlanItemResult(entry.Item, true, CancelledText),
                 RingEntryKind.Close when last is { Succeeded: true } => new ChangePlanItemResult(entry.Item, true, ClosedText),
+                RingEntryKind.Close when last?.Run is { IsClosed: false } open && open.Rings.Any(r => r.Status == RingStatuses.Created) => ChangePlanItemResult.Skip(entry.Item, StaysOpenText),
                 _ when last is null => new ChangePlanItemResult(entry.Item, false, DeploymentWriter.NoResultText),
                 RingEntryKind.Create when anyRing && !last.Succeeded => ChangePlanItemResult.Skip(entry.Item, StoppedText),
                 _ when last.Succeeded => new ChangePlanItemResult(entry.Item, true, message),

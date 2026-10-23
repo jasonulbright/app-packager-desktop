@@ -283,6 +283,25 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
     }
 
     [Fact]
+    public async Task AnUndoRunWhoseRemovalIsRefusedAtApplySkipsItsCloseLineAndCountsNoFailure()
+    {
+        var h = new DeploymentPageHarness();
+        h.Rings.AddRun("RUN-100", h.SevenZip, ("Pilot", "LAB00010", "Created", null, "Available"), ("Early", "LAB00011", "Created", null, "Available"));
+        h.Rings.BeforeApply = () => h.Rings.ChangedByOthers.Add("MCM20001");
+        var rings = (await h.OpenAsync(DeploymentHelperViewModel.RingsTab)).Rings;
+        rings.SelectedRun = rings.Runs.Single(r => r.RunId == "RUN-100");
+        await rings.CountsTask;
+        await rings.UndoRunCommand.ExecuteAsync(null);
+
+        var dialog = h.Plans.LastViewModel!;
+        Assert.Equal(["Remove deployment", "Remove deployment", "Close run"], dialog.ResultRows.Select(r => r.Item.Action));
+        Assert.Equal(RingWriter.StaysOpenText, dialog.ResultRows[2].Message);
+        Assert.Equal(0, dialog.ResultRows.Count(r => r.OutcomeText == "Failed"));
+        Assert.StartsWith("1 removed, 1 kept. The run stays open. Kept: ", dialog.ResultText);
+        Assert.Equal(0, h.History.Entries.Last().Counts["failed"]);
+    }
+
+    [Fact]
     public async Task TheUndoPlanOfTheRingServiceStatesEachFactOnce()
     {
         using var h = new RingHarness();

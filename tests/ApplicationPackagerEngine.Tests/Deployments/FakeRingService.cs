@@ -433,11 +433,11 @@ internal sealed class FakeRingService : IRingService
             if (!keep) rings = rings.Select(r => r.DeploymentId == id ? r with { Status = "Removed" } : r).ToList();
         }
         rings = rings.Select(r => r.Status == "Held" ? r with { Status = "Cancelled" } : r).ToList();
-        var closes = run.IsClosed || change.KeptRings.Count == 0;
+        // As the ring service: an Undo that keeps a deployment leaves the run open and does not succeed as a whole.
+        var kept = change.KeptRings.Count + outcomes.Count(o => !o.Succeeded);
+        var closes = run.IsClosed || kept == 0;
         var updated = run with { Rings = rings, IsClosed = closes };
         Replace(updated);
-        // As the ring service: an Undo that keeps a deployment does not succeed as a whole.
-        var kept = change.KeptRings.Count + outcomes.Count(o => !o.Succeeded);
         return new RingOutcome(Change: change, Succeeded: kept == 0, Message: kept == 0 ? "The run was undone and closed." : "The run was undone; it stays open for the kept deployments.",
             RingOutcomes: outcomes, UndoChange: null, Steps: []) { Run = updated };
     }
