@@ -161,6 +161,7 @@ public sealed partial class DeploymentRingsViewModel
         _runsCts = cts;
         RunsMessage = "";
         var epoch = _runLoadEpoch;
+        var refusal = _refusalVersion;
         _runLoads++;
         IsLoadingRuns = true;
         try
@@ -169,7 +170,7 @@ public sealed partial class DeploymentRingsViewModel
             cts.Token.ThrowIfCancellationRequested();
             if (mine != _runsGeneration || generation != Shared.Generation) return;
             ShowRuns(runs, showClosed);
-            ClearRefusal();
+            if (refusal == _refusalVersion) ClearRefusal();
         }
         catch (OperationCanceledException)
         {

@@ -102,8 +102,11 @@ public sealed partial class DeploymentRingsViewModel
     /// <summary>The page status line text of the last refused Rings action; empty when the line holds no refusal of this tab.</summary>
     private string _refusal = "";
 
+    private int _refusalVersion;
+
     private void ShowRefusal(string message)
     {
+        _refusalVersion++;
         _refusal = message;
         Shared.StatusMessage = message;
     }
