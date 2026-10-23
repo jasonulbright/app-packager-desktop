@@ -396,6 +396,7 @@ public sealed partial class DeploymentRingsViewModel
             report?.Invoke(message);
         }
 
+        RunsMessage = "";
         if (Shared.IsWriting)
         {
             Refuse(_background ? DeploymentShared.BackgroundRunText : WriteRunning);

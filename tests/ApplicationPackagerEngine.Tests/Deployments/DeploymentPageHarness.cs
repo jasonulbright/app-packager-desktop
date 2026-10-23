@@ -8,12 +8,12 @@ using ApplicationPackagerUI.ViewModels.Windows;
 
 namespace ApplicationPackagerEngine.Tests.Deployments;
 
-/// <summary>A clock fixed at one instant, in a UTC local zone so local and UTC times agree.</summary>
-internal sealed class FixedClock(DateTimeOffset now) : TimeProvider
+/// <summary>A clock fixed at one instant, by default in a UTC local zone so local and UTC times agree.</summary>
+internal sealed class FixedClock(DateTimeOffset now, TimeZoneInfo? zone = null) : TimeProvider
 {
     public DateTimeOffset Now { get; set; } = now;
     public override DateTimeOffset GetUtcNow() => Now;
-    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    public override TimeZoneInfo LocalTimeZone => zone ?? TimeZoneInfo.Utc;
 }
 
 /// <summary>
@@ -406,7 +406,7 @@ internal sealed class DeploymentPageHarness
     public ScriptedPlanDialogs Plans { get; } = new();
     public RecordingSiteHistory History { get; } = new();
     public RecordingMaintenanceLog Log { get; } = new();
-    public FixedClock Clock { get; } = new(Now);
+    public FixedClock Clock { get; }
     public AppSettings Settings { get; } = new() { SiteCode = "LAB", ProviderMachine = "cm01.lab.local" };
     public DeploymentHelperSettings? Saved { get; set; }
     public Action<DeploymentHelperSettings>? BeforeSave;
@@ -426,8 +426,10 @@ internal sealed class DeploymentPageHarness
     public DeployableObject Win11 { get; }
     public DeployableObject Updates { get; }
 
-    public DeploymentPageHarness()
+    /// <param name="zone">The local time zone of the clock; null for UTC.</param>
+    public DeploymentPageHarness(TimeZoneInfo? zone = null)
     {
+        Clock = new FixedClock(Now, zone);
         SevenZip = Service.Add(DeploymentObjectType.Application, "16777300", "7-Zip", "26.04", packaged: true);
         Notepad = Service.Add(DeploymentObjectType.Application, "16777301", "Notepad++", "8.9.8", distributed: false);
         Office = Service.Add(DeploymentObjectType.Package, "LAB00020", "Office Tools", "16.0");

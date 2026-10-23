@@ -13,6 +13,7 @@ public sealed partial class DeploymentRingsViewModel
 
     private int _runsGeneration;
     private int _runLoads;
+    private int _runLoadEpoch;
     private int _countsGeneration;
     private CancellationTokenSource? _runsCts;
     private Dictionary<int, RingLiveCounts> _counts = [];
@@ -140,6 +141,7 @@ public sealed partial class DeploymentRingsViewModel
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(Shared.VisitToken);
         _runsCts = cts;
         RunsMessage = "";
+        var epoch = _runLoadEpoch;
         _runLoads++;
         IsLoadingRuns = true;
         try
@@ -162,8 +164,12 @@ public sealed partial class DeploymentRingsViewModel
         finally
         {
             if (ReferenceEquals(_runsCts, cts)) _runsCts = null;
-            _runLoads = Math.Max(0, _runLoads - 1);
-            IsLoadingRuns = _runLoads > 0;
+            // A load started before the release counts in the old epoch only.
+            if (epoch == _runLoadEpoch)
+            {
+                _runLoads = Math.Max(0, _runLoads - 1);
+                IsLoadingRuns = _runLoads > 0;
+            }
         }
     }
 
@@ -227,6 +233,7 @@ public sealed partial class DeploymentRingsViewModel
         RunCount = "";
         PromoteReason = "";
         _runLoads = 0;
+        _runLoadEpoch++;
         IsLoadingRuns = false;
         IsLoadingCounts = false;
         ShowClosedRuns = false;
@@ -330,7 +337,7 @@ public sealed partial class DeploymentRingsViewModel
         }
         var request = new RingChange(Kind: RingChangeKind.UndoRun, Plan: null, Object: null, Rows: [], PlanStart: null, RunId: run.RunId, RingIndex: null,
             RequiredConfirmed: false, BackdatedAcknowledged: false, CreateNowContentDistributing: false, RingChanges: [], Impact: [], Checks: [], Fingerprint: null);
-        var result = await RunRingPlanAsync(request, prepared => RingText.BuildUndoRunPlan(prepared, RunName(run)), null, message => RunsMessage = message);
+        var result = await RunRingPlanAsync(request, prepared => RingText.BuildUndoRunPlan(prepared, RunName(run), run), null, message => RunsMessage = message);
         if (result is { Outcome.Confirmed: true }) await AfterRingWriteAsync();
     }
 

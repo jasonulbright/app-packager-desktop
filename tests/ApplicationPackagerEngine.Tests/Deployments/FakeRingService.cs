@@ -32,6 +32,9 @@ internal sealed class FakeRingService : IRingService
 
     public int ListPlanCalls, ExpandCalls, ListRunCalls, CountCalls, ReconcileCalls, PrepareCalls, ProbeCalls;
     public TaskCompletionSource? ExpandGate, PrepareGate, RunsGate, CountsGate, ApplyGate;
+
+    /// <summary>Each run list takes the next gate: it reads the runs at once and returns that older list when the test releases the gate.</summary>
+    public System.Collections.Concurrent.ConcurrentQueue<TaskCompletionSource> StaleRunGates { get; } = new();
     public Func<RingChange, Exception?>? PrepareFails;
     public Exception? SaveFailure;
     public bool SaveReturnsNull;
@@ -114,6 +117,13 @@ internal sealed class FakeRingService : IRingService
         Interlocked.Increment(ref ListRunCalls);
         Token(ct);
         if (RunsGate is { } gate) await gate.Task.WaitAsync(ct);
+        if (StaleRunGates.TryDequeue(out var stale))
+        {
+            List<RingRun> before;
+            lock (Runs) before = Runs.Where(r => r.IsClosed == closed).ToList();
+            await stale.Task;
+            return before;
+        }
         lock (Runs) return Runs.Where(r => r.IsClosed == closed).ToList();
     }
 
@@ -251,10 +261,18 @@ internal sealed class FakeRingService : IRingService
                             Pass("CreatedHere")],
                         Impact: [], CreatedId: r.DeploymentId) { Site = record };
                 }).ToList();
-                var held = run.Rings.Where(r => r.Status == "Held").Select(r => new RingExpansionRow(Index: r.Index, Name: r.Name, CollectionId: r.CollectionId,
+                // As the real service: Rows are the created rings with their checks, RingChanges only the removals that pass,
+                // KeptRings the created rings a check keeps and CancelledRings the held rings.
+                var created = run.Rings.Where(r => r.Status == "Created" && r.DeploymentId is not null).ToList();
+                var rows = created.Select(r => new RingExpansionRow(Index: r.Index, Name: r.Name, CollectionId: r.CollectionId,
                     CollectionName: r.CollectionName, MemberCount: 0, Purpose: r.Purpose, AvailableTime: r.AvailableTime, Deadline: r.Deadline, DpGroup: r.DpGroup,
-                    SuccessThresholdPercent: r.SuccessThresholdPercent, Checks: [])).ToList();
-                prepared = request with { RingChanges = removals, Rows = held, Fingerprint = Fingerprint(run.RunId), Impact = [$"Run file {run.FileName}."] };
+                    SuccessThresholdPercent: r.SuccessThresholdPercent, Checks: removals.Single(c => c.CreatedId == r.DeploymentId).Checks)).ToList();
+                prepared = request with
+                {
+                    RingChanges = removals.Where(c => !c.Blocked).ToList(), Rows = rows, Fingerprint = Fingerprint(run.RunId), Impact = [$"Run file {run.FileName}."],
+                    KeptRings = created.Where(r => ChangedByOthers.Contains(r.DeploymentId!)).Select(r => r.Index).ToList(),
+                    CancelledRings = run.Rings.Where(r => r.Status == "Held").Select(r => r.Index).ToList()
+                };
                 break;
             }
             default:
@@ -378,8 +396,10 @@ internal sealed class FakeRingService : IRingService
             if (!keep) rings = rings.Select(r => r.DeploymentId == id ? r with { Status = "Removed" } : r).ToList();
         }
         rings = rings.Select(r => r.Status == "Held" ? r with { Status = "Cancelled" } : r).ToList();
-        Replace(run with { Rings = rings, IsClosed = true });
-        return new RingOutcome(Change: change, Succeeded: true, Message: "The run was undone and closed.", RingOutcomes: outcomes, UndoChange: null, Steps: []);
+        var closes = run.IsClosed || change.KeptRings.Count == 0;
+        Replace(run with { Rings = rings, IsClosed = closes });
+        return new RingOutcome(Change: change, Succeeded: true, Message: closes ? "The run was undone and closed." : "The run was undone; it stays open for the kept deployments.",
+            RingOutcomes: outcomes, UndoChange: null, Steps: []);
     }
 
     private RingOutcome Close(RingChange change)

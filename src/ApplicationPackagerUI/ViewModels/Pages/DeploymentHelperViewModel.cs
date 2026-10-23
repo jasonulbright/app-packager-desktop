@@ -55,7 +55,8 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
                     if (await SaveAsync()) return true;
                     (_ringsFolder, _runsFolder) = previous;
                     return false;
-                }
+                },
+                FoldersChanged = () => Rings.Release()
             }
         };
         Deploy.ChoicesChanged += (_, _) => SaveLater();
