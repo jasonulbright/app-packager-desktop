@@ -47,7 +47,8 @@ public sealed class RingRunStore
         _log = log;
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
         _local = local ?? TimeZoneInfo.Local;
-        _user = user ?? (() => $@"{Environment.UserDomainName}\{Environment.UserName}");
+        // ConfigMgr records the Windows identity name of the session as the creator, so the run names the same account.
+        _user = user ?? (() => System.Security.Principal.WindowsIdentity.GetCurrent().Name);
     }
 
     public static string DefaultFolder() => Path.Combine(AppDataPaths.Root, "Deployments", "Rings", "runs");

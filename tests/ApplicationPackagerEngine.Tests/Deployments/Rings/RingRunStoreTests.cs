@@ -44,6 +44,10 @@ public sealed class RingRunStoreTests : IDisposable
     }
 
     [Fact]
+    public void ARunNamesTheWindowsIdentityConfigMgrRecordsAsTheCreator() =>
+        Assert.Equal(System.Security.Principal.WindowsIdentity.GetCurrent().Name, new RingRunStore(() => Folder).User);
+
+    [Fact]
     public void NamesNeverCollideAndAClosedNameIsNeverTaken()
     {
         var store = Store();

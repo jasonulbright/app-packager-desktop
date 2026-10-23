@@ -29,7 +29,9 @@ namespace ApplicationPackagerEngine.Tests.Deployments;
 /// real time of each create instead of "CreatedUtc". "Revisions" holds earlier application revisions,
 /// each with its own CI_ID, CIVersion and DateLastModified and the DateCreated of the model, which every
 /// revision shares; an application deployment holds the CI_ID of the latest revision of its model in
-/// AssignedCIs and keeps its CreationTime and LastModificationTime when a revision is added, as on CM01.
+/// AssignedCIs and keeps its CreationTime and LastModificationTime when a revision is added, as on CM01. A create also adds the
+/// SMS_DeploymentSummary row CM01 shows at once: NumberTargeted is the member count of the collection, the other counts are 0;
+/// option "NoSummary" leaves it out. The summary row stays when a deployment is removed.
 /// </summary>
 internal sealed class StubDeploymentSite : IConfigMgrSession
 {
