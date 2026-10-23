@@ -176,12 +176,12 @@
                               AutomationProperties.AutomationId="dgRingPreview" AutomationProperties.Name="Expanded rings">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="60" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Purpose" Binding="{Binding Purpose}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Available" Binding="{Binding Available}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Available" Binding="{Binding Available}" Width="160" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="160" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="DP group" Binding="{Binding DpGroup}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Threshold" Binding="{Binding Threshold}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Checks" Binding="{Binding CheckText}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
@@ -191,7 +191,7 @@
                     <DataGrid x:Name="dgRingChecks" Style="{StaticResource GridBase}" ItemsSource="{Binding Checks}" MinHeight="96" MaxHeight="220" Margin="0,8,0,0"
                               AutomationProperties.AutomationId="dgRingChecks" AutomationProperties.Name="Checks of the run">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Ring" Binding="{Binding Ring}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Ring" Binding="{Binding Ring}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Check" Binding="{Binding Check}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="3*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
@@ -279,11 +279,11 @@
                     <DataGrid x:Name="dgRingRuns" Style="{StaticResource GridBase}" ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" MinHeight="96" MaxHeight="220"
                               AutomationProperties.AutomationId="dgRingRuns" AutomationProperties.Name="Ring runs">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Run" Binding="{Binding RunId}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Plan" Binding="{Binding Plan}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Run" Binding="{Binding RunId}" Width="*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Plan" Binding="{Binding Plan}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Started" Binding="{Binding Started}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Started" Binding="{Binding Started}" Width="160" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Rings" Binding="{Binding Rings}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Created by" Binding="{Binding CreatedBy}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                         </DataGrid.Columns>
@@ -293,11 +293,11 @@
                               AutomationProperties.AutomationId="dgRingRunRings" AutomationProperties.Name="Rings of the selected run">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="60" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Available" Binding="{Binding Available}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
-                            <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Available" Binding="{Binding Available}" Width="160" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="160" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Targeted" Binding="{Binding Targeted}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Success" Binding="{Binding Success}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                             <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="72" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />

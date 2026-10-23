@@ -124,6 +124,62 @@ public sealed class DeploymentRingsRenderTests
         });
     }
 
+    private static readonly string[] DateHeaders = ["Available", "Deadline", "Started", "Time"];
+    private const int RingCharacters = 18;
+
+    private static double TextWidth(TextBlock t, string s) =>
+        new FormattedText(s, CultureInfo.InvariantCulture, System.Windows.FlowDirection.LeftToRight, new Typeface(t.FontFamily, t.FontStyle, t.FontWeight, t.FontStretch),
+            t.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(t).PixelsPerDip).WidthIncludingTrailingWhitespace;
+
+    /// <summary>Every date cell shows its whole text and every ring cell at least its first 18 characters; returns the number of cells checked.</summary>
+    private static int AssertDatesAndRingsFit(Window window, DataGrid grid, string where)
+    {
+        var checkedCells = 0;
+        for (var i = 0; i < Math.Min(grid.Items.Count, 3); i++)
+        {
+            var row = Row(grid, i);
+            Settle(window);
+            foreach (var cell in Descendants(row).OfType<System.Windows.Controls.DataGridCell>())
+            {
+                var header = cell.Column?.Header as string;
+                var isDate = DateHeaders.Contains(header);
+                if (!isDate && header is not ("Ring" or "Plan" or "Run")) continue;
+                var text = Descendants(cell).OfType<TextBlock>().FirstOrDefault(t => t.Text.Length > 0);
+                if (text is null) continue;
+                var needed = TextWidth(text, isDate ? text.Text : text.Text[..Math.Min(RingCharacters, text.Text.Length)]);
+                Assert.True(text.ActualWidth + 0.5 >= needed, $"{where}: the {header} cell '{text.Text}' shows {text.ActualWidth:0} px of the {needed:0} px it needs.");
+                checkedCells++;
+            }
+        }
+        return checkedCells;
+    }
+
+    public static TheoryData<ApplicationTheme, double, double> GridSizes() => new()
+    {
+        { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 },
+        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 }
+    };
+
+    [Theory]
+    [MemberData(nameof(GridSizes))]
+    public void EveryDateAndRingColumnShowsAFullDateAndEighteenCharactersOfARing(ApplicationTheme theme, double width, double height)
+    {
+        WithRings(theme, 13, (window, page, viewModel, harness) =>
+        {
+            var cells = 0;
+            foreach (var id in RingGrids)
+            {
+                var grid = ById<DataGrid>(page, id);
+                grid.BringIntoView();
+                Settle(window);
+                cells += AssertDatesAndRingsFit(window, grid, $"{id} at {width}x{height}");
+            }
+            Assert.True(cells >= 20, $"Only {cells} date and ring cells were checked.");
+        }, width, height);
+    }
+
     private static void AssertReachable(ScrollViewer scroller, FrameworkElement element, string id)
     {
         Assert.True(element.IsVisible, $"{id} is not visible.");
