@@ -79,6 +79,22 @@ public sealed class RingOwnershipTests
     }
 
     [Fact]
+    public async Task ADeploymentThatAppearsAfterTheRingReturnedToHeldBlocksItsPromote()
+    {
+        using var h = new RingHarness();
+        var a = CrashedRun(h, h.UtcNow.AddMinutes(-6));
+        Assert.Equal(RingStatuses.Held, (await h.Service.ReconcileAsync(a.RunId, CancellationToken.None)).Rings[0].Status);
+        var options = RingPlanRules.Options(DeploymentObjectType.Package, Plan.Rings[0], RingHarness.Start, null, false);
+        var late = await h.Deployments.PrepareAsync(DeploymentHarness.Create(Package, options), CancellationToken.None);
+        Assert.True((await h.Deployments.ApplyAsync([late], new Progress<DeploymentOutcome>(), CancellationToken.None)).Single().Succeeded);
+
+        var promote = await h.PrepareAsync(RingHarness.Request(RingChangeKind.Promote, a.RunId, 1));
+        Assert.Contains(promote.Checks, c => c.Result == "Fail" && c.Message.Contains("already deployed", StringComparison.Ordinal));
+        Assert.StartsWith(DeploymentService.SkippedPrefix, (await h.ApplyAsync(promote)).Message, StringComparison.Ordinal);
+        Assert.Single(h.Site.List("Adverts"));
+    }
+
+    [Fact]
     public async Task UndoRunFromANewServiceInstanceRemovesTheRunsOwnDeployments()
     {
         using var h = new RingHarness();
