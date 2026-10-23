@@ -85,6 +85,8 @@ public static class RingText
                 return ShownRate(live, threshold) is { } rate
                     ? new RingPromoteState(next, false,
                         $"Ring {previous.Name} has {Percent(rate)} success ({live!.Success.ToString(CultureInfo.CurrentCulture)} of {live.Targeted.ToString(CultureInfo.CurrentCulture)}); ring {next.Name} needs {Threshold(threshold)}.")
+                    : live is { CountsKnown: true }
+                    ? new RingPromoteState(next, false, $"Ring {previous.Name} has no targeted clients yet; ring {next.Name} needs {Threshold(threshold)} success. Select Refresh and reconcile later.")
                     : new RingPromoteState(next, false,
                         $"Ring {previous.Name} needs {Threshold(threshold)} success before ring {next.Name}, and its live counts are not known yet. Select Refresh and reconcile, then try again.");
         }

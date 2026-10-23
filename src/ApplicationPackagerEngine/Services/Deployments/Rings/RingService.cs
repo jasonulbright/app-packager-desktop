@@ -210,7 +210,8 @@ public sealed class RingService : IRingService
             return new RingLiveCounts(ring.Index, id, RingLiveStates.Error, 0, 0, 0, 0, 0, false, "The deployment could not be read from ConfigMgr. The counts are not known.");
         if (row.Exists == false)
             return new RingLiveCounts(ring.Index, id, RingLiveStates.NotFound, 0, 0, 0, 0, 0, false, $"Deployment {id} does not exist any more.");
-        if (row.Targeted is { } targeted)
+        // The site script casts a null count to 0: a row with no clients and no summarization time is a row the site has not summarized.
+        if (row.Targeted is { } targeted && (targeted > 0 || row.SummarizationTime is not null))
             return new RingLiveCounts(ring.Index, id, RingLiveStates.Summarized, targeted, row.Success, row.Errors, row.InProgress, row.Unknown, true, "")
             { Other = row.Other, SummarizationTime = row.SummarizationTime };
         return new RingLiveCounts(ring.Index, id, RingLiveStates.Found, 0, 0, 0, 0, 0, false,

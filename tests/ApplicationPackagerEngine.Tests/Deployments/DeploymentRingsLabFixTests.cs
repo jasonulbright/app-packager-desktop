@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Tests.Deployments.Rings;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
 using ApplicationPackagerUI.ViewModels.Windows;
@@ -218,6 +219,36 @@ public sealed class DeploymentRingsLabFixTests : IDisposable
         editor.Rings[1].TaskSequenceAvailability = DeploymentText.TaskSequenceAvailabilities.Single(c => c.Value == "Clients");
         await editor.SaveCommand.ExecuteAsync(null);
         Assert.True(editor.Saved);
+    }
+
+    [Fact]
+    public async Task ASummaryRowWithoutCountsReadsAsNotSummarizedAndShowsUnknownInEveryCountCell()
+    {
+        using var h = new RingHarness();
+        var outcome = await h.CreateRunAsync(RingHarness.ThreeRings(hold: true), DeploymentHarness.App);
+        var run = h.Run(outcome.Run!.RunId);
+        var id = run.Rings[0].DeploymentId!;
+        var summaries = h.Site.List("Summaries");
+        foreach (var old in summaries.OfType<System.Text.Json.Nodes.JsonObject>().Where(s => string.Equals((string?)s["DeploymentID"], id, StringComparison.OrdinalIgnoreCase)).ToList())
+            summaries.Remove(old);
+        summaries.Add(new System.Text.Json.Nodes.JsonObject
+        {
+            ["DeploymentID"] = id, ["AssignmentID"] = 0, ["CollectionID"] = RingHarness.C1, ["NumberTargeted"] = null, ["NumberSuccess"] = null, ["NumberErrors"] = null,
+            ["NumberInProgress"] = null, ["NumberUnknown"] = null, ["NumberOther"] = null, ["SummarizationTime"] = null
+        });
+
+        var counts = (await h.Service.LiveCountsAsync(run, CancellationToken.None)).Single();
+        Assert.Equal((RingLiveStates.Found, false, "The site has not summarized this deployment yet."), (counts.State, counts.CountsKnown, counts.Message));
+        var row = new RingRunRingRow(run.Rings[0], run.TimeBasedOn) { Counts = counts };
+        Assert.All(new[] { row.Targeted, row.Success, row.Error, row.InProgress, row.Unknown }, c => Assert.Equal(RingText.UnknownCount, c));
+        Assert.Equal("", row.SuccessRate);
+        Assert.Contains("live counts are not known yet", RingText.PromoteState(run, new Dictionary<int, RingLiveCounts> { [1] = counts }).Reason);
+
+        var none = counts with { State = RingLiveStates.Summarized, CountsKnown = true, Message = "" };
+        row.Counts = none;
+        Assert.Equal("0", row.Targeted);
+        Assert.Equal("Ring QA has no targeted clients yet; ring Pilot needs 90 % success. Select Refresh and reconcile later.",
+            RingText.PromoteState(run, new Dictionary<int, RingLiveCounts> { [1] = none }).Reason);
     }
 
     private static DeploymentChange Removal(int i) => new(DeploymentChangeKind.RemoveDeployment, null, null, null, [], false, false, false,
