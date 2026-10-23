@@ -44,7 +44,7 @@ public sealed partial class DeploymentService
         try
         {
             if (!IsObjectId(obj.Type, obj.Id)) throw new DeploymentServiceException($"The ID of the {Noun(obj.Type).ToLowerInvariant()} is not valid.");
-            state = await ReadStateAsync(obj, PackageIdRegex().IsMatch(collectionId) ? collectionId : "", options.Purpose, ct).ConfigureAwait(false);
+            state = await ReadStateAsync(obj, PackageIdRegex().IsMatch(collectionId) ? collectionId : "", options.Purpose, ct, request.Ring?.QueryScope).ConfigureAwait(false);
         }
         catch (DeploymentServiceException ex)
         {

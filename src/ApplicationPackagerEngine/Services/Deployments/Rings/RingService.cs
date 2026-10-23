@@ -461,6 +461,7 @@ public sealed class RingService : IRingService
         var rules = RingPlanRules.CheckRows(rows, NowIn(plan.TimeBasedOn));
         checks.AddRange(rules.Errors.Where(e => e.Index == 0).Select(e => Fail(e.Message)));
         var utc = plan.TimeBasedOn == RingPlanRules.Utc;
+        var scope = Guid.NewGuid().ToString("N");
         var preparedRows = new List<RingExpansionRow>();
         var ringChanges = new List<DeploymentChange>();
         var impact = new List<string>
@@ -483,7 +484,7 @@ public sealed class RingService : IRingService
             if (id.Length == 8 && !DeploymentService.IsBuiltInCollection(id))
             {
                 var change = RingCreate(obj.Type, obj, ring, id, row.CollectionName ?? "", row.MemberCount, row.AvailableTime, row.Deadline, utc, request,
-                    new DeploymentRingContext(plan.Name, row.Index, row.Name, ""));
+                    new DeploymentRingContext(plan.Name, row.Index, row.Name, "") { QueryScope = scope });
                 var prepared = await PrepareRingAsync(change, ct).ConfigureAwait(false);
                 rowChecks.AddRange(prepared.Checks);
                 preparedRows.Add(row with { CollectionId = id, CollectionName = prepared.Collection?.Name ?? row.CollectionName ?? "", MemberCount = prepared.Collection?.MemberCount ?? row.MemberCount, Checks = rowChecks });

@@ -25,6 +25,7 @@ param(
     [bool]$AllowMicrosoftUpdate = $false,
     [ValidateSet('', 'Clients', 'ClientsMediaAndPxe', 'MediaAndPxe', 'MediaAndPxeHidden')][string]$Availability = '',
     [bool]$RequireContent = $true,
+    [bool]$SkipNameCount = $false,
     [string[]]$GroupIds = @(),
     [ValidatePattern('^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})?$')][string]$RunStart = '',
     [ValidateRange(1, 5000)][int]$MaxRows = 1000,
@@ -806,8 +807,9 @@ function Get-State {
     if ($null -ne $object) {
         $object
         # The signing rule of a Required application deployment matches the application by name,
-        # so the number of latest applications with that name is part of the state.
-        if ($Type -eq 'Application' -and $Purpose -eq 'Required') {
+        # so the number of latest applications with that name is part of the state. The scan reads every
+        # application of the site; a ring run's Prepare that read it for an earlier ring passes SkipNameCount.
+        if ($Type -eq 'Application' -and $Purpose -eq 'Required' -and -not $SkipNameCount) {
             try {
                 $same = @(Invoke-Query 'SELECT CI_ID, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1' | Where-Object { [string](Get-Prop $_ 'LocalizedDisplayName') -eq [string]$object.Name })
                 [pscustomobject]@{ Kind = 'NameCount'; Count = $same.Count }

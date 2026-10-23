@@ -161,7 +161,11 @@ public sealed record DeploymentChange(
 }
 
 /// <summary>The ring fields of an audit record: the plan, the ring and the run.</summary>
-public sealed record DeploymentRingContext(string PlanName, int RingIndex, string RingName, string RunId);
+public sealed record DeploymentRingContext(string PlanName, int RingIndex, string RingName, string RunId)
+{
+    /// <summary>The rings of one Prepare share a scope: the site-wide count of applications with the object's name is read once per scope. Each create reads it again. Empty for none.</summary>
+    public string QueryScope { get; init; } = "";
+}
 
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when the change was not attempted.</param>
 /// <param name="UndoChange">The RemoveDeployment that undoes a create; null for every other change.</param>

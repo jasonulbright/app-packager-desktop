@@ -253,19 +253,39 @@ public sealed partial class DeploymentService : IDeploymentService
 
     internal static string TimeText(DateTime value) => value.ToString(TimeFormat, CultureInfo.InvariantCulture);
 
-    private async Task<StateRead> ReadStateAsync(DeployableObject obj, string collectionId, string purpose, CancellationToken ct)
+    /// <summary>The name counts read in each query scope, by object type and ID.</summary>
+    private readonly ConcurrentDictionary<(string Scope, DeploymentObjectType Type, string Id), int> _nameCounts = new();
+
+    /// <summary>The most name counts kept; the cache is emptied when it grows past this.</summary>
+    private const int MaxNameCounts = 256;
+
+    /// <param name="scope">A ring run's query scope: the name count read once in the scope is used for every later read of the same object in it.</param>
+    private async Task<StateRead> ReadStateAsync(DeployableObject obj, string collectionId, string purpose, CancellationToken ct, string? scope = null)
     {
         var parameters = ObjectParameters("State", obj);
         parameters["CollectionId"] = collectionId;
         if (purpose is DeploymentPurposes.Available or DeploymentPurposes.Required) parameters["Purpose"] = purpose;
+        var key = (scope ?? "", obj.Type, (obj.Id ?? "").Trim().ToUpperInvariant());
+        int? cached = null;
+        if (!string.IsNullOrEmpty(scope) && obj.Type == DeploymentObjectType.Application && purpose == DeploymentPurposes.Required && _nameCounts.TryGetValue(key, out var known))
+        {
+            cached = known;
+            parameters["SkipNameCount"] = true;
+        }
         var output = await ReadAsync(parameters, ct).ConfigureAwait(false);
+        var nameCount = cached ?? Rows<NameCountRow>(output, "NameCount").FirstOrDefault()?.Count;
+        if (cached is null && nameCount is { } count && !string.IsNullOrEmpty(scope))
+        {
+            if (_nameCounts.Count >= MaxNameCounts) _nameCounts.Clear();
+            _nameCounts[key] = count;
+        }
         return new StateRead(
             Rows<ObjectRow>(output, "Object").FirstOrDefault(),
             Rows<ContentRow>(output, "Content"),
             Rows<ReadFlag>(output, "ContentRead").FirstOrDefault()?.Read ?? false,
             Rows<CollectionReadRow>(output, "Collection").FirstOrDefault(),
             Rows<SnapshotRow>(output, "Snapshot").FirstOrDefault(),
-            Rows<NameCountRow>(output, "NameCount").FirstOrDefault()?.Count,
+            nameCount,
             Rows<RevisionsRow>(output, "Revisions").FirstOrDefault()?.CiIds);
     }
 

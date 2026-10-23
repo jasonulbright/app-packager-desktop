@@ -84,6 +84,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         function global:Invoke-CMWmiQuery {
             [CmdletBinding()] param([string]$Query, [string]$Option)
             $global:Log.Add('Query')
+            if ($Query -match '^SELECT CI_ID, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1$') { $global:Log.Add('NameScan') }
             if ($Query -match 'FROM (\w+)') { Test-Fail ('query:' + $Matches[1]) }
             switch -Regex ($Query) {
                 "FROM SMS_ApplicationAssignment WHERE AssignmentUniqueID = '[^']+' OR " { $ids = Ids $Query 'AssignmentUniqueID'; return @($global:S.AppAssignments | Where-Object { $ids -contains $_.AssignmentUniqueID -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }

@@ -59,6 +59,44 @@ public sealed class RingCountScriptTests
         Assert.All(h.Runs.List(true, out _).Single().Rings, r => Assert.Equal(RingStatuses.Removed, r.Status));
     }
 
+    [Fact]
+    public async Task ARequiredApplicationRunScansTheApplicationNamesOnceAtPrepareAndBeforeEachCreate()
+    {
+        using var h = new RingHarness(waves: 4);
+        var plan = RingHarness.WavePlan(4, purpose: "Required");
+        var prepared = await h.PrepareAsync(RingHarness.CreateRun(plan, DeploymentHarness.App, await h.ExpandAsync(plan, DeploymentHarness.App), required: true));
+        Assert.False(prepared.Blocked, string.Join(" | ", prepared.Checks.Where(c => c.Result != "Pass").Select(c => c.Message)));
+        Assert.Equal(1, h.Site.Log.Count(l => l == "NameScan"));
+        var outcome = await h.ApplyAsync(prepared);
+        Assert.True(outcome.Succeeded, outcome.Message);
+        Assert.Equal(5, h.Site.Log.Count(l => l == "NameScan"));
+    }
+
+    [Fact]
+    public async Task LiveCountsOfOneHundredFiftyOneDeploymentsReadChunksOfFiftyIdsThroughTheScript()
+    {
+        using var h = new RingHarness();
+        var adverts = h.Site.List("Adverts");
+        var summaries = h.Site.List("Summaries");
+        var ids = Enumerable.Range(1, 150).Select(i => "MCM3" + i.ToString("X4", System.Globalization.CultureInfo.InvariantCulture)).ToList();
+        foreach (var id in ids)
+        {
+            adverts.Add(new JsonObject { ["AdvertisementID"] = id, ["PackageID"] = "MCM0001B", ["ProgramName"] = "CMCO-CANARY-Run", ["CollectionID"] = RingHarness.C1 });
+            summaries.Add(new JsonObject { ["DeploymentID"] = id, ["AssignmentID"] = 0, ["CollectionID"] = RingHarness.C1, ["NumberTargeted"] = 3, ["NumberSuccess"] = 2, ["NumberErrors"] = 1,
+                ["NumberInProgress"] = 0, ["NumberUnknown"] = 0, ["NumberOther"] = 0, ["SummarizationTime"] = "2026-10-20T08:30:00" });
+        }
+        var queries = Queries(h);
+        var runs = h.Site.Runs.Count;
+
+        var live = await h.Deployments.LiveAsync(DeploymentObjectType.Package, [.. ids, "MCM3FFFF"], CancellationToken.None);
+
+        Assert.Equal(1, h.Site.Runs.Count - runs);
+        // 151 IDs: four object queries and four summary queries of at most 50 terms each.
+        Assert.Equal(8, Queries(h) - queries);
+        Assert.All(live.Take(150), r => Assert.Equal((true, (int?)3, 2, 1), (r.Exists, r.Targeted, r.Success, r.Errors)));
+        Assert.Equal((false, (int?)null), (live[150].Exists, live[150].Targeted));
+    }
+
     [Theory]
     [InlineData(2)]
     [InlineData(13)]
