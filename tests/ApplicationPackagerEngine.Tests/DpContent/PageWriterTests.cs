@@ -142,8 +142,6 @@ public sealed class PageWriterTests
         Assert.All(dialog.Outcome.Result!.Items, r => Assert.True(r.Skipped));
     }
 
-    // Source scans
-
     private static string SourceRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

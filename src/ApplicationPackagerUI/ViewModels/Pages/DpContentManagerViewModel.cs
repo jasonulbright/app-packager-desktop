@@ -118,7 +118,6 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
     /// <summary>The running read, or a completed task.</summary>
     public Task LoadTask => _loading ?? Task.CompletedTask;
 
-    // DPs tab
     [ObservableProperty] private string _dpText = "";
     [ObservableProperty] private string _dpStatus = AllText;
     [ObservableProperty] private IReadOnlyList<DpGridRow> _dpRows = [];
@@ -132,7 +131,6 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
     [ObservableProperty] private IReadOnlyList<PairGridRow> _dpPairRows = [];
     [ObservableProperty] private string _dpDetail = "Select a DP to see its content.";
 
-    // Content tab
     [ObservableProperty] private string _contentText = "";
     [ObservableProperty] private string _contentType = AllText;
     [ObservableProperty] private IReadOnlyList<ContentGridRow> _contentRows = [];
@@ -150,7 +148,6 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(RedistributeSelectedDpsCommand))]
     private IReadOnlyList<PairGridRow> _selectedContentPairs = [];
 
-    // Status Issues tab
     [ObservableProperty] private string _issueText = "";
     [ObservableProperty] private string _issueState = AllText;
     [ObservableProperty] private IReadOnlyList<PairGridRow> _issueRows = [];
@@ -351,8 +348,6 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         if (_active) await LoadAsync();
     }
 
-    // Filters: a text filter waits for the last key, a choice filters at once; each keeps the selection by key.
-
     partial void OnDpTextChanged(string value) => Debounce(DpsGrid, ApplyDpFilter);
     partial void OnDpStatusChanged(string value) => Filtered(ApplyDpFilter);
     partial void OnContentTextChanged(string value) => Debounce(ContentGrid, ApplyContentFilter);
@@ -548,7 +543,7 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
     /// <summary>True while the page sets a list or a selection; the view ignores the selection events it causes.</summary>
     public bool IsRestoring => _restoring;
 
-    // Sorting: the page sorts, so a sort survives a filter change and a refresh.
+    // The rows are sorted here, not by the grid view, because a filter change and a refresh replace the list and its view.
 
     /// <summary>The sorted column of a grid and its direction; null when the grid is not sorted.</summary>
     public (string Column, bool Ascending)? SortOf(string grid) => _sorts.TryGetValue(grid, out var sort) ? sort : null;
@@ -604,8 +599,6 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         (DpContentHistoryRow r, nameof(DpContentHistoryRow.Pairs)) => r.Record.PairCount,
         _ => row.GetType().GetProperty(column)?.GetValue(row) as string ?? ""
     };
-
-    // Page choices
 
     private async Task ApplyPreferencesAsync()
     {

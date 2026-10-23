@@ -299,8 +299,6 @@ public sealed partial class DpContentManagerViewModel
         await PlanAndRunAsync(undo with { RemovalConfirmed = false, LastCopyAcknowledged = false }, () => true, isUndo: true);
     }
 
-    // Export of the active view
-
     [RelayCommand]
     private Task ExportCsv() => ExportAsync("CSV", Services.Reports.WriteCsv);
 
