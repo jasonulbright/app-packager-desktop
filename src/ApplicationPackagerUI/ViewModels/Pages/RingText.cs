@@ -248,7 +248,8 @@ public static class RingText
         var obj = prepared.RingChanges.FirstOrDefault()?.Object ?? prepared.Object;
         var lines = new List<string>();
         if (obj is not null) lines.Add($"Object: {ObjectText(obj)}.");
-        lines.Add(RingLines(row, basis, created: true, prepared, ChangeOf(prepared, row) ?? prepared.RingChanges.FirstOrDefault()));
+        var change = ChangeOf(prepared, row) ?? prepared.RingChanges.FirstOrDefault();
+        lines.Add(RingLines(row, basis, created: true, prepared, change));
         lines.AddRange(prepared.Impact);
         lines.Add(UndoRunNote);
         var required = prepared.NeedsRequiredConfirmation || IsRequired(row.Purpose);
@@ -264,7 +265,7 @@ public static class RingText
         if (string.IsNullOrEmpty(extra)) extra = null;
         return (new RingRunPlan("Promote ring", $"Promote ring {row.Name}", required ? "Promote Required ring" : "Promote ring", prepared,
             [new RingPlanEntry(item, RingEntryKind.Promote, row.CollectionId)], extraConfirmation: extra,
-            optionalChoice: Distributes(prepared, [row], obj?.Type) ? DeploymentText.CreateNowChoice : null)
+            optionalChoice: (change is not null ? change.DpGroups.Count > 0 : Distributes(prepared, [row], obj?.Type)) ? DeploymentText.CreateNowChoice : null)
         {
             NeedsRequiredConfirmation = required, AcknowledgesBackdated = backdated.Count > 0 || prepared.NeedsBackdatedAcknowledgement
         }, null);
