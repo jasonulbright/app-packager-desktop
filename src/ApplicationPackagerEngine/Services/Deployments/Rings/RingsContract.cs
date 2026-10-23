@@ -124,7 +124,8 @@ public sealed record RingLiveCounts(int Index, string DeploymentId, string State
     public DateTime? SummarizationTime { get; init; }
 }
 
-public enum RingChangeKind { CreateRun, Promote, UndoRun, CloseRun }
+/// <summary>AbandonRing: a Creating ring whose create Reconcile cannot resolve returns to Held after the operator confirms; nothing changes in ConfigMgr.</summary>
+public enum RingChangeKind { CreateRun, Promote, UndoRun, CloseRun, AbandonRing }
 
 /// <summary>
 /// One ring action. PrepareAsync fills RingChanges (the part 1 changes the service built), Rows,

@@ -262,7 +262,7 @@ public sealed record DeploymentAuditRecord(
     string DeploymentID,
     string Result)
 {
-    /// <summary>Create, Distribute or Undo.</summary>
+    /// <summary>Create, Distribute or Undo; ring records also Close, CancelRing and Abandon.</summary>
     public string Event { get; init; } = "Create";
     public string ObjectId { get; init; } = "";
     public DateTime? AvailableDateTime { get; init; }

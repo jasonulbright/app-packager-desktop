@@ -250,10 +250,17 @@ public sealed class RingService : IRingService
         }
         var notes = rings.ToDictionary(r => r.Index, r => r.Note);
         var current = run with { Rings = rings };
+        if (RunProblem(run) is { } unreadable)
+        {
+            _log?.Warning(LogArea, "Reconcile left a ring run file with unreadable values unchanged.");
+            return current with { Rings = [.. current.Rings.Select(r => r with { Note = string.Join(" ", new[] { r.Note, unreadable + " Reconcile did not change the run file." }.Where(n => n.Length > 0)) })] };
+        }
         if (changed) current = Runs.Save(current, held);
         if (Finished(current.Rings))
         {
             current = Runs.Close(current, held);
+            if (AuditRing(run, null, AuditEvents.Close, "The run was closed by Reconcile: every ring is finished.") is { Length: > 0 } notLogged)
+                notes[rings[0].Index] = (notes[rings[0].Index] + notLogged).Trim();
             _log?.Info(LogArea, "Reconcile closed a finished ring run.");
         }
         _log?.Info(LogArea, $"Reconciled a ring run: {rings.Count(r => r.Status == RingStatuses.Created)} created, {rings.Count(r => r.Status == RingStatuses.Creating)} unresolved, {rings.Count(r => r.Status == RingStatuses.Removed)} removed.");
@@ -435,6 +442,7 @@ public sealed class RingService : IRingService
             RingChangeKind.Promote => await PreparePromoteAsync(request, ct).ConfigureAwait(false),
             RingChangeKind.UndoRun => await PrepareUndoRunAsync(request, ct).ConfigureAwait(false),
             RingChangeKind.CloseRun => PrepareCloseRun(request),
+            RingChangeKind.AbandonRing => PrepareAbandon(request),
             _ => throw new DeploymentServiceException("The ring change kind is not known.")
         };
         _log?.Info(LogArea, $"Prepared ring {request.Kind}: {prepared.RingChanges.Count} deployments, {prepared.Checks.Count(c => c.Result is DeploymentCheckResults.Fail or DeploymentCheckResults.Unknown)} checks block.");
@@ -577,7 +585,7 @@ public sealed class RingService : IRingService
         var (run, closed) = Locate(request.RunId);
         var checks = new List<PreflightCheck>();
         if (run.Rings.Any(r => r.Status == RingStatuses.Creating))
-            checks.Add(Fail("A ring of the run has a create whose result is not known. Reconcile the run first."));
+            checks.Add(Fail(CreatingText));
         if (closed && run.Rings.All(r => r.Status != RingStatuses.Created))
             checks.Add(Fail("The run is closed and holds no created deployment, so there is nothing to undo."));
         if (RunProblem(run) is { } unreadable) checks.Add(Fail(unreadable));
@@ -644,7 +652,7 @@ public sealed class RingService : IRingService
         var run = FindOpen(request.RunId);
         var checks = new List<PreflightCheck>();
         if (run.Rings.Any(r => r.Status == RingStatuses.Creating))
-            checks.Add(Fail("A ring of the run has a create whose result is not known. Reconcile the run first."));
+            checks.Add(Fail(CreatingText));
         var cancelled = run.Rings.Where(r => r.Status == RingStatuses.Held).Select(r => r.Index).Order().ToList();
         var impact = new List<string>
         {
@@ -679,6 +687,7 @@ public sealed class RingService : IRingService
                         RingChangeKind.Promote => await ApplyPromoteAsync(change, progress).ConfigureAwait(false),
                         RingChangeKind.UndoRun => await ApplyUndoRunAsync(change, progress).ConfigureAwait(false),
                         RingChangeKind.CloseRun => ApplyCloseRun(change),
+                        RingChangeKind.AbandonRing => ApplyAbandon(change),
                         _ => Refused(change, "the ring change kind is not known.")
                     };
                 }
@@ -944,8 +953,10 @@ public sealed class RingService : IRingService
         if (Locked(change, out var problem, allowClosed: true) is not { } locked) return Refused(change, problem!);
         using var held = locked.Lock;
         var run = locked.Run;
-        if (run.Rings.Any(r => r.Status == RingStatuses.Creating)) return Refused(change, "a ring of the run has a create whose result is not known. Reconcile the run first.", run);
+        if (run.Rings.Any(r => r.Status == RingStatuses.Creating)) return Refused(change, CreatingRefusal, run);
         if (RunProblem(run) is { } unreadable) return Refused(change, unreadable, run);
+        if (AuditProblem() is { } audit) return Refused(change, audit, run);
+        var cancelledRings = run.Rings.Where(r => r.Status == RingStatuses.Held).ToList();
         var outcomes = new List<DeploymentOutcome>();
         var removed = new HashSet<int>();
         var failed = new List<string>();
@@ -979,6 +990,7 @@ public sealed class RingService : IRingService
                 $"Removed {Count(removed.Count, "deployment")} of the run, but the run file could not be updated: {ex.Message} The run file still lists the removed deployments as Created; Reconcile marks them Removed.",
                 outcomes, null, []) { Run = TryRead(run) };
         }
+        var notLogged = string.Join("", cancelledRings.Select(r => AuditRing(run, r, AuditEvents.CancelRing, $"{Label(r.Index, r.Name)} was cancelled by Undo run; it was never created.")).Where(p => p.Length > 0).Take(1));
         var kept = updated.Rings.Where(r => r.Status == RingStatuses.Created).ToList();
         if (kept.Count == 0 && !locked.Closed)
         {
@@ -988,12 +1000,14 @@ public sealed class RingService : IRingService
             }
             catch (DeploymentServiceException ex)
             {
-                return new RingOutcome(change, false, $"Undid the run, but it could not be closed: {ex.Message} Close the run when the folder can be written.", outcomes, null, []) { Run = TryRead(updated) };
+                return new RingOutcome(change, false, $"Undid the run, but it could not be closed: {ex.Message} Close the run when the folder can be written.{notLogged}", outcomes, null, []) { Run = TryRead(updated) };
             }
+            var closeProblem = AuditRing(run, null, AuditEvents.Close, "The run was closed by Undo run.");
+            if (notLogged.Length == 0) notLogged = closeProblem;
         }
         var message = kept.Count == 0
-            ? $"Undid the run: removed {Count(removed.Count, "deployment")}, cancelled {Count(change.CancelledRings.Count, "held ring")}; {(locked.Closed ? "the run stays closed" : "the run is closed")}. Software that clients already installed stays installed."
-            : $"Removed {Count(removed.Count, "deployment")} of the run. {Count(kept.Count, "deployment")} {(kept.Count == 1 ? "was" : "were")} kept: {string.Join(" ", kept.Select(r => failed.FirstOrDefault(f => f.StartsWith(Label(r.Index, r.Name), StringComparison.Ordinal)) ?? $"{Label(r.Index, r.Name)}: deployment {r.DeploymentId} was kept because it failed a check of the plan."))} The run stays {(locked.Closed ? "closed" : "open")}.";
+            ? $"Undid the run: removed {Count(removed.Count, "deployment")}, cancelled {Count(cancelledRings.Count, "held ring")}; {(locked.Closed ? "the run stays closed" : "the run is closed")}. Software that clients already installed stays installed.{notLogged}"
+            : $"Removed {Count(removed.Count, "deployment")} of the run. {Count(kept.Count, "deployment")} {(kept.Count == 1 ? "was" : "were")} kept: {string.Join(" ", kept.Select(r => failed.FirstOrDefault(f => f.StartsWith(Label(r.Index, r.Name), StringComparison.Ordinal)) ?? $"{Label(r.Index, r.Name)}: deployment {r.DeploymentId} was kept because it failed a check of the plan."))} The run stays {(locked.Closed ? "closed" : "open")}.{notLogged}";
         return new RingOutcome(change, kept.Count == 0, message, outcomes, null, []) { Run = updated };
     }
 
@@ -1003,9 +1017,95 @@ public sealed class RingService : IRingService
         if (Locked(change, out var problem) is not { } locked) return Refused(change, problem!);
         using var held = locked.Lock;
         var run = locked.Run;
-        if (run.Rings.Any(r => r.Status == RingStatuses.Creating)) return Refused(change, "a ring of the run has a create whose result is not known. Reconcile the run first.", run);
-        var cancelled = run.Rings.Count(r => r.Status == RingStatuses.Held);
+        if (run.Rings.Any(r => r.Status == RingStatuses.Creating)) return Refused(change, CreatingRefusal, run);
+        if (AuditProblem() is { } audit) return Refused(change, audit, run);
+        var cancelled = run.Rings.Where(r => r.Status == RingStatuses.Held).ToList();
         var closed = Runs.Close(run with { Rings = [.. run.Rings.Select(r => r.Status == RingStatuses.Held ? r with { Status = RingStatuses.Cancelled } : r)] }, held);
-        return new RingOutcome(change, true, $"Closed the run of plan {run.PlanName}{(cancelled > 0 ? $" and cancelled {Count(cancelled, "held ring")}" : "")}. The deployments of the run stay in ConfigMgr.", [], null, []) { Run = closed };
+        var notLogged = AuditClose(run, cancelled, "Close run");
+        return new RingOutcome(change, true, $"Closed the run of plan {run.PlanName}{(cancelled.Count > 0 ? $" and cancelled {Count(cancelled.Count, "held ring")}" : "")}. The deployments of the run stay in ConfigMgr.{notLogged}", [], null, []) { Run = closed };
+    }
+
+    private const string CreatingText = "A ring of the run has a create whose result is not known. Reconcile the run first; when Reconcile cannot resolve it, use Abandon Creating ring.";
+    private const string CreatingRefusal = "a ring of the run has a create whose result is not known. Reconcile the run first; when Reconcile cannot resolve it, use Abandon Creating ring.";
+
+    // ---- Abandon and ring audit records -------------------------------------------------------
+
+    private RingChange PrepareAbandon(RingChange request)
+    {
+        var run = FindOpen(request.RunId);
+        var index = request.RingIndex ?? throw new DeploymentServiceException("Select the ring to abandon.");
+        var ring = run.Rings.FirstOrDefault(r => r.Index == index) ?? throw new DeploymentServiceException($"Ring {index.ToString(CultureInfo.InvariantCulture)} is not in this run.");
+        var checks = new List<PreflightCheck>();
+        if (ring.Status != RingStatuses.Creating) checks.Add(Fail($"{Label(ring.Index, ring.Name)} is {ring.Status}, not Creating. Only a ring whose create is not known can be abandoned."));
+        var probe = _audit.Probe();
+        if (!probe.Writable) checks.Add(Check(DeploymentCheckResults.Fail, $"The audit log cannot be written, so the ring is not abandoned. {probe.Message}"));
+        var impact = new List<string>
+        {
+            $"Abandons the create of {Label(ring.Index, ring.Name)} of plan {run.PlanName} for {run.ObjectName}: the ring returns to Held.",
+            $"A deployment of this ring may exist in ConfigMgr: Reconcile could not prove which deployment of collection {ring.CollectionId} is the ring's own. Check that collection in the console first.",
+            "Nothing is removed from ConfigMgr. A deployment that exists stays and is not part of the run; Undo run does not remove it. A later Promote of the ring is refused while such a deployment exists (duplicate check)."
+        };
+        var row = new RingExpansionRow(ring.Index, ring.Name, ring.CollectionId, ring.CollectionName, 0, ring.Purpose, ring.AvailableTime, ring.Deadline, ring.DpGroup, ring.SuccessThresholdPercent, checks);
+        return request with { Rows = [row], RingChanges = [], Checks = [.. Labelled(ring.Index, ring.Name, checks)], Impact = impact, Fingerprint = run.Fingerprint };
+    }
+
+    private RingOutcome ApplyAbandon(RingChange change)
+    {
+        if (Unprepared(change) is { } unprepared) return Refused(change, unprepared);
+        if (change.RingIndex is not { } index) return Refused(change, "the change names no ring, so it was not applied. Prepare it again.");
+        if (Locked(change, out var problem) is not { } locked) return Refused(change, problem!);
+        using var held = locked.Lock;
+        var run = locked.Run;
+        var ring = run.Rings.FirstOrDefault(r => r.Index == index);
+        if (ring?.Status != RingStatuses.Creating) return Refused(change, $"ring {index.ToString(CultureInfo.InvariantCulture)} is not Creating any more.", run);
+        if (AuditProblem() is { } audit) return Refused(change, audit, run);
+        var saved = Runs.Save(run with { Rings = [.. run.Rings.Select(r => r.Index == index ? r with { Status = RingStatuses.Held, CreatingAt = null, CreatingAtUtc = null, CreatingBy = null } : r)] }, held);
+        var notLogged = AuditRing(run, ring, AuditEvents.Abandon, $"The create of {Label(ring.Index, ring.Name)} was abandoned by the operator; a deployment of it may exist in collection {ring.CollectionId}.");
+        _log?.Info(LogArea, "Abandoned the create of a ring.");
+        return new RingOutcome(change, true, $"{Label(ring.Index, ring.Name)} is Held again. A deployment of it may exist in collection {ring.CollectionId}: check the console.{notLogged}", [], null, []) { Run = saved };
+    }
+
+    /// <summary>Why a ring record cannot be written now; null when the audit log can be written.</summary>
+    private string? AuditProblem()
+    {
+        var probe = _audit.Probe();
+        return probe.Writable ? null : $"the audit log cannot be written, so the run was not changed. {probe.Message}";
+    }
+
+    /// <summary>Writes one ring record; returns an empty text, or a sentence that says the record could not be written.</summary>
+    private string AuditRing(RingRun run, RingRunRing? ring, string auditEvent, string message)
+    {
+        var record = new DeploymentAuditRecord(default, Runs.User, run.ObjectType == DeploymentObjectType.SoftwareUpdateGroup ? "SUG" : run.ObjectType.ToString(), run.ObjectName,
+            run.ObjectType == DeploymentObjectType.Package ? run.Program : "", ring?.CollectionName ?? "", ring?.CollectionId ?? "", null, ring?.Purpose ?? "", "", ring?.Deadline,
+            ring?.DeploymentId ?? "", AuditResults.Success)
+        {
+            Event = auditEvent,
+            ObjectId = run.ObjectId,
+            AvailableDateTime = ring?.AvailableTime,
+            DeploymentUniqueID = ring?.DeploymentId ?? "",
+            ProgramName = run.ObjectType == DeploymentObjectType.Package ? run.Program : "",
+            TimeBasedOn = run.TimeBasedOn,
+            Message = message
+        }.WithRing(new DeploymentRingContext(run.PlanName, ring?.Index ?? 0, ring?.Name ?? "", run.RunId));
+        if (ring is null) record = record with { Extra = [.. record.Extra.Where(p => p.Key is not ("RingIndex" or "RingName"))] };
+        AuditWrite written;
+        try
+        {
+            written = _audit.Append(record);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _log?.Warning(LogArea, $"A ring audit record could not be written ({ex.GetType().Name}).");
+            written = new AuditWrite(false, "the append failed. The log has the details.");
+        }
+        return written.Succeeded ? "" : $" The audit record could not be written: {written.Message}";
+    }
+
+    /// <summary>The CancelRing record of each cancelled ring and the Close record of the run.</summary>
+    private string AuditClose(RingRun run, IReadOnlyList<RingRunRing> cancelled, string by)
+    {
+        var problems = cancelled.Select(r => AuditRing(run, r, AuditEvents.CancelRing, $"{Label(r.Index, r.Name)} was cancelled by {by}; it was never created.")).ToList();
+        problems.Add(AuditRing(run, null, AuditEvents.Close, $"The run was closed by {by}."));
+        return problems.FirstOrDefault(p => p.Length > 0) ?? "";
     }
 }
