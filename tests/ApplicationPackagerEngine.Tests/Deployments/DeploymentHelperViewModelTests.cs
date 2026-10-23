@@ -652,15 +652,14 @@ public sealed class DeploymentHelperViewModelTests
     }
 
     [Fact]
-    public async Task TheRingDeploymentButtonStartsTheSuiteToolAndShowsAProblem()
+    public void ThePageHasARingsTabAndNoLongerStartsTheSuiteTool()
     {
+        Assert.Null(typeof(DeploymentHelperViewModel).GetProperty("StartRingToolCommand"));
+        Assert.Null(typeof(DeploymentPageServices).GetProperty("StartRingTool"));
+        Assert.Null(typeof(SuiteTools).GetProperty("DeploymentHelper"));
         var page = _h.Create();
-        await page.StartRingToolCommand.ExecuteAsync(null);
-        Assert.Equal(1, _h.RingStarts);
-        Assert.Equal(DeploymentHelperViewModel.RingStarted, page.Shared.StatusMessage);
-        _h.RingProblem = "Deployment Helper needs AppPackager Suite, which is not installed.";
-        await page.StartRingToolCommand.ExecuteAsync(null);
-        Assert.Equal(_h.RingProblem, page.Shared.StatusMessage);
+        page.SelectedTabIndex = DeploymentHelperViewModel.RingsTab;
+        Assert.Same(page.Rings, page.CurrentTab);
     }
 
     /// <summary>A second page over the same saved choices, as on the next start.</summary>

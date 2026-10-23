@@ -5,6 +5,7 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
+    xmlns:views="clr-namespace:ApplicationPackagerUI.Views.Pages"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
@@ -14,6 +15,7 @@
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <helpers:BindingProxy x:Key="HistoryProxy" Data="{Binding History}" />
 
             <Style x:Key="FieldLabel" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="12" />
@@ -138,16 +140,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,8">
-            <ui:Button DockPanel.Dock="Right" VerticalAlignment="Top" Content="Ring deployment" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding StartRingToolCommand}"
-                       ToolTip="Starts Deployment Helper from the AppPackager Suite for ring deployments." Margin="8,4,0,0"
-                       AutomationProperties.AutomationId="btnRingDeployment" />
-            <StackPanel>
-                <TextBlock Text="Deployment Helper" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                <TextBlock Text="Creates one deployment of an application, a package, a task sequence or a software update group to a device collection. Every write shows a plan first."
-                           Style="{StaticResource Note}" Margin="0,4,0,0" />
-            </StackPanel>
-        </DockPanel>
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Deployment Helper" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock Text="Creates deployments of an application, a package, a task sequence or a software update group to device collections, one at a time or in rings. Every write shows a plan first."
+                       Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtDeploymentIntro" />
+        </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding Shared.HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlDeploymentConnection">
@@ -419,6 +416,10 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem Header="Rings" AutomationProperties.AutomationId="tabRings" DataContext="{Binding Rings}">
+                <views:DeploymentRingsView x:Name="ringsView" />
+            </TabItem>
+
             <TabItem Header="History" AutomationProperties.AutomationId="tabHistory" DataContext="{Binding History}">
                 <ScrollViewer x:Name="scrollHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollHistoryTab">
@@ -437,6 +438,8 @@
                                       AutomationProperties.Name="Event" AutomationProperties.AutomationId="cboHistoryEvent" />
                             <ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding TypeFilter}" MinWidth="170" Margin="0,0,8,8"
                                       AutomationProperties.Name="Object type" AutomationProperties.AutomationId="cboHistoryType" />
+                            <ComboBox ItemsSource="{Binding Runs}" SelectedItem="{Binding RunFilter}" MinWidth="170" MaxWidth="320" Margin="0,0,8,8"
+                                      ToolTip="Shows only the records of one ring run." AutomationProperties.Name="Ring run" AutomationProperties.AutomationId="cboHistoryRun" />
                             <TextBlock Text="{Binding RowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHistoryCount" />
                         </WrapPanel>
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4">
@@ -475,6 +478,14 @@
                                 <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Purpose" Binding="{Binding Purpose}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="130" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Plan" Binding="{Binding PlanName}" Width="*" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}"
+                                                    Visibility="{Binding Data.HasRingRecords, Source={StaticResource HistoryProxy}, Converter={StaticResource BoolToVisibility}}" />
+                                <DataGridTextColumn Header="Ring #" Binding="{Binding RingIndex}" Width="68" MinWidth="68" ElementStyle="{StaticResource TrimmedCell}"
+                                                    Visibility="{Binding Data.HasRingRecords, Source={StaticResource HistoryProxy}, Converter={StaticResource BoolToVisibility}}" />
+                                <DataGridTextColumn Header="Ring" Binding="{Binding RingName}" Width="*" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}"
+                                                    Visibility="{Binding Data.HasRingRecords, Source={StaticResource HistoryProxy}, Converter={StaticResource BoolToVisibility}}" />
+                                <DataGridTextColumn Header="Run" Binding="{Binding RunId}" Width="*" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}"
+                                                    Visibility="{Binding Data.HasRingRecords, Source={StaticResource HistoryProxy}, Converter={StaticResource BoolToVisibility}}" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBox Grid.Row="4" x:Name="txtHistoryDetails" Text="{Binding SelectedDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
@@ -520,6 +531,46 @@
                                 </TextBlock>
                                 <TextBlock Text="{Binding ProbeText}" Style="{StaticResource Warning}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtAuditProbe"
                                            AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,12" DataContext="{Binding RingFolders}" AutomationProperties.AutomationId="pnlRingFolders">
+                            <StackPanel>
+                                <TextBlock Text="Ring folders" Style="{StaticResource CardTitle}" />
+                                <TextBlock Text="The rings folder holds the plan files; the runs folder holds one file for each run and the lock files. Leave a path empty for the default under the data root. A share path lets sessions on several computers share the runs and their locks."
+                                           Style="{StaticResource Note}" Margin="0,0,0,8" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" MinWidth="200" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Rings folder" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,8" />
+                                    <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RingsFolder, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the data root"
+                                                Margin="0,0,0,8" AutomationProperties.Name="Rings folder" AutomationProperties.AutomationId="txtRingsFolder" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Runs folder" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,12,8" />
+                                    <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RunsFolder, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Default under the rings folder"
+                                                Margin="0,0,0,8" AutomationProperties.Name="Runs folder" AutomationProperties.AutomationId="txtRunsFolder" />
+                                </Grid>
+                                <WrapPanel>
+                                    <ui:Button Content="Save paths" Icon="{ui:SymbolIcon Save24}" Command="{Binding SaveFoldersCommand}" Style="{StaticResource ToolButton}"
+                                               AutomationProperties.Name="Save the ring folders" AutomationProperties.AutomationId="btnSaveRingFolders" />
+                                    <ui:Button Content="Check" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding CheckFoldersCommand}" Style="{StaticResource ToolButton}"
+                                               ToolTip="Checks that the folders can be written and that a lock file can be made in the runs folder."
+                                               AutomationProperties.Name="Check the ring folders" AutomationProperties.AutomationId="btnCheckRingFolders" />
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource Note}" TextWrapping="Wrap" AutomationProperties.AutomationId="txtRingFoldersInUse">
+                                    <Run Text="In use:" />
+                                    <Run Text="{Binding PlanFolderInUse, Mode=OneWay}" />
+                                    <Run Text="and" />
+                                    <Run Text="{Binding RunFolderInUse, Mode=OneWay}" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding ProbeText}" Style="{StaticResource Warning}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtRingFolderProbe"
+                                           AutomationProperties.LiveSetting="Polite" />
+                                <TextBlock Text="{Binding StaleLockText}" Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtStaleLockAge" />
                             </StackPanel>
                         </Border>
 

@@ -116,6 +116,7 @@ public sealed class MaintenanceWindowWriterTests
             // The ring service declares its own write and makes each ring a deployment service write.
             Path.Combine("ApplicationPackagerEngine", "Services", "Deployments", "Rings", "RingsContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "Deployments", "Rings", "RingService.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "RingRunPlan.cs"),
             Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
         ];
         var found = FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant));

@@ -1,0 +1,309 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Views.Pages.DeploymentRingsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Margin" Value="0,0,0,4" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="CardTitle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="0,0,0,8" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="Note" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="Warning" TargetType="TextBlock" BasedOn="{StaticResource Note}">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <Style x:Key="ToolButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Setter Property="Margin" Value="0,0,8,8" />
+                <Setter Property="VerticalAlignment" Value="Top" />
+            </Style>
+
+            <!-- A string Content renders as one non-wrapping line, which a narrow window clips. -->
+            <Style x:Key="Option" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
+                <Setter Property="Margin" Value="0,0,16,8" />
+                <Setter Property="ContentTemplate">
+                    <Setter.Value>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="460" />
+                        </DataTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="Padding" Value="12" />
+                <Setter Property="Margin" Value="0,0,0,12" />
+                <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            </Style>
+
+            <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+
+            <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+            </Style>
+
+            <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                <Setter Property="AutoGenerateColumns" Value="False" />
+                <Setter Property="CanUserAddRows" Value="False" />
+                <Setter Property="CanUserDeleteRows" Value="False" />
+                <Setter Property="IsReadOnly" Value="True" />
+                <Setter Property="HeadersVisibility" Value="Column" />
+                <Setter Property="RowHeaderWidth" Value="0" />
+                <Setter Property="GridLinesVisibility" Value="Horizontal" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="CanUserResizeColumns" Value="True" />
+                <Setter Property="SelectionMode" Value="Single" />
+                <Setter Property="EnableRowVirtualization" Value="True" />
+                <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+                <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+                <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+                <Setter Property="helpers:DataGridColumnSizing.FixStarWidthsOnResize" Value="True" />
+                <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
+                <Setter Property="CellStyle" Value="{StaticResource TabStopCell}" />
+                <Setter Property="helpers:DataGridKeyboard.SelectsFocusedRow" Value="True" />
+                <Setter Property="helpers:DataGridRightClick.SelectsRow" Value="True" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer x:Name="scrollRingsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                  AutomationProperties.AutomationId="scrollRingsTab">
+        <StackPanel>
+            <Border Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlRingNewRun">
+                <StackPanel>
+                    <TextBlock Text="New run" Style="{StaticResource CardTitle}" />
+                    <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8"
+                               Text="A run creates one ordinary deployment of the object for each ring of the plan. Expand shows the rings with their dates; a collection set here applies to this run only. Validate runs the checks; Create run shows the plan of every deployment first." />
+                    <WrapPanel Margin="0,0,0,4">
+                        <ListBox ItemsSource="{Binding TypeNames}" SelectedIndex="{Binding TypeIndex}" ItemContainerStyle="{StaticResource SelectableListItem}"
+                                 Margin="0,0,16,8" AutomationProperties.Name="Object type of the run" AutomationProperties.AutomationId="lstRingObjectType">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Margin="8,4" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Reads the objects, the collections, the plans and the runs again." AutomationProperties.Name="Refresh the rings tab"
+                                   AutomationProperties.AutomationId="btnRingsRefresh" />
+                        <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelLoadCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Stops the read." AutomationProperties.Name="Cancel the read of the rings tab" AutomationProperties.AutomationId="btnRingsCancel" />
+                    </WrapPanel>
+
+                    <DockPanel Margin="0,0,0,4">
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ObjectCount}" Style="{StaticResource Note}" Margin="8,0,0,4" AutomationProperties.AutomationId="txtRingObjectCount" />
+                        <TextBlock Text="{Binding ObjectHeader}" Style="{StaticResource FieldLabel}" />
+                    </DockPanel>
+                    <ui:TextBox Text="{Binding ObjectFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, version or ID" Icon="{ui:SymbolIcon Search24}"
+                                Margin="0,0,0,8" AutomationProperties.Name="Object filter of the run" AutomationProperties.AutomationId="txtRingObjectFilter" />
+                    <DataGrid x:Name="dgRingObjects" Style="{StaticResource GridBase}" ItemsSource="{Binding Objects}" SelectedItem="{Binding SelectedObject}" Height="180"
+                              AutomationProperties.AutomationId="dgRingObjects" AutomationProperties.Name="Objects of the run">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Packaged" Binding="{Binding Packaged}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <WrapPanel Margin="0,8,0,0">
+                        <StackPanel Margin="0,0,16,8" Visibility="{Binding IsPackage, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Program" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Programs}" SelectedItem="{Binding SelectedProgram}" MinWidth="200"
+                                      AutomationProperties.Name="Program of the run" AutomationProperties.AutomationId="cboRingProgram" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,16,8">
+                            <TextBlock Text="Ring plan" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding Plans}" SelectedItem="{Binding SelectedPlan}" DisplayMemberPath="Name" MinWidth="240" MaxWidth="420"
+                                      AutomationProperties.Name="Ring plan of the run" AutomationProperties.AutomationId="cboRingPlan" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,16,8">
+                            <TextBlock Text="Plan start" Style="{StaticResource FieldLabel}" />
+                            <StackPanel Orientation="Horizontal">
+                                <DatePicker SelectedDate="{Binding PlanStartDate}" SelectedDateFormat="Short" ToolTip="{Binding PlanStartDateTip}" Width="150" Margin="0,0,8,0"
+                                            AutomationProperties.Name="Plan start date" AutomationProperties.AutomationId="dpRingStart" />
+                                <ui:TextBox Text="{Binding PlanStartTimeText, UpdateSourceTrigger=PropertyChanged}" Width="90" PlaceholderText="08:00"
+                                            AutomationProperties.Name="Plan start time" AutomationProperties.AutomationId="txtRingStartTime" />
+                            </StackPanel>
+                        </StackPanel>
+                        <CheckBox Content="Hold later rings: create the first ring now, Promote creates each later ring" IsChecked="{Binding HoldLaterRings}"
+                                  Style="{StaticResource Option}" VerticalAlignment="Bottom" AutomationProperties.AutomationId="chkRingHold" />
+                    </WrapPanel>
+                    <TextBlock Text="{Binding PlanBasisNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRingBasisNote" />
+                    <WrapPanel>
+                        <ui:Button Content="Expand" Icon="{ui:SymbolIcon TextBulletListLtr24}" Command="{Binding ExpandCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Shows the rings with their dates and member counts. Nothing is changed." AutomationProperties.AutomationId="btnRingExpand" />
+                        <ui:Button Content="Set collection" Icon="{ui:SymbolIcon Organization24}" Command="{Binding SetCollectionCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Sets the collection of the selected ring for this run only. The plan file keeps its own collection."
+                                   AutomationProperties.Name="Set the collection of the selected ring for this run" AutomationProperties.AutomationId="btnRingSetCollection" />
+                    </WrapPanel>
+                    <DataGrid x:Name="dgRingPreview" Style="{StaticResource GridBase}" ItemsSource="{Binding PreviewRows}" SelectedItem="{Binding SelectedPreviewRow}" MinHeight="96" MaxHeight="260"
+                              AutomationProperties.AutomationId="dgRingPreview" AutomationProperties.Name="Expanded rings">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="60" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Members" Binding="{Binding MemberCount}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Purpose" Binding="{Binding Purpose}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Available" Binding="{Binding Available}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="DP group" Binding="{Binding DpGroup}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Threshold" Binding="{Binding Threshold}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Checks" Binding="{Binding CheckText}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="This run" Binding="{Binding Change}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <DataGrid x:Name="dgRingChecks" Style="{StaticResource GridBase}" ItemsSource="{Binding Checks}" MinHeight="96" MaxHeight="220" Margin="0,8,0,0"
+                              AutomationProperties.AutomationId="dgRingChecks" AutomationProperties.Name="Checks of the run">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Ring" Binding="{Binding Ring}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Check" Binding="{Binding Check}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="3*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Text="{Binding ValidationMessage}" Style="{StaticResource Note}" Margin="0,8,0,0" AutomationProperties.AutomationId="txtRingValidation"
+                               AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock Text="{Binding FormMessage}" Style="{StaticResource Warning}" Margin="0,8,0,0" Visibility="{Binding HasFormMessage, Converter={StaticResource BoolToVisibility}}"
+                               AutomationProperties.AutomationId="txtRingFormMessage" AutomationProperties.LiveSetting="Assertive" />
+                    <WrapPanel Margin="0,12,0,0">
+                        <ui:Button x:Name="btnRingValidate" Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Runs the checks of each ring and the plan rules. Nothing is changed." AutomationProperties.Name="Validate the run"
+                                   AutomationProperties.AutomationId="btnRingValidate" />
+                        <ui:Button Content="Create run" Appearance="Primary" Icon="{ui:SymbolIcon Rocket24}" Command="{Binding CreateRunCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Shows the plan with every deployment of the run. Nothing is changed before you confirm it." AutomationProperties.AutomationId="btnRingCreate" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlRingPlans">
+                <StackPanel>
+                    <TextBlock Text="Ring plans" Style="{StaticResource CardTitle}" />
+                    <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8"
+                               Text="A plan is an ordered list of rings: a device collection, a purpose and the days from the plan start for each ring. Shipped plans have no collections and cannot be changed: copy one and change the copy." />
+                    <WrapPanel>
+                        <ui:Button Content="New" Icon="{ui:SymbolIcon Add24}" Command="{Binding NewPlanCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.Name="New ring plan" AutomationProperties.AutomationId="btnRingPlanNew" />
+                        <ui:Button Content="Edit" Icon="{ui:SymbolIcon Edit24}" Command="{Binding EditPlanCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.Name="Edit ring plan" AutomationProperties.AutomationId="btnRingPlanEdit" />
+                        <ui:Button Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyPlanCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.Name="Copy ring plan" AutomationProperties.AutomationId="btnRingPlanCopy" />
+                        <ui:Button Content="Delete" Icon="{ui:SymbolIcon Delete24}" Command="{Binding DeletePlanCommand}" Style="{StaticResource ToolButton}"
+                                   AutomationProperties.Name="Delete ring plan" AutomationProperties.AutomationId="btnRingPlanDelete" />
+                        <TextBlock Text="{Binding PlansMessage}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560"
+                                   AutomationProperties.AutomationId="txtRingPlansMessage" AutomationProperties.LiveSetting="Polite" />
+                    </WrapPanel>
+                    <TextBlock Text="{Binding PlanListNote}" Style="{StaticResource Warning}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRingPlanNote" />
+                    <DataGrid x:Name="dgRingPlans" Style="{StaticResource GridBase}" ItemsSource="{Binding Plans}" SelectedItem="{Binding SelectedPlan}" MinHeight="96" MaxHeight="220"
+                              AutomationProperties.AutomationId="dgRingPlans" AutomationProperties.Name="Ring plans">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Rings" Binding="{Binding Rings}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Rings created" Binding="{Binding Hold}" Width="140" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Time basis" Binding="{Binding Basis}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="3*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" AutomationProperties.AutomationId="pnlRingRuns">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding RunCount}" Style="{StaticResource Note}" Margin="8,0,0,8" AutomationProperties.AutomationId="txtRingRunCount" />
+                        <TextBlock Text="Open runs" Style="{StaticResource CardTitle}" />
+                    </DockPanel>
+                    <WrapPanel>
+                        <ui:Button Content="Refresh and reconcile" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding ReconcileCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Reads every open run, resolves rings left Creating, marks a ring Removed only when its deployment is gone and closes finished runs."
+                                   AutomationProperties.AutomationId="btnRingReconcile" />
+                        <ui:Button Content="Promote" Icon="{ui:SymbolIcon ArrowForward24}" Command="{Binding PromoteRingCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="{Binding PromoteReason}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Promote the next held ring"
+                                   AutomationProperties.AutomationId="btnRingPromote" />
+                        <ui:Button Content="Undo run" Icon="{ui:SymbolIcon ArrowUndo24}" Command="{Binding UndoRunCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Shows a plan that removes the deployments this run created, cancels its held rings and closes it."
+                                   AutomationProperties.AutomationId="btnRingUndo" />
+                        <ui:Button Content="Close run" Icon="{ui:SymbolIcon Archive24}" Command="{Binding CloseRunCommand}" Style="{StaticResource ToolButton}"
+                                   ToolTip="Shows a plan that closes the run. No deployment is changed." AutomationProperties.AutomationId="btnRingClose" />
+                        <CheckBox Content="Show closed runs" IsChecked="{Binding ShowClosedRuns}" Style="{StaticResource Option}" VerticalAlignment="Center"
+                                  AutomationProperties.AutomationId="chkRingShowClosed" />
+                    </WrapPanel>
+                    <TextBlock Text="{Binding PromoteReason}" Style="{StaticResource Note}" Margin="0,0,0,4" AutomationProperties.AutomationId="txtRingPromoteReason"
+                               AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock Text="{Binding RunsMessage}" Style="{StaticResource Warning}" Margin="0,0,0,8" Visibility="{Binding HasRunsMessage, Converter={StaticResource BoolToVisibility}}"
+                               AutomationProperties.AutomationId="txtRingRunsMessage" AutomationProperties.LiveSetting="Assertive" />
+                    <TextBlock Text="{Binding LockMessage}" Style="{StaticResource Warning}" Margin="0,0,0,8" Visibility="{Binding HasLockMessage, Converter={StaticResource BoolToVisibility}}"
+                               AutomationProperties.AutomationId="txtRingLockMessage" AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock Text="{Binding RunListNote}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRingRunListNote" />
+                    <DataGrid x:Name="dgRingRuns" Style="{StaticResource GridBase}" ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" MinHeight="96" MaxHeight="220"
+                              AutomationProperties.AutomationId="dgRingRuns" AutomationProperties.Name="Ring runs">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Run" Binding="{Binding RunId}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Plan" Binding="{Binding Plan}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Object" Binding="{Binding Object}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Started" Binding="{Binding Started}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Rings" Binding="{Binding Rings}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Created by" Binding="{Binding CreatedBy}" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Text="Rings of the selected run" Style="{StaticResource FieldLabel}" Margin="0,8,0,4" />
+                    <DataGrid x:Name="dgRingRunRings" Style="{StaticResource GridBase}" ItemsSource="{Binding RunRings}" SelectedItem="{Binding SelectedRunRing}" MinHeight="96" MaxHeight="240"
+                              AutomationProperties.AutomationId="dgRingRunRings" AutomationProperties.Name="Rings of the selected run">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="60" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Ring" Binding="{Binding Name}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Collection" Binding="{Binding Collection}" Width="2*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Available" Binding="{Binding Available}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Deadline" Binding="{Binding Deadline}" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Targeted" Binding="{Binding Targeted}" Width="84" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Success" Binding="{Binding Success}" Width="80" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="72" MinWidth="72" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="In progress" Binding="{Binding InProgress}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Unknown" Binding="{Binding Unknown}" Width="88" MinWidth="88" ElementStyle="{StaticResource TrimmedCell}" />
+                            <DataGridTextColumn Header="Threshold" Binding="{Binding Threshold}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Text="{Binding SelectedRunRing.CountsNote, FallbackValue=''}" Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtRingCountsNote" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

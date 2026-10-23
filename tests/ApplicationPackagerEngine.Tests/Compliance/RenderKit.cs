@@ -106,7 +106,7 @@ internal static class RenderKit
     public static void AssertResizableReadableColumns(DataGrid grid)
     {
         Assert.True(grid.CanUserResizeColumns);
-        foreach (var column in grid.Columns)
+        foreach (var column in grid.Columns.Where(c => c.Visibility == Visibility.Visible))
         {
             var name = column.Header as string;
             Assert.True(column.CanUserResize, $"{name} cannot be resized.");

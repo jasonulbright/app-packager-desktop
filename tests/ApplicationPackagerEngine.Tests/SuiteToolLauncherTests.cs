@@ -120,7 +120,8 @@ public sealed class SuiteToolLauncherTests
     private const string Install = Local + @"\AppPackagerSuite";
     private const string Launcher = Install + @"\app-packager-suite\start-suite.ps1";
     private const string Settings = Install + @"\app-packager-suite\suite.settings.json";
-    private static readonly SuiteTool Helper = SuiteTools.DeploymentHelper;
+    // A tool record for the launcher tests only; no sidebar entry or page starts it.
+    private static readonly SuiteTool Helper = new("deployment-helper", "Deployment Helper", "deployment-helper", "start-deploymenthelper.ps1", "Rocket24");
 
     private readonly FakeSuiteFileSystem _files = new();
     private readonly FakeSuiteEnvironment _environment = new();
@@ -144,11 +145,10 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheThreeSidebarToolsAndTheRingDeploymentToolNameTheSuiteFoldersAndEntryScripts()
+    public void TheThreeSidebarToolsNameTheSuiteFoldersAndEntryScripts()
     {
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DeploymentHelper || t.Folder == "deployment-helper");
-        Assert.Equal(("deployment-helper", "Deployment Helper", "deployment-helper", "start-deploymenthelper.ps1", "Rocket24"),
-            (SuiteTools.DeploymentHelper.Id, SuiteTools.DeploymentHelper.Title, SuiteTools.DeploymentHelper.Folder, SuiteTools.DeploymentHelper.EntryScript, SuiteTools.DeploymentHelper.Symbol));
+        Assert.Null(typeof(SuiteTools).GetProperty("DeploymentHelper"));
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.CollectionCompliance);
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.InstallerAnalysis || t.Folder == "installer-analysis");
         Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-and-compliance-manager");
@@ -633,7 +633,8 @@ public sealed class SuiteToolLauncherEnvironmentTests : IDisposable
         return (new SuiteToolLauncher(files, environment, starter, new RecordingSuiteLog()), starter);
     }
 
-    private static readonly SuiteTool Helper = SuiteTools.DeploymentHelper;
+    // A tool record for the launcher tests only; no sidebar entry or page starts it.
+    private static readonly SuiteTool Helper = new("deployment-helper", "Deployment Helper", "deployment-helper", "start-deploymenthelper.ps1", "Rocket24");
 
     [Fact]
     public async Task ASiteCodeTheOperatorNeverSavedIsNotPassed()

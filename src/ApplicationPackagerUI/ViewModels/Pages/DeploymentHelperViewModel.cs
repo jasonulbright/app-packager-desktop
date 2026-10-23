@@ -4,16 +4,19 @@ using ApplicationPackagerUI.Models;
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
 /// <summary>
-/// The Deployment Helper page: the tabs Deploy, History and Options over one shared state. A tab
-/// reads its data on its first visit; leaving the page releases the data of every tab. The
+/// The Deployment Helper page: the tabs Deploy, Rings, History and Options over one shared state. A
+/// tab reads its data on its first visit; leaving the page releases the data of every tab. The
 /// constructor reads nothing.
 /// </summary>
 public sealed partial class DeploymentHelperViewModel : ObservableObject
 {
     public const int DeployTab = 0;
-    public const int HistoryTab = 1;
-    public const int OptionsTab = 2;
-    public const string RingStarted = "Deployment Helper (ring deployments) was started from the AppPackager Suite.";
+    public const int RingsTab = 1;
+    public const int HistoryTab = 2;
+    public const int OptionsTab = 3;
+
+    // The settings file keeps the tab numbers of the three-tab page, so a file written before the Rings tab opens the same tab.
+    private static readonly int[] StoredTabs = [0, 3, 1, 2];
 
     private readonly SemaphoreSlim _saveLock = new(1, 1);
     private bool _preferencesLoaded;
@@ -21,12 +24,15 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
     private Task _preferencesLoad = Task.CompletedTask;
     private DeploymentHelperSettings? _stored;
     private string _auditLogPath = "";
+    private string _ringsFolder = "";
+    private string _runsFolder = "";
     private bool _active;
 
     public DeploymentHelperViewModel(DeploymentPageServices services)
     {
         Shared = new DeploymentShared(services);
         Deploy = new DeploymentFormViewModel(Shared);
+        Rings = new DeploymentRingsViewModel(Shared);
         History = new DeploymentHistoryViewModel(Shared);
         Options = new DeploymentOptionsViewModel(Shared)
         {
@@ -38,9 +44,22 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
                 if (await SaveAsync()) return true;
                 _auditLogPath = previous;
                 return false;
+            },
+            RingFolders = new RingFolderOptionsViewModel(Shared)
+            {
+                Saved = () => (_ringsFolder, _runsFolder),
+                Save = async (rings, runs) =>
+                {
+                    var previous = (_ringsFolder, _runsFolder);
+                    (_ringsFolder, _runsFolder) = (rings, runs);
+                    if (await SaveAsync()) return true;
+                    (_ringsFolder, _runsFolder) = previous;
+                    return false;
+                }
             }
         };
         Deploy.ChoicesChanged += (_, _) => SaveLater();
+        Rings.ChoicesChanged += (_, _) => SaveLater();
         Options.TemplatesChanged += (_, _) =>
         {
             if (Deploy.IsLoaded) _ = Deploy.ReloadTemplatesAsync();
@@ -51,21 +70,25 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
 
     public DeploymentShared Shared { get; }
     public DeploymentFormViewModel Deploy { get; }
+    public DeploymentRingsViewModel Rings { get; }
     public DeploymentHistoryViewModel History { get; }
     public DeploymentOptionsViewModel Options { get; }
 
     [ObservableProperty] private int _selectedTabIndex;
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(StartRingToolCommand))]
-    private bool _isStartingRingTool;
-
     public DeploymentTabViewModel CurrentTab => SelectedTabIndex switch
     {
+        RingsTab => Rings,
         HistoryTab => History,
         OptionsTab => Options,
         _ => Deploy
     };
+
+    /// <summary>The number the settings file keeps for a tab.</summary>
+    public static int StoredTab(int tab) => StoredTabs[Math.Clamp(tab, DeployTab, OptionsTab)];
+
+    /// <summary>The tab of a number the settings file keeps; an unknown number opens Deploy.</summary>
+    public static int TabOf(int stored) => Array.IndexOf(StoredTabs, stored) is var tab and >= 0 ? tab : DeployTab;
 
     partial void OnSelectedTabIndexChanged(int value)
     {
@@ -95,6 +118,7 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
         _active = false;
         Shared.Release();
         Deploy.Release();
+        Rings.Release();
         History.Release();
         Options.Release();
         await SaveAsync();
@@ -114,9 +138,12 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
             _applying = true;
             try
             {
-                SelectedTabIndex = saved.SelectedTab is >= DeployTab and <= OptionsTab ? saved.SelectedTab : DeployTab;
+                SelectedTabIndex = TabOf(saved.SelectedTab);
                 Deploy.ApplyChoices(saved.ObjectType, saved.TemplateId);
+                Rings.ApplyChoices(saved.RingPlanName);
                 _auditLogPath = saved.AuditLogPath ?? "";
+                _ringsFolder = saved.RingsFolder ?? "";
+                _runsFolder = saved.RunsFolder ?? "";
             }
             finally { _applying = false; }
         }
@@ -125,15 +152,20 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
 
     private DeploymentHelperSettings Current() => new()
     {
-        SelectedTab = SelectedTabIndex,
+        SelectedTab = StoredTab(SelectedTabIndex),
         ObjectType = Deploy.TypeIndex,
         TemplateId = Deploy.TemplateId ?? "",
-        AuditLogPath = _auditLogPath
+        AuditLogPath = _auditLogPath,
+        RingPlanName = Rings.PlanName ?? "",
+        RingsFolder = _ringsFolder,
+        RunsFolder = _runsFolder
     };
 
     private static bool Same(DeploymentHelperSettings? a, DeploymentHelperSettings b) =>
         a is not null && a.SelectedTab == b.SelectedTab && a.ObjectType == b.ObjectType
-        && string.Equals(a.TemplateId, b.TemplateId, StringComparison.Ordinal) && string.Equals(a.AuditLogPath, b.AuditLogPath, StringComparison.Ordinal);
+        && string.Equals(a.TemplateId, b.TemplateId, StringComparison.Ordinal) && string.Equals(a.AuditLogPath, b.AuditLogPath, StringComparison.Ordinal)
+        && string.Equals(a.RingPlanName, b.RingPlanName, StringComparison.Ordinal) && string.Equals(a.RingsFolder, b.RingsFolder, StringComparison.Ordinal)
+        && string.Equals(a.RunsFolder, b.RunsFolder, StringComparison.Ordinal);
 
     private void SaveLater()
     {
@@ -166,27 +198,5 @@ public sealed partial class DeploymentHelperViewModel : ObservableObject
             return saved;
         }
         finally { _saveLock.Release(); }
-    }
-
-    private bool CanStartRingTool() => !IsStartingRingTool;
-
-    /// <summary>Starts the suite's Deployment Helper for ring deployments; a second click while it starts does nothing.</summary>
-    [RelayCommand(CanExecute = nameof(CanStartRingTool))]
-    private async Task StartRingTool()
-    {
-        if (IsStartingRingTool) return;
-        IsStartingRingTool = true;
-        try
-        {
-            string? problem;
-            try { problem = await Shared.Services.StartRingTool(); }
-            catch (Exception ex)
-            {
-                problem = "Deployment Helper (ring deployments) could not start. The log has the details.";
-                Shared.Services.Log.Warning(DeploymentShared.LogArea, $"The ring deployment tool could not start ({ex.GetType().Name}).");
-            }
-            Shared.StatusMessage = problem ?? RingStarted;
-        }
-        finally { IsStartingRingTool = false; }
     }
 }

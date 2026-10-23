@@ -96,17 +96,17 @@ public sealed class DeploymentHelperRenderTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
-    public void TheThreeTabsRenderWithLongValues(ApplicationTheme theme)
+    public void TheFourTabsRenderWithLongValues(ApplicationTheme theme)
     {
         WithPage(theme, (window, page, viewModel, harness) =>
         {
             var tabs = ById<TabControl>(page, "tabDeploymentHelper");
-            Assert.Equal(["Deploy", "History", "Options"], tabs.Items.OfType<TabItem>().Select(t => (string)t.Header));
+            Assert.Equal(["Deploy", "Rings", "History", "Options"], tabs.Items.OfType<TabItem>().Select(t => (string)t.Header));
             Assert.Equal(["Applications", "Packages", "Task Sequences", "Software Update Groups"], ById<ListBox>(page, "lstObjectType").Items.Cast<string>());
             Fill(window, viewModel, harness);
             Assert.Equal(2, ById<DataGrid>(page, "dgDeploymentResults").Items.Count);
             Assert.Equal(5, ById<DataGrid>(page, "dgChecks").Items.Count);
-            Assert.True(ById<FrameworkElement>(page, "btnRingDeployment").IsVisible);
+            Assert.DoesNotContain(Descendants(page).OfType<FrameworkElement>(), e => AutomationProperties.GetAutomationId(e) == "btnRingDeployment");
 
             viewModel.Deploy.IsRequired = true;
             Settle(window);
@@ -220,7 +220,7 @@ public sealed class DeploymentHelperRenderTests
                 "chkRebootOutside", "txtRequiredOnlyNote", "dgDpGroups", "btnDistribute", "chkDistributeFirst", "dgChecks", "btnValidate", "btnDeploy");
             Check(DeploymentHelperViewModel.HistoryTab, "scrollHistoryTab", "txtHistoryFilter", "btnHistoryCancel", "btnHistoryFolder", "btnRemoveDeployment", "dgHistory");
             Check(DeploymentHelperViewModel.OptionsTab, "scrollOptionsTab", "btnOptionsRefresh", "btnOptionsCancel", "txtAuditLogPath", "btnCheckAuditLog", "btnDeleteTemplate", "dgTemplates", "txtConnection");
-            var header = ById<FrameworkElement>(page, "btnRingDeployment");
+            var header = ById<FrameworkElement>(page, "txtDeploymentIntro");
             Assert.True(header.TransformToAncestor(window).TransformBounds(new Rect(header.RenderSize)).Right <= window.ActualWidth + 0.5);
         }, width, height);
     }

@@ -14,7 +14,7 @@ public sealed class DeploymentHistoryOptionsTests
         _h.Audit.Records.Add(_h.Record("Distribute", DeploymentObjectType.Application, "7-Zip", "LAB00010", "", when: new DateTime(2026, 10, 19, 7, 0, 0)));
         _h.Audit.Records.Add(_h.Record("Create", DeploymentObjectType.Package, "Office Tools", "LAB00011", "", "Failed", new DateTime(2026, 10, 18, 7, 0, 0)));
         _h.Audit.Records.Add(_h.Record("Undo", DeploymentObjectType.Application, "=cmd|' /C calc'!A0", "LAB00011", "{DEP-0009}", when: new DateTime(2026, 10, 17, 7, 0, 0)));
-        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { SelectedTab = DeploymentHelperViewModel.HistoryTab };
+        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { SelectedTab = DeploymentHelperViewModel.StoredTab(DeploymentHelperViewModel.HistoryTab) };
         var page = await _h.OpenAsync(DeploymentHelperViewModel.HistoryTab);
         return page.History;
     }
@@ -129,7 +129,7 @@ public sealed class DeploymentHistoryOptionsTests
     public async Task TheOptionsShowTheProbeTheTemplatesAndTheConnection()
     {
         _h.Audit.NextProbe = new AuditProbe(false, "Another program holds the file.");
-        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { SelectedTab = DeploymentHelperViewModel.OptionsTab };
+        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { SelectedTab = DeploymentHelperViewModel.StoredTab(DeploymentHelperViewModel.OptionsTab) };
         var page = await _h.OpenAsync(DeploymentHelperViewModel.OptionsTab);
         var options = page.Options;
         Assert.False(options.ProbeWritable);
@@ -145,7 +145,7 @@ public sealed class DeploymentHistoryOptionsTests
     [InlineData("audit.jsonl")]
     public async Task ARelativeOrFolderPathIsRefusedAndNotSaved(string path)
     {
-        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { SelectedTab = DeploymentHelperViewModel.OptionsTab };
+        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { SelectedTab = DeploymentHelperViewModel.StoredTab(DeploymentHelperViewModel.OptionsTab) };
         var page = await _h.OpenAsync(DeploymentHelperViewModel.OptionsTab);
         page.Options.AuditLogPath = path;
         await page.Options.SavePathCommand.ExecuteAsync(null);
@@ -159,7 +159,7 @@ public sealed class DeploymentHistoryOptionsTests
     [InlineData("")]
     public async Task AFullOrSharePathIsSavedAndThenProbed(string path)
     {
-        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { AuditLogPath = @"E:\old.jsonl", SelectedTab = DeploymentHelperViewModel.OptionsTab };
+        _h.Saved = new ApplicationPackagerUI.Models.DeploymentHelperSettings { AuditLogPath = @"E:\old.jsonl", SelectedTab = DeploymentHelperViewModel.StoredTab(DeploymentHelperViewModel.OptionsTab) };
         var page = await _h.OpenAsync(DeploymentHelperViewModel.OptionsTab);
         Assert.Equal(@"E:\old.jsonl", page.Options.AuditLogPath);
         var probes = _h.Audit.Probes;

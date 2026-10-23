@@ -78,7 +78,7 @@ public sealed class SidebarRegistry
         {
             PageType = typeof(InstallerAnalysisPage)
         });
-        registry.Register(new SidebarItemDefinition(SidebarIds.DeploymentHelper, SuiteTools.DeploymentHelper.Title, SuiteTools.DeploymentHelper.Symbol, SidebarItemKind.Page)
+        registry.Register(new SidebarItemDefinition(SidebarIds.DeploymentHelper, "Deployment Helper", "Rocket24", SidebarItemKind.Page)
         {
             PageType = typeof(DeploymentHelperPage)
         });
