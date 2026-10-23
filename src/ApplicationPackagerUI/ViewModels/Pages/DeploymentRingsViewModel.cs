@@ -325,6 +325,26 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         Services.Dialogs.ShowRingPlanEditor(editor);
     }
 
+    /// <summary>
+    /// True when the plan file still exists and no longer has the stamp the editor opened it with. A
+    /// stale refusal for another reason (a session that holds the plan's lock, a deleted file) keeps
+    /// the service's own message.
+    /// </summary>
+    private async Task<bool> FileChangedSinceAsync(RingPlan original)
+    {
+        try
+        {
+            var plans = await Task.Run(Services.Rings.ListPlans);
+            return plans.FirstOrDefault(p => string.Equals(p.Name, original.Name, StringComparison.OrdinalIgnoreCase)) is { } now
+                && !string.Equals(now.FileStamp, original.FileStamp, StringComparison.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            Services.Log.Warning(DeploymentShared.LogArea, $"Rings: the plans could not be read after a refused save ({ex.GetType().Name}).");
+            return false;
+        }
+    }
+
     private async Task<bool> SavePlanAsync(RingPlanEditorViewModel editor, RingPlan plan)
     {
         var original = editor.Original;
@@ -334,9 +354,10 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         try { saved = await Task.Run(() => Services.Rings.SavePlan(plan, replace, stamp)); }
         catch (Exception ex)
         {
+            var changed = ex is DeploymentServiceException { Kind: DeploymentFailureKind.Stale } && replace && await FileChangedSinceAsync(original!);
             editor.ShowMessage(ex switch
             {
-                DeploymentServiceException { Kind: DeploymentFailureKind.Stale } when replace => PlanFileChanged,
+                _ when changed => PlanFileChanged,
                 DeploymentServiceException d => SecretMask.Apply(d.Message),
                 _ => PlanSaveFailed
             });

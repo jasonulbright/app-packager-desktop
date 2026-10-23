@@ -403,15 +403,29 @@ public sealed partial class RingPlanStore
     private static FileStream PlanLock(string path, string name)
     {
         var lockPath = path + ".lock";
-        try
+        for (var attempt = 1; ; attempt++)
         {
-            return new FileStream(lockPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose);
-        }
-        catch (IOException) when (File.Exists(lockPath))
-        {
-            throw new DeploymentServiceException($"Another session is saving or deleting plan {name} now, so nothing was changed. Try again; if no session is working on it, delete {lockPath} by hand.", DeploymentFailureKind.Stale);
+            try
+            {
+                return new FileStream(lockPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose);
+            }
+            // The holder's DeleteOnClose can remove the file between the refused create and the check, so the error code decides too.
+            catch (IOException ex) when (File.Exists(lockPath) || (ex.HResult & 0xFFFF) is ErrorFileExists or ErrorAlreadyExists)
+            {
+                throw new DeploymentServiceException($"Another session is saving or deleting plan {name} now, so nothing was changed. Try again; if no session is working on it, delete {lockPath} by hand.", DeploymentFailureKind.Stale);
+            }
+            // A lock file in delete-pending state refuses a new create with access denied until its last handle closes.
+            catch (UnauthorizedAccessException) when (attempt < LockAttempts)
+            {
+                Thread.Sleep(LockRetryDelay);
+            }
         }
     }
+
+    private const int ErrorFileExists = 80;
+    private const int ErrorAlreadyExists = 183;
+    private const int LockAttempts = 5;
+    private static readonly TimeSpan LockRetryDelay = TimeSpan.FromMilliseconds(20);
 
     /// <summary>
     /// Writes a temporary file and moves it to the plan file under the plan's lock. A new plan moves

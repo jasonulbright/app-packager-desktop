@@ -235,6 +235,22 @@ public sealed class DeploymentRingsContractTests
     }
 
     [Fact]
+    public async Task APlanAnotherSessionIsSavingNowGivesTheLockMessageAndNotTheChangedFileText()
+    {
+        var (rings, _, folder) = await StoredPlanAsync();
+        try
+        {
+            var editor = Edit(rings);
+            editor.Description = "Mine.";
+            using (new FileStream(Path.Combine(folder, LabPlan.Name + ".json.lock"), FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose))
+                await editor.SaveCommand.ExecuteAsync(null);
+            Assert.False(editor.Saved);
+            Assert.StartsWith("Another session is saving or deleting plan Lab-Rings now", editor.ValidationMessage);
+        }
+        finally { Directory.Delete(folder, recursive: true); }
+    }
+
+    [Fact]
     public async Task ASavedPlanCanBeEditedAndSavedAgainWithTheStampItCameBackWith()
     {
         var (rings, other, folder) = await StoredPlanAsync();
