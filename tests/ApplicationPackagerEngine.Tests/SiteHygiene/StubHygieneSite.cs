@@ -128,7 +128,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             Cmd 'Remove-CMApplication' @(@('Id', $Id), @('Force', ''))
             $app = Rows 'SMS_Application' | Where-Object { [int]$_.CI_ID -eq $Id -and $_.IsLatest } | Select-Object -First 1
             if ($null -eq $app) { throw 'No object corresponds to the specified parameters.' }
-            $deployed = @(Rows 'SMS_ApplicationAssignment' | Where-Object { [string]$_.AppModelID -eq [string]$app.ModelID }).Count
+            $deployed = @(Rows 'SMS_ApplicationAssignment' | Where-Object { [string](V $_ 'AppModelID' '') -eq [string](V $app 'ModelID' '') }).Count
             $cis = @(Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $app.ModelName } | ForEach-Object { [int]$_.CI_ID })
             $dependents = @(Rows 'SMS_AppDependenceRelation' | Where-Object { $cis -contains [int]$_.ToApplicationCIID }).Count
             if ($deployed -gt 0 -or $dependents -gt 0) { throw "Configuration Manager cannot delete this application because other applications or task sequences reference it or it is configured as a deployment. Number of dependent applications: $dependents Number of active deployments: $deployed" }
@@ -140,7 +140,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             if ($null -eq $d) { throw 'No object corresponds to the specified parameters.' }
             Remove-Rows 'SMS_ApplicationAssignment' { [string]$_.AssignmentUniqueID -eq $DeploymentId }
             Remove-Rows 'SMS_DeploymentSummary' { [string]$_.DeploymentID -eq $DeploymentId }
-            if (@(Rows 'SMS_ApplicationAssignment' | Where-Object { [string]$_.AppModelID -eq [string]$d.AppModelID }).Count -eq 0) { foreach ($a in @(Rows 'SMS_Application' | Where-Object { [string]$_.ModelID -eq [string]$d.AppModelID })) { $a.IsDeployed = $false } }
+            if (@(Rows 'SMS_ApplicationAssignment' | Where-Object { [string](V $_ 'AppModelID' '') -eq [string]$d.AppModelID }).Count -eq 0) { foreach ($a in @(Rows 'SMS_Application' | Where-Object { [string](V $_ 'ModelID' '') -eq [string]$d.AppModelID -and $null -ne $_.PSObject.Properties['IsDeployed'] })) { $a.IsDeployed = $false } }
         }
         function global:Remove-CMApplicationRevisionHistory { [CmdletBinding()] param([int]$Id, [int]$Revision, [switch]$Force)
             Cmd 'Remove-CMApplicationRevisionHistory' @(@('Id', $Id), @('Revision', $Revision), @('Force', ''))
@@ -193,7 +193,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             $row.Enabled = $Enabled
         }
         function global:Invoke-CMSoftwareUpdateAutoDeploymentRule { [CmdletBinding()] param([int]$Id)
-            Cmd 'Invoke-CMSoftwareUpdateAutoDeploymentRule' @(@('Id', $Id))
+            Cmd 'Invoke-CMSoftwareUpdateAutoDeploymentRule' @(,@('Id', $Id))
             $row = Rows 'SMS_AutoDeployment' | Where-Object { [int]$_.AutoDeploymentID -eq $Id } | Select-Object -First 1
             if ($null -eq $row) { throw 'No object corresponds to the specified parameters.' }
             if (-not [bool](V $state.Options 'AdrNoRun' $false)) { $row.LastRunTime = $global:Now }

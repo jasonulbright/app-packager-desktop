@@ -182,7 +182,7 @@ internal static partial class HygieneChecks
                     guidance: $"From the site server: Test-Path -LiteralPath '{PowerShellLiteral.EscapeSingleQuoted(path)}'", severity: HygieneSeverity.Info);
             else
                 yield return F("APP-04", "DeploymentType", key, $"{appName} / {dtName}",
-                    $"Content source '{path}' is missing or unreachable from this workstation; the site server may still reach it, but content updates run from a session that cannot will fail.",
+                    $"Content source '{path}' is missing or unreachable from this workstation; the site server may still reach it, but a content update that runs from a session that cannot reach it fails.",
                     "Verify from the site server; restore the source folder, correct the deployment type content location, or fix share permissions.",
                     guidance: $"Console: '{appName}' > Deployment Types > '{dtName}' > Content - correct the content location");
         }
