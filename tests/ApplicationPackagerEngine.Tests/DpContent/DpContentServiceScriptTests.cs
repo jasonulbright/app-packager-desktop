@@ -422,4 +422,61 @@ public sealed class DpContentServiceScriptTests
         Assert.Equal(DpContentResults.Confirmed, pair.Result);
         Assert.DoesNotContain("secret", outcome.Message);
     }
+
+    [Fact]
+    public async Task APairAnotherProcessRemovedAfterThePlanIsSkippedAndTheMessageSaysSo()
+    {
+        using var h = new DpContentHarness();
+        var change = await h.PrepareAsync(DpContentChangeKind.Remove, Pair("MCM000A6", Cm01, 0));
+        h.Site.BeforeRun = (p, site) =>
+        {
+            if ((string?)p["Operation"] != "Apply") return;
+            site.List("Summaries").Remove(site.Summary("MCM000A6", Cm01));
+            var instance = site.List("Instances").OfType<JsonObject>().Single(r => (string?)r["PackageID"] == "MCM000A6" && (string?)r["ServerNALPath"] == Cm01);
+            site.List("Instances").Remove(instance);
+        };
+        var outcome = await h.ApplyAsync(change with { RemovalConfirmed = true, LastCopyAcknowledged = true });
+
+        Assert.Equal("Skipped: no pair was changed. The site no longer lists the pair. Nothing was changed.", outcome.Message);
+        Assert.Equal(DpContentResults.Skipped, Assert.Single(outcome.Pairs).Result);
+        Assert.Null(outcome.UndoChange);
+        Assert.DoesNotContain(h.Site.Log, l => l.StartsWith("Delete:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task TheAppLogHoldsCountsAndKindsButNoNamesOrIds()
+    {
+        var log = new RecordingLog();
+        using var h = new DpContentHarness();
+        var service = new DpContentService(h.Site, h.Audit, log, (_, _) => Task.CompletedTask);
+        await service.LoadAsync(new Progress<string>(), CancellationToken.None);
+        h.Site.Fail("put:MCM000A6");
+        var change = await service.PrepareAsync(new DpContentChange(DpContentChangeKind.Redistribute, [Pair("MCM000A6", Cm01, 0), Pair("MCM0001B", Cm01, 0)], false, false, [], [], null), CancellationToken.None);
+        await service.ApplyAsync([change], new Progress<DpContentOutcome>(), CancellationToken.None);
+        var removal = await service.PrepareAsync(new DpContentChange(DpContentChangeKind.Remove, [Pair("MCM000A6", Backup, 0)], false, false, [], [], null), CancellationToken.None);
+        await service.ApplyAsync([removal with { RemovalConfirmed = true }], new Progress<DpContentOutcome>(), CancellationToken.None);
+
+        Assert.NotEmpty(log.Messages);
+        Assert.All(log.Messages, m =>
+        {
+            Assert.Equal(DpContentService.LogArea, m.Area);
+            foreach (var text in new[] { "MCM0", "CM01", "contoso", "DPCM", "CANARY", "SECRET", "Display=" }) Assert.DoesNotContain(text, m.Message, StringComparison.OrdinalIgnoreCase);
+        });
+        Assert.Contains(log.Messages, m => m.Message.Contains("kind error", StringComparison.Ordinal));
+    }
+
+    private sealed class RecordingLog : ApplicationPackagerEngine.Services.Logging.IAppLog
+    {
+        public List<(string Area, string Message)> Messages { get; } = [];
+        public string? SessionFile => null;
+        public ApplicationPackagerEngine.Services.Logging.AppLogLevel MinimumLevel { get; set; } = ApplicationPackagerEngine.Services.Logging.AppLogLevel.Debug;
+        public event EventHandler<ApplicationPackagerEngine.Services.Logging.AppLogEntry>? Written;
+        public void RegisterSecret(string value) { }
+        public void Write(ApplicationPackagerEngine.Services.Logging.AppLogLevel level, string area, string message)
+        {
+            lock (Messages) Messages.Add((area, message));
+            Written?.Invoke(this, new(DateTimeOffset.UtcNow, level, area, message));
+        }
+        public IReadOnlyList<ApplicationPackagerEngine.Services.Logging.AppLogEntry> Tail() => [];
+    }
 }

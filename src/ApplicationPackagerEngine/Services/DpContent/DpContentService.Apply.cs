@@ -37,6 +37,8 @@ public sealed partial class DpContentService
         return outcomes;
     }
 
+    private static string Sentence(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
     private static DpContentOutcome Refused(DpContentChange change, string reason) =>
         new(change, false, SkippedPrefix + reason, change.Pairs.Select(p => new DpContentPairOutcome(p, DpContentResults.Skipped, SkippedPrefix + reason, null)).ToList(), null);
 
@@ -128,7 +130,7 @@ public sealed partial class DpContentService
         var attempted = results.Count(r => r.Result != DpContentResults.Skipped);
         var succeeded = attempted > 0 && results.All(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested or DpContentResults.Skipped);
         var message = attempted == 0
-            ? SkippedPrefix + "no pair was changed. " + (results.FirstOrDefault()?.Message.Replace(SkippedPrefix, "", StringComparison.Ordinal) ?? "")
+            ? SkippedPrefix + "no pair was changed. " + Sentence(results.FirstOrDefault()?.Message.Replace(SkippedPrefix, "", StringComparison.Ordinal) ?? "")
             : $"{Verb(change.Kind)}: {Summary(results)}.";
         DpContentChange? undo = null;
         DpContentChange? retry = null;

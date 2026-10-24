@@ -22,7 +22,8 @@ namespace ApplicationPackagerEngine.Tests.DpContent;
 /// the distribution return without a change, as CM01 does while it still removes the same content;
 /// "NoChange:Id" makes a refresh or a validation accepted without any later state. Each failure in
 /// "Fail" ("put:Id", "delete:Id", "verify:Id", "distribute:Id", "access:Id", "query:Class") happens
-/// once and throws text with a secret marker. "Generate" builds DPs, packages and pairs in the harness.
+/// once and throws text with a secret marker. "Generate" builds DPs, packages and pairs in the harness
+/// at each run and keeps none of them in the saved state, so it serves loads, not changes.
 /// </summary>
 internal sealed class StubDpContentSite : IConfigMgrSession
 {
