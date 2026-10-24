@@ -171,7 +171,7 @@ public sealed class SiteHygieneRenderTests
             yield return ("dgFindings", "Fix", SiteHygieneLabels.FixColumn(kind));
             yield return ("dgHygieneResults", "Fix", SiteHygieneLabels.FixLabel(kind));
         }
-        foreach (var result in new[] { "Done", "Unchanged", "Failed", "Skipped" }) yield return ("dgHygieneResults", "Result", result);
+        foreach (var result in new[] { "Done", "Partial", "Unchanged", "Failed", "Skipped" }) yield return ("dgHygieneResults", "Result", result);
         yield return ("dgEdges", "Kind", "Depends on");
         yield return ("dgEdges", "Kind", "Supersedes");
         foreach (var header in new[] { "Error", "Warning", "Info", "Total" })
@@ -273,6 +273,35 @@ public sealed class SiteHygieneRenderTests
             var tabs = ById<TabControl>(page, "tabHygiene");
             Assert.True(tabs.ActualHeight >= 180, $"The tabs get {tabs.ActualHeight:0} px at {width}x{height}.");
         }, width, height);
+    }
+
+    [Theory]
+    [MemberData(nameof(Sizes))]
+    public void TheMissingAuditRecordWarningShowsWithTheResultsAtEverySize(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            Assert.True(viewModel.HasAuditWarning);
+            foreach (var id in new[] { "pnlHygieneAuditWarning", "txtHygieneAuditWarning", "dgHygieneResults", "txtHygieneStatus", "btnHygieneScan" })
+            {
+                var element = ById<FrameworkElement>(page, id);
+                Assert.True(element.IsVisible, $"{id} is not visible at {width}x{height}.");
+                var bounds = element.TransformToAncestor(window).TransformBounds(new Rect(element.RenderSize));
+                Assert.True(bounds.Left >= -0.5 && bounds.Right <= window.ActualWidth + 0.5 && bounds.Bottom <= window.ActualHeight + 0.5,
+                    $"{id} spans {bounds.Left:0}-{bounds.Right:0},{bounds.Bottom:0} px in a {window.ActualWidth:0}x{window.ActualHeight:0} px window.");
+            }
+            var text = ById<TextBlock>(page, "txtHygieneAuditWarning");
+            Assert.Equal(viewModel.AuditWarning, text.ToolTip);
+            Assert.Equal(viewModel.AuditWarning, AutomationProperties.GetName(text));
+            if (height >= SiteHygienePage.ShortHeight) Assert.Equal(TextWrapping.Wrap, text.TextWrapping);
+            Assert.True(ById<TabControl>(page, "tabHygiene").ActualHeight >= 180, $"The tabs get {ById<TabControl>(page, "tabHygiene").ActualHeight:0} px at {width}x{height}.");
+        }, width, height, () =>
+        {
+            var h = LongHarness();
+            h.Service.AuditIncomplete = true;
+            return h;
+        });
     }
 
     private static UIElement Focused() => Assert.IsAssignableFrom<UIElement>(Keyboard.FocusedElement);

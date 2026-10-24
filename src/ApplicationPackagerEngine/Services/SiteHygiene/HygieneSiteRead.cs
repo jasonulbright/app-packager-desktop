@@ -77,6 +77,9 @@ internal sealed class HygieneSiteRead
     public string StateFailure { get; set; } = "";
     public List<(string Status, string Failure)> Applied { get; } = [];
 
+    /// <summary>True when the script found the session on another site or provider than the caller named, and did nothing.</summary>
+    public bool OtherConnection { get; set; }
+
     private const string TimeFormat = "yyyy-MM-dd'T'HH:mm:ss";
 
     public static DateTime? Time(string text) =>
@@ -96,6 +99,7 @@ internal sealed class HygieneSiteRead
         Queries += other.Queries;
         if (other.StateRead is not null) { StateRead = other.StateRead; StateFailure = other.StateFailure; }
         Applied.AddRange(other.Applied);
+        OtherConnection |= other.OtherConnection;
     }
 
     public static HygieneSiteRead Parse(IReadOnlyList<JsonElement> output)
@@ -148,6 +152,9 @@ internal sealed class HygieneSiteRead
                     break;
                 case "Applied":
                     read.Applied.Add((S(e, "Status"), S(e, "Failure")));
+                    break;
+                case "Connection":
+                    if (!B(e, "Same")) read.OtherConnection = true;
                     break;
             }
         }

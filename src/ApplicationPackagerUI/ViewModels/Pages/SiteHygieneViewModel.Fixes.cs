@@ -44,6 +44,20 @@ public sealed partial class SiteHygieneViewModel
 
     public bool HasResults => LastResults.Count > 0;
 
+    /// <summary>The warning of a fix whose audit log has no Finished record; empty when the audit log is complete.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAuditWarning))]
+    private string _auditWarning = "";
+
+    public bool HasAuditWarning => AuditWarning.Length > 0;
+
+    public const string AuditWarningStart = "The audit log is not complete: the Finished record of the last fix is missing.";
+
+    public static string AuditWarningText(string path) => AuditWarningStart + (path.Length > 0 ? " Audit log: " + path : "");
+
+    private void ShowAuditState(SiteHygienePlan plan) =>
+        AuditWarning = plan.Outcomes.FirstOrDefault(o => o.AuditIncomplete) is { } missing ? AuditWarningText(missing.AuditPath) : "";
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(OpenReportsFolderCommand))]
     private string? _lastReportFolder;
@@ -96,9 +110,9 @@ public sealed partial class SiteHygieneViewModel
             StatusMessage = problem;
             return;
         }
-        if (!SameSite(_result.SiteCode, CurrentSite()))
+        if (!_result.IsFor(CurrentSite(), CurrentProvider()))
         {
-            StatusMessage = OtherSite(_result.SiteCode, CurrentSite());
+            StatusMessage = SameSite(_result.SiteCode, CurrentSite()) ? OtherConnection(_result, CurrentSite(), CurrentProvider()) : OtherSite(_result.SiteCode, CurrentSite());
             return;
         }
         var generation = _resultGeneration;
@@ -216,8 +230,8 @@ public sealed partial class SiteHygieneViewModel
         finally
         {
             var done = MarkFixed(plan);
-            StatusMessage = $"The fix that continued in the background has ended: {SiteHygieneLabels.Count(done, "finding")} fixed.";
-            _background = false;
+            ShowAuditState(plan);
+            StatusMessage = $"The fix that continued in the background has ended: {SiteHygieneLabels.Count(done, "finding")} fixed." + (HasAuditWarning ? " " + AuditWarning : "");            _background = false;
             IsWriting = false;
         }
     }
@@ -245,6 +259,7 @@ public sealed partial class SiteHygieneViewModel
         foreach (var row in result.Items) LastResults.Add(row);
         OnPropertyChanged(nameof(HasResults));
         MarkFixed(plan);
+        ShowAuditState(plan);
         ResultSummary = $"{plan.Plan.Title}: {result.Summary}";
         StatusMessage = ResultSummary + (leftOut > 0 ? $" {SiteHygieneLabels.Count(leftOut, "selected finding")} had no fix or {(leftOut == 1 ? "was" : "were")} suppressed and {(leftOut == 1 ? "was" : "were")} not in the plan." : "");
     }
@@ -267,9 +282,10 @@ public sealed partial class SiteHygieneViewModel
         }
         var now = DateTime.UtcNow;
         var site = ResultSite();
+        var provider = ResultProvider();
         await ChangeSuppressionsAsync(rows,
-            list => Services.Suppressions.AddRange(list.Select(r => new Suppression(CheckId: r.Finding.CheckId, ObjectKey: r.Finding.ObjectKey, Comment: comment, CreatedUtc: now) { SiteCode = site }).ToList()),
-            n => $"Suppressed {SiteHygieneLabels.Count(n, "finding")}." + (ShowSuppressed ? "" : " Show suppressed lists them."), "Suppress", site);
+            list => Services.Suppressions.AddRange(list.Select(r => new Suppression(CheckId: r.Finding.CheckId, ObjectKey: r.Finding.ObjectKey, Comment: comment, CreatedUtc: now) { SiteCode = site, Provider = provider }).ToList()),
+            n => $"Suppressed {SiteHygieneLabels.Count(n, "finding")}." + (ShowSuppressed ? "" : " Show suppressed lists them."), "Suppress", site, provider);
     }
 
     [RelayCommand(CanExecute = nameof(CanAct))]
@@ -282,15 +298,16 @@ public sealed partial class SiteHygieneViewModel
             return;
         }
         var site = ResultSite();
-        await ChangeSuppressionsAsync(rows, list => Services.Suppressions.RemoveRange(site, list.Select(r => (r.Finding.CheckId, r.Finding.ObjectKey)).ToList()),
-            n => $"Unsuppressed {SiteHygieneLabels.Count(n, "finding")}.", "Unsuppress", site);
+        var provider = ResultProvider();
+        await ChangeSuppressionsAsync(rows, list => Services.Suppressions.RemoveRange(site, list.Select(r => (r.Finding.CheckId, r.Finding.ObjectKey)).ToList(), provider),
+            n => $"Unsuppressed {SiteHygieneLabels.Count(n, "finding")}.", "Unsuppress", site, provider);
     }
 
     /// <summary>
     /// Writes the suppression change of every row off the UI thread in one read and one write of the store,
     /// then reads the store again so the rows show what it holds. A failed write changes no row.
     /// </summary>
-    private async Task ChangeSuppressionsAsync(IReadOnlyList<FindingGridRow> rows, Action<IReadOnlyList<FindingGridRow>> change, Func<int, string> done, string action, string site)
+    private async Task ChangeSuppressionsAsync(IReadOnlyList<FindingGridRow> rows, Action<IReadOnlyList<FindingGridRow>> change, Func<int, string> done, string action, string site, string provider)
     {
         Exception? failure = null;
         await Task.Run(() =>
@@ -298,7 +315,7 @@ public sealed partial class SiteHygieneViewModel
             try { change(rows); }
             catch (Exception ex) { failure = ex; }
         });
-        _suppressions = await Task.Run(() => ReadSuppressions(site));
+        _suppressions = await Task.Run(() => ReadSuppressions(site, provider));
         BuildRows();
         ApplyFindingFilter();
         RefreshSummary();

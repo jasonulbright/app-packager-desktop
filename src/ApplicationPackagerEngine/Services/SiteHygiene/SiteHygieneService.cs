@@ -47,16 +47,23 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly Func<DateTime> _utcNow;
     private readonly Func<string, TimeSpan, CancellationToken, Task<string>> _probe;
+    private readonly Func<ConfigMgrConnection>? _connection;
 
     private readonly ConcurrentDictionary<string, PreparedChange> _prepared = new(StringComparer.Ordinal);
 
+    /// <param name="connection">
+    /// The site and provider the session connects to, read at each call as the session reads them. A scan
+    /// and a plan capture it once; every script call then names it, and the script does nothing in a
+    /// session on another site or provider. Null binds nothing.
+    /// </param>
     public SiteHygieneService(
         IConfigMgrSession session,
         IHygieneAuditLog audit,
         IAppLog? log = null,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
         Func<DateTime>? utcNow = null,
-        Func<string, TimeSpan, CancellationToken, Task<string>>? probe = null)
+        Func<string, TimeSpan, CancellationToken, Task<string>>? probe = null,
+        Func<ConfigMgrConnection>? connection = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
@@ -64,6 +71,32 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         _delay = delay ?? ((t, ct) => Task.Delay(t, ct));
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
         _probe = probe ?? ProbePathAsync;
+        _connection = connection;
+    }
+
+    internal const string ConnectionChanged = "the connection changed since the plan. The settings name another site or SMS Provider now. Nothing more was changed. Prepare the plan again.";
+
+    /// <summary>The script found the session on another site or provider than the scan or plan, and did nothing.</summary>
+    private sealed class OtherConnectionException() : Exception("The ConfigMgr session is connected to another site or SMS Provider.");
+
+    /// <summary>The connection of the settings now; null when the service binds nothing.</summary>
+    private ConfigMgrConnection? Connection()
+    {
+        if (_connection is null) return null;
+        var c = _connection();
+        return new ConfigMgrConnection(HygieneSite.Code(c.SiteCode), (c.ProviderMachine ?? "").Trim());
+    }
+
+    private static bool SameConnection(ConfigMgrConnection? expected, ConfigMgrConnection? now) =>
+        expected is null || (now is not null && HygieneSite.Same(expected.SiteCode, expected.ProviderMachine, now.SiteCode, now.ProviderMachine));
+
+    /// <summary>Names the expected site and provider for the script, which refuses to run in a session on another one.</summary>
+    private static ConfigMgrParameters Bound(ConfigMgrParameters parameters, ConfigMgrConnection? expected)
+    {
+        if (expected is null) return parameters;
+        parameters["ExpectSite"] = expected.NormalizedSiteCode;
+        parameters["ExpectProvider"] = expected.NormalizedProvider;
+        return parameters;
     }
 
     public int MaxRows { get; init; } = DefaultMaxRows;
@@ -91,16 +124,20 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         var data = new HygieneSiteRead();
         var pause = options.PauseBetweenCalls < TimeSpan.Zero ? TimeSpan.Zero : options.PauseBetweenCalls;
         var pacing = (int)Math.Min(60_000, pause.TotalMilliseconds);
+        var connection = Connection();
         for (var i = 0; i < sets.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
             if (i > 0 && pause > TimeSpan.Zero) await _delay(pause, ct).ConfigureAwait(false);
             var set = sets[i];
             progress.Report($"Reading {Label(set)} ({N(i + 1)} of {N(sets.Count)}).");
-            var parameters = new ConfigMgrParameters { { "Operation", "Read" }, { "Sets", new[] { set } }, { "MaxRows", MaxRows }, { "PacingMs", pacing }, { "MaxObjects", MaxObjects } };
+            if (!SameConnection(connection, Connection())) throw ScanConnectionChanged();
+            var parameters = Bound(new ConfigMgrParameters { { "Operation", "Read" }, { "Sets", new[] { set } }, { "MaxRows", MaxRows }, { "PacingMs", pacing }, { "MaxObjects", MaxObjects } }, connection);
             try
             {
-                data.Merge(Parse(await _session.InvokeAsync(Script, parameters, ct, ReadTimeout).ConfigureAwait(false)));
+                var part = Parse(await _session.InvokeAsync(Script, parameters, ct, ReadTimeout).ConfigureAwait(false));
+                if (part.OtherConnection) throw ScanConnectionChanged();
+                data.Merge(part);
             }
             catch (ConfigMgrSessionException ex) when (ex.Failure is ConfigMgrFailure.ScriptFailed or ConfigMgrFailure.Timeout or ConfigMgrFailure.ProcessDied or ConfigMgrFailure.Unexpected)
             {
@@ -139,11 +176,18 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         {
             Areas = areas.Order(StringComparer.Ordinal).ToList(),
             QueryCount = data.Queries,
-            SiteCode = data.SiteCode
+            SiteCode = connection?.NormalizedSiteCode is { Length: > 0 } code ? code : data.SiteCode,
+            Provider = connection?.NormalizedProvider
         };
         _log?.Info(LogArea, $"Scan: {N(sets.Count)} reads, {N(data.Queries)} queries, {N(findings.Count)} findings, {N(result.ChecksNotRun)} checks did not run.");
         progress.Report($"Scan finished: {Count(findings.Count, "finding")}, {Count(result.ChecksNotRun, "check")} did not run.");
         return result;
+    }
+
+    private HygieneServiceException ScanConnectionChanged()
+    {
+        _log?.Warning(LogArea, "The scan stopped: the site or SMS Provider of the settings changed during the scan.");
+        return new HygieneServiceException("The scan stopped: the settings name another site or SMS Provider than at the start of the scan. Select Scan again.");
     }
 
     internal static string Label(string set) => set switch
@@ -210,11 +254,18 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         }
     }
 
-    private async Task<HygieneSiteRead> RunAsync(ConfigMgrParameters parameters, CancellationToken ct, TimeSpan? timeout = null)
+    /// <summary>
+    /// One script call bound to <paramref name="expected"/>: refused before the call when the settings name
+    /// another connection now, and by the script when the session is on another one.
+    /// </summary>
+    private async Task<HygieneSiteRead> RunAsync(ConfigMgrParameters parameters, ConfigMgrConnection? expected, CancellationToken ct, TimeSpan? timeout = null)
     {
+        if (!SameConnection(expected, Connection())) throw new OtherConnectionException();
         try
         {
-            return Parse(await _session.InvokeAsync(Script, parameters, ct, timeout).ConfigureAwait(false));
+            var read = Parse(await _session.InvokeAsync(Script, Bound(parameters, expected), ct, timeout).ConfigureAwait(false));
+            if (read.OtherConnection) throw new OtherConnectionException();
+            return read;
         }
         catch (ConfigMgrSessionException ex)
         {

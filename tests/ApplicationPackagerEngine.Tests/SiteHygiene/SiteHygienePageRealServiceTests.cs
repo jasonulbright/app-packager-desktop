@@ -41,8 +41,9 @@ internal sealed class SiteHygieneRealPage : IDisposable
     /// <summary>Runs before the plan window confirms: the site changes between Prepare and Apply.</summary>
     public Action? BeforeConfirm;
 
+    /// <summary>The settings name the connection of the harness, which the service reads at each call, as the desktop does.</summary>
     public SiteHygieneViewModel Create() => new(new SiteHygienePageServices(Service, Suppressions, ScanStore, Reports, Dialogs, new Hook(this), Writer,
-        () => new AppSettings { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com" }, () => null, _ => true,
+        () => new AppSettings { SiteCode = Site.Connection.SiteCode ?? "", ProviderMachine = Site.Connection.ProviderMachine ?? "" }, () => null, _ => true,
         () => Task.FromResult(new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Started)), Log) { FilterDelay = TimeSpan.Zero });
 
     /// <summary>Opens the page and scans only the given areas of the stub site.</summary>
@@ -302,5 +303,53 @@ public sealed class SiteHygienePageRealServiceTests
         await vm.ExportCsvCommand.ExecuteAsync(null);
         var file = Assert.Single(Directory.GetFiles(p.Reports.Folder, "*.csv"));
         Assert.Contains("Findings", File.ReadAllText(file), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EachDeploymentOfAFindingShowsItsOwnResultAndTheFindingStaysWhileOneRemains()
+    {
+        using var p = new SiteHygieneRealPage(SiteHygieneRunBindingTests.RetiredWithTwoDeployments());
+        var vm = await p.ScannedAsync("Applications");
+        var row = vm.FindingRows.Single(r => r.CheckId == "APP-02" && r.Finding.ObjectName == "SHL-App-Retired");
+        p.Site.Site.BeforeRun = (q, site) => { if ((string?)q["Operation"] == "Apply" && site.Commands.Any()) site.Fail("cmd:Remove-CMApplicationDeployment"); };
+        vm.SetSelectedFindings([row]);
+        await vm.RunFixCommand.ExecuteAsync(null);
+        var plan = Assert.Single(p.Plans.Shown);
+        Assert.Equal(2, plan.Items.Count);
+        Assert.Equal(["Done", "Failed"], vm.LastResults.Select(r => r.OutcomeText));
+        Assert.Equal("Deleted. The site no longer lists the object.", vm.LastResults[0].Message);
+        Assert.Equal("ConfigMgr reported an error. The log has the kind of failure.", vm.LastResults[1].Message);
+        Assert.Equal(plan.Items.Select(i => i.Target), vm.LastResults.Select(r => r.Item.Target));
+        Assert.Contains(vm.FindingRows, r => r.Key == row.Key);
+        Assert.EndsWith(": 1 done, 1 failed.", vm.ResultSummary);
+    }
+
+    [Fact]
+    public async Task ASettingsChangeToAnotherProviderBetweenThePlanAndTheConfirmChangesNothing()
+    {
+        using var p = new SiteHygieneRealPage();
+        var vm = await p.ScannedAsync("Packages");
+        p.BeforeConfirm = () => p.Site.Connection = new ApplicationPackagerEngine.Services.ConfigMgrSession.ConfigMgrConnection("MCM", "CM02");
+        vm.SetSelectedFindings([SiteHygieneRealPage.Row(vm, "PKG-01", EmptyPackage)]);
+        await vm.RunFixCommand.ExecuteAsync(null);
+        var result = Assert.Single(vm.LastResults);
+        Assert.Equal("Skipped", result.OutcomeText);
+        Assert.StartsWith("Skipped: the connection changed since the plan", result.Message);
+        Assert.Empty(p.Site.Site.Commands);
+        Assert.Contains(vm.FindingRows, r => r.Finding.ObjectKey == EmptyPackage);
+    }
+
+    [Fact]
+    public async Task AResultOfAnotherProviderOfTheSameSiteCodeIsNotFixed()
+    {
+        using var p = new SiteHygieneRealPage();
+        var vm = await p.ScannedAsync("Packages");
+        p.Site.Connection = new ApplicationPackagerEngine.Services.ConfigMgrSession.ConfigMgrConnection("MCM", "CM02");
+        vm.SetSelectedFindings([SiteHygieneRealPage.Row(vm, "PKG-01", EmptyPackage)]);
+        var runs = p.Site.Site.Runs.Count;
+        await vm.RunFixCommand.ExecuteAsync(null);
+        Assert.Empty(p.Plans.Shown);
+        Assert.Equal(runs, p.Site.Site.Runs.Count);
+        Assert.Equal("The result shown is of site MCM on CM01, and the settings name site MCM on CM02. Nothing was changed. Select Scan to read the site of the settings.", vm.StatusMessage);
     }
 }

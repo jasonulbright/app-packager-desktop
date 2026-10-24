@@ -131,7 +131,12 @@ public static class PackagerServiceRegistration
         services.AddSingleton<IHygieneSuppressionStore>(sp => new HygieneSuppressionStore(log: sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<IHygieneScanStore>(sp => new HygieneScanStore(log: sp.GetRequiredService<IAppLog>()));
         services.AddSingleton<IHygieneReportWriter>(_ => new HygieneReportWriter());
-        services.AddSingleton<ISiteHygieneService>(sp => new SiteHygieneService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IHygieneAuditLog>(), sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<ISiteHygieneService>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            return new SiteHygieneService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IHygieneAuditLog>(), sp.GetRequiredService<IAppLog>(),
+                connection: () => SessionConnection(settings));
+        });
 
         services.AddSingleton<IAnalysisSandbox>(_ => new AnalysisSandbox());
         services.AddSingleton<IInstallerAnalysisService>(sp => new InstallerAnalysisService(sp.GetRequiredService<IAnalysisSandbox>()));

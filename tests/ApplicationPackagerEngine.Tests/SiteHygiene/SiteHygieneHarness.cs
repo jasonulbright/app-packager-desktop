@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.ConfigMgrSession;
 
 namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 
@@ -15,12 +16,15 @@ internal sealed class SiteHygieneHarness : IDisposable
     public List<TimeSpan> Delays { get; } = [];
     public DateTime Clock { get; set; } = SiteHygieneFixtures.CaptureUtc;
 
+    /// <summary>The site and provider the settings name, read at each call as the desktop reads them; the stub drive is MCM on CM01.</summary>
+    public ConfigMgrConnection Connection { get; set; } = new("MCM", "CM01");
+
     public SiteHygieneHarness(JsonObject? state = null, string? auditPath = null, Func<SiteHygieneService, SiteHygieneService>? configure = null)
     {
         Directory.CreateDirectory(Folder);
         Site = new StubHygieneSite(state ?? SiteHygieneFixtures.StubState());
         Audit = new HygieneAuditLog(() => auditPath ?? Path.Combine(Folder, "site-hygiene-audit.jsonl"));
-        Service = new SiteHygieneService(Site, Audit, delay: (t, ct) => { Delays.Add(t); Clock += t; return Task.CompletedTask; }, utcNow: () => Clock);
+        Service = new SiteHygieneService(Site, Audit, delay: (t, ct) => { Delays.Add(t); Clock += t; return Task.CompletedTask; }, utcNow: () => Clock, connection: () => Connection);
         if (configure is not null) Service = configure(Service);
     }
 

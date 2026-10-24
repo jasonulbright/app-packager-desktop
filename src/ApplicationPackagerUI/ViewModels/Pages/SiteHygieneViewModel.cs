@@ -334,7 +334,10 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     }
 
     /// <summary>The site code of the settings, upper case; empty when it is not set.</summary>
-    private string CurrentSite() => (Services.LoadSettings().SiteCode ?? "").Trim().ToUpperInvariant();
+    private string CurrentSite() => HygieneSite.Code(Services.LoadSettings().SiteCode);
+
+    /// <summary>The SMS Provider of the settings, trimmed; empty for the local computer.</summary>
+    private string CurrentProvider() => (Services.LoadSettings().ProviderMachine ?? "").Trim();
 
     /// <summary>True when a result or suppression of <paramref name="resultSite"/> belongs to the site <paramref name="site"/>; a result without a site code belongs to none.</summary>
     public static bool SameSite(string? resultSite, string site) =>
@@ -342,6 +345,10 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
 
     public static string OtherSite(string resultSite, string site) =>
         $"The result shown is of site {(resultSite.Length > 0 ? resultSite : "(not known)")}, and the settings name site {site}. Nothing was changed. Select Scan to read site {site}.";
+
+    /// <summary>The refusal of a fix whose result is of another site or SMS Provider than the settings name.</summary>
+    public static string OtherConnection(HygieneScanResult result, string site, string provider) =>
+        $"The result shown is of site {HygieneSite.Text(result.SiteCode, result.Provider ?? "(not known)")}, and the settings name site {HygieneSite.Text(site, provider)}. Nothing was changed. Select Scan to read the site of the settings.";
 
     /// <summary>
     /// Why a scan result must not replace the stored last scan: a truncated read, or a check that did not
@@ -388,6 +395,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         var mine = ++_scanGeneration;
         var site = SiteKey();
         var siteCode = CurrentSite();
+        var provider = CurrentProvider();
         using var cts = new CancellationTokenSource();
         _scanCts = cts;
         _scanShown = false;
@@ -412,8 +420,9 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
                 return;
             }
             if (result.SiteCode.Length == 0) result = result with { SiteCode = siteCode };
-            var suppressions = await Task.Run(() => ReadSuppressions(siteCode));
-            var last = await Task.Run(() => ReadLastScan(siteCode));
+            if (result.Provider is null) result = result with { Provider = provider };
+            var suppressions = await Task.Run(() => ReadSuppressions(siteCode, provider));
+            var last = await Task.Run(() => ReadLastScan(siteCode, provider));
             if (mine != _scanGeneration)
             {
                 StatusMessage = ScanCancelled;
@@ -463,10 +472,10 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
     }
 
-    /// <summary>The stored last scan of the site; null when there is none, it cannot be read, or it is of another site.</summary>
-    private HygieneScanResult? ReadLastScan(string siteCode)
+    /// <summary>The stored last scan of the site; null when there is none, it cannot be read, or it is of another site or provider.</summary>
+    private HygieneScanResult? ReadLastScan(string siteCode, string provider)
     {
-        try { return Services.ScanStore.Load() is { } last && SameSite(last.SiteCode, siteCode) ? last : null; }
+        try { return Services.ScanStore.Load() is { } last && last.IsFor(siteCode, provider) ? last : null; }
         catch (Exception ex)
         {
             Services.Log.Warning(LogArea, $"The last scan could not be read ({ex.GetType().Name}).");
@@ -489,13 +498,17 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         };
     }
 
-    /// <summary>The suppressions that hold on the site: its own and those of every site; its own wins for the same key.</summary>
-    private Dictionary<string, Suppression> ReadSuppressions(string siteCode)
+    /// <summary>
+    /// The suppressions that hold on the site and provider: their own, those of the site without a recorded
+    /// provider and those of every site; the most specific wins for the same key.
+    /// </summary>
+    private Dictionary<string, Suppression> ReadSuppressions(string siteCode, string provider)
     {
         var map = new Dictionary<string, Suppression>(StringComparer.Ordinal);
         try
         {
-            foreach (var s in Services.Suppressions.Load().Where(s => s is { CheckId.Length: > 0, ObjectKey.Length: > 0 } && s.AppliesTo(siteCode)).OrderBy(s => s.SiteCode.Length > 0))
+            foreach (var s in Services.Suppressions.Load().Where(s => s is { CheckId.Length: > 0, ObjectKey.Length: > 0 } && s.AppliesTo(siteCode, provider))
+                         .OrderBy(s => s.SiteCode.Length > 0).ThenBy(s => s.Provider is not null))
                 map[SiteHygieneLabels.Key(s.CheckId, s.ObjectKey)] = s;
         }
         catch (Exception ex)
@@ -508,16 +521,20 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     /// <summary>The site code of the result shown, or of the settings when no result shows.</summary>
     private string ResultSite() => _result is { SiteCode.Length: > 0 } r ? r.SiteCode.Trim().ToUpperInvariant() : CurrentSite();
 
+    /// <summary>The SMS Provider of the result shown, or of the settings when no result shows or the result has none recorded.</summary>
+    private string ResultProvider() => _result is { Provider: { } p } ? p : CurrentProvider();
+
     /// <summary>Shows the stored last scan of the site when no scan of this session shows yet; the read touches the disk only.</summary>
     private async Task LoadStoredAsync()
     {
         HygieneScanResult? stored;
         Dictionary<string, Suppression> suppressions;
         var siteCode = CurrentSite();
+        var provider = CurrentProvider();
         try
         {
             stored = await Task.Run(Services.ScanStore.Load);
-            suppressions = await Task.Run(() => ReadSuppressions(siteCode));
+            suppressions = await Task.Run(() => ReadSuppressions(siteCode, provider));
         }
         catch (Exception ex)
         {
@@ -526,10 +543,12 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
         // A scan of this session that ended or still runs is newer than the stored result.
         if (stored is null || _result is not null || IsScanning) return;
-        if (!SameSite(stored.SiteCode, siteCode))
+        if (!stored.IsFor(siteCode, provider))
         {
             if (siteCode.Length > 0)
-                StatusMessage = $"The stored last scan is of site {(stored.SiteCode.Length > 0 ? stored.SiteCode : "(not known)")}, not of site {siteCode}, so it is not shown. Select Scan to read site {siteCode}.";
+                StatusMessage = SameSite(stored.SiteCode, siteCode)
+                    ? $"The stored last scan is of site {HygieneSite.Text(stored.SiteCode, stored.Provider ?? "(not known)")}, not of site {HygieneSite.Text(siteCode, provider)}, so it is not shown. Select Scan to read site {siteCode}."
+                    : $"The stored last scan is of site {(stored.SiteCode.Length > 0 ? stored.SiteCode : "(not known)")}, not of site {siteCode}, so it is not shown. Select Scan to read site {siteCode}.";
             return;
         }
         _notStored = "";

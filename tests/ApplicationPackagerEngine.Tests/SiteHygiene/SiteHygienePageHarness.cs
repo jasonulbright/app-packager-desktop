@@ -57,13 +57,21 @@ internal sealed class FakeSiteHygieneService : ISiteHygieneService
 
     public TaskCompletionSource? ApplyGate;
 
+    /// <summary>True makes the run report that its Finished audit record could not be written.</summary>
+    public bool AuditIncomplete;
+
+    public const string AuditMissing = @" The audit log has no Finished record for this run: the record could not be written to C:\Data\SiteHygiene\site-hygiene-audit.jsonl.";
+
     /// <summary>Set while a confirmed change plan runs; a write outside it fails the test.</summary>
     public Func<bool>? InConfirmedRun;
 
     /// <summary>The site code the scan returns, as the real service reads it from the ConfigMgr drive.</summary>
     public string SiteCode = "MCM";
 
-    public HygieneScanResult Result() => new(Findings.ToList(), Checks.ToList(), ScannedUtc, Truncated, null) { SiteCode = SiteCode };
+    /// <summary>The SMS Provider the scan records, as the real service takes it from the connection.</summary>
+    public string? Provider = "cm01.contoso.com";
+
+    public HygieneScanResult Result() => new(Findings.ToList(), Checks.ToList(), ScannedUtc, Truncated, null) { SiteCode = SiteCode, Provider = Provider };
 
     public async Task<HygieneScanResult> ScanAsync(HygieneScanOptions options, IProgress<string> progress, CancellationToken ct)
     {
@@ -137,7 +145,11 @@ internal sealed class FakeSiteHygieneService : ISiteHygieneService
             results.Add(result);
             AfterObject?.Invoke(i);
         }
-        var outcome = new HygieneOutcome(change, results.All(r => r.Result != "Failed"), $"{results.Count(r => r.Result == "Done")} done.", results, Final: true);
+        var outcome = new HygieneOutcome(change, results.All(r => r.Result != "Failed"), $"{results.Count(r => r.Result == "Done")} done." + (AuditIncomplete ? AuditMissing : ""), results, Final: true)
+        {
+            AuditIncomplete = AuditIncomplete,
+            AuditPath = AuditIncomplete ? @"C:\Data\SiteHygiene\site-hygiene-audit.jsonl" : ""
+        };
         progress.Report(outcome);
         return outcome;
     }
@@ -182,12 +194,12 @@ internal sealed class FakeSuppressionStore : IHygieneSuppressionStore
 
     public void Remove(string checkId, string objectKey) => RemoveRange("", [(checkId, objectKey)]);
 
-    public void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys)
+    public void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys, string? provider = null)
     {
         Check();
         Interlocked.Increment(ref Writes);
         var wanted = keys.Select(k => SiteHygieneLabels.Key(k.CheckId, k.ObjectKey)).ToHashSet();
-        lock (Items) Items.RemoveAll(s => wanted.Contains(SiteHygieneLabels.Key(s.CheckId, s.ObjectKey)) && s.AppliesTo(siteCode));
+        lock (Items) Items.RemoveAll(s => wanted.Contains(SiteHygieneLabels.Key(s.CheckId, s.ObjectKey)) && s.AppliesTo(siteCode, provider));
     }
 
     public string Path => @"C:\Data\SiteHygiene\suppressions.json";

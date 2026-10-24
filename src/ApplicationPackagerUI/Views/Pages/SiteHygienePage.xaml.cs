@@ -29,19 +29,35 @@ public partial class SiteHygienePage : INavigationAware
         {
             if (dgFindings.IsVisible && _selectionPending) SelectFindings();
         };
-        SizeChanged += (_, e) =>
-        {
-            var compact = e.NewSize.Height < ShortHeight;
-            dgHygieneResults.MaxHeight = compact ? ShortResultsHeight : TallResultsHeight;
-            txtHygieneIntro.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-            pageRoot.Margin = compact ? CompactMargin : RegularMargin;
-        };
+        SizeChanged += (_, e) => ApplyLayout(e.NewSize.Height < ShortHeight);
+    }
+
+    private bool _compact;
+
+    private void ApplyLayout(bool compact)
+    {
+        _compact = compact;
+        dgHygieneResults.MaxHeight = compact ? ShortResultsHeight : TallResultsHeight;
+        txtHygieneIntro.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        pageRoot.Margin = compact ? CompactMargin : RegularMargin;
+        txtHygieneAuditWarning.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap;
+        pnlHygieneAuditWarning.Padding = compact ? CompactWarningPadding : RegularWarningPadding;
+        pnlHygieneAuditWarning.Margin = compact ? CompactWarningMargin : RegularWarningMargin;
+        txtHygieneResultSummary.Visibility = compact && _viewModel.HasAuditWarning ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private static readonly Thickness RegularMargin = new(24, 16, 24, 12);
     private static readonly Thickness CompactMargin = new(24, 6, 24, 4);
+    private static readonly Thickness RegularWarningPadding = new(12, 8, 12, 8);
+    private static readonly Thickness CompactWarningPadding = new(8, 0, 8, 0);
+    private static readonly Thickness RegularWarningMargin = new(0, 0, 0, 6);
+    private static readonly Thickness CompactWarningMargin = new(0, 0, 0, 2);
 
-    /// <summary>Below this page height the result rows take less room and the intro line is hidden, so the tabs keep a usable height at 900x600.</summary>
+    /// <summary>
+    /// Below this page height the result rows take less room and the intro line is hidden, so the tabs keep a
+    /// usable height at 900x600. The audit warning then keeps one line in place of the result summary, which
+    /// the status line also holds; its tooltip and automation name hold the full text.
+    /// </summary>
     public const double ShortHeight = 700;
     public const double ShortResultsHeight = 64;
     public const double TallResultsHeight = 140;
@@ -83,6 +99,9 @@ public partial class SiteHygienePage : INavigationAware
                 break;
             case nameof(SiteHygieneViewModel.FindingRows) or nameof(SiteHygieneViewModel.EdgeRows) or nameof(SiteHygieneViewModel.CheckRows):
                 ShowSorts();
+                break;
+            case nameof(SiteHygieneViewModel.HasAuditWarning):
+                ApplyLayout(_compact);
                 break;
         }
     }

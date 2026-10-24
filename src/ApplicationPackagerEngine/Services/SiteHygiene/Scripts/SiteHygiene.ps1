@@ -6,7 +6,9 @@ param(
     [string[]]$Keys = @(),
     [ValidateRange(1, 100000)][int]$MaxObjects = 2000,
     [string]$Kind = '',
-    [string]$Target = ''
+    [string]$Target = '',
+    [string]$ExpectSite = '',
+    [string]$ExpectProvider = ''
 )
 
 # Values from the caller reach WQL text only after a pattern check (IDs, model names, GUIDs,
@@ -97,6 +99,24 @@ function Get-FailureKind {
     if ($text -match 'Object reference not set') { return 'error' }
     if ($text -match 'cannot delete|is referenced|references it|other applications or task sequences reference|dependent|Failure deleting') { return 'referenced' }
     return 'error'
+}
+
+# The session reads its connection settings anew for each command and can reconnect between two
+# commands, so a caller that names a site and provider gets nothing from a session on another one.
+# The short name and the fully qualified name of a host are the same provider, as the session host
+# treats them.
+function Test-SessionConnection {
+    if (-not $ExpectSite) { return $true }
+    $drive = (Get-Location).Drive
+    if ($null -eq $drive -or ([string]$drive.Name) -ne $ExpectSite) { return $false }
+    $want = $ExpectProvider.Trim().TrimEnd('\')
+    if (-not $want) { $want = $env:COMPUTERNAME }
+    $a = ([string]$drive.Root).Trim().TrimEnd('\').ToLowerInvariant()
+    $b = ([string]$want).ToLowerInvariant()
+    if (-not $a) { return $false }
+    if ($a -eq $b) { return $true }
+    if ($a.Contains('.') -eq $b.Contains('.')) { return $false }
+    return (($a -split '\.')[0] -eq ($b -split '\.')[0])
 }
 
 # ---- Per-object sets ------------------------------------------------------------------------
@@ -287,9 +307,35 @@ function Read-CollectionUsers {
     Write-Facts 'CollectionAssignments' 'SMS_CIAssignmentBaseClass' @('AssignmentID', 'TargetCollectionID') (Get-OrList 'TargetCollectionID' $CollectionIds)
     Write-Facts 'CollectionRules' 'SMS_AutoDeployment' @('AutoDeploymentID', 'CollectionID') $where
     Write-Facts 'CollectionClientSettings' 'SMS_ClientSettingsAssignment' @('ClientSettingsID', 'CollectionID') $where
+    $rows = @(Get-AdminCollectionIds $CollectionIds)
+    Write-Set 'CollectionAdmins' @('AdminID', 'CategoryID') $rows $rows.Count
+}
+
+# An Auto Apply Drivers step leaves no reference row: the steps are in the Sequence XML, a lazy
+# property, so one read per task sequence.
+function Get-AutoApplySequenceIds {
+    $sequences = @(Invoke-Query 'SELECT PackageID FROM SMS_TaskSequencePackage' | ForEach-Object { [string](Get-Prop $_ 'PackageID') } | Where-Object { $_ -match $IdPattern } | Sort-Object -Unique)
+    if ($sequences.Count -gt $MaxObjects) { throw 'The site has more task sequences than one read takes.' }
+    foreach ($id in $sequences) {
+        Wait-Pace
+        $script:Queries++
+        $ts = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID = '$id'" -ErrorAction Stop) | Select-Object -First 1
+        if ($null -eq $ts) { continue }
+        $ts.Get()
+        if ([string](Get-Prop $ts 'Sequence') -match 'SMS_TaskSequence_AutoApplyAction') { $id }
+    }
+}
+
+function Read-AutoApplySequences {
+    $rows = @(foreach ($id in Get-AutoApplySequenceIds) { , [string[]]@($id) })
+    Write-Set 'AutoApplySequences' @('PackageID') $rows $rows.Count
+}
+
+# The collection IDs administrative users hold in their assigned collections, among the given ones.
+function Get-AdminCollectionIds {
+    param([string[]]$CollectionIds)
     $admins = @(Invoke-Query 'SELECT AdminID FROM SMS_Admin' | ForEach-Object { [string](Get-Prop $_ 'AdminID') } | Where-Object { $_ -match $NumberPattern } | Sort-Object -Unique)
     if ($admins.Count -gt $MaxObjects) { throw 'The site has more administrative users than one read takes.' }
-    $rows = New-Object System.Collections.Generic.List[object]
     foreach ($adminId in $admins) {
         Wait-Pace
         $script:Queries++
@@ -299,27 +345,9 @@ function Read-CollectionUsers {
         foreach ($p in @(Get-Prop $admin 'Permissions')) {
             if ($null -eq $p -or [string](Get-Prop $p 'CategoryTypeID') -ne '1') { continue }
             $category = ([string](Get-Prop $p 'CategoryID')).ToUpperInvariant()
-            if ($CollectionIds -contains $category) { $rows.Add([string[]]@($adminId, $category)) }
+            if ($CollectionIds -contains $category) { , [string[]]@($adminId, $category) }
         }
     }
-    Write-Set 'CollectionAdmins' @('AdminID', 'CategoryID') $rows.ToArray() $rows.Count
-}
-
-# An Auto Apply Drivers step leaves no reference row: the steps are in the Sequence XML, a lazy
-# property, so one read per task sequence.
-function Read-AutoApplySequences {
-    $sequences = @(Invoke-Query 'SELECT PackageID FROM SMS_TaskSequencePackage' | ForEach-Object { [string](Get-Prop $_ 'PackageID') } | Where-Object { $_ -match $IdPattern } | Sort-Object -Unique)
-    if ($sequences.Count -gt $MaxObjects) { throw 'The site has more task sequences than one read takes.' }
-    $rows = New-Object System.Collections.Generic.List[object]
-    foreach ($id in $sequences) {
-        Wait-Pace
-        $script:Queries++
-        $ts = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID = '$id'" -ErrorAction Stop) | Select-Object -First 1
-        if ($null -eq $ts) { continue }
-        $ts.Get()
-        if ([string](Get-Prop $ts 'Sequence') -match 'SMS_TaskSequence_AutoApplyAction') { $rows.Add([string[]]@($id)) }
-    }
-    Write-Set 'AutoApplySequences' @('PackageID') $rows.ToArray() $rows.Count
 }
 
 function Invoke-State {
@@ -424,53 +452,116 @@ function Invoke-State {
 
 # ---- Apply: one write on one object by its exact identifier ------------------------------------
 
+function Test-Any {
+    param([string]$Class, [string]$Column, [string]$Where)
+    @(Invoke-Query "SELECT $Column FROM $Class WHERE $Where").Count -gt 0
+}
+
+# The references to the object of a delete, read in the same command as the delete, so a reference
+# made after the State read of the service still stops it. The site deletes a collection that an
+# automatic deployment rule, a client settings deployment or an administrative scope uses. Returns
+# the kind of the first use found; empty when nothing uses the object.
+function Get-InUse {
+    param([string]$Id)
+    switch ($Kind) {
+        'RemoveCollection' {
+            if (Test-Any 'SMS_DeploymentSummary' 'DeploymentID' "CollectionID = '$Id'") { return 'deployments' }
+            if (Test-Any 'SMS_CIAssignmentBaseClass' 'AssignmentID' "TargetCollectionID = '$Id'") { return 'deployments' }
+            if (Test-Any 'SMS_CollectionDependencies' 'DependentCollectionID' "SourceCollectionID = '$Id'") { return 'collections' }
+            if (Test-Any 'SMS_CollectionSettings' 'CollectionID' "CollectionID = '$Id'") { return 'collection-settings' }
+            if (Test-Any 'SMS_AutoDeployment' 'AutoDeploymentID' "CollectionID = '$Id'") { return 'rules' }
+            if (Test-Any 'SMS_ClientSettingsAssignment' 'ClientSettingsID' "CollectionID = '$Id'") { return 'client-settings' }
+            if (@(Get-AdminCollectionIds @($Id.ToUpperInvariant())).Count -gt 0) { return 'admins' }
+        }
+        'RemoveApplication' {
+            $app = @(Invoke-Query "SELECT CI_ID, ModelID, ModelName, IsSuperseded, IsSuperseding FROM SMS_Application WHERE CI_ID = $Id") | Select-Object -First 1
+            if ($null -eq $app) { return '' }
+            $model = [string](Get-Prop $app 'ModelName')
+            $modelId = [string](Get-Prop $app 'ModelID')
+            if ($model -notmatch $ModelPattern -or $modelId -notmatch $NumberPattern) { throw 'invalid' }
+            if ((Get-Prop $app 'IsSuperseded') -eq $true -or (Get-Prop $app 'IsSuperseding') -eq $true) { return 'supersedence' }
+            if (Test-Any 'SMS_ApplicationAssignment' 'AssignmentID' "AppModelID = $modelId") { return 'deployments' }
+            $ci = @(Invoke-Query "SELECT CI_ID FROM SMS_Application WHERE ModelName = '$model'" | ForEach-Object { [string](Get-Prop $_ 'CI_ID') } | Where-Object { $_ -match $NumberPattern } | Sort-Object -Unique)
+            if ($ci.Count -gt 0) {
+                if (Test-Any 'SMS_AppDependenceRelation' 'FromApplicationCIID' (Get-OrList 'ToApplicationCIID' $ci -Number)) { return 'dependents' }
+                if (Test-Any 'SMS_AppRelation_Flat' 'FromApplicationCIID' ('Level = 1 AND (' + (Get-OrList 'ToApplicationCIID' $ci -Number) + ')')) { return 'dependents' }
+            }
+            if (Test-Any 'SMS_TaskSequencePackageReference_All' 'PackageID' "ObjectID = '$model'") { return 'task-sequences' }
+        }
+        { $_ -in 'RemovePackage', 'RemoveBootImage', 'RemoveDriverPackage' } {
+            if ($Kind -eq 'RemovePackage' -and (Test-Any 'SMS_DeploymentSummary' 'DeploymentID' "PackageID = '$Id'")) { return 'deployments' }
+            if (Test-Any 'SMS_TaskSequencePackageReference_All' 'PackageID' "ObjectID = '$Id'") { return 'task-sequences' }
+            if (Test-Any 'SMS_TaskSequencePackage' 'PackageID' "BootImageID = '$Id'") { return 'task-sequences' }
+            if ($Kind -eq 'RemoveDriverPackage' -and @(Get-AutoApplySequenceIds).Count -gt 0) { return 'auto-apply-drivers' }
+        }
+        'RemoveAutoDeploymentRule' {
+            $rule = @(Invoke-Query "SELECT AutoDeploymentID, AutoDeploymentEnabled FROM SMS_AutoDeployment WHERE AutoDeploymentID = $Id") | Select-Object -First 1
+            if ($null -ne $rule -and (Get-Prop $rule 'AutoDeploymentEnabled') -ne $false) { return 'enabled' }
+        }
+    }
+    return ''
+}
+
 function Invoke-Apply {
     $t = ConvertFrom-Json -InputObject $Target
     $out = [ordered]@{ Kind = 'Applied'; Status = 'failed'; Failure = '' }
+    $use = ''
     try {
         $ErrorActionPreference = 'Stop'
         $id = [string]$t.Id
-        switch ($Kind) {
-            'RemoveApplication' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Remove-CMApplication -Id ([int]$id) -Force }
-            'RemoveApplicationDeployment' { if ($id -notmatch $GuidPattern) { throw 'invalid' }; Remove-CMApplicationDeployment -DeploymentId $id -Force }
-            'RemoveApplicationRevisionHistory' { if ($id -notmatch $NumberPattern -or [string]$t.Revision -notmatch $NumberPattern) { throw 'invalid' }; Remove-CMApplicationRevisionHistory -Id ([int]$id) -Revision ([int]$t.Revision) -Force }
-            'RemovePackage' { if ($id -notmatch $IdPattern) { throw 'invalid' }; Remove-CMPackage -Id $id -Force }
-            'RemoveCollection' { if ($id -notmatch $IdPattern -or $id -like 'SMS*') { throw 'invalid' }; Remove-CMCollection -Id $id -Force }
-            'RemoveDevice' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Remove-CMDevice -ResourceId ([int]$id) -Force }
-            'RemoveBootImage' { if ($id -notmatch $IdPattern) { throw 'invalid' }; Remove-CMBootImage -Id $id -Force }
-            'RemoveDriverPackage' { if ($id -notmatch $IdPattern) { throw 'invalid' }; Remove-CMDriverPackage -Id $id -Force }
-            'RemoveAutoDeploymentRule' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Remove-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) -Force }
-            'RemoveMaintenanceWindow' {
-                $window = [string]$t.WindowId
-                if ($id -notmatch $IdPattern -or $window -notmatch $GuidPattern) { throw 'invalid' }
-                # Remove-CMMaintenanceWindow matches every window whose name contains the given name,
-                # so the window is removed from the settings instance by its ServiceWindowID. The
-                # embedded array of a result object is replaced only through SetArrayItems; assigning
-                # the property fails in the adapter.
-                $settings = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_CollectionSettings WHERE CollectionID = '$id'" -ErrorAction Stop) | Select-Object -First 1
-                if ($null -eq $settings) { throw 'No object corresponds to the specified parameters.' }
-                $settings.Get()
-                $items = @($settings.GetArrayItems('ServiceWindows'))
-                $keep = New-Object 'System.Collections.Generic.List[Microsoft.ConfigurationManagement.ManagementProvider.IResultObject]'
-                foreach ($item in $items) { if (([string]$item['ServiceWindowID'].StringValue).ToUpperInvariant() -ne $window.ToUpperInvariant()) { $keep.Add($item) } }
-                if ($keep.Count -eq $items.Count) { throw 'No object corresponds to the specified parameters.' }
-                $settings.SetArrayItems('ServiceWindows', $keep)
-                $settings.Put() | Out-Null
-            }
-            'SetCollectionRefreshType' {
-                if ($id -notmatch $IdPattern -or $id -like 'SMS*' -or [string]$t.RefreshType -notin 'Continuous', 'Manual') { throw 'invalid' }
-                Set-CMCollection -CollectionId $id -RefreshType ([string]$t.RefreshType)
-            }
-            'SetApplication' { if ($id -notmatch $ModelPattern) { throw 'invalid' }; Set-CMApplication -ModelName $id -AutoInstall $true }
-            'SetSiteMaintenanceTask' {
-                $site = [string](Get-Location).Drive.Name
-                if (-not $id) { throw 'invalid' }
-                Set-CMSiteMaintenanceTask -SiteCode $site -Name $id -Enabled $true
-            }
-            'RunAutoDeploymentRule' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Invoke-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) | Out-Null }
-            default { throw 'unsupported' }
+        $pattern = switch ($Kind) {
+            { $_ -in 'RemoveApplication', 'RemoveAutoDeploymentRule' } { $NumberPattern }
+            { $_ -in 'RemovePackage', 'RemoveCollection', 'RemoveBootImage', 'RemoveDriverPackage' } { $IdPattern }
+            default { '' }
         }
-        $out.Status = 'done'
+        if ($pattern) {
+            if ($id -notmatch $pattern -or ($Kind -eq 'RemoveCollection' -and $id -like 'SMS*')) { throw 'invalid' }
+            $use = Get-InUse $id
+        }
+        if ($use) { $out.Status = 'in-use'; $out.Failure = $use }
+        else {
+            switch ($Kind) {
+                'RemoveApplication' { Remove-CMApplication -Id ([int]$id) -Force }
+                'RemoveApplicationDeployment' { if ($id -notmatch $GuidPattern) { throw 'invalid' }; Remove-CMApplicationDeployment -DeploymentId $id -Force }
+                'RemoveApplicationRevisionHistory' { if ($id -notmatch $NumberPattern -or [string]$t.Revision -notmatch $NumberPattern) { throw 'invalid' }; Remove-CMApplicationRevisionHistory -Id ([int]$id) -Revision ([int]$t.Revision) -Force }
+                'RemovePackage' { Remove-CMPackage -Id $id -Force }
+                'RemoveCollection' { Remove-CMCollection -Id $id -Force }
+                'RemoveDevice' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Remove-CMDevice -ResourceId ([int]$id) -Force }
+                'RemoveBootImage' { Remove-CMBootImage -Id $id -Force }
+                'RemoveDriverPackage' { Remove-CMDriverPackage -Id $id -Force }
+                'RemoveAutoDeploymentRule' { Remove-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) -Force }
+                'RemoveMaintenanceWindow' {
+                    $window = [string]$t.WindowId
+                    if ($id -notmatch $IdPattern -or $window -notmatch $GuidPattern) { throw 'invalid' }
+                    # Remove-CMMaintenanceWindow matches every window whose name contains the given name,
+                    # so the window is removed from the settings instance by its ServiceWindowID. The
+                    # embedded array of a result object is replaced only through SetArrayItems; assigning
+                    # the property fails in the adapter.
+                    $settings = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_CollectionSettings WHERE CollectionID = '$id'" -ErrorAction Stop) | Select-Object -First 1
+                    if ($null -eq $settings) { throw 'No object corresponds to the specified parameters.' }
+                    $settings.Get()
+                    $items = @($settings.GetArrayItems('ServiceWindows'))
+                    $keep = New-Object 'System.Collections.Generic.List[Microsoft.ConfigurationManagement.ManagementProvider.IResultObject]'
+                    foreach ($item in $items) { if (([string]$item['ServiceWindowID'].StringValue).ToUpperInvariant() -ne $window.ToUpperInvariant()) { $keep.Add($item) } }
+                    if ($keep.Count -eq $items.Count) { throw 'No object corresponds to the specified parameters.' }
+                    $settings.SetArrayItems('ServiceWindows', $keep)
+                    $settings.Put() | Out-Null
+                }
+                'SetCollectionRefreshType' {
+                    if ($id -notmatch $IdPattern -or $id -like 'SMS*' -or [string]$t.RefreshType -notin 'Continuous', 'Manual') { throw 'invalid' }
+                    Set-CMCollection -CollectionId $id -RefreshType ([string]$t.RefreshType)
+                }
+                'SetApplication' { if ($id -notmatch $ModelPattern) { throw 'invalid' }; Set-CMApplication -ModelName $id -AutoInstall $true }
+                'SetSiteMaintenanceTask' {
+                    $site = [string](Get-Location).Drive.Name
+                    if (-not $id) { throw 'invalid' }
+                    Set-CMSiteMaintenanceTask -SiteCode $site -Name $id -Enabled $true
+                }
+                'RunAutoDeploymentRule' { if ($id -notmatch $NumberPattern) { throw 'invalid' }; Invoke-CMSoftwareUpdateAutoDeploymentRule -Id ([int]$id) | Out-Null }
+                default { throw 'unsupported' }
+            }
+            $out.Status = 'done'
+        }
     }
     catch {
         $message = [string]$_.Exception.Message
@@ -480,8 +571,13 @@ function Invoke-Apply {
     [pscustomobject]$out
 }
 
-switch ($Operation) {
-    'Read' { Invoke-Read }
-    'State' { Invoke-State }
-    'Apply' { Invoke-Apply }
+if (-not (Test-SessionConnection)) {
+    [pscustomobject]@{ Kind = 'Connection'; Same = $false }
+}
+else {
+    switch ($Operation) {
+        'Read' { Invoke-Read }
+        'State' { Invoke-State }
+        'Apply' { Invoke-Apply }
+    }
 }

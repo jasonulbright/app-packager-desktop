@@ -136,6 +136,7 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
             ["Result"] = string.IsNullOrEmpty(r.Result) ? null : r.Result,
             ["RunId"] = r.RunId,
             ["Site"] = r.Site,
+            ["Provider"] = r.Provider,
             ["ObjectCount"] = r.Objects.Count,
             ["Objects"] = objects,
             ["Message"] = r.Message,
@@ -161,7 +162,8 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
         return new HygieneAuditRecord(time, S(o, "User"), eventName, S(o, "Phase"), S(o, "Result"), S(o, "RunId"), objects, S(o, "Message"))
         {
             Source = S(o, "Source"),
-            Site = S(o, "Site")
+            Site = S(o, "Site"),
+            Provider = S(o, "Provider")
         };
     }
 

@@ -74,7 +74,8 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             }
             [pscustomobject]$o
         }
-        function global:Get-Location { [pscustomobject]@{ Drive = [pscustomobject]@{ Name = 'MCM' }; Provider = [pscustomobject]@{ Name = 'CMSite' } } }
+        $global:DriveRoot = [string](V $state 'Provider' 'CM01')
+        function global:Get-Location { [pscustomobject]@{ Drive = [pscustomobject]@{ Name = 'MCM'; Root = $global:DriveRoot }; Provider = [pscustomobject]@{ Name = 'CMSite' } } }
         function global:Invoke-CMWmiQuery {
             [CmdletBinding()] param([string]$Query, [string]$Option)
             if ($Query -notmatch '^SELECT (.+?) FROM (\w+)(?: WHERE (.+))?$') { throw "Unknown query: $Query" }
@@ -226,7 +227,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         foreach ($k in $global:Windows.Keys) { $windowsOut[$k] = @($global:Windows[$k]) }
         $autoOut = [ordered]@{}
         foreach ($k in $global:Auto.Keys) { $autoOut[$k] = $global:Auto[$k] }
-        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut } }
+        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Provider = $global:DriveRoot; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut } }
         $lines = foreach ($o in $out) { ConvertTo-Json -InputObject $o -Depth 3 -Compress }
         $document = [pscustomobject]@{ Output = @($lines); Thrown = $thrown; Log = @($global:Log); State = $next }
         [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding $false))
@@ -252,6 +253,13 @@ internal sealed class StubHygieneSite : IConfigMgrSession
     public Action<Dictionary<string, object?>, StubHygieneSite>? BeforeRun { get; set; }
 
     public JsonObject State => _state;
+
+    /// <summary>The SMS Provider the CMSite drive of the stub session is on (the drive Root); "CM01" when the state names none.</summary>
+    public string DriveProvider
+    {
+        get => (string?)_state["Provider"] ?? "CM01";
+        set => _state["Provider"] = value;
+    }
 
     public JsonArray Class(string name)
     {

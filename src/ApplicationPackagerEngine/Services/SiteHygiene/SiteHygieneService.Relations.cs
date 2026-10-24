@@ -12,7 +12,15 @@ public sealed partial class SiteHygieneService
     public async Task<RelationInventory> LoadRelationsAsync(CancellationToken ct)
     {
         var parameters = new ConfigMgrParameters { { "Operation", "Read" }, { "Sets", HygieneChecks.RelationSets }, { "MaxRows", MaxRows } };
-        var read = await RunAsync(parameters, ct, ReadTimeout).ConfigureAwait(false);
+        HygieneSiteRead read;
+        try
+        {
+            read = await RunAsync(parameters, Connection(), ct, ReadTimeout).ConfigureAwait(false);
+        }
+        catch (OtherConnectionException)
+        {
+            throw new HygieneServiceException("The relationships were not read: the settings changed to another site or SMS Provider during the read. Try again.");
+        }
         var bad = HygieneChecks.RelationSets.Where(s => !read.IsRead(s)).ToList();
         var failed = bad.Where(s => !read.Tables.TryGetValue(s, out var t) || t.State != HygieneSetStates.Cut).ToList();
         if (failed.Count > 0)

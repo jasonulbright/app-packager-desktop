@@ -418,11 +418,18 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"
+                <TextBlock Grid.Row="0" x:Name="txtHygieneResultSummary" Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"
                            Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtHygieneResultSummary" />
-                <DataGrid Grid.Row="1" x:Name="dgHygieneResults" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding LastResults}" MaxHeight="140"
+                <Border Grid.Row="1" x:Name="pnlHygieneAuditWarning" Style="{StaticResource Caution}" Margin="0,0,0,6" Visibility="{Binding HasAuditWarning, Converter={StaticResource BoolToVisibility}}"
+                        AutomationProperties.AutomationId="pnlHygieneAuditWarning">
+                    <TextBlock x:Name="txtHygieneAuditWarning" Text="{Binding AuditWarning}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" ToolTip="{Binding AuditWarning}" AutomationProperties.Name="{Binding AuditWarning}"
+                               AutomationProperties.AutomationId="txtHygieneAuditWarning" AutomationProperties.LiveSetting="Assertive" />
+                </Border>
+                <DataGrid Grid.Row="2" x:Name="dgHygieneResults" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding LastResults}" MaxHeight="140"
                           AutomationProperties.AutomationId="dgHygieneResults" AutomationProperties.Name="Results of the last fix">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />

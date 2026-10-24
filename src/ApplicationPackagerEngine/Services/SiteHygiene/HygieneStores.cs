@@ -115,8 +115,11 @@ public sealed class HygieneSuppressionStore(string? path = null, IAppLog? log = 
 
     public string Path => path ?? System.IO.Path.Combine(HygieneFolders.Root(), FileName);
 
-    /// <summary>A suppression as stored; a missing SiteCode (a file of an earlier version) reads as every site.</summary>
-    private sealed record Stored(string? CheckId, string? ObjectKey, string? Comment, DateTime CreatedUtc, string? SiteCode);
+    /// <summary>
+    /// A suppression as stored; a missing SiteCode (a file of an earlier version) reads as every site, and a
+    /// missing Provider as every provider of the site.
+    /// </summary>
+    private sealed record Stored(string? CheckId, string? ObjectKey, string? Comment, DateTime CreatedUtc, string? SiteCode, string? Provider = null);
 
     private sealed record Document(int SchemaVersion, List<Stored?>? Suppressions);
 
@@ -130,14 +133,18 @@ public sealed class HygieneSuppressionStore(string? path = null, IAppLog? log = 
     private static List<Suppression> Clean(Document? doc) =>
         (doc?.Suppressions ?? [])
             .Where(s => s is not null && !string.IsNullOrWhiteSpace(s.CheckId) && !string.IsNullOrWhiteSpace(s.ObjectKey))
-            .Select(s => new Suppression(s!.CheckId!, s.ObjectKey!, s.Comment ?? "", s.CreatedUtc) { SiteCode = Site(s.SiteCode) })
+            .Select(s => new Suppression(s!.CheckId!, s.ObjectKey!, s.Comment ?? "", s.CreatedUtc) { SiteCode = Site(s.SiteCode), Provider = Provider(s.SiteCode, s.Provider) })
             .GroupBy(s => s.StoreKey, StringComparer.OrdinalIgnoreCase).Select(g => g.Last())
             .ToList();
 
-    private static string Site(string? siteCode) => (siteCode ?? "").Trim().ToUpperInvariant();
+    private static string Site(string? siteCode) => HygieneSite.Code(siteCode);
+
+    /// <summary>An every-site suppression has no provider; a site suppression keeps the provider it recorded, or null.</summary>
+    private static string? Provider(string? siteCode, string? provider) =>
+        Site(siteCode).Length == 0 || provider is null ? null : HygieneSite.Provider(provider);
 
     private void Save(List<Suppression> list) =>
-        HygieneJsonFile.Write(Path, new Document(2, list.Select(s => (Stored?)new Stored(s.CheckId, s.ObjectKey, s.Comment, s.CreatedUtc, s.SiteCode)).ToList()), path is null, What);
+        HygieneJsonFile.Write(Path, new Document(2, list.Select(s => (Stored?)new Stored(s.CheckId, s.ObjectKey, s.Comment, s.CreatedUtc, s.SiteCode, s.Provider)).ToList()), path is null, What);
 
     public void Add(Suppression suppression) => AddRange([suppression]);
 
@@ -155,7 +162,8 @@ public sealed class HygieneSuppressionStore(string? path = null, IAppLog? log = 
             clean.Add(suppression with
             {
                 CheckId = suppression.CheckId.Trim().ToUpperInvariant(), Comment = comment, CreatedUtc = DateTime.SpecifyKind(suppression.CreatedUtc, DateTimeKind.Utc),
-                SiteCode = Site(suppression.SiteCode)
+                SiteCode = Site(suppression.SiteCode),
+                Provider = Provider(suppression.SiteCode, suppression.Provider)
             });
         }
         if (clean.Count == 0) return;
@@ -170,7 +178,7 @@ public sealed class HygieneSuppressionStore(string? path = null, IAppLog? log = 
 
     public void Remove(string checkId, string objectKey) => RemoveRange("", [(checkId, objectKey)]);
 
-    public void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys)
+    public void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys, string? provider = null)
     {
         ArgumentNullException.ThrowIfNull(keys);
         var site = Site(siteCode);
@@ -179,7 +187,7 @@ public sealed class HygieneSuppressionStore(string? path = null, IAppLog? log = 
         lock (_gate)
         {
             var list = Clean(HygieneJsonFile.ReadForChange<Document>(Path, log, What));
-            var kept = list.Where(s => !(wanted.Contains(s.Key) && s.AppliesTo(site))).ToList();
+            var kept = list.Where(s => !(wanted.Contains(s.Key) && s.AppliesTo(site, provider))).ToList();
             if (kept.Count == list.Count) return;
             Save(kept);
         }
@@ -201,8 +209,9 @@ public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) :
 
     private sealed record StoredCheck(string CheckId, string Name, string Category, string State, int Findings, string? Reason, HygieneSeverity Severity);
 
+    /// <summary>A file of an earlier version has no Provider; its scan then belongs to no connection.</summary>
     private sealed record Document(int SchemaVersion, DateTime ScannedUtc, string? SiteCode, List<string>? Areas, bool Truncated, string? Note, int QueryCount,
-        List<StoredFinding?>? Findings, List<StoredCheck?>? Checks);
+        List<StoredFinding?>? Findings, List<StoredCheck?>? Checks, string? Provider = null);
 
     public void Save(HygieneScanResult result)
     {
@@ -210,7 +219,8 @@ public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) :
         var doc = new Document(1, DateTime.SpecifyKind(result.ScannedUtc, DateTimeKind.Utc), result.SiteCode, result.Areas.ToList(), result.Truncated, result.Note, result.QueryCount,
             result.Findings.Select(f => (StoredFinding?)new StoredFinding(f.CheckId, f.Category, f.Severity, f.ObjectType, f.ObjectKey, f.ObjectName, f.Evidence, f.Recommendation,
                 f.FixKind, f.FixParameters.ToDictionary(p => p.Key, p => p.Value), f.FixText, f.Guidance)).ToList(),
-            result.Checks.Select(c => (StoredCheck?)new StoredCheck(c.CheckId, c.Name, c.Category, c.State, c.Findings, c.Reason, c.Severity)).ToList());
+            result.Checks.Select(c => (StoredCheck?)new StoredCheck(c.CheckId, c.Name, c.Category, c.State, c.Findings, c.Reason, c.Severity)).ToList(),
+            result.Provider is null ? null : HygieneSite.Provider(result.Provider));
         HygieneJsonFile.Write(Path, doc, path is null, "last scan", MaxBytes);
     }
 
@@ -227,6 +237,7 @@ public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) :
         {
             Areas = doc.Areas ?? [],
             SiteCode = doc.SiteCode ?? "",
+            Provider = doc.Provider,
             QueryCount = 0,
             Stored = true
         };

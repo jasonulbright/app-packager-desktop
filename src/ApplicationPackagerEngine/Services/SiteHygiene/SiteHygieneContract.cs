@@ -112,8 +112,38 @@ public sealed record HygieneScanResult(IReadOnlyList<HygieneFinding> Findings, I
 
     public string SiteCode { get; init; } = "";
 
+    /// <summary>The SMS Provider the scan read from, as the settings named it; empty for the local computer, null when not recorded.</summary>
+    public string? Provider { get; init; }
+
+    /// <summary>True when the result was read from the site and provider of the connection; a result without a recorded provider belongs to none.</summary>
+    public bool IsFor(string? siteCode, string? provider) =>
+        Provider is not null && HygieneSite.Same(SiteCode, Provider, siteCode, provider);
+
     /// <summary>The checks that did not run (state NotRun, NeedsSiteDatabase or Failed).</summary>
     public int ChecksNotRun => Checks.Count(c => c.State is HygieneCheckStates.NotRun or HygieneCheckStates.NeedsSiteDatabase or HygieneCheckStates.Failed);
+}
+
+/// <summary>
+/// The identity of a connection: the site code and the SMS Provider machine, compared without case,
+/// surrounding blanks and a trailing backslash. An empty provider is the local computer. Two
+/// connections with the same site code and another provider are different sites: the same site code
+/// can exist in more than one hierarchy.
+/// </summary>
+public static class HygieneSite
+{
+    public static string Code(string? siteCode) => (siteCode ?? "").Trim().ToUpperInvariant();
+
+    public static string Provider(string? provider) => (provider ?? "").Trim().TrimEnd('\\').Trim().ToUpperInvariant();
+
+    public static string Key(string? siteCode, string? provider) => Code(siteCode) + "|" + Provider(provider);
+
+    /// <summary>True when both name the same non-empty site code on the same provider.</summary>
+    public static bool Same(string? siteCode, string? provider, string? otherSiteCode, string? otherProvider) =>
+        Code(siteCode).Length > 0 && string.Equals(Key(siteCode, provider), Key(otherSiteCode, otherProvider), StringComparison.Ordinal);
+
+    /// <summary>The site and provider for a message: "MCM on CM01", or "MCM on this computer".</summary>
+    public static string Text(string? siteCode, string? provider) =>
+        $"{(Code(siteCode).Length > 0 ? Code(siteCode) : "(not known)")} on {((provider ?? "").Trim().Length > 0 ? (provider ?? "").Trim() : "this computer")}";
 }
 
 /// <param name="Areas">Area IDs of <see cref="HygieneAreas"/>; empty selects every area.</param>
@@ -176,14 +206,29 @@ public sealed record HygieneChange(
     public string FixText { get; init; } = "";
 
     public DateTime? PreparedUtc { get; init; }
+
+    /// <summary>The site code of the connection PrepareAsync read; ApplyAsync writes only through the same site and provider.</summary>
+    public string SiteCode { get; init; } = "";
+
+    /// <summary>The SMS Provider of the connection PrepareAsync read; empty for the local computer.</summary>
+    public string Provider { get; init; } = "";
 }
 
 /// <summary>One object a prepared change writes. <paramref name="FindingKey"/> names the finding it belongs to.</summary>
 public sealed record HygieneTarget(string FindingKey, string ObjectType, string ObjectKey, string ObjectName, string Detail);
 
+/// <summary>The result of one object a finding writes.</summary>
 /// <param name="Result">Done, Unchanged, Failed or Skipped; see <see cref="HygieneResults"/>.</param>
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when nothing was attempted.</param>
-public sealed record HygieneObjectOutcome(HygieneFinding Finding, string Result, string Message);
+public sealed record HygieneTargetOutcome(HygieneTarget Target, string Result, string Message);
+
+/// <param name="Result">Done, Unchanged, Failed, Skipped, or Partial when the objects of the finding have different results; see <see cref="HygieneResults"/>.</param>
+/// <param name="Message">Plain text without raw exception text; starts with "Skipped" when nothing was attempted.</param>
+public sealed record HygieneObjectOutcome(HygieneFinding Finding, string Result, string Message)
+{
+    /// <summary>The result of each object of the plan the finding writes, in plan order; empty when the run named no object.</summary>
+    public IReadOnlyList<HygieneTargetOutcome> Targets { get; init; } = [];
+}
 
 public static class HygieneResults
 {
@@ -196,11 +241,24 @@ public static class HygieneResults
     /// <summary>The write failed, or it ran and its read-back could not be made, so the result is not known.</summary>
     public const string Failed = "Failed";
     public const string Skipped = "Skipped";
+
+    /// <summary>A finding whose objects have different results; <see cref="HygieneObjectOutcome.Targets"/> holds each one.</summary>
+    public const string Partial = "Partial";
 }
 
 /// <param name="Message">Starts with "Skipped" when nothing was attempted.</param>
 /// <param name="Final">False for a progress report after an object while the change runs; true for the last report.</param>
-public sealed record HygieneOutcome(HygieneChange Change, bool Succeeded, string Message, IReadOnlyList<HygieneObjectOutcome> Objects, bool Final);
+public sealed record HygieneOutcome(HygieneChange Change, bool Succeeded, string Message, IReadOnlyList<HygieneObjectOutcome> Objects, bool Final)
+{
+    /// <summary>
+    /// True when the run wrote a Started record but the audit log has no Finished record for it. The site
+    /// results stay as reported; <paramref name="Message"/> names the audit log file.
+    /// </summary>
+    public bool AuditIncomplete { get; init; }
+
+    /// <summary>The audit log file the Finished record is missing from; empty when <see cref="AuditIncomplete"/> is false.</summary>
+    public string AuditPath { get; init; } = "";
+}
 
 /// <param name="Kind">Supersedes or DependsOn; see <see cref="RelationKinds"/>.</param>
 /// <param name="FromKey">The ModelName of the source application.</param>
@@ -260,12 +318,25 @@ public sealed record Suppression(string CheckId, string ObjectKey, string Commen
     /// <summary>The site code the suppression is for; empty for every site (the suppressions of a file from an earlier version).</summary>
     public string SiteCode { get; init; } = "";
 
-    /// <summary>The identity in the store: the site code, the check ID and the object key.</summary>
-    public string StoreKey => (SiteCode ?? "").ToUpperInvariant() + "|" + Key;
+    /// <summary>
+    /// The SMS Provider of the site the suppression is for; empty for the local computer. Null for a
+    /// suppression without a recorded provider: it holds on the site through any provider.
+    /// </summary>
+    public string? Provider { get; init; }
 
-    /// <summary>True when the suppression holds on the site; an empty <paramref name="siteCode"/> matches every suppression.</summary>
-    public bool AppliesTo(string siteCode) =>
-        string.IsNullOrEmpty(SiteCode) || string.IsNullOrEmpty(siteCode) || string.Equals(SiteCode, siteCode.Trim(), StringComparison.OrdinalIgnoreCase);
+    /// <summary>The identity in the store: the site code, the provider, the check ID and the object key.</summary>
+    public string StoreKey => HygieneSite.Code(SiteCode) + "|" + (Provider is null ? "*" : HygieneSite.Provider(Provider)) + "|" + Key;
+
+    /// <summary>
+    /// True when the suppression holds on the site and provider; an empty <paramref name="siteCode"/> matches
+    /// every suppression, and a null <paramref name="provider"/> matches every provider of the site.
+    /// </summary>
+    public bool AppliesTo(string siteCode, string? provider = null)
+    {
+        if (string.IsNullOrEmpty(SiteCode) || string.IsNullOrEmpty(siteCode)) return true;
+        if (!string.Equals(HygieneSite.Code(SiteCode), HygieneSite.Code(siteCode), StringComparison.Ordinal)) return false;
+        return Provider is null || provider is null || string.Equals(HygieneSite.Provider(Provider), HygieneSite.Provider(provider), StringComparison.Ordinal);
+    }
 }
 
 public interface ISiteHygieneService
@@ -305,11 +376,12 @@ public interface IHygieneSuppressionStore
     void Remove(string checkId, string objectKey);
 
     /// <summary>
-    /// Removes each suppression of the keys that holds on the site (its own and the every-site ones) with one
-    /// read and one write of the file. Throws <see cref="HygieneServiceException"/> and changes nothing when
-    /// the file exists but cannot be read.
+    /// Removes each suppression of the keys that holds on the site and provider (its own, those without a
+    /// recorded provider and the every-site ones) with one read and one write of the file; a null
+    /// <paramref name="provider"/> matches every provider of the site. Throws
+    /// <see cref="HygieneServiceException"/> and changes nothing when the file exists but cannot be read.
     /// </summary>
-    void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys);
+    void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys, string? provider = null);
 
     string Path { get; }
 }
@@ -383,7 +455,12 @@ public sealed record HygieneAuditRecord(
     string Message)
 {
     public string Source { get; init; } = "";
+
+    /// <summary>The site code the run wrote to.</summary>
     public string Site { get; init; } = "";
+
+    /// <summary>The SMS Provider the run wrote through, as the settings named it; empty for the local computer.</summary>
+    public string Provider { get; init; } = "";
 
     /// <summary>True, false or null as <see cref="DeploymentAuditRecord.Verified"/>: the hash chain of the line.</summary>
     public bool? Verified { get; init; }

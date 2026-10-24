@@ -41,7 +41,10 @@ public sealed partial class SiteHygieneService
         public const string Kind = "Kind";
     }
 
-    private sealed record PreparedChange(HygieneFixKind Kind, IReadOnlyDictionary<string, HygieneFinding> Findings, IReadOnlyList<HygieneTarget> Targets, HygieneThresholds Thresholds, DateTime PreparedUtc);
+    /// <param name="Connection">The connection the plan was read through; null when the service binds nothing.</param>
+    /// <param name="Site">The site code for the audit records: of the connection, or of the session when the service binds nothing.</param>
+    private sealed record PreparedChange(HygieneFixKind Kind, IReadOnlyDictionary<string, HygieneFinding> Findings, IReadOnlyList<HygieneTarget> Targets, HygieneThresholds Thresholds, DateTime PreparedUtc,
+        ConfigMgrConnection? Connection, string Site, string Provider);
 
     public int MaxDeletes { get; init; } = MaxDeletesPerRun;
 
@@ -57,10 +60,10 @@ public sealed partial class SiteHygieneService
     private static HygieneObjectOutcome Skip(HygieneFinding f, string reason) => new(f, HygieneResults.Skipped, SkippedPrefix + reason);
 
     /// <summary>The State read of the given findings: the facts each rule needs, in one script run.</summary>
-    private async Task<HygieneSiteRead> ReadStateAsync(HygieneFixKind kind, IEnumerable<HygieneFinding> findings, CancellationToken ct)
+    private async Task<HygieneSiteRead> ReadStateAsync(HygieneFixKind kind, IEnumerable<HygieneFinding> findings, ConfigMgrConnection? connection, CancellationToken ct)
     {
         var keys = findings.SelectMany(f => HygieneFixRules.StateKeys(kind, f)).Where(k => k.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var read = await RunAsync(new ConfigMgrParameters { { "Operation", "State" }, { "Kind", kind.ToString() }, { "Keys", keys } }, ct).ConfigureAwait(false);
+        var read = await RunAsync(new ConfigMgrParameters { { "Operation", "State" }, { "Kind", kind.ToString() }, { "Keys", keys } }, connection, ct).ConfigureAwait(false);
         if (read.StateRead != true) throw new HygieneServiceException("ConfigMgr did not return the current state of the objects. Try again; the log has the kind of failure.");
         return read;
     }
@@ -102,7 +105,19 @@ public sealed partial class SiteHygieneService
             };
         }
 
-        var site = wanted.Count == 0 ? new HygieneSiteRead() : await ReadStateAsync(request.Kind, wanted, ct).ConfigureAwait(false);
+        var connection = Connection();
+        HygieneSiteRead site;
+        try
+        {
+            site = wanted.Count == 0 ? new HygieneSiteRead() : await ReadStateAsync(request.Kind, wanted, connection, ct).ConfigureAwait(false);
+        }
+        catch (OtherConnectionException)
+        {
+            _log?.Warning(LogArea, $"Prepare {request.Kind} stopped: the site or SMS Provider of the settings changed during the check.");
+            throw new HygieneServiceException("The findings were not checked: the settings changed to another site or SMS Provider during the check. Nothing was changed. Try again.");
+        }
+        var siteCode = connection?.NormalizedSiteCode is { Length: > 0 } code ? code : site.SiteCode;
+        var provider = connection?.NormalizedProvider ?? "";
         var now = LocalNow();
         var kept = new List<HygieneFinding>();
         var targets = new List<HygieneTarget>();
@@ -137,19 +152,24 @@ public sealed partial class SiteHygieneService
         {
             fingerprint = FingerprintOf(request.Kind, targets);
             prepared = _utcNow();
-            Remember(fingerprint, new PreparedChange(request.Kind, kept.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase), targets, FixThresholds, prepared.Value));
+            Remember(fingerprint, new PreparedChange(request.Kind, kept.ToDictionary(f => f.Key, StringComparer.OrdinalIgnoreCase), targets, FixThresholds, prepared.Value, connection, siteCode, provider));
         }
         _log?.Info(LogArea, $"Prepared {request.Kind}: {kept.Count} findings kept, {targets.Count} objects, {dropped.Count} left out.");
+        var impact = ImpactLines(request.Kind, kept, targets, dropped);
+        if (connection is not null)
+            impact.Add($"The plan is for site {HygieneSite.Text(siteCode, provider)}. The fix stops when the settings name another site or SMS Provider.");
         return cleared with
         {
             Findings = kept,
             Dropped = dropped,
             Targets = targets,
-            Impact = ImpactLines(request.Kind, kept, targets, dropped),
+            Impact = impact,
             Checks = checks,
             FixText = string.Join("\r\n", commands),
             Fingerprint = fingerprint,
-            PreparedUtc = prepared
+            PreparedUtc = prepared,
+            SiteCode = siteCode,
+            Provider = provider
         };
     }
 
@@ -161,6 +181,8 @@ public sealed partial class SiteHygieneService
         {
             lines.Add($"Delete {what}: {Verb(kind)}. A delete cannot be undone. There is no Undo.");
             lines.Add("Before each delete the page reads the object again and skips it when the finding no longer holds or something references it now.");
+            if (kind is HygieneFixKind.RemoveApplication or HygieneFixKind.RemovePackage or HygieneFixKind.RemoveCollection or HygieneFixKind.RemoveBootImage or HygieneFixKind.RemoveDriverPackage or HygieneFixKind.RemoveAutoDeploymentRule)
+                lines.Add("The delete command reads the references again in the same call, immediately before the delete, and does not delete an object that is in use.");
         }
         else
         {
@@ -176,7 +198,7 @@ public sealed partial class SiteHygieneService
         if (kind == HygieneFixKind.RemoveCollection)
             lines.Add("Before each delete the page reads the deployments, collection rules and settings, automatic deployment rules, client settings deployments and administrative users that use the collection, and skips the collection when one of them exists.");
         if (kind == HygieneFixKind.RemoveMaintenanceWindow) lines.Add("The window is removed by its ID from the collection settings. Remove-CMMaintenanceWindow is not used: it removes every window whose name contains the name.");
-        lines.Add("The run writes one object at a time and reads each one back. Cancel stops between objects.");
+        lines.Add("The run writes one object at a time and reads each one back. Cancel stops between objects: the object in work is finished, and the rest are skipped.");
         if (dropped.Count > 0) lines.Add($"{Count(dropped.Count, "finding")} {(dropped.Count == 1 ? "is" : "are")} left out.");
         return lines;
     }
