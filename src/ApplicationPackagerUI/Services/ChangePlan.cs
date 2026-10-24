@@ -59,9 +59,19 @@ public sealed class ChangePlan
     /// <summary>The fixed action name the log uses instead of the title, which can hold object names; null logs a generic name.</summary>
     public string? LogName { get; init; }
 
+    /// <summary>The text of the destructive check box; null shows the default text about data in ConfigMgr.</summary>
+    public string? DestructiveConfirmation { get; init; }
+
+    /// <summary>A text the plan runs or acts on, such as a script, shown read-only in a monospace box; null for none.</summary>
+    public string? Body { get; init; }
+
+    /// <summary>The name of <see cref="Body"/> for the screen reader, for example "Script text".</summary>
+    public string? BodyName { get; init; }
+
     internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo)
     {
-        ExtraConfirmation = ExtraConfirmation, OptionalChoice = OptionalChoice, SecondConfirmation = SecondConfirmation, Notes = Notes.ToArray(), LogName = LogName
+        ExtraConfirmation = ExtraConfirmation, OptionalChoice = OptionalChoice, SecondConfirmation = SecondConfirmation, Notes = Notes.ToArray(), LogName = LogName,
+        DestructiveConfirmation = DestructiveConfirmation, Body = Body, BodyName = BodyName
     };
 }
 

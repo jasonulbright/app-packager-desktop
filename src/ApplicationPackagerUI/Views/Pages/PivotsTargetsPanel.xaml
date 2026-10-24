@@ -1,0 +1,58 @@
+<UserControl
+    x:Class="ApplicationPackagerUI.Views.Pages.PivotsTargetsPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/PivotsScripts.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border Style="{StaticResource Card}" Margin="0,0,0,8" AutomationProperties.AutomationId="pnlTargets">
+        <Grid KeyboardNavigation.TabNavigation="Local">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="200" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
+                <TextBlock Text="Targets" Style="{StaticResource CardTitle}" />
+                <ComboBox ItemsSource="{Binding TargetKindChoices}" SelectedItem="{Binding SelectedTargetKind}" MinWidth="170"
+                          AutomationProperties.Name="Target kind" AutomationProperties.AutomationId="cboTargetKind" />
+            </StackPanel>
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TargetText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="NoWrap"
+                     Height="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="0,26,8,0"
+                     AutomationProperties.Name="Target" AutomationProperties.AutomationId="txtTarget" />
+            <WrapPanel Grid.Row="0" Grid.Column="2" Orientation="Vertical" Margin="0,26,0,0">
+                <ui:Button Content="Resolve" Icon="{ui:SymbolIcon PeopleSearch24}" Appearance="Primary" Command="{Binding ResolveCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
+                           ToolTip="Reads the devices of the target with one bulk read. A run goes only to resolved targets." AutomationProperties.Name="Resolve the targets"
+                           AutomationProperties.AutomationId="btnResolve" />
+                <ui:Button Content="Import TXT or CSV" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding ImportTargetsCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
+                           ToolTip="Reads device names from a text file, one per line, or from a CSV file." AutomationProperties.AutomationId="btnImportTargets" />
+            </WrapPanel>
+            <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding TargetHint}" Style="{StaticResource Note}" Margin="0,6,0,0"
+                       AutomationProperties.AutomationId="txtTargetHint" />
+            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,6,0,0">
+                <DockPanel>
+                    <ui:ProgressRing DockPanel.Dock="Left" IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0"
+                                     Visibility="{Binding IsResolving, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding TargetSummary}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtTargetSummary" AutomationProperties.LiveSetting="Polite" />
+                </DockPanel>
+                <Border Style="{StaticResource Caution}" Margin="0,6,0,0" Visibility="{Binding ShowBuiltInWarning, Converter={StaticResource BoolToVisibility}}"
+                        AutomationProperties.AutomationId="pnlBuiltInWarning">
+                    <TextBlock Text="This is a built-in collection. A run reaches every device of the collection, and the plan asks an extra box for it." TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtBuiltInWarning" />
+                </Border>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

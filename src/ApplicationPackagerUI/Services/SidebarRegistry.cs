@@ -18,6 +18,7 @@ public static class SidebarIds
     public const string InstallerAnalysis = "installer-analysis";
     public const string DeploymentHelper = "deployment-helper";
     public const string DpContentManager = "dp-content-manager";
+    public const string PivotsScripts = "pivots-and-scripts";
 }
 
 /// <summary>
@@ -86,6 +87,10 @@ public sealed class SidebarRegistry
         registry.Register(new SidebarItemDefinition(SidebarIds.DpContentManager, "DP Content Manager", "Server24", SidebarItemKind.Page)
         {
             PageType = typeof(DpContentManagerPage)
+        });
+        registry.Register(new SidebarItemDefinition(SidebarIds.PivotsScripts, "Pivots and Scripts", "Code24", SidebarItemKind.Page)
+        {
+            PageType = typeof(PivotsScriptsPage)
         });
         foreach (var tool in SuiteTools.All)
         {
