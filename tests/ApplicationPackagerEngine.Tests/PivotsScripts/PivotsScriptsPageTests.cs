@@ -768,7 +768,7 @@ public sealed class PivotsScriptsPageTests
         vm.ResultTabIndex = VM.ResultsView;
         vm.CopyAsPowerShellCommand.Execute(null);
         var text = Assert.Single(h.Dialogs.Clipboard);
-        Assert.Matches(@"^\[Text\.Encoding\]::UTF8\.GetString\(\[Convert\]::FromBase64String\('[A-Za-z0-9+/=]+'\)\) \| ConvertFrom-Json$", text);
+        Assert.Matches(@"^\[Text\.Encoding\]::UTF8\.GetString\(\[Convert\]::FromBase64String\('[A-Za-z0-9+/=]+'\)\) \| ConvertFrom-Json \| ForEach-Object \{ \$_ \}$", text);
         var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(text.Split('\'')[1]));
         Assert.Contains("\"Caption\":\"Windows 11 Enterprise\"", json);
     }

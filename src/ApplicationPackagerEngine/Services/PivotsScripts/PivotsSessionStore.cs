@@ -27,6 +27,9 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         PropertyNameCaseInsensitive = true
     };
 
+    /// <summary>Held around each replace of a session file, so a scrub cannot replace an update that came after its check.</summary>
+    private static readonly Lock ReplaceGate = new();
+
     [GeneratedRegex("^[a-f0-9]{32}$")]
     private static partial Regex IdRegex();
 
@@ -68,7 +71,7 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
             if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
                 throw new PivotsServiceException("The session file is a symbolic link or another reparse point, so it was not written.");
             File.WriteAllBytes(temp, Serialize(record));
-            File.Replace(temp, path, null);
+            lock (ReplaceGate) File.Replace(temp, path, null);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -143,12 +146,44 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
             if (!info.Exists || info.Attributes.HasFlag(FileAttributes.ReparsePoint) || info.Length > MaxFileBytes) return null;
             if (DataFolderLinks.HasLink(Folder, DataFolderLinks.ContainerOf(Folder, folder is null))) return null;
             var record = JsonSerializer.Deserialize<PivotsSessionRecord>(File.ReadAllBytes(path), Options);
-            return record is not null && record.Id == id ? Migrated(record) : null;
+            if (record is null || record.Id != id) return null;
+            if (record.LegacyParameters is not null) Scrub(path, info, record);
+            return Migrated(record);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
         {
             log?.Warning(LogArea, $"A session file could not be read ({ex.GetType().Name}).");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Replaces a file of an earlier version with the same record without its hashes, through a
+    /// temporary file. The last write time stays, so the order of the session list does not change. A
+    /// file that changed after the read is left for its writer; a failed write leaves the file as it was.
+    /// </summary>
+    private void Scrub(string path, FileInfo read, PivotsSessionRecord record)
+    {
+        var temp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
+        try
+        {
+            File.WriteAllBytes(temp, Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Migrated(record), Options)));
+            lock (ReplaceGate)
+            {
+                var now = new FileInfo(path);
+                if (now.Length != read.Length || now.LastWriteTimeUtc != read.LastWriteTimeUtc || now.Attributes.HasFlag(FileAttributes.ReparsePoint)) return;
+                File.Replace(temp, path, null);
+                File.SetLastWriteTimeUtc(path, read.LastWriteTimeUtc);
+            }
+            log?.Info(LogArea, "A session file of an earlier version was written again without the hashes of its parameter values.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log?.Warning(LogArea, $"A session file of an earlier version could not be written again without its hashes ({ex.GetType().Name}).");
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
 

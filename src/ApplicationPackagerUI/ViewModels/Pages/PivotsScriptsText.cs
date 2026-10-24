@@ -182,7 +182,9 @@ public static class PivotsScriptsText
 
     /// <summary>
     /// A PowerShell expression that gives back the rows as objects. The rows travel as Base64 of their
-    /// JSON, so no cell text can end the string or add a command.
+    /// JSON, so no cell text can end the string or add a command. Windows PowerShell 5.1 writes a JSON
+    /// array as one Object[]; ForEach-Object writes each row on its own, so the next command of the
+    /// pipeline gets one row at a time in 5.1 and in 7.
     /// </summary>
     public static string CopyAsPowerShell(IReadOnlyList<string> columns, IEnumerable<IReadOnlyList<string>> rows)
     {
@@ -198,6 +200,6 @@ public static class PivotsScriptsText
             return o;
         }).ToList();
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(list)));
-        return $"[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded}')) | ConvertFrom-Json";
+        return $"[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded}')) | ConvertFrom-Json | ForEach-Object {{ $_ }}";
     }
 }

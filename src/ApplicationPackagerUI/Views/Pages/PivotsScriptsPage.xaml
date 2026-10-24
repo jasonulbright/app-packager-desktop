@@ -246,7 +246,7 @@
                                 <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="150" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Target" Binding="{Binding Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Devices" Binding="{Binding Devices}" Width="96" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="170" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding State}" Width="216" MinWidth="216" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <StackPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">

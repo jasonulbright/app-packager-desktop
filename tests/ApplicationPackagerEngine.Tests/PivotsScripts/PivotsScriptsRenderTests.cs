@@ -182,7 +182,8 @@ public sealed class PivotsScriptsRenderTests
         ("dgSiteScripts", "State", "Waiting for approval"), ("dgSiteScripts", "Version", "123"), ("dgSiteScripts", "Approver", @"CONTOSO\labadmin"),
         ("dgSiteScripts", "GUID", "8F2E3D4C-5B6A-4789-8ABC-DEF012345678"), ("dgSiteScripts", "Author", @"CONTOSO\labadmin"),
         ("dgSessions", "Started", "12/30/2026 11:59 PM"), ("dgSessions", "Action", "Run CMPivot"), ("dgSessions", "Action", "Run script"), ("dgSessions", "Devices", "25,000"),
-        ("dgSessions", "State", "Saved before send"),
+        ("dgSessions", "State", "Saved before send"), ("dgSessions", "State", PivotsScriptsService.AppClosedStatus), ("dgSessions", "State", "Completed with failures"),
+        ("dgSessions", "State", "Stopped waiting"),
         ("dgPivotsHistory", "Time", "12/30/2026 11:59 PM"), ("dgPivotsHistory", "Action", "Approve script"), ("dgPivotsHistory", "Action", "Submit script"),
         ("dgPivotsHistory", "Result", "Succeeded"), ("dgPivotsHistory", "Result", "Partial"), ("dgPivotsHistory", "Verified", "! Not verified"),
         ("dgPivotsHistory", "Verified", "✓ Verified"), ("dgPivotsHistory", "Devices", "25,000"), ("dgPivotsHistory", "User", @"CONTOSO\labadmin")
