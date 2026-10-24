@@ -166,7 +166,7 @@ public sealed class PivotsFilesTests : IDisposable
     // ---- Session store ------------------------------------------------------------------------
 
     private static PivotsSessionRecord Session(string id) => new(id, new DateTime(2026, 10, 24, 9, 0, 0, DateTimeKind.Utc), "CONTOSO\\LabAdmin", "MCM", "cm01.contoso.com",
-        PivotsChangeKind.RunPivot, "Device CLIENT01", null, [new ResolvedDevice(16777221, "CLIENT01", true)], "OS", null, null, "hash", new Dictionary<string, string>());
+        PivotsChangeKind.RunPivot, "Device CLIENT01", null, [new ResolvedDevice(16777221, "CLIENT01", true)], "OS", null, null, "hash", []);
 
     [Fact]
     public void ASessionIsSavedOnceUpdatedAndReadBack()

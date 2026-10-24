@@ -56,12 +56,12 @@ public sealed partial class PivotsScriptsViewModel
         }.Where(l => l.Length > 0))
         : "";
 
-    public const string ParameterValuesNotStored = "Parameter values are not stored. The saved session holds the parameter names and a SHA-256 hash of each value.";
+    public const string ParameterValuesNotStored = "Parameter values are not stored. The saved session holds the parameter names only.";
 
     /// <summary>The parameter names of a saved script run; its values are not stored.</summary>
     private static string SessionParameters(PivotsSessionRecord session) =>
-        session.Kind != PivotsChangeKind.RunScript || session.Parameters.Count == 0 ? ""
-            : $" Parameters: {string.Join(", ", session.Parameters.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))}. The values are not stored.";
+        session.Kind != PivotsChangeKind.RunScript || session.ParameterNames.Count == 0 ? ""
+            : $" Parameters: {string.Join(", ", session.ParameterNames.Order(StringComparer.OrdinalIgnoreCase))}. The values are not stored.";
 
     public bool HasHistoryDetails => HistoryDetails.Length > 0;
 

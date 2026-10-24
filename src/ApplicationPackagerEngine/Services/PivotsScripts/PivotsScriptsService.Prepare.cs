@@ -104,7 +104,7 @@ public sealed partial class PivotsScriptsService
         impact.Add(change.IsSendOnly
             ? $"After the send, the page reads the status of the devices that did not answer yet every {every} seconds, for the wait time set in Options. Stop waiting ends the wait on this page only: clients that received the request still run it."
             : $"The page waits up to {Minutes(window)} for results and reads the status of the devices that did not answer yet every {every} seconds. Stop waiting ends the wait on this page only: clients that received the request still run it.");
-        impact.Add("The session (targets, the query or the script identity and hash, the parameter names with a SHA-256 hash of each value) is saved and the audit record is written before the request goes out. Parameter values are not stored. A run is refused when either cannot be written.");
+        impact.Add("The session (targets, the query or the script identity and hash, the parameter names) is saved and the audit record is written before the request goes out. Parameter values are not stored. A run is refused when either cannot be written.");
         return change;
     }
 

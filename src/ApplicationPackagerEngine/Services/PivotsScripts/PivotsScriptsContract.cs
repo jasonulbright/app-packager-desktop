@@ -312,7 +312,7 @@ public sealed record ScriptCheck(bool Valid, IReadOnlyList<string> Errors, IRead
 /// The saved record of one run, written before the first request goes out and updated with the
 /// responses.
 /// </summary>
-/// <param name="Parameters">The parameter names of a script run, each with the SHA-256 of its value ("sha256:" and lower-case hex); the values are not stored.</param>
+/// <param name="ParameterNames">The names of the parameters a script run sent a value for. No value, hash or length of a value is stored.</param>
 public sealed record PivotsSessionRecord(
     string Id,
     DateTime CreatedUtc,
@@ -327,7 +327,7 @@ public sealed record PivotsSessionRecord(
     string? ScriptGuid,
     string? ScriptName,
     string? ScriptHash,
-    IReadOnlyDictionary<string, string> Parameters)
+    IReadOnlyList<string> ParameterNames)
 {
     public string? OperationId { get; init; }
     public string Status { get; init; } = "Saved";
@@ -342,6 +342,15 @@ public sealed record PivotsSessionRecord(
 
     /// <summary>True when the site held another script text or version right after the send than the plan.</summary>
     public bool ChangedDuringSend { get; init; }
+
+    /// <summary>
+    /// The "Parameters" map of a session file of an earlier version, which holds a SHA-256 of each
+    /// value. The store reads its names into <see cref="ParameterNames"/>, drops the hashes and never
+    /// writes the map.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("Parameters")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, System.Text.Json.JsonElement>? LegacyParameters { get; init; }
 }
 
 /// <summary>One request or response of a run as the site returned it.</summary>

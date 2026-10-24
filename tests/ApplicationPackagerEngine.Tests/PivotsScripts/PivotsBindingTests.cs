@@ -183,7 +183,7 @@ public sealed class PivotsBindingTests
     // ---- The saved session holds no parameter value -------------------------------------------------
 
     [Fact]
-    public async Task TheSessionFileHoldsTheParameterNamesAndHashesButNotTheValues()
+    public async Task TheSessionFileHoldsTheParameterNamesButNotTheValues()
     {
         using var h = new PivotsHarness();
         const string secret = "Hunter2-Token-9F3A";
@@ -192,8 +192,9 @@ public sealed class PivotsBindingTests
         Assert.True(o.Sent, o.Message);
         var text = File.ReadAllText(Path.Combine(h.Sessions.Folder, o.SessionId + ".json"));
         Assert.DoesNotContain(secret, text);
+        Assert.DoesNotContain(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(secret))), text);
         var session = h.Sessions.Read(o.SessionId!)!;
-        Assert.Equal("sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(secret))), session.Parameters["Label"]);
+        Assert.Equal(["Label"], session.ParameterNames);
         h.Restart();
         var waited = await h.WaitAsync(o.OperationId!, window: TimeSpan.FromSeconds(30), sessionId: o.SessionId);
         Assert.Equal(PivotsDeviceStates.Completed, waited.Devices.Single().State);
@@ -201,17 +202,24 @@ public sealed class PivotsBindingTests
     }
 
     [Fact]
-    public void TheStoreHashesAValueThatACallerSaves()
+    public void TheStoreKeepsTheParameterNamesOfACallerAndNeverWritesTheMapOfAnEarlierVersion()
     {
         using var h = new PivotsHarness();
+        var hash = "sha256:" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("PlainValue-77")));
         var record = new PivotsSessionRecord(Id: PivotsSessionStore.NewId(), CreatedUtc: DateTime.UtcNow, User: "u", Site: "MCM", Provider: StubAdminService.Host, Kind: PivotsChangeKind.RunScript,
             TargetDescription: "Device CLIENT01", CollectionId: null, Devices: [new ResolvedDevice(Client01Id, Client01)], QueryText: null, ScriptGuid: StubPivotsSite.ScriptGuid, ScriptName: "x",
-            ScriptHash: "abc", Parameters: new Dictionary<string, string> { ["Password"] = "PlainValue-77" });
+            ScriptHash: "abc", ParameterNames: [])
+        {
+            LegacyParameters = new Dictionary<string, System.Text.Json.JsonElement> { ["Password"] = System.Text.Json.JsonSerializer.SerializeToElement(hash) }
+        };
         h.Sessions.Save(record);
         h.Sessions.Update(record with { Status = "Sent" });
         var text = File.ReadAllText(Path.Combine(h.Sessions.Folder, record.Id + ".json"));
-        Assert.DoesNotContain("PlainValue-77", text);
-        Assert.StartsWith("sha256:", h.Sessions.Read(record.Id)!.Parameters["Password"]);
+        Assert.DoesNotContain(hash, text);
+        Assert.DoesNotContain("\"Parameters\"", text);
+        var read = h.Sessions.Read(record.Id)!;
+        Assert.Equal(["Password"], read.ParameterNames);
+        Assert.Null(read.LegacyParameters);
     }
 
     // ---- The Finished record of a reloaded run --------------------------------------------------------
@@ -263,7 +271,7 @@ public sealed class PivotsBindingTests
         var h = new PivotsScriptsHarness();
         var vm = await h.OpenAsync(VM.HistoryTab);
         h.Sessions.Sessions.Add(new PivotsSessionRecord("session-2", new DateTime(2026, 10, 24, 8, 0, 0, DateTimeKind.Utc), @"LAB\admin", "LAB", "cm01.lab.local", PivotsChangeKind.RunScript,
-            "Device WKS-001", null, [new ResolvedDevice(16777201, "WKS-001")], null, h.DiskScript.Guid, h.DiskScript.Name, h.DiskScript.Hash, new Dictionary<string, string> { ["Drive"] = "sha256:00" })
+            "Device WKS-001", null, [new ResolvedDevice(16777201, "WKS-001")], null, h.DiskScript.Guid, h.DiskScript.Name, h.DiskScript.Hash, ["Drive"])
         {
             OperationId = "9", Status = "Completed",
             Results = [new DeviceResult(16777201, "WKS-001", PivotsDeviceStates.Completed, "ok", "")]

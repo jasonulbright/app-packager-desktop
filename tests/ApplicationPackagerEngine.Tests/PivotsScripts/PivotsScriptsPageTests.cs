@@ -622,7 +622,7 @@ public sealed class PivotsScriptsPageTests
         await vm.WaitTask;
         var change = h.Service.Applied.Single();
         h.Sessions.Sessions.Add(new PivotsSessionRecord("session-1", new DateTime(2026, 10, 24, 8, 0, 0, DateTimeKind.Utc), @"LAB\admin", "LAB", "cm01.lab.local", PivotsChangeKind.RunScript,
-            "Collection Workstations (LAB00012)", "LAB00012", change.Targets!.Devices, null, h.DiskScript.Guid, h.DiskScript.Name, h.DiskScript.Hash, new Dictionary<string, string>())
+            "Collection Workstations (LAB00012)", "LAB00012", change.Targets!.Devices, null, h.DiskScript.Guid, h.DiskScript.Name, h.DiskScript.Hash, [])
         {
             OperationId = "op-9", Status = "Partial", Partial = true,
             Results = [new DeviceResult(16777201, "WKS-001", PivotsDeviceStates.Failed, "", "Access is denied.") { ExitCode = 5 }],

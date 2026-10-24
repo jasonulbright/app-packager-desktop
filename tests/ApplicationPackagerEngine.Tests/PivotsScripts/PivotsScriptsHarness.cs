@@ -222,7 +222,7 @@ internal sealed class FakePivotsService : IPivotsScriptsService
                 var op = "op-" + Interlocked.Increment(ref _operations);
                 var session = "session-" + op;
                 _sessions.Save(new PivotsSessionRecord(session, DateTime.UtcNow, CurrentUser, "LAB", "cm01.lab.local", change.Kind, change.Targets!.Description, change.Targets.CollectionId,
-                    change.Targets.Devices, change.QueryText, change.ScriptGuid, change.Script?.Name, change.ScriptHash, change.Parameters ?? new Dictionary<string, string>()) { OperationId = op });
+                    change.Targets.Devices, change.QueryText, change.ScriptGuid, change.Script?.Name, change.ScriptHash, PivotsSessionStore.NamesOf(change.Parameters)) { OperationId = op });
                 lock (_runs) _runs[op] = (change, session);
                 return Task.FromResult(new PivotsOutcome(change, true, "The site accepted the run.", op,
                     change.Targets.Devices.Select(d => d.IsClient ? new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", "")

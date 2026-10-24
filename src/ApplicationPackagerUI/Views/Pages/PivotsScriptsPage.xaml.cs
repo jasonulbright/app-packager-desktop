@@ -21,8 +21,13 @@ public partial class PivotsScriptsPage : INavigationAware
         {
             editor.SelectionChanged += (_, _) => ShowCaret(editor);
             editor.GotKeyboardFocus += (_, _) => ShowCaret(editor);
-            editor.LostKeyboardFocus += (_, _) => _leaveArmed = null;
+            editor.LostKeyboardFocus += (_, _) =>
+            {
+                _leaveArmed = null;
+                _pendingExit = null;
+            };
             editor.PreviewKeyDown += (_, e) => OnEditorKey(editor, words, e);
+            editor.PreviewKeyUp += (_, _) => OnEditorKeyUp(editor);
         }
     }
 
@@ -33,6 +38,13 @@ public partial class PivotsScriptsPage : INavigationAware
 
     /// <summary>The editor in which Esc was the last key: its next Tab or Shift+Tab leaves it.</summary>
     private TextBox? _leaveArmed;
+
+    /// <summary>
+    /// The editor and the direction of a Ctrl+Tab whose focus move waits for the release of Ctrl.
+    /// While Ctrl is down, MoveFocus follows the Ctrl+Tab navigation rules, and these move the focus
+    /// out of the page to the main window.
+    /// </summary>
+    private (TextBox Editor, FocusNavigationDirection Direction)? _pendingExit;
 
     /// <summary>
     /// The focus move for a key press in an editor, or null when the editor keeps the key. Tab types a
@@ -62,7 +74,11 @@ public partial class PivotsScriptsPage : INavigationAware
     {
         var modifiers = ModifierSource();
         var afterEscape = ReferenceEquals(_leaveArmed, editor);
-        if (e.Key is not (Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl)) _leaveArmed = null;
+        if (e.Key is not (Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl))
+        {
+            _leaveArmed = null;
+            if (e.Key != Key.Tab) _pendingExit = null;
+        }
         if (e.Key == Key.Escape && modifiers == ModifierKeys.None)
         {
             _leaveArmed = editor;
@@ -71,7 +87,8 @@ public partial class PivotsScriptsPage : INavigationAware
         if (EditorExit(e.Key, modifiers, afterEscape) is { } direction)
         {
             e.Handled = true;
-            editor.MoveFocus(new TraversalRequest(direction));
+            if ((modifiers & ModifierKeys.Control) != 0) _pendingExit = (editor, direction);
+            else editor.MoveFocus(new TraversalRequest(direction));
             return;
         }
         if (e.Key != Key.Space || (modifiers & ModifierKeys.Control) == 0) return;
@@ -97,6 +114,14 @@ public partial class PivotsScriptsPage : INavigationAware
         }
         menu.IsOpen = true;
         if (menu.Items.Count > 0 && menu.Items[0] is MenuItem first) first.Focus();
+    }
+
+    /// <summary>The release of Ctrl after Ctrl+Tab moves the focus by the Tab rules of the page.</summary>
+    private void OnEditorKeyUp(TextBox editor)
+    {
+        if (_pendingExit is not { } pending || !ReferenceEquals(pending.Editor, editor) || (ModifierSource() & ModifierKeys.Control) != 0) return;
+        _pendingExit = null;
+        editor.MoveFocus(new TraversalRequest(pending.Direction));
     }
 
     private void OnQueryLibraryDoubleClick(object sender, MouseButtonEventArgs e)

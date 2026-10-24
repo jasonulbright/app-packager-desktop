@@ -197,7 +197,7 @@ public sealed class PivotsScriptsPageFixTests
         var h = new PivotsScriptsHarness();
         for (var i = 0; i < saved; i++)
             h.Sessions.Sessions.Add(new PivotsSessionRecord($"s{i}", new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i), "u", "LAB", "cm01.lab.local", PivotsChangeKind.RunPivot,
-                "t", null, [], "OS", null, null, null, new Dictionary<string, string>()));
+                "t", null, [], "OS", null, null, null, []));
         var vm = await h.OpenAsync(VM.HistoryTab);
         Assert.Equal(VM.MaxSessions, vm.SessionRows.Count);
         Assert.Equal(note, vm.SessionCount.Contains(VM.SessionsCappedNote, StringComparison.Ordinal));

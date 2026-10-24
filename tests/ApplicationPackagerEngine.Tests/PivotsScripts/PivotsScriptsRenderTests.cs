@@ -61,7 +61,7 @@ public sealed class PivotsScriptsRenderTests
                 i == 1 ? "Partial" : "Succeeded", "run-" + i, "Collection " + LongText, 20_000, Guid.NewGuid().ToString().ToUpperInvariant(), new string('a', 64), "16777216",
                 "Sent to 20,000 devices of the collection " + LongText + ". The page waits for the results.") { Verified = i != 2, HasChain = true });
             h.Sessions.Sessions.Add(new PivotsSessionRecord("session-" + i, new DateTime(2026, 12, 31, 4, 59, 0, DateTimeKind.Utc), @"CONTOSO\labadmin", "LAB", "cm01.lab.local",
-                i % 2 == 0 ? PivotsChangeKind.RunScript : PivotsChangeKind.RunPivot, "Collection " + LongText, "LAB00099", [], null, null, null, null, new Dictionary<string, string>())
+                i % 2 == 0 ? PivotsChangeKind.RunScript : PivotsChangeKind.RunPivot, "Collection " + LongText, "LAB00099", [], null, null, null, null, [])
             { Status = i == 1 ? "Saved before send" : "Completed", OperationId = "16777216" });
         }
         return h;

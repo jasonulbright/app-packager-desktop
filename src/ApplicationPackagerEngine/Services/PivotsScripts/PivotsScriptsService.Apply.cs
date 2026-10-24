@@ -36,6 +36,9 @@ public sealed partial class PivotsScriptsService
         /// <summary>1 once the Finished audit record of the run is written; a run has one.</summary>
         public int FinishedRecorded;
 
+        /// <summary>1 after the app close wrote the Finished record of the run; the session keeps the app-closed state.</summary>
+        public int ClosedAtExit;
+
         /// <summary>1 while a wait reads the run; a second wait at the same time is refused.</summary>
         public int Waiting;
 
@@ -209,7 +212,7 @@ public sealed partial class PivotsScriptsService
                 ScriptGuid: change.ScriptGuid,
                 ScriptName: change.Script?.Name,
                 ScriptHash: textHash,
-                Parameters: PivotsSessionStore.HashedParameters(change.Parameters));
+                ParameterNames: PivotsSessionStore.NamesOf(change.Parameters));
             try
             {
                 _sessions.Save(session);
@@ -530,6 +533,8 @@ public sealed partial class PivotsScriptsService
     public const string ExitDuringWaitMessage =
         "The app closed while the page waited for the results. Clients that received the request still run it. To read the results, open History, select the run and select Wait again.";
 
+    public const string AppClosedStatus = "App closed, results not read";
+
     public int EndWaitsAtExit()
     {
         var written = 0;
@@ -542,7 +547,14 @@ public sealed partial class PivotsScriptsService
             AuditWrite result;
             try { result = _audit.Append(record); }
             catch (PivotsServiceException) { result = new AuditWrite(false, ""); }
-            if (result.Succeeded) written++;
+            if (result.Succeeded)
+            {
+                written++;
+                Interlocked.Exchange(ref run.ClosedAtExit, 1);
+                // The process can end before the wait loop writes the session, so the app-closed state is written here.
+                run.Session = run.Session with { Status = AppClosedStatus, Message = ExitDuringWaitMessage, Partial = true, FinishedRecorded = true };
+                TryUpdate(run.Session);
+            }
             else
             {
                 Interlocked.Exchange(ref run.FinishedRecorded, 0);
@@ -591,7 +603,7 @@ public sealed partial class PivotsScriptsService
         var (runId, finished) = AuditOf(session);
         var targets = new ResolvedTargets(Devices: session.Devices, CollectionId: session.CollectionId, Description: session.TargetDescription, IsBuiltInCollection: IsBuiltIn(session.CollectionId),
             Unmatched: [], Truncated: false) { TotalMatched = session.Devices.Count };
-        var change = new PivotsChange(Kind: session.Kind, Targets: targets, QueryText: session.QueryText, ScriptGuid: session.ScriptGuid, ScriptHash: session.ScriptHash, Parameters: session.Parameters,
+        var change = new PivotsChange(Kind: session.Kind, Targets: targets, QueryText: session.QueryText, ScriptGuid: session.ScriptGuid, ScriptHash: session.ScriptHash, Parameters: null,
             SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { DeviceCount = session.Devices.Count, ResultWindow = PivotsChange.SendOnly };
         var run = new RunState
         {
@@ -1007,7 +1019,8 @@ public sealed partial class PivotsScriptsService
             : partial ? $"The wait ended: {summary}. The results are partial." : $"Done: {summary}.";
         if (run.ChangedDuringSend) message += " " + ChangedDuringSendMessage;
         if (run.Reloaded) message += " " + ReloadedNote;
-        var status = stopped ? "Stopped waiting" : partial ? "Partial" : failed > 0 ? "Completed with failures" : "Completed";
+        var closed = Volatile.Read(ref run.ClosedAtExit) == 1;
+        var status = closed ? AppClosedStatus : stopped ? "Stopped waiting" : partial ? "Partial" : failed > 0 ? "Completed with failures" : "Completed";
         _log?.Info(LogArea, $"{run.Change.Kind} wait ended: {completed} completed, {failed} failed, {list.Count - completed - failed} without a result, {cut} with part of the rows.");
         var succeeded = !partial && failed == 0;
         var recordedNow = false;
@@ -1025,7 +1038,7 @@ public sealed partial class PivotsScriptsService
         }
         run.Session = run.Session with
         {
-            Status = status, Message = message, Results = list, Raw = run.Raw.ToList(), FinishedUtc = _utcNow(), Partial = partial,
+            Status = status, Message = closed ? ExitDuringWaitMessage : message, Results = list, Raw = run.Raw.ToList(), FinishedUtc = _utcNow(), Partial = partial,
             // Only a written record counts: a reloaded run whose log could not be read is not marked as finished.
             FinishedRecorded = run.Session.FinishedRecorded || recordedNow
         };

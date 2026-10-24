@@ -79,6 +79,7 @@ public sealed class PivotsLabFixRenderTests
             Assert.Equal("txtQuery", FocusedId());
 
             Press(window, page, editor, Key.Tab, ModifierKeys.Control);
+            Release(window, page, editor, Key.LeftCtrl);
             Assert.NotEqual("txtQuery", FocusedId());
             Assert.Equal(VM.PivotTab, viewModel.SelectedTabIndex);
 
@@ -95,6 +96,108 @@ public sealed class PivotsLabFixRenderTests
             Press(window, page, editor, Key.A);
             Press(window, page, editor, Key.Tab);
             Assert.Equal("txtQuery", FocusedId());
+        });
+    }
+
+    private static void Release(Window window, PivotsScriptsPage page, TextBox editor, Key key, ModifierKeys modifiers = ModifierKeys.None)
+    {
+        page.ModifierSource = () => modifiers;
+        var args = new System.Windows.Input.KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(editor)!, 0, key) { RoutedEvent = Keyboard.PreviewKeyUpEvent };
+        editor.RaiseEvent(args);
+        Settle(window);
+    }
+
+    /// <summary>The element that Tab without a modifier reaches from the editor in the given direction.</summary>
+    private static string PlainTabTarget(Window window, TextBox editor, FocusNavigationDirection direction)
+    {
+        Keyboard.Focus(editor);
+        Settle(window);
+        editor.MoveFocus(new TraversalRequest(direction));
+        Settle(window);
+        var id = FocusedId();
+        Keyboard.Focus(editor);
+        Settle(window);
+        return id;
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light, "txtQuery")]
+    [InlineData(ApplicationTheme.Dark, "txtQuery")]
+    [InlineData(ApplicationTheme.Light, "txtDraft")]
+    public void CtrlTabMovesTheFocusOnlyAfterCtrlIsReleasedAndReachesTheControlThatTabReaches(ApplicationTheme theme, string editorId)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            if (editorId == "txtDraft")
+            {
+                viewModel.SelectedTabIndex = VM.SiteScriptsTab;
+                Run(viewModel.EnsureTabLoadedAsync());
+                Settle(window);
+            }
+            var editor = ById<TextBox>(page, editorId);
+            var next = PlainTabTarget(window, editor, FocusNavigationDirection.Next);
+            var previous = PlainTabTarget(window, editor, FocusNavigationDirection.Previous);
+            Assert.NotEqual(editorId, next);
+            Assert.NotEqual(editorId, previous);
+
+            // WPF moves the focus by the Ctrl+Tab rules while Ctrl is down, and those rules leave the page: the move waits for the release.
+            Press(window, page, editor, Key.Tab, ModifierKeys.Control);
+            Assert.Equal(editorId, FocusedId());
+            Assert.DoesNotContain('\t', editor.Text);
+            Release(window, page, editor, Key.Tab, ModifierKeys.Control);
+            Assert.Equal(editorId, FocusedId());
+            Release(window, page, editor, Key.LeftCtrl);
+            Assert.Equal(next, FocusedId());
+            Assert.True(Keyboard.FocusedElement is DependencyObject focused && page.IsAncestorOf(focused), "Ctrl+Tab leaves the page.");
+
+            Keyboard.Focus(editor);
+            Settle(window);
+            Press(window, page, editor, Key.Tab, ModifierKeys.Control | ModifierKeys.Shift);
+            Assert.Equal(editorId, FocusedId());
+            Release(window, page, editor, Key.LeftCtrl, ModifierKeys.Shift);
+            Assert.Equal(previous, FocusedId());
+
+            Keyboard.Focus(editor);
+            Settle(window);
+            Press(window, page, editor, Key.Escape);
+            Press(window, page, editor, Key.Tab);
+            Assert.Equal(next, FocusedId());
+
+            Keyboard.Focus(editor);
+            Settle(window);
+            Press(window, page, editor, Key.Tab, ModifierKeys.Control);
+            var other = editorId == "txtDraft" ? "btnRefreshSiteScripts" : "btnResolve";
+            Keyboard.Focus(ById<FrameworkElement>(page, other));
+            Settle(window);
+            Release(window, page, editor, Key.LeftCtrl);
+            Assert.Equal(other, FocusedId());
+            Assert.Contains("Ctrl+Tab", PivotsScriptsPage.EditorKeyHint, StringComparison.Ordinal);
+            Assert.Contains("Esc and then Tab", PivotsScriptsPage.EditorKeyHint, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheParametersDialogSaysNoDefaultForAParameterWithoutADefault(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var script = new SiteScript("G", "Label Count", "a", "b", SiteScriptStates.Approved, 1, "PowerShell", "H",
+                [new ScriptParameter("Label", "System.String", true, null), new ScriptParameter("Count", "System.Int32", false, "3"), new ScriptParameter("Note", "System.String", false, "")], null);
+            var window = new PivotsParametersWindow(new PivotsParametersViewModel(script, null));
+            Show(window);
+            try
+            {
+                Settle(window);
+                var lines = Descendants(window).OfType<TextBlock>().Select(t => new System.Windows.Documents.TextRange(t.ContentStart, t.ContentEnd).Text).Where(t => t.StartsWith("Label", StringComparison.Ordinal) || t.StartsWith("Count", StringComparison.Ordinal) || t.StartsWith("Note", StringComparison.Ordinal)).ToList();
+                Assert.Equal(3, lines.Count);
+                Assert.All(lines, l => Assert.DoesNotContain("default: )", l, StringComparison.Ordinal));
+                Assert.Equal("Label (System.String, required: Yes, no default)", lines[0]);
+                Assert.Equal("Count (System.Int32, required: No, default: 3)", lines[1]);
+                Assert.Equal("Note (System.String, required: No, no default)", lines[2]);
+            }
+            finally { window.Close(); }
         });
     }
 
@@ -131,6 +234,7 @@ public sealed class PivotsLabFixRenderTests
 
             var editor = ById<TextBox>(page, "txtQuery");
             Press(window, page, editor, Key.Tab, ModifierKeys.Control);
+            Release(window, page, editor, Key.LeftCtrl);
             path.Clear();
             path.Add(FocusedId());
             for (var i = 0; i < 6 && FocusedId() != "btnRunPivot"; i++)

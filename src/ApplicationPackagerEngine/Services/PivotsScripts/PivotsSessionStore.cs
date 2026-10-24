@@ -143,7 +143,7 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
             if (!info.Exists || info.Attributes.HasFlag(FileAttributes.ReparsePoint) || info.Length > MaxFileBytes) return null;
             if (DataFolderLinks.HasLink(Folder, DataFolderLinks.ContainerOf(Folder, folder is null))) return null;
             var record = JsonSerializer.Deserialize<PivotsSessionRecord>(File.ReadAllBytes(path), Options);
-            return record is not null && record.Id == id ? record : null;
+            return record is not null && record.Id == id ? Migrated(record) : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
         {
@@ -170,21 +170,24 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
     }
 
     private static byte[] Serialize(PivotsSessionRecord record) =>
-        Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Bounded(record) with { Parameters = HashedParameters(record.Parameters) }, Options));
-
-    [GeneratedRegex("^sha256:[0-9a-f]{64}$")]
-    private static partial Regex HashedValueRegex();
-
-    public const string HashPrefix = "sha256:";
+        Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Migrated(Bounded(record)), Options));
 
     /// <summary>
-    /// The parameter names with the SHA-256 of each value: a session file never holds a value, which
-    /// can be a password or a token. A value in the hashed form stays as it is.
+    /// The parameter names of a run, sorted and without duplicates. A session file holds no value and
+    /// no hash or length of a value: a short or guessable value is recoverable from its unsalted hash.
     /// </summary>
-    public static IReadOnlyDictionary<string, string> HashedParameters(IReadOnlyDictionary<string, string>? parameters) =>
-        (parameters ?? new Dictionary<string, string>()).ToDictionary(p => p.Key,
-            p => HashedValueRegex().IsMatch(p.Value ?? "") ? p.Value! : HashPrefix + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(p.Value ?? ""))),
-            StringComparer.Ordinal);
+    public static IReadOnlyList<string> NamesOf(IReadOnlyDictionary<string, string>? parameters) =>
+        NamesOf(parameters?.Keys);
+
+    private static List<string> NamesOf(IEnumerable<string>? names) =>
+        (names ?? []).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>A record in the current form: the names of a "Parameters" map of an earlier version are kept, its hashes are dropped.</summary>
+    private static PivotsSessionRecord Migrated(PivotsSessionRecord record) => record with
+    {
+        ParameterNames = NamesOf(record.ParameterNames is { Count: > 0 } names ? names : record.LegacyParameters?.Keys),
+        LegacyParameters = null
+    };
 
     private string PathOf(string id)
     {

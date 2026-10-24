@@ -382,7 +382,7 @@ public sealed class PivotsRunSafetyTests
         {
             var id = PivotsSessionStore.NewId();
             store.Save(new PivotsSessionRecord(id, h.Clock.AddMinutes(i), "u", "MCM", StubAdminService.Host, PivotsChangeKind.RunPivot, "t", null,
-                [new ResolvedDevice(Client01Id, Client01)], "OS", null, null, null, new Dictionary<string, string>()) { OperationId = (100 + i).ToString(System.Globalization.CultureInfo.InvariantCulture) });
+                [new ResolvedDevice(Client01Id, Client01)], "OS", null, null, null, []) { OperationId = (100 + i).ToString(System.Globalization.CultureInfo.InvariantCulture) });
             File.SetLastWriteTimeUtc(Path.Combine(store.Folder, id + ".json"), h.Clock.AddMinutes(i));
         }
         Assert.Single(store.List(1));
