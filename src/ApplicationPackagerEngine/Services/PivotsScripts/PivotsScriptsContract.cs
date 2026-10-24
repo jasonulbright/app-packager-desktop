@@ -76,6 +76,9 @@ public sealed record SiteScript(
     /// <summary>True when the site's parameter definitions could not be read; the script cannot run from this page.</summary>
     public bool ParametersUnreadable { get; init; }
 
+    /// <summary>The ScriptHash the site holds (SHA-256 that the site computes); a change of the text changes it.</summary>
+    public string SiteHash { get; init; } = "";
+
     public bool IsApproved => State == SiteScriptStates.Approved;
 }
 

@@ -1,0 +1,155 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using ApplicationPackagerEngine.Services.Logging;
+
+namespace ApplicationPackagerEngine.Services;
+
+/// <summary>
+/// One JSON file per run in &lt;data root&gt;\PivotsScripts\Sessions, named &lt;id&gt;.json. Save creates the
+/// file and fails when it exists; Update replaces it through a temporary file in the same folder. A
+/// folder or a file that is a junction or symbolic link is refused, and a file larger than
+/// <see cref="MaxFileBytes"/> is not read.
+/// </summary>
+public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? log = null) : IPivotsSessionStore
+{
+    public const string LogArea = "PivotsScripts";
+    public const long MaxFileBytes = 64L * 1024 * 1024;
+
+    /// <summary>The raw responses one session file keeps; later responses are left out and the record says so.</summary>
+    public const int MaxRawBytes = 4 * 1024 * 1024;
+
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = false,
+        Converters = { new JsonStringEnumConverter() },
+        PropertyNameCaseInsensitive = true
+    };
+
+    [GeneratedRegex("^[a-f0-9]{32}$")]
+    private static partial Regex IdRegex();
+
+    public static string DefaultFolder() => Path.Combine(PivotsFolders.Root(), "Sessions");
+
+    public string Folder => folder ?? DefaultFolder();
+
+    public static string NewId() => Guid.NewGuid().ToString("N");
+
+    public void Save(PivotsSessionRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        var path = PathOf(record.Id);
+        CheckFolder();
+        try
+        {
+            Directory.CreateDirectory(Folder);
+            using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            var bytes = Serialize(record);
+            stream.Write(bytes);
+            stream.Flush(flushToDisk: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log?.Warning(LogArea, $"A session file could not be written ({ex.GetType().Name}).");
+            throw new PivotsServiceException("The session could not be saved before the run, so nothing was sent. Check that the sessions folder can be written: " + Folder);
+        }
+    }
+
+    public void Update(PivotsSessionRecord record)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        var path = PathOf(record.Id);
+        CheckFolder();
+        var temp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
+        try
+        {
+            if (!File.Exists(path)) throw new PivotsServiceException("The session file of the run does not exist any more, so the results were not saved.");
+            if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+                throw new PivotsServiceException("The session file is a symbolic link or another reparse point, so it was not written.");
+            File.WriteAllBytes(temp, Serialize(record));
+            File.Replace(temp, path, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log?.Warning(LogArea, $"A session file could not be updated ({ex.GetType().Name}).");
+            throw new PivotsServiceException("The results could not be saved in the session file. Check that the sessions folder can be written.");
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    public IReadOnlyList<PivotsSessionSummary> List(int max)
+    {
+        if (max <= 0 || !Directory.Exists(Folder)) return [];
+        CheckFolder();
+        FileInfo[] files;
+        try
+        {
+            files = new DirectoryInfo(Folder).GetFiles("*.json");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new PivotsServiceException("The sessions folder could not be read: " + Folder);
+        }
+        var list = new List<PivotsSessionSummary>();
+        foreach (var file in files.Where(f => IdRegex().IsMatch(Path.GetFileNameWithoutExtension(f.Name))).OrderByDescending(f => f.LastWriteTimeUtc).Take(max * 2))
+        {
+            if (Read(Path.GetFileNameWithoutExtension(file.Name)) is not { } r) continue;
+            list.Add(new PivotsSessionSummary(r.Id, r.CreatedUtc, r.Kind, r.TargetDescription, r.Devices.Count, r.Status, r.OperationId));
+        }
+        return list.OrderByDescending(s => s.CreatedUtc).Take(max).ToList();
+    }
+
+    public PivotsSessionRecord? Read(string id)
+    {
+        if (!IdRegex().IsMatch(id ?? "")) return null;
+        var path = Path.Combine(Folder, id + ".json");
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Attributes.HasFlag(FileAttributes.ReparsePoint) || info.Length > MaxFileBytes) return null;
+            if (DataFolderLinks.HasLink(Folder, DataFolderLinks.ContainerOf(Folder, folder is null))) return null;
+            var record = JsonSerializer.Deserialize<PivotsSessionRecord>(File.ReadAllBytes(path), Options);
+            return record is not null && record.Id == id ? record : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
+        {
+            log?.Warning(LogArea, $"A session file could not be read ({ex.GetType().Name}).");
+            return null;
+        }
+    }
+
+    /// <summary>The record with the raw responses cut to <see cref="MaxRawBytes"/>, newest kept last.</summary>
+    internal static PivotsSessionRecord Bounded(PivotsSessionRecord record)
+    {
+        var total = 0L;
+        var kept = new List<PivotsRawRecord>();
+        var cut = 0;
+        foreach (var raw in record.Raw)
+        {
+            total += raw.Body.Length;
+            if (total > MaxRawBytes) { cut++; continue; }
+            kept.Add(raw);
+        }
+        if (cut == 0) return record;
+        kept.Add(new PivotsRawRecord(DateTime.UtcNow, "Note", null, $"{cut} more raw responses were not kept: the session file keeps at most {MaxRawBytes / (1024 * 1024)} MB of raw responses."));
+        return record with { Raw = kept };
+    }
+
+    private static byte[] Serialize(PivotsSessionRecord record) => Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Bounded(record), Options));
+
+    private string PathOf(string id)
+    {
+        if (!IdRegex().IsMatch(id ?? "")) throw new PivotsServiceException("The session ID is not valid, so the session was not saved.");
+        return Path.Combine(Folder, id + ".json");
+    }
+
+    private void CheckFolder()
+    {
+        if (DataFolderLinks.HasLink(Folder, DataFolderLinks.ContainerOf(Folder, folder is null)))
+            throw new PivotsServiceException("The sessions folder is a junction or symbolic link, so nothing was saved and nothing was sent.");
+    }
+}
