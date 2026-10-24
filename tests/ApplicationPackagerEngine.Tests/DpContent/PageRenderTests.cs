@@ -327,7 +327,7 @@ public sealed class PageRenderTests
         ("dgContentPairs", "State", "Failed (content updating)"), ("dgContentPairs", "Last status", "12/30/2026 11:59 PM"),
         ("dgDpPairs", "State", "Failed (content updating)"), ("dgDpPairs", "Type", "Software update package"), ("dgDpPairs", "Last status", "12/30/2026 11:59 PM"),
         ("dgContent", "Type", "Software update package"),
-        ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"), ("dgDpHistory", "User", @"CONTOSO\labadmin"), ("dgDpHistory", "DPs", "CM01.CONTOSO.COM")
+        ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"), ("dgDpHistory", "User", @"CONTOSO\labadmin"), ("dgDpHistory", "DPs", "CM01.CONTOSO.COM"), ("dgDpHistory", "Action", "Distribute again"), ("dgDpHistory", "Verified", "! Not verified")
     ];
 
     [Theory]
@@ -590,5 +590,24 @@ public sealed class PageRenderTests
             }
             finally { window.Close(); }
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void At900By600AWrappedMessageTakesAtMostTwoLinesSoTheHistoryShowsSeveralRows(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            ShowTab(window, viewModel, VM.HistoryTab);
+            var grid = ById<DataGrid>(page, "dgDpHistory");
+            grid.BringIntoView();
+            Settle(window);
+            var rows = Descendants(grid).OfType<DataGridRow>().Where(r => r.IsVisible).ToList();
+            Assert.True(rows.Count >= 3, $"The History shows {rows.Count} rows at 900x600.");
+            var block = Descendants(rows[0]).OfType<DataGridCell>().Where(c => Equals(c.Column.Header, "Message")).SelectMany(c => Descendants(c).OfType<TextBlock>()).First();
+            Assert.True(block.ActualHeight <= 2 * block.LineHeight + 0.5, $"The message is {block.ActualHeight:0} px tall.");
+            Assert.All(rows, r => Assert.True(r.ActualHeight <= 2 * block.LineHeight + 16, $"A History row is {r.ActualHeight:0} px tall."));
+        }, 900 - NavigationPaneWidth, 600 - 48);
     }
 }

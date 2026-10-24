@@ -113,11 +113,14 @@ public sealed partial class DpContentManagerViewModel
     {
         var selected = SelectedHistory?.Record;
         var text = HistoryText.Trim();
+        // The audit log holds whole seconds, so records of one second keep their file order: the index breaks the tie.
         var rows = _records
-            .Where(r => HistoryAction == AllText || string.Equals(DpContentHistoryText.ActionLabel(r.Action), HistoryAction, StringComparison.OrdinalIgnoreCase))
-            .Where(r => text.Length == 0 || Has(r.PackageIds, text) || Has(r.DpNames, text) || Has(r.User, text) || Has(r.Result, text) || Has(r.Phase, text) || Has(r.Message, text))
-            .Select(r => new DpContentHistoryRow(r));
-        var list = (_sorts.ContainsKey(HistoryGrid) ? Sorted(HistoryGrid, rows) : rows.OrderByDescending(r => r.Record.Timestamp)).ToList();
+            .Select((r, i) => (Record: r, Index: i))
+            .Where(x => HistoryAction == AllText || string.Equals(DpContentHistoryText.ActionLabel(x.Record.Action), HistoryAction, StringComparison.OrdinalIgnoreCase))
+            .Where(x => text.Length == 0 || Has(x.Record.PackageIds, text) || Has(x.Record.DpNames, text) || Has(x.Record.User, text) || Has(x.Record.Result, text)
+                || Has(x.Record.Phase, text) || Has(x.Record.Message, text))
+            .Select(x => new DpContentHistoryRow(x.Record) { Index = x.Index });
+        var list = (_sorts.ContainsKey(HistoryGrid) ? Sorted(HistoryGrid, rows) : rows.OrderByDescending(r => r.Record.Timestamp).ThenByDescending(r => r.Index)).ToList();
         HistoryRows = list;
         SelectedHistory = selected is null ? null : list.FirstOrDefault(r => SameRecord(r.Record, selected));
         HistoryCount = list.Count == _records.Count ? DpContentLabels.Count(_records.Count, "record") : $"{DpContentLabels.Number(list.Count)} of {DpContentLabels.Count(_records.Count, "record")}";

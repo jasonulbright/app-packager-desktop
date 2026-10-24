@@ -597,7 +597,7 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         (ContentGridRow r, nameof(ContentGridRow.Deployments)) => r.Content.DeploymentCount,
         (PairGridRow r, nameof(PairGridRow.State)) => r.State,
         (PairGridRow r, nameof(PairGridRow.LastStatus)) => r.Pair.SummaryDate ?? DateTime.MinValue,
-        (DpContentHistoryRow r, nameof(DpContentHistoryRow.Time)) => r.Record.Timestamp,
+        (DpContentHistoryRow r, nameof(DpContentHistoryRow.Time)) => (r.Record.Timestamp, r.Index),
         (DpContentHistoryRow r, nameof(DpContentHistoryRow.Pairs)) => r.Record.PairCount,
         _ => row.GetType().GetProperty(column)?.GetValue(row) as string ?? ""
     };

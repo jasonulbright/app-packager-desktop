@@ -123,6 +123,10 @@ public sealed class PairGridRow(PairRow pair)
 public sealed class DpContentHistoryRow(DpContentAuditRecord record)
 {
     public DpContentAuditRecord Record { get; } = record;
+
+    /// <summary>The position of the record in the audit log, oldest first; it orders records of the same second.</summary>
+    public int Index { get; init; }
+
     public string Time => Record.Timestamp.ToString("g", CultureInfo.CurrentCulture);
     public string Action => DpContentHistoryText.ActionLabel(Record.Action);
     /// <summary>The result; a Started record of a removal has none, so the row shows its phase.</summary>

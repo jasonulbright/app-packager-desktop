@@ -43,4 +43,21 @@ public sealed class DpContentRound4Tests
         Assert.Equal("Started", new DpContentHistoryRow(started).Result);
         Assert.Equal("Requested", new DpContentHistoryRow(started with { Phase = "Finished", Result = "Requested" }).Result);
     }
+
+    [Fact]
+    public async Task RecordsOfTheSameSecondKeepTheirLogOrderWithTheNewestFirst()
+    {
+        var h = new DpContentPageHarness();
+        var second = new DateTime(2026, 10, 24, 1, 56, 9);
+        DpContentAuditRecord Record(string phase, string result) => new(Timestamp: second, User: @"CONTOSO\labadmin", Event: "Remove", Phase: phase, Result: result, RunId: "run-1",
+            Chunk: 1, Pairs: [], Message: phase);
+        h.Audit.Records.AddRange([Record("Started", ""), Record("Finished", "Requested"), Record("ReadBack", "Succeeded")]);
+        var vm = await h.OpenAsync(ApplicationPackagerUI.ViewModels.Pages.DpContentManagerViewModel.HistoryTab);
+
+        Assert.Equal(["ReadBack", "Finished", "Started"], vm.HistoryRows.Select(r => r.Record.Phase));
+        vm.Sort(ApplicationPackagerUI.ViewModels.Pages.DpContentManagerViewModel.HistoryGrid, nameof(DpContentHistoryRow.Time));
+        Assert.Equal(["Started", "Finished", "ReadBack"], vm.HistoryRows.Select(r => r.Record.Phase));
+        vm.Sort(ApplicationPackagerUI.ViewModels.Pages.DpContentManagerViewModel.HistoryGrid, nameof(DpContentHistoryRow.Time));
+        Assert.Equal(["ReadBack", "Finished", "Started"], vm.HistoryRows.Select(r => r.Record.Phase));
+    }
 }
