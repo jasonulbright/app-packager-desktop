@@ -370,7 +370,7 @@
                                 <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="*" MinWidth="240" ElementStyle="{StaticResource WrappedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBox Grid.Row="3" Text="{Binding HistoryDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="96" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0"
+                        <TextBox Grid.Row="3" Text="{Binding HistoryDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="184" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0"
                                  Visibility="{Binding HasHistoryDetails, Converter={StaticResource BoolToVisibility}}"
                                  AutomationProperties.Name="Details of the selected record" AutomationProperties.AutomationId="txtDpHistoryDetails" />
                     </Grid>
@@ -400,7 +400,7 @@
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="140" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                        <DataGridTextColumn Header="Pair" Binding="{Binding Item.Target}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                        <DataGridTextColumn Header="Pair" Binding="{Binding Item.Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                     </DataGrid.Columns>
                 </DataGrid>

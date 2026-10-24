@@ -329,7 +329,7 @@ public sealed class PageRenderTests
         ("dgContent", "Type", "Software update package"),
         ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Action", "Distribute again"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"),
         ("dgDpHistory", "Result", "Unknown"), ("dgDpHistory", "Verified", "! Not verified"), ("dgDpHistory", "Verified", "✓ Verified"), ("dgDpHistory", "DPs", "CM01.CONTOSO.COM"),
-        ("dgDpHistory", "User", @"CONTOSO\labadmin")
+        ("dgDpHistory", "User", @"CONTOSO\labadmin"), ("dgDpContentResults", "Pair", "Contoso Fonts 2.1 (MCM00106) on CM01.CONTOSO.COM")
     ];
 
     /// <summary>History values must fit with this much room: a lab window cut a value the test measured as just fitting.</summary>
@@ -626,5 +626,22 @@ public sealed class PageRenderTests
             var bounds = cell.TransformToAncestor(grid).TransformBounds(new Rect(cell.RenderSize));
             Assert.True(bounds.Right <= grid.ActualWidth + 0.5 && bounds.Left >= -0.5, $"The scrolled Message cell spans {bounds.Left:0} to {bounds.Right:0} px in a {grid.ActualWidth:0} px grid.");
         }, 900 - NavigationPaneWidth, 600 - 48);
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheHistoryDetailsBoxShowsEveryLineOfALongRecordWithoutScrolling(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            ShowTab(window, viewModel, VM.HistoryTab);
+            viewModel.SelectedHistory = viewModel.HistoryRows.OrderByDescending(r => r.Record.Message.Length).First();
+            Settle(window);
+            var box = ById<System.Windows.Controls.TextBox>(page, "txtDpHistoryDetails");
+            Assert.True(box.IsVisible);
+            var scroller = Descendants(box).OfType<ScrollViewer>().First();
+            Assert.True(scroller.ExtentHeight <= scroller.ViewportHeight + 0.5, $"The details need {scroller.ExtentHeight:0} px and the box shows {scroller.ViewportHeight:0} px.");
+        }, 1440 - CollapsedPaneWidth);
     }
 }

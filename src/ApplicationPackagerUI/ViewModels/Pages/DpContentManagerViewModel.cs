@@ -185,9 +185,17 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         await SaveAsync();
     }
 
-    public Task EnsureTabLoadedAsync() => SelectedTabIndex == HistoryTab
-        ? (IsHistoryLoaded ? Task.CompletedTask : LoadHistoryAsync())
-        : (IsLoaded ? Task.CompletedTask : LoadAsync());
+    /// <summary>
+    /// Reads what the current tab shows. The History tab reads the audit log and, when a site is set
+    /// up, the snapshot as well, because the summary line above the tabs comes from the snapshot.
+    /// </summary>
+    public Task EnsureTabLoadedAsync()
+    {
+        if (SelectedTabIndex != HistoryTab) return IsLoaded ? Task.CompletedTask : LoadAsync();
+        var history = IsHistoryLoaded ? Task.CompletedTask : LoadHistoryAsync();
+        var site = IsLoaded || CollectionComplianceViewModel.ConnectionProblem(Services.LoadSettings()) is not null ? Task.CompletedTask : LoadAsync();
+        return Task.WhenAll(history, site);
+    }
 
     /// <summary>The setting to change before the page can reach ConfigMgr, or null.</summary>
     public string? ConnectionProblem()

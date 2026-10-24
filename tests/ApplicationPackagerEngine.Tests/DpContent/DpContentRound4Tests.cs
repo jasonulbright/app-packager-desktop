@@ -60,4 +60,24 @@ public sealed class DpContentRound4Tests
         vm.Sort(ApplicationPackagerUI.ViewModels.Pages.DpContentManagerViewModel.HistoryGrid, nameof(DpContentHistoryRow.Time));
         Assert.Equal(["ReadBack", "Finished", "Started"], vm.HistoryRows.Select(r => r.Record.Phase));
     }
+
+    [Fact]
+    public async Task TheSummaryLineShowsWhenThePageReturnsWithTheHistoryTabSelected()
+    {
+        var h = new DpContentPageHarness();
+        var vm = await h.OpenAsync(ApplicationPackagerUI.ViewModels.Pages.DpContentManagerViewModel.HistoryTab);
+        const string Summary = "3 DPs, 3 contents, 6 pairs, 3 status issues.";
+        Assert.Equal(Summary, vm.LoadSummary);
+
+        await vm.OnNavigatedFromAsync();
+        Assert.Equal("", vm.LoadSummary);
+        await vm.OnNavigatedToAsync();
+        Assert.Equal(ApplicationPackagerUI.ViewModels.Pages.DpContentManagerViewModel.HistoryTab, vm.SelectedTabIndex);
+        Assert.Equal(Summary, vm.LoadSummary);
+
+        var again = h.Create();
+        await again.OnNavigatedToAsync();
+        Assert.Equal(ApplicationPackagerUI.ViewModels.Pages.DpContentManagerViewModel.HistoryTab, again.SelectedTabIndex);
+        Assert.Equal(Summary, again.LoadSummary);
+    }
 }
