@@ -371,6 +371,15 @@ public sealed class DpContentServiceScriptTests
     }
 
     [Fact]
+    public async Task ARemovalOfOnlyFailedPairsSaysUndoRestoresNothing()
+    {
+        using var h = new DpContentHarness();
+        var change = await h.PrepareAsync(DpContentChangeKind.Remove, Pair("MCM000A7", Cm01, 7));
+        Assert.Contains("No pair of the plan is installed now, so Undo restores nothing.", change.Impact);
+        Assert.DoesNotContain(change.Impact, l => l.StartsWith("Undo distributes the 0", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task APlanOverTheCapIsRefused()
     {
         using var h = new DpContentHarness();

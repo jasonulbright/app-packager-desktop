@@ -226,7 +226,9 @@ public sealed partial class DpContentService
                     lines.Add($"{i.Name} ({i.PackageId}): on {Count(i.DpsNow, "distribution point")} now, installed on {Count(i.DpsRemaining, "distribution point")} after the change; "
                         + (i.DeploymentCount < 0 ? "the deployments that use it are not known." : $"used by {Count(i.DeploymentCount, "counted deployment")}."));
                 var installed = kept.Count(p => DpContentStates.IsOk(p.State) && !p.HasErrorMessage);
-                lines.Add($"Undo distributes the {Count(installed, "pair")} that {(installed == 1 ? "is" : "are")} installed now again: the content is copied again and can take a long time. Pairs that are not installed now are not restored. Run Undo after the site has finished the removal: a request made before that can be ignored by the site.");
+                lines.Add(installed == 0
+                    ? "No pair of the plan is installed now, so Undo restores nothing."
+                    : $"Undo distributes the {Count(installed, "pair")} that {(installed == 1 ? "is" : "are")} installed now again: the content is copied again and can take a long time. Pairs that are not installed now are not restored. Run Undo after the site has finished the removal: a request made before that can be ignored by the site.");
                 lines.Add(DeploymentKinds);
                 break;
             case DpContentChangeKind.DistributeAgain:
