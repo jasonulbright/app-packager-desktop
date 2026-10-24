@@ -152,7 +152,7 @@ public sealed class CollectionWriterTests : IDisposable
         var code = UiCode();
         var writers = code.Where(f => System.Text.RegularExpressions.Regex.IsMatch(f.Value, @"\bservice\s*\.\s*ApplyAsync\b")).Select(f => f.Key).ToList();
         Assert.Equal([Path.Combine("Services", "CollectionsPlan.cs")], writers.Where(f => !f.Contains("Maintenance", StringComparison.Ordinal) && f != Path.Combine("Services", "CompliancePlan.cs")
-            && f != Path.Combine("Services", "DeploymentPlan.cs") && f != Path.Combine("Services", "RingRunPlan.cs")));
+            && f != Path.Combine("Services", "DeploymentPlan.cs") && f != Path.Combine("Services", "RingRunPlan.cs") && f != Path.Combine("Services", "DpContentPlan.cs")));
 
         Assert.Equal(
         [

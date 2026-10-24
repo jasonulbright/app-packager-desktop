@@ -145,17 +145,17 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheThreeSidebarToolsNameTheSuiteFoldersAndEntryScripts()
+    public void TheTwoSidebarToolsNameTheSuiteFoldersAndEntryScripts()
     {
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DeploymentHelper || t.Folder == "deployment-helper");
         Assert.Null(typeof(SuiteTools).GetProperty("DeploymentHelper"));
+        Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DpContentManager || t.Folder == "dp-content-manager");
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.CollectionCompliance);
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.InstallerAnalysis || t.Folder == "installer-analysis");
         Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-and-compliance-manager");
         Assert.Null(typeof(SuiteTools).GetProperty("CollectionAndCompliance"));
         Assert.Equal(
         [
-            ("dp-content-manager", "dp-content-manager", "start-dpcontentmgr.ps1"),
             ("pivots-and-scripts", "pivots-and-scripts", "start-pivotsandscripts.ps1"),
             ("site-hygiene", "site-hygiene", "start-sitehygiene.ps1")
         ], SuiteTools.All.Select(t => (t.Id, t.Folder, t.EntryScript)));
@@ -881,10 +881,24 @@ public sealed class SuiteToolRegistryTests
     }
 
     [Fact]
-    public void EveryOtherToolEntryIsAMovableToolWithAnAction()
+    public void TheDpContentManagerEntryIsAMovablePageWithItsSavedIdAndIcon()
     {
-        var tools = SidebarRegistry.CreateDefault().Items.Skip(9).ToList();
-        Assert.Equal(3, tools.Count);
+        var registry = SidebarRegistry.CreateDefault();
+        var item = registry.Find("dp-content-manager")!;
+        Assert.Equal(SidebarIds.DpContentManager, item.Id);
+        Assert.Equal(SidebarItemKind.Page, item.Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), item.PageType);
+        Assert.Null(item.Activate);
+        Assert.False(item.IsPinned);
+        Assert.Equal("Server24", item.Symbol);
+        Assert.Equal(9, registry.Items.ToList().IndexOf(item));
+        Assert.Equal(registry.Items.Count, registry.Items.Select(i => i.Symbol).Distinct().Count());
+    }
+
+    [Fact]
+    public void EveryOtherToolEntryIsAMovableToolWithAnAction()    {
+        var tools = SidebarRegistry.CreateDefault().Items.Skip(10).ToList();
+        Assert.Equal(2, tools.Count);
         foreach (var item in tools)
         {
             Assert.Equal(SidebarItemKind.Tool, item.Kind);
