@@ -16,8 +16,9 @@ internal static partial class HygieneChecks
         list.Add(new(["SUP-01", "SUP-02", "SUP-03", "SUP-04", "DEP-01", "DEP-02", "DEP-03", "DEP-04", "DEP-05", "REL-01"], ["AppRelationships"], RelationSets, RelationshipChecks));
         list.Add(new(["APP-04"], ["AppRelationships"], [DeploymentTypes, AppContent, Applications], ContentPathChecks)
         {
+            OptionGate = c => c.ProbeResults is null ? "The content source probe is off. Switch it on in Options to probe each path over the network." : null,
             Gate = c => c.ProbeResults is null
-                ? "The check did not run: the content source probe is off. Switch it on in Options to probe each path over the network."
+                ? null
                 : c.ProbeResults.Values.Any(v => v == HygieneProbe.NotProbed)
                     ? $"The check did not run: the site holds {N(c.ProbeResults.Count)} content source paths and one scan probes at most {N(SiteHygieneService.MaxProbePaths)}."
                     : null

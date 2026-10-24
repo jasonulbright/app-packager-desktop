@@ -60,7 +60,10 @@ internal sealed class FakeSiteHygieneService : ISiteHygieneService
     /// <summary>Set while a confirmed change plan runs; a write outside it fails the test.</summary>
     public Func<bool>? InConfirmedRun;
 
-    public HygieneScanResult Result() => new(Findings.ToList(), Checks.ToList(), ScannedUtc, Truncated, null);
+    /// <summary>The site code the scan returns, as the real service reads it from the ConfigMgr drive.</summary>
+    public string SiteCode = "MCM";
+
+    public HygieneScanResult Result() => new(Findings.ToList(), Checks.ToList(), ScannedUtc, Truncated, null) { SiteCode = SiteCode };
 
     public async Task<HygieneScanResult> ScanAsync(HygieneScanOptions options, IProgress<string> progress, CancellationToken ct)
     {
@@ -148,26 +151,43 @@ internal sealed class FakeSuppressionStore : IHygieneSuppressionStore
     /// <summary>The number of writes that succeed before every later write throws; null never fails.</summary>
     public int? FailAfter;
 
+    /// <summary>The writes of the store: each Add, AddRange, Remove and RemoveRange call is one read and one write of the file.</summary>
+    public int Writes;
+
+    /// <summary>Holds Load until it is set; Loading is set when Load starts.</summary>
+    public ManualResetEventSlim? LoadGate;
+    public readonly ManualResetEventSlim Loading = new();
+
     public IReadOnlyList<Suppression> Load()
     {
         Interlocked.Increment(ref Loads);
+        Loading.Set();
+        LoadGate?.Wait(TimeSpan.FromSeconds(30));
         lock (Items) return Items.ToList();
     }
 
-    public void Add(Suppression suppression)
+    public void Add(Suppression suppression) => AddRange([suppression]);
+
+    public void AddRange(IReadOnlyList<Suppression> suppressions)
     {
         Check();
+        Interlocked.Increment(ref Writes);
         lock (Items)
-        {
-            Items.RemoveAll(s => SiteHygieneLabels.Key(s.CheckId, s.ObjectKey) == SiteHygieneLabels.Key(suppression.CheckId, suppression.ObjectKey));
-            Items.Add(suppression);
-        }
+            foreach (var suppression in suppressions)
+            {
+                Items.RemoveAll(s => s.StoreKey == suppression.StoreKey);
+                Items.Add(suppression);
+            }
     }
 
-    public void Remove(string checkId, string objectKey)
+    public void Remove(string checkId, string objectKey) => RemoveRange("", [(checkId, objectKey)]);
+
+    public void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys)
     {
         Check();
-        lock (Items) Items.RemoveAll(s => SiteHygieneLabels.Key(s.CheckId, s.ObjectKey) == SiteHygieneLabels.Key(checkId, objectKey));
+        Interlocked.Increment(ref Writes);
+        var wanted = keys.Select(k => SiteHygieneLabels.Key(k.CheckId, k.ObjectKey)).ToHashSet();
+        lock (Items) Items.RemoveAll(s => wanted.Contains(SiteHygieneLabels.Key(s.CheckId, s.ObjectKey)) && s.AppliesTo(siteCode));
     }
 
     public string Path => @"C:\Data\SiteHygiene\suppressions.json";
@@ -189,8 +209,14 @@ internal sealed class FakeScanStore : IHygieneScanStore
     public int Loads;
     public bool SaveFails;
 
+    /// <summary>Holds Save until it is set, as a slow disk; Saving is set when Save starts.</summary>
+    public ManualResetEventSlim? SaveGate;
+    public readonly ManualResetEventSlim Saving = new();
+
     public void Save(HygieneScanResult result)
     {
+        Saving.Set();
+        SaveGate?.Wait(TimeSpan.FromSeconds(30));
         if (SaveFails) throw new IOException("The disk is full.");
         lock (Saved) Saved.Add(result);
         Stored = result;
@@ -325,6 +351,13 @@ internal sealed class SiteHygienePageHarness
             new RelationEdge(FromKey: "16777701", FromName: "Loop B", ToKey: "16777700", ToName: "Loop A", Kind: "Supersedes", Health: "Circular")
         ]);
         Service.InConfirmedRun = () => Plans.InRun;
+    }
+
+    /// <summary>Makes every check of the scan run, or leave it out by an option as APP-04 with the probe off, so the result may replace the stored last scan.</summary>
+    public void CompleteScan()
+    {
+        for (var i = 0; i < Service.Checks.Count; i++)
+            if (Service.Checks[i].State == HygieneCheckStates.NotRun) Service.Checks[i] = Service.Checks[i] with { State = HygieneCheckStates.NotSelected };
     }
 
     private HygieneFinding Add(HygieneFinding finding)

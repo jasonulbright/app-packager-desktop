@@ -10,7 +10,7 @@ internal static partial class HygieneChecks
     private static void AddOther(List<HygieneCheckFamily> list)
     {
         list.Add(new(["CNT-01", "CNT-02", "CNT-03"], ["Content"], [ContentStatus, Applications, Deployments], ContentDistribution));
-        list.Add(new(["DEV-01"], ["Devices"], [Devices, MaintenanceTasks], DeviceInactive));
+        list.Add(new(["DEV-01"], ["Devices"], [Devices, DeviceAgents, MaintenanceTasks], DeviceInactive));
         list.Add(new(["DEV-02", "DEV-03"], ["Devices"], [Devices], DeviceRecords));
         list.Add(new(["BND-01", "BND-02", "BND-03"], ["Boundaries"], [Boundaries, BoundaryGroups], BoundaryChecks));
         list.Add(new(["TSQ-01", "TSQ-02"], ["TaskSequences"], [TaskSequences, TsReferences, Packages, BootImages, DriverPackages, UpdatePackages, OsImages, OsUpgradePackages, Applications], TaskSequenceReferences));
@@ -79,10 +79,15 @@ internal static partial class HygieneChecks
         var cleanup = SiteTasks(c).Any(t => CleanupTasks.Contains(t.S("ItemName"), StringComparer.OrdinalIgnoreCase) && t.B("Enabled"));
         var severity = cleanup ? HygieneSeverity.Info : HygieneSeverity.Warning;
         var note = cleanup ? "discovery cleanup tasks are enabled and will eventually purge it" : "no discovery cleanup task is enabled, so the record stays";
+        // A heartbeat inside the window means the client lives; the fix refuses such a record, so the check does not report it.
+        var heartbeats = new Dictionary<string, DateTime>(StringComparer.Ordinal);
+        foreach (var a in c.Rows(DeviceAgents))
+            if (HygieneFixRules.HeartbeatOf(a) is { } beat) heartbeats[a.S("ResourceId").Length > 0 ? a.S("ResourceId") : a.S("ResourceID")] = beat;
         foreach (var d in c.Rows(Devices))
         {
             if (!d.B("IsClient") || d.T("LastActiveTime") is not { } last || last >= cutoff) continue;
             var id = d.S("ResourceID");
+            if (heartbeats.TryGetValue(id, out var heartbeat) && heartbeat >= cutoff) continue;
             yield return F("DEV-01", "Device", id, d.S("Name"),
                 $"The client was last active {Day(last)}, more than {N(days)} days ago; {note}.",
                 "Verify the machines are really gone, then let cleanup tasks purge them or delete the records.",

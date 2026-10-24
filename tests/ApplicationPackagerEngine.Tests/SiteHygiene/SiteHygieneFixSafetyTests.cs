@@ -193,9 +193,10 @@ public sealed class SiteHygieneFixSafetyTests
         using var h = new SiteHygieneHarness(state);
         var finding = HygieneChecks.F("MNT-01", "MaintenanceTask", hostile, hostile, "e", "r", HygieneFixKind.SetSiteMaintenanceTask, HygieneChecks.Params((HygieneFixParameters.Id, hostile), (HygieneFixParameters.SiteCode, "MCM")));
         Assert.Equal("Set-CMSiteMaintenanceTask -SiteCode 'MCM' -Name 'Delete Aged Log Data''; Remove-CMCollection -Id ''SMS00001'' -Force; ''' -Enabled $true", finding.FixText);
-        var outcome = await ApplyAsync(h, await PrepareAsync(h, HygieneFixKind.SetSiteMaintenanceTask, finding));
-        Assert.Equal(HygieneResults.Done, Assert.Single(outcome.Objects).Result);
-        Assert.Equal([finding.FixText], h.Site.Commands);
-        Assert.DoesNotContain(h.Site.Commands, c => c.StartsWith("Remove-CMCollection", StringComparison.Ordinal));
+        var change = await PrepareAsync(h, HygieneFixKind.SetSiteMaintenanceTask, finding);
+        Assert.Equal("Skipped: MNT-01 enables only the recommended cleanup tasks.", Assert.Single(change.Dropped).Message);
+        Assert.Empty(h.Site.Runs);
+        Assert.StartsWith("Skipped: ", (await ApplyAsync(h, change)).Message);
+        Assert.Empty(h.Site.Commands);
     }
 }

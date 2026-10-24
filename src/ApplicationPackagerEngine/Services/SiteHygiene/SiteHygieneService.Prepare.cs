@@ -47,6 +47,9 @@ public sealed partial class SiteHygieneService
 
     public HygieneThresholds FixThresholds { get; init; } = new();
 
+    /// <summary>The objects one audit record lists; at most <see cref="HygieneAuditLog.MaxObjectsPerRecord"/>.</summary>
+    internal int AuditObjectsPerRecord { get; init; } = HygieneAuditLog.MaxObjectsPerRecord;
+
     public static int CapOf(HygieneFixKind kind) => HygieneFixKinds.IsDelete(kind) ? MaxDeletesPerRun : MaxChangesPerRun;
 
     private int Cap(HygieneFixKind kind) => HygieneFixKinds.IsDelete(kind) ? MaxDeletes : MaxChangesPerRun;
@@ -68,14 +71,16 @@ public sealed partial class SiteHygieneService
         var dropped = new List<HygieneObjectOutcome>();
         var wanted = new List<HygieneFinding>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var supported = SupportedKinds.Contains(request.Kind);
         foreach (var f in request.Findings ?? [])
         {
             if (f is null) continue;
             if (f.FixKind != request.Kind) { dropped.Add(Skip(f, "the finding has another fix than the plan.")); continue; }
+            if (supported && HygieneFixRules.Gate(request.Kind, f) is { } refusal) { dropped.Add(Skip(f, refusal)); continue; }
             if (seen.Add(f.Key)) wanted.Add(f);
         }
         var cleared = request with { ChangeConfirmed = false, DeleteConfirmed = false, Targets = [], FixText = "", Fingerprint = null, PreparedUtc = null };
-        if (!SupportedKinds.Contains(request.Kind))
+        if (!supported)
             return cleared with
             {
                 Findings = [],
@@ -83,6 +88,19 @@ public sealed partial class SiteHygieneService
                 Impact = [],
                 Checks = [new PreflightCheck(CheckNames.Kind, DeploymentCheckResults.Fail, "This kind of fix is report-only on this page. Use the guidance of the finding in the ConfigMgr console.")]
             };
+        // Each finding writes at least one object, so a request over the cap is refused before the State read.
+        if (wanted.Count > Cap(request.Kind))
+        {
+            _log?.Info(LogArea, $"Prepare {request.Kind} refused: {wanted.Count} findings over the cap.");
+            return cleared with
+            {
+                Findings = [],
+                Dropped = dropped,
+                Impact = [],
+                Checks = [new PreflightCheck(CheckNames.Cap, DeploymentCheckResults.Fail,
+                    $"The plan holds {Count(wanted.Count, "finding")}. One run {(request.IsDelete ? "deletes" : "changes")} at most {Count(Cap(request.Kind), "object")}. Filter the findings and run them in parts. The site was not read.")]
+            };
+        }
 
         var site = wanted.Count == 0 ? new HygieneSiteRead() : await ReadStateAsync(request.Kind, wanted, ct).ConfigureAwait(false);
         var now = LocalNow();
@@ -151,6 +169,12 @@ public sealed partial class SiteHygieneService
         }
         if (kind == HygieneFixKind.SetApplication) lines.Add("Each change makes a new revision of the application.");
         if (kind == HygieneFixKind.RunAutoDeploymentRule) lines.Add("The rule runs now: it can create or change a software update group and its deployment, and download update content.");
+        if (kind == HygieneFixKind.RemoveBootImage)
+            lines.Add("Boot media, prestaged media and PXE images that were made from the boot image are not recorded on the site. Check that no media in use needs the boot image before you delete it.");
+        if (kind == HygieneFixKind.RemoveDriverPackage)
+            lines.Add("An Auto Apply Drivers step finds drivers in the driver catalog and gets their content from any driver package, without a task sequence reference. The page refuses the delete while a task sequence has an Auto Apply Drivers step.");
+        if (kind == HygieneFixKind.RemoveCollection)
+            lines.Add("Before each delete the page reads the deployments, collection rules and settings, automatic deployment rules, client settings deployments and administrative users that use the collection, and skips the collection when one of them exists.");
         if (kind == HygieneFixKind.RemoveMaintenanceWindow) lines.Add("The window is removed by its ID from the collection settings. Remove-CMMaintenanceWindow is not used: it removes every window whose name contains the name.");
         lines.Add("The run writes one object at a time and reads each one back. Cancel stops between objects.");
         if (dropped.Count > 0) lines.Add($"{Count(dropped.Count, "finding")} {(dropped.Count == 1 ? "is" : "are")} left out.");

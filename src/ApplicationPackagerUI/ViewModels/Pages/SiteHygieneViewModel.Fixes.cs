@@ -96,6 +96,12 @@ public sealed partial class SiteHygieneViewModel
             StatusMessage = problem;
             return;
         }
+        if (!SameSite(_result.SiteCode, CurrentSite()))
+        {
+            StatusMessage = OtherSite(_result.SiteCode, CurrentSite());
+            return;
+        }
+        var generation = _resultGeneration;
         var selected = SelectedFindings.ToList();
         if (selected.Count == 0)
         {
@@ -110,6 +116,8 @@ public sealed partial class SiteHygieneViewModel
         var candidates = selected.Where(r => !r.IsSuppressed && SiteHygieneLabels.IsFixable(r.Finding)).ToList();
         var kind = candidates[0].Finding.FixKind;
         IReadOnlyList<HygieneFinding> picked = candidates.Select(r => r.Finding).ToList();
+        var before = SelectionKey();
+        bool StillSelected() => string.Equals(SelectionKey(), before, StringComparison.Ordinal);
         if (picked.Count > 1)
         {
             var picker = new HygieneFindingsPickerViewModel(SiteHygieneLabels.FixLabel(kind), PickIntro(kind), picked);
@@ -119,13 +127,25 @@ public sealed partial class SiteHygieneViewModel
                 StatusMessage = NotConfirmed;
                 return;
             }
+            if (generation != _resultGeneration)
+            {
+                StatusMessage = ResultChangedAtPick;
+                return;
+            }
+            if (!StillSelected())
+            {
+                StatusMessage = SelectionChangedAtPick;
+                return;
+            }
             picked = chosen;
         }
         var left = selected.Count - candidates.Count;
-        var before = SelectionKey();
         var request = new HygieneChange(Kind: kind, Findings: picked, DeleteConfirmed: false, Impact: [], Checks: [], Fingerprint: null);
-        await PlanAndRunAsync(request, () => string.Equals(SelectionKey(), before, StringComparison.Ordinal), left);
+        await PlanAndRunAsync(request, StillSelected, left, generation);
     }
+
+    public const string ResultChangedAtPick = "A new scan result replaced the list while the finding list was open. Nothing was changed. Start the fix again.";
+    public const string SelectionChangedAtPick = "The selection changed while the finding list was open. Nothing was changed. Start the fix again.";
 
     public static string PickIntro(HygieneFixKind kind) => SiteHygieneLabels.IsDelete(kind)
         ? "Clear each object that must stay. Only the checked objects are checked again on the site and planned. A delete cannot be undone."
@@ -136,9 +156,8 @@ public sealed partial class SiteHygieneViewModel
     /// when the operator confirms. The selection is read once, before the check; a plan whose selection
     /// or result changed during the check is discarded.
     /// </summary>
-    private async Task PlanAndRunAsync(HygieneChange request, Func<bool> stillSelected, int leftOut)
+    private async Task PlanAndRunAsync(HygieneChange request, Func<bool> stillSelected, int leftOut, int generation)
     {
-        var generation = _resultGeneration;
         var detached = false;
         IsWriting = true;
         try
@@ -247,8 +266,10 @@ public sealed partial class SiteHygieneViewModel
             return;
         }
         var now = DateTime.UtcNow;
-        await ChangeSuppressionsAsync(rows, r => Services.Suppressions.Add(new Suppression(CheckId: r.Finding.CheckId, ObjectKey: r.Finding.ObjectKey, Comment: comment, CreatedUtc: now)),
-            n => $"Suppressed {SiteHygieneLabels.Count(n, "finding")}." + (ShowSuppressed ? "" : " Show suppressed lists them."), "Suppress");
+        var site = ResultSite();
+        await ChangeSuppressionsAsync(rows,
+            list => Services.Suppressions.AddRange(list.Select(r => new Suppression(CheckId: r.Finding.CheckId, ObjectKey: r.Finding.ObjectKey, Comment: comment, CreatedUtc: now) { SiteCode = site }).ToList()),
+            n => $"Suppressed {SiteHygieneLabels.Count(n, "finding")}." + (ShowSuppressed ? "" : " Show suppressed lists them."), "Suppress", site);
     }
 
     [RelayCommand(CanExecute = nameof(CanAct))]
@@ -260,40 +281,33 @@ public sealed partial class SiteHygieneViewModel
             StatusMessage = NothingToUnsuppress;
             return;
         }
-        await ChangeSuppressionsAsync(rows, r => Services.Suppressions.Remove(r.Finding.CheckId, r.Finding.ObjectKey),
-            n => $"Unsuppressed {SiteHygieneLabels.Count(n, "finding")}.", "Unsuppress");
+        var site = ResultSite();
+        await ChangeSuppressionsAsync(rows, list => Services.Suppressions.RemoveRange(site, list.Select(r => (r.Finding.CheckId, r.Finding.ObjectKey)).ToList()),
+            n => $"Unsuppressed {SiteHygieneLabels.Count(n, "finding")}.", "Unsuppress", site);
     }
 
-    /// <summary>Writes the suppression change of each row off the UI thread, then reads the store again so the rows show what it holds.</summary>
-    private async Task ChangeSuppressionsAsync(IReadOnlyList<FindingGridRow> rows, Action<FindingGridRow> change, Func<int, string> done, string action)
+    /// <summary>
+    /// Writes the suppression change of every row off the UI thread in one read and one write of the store,
+    /// then reads the store again so the rows show what it holds. A failed write changes no row.
+    /// </summary>
+    private async Task ChangeSuppressionsAsync(IReadOnlyList<FindingGridRow> rows, Action<IReadOnlyList<FindingGridRow>> change, Func<int, string> done, string action, string site)
     {
-        var count = 0;
         Exception? failure = null;
         await Task.Run(() =>
         {
-            foreach (var row in rows)
-            {
-                try
-                {
-                    change(row);
-                    count++;
-                }
-                catch (Exception ex)
-                {
-                    failure = ex;
-                    break;
-                }
-            }
+            try { change(rows); }
+            catch (Exception ex) { failure = ex; }
         });
-        _suppressions = await Task.Run(ReadSuppressions);
+        _suppressions = await Task.Run(() => ReadSuppressions(site));
         BuildRows();
         ApplyFindingFilter();
         RefreshSummary();
+        var count = failure is null ? rows.Count : 0;
         Services.Log.Info(LogArea, $"{action}: {count} of {rows.Count} findings.");
         if (failure is not null)
         {
             Services.Log.Warning(LogArea, $"{action} stopped ({failure.GetType().Name}).");
-            StatusMessage = (count > 0 ? done(count) + " " : "") + PlainMessage(failure, SuppressFailed);
+            StatusMessage = PlainMessage(failure, SuppressFailed) + " No suppression was changed.";
             return;
         }
         StatusMessage = done(count);
@@ -354,10 +368,12 @@ public sealed partial class SiteHygieneViewModel
         if (result.Truncated) parts.Add("The read was truncated: the findings are not complete.");
         if (result.Note is { Length: > 0 } note) parts.Add(SecretMask.Apply(note));
         var notSelected = result.Checks.Count(SiteHygieneLabels.WasNotSelected);
-        if (notSelected > 0) parts.Add($"{SiteHygieneLabels.Count(notSelected, "check")} {(notSelected == 1 ? "was" : "were")} not in the scanned areas.");
+        if (notSelected > 0) parts.Add($"{SiteHygieneLabels.Count(notSelected, "check")} {(notSelected == 1 ? "was" : "were")} not in the scanned areas or options.");
         if (_isStored) parts.Add("Stored result of the last scan, not read from the site in this session.");
         return parts.Count == 0 ? null : string.Join(" ", parts);
     }
+
+    private int HiddenSuppressed() => LiveRows.Count(r => r.IsSuppressed);
 
     /// <summary>Each check that did not run as "ID: reason", for the file header.</summary>
     private IReadOnlyList<string> ChecksNotRunLines() =>
@@ -392,7 +408,8 @@ public sealed partial class SiteHygieneViewModel
                     scan.Truncated, ScanNote())
                 {
                     Filter = FilterText((FindingText, "Text"), (CategoryFilter == AllText ? "" : CategoryFilter, "Category"), (SeverityFilter == AllText ? "" : SeverityFilter, "Severity"),
-                        (ShowSuppressed ? "shown" : "", "Suppressed")),
+                        (ShowSuppressed ? "shown" : HiddenSuppressed() is > 0 and var hidden ? $"{SiteHygieneLabels.Number(hidden)} hidden" : "", "Suppressed"),
+                        (_allFindings.Count - LiveRows.Count() is > 0 and var omitted ? $"{SiteHygieneLabels.Number(omitted)} omitted" : "", "Fixed since the scan")),
                     ChecksNotRun = ChecksNotRunLines(),
                     ScannedUtc = scan.ScannedUtc
                 }, null);

@@ -51,10 +51,34 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
 
     public bool OlderRecordsDropped { get; private set; }
 
+    private int _held;
+    private string _heldPath = "";
+
+    /// <summary>
+    /// The probe opens the log for writing. While a run of this log holds the file open, a second open
+    /// fails although the log can be written, so the probe reports the held log as writable.
+    /// </summary>
     public AuditProbe Probe()
     {
+        lock (_gate)
+            if (_held > 0 && string.Equals(_heldPath, Path, StringComparison.OrdinalIgnoreCase))
+                return new AuditProbe(true, $"The Site Hygiene audit log can be written: {Path}. A fix that runs now holds it; the next fix starts after that fix ends.");
         using var reservation = Reserve();
         return reservation.Probe;
+    }
+
+    internal void Held(string path)
+    {
+        lock (_gate)
+        {
+            _held++;
+            _heldPath = path;
+        }
+    }
+
+    internal void Released()
+    {
+        lock (_gate) _held = Math.Max(0, _held - 1);
     }
 
     public AuditWrite Append(HygieneAuditRecord r)
@@ -70,6 +94,7 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
         var path = Path;
         var (stream, message) = ChainedJsonlFile.Open(path, IsDefault, "The Site Hygiene audit log", FileName);
         if (stream is null) _log?.Warning(LogArea, "The Site Hygiene audit log could not be opened for writing.");
+        else Held(path);
         return new HygieneAuditReservation(this, stream, new AuditProbe(stream is not null, stream is not null ? $"The Site Hygiene audit log can be written: {path}" : message));
     }
 
@@ -226,5 +251,14 @@ public sealed class HygieneAuditReservation : IDisposable
         return _stream is null ? new AuditWrite(false, Probe.Message) : _owner!.Write(_stream, r);
     }
 
-    public void Dispose() => _stream?.Dispose();
+    private bool _disposed;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        if (_stream is null) return;
+        _stream.Dispose();
+        _owner?.Released();
+    }
 }

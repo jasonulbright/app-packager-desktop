@@ -51,6 +51,17 @@ internal static class HygieneSets
     public const string MaintenanceWindows = "MaintenanceWindows";
     public const string AppDeployments = "AppDeployments";
 
+    /// <summary>State sets of a collection delete: deployments by target collection (SMS_CIAssignmentBaseClass), automatic deployment rules, client settings deployments and administrative users' collections.</summary>
+    public const string CollectionAssignments = "CollectionAssignments";
+    public const string CollectionRules = "CollectionRules";
+    public const string CollectionClientSettings = "CollectionClientSettings";
+    public const string CollectionAdmins = "CollectionAdmins";
+
+    public static readonly IReadOnlyList<string> CollectionUsers = [CollectionAssignments, CollectionRules, CollectionClientSettings, CollectionAdmins];
+
+    /// <summary>State set of a driver package delete: the task sequences with an Auto Apply Drivers step.</summary>
+    public const string AutoApplySequences = "AutoApplySequences";
+
     /// <summary>The sets that cost one provider read per object; their caps are <see cref="SiteHygieneService.MaxPerObjectReads"/>.</summary>
     public static readonly IReadOnlySet<string> PerObject = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { CollectionDetails, MaintenanceWindows, TsAppDefinitions };
 }
@@ -91,6 +102,9 @@ internal sealed record HygieneCheckFamily(
 {
     /// <summary>A reason the family cannot run although its sets were read; null when it can.</summary>
     public Func<HygieneContext, string?>? Gate { get; init; }
+
+    /// <summary>A reason an option of the scan leaves the family out (state NotSelected); null when no option does.</summary>
+    public Func<HygieneContext, string?>? OptionGate { get; init; }
 }
 
 /// <summary>The checks, one family per group of IDs that share their reads.</summary>

@@ -9,26 +9,42 @@ public sealed partial class SiteHygieneService
     private static HygieneOutcome Refused(HygieneChange change, string reason) =>
         new(change, false, SkippedPrefix + reason, change.Findings.Select(f => Skip(f, reason)).ToList(), true);
 
+    internal const string UnexpectedStop = "The result is not known: the fix stopped with an unexpected error. Scan again to see the current state.";
+    internal const string StoppedBefore = "the run stopped with an unexpected error before this object. Scan again to see the current state.";
+    internal const string ReadBackFailed = "The write ran, but the read-back failed, so the result is not known. Scan again to see the current state.";
+
+    /// <summary>The per-object results of one run so far; the fallback of an unexpected error keeps them.</summary>
+    private sealed class RunState
+    {
+        public List<HygieneObjectOutcome> Results { get; } = [];
+        public bool Started { get; set; }
+    }
+
     public async Task<HygieneOutcome> ApplyAsync(HygieneChange change, IProgress<HygieneOutcome> progress, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(change);
         ArgumentNullException.ThrowIfNull(progress);
         HygieneOutcome outcome;
+        var state = new RunState();
         try
         {
-            outcome = await ApplyCoreAsync(change, progress, ct).ConfigureAwait(false);
+            outcome = await ApplyCoreAsync(change, progress, state, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _log?.Warning(LogArea, $"{change.Kind} stopped with an unexpected error: {ex.GetType().Name}.");
-            outcome = new HygieneOutcome(change, false, "The fix stopped with an unexpected error. Scan again to see the current state. The log has the kind of failure.",
-                change.Findings.Select(f => new HygieneObjectOutcome(f, HygieneResults.Failed, "The result is not known: the fix stopped with an unexpected error.")).ToList(), true);
+            var known = state.Results.ToList();
+            var rest = change.Findings.Where(f => known.All(k => !string.Equals(k.Finding.Key, f.Key, StringComparison.OrdinalIgnoreCase))).ToList();
+            var objects = known.Concat(rest.Select(f => state.Started
+                ? new HygieneObjectOutcome(f, HygieneResults.Failed, UnexpectedStop)
+                : Skip(f, "the fix stopped with an unexpected error before the first write. Nothing was changed."))).ToList();
+            outcome = new HygieneOutcome(change, false, "The fix stopped with an unexpected error. Scan again to see the current state. The log has the kind of failure.", objects, true);
         }
         progress.Report(outcome);
         return outcome;
     }
 
-    private async Task<HygieneOutcome> ApplyCoreAsync(HygieneChange change, IProgress<HygieneOutcome> progress, CancellationToken ct)
+    private async Task<HygieneOutcome> ApplyCoreAsync(HygieneChange change, IProgress<HygieneOutcome> progress, RunState state, CancellationToken ct)
     {
         if (change.Findings.Count == 0) return Refused(change, "the plan has no finding.");
         if (string.IsNullOrEmpty(change.Fingerprint) || !_prepared.TryRemove(change.Fingerprint, out var prepared) || prepared.Kind != change.Kind)
@@ -46,14 +62,25 @@ public sealed partial class SiteHygieneService
         if (!audit.Probe.Writable) return Refused(change, "the audit log cannot be written, so nothing was changed. " + audit.Probe.Message);
         var runId = Guid.NewGuid().ToString("N");
         var findings = change.Findings.Select(f => prepared.Findings[f.Key]).ToList();
-        foreach (var part in prepared.Targets.Chunk(HygieneAuditLog.MaxObjectsPerRecord))
+        var parts = prepared.Targets.Chunk(AuditObjectsPerRecord).ToList();
+        var startMessage = $"{Verb(change.Kind)}: {Count(prepared.Targets.Count, "object")} of {Count(findings.Count, "finding")}."
+            + (parts.Count > 1 ? $" The objects are listed in this record and {Count(parts.Count - 1, "record")} of phase {HygieneAuditPhases.Objects} with the same run ID." : "");
+        var started = audit.Append(new HygieneAuditRecord(default, "", change.Kind.ToString(), HygieneAuditPhases.Started, "", runId,
+            parts[0].Select(t => AuditObject(prepared.Findings[t.FindingKey], t, "")).ToList(), startMessage) { Site = "" });
+        if (!started.Succeeded) return Refused(change, "the audit log could not be written, so nothing was changed. " + started.Message);
+        foreach (var part in parts.Skip(1))
         {
-            var started = audit.Append(new HygieneAuditRecord(default, "", change.Kind.ToString(), "Started", "", runId,
-                part.Select(t => AuditObject(prepared.Findings[t.FindingKey], t, "")).ToList(), $"{Verb(change.Kind)}: {Count(prepared.Targets.Count, "object")} of {Count(findings.Count, "finding")}.") { Site = "" });
-            if (!started.Succeeded) return Refused(change, "the audit log could not be written, so nothing was changed. " + started.Message);
+            var listed = audit.Append(new HygieneAuditRecord(default, "", change.Kind.ToString(), HygieneAuditPhases.Objects, "", runId,
+                part.Select(t => AuditObject(prepared.Findings[t.FindingKey], t, "")).ToList(), "The planned objects, continued."));
+            if (listed.Succeeded) continue;
+            var refused = Refused(change, "the audit log could not be written, so nothing was changed. " + listed.Message);
+            WriteFinished(audit, change.Kind, runId, "Skipped", refused.Objects.Select(o => AuditObject(o.Finding, null, HygieneResults.Skipped)).ToList(),
+                "The list of planned objects could not be written in full, so nothing was changed.");
+            return refused;
         }
+        state.Started = true;
 
-        var results = new List<HygieneObjectOutcome>();
+        var results = state.Results;
         var auditObjects = new List<HygieneAuditObject>();
         var stopped = "";
         foreach (var f in findings)
@@ -66,26 +93,50 @@ public sealed partial class SiteHygieneService
                 continue;
             }
             var planned = prepared.Targets.Where(t => string.Equals(t.FindingKey, f.Key, StringComparison.OrdinalIgnoreCase)).ToList();
-            var (result, sessionFailed) = await ApplyFindingAsync(change.Kind, f, planned, prepared.Thresholds).ConfigureAwait(false);
+            HygieneObjectOutcome result;
+            try
+            {
+                (result, var sessionFailed) = await ApplyFindingAsync(change.Kind, f, planned, prepared.Thresholds).ConfigureAwait(false);
+                if (sessionFailed) stopped = "the run stopped after a ConfigMgr session failure. Scan again to see the current state.";
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _log?.Warning(LogArea, $"{change.Kind} stopped at an object with an unexpected error: {ex.GetType().Name}.");
+                result = new HygieneObjectOutcome(f, HygieneResults.Failed, UnexpectedStop);
+                stopped = StoppedBefore;
+            }
             results.Add(result);
             auditObjects.Add(AuditObject(f, null, result.Result));
-            if (sessionFailed) stopped = "the run stopped after a ConfigMgr session failure. Scan again to see the current state.";
             progress.Report(new HygieneOutcome(change, false, $"Running: {N(results.Count)} of {N(findings.Count)} done.", results.ToList(), false));
         }
 
         var done = results.Count(r => r.Result == HygieneResults.Done);
         var attempted = results.Count(r => r.Result != HygieneResults.Skipped);
         var resultText = done == results.Count ? "Succeeded" : done > 0 ? "Partial" : attempted > 0 ? "Failed" : "Skipped";
-        foreach (var part in auditObjects.Chunk(HygieneAuditLog.MaxObjectsPerRecord))
-        {
-            var finished = audit.Append(new HygieneAuditRecord(default, "", change.Kind.ToString(), "Finished", resultText, runId, part.ToList(), Summary(results) + "."));
-            if (!finished.Succeeded) _log?.Warning(LogArea, "A Site Hygiene audit record after a fix could not be written.");
-        }
+        WriteFinished(audit, change.Kind, runId, resultText, auditObjects, Summary(results) + ".");
         _log?.Info(LogArea, $"{change.Kind}: {Summary(results)}.");
         var message = attempted == 0
             ? SkippedPrefix + "nothing was changed. " + Sentence(results.FirstOrDefault()?.Message.Replace(SkippedPrefix, "", StringComparison.Ordinal) ?? "")
             : $"{Sentence(Verb(change.Kind))}: {Summary(results)}.";
         return new HygieneOutcome(change, done == results.Count, message, results, true);
+    }
+
+    /// <summary>
+    /// Writes the results of a run: the objects beyond one record go first in records of phase Objects, then
+    /// exactly one Finished record with the last objects, written also when an earlier record fails.
+    /// </summary>
+    private void WriteFinished(HygieneAuditReservation audit, HygieneFixKind kind, string runId, string resultText, IReadOnlyList<HygieneAuditObject> objects, string message)
+    {
+        var parts = objects.Chunk(AuditObjectsPerRecord).ToList();
+        if (parts.Count == 0) parts.Add([]);
+        foreach (var part in parts.Take(parts.Count - 1))
+        {
+            var listed = audit.Append(new HygieneAuditRecord(default, "", kind.ToString(), HygieneAuditPhases.Objects, resultText, runId, part.ToList(), "The results, continued in the Finished record."));
+            if (!listed.Succeeded) _log?.Warning(LogArea, "A Site Hygiene audit record with results could not be written.");
+        }
+        var note = parts.Count > 1 ? $" The results are listed in this record and {Count(parts.Count - 1, "record")} of phase {HygieneAuditPhases.Objects} with the same run ID." : "";
+        var finished = audit.Append(new HygieneAuditRecord(default, "", kind.ToString(), HygieneAuditPhases.Finished, resultText, runId, parts[^1].ToList(), message + note));
+        if (!finished.Succeeded) _log?.Warning(LogArea, "The Finished record of a Site Hygiene fix could not be written.");
     }
 
     private static string Sentence(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
@@ -132,6 +183,7 @@ public sealed partial class SiteHygieneService
         var done = 0;
         var failures = new List<string>();
         var unchanged = 0;
+        var unverified = 0;
         foreach (var w in writes)
         {
             HygieneSiteRead applied;
@@ -153,12 +205,18 @@ public sealed partial class SiteHygieneService
                 _log?.Warning(LogArea, $"{kind}: a write failed with kind {(failure.Length > 0 ? failure : "none")}.");
                 continue;
             }
-            var ok = await ReadBackAsync(kind, f, w, ruleBefore).ConfigureAwait(false);
-            if (ok) done++; else unchanged++;
+            switch (await ReadBackAsync(kind, f, w, ruleBefore).ConfigureAwait(false))
+            {
+                case ReadBack.Done: done++; break;
+                case ReadBack.AsBefore: unchanged++; break;
+                default: unverified++; break;
+            }
         }
         var note = extra > 0 ? $" {Count(extra, "object")} that the plan did not name {(extra == 1 ? "was" : "were")} left as {(extra == 1 ? "it is" : "they are")}." : "";
-        if (failures.Count > 0 && done == 0 && unchanged == 0) return (new HygieneObjectOutcome(f, HygieneResults.Failed, failures[0] + note), false);
+        if (failures.Count > 0 && done == 0 && unchanged == 0 && unverified == 0) return (new HygieneObjectOutcome(f, HygieneResults.Failed, failures[0] + note), false);
         if (failures.Count > 0) return (new HygieneObjectOutcome(f, HygieneResults.Failed, $"{N(done)} of {N(writes.Count)} written; {failures[0]}{note}"), false);
+        if (unverified > 0)
+            return (new HygieneObjectOutcome(f, HygieneResults.Failed, (writes.Count == 1 ? ReadBackFailed : $"{N(unverified)} of {N(writes.Count)} writes ran, but their read-back failed, so their result is not known. Scan again to see the current state.") + note), false);
         if (unchanged > 0)
             return (new HygieneObjectOutcome(f, HygieneResults.Unchanged, kind == HygieneFixKind.RunAutoDeploymentRule
                 ? $"The site accepted the run; the rule showed no new run time within {RuleRunWindow.TotalSeconds:0} seconds.{note}"
@@ -166,7 +224,9 @@ public sealed partial class SiteHygieneService
         return (new HygieneObjectOutcome(f, HygieneResults.Done, DoneText(kind, writes.Count) + note), false);
     }
 
-    private async Task<bool> ReadBackAsync(HygieneFixKind kind, HygieneFinding f, HygieneWrite w, string ruleBefore)
+    private enum ReadBack { Done, AsBefore, NotVerified }
+
+    private async Task<ReadBack> ReadBackAsync(HygieneFixKind kind, HygieneFinding f, HygieneWrite w, string ruleBefore)
     {
         var deadline = _utcNow() + (kind == HygieneFixKind.RunAutoDeploymentRule ? RuleRunWindow : TimeSpan.Zero);
         while (true)
@@ -174,14 +234,14 @@ public sealed partial class SiteHygieneService
             try
             {
                 var after = await ReadStateAsync(kind, [f], CancellationToken.None).ConfigureAwait(false);
-                if (HygieneFixRules.ReadBackDone(kind, w, after, ruleBefore)) return true;
+                if (HygieneFixRules.ReadBackDone(kind, w, after, ruleBefore)) return ReadBack.Done;
             }
             catch (HygieneServiceException)
             {
                 _log?.Warning(LogArea, "A read-back after a fix could not be made.");
-                return false;
+                return ReadBack.NotVerified;
             }
-            if (_utcNow() >= deadline) return false;
+            if (_utcNow() >= deadline) return ReadBack.AsBefore;
             await _delay(RuleRunPoll, CancellationToken.None).ConfigureAwait(false);
         }
     }

@@ -332,10 +332,10 @@
                                   AutomationProperties.AutomationId="dgCategories" AutomationProperties.Name="Findings by category and severity">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Warning" Binding="{Binding Warning}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Total" Binding="{Binding Total}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="132" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Warning" Binding="{Binding Warning}" Width="132" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="132" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Total" Binding="{Binding Total}" Width="132" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Checks not run" Binding="{Binding NotRun}" Width="140" MinWidth="136" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>

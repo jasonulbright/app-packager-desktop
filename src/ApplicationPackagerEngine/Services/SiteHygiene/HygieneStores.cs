@@ -27,13 +27,18 @@ internal static class HygieneJsonFile
         DefaultIgnoreCondition = JsonIgnoreCondition.Never
     };
 
-    public static T? Read<T>(string path, IAppLog? log, string what) where T : class
+    public static T? Read<T>(string path, IAppLog? log, string what, long maxBytes = MaxFileBytes) where T : class
     {
         try
         {
             if (!File.Exists(path)) return null;
             var info = new FileInfo(path);
-            if (info.Attributes.HasFlag(FileAttributes.ReparsePoint) || info.Length == 0 || info.Length > MaxFileBytes) return null;
+            if (info.Attributes.HasFlag(FileAttributes.ReparsePoint) || info.Length == 0) return null;
+            if (info.Length > maxBytes)
+            {
+                log?.Warning(SiteHygieneService.LogArea, $"The {what} file is larger than a read takes; it is ignored.");
+                return null;
+            }
             return JsonSerializer.Deserialize<T>(File.ReadAllBytes(path), Options);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
@@ -43,11 +48,38 @@ internal static class HygieneJsonFile
         }
     }
 
-    public static void Write<T>(string path, T value, bool isDefaultFolder, string what)
+    /// <summary>
+    /// The document before a change: null for a missing or empty file. A file that exists but cannot be
+    /// read throws, so a change never replaces a list it could not read.
+    /// </summary>
+    public static T? ReadForChange<T>(string path, IAppLog? log, string what) where T : class
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            var info = new FileInfo(path);
+            if (info.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                throw new HygieneServiceException($"The {what} file is a symbolic link or another reparse point, so it was not changed: {path}");
+            if (info.Length == 0) return null;
+            if (info.Length > MaxFileBytes)
+                throw new HygieneServiceException($"The {what} file is larger than {MaxFileBytes / (1024 * 1024)} MB, so it was not changed: {path}");
+            return JsonSerializer.Deserialize<T>(File.ReadAllBytes(path), Options);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
+        {
+            log?.Warning(SiteHygieneService.LogArea, $"The {what} file could not be read before a change ({ex.GetType().Name}); it was not changed.");
+            throw new HygieneServiceException($"The {what} file could not be read, so it was not changed. Close the program that uses it, or move the file away if it is damaged: {path}");
+        }
+    }
+
+    public static void Write<T>(string path, T value, bool isDefaultFolder, string what, long maxBytes = MaxFileBytes)
     {
         var folder = Path.GetDirectoryName(path)!;
         if (DataFolderLinks.HasLink(folder, DataFolderLinks.ContainerOf(folder, isDefaultFolder)))
             throw new HygieneServiceException($"The {what} folder is a junction or symbolic link, so the {what} was not saved.");
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(value, Options);
+        if (bytes.LongLength > maxBytes)
+            throw new HygieneServiceException($"The {what} is larger than {Megabytes(maxBytes)} MB, so it was not saved. A larger file could not be read back.");
         var temp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
         try
         {
@@ -56,7 +88,7 @@ internal static class HygieneJsonFile
                 throw new HygieneServiceException($"The {what} file is a symbolic link or another reparse point, so it was not written.");
             using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                JsonSerializer.Serialize(stream, value, Options);
+                stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
             }
             File.Move(temp, path, overwrite: true);
@@ -67,6 +99,8 @@ internal static class HygieneJsonFile
             throw new HygieneServiceException($"The {what} could not be saved. Check that the folder can be written: {folder}");
         }
     }
+
+    private static string Megabytes(long bytes) => (bytes / (1024.0 * 1024.0)).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 /// <summary>The suppressions in &lt;data root&gt;\SiteHygiene\suppressions.json, keyed by check ID and object key.</summary>
@@ -81,45 +115,73 @@ public sealed class HygieneSuppressionStore(string? path = null, IAppLog? log = 
 
     public string Path => path ?? System.IO.Path.Combine(HygieneFolders.Root(), FileName);
 
-    private sealed record Document(int SchemaVersion, List<Suppression?>? Suppressions);
+    /// <summary>A suppression as stored; a missing SiteCode (a file of an earlier version) reads as every site.</summary>
+    private sealed record Stored(string? CheckId, string? ObjectKey, string? Comment, DateTime CreatedUtc, string? SiteCode);
+
+    private sealed record Document(int SchemaVersion, List<Stored?>? Suppressions);
+
+    private const string What = "suppression list";
 
     public IReadOnlyList<Suppression> Load()
     {
-        lock (_gate) return LoadCore();
+        lock (_gate) return Clean(HygieneJsonFile.Read<Document>(Path, log, What));
     }
 
-    private List<Suppression> LoadCore() =>
-        (HygieneJsonFile.Read<Document>(Path, log, "suppression")?.Suppressions ?? [])
+    private static List<Suppression> Clean(Document? doc) =>
+        (doc?.Suppressions ?? [])
             .Where(s => s is not null && !string.IsNullOrWhiteSpace(s.CheckId) && !string.IsNullOrWhiteSpace(s.ObjectKey))
-            .Select(s => s! with { Comment = s!.Comment ?? "" })
-            .GroupBy(s => s.Key, StringComparer.OrdinalIgnoreCase).Select(g => g.Last())
+            .Select(s => new Suppression(s!.CheckId!, s.ObjectKey!, s.Comment ?? "", s.CreatedUtc) { SiteCode = Site(s.SiteCode) })
+            .GroupBy(s => s.StoreKey, StringComparer.OrdinalIgnoreCase).Select(g => g.Last())
             .ToList();
 
-    public void Add(Suppression suppression)
+    private static string Site(string? siteCode) => (siteCode ?? "").Trim().ToUpperInvariant();
+
+    private void Save(List<Suppression> list) =>
+        HygieneJsonFile.Write(Path, new Document(2, list.Select(s => (Stored?)new Stored(s.CheckId, s.ObjectKey, s.Comment, s.CreatedUtc, s.SiteCode)).ToList()), path is null, What);
+
+    public void Add(Suppression suppression) => AddRange([suppression]);
+
+    public void AddRange(IReadOnlyList<Suppression> suppressions)
     {
-        ArgumentNullException.ThrowIfNull(suppression);
-        if (string.IsNullOrWhiteSpace(suppression.CheckId) || string.IsNullOrWhiteSpace(suppression.ObjectKey))
-            throw new HygieneServiceException("A suppression needs a check ID and an object key.");
-        var comment = (suppression.Comment ?? "").Trim();
-        if (comment.Length > MaxComment) comment = comment[..MaxComment];
-        var clean = suppression with { CheckId = suppression.CheckId.Trim().ToUpperInvariant(), Comment = comment, CreatedUtc = DateTime.SpecifyKind(suppression.CreatedUtc, DateTimeKind.Utc) };
+        ArgumentNullException.ThrowIfNull(suppressions);
+        var clean = new List<Suppression>();
+        foreach (var suppression in suppressions)
+        {
+            ArgumentNullException.ThrowIfNull(suppression);
+            if (string.IsNullOrWhiteSpace(suppression.CheckId) || string.IsNullOrWhiteSpace(suppression.ObjectKey))
+                throw new HygieneServiceException("A suppression needs a check ID and an object key.");
+            var comment = (suppression.Comment ?? "").Trim();
+            if (comment.Length > MaxComment) comment = comment[..MaxComment];
+            clean.Add(suppression with
+            {
+                CheckId = suppression.CheckId.Trim().ToUpperInvariant(), Comment = comment, CreatedUtc = DateTime.SpecifyKind(suppression.CreatedUtc, DateTimeKind.Utc),
+                SiteCode = Site(suppression.SiteCode)
+            });
+        }
+        if (clean.Count == 0) return;
         lock (_gate)
         {
-            var list = LoadCore().Where(s => !string.Equals(s.Key, clean.Key, StringComparison.OrdinalIgnoreCase)).ToList();
-            list.Add(clean);
-            HygieneJsonFile.Write(Path, new Document(1, list!), path is null, "suppression list");
+            var added = clean.Select(s => s.StoreKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var list = Clean(HygieneJsonFile.ReadForChange<Document>(Path, log, What)).Where(s => !added.Contains(s.StoreKey)).ToList();
+            list.AddRange(clean.GroupBy(s => s.StoreKey, StringComparer.OrdinalIgnoreCase).Select(g => g.Last()));
+            Save(list);
         }
     }
 
-    public void Remove(string checkId, string objectKey)
+    public void Remove(string checkId, string objectKey) => RemoveRange("", [(checkId, objectKey)]);
+
+    public void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys)
     {
-        var key = HygieneFinding.KeyOf(checkId, objectKey);
+        ArgumentNullException.ThrowIfNull(keys);
+        var site = Site(siteCode);
+        var wanted = keys.Select(k => HygieneFinding.KeyOf(k.CheckId, k.ObjectKey)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (wanted.Count == 0) return;
         lock (_gate)
         {
-            var list = LoadCore();
-            var kept = list.Where(s => !string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase)).ToList();
+            var list = Clean(HygieneJsonFile.ReadForChange<Document>(Path, log, What));
+            var kept = list.Where(s => !(wanted.Contains(s.Key) && s.AppliesTo(site))).ToList();
             if (kept.Count == list.Count) return;
-            HygieneJsonFile.Write(Path, new Document(1, kept!), path is null, "suppression list");
+            Save(kept);
         }
     }
 }
@@ -128,6 +190,9 @@ public sealed class HygieneSuppressionStore(string? path = null, IAppLog? log = 
 public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) : IHygieneScanStore
 {
     public const string FileName = "last-scan.json";
+
+    /// <summary>The largest file Save writes; it equals the largest file a read takes, so a saved scan always loads.</summary>
+    internal long MaxBytes { get; init; } = HygieneJsonFile.MaxFileBytes;
 
     public string Path => path ?? System.IO.Path.Combine(HygieneFolders.Root(), FileName);
 
@@ -146,12 +211,12 @@ public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) :
             result.Findings.Select(f => (StoredFinding?)new StoredFinding(f.CheckId, f.Category, f.Severity, f.ObjectType, f.ObjectKey, f.ObjectName, f.Evidence, f.Recommendation,
                 f.FixKind, f.FixParameters.ToDictionary(p => p.Key, p => p.Value), f.FixText, f.Guidance)).ToList(),
             result.Checks.Select(c => (StoredCheck?)new StoredCheck(c.CheckId, c.Name, c.Category, c.State, c.Findings, c.Reason, c.Severity)).ToList());
-        HygieneJsonFile.Write(Path, doc, path is null, "last scan");
+        HygieneJsonFile.Write(Path, doc, path is null, "last scan", MaxBytes);
     }
 
     public HygieneScanResult? Load()
     {
-        var doc = HygieneJsonFile.Read<Document>(Path, log, "last scan");
+        var doc = HygieneJsonFile.Read<Document>(Path, log, "last scan", MaxBytes);
         if (doc is null || doc.Findings is null || doc.Checks is null) return null;
         var findings = doc.Findings.Where(f => f is not null && !string.IsNullOrEmpty(f.CheckId) && f.ObjectKey is not null)
             .Select(f => new HygieneFinding(f!.CheckId, f.Category ?? "", f.Severity, f.ObjectType ?? "", f.ObjectKey, f.ObjectName ?? "", f.Evidence ?? "", f.Recommendation ?? "",

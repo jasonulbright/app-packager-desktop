@@ -15,7 +15,9 @@ namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 /// Remove-CMCollection refuses a collection another one includes, Remove-CMApplicationRevisionHistory
 /// refuses the latest revision, Set-CMApplication makes a new revision. Times in the state are UTC text.
 /// Options: "Fail" holds "query:Class" or "cmd:Cmdlet" entries that fail once with text holding a secret
-/// marker; "Generate" adds generated rows at each run and keeps none of them.
+/// marker ("nullref:" before the entry fails with the text of a null reference); "Generate" adds generated
+/// rows at each run and keeps none of them. A "SELECT *" result has a Get() method, as a provider object
+/// whose lazy properties (SMS_Admin.Permissions, SMS_TaskSequencePackage.Sequence) the state holds.
 /// </summary>
 internal sealed class StubHygieneSite : IConfigMgrSession
 {
@@ -29,7 +31,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         $global:Log = [System.Collections.Generic.List[string]]::new()
         $global:FailLeft = [System.Collections.Generic.List[string]]::new()
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
-        function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove($Key)) { if ($Key -like 'access:*') { throw [System.UnauthorizedAccessException]::new('Access is denied. SECRET-DETAIL-1234') }; throw "The SMS Provider reported an error: SECRET-DETAIL-1234 ($Key)." } }
+        function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove('nullref:' + $Key)) { throw 'Object reference not set to an instance of an object.' }; if ($global:FailLeft.Remove($Key)) { if ($Key -like 'access:*') { throw [System.UnauthorizedAccessException]::new('Access is denied. SECRET-DETAIL-1234') }; throw "The SMS Provider reported an error: SECRET-DETAIL-1234 ($Key)." } }
         $global:C = @{}
         foreach ($p in $state.Classes.PSObject.Properties) { $global:C[$p.Name] = L $p.Value }
         $global:Details = @{}; foreach ($p in (V $state 'Details' ([pscustomobject]@{})).PSObject.Properties) { $global:Details[$p.Name] = $p.Value }
@@ -105,6 +107,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
                     $o
                 })
             }
+            if ($columns -eq '*') { return @($hits | ForEach-Object { $o = Shape $_ '*'; $o | Add-Member -MemberType ScriptMethod -Name Get -Value { }; $o }) }
             return @($hits | ForEach-Object { Shape $_ $columns })
         }
         function global:Q([string]$Value) { if ($Value -eq '$true' -or $Value -match '^\d{1,10}$') { return $Value }; return "'" + $Value.Replace("'", "''") + "'" }

@@ -94,7 +94,8 @@ function Get-FailureKind {
     $text = [string]$Record.Exception.Message
     if ($e -is [System.UnauthorizedAccessException] -or $text -match 'denied|0x80041003|0x80070005') { return 'access' }
     if ($text -match 'No object corresponds|not found|Invalid class|Invalid query|Not found') { return 'not-found' }
-    if ($text -match 'cannot delete|reference|dependent|Failure deleting') { return 'referenced' }
+    if ($text -match 'Object reference not set') { return 'error' }
+    if ($text -match 'cannot delete|is referenced|references it|other applications or task sequences reference|dependent|Failure deleting') { return 'referenced' }
     return 'error'
 }
 
@@ -277,6 +278,50 @@ function Write-Facts {
     Write-Set $Name $Columns $rows $rows.Count
 }
 
+# The objects that use a collection outside the deployment summary and the collection rules. The
+# collections an administrative user holds are a lazy array of the user: one read per user. A cut or
+# failed read throws, so the delete is refused.
+function Read-CollectionUsers {
+    param([string[]]$CollectionIds)
+    $where = Get-OrList 'CollectionID' $CollectionIds
+    Write-Facts 'CollectionAssignments' 'SMS_CIAssignmentBaseClass' @('AssignmentID', 'TargetCollectionID') (Get-OrList 'TargetCollectionID' $CollectionIds)
+    Write-Facts 'CollectionRules' 'SMS_AutoDeployment' @('AutoDeploymentID', 'CollectionID') $where
+    Write-Facts 'CollectionClientSettings' 'SMS_ClientSettingsAssignment' @('ClientSettingsID', 'CollectionID') $where
+    $admins = @(Invoke-Query 'SELECT AdminID FROM SMS_Admin' | ForEach-Object { [string](Get-Prop $_ 'AdminID') } | Where-Object { $_ -match $NumberPattern } | Sort-Object -Unique)
+    if ($admins.Count -gt $MaxObjects) { throw 'The site has more administrative users than one read takes.' }
+    $rows = New-Object System.Collections.Generic.List[object]
+    foreach ($adminId in $admins) {
+        Wait-Pace
+        $script:Queries++
+        $admin = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_Admin WHERE AdminID = $adminId" -ErrorAction Stop) | Select-Object -First 1
+        if ($null -eq $admin) { continue }
+        $admin.Get()
+        foreach ($p in @(Get-Prop $admin 'Permissions')) {
+            if ($null -eq $p -or [string](Get-Prop $p 'CategoryTypeID') -ne '1') { continue }
+            $category = ([string](Get-Prop $p 'CategoryID')).ToUpperInvariant()
+            if ($CollectionIds -contains $category) { $rows.Add([string[]]@($adminId, $category)) }
+        }
+    }
+    Write-Set 'CollectionAdmins' @('AdminID', 'CategoryID') $rows.ToArray() $rows.Count
+}
+
+# An Auto Apply Drivers step leaves no reference row: the steps are in the Sequence XML, a lazy
+# property, so one read per task sequence.
+function Read-AutoApplySequences {
+    $sequences = @(Invoke-Query 'SELECT PackageID FROM SMS_TaskSequencePackage' | ForEach-Object { [string](Get-Prop $_ 'PackageID') } | Where-Object { $_ -match $IdPattern } | Sort-Object -Unique)
+    if ($sequences.Count -gt $MaxObjects) { throw 'The site has more task sequences than one read takes.' }
+    $rows = New-Object System.Collections.Generic.List[object]
+    foreach ($id in $sequences) {
+        Wait-Pace
+        $script:Queries++
+        $ts = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID = '$id'" -ErrorAction Stop) | Select-Object -First 1
+        if ($null -eq $ts) { continue }
+        $ts.Get()
+        if ([string](Get-Prop $ts 'Sequence') -match 'SMS_TaskSequence_AutoApplyAction') { $rows.Add([string[]]@($id)) }
+    }
+    Write-Set 'AutoApplySequences' @('PackageID') $rows.ToArray() $rows.Count
+}
+
 function Invoke-State {
     $ErrorActionPreference = 'Stop'
     [pscustomobject]@{ Kind = 'Site'; Code = [string](Get-Location).Drive.Name }
@@ -321,6 +366,7 @@ function Invoke-State {
                     }
                     Write-Facts 'TsReferences' 'SMS_TaskSequencePackageReference_All' $Simple.TsReferences[1] (Get-OrList 'ObjectID' $ids)
                     Write-Facts 'TaskSequences' 'SMS_TaskSequencePackage' $Simple.TaskSequences[1] (Get-OrList 'BootImageID' $ids)
+                    if ($Kind -eq 'RemoveDriverPackage') { Read-AutoApplySequences }
                 }
             }
             { $_ -in 'RemoveCollection', 'SetCollectionRefreshType' } {
@@ -330,6 +376,7 @@ function Invoke-State {
                     Write-Facts 'Deployments' 'SMS_DeploymentSummary' $Simple.Deployments[1] $where
                     Write-Facts 'CollectionSettings' 'SMS_CollectionSettings' $Simple.CollectionSettings[1] $where
                     Write-Facts 'CollectionDependencies' 'SMS_CollectionDependencies' $Simple.CollectionDependencies[1] ((Get-OrList 'SourceCollectionID' $ids) + ' OR ' + (Get-OrList 'DependentCollectionID' $ids))
+                    if ($Kind -eq 'RemoveCollection') { Read-CollectionUsers $ids }
                     if ($Kind -eq 'SetCollectionRefreshType') {
                         $rows = New-Object System.Collections.Generic.List[object]
                         foreach ($id in $ids) {

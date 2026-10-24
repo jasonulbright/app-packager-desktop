@@ -76,16 +76,17 @@ public sealed class SiteHygienePageTests
         Assert.Equal(TimeSpan.Zero, options.PauseBetweenCalls);
         Assert.StartsWith("1 error, 6 warnings, 1 info. 0 suppressed. Last scan ", vm.SummaryLine);
         Assert.Contains("2 checks did not run.", vm.SummaryLine);
-        Assert.DoesNotContain("stored", vm.SummaryLine);
+        Assert.DoesNotContain("stored result", vm.SummaryLine);
         Assert.Contains("APP-04 (not run: The content source probe is off.)", vm.NotRunText);
         Assert.Contains("DEV-03 (needs the site database: ", vm.NotRunText);
         Assert.Equal("Not known", vm.CheckRows.Single(c => c.CheckId == "APP-04").Findings);
         Assert.Equal("Needs the site database", vm.CheckRows.Single(c => c.CheckId == "DEV-03").State);
         Assert.Equal("2", vm.CheckRows.Single(c => c.CheckId == "APP-01").Findings);
         var all = vm.CategoryRows[^1];
-        Assert.Equal(("All categories", "1", "6", "1", "8", "2"), (all.Category, all.Error, all.Warning, all.Info, all.Total, all.NotRun));
+        Assert.Equal(("All categories", "1", "6", "At least 1", "At least 8", "2"), (all.Category, all.Error, all.Warning, all.Info, all.Total, all.NotRun));
         Assert.Equal("Error", SiteHygieneLabels.SeverityName(vm.FindingRows[0].Finding.Severity));
-        Assert.Single(h.ScanStore.Saved);
+        Assert.Empty(h.ScanStore.Saved);
+        Assert.Contains("1 check did not run, so the result was not stored as the last scan.", vm.StatusMessage);
         Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("Contoso", StringComparison.Ordinal) || e.Message.Contains("MCM000", StringComparison.Ordinal));
     }
 
@@ -245,16 +246,17 @@ public sealed class SiteHygienePageTests
     }
 
     [Fact]
-    public async Task ASuppressionStoreThatFailsMidwayReportsWhatWasSavedAndThePlainReason()
+    public async Task ASuppressionStoreThatFailsChangesNoRowAndGivesThePlainReason()
     {
         var h = new SiteHygienePageHarness();
         var vm = await h.ScannedAsync();
-        h.Suppressions.FailAfter = 1;
+        h.Suppressions.FailAfter = 0;
         Select(vm, h.UnusedApp, h.UnusedApp2);
         await vm.SuppressCommand.ExecuteAsync(null);
-        Assert.Single(h.Suppressions.Items);
-        Assert.Equal("Suppressed 1 finding. Show suppressed lists them. " + VM.SuppressFailed, vm.StatusMessage);
+        Assert.Empty(h.Suppressions.Items);
+        Assert.Equal(VM.SuppressFailed + " No suppression was changed.", vm.StatusMessage);
         Assert.DoesNotContain("Access", vm.StatusMessage);
+        Assert.Equal(8, vm.FindingRows.Count);
     }
 
     [Fact]
@@ -787,6 +789,7 @@ public sealed class SiteHygienePageTests
     public async Task AStoredResultThatCannotBeSavedSaysTheNextStartShowsNoStoredResult()
     {
         var h = new SiteHygienePageHarness();
+        h.CompleteScan();
         h.ScanStore.SaveFails = true;
         var vm = await h.ScannedAsync();
         Assert.EndsWith("The result could not be stored as the last scan, so the next start shows no stored result.", vm.StatusMessage);
@@ -895,7 +898,7 @@ public sealed class SiteHygienePageTests
             Findings: 0, Reason: "No selected area covers the check."));
         var vm = await h.ScannedAsync();
         Assert.Contains("2 checks did not run.", vm.SummaryLine);
-        Assert.Contains("2 checks were not in the scanned areas.", vm.SummaryLine);
+        Assert.Contains("2 checks were not in the scanned areas or options.", vm.SummaryLine);
         Assert.DoesNotContain("UPD-01", vm.NotRunText);
         Assert.Equal(("Not selected", "Not known"), (vm.CheckRows.Single(c => c.CheckId == "UPD-01").State, vm.CheckRows.Single(c => c.CheckId == "UPD-01").Findings));
         var updates = vm.CategoryRows.Single(r => r.Category == "Updates");
@@ -904,7 +907,7 @@ public sealed class SiteHygienePageTests
         await vm.ExportCsvCommand.ExecuteAsync(null);
         var report = h.Reports.Written[^1].Report;
         Assert.Equal(2, report.ChecksNotRun.Count);
-        Assert.Contains("2 checks were not in the scanned areas.", report.Note);
+        Assert.Contains("2 checks were not in the scanned areas or options.", report.Note);
         Assert.Equal(h.Service.ScannedUtc, report.ScannedUtc);
     }
 
