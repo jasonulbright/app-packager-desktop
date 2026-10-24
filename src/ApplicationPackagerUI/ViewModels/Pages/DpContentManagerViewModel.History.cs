@@ -42,7 +42,7 @@ public sealed partial class DpContentManagerViewModel
 
     /// <summary>The whole record of the selected row: whether it is verified, its pairs and its message.</summary>
     public string HistoryDetails => SelectedHistory is { } row
-        ? string.Join(Environment.NewLine, new[] { row.VerifiedText, $"Content: {row.Content}", $"DPs: {row.Dps}", row.Message }.Where(l => l.Length > 0))
+        ? string.Join(Environment.NewLine, new[] { row.VerifiedText, $"Pairs: {row.Pairs}. Requested or confirmed / failed / skipped: {row.Counts}.", $"Content: {row.Content}", $"DPs: {row.Dps}", row.Message }.Where(l => l.Length > 0))
         : "";
 
     public bool HasHistoryDetails => HistoryDetails.Length > 0;

@@ -359,16 +359,15 @@
                         <DataGrid Grid.Row="2" x:Name="dgDpHistory" Tag="history" Style="{StaticResource GridBase}" ItemsSource="{Binding HistoryRows}" SelectedItem="{Binding SelectedHistory}"
                                   FrozenColumnCount="1" AutomationProperties.AutomationId="dgDpHistory" AutomationProperties.Name="Audit records">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="150" MinWidth="148" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="124" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="86" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="100" MinWidth="96" ElementStyle="{StaticResource VerifiedCell}" />
-                                <DataGridTextColumn Header="Pairs" Binding="{Binding Pairs}" SortMemberPath="Pairs" Width="60" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Done / failed / skipped" Binding="{Binding Counts}" SortMemberPath="Counts" Width="170" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Content" Binding="{Binding Content}" SortMemberPath="Content" Width="*" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="154" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="144" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="2*" MinWidth="76" ElementStyle="{StaticResource WrappedCell}" />
+                                <!-- The column budget: each fixed width holds its longest real value with room for other display scalings, and
+                                     Message keeps a usable minimum. Pairs, the result counts and the PackageIDs are in the details box and the export. -->
+                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="166" MinWidth="166" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="136" MinWidth="136" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="124" MinWidth="124" ElementStyle="{StaticResource VerifiedCell}" />
+                                <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="184" MinWidth="184" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="176" MinWidth="176" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="*" MinWidth="240" ElementStyle="{StaticResource WrappedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBox Grid.Row="3" Text="{Binding HistoryDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="96" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0"

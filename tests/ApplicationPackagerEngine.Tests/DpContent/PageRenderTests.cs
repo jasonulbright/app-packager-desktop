@@ -327,19 +327,27 @@ public sealed class PageRenderTests
         ("dgContentPairs", "State", "Failed (content updating)"), ("dgContentPairs", "Last status", "12/30/2026 11:59 PM"),
         ("dgDpPairs", "State", "Failed (content updating)"), ("dgDpPairs", "Type", "Software update package"), ("dgDpPairs", "Last status", "12/30/2026 11:59 PM"),
         ("dgContent", "Type", "Software update package"),
-        ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"), ("dgDpHistory", "User", @"CONTOSO\labadmin"), ("dgDpHistory", "DPs", "CM01.CONTOSO.COM"), ("dgDpHistory", "Action", "Distribute again"), ("dgDpHistory", "Verified", "! Not verified")
+        ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Action", "Distribute again"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"),
+        ("dgDpHistory", "Result", "Unknown"), ("dgDpHistory", "Verified", "! Not verified"), ("dgDpHistory", "Verified", "✓ Verified"), ("dgDpHistory", "DPs", "CM01.CONTOSO.COM"),
+        ("dgDpHistory", "User", @"CONTOSO\labadmin")
     ];
 
+    /// <summary>History values must fit with this much room: a lab window cut a value the test measured as just fitting.</summary>
+    private const double HistoryRoom = 1.1;
+
     [Theory]
-    [InlineData(ApplicationTheme.Light)]
-    [InlineData(ApplicationTheme.Dark)]
-    public void TheLongestRealValuesFitTheirColumnsAt1440PixelsWithTheSidebarCollapsed(ApplicationTheme theme)
+    [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
+    [InlineData(ApplicationTheme.Dark, 1440 - CollapsedPaneWidth)]
+    [InlineData(ApplicationTheme.Light, 1440 - NavigationPaneWidth)]
+    [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
+    public void TheLongestRealValuesFitTheirColumnsAt1440Pixels(ApplicationTheme theme, double width)
     {
         WithPage(theme, (window, page, viewModel, harness) =>
         {
             Fill(window, viewModel);
             foreach (var (tab, id) in AllGrids)
             {
+                if (id != "dgDpHistory" && width != 1440 - CollapsedPaneWidth) continue;
                 ShowTab(window, viewModel, tab);
                 var grid = ById<DataGrid>(page, id);
                 if (id == "dgDpHistory")
@@ -357,10 +365,11 @@ public sealed class PageRenderTests
                     var padding = cell.ActualWidth - block.ActualWidth;
                     var needed = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight,
                         new Typeface(block.FontFamily, block.FontStyle, block.FontWeight, block.FontStretch), block.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(block).PixelsPerDip).WidthIncludingTrailingWhitespace;
+                    if (id == "dgDpHistory") needed *= HistoryRoom;
                     Assert.True(needed + padding <= column.ActualWidth + 0.5, $"{id} {header}: \"{text}\" needs {needed + padding:0} px and the column has {column.ActualWidth:0} px.");
                 }
             }
-        }, 1440 - CollapsedPaneWidth);
+        }, width);
     }
 
     [Theory]
@@ -608,6 +617,14 @@ public sealed class PageRenderTests
             var block = Descendants(rows[0]).OfType<DataGridCell>().Where(c => Equals(c.Column.Header, "Message")).SelectMany(c => Descendants(c).OfType<TextBlock>()).First();
             Assert.True(block.ActualHeight <= 2 * block.LineHeight + 0.5, $"The message is {block.ActualHeight:0} px tall.");
             Assert.All(rows, r => Assert.True(r.ActualHeight <= 2 * block.LineHeight + 16, $"A History row is {r.ActualHeight:0} px tall."));
+            var message = grid.Columns.Single(c => Equals(c.Header, "Message"));
+            Assert.True(message.ActualWidth >= 220, $"The Message column is {message.ActualWidth:0} px at 900x600.");
+            var scroller = Descendants(grid).OfType<ScrollViewer>().First();
+            scroller.ScrollToRightEnd();
+            Settle(window);
+            var cell = Descendants(rows[0]).OfType<DataGridCell>().Single(c => ReferenceEquals(c.Column, message));
+            var bounds = cell.TransformToAncestor(grid).TransformBounds(new Rect(cell.RenderSize));
+            Assert.True(bounds.Right <= grid.ActualWidth + 0.5 && bounds.Left >= -0.5, $"The scrolled Message cell spans {bounds.Left:0} to {bounds.Right:0} px in a {grid.ActualWidth:0} px grid.");
         }, 900 - NavigationPaneWidth, 600 - 48);
     }
 }
