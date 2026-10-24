@@ -317,7 +317,7 @@ public sealed partial class PivotsScriptsViewModel
         var text = ResultFilter.Trim();
         var devices = _allDevices.Where(r => text.Length == 0 || Has(r.Device, text) || Has(r.State, text) || Has(r.Message, text) || Has(r.Result.Output, text)).ToList();
         var results = _allResults.Where(r => text.Length == 0 || Has(r.Device, text) || r.FullCells.Any(c => Has(c, text))).ToList();
-        // A new list in a grid clears its selection and the view reports that back, so the selected keys are read first.
+        // The view reports the grid selection back while a new list replaces the rows, so the selected keys are read first.
         var selectedDevices = SelectedDevices.Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
         var selectedResults = SelectedResults.Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
         DeviceRows = devices;

@@ -186,15 +186,17 @@ public sealed class PivotsScriptsPageFixTests
         Assert.Equal("The report has more than 500,000 rows. Filter the view and export it in parts.", vm.StatusMessage);
     }
 
-    [Fact]
-    public async Task AFullListOfSavedSessionsSaysThatOlderSessionsAreNotShown()
+    [Theory]
+    [InlineData(VM.MaxSessions + 3, true)]
+    [InlineData(VM.MaxSessions, false)]
+    public async Task AFullListOfSavedSessionsSaysThatOlderSessionsAreNotShown(int saved, bool note)
     {
         var h = new PivotsScriptsHarness();
-        for (var i = 0; i < VM.MaxSessions + 3; i++)
+        for (var i = 0; i < saved; i++)
             h.Sessions.Sessions.Add(new PivotsSessionRecord($"s{i}", new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc).AddMinutes(i), "u", "LAB", "cm01.lab.local", PivotsChangeKind.RunPivot,
                 "t", null, [], "OS", null, null, null, new Dictionary<string, string>()));
         var vm = await h.OpenAsync(VM.HistoryTab);
         Assert.Equal(VM.MaxSessions, vm.SessionRows.Count);
-        Assert.Contains(VM.SessionsCappedNote, vm.SessionCount);
+        Assert.Equal(note, vm.SessionCount.Contains(VM.SessionsCappedNote, StringComparison.Ordinal));
     }
 }

@@ -102,7 +102,7 @@ public sealed partial class PivotsScriptsViewModel
                     auditProblem = PlainMessage(ex, HistoryReadFailed);
                     Services.Log.Warning(LogArea, $"The audit log read failed ({ex.GetType().Name}).");
                 }
-                try { sessions = Services.Sessions.List(MaxSessions); }
+                try { sessions = Services.Sessions.List(MaxSessions + 1); }
                 catch (Exception ex)
                 {
                     sessionProblem = PlainMessage(ex, SessionsReadFailed);
@@ -121,9 +121,10 @@ public sealed partial class PivotsScriptsViewModel
             if (sessions is not null)
             {
                 var selected = SelectedSession?.Key;
-                SessionRows = sessions.Select(s => new SessionGridRow(s)).ToList();
+                var older = sessions.Count > MaxSessions;
+                SessionRows = sessions.Take(MaxSessions).Select(s => new SessionGridRow(s)).ToList();
                 SelectedSession = selected is null ? null : SessionRows.FirstOrDefault(r => r.Key == selected);
-                SessionCount = PivotsLabels.Count(sessions.Count, "saved session") + (sessions.Count >= MaxSessions ? ". " + SessionsCappedNote : "");
+                SessionCount = PivotsLabels.Count(SessionRows.Count, "saved session") + (older ? ". " + SessionsCappedNote : "");
             }
             IsHistoryLoaded = true;
             ApplyHistoryFilter();
