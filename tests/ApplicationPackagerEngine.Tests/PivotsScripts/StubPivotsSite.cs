@@ -81,9 +81,10 @@ internal sealed class StubPivotsSite : IConfigMgrSession
                     return @(Script-Row $r $false)
                 }
                 'SMS_ScriptsExecutionStatus' {
-                    if ($where -notmatch '^ClientOperationId = (\d+)$') { throw "Bad where: $where" }
+                    if ($where -notmatch '^ClientOperationId = (\d+)(?: AND ResourceId IN \(([\d,]+)\))?$') { throw "Bad where: $where" }
                     $op = $Matches[1]
-                    return @($global:S.Status | Where-Object { [string]$_.ClientOperationId -eq $op } | ForEach-Object { $_.PSObject.Copy() })
+                    $only = if ($Matches[2]) { @($Matches[2] -split ',') } else { $null }
+                    return @($global:S.Status | Where-Object { [string]$_.ClientOperationId -eq $op -and ($null -eq $only -or $only -contains [string]$_.ResourceId) } | ForEach-Object { $_.PSObject.Copy() })
                 }
                 'SMS_SCI_SiteDefinition' { return @([pscustomobject]@{ SiteCode = 'MCM'; Props = @([pscustomobject]@{ PropertyName = 'TwoKeyApproval'; Value = [int](V $state.Options 'TwoKey' 0) }) }) }
                 default { throw "Unknown class $class" }

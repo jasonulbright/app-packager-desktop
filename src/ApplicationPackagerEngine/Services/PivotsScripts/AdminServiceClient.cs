@@ -17,15 +17,22 @@ public interface IAdminServiceClient
 {
     /// <summary>
     /// Sends one request to https://&lt;provider&gt;/AdminService/&lt;relative&gt; with the Windows identity.
-    /// Every HTTP status is returned; a request that gets no HTTP answer throws
-    /// <see cref="PivotsServiceException"/> with a plain message, and
-    /// <see cref="AdminServiceUnreachableException"/> when the request may not have reached the site.
+    /// Every HTTP status is returned. A provider name that is not a host name throws
+    /// <see cref="PivotsServiceException"/> before anything is sent; a request that gets no HTTP
+    /// answer throws <see cref="AdminServiceUnreachableException"/>; an answer over the size limit
+    /// throws <see cref="AdminServiceResponseTooLargeException"/>.
     /// </summary>
     Task<AdminServiceResponse> SendAsync(HttpMethod method, string relative, string? jsonBody, CancellationToken ct);
 
     /// <summary>The host name the client sends to; empty when the connection is not set.</summary>
     string Provider { get; }
 }
+
+/// <summary>
+/// An answer longer than <see cref="AdminServiceClient.MaxResponseBytes"/>: the request reached the
+/// site and the site answered, but the body was not read. The message is plain and safe to show.
+/// </summary>
+public sealed class AdminServiceResponseTooLargeException(string message) : Exception(message);
 
 /// <summary>A request that got no HTTP answer: the message is plain and safe to show.</summary>
 public sealed class AdminServiceUnreachableException(string message, bool mayHaveReachedSite) : Exception(message)
@@ -53,6 +60,10 @@ public sealed class AdminServiceClient : IAdminServiceClient, IDisposable
 
     /// <summary>The most bytes of one answer that are read.</summary>
     public const int MaxResponseBytes = 64 * 1024 * 1024;
+
+    public const string TooLargeMessage = "The administration service returned more data than the page reads. Narrow the query.";
+
+    public const string NotAHostMessage = "The SMS Provider name in Settings is not a host name. Enter the provider name without https:// or a path, normally the FQDN that its certificate carries.";
 
     private readonly Func<string?> _provider;
     private readonly IAppLog? _log;
@@ -110,7 +121,7 @@ public sealed class AdminServiceClient : IAdminServiceClient, IDisposable
         ArgumentNullException.ThrowIfNull(method);
         var host = Provider;
         if (!IsHostName(host))
-            throw new PivotsServiceException("The SMS Provider name in Settings is not a host name. Enter the provider name without https:// or a path, normally the FQDN that its certificate carries.");
+            throw new PivotsServiceException(NotAHostMessage);
         var uri = new Uri($"https://{host}/AdminService/{relative.TrimStart('/')}", UriKind.Absolute);
         if (!string.Equals(uri.Host, host.Trim('[', ']'), StringComparison.OrdinalIgnoreCase))
             throw new PivotsServiceException("The administration service address could not be built from the SMS Provider name.");
@@ -126,7 +137,7 @@ public sealed class AdminServiceClient : IAdminServiceClient, IDisposable
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
             sent = true;
             var length = response.Content.Headers.ContentLength;
-            if (length > MaxResponseBytes) throw new PivotsServiceException("The administration service returned more data than the page reads. Narrow the query.");
+            if (length > MaxResponseBytes) throw new AdminServiceResponseTooLargeException(TooLargeMessage);
             var body = await ReadBoundedAsync(response.Content, timeout.Token).ConfigureAwait(false);
             return new AdminServiceResponse((int)response.StatusCode, body, response.Content.Headers.ContentType?.ToString() ?? "");
         }
@@ -154,7 +165,7 @@ public sealed class AdminServiceClient : IAdminServiceClient, IDisposable
         int read;
         while ((read = await stream.ReadAsync(chunk, ct).ConfigureAwait(false)) > 0)
         {
-            if (buffer.Length + read > MaxResponseBytes) throw new PivotsServiceException("The administration service returned more data than the page reads. Narrow the query.");
+            if (buffer.Length + read > MaxResponseBytes) throw new AdminServiceResponseTooLargeException(TooLargeMessage);
             buffer.Write(chunk, 0, read);
         }
         return Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);

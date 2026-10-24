@@ -9,7 +9,9 @@ param(
     [string[]]$ParameterNames = @(),
     [string[]]$ParameterValues = @(),
     [string]$ParamsDefinition = '',
-    [long]$OperationId = 0
+    [long]$OperationId = 0,
+    [string]$SiteHash = '',
+    [string]$TextHash = ''
 )
 
 # Only values checked against a fixed pattern reach WQL text: a collection ID, a script GUID, an
@@ -168,10 +170,23 @@ function Get-Definitions {
 
 # ---- Runs -----------------------------------------------------------------------------------
 
+function Get-TextHash {
+    param([string]$Text)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Text.Replace("`r`n", "`n"))))).Replace('-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+}
+
+# Only the devices in -ResourceIds are read when the caller names them: a device with a final row is not read again.
 function Write-Status {
-    param([long]$Op)
-    foreach ($s in Invoke-Query "SELECT ResourceId, DeviceName, ScriptExecutionState, ScriptExitCode, ScriptOutput, LastUpdateTime, ScriptGuid FROM SMS_ScriptsExecutionStatus WHERE ClientOperationId = $Op") {
-        [pscustomobject]@{ K = 'R'; Id = [int](Get-Prop $s 'ResourceId'); N = [string](Get-Prop $s 'DeviceName'); State = [int](Get-Prop $s 'ScriptExecutionState'); Exit = (Get-Prop $s 'ScriptExitCode'); Output = [string](Get-Prop $s 'ScriptOutput'); Updated = (Get-TimeText (Get-Prop $s 'LastUpdateTime')) }
+    param([long]$Op, [int[]]$Ids)
+    $select = "SELECT ResourceId, DeviceName, ScriptExecutionState, ScriptExitCode, ScriptOutput, LastUpdateTime, ScriptGuid FROM SMS_ScriptsExecutionStatus WHERE ClientOperationId = $Op"
+    $ids = @($Ids | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
+    $queries = if ($ids.Count -eq 0) { @($select) } else { for ($i = 0; $i -lt $ids.Count; $i += 500) { $select + ' AND ResourceId IN (' + ($ids[$i..([Math]::Min($i + 500, $ids.Count) - 1)] -join ',') + ')' } }
+    foreach ($query in $queries) {
+        foreach ($s in Invoke-Query $query) {
+            [pscustomobject]@{ K = 'R'; Id = [int](Get-Prop $s 'ResourceId'); N = [string](Get-Prop $s 'DeviceName'); State = [int](Get-Prop $s 'ScriptExecutionState'); Exit = (Get-Prop $s 'ScriptExitCode'); Output = [string](Get-Prop $s 'ScriptOutput'); Updated = (Get-TimeText (Get-Prop $s 'LastUpdateTime')) }
+        }
     }
 }
 
@@ -238,6 +253,10 @@ switch ($Operation) {
         $row = Get-FullScript $g
         if ($null -eq $row) { throw 'The site holds no script with this GUID.' }
         if ([int](Get-Prop $row 'ApprovalState') -ne 3) { throw 'The script is not approved.' }
+        # The text that was approved again after the plan has another site hash and another text hash than the plan.
+        if ([string](Get-Prop $row 'ScriptHash') -ne $SiteHash) { throw 'The script text on the site changed after the plan was made.' }
+        $text = ConvertFrom-ScriptText ([string](Get-Prop $row 'Script'))
+        if ($null -eq $text -or (Get-TextHash $text) -ne $TextHash) { throw 'The script text on the site changed after the plan was made.' }
         if ($ParameterNames.Count -ne $ParameterValues.Count) { throw 'The parameter names and values do not match.' }
         $defined = @{}
         foreach ($d in @(ConvertFrom-Definitions ([string](Get-Prop $row 'ParamsDefinition')))) { $defined[$d.Name] = $d }
@@ -252,25 +271,20 @@ switch ($Operation) {
                 default { throw 'A parameter has a type that Run Scripts does not take.' }
             }
         }
-        if ($CollectionId) {
-            if ($CollectionId -notmatch $CollectionPattern) { throw 'The collection ID is not valid.' }
-            $started = Invoke-CMScript -ScriptGuid $g -CollectionId $CollectionId.ToUpperInvariant() -ScriptParameter $arguments -PassThru
+        # A run goes to the fixed devices of the plan, also for a collection target: a device that joins the collection after the plan does not get the script.
+        $ids = @($ResourceIds | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
+        if ($ids.Count -eq 0) { throw 'No device to run on.' }
+        $devices = @()
+        for ($i = 0; $i -lt $ids.Count; $i += 500) {
+            $part = $ids[$i..([Math]::Min($i + 500, $ids.Count) - 1)] -join ','
+            $devices += @(Invoke-CMWmiQuery -Option Fast -Query "SELECT * FROM SMS_CombinedDeviceResources WHERE ResourceID IN ($part)")
         }
-        else {
-            $ids = @($ResourceIds | Where-Object { $_ -gt 0 } | Sort-Object -Unique)
-            if ($ids.Count -eq 0) { throw 'No device to run on.' }
-            $devices = @()
-            for ($i = 0; $i -lt $ids.Count; $i += 500) {
-                $part = $ids[$i..([Math]::Min($i + 500, $ids.Count) - 1)] -join ','
-                $devices += @(Invoke-CMWmiQuery -Option Fast -Query "SELECT * FROM SMS_CombinedDeviceResources WHERE ResourceID IN ($part)")
-            }
-            $devices = @($devices | Where-Object { $null -ne $_ })
-            if ($devices.Count -ne $ids.Count) { [pscustomobject]@{ K = 'Missing'; Found = $devices.Count; Wanted = $ids.Count }; return }
-            $started = Invoke-CMScript -ScriptGuid $g -Device $devices -ScriptParameter $arguments -PassThru
-        }
+        $devices = @($devices | Where-Object { $null -ne $_ })
+        if ($devices.Count -ne $ids.Count) { [pscustomobject]@{ K = 'Missing'; Found = $devices.Count; Wanted = $ids.Count }; return }
+        $started = Invoke-CMScript -ScriptGuid $g -Device $devices -ScriptParameter $arguments -PassThru
         $op = $null
         foreach ($item in @($started)) { foreach ($n in 'OperationID', 'ClientOperationID', 'ID') { $p = Get-Prop $item $n; if ("$p" -match '^\d+$') { $op = [long]$p; break } }; if ($null -ne $op) { break } }
         [pscustomobject]@{ K = 'Started'; Operation = $op; Return = (Get-Prop @($started)[0] 'ReturnValue') }
     }
-    'Status' { Write-Status $OperationId }
+    'Status' { Write-Status $OperationId $ResourceIds }
 }

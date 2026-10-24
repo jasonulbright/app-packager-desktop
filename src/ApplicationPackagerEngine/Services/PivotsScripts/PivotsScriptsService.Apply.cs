@@ -32,6 +32,15 @@ public sealed partial class PivotsScriptsService
 
         /// <summary>1 while a wait reads the run; a second wait at the same time is refused.</summary>
         public int Waiting;
+
+        /// <summary>True after the site refused or ignored the paged status read: each poll reads all rows of the operation.</summary>
+        public bool Unpaged;
+
+        /// <summary>True after a status answer was over the size limit: each poll reads device results one by one.</summary>
+        public bool PerDevice;
+
+        /// <summary>The ResourceID of the last device result read in the per-device mode; the next poll goes on after it.</summary>
+        public int PerDeviceCursor;
     }
 
     private const string ReloadedNote = "The run was read from its saved session: the results of the clients that finished come from the site.";
@@ -80,12 +89,16 @@ public sealed partial class PivotsScriptsService
             return "the plan differs from the prepared plan. Prepare the plan again.";
         if (change.Blocked) return "a check of the plan failed: " + string.Join(" ", change.Checks.Where(c => c.Result is DeploymentCheckResults.Fail or DeploymentCheckResults.Unknown).Select(c => c.Message));
         if (prepared.Change.Blocked) return "a check of the prepared plan failed. Prepare the plan again.";
+        if (_utcNow() - prepared.PreparedUtc > MaxPlanAge)
+            return $"the plan is older than {Minutes(MaxPlanAge)}. The site can have changed since. Prepare the plan again. Nothing was sent.";
         if (change.IsRun)
         {
             if (change.Targets is null || change.DeviceCount <= 0) return "the plan has no device.";
             if (change.DeviceCount > MaxDevicesPerRun) return $"the plan has {Count(change.DeviceCount, "device")}; a run takes at most {MaxDevicesPerRun.ToString("N0", CultureInfo.InvariantCulture)}.";
             if (prepared.Change.Targets?.IsBuiltInCollection == true && !change.EveryDeviceAcknowledged)
                 return "a run on a collection the site creates needs the box \"This runs on every device of the site\". Nothing was sent.";
+            if (prepared.Change.Targets?.CoversEverySiteDevice == true && !change.EveryDeviceAcknowledged)
+                return "the target holds every client of the site, so the run needs the box \"This runs on every device of the site\". Nothing was sent.";
             if (change.Kind == PivotsChangeKind.RunScript && !change.RunConfirmed)
                 return $"a script run needs the second confirmation for {Count(change.DeviceCount, "device")}. Nothing was sent.";
         }
@@ -116,14 +129,18 @@ public sealed partial class PivotsScriptsService
         var targets = change.Targets!;
         var devices = targets.Devices.Where(d => d.IsClient).ToList();
         var planned = devices.Select(d => d.ResourceId).ToHashSet();
+        var left = new HashSet<int>();
 
         // What the site holds now is read again: the collection members and the script.
         if (targets.CollectionId is { } cid)
         {
-            var now = await MembersAsync(cid, ct).ConfigureAwait(false);
+            var (now, _) = await MembersAsync(cid, ct).ConfigureAwait(false);
             var added = now.Where(d => d.IsClient && !planned.Contains(d.ResourceId)).ToList();
             if (added.Count > 0)
-                return Refused(change, $"the collection {cid} has {Count(added.Count, "device")} that the plan does not hold ({string.Join(", ", added.Take(5).Select(d => d.Name))}{(added.Count > 5 ? ", ..." : "")}). The site would run on them too. Prepare the plan again. Nothing was sent.");
+                return Refused(change, $"the collection {cid} has {Count(added.Count, "device")} that the plan does not hold ({string.Join(", ", added.Take(5).Select(d => d.Name))}{(added.Count > 5 ? ", ..." : "")}). Prepare the plan again. Nothing was sent.");
+            var members = now.Select(d => d.ResourceId).ToHashSet();
+            left.UnionWith(planned.Where(id => !members.Contains(id)));
+            if (left.Count == planned.Count) return Refused(change, $"no device of the plan is a member of the collection {cid} now. Prepare the plan again. Nothing was sent.");
         }
         if (change.Kind == PivotsChangeKind.RunScript)
         {
@@ -135,101 +152,172 @@ public sealed partial class PivotsScriptsService
             var problems = ParameterProblems(script, change.Parameters);
             if (problems.Count > 0) return Refused(change, "the parameter values do not match the script on the site: " + string.Join(" ", problems) + " Nothing was sent.");
         }
+        else if (!AdminServiceClient.IsHostName(_admin.Provider))
+            return Refused(change, AdminServiceClient.NotAHostMessage + " Nothing was sent.");
         ct.ThrowIfCancellationRequested();
+        var sendTo = devices.Where(d => !left.Contains(d.ResourceId)).ToList();
 
-        using var audit = _audit is PivotsAuditLog real ? real.Reserve() : new PivotsAuditReservation(_audit);
-        if (!audit.Probe.Writable) return Refused(change, "the audit log cannot be written, so nothing was sent. " + audit.Probe.Message);
-        var runId = Guid.NewGuid().ToString("N");
-        var (site, provider) = _connection();
-        var textHash = change.Kind == PivotsChangeKind.RunPivot ? HashOf(change.QueryText) : change.ScriptHash;
-        var session = new PivotsSessionRecord(
-            Id: PivotsSessionStore.NewId(),
-            CreatedUtc: _utcNow(),
-            User: _user(),
-            Site: site,
-            Provider: provider,
-            Kind: change.Kind,
-            TargetDescription: targets.Description,
-            CollectionId: targets.CollectionId,
-            Devices: devices,
-            QueryText: change.QueryText,
-            ScriptGuid: change.ScriptGuid,
-            ScriptName: change.Script?.Name,
-            ScriptHash: textHash,
-            Parameters: change.Parameters ?? new Dictionary<string, string>());
+        var audit = _audit is PivotsAuditLog real ? real.Reserve() : new PivotsAuditReservation(_audit);
+        // The reservation holds the log open only until the send has a result; the wait appends through the log itself.
+        Func<PivotsAuditRecord, AuditWrite> append = audit.Append;
         try
         {
-            _sessions.Save(session);
-        }
-        catch (PivotsServiceException ex)
-        {
-            return Refused(change, ex.Message);
-        }
-        var started = audit.Append(new PivotsAuditRecord(default, _user(), change.Kind.ToString(), "Started", "", runId, targets.Description, devices.Count, change.ScriptGuid, textHash, null,
-            $"Sending to {Count(devices.Count, "device")}.") { SessionId = session.Id });
-        if (!started.Succeeded)
-        {
-            TryUpdate(session with { Status = "Skipped", Message = "The audit record could not be written, so nothing was sent." });
-            return Refused(change, "the audit log could not be written, so nothing was sent. " + started.Message);
-        }
-        if (ct.IsCancellationRequested)
-        {
-            audit.Append(Finished(change, runId, targets.Description, devices.Count, textHash, null, session.Id, "Skipped", "Cancelled before the send."));
-            TryUpdate(session with { Status = "Skipped", Message = "Cancelled before the send." });
-            return Refused(change, "the run was cancelled before anything was sent.");
-        }
+            if (!audit.Probe.Writable) return Refused(change, "the audit log cannot be written, so nothing was sent. " + audit.Probe.Message);
+            var runId = Guid.NewGuid().ToString("N");
+            var (site, provider) = _connection();
+            var textHash = change.Kind == PivotsChangeKind.RunPivot ? HashOf(change.QueryText) : change.ScriptHash;
+            var session = new PivotsSessionRecord(
+                Id: PivotsSessionStore.NewId(),
+                CreatedUtc: _utcNow(),
+                User: _user(),
+                Site: site,
+                Provider: provider,
+                Kind: change.Kind,
+                TargetDescription: targets.Description,
+                CollectionId: targets.CollectionId,
+                Devices: devices,
+                QueryText: change.QueryText,
+                ScriptGuid: change.ScriptGuid,
+                ScriptName: change.Script?.Name,
+                ScriptHash: textHash,
+                Parameters: change.Parameters ?? new Dictionary<string, string>());
+            try
+            {
+                _sessions.Save(session);
+            }
+            catch (PivotsServiceException ex)
+            {
+                return Refused(change, ex.Message);
+            }
+            var started = audit.Append(new PivotsAuditRecord(default, _user(), change.Kind.ToString(), "Started", "", runId, targets.Description, sendTo.Count, change.ScriptGuid, textHash, null,
+                $"Sending to {Count(sendTo.Count, "device")}.") { SessionId = session.Id });
+            if (!started.Succeeded)
+            {
+                TryUpdate(session with { Status = "Skipped", Message = "The audit record could not be written, so nothing was sent." });
+                return Refused(change, "the audit log could not be written, so nothing was sent. " + started.Message);
+            }
 
-        // The send is not cancelled once it starts: a request cut in flight can still reach the site,
-        // and its result would not be known.
-        var send = change.Kind == PivotsChangeKind.RunPivot
-            ? await SendPivotAsync(change, devices).ConfigureAwait(false)
-            : await SendScriptAsync(change, devices).ConfigureAwait(false);
-        var sentUtc = _utcNow();
-        var raw = new List<PivotsRawRecord> { new(sentUtc, "Submit", send.Status, send.Raw) };
-        if (send.OperationId is null)
-        {
-            var state = send.MayHaveReached ? PivotsDeviceStates.NoResponse : PivotsDeviceStates.Failed;
-            var message = send.MayHaveReached
-                ? send.Message + " The request can have reached the site: check Monitoring > Client Operations or Script Status before you run it again."
-                : send.Message;
-            var results = devices.Select(d => new DeviceResult(d.ResourceId, d.Name, state, "", message)).ToList();
-            audit.Append(Finished(change, runId, targets.Description, devices.Count, textHash, null, session.Id, send.MayHaveReached ? "Partial" : "Failed", message));
-            TryUpdate(session with { Status = send.MayHaveReached ? "Unknown" : "Failed", Message = message, Raw = raw, Results = results, FinishedUtc = _utcNow(), Partial = send.MayHaveReached });
-            _log?.Warning(LogArea, $"{change.Kind} was not accepted by the site.");
-            return new PivotsOutcome(change, false, message, null, results, send.MayHaveReached, session.Id) { Sent = send.MayHaveReached };
-        }
+            // From here the Started record exists: every way out writes the Finished record and keeps the session.
+            string? operation = null;
+            RunState? run = null;
+            var finished = false;
+            try
+            {
+                if (ct.IsCancellationRequested)
+                {
+                    audit.Append(Finished(change, runId, targets.Description, sendTo.Count, textHash, null, session.Id, "Skipped", "Cancelled before the send."));
+                    finished = true;
+                    TryUpdate(session with { Status = "Skipped", Message = "Cancelled before the send." });
+                    return Refused(change, "the run was cancelled before anything was sent.");
+                }
 
-        var run = new RunState
-        {
-            Change = change,
-            OperationId = send.OperationId,
-            Session = session with { OperationId = send.OperationId, Status = "Sent", Raw = raw },
-            Devices = devices,
-            SentUtc = sentUtc,
-            Window = WindowOf(change),
-            RunId = runId,
-            Target = targets.Description,
-            TextHash = textHash,
-            Waiting = change.IsSendOnly ? 0 : 1
-        };
-        run.Raw.AddRange(raw);
-        foreach (var d in devices) run.Results[d.ResourceId] = new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", SentMessage);
-        run.Session = run.Session with { Results = run.Results.Values.ToList() };
-        // The run is kept before the session file names its operation, so a wait never reloads a second instance of it.
-        run = RememberRun(run);
-        TryUpdate(run.Session);
-        _log?.Info(LogArea, $"{change.Kind} sent to {devices.Count} devices.");
-        if (change.IsSendOnly)
-            return Snapshot(run, true, "Sent. The site accepted the run. The results are read after the send.", final: true);
-        progress.Report(Snapshot(run, false, "Sent. Waiting for results.", final: false));
-        try
-        {
-            return await WaitAsync(run, progress, ct, audit.Append).ConfigureAwait(false);
+                // The send is not cancelled once it starts: a request cut in flight can still reach the site,
+                // and its result would not be known.
+                var send = change.Kind == PivotsChangeKind.RunPivot
+                    ? await SendPivotAsync(change, sendTo).ConfigureAwait(false)
+                    : await SendScriptAsync(change, sendTo).ConfigureAwait(false);
+                var sentUtc = _utcNow();
+                var raw = new List<PivotsRawRecord> { new(sentUtc, "Submit", send.Status, send.Raw) };
+                var skipped = devices.Where(d => left.Contains(d.ResourceId))
+                    .Select(d => new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Skipped, "", SkippedPrefix + "the device left the collection after the plan, so the run did not send to it.")).ToList();
+                if (send.OperationId is null)
+                {
+                    var state = send.MayHaveReached ? PivotsDeviceStates.NoResponse : PivotsDeviceStates.Failed;
+                    var message = send.MayHaveReached
+                        ? send.Message + " The request can have reached the site: check Monitoring > Client Operations or Script Status before you run it again."
+                        : send.Message;
+                    var results = sendTo.Select(d => new DeviceResult(d.ResourceId, d.Name, state, "", message)).Concat(skipped).ToList();
+                    audit.Append(Finished(change, runId, targets.Description, sendTo.Count, textHash, null, session.Id, send.MayHaveReached ? "Partial" : "Failed", message));
+                    finished = true;
+                    TryUpdate(session with { Status = send.MayHaveReached ? "Unknown" : "Failed", Message = message, Raw = raw, Results = results, FinishedUtc = _utcNow(), Partial = send.MayHaveReached });
+                    _log?.Warning(LogArea, $"{change.Kind} was not accepted by the site.");
+                    return new PivotsOutcome(change, false, message, null, results, send.MayHaveReached, session.Id) { Sent = send.MayHaveReached };
+                }
+
+                operation = send.OperationId;
+                run = new RunState
+                {
+                    Change = change,
+                    OperationId = send.OperationId,
+                    Session = session with { OperationId = send.OperationId, Status = "Sent", Raw = raw },
+                    Devices = devices,
+                    SentUtc = sentUtc,
+                    Window = WindowOf(change),
+                    RunId = runId,
+                    Target = targets.Description,
+                    TextHash = textHash,
+                    Waiting = change.IsSendOnly ? 0 : 1
+                };
+                run.Raw.AddRange(raw);
+                foreach (var d in sendTo) run.Results[d.ResourceId] = new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", SentMessage);
+                foreach (var s in skipped) run.Results[s.ResourceId] = s;
+                run.Session = run.Session with { Results = run.Results.Values.ToList() };
+                // The run is kept before the session file names its operation, so a wait never reloads a second instance of it.
+                run = RememberRun(run);
+                TryUpdate(run.Session);
+                _log?.Info(LogArea, $"{change.Kind} sent to {sendTo.Count} devices.");
+                if (change.IsSendOnly)
+                    return Snapshot(run, true, "Sent. The site accepted the run. The results are read after the send.", final: true);
+                audit.Dispose();
+                append = _audit.Append;
+                progress.Report(Snapshot(run, false, "Sent. Waiting for results.", final: false));
+                try
+                {
+                    return await WaitAsync(run, progress, ct, append).ConfigureAwait(false);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref run.Waiting, 0);
+                }
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _log?.Warning(LogArea, $"{change.Kind} stopped after its Started audit record with an unexpected error: {ex.GetType().Name}.");
+                return Unknown(change, runId, targets.Description, sendTo, textHash, session, operation, run, finished ? null : append);
+            }
         }
         finally
         {
-            Interlocked.Exchange(ref run.Waiting, 0);
+            audit.Dispose();
         }
+    }
+
+    internal const string UnknownWhetherSent =
+        "The run stopped with an unexpected error after its audit record was written. It is unknown whether the request was sent: check Monitoring > Client Operations or Script Status before you run it again.";
+
+    /// <summary>
+    /// The end of a run that threw after its Started record: the Finished record says that it is
+    /// unknown whether the request was sent, the session keeps what is known, and the outcome counts
+    /// as sent, so the operator does not send it again without a check.
+    /// </summary>
+    private PivotsOutcome Unknown(PivotsChange change, string runId, string target, IReadOnlyList<ResolvedDevice> sendTo, string? textHash, PivotsSessionRecord session, string? operation,
+        RunState? run, Func<PivotsAuditRecord, AuditWrite>? append)
+    {
+        if (run is not null) Interlocked.Exchange(ref run.Waiting, 0);
+        var message = operation is null
+            ? UnknownWhetherSent
+            : $"The site accepted the run (operation {operation}), but the wait stopped with an unexpected error. The results on this page are partial: check Monitoring > Client Operations or Script Status.";
+        List<DeviceResult> results;
+        if (run is not null)
+        {
+            foreach (var (id, r) in run.Results.ToList())
+                if (!r.IsFinal) run.Results[id] = r with { Message = message };
+            results = Ordered(run);
+        }
+        else results = sendTo.Select(d => new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.NoResponse, "", message)).ToList();
+        if (append is not null && (run is null || Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) == 0))
+        {
+            var written = append(Finished(change, runId, target, sendTo.Count, textHash, operation, session.Id, "Partial", message));
+            if (!written.Succeeded)
+            {
+                if (run is not null) Interlocked.Exchange(ref run.FinishedRecorded, 0);
+                _log?.Warning(LogArea, "The Finished audit record of a run could not be written.");
+            }
+        }
+        var saved = (run?.Session ?? session) with { OperationId = operation, Status = "Unknown", Message = message, Results = results, FinishedUtc = _utcNow(), Partial = true };
+        if (run is not null) run.Session = saved;
+        TryUpdate(saved);
+        return new PivotsOutcome(change, false, message, operation, results, true, session.Id) { Sent = true, SentUtc = run?.SentUtc };
     }
 
     private const string SentMessage = "The site accepted the run; the device has not reported yet.";
@@ -252,12 +340,15 @@ public sealed partial class PivotsScriptsService
 
     private sealed record SendResult(string? OperationId, int? Status, string Raw, string Message, bool MayHaveReached);
 
+    /// <summary>
+    /// One RunCMPivot request on the list route with the fixed ResourceIDs of the plan, for every
+    /// target kind: the collection route would run on the members the collection has when the site
+    /// receives the request.
+    /// </summary>
     private async Task<SendResult> SendPivotAsync(PivotsChange change, IReadOnlyList<ResolvedDevice> devices)
     {
-        var targets = change.Targets!;
-        var (path, body) = targets.CollectionId is { } cid
-            ? ($"v1.0/Collections('{cid}')/AdminService.RunCMPivot", JsonSerializer.Serialize(new { InputQuery = change.QueryText }))
-            : ("v1.0/SMS_CMPivotStatus/AdminService.RunCMPivot", JsonSerializer.Serialize(new { InputQuery = change.QueryText, ResourceIds = string.Join(",", devices.Select(d => d.ResourceId.ToString(CultureInfo.InvariantCulture))) }));
+        const string path = "v1.0/SMS_CMPivotStatus/AdminService.RunCMPivot";
+        var body = JsonSerializer.Serialize(new { InputQuery = change.QueryText, ResourceIds = string.Join(",", devices.Select(d => d.ResourceId.ToString(CultureInfo.InvariantCulture))) });
         AdminServiceResponse response;
         try
         {
@@ -266,6 +357,14 @@ public sealed partial class PivotsScriptsService
         catch (AdminServiceUnreachableException ex)
         {
             return new SendResult(null, null, "", ex.Message, ex.MayHaveReachedSite);
+        }
+        catch (AdminServiceResponseTooLargeException ex)
+        {
+            return new SendResult(null, null, "", ex.Message + " The site answered the run, but its answer was not read, so the operation ID is not known.", true);
+        }
+        catch (PivotsServiceException ex)
+        {
+            return new SendResult(null, null, "", ex.Message + " Nothing was sent.", false);
         }
         if (response.Status != 200)
             return new SendResult(null, response.Status, Bounded(response.Body), HttpMessage(response.Status, PivotRights) + " Nothing reached a client.", false);
@@ -294,14 +393,18 @@ public sealed partial class PivotsScriptsService
 
     private static string Bounded(string body) => body.Length <= 64 * 1024 ? body : body[..(64 * 1024)] + "...";
 
+    /// <summary>
+    /// One script run on the fixed ResourceIDs of the plan, for every target kind. The session script
+    /// reads the script again and refuses when the site's ScriptHash or the hash of the text differs
+    /// from the plan, so a text approved again after the plan does not run.
+    /// </summary>
     private async Task<SendResult> SendScriptAsync(PivotsChange change, IReadOnlyList<ResolvedDevice> devices)
     {
-        var p = new ConfigMgrParameters { { "Operation", "Run" }, { "ScriptGuid", change.ScriptGuid } };
+        var p = new ConfigMgrParameters { { "Operation", "Run" }, { "ScriptGuid", change.ScriptGuid }, { "SiteHash", change.Script?.SiteHash ?? "" }, { "TextHash", change.ScriptHash ?? "" } };
         var values = change.Parameters ?? new Dictionary<string, string>();
         p.Add("ParameterNames", values.Keys.ToArray());
         p.Add("ParameterValues", values.Keys.Select(k => values[k]).ToArray());
-        if (change.Targets!.CollectionId is { } cid) p.Add("CollectionId", cid);
-        else p.Add("ResourceIds", devices.Select(d => d.ResourceId).ToArray());
+        p.Add("ResourceIds", devices.Select(d => d.ResourceId).ToArray());
         IReadOnlyList<JsonElement> output;
         try
         {
@@ -387,11 +490,14 @@ public sealed partial class PivotsScriptsService
     /// </summary>
     private async Task<RunState> ReloadAsync(string operationId, string? sessionId, CancellationToken ct)
     {
-        PivotsSessionRecord? session = null;
-        if (sessionId is { Length: > 0 }) session = _sessions.Read(sessionId);
-        else if (_sessions.List(MaxSessionsSearched).FirstOrDefault(s => s.OperationId == operationId) is { } summary) session = _sessions.Read(summary.Id);
+        var session = sessionId is { Length: > 0 } ? _sessions.Read(sessionId) : _sessions.FindByOperation(operationId, MaxSessionsSearched);
         if (session is null || session.OperationId != operationId || session.Kind is not (PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript) || session.Devices.Count == 0)
             throw new PivotsServiceException("No saved session of this page holds that run, so its results cannot be read. Check Monitoring > Client Operations or Script Status in the console.");
+        // An operation ID is a number of one site: the same number on another site is another run.
+        var (site, provider) = _connection();
+        if ((session.Site.Length > 0 && !string.Equals(session.Site, site, StringComparison.OrdinalIgnoreCase))
+            || (session.Provider.Length > 0 && !string.Equals(session.Provider, provider, StringComparison.OrdinalIgnoreCase)))
+            throw new PivotsServiceException($"The saved run belongs to site {session.Site} on {session.Provider}, and the page is connected to site {site} on {provider}. Connect to the site of the run in Settings, then wait for its results again.");
         if (session.Kind == PivotsChangeKind.RunScript)
         {
             var script = GuidRegex().IsMatch(session.ScriptGuid ?? "") ? await LoadScriptAsync(session.ScriptGuid!, ct).ConfigureAwait(false) : null;
@@ -428,14 +534,20 @@ public sealed partial class PivotsScriptsService
 
     /// <summary>
     /// The run ID of the Started record of a saved session and whether its Finished record exists. A
-    /// log that cannot be read counts as finished, so a wait never writes a second Finished record.
+    /// log that cannot be read, and a log whose last records do not hold the Started record of the
+    /// session, count as finished: the Finished record can be in the part that was not read, so a
+    /// wait never writes a second one.
     /// </summary>
     private (string RunId, bool Finished) AuditOf(string sessionId)
     {
         try
         {
             var records = _audit.Read(MaxAuditRecordsSearched).Where(r => r.SessionId == sessionId).ToList();
-            var runId = records.FirstOrDefault(r => r.Phase == "Started")?.RunId is { Length: > 0 } id ? id : Guid.NewGuid().ToString("N");
+            if (records.FirstOrDefault(r => r.Phase == "Started")?.RunId is not { Length: > 0 } runId)
+            {
+                _log?.Warning(LogArea, "The last audit records do not hold the start of a reloaded run; the wait writes no Finished record.");
+                return (Guid.NewGuid().ToString("N"), true);
+            }
             return (runId, records.Any(r => r.Phase == "Finished"));
         }
         catch (PivotsServiceException)
@@ -449,6 +561,8 @@ public sealed partial class PivotsScriptsService
     {
         var deadline = again is { } w ? _utcNow() + w : run.SentUtc + run.Window;
         var lastError = "";
+        var refusals = 0;
+        var lastRefusal = 0;
         PivotsOutcome End(bool stopped, string error, bool timedOut = false) => Finish(run, audit, stopped, error, timedOut);
         while (true)
         {
@@ -457,16 +571,33 @@ public sealed partial class PivotsScriptsService
             {
                 var changed = await PollAsync(run, ct).ConfigureAwait(false);
                 lastError = "";
+                refusals = 0;
                 if (changed) progress.Report(Snapshot(run, false, $"Waiting: {Count(run.Results.Values.Count(r => r.IsFinal), "device")} of {run.Devices.Count.ToString("N0", CultureInfo.InvariantCulture)} answered.", final: false));
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 return End(stopped: true, lastError);
             }
+            catch (StatusRefusedException ex)
+            {
+                lastError = ex.Message;
+                refusals = ex.Status == lastRefusal ? refusals + 1 : 1;
+                lastRefusal = ex.Status;
+                _log?.Warning(LogArea, $"A status read was refused with HTTP {ex.Status}; the wait goes on.");
+                if (ex.Status is >= 400 and < 500 && refusals >= MaxIdenticalStatusRefusals)
+                    return End(stopped: false, $"{lastError} The site gave this answer to {MaxIdenticalStatusRefusals} status reads in a row, so the wait ended early.", timedOut: true);
+            }
             catch (Exception ex) when (ex is PivotsServiceException or AdminServiceUnreachableException)
             {
                 lastError = ex.Message;
+                refusals = 0;
                 _log?.Warning(LogArea, "A status read failed; the wait goes on.");
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+            {
+                lastError = "The site returned a status answer that could not be read.";
+                refusals = 0;
+                _log?.Warning(LogArea, $"A status answer could not be read ({ex.GetType().Name}); the wait goes on.");
             }
             if (run.Results.Values.All(r => r.IsFinal)) return End(stopped: false, lastError);
             if (_utcNow() >= deadline) return End(stopped: false, lastError, timedOut: true);
@@ -481,7 +612,13 @@ public sealed partial class PivotsScriptsService
         }
     }
 
-    /// <summary>One status read for all devices of the run; true when a device result changed.</summary>
+    /// <summary>A status read that the site answered with an HTTP status other than 200; the message is plain.</summary>
+    private sealed class StatusRefusedException(int status, string message) : Exception(message)
+    {
+        public int Status { get; } = status;
+    }
+
+    /// <summary>One status read for the open devices of the run; true when a device result changed.</summary>
     private async Task<bool> PollAsync(RunState run, CancellationToken ct)
     {
         var rows = run.Change.Kind == PivotsChangeKind.RunPivot ? await PivotStatusAsync(run, ct).ConfigureAwait(false) : await ScriptStatusAsync(run, ct).ConfigureAwait(false);
@@ -500,22 +637,103 @@ public sealed partial class PivotsScriptsService
         return changed;
     }
 
+    /// <summary>
+    /// The status rows of the open devices. A device with a final result is not read again: the read
+    /// starts at the lowest open ResourceID and pages by ResourceID in pages of
+    /// <see cref="StatusPageSize"/> rows until it passes the highest open one. A site that refuses
+    /// the paged read (HTTP 400) or returns its rows out of order gets the read of all rows of the
+    /// operation; a status answer over the size limit switches the run to device result reads.
+    /// </summary>
     private async Task<List<DeviceResult>> PivotStatusAsync(RunState run, CancellationToken ct)
+    {
+        if (run.PerDevice) return await PerDeviceAsync(run, ct).ConfigureAwait(false);
+        var open = run.Results.Values.Where(r => !r.IsFinal).Select(r => r.ResourceId).OrderBy(i => i).ToList();
+        if (open.Count == 0) return [];
+        try
+        {
+            if (!run.Unpaged)
+            {
+                var paged = await PagedStatusAsync(run, open[0], open[^1], ct).ConfigureAwait(false);
+                if (paged is not null) return paged;
+            }
+            return await AllStatusAsync(run, ct).ConfigureAwait(false);
+        }
+        catch (AdminServiceResponseTooLargeException)
+        {
+            run.PerDevice = true;
+            _log?.Warning(LogArea, "A status answer was over the size limit; the wait reads the device results one by one.");
+            return await PerDeviceAsync(run, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>The rows from <paramref name="first"/> to <paramref name="last"/> by ResourceID; null when the site refused or ignored the paged read.</summary>
+    private async Task<List<DeviceResult>?> PagedStatusAsync(RunState run, int first, int last, CancellationToken ct)
+    {
+        var list = new List<DeviceResult>();
+        var from = first;
+        for (var page = 0; page < 100; page++)
+        {
+            var path = $"v1.0/SMS_CMPivotStatus?$filter=ClientOperationId eq {run.OperationId} and ResourceId ge {from.ToString(CultureInfo.InvariantCulture)}&$orderby=ResourceId&$top={StatusPageSize.ToString(CultureInfo.InvariantCulture)}";
+            var response = await _admin.SendAsync(HttpMethod.Get, path, null, ct).ConfigureAwait(false);
+            if (response.Status == 400)
+            {
+                run.Unpaged = true;
+                _log?.Warning(LogArea, "The site refused the paged status read; the wait reads all rows of the operation.");
+                return null;
+            }
+            if (response.Status != 200) throw new StatusRefusedException(response.Status, HttpMessage(response.Status, PivotRights));
+            var (rows, more) = StatusRows(response.Body);
+            var previous = from - 1;
+            foreach (var r in rows)
+            {
+                if (r.ResourceId <= previous)
+                {
+                    run.Unpaged = true;
+                    _log?.Warning(LogArea, "The site returned the paged status rows out of order; the wait reads all rows of the operation.");
+                    return null;
+                }
+                previous = r.ResourceId;
+            }
+            list.AddRange(rows);
+            if (rows.Count > StatusPageSize)
+            {
+                run.Unpaged = true;
+                return list;
+            }
+            if (rows.Count == 0 || (rows.Count < StatusPageSize && !more) || previous >= last) return list;
+            from = previous + 1;
+        }
+        return list;
+    }
+
+    /// <summary>All status rows of the operation, following the next links of the site.</summary>
+    private async Task<List<DeviceResult>> AllStatusAsync(RunState run, CancellationToken ct)
     {
         var list = new List<DeviceResult>();
         var path = $"v1.0/SMS_CMPivotStatus?$filter=ClientOperationId eq {run.OperationId}";
         for (var page = 0; path is not null && page < 100; page++)
         {
             var response = await _admin.SendAsync(HttpMethod.Get, path, null, ct).ConfigureAwait(false);
-            if (response.Status != 200) throw new PivotsServiceException(HttpMessage(response.Status, PivotRights));
+            if (response.Status != 200) throw new StatusRefusedException(response.Status, HttpMessage(response.Status, PivotRights));
             path = null;
-            using var doc = JsonDocument.Parse(response.Body);
-            if (doc.RootElement.TryGetProperty("value", out var value) && value.ValueKind == JsonValueKind.Array)
-                foreach (var r in value.EnumerateArray()) list.Add(PivotRow(r));
-            if (doc.RootElement.TryGetProperty("@odata.nextLink", out var next) && next.ValueKind == JsonValueKind.String)
-                path = NextPath(next.GetString());
+            var (rows, _) = StatusRows(response.Body, link => path = NextPath(link));
+            list.AddRange(rows);
         }
         return list;
+    }
+
+    /// <summary>The rows of a status answer and whether it names a next page; a body that is not a JSON object throws.</summary>
+    private static (List<DeviceResult> Rows, bool More) StatusRows(string body, Action<string?>? next = null)
+    {
+        var list = new List<DeviceResult>();
+        using var doc = JsonDocument.Parse(body);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object) throw new FormatException("The status answer is not a JSON object.");
+        if (doc.RootElement.TryGetProperty("value", out var value) && value.ValueKind == JsonValueKind.Array)
+            foreach (var r in value.EnumerateArray())
+                if (r.ValueKind == JsonValueKind.Object) list.Add(PivotRow(r));
+        var more = doc.RootElement.TryGetProperty("@odata.nextLink", out var link) && link.ValueKind == JsonValueKind.String;
+        if (more) next?.Invoke(link.GetString());
+        return (list, more);
     }
 
     /// <summary>The relative path of a next link on the same service; null for a link to another host.</summary>
@@ -553,38 +771,84 @@ public sealed partial class PivotsScriptsService
         return new DeviceResult(id, name, PivotsDeviceStates.Running, "", "The device reported; the result has not arrived.") { ExitCode = exit, LastUpdateUtc = updated };
     }
 
+    private string DeviceResultPath(RunState run, int resourceId) =>
+        $"v1.0/Device({resourceId.ToString(CultureInfo.InvariantCulture)})/AdminService.CMPivotResult(OperationId={run.OperationId})";
+
+    /// <summary>The rows of a device result answer; null when the answer holds no result object.</summary>
+    private static (List<IReadOnlyDictionary<string, string>> Rows, bool More, string Status)? DeviceResultRows(string body)
+    {
+        using var doc = JsonDocument.Parse(body);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object || !doc.RootElement.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Object) return null;
+        var more = value.TryGetProperty("MoreResult", out var m) && m.ValueKind == JsonValueKind.True;
+        var rows = new List<IReadOnlyDictionary<string, string>>();
+        if (value.TryGetProperty("Result", out var result) && result.ValueKind == JsonValueKind.Array)
+            foreach (var item in result.EnumerateArray())
+            {
+                if (rows.Count >= PivotsResults.MaxRowsPerDevice) { more = true; break; }
+                if (item.ValueKind != JsonValueKind.Object) continue;
+                var row = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var p in item.EnumerateObject())
+                    if (p.Name != "Device") row[p.Name] = PivotsResults.Cut(p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : p.Value.ValueKind == JsonValueKind.Null ? "" : p.Value.GetRawText());
+                rows.Add(row);
+            }
+        return (rows, more, S(value, "Status"));
+    }
+
     /// <summary>The whole result of one device whose status row carries part of it: one request.</summary>
     private async Task<DeviceResult> FullPivotRowsAsync(RunState run, DeviceResult partial, CancellationToken ct)
     {
         try
         {
-            var response = await _admin.SendAsync(HttpMethod.Get, $"v1.0/Device({partial.ResourceId.ToString(CultureInfo.InvariantCulture)})/AdminService.CMPivotResult(OperationId={run.OperationId})", null, ct).ConfigureAwait(false);
-            if (response.Status != 200) return partial;
-            using var doc = JsonDocument.Parse(response.Body);
-            if (!doc.RootElement.TryGetProperty("value", out var value) || value.ValueKind != JsonValueKind.Object) return partial;
-            var more = value.TryGetProperty("MoreResult", out var m) && m.ValueKind == JsonValueKind.True;
-            var rows = new List<IReadOnlyDictionary<string, string>>();
-            if (value.TryGetProperty("Result", out var result) && result.ValueKind == JsonValueKind.Array)
-                foreach (var item in result.EnumerateArray())
-                {
-                    if (rows.Count >= PivotsResults.MaxRowsPerDevice) { more = true; break; }
-                    if (item.ValueKind != JsonValueKind.Object) continue;
-                    var row = new Dictionary<string, string>(StringComparer.Ordinal);
-                    foreach (var p in item.EnumerateObject())
-                        if (p.Name != "Device") row[p.Name] = PivotsResults.Cut(p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : p.Value.ValueKind == JsonValueKind.Null ? "" : p.Value.GetRawText());
-                    rows.Add(row);
-                }
-            return partial with { Rows = rows, MoreResults = more, Message = more ? "The site holds more rows than it returns for this device." : "" };
+            var response = await _admin.SendAsync(HttpMethod.Get, DeviceResultPath(run, partial.ResourceId), null, ct).ConfigureAwait(false);
+            if (response.Status != 200 || DeviceResultRows(response.Body) is not { } parsed) return partial;
+            return partial with { Rows = parsed.Rows, MoreResults = parsed.More, Message = parsed.More ? "The site holds more rows than it returns for this device." : "" };
         }
-        catch (Exception ex) when (ex is PivotsServiceException or AdminServiceUnreachableException or JsonException)
+        catch (Exception ex) when (ex is PivotsServiceException or AdminServiceUnreachableException or AdminServiceResponseTooLargeException or JsonException)
         {
             return partial;
         }
     }
 
+    /// <summary>
+    /// The results of open devices read one by one on the device result route, at most
+    /// <see cref="MaxDeviceReadsPerPoll"/> per poll, going on after the device the last poll read.
+    /// A 404 is a device without a result yet.
+    /// </summary>
+    private async Task<List<DeviceResult>> PerDeviceAsync(RunState run, CancellationToken ct)
+    {
+        var open = run.Results.Values.Where(r => !r.IsFinal).OrderBy(r => r.ResourceId).ToList();
+        var batch = open.Where(r => r.ResourceId > run.PerDeviceCursor).Concat(open.Where(r => r.ResourceId <= run.PerDeviceCursor)).Take(MaxDeviceReadsPerPoll).ToList();
+        var list = new List<DeviceResult>();
+        foreach (var device in batch)
+        {
+            run.PerDeviceCursor = device.ResourceId;
+            AdminServiceResponse response;
+            try
+            {
+                response = await _admin.SendAsync(HttpMethod.Get, DeviceResultPath(run, device.ResourceId), null, ct).ConfigureAwait(false);
+            }
+            catch (AdminServiceResponseTooLargeException)
+            {
+                list.Add(device with { State = PivotsDeviceStates.Completed, Message = "The result of the device is larger than the page reads. Read it in the console." });
+                continue;
+            }
+            if (response.Status == 404) continue;
+            if (response.Status != 200) throw new StatusRefusedException(response.Status, HttpMessage(response.Status, PivotRights));
+            if (DeviceResultRows(response.Body) is not { } parsed) continue;
+            run.FullFetched.Add(device.ResourceId);
+            list.Add(parsed.Status is "" or "1"
+                ? device with { State = PivotsDeviceStates.Completed, Output = "", Rows = parsed.Rows, MoreResults = parsed.More, Message = parsed.More ? "The site holds more rows than it returns for this device." : "" }
+                : device with { State = PivotsDeviceStates.Failed, Output = "", Message = "The query failed on the device. The site gave no reason on the device result route." });
+        }
+        return list;
+    }
+
+    /// <summary>One session call for the devices of a script run that did not answer yet.</summary>
     private async Task<List<DeviceResult>> ScriptStatusAsync(RunState run, CancellationToken ct)
     {
-        var output = await RunAsync(new ConfigMgrParameters { { "Operation", "Status" }, { "OperationId", long.Parse(run.OperationId, CultureInfo.InvariantCulture) } }, ct, ReadTimeout, ScriptRights).ConfigureAwait(false);
+        var open = run.Results.Values.Where(r => !r.IsFinal).Select(r => r.ResourceId).ToArray();
+        if (open.Length == 0) return [];
+        var output = await RunAsync(new ConfigMgrParameters { { "Operation", "Status" }, { "OperationId", long.Parse(run.OperationId, CultureInfo.InvariantCulture) }, { "ResourceIds", open } }, ct, ReadTimeout, ScriptRights).ConfigureAwait(false);
         return Kind(output, "R").Select(ScriptRow).ToList();
     }
 

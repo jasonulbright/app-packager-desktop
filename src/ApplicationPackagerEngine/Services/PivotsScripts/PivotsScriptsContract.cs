@@ -40,6 +40,19 @@ public sealed record ResolvedTargets(
 
     /// <summary>The devices without a ConfigMgr client: a run skips them.</summary>
     public int NonClientCount => Devices.Count(d => !d.IsClient);
+
+    /// <summary>
+    /// True when the target reaches every client of the site: its client count is at least the
+    /// site's client count, or a collection has as many members as All Systems. A run then needs
+    /// <see cref="PivotsChange.EveryDeviceAcknowledged"/>, as for a built-in collection.
+    /// </summary>
+    public bool CoversEverySiteDevice { get; init; }
+
+    /// <summary>The number of devices with a ConfigMgr client that the site holds, read with the target; 0 when not read.</summary>
+    public int SiteClientCount { get; init; }
+
+    /// <summary>True when a run on the target needs the box "This runs on every device of the site".</summary>
+    public bool ReachesEveryDevice => IsBuiltInCollection || CoversEverySiteDevice;
 }
 
 /// <param name="IsOnline">The site's fast channel state of the client; null when the site does not say.</param>
@@ -112,7 +125,7 @@ public enum PivotsChangeKind { RunPivot, RunScript, SubmitScript, ApproveScript,
 /// <param name="SubmitText">SubmitScript: the script text.</param>
 /// <param name="Comment">ApproveScript and DenyScript: the comment the site stores with the decision.</param>
 /// <param name="RunConfirmed">RunScript: the second confirmation that names the device count. The service refuses a script run without it.</param>
-/// <param name="EveryDeviceAcknowledged">A run on a built-in collection: the box "this runs on every device of the site".</param>
+/// <param name="EveryDeviceAcknowledged">A run on a built-in collection or on a target that holds every client of the site: the box "this runs on every device of the site".</param>
 /// <param name="Fingerprint">The prepared state; ApplyAsync refuses a change without one.</param>
 public sealed record PivotsChange(
     PivotsChangeKind Kind,
@@ -139,8 +152,8 @@ public sealed record PivotsChange(
     /// <summary>True when the plan needs <see cref="RunConfirmed"/>: every script run.</summary>
     public bool NeedsRunConfirmation => Kind == PivotsChangeKind.RunScript;
 
-    /// <summary>True when the plan needs <see cref="EveryDeviceAcknowledged"/>: a run on a built-in collection.</summary>
-    public bool NeedsEveryDeviceAcknowledgement => IsRun && Targets is { IsBuiltInCollection: true };
+    /// <summary>True when the plan needs <see cref="EveryDeviceAcknowledged"/>: a run on a built-in collection or on a target that holds every client of the site.</summary>
+    public bool NeedsEveryDeviceAcknowledgement => IsRun && Targets is { ReachesEveryDevice: true };
 
     /// <summary>The site script read at Prepare (RunScript, ApproveScript, DenyScript, RemoveScript), with its text; null before Prepare.</summary>
     public SiteScript? Script { get; init; }
@@ -330,6 +343,10 @@ public interface IPivotsSessionStore
 
     /// <summary>One session; null when the file does not exist or cannot be read.</summary>
     PivotsSessionRecord? Read(string id);
+
+    /// <summary>The newest session of the run with this operation ID among the newest <paramref name="max"/> sessions; null when none holds it.</summary>
+    PivotsSessionRecord? FindByOperation(string operationId, int max) =>
+        List(max).FirstOrDefault(s => s.OperationId == operationId) is { } summary ? Read(summary.Id) : null;
 
     string Folder { get; }
 }

@@ -62,8 +62,44 @@ internal sealed partial class StubAdminService : HttpMessageHandler
     [GeneratedRegex(@"^/AdminService/v1\.0/Collections\('([^']*)'\)/AdminService\.RunCMPivot$")]
     private static partial Regex CollectionRun();
 
-    [GeneratedRegex(@"^/AdminService/v1\.0/SMS_CMPivotStatus\?\$filter=ClientOperationId%20eq%20(\d+)$")]
+    [GeneratedRegex(@"^/AdminService/v1\.0/SMS_CMPivotStatus\?\$filter=ClientOperationId%20eq%20(\d+)(?:%20and%20ResourceId%20ge%20(\d+)&\$orderby=ResourceId&\$top=(\d+))?$")]
     private static partial Regex StatusRead();
+
+    /// <summary>Every status read answers this HTTP status with an empty body, as a site that refuses the identity.</summary>
+    public int? StatusAnswer { get; set; }
+
+    /// <summary>The next status reads answer 200 with this body, one per read.</summary>
+    public Queue<string> StatusBodies { get; } = new();
+
+    /// <summary>Status reads answer with a body longer than the client reads.</summary>
+    public bool StatusTooLarge { get; set; }
+
+    /// <summary>The paged status read is refused with HTTP 400, as a site that does not take $orderby.</summary>
+    public bool RefusePaging { get; set; }
+
+    /// <summary>The status reads a device needs before it answers; null uses <see cref="AnswerAfterPolls"/> for every device.</summary>
+    public Func<int, int>? AnswerAfter { get; set; }
+
+    /// <summary>The send answers with a body longer than the client reads, after the site created the operation.</summary>
+    public bool SendTooLarge { get; set; }
+
+    /// <summary>The ResourceIDs each operation reaches, in the order of the sends.</summary>
+    public List<List<int>> SentTo { get; } = [];
+
+    /// <summary>The number of rows of each status answer, in the order of the reads.</summary>
+    public List<int> StatusRowCounts { get; } = [];
+
+    /// <summary>A body that says it is longer than <see cref="AdminServiceClient.MaxResponseBytes"/>.</summary>
+    private sealed class OversizeContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context) => stream.WriteAsync("{}"u8.ToArray()).AsTask();
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = ApplicationPackagerEngine.Services.AdminServiceClient.MaxResponseBytes + 1L;
+            return true;
+        }
+    }
 
     [GeneratedRegex(@"^/AdminService/v1\.0/Device\((\d+)\)/AdminService\.CMPivotResult\(OperationId=(\d+)\)$")]
     private static partial Regex DeviceResult();
@@ -106,6 +142,8 @@ internal sealed partial class StubAdminService : HttpMessageHandler
             else return Json(404, "");
             var op = _next++;
             _operations[op] = new Operation { Query = query, Devices = targets, CollectionId = collection };
+            SentTo.Add(targets.Select(t => t.Item1).OrderBy(i => i).ToList());
+            if (SendTooLarge) return new HttpResponseMessage(HttpStatusCode.OK) { Content = new OversizeContent() };
             var inner = $"{{\"ScriptParams\":\"{ScriptParams}\",\"OperationId\":{op},\"Properties\":[{{\"Name\":\"Caption\",\"Units\":0,\"Type\":1,\"Source\":0,\"CalculatedTableOperator\":null}}]}}";
             return Json(200, wrap ? "{\"value\":" + inner + "}" : inner);
         }
@@ -117,13 +155,19 @@ internal sealed partial class StubAdminService : HttpMessageHandler
                 return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("<HTML><HEAD><TITLE>Service Unavailable</TITLE></HEAD><BODY><h2>Service Unavailable</h2><hr><p>HTTP Error 503. The service is unavailable.</p></BODY></HTML>", Encoding.ASCII, "text/html") };
             }
             var op = long.Parse(s.Groups[1].Value);
+            var paged = s.Groups[2].Success;
+            if (_operations.TryGetValue(op, out var counted)) counted.Reads++;
+            if (StatusAnswer is { } refused) return Json(refused, "");
+            if (StatusTooLarge) return new HttpResponseMessage(HttpStatusCode.OK) { Content = new OversizeContent() };
+            if (StatusBodies.TryDequeue(out var given)) return Json(200, given);
+            if (paged && RefusePaging) return Json(400, "{\"error\":{\"code\":\"400\",\"message\":\"The query specified in the URI is not valid.\"}}");
+            var from = paged ? int.Parse(s.Groups[2].Value) : int.MinValue;
+            var top = paged ? int.Parse(s.Groups[3].Value) : int.MaxValue;
             var rows = new List<string>();
             if (_operations.TryGetValue(op, out var o))
-            {
-                o.Reads++;
-                if (o.Reads > AnswerAfterPolls)
-                    foreach (var (id, name) in o.Devices) rows.Add(StatusRow(op, o, id, name));
-            }
+                foreach (var (id, name) in o.Devices.Where(x => x.Id >= from && o.Reads > (AnswerAfter?.Invoke(x.Id) ?? AnswerAfterPolls)).OrderBy(x => x.Id).Take(top))
+                    rows.Add(StatusRow(op, o, id, name));
+            StatusRowCounts.Add(rows.Count);
             return Json(200, "{\"@odata.context\":\"https://cm01.contoso.com/AdminService/v1.0/$metadata#SMS_CMPivotStatus\",\"value\":[" + string.Join(",", rows) + "]}");
         }
         if (DeviceResult().Match(path) is { Success: true } d)

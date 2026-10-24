@@ -37,7 +37,9 @@ public sealed class PivotsRunTests
         var d = Assert.Single(o.Devices);
         Assert.Equal(PivotsDeviceStates.Completed, d.State);
         Assert.Equal("Microsoft Windows 11 Enterprise Evaluation", d.Rows.Single()["Caption"]);
-        Assert.Single(h.Admin.Requests, r => r.Method == "POST" && r.PathAndQuery == "/AdminService/v1.0/Collections('MCM00014')/AdminService.RunCMPivot");
+        var post = Assert.Single(h.Admin.Requests, r => r.Method == "POST");
+        Assert.Equal("/AdminService/v1.0/SMS_CMPivotStatus/AdminService.RunCMPivot", post.PathAndQuery);
+        Assert.Contains("\"ResourceIds\":\"16777221\"", post.Body);
         Assert.Equal(h.Admin.StatusReads, h.Delays + 1);
         var session = h.Sessions.Read(o.SessionId!)!;
         Assert.Equal("Completed", session.Status);
@@ -145,7 +147,7 @@ public sealed class PivotsRunTests
     }
 
     [Fact]
-    public async Task ACollectionThatLostAMemberStillRuns()
+    public async Task ACollectionThatLostAMemberStillRunsWithoutTheDeviceThatLeft()
     {
         using var h = new PivotsHarness();
         var plan = await h.PreparePivotAsync(RunTargetKind.Collection, "MCM00015", window: TimeSpan.FromSeconds(30));
@@ -153,6 +155,10 @@ public sealed class PivotsRunTests
         members.Remove(members.OfType<JsonObject>().First(m => (string?)m["CollectionID"] == "MCM00015" && (int)m["ResourceID"]! == 16777222));
         var o = await h.ApplyAsync(plan);
         Assert.True(o.Sent);
+        Assert.Contains("\"ResourceIds\":\"16777221\"", Assert.Single(h.Admin.Requests, r => r.Method == "POST").Body);
+        var gone = o.Devices.Single(d => d.ResourceId == 16777222);
+        Assert.Equal(PivotsDeviceStates.Skipped, gone.State);
+        Assert.StartsWith(PivotsScriptsService.SkippedPrefix, gone.Message);
     }
 
     [Fact]
@@ -434,7 +440,7 @@ public sealed class PivotsRunTests
         h.Site.SetOption("Throw:" + StubPivotsSite.ScriptGuid, true);
         var plan = await h.PrepareScriptAsync(RunTargetKind.Collection, "MCM00015", window: TimeSpan.FromSeconds(30));
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
-        Assert.Contains(h.Site.Log, l => l.StartsWith("Invoke-CMScript:" + StubPivotsSite.ScriptGuid + ":collection MCM00015", StringComparison.Ordinal));
+        Assert.Contains(h.Site.Log, l => l.StartsWith("Invoke-CMScript:" + StubPivotsSite.ScriptGuid + ":devices 16777221,16777222", StringComparison.Ordinal));
         var failed = o.Devices.Single(d => d.Name == "CLIENT01");
         Assert.Equal(PivotsDeviceStates.Failed, failed.State);
         Assert.Equal(-2147467259, failed.ExitCode);

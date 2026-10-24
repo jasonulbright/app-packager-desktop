@@ -21,12 +21,18 @@ internal sealed class PivotsHarness : IDisposable
     /// <summary>Called at each wait between polls; lets a test change the site or cancel during the wait.</summary>
     public Action<int>? OnDelay { get; set; }
 
+    /// <summary>The SMS Provider name the administration service client sends to.</summary>
+    public string ProviderName { get; set; } = StubAdminService.Host;
+
+    /// <summary>The site and provider the service reports as its connection.</summary>
+    public (string Site, string Provider) Connection { get; set; } = ("MCM", StubAdminService.Host);
+
     public PivotsHarness(JsonObject? state = null, string? auditPath = null, string user = StubPivotsSite.Lab)
     {
         Directory.CreateDirectory(Folder);
         Site = new StubPivotsSite(state ?? StubPivotsSite.Lab01());
         Admin = new StubAdminService(Members, Devices);
-        Client = new AdminServiceClient(() => StubAdminService.Host, handler: Admin);
+        Client = new AdminServiceClient(() => ProviderName, handler: Admin);
         Audit = new PivotsAuditLog(() => auditPath ?? Path.Combine(Folder, "audit.jsonl"), user: () => user);
         Sessions = new PivotsSessionStore(Path.Combine(Folder, "Sessions"));
         _user = user;
@@ -35,7 +41,7 @@ internal sealed class PivotsHarness : IDisposable
 
     private PivotsScriptsService NewService() => new(Site, Client, Audit, Sessions,
         delay: (t, ct) => { Delays++; Clock += t; OnDelay?.Invoke(Delays); ct.ThrowIfCancellationRequested(); return Task.CompletedTask; },
-        utcNow: () => Clock, user: () => _user, connection: () => ("MCM", StubAdminService.Host));
+        utcNow: () => Clock, user: () => _user, connection: () => Connection);
 
     /// <summary>A new service over the same site, files and audit log, as after a restart of the app: it holds no run in memory.</summary>
     public void Restart() => Service = NewService();

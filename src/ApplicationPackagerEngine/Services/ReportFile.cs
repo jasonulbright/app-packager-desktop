@@ -10,12 +10,14 @@ internal static class ReportFile
 
     /// <summary>
     /// A quoted CSV cell. A value a spreadsheet would read as a formula starts with an apostrophe:
-    /// a leading = + - @, tab, carriage return or line feed, or spaces followed by one of = + - @.
+    /// leading white space (space, tab, carriage return, line feed) that holds a tab, carriage
+    /// return or line feed, or a first character after the white space that is one of = + - @.
     /// </summary>
     public static string Cell(string value)
     {
-        var first = value.TrimStart(' ');
-        if ((value.Length > 0 && value[0] is '\t' or '\r' or '\n') || (first.Length > 0 && first[0] is '=' or '+' or '-' or '@'))
+        var lead = value.Length - value.TrimStart(' ', '\t', '\r', '\n').Length;
+        var first = value[lead..];
+        if (value.AsSpan(0, lead).IndexOfAny('\t', '\r', '\n') >= 0 || (first.Length > 0 && first[0] is '=' or '+' or '-' or '@'))
             value = "'" + value;
         return "\"" + value.Replace("\"", "\"\"") + "\"";
     }

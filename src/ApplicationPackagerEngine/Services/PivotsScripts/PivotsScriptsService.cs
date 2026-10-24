@@ -12,8 +12,10 @@ namespace ApplicationPackagerEngine.Services;
 /// Resolves targets, reads and changes site scripts, and runs CMPivot queries and approved scripts on
 /// client devices. CMPivot goes through the administration service; target reads, script reads and
 /// script actions go through the ConfigMgr session. A target read is one script run with one query
-/// per class; a run is one request to the site for all its devices, and each poll is one request
-/// for all devices. Every rule a run needs (the prepared plan, the confirmations, the approved state,
+/// per class; a run is one request to the site for the fixed devices of the plan, also for a
+/// collection target. A CMPivot poll reads the status rows of the open devices in pages of
+/// <see cref="StatusPageSize"/> rows; a script poll is one session call for the open devices.
+/// Every rule a run needs (the prepared plan, the confirmations, the approved state,
 /// the script hash, the device cap, the collection members, the saved session and the audit record
 /// before the send) is checked here, whatever the caller shows.
 /// </summary>
@@ -82,6 +84,21 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
 
     private const int MaxPrepared = 64;
     private const int MaxRuns = 64;
+
+    /// <summary>The age at which a prepared plan stops being accepted by Apply.</summary>
+    public static readonly TimeSpan MaxPlanAge = TimeSpan.FromMinutes(30);
+
+    /// <summary>The most rows one CMPivot status request asks for; a poll reads the rows of the open devices in pages of this size.</summary>
+    public const int StatusPageSize = 100;
+
+    /// <summary>
+    /// The number of status reads in a row with the same HTTP 4xx answer that ends a wait early. A 5xx
+    /// answer never ends a wait: a restart of the SMS Executive service gives 503 for about a minute.
+    /// </summary>
+    public const int MaxIdenticalStatusRefusals = 10;
+
+    /// <summary>The most device result requests of one poll after a status answer was over the size limit.</summary>
+    public const int MaxDeviceReadsPerPoll = 100;
 
     private sealed record PreparedChange(PivotsChange Change, DateTime PreparedUtc);
 
@@ -154,6 +171,7 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
         ("The script does not meet the Run Scripts rules.", "The script does not meet the Run Scripts rules. Check it first."),
         ("The created script was not found on the site.", "The created script was not found on the site."),
         ("The script belongs to a ConfigMgr feature.", "The script belongs to a ConfigMgr feature. The page does not change it."),
+        ("The script text on the site changed after the plan was made.", "The site refused the run: the script text on the site changed after the plan was made. Load the script again and prepare a new plan."),
         ("No device to run on.", "The plan has no device to run on.")
     ];
 
@@ -209,10 +227,12 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
         var match = byId.Count > 0 ? byId : list.Where(c => string.Equals(c.Name, text, StringComparison.OrdinalIgnoreCase)).ToList();
         if (match.Count == 0) throw new PivotsServiceException($"The site holds no device collection with the ID or the exact name \"{text}\".");
         if (match.Count > 1) throw new PivotsServiceException($"{match.Count} device collections have the name \"{text}\". Enter the collection ID.");
-        var (id, name, _) = match[0];
-        var devices = await MembersAsync(id, ct).ConfigureAwait(false);
+        var (id, name, memberCount) = match[0];
+        var (devices, siteClients) = await MembersAsync(id, ct).ConfigureAwait(false);
         var builtIn = IsBuiltIn(id);
         var truncated = devices.Count > MaxResolvedDevices;
+        var allSystems = list.FirstOrDefault(c => string.Equals(c.Id, AllSystems, StringComparison.OrdinalIgnoreCase)).Members;
+        var covers = CoversSite(devices.Count(d => d.IsClient), siteClients) || (allSystems > 0 && memberCount == allSystems);
         return new ResolvedTargets(
             Devices: truncated ? devices.Take(MaxResolvedDevices).ToList() : devices,
             CollectionId: id.ToUpperInvariant(),
@@ -220,18 +240,28 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
             IsBuiltInCollection: builtIn,
             Unmatched: [],
             Truncated: truncated)
-        { TotalMatched = devices.Count, CollectionName = name };
+        { TotalMatched = devices.Count, CollectionName = name, CoversEverySiteDevice = covers, SiteClientCount = siteClients };
     }
+
+    internal const string AllSystems = "SMS00001";
 
     /// <summary>A collection the site creates: its ID starts with SMS (All Systems is SMS00001).</summary>
     internal static bool IsBuiltIn(string? collectionId) => (collectionId ?? "").StartsWith("SMS", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>The members of a collection with the fast channel state of each, from two queries.</summary>
-    private async Task<List<ResolvedDevice>> MembersAsync(string collectionId, CancellationToken ct)
+    /// <summary>True when a target with <paramref name="clients"/> client devices holds every client of a site with <paramref name="siteClients"/>.</summary>
+    internal static bool CoversSite(int clients, int siteClients) => siteClients > 0 && clients >= siteClients;
+
+    /// <summary>The members of a collection with the fast channel state of each, and the client count of the site, from two queries.</summary>
+    private async Task<(List<ResolvedDevice> Members, int SiteClients)> MembersAsync(string collectionId, CancellationToken ct)
     {
         var output = await RunAsync(new ConfigMgrParameters { { "Operation", "Members" }, { "CollectionId", collectionId } }, ct, ReadTimeout).ConfigureAwait(false);
         var online = new Dictionary<int, bool?>();
-        foreach (var d in Kind(output, "D")) online[I(d, "Id")] = B(d, "O");
+        var siteClients = 0;
+        foreach (var d in Kind(output, "D"))
+        {
+            online[I(d, "Id")] = B(d, "O");
+            if (B(d, "C") == true) siteClients++;
+        }
         var seen = new HashSet<int>();
         var devices = new List<ResolvedDevice>();
         foreach (var m in Kind(output, "M"))
@@ -240,7 +270,7 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
             if (id <= 0 || !seen.Add(id)) continue;
             devices.Add(new ResolvedDevice(id, S(m, "N"), online.TryGetValue(id, out var o) ? o : null) { IsClient = B(m, "C") ?? false });
         }
-        return devices.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ThenBy(d => d.ResourceId).ToList();
+        return (devices.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ThenBy(d => d.ResourceId).ToList(), siteClients);
     }
 
     private async Task<ResolvedTargets> ResolveDevicesAsync(RunTargetKind kind, string text, CancellationToken ct)
@@ -292,6 +322,7 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
             _ => $"List of {Count(names.Count, "name")}: {Count(distinct.Count, "device")}, {unmatched.Count.ToString("N0", CultureInfo.InvariantCulture)} not found"
         };
         if (ambiguous > 0) description += $"; {Count(ambiguous, "name")} matched more than one device and all of them are in the list";
+        var siteClients = all.Count(d => d.IsClient);
         return new ResolvedTargets(
             Devices: truncated ? distinct.Take(MaxResolvedDevices).ToList() : distinct,
             CollectionId: null,
@@ -299,7 +330,7 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
             IsBuiltInCollection: false,
             Unmatched: unmatched,
             Truncated: truncated)
-        { TotalMatched = distinct.Count };
+        { TotalMatched = distinct.Count, CoversEverySiteDevice = CoversSite(distinct.Count(d => d.IsClient), siteClients), SiteClientCount = siteClients };
     }
 
     internal static Regex WildcardRegex(string pattern) =>
@@ -404,7 +435,7 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
                 ? $"Administration service on {_admin.Provider}: answers with the Windows identity of this session."
                 : "Administration service: " + HttpMessage(response.Status, PivotRights));
         }
-        catch (Exception ex) when (ex is PivotsServiceException or AdminServiceUnreachableException)
+        catch (Exception ex) when (ex is PivotsServiceException or AdminServiceUnreachableException or AdminServiceResponseTooLargeException)
         {
             lines.Add("Administration service: " + ex.Message);
         }

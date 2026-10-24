@@ -81,9 +81,41 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         }
     }
 
+    /// <summary>The session files a List or a FindByOperation call read; a test counts the work of a call with it.</summary>
+    internal int FilesRead { get; private set; }
+
+    /// <summary>
+    /// Reads the newest files first and stops at <paramref name="max"/> readable sessions; at most
+    /// <paramref name="max"/> times two files are read, so damaged files cannot make a call read every file.
+    /// </summary>
     public IReadOnlyList<PivotsSessionSummary> List(int max)
     {
-        if (max <= 0 || !Directory.Exists(Folder)) return [];
+        FilesRead = 0;
+        var list = new List<PivotsSessionSummary>();
+        foreach (var r in Newest(max))
+        {
+            list.Add(new PivotsSessionSummary(r.Id, r.CreatedUtc, r.Kind, r.TargetDescription, r.Devices.Count, r.Status, r.OperationId));
+            if (list.Count >= max) break;
+        }
+        return list.OrderByDescending(s => s.CreatedUtc).ToList();
+    }
+
+    /// <summary>Reads the newest files first and stops at the first session of the operation.</summary>
+    public PivotsSessionRecord? FindByOperation(string operationId, int max)
+    {
+        FilesRead = 0;
+        var seen = 0;
+        foreach (var r in Newest(max))
+        {
+            if (r.OperationId == operationId) return r;
+            if (++seen >= max) break;
+        }
+        return null;
+    }
+
+    private IEnumerable<PivotsSessionRecord> Newest(int max)
+    {
+        if (max <= 0 || !Directory.Exists(Folder)) yield break;
         CheckFolder();
         FileInfo[] files;
         try
@@ -94,13 +126,11 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         {
             throw new PivotsServiceException("The sessions folder could not be read: " + Folder);
         }
-        var list = new List<PivotsSessionSummary>();
         foreach (var file in files.Where(f => IdRegex().IsMatch(Path.GetFileNameWithoutExtension(f.Name))).OrderByDescending(f => f.LastWriteTimeUtc).Take(max * 2))
         {
-            if (Read(Path.GetFileNameWithoutExtension(file.Name)) is not { } r) continue;
-            list.Add(new PivotsSessionSummary(r.Id, r.CreatedUtc, r.Kind, r.TargetDescription, r.Devices.Count, r.Status, r.OperationId));
+            FilesRead++;
+            if (Read(Path.GetFileNameWithoutExtension(file.Name)) is { } r) yield return r;
         }
-        return list.OrderByDescending(s => s.CreatedUtc).Take(max).ToList();
     }
 
     public PivotsSessionRecord? Read(string id)
