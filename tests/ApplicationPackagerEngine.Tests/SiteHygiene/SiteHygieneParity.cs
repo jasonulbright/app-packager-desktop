@@ -15,6 +15,36 @@ internal static class SiteHygieneParity
         return HygieneEngine.Run(context, picked, probeOn: false);
     }
 
+    /// <summary>Synthetic read data: each set given as its columns and rows, read completely.</summary>
+    public static HygieneSiteRead Synthetic(params (string Set, string[] Columns, string[][] Rows)[] sets)
+    {
+        var read = new HygieneSiteRead { SiteCode = "MCM" };
+        foreach (var (set, columns, rows) in sets)
+        {
+            var table = new HygieneTable(set, columns) { State = HygieneSetStates.Read, Total = rows.Length };
+            table.Rows.AddRange(rows);
+            read.Tables[set] = table;
+        }
+        return read;
+    }
+
+    /// <summary>Every set every check needs, empty and read, so a synthetic test fills only the sets it judges.</summary>
+    public static HygieneSiteRead EmptySite()
+    {
+        var read = new HygieneSiteRead { SiteCode = "MCM" };
+        foreach (var set in HygieneChecks.Families.SelectMany(f => f.Requires).Distinct())
+            read.Tables[set] = new HygieneTable(set, []) { State = HygieneSetStates.Read };
+        return read;
+    }
+
+    public static HygieneSiteRead Put(this HygieneSiteRead read, string set, string[] columns, params string[][] rows)
+    {
+        var table = new HygieneTable(set, columns) { State = HygieneSetStates.Read, Total = rows.Length };
+        table.Rows.AddRange(rows);
+        read.Tables[set] = table;
+        return read;
+    }
+
     /// <summary>The (check ID, object) pairs of one check ID, from the native findings and from the source findings.</summary>
     public static (SortedSet<string> Native, SortedSet<string> Source) Pairs(IReadOnlyList<HygieneFinding> native, string checkId, Func<HygieneFinding, string> nativeKey, Func<SiteHygieneFixtures.SourceFinding, string> sourceKey)
     {
