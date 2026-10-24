@@ -535,7 +535,7 @@ public sealed class CompliancePageReviewTests
         var found = Directory.EnumerateFiles(Path.Combine(root, "ApplicationPackagerUI"), "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             .Where(f => pattern.IsMatch(File.ReadAllText(f))).Select(f => Path.GetFileName(f)).Order(StringComparer.Ordinal).ToList();
-        Assert.Equal(["CollectionsPlan.cs", "CompliancePlan.cs", "DeploymentPlan.cs", "DpContentPlan.cs", "MaintenanceWindowsPlan.cs", "PivotsScriptsPlan.cs", "RingRunPlan.cs"], found);
+        Assert.Equal(["CollectionsPlan.cs", "CompliancePlan.cs", "DeploymentPlan.cs", "DpContentPlan.cs", "MaintenanceWindowsPlan.cs", "PivotsScriptsPlan.cs", "RingRunPlan.cs", "SiteHygienePlan.cs"], found);
         var compliance = File.ReadAllText(Path.Combine(root, "ApplicationPackagerUI", "Services", "CompliancePlan.cs"));
         Assert.Equal(pattern.Matches(compliance).Count, Regex.Matches(compliance, @"\bservice\.ApplyAsync\s*\(").Count);
     }
