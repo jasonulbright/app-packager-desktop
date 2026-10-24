@@ -33,7 +33,7 @@
                      Height="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Margin="0,26,8,0"
                      AutomationProperties.Name="Target" AutomationProperties.AutomationId="txtTarget" />
             <WrapPanel Grid.Row="0" Grid.Column="2" Orientation="Vertical" Margin="0,26,0,0">
-                <ui:Button Content="Resolve" Icon="{ui:SymbolIcon PeopleSearch24}" Appearance="Primary" Command="{Binding ResolveCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
+                <ui:Button x:Name="btnResolve" Content="Resolve" Icon="{ui:SymbolIcon PeopleSearch24}" Appearance="Primary" Command="{Binding ResolveCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
                            ToolTip="Reads the devices of the target with one bulk read. A run goes only to resolved targets." AutomationProperties.Name="Resolve the targets"
                            AutomationProperties.AutomationId="btnResolve" />
                 <ui:Button Content="Import TXT or CSV" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding ImportTargetsCommand}" Style="{StaticResource ToolButton}" MinWidth="130"

@@ -28,13 +28,14 @@ public sealed class PivotsScriptsPageFixTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Read key");
+        await vm.ScriptDetailTask;
         var longValue = "HKLM:\\SOFTWARE\\" + new string('k', 200);
         h.Dialogs.OnParameters = p => p.Rows.Single(r => r.Name == "Path").Value = longValue;
         vm.EditParametersCommand.Execute(null);
         await vm.RunScriptCommand.ExecuteAsync(null);
         var plan = Assert.Single(h.Plans.Shown);
         var hash = FakePivotsService.Hash("param([string]$Path, [int]$Depth) Get-ItemProperty $Path");
-        Assert.Contains($"SHA-256 of the script text starts with {hash[..PivotsScriptsText.HashPrefixLength]}.", plan.ExtraConfirmation);
+        Assert.Contains($"Text SHA-256 starts with {hash[..PivotsScriptsText.HashPrefixLength]}.", plan.ExtraConfirmation);
         Assert.Contains("Parameters: ", plan.ExtraConfirmation);
         Assert.Contains("Path = HKLM:\\SOFTWARE\\", plan.ExtraConfirmation);
         Assert.Contains("(the notes hold the whole value)", plan.ExtraConfirmation);
@@ -107,6 +108,7 @@ public sealed class PivotsScriptsPageFixTests
         h.Service.Shape = r => r with { Output = "first line\r\nsecond line\r\nthird line" };
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Disk space");
+        await vm.ScriptDetailTask;
         await vm.RunScriptCommand.ExecuteAsync(null);
         await vm.WaitTask;
         vm.ResultTabIndex = VM.ResultsView;
@@ -126,6 +128,7 @@ public sealed class PivotsScriptsPageFixTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Disk space");
+        await vm.ScriptDetailTask;
         await vm.RunScriptCommand.ExecuteAsync(null);
         await vm.WaitTask;
         Assert.Equal(2, vm.ResultColumns.Count);

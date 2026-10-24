@@ -59,6 +59,27 @@ public sealed partial class PivotsScriptsService
     private static PivotsOutcome Refused(PivotsChange change, string reason) =>
         new(change, false, SkippedPrefix + reason, null, [], false, null) { Sent = false };
 
+    /// <summary>The phase of the one audit record of a confirmed plan that Apply refuses before anything is sent.</summary>
+    public const string RefusedPhase = "Refused";
+
+    /// <summary>
+    /// A confirmed plan that the state of the site stops before the send: one Refused record with the
+    /// result Skipped and no device, so the history shows the refusal. A record that cannot be written
+    /// does not change the refusal.
+    /// </summary>
+    private PivotsOutcome RefusedAtApply(PivotsChange change, string reason)
+    {
+        var outcome = Refused(change, reason);
+        var hash = change.Kind == PivotsChangeKind.RunPivot ? HashOf(change.QueryText) : change.Kind == PivotsChangeKind.SubmitScript ? HashOf(change.SubmitText) : change.ScriptHash;
+        var record = new PivotsAuditRecord(Timestamp: default, User: _user(), Event: change.Kind.ToString(), Phase: RefusedPhase, Result: "Skipped", RunId: Guid.NewGuid().ToString("N"),
+            Target: change.Targets?.Description ?? "", DeviceCount: 0, ScriptGuid: change.ScriptGuid, TextHash: hash, OperationId: null, Message: outcome.Message);
+        AuditWrite written;
+        try { written = _audit.Append(record); }
+        catch (PivotsServiceException) { written = new AuditWrite(false, ""); }
+        if (!written.Succeeded) _log?.Warning(LogArea, $"The audit record of a refused {change.Kind} could not be written.");
+        return outcome;
+    }
+
     public async Task<PivotsOutcome> ApplyAsync(PivotsChange change, IProgress<PivotsOutcome> progress, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(change);
@@ -145,23 +166,23 @@ public sealed partial class PivotsScriptsService
             var (now, _) = await MembersAsync(cid, ct).ConfigureAwait(false);
             var added = now.Where(d => d.IsClient && !planned.Contains(d.ResourceId)).ToList();
             if (added.Count > 0)
-                return Refused(change, $"the collection {cid} has {Count(added.Count, "device")} that the plan does not hold ({string.Join(", ", added.Take(5).Select(d => d.Name))}{(added.Count > 5 ? ", ..." : "")}). Prepare the plan again. Nothing was sent.");
+                return RefusedAtApply(change, $"the collection {cid} has {Count(added.Count, "device")} that the plan does not hold ({string.Join(", ", added.Take(5).Select(d => d.Name))}{(added.Count > 5 ? ", ..." : "")}). Prepare the plan again. Nothing was sent.");
             var members = now.Select(d => d.ResourceId).ToHashSet();
             left.UnionWith(planned.Where(id => !members.Contains(id)));
-            if (left.Count == planned.Count) return Refused(change, $"no device of the plan is a member of the collection {cid} now. Prepare the plan again. Nothing was sent.");
+            if (left.Count == planned.Count) return RefusedAtApply(change, $"no device of the plan is a member of the collection {cid} now. Prepare the plan again. Nothing was sent.");
         }
         if (change.Kind == PivotsChangeKind.RunScript)
         {
             var script = await LoadScriptAsync(change.ScriptGuid!, ct).ConfigureAwait(false);
-            if (script is null) return Refused(change, "the site no longer holds the script. Nothing was sent.");
+            if (script is null) return RefusedAtApply(change, "the site no longer holds the script. Nothing was sent.");
             if (!string.Equals(script.Hash, change.ScriptHash, StringComparison.OrdinalIgnoreCase) || !string.Equals(script.SiteHash, change.Script?.SiteHash, StringComparison.OrdinalIgnoreCase))
-                return Refused(change, "the script text on the site changed after the plan was made. Load the script again, check the text and prepare a new plan. Nothing was sent.");
-            if (!script.IsApproved) return Refused(change, $"the script is {script.State.ToLowerInvariant()} on the site now. Only an approved script runs. Nothing was sent.");
+                return RefusedAtApply(change, "the script text on the site changed after the plan was made. Load the script again, check the text and prepare a new plan. Nothing was sent.");
+            if (!script.IsApproved) return RefusedAtApply(change, $"the script is {script.State.ToLowerInvariant()} on the site now. Only an approved script runs. Nothing was sent.");
             var problems = ParameterProblems(script, change.Parameters);
-            if (problems.Count > 0) return Refused(change, "the parameter values do not match the script on the site: " + string.Join(" ", problems) + " Nothing was sent.");
+            if (problems.Count > 0) return RefusedAtApply(change, "the parameter values do not match the script on the site: " + string.Join(" ", problems) + " Nothing was sent.");
         }
         else if (!AdminServiceClient.IsHostName(_admin.Provider))
-            return Refused(change, AdminServiceClient.NotAHostMessage + " Nothing was sent.");
+            return RefusedAtApply(change, AdminServiceClient.NotAHostMessage + " Nothing was sent.");
         ct.ThrowIfCancellationRequested();
         var sendTo = devices.Where(d => !left.Contains(d.ResourceId)).ToList();
 
@@ -491,7 +512,10 @@ public sealed partial class PivotsScriptsService
         try
         {
             AgainFromTheSite(run);
-            if (run.Reloaded) progress.Report(Snapshot(run, false, "Reading the saved session of the run and the results the site holds. Nothing is sent.", final: false));
+            // The first report carries the results the run holds already, so a new wait shows them before its first poll.
+            progress.Report(Snapshot(run, false, run.Reloaded
+                ? "Reading the saved session of the run and the results the site holds. Nothing is sent."
+                : $"Waiting: {Count(run.Results.Values.Count(r => r.IsFinal), "device")} of {run.Devices.Count.ToString("N0", CultureInfo.InvariantCulture)} answered.", final: false));
             var w = window is { } given ? WithinBounds(given) : run.Window > TimeSpan.Zero ? run.Window : DefaultResultWindow;
             var outcome = await WaitAsync(run, progress, ct, _audit.Append, w).ConfigureAwait(false);
             progress.Report(outcome);
@@ -501,6 +525,32 @@ public sealed partial class PivotsScriptsService
         {
             Interlocked.Exchange(ref run.Waiting, 0);
         }
+    }
+
+    public const string ExitDuringWaitMessage =
+        "The app closed while the page waited for the results. Clients that received the request still run it. To read the results, open History, select the run and select Wait again.";
+
+    public int EndWaitsAtExit()
+    {
+        var written = 0;
+        foreach (var run in _runs.Values.Where(r => Volatile.Read(ref r.Waiting) == 1).ToList())
+        {
+            // The wait loop and this call race for the one Finished record; the exchange gives it to one of them.
+            if (Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) != 0) continue;
+            var record = new PivotsAuditRecord(Timestamp: default, User: _user(), Event: run.Change.Kind.ToString(), Phase: "Finished", Result: "Partial", RunId: run.RunId, Target: run.Target,
+                DeviceCount: run.Devices.Count, ScriptGuid: run.Change.ScriptGuid, TextHash: run.TextHash, OperationId: run.OperationId, Message: ExitDuringWaitMessage) { SessionId = run.Session.Id };
+            AuditWrite result;
+            try { result = _audit.Append(record); }
+            catch (PivotsServiceException) { result = new AuditWrite(false, ""); }
+            if (result.Succeeded) written++;
+            else
+            {
+                Interlocked.Exchange(ref run.FinishedRecorded, 0);
+                _log?.Warning(LogArea, "The Finished audit record of a run could not be written at exit.");
+            }
+        }
+        if (written > 0) _log?.Info(LogArea, $"The app closed during a wait: {written} Finished records written.");
+        return written;
     }
 
     /// <summary>
@@ -1067,10 +1117,10 @@ public sealed partial class PivotsScriptsService
         var now = await LoadScriptAsync(change.ScriptGuid!, ct).ConfigureAwait(false);
         if (now is null)
             return change.Kind == PivotsChangeKind.RemoveScript
-                ? Refused(change, "the site no longer holds the script; nothing to remove.")
-                : Refused(change, "the site no longer holds the script. Nothing was changed.");
+                ? RefusedAtApply(change, "the site no longer holds the script; nothing to remove.")
+                : RefusedAtApply(change, "the site no longer holds the script. Nothing was changed.");
         if (!string.Equals(now.Hash, change.ScriptHash, StringComparison.OrdinalIgnoreCase))
-            return Refused(change, "the script text on the site changed after the plan was made. Load the script again and check the text. Nothing was changed.");
+            return RefusedAtApply(change, "the script text on the site changed after the plan was made. Load the script again and check the text. Nothing was changed.");
         ct.ThrowIfCancellationRequested();
         using var audit = _audit is PivotsAuditLog real ? real.Reserve() : new PivotsAuditReservation(_audit);
         if (!audit.Probe.Writable) return Refused(change, "the audit log cannot be written, so nothing was changed. " + audit.Probe.Message);

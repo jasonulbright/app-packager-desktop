@@ -51,7 +51,12 @@
         <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
     </Style>
 
-    <!-- A code editor: monospace, no wrap, Tab inserts a tab; Ctrl+Tab moves the focus on. -->
+    <!-- A library item is a record: without a name of its own, a screen reader reads the record text with the whole query and its hash. -->
+    <Style x:Key="LibraryListItem" TargetType="ListBoxItem" BasedOn="{StaticResource SelectableListItem}">
+        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+    </Style>
+
+    <!-- A code editor: monospace, no wrap, Tab inserts a tab; Ctrl+Tab, or Esc and then Tab, moves the focus on. -->
     <Style x:Key="Editor" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="FontFamily" Value="{StaticResource EditorFont}" />
         <Setter Property="AcceptsReturn" Value="True" />

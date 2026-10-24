@@ -148,13 +148,24 @@ internal sealed class FakePivotsService : IPivotsScriptsService
         return Resolve(target);
     }
 
+    /// <summary>The list read as the site answers it: a query returns the lazy properties Script and ParamsDefinition empty.</summary>
     public Task<IReadOnlyList<SiteScript>> LoadScriptsAsync(CancellationToken ct)
     {
         Interlocked.Increment(ref LoadScriptCalls);
-        lock (Scripts) return Task.FromResult<IReadOnlyList<SiteScript>>(Scripts.Select(s => s with { Text = null, Hash = "" }).ToList());
+        lock (Scripts) return Task.FromResult<IReadOnlyList<SiteScript>>(Scripts.Select(s => s with { Text = null, Hash = "", Parameters = [] }).ToList());
     }
 
-    public Task<SiteScript?> LoadScriptAsync(string guid, CancellationToken ct) => Task.FromResult(Script(guid));
+    public int LoadOneCalls;
+    public TaskCompletionSource? LoadOneGate;
+    public Exception? LoadOneFailure;
+
+    public async Task<SiteScript?> LoadScriptAsync(string guid, CancellationToken ct)
+    {
+        Interlocked.Increment(ref LoadOneCalls);
+        if (LoadOneGate is { } gate) await gate.Task.WaitAsync(ct);
+        if (LoadOneFailure is { } failure) throw failure;
+        return Script(guid);
+    }
 
     public async Task<PivotsChange> PrepareAsync(PivotsChange request, CancellationToken ct)
     {
@@ -281,6 +292,14 @@ internal sealed class FakePivotsService : IPivotsScriptsService
         Task.FromResult(text.Contains("{{", StringComparison.Ordinal)
             ? new ScriptCheck(false, ["Line 1: Missing closing '}'."], [], [])
             : new ScriptCheck(true, [], text.Contains("param", StringComparison.OrdinalIgnoreCase) ? [new ScriptParameter("Name", "System.String", true, null)] : [], []));
+
+    public int ExitCalls;
+
+    public int EndWaitsAtExit()
+    {
+        Interlocked.Increment(ref ExitCalls);
+        return 1;
+    }
 
     public Task<string> TestConnectionAsync(CancellationToken ct) =>
         ConnectionFailure is { } failure ? Task.FromException<string>(failure) : Task.FromResult("The AdminService on cm01.lab.local answered.");

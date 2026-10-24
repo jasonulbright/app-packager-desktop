@@ -3,6 +3,9 @@ using System.Text;
 
 namespace ApplicationPackagerUI.Services;
 
+/// <param name="Dropped">The CSV names that hold a line break, a comma, a semicolon or another control character: they are not imported.</param>
+public sealed record TargetFileNames(IReadOnlyList<string> Names, int Dropped);
+
 /// <summary>Reads device names from a TXT file (one per line) or a CSV file (the Name, Device, ComputerName or Hostname column, else the first column).</summary>
 public static class PivotsTargetFile
 {
@@ -13,31 +16,40 @@ public static class PivotsTargetFile
 
     /// <summary>The distinct names in file order; a name is trimmed and an empty one is skipped.</summary>
     /// <exception cref="InvalidDataException">The file is larger than <see cref="MaxBytes"/> or holds more than <see cref="MaxNames"/> names.</exception>
-    public static IReadOnlyList<string> Read(string path)
+    public static IReadOnlyList<string> Read(string path) => ReadNames(path).Names;
+
+    /// <summary>The distinct names in file order, and the number of CSV names that were not imported.</summary>
+    /// <exception cref="InvalidDataException">The file is larger than <see cref="MaxBytes"/> or holds more than <see cref="MaxNames"/> names.</exception>
+    public static TargetFileNames ReadNames(string path)
     {
         var info = new FileInfo(path);
         if (info.Length > MaxBytes) throw new InvalidDataException($"The file is larger than {MaxBytes / (1024 * 1024)} MiB.");
         var text = File.ReadAllText(path, Encoding.UTF8);
-        return Path.GetExtension(path).Equals(".csv", StringComparison.OrdinalIgnoreCase) ? FromCsv(text) : FromLines(text);
+        return Path.GetExtension(path).Equals(".csv", StringComparison.OrdinalIgnoreCase) ? CsvNames(text) : new TargetFileNames(FromLines(text), 0);
     }
 
     public static IReadOnlyList<string> FromLines(string text) => Distinct(text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries));
+
+    public static IReadOnlyList<string> FromCsv(string text) => CsvNames(text).Names;
 
     /// <summary>
     /// The names of the name column of a CSV text. Quoted fields can hold the separator, doubled
     /// quotes and line breaks. The separator is the first comma, semicolon or tab outside quotes in
     /// the first record. A name that holds a line break, a separator of a list target or another
-    /// control character is not imported: the List target would split it into other names.
+    /// control character is not imported, and <see cref="TargetFileNames.Dropped"/> counts it: the
+    /// List target would split it into other names.
     /// </summary>
-    public static IReadOnlyList<string> FromCsv(string text)
+    public static TargetFileNames CsvNames(string text)
     {
         var rows = Records(text, SeparatorOf(text)).Where(r => r.Count > 1 || r[0].Trim().Length > 0).ToList();
-        if (rows.Count == 0) return [];
+        if (rows.Count == 0) return new TargetFileNames([], 0);
         var header = rows[0];
         var column = header.FindIndex(h => NameColumns.Contains(h.Trim().Trim('﻿'), StringComparer.OrdinalIgnoreCase));
         var body = column >= 0 ? rows.Skip(1) : rows;
         if (column < 0) column = 0;
-        return Distinct(body.Select(r => column < r.Count ? r[column] : "").Where(n => !n.Trim().Any(c => c is ',' or ';' || char.IsControl(c))));
+        var cells = body.Select(r => column < r.Count ? r[column] : "").ToList();
+        static bool Unsafe(string n) => n.Trim().Any(c => c is ',' or ';' || char.IsControl(c));
+        return new TargetFileNames(Distinct(cells.Where(n => !Unsafe(n))), cells.Count(Unsafe));
     }
 
     private static char SeparatorOf(string text)

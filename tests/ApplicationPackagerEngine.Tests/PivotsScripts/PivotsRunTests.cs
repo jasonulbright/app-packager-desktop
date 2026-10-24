@@ -143,7 +143,7 @@ public sealed class PivotsRunTests
         Assert.StartsWith(PivotsScriptsService.SkippedPrefix, o.Message);
         Assert.Contains("1 device that the plan does not hold (CM01)", o.Message);
         Assert.Equal(0, h.Admin.Sends);
-        Assert.Empty(h.AuditLines());
+        Assert.Equal(PivotsScriptsService.RefusedPhase, Assert.Single(h.Audit.Read(10)).Phase);
     }
 
     [Fact]

@@ -52,31 +52,26 @@ public static class PivotsParameterCheck
         return name.ToUpperInvariant();
     }
 
-    /// <summary>The typed text of a value, or an error; an empty optional value gives null and no error.</summary>
+    /// <summary>
+    /// The typed text of a value, or an error; an empty optional value gives null and no error. The
+    /// rules are those of Run Scripts that the service checks again at Prepare and at Apply: a string
+    /// or a whole number only, no single or double quote (a single quote fails on the client, a double
+    /// quote at the provider), at most <see cref="PivotsScriptsService.MaxParameterLength"/> characters.
+    /// </summary>
     public static (string? Typed, string Error) Check(ScriptParameter parameter, string? value)
     {
         var text = (value ?? "").Trim();
+        var type = Short(parameter.Type);
         if (text.Length == 0)
             return parameter.Required && string.IsNullOrEmpty(parameter.Default) ? (null, "A value is required.") : (null, "");
+        if (type is not ("STRING" or "INT32"))
+            return (null, $"The site holds the type {parameter.Type} for this parameter. Run Scripts takes string and whole number values only. Leave the field empty to use the default.");
+        if (text.Length > PivotsScriptsService.MaxParameterLength) return (null, $"Type at most {PivotsScriptsService.MaxParameterLength.ToString(CultureInfo.CurrentCulture)} characters.");
+        if (text.IndexOfAny(['\'', '‘', '’']) >= 0) return (null, "Remove the single quote. A value with a single quote fails on the client.");
+        if (text.IndexOfAny(['"', '“', '”']) >= 0) return (null, "Remove the double quote. The site refuses a value with a double quote.");
+        if (type == "STRING") return (text, "");
         var inv = CultureInfo.InvariantCulture;
-        switch (Short(parameter.Type))
-        {
-            case "INT16": return long.TryParse(text, NumberStyles.Integer, inv, out var a) && a is >= short.MinValue and <= short.MaxValue ? (a.ToString(inv), "") : (null, "Type a whole number from -32768 to 32767.");
-            case "INT32" or "INT": return long.TryParse(text, NumberStyles.Integer, inv, out var b) && b is >= int.MinValue and <= int.MaxValue ? (b.ToString(inv), "") : (null, "Type a whole number from -2147483648 to 2147483647.");
-            case "INT64" or "LONG": return long.TryParse(text, NumberStyles.Integer, inv, out var c) ? (c.ToString(inv), "") : (null, "Type a whole number.");
-            case "UINT32": return ulong.TryParse(text, NumberStyles.Integer, inv, out var d) && d <= uint.MaxValue ? (d.ToString(inv), "") : (null, "Type a whole number from 0 to 4294967295.");
-            case "BYTE": return byte.TryParse(text, NumberStyles.Integer, inv, out var e) ? (e.ToString(inv), "") : (null, "Type a whole number from 0 to 255.");
-            case "BOOLEAN" or "BOOL" or "SWITCHPARAMETER" or "SWITCH":
-                return text.ToUpperInvariant() switch
-                {
-                    "TRUE" or "$TRUE" => ("true", ""),
-                    "FALSE" or "$FALSE" => ("false", ""),
-                    _ => (null, "Type true or false.")
-                };
-            case "DOUBLE" or "SINGLE" or "DECIMAL": return double.TryParse(text, NumberStyles.Float, inv, out var f) && double.IsFinite(f) ? (f.ToString("R", inv), "") : (null, "Type a number with a period as the decimal mark.");
-            case "DATETIME": return DateTime.TryParse(text, inv, DateTimeStyles.None, out var g) ? (g.ToString("s", inv), "") : (null, "Type a date as yyyy-MM-dd or yyyy-MM-ddTHH:mm:ss.");
-            default: return (text, "");
-        }
+        return long.TryParse(text, NumberStyles.Integer, inv, out var n) && n is >= int.MinValue and <= int.MaxValue ? (n.ToString(inv), "") : (null, "Type a whole number from -2147483648 to 2147483647.");
     }
 }
 

@@ -295,6 +295,13 @@ public interface IPivotsScriptsService
 
     /// <summary>Checks the session and the administration service; returns plain text.</summary>
     Task<string> TestConnectionAsync(CancellationToken ct);
+
+    /// <summary>
+    /// The app closes while a wait reads results: each such run without its Finished record gets one
+    /// now (Partial), with the message that the clients still run the request and that History,
+    /// Wait again reads the results later. It sends nothing and returns the number of records written.
+    /// </summary>
+    int EndWaitsAtExit() => 0;
 }
 
 /// <param name="Errors">The parse errors with line and column; empty for a valid script.</param>

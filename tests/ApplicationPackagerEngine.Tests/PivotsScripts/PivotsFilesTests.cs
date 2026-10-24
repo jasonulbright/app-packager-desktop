@@ -40,15 +40,36 @@ public sealed class PivotsFilesTests : IDisposable
     }
 
     [Fact]
-    public void TheCsvNamesTheViewAndTheFilterAndQuotesEveryCell()
+    public void TheCsvStartsWithTheColumnNamesAndTheFileBesideItNamesTheViewTheFilterAndTheNote()
     {
-        var path = Writer().WriteCsv(Report(["CLIENT01", "a \"quoted\", name", "Running"]) with { Filter = "Text: spool" });
+        var path = Writer().WriteCsv(Report(["CLIENT01", "a \"quoted\", name", "Running"]) with { Filter = "Text: spool", Partial = true, Note = "Partial: 1 of 2 devices answered." });
         Assert.Equal(Path.Combine(_folder, "Reports", "pivots-results-20261024-090509.csv"), path);
         var lines = File.ReadAllLines(path);
-        Assert.StartsWith("\"Pivots and Scripts: Results. Generated 2026-10-24 09:05:09 +00:00. Rows: 1. Filter: Text: spool\"", lines[0]);
-        Assert.Equal("\"TargetDevice\",\"Name\",\"Status\"", lines[1]);
-        Assert.Equal("\"CLIENT01\",\"a \"\"quoted\"\", name\",\"Running\"", lines[2]);
+        Assert.Equal(2, lines.Length);
+        Assert.Equal("\"TargetDevice\",\"Name\",\"Status\"", lines[0]);
+        Assert.Equal("\"CLIENT01\",\"a \"\"quoted\"\", name\",\"Running\"", lines[1]);
         Assert.Equal([0xEF, 0xBB, 0xBF], File.ReadAllBytes(path)[..3]);
+        var about = File.ReadAllText(PivotsReportWriter.AboutPath(path));
+        Assert.Equal(Path.Combine(_folder, "Reports", "pivots-results-20261024-090509.about.txt"), PivotsReportWriter.AboutPath(path));
+        Assert.Contains("Pivots and Scripts: Results.", about);
+        Assert.Contains("Generated 2026-10-24 09:05:09 +00:00.", about);
+        Assert.Contains("Rows: 1.", about);
+        Assert.Contains("Filter: Text: spool", about);
+        Assert.Contains("Note: Partial: 1 of 2 devices answered.", about);
+        Assert.Contains("Data file: pivots-results-20261024-090509.csv", about);
+    }
+
+    [Fact]
+    public void ImportCsvReadsTheExportAsATableWithTheColumnNamesAsTheHeader()
+    {
+        var path = Writer().WriteCsv(Report(["CLIENT01", "Spooler", "Running"], ["CLIENT02", "=1", "Stopped"]) with { Filter = "Text: s" });
+        var script = $"$rows = @(Import-Csv -LiteralPath '{path.Replace("'", "''", StringComparison.Ordinal)}'); \"$($rows.Count)|$($rows[0].TargetDevice)|$($rows[1].Name)|$(($rows[0].PSObject.Properties.Name) -join ',')\"";
+        var start = new ProcessStartInfo("powershell.exe") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+        foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-Command", script }) start.ArgumentList.Add(a);
+        using var process = Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+        Assert.Equal("2|CLIENT01|'=1|TargetDevice,Name,Status", output);
     }
 
     [Fact]

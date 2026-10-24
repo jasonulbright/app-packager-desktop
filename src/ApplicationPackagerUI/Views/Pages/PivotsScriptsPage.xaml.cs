@@ -21,8 +21,28 @@ public partial class PivotsScriptsPage : INavigationAware
         {
             editor.SelectionChanged += (_, _) => ShowCaret(editor);
             editor.GotKeyboardFocus += (_, _) => ShowCaret(editor);
+            editor.LostKeyboardFocus += (_, _) => _leaveArmed = null;
             editor.PreviewKeyDown += (_, e) => OnEditorKey(editor, words, e);
         }
+    }
+
+    public const string EditorKeyHint = "Ctrl+Space shows the starter list. Tab types a tab. To leave the editor, press Ctrl+Tab, or press Esc and then Tab.";
+
+    /// <summary>The modifier keys held during a key press; replaceable so a test can press Ctrl without a keyboard.</summary>
+    public Func<ModifierKeys> ModifierSource { get; set; } = () => Keyboard.Modifiers;
+
+    /// <summary>The editor in which Esc was the last key: its next Tab or Shift+Tab leaves it.</summary>
+    private TextBox? _leaveArmed;
+
+    /// <summary>
+    /// The focus move for a key press in an editor, or null when the editor keeps the key. Tab types a
+    /// tab; Ctrl+Tab, or Tab right after Esc, leaves the editor. Ctrl+Tab otherwise reaches the
+    /// TabControl and switches to the next tab.
+    /// </summary>
+    public static FocusNavigationDirection? EditorExit(Key key, ModifierKeys modifiers, bool afterEscape)
+    {
+        if (key != Key.Tab || ((modifiers & ModifierKeys.Control) == 0 && !afterEscape)) return null;
+        return (modifiers & ModifierKeys.Shift) != 0 ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next;
     }
 
     public Task OnNavigatedToAsync() => _viewModel.OnNavigatedToAsync();
@@ -37,10 +57,24 @@ public partial class PivotsScriptsPage : INavigationAware
         _viewModel.SetCaret(Math.Max(line, 0) + 1, index - Math.Max(start, 0) + 1);
     }
 
-    /// <summary>Ctrl+Space opens the starter list at the caret; a choice inserts its text at the caret.</summary>
-    private static void OnEditorKey(TextBox editor, IReadOnlyList<string> words, KeyEventArgs e)
+    /// <summary>Ctrl+Space opens the starter list at the caret; a choice inserts its text at the caret. Ctrl+Tab, or Esc and then Tab, leaves the editor.</summary>
+    private void OnEditorKey(TextBox editor, IReadOnlyList<string> words, KeyEventArgs e)
     {
-        if (e.Key != Key.Space || (Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
+        var modifiers = ModifierSource();
+        var afterEscape = ReferenceEquals(_leaveArmed, editor);
+        if (e.Key is not (Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl)) _leaveArmed = null;
+        if (e.Key == Key.Escape && modifiers == ModifierKeys.None)
+        {
+            _leaveArmed = editor;
+            return;
+        }
+        if (EditorExit(e.Key, modifiers, afterEscape) is { } direction)
+        {
+            e.Handled = true;
+            editor.MoveFocus(new TraversalRequest(direction));
+            return;
+        }
+        if (e.Key != Key.Space || (modifiers & ModifierKeys.Control) == 0) return;
         e.Handled = true;
         var menu = new ContextMenu { PlacementTarget = editor, Placement = System.Windows.Controls.Primitives.PlacementMode.RelativePoint };
         var caret = editor.GetRectFromCharacterIndex(editor.CaretIndex);

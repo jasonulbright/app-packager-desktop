@@ -62,11 +62,12 @@ public static class PivotsScriptsText
     public static string UnmatchedText(IReadOnlyList<string> names) =>
         string.Join(", ", names.Take(MaxUnmatchedNamed)) + (names.Count > MaxUnmatchedNamed ? $", and {PivotsLabels.Number(names.Count - MaxUnmatchedNamed)} more." : ".");
 
-    public static string ParameterText(IReadOnlyDictionary<string, string>? parameters, int maxValue = int.MaxValue) =>
-        parameters is not { Count: > 0 } ? "Parameters: none; the defaults of the script apply."
-            : "Parameters: " + string.Join("; ", parameters.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).Select(p => $"{p.Key} = {Shortened(p.Value, maxValue)}")) + ".";
+    public const string TextHashLabel = PivotsScriptsService.TextHashLabel;
+    public const string SiteHashLabel = PivotsScriptsService.SiteHashLabel;
 
-    private static string Shortened(string value, int max) => value.Length <= max ? value : value[..max] + " … (the notes hold the whole value)";
+    /// <summary>The value of each parameter definition of the script in a run: the typed value or the default of the site.</summary>
+    public static string ParameterText(SiteScript script, IReadOnlyDictionary<string, string>? parameters, int maxValue = int.MaxValue) =>
+        PivotsScriptsService.ParametersLine(script, parameters, maxValue);
 
     /// <summary>The characters of the script hash that the confirmation box names.</summary>
     public const int HashPrefixLength = 16;
@@ -79,7 +80,7 @@ public static class PivotsScriptsText
     /// notes box above it can hold more lines than it shows.
     /// </summary>
     public static string ScriptRunConfirmation(SiteScript script, string hash, IReadOnlyDictionary<string, string>? parameters, string devices) =>
-        $"Run {script.Name} version {script.Version} on {devices}. SHA-256 of the script text starts with {hash[..Math.Min(HashPrefixLength, hash.Length)]}. {ParameterText(parameters, MaxConfirmedValue)}";
+        $"Run {script.Name} version {script.Version} on {devices}. {TextHashLabel} starts with {hash[..Math.Min(HashPrefixLength, hash.Length)]}. {ParameterText(script, parameters, MaxConfirmedValue)}";
 
     /// <summary>The plan of a prepared change, or null with the reason when it cannot run.</summary>
     public static (PivotsPlan? Plan, string? Problem) BuildPlan(PivotsChange prepared)
@@ -119,8 +120,9 @@ public static class PivotsScriptsText
             {
                 var s = prepared.Script!;
                 n.Add($"Script: {s.Name}. Version {s.Version}. GUID {s.Guid}.");
-                n.Add($"SHA-256 of the script text: {prepared.ScriptHash}.");
-                n.Add(ParameterText(prepared.Parameters));
+                n.Add($"{TextHashLabel}: {prepared.ScriptHash}.");
+                if (s.SiteHash.Length > 0) n.Add($"{SiteHashLabel}: {s.SiteHash}.");
+                n.Add(ParameterText(s, prepared.Parameters));
             }
         });
         notes.Add(script ? NoUndo : PivotNote);
@@ -158,7 +160,8 @@ public static class PivotsScriptsText
         var notes = CheckNotes(prepared, n =>
         {
             if (script is not null) n.Add($"Script: {script.Name}. Version {script.Version}. Author {script.Author}.");
-            if (prepared.ScriptHash is { Length: > 0 } hash) n.Add($"SHA-256 of the script text: {hash}.");
+            if (prepared.ScriptHash is { Length: > 0 } hash) n.Add($"{TextHashLabel}: {hash}.");
+            if (script is { SiteHash.Length: > 0 }) n.Add($"{SiteHashLabel}: {script.SiteHash}.");
             if (kind == PivotsChangeKind.SubmitScript)
                 n.Add(prepared.SubmitParameters.Count == 0 ? "Parameter definitions: none."
                     : "Parameter definitions the site stores: " + string.Join(", ", prepared.SubmitParameters.Select(p => $"{p.Name} ({p.Type}{(p.Required ? ", required" : "")})")) + ".");

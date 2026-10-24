@@ -45,19 +45,33 @@ public sealed partial class PivotsScriptsViewModel
     }
 
     [RelayCommand(CanExecute = nameof(CanWrite))]
-    private Task RunScript()
+    private async Task RunScript()
     {
-        if (Busy() is { } busy) return Say(busy);
-        if (SelectedApproved is not { } row) return Say(SelectApproved);
-        if (row.Script.ParametersUnreadable) return Say(ParametersUnreadable);
+        if (Busy() is { } busy)
+        {
+            await Say(busy);
+            return;
+        }
+        if (SelectedApproved is not { } row)
+        {
+            await Say(SelectApproved);
+            return;
+        }
+        if (await SelectedScriptAsync(row) is not { } script) return;
+        await RunScriptAsync(script);
+    }
+
+    private Task RunScriptAsync(SiteScript script)
+    {
+        if (script.ParametersUnreadable) return Say(ParametersUnreadable);
         if (CurrentTargets() is not { } targets) return Say(ResolveFirst);
         if (targets.Devices.Count == 0) return Say(NoTargets);
-        var (values, problem) = RunParameters(row.Script);
+        var (values, problem) = RunParameters(script);
         if (problem is not null) return Say(problem);
-        string Form() => $"script|{TargetKey()}|{SelectedApproved?.Key}|{SelectedApproved?.Script.Hash}|{_parametersFor}|{ParametersText}";
+        string Form() => $"script|{TargetKey()}|{SelectedApproved?.Key}|{SelectedApproved?.Full?.Hash}|{_parametersFor}|{ParametersText}";
         var before = Form();
-        var request = new PivotsChange(Kind: PivotsChangeKind.RunScript, Targets: targets, QueryText: null, ScriptGuid: row.Script.Guid,
-            ScriptHash: row.Script.Hash.Length > 0 ? row.Script.Hash : null, Parameters: values, SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false,
+        var request = new PivotsChange(Kind: PivotsChangeKind.RunScript, Targets: targets, QueryText: null, ScriptGuid: script.Guid,
+            ScriptHash: script.Hash.Length > 0 ? script.Hash : null, Parameters: values, SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false,
             EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { ResultWindow = PivotsChange.SendOnly };
         return PlanAndRunAsync(request, () => Form() == before);
     }

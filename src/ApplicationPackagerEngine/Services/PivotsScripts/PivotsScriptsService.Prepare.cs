@@ -148,13 +148,32 @@ public sealed partial class PivotsScriptsService
         checks.Add(problems.Count == 0
             ? new PreflightCheck(CheckNames.Parameters, DeploymentCheckResults.Pass, (change.Parameters?.Count ?? 0) == 0 ? "No value is sent; the script defaults apply." : $"{Count(change.Parameters!.Count, "value")} match the site's parameter definitions.")
             : new PreflightCheck(CheckNames.Parameters, DeploymentCheckResults.Fail, string.Join(" ", problems)));
-        impact.Add($"Script {script.Name} ({script.Guid}), version {script.Version.ToString(CultureInfo.InvariantCulture)}, SHA-256 {script.Hash}. The page reads the script again just before it sends and refuses the run when the text changed.");
-        impact.Add((change.Parameters?.Count ?? 0) == 0
-            ? "Parameters: none; the script defaults apply."
-            : "Parameters: " + string.Join("; ", change.Parameters!.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).Select(p => $"{p.Key} = {p.Value}")) + ".");
+        impact.Add($"Script {script.Name} ({script.Guid}), version {script.Version.ToString(CultureInfo.InvariantCulture)}. {TextHashLabel} {script.Hash}. {SiteHashLabel} {script.SiteHash}. The page reads the script again just before it sends and refuses the run when the text changed.");
+        impact.Add(ParametersLine(script, change.Parameters));
         impact.Add("The script runs as the local system account on each client. Its exit code is not reported by the site: a script reads as Failed only when it stops with an error.");
         impact.Add("The run needs a second confirmation that states the device count.");
         return change with { Script = script, ScriptGuid = script.Guid, ScriptHash = script.Hash, Parameters = Normalized(change.Parameters) };
+    }
+
+    /// <summary>The label of the SHA-256 of the decoded script text that the page computes.</summary>
+    public const string TextHashLabel = "Text SHA-256";
+
+    /// <summary>The label of the ScriptHash the site computes and holds.</summary>
+    public const string SiteHashLabel = "Site hash";
+
+    /// <summary>The value each parameter definition of the site gets in a run: the typed value, else the default of the site.</summary>
+    public static string ParametersLine(SiteScript script, IReadOnlyDictionary<string, string>? values, int maxValue = int.MaxValue)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        static string Short(string value, int max) => value.Length <= max ? value : value[..max] + " … (the notes hold the whole value)";
+        var parts = script.Parameters.Select(p =>
+            values is not null && values.TryGetValue(p.Name, out var v) && !string.IsNullOrEmpty(v) ? $"{p.Name} = {Short(v, maxValue)}"
+            : string.IsNullOrEmpty(p.Default) ? $"{p.Name}: no value"
+            : $"{p.Name} = {Short(p.Default, maxValue)} (default of the site)").ToList();
+        var extra = (values ?? new Dictionary<string, string>()).Keys.Where(k => script.Parameters.All(p => !string.Equals(p.Name, k, StringComparison.Ordinal)))
+            .OrderBy(k => k, StringComparer.OrdinalIgnoreCase).Select(k => $"{k} = {Short(values![k], maxValue)} (not defined on the site)");
+        parts.AddRange(extra);
+        return parts.Count == 0 ? "Parameters: the script has no parameter definitions on the site." : "Parameters: " + string.Join("; ", parts) + ".";
     }
 
     private static IReadOnlyDictionary<string, string> Normalized(IReadOnlyDictionary<string, string>? values) =>
@@ -181,7 +200,7 @@ public sealed partial class PivotsScriptsService
         }
         if (!string.IsNullOrEmpty(change.ScriptHash) && !string.Equals(change.ScriptHash, script.Hash, StringComparison.OrdinalIgnoreCase))
             checks.Add(new PreflightCheck(CheckNames.Script, DeploymentCheckResults.Fail, "The script text on the site changed since the page read it. Load the script again and check the text."));
-        else checks.Add(new PreflightCheck(CheckNames.Script, DeploymentCheckResults.Pass, $"Read from the site: {script.Name}, SHA-256 {script.Hash}."));
+        else checks.Add(new PreflightCheck(CheckNames.Script, DeploymentCheckResults.Pass, $"Read from the site: {script.Name}, {TextHashLabel} {script.Hash}."));
         return script;
     }
 
@@ -256,7 +275,7 @@ public sealed partial class PivotsScriptsService
                 if (script.IsApproved) checks.Add(new PreflightCheck(CheckNames.Approved, DeploymentCheckResults.Fail, "The script is approved already."));
                 if (string.Equals(script.Author, _user(), StringComparison.OrdinalIgnoreCase))
                     checks.Add(await AuthorCheckAsync(ct).ConfigureAwait(false));
-                impact.Add($"Approve the script {script.Name} ({script.Guid}), SHA-256 {script.Hash}. After approval, anyone with Run Script on a collection can run it there.");
+                impact.Add($"Approve the script {script.Name} ({script.Guid}), {TextHashLabel} {script.Hash}. After approval, anyone with Run Script on a collection can run it there.");
                 impact.Add("Undo: deny the script.");
                 break;
             case PivotsChangeKind.DenyScript:

@@ -9,8 +9,8 @@ namespace ApplicationPackagerEngine.Services;
 /// &lt;data root&gt;\PivotsScripts\Reports. Every CSV cell is quoted, and a cell that a spreadsheet would
 /// read as a formula (a leading = + - @, tab, carriage return or line feed) starts with an apostrophe.
 /// JSON holds the values as strings exactly as the site returned them. A report of a partial run is
-/// refused unless its note says so. The first CSV line and the JSON header name the view, the time,
-/// the row count and the filter.
+/// refused unless its note says so. The JSON header and the text file beside a CSV name the view, the
+/// time, the row count and the filter.
 /// </summary>
 public sealed class PivotsReportWriter(string? folder = null, Func<DateTimeOffset>? clock = null) : IPivotsReportWriter
 {
@@ -30,26 +30,42 @@ public sealed class PivotsReportWriter(string? folder = null, Func<DateTimeOffse
 
     private static string FilterText(PivotsReport report) => string.IsNullOrWhiteSpace(report.Filter) ? NoFilter : "Filter: " + report.Filter;
 
+    /// <summary>The text file beside a CSV report that names its view, time, row count, filter and note.</summary>
+    public static string AboutPath(string csvPath) => Path.ChangeExtension(csvPath, ".about.txt");
+
+    /// <summary>
+    /// The CSV holds the column names and the rows only, so Import-Csv and a spreadsheet read it as a
+    /// table. The view, the time, the row count, the filter and the note go to <see cref="AboutPath"/>;
+    /// when that file cannot be written, the CSV is deleted and the write fails.
+    /// </summary>
     public string WriteCsv(PivotsReport report)
     {
         Check(report);
         var now = _clock();
         var columns = report.Columns.Count;
         var text = new StringBuilder();
-        var header = new string[columns];
-        Array.Fill(header, "");
-        header[0] = $"Pivots and Scripts: {report.View}. Generated {Stamp(now)}. Rows: {report.Rows.Count.ToString(CultureInfo.InvariantCulture)}. {FilterText(report)}";
-        text.Append(string.Join(",", header.Select(ReportFile.Cell))).Append("\r\n");
         text.Append(string.Join(",", report.Columns.Select(ReportFile.Cell))).Append("\r\n");
         foreach (var row in report.Rows) text.Append(string.Join(",", Cells(row, columns).Select(ReportFile.Cell))).Append("\r\n");
-        if (!string.IsNullOrWhiteSpace(report.Note))
+        var path = Write(report, "csv", text.ToString(), now);
+        var about = new StringBuilder()
+            .Append($"Pivots and Scripts: {report.View}.").Append("\r\n")
+            .Append($"Generated {Stamp(now)}.").Append("\r\n")
+            .Append($"Rows: {report.Rows.Count.ToString(CultureInfo.InvariantCulture)}.").Append("\r\n")
+            .Append(FilterText(report)).Append("\r\n")
+            .Append($"Data file: {Path.GetFileName(path)}").Append("\r\n");
+        if (!string.IsNullOrWhiteSpace(report.Note)) about.Append("Note: ").Append(report.Note).Append("\r\n");
+        try
         {
-            var note = new string[columns];
-            Array.Fill(note, "");
-            note[0] = "Note: " + report.Note;
-            text.Append(string.Join(",", note.Select(ReportFile.Cell))).Append("\r\n");
+            using var stream = new FileStream(AboutPath(path), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            writer.Write(about.ToString());
         }
-        return Write(report, "csv", text.ToString(), now);
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            throw new PivotsServiceException("The report could not be written. Check that the reports folder can be written.");
+        }
+        return path;
     }
 
     public string WriteJson(PivotsReport report)

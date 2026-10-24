@@ -214,7 +214,7 @@ public sealed class PivotsRunSafetyTests
         var o = await h.ApplyAsync(plan);
         Assert.StartsWith(PivotsScriptsService.SkippedPrefix, o.Message);
         Assert.False(o.Sent);
-        Assert.Empty(h.AuditLines());
+        Assert.Equal(PivotsScriptsService.RefusedPhase, Assert.Single(h.Audit.Read(10)).Phase);
         Assert.Equal(0, h.Admin.Sends);
     }
 

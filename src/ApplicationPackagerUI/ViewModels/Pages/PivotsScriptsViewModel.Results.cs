@@ -51,7 +51,7 @@ public sealed partial class PivotsScriptsViewModel
     [NotifyCanExecuteChangedFor(nameof(StopWaitingCommand), nameof(WaitAgainCommand))]
     private bool _isWaiting;
 
-    /// <summary>The count line of a running wait: how many devices answered. The result grids change only when the wait ends.</summary>
+    /// <summary>The count line of a running wait: how many devices answered.</summary>
     [ObservableProperty] private string _waitProgress = "";
 
     [ObservableProperty] private string _resultHeader = NoResultsYet;
@@ -151,11 +151,16 @@ public sealed partial class PivotsScriptsViewModel
         CancellationTokenSource cts, int mine)
     {
         var context = SynchronizationContext.Current;
-        var counter = new WaitCounter(text =>
+        var counter = new WaitCounter((text, report) =>
         {
             void Set()
             {
-                if (mine == _waitGeneration && IsWaiting) WaitProgress = text;
+                if (mine != _waitGeneration || !IsWaiting) return;
+                WaitProgress = text;
+                // The devices that answered show before the wait ends; the set stays partial until then.
+                if (report.Devices.Count > 0)
+                    Show(new PivotsResultSet(report.Devices, true, $"Run {number}: {PivotsLabels.Kind(kind)} on {PivotsLabels.Count(total, "device")}. {text} {StateCounts(report.Devices)}",
+                        online, _shown?.Raw ?? ""), final: false);
             }
             if (context is null) Set();
             else context.Post(_ => Set(), null);
@@ -199,9 +204,17 @@ public sealed partial class PivotsScriptsViewModel
         Services.Log.Info(LogArea, $"Run {number} ended: devices={devices.Count} answered={devices.Count(d => d.IsFinal)} partial={partial}.");
         IsWaiting = false;
         WaitProgress = "";
+        // The status line still holds the text of the send or of the stop; the end of the wait replaces it.
+        StatusMessage = WaitEndedText(number, devices, partial, _stopRequested);
         await ShowAsync(devices, partial, header, null, session, final: true, online);
         if (_active && IsHistoryLoaded) await LoadHistoryAsync();
     }
+
+    public const string StoppedStatus = "The page stopped waiting. Clients that received the request still run it.";
+
+    /// <summary>The status line at the end of a wait: the run, the device states and why it is partial.</summary>
+    public static string WaitEndedText(int number, IReadOnlyList<DeviceResult> devices, bool partial, bool stopped) =>
+        $"Run {PivotsLabels.Number(number)} ended. {StateCounts(devices)}" + (stopped ? " " + StoppedStatus : partial ? " Partial." : "");
 
     private static int RowCount(IReadOnlyList<DeviceResult> devices) =>
         devices.Any(d => d.Rows.Count > 0) ? devices.Sum(d => d.Rows.Count) : devices.Count(d => d.State == PivotsDeviceStates.Completed);
@@ -227,8 +240,9 @@ public sealed partial class PivotsScriptsViewModel
     private void StopWaiting()
     {
         _stopRequested = true;
-        try { _waitCts?.Cancel(); } catch (ObjectDisposedException) { }
+        // The cancel can end the wait at once, and the end of the wait writes the status line.
         StatusMessage = "The page stops waiting. Clients that received the request still run it.";
+        try { _waitCts?.Cancel(); } catch (ObjectDisposedException) { }
     }
 
     /// <summary>Shows a result set and reads the raw responses of its saved session. Only a final set sets the headline of the last run.</summary>
@@ -315,8 +329,10 @@ public sealed partial class PivotsScriptsViewModel
     private void ApplyResultFilter()
     {
         var text = ResultFilter.Trim();
-        var devices = _allDevices.Where(r => text.Length == 0 || Has(r.Device, text) || Has(r.State, text) || Has(r.Message, text) || Has(r.Result.Output, text)).ToList();
         var results = _allResults.Where(r => text.Length == 0 || Has(r.Device, text) || r.FullCells.Any(c => Has(c, text))).ToList();
+        // A device whose result rows match the filter matches too, so the device count names the devices of the shown rows.
+        HashSet<int> owners = text.Length == 0 ? [] : results.Select(r => r.Row.ResourceId).ToHashSet();
+        var devices = _allDevices.Where(r => text.Length == 0 || owners.Contains(r.Result.ResourceId) || Has(r.Device, text) || Has(r.State, text) || Has(r.Message, text) || Has(r.Result.Output, text)).ToList();
         // The view reports the grid selection back while a new list replaces the rows, so the selected keys are read first.
         var selectedDevices = SelectedDevices.Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
         var selectedResults = SelectedResults.Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
@@ -383,7 +399,8 @@ public sealed partial class PivotsScriptsViewModel
             Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }
-        StatusMessage = $"Saved the {format} report to {path}: {PivotsLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.") + (report.Note is { } n ? " " + n : "");
+        StatusMessage = $"Saved the {format} report to {path}: {PivotsLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.") + (report.Note is { } n ? " " + n : "")
+            + (format == "CSV" ? $" The view, the filter and the notes are in {Path.GetFileName(PivotsReportWriter.AboutPath(path))}." : "");
         Services.Log.Info(LogArea, $"Saved a {format} report with {report.Rows.Count} rows.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }
@@ -414,8 +431,8 @@ public sealed partial class PivotsScriptsViewModel
         StatusMessage = $"Copied {PivotsLabels.Count(report.Rows.Count, "row")} as PowerShell.";
     }
 
-    /// <summary>Counts the devices that answered in each progress report of a wait; the report itself is never shown as a result.</summary>
-    private sealed class WaitCounter(Action<string> show, int total) : IProgress<PivotsOutcome>
+    /// <summary>Counts the devices that answered in each progress report of a wait and hands the report on as a partial set.</summary>
+    private sealed class WaitCounter(Action<string, PivotsOutcome> show, int total) : IProgress<PivotsOutcome>
     {
         private readonly object _gate = new();
         private PivotsOutcome? _last;
@@ -430,7 +447,7 @@ public sealed partial class PivotsScriptsViewModel
             ArgumentNullException.ThrowIfNull(value);
             lock (_gate) _last = value;
             var answered = value.Devices.Count(d => d.IsFinal);
-            show($"Waiting for results: {PivotsLabels.Number(answered)} of {PivotsLabels.Count(total, "device")} answered.");
+            show($"Waiting for results: {PivotsLabels.Number(answered)} of {PivotsLabels.Count(total, "device")} answered.", value);
         }
     }
 }

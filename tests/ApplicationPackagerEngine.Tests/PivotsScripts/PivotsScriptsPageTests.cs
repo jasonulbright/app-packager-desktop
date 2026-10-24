@@ -167,6 +167,7 @@ public sealed class PivotsScriptsPageTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Disk space");
+        await vm.ScriptDetailTask;
         h.Service.ChangeScriptText(h.DiskScript.Guid, "Get-PSDrive -PSProvider FileSystem");
         h.Plans.AcknowledgeExtra = false;
         await vm.RunScriptCommand.ExecuteAsync(null);
@@ -175,9 +176,9 @@ public sealed class PivotsScriptsPageTests
         Assert.Equal("Script text", plan.BodyName);
         Assert.True(plan.IsDestructive);
         Assert.Equal(PivotsScriptsText.ScriptRunBox, plan.DestructiveConfirmation);
-        Assert.Equal($"Run Disk space version 2 on 6 devices. SHA-256 of the script text starts with {FakePivotsService.Hash("Get-PSDrive -PSProvider FileSystem")[..16]}. "
-            + "Parameters: none; the defaults of the script apply.", plan.ExtraConfirmation);
-        Assert.Contains($"SHA-256 of the script text: {FakePivotsService.Hash("Get-PSDrive -PSProvider FileSystem")}.", plan.Notes);
+        Assert.Equal($"Run Disk space version 2 on 6 devices. Text SHA-256 starts with {FakePivotsService.Hash("Get-PSDrive -PSProvider FileSystem")[..16]}. "
+            + "Parameters: the script has no parameter definitions on the site.", plan.ExtraConfirmation);
+        Assert.Contains($"Text SHA-256: {FakePivotsService.Hash("Get-PSDrive -PSProvider FileSystem")}.", plan.Notes);
         Assert.Contains(PivotsScriptsText.NoUndo, plan.Notes);
         Assert.Empty(h.Service.Applied);
 
@@ -200,6 +201,7 @@ public sealed class PivotsScriptsPageTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Disk space");
+        await vm.ScriptDetailTask;
         h.Service.BetweenPrepareAndApply = () => h.Service.ChangeScriptText(h.DiskScript.Guid, "Restart-Computer -Force");
         await vm.RunScriptCommand.ExecuteAsync(null);
         var result = h.Plans.LastOutcome!.Result!;
@@ -270,7 +272,7 @@ public sealed class PivotsScriptsPageTests
     }
 
     [Fact]
-    public async Task AProgressReportOfTheWaitIsACountOnlyAndOnlyTheFinalOutcomeFillsTheResults()
+    public async Task AProgressReportOfTheWaitShowsTheAnsweredDevicesAndOnlyTheFinalOutcomeSetsTheHeadline()
     {
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h);
@@ -280,7 +282,9 @@ public sealed class PivotsScriptsPageTests
         await vm.RunPivotCommand.ExecuteAsync(null);
         Assert.True(vm.IsWaiting);
         await WaitUntil(() => vm.WaitProgress.StartsWith("Waiting for results: 3 of", StringComparison.Ordinal));
-        Assert.All(vm.DeviceRows, r => Assert.Equal("Sent", r.State));
+        await WaitUntil(() => vm.DeviceRows.Count(r => r.State == "Completed") == 3);
+        Assert.Equal(3, vm.DeviceRows.Count(r => r.State == "Running"));
+        Assert.True(vm.IsPartial);
         Assert.DoesNotContain("Caption", vm.ResultColumns);
         Assert.Equal("", vm.LastRunHeadline);
         Assert.Contains("Waiting for results", vm.PageSummary);
@@ -414,6 +418,7 @@ public sealed class PivotsScriptsPageTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Read key");
+        await vm.ScriptDetailTask;
         await vm.RunScriptCommand.ExecuteAsync(null);
         Assert.Equal(VM.NeedsParameters, vm.StatusMessage);
         Assert.Equal(0, h.Service.PrepareCalls);
@@ -425,13 +430,13 @@ public sealed class PivotsScriptsPageTests
             p.Rows.Single(r => r.Name == "Depth").Value = " 3 ";
             p.Rows.Single(r => r.Name == "Path").Value = @"HKLM:\SOFTWARE\Contoso; Restart-Computer";
         };
-        vm.EditParametersCommand.Execute(null);
+        await vm.EditParametersCommand.ExecuteAsync(null);
         Assert.Contains("Depth = 3", vm.ParametersText);
         await vm.RunScriptCommand.ExecuteAsync(null);
         var prepared = Assert.Single(h.Service.Prepared);
         Assert.Equal("3", prepared.Parameters!["Depth"]);
         Assert.Equal(@"HKLM:\SOFTWARE\Contoso; Restart-Computer", prepared.Parameters["Path"]);
-        Assert.Contains(h.Plans.Shown.Single().Notes, n => n.StartsWith("Parameters: Depth = 3; Path = ", StringComparison.Ordinal));
+        Assert.Contains(h.Plans.Shown.Single().Notes, n => n.StartsWith("Parameters: Path = ", StringComparison.Ordinal) && n.EndsWith("; Depth = 3.", StringComparison.Ordinal));
         await vm.WaitTask;
     }
 
@@ -441,6 +446,7 @@ public sealed class PivotsScriptsPageTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Read key");
+        await vm.ScriptDetailTask;
         h.Dialogs.OnParameters = p => p.Rows.Single(r => r.Name == "Path").Value = "HKLM:\\SOFTWARE";
         vm.EditParametersCommand.Execute(null);
         h.Service.ChangeScriptText(h.ParamScript.Guid, "param([string]$Path) Get-Item $Path");
@@ -477,6 +483,7 @@ public sealed class PivotsScriptsPageTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Read key");
+        await vm.ScriptDetailTask;
         h.Dialogs.OnParameters = p => p.Rows.Single(r => r.Name == "Path").Value = "HKLM:\\SOFTWARE";
         vm.EditParametersCommand.Execute(null);
         h.Dialogs.OnParameters = p => p.Rows.Single(r => r.Name == "Path").Value = "";
@@ -490,12 +497,11 @@ public sealed class PivotsScriptsPageTests
         static (string?, string) C(string type, string value, bool required = false) => PivotsParameterCheck.Check(new ScriptParameter("P", type, required, null), value);
         Assert.Equal(("42", ""), C("System.Int32", " 42 "));
         Assert.NotEqual("", C("System.Int32", "4294967296").Item2);
-        Assert.Equal(("true", ""), C("System.Boolean", "$True"));
-        Assert.NotEqual("", C("Boolean", "yes").Item2);
+        Assert.NotEqual("", C("System.Boolean", "$True").Item2);
         Assert.Equal((null, "A value is required."), C("System.String", "  ", required: true));
         Assert.Equal(((string?)null, ""), C("System.String", ""));
-        Assert.Equal(("a'b", ""), C("System.String", "a'b"));
-        Assert.Equal(("2026-10-24T08:00:00", ""), C("System.DateTime", "2026-10-24 08:00"));
+        Assert.NotEqual("", C("System.String", "a'b").Item2);
+        Assert.NotEqual("", C("System.DateTime", "2026-10-24 08:00").Item2);
     }
 
     [Fact]
@@ -635,7 +641,7 @@ public sealed class PivotsScriptsPageTests
         Assert.Equal("Started", vm.SelectedHistory!.Record.Phase);
         Assert.Contains(AuditVerification.Verified, vm.HistoryDetails);
 
-        Assert.Contains("SHA-256 of the text: abc. Operation op-1.", vm.HistoryDetails);
+        Assert.Contains("Text SHA-256: abc. Operation op-1.", vm.HistoryDetails);
 
         Assert.Equal(2, vm.SessionRows.Count);
         vm.SelectedSession = vm.SessionRows.Single(r => r.Key == "session-1");
@@ -711,6 +717,7 @@ public sealed class PivotsScriptsPageTests
         }
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Disk space");
+        await vm.ScriptDetailTask;
         Assert.Contains(VM.ParametersUnreadable, vm.ScriptDetail);
         await vm.RunScriptCommand.ExecuteAsync(null);
         Assert.Equal(VM.ParametersUnreadable, vm.StatusMessage);
@@ -854,6 +861,7 @@ public sealed class PivotsScriptsPageTests
         var h = new PivotsScriptsHarness();
         var vm = await ResolvedAsync(h, VM.ScriptTab);
         vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Disk space");
+        await vm.ScriptDetailTask;
         await vm.RunScriptCommand.ExecuteAsync(null);
         await vm.WaitTask;
         Assert.NotEmpty(h.Log.Entries);

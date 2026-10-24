@@ -101,6 +101,7 @@ public sealed class PivotsScriptsRenderTests
         }
         ShowTab(window, viewModel, VM.ScriptTab);
         viewModel.SelectedApproved = viewModel.ApprovedScripts[0];
+        Run(viewModel.ScriptDetailTask);
         ShowTab(window, viewModel, VM.HistoryTab);
         viewModel.SelectedHistory = viewModel.HistoryRows[0];
         ShowTab(window, viewModel, VM.PivotTab);
@@ -176,7 +177,7 @@ public sealed class PivotsScriptsRenderTests
         ("dgDevices", "Online", "Not known"),
         ("dgPipeline", "Run", "999"), ("dgPipeline", "Action", "Run CMPivot"), ("dgPipeline", "Started", "12/30/2026 11:59 PM"), ("dgPipeline", "Targets", "25,000"),
         ("dgPipeline", "State", "Waiting for results"), ("dgPipeline", "State", "Stopped waiting"), ("dgPipeline", "Results", "25,000 results"),
-        ("dgApproved", "Version", "123"), ("dgApproved", "Parameters", "12"),
+        ("dgApproved", "Version", "123"), ("dgApproved", "Parameters", "12"), ("dgApproved", "Parameters", ScriptGridRow.NotRead), ("dgApproved", "Parameters", "Unreadable"),
         ("dgApproved", "Author", @"CONTOSO\labadmin"), ("dgApproved", "Approver", @"CONTOSO\labadmin"),
         ("dgSiteScripts", "State", "Waiting for approval"), ("dgSiteScripts", "Version", "123"), ("dgSiteScripts", "Approver", @"CONTOSO\labadmin"),
         ("dgSiteScripts", "GUID", "8F2E3D4C-5B6A-4789-8ABC-DEF012345678"), ("dgSiteScripts", "Author", @"CONTOSO\labadmin"),
@@ -275,10 +276,10 @@ public sealed class PivotsScriptsRenderTests
             string[] targets = ["cboTargetKind", "txtTarget", "btnResolve", "btnImportTargets", "txtTargetSummary"];
             string[] results = ["btnStopWaiting", "btnExportCsv", "btnExportJson", "btnCopyPowerShell", "btnSelectionToPivot", "btnSelectionToScript", "btnResultsFolder",
                 "txtResultFilter", "tabResults", "dgResults"];
-            Check(VM.PivotTab, "scrollPivotTab", [.. targets, "txtQuery", "lstQueryLibrary", "btnUseQuery", "btnRunPivot", .. results]);
-            Check(VM.ScriptTab, "scrollScriptTab", [.. targets, "btnRefreshScripts", "dgApproved", "txtScriptDetail", "btnParameters", "btnRunScript", .. results]);
+            Check(VM.PivotTab, "scrollPivotTab", [.. targets, "txtQuery", "lstQueryLibrary", "btnUseQuery", "btnRunPivot", "txtQueryKeyHint", .. results]);
+            Check(VM.ScriptTab, "scrollScriptTab", [.. targets, "btnRefreshScripts", "dgApproved", "txtScriptDetail", "txtParametersText", "btnParameters", "btnRunScript", .. results]);
             Check(VM.SiteScriptsTab, "scrollSiteScriptsTab", "txtSiteScriptFilter", "btnRefreshSiteScripts", "dgSiteScripts", "btnApproveScript", "btnDenyScript", "btnRemoveScript",
-                "txtDraftName", "txtDraft", "lstScriptLibrary", "btnUseScript", "btnCheckDraft", "btnSubmitDraft");
+                "txtDraftName", "txtDraft", "lstScriptLibrary", "btnUseScript", "btnCheckDraft", "btnSubmitDraft", "txtDraftKeyHint");
             Check(VM.HistoryTab, "scrollPivotsHistoryTab", "txtPivotsHistoryFilter", "btnPivotsHistoryRefresh", "btnOpenSession", "dgSessions", "txtPivotsHistoryPath", "dgPivotsHistory",
                 "txtPivotsHistoryDetails");
             Check(VM.OptionsTab, "scrollPivotsOptionsTab", "btnTestConnection", "txtLibraryFolder", "btnBrowseLibraryFolder", "btnClearLibraryFolder", "cboWaitMinutes");

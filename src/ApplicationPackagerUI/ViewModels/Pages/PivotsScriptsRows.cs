@@ -114,9 +114,15 @@ public sealed class ResultGridRow(ResultRowData row, int index)
     public override string ToString() => Device;
 }
 
-/// <summary>One row of the Site scripts grid and of the approved scripts of the Script tab.</summary>
-public sealed class ScriptGridRow(SiteScript script)
+/// <summary>
+/// One row of the Site scripts grid and of the approved scripts of the Script tab. The list read of
+/// the site holds no script text and no parameter definitions; <see cref="Full"/> holds them after the
+/// read of the one script.
+/// </summary>
+public sealed partial class ScriptGridRow(SiteScript script) : ObservableObject
 {
+    public const string NotRead = "Not read";
+
     public SiteScript Script { get; } = script;
     public string Key { get; } = script.Guid.ToUpperInvariant();
     public string Name => Script.Name;
@@ -126,7 +132,13 @@ public sealed class ScriptGridRow(SiteScript script)
     public string Approver => Script.Approver;
     public string Language => Script.Language;
     public string Guid => Script.Guid;
-    public string Parameters => PivotsLabels.Number(Script.Parameters.Count);
+
+    /// <summary>The script with its text and its parameter definitions as the site holds them; null until read.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Parameters))]
+    private SiteScript? _full;
+
+    public string Parameters => Full is not { } full ? NotRead : full.ParametersUnreadable ? "Unreadable" : PivotsLabels.Number(full.Parameters.Count);
     public bool IsApproved => string.Equals(Script.State, SiteScriptStates.Approved, StringComparison.OrdinalIgnoreCase);
     public override string ToString() => $"{Name}, {State}";
 }

@@ -1,3 +1,4 @@
+using System.IO;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Logging;
 
@@ -48,7 +49,7 @@ public sealed partial class PivotsScriptsViewModel
         {
             row.VerifiedText,
             $"{row.Action}, {row.Record.Phase}: {row.Result}. Devices: {row.Devices}." + (row.Target.Length > 0 ? $" Target: {row.Target}." : ""),
-            (row.Record.ScriptGuid is { Length: > 0 } guid ? $"Script {guid}. " : "") + (row.Record.TextHash is { Length: > 0 } hash ? $"SHA-256 of the text: {hash}." : "")
+            (row.Record.ScriptGuid is { Length: > 0 } guid ? $"Script {guid}. " : "") + (row.Record.TextHash is { Length: > 0 } hash ? $"{PivotsScriptsText.TextHashLabel}: {hash}." : "")
                 + (row.Record.OperationId is { Length: > 0 } op ? $" Operation {op}." : ""),
             row.Message,
             row.Record.Event == nameof(PivotsChangeKind.RunScript) ? ParameterValuesNotStored : ""
@@ -239,6 +240,24 @@ public sealed partial class PivotsScriptsViewModel
         Show(new PivotsResultSet([], true, $"Run {number}: reading the results of the saved run of {row.Started} again. Nothing is sent.", new Dictionary<int, bool?>(), ""), final: false);
         BeginWait(operation, number, row.Session.Kind, row.Session.DeviceCount, null, new Dictionary<int, bool?>(), row.Key);
         SelectedTabIndex = row.Session.Kind == PivotsChangeKind.RunScript ? ScriptTab : PivotTab;
+        StatusMessage = WaitAgainStarted;
+    }
+
+    public const string WaitAgainStarted = "Reading the results of the saved run again. Nothing is sent to the clients.";
+
+    /// <summary>
+    /// The app closes: a run whose results the page still reads gets its Finished audit record now,
+    /// with the note that the clients still run it and that History, Wait again reads the results.
+    /// </summary>
+    public void OnAppClosing()
+    {
+        if (!IsWaiting) return;
+        try { Services.Service.EndWaitsAtExit(); }
+        catch (Exception ex) when (ex is PivotsServiceException or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Services.Log.Warning(LogArea, $"The Finished record of a run could not be written at exit ({ex.GetType().Name}).");
+        }
+        try { _waitCts?.Cancel(); } catch (ObjectDisposedException) { }
     }
 
     partial void OnSelectedSessionChanged(SessionGridRow? value) => WaitAgainCommand.NotifyCanExecuteChanged();

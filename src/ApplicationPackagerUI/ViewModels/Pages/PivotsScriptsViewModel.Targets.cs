@@ -173,8 +173,8 @@ public sealed partial class PivotsScriptsViewModel
         var path = Services.Dialogs.PickTargetFile();
         if (string.IsNullOrWhiteSpace(path)) return;
         var generation = Generation;
-        IReadOnlyList<string> names;
-        try { names = await Task.Run(() => PivotsTargetFile.Read(path)); }
+        TargetFileNames read;
+        try { read = await Task.Run(() => PivotsTargetFile.ReadNames(path)); }
         catch (InvalidDataException ex)
         {
             if (generation == Generation) StatusMessage = $"The file was not read: {ex.Message}";
@@ -187,16 +187,21 @@ public sealed partial class PivotsScriptsViewModel
             return;
         }
         if (generation != Generation) return;
+        var names = read.Names;
+        var dropped = read.Dropped > 0 ? " " + DroppedNamesText(read.Dropped) : "";
         if (names.Count == 0)
         {
-            StatusMessage = "The file holds no device name.";
+            StatusMessage = "The file holds no device name." + dropped;
             return;
         }
         TargetKind = RunTargetKind.List;
         TargetText = string.Join(Environment.NewLine, names);
-        StatusMessage = $"Read {PivotsLabels.Count(names.Count, "name")} from {Path.GetFileName(path)}. Select Resolve.";
-        Services.Log.Info(LogArea, $"Read {names.Count} names from a target file.");
+        StatusMessage = $"Read {PivotsLabels.Count(names.Count, "name")} from {Path.GetFileName(path)}.{dropped} Select Resolve.";
+        Services.Log.Info(LogArea, $"Read {names.Count} names from a target file, {read.Dropped} not imported.");
     }
+
+    public static string DroppedNamesText(int dropped) =>
+        $"{PivotsLabels.Count(dropped, "name")} {(dropped == 1 ? "was" : "were")} not imported: a name with a line break, a comma, a semicolon or another control character is not a device name.";
 
     /// <summary>Puts the device names of the selected rows into a List target and opens the tab; the targets must be resolved again.</summary>
     private void SelectionTo(int tab)

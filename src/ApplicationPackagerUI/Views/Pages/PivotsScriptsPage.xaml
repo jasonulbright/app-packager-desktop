@@ -60,12 +60,13 @@
                                 <ColumnDefinition Width="*" MinWidth="200" MaxWidth="360" />
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="txtQuery" Grid.Column="0" Style="{StaticResource Editor}" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}" Height="170"
-                                     KeyboardNavigation.TabIndex="0" AutomationProperties.Name="CMPivot query" AutomationProperties.AutomationId="txtQuery" />
+                                     KeyboardNavigation.TabIndex="0" ToolTip="{x:Static pages:PivotsScriptsPage.EditorKeyHint}" AutomationProperties.HelpText="{x:Static pages:PivotsScriptsPage.EditorKeyHint}"
+                                     AutomationProperties.Name="CMPivot query" AutomationProperties.AutomationId="txtQuery" />
                             <DockPanel Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
                                 <ui:Button DockPanel.Dock="Bottom" Content="Use query" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseQueryItemCommand}" Margin="0,6,0,0"
                                            ToolTip="Puts the selected query of the library into the editor." AutomationProperties.AutomationId="btnUseQuery" />
                                 <ListBox ItemsSource="{Binding QueryLibrary}" SelectedItem="{Binding SelectedQueryItem}" ItemTemplate="{StaticResource LibraryItem}" Height="130"
-                                         ItemContainerStyle="{StaticResource SelectableListItem}" MouseDoubleClick="OnQueryLibraryDoubleClick"
+                                         ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnQueryLibraryDoubleClick"
                                          AutomationProperties.Name="Query library" AutomationProperties.AutomationId="lstQueryLibrary" />
                             </DockPanel>
                         </Grid>
@@ -74,7 +75,7 @@
                                        ToolTip="Reads the targets again and shows the plan of the query run." AutomationProperties.Name="Run the CMPivot query"
                                        AutomationProperties.AutomationId="btnRunPivot" />
                             <TextBlock Text="{Binding EditorPosition}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="4,0,12,8" AutomationProperties.AutomationId="txtQueryPosition" />
-                            <TextBlock Text="Ctrl+Space shows the starter list. Ctrl+Tab leaves the editor." Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" />
+                            <TextBlock Text="{x:Static pages:PivotsScriptsPage.EditorKeyHint}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtQueryKeyHint" />
                         </WrapPanel>
                         <pages:PivotsResultsPanel Grid.Row="3" KeyboardNavigation.TabIndex="3" KeyboardNavigation.TabNavigation="Local" />
                     </Grid>
@@ -189,12 +190,13 @@
                                 <ui:TextBox Grid.Row="1" Grid.Column="0" Text="{Binding DraftName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Script name" MaxLength="200" Margin="0,0,0,8"
                                             KeyboardNavigation.TabIndex="0" AutomationProperties.Name="Script name" AutomationProperties.AutomationId="txtDraftName" />
                                 <TextBox x:Name="txtDraft" Grid.Row="2" Grid.Column="0" Style="{StaticResource Editor}" Text="{Binding DraftText, UpdateSourceTrigger=PropertyChanged}" Height="170"
-                                         KeyboardNavigation.TabIndex="1" AutomationProperties.Name="Script text" AutomationProperties.AutomationId="txtDraft" />
+                                         KeyboardNavigation.TabIndex="1" ToolTip="{x:Static pages:PivotsScriptsPage.EditorKeyHint}" AutomationProperties.HelpText="{x:Static pages:PivotsScriptsPage.EditorKeyHint}"
+                                         AutomationProperties.Name="Script text" AutomationProperties.AutomationId="txtDraft" />
                                 <DockPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
                                     <ui:Button DockPanel.Dock="Bottom" Content="Use script" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseScriptItemCommand}" Margin="0,6,0,0"
                                                ToolTip="Puts the selected script of the library into the editor." AutomationProperties.AutomationId="btnUseScript" />
                                     <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}"
-                                             ItemContainerStyle="{StaticResource SelectableListItem}" MouseDoubleClick="OnScriptLibraryDoubleClick"
+                                             ItemContainerStyle="{StaticResource LibraryListItem}" MouseDoubleClick="OnScriptLibraryDoubleClick"
                                              AutomationProperties.Name="Script library" AutomationProperties.AutomationId="lstScriptLibrary" />
                                 </DockPanel>
                                 <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="0,8,0,0" KeyboardNavigation.TabIndex="3" KeyboardNavigation.TabNavigation="Local">
@@ -206,6 +208,7 @@
                                                    AutomationProperties.AutomationId="btnSubmitDraft" />
                                         <TextBlock Text="{Binding EditorPosition}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="4,0,12,8" AutomationProperties.AutomationId="txtDraftPosition" />
                                     </WrapPanel>
+                                    <TextBlock Text="{x:Static pages:PivotsScriptsPage.EditorKeyHint}" Style="{StaticResource Note}" Margin="0,0,0,4" AutomationProperties.AutomationId="txtDraftKeyHint" />
                                     <TextBlock Text="{Binding CheckResult}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtCheckResult" AutomationProperties.LiveSetting="Polite" />
                                 </StackPanel>
                             </Grid>

@@ -76,19 +76,35 @@ public sealed partial class PivotsScriptsViewModel
 
     public bool HasLeftover => LeftoverGuid is not null;
 
-    public string ScriptDetail => SelectedApproved is { } row
-        ? $"{row.Name}, version {row.Version}, GUID {row.Guid}." + (HashOf(row.Script) is { Length: > 0 } hash ? $" SHA-256 {hash}." : "") + $" {PivotsLabels.Count(row.Script.Parameters.Count, "parameter")}."
-            + (row.Script.ParametersUnreadable ? " " + ParametersUnreadable : "")
-        : "Select an approved script.";
+    public const string ScriptReading = "Reading the script text and its parameter definitions from the site.";
+    public const string ScriptNotRead = "The script is not read from the site yet. Wait until its details show, then try again.";
+    public const string ScriptReadFailed = "The script could not be read from the site. Select Refresh scripts. The log has the details.";
+    public const string ScriptGone = "The site no longer holds the script. Select Refresh scripts.";
+    public const string NoParameterDefinitions = "The script has no parameter definitions on the site.";
+    public const string TypeValuesHint = " Select Parameters to type other values.";
+
+    private int _detailGeneration;
+    private string? _detailProblem;
+    private Task _detailTask = Task.CompletedTask;
+
+    /// <summary>The read of the selected script that runs now, or a completed task.</summary>
+    public Task ScriptDetailTask => _detailTask;
+
+    [ObservableProperty] private bool _isScriptDetailLoading;
+
+    /// <summary>The selected approved script with its text and parameter definitions; null until the read of it ends.</summary>
+    public SiteScript? SelectedScript => SelectedApproved?.Full;
+
+    public string ScriptDetail => SelectedApproved is not { } row ? "Select an approved script."
+        : row.Full is not { } s ? (IsScriptDetailLoading ? $"{row.Name}: {ScriptReading}" : _detailProblem ?? $"{row.Name}: {ScriptReading}")
+        : $"{s.Name}, version {s.Version}, GUID {s.Guid}. {PivotsScriptsText.TextHashLabel} {s.Hash}." + (s.SiteHash.Length > 0 ? $" {PivotsScriptsText.SiteHashLabel} {s.SiteHash}." : "")
+            + $" {PivotsLabels.Count(s.Parameters.Count, "parameter")}." + (s.ParametersUnreadable ? " " + ParametersUnreadable : "");
 
     public const string ParametersUnreadable = "The site parameter definitions of the script could not be read, so the script cannot run from this page.";
 
-    private static string HashOf(SiteScript script) => script.Hash.Length > 0 ? script.Hash : script.SiteHash;
-
-    public string ParametersText => SelectedApproved is not { } row ? ""
-        : row.Script.Parameters.Count == 0 ? "The script has no parameters."
-        : ParametersFor(row.Script) is { } values ? PivotsScriptsText.ParameterText(values)
-        : "Parameters: not set. Select Parameters to type the values; an empty value uses the default of the script.";
+    public string ParametersText => SelectedApproved?.Full is not { } s || s.ParametersUnreadable ? ""
+        : s.Parameters.Count == 0 ? NoParameterDefinitions
+        : PivotsScriptsText.ParameterText(s, ParametersFor(s)) + (ParametersFor(s) is null ? TypeValuesHint : "");
 
     public string SiteScriptDetail => SelectedSiteScript is { } row
         ? $"{row.Name}: {row.State}, version {row.Version}, author {row.Author}" + (row.Approver.Length > 0 ? $", approver {row.Approver}" : "") + $". GUID {row.Guid}."
@@ -104,6 +120,60 @@ public sealed partial class PivotsScriptsViewModel
     partial void OnSelectedApprovedChanged(ScriptGridRow? value)
     {
         if (value is not null) _selectedApprovedKey = value.Key;
+        _detailTask = LoadSelectedScriptAsync(value);
+    }
+
+    private void DetailChanged()
+    {
+        OnPropertyChanged(nameof(ScriptDetail));
+        OnPropertyChanged(nameof(ParametersText));
+        OnPropertyChanged(nameof(SelectedScript));
+        EditParametersCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Reads the selected script with its text and its parameter definitions: one session call per
+    /// selection. The list read of the site returns the parameter definitions empty.
+    /// </summary>
+    private async Task LoadSelectedScriptAsync(ScriptGridRow? row)
+    {
+        var mine = ++_detailGeneration;
+        _detailProblem = null;
+        if (row is null || row.Full is not null || ConnectionProblem() is not null)
+        {
+            IsScriptDetailLoading = false;
+            DetailChanged();
+            return;
+        }
+        var generation = Generation;
+        var visit = VisitToken;
+        IsScriptDetailLoading = true;
+        DetailChanged();
+        try
+        {
+            var full = await Task.Run(() => Services.Service.LoadScriptAsync(row.Guid, visit), visit);
+            if (generation != Generation || mine != _detailGeneration) return;
+            if (full is null) _detailProblem = ScriptGone;
+            else row.Full = full;
+        }
+        catch (OperationCanceledException)
+        {
+            if (generation == Generation && mine == _detailGeneration) _detailProblem = ReadCancelled;
+        }
+        catch (Exception ex)
+        {
+            if (generation != Generation || mine != _detailGeneration) return;
+            _detailProblem = PlainMessage(ex, ScriptReadFailed);
+            Services.Log.Warning(LogArea, $"A site script could not be read ({FailureName(ex)}).");
+        }
+        finally
+        {
+            if (mine == _detailGeneration)
+            {
+                IsScriptDetailLoading = false;
+                DetailChanged();
+            }
+        }
     }
 
     partial void OnSelectedSiteScriptChanged(ScriptGridRow? value)
@@ -116,6 +186,7 @@ public sealed partial class PivotsScriptsViewModel
     private void ReleaseScripts()
     {
         _scriptsGeneration++;
+        _detailGeneration++;
         _scriptsTask = null;
         IsScriptsLoading = false;
         IsScriptsLoaded = false;
@@ -261,22 +332,38 @@ public sealed partial class PivotsScriptsViewModel
         StatusMessage = $"The script {item.Name} is in the editor.";
     }
 
+    /// <summary>The selected script with its definitions; a read that runs is awaited first. Null with the reason in the status line.</summary>
+    private async Task<SiteScript?> SelectedScriptAsync(ScriptGridRow row)
+    {
+        if (row.Full is null && !_detailTask.IsCompleted)
+        {
+            StatusMessage = ScriptReading;
+            await _detailTask;
+            if (StatusMessage == ScriptReading) StatusMessage = "";
+        }
+        if (!ReferenceEquals(SelectedApproved, row)) return null;
+        if (row.Full is { } script) return script;
+        StatusMessage = _detailProblem ?? ScriptNotRead;
+        return null;
+    }
+
     private bool CanEditParameters() => SelectedApproved is not null;
 
     /// <summary>Shows one field per parameter definition the site holds; the values are checked against the type of each.</summary>
     [RelayCommand(CanExecute = nameof(CanEditParameters))]
-    private void EditParameters()
+    private async Task EditParameters()
     {
         if (SelectedApproved is not { } row)
         {
             StatusMessage = SelectApproved;
             return;
         }
-        var dialog = new PivotsParametersViewModel(row.Script, ParametersFor(row.Script));
+        if (await SelectedScriptAsync(row) is not { } script) return;
+        var dialog = new PivotsParametersViewModel(script, ParametersFor(script));
         Services.Dialogs.ShowParameters(dialog);
         if (dialog.Result is not { } values) return;
         _parameters = values;
-        _parametersFor = ParameterKey(row.Script);
+        _parametersFor = ParameterKey(script);
         OnPropertyChanged(nameof(ParametersText));
     }
 
