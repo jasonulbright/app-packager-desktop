@@ -72,11 +72,32 @@ public sealed record PairRow(
     /// <summary>The key that identifies the pair: PackageID and ServerNALPath, compared exactly.</summary>
     public DpPairKey Key => new(PackageId, NalPath);
 
-    /// <summary>True for a row that is not Installed (state 0) and not Content Monitoring (state 8).</summary>
-    public bool IsIssue => DpContentStates.IsIssue(State);
+    /// <summary>True for a row that is not Installed (state 0) and not Content Monitoring (state 8), or that carries an error message.</summary>
+    public bool IsIssue => DpContentStates.IsIssue(State) || HasErrorMessage;
 
     /// <summary>The site code of the distribution point of the pair.</summary>
     public string SiteCode { get; init; } = "";
+
+    /// <summary>
+    /// The MessageState of the last distribution status message of the pair (SMS_DistributionDPStatus);
+    /// null when the site holds none. CM01 shows 1 for success, 2 for in progress and 4 for an error.
+    /// </summary>
+    public int? MessageState { get; init; }
+
+    /// <summary>The status message ID of the last distribution status message, such as 2330, 2384 or 2306; null when none.</summary>
+    public int? MessageId { get; init; }
+
+    /// <summary>
+    /// True when the last status message of the pair is an error. The summarizer keeps State 7 (content
+    /// updating) while the site retries a distribution that fails, so the message is what shows the failure.
+    /// </summary>
+    public bool HasErrorMessage => MessageState is 3 or 4;
+
+    /// <summary>True for Install failed, Removal failed, or another state whose last message is an error.</summary>
+    public bool IsFailed => DpContentStates.IsFailed(State) || HasErrorMessage;
+
+    /// <summary>True for a state in progress whose last message is not an error.</summary>
+    public bool IsInProgress => DpContentStates.IsInProgress(State) && !HasErrorMessage;
 }
 
 /// <summary>
@@ -158,7 +179,17 @@ public sealed record DpContentPairOutcome(PairRow Pair, string Result, string Me
 
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when nothing was attempted.</param>
 /// <param name="UndoChange">Remove: the DistributeAgain of the removed pairs that were Installed before; null otherwise.</param>
-public sealed record DpContentOutcome(DpContentChange Change, bool Succeeded, string Message, IReadOnlyList<DpContentPairOutcome> Pairs, DpContentChange? UndoChange);
+public sealed record DpContentOutcome(DpContentChange Change, bool Succeeded, string Message, IReadOnlyList<DpContentPairOutcome> Pairs, DpContentChange? UndoChange)
+{
+    /// <summary>
+    /// False for the progress report after a chunk while the change still runs: its pairs are the
+    /// pairs done so far with their first result. True for the last report of the change.
+    /// </summary>
+    public bool Final { get; init; } = true;
+
+    /// <summary>DistributeAgain: a new request for the pairs that ended Unchanged or Failed, to prepare and run again later; null otherwise.</summary>
+    public DpContentChange? RetryChange { get; init; }
+}
 
 public static class DpContentResults
 {
