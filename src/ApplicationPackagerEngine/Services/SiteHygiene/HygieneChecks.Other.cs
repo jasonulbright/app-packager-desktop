@@ -95,7 +95,7 @@ internal static partial class HygieneChecks
     private static IEnumerable<HygieneFinding> DeviceRecords(HygieneContext c)
     {
         var devices = c.Rows(Devices).ToList();
-        foreach (var group in devices.GroupBy(d => d.S("Name").ToLowerInvariant()).Where(g => g.Count() > 1))
+        foreach (var group in devices.Where(d => d.S("Name").Length > 0).GroupBy(d => d.S("Name").ToLowerInvariant()).Where(g => g.Count() > 1))
         {
             var first = group.First().S("Name");
             var ids = string.Join(", ", group.Select(d => d.L("ResourceID")).Order().Select(N));

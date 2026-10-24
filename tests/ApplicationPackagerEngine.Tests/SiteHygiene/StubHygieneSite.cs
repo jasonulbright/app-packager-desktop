@@ -43,12 +43,12 @@ internal sealed class StubHygieneSite : IConfigMgrSession
 
         $gen = V $state 'Generate' $null
         if ($null -ne $gen) {
-            $n = [int](V $gen 'Devices' 0)
-            for ($i = 0; $i -lt $n; $i++) { (RowList 'SMS_CM_RES_COLL_SMS00001').Add([pscustomobject]@{ ResourceID = 20000000 + $i; Name = ('GEN{0:D6}' -f $i); IsClient = $true; ClientVersion = '5.00.9146.1009'; LastActiveTime = $(if ($i % 10 -eq 0) { '2026-01-01T00:00:00' } else { '2026-10-20T00:00:00' }); SMBIOSGUID = [guid]::NewGuid().ToString() }) }
-            $a = [int](V $gen 'Applications' 0)
-            for ($i = 0; $i -lt $a; $i++) { (RowList 'SMS_Application').Add([pscustomobject]@{ CI_ID = 30000000 + $i; ModelID = 40000000 + $i; ModelName = ('ScopeId_GEN/Application_{0:D6}' -f $i); LocalizedDisplayName = ('Generated {0}' -f $i); IsLatest = $true; IsDeployed = $false; IsExpired = $false; IsSuperseded = $false; IsSuperseding = $false; IsEnabled = $true; HasContent = $true; Manufacturer = 'Gen'; SoftwareVersion = '1'; DateCreated = '2026-01-01T00:00:00'; NumberOfDeploymentTypes = 1; CIVersion = 1 }) }
-            $c = [int](V $gen 'Collections' 0)
-            for ($i = 0; $i -lt $c; $i++) { (RowList 'SMS_Collection').Add([pscustomobject]@{ CollectionID = ('G{0:D7}' -f $i); Name = ('Generated collection {0}' -f $i); MemberCount = 1; RefreshType = 1; LimitToCollectionID = 'SMS00001' }) }
+            $genDevices = [int](V $gen 'Devices' 0)
+            for ($i = 0; $i -lt $genDevices; $i++) { (RowList 'SMS_CM_RES_COLL_SMS00001').Add([pscustomobject]@{ ResourceID = 20000000 + $i; Name = ('GEN{0:D6}' -f $i); IsClient = $true; ClientVersion = '5.00.9146.1009'; LastActiveTime = $(if ($i % 10 -eq 0) { '2026-01-01T00:00:00' } else { '2026-10-20T00:00:00' }); SMBIOSGUID = [guid]::NewGuid().ToString() }) }
+            $genApps = [int](V $gen 'Applications' 0)
+            for ($i = 0; $i -lt $genApps; $i++) { (RowList 'SMS_Application').Add([pscustomobject]@{ CI_ID = 30000000 + $i; ModelID = 40000000 + $i; ModelName = ('ScopeId_GEN/Application_{0:D6}' -f $i); LocalizedDisplayName = ('Generated {0}' -f $i); IsLatest = $true; IsDeployed = $false; IsExpired = $false; IsSuperseded = $false; IsSuperseding = $false; IsEnabled = $true; HasContent = $true; Manufacturer = 'Gen'; SoftwareVersion = '1'; DateCreated = '2026-01-01T00:00:00'; NumberOfDeploymentTypes = 1; CIVersion = 1 }) }
+            $genCollections = [int](V $gen 'Collections' 0)
+            for ($i = 0; $i -lt $genCollections; $i++) { (RowList 'SMS_Collection').Add([pscustomobject]@{ CollectionID = ('G{0:D7}' -f $i); Name = ('Generated collection {0}' -f $i); MemberCount = 1; RefreshType = 1; LimitToCollectionID = 'SMS00001' }) }
         }
 
         function global:Eq([object]$Value, [string]$Wanted) { if ($Value -is [bool]) { return ([int]$Value) -eq [int]$Wanted }; return ([string]$Value) -ieq $Wanted }
@@ -209,11 +209,11 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         $state.Options | Add-Member -NotePropertyName Fail -NotePropertyValue @($global:FailLeft) -Force
         $classes = [ordered]@{}
         foreach ($k in $global:C.Keys) { $classes[$k] = @($global:C[$k]) }
-        $windows = [ordered]@{}
-        foreach ($k in $global:Windows.Keys) { $windows[$k] = @($global:Windows[$k]) }
-        $auto = [ordered]@{}
-        foreach ($k in $global:Auto.Keys) { $auto[$k] = $global:Auto[$k] }
-        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windows; AutoInstall = [pscustomobject]$auto } }
+        $windowsOut = [ordered]@{}
+        foreach ($k in $global:Windows.Keys) { $windowsOut[$k] = @($global:Windows[$k]) }
+        $autoOut = [ordered]@{}
+        foreach ($k in $global:Auto.Keys) { $autoOut[$k] = $global:Auto[$k] }
+        $next = if ($null -ne $gen) { $state } else { [pscustomobject]@{ Options = $state.Options; Now = $global:Now; Classes = [pscustomobject]$classes; Details = (V $state 'Details' ([pscustomobject]@{})); Windows = [pscustomobject]$windowsOut; AutoInstall = [pscustomobject]$autoOut } }
         $lines = foreach ($o in $out) { ConvertTo-Json -InputObject $o -Depth 3 -Compress }
         $document = [pscustomobject]@{ Output = @($lines); Thrown = $thrown; Log = @($global:Log); State = $next }
         [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 8 -Compress), (New-Object System.Text.UTF8Encoding $false))
