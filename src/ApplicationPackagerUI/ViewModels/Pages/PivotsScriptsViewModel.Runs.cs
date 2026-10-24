@@ -220,24 +220,28 @@ public sealed partial class PivotsScriptsViewModel
         {
             var header = $"{PivotsLabels.Kind(plan.Kind)}: {SecretMask.Apply(outcome.Message)}";
             if (outcome.OperationId is { } id && outcome.Sent && outcome.Devices.Any(d => !d.IsFinal)) StartWait(plan, outcome, id);
-            else await ShowAsync(outcome.Devices, outcome.Partial, header, plan.Change.Targets, outcome.SessionId, final: true);
+            else if (outcome.Sent || outcome.Devices.Count > 0) await ShowAsync(outcome.Devices, outcome.Partial, header, plan.Change.Targets, outcome.SessionId, final: true);
+            // A refusal sent nothing: the results and the headline of the last run stay.
+            else StatusMessage = header;
         }
         else
         {
             if (plan.Kind == PivotsChangeKind.SubmitScript)
             {
-                var created = !outcome.Succeeded && outcome.CreatedScriptGuid is { Length: > 0 } guid ? guid : null;
-                _cleanup = created is null ? null : outcome.CleanupChange;
-                LeftoverGuid = created;
+                // A later submit that leaves nothing behind keeps the clean-up of an older incomplete script.
+                if (!outcome.Succeeded && outcome.CreatedScriptGuid is { Length: > 0 } created)
+                {
+                    _cleanup = outcome.CleanupChange;
+                    LeftoverGuid = created;
+                    StatusMessage = $"The site created the script {plan.Change.SubmitName} ({created}), but a later step failed: {SecretMask.Apply(outcome.Message)} "
+                        + "The script exists on the site and is not complete. Select Remove created script to remove only this script.";
+                }
             }
             else if (plan.Kind == PivotsChangeKind.RemoveScript && outcome.Succeeded && string.Equals(plan.Change.ScriptGuid, LeftoverGuid, StringComparison.OrdinalIgnoreCase))
             {
                 _cleanup = null;
                 LeftoverGuid = null;
             }
-            if (LeftoverGuid is { } left && plan.Kind == PivotsChangeKind.SubmitScript)
-                StatusMessage = $"The site created the script {plan.Change.SubmitName} ({left}), but a later step failed: {SecretMask.Apply(outcome.Message)} "
-                    + "The script exists on the site and is not complete. Select Remove created script to remove only this script.";
             if (_active) await LoadScriptsAsync();
         }
         if (_active && IsHistoryLoaded) await LoadHistoryAsync();

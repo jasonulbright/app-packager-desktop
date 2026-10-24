@@ -13,7 +13,8 @@ public sealed partial class PivotsScriptsViewModel
     public const string SessionGone = "The saved session could not be read. The file is gone or damaged.";
     public const string SessionNoResult = "The saved session holds no result. The run was saved before it was sent and holds no response.";
     public static readonly string HistoryCappedNote = $"The list shows the newest {MaxHistoryRecords} records of the audit log. Older records are in the file.";
-    public const string HistoryWindowNote = "The audit log is large, so the list shows only its last part. Older records are in the file.";
+    public static readonly string SessionsCappedNote = $"The list shows the newest {MaxSessions} saved sessions. Older sessions are in the sessions folder.";
+    public const string HistoryWindowNote ="The audit log is large, so the list shows only its last part. Older records are in the file.";
     public const string ConnectionFailed = "The connection test could not run. The log has the details.";
 
     private IReadOnlyList<PivotsAuditRecord> _records = [];
@@ -122,7 +123,7 @@ public sealed partial class PivotsScriptsViewModel
                 var selected = SelectedSession?.Key;
                 SessionRows = sessions.Select(s => new SessionGridRow(s)).ToList();
                 SelectedSession = selected is null ? null : SessionRows.FirstOrDefault(r => r.Key == selected);
-                SessionCount = PivotsLabels.Count(sessions.Count, "saved session");
+                SessionCount = PivotsLabels.Count(sessions.Count, "saved session") + (sessions.Count >= MaxSessions ? ". " + SessionsCappedNote : "");
             }
             IsHistoryLoaded = true;
             ApplyHistoryFilter();

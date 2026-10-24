@@ -50,6 +50,8 @@ public static class PivotsScriptsText
     {
         yield return $"Targets: {targets.Description}. {PivotsLabels.Count(targets.Devices.Count, "device")}.";
         if (targets.IsBuiltInCollection) yield return $"The target is a built-in collection ({targets.CollectionId}). The run reaches every device of the collection.";
+        else if (targets.CoversEverySiteDevice)
+            yield return $"The target holds every client of the site ({PivotsLabels.Count(targets.SiteClientCount, "client")}). The run reaches every device of the site.";
         if (targets.Truncated)
             yield return targets.TotalMatched > targets.Devices.Count ? $"{TruncatedNote} {PivotsLabels.Count(targets.TotalMatched, "device")} match." : TruncatedNote;
         if (targets.NonClientCount > 0) yield return $"{PivotsLabels.Count(targets.NonClientCount, "device")} without a ConfigMgr client: the run skips {(targets.NonClientCount == 1 ? "it" : "them")}.";
@@ -60,9 +62,24 @@ public static class PivotsScriptsText
     public static string UnmatchedText(IReadOnlyList<string> names) =>
         string.Join(", ", names.Take(MaxUnmatchedNamed)) + (names.Count > MaxUnmatchedNamed ? $", and {PivotsLabels.Number(names.Count - MaxUnmatchedNamed)} more." : ".");
 
-    public static string ParameterText(IReadOnlyDictionary<string, string>? parameters) =>
+    public static string ParameterText(IReadOnlyDictionary<string, string>? parameters, int maxValue = int.MaxValue) =>
         parameters is not { Count: > 0 } ? "Parameters: none; the defaults of the script apply."
-            : "Parameters: " + string.Join("; ", parameters.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).Select(p => $"{p.Key} = {p.Value}")) + ".";
+            : "Parameters: " + string.Join("; ", parameters.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase).Select(p => $"{p.Key} = {Shortened(p.Value, maxValue)}")) + ".";
+
+    private static string Shortened(string value, int max) => value.Length <= max ? value : value[..max] + " … (the notes hold the whole value)";
+
+    /// <summary>The characters of the script hash that the confirmation box names.</summary>
+    public const int HashPrefixLength = 16;
+
+    /// <summary>The characters of one parameter value that the confirmation box shows.</summary>
+    public const int MaxConfirmedValue = 80;
+
+    /// <summary>
+    /// The device-count box of a script run. It names the hash prefix and the parameters, because the
+    /// notes box above it can hold more lines than it shows.
+    /// </summary>
+    public static string ScriptRunConfirmation(SiteScript script, string hash, IReadOnlyDictionary<string, string>? parameters, string devices) =>
+        $"Run {script.Name} version {script.Version} on {devices}. SHA-256 of the script text starts with {hash[..Math.Min(HashPrefixLength, hash.Length)]}. {ParameterText(parameters, MaxConfirmedValue)}";
 
     /// <summary>The plan of a prepared change, or null with the reason when it cannot run.</summary>
     public static (PivotsPlan? Plan, string? Problem) BuildPlan(PivotsChange prepared)
@@ -112,8 +129,8 @@ public static class PivotsScriptsText
         var plan = new ChangePlan(Title(prepared.Kind), $"Run on {devices}", entries.Select(e => e.Item), isDestructive: script, hasUndo: false)
         {
             DestructiveConfirmation = script ? ScriptRunBox : null,
-            ExtraConfirmation = script ? $"Run {prepared.Script!.Name} version {prepared.Script.Version} on {devices}." : null,
-            SecondConfirmation = targets.IsBuiltInCollection ? $"This runs on every device of the site: {targets.Description}." : null,
+            ExtraConfirmation = script ? ScriptRunConfirmation(prepared.Script!, prepared.ScriptHash!, prepared.Parameters, devices) : null,
+            SecondConfirmation = prepared.NeedsEveryDeviceAcknowledgement ? $"This runs on every device of the site: {targets.Description}." : null,
             Notes = notes,
             Body = script ? prepared.Script!.Text : prepared.QueryText ?? "",
             BodyName = script ? "Script text" : "Query text",

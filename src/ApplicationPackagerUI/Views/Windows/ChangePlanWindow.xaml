@@ -58,8 +58,8 @@
             <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="120" Margin="0,6,0,0"
                      VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
                      Visibility="{Binding HasNotes, Converter={StaticResource ChangePlanVisibility}}" />
-            <TextBox x:Name="txtBody" Text="{Binding BodyText, Mode=OneWay}" IsReadOnly="True" TextWrapping="NoWrap" MaxHeight="120" Margin="0,6,0,0"
-                     FontFamily="Cascadia Mono, Consolas, Courier New" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+            <TextBox x:Name="txtBody" Text="{Binding BodyText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="120" Margin="0,6,0,0"
+                     FontFamily="Cascadia Mono, Consolas, Courier New" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                      AutomationProperties.AutomationId="txtChangePlanBody" AutomationProperties.Name="{Binding BodyName}"
                      Visibility="{Binding HasBody, Converter={StaticResource ChangePlanVisibility}}" />
             <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,6,0,0" TextWrapping="Wrap"

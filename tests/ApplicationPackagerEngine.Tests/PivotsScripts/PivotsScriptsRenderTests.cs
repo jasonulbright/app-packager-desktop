@@ -480,6 +480,87 @@ public sealed class PivotsScriptsRenderTests
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]
+    public void TheScriptPlanShowsTheHashPrefixAndTheParametersInItsDeviceCountBoxAndWrapsTheText(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var plan = ScriptPlan(500);
+            var dialog = new ChangePlanViewModel(plan.Plan, (_, _, _) => Task.FromResult(new ChangePlanResult([])));
+            var window = new ChangePlanWindow(dialog);
+            Show(window);
+            try
+            {
+                Settle(window);
+                var extra = (CheckBox)window.FindName("chkExtra");
+                AssertInside(window, extra, window.ActualHeight, "chkExtra");
+                var text = Descendants(extra).OfType<TextBlock>().Single(t => t.IsVisible).Text;
+                Assert.Contains($"starts with {plan.Change.ScriptHash![..PivotsScriptsText.HashPrefixLength]}", text);
+                Assert.Contains($"Parameters: Path = {LongText[..40]}", text);
+                var body = (TextBox)window.FindName("txtBody");
+                Assert.Equal(TextWrapping.Wrap, body.TextWrapping);
+                Assert.Equal(ScrollBarVisibility.Disabled, body.HorizontalScrollBarVisibility);
+                Assert.True(body.ExtentWidth <= body.ViewportWidth + 0.5, $"The script text is {body.ExtentWidth:0} px wide in a {body.ViewportWidth:0} px box.");
+                window.Width = window.MinWidth;
+                Settle(window);
+                Assert.True(AssertCheckBoxTextFits(window, window, "plan window at its minimum width") >= 3);
+                AssertInside(window, (FrameworkElement)window.FindName("btnConfirm"), window.ActualHeight, "btnConfirm");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void SelectingEveryDeviceIsOneSelectionChangeAndTheHiddenPanelMirrorsWhenItShows(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            ShowTab(window, viewModel, VM.PivotTab, VM.DevicesView);
+            static IEnumerable<object> Logical(object node) =>
+                node is DependencyObject d ? new[] { node }.Concat(LogicalTreeHelper.GetChildren(d).Cast<object>().SelectMany(Logical)) : [node];
+            var tabs = ById<TabControl>(page, "tabPivots");
+            PivotsResultsPanel PanelOf(int tab) => Logical(((TabItem)tabs.Items[tab]).Content).OfType<PivotsResultsPanel>().Single();
+            var shown = PanelOf(VM.PivotTab);
+            var hidden = PanelOf(VM.ScriptTab);
+            Assert.True(shown.IsVisible);
+            Assert.False(hidden.IsVisible);
+            var before = (Shown: shown.SelectionEvents, Hidden: hidden.SelectionEvents);
+            viewModel.SetSelectedDevices(viewModel.DeviceRows);
+            Settle(window);
+            Assert.Equal(2_000, ById<DataGrid>(shown, "dgDevices").SelectedItems.Count);
+            Assert.InRange(shown.SelectionEvents - before.Shown, 1, 2);
+            Assert.Equal(before.Hidden, hidden.SelectionEvents);
+            ShowTab(window, viewModel, VM.ScriptTab, VM.DevicesView);
+            Assert.Equal(2_000, ById<DataGrid>(hidden, "dgDevices").SelectedItems.Count);
+        }, harness: () => LongHarness(2_000));
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void AFilterThatKeepsTheSelectedRowKeepsTheSelection(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            ShowTab(window, viewModel, VM.PivotTab, VM.DevicesView);
+            var row = viewModel.DeviceRows[3];
+            viewModel.SetSelectedDevices([row]);
+            Settle(window);
+            viewModel.ResultFilter = row.Device;
+            viewModel.FlushFilters();
+            Settle(window);
+            Assert.Equal([row.Key], viewModel.SelectedDevices.Select(r => r.Key));
+            var grid = Descendants(page).OfType<PivotsResultsPanel>().Single(p => p.IsVisible).FindName("dgDevices") as DataGrid;
+            Assert.Same(row, Assert.Single(grid!.SelectedItems.Cast<object>()));
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
     public void ThePlanWindowOpensOnTheFirstLineAndReachesConfirmAfterItsBoxes(ApplicationTheme theme)
     {
         WithApplication(theme, () =>

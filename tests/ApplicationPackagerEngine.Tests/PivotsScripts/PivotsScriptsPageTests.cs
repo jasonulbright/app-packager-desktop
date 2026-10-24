@@ -175,7 +175,8 @@ public sealed class PivotsScriptsPageTests
         Assert.Equal("Script text", plan.BodyName);
         Assert.True(plan.IsDestructive);
         Assert.Equal(PivotsScriptsText.ScriptRunBox, plan.DestructiveConfirmation);
-        Assert.Equal("Run Disk space version 2 on 6 devices.", plan.ExtraConfirmation);
+        Assert.Equal($"Run Disk space version 2 on 6 devices. SHA-256 of the script text starts with {FakePivotsService.Hash("Get-PSDrive -PSProvider FileSystem")[..16]}. "
+            + "Parameters: none; the defaults of the script apply.", plan.ExtraConfirmation);
         Assert.Contains($"SHA-256 of the script text: {FakePivotsService.Hash("Get-PSDrive -PSProvider FileSystem")}.", plan.Notes);
         Assert.Contains(PivotsScriptsText.NoUndo, plan.Notes);
         Assert.Empty(h.Service.Applied);

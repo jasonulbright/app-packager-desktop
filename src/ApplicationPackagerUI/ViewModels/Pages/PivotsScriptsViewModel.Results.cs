@@ -81,6 +81,13 @@ public sealed partial class PivotsScriptsViewModel
     partial void OnWaitMinutesChanged(int value) => SaveLater();
     partial void OnResultFilterChanged(string value) => Debounce(ResultFilterKey, ApplyResultFilter);
     partial void OnIsWaitingChanged(bool value) => UpdateSummary();
+    partial void OnWaitProgressChanged(string value) => UpdateSummary();
+
+    /// <summary>True when the rows of the shown set hold more columns than <see cref="MaxResultColumns"/>.</summary>
+    private bool _columnsCut;
+
+    public static readonly string ColumnsCutNote = $"The result rows hold more than {MaxResultColumns} columns. The grid and the export hold the first {MaxResultColumns}.";
+    public const string PartialNote = "Partial: the result set does not hold a final state for every device.";
 
     private void ReleaseResultRows()
     {
@@ -200,7 +207,7 @@ public sealed partial class PivotsScriptsViewModel
         devices.Any(d => d.Rows.Count > 0) ? devices.Sum(d => d.Rows.Count) : devices.Count(d => d.State == PivotsDeviceStates.Completed);
 
     private static string MoreResultsNote(IReadOnlyList<DeviceResult> devices) =>
-        devices.Count(d => d.MoreResults) is var more and > 0 ? $" {PivotsLabels.Count(more, "device")} hold more result rows than the site returned." : "";
+        devices.Count(d => d.MoreResults) is var more and > 0 ? $" {PivotsLabels.Count(more, "device")} {(more == 1 ? "holds" : "hold")} more result rows than the site returned." : "";
 
     /// <summary>"Completed 10, Failed 1, No response 2." from the device states; states with no device are left out.</summary>
     public static string StateCounts(IReadOnlyList<DeviceResult> devices)
@@ -254,35 +261,48 @@ public sealed partial class PivotsScriptsViewModel
     }
 
     /// <summary>The result columns in the order they first appear in the rows of the devices, at most <see cref="MaxResultColumns"/>.</summary>
-    public static IReadOnlyList<string> ColumnsOf(IReadOnlyList<DeviceResult> devices)
+    public static IReadOnlyList<string> ColumnsOf(IReadOnlyList<DeviceResult> devices) => ColumnsAndCut(devices).Columns;
+
+    /// <summary>The result columns, and true when the rows hold more than <see cref="MaxResultColumns"/>.</summary>
+    public static (IReadOnlyList<string> Columns, bool Cut) ColumnsAndCut(IReadOnlyList<DeviceResult> devices)
     {
         var columns = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var cut = false;
         foreach (var device in devices)
             foreach (var row in device.Rows)
                 foreach (var key in row.Keys)
-                    if (columns.Count < MaxResultColumns && seen.Add(key)) columns.Add(key);
-        return columns;
+                    if (seen.Add(key))
+                    {
+                        if (columns.Count < MaxResultColumns) columns.Add(key);
+                        else cut = true;
+                    }
+        return (columns, cut);
     }
 
     private void Render(PivotsResultSet set)
     {
         _allDevices = set.Devices.Select(d => new DeviceGridRow(d, set.Online.TryGetValue(d.ResourceId, out var o) ? o : null)).ToList();
-        var columns = ColumnsOf(set.Devices);
+        var (columns, cut) = ColumnsAndCut(set.Devices);
+        _columnsCut = cut;
         var results = new List<ResultGridRow>();
+        IReadOnlyList<string> shownColumns;
         if (columns.Count > 0)
         {
-            ResultColumns = columns;
+            shownColumns = columns;
             foreach (var device in set.Devices)
                 foreach (var row in device.Rows)
                     results.Add(new ResultGridRow(new ResultRowData(device.ResourceId, device.Name, columns.Select(c => row.TryGetValue(c, out var v) ? v : "").ToList()), results.Count));
         }
         else
         {
-            ResultColumns = ["State", "Output"];
+            shownColumns = ["State", "Output"];
             foreach (var device in set.Devices)
                 results.Add(new ResultGridRow(new ResultRowData(device.ResourceId, device.Name, [PivotsLabels.DeviceState(device.State), device.Output]), results.Count));
         }
+        // The grid builds one column per name: the old rows go first, so no cell binds to an index the old rows do not hold.
+        ResultRows = [];
+        ResultColumns = shownColumns;
         _allResults = results;
         RawText = set.Raw.Length > MaxRawCharacters
             ? set.Raw[..MaxRawCharacters] + Environment.NewLine + $"The raw text is cut at {PivotsLabels.Number(MaxRawCharacters)} characters. The saved session holds all of it."
@@ -296,11 +316,12 @@ public sealed partial class PivotsScriptsViewModel
     {
         var text = ResultFilter.Trim();
         var devices = _allDevices.Where(r => text.Length == 0 || Has(r.Device, text) || Has(r.State, text) || Has(r.Message, text) || Has(r.Result.Output, text)).ToList();
-        var results = _allResults.Where(r => text.Length == 0 || Has(r.Device, text) || r.Cells.Any(c => Has(c, text))).ToList();
-        DeviceRows = devices;
-        ResultRows = results;
+        var results = _allResults.Where(r => text.Length == 0 || Has(r.Device, text) || r.FullCells.Any(c => Has(c, text))).ToList();
+        // A new list in a grid clears its selection and the view reports that back, so the selected keys are read first.
         var selectedDevices = SelectedDevices.Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
         var selectedResults = SelectedResults.Select(r => r.Key).ToHashSet(StringComparer.Ordinal);
+        DeviceRows = devices;
+        ResultRows = results;
         SelectedDevices = devices.Where(r => selectedDevices.Contains(r.Key)).ToList();
         SelectedResults = results.Where(r => selectedResults.Contains(r.Key)).ToList();
         ResultCount = $"{(results.Count == _allResults.Count ? PivotsLabels.Count(results.Count, "result row") : $"{PivotsLabels.Number(results.Count)} of {PivotsLabels.Count(_allResults.Count, "result row")}")}, "
@@ -317,12 +338,19 @@ public sealed partial class PivotsScriptsViewModel
     {
         FlushFilters();
         var filter = ResultFilter.Trim().Length > 0 ? $"Text: {ResultFilter.Trim()}." : "";
-        var note = IsPartial ? "Partial: the result set does not hold a final state for every device." : null;
+        string? Note(bool columns)
+        {
+            var notes = new List<string>();
+            if (IsPartial) notes.Add(PartialNote);
+            if (MoreResultsNote(_shown?.Devices ?? []) is { Length: > 0 } more) notes.Add(more.Trim());
+            if (columns && _columnsCut) notes.Add(ColumnsCutNote);
+            return notes.Count > 0 ? string.Join(" ", notes) : null;
+        }
         return ResultTabIndex switch
         {
-            ResultsView => new PivotsReport("Results", ["Device", .. ResultColumns], ResultRows.Select(r => (IReadOnlyList<string>)[r.Device, .. r.Cells]).ToList(), IsPartial, note) { Filter = filter },
+            ResultsView => new PivotsReport("Results", ["Device", .. ResultColumns], ResultRows.Select(r => (IReadOnlyList<string>)[r.Device, .. r.FullCells]).ToList(), IsPartial, Note(columns: true)) { Filter = filter },
             DevicesView => new PivotsReport("Devices", ["Device", "ResourceID", "State", "Online", "Exit code", "Output", "Message"],
-                DeviceRows.Select(r => (IReadOnlyList<string>)[r.Device, r.ResourceId, r.State, r.Online, r.ExitCode, r.Result.Output, r.Message]).ToList(), IsPartial, note) { Filter = filter },
+                DeviceRows.Select(r => (IReadOnlyList<string>)[r.Device, r.ResourceId, r.State, r.Online, r.ExitCode, r.Result.Output, r.Message]).ToList(), IsPartial, Note(columns: false)) { Filter = filter },
             PipelineView => new PivotsReport("Pipeline", ["Run", "Action", "Started", "Targets", "State", "Results"],
                 PipelineRows.Select(r => (IReadOnlyList<string>)[r.Run, r.Action, r.Started, r.Targets, r.State, r.Results]).ToList(), false, null),
             _ => null
@@ -351,7 +379,7 @@ public sealed partial class PivotsScriptsViewModel
         try { path = await Task.Run(() => write(report)); }
         catch (Exception ex)
         {
-            StatusMessage = $"The {format} report could not be written. The log has the details.";
+            StatusMessage = PlainMessage(ex, $"The {format} report could not be written. The log has the details.");
             Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }

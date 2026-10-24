@@ -64,6 +64,12 @@ internal sealed class FakePivotsService : IPivotsScriptsService
     /// <summary>Set while a confirmed change plan runs; a write outside it fails the test.</summary>
     public Func<bool>? InConfirmedRun;
 
+    /// <summary>Changes each final device result of a wait, such as its rows or its output.</summary>
+    public Func<DeviceResult, DeviceResult>? Shape;
+
+    /// <summary>A run is refused with this message and no device, as the real service refuses a plan.</summary>
+    public string? RefuseAll;
+
     private int _operations;
     private readonly Dictionary<string, (PivotsChange Change, string Session)> _runs = new(StringComparer.Ordinal);
 
@@ -196,6 +202,7 @@ internal sealed class FakePivotsService : IPivotsScriptsService
         switch (change.Kind)
         {
             case PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript:
+                if (RefuseAll is { } refusal) return Task.FromResult(new PivotsOutcome(change, false, refusal, null, [], false, null));
                 if (change.NeedsRunConfirmation && !change.RunConfirmed) return Task.FromResult(Refused(change, NotConfirmedRefusal));
                 if (change.NeedsEveryDeviceAcknowledgement && !change.EveryDeviceAcknowledged) return Task.FromResult(Refused(change, EveryDeviceRefusal));
                 if (change.Kind == PivotsChangeKind.RunScript && Script(change.ScriptGuid)?.Hash != change.ScriptHash) return Task.FromResult(Refused(change, HashRefusal));
@@ -259,7 +266,7 @@ internal sealed class FakePivotsService : IPivotsScriptsService
                 ExitCode = ok && !pivot ? 0 : null,
                 Rows = ok && pivot ? [new Dictionary<string, string> { ["Caption"] = "Windows 11 Enterprise", ["Version"] = "10.0.26100" }] : []
             };
-        }).ToList();
+        }).Select(r => Shape?.Invoke(r) ?? r).ToList();
         var partial = final.Any(d => d.State != PivotsDeviceStates.Completed);
         var record = _sessions.Read(session)!;
         _sessions.Update(record with
@@ -336,11 +343,13 @@ internal sealed class FakePivotsReports : IPivotsReportWriter
 {
     public List<(string Format, PivotsReport Report)> Written { get; } = [];
     public string Folder => @"C:\Reports";
+    public Exception? Failure;
     public string WriteCsv(PivotsReport report) => Write("csv", report);
     public string WriteJson(PivotsReport report) => Write("json", report);
 
     private string Write(string format, PivotsReport report)
     {
+        if (Failure is { } failure) throw failure;
         lock (Written) Written.Add((format, report));
         return $@"C:\Reports\pivots-{Written.Count}.{format}";
     }

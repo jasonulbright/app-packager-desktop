@@ -22,6 +22,9 @@ public partial class PivotsResultsPanel
     {
         InitializeComponent();
         DataContextChanged += (_, e) => Attach(e.NewValue as PivotsScriptsViewModel);
+        IsVisibleChanged += OnPanelVisibleChanged;
+        dgDevices.SelectionChanged += (_, _) => SelectionEvents++;
+        dgResults.SelectionChanged += (_, _) => SelectionEvents++;
     }
 
     private void Attach(PivotsScriptsViewModel? viewModel)
@@ -62,13 +65,16 @@ public partial class PivotsResultsPanel
         for (var i = 0; i < columns.Count; i++)
         {
             var header = columns[i].Length > 0 ? columns[i] : $"Column {i + 1}";
+            var cell = new Style(typeof(System.Windows.Controls.TextBlock), trimmed);
+            cell.Setters.Add(new Setter(System.Windows.Controls.TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
+            cell.Setters.Add(new Setter(ToolTipProperty, new Binding($"{nameof(ResultGridRow.FullCells)}[{i}]") { Mode = BindingMode.OneWay }));
             dgResults.Columns.Add(new DataGridTextColumn
             {
                 Header = header,
                 Binding = new Binding($"{nameof(ResultGridRow.Cells)}[{i}]") { Mode = BindingMode.OneWay },
                 Width = new DataGridLength(1, DataGridLengthUnitType.Star),
                 MinWidth = Math.Max(ValueColumnMinWidth, HeaderWidth(header)),
-                ElementStyle = trimmed
+                ElementStyle = cell
             });
         }
     }
@@ -81,18 +87,45 @@ public partial class PivotsResultsPanel
         return Math.Ceiling(text.WidthIncludingTrailingWhitespace) + 40;
     }
 
-    private void Select<T>(DataGrid grid, IReadOnlyList<T> rows)
+    /// <summary>The selection changes a mirror made in the grids; a test counts the work of a mirror with it.</summary>
+    public int SelectionEvents { get; private set; }
+
+    private bool _selectionPending;
+
+    /// <summary>
+    /// Mirrors the selection of the view model into a grid in linear work. A selection of every row
+    /// is one SelectAll; a hidden panel (the result tabs of the other run tab) mirrors when it shows.
+    /// </summary>
+    private void Select<T>(DataGrid grid, IReadOnlyList<T> rows) where T : class
     {
         if (_syncing) return;
-        var current = grid.SelectedItems.Cast<object>().ToList();
-        if (current.Count == rows.Count && current.All(r => rows.Contains((T)r))) return;
+        if (!IsVisible)
+        {
+            _selectionPending = true;
+            return;
+        }
+        var wanted = new HashSet<object>(rows, ReferenceEqualityComparer.Instance);
+        var current = grid.SelectedItems;
+        if (current.Count == wanted.Count && current.Cast<object>().All(wanted.Contains)) return;
         _syncing = true;
         try
         {
-            grid.SelectedItems.Clear();
-            foreach (var row in rows) grid.SelectedItems.Add(row);
+            if (wanted.Count > 0 && wanted.Count == grid.Items.Count && grid.Items.Cast<object>().All(wanted.Contains)) grid.SelectAll();
+            else
+            {
+                grid.UnselectAll();
+                foreach (var row in rows) grid.SelectedItems.Add(row);
+            }
         }
         finally { _syncing = false; }
+    }
+
+    private void OnPanelVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (!IsVisible || !_selectionPending || _viewModel is not { } vm) return;
+        _selectionPending = false;
+        Select(dgDevices, vm.SelectedDevices);
+        Select(dgResults, vm.SelectedResults);
     }
 
     private void OnDevicesSelectionChanged(object sender, SelectionChangedEventArgs e)

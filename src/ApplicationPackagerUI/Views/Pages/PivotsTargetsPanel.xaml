@@ -49,7 +49,7 @@
                 </DockPanel>
                 <Border Style="{StaticResource Caution}" Margin="0,6,0,0" Visibility="{Binding ShowBuiltInWarning, Converter={StaticResource BoolToVisibility}}"
                         AutomationProperties.AutomationId="pnlBuiltInWarning">
-                    <TextBlock Text="This is a built-in collection. A run reaches every device of the collection, and the plan asks an extra box for it." TextWrapping="Wrap"
+                    <TextBlock Text="{Binding EveryDeviceWarningText}" TextWrapping="Wrap"
                                Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtBuiltInWarning" />
                 </Border>
             </StackPanel>

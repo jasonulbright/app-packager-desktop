@@ -13,6 +13,7 @@ public sealed partial class PivotsScriptsViewModel
     public const string ImportFailed = "The file could not be read. Check that it is a TXT or CSV file that the account can open.";
     public const string NotResolvedText = "Not resolved. Select Resolve to read the devices of the target.";
     public const string BuiltInWarning = "This is a built-in collection. A run reaches every device of the collection, and the plan asks an extra box for it.";
+    public const string EveryClientWarning = "The target holds every client of the site. A run reaches every device of the site, and the plan asks an extra box for it.";
 
     private int _resolveGeneration;
     private string? _resolvedKey;
@@ -40,11 +41,12 @@ public sealed partial class PivotsScriptsViewModel
 
     /// <summary>The devices of the last Resolve; null before a Resolve and after the target text or kind changed.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsResolved), nameof(ShowBuiltInWarning))]
+    [NotifyPropertyChangedFor(nameof(IsResolved), nameof(ShowBuiltInWarning), nameof(EveryDeviceWarningText))]
     private ResolvedTargets? _resolved;
 
     public bool IsResolved => Resolved is not null;
-    public bool ShowBuiltInWarning => Resolved is { IsBuiltInCollection: true };
+    public bool ShowBuiltInWarning => Resolved is { ReachesEveryDevice: true };
+    public string EveryDeviceWarningText => Resolved is { IsBuiltInCollection: false, CoversEverySiteDevice: true } ? EveryClientWarning : BuiltInWarning;
 
     [ObservableProperty] private string _targetSummary = NotResolvedText;
 
@@ -160,6 +162,7 @@ public sealed partial class PivotsScriptsViewModel
         if (targets.NonClientCount > 0) lines.Add($"Without a ConfigMgr client: {PivotsLabels.Number(targets.NonClientCount)}. A run skips them.");
         if (targets.Unmatched.Count > 0) lines.Add($"Not found ({PivotsLabels.Number(targets.Unmatched.Count)}): {PivotsScriptsText.UnmatchedText(targets.Unmatched)}");
         if (targets.IsBuiltInCollection) lines.Add(BuiltInWarning);
+        else if (targets.CoversEverySiteDevice) lines.Add(EveryClientWarning);
         return string.Join(Environment.NewLine, lines);
     }
 

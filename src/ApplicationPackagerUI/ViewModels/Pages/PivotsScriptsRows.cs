@@ -99,13 +99,18 @@ public sealed class DeviceGridRow(DeviceResult result, bool? online)
 /// <summary>One result row: the device and the values in the order of the result columns.</summary>
 public sealed record ResultRowData(int ResourceId, string Device, IReadOnlyList<string> Values);
 
-/// <summary>One CMPivot result row; the cells follow the result columns.</summary>
+/// <summary>
+/// One CMPivot result row; the cells follow the result columns. <see cref="Cells"/> holds the first
+/// line of each value for the grid; <see cref="FullCells"/> holds the whole values for the tooltip,
+/// the filter and the export.
+/// </summary>
 public sealed class ResultGridRow(ResultRowData row, int index)
 {
     public ResultRowData Row { get; } = row;
     public string Key { get; } = row.ResourceId.ToString(CultureInfo.InvariantCulture) + "#" + index.ToString(CultureInfo.InvariantCulture);
     public string Device => Row.Device;
-    public IReadOnlyList<string> Cells => Row.Values;
+    public IReadOnlyList<string> Cells { get; } = row.Values.Select(PivotsLabels.FirstLine).ToList();
+    public IReadOnlyList<string> FullCells => Row.Values;
     public override string ToString() => Device;
 }
 
