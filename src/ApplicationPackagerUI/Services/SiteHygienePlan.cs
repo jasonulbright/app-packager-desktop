@@ -5,10 +5,16 @@ using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerUI.Services;
 
-/// <summary>One line of a Site Hygiene plan: the finding it fixes and its plan item.</summary>
+/// <summary>
+/// One line of a Site Hygiene plan: the plan item, the finding it belongs to and the object the prepared
+/// change writes. A finding that writes several objects has one line per object; each takes the outcome of its finding.
+/// </summary>
 public sealed record SiteHygienePlanEntry(ChangePlanItem Item, HygieneFinding Finding)
 {
     public string Key { get; } = SiteHygieneLabels.Key(Finding);
+
+    /// <summary>The object of the prepared change; null when the service named no object for the finding.</summary>
+    public HygieneTarget? Target { get; init; }
 }
 
 /// <summary>
@@ -109,9 +115,13 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
 
     public ChangePlanRun RunFor(SiteHygienePlan plan) => (confirmed, progress, ct) => Track(ApplyAsync(confirmed, plan, progress, ct));
 
-    /// <summary>The change to send: DeleteConfirmed only for a delete kind whose confirmed plan asked the second box.</summary>
+    /// <summary>
+    /// The change to send: ChangeConfirmed, as the plan window confirmed it, and DeleteConfirmed only for a
+    /// delete kind whose confirmed plan asked the second box.
+    /// </summary>
     public static HygieneChange ConfirmedChange(HygieneChange change, ConfirmedChangePlan confirmed) => change with
     {
+        ChangeConfirmed = true,
         DeleteConfirmed = SiteHygieneLabels.IsDelete(change.Kind) && confirmed.Plan.IsDestructive && confirmed.Plan.ExtraConfirmation is not null
     };
 
@@ -131,10 +141,11 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
             reporter.Report(outcome.Final ? outcome : outcome with { Final = true });
             var rows = Complete(plan, results, progress);
             var cancelled = ct.IsCancellationRequested && rows.Any(r => r.Skipped || r.Message == NoResultText);
-            var failed = rows.Count(r => !r.Succeeded && !r.Skipped);
-            var changed = rows.Count(r => r.Succeeded && !r.Skipped);
+            var failed = rows.Count(IsFailure);
+            var unchanged = rows.Count(r => r.OutcomeText == Unchanged);
+            var changed = rows.Count(r => r.Succeeded && !r.Skipped && r.OutcomeText == Done);
             stop = cancelled ? SiteOperationOutcome.Cancelled
-                : failed == 0 && rows.All(r => !r.Skipped) ? SiteOperationOutcome.Succeeded
+                : failed == 0 && unchanged == 0 && rows.All(r => !r.Skipped) ? SiteOperationOutcome.Succeeded
                 : changed > 0 ? SiteOperationOutcome.PartlySucceeded
                 : SiteOperationOutcome.Failed;
             return new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed)
@@ -154,6 +165,9 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
         }
     }
 
+    /// <summary>A line whose write failed or whose result is not known; Unchanged and Skipped lines are counted apart.</summary>
+    private static bool IsFailure(ChangePlanItemResult r) => !r.Succeeded && !r.Skipped && r.OutcomeText != Unchanged;
+
     /// <summary>The first sentence of a result: the number of objects of each result.</summary>
     public static string Headline(IReadOnlyList<ChangePlanItemResult> rows)
     {
@@ -166,13 +180,17 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
         return parts.Count == 0 ? "No object reported a result." : string.Join(", ", parts) + ".";
     }
 
-    /// <summary>The row of an object outcome: Done and Unchanged count as done, Skipped as not attempted, anything else as failed.</summary>
+    /// <summary>
+    /// The row of an object outcome: Done counts as done, Skipped as not attempted, anything else as not done.
+    /// Unchanged keeps its word: the write ran and the read-back shows the object as before.
+    /// </summary>
     public static ChangePlanItemResult Row(ChangePlanItem item, string result, string message)
     {
         var text = SecretMask.Apply(message);
         return result switch
         {
-            Done or Unchanged => new ChangePlanItemResult(item, true, text) { ResultLabel = result },
+            Done => new ChangePlanItemResult(item, true, text) { ResultLabel = Done },
+            Unchanged => new ChangePlanItemResult(item, false, text) { ResultLabel = Unchanged },
             Skipped => ChangePlanItemResult.Skip(item, text.StartsWith(SkippedPrefix, StringComparison.OrdinalIgnoreCase) ? text : $"{SkippedPrefix}: {text}") with { ResultLabel = Skipped },
             _ => new ChangePlanItemResult(item, false, text) { ResultLabel = Failed }
         };
@@ -208,7 +226,7 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
         var counts = new Dictionary<string, int>
         {
             ["changed"] = Count(Done),
-            ["failed"] = rows.Count(r => !r.Succeeded && !r.Skipped),
+            ["failed"] = rows.Count(IsFailure),
             ["skipped"] = rows.Count(r => r.Skipped),
             ["unchanged"] = Count(Unchanged)
         };
@@ -227,7 +245,7 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
         : IProgress<HygieneOutcome>
     {
         private readonly HashSet<HygieneOutcome> _seen = [];
-        private readonly Dictionary<string, SiteHygienePlanEntry> _byKey = plan.Entries.GroupBy(e => e.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        private readonly Dictionary<string, List<SiteHygienePlanEntry>> _byKey = plan.Entries.GroupBy(e => e.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
 
         public void Report(HygieneOutcome value)
         {
@@ -245,12 +263,15 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
                     plan.AddOutcome(value);
                     foreach (var o in value.Objects)
                     {
-                        if (!_byKey.TryGetValue(SiteHygieneLabels.Key(o.Finding), out var entry)) continue;
-                        var row = Row(entry.Item, o.Result, o.Message);
-                        // The service reports its final outcome through progress and also returns it; a repeated result is not a second line.
-                        if (results.TryGetValue(entry.Item, out var known) && known == row) continue;
-                        results[entry.Item] = row;
-                        rows.Add(row);
+                        if (!_byKey.TryGetValue(SiteHygieneLabels.Key(o.Finding), out var entries)) continue;
+                        foreach (var entry in entries)
+                        {
+                            var row = Row(entry.Item, o.Result, o.Message);
+                            // The service reports its final outcome through progress and also returns it; a repeated result is not a second line.
+                            if (results.TryGetValue(entry.Item, out var known) && known == row) continue;
+                            results[entry.Item] = row;
+                            rows.Add(row);
+                        }
                     }
                 }
             }

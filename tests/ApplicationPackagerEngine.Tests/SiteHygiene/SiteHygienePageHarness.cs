@@ -88,7 +88,9 @@ internal sealed class FakeSiteHygieneService : ISiteHygieneService
         lock (PrepareRequests) PrepareRequests.Add(request);
         if (PrepareGate is { } gate) await gate.Task.WaitAsync(ct);
         var kept = request.Findings.Where(f => StillHolds(f)).ToList();
-        var impact = request.Findings.Where(f => !StillHolds(f)).Select(f => $"Skipped: {f.ObjectName} ({f.ObjectKey}): the finding no longer holds.").ToList();
+        var dropped = request.Findings.Where(f => !StillHolds(f)).Select(f => new HygieneObjectOutcome(f, HygieneResults.Skipped, "Skipped: the finding no longer holds: the object changed.")).ToList();
+        var impact = new List<string>();
+        if (dropped.Count > 0) impact.Add($"{dropped.Count} findings are left out.");
         var checks = new List<PreflightCheck>();
         if (SiteHygieneLabels.IsDelete(request.Kind))
         {
@@ -98,7 +100,7 @@ internal sealed class FakeSiteHygieneService : ISiteHygieneService
             impact.Add($"Deletes {kept.Count} objects. The delete cannot be undone.");
         }
         BetweenPrepareAndApply?.Invoke();
-        return request with { Findings = kept, Impact = impact, Checks = checks, Fingerprint = $"fp-{PrepareCalls}" };
+        return request with { Findings = kept, Impact = impact, Checks = checks, Fingerprint = $"fp-{PrepareCalls}", Dropped = dropped };
     }
 
     public async Task<HygieneOutcome> ApplyAsync(HygieneChange change, IProgress<HygieneOutcome> progress, CancellationToken ct)
@@ -106,6 +108,7 @@ internal sealed class FakeSiteHygieneService : ISiteHygieneService
         if (InConfirmedRun is { } inRun && !inRun()) throw new InvalidOperationException("A write ran outside a confirmed plan.");
         lock (Applied) Applied.Add(change);
         if (ApplyGate is { } gate) await gate.Task;
+        if (!change.ChangeConfirmed) throw new InvalidOperationException("A change reached the service without ChangeConfirmed.");
         if (SiteHygieneLabels.IsDelete(change.Kind) && !change.DeleteConfirmed)
         {
             var refused = new HygieneOutcome(change, false, DeleteRefused, change.Findings.Select(f => new HygieneObjectOutcome(f, "Skipped", DeleteRefused)).ToList(), Final: true);
@@ -167,6 +170,8 @@ internal sealed class FakeSuppressionStore : IHygieneSuppressionStore
         lock (Items) Items.RemoveAll(s => SiteHygieneLabels.Key(s.CheckId, s.ObjectKey) == SiteHygieneLabels.Key(checkId, objectKey));
     }
 
+    public string Path => @"C:\Data\SiteHygiene\suppressions.json";
+
     private void Check()
     {
         if (FailAfter is { } left)
@@ -197,7 +202,9 @@ internal sealed class FakeScanStore : IHygieneScanStore
         return Stored;
     }
 
-    public IReadOnlySet<string> LastKeys() => (Stored?.Findings ?? []).Select(SiteHygieneLabels.Key).ToHashSet(StringComparer.Ordinal);
+    public IReadOnlySet<string>? Keys() => Stored?.Findings.Select(f => f.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    public string Path => @"C:\Data\SiteHygiene\last-scan.json";
 }
 
 internal sealed class FakeHygieneReports : IHygieneReportWriter
@@ -282,18 +289,18 @@ internal sealed class SiteHygienePageHarness
 
     public SiteHygienePageHarness()
     {
-        UnusedApp = Add(Finding("APP-01", "Applications", HygieneSeverity.Medium, "Application", "16777300", "Contoso Fonts 2.1", HygieneFixKind.RemoveApplication, isNew: true));
-        UnusedApp2 = Add(Finding("APP-01", "Applications", HygieneSeverity.Medium, "Application", "16777301", "Contoso Teams Backgrounds", HygieneFixKind.RemoveApplication));
-        RetiredDeployed = Add(Finding("APP-02", "Applications", HygieneSeverity.High, "Deployment", "16777412", "Contoso Printer Drivers to All Desktops", HygieneFixKind.RemoveApplicationDeployment,
+        UnusedApp = Add(Finding("APP-01", "Applications", HygieneSeverity.Warning, "Application", "16777300", "Contoso Fonts 2.1", HygieneFixKind.RemoveApplication));
+        UnusedApp2 = Add(Finding("APP-01", "Applications", HygieneSeverity.Warning, "Application", "16777301", "Contoso Teams Backgrounds", HygieneFixKind.RemoveApplication));
+        RetiredDeployed = Add(Finding("APP-02", "Applications", HygieneSeverity.Error, "Deployment", "16777412", "Contoso Printer Drivers to All Desktops", HygieneFixKind.RemoveApplicationDeployment,
             "Remove-CMApplicationDeployment -Id 16777412 -Force", evidence: "The application is retired and still has 1 deployment."));
         EmptyCollection = Add(Finding("COL-01", "Collections", HygieneSeverity.Info, "Collection", "MCM00012", "SHL Empty Collection", HygieneFixKind.RemoveCollection,
             "Remove-CMCollection -Id MCM00012 -Force"));
-        RefreshType = Add(Finding("COL-05", "Collections", HygieneSeverity.Medium, "Collection", "MCM00014", "Pilot Ring 1", HygieneFixKind.SetCollectionRefreshType,
+        RefreshType = Add(Finding("COL-05", "Collections", HygieneSeverity.Warning, "Collection", "MCM00014", "Pilot Ring 1", HygieneFixKind.SetCollectionRefreshType,
             "Set-CMCollection -CollectionId MCM00014 -RefreshType Continuous", evidence: "Incremental and a full evaluation every 2 hours."));
-        Duplicate = Add(Finding("DEV-02", "Devices", HygieneSeverity.Medium, "Device", "16777221", "CLIENT01", HygieneFixKind.RemoveDevice, "Remove-CMResource -ResourceId 16777221 -Force",
+        Duplicate = Add(Finding("DEV-02", "Devices", HygieneSeverity.Warning, "Device", "16777221", "CLIENT01", HygieneFixKind.RemoveDevice, "Remove-CMResource -ResourceId 16777221 -Force",
             evidence: "Two records share the SMBIOS GUID 4C4C4544-0042.\nThe newer record is 16777230."));
-        Boundary = Add(Finding("BND-01", "Boundaries", HygieneSeverity.Medium, "Boundary", "16777217", "10.0.5.0/24", HygieneFixKind.None));
-        Backup = Add(Finding("MNT-02", "Site", HygieneSeverity.Medium, "Maintenance task", "Backup SMS Site Server", "Backup SMS Site Server", HygieneFixKind.SetSiteMaintenanceTask,
+        Boundary = Add(Finding("BND-01", "Boundaries", HygieneSeverity.Warning, "Boundary", "16777217", "10.0.5.0/24", HygieneFixKind.None));
+        Backup = Add(Finding("MNT-02", "Site", HygieneSeverity.Warning, "Maintenance task", "Backup SMS Site Server", "Backup SMS Site Server", HygieneFixKind.SetSiteMaintenanceTask,
             "Set-CMSiteMaintenanceTask -SiteCode MCM -MaintenanceTaskName 'Backup SMS Site Server' -Enabled $true"));
         foreach (var (id, name, category, state, reason) in new[]
                  {
@@ -373,7 +380,7 @@ internal sealed class SiteHygienePageHarness
         for (var i = 0; i < count; i++)
         {
             var kind = kinds[i % kinds.Length];
-            h.Service.Findings.Add(Finding($"{categories[i % categories.Count][..3].ToUpperInvariant()}-{i % 10 + 1:00}", categories[i % categories.Count], (HygieneSeverity)(i % 4),
+            h.Service.Findings.Add(Finding($"{categories[i % categories.Count][..3].ToUpperInvariant()}-{i % 10 + 1:00}", categories[i % categories.Count], (HygieneSeverity)(i % 3),
                 "Application", (16_777_216 + i).ToString(System.Globalization.CultureInfo.InvariantCulture), $"{longText ?? "Contoso App"} {i}", kind, isNew: i % 9 == 0,
                 evidence: $"{longText ?? "Evidence"} {i}"));
         }

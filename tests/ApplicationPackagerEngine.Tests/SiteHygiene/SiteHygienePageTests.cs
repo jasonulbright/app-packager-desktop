@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Tests.MaintenanceWindows;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
@@ -73,7 +74,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(SiteHygieneLabels.Areas.Count, options.Areas.Count);
         Assert.False(options.ProbeContentSources);
         Assert.Equal(TimeSpan.Zero, options.PauseBetweenCalls);
-        Assert.StartsWith("1 high, 6 medium, 0 low, 1 info. 0 suppressed. Last scan ", vm.SummaryLine);
+        Assert.StartsWith("1 error, 6 warnings, 1 info. 0 suppressed. Last scan ", vm.SummaryLine);
         Assert.Contains("2 checks did not run.", vm.SummaryLine);
         Assert.DoesNotContain("stored", vm.SummaryLine);
         Assert.Contains("APP-04 (not run: The content source probe is off.)", vm.NotRunText);
@@ -82,8 +83,8 @@ public sealed class SiteHygienePageTests
         Assert.Equal("Needs the site database", vm.CheckRows.Single(c => c.CheckId == "DEV-03").State);
         Assert.Equal("2", vm.CheckRows.Single(c => c.CheckId == "APP-01").Findings);
         var all = vm.CategoryRows[^1];
-        Assert.Equal(("All categories", "1", "6", "0", "1", "8", "2"), (all.Category, all.High, all.Medium, all.Low, all.Info, all.Total, all.NotRun));
-        Assert.Equal("High", SiteHygieneLabels.SeverityName(vm.FindingRows[0].Finding.Severity));
+        Assert.Equal(("All categories", "1", "6", "1", "8", "2"), (all.Category, all.Error, all.Warning, all.Info, all.Total, all.NotRun));
+        Assert.Equal("Error", SiteHygieneLabels.SeverityName(vm.FindingRows[0].Finding.Severity));
         Assert.Single(h.ScanStore.Saved);
         Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("Contoso", StringComparison.Ordinal) || e.Message.Contains("MCM000", StringComparison.Ordinal));
     }
@@ -163,20 +164,21 @@ public sealed class SiteHygienePageTests
         for (var i = 0; i < none.Service.Checks.Count; i++) none.Service.Checks[i] = none.Service.Checks[i] with { State = "Failed", Reason = "The read failed." };
         var vm2 = await none.ScannedAsync();
         Assert.StartsWith("No check ran, so the counts are not known.", vm2.SummaryLine);
-        Assert.DoesNotContain("0 high", vm2.SummaryLine);
-        Assert.All(vm2.CategoryRows, r => Assert.Equal("Not known", r.High));
+        Assert.DoesNotContain("0 errors", vm2.SummaryLine);
+        Assert.All(vm2.CategoryRows, r => Assert.Equal("Not known", r.Error));
     }
 
     [Fact]
     public async Task EveryFilterNarrowsTheRowsAndTheCountSaysHowMany()
     {
         var h = new SiteHygienePageHarness();
+        h.ScanStore.Stored = h.Service.Result() with { Findings = h.Service.Findings.Where(f => f != h.UnusedApp).ToList() };
         var vm = await h.ScannedAsync();
         vm.CategoryFilter = "Collections";
         Assert.Equal(["COL-01", "COL-05"], vm.FindingRows.Select(r => r.CheckId).Order());
         Assert.Equal("2 of 8 findings", vm.FindingCount);
         vm.CategoryFilter = VM.AllText;
-        vm.SeverityFilter = "High";
+        vm.SeverityFilter = "Error";
         Assert.Equal("APP-02", Assert.Single(vm.FindingRows).CheckId);
         vm.SeverityFilter = VM.AllText;
         vm.FindingText = "smbios";
@@ -220,7 +222,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains(h.Suppressions.Items, s => s is { CheckId: "BND-01", ObjectKey: "16777217" });
         Assert.Equal(6, vm.FindingRows.Count);
         Assert.Contains("2 suppressed.", vm.SummaryLine);
-        Assert.StartsWith("1 high, 4 medium", vm.SummaryLine);
+        Assert.StartsWith("1 error, 4 warnings", vm.SummaryLine);
         Assert.Equal("6 findings, 2 suppressed and hidden", vm.FindingCount);
         Assert.Equal("Suppressed 2 findings. Show suppressed lists them.", vm.StatusMessage);
 
@@ -330,7 +332,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(VM.MixedKinds([HygieneFixKind.RemoveApplication, HygieneFixKind.RemoveCollection]), vm.StatusMessage);
         Select(vm, h.Boundary);
         await vm.RunFixCommand.ExecuteAsync(null);
-        Assert.Equal(VM.ReportOnly, vm.StatusMessage);
+        Assert.Equal(SiteHygieneLabels.ReportOnlyReason(HygieneFixKind.None), vm.StatusMessage);
         vm.SetSelectedFindings([]);
         await vm.RunFixCommand.ExecuteAsync(null);
         Assert.Equal(VM.SelectFindings, vm.StatusMessage);
@@ -384,7 +386,7 @@ public sealed class SiteHygienePageTests
         await vm.RunFixCommand.ExecuteAsync(null);
         Assert.Empty(h.Plans.Shown);
         Assert.StartsWith(SiteHygieneText.NothingLeft, vm.StatusMessage);
-        Assert.Contains("Contoso Fonts 2.1 (16777300): the finding no longer holds.", vm.StatusMessage);
+        Assert.Contains("Left out: Application Contoso Fonts 2.1 (16777300). Skipped: the finding no longer holds", vm.StatusMessage);
     }
 
     [Fact]
@@ -392,7 +394,7 @@ public sealed class SiteHygienePageTests
     {
         var h = SiteHygienePageHarness.Large(0);
         var many = Enumerable.Range(0, FakeSiteHygieneService.Cap + 1).Select(i =>
-            Finding("APP-01", "Applications", HygieneSeverity.Medium, "Application", (16_777_300 + i).ToString(System.Globalization.CultureInfo.InvariantCulture), $"App {i}", HygieneFixKind.RemoveApplication)).ToList();
+            Finding("APP-01", "Applications", HygieneSeverity.Warning, "Application", (16_777_300 + i).ToString(System.Globalization.CultureInfo.InvariantCulture), $"App {i}", HygieneFixKind.RemoveApplication)).ToList();
         h.Service.Findings.AddRange(many);
         var vm = await h.ScannedAsync();
         vm.SetSelectedFindings(vm.FindingRows);
@@ -467,7 +469,7 @@ public sealed class SiteHygienePageTests
     public async Task EveryFixKindHasAPlanFromThePreparedChangeAndOnlyADeleteAsksTheSecondBox(HygieneFixKind kind)
     {
         var h = new SiteHygienePageHarness();
-        var findings = new[] { "16777800", "16777801" }.Select(k => Finding("XYZ-01", "Applications", HygieneSeverity.Low, "Object", k, "Object " + k, kind, $"Do-Thing -Id {k}")).ToList();
+        var findings = new[] { "16777800", "16777801" }.Select(k => Finding("XYZ-01", "Applications", HygieneSeverity.Info, "Object", k, "Object " + k, kind, $"Do-Thing -Id {k}")).ToList();
         var prepared = await h.Service.PrepareAsync(new HygieneChange(kind, findings, false, [], [], null), CancellationToken.None);
         var (plan, problem) = SiteHygieneText.BuildPlan(prepared);
         Assert.Null(problem);
@@ -558,7 +560,7 @@ public sealed class SiteHygienePageTests
             vm.SelectedTabIndex = tab;
             await vm.OnNavigatedFromAsync();
             await vm.OnNavigatedToAsync();
-            Assert.StartsWith("1 high, 6 medium", vm.SummaryLine);
+            Assert.StartsWith("1 error, 6 warnings", vm.SummaryLine);
         }
         Assert.Equal(1, h.Service.ScanCalls);
     }
@@ -579,7 +581,7 @@ public sealed class SiteHygienePageTests
         var row = Assert.Single(report.Rows);
         Assert.Equal("Two records share the SMBIOS GUID 4C4C4544-0042.\nThe newer record is 16777230.", row[6]);
         Assert.Equal("Category: Devices.", report.Filter);
-        Assert.Contains("2 checks did not run: APP-04, DEV-03.", report.Note);
+        Assert.Equal(["APP-04: Not run. The content source probe is off.", "DEV-03: Needs the site database. The check reads inventory that only the site database holds."], report.ChecksNotRun);
         Assert.False(report.Truncated);
 
         vm.SelectedTabIndex = VM.SummaryTab;
@@ -706,7 +708,7 @@ public sealed class SiteHygienePageTests
         vm.SelectedTabIndex = VM.SummaryTab;
         vm.RelationsTabIndex = VM.TreeTab;
         vm.CategoryFilter = "Devices";
-        vm.SeverityFilter = "Medium";
+        vm.SeverityFilter = "Warning";
         vm.FindingText = "CLIENT";
         vm.ShowSuppressed = true;
         vm.PauseMilliseconds = 500;
@@ -715,14 +717,14 @@ public sealed class SiteHygienePageTests
         vm.Sort(VM.FindingsGrid, nameof(FindingGridRow.Severity));
         Assert.True(await vm.SaveAsync());
         var saved = h.Saved!;
-        Assert.Equal((2, 1, "Devices", "Medium", "CLIENT", true, 500, true), (saved.SelectedTab, saved.RelationsTab, saved.Category, saved.Severity, saved.FindingText, saved.ShowSuppressed, saved.PauseMilliseconds, saved.ProbeContentSources));
+        Assert.Equal((2, 1, "Devices", "Warning", "CLIENT", true, 500, true), (saved.SelectedTab, saved.RelationsTab, saved.Category, saved.Severity, saved.FindingText, saved.ShowSuppressed, saved.PauseMilliseconds, saved.ProbeContentSources));
         Assert.Equal(17, saved.Areas!.Count);
         Assert.DoesNotContain("Devices", saved.Areas);
         Assert.Equal("Severity|Ascending", saved.Sorts![VM.FindingsGrid]);
 
         var again = new SiteHygienePageHarness { Saved = saved };
         var vm2 = await again.OpenAsync();
-        Assert.Equal((VM.SummaryTab, VM.TreeTab, "Devices", "Medium", 500), (vm2.SelectedTabIndex, vm2.RelationsTabIndex, vm2.CategoryFilter, vm2.SeverityFilter, vm2.PauseMilliseconds));
+        Assert.Equal((VM.SummaryTab, VM.TreeTab, "Devices", "Warning", 500), (vm2.SelectedTabIndex, vm2.RelationsTabIndex, vm2.CategoryFilter, vm2.SeverityFilter, vm2.PauseMilliseconds));
         Assert.False(vm2.AreaChoices.Single(a => a.Id == "Devices").IsChecked);
         Assert.Equal(("Severity", true), vm2.SortOf(VM.FindingsGrid));
 
@@ -761,7 +763,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(["Set-CMSiteMaintenanceTask -SiteCode MCM -MaintenanceTaskName 'Backup SMS Site Server' -Enabled $true"], h.Dialogs.Clipboard);
         Select(vm, h.Boundary);
         Assert.False(vm.CopyFixTextCommand.CanExecute(null));
-        Assert.Equal("This finding has no typed fix. It is for report only.", vm.DetailFixText);
+        Assert.Equal(SiteHygieneLabels.ReportOnlyReason(HygieneFixKind.None), vm.DetailFixText);
         vm.SetSelectedFindings([]);
         Assert.Equal(VM.NoFindingSelected, vm.DetailTitle);
     }
@@ -776,7 +778,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(VM.ScanFailed, vm.StatusMessage);
         Assert.Equal(8, vm.FindingRows.Count);
         Assert.DoesNotContain(h.Log.Entries, e => e.Message.Contains("hunter2", StringComparison.Ordinal));
-        h.Service.ScanFailure = new SiteHygieneServiceException("The SMS Provider refused the read of the boundaries.");
+        h.Service.ScanFailure = new HygieneServiceException("The SMS Provider refused the read of the boundaries.");
         await vm.ScanCommand.ExecuteAsync(null);
         Assert.Equal("The SMS Provider refused the read of the boundaries.", vm.StatusMessage);
     }
@@ -794,9 +796,146 @@ public sealed class SiteHygienePageTests
     [Fact]
     public void TheFindingKeyUsesTheObjectKeySoTwoObjectsWithOneNameStayTwoRows()
     {
-        var a = Finding("APP-01", "Applications", HygieneSeverity.Medium, "Application", "16777300", "Contoso Fonts", HygieneFixKind.RemoveApplication);
+        var a = Finding("APP-01", "Applications", HygieneSeverity.Warning, "Application", "16777300", "Contoso Fonts", HygieneFixKind.RemoveApplication);
         var b = a with { ObjectKey = "16777301" };
         Assert.NotEqual(SiteHygieneLabels.Key(a), SiteHygieneLabels.Key(b));
         Assert.Equal(SiteHygieneLabels.Key(a), SiteHygieneLabels.Key(a with { ObjectName = "Renamed" }));
+        Assert.Equal(SiteHygieneLabels.Key(a), SiteHygieneLabels.Key(a.CheckId.ToLowerInvariant(), a.ObjectKey));
+        Assert.Equal(a.Key.ToUpperInvariant(), SiteHygieneLabels.Key(a));
+    }
+
+    [Fact]
+    public async Task AReportOnlyFixKindDisablesRunFixWithTheReasonAndItsTextStaysCopyable()
+    {
+        var h = new SiteHygienePageHarness();
+        var resume = Finding("SUP-03", "Relationships", HygieneSeverity.Warning, "Application", "ScopeId_1/Application_2", "Contoso Viewer 3", HygieneFixKind.ResumeApplication,
+            "Resume-CMApplication -ModelName 'ScopeId_1/Application_2'");
+        var guided = Finding("DPT-01", "Distribution Points", HygieneSeverity.Warning, "DistributionPoint", "cm01.contoso.com", "cm01.contoso.com", HygieneFixKind.None)
+            with { Guidance = "Add the distribution point to a boundary group in the console." };
+        h.Service.Findings.AddRange([resume, guided]);
+        var vm = await h.ScannedAsync();
+        Assert.Equal("Report only", Row(vm, resume).Fix);
+        Assert.Equal("Report only", Row(vm, h.Boundary).Fix);
+        Assert.Equal("Delete application", Row(vm, h.UnusedApp).Fix);
+
+        Select(vm, resume);
+        Assert.False(vm.RunFixCommand.CanExecute(null));
+        Assert.True(vm.HasRunFixHint);
+        Assert.Equal(SiteHygieneLabels.ReportOnlyReason(HygieneFixKind.ResumeApplication), vm.RunFixHint);
+        Assert.Contains("reinstate application", vm.RunFixHint);
+        Assert.Contains("Run fix is not available; the PowerShell text can be copied.", vm.DetailFixNote);
+        Assert.Equal("Resume-CMApplication -ModelName 'ScopeId_1/Application_2'", vm.DetailFixText);
+        Assert.True(vm.CopyFixTextCommand.CanExecute(null));
+        vm.CopyFixTextCommand.Execute(null);
+        Assert.Equal(["Resume-CMApplication -ModelName 'ScopeId_1/Application_2'"], h.Dialogs.Clipboard);
+        await vm.RunFixCommand.ExecuteAsync(null);
+        Assert.Equal(vm.RunFixHint, vm.StatusMessage);
+
+        Select(vm, guided);
+        Assert.False(vm.RunFixCommand.CanExecute(null));
+        Assert.Equal("Guidance: Add the distribution point to a boundary group in the console.", vm.DetailFixNote);
+
+        Select(vm, h.UnusedApp);
+        Assert.True(vm.RunFixCommand.CanExecute(null));
+        Assert.False(vm.HasRunFixHint);
+        Assert.Equal(0, h.Service.PrepareCalls);
+        foreach (var kind in new[] { HygieneFixKind.SetCollectionSchedule, HygieneFixKind.SetBoundaryGroup, HygieneFixKind.ResumeApplication, HygieneFixKind.None })
+            Assert.False(SiteHygieneLabels.CanRun(kind));
+    }
+
+    [Fact]
+    public async Task AMixedSelectionPlansTheOneFixAndNamesWhatWasLeftOutAndTwoFixesNeedTwoRuns()
+    {
+        var h = new SiteHygienePageHarness();
+        var vm = await h.ScannedAsync();
+        Select(vm, h.UnusedApp, h.EmptyCollection);
+        Assert.False(vm.RunFixCommand.CanExecute(null));
+        Assert.Equal(VM.MixedKinds([HygieneFixKind.RemoveApplication, HygieneFixKind.RemoveCollection]), vm.RunFixHint);
+
+        Select(vm, h.UnusedApp, h.Boundary);
+        Assert.True(vm.RunFixCommand.CanExecute(null));
+        await vm.RunFixCommand.ExecuteAsync(null);
+        Assert.Equal([h.UnusedApp], Assert.Single(h.Service.PrepareRequests).Findings);
+        Assert.Equal("Done", Assert.Single(vm.LastResults).OutcomeText);
+        Assert.EndsWith("1 selected finding had no fix or was suppressed and was not in the plan.", vm.StatusMessage);
+    }
+
+    [Fact]
+    public async Task InactiveDevicesAreOneRowPerDeviceSoEachHasItsOwnSuppressionAndPlanLine()
+    {
+        var h = new SiteHygienePageHarness();
+        var devices = new[] { ("16777222", "CLIENT02"), ("16777223", "CLIENT03") }.Select(d => Finding("DEV-01", "Devices", HygieneSeverity.Warning, "Device", d.Item1, d.Item2,
+            HygieneFixKind.RemoveDevice, $"Remove-CMDevice -ResourceId {d.Item1} -Force", evidence: $"{d.Item2} was last active 176 days ago.")).ToList();
+        h.Service.Findings.AddRange(devices);
+        var vm = await h.ScannedAsync();
+        Assert.Equal(2, vm.FindingRows.Count(r => r.CheckId == "DEV-01"));
+
+        Select(vm, devices[0]);
+        await vm.SuppressCommand.ExecuteAsync(null);
+        Assert.Equal(("DEV-01", "16777222"), (Assert.Single(h.Suppressions.Items).CheckId, h.Suppressions.Items[0].ObjectKey));
+        Assert.Equal("16777223", Assert.Single(vm.FindingRows, r => r.CheckId == "DEV-01").Finding.ObjectKey);
+
+        vm.ShowSuppressed = true;
+        await vm.UnsuppressCommand.ExecuteAsync(null);
+        Select(vm, devices[0], devices[1]);
+        await vm.RunFixCommand.ExecuteAsync(null);
+        var plan = Assert.Single(h.Plans.Shown);
+        Assert.Equal(["Device CLIENT02 (16777222)", "Device CLIENT03 (16777223)"], plan.Items.Select(i => i.Target));
+        Assert.Equal(SiteHygieneText.DeleteConfirmation(2), plan.ExtraConfirmation);
+        Assert.Equal(["Done", "Done"], vm.LastResults.Select(r => r.OutcomeText));
+    }
+
+    [Fact]
+    public async Task ChecksOfAreasThatWereNotScannedAreNotSelectedAndNeverCountAsChecksThatDidNotRun()
+    {
+        var h = new SiteHygienePageHarness();
+        h.Service.Checks.Add(new HygieneCheckStatus(CheckId: "UPD-01", Name: "Update group with high expired-update ratio", Category: "Updates", State: HygieneCheckStates.NotSelected, Findings: 0,
+            Reason: "No selected area covers the check."));
+        h.Service.Checks.Add(new HygieneCheckStatus(CheckId: "UPD-03", Name: "Automatic deployment rule disabled, stale, or erroring", Category: "Updates", State: HygieneCheckStates.NotSelected,
+            Findings: 0, Reason: "No selected area covers the check."));
+        var vm = await h.ScannedAsync();
+        Assert.Contains("2 checks did not run.", vm.SummaryLine);
+        Assert.Contains("2 checks were not in the scanned areas.", vm.SummaryLine);
+        Assert.DoesNotContain("UPD-01", vm.NotRunText);
+        Assert.Equal(("Not selected", "Not known"), (vm.CheckRows.Single(c => c.CheckId == "UPD-01").State, vm.CheckRows.Single(c => c.CheckId == "UPD-01").Findings));
+        var updates = vm.CategoryRows.Single(r => r.Category == "Updates");
+        Assert.Equal(("Not known", "0"), (updates.Total, updates.NotRun));
+
+        await vm.ExportCsvCommand.ExecuteAsync(null);
+        var report = h.Reports.Written[^1].Report;
+        Assert.Equal(2, report.ChecksNotRun.Count);
+        Assert.Contains("2 checks were not in the scanned areas.", report.Note);
+        Assert.Equal(h.Service.ScannedUtc, report.ScannedUtc);
+    }
+
+    [Fact]
+    public async Task APreparedChangeWithSeveralObjectsPerFindingListsEveryObjectAndEachTakesTheOutcomeOfItsFinding()
+    {
+        var h = new SiteHygienePageHarness();
+        h.Service.InConfirmedRun = null;
+        var retired = h.RetiredDeployed;
+        var targets = new[] { "{A1}", "{A2}" }.Select(id => new HygieneTarget(FindingKey: retired.Key, ObjectType: "Deployment", ObjectKey: id, ObjectName: "Contoso Printer Drivers", Detail: "to All Desktops " + id)).ToList();
+        var left = h.UnusedApp with { FixKind = HygieneFixKind.RemoveApplicationDeployment };
+        var prepared = new HygieneChange(HygieneFixKind.RemoveApplicationDeployment, [retired], false, ["Delete 2 objects: remove the application deployments. A delete cannot be undone. There is no Undo."],
+            [new PreflightCheck("Objects", "Pass", "1 finding holds."), new PreflightCheck("Dropped", "Warn", "1 finding was left out of the plan.")], "fp-targets")
+        {
+            Targets = targets,
+            FixText = "Remove-CMApplicationDeployment -DeploymentId '{A1}' -Force\r\nRemove-CMApplicationDeployment -DeploymentId '{A2}' -Force",
+            Dropped = [new HygieneObjectOutcome(left, HygieneResults.Skipped, "Skipped: the finding no longer holds: the application has no deployment now.")]
+        };
+        var (plan, problem) = SiteHygieneText.BuildPlan(prepared);
+        Assert.Null(problem);
+        Assert.Equal(["Deployment Contoso Printer Drivers ({A1})", "Deployment Contoso Printer Drivers ({A2})"], plan!.Plan.Items.Select(i => i.Target));
+        Assert.Equal("APP-02: to All Desktops {A1}", plan.Plan.Items[0].Detail);
+        Assert.Equal(SiteHygieneText.DeleteConfirmation(2), plan.Plan.ExtraConfirmation);
+        Assert.Equal(prepared.FixText, plan.Plan.Body);
+        Assert.Equal("Dropped: Warn. 1 finding was left out of the plan.", plan.Plan.Notes[0]);
+        Assert.Contains("Left out: Application Contoso Fonts 2.1 (16777300). Skipped: the finding no longer holds: the application has no deployment now.", plan.Plan.Notes);
+
+        var dialog = new ChangePlanViewModel(plan.Plan, h.Writer().RunFor(plan)) { DestructiveAcknowledged = true, ExtraAcknowledged = true };
+        ScriptedPlanDialogs.Wait(dialog.ConfirmCommand.ExecuteAsync(null));
+        Assert.Equal(["Done", "Done"], dialog.Outcome.Result!.Items.Select(r => r.OutcomeText));
+        Assert.True(Assert.Single(h.Service.Applied).ChangeConfirmed);
+        Assert.Equal([SiteHygieneLabels.Key(retired)], plan.DoneKeys());
     }
 }

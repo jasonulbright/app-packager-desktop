@@ -178,7 +178,8 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     private IReadOnlyList<FindingGridRow> _selectedFindings = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasDetail), nameof(DetailTitle), nameof(DetailObject), nameof(DetailEvidence), nameof(DetailRecommendation), nameof(DetailFixText), nameof(HasDetailFixText))]
+    [NotifyPropertyChangedFor(nameof(HasDetail), nameof(DetailTitle), nameof(DetailObject), nameof(DetailEvidence), nameof(DetailRecommendation), nameof(DetailFixText), nameof(HasDetailFixText),
+        nameof(DetailFixNote), nameof(HasDetailFixNote))]
     [NotifyCanExecuteChangedFor(nameof(CopyFixTextCommand))]
     private FindingGridRow? _detailFinding;
 
@@ -193,10 +194,26 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     public string DetailRecommendation => DetailFinding is { } d ? $"Recommended action: {d.Finding.Recommendation}" : "";
 
     public string DetailFixText => DetailFinding is { } d
-        ? d.Finding.FixText is { Length: > 0 } text ? text : "This finding has no typed fix. It is for report only."
+        ? d.Finding.FixText is { Length: > 0 } text ? text : SiteHygieneLabels.ReportOnlyReason(d.Finding.FixKind) is { Length: > 0 } reason ? reason : "The service gave no PowerShell text for this fix."
         : "";
 
     public bool HasDetailFixText => DetailFinding?.Finding.FixText is { Length: > 0 };
+
+    /// <summary>Why Run fix does not run this finding, and the console guidance of a report-only finding; empty for a finding with a fix.</summary>
+    public string DetailFixNote
+    {
+        get
+        {
+            if (DetailFinding is not { } d) return "";
+            var parts = new List<string>();
+            if (!SiteHygieneLabels.IsFixable(d.Finding) && d.Finding.FixText is { Length: > 0 })
+                parts.Add(SiteHygieneLabels.ReportOnlyReason(d.Finding.FixKind) + " Run fix is not available; the PowerShell text can be copied.");
+            if (d.Finding.Guidance is { Length: > 0 } guidance) parts.Add("Guidance: " + guidance);
+            return string.Join(" ", parts);
+        }
+    }
+
+    public bool HasDetailFixNote => DetailFixNote.Length > 0;
 
     private string SuppressionText(FindingGridRow row) =>
         _suppressions.TryGetValue(row.Key, out var s) ? $" on {SiteHygieneLabels.Time(s.CreatedUtc)}: {s.Comment}" : "";
@@ -264,7 +281,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     /// <summary>A message for the operator: the service's plain text with the setting to check, or the fallback.</summary>
     public static string PlainMessage(Exception ex, string fallback) => ex switch
     {
-        SiteHygieneServiceException h => SecretMask.Apply(h.Message),
+        HygieneServiceException h => SecretMask.Apply(h.Message),
         ConfigMgrSessionException { Failure: ConfigMgrFailure.InvalidSiteCode or ConfigMgrFailure.DriveNotConnected or ConfigMgrFailure.ModuleNotFound } s
             => SecretMask.Apply(s.Message) + CollectionComplianceViewModel.SiteHint,
         ConfigMgrSessionException { Failure: ConfigMgrFailure.AccessDenied } s => SecretMask.Apply(s.Message) + AccessHint,
@@ -362,9 +379,11 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
                 return;
             }
             var suppressions = await Task.Run(ReadSuppressions);
+            var lastKeys = await Task.Run(ReadLastKeys);
             if (mine != _scanGeneration) return;
+            result = MarkNew(result, lastKeys);
             Show(result, stored: false, suppressions);
-            var notRun = result.Checks.Count(c => !SiteHygieneLabels.DidRun(c));
+            var notRun = result.Checks.Count(SiteHygieneLabels.IsNotRun);
             StatusMessage = $"The scan ended: {SiteHygieneLabels.Count(result.Findings.Count, "finding")}, {SiteHygieneLabels.Count(result.Checks.Count, "check")}"
                 + (notRun > 0 ? $", {SiteHygieneLabels.Number(notRun)} did not run." : ".")
                 + (full ? "" : " The scan covered part of the areas, so it is not stored as the last scan.");
@@ -397,6 +416,27 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             Services.Log.Warning(LogArea, $"The scan result could not be stored ({ex.GetType().Name}).");
             StatusMessage += " The result could not be stored as the last scan, so the next start shows no stored result.";
         }
+    }
+
+    /// <summary>The finding keys of the stored last scan; null when there is none or it cannot be read.</summary>
+    private IReadOnlySet<string>? ReadLastKeys()
+    {
+        try { return Services.ScanStore.Keys(); }
+        catch (Exception ex)
+        {
+            Services.Log.Warning(LogArea, $"The keys of the last scan could not be read ({ex.GetType().Name}).");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Sets the New flag of each finding from the keys of the last scan: new when the last scan did not
+    /// hold its key. Without a last scan no finding is new, as the page cannot tell.
+    /// </summary>
+    public static HygieneScanResult MarkNew(HygieneScanResult result, IReadOnlySet<string>? lastKeys)
+    {
+        var last = lastKeys?.Select(k => k.ToUpperInvariant()).ToHashSet(StringComparer.Ordinal);
+        return result with { Findings = result.Findings.Select(f => f with { IsNew = last is not null && !last.Contains(SiteHygieneLabels.Key(f)) }).ToList() };
     }
 
     private Dictionary<string, Suppression> ReadSuppressions()
@@ -473,15 +513,17 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         var live = LiveRows.ToList();
         var shown = live.Where(r => !r.IsSuppressed).ToList();
         var suppressed = live.Count - shown.Count;
-        var notRun = result.Checks.Where(c => !SiteHygieneLabels.DidRun(c)).ToList();
-        var noneRan = result.Checks.Count > 0 && notRun.Count == result.Checks.Count;
+        var notRun = result.Checks.Where(SiteHygieneLabels.IsNotRun).ToList();
+        var notSelected = result.Checks.Count(SiteHygieneLabels.WasNotSelected);
+        var noneRan = result.Checks.Count > 0 && result.Checks.All(c => !SiteHygieneLabels.DidRun(c));
         var parts = new List<string>();
         if (result.Truncated) parts.Add("The read was truncated, so the counts are not known.");
         else if (noneRan) parts.Add("No check ran, so the counts are not known.");
-        else parts.Add(string.Join(", ", SiteHygieneLabels.Severities.Select(s => $"{SiteHygieneLabels.Number(shown.Count(r => r.Finding.Severity == s))} {SiteHygieneLabels.SeverityName(s).ToLowerInvariant()}")) + ".");
+        else parts.Add(string.Join(", ", SiteHygieneLabels.Severities.Select(s => SiteHygieneLabels.SeverityCount(s, shown.Count(r => r.Finding.Severity == s)))) + ".");
         parts.Add($"{SiteHygieneLabels.Number(suppressed)} suppressed.");
         parts.Add($"Last scan {SiteHygieneLabels.Time(result.ScannedUtc)}{(_isStored ? " (stored result, not read from the site in this session)" : "")}.");
         if (notRun.Count > 0) parts.Add($"{SiteHygieneLabels.Count(notRun.Count, "check")} did not run.");
+        if (notSelected > 0) parts.Add($"{SiteHygieneLabels.Count(notSelected, "check")} {(notSelected == 1 ? "was" : "were")} not in the scanned areas.");
         if (_fixedKeys.Count > 0) parts.Add($"{SiteHygieneLabels.Count(_fixedKeys.Count, "finding")} fixed since the scan.");
         if (result.Note is { Length: > 0 } note) parts.Add(SecretMask.Apply(note));
         SummaryLine = string.Join(" ", parts);
@@ -506,20 +548,20 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             var checks = result.Checks.Where(c => string.Equals(c.Category, name, StringComparison.OrdinalIgnoreCase)).ToList();
             var mine = shown.Where(r => string.Equals(r.Category, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (checks.Count == 0 && mine.Count == 0) continue;
-            var notRun = checks.Count(c => !SiteHygieneLabels.DidRun(c));
-            var unknown = result.Truncated || (checks.Count > 0 && notRun == checks.Count);
+            var notRun = checks.Count(SiteHygieneLabels.IsNotRun);
+            var unknown = result.Truncated || (checks.Count > 0 && checks.All(c => !SiteHygieneLabels.DidRun(c)));
             rows.Add(Row(name, mine, unknown, notRun));
         }
-        var allNotRun = result.Checks.Count(c => !SiteHygieneLabels.DidRun(c));
-        rows.Add(Row("All categories", shown, result.Truncated || (result.Checks.Count > 0 && allNotRun == result.Checks.Count), allNotRun));
+        var allNotRun = result.Checks.Count(SiteHygieneLabels.IsNotRun);
+        rows.Add(Row("All categories", shown, result.Truncated || (result.Checks.Count > 0 && result.Checks.All(c => !SiteHygieneLabels.DidRun(c))), allNotRun));
         return rows;
     }
 
     private static SummaryCategoryRow Row(string name, List<FindingGridRow> rows, bool unknown, int notRun)
     {
         string Cell(Func<FindingGridRow, bool> match) => unknown ? "Not known" : SiteHygieneLabels.Number(rows.Count(match));
-        return new SummaryCategoryRow(name, Cell(r => r.Finding.Severity == HygieneSeverity.High), Cell(r => r.Finding.Severity == HygieneSeverity.Medium),
-            Cell(r => r.Finding.Severity == HygieneSeverity.Low), Cell(r => r.Finding.Severity == HygieneSeverity.Info), Cell(_ => true), SiteHygieneLabels.Number(notRun));
+        return new SummaryCategoryRow(Category: name, Error: Cell(r => r.Finding.Severity == HygieneSeverity.Error), Warning: Cell(r => r.Finding.Severity == HygieneSeverity.Warning),
+            Info: Cell(r => r.Finding.Severity == HygieneSeverity.Info), Total: Cell(_ => true), NotRun: SiteHygieneLabels.Number(notRun));
     }
 
     partial void OnFindingTextChanged(string value) => Debounce(FindingsGrid, ApplyFindingFilter);

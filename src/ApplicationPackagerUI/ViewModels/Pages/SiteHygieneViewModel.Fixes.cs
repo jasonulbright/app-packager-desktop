@@ -50,9 +50,35 @@ public sealed partial class SiteHygieneViewModel
 
     private bool CanAct() => !IsWriting;
 
+    /// <summary>Run fix is available while no fix runs and the selection holds a finding this page can fix.</summary>
+    private bool CanRunFix() => !IsWriting && RunFixHint.Length == 0;
+
+    /// <summary>Why Run fix is not available for the selection; empty when it is, or when nothing is selected.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRunFixHint))]
+    [NotifyCanExecuteChangedFor(nameof(RunFixCommand))]
+    private string _runFixHint = "";
+
+    public bool HasRunFixHint => RunFixHint.Length > 0;
+
+    partial void OnSelectedFindingsChanged(IReadOnlyList<FindingGridRow> value) => RunFixHint = FixHint(value) ?? "";
+
+    /// <summary>The reason a selection cannot go to a plan; null when it can.</summary>
+    public static string? FixHint(IReadOnlyList<FindingGridRow> selected)
+    {
+        if (selected.Count == 0) return null;
+        var open = selected.Where(r => !r.IsSuppressed).ToList();
+        if (open.Count == 0) return SuppressedSelection;
+        var runnable = open.Where(r => SiteHygieneLabels.IsFixable(r.Finding)).Select(r => r.Finding.FixKind).Distinct().ToList();
+        if (runnable.Count > 1) return MixedKinds(runnable);
+        if (runnable.Count == 1) return null;
+        var kinds = open.Select(r => r.Finding.FixKind).Distinct().ToList();
+        return kinds.Count == 1 ? SiteHygieneLabels.ReportOnlyReason(kinds[0]) : ReportOnly;
+    }
+
     private string SelectionKey() => string.Join(",", SelectedFindings.Select(r => r.Key).Order(StringComparer.Ordinal));
 
-    [RelayCommand(CanExecute = nameof(CanAct))]
+    [RelayCommand(CanExecute = nameof(CanRunFix))]
     private async Task RunFix()
     {
         if (IsWriting)
@@ -76,19 +102,13 @@ public sealed partial class SiteHygieneViewModel
             StatusMessage = SelectFindings;
             return;
         }
+        if (FixHint(selected) is { } hint)
+        {
+            StatusMessage = hint;
+            return;
+        }
         var candidates = selected.Where(r => !r.IsSuppressed && SiteHygieneLabels.IsFixable(r.Finding)).ToList();
-        if (candidates.Count == 0)
-        {
-            StatusMessage = selected.All(r => r.IsSuppressed) ? SuppressedSelection : ReportOnly;
-            return;
-        }
-        var kinds = candidates.Select(r => r.Finding.FixKind).Distinct().ToList();
-        if (kinds.Count > 1)
-        {
-            StatusMessage = MixedKinds(kinds);
-            return;
-        }
-        var kind = kinds[0];
+        var kind = candidates[0].Finding.FixKind;
         IReadOnlyList<HygieneFinding> picked = candidates.Select(r => r.Finding).ToList();
         if (picked.Count > 1)
         {
@@ -326,17 +346,23 @@ public sealed partial class SiteHygieneViewModel
     public static string FilterText(params (string Value, string Name)[] filters) =>
         string.Join(" ", filters.Where(f => !string.IsNullOrWhiteSpace(f.Value)).Select(f => $"{f.Name}: {f.Value.Trim()}."));
 
-    /// <summary>The truncation and the checks that did not run, for the file header; null when every check ran on a full read.</summary>
+    /// <summary>The truncation, the note of the scan and the source of the result, for the file header; null when there is nothing to say.</summary>
     private string? ScanNote()
     {
         if (_result is not { } result) return null;
         var parts = new List<string>();
         if (result.Truncated) parts.Add("The read was truncated: the findings are not complete.");
-        var notRun = result.Checks.Where(c => !SiteHygieneLabels.DidRun(c)).ToList();
-        if (notRun.Count > 0) parts.Add($"{SiteHygieneLabels.Count(notRun.Count, "check")} did not run: " + string.Join(", ", notRun.Select(c => c.CheckId)) + ".");
-        parts.Add($"Scan of {result.ScannedUtc.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)}{(_isStored ? ", stored result" : "")}.");
-        return string.Join(" ", parts);
+        if (result.Note is { Length: > 0 } note) parts.Add(SecretMask.Apply(note));
+        var notSelected = result.Checks.Count(SiteHygieneLabels.WasNotSelected);
+        if (notSelected > 0) parts.Add($"{SiteHygieneLabels.Count(notSelected, "check")} {(notSelected == 1 ? "was" : "were")} not in the scanned areas.");
+        if (_isStored) parts.Add("Stored result of the last scan, not read from the site in this session.");
+        return parts.Count == 0 ? null : string.Join(" ", parts);
     }
+
+    /// <summary>Each check that did not run as "ID: reason", for the file header.</summary>
+    private IReadOnlyList<string> ChecksNotRunLines() =>
+        (_result?.Checks ?? []).Where(SiteHygieneLabels.IsNotRun)
+            .Select(c => $"{c.CheckId}: {SiteHygieneLabels.StateText(c.State)}.{(c.Reason is { Length: > 0 } r ? " " + SecretMask.Apply(r) : "")}").ToList();
 
     /// <summary>The rows of the active view as the filters show them; null with the reason when the view has nothing.</summary>
     public (HygieneReport? Report, string? Problem) ActiveReport()
@@ -355,17 +381,20 @@ public sealed partial class SiteHygieneViewModel
                 { Filter = FilterText((EdgeText, "Text"), (EdgeKind == AllText ? "" : EdgeKind, "Kind")) }, null);
             case SummaryTab:
                 if (_result is not { } summary) return (null, ExportNotScanned);
-                return (new HygieneReport("Check status", ["Check", "Name", "Category", "State", "Findings", "Reason"],
-                    CheckRows.Select(r => (IReadOnlyList<string>)[r.CheckId, r.Name, r.Category, r.State, r.Findings, r.Reason]).ToList(), summary.Truncated, ScanNote()), null);
+                return (new HygieneReport("Check status", ["Check", "Name", "Category", "Severity", "State", "Findings", "Reason"],
+                    CheckRows.Select(r => (IReadOnlyList<string>)[r.CheckId, r.Name, r.Category, SiteHygieneLabels.SeverityName(r.Check.Severity), r.State, r.Findings, r.Reason]).ToList(),
+                    summary.Truncated, ScanNote()) { ChecksNotRun = ChecksNotRunLines(), ScannedUtc = summary.ScannedUtc }, null);
             default:
                 if (_result is not { } scan) return (null, ExportNotScanned);
                 return (new HygieneReport("Findings", ["Severity", "Check", "Category", "Object type", "Object key", "Object", "Evidence", "Recommended action", "New", "Fix", "Suppressed"],
                     FindingRows.Select(r => (IReadOnlyList<string>)[SiteHygieneLabels.SeverityName(r.Finding.Severity), r.CheckId, r.Category, r.Finding.ObjectType, r.Finding.ObjectKey,
-                        r.Finding.ObjectName, r.Finding.Evidence, r.Finding.Recommendation, r.Finding.IsNew ? "Yes" : "No", SiteHygieneLabels.FixLabel(r.Finding.FixKind), r.IsSuppressed ? "Yes" : "No"]).ToList(),
+                        r.Finding.ObjectName, r.Finding.Evidence, r.Finding.Recommendation, r.Finding.IsNew ? "Yes" : "No", SiteHygieneLabels.FixColumn(r.Finding.FixKind), r.IsSuppressed ? "Yes" : "No"]).ToList(),
                     scan.Truncated, ScanNote())
                 {
                     Filter = FilterText((FindingText, "Text"), (CategoryFilter == AllText ? "" : CategoryFilter, "Category"), (SeverityFilter == AllText ? "" : SeverityFilter, "Severity"),
-                        (ShowSuppressed ? "shown" : "", "Suppressed"))
+                        (ShowSuppressed ? "shown" : "", "Suppressed")),
+                    ChecksNotRun = ChecksNotRunLines(),
+                    ScannedUtc = scan.ScannedUtc
                 }, null);
         }
     }
@@ -388,7 +417,7 @@ public sealed partial class SiteHygieneViewModel
         try { path = await Task.Run(() => write(report)); }
         catch (Exception ex)
         {
-            StatusMessage = ex is SiteHygieneServiceException ? PlainMessage(ex, ReportFailed(format)) : ReportFailed(format);
+            StatusMessage = ex is HygieneServiceException ? PlainMessage(ex, ReportFailed(format)) : ReportFailed(format);
             Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }

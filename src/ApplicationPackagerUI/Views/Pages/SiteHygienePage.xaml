@@ -207,7 +207,10 @@
                                        ToolTip="Hides the selected findings with a comment. A suppression is kept by check and object." AutomationProperties.AutomationId="btnHygieneSuppress" />
                             <ui:Button Content="Unsuppress" Icon="{ui:SymbolIcon Eye24}" Command="{Binding UnsuppressCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Removes the suppression of the selected findings." AutomationProperties.AutomationId="btnHygieneUnsuppress" />
-                            <TextBlock Text="Select several rows with Shift or Ctrl." Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" />
+                            <TextBlock Text="Select several rows with Shift or Ctrl." Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,12,8" />
+                            <TextBlock Text="{Binding RunFixHint}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="720"
+                                       Visibility="{Binding HasRunFixHint, Converter={StaticResource BoolToVisibility}}"
+                                       AutomationProperties.AutomationId="txtRunFixHint" AutomationProperties.LiveSetting="Polite" />
                         </WrapPanel>
                         <DataGrid Grid.Row="2" x:Name="dgFindings" KeyboardNavigation.TabIndex="1" Tag="findings" Style="{StaticResource GridBase}" ItemsSource="{Binding FindingRows}"
                                   SelectionMode="Extended" SelectionChanged="OnFindingsSelectionChanged" AutomationProperties.AutomationId="dgFindings" AutomationProperties.Name="Findings">
@@ -234,6 +237,8 @@
                                            Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}" />
                                 <TextBlock Text="{Binding DetailRecommendation}" Style="{StaticResource DetailLine}" AutomationProperties.AutomationId="txtFindingDetailRecommendation"
                                            Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}" />
+                                <TextBlock Text="{Binding DetailFixNote}" Style="{StaticResource DetailLine}" AutomationProperties.AutomationId="txtFindingDetailFixNote"
+                                           Visibility="{Binding HasDetailFixNote, Converter={StaticResource BoolToVisibility}}" />
                                 <DockPanel Margin="0,6,0,0" Visibility="{Binding HasDetail, Converter={StaticResource BoolToVisibility}}">
                                     <ui:Button DockPanel.Dock="Right" Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyFixTextCommand}" Margin="8,0,0,0" VerticalAlignment="Top"
                                                ToolTip="Copies the PowerShell text of the fix. The page runs the typed fix, not this text." AutomationProperties.Name="Copy the PowerShell text of the fix"
@@ -327,9 +332,8 @@
                                   AutomationProperties.AutomationId="dgCategories" AutomationProperties.Name="Findings by category and severity">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="High" Binding="{Binding High}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Medium" Binding="{Binding Medium}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Low" Binding="{Binding Low}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Warning" Binding="{Binding Warning}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Info" Binding="{Binding Info}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Total" Binding="{Binding Total}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Checks not run" Binding="{Binding NotRun}" Width="140" MinWidth="136" ElementStyle="{StaticResource TrimmedCell}" />

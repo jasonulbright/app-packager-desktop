@@ -72,7 +72,7 @@ public sealed class SiteHygieneRenderTests
     {
         Run(viewModel.ScanAsync());
         Run(viewModel.LoadRelationsAsync());
-        viewModel.SetSelectedFindings([viewModel.FindingRows.First(r => r.Finding.FixKind == HygieneFixKind.SetCollectionSchedule)]);
+        viewModel.SetSelectedFindings([viewModel.FindingRows.First(r => r.Finding.FixKind == HygieneFixKind.SetCollectionRefreshType)]);
         Run(viewModel.RunFixCommand.ExecuteAsync(null));
         viewModel.SetSelectedFindings([viewModel.FindingRows[1]]);
         Settle(window);
@@ -168,20 +168,20 @@ public sealed class SiteHygieneRenderTests
         yield return ("dgFindings", "Suppressed", "Yes");
         foreach (var kind in Enum.GetValues<HygieneFixKind>())
         {
-            yield return ("dgFindings", "Fix", SiteHygieneLabels.FixLabel(kind));
+            yield return ("dgFindings", "Fix", SiteHygieneLabels.FixColumn(kind));
             yield return ("dgHygieneResults", "Fix", SiteHygieneLabels.FixLabel(kind));
         }
         foreach (var result in new[] { "Done", "Unchanged", "Failed", "Skipped" }) yield return ("dgHygieneResults", "Result", result);
         yield return ("dgEdges", "Kind", "Depends on");
         yield return ("dgEdges", "Kind", "Supersedes");
-        foreach (var header in new[] { "High", "Medium", "Low", "Info", "Total" })
+        foreach (var header in new[] { "Error", "Warning", "Info", "Total" })
         {
             yield return ("dgCategories", header, "Not known");
             yield return ("dgCategories", header, "123,456");
         }
         yield return ("dgCategories", "Checks not run", "57");
         yield return ("dgChecks", "Check", "COL-10");
-        foreach (var state in new[] { "Ran", "NotRun", "NeedsSiteDatabase", "Failed" }) yield return ("dgChecks", "State", SiteHygieneLabels.StateText(state));
+        foreach (var state in new[] { "Ran", "NotRun", "NotSelected", "NeedsSiteDatabase", "Failed" }) yield return ("dgChecks", "State", SiteHygieneLabels.StateText(state));
         yield return ("dgChecks", "Findings", "Not known");
         yield return ("dgChecks", "Findings", "123,456");
     }
@@ -333,6 +333,8 @@ public sealed class SiteHygieneRenderTests
             Assert.All(AllGrids.Select(g => (DataGrid)page.FindName(g.Grid)), g => Assert.Equal(KeyboardNavigationMode.Once, KeyboardNavigation.GetTabNavigation(g)));
             Assert.All(AllGrids.Select(g => (DataGrid)page.FindName(g.Grid)), g => Assert.True(ApplicationPackagerUI.Helpers.DataGridRightClick.GetSelectsRow(g)));
 
+            // The Fix column sorts a finding with a fix first: a report-only finding disables Run fix, and Tab then skips it.
+            viewModel.Sort(VM.FindingsGrid, nameof(FindingGridRow.Fix));
             viewModel.SetSelectedFindings([]);
             Settle(window);
             var finding = TabInto(window, ById<UIElement>(page, "chkShowSuppressed"), ById<DataGrid>(page, "dgFindings"));
@@ -493,7 +495,7 @@ public sealed class SiteHygieneRenderTests
     private static SiteHygienePlan DeletePlan(int count)
     {
         var h = SiteHygienePageHarness.Large(0, LongText);
-        var findings = Enumerable.Range(0, count).Select(i => SiteHygienePageHarness.Finding("APP-01", "Applications", HygieneSeverity.Medium, "Application", $"{16_777_300 + i}", $"{LongText} {i}",
+        var findings = Enumerable.Range(0, count).Select(i => SiteHygienePageHarness.Finding("APP-01", "Applications", HygieneSeverity.Warning, "Application", $"{16_777_300 + i}", $"{LongText} {i}",
             HygieneFixKind.RemoveApplication)).ToList();
         var prepared = h.Service.PrepareAsync(new HygieneChange(HygieneFixKind.RemoveApplication, findings, false, [], [], null), CancellationToken.None).Result;
         prepared = prepared with { Checks = prepared.Checks.Where(c => c.Name != "Cap").ToList() };

@@ -125,7 +125,8 @@ public sealed class SiteHygieneWriterTests
         Assert.True(SiteHygieneWriter.Row(item, "Skipped", "x").Skipped);
         Assert.Equal("Failed", SiteHygieneWriter.Row(item, "Odd", "x").OutcomeText);
         Assert.True(SiteHygieneWriter.Row(item, "Done", "x").Succeeded);
-        Assert.True(SiteHygieneWriter.Row(item, "Unchanged", "x").Succeeded);
+        Assert.False(SiteHygieneWriter.Row(item, "Unchanged", "x").Succeeded);
+        Assert.Equal("Unchanged", SiteHygieneWriter.Row(item, "Unchanged", "x").OutcomeText);
         Assert.False(SiteHygieneWriter.Row(item, "Failed", "x").Succeeded);
     }
 
@@ -154,12 +155,12 @@ public sealed class SiteHygieneWriterTests
         var naming = UiFilesWith(new Regex(@"\bISiteHygieneService\b", RegexOptions.CultureInvariant));
         Assert.Equal(
         [
-            P("Services", "SiteHygieneFallbacks.cs"), P("Services", "SiteHygienePlan.cs"), P("Services", "SiteHygienePrompts.cs"),
+            P("Services", "SiteHygienePlan.cs"), P("Services", "SiteHygienePrompts.cs"),
             P("ViewModels", "Pages", "SiteHygieneViewModel.cs")
         ], naming.Where(f => !f.EndsWith("PackagerServiceRegistration.cs", StringComparison.Ordinal)).ToList());
         Assert.Matches(@"\bservice\s*\.\s*ApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), P("Services", "SiteHygienePlan.cs")))));
         var pageFiles = UiFilesWith(new Regex(@"\bSiteHygiene|\bHygiene", RegexOptions.CultureInvariant))
-            .Where(f => !f.EndsWith("SiteHygienePlan.cs", StringComparison.Ordinal) && !f.EndsWith("SiteHygieneFallbacks.cs", StringComparison.Ordinal)).ToList();
+            .Where(f => !f.EndsWith("SiteHygienePlan.cs", StringComparison.Ordinal)).ToList();
         Assert.Contains(P("ViewModels", "Pages", "SiteHygieneViewModel.Fixes.cs"), pageFiles);
         foreach (var file in pageFiles)
             Assert.DoesNotMatch(@"\bApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), file))));
@@ -270,12 +271,20 @@ public sealed class SiteHygieneRegistrationTests : IDisposable
     }
 
     [Fact]
-    public async Task TheFallbackServiceSaysPlainlyThatItIsNotAvailable()
+    public void ThePageGetsTheRealServiceStoresAndReportWriterInTheDataFolder()
     {
         using var provider = Provider();
-        var service = provider.GetRequiredService<ISiteHygieneService>();
-        if (service.GetType().DeclaringType != typeof(SiteHygieneRegistration)) return;
-        var ex = await Assert.ThrowsAsync<SiteHygieneServiceException>(() => service.ScanAsync(new HygieneScanOptions(new HashSet<string>(), TimeSpan.Zero, false), new Progress<string>(), CancellationToken.None));
-        Assert.Equal(SiteHygieneRegistration.NotAvailable, ex.Message);
+        var services = provider.GetRequiredService<SiteHygienePageServices>();
+        Assert.IsType<SiteHygieneService>(services.Hygiene);
+        var suppressions = Assert.IsType<HygieneSuppressionStore>(services.Suppressions);
+        var scans = Assert.IsType<HygieneScanStore>(services.ScanStore);
+        var reports = Assert.IsType<HygieneReportWriter>(services.Reports);
+        var folder = HygieneFolders.Root();
+        Assert.StartsWith(_root, folder, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(Path.Combine(folder, HygieneSuppressionStore.FileName), suppressions.Path);
+        Assert.Equal(Path.Combine(folder, HygieneScanStore.FileName), scans.Path);
+        Assert.Equal(HygieneReportWriter.DefaultFolder(), reports.Folder);
+        Assert.Equal(reports.Folder, provider.GetRequiredService<SiteHygieneViewModel>().ReportFolder);
+        Assert.False(Directory.Exists(folder));
     }
 }

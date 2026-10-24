@@ -9,44 +9,26 @@ public sealed record HygieneArea(string Id, string Title);
 /// <summary>The words, keys and counts of the Site Hygiene page.</summary>
 public static class SiteHygieneLabels
 {
-    public const string Ran = "Ran";
-    public const string NotRun = "NotRun";
-    public const string NeedsSiteDatabase = "NeedsSiteDatabase";
-    public const string Failed = "Failed";
+    public const string Ran = HygieneCheckStates.Ran;
+    public const string NotRun = HygieneCheckStates.NotRun;
+    public const string NotSelected = HygieneCheckStates.NotSelected;
+    public const string NeedsSiteDatabase = HygieneCheckStates.NeedsSiteDatabase;
+    public const string Failed = HygieneCheckStates.Failed;
     public const string Unknown = "Unknown";
-    public const string Supersedes = "Supersedes";
-    public const string DependsOn = "DependsOn";
+    public const string Supersedes = RelationKinds.Supersedes;
+    public const string DependsOn = RelationKinds.DependsOn;
 
-    /// <summary>The scan areas in the order of the source tool.</summary>
-    public static readonly IReadOnlyList<HygieneArea> Areas =
-    [
-        new("Applications", "Applications"),
-        new("AppRelationships", "Application relationships and content paths"),
-        new("Content", "Content distribution"),
-        new("Packages", "Packages"),
-        new("Collections", "Collections"),
-        new("CollectionSchedules", "Collection evaluation schedules"),
-        new("Deployments", "Deployments"),
-        new("Devices", "Devices"),
-        new("Boundaries", "Boundaries"),
-        new("TaskSequences", "Task sequences"),
-        new("Updates", "Software updates"),
-        new("UpdateContent", "Software update package content"),
-        new("DistributionPoints", "Distribution points"),
-        new("Compliance", "Compliance and client settings"),
-        new("Drivers", "Drivers"),
-        new("Security", "Administrative users"),
-        new("MaintenanceWindows", "Maintenance windows"),
-        new("Site", "Site maintenance")
-    ];
+    /// <summary>The scan areas of the service, in its order.</summary>
+    public static readonly IReadOnlyList<HygieneArea> Areas = HygieneAreas.All.Select(a => new HygieneArea(a.Id, a.Title)).ToList();
 
     /// <summary>The severities from the most severe down, as the filter and the summary list them.</summary>
-    public static readonly IReadOnlyList<HygieneSeverity> Severities = [HygieneSeverity.High, HygieneSeverity.Medium, HygieneSeverity.Low, HygieneSeverity.Info];
+    public static readonly IReadOnlyList<HygieneSeverity> Severities = [HygieneSeverity.Error, HygieneSeverity.Warning, HygieneSeverity.Info];
 
     /// <summary>The key of a finding: the check and the stable object key, never the display name.</summary>
     public static string Key(HygieneFinding finding) => Key(finding.CheckId, finding.ObjectKey);
 
-    public static string Key(string checkId, string objectKey) => checkId.ToUpperInvariant() + "|" + objectKey.ToUpperInvariant();
+    /// <summary>The key of <see cref="HygieneFinding.KeyOf"/> in upper case, so an ordinal compare matches the case-insensitive compare of the stores.</summary>
+    public static string Key(string checkId, string objectKey) => HygieneFinding.KeyOf(checkId, objectKey).ToUpperInvariant();
 
     public static string Number(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
 
@@ -55,24 +37,42 @@ public static class SiteHygieneLabels
 
     public static string SeverityName(HygieneSeverity severity) => severity switch
     {
-        HygieneSeverity.High => "High",
-        HygieneSeverity.Medium => "Medium",
-        HygieneSeverity.Low => "Low",
+        HygieneSeverity.Error => "Error",
+        HygieneSeverity.Warning => "Warning",
         _ => "Info"
+    };
+
+    /// <summary>A count of findings of one severity for the summary line, for example "2 errors" or "1 info".</summary>
+    public static string SeverityCount(HygieneSeverity severity, int count) => severity switch
+    {
+        HygieneSeverity.Error => Count(count, "error"),
+        HygieneSeverity.Warning => Count(count, "warning"),
+        _ => $"{Number(count)} info"
     };
 
     /// <summary>The glyph and the word: the word carries the meaning, the glyph helps the eye.</summary>
     public static string SeverityText(HygieneSeverity severity) => severity switch
     {
-        HygieneSeverity.High => "✖ High",
-        HygieneSeverity.Medium => "▲ Medium",
-        HygieneSeverity.Low => "● Low",
+        HygieneSeverity.Error => "✖ Error",
+        HygieneSeverity.Warning => "▲ Warning",
         _ => "○ Info"
     };
 
-    public static bool IsDelete(HygieneFixKind kind) => kind.ToString().StartsWith("Remove", StringComparison.Ordinal);
+    public static bool IsDelete(HygieneFixKind kind) => HygieneFixKinds.IsDelete(kind);
 
-    public static bool IsFixable(HygieneFinding finding) => finding.FixKind != HygieneFixKind.None;
+    /// <summary>True when the service runs the fix kind; every other kind, None included, is report-only.</summary>
+    public static bool CanRun(HygieneFixKind kind) => SiteHygieneService.SupportedKinds.Contains(kind);
+
+    public static bool IsFixable(HygieneFinding finding) => CanRun(finding.FixKind);
+
+    /// <summary>The Fix column: the fix of a kind the service runs, otherwise "Report only"; the detail pane names the kind and the reason.</summary>
+    public static string FixColumn(HygieneFixKind kind) => CanRun(kind) ? FixLabel(kind) : FixLabel(HygieneFixKind.None);
+
+    /// <summary>Why a finding has no fix on this page; empty for a finding with a fix.</summary>
+    public static string ReportOnlyReason(HygieneFixKind kind) =>
+        CanRun(kind) ? ""
+        : kind == HygieneFixKind.None ? "This finding has no typed fix. Use the recommended action in the ConfigMgr console."
+        : $"This page does not run the fix \"{FixLabel(kind).ToLowerInvariant()}\": no check of this page proves it safe. Use the recommended action in the ConfigMgr console.";
 
     public static string FixLabel(HygieneFixKind kind) => kind switch
     {
@@ -101,12 +101,18 @@ public static class SiteHygieneLabels
     {
         Ran => "Ran",
         NotRun => "Not run",
+        NotSelected => "Not selected",
         NeedsSiteDatabase => "Needs the site database",
         Failed => "Failed",
         _ => state
     };
 
     public static bool DidRun(HygieneCheckStatus check) => string.Equals(check.State, Ran, StringComparison.OrdinalIgnoreCase);
+
+    public static bool WasNotSelected(HygieneCheckStatus check) => string.Equals(check.State, NotSelected, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A check of a selected area that did not run: its read failed or was cut, it needs the site database, or it threw.</summary>
+    public static bool IsNotRun(HygieneCheckStatus check) => !DidRun(check) && !WasNotSelected(check);
 
     public static string KindText(string kind) => string.Equals(kind, DependsOn, StringComparison.OrdinalIgnoreCase) ? "Depends on" : string.Equals(kind, Supersedes, StringComparison.OrdinalIgnoreCase) ? "Supersedes" : kind;
 
@@ -117,7 +123,7 @@ public static class SiteHygieneLabels
         var glyph = word.ToUpperInvariant() switch
         {
             "HEALTHY" or "OK" => "✓",
-            "DELETED" or "MISSING" or "CYCLE" or "CIRCULAR" or "ERROR" => "✖",
+            "DELETED" or "MISSING" or "ORPHANED" or "CYCLE" or "CIRCULAR" or "ERROR" => "✖",
             UnknownUpper => "?",
             _ => "!"
         };
@@ -142,7 +148,7 @@ public sealed class FindingGridRow(HygieneFinding finding, bool isSuppressed)
     public string Evidence => FirstLine(Finding.Evidence);
     public string Recommendation => FirstLine(Finding.Recommendation);
     public string New => Finding.IsNew ? "New" : "";
-    public string Fix => SiteHygieneLabels.FixLabel(Finding.FixKind);
+    public string Fix => SiteHygieneLabels.FixColumn(Finding.FixKind);
     public string Suppressed => IsSuppressed ? "Yes" : "";
 
     public static string FirstLine(string? text)
@@ -170,7 +176,7 @@ public sealed class CheckStatusRow(HygieneCheckStatus check)
 }
 
 /// <summary>One category of the Summary tab: the findings by severity, and the checks that did not run.</summary>
-public sealed record SummaryCategoryRow(string Category, string High, string Medium, string Low, string Info, string Total, string NotRun);
+public sealed record SummaryCategoryRow(string Category, string Error, string Warning, string Info, string Total, string NotRun);
 
 public sealed class RelationEdgeRow(RelationEdge edge)
 {

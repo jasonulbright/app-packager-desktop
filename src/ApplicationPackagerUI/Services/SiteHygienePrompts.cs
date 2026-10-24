@@ -87,11 +87,11 @@ public static class SiteHygienePreferences
     }
 }
 
-public static partial class SiteHygieneRegistration
+/// <summary>The page, its view model and its writer; the service, the stores and the report writer come from <see cref="PackagerServiceRegistration"/>.</summary>
+public static class SiteHygieneRegistration
 {
     public static IServiceCollection AddSiteHygienePage(this IServiceCollection services)
     {
-        AddServiceFallbacks(services);
         services.AddSingleton<ISiteHygieneDialogs, SiteHygieneDialogs>();
         services.AddSingleton(sp =>
         {
@@ -124,7 +124,4 @@ public static partial class SiteHygieneRegistration
         services.AddSingleton<SiteHygienePage>();
         return services;
     }
-
-    /// <summary>Registers stand-ins for the Site Hygiene services that are not registered; a no-op once the services exist.</summary>
-    static partial void AddServiceFallbacks(IServiceCollection services);
 }
