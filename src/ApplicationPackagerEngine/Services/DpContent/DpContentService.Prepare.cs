@@ -124,8 +124,11 @@ public sealed partial class DpContentService
         var none = impact.Where(i => i.DpsRemaining == 0 && !i.RemovesInstalledCopy).ToList();
         if (none.Count == 0) return "Every content stays installed on at least one other distribution point.";
         var names = string.Join(", ", none.Take(10).Select(i => $"{i.Name} ({i.PackageId})")) + (none.Count > 10 ? ", ..." : "");
-        var text = $"The removal takes no installed copy. {Count(none.Count, "content")} {(none.Count == 1 ? "is" : "are")} installed on no distribution point now and after the removal: {names}. Clients cannot get {(none.Count == 1 ? "it" : "them")} before or after the removal.";
-        return none.Count == impact.Count ? text : text + " Every other content stays installed on at least one other distribution point.";
+        var them = none.Count == 1 ? "it" : "them";
+        var where = $"{Count(none.Count, "content")} {(none.Count == 1 ? "is" : "are")} installed on no distribution point now and after the removal: {names}. Clients cannot get {them} before or after the removal.";
+        return none.Count == impact.Count
+            ? "The removal takes no installed copy. " + where
+            : $"The removal takes no installed copy of {Count(none.Count, "content")}. {where} Every other content stays installed on at least one other distribution point.";
     }
 
     private static DpContentPairOutcome Skip(PairRow pair, string reason, int? stateNow = null) =>

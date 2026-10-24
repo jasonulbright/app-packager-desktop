@@ -30,6 +30,9 @@ public sealed class DpContentRound4Tests
             RemovesInstalledCopy = true
         };
         Assert.Equal("Every content stays installed on at least one other distribution point.", DpContentService.LastCopyPassText([impact]));
+        var never = impact with { PackageId = "MCM000A7", Name = "Never", DpsRemaining = 0, RemovesInstalledCopy = false };
+        Assert.Equal("The removal takes no installed copy of 1 content. 1 content is installed on no distribution point now and after the removal: Never (MCM000A7). Clients cannot get it before or after the removal. Every other content stays installed on at least one other distribution point.",
+            DpContentService.LastCopyPassText([impact, never]));
     }
 
     [Fact]
