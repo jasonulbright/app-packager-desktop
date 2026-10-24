@@ -103,7 +103,7 @@ public sealed partial class SiteHygieneService
         var cap = Cap(request.Kind);
         checks.Add(kept.Count == 0
             ? new PreflightCheck(CheckNames.Objects, DeploymentCheckResults.Fail, "No finding of the plan holds now. Scan again to see the current state.")
-            : new PreflightCheck(CheckNames.Objects, DeploymentCheckResults.Pass, $"{Count(kept.Count, "finding")} hold on fresh data; the fix writes {Count(targets.Count, "object")}."));
+            : new PreflightCheck(CheckNames.Objects, DeploymentCheckResults.Pass, $"{Count(kept.Count, "finding")} {(kept.Count == 1 ? "holds" : "hold")} on fresh data; the fix writes {Count(targets.Count, "object")}."));
         checks.Add(targets.Count > cap
             ? new PreflightCheck(CheckNames.Cap, DeploymentCheckResults.Fail, $"The plan writes {Count(targets.Count, "object")}. One run {(request.IsDelete ? "deletes" : "changes")} at most {N(cap)}. Filter the findings and run them in parts.")
             : new PreflightCheck(CheckNames.Cap, DeploymentCheckResults.Pass, $"{Count(targets.Count, "object")} of at most {N(cap)} per run."));

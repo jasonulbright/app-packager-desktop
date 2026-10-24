@@ -140,7 +140,8 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             if ($null -eq $d) { throw 'No object corresponds to the specified parameters.' }
             Remove-Rows 'SMS_ApplicationAssignment' { [string]$_.AssignmentUniqueID -eq $DeploymentId }
             Remove-Rows 'SMS_DeploymentSummary' { [string]$_.DeploymentID -eq $DeploymentId }
-            if (@(Rows 'SMS_ApplicationAssignment' | Where-Object { [string](V $_ 'AppModelID' '') -eq [string]$d.AppModelID }).Count -eq 0) { foreach ($a in @(Rows 'SMS_Application' | Where-Object { [string](V $_ 'ModelID' '') -eq [string]$d.AppModelID -and $null -ne $_.PSObject.Properties['IsDeployed'] })) { $a.IsDeployed = $false } }
+            $removedModel = [string](V $d 'AppModelID' '')
+            if ($removedModel -and @(Rows 'SMS_ApplicationAssignment' | Where-Object { [string](V $_ 'AppModelID' '') -eq $removedModel }).Count -eq 0) { foreach ($a in @(Rows 'SMS_Application' | Where-Object { [string](V $_ 'ModelID' '') -eq $removedModel -and $null -ne $_.PSObject.Properties['IsDeployed'] })) { $a.IsDeployed = $false } }
         }
         function global:Remove-CMApplicationRevisionHistory { [CmdletBinding()] param([int]$Id, [int]$Revision, [switch]$Force)
             Cmd 'Remove-CMApplicationRevisionHistory' @(@('Id', $Id), @('Revision', $Revision), @('Force', ''))
