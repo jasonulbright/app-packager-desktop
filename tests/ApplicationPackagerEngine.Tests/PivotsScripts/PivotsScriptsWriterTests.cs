@@ -151,7 +151,7 @@ public sealed class PivotsScriptsWriterTests
     public void OnlyTheWriterCallsTheServiceApply()
     {
         Assert.Matches(@"\bservice\s*\.\s*ApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), P("Services", "PivotsScriptsPlan.cs")))));
-        var pageFiles = UiFilesWith(new Regex(@"\bPivots", RegexOptions.CultureInvariant)).Where(f => !f.EndsWith("PivotsScriptsPlan.cs", StringComparison.Ordinal) && !f.EndsWith("PivotsScriptsServiceFallbacks.cs", StringComparison.Ordinal)).ToList();
+        var pageFiles = UiFilesWith(new Regex(@"\bPivots", RegexOptions.CultureInvariant)).Where(f => !f.EndsWith("PivotsScriptsPlan.cs", StringComparison.Ordinal)).ToList();
         Assert.Contains(P("ViewModels", "Pages", "PivotsScriptsViewModel.Runs.cs"), pageFiles);
         foreach (var file in pageFiles)
             Assert.DoesNotMatch(@"\bApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), file))));

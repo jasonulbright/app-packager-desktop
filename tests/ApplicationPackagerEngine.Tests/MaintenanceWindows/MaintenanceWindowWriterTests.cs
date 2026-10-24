@@ -121,10 +121,10 @@ public sealed class MaintenanceWindowWriterTests
             Path.Combine("ApplicationPackagerEngine", "Services", "DpContent", "DpContentContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "DpContent", "DpContentService.Apply.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "DpContentPlan.cs"),
-            // The Pivots and Scripts contract declares its write, the page writer is its only caller, and the fallback stands in until the service is registered.
+            // The Pivots and Scripts contract declares its write, the service implements it, and the page writer is its only caller.
             Path.Combine("ApplicationPackagerEngine", "Services", "PivotsScripts", "PivotsScriptsContract.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "PivotsScriptsPlan.cs"),
-            Path.Combine("ApplicationPackagerUI", "Services", "PivotsScriptsServiceFallbacks.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "PivotsScripts", "PivotsScriptsService.Apply.cs"),
             Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
         ];
         var found = FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant));
