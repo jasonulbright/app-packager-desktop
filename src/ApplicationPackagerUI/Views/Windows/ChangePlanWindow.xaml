@@ -58,6 +58,10 @@
             <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="120" Margin="0,6,0,0"
                      VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
                      Visibility="{Binding HasNotes, Converter={StaticResource ChangePlanVisibility}}" />
+            <TextBox x:Name="txtBody" Text="{Binding BodyText, Mode=OneWay}" IsReadOnly="True" TextWrapping="NoWrap" MaxHeight="140" Margin="0,6,0,0"
+                     FontFamily="Cascadia Mono, Consolas, Courier New" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     AutomationProperties.AutomationId="txtChangePlanBody" AutomationProperties.Name="{Binding BodyName}"
+                     Visibility="{Binding HasBody, Converter={StaticResource ChangePlanVisibility}}" />
             <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,6,0,0" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtChangePlanForceClose" AutomationProperties.LiveSetting="Assertive"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
@@ -93,11 +97,11 @@
         <ScrollViewer Grid.Row="3" MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
                       KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
         <StackPanel Margin="16,0,16,0">
-            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8" AutomationProperties.Name="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
+            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8" AutomationProperties.Name="{Binding DestructiveText}"
                       IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanDestructive"
                       Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}">
-                <TextBlock Text="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="{Binding DestructiveText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             </CheckBox>
             <CheckBox x:Name="chkExtra" Margin="0,0,0,8" IsChecked="{Binding ExtraAcknowledged}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanExtra" AutomationProperties.Name="{Binding ExtraConfirmationText}"
