@@ -6,7 +6,11 @@ using ApplicationPackagerUI.ViewModels.Pages;
 namespace ApplicationPackagerUI.Services;
 
 /// <summary>One line of a Pivots and Scripts plan: its plan item and, for a run, the device it targets.</summary>
-public sealed record PivotsPlanEntry(ChangePlanItem Item, int? ResourceId);
+public sealed record PivotsPlanEntry(ChangePlanItem Item, int? ResourceId)
+{
+    /// <summary>False for a device without a ConfigMgr client: the run does not send to it, and the service reports no result for it.</summary>
+    public bool Sends { get; init; } = true;
+}
 
 /// <summary>
 /// The prepared change behind a Pivots and Scripts plan. The change travels only with the plan the
@@ -75,6 +79,7 @@ public sealed class PivotsScriptsWriter(IPivotsScriptsService service, ISiteOper
     public const string LogArea = "PivotsScripts";
     public const string SkippedPrefix = "Skipped";
     public const string NoResultText = "No result: the service did not report this device.";
+    public const string NoClientText = "Skipped: the device has no ConfigMgr client, so the run did not send to it.";
     public const string Failed = "Failed";
     public const string Skipped = "Skipped";
 
@@ -189,6 +194,7 @@ public sealed class PivotsScriptsWriter(IPivotsScriptsService service, ISiteOper
             if (entry.ResourceId is not { } id) rows.Add(WholeRow(entry.Item, plan.Kind, outcome));
             else if (byId.TryGetValue(id, out var device)) rows.Add(DeviceRow(entry.Item, device));
             else if (!outcome.Succeeded || outcome.Message.StartsWith(SkippedPrefix, StringComparison.OrdinalIgnoreCase)) rows.Add(WholeRow(entry.Item, plan.Kind, outcome));
+            else if (!entry.Sends) rows.Add(ChangePlanItemResult.Skip(entry.Item, NoClientText) with { ResultLabel = Skipped });
             else rows.Add(new ChangePlanItemResult(entry.Item, false, NoResultText) { ResultLabel = Failed });
         }
         return rows;

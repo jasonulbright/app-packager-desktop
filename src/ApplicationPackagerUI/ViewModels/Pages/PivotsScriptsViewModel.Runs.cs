@@ -40,7 +40,7 @@ public sealed partial class PivotsScriptsViewModel
         string Form() => $"pivot|{TargetKey()}|{QueryText}";
         var before = Form();
         var request = new PivotsChange(Kind: PivotsChangeKind.RunPivot, Targets: targets, QueryText: query, ScriptGuid: null, ScriptHash: null, Parameters: null,
-            SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { ResultWindow = TimeSpan.Zero };
+            SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { ResultWindow = PivotsChange.SendOnly };
         return PlanAndRunAsync(request, () => Form() == before);
     }
 
@@ -58,7 +58,7 @@ public sealed partial class PivotsScriptsViewModel
         var before = Form();
         var request = new PivotsChange(Kind: PivotsChangeKind.RunScript, Targets: targets, QueryText: null, ScriptGuid: row.Script.Guid,
             ScriptHash: row.Script.Hash.Length > 0 ? row.Script.Hash : null, Parameters: values, SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false,
-            EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { ResultWindow = TimeSpan.Zero };
+            EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { ResultWindow = PivotsChange.SendOnly };
         return PlanAndRunAsync(request, () => Form() == before);
     }
 

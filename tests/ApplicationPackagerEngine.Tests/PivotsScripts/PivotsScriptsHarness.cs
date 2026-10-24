@@ -50,6 +50,7 @@ internal sealed class FakePivotsService : IPivotsScriptsService
     public List<PivotsChange> Prepared { get; } = [];
     public List<PivotsChange> Applied { get; } = [];
     public List<CancellationToken> WaitTokens { get; } = [];
+    public List<(TimeSpan? Window, string? SessionId)> WaitWindows { get; } = [];
 
     /// <summary>Changes the site between Prepare and Apply, as another admin or process.</summary>
     public Action? BetweenPrepareAndApply;
@@ -233,10 +234,11 @@ internal sealed class FakePivotsService : IPivotsScriptsService
         }
     }
 
-    public async Task<PivotsOutcome> WaitForResultsAsync(string operationId, IProgress<PivotsOutcome> progress, CancellationToken ct)
+    public async Task<PivotsOutcome> WaitForResultsAsync(string operationId, IProgress<PivotsOutcome> progress, CancellationToken ct, TimeSpan? window = null, string? sessionId = null)
     {
         Interlocked.Increment(ref WaitCalls);
         lock (WaitTokens) WaitTokens.Add(ct);
+        lock (WaitWindows) WaitWindows.Add((window, sessionId));
         PivotsChange change;
         string session;
         lock (_runs) (change, session) = _runs[operationId];

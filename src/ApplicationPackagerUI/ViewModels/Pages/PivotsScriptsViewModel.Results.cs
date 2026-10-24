@@ -157,10 +157,11 @@ public sealed partial class PivotsScriptsViewModel
         bool partial;
         string note;
         string? session = sessionId;
-        cts.CancelAfter(WaitWindow);
+        var window = WaitWindow;
         try
         {
-            var final = await Task.Run(() => Services.Service.WaitForResultsAsync(operationId, counter, cts.Token), CancellationToken.None);
+            // The service ends the wait at the window and gives the open devices their end state; the token is the stop only.
+            var final = await Task.Run(() => Services.Service.WaitForResultsAsync(operationId, counter, cts.Token, window: window, sessionId: sessionId), CancellationToken.None);
             devices = final.Devices;
             session = final.SessionId ?? sessionId;
             partial = final.Partial || cts.IsCancellationRequested || final.Devices.Any(d => !d.IsFinal);

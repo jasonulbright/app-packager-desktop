@@ -17,11 +17,24 @@ public sealed partial class PivotsScriptsService
         public required DateTime SentUtc { get; init; }
         public required TimeSpan Window { get; init; }
         public required string RunId { get; init; }
+        public required string Target { get; init; }
+        public required string? TextHash { get; init; }
         public Dictionary<int, DeviceResult> Results { get; } = [];
         public HashSet<int> FullFetched { get; } = [];
         public List<PivotsRawRecord> Raw { get; } = [];
         public TimeSpan? FirstResultAfter { get; set; }
+
+        /// <summary>True for a run read from its saved session: this service did not send it.</summary>
+        public bool Reloaded { get; init; }
+
+        /// <summary>1 once the Finished audit record of the run is written; a run has one.</summary>
+        public int FinishedRecorded;
+
+        /// <summary>1 while a wait reads the run; a second wait at the same time is refused.</summary>
+        public int Waiting;
     }
+
+    private const string ReloadedNote = "The run was read from its saved session: the results of the clients that finished come from the site.";
 
     /// <summary>The content part of a plan token: the fingerprint of what the plan runs, without the preparation token.</summary>
     internal static string ContentOf(string? token) => (token ?? "") is var t && t.IndexOf('.') is var dot and > 0 ? t[..dot] : "";
@@ -194,18 +207,32 @@ public sealed partial class PivotsScriptsService
             Devices = devices,
             SentUtc = sentUtc,
             Window = WindowOf(change),
-            RunId = runId
+            RunId = runId,
+            Target = targets.Description,
+            TextHash = textHash,
+            Waiting = change.IsSendOnly ? 0 : 1
         };
         run.Raw.AddRange(raw);
-        foreach (var d in devices) run.Results[d.ResourceId] = new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", "The site accepted the run; the device has not reported yet.");
-        TryUpdate(run.Session with { Results = run.Results.Values.ToList() });
+        foreach (var d in devices) run.Results[d.ResourceId] = new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", SentMessage);
+        run.Session = run.Session with { Results = run.Results.Values.ToList() };
+        TryUpdate(run.Session);
         RememberRun(run);
         _log?.Info(LogArea, $"{change.Kind} sent to {devices.Count} devices.");
+        if (change.IsSendOnly)
+            return Snapshot(run, true, "Sent. The site accepted the run. The results are read after the send.", final: true);
         progress.Report(Snapshot(run, false, "Sent. Waiting for results.", final: false));
-        var outcome = await WaitAsync(run, progress, ct).ConfigureAwait(false);
-        audit.Append(Finished(change, runId, targets.Description, devices.Count, textHash, run.OperationId, session.Id, outcome.Partial ? "Partial" : outcome.Succeeded ? "Succeeded" : "Failed", outcome.Message));
-        return outcome;
+        try
+        {
+            return await WaitAsync(run, progress, ct, audit.Append).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref run.Waiting, 0);
+        }
     }
+
+    private const string SentMessage = "The site accepted the run; the device has not reported yet.";
+    private const string RunningMessage = "The device reported; the result has not arrived.";
 
     private PivotsAuditRecord Finished(PivotsChange change, string runId, string target, int count, string? hash, string? op, string sessionId, string result, string message) =>
         new(default, _user(), change.Kind.ToString(), "Finished", result, runId, target, count, change.ScriptGuid, hash, op, message) { SessionId = sessionId };
@@ -306,23 +333,124 @@ public sealed partial class PivotsScriptsService
 
     // ---- Waiting ------------------------------------------------------------------------------
 
-    public async Task<PivotsOutcome> WaitForResultsAsync(string operationId, IProgress<PivotsOutcome> progress, CancellationToken ct)
+    public async Task<PivotsOutcome> WaitForResultsAsync(string operationId, IProgress<PivotsOutcome> progress, CancellationToken ct, TimeSpan? window = null, string? sessionId = null)
     {
         ArgumentNullException.ThrowIfNull(progress);
-        if (!_runs.TryGetValue(operationId ?? "", out var run))
-            throw new PivotsServiceException("This session did not send that run, so the page cannot wait for it. Open its saved session to see the results it holds.");
-        var outcome = await WaitAsync(run, progress, ct, again: true).ConfigureAwait(false);
-        progress.Report(outcome);
-        return outcome;
+        // The ID goes into an OData filter and a session parameter: only a positive whole number is read.
+        if (!long.TryParse(operationId, NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number <= 0)
+            throw new PivotsServiceException("The operation ID of the run is not valid, so its results cannot be read.");
+        if (!_runs.TryGetValue(operationId, out var run))
+        {
+            run = await ReloadAsync(operationId, sessionId, ct).ConfigureAwait(false);
+            RememberRun(run);
+        }
+        if (Interlocked.CompareExchange(ref run.Waiting, 1, 0) != 0)
+            throw new PivotsServiceException("The page waits for the results of this run already.");
+        try
+        {
+            AgainFromTheSite(run);
+            if (run.Reloaded) progress.Report(Snapshot(run, false, "Reading the saved session of the run and the results the site holds. Nothing is sent.", final: false));
+            var w = window is { } given ? WithinBounds(given) : run.Window > TimeSpan.Zero ? run.Window : DefaultResultWindow;
+            var outcome = await WaitAsync(run, progress, ct, _audit.Append, w).ConfigureAwait(false);
+            progress.Report(outcome);
+            return outcome;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref run.Waiting, 0);
+        }
     }
 
-    private async Task<PivotsOutcome> WaitAsync(RunState run, IProgress<PivotsOutcome> progress, CancellationToken ct, bool again = false)
+    /// <summary>
+    /// Before a new wait, a device that timed out or did not answer in an earlier wait is read again:
+    /// it can have answered since. A Completed or Failed result stays.
+    /// </summary>
+    private static void AgainFromTheSite(RunState run)
     {
-        var deadline = (again ? _utcNow() : run.SentUtc) + run.Window;
+        foreach (var (id, r) in run.Results.ToList())
+            if (r.State == PivotsDeviceStates.TimedOut) run.Results[id] = r with { State = PivotsDeviceStates.Running, Message = RunningMessage };
+            else if (r.State == PivotsDeviceStates.NoResponse) run.Results[id] = r with { State = PivotsDeviceStates.Sent, Message = SentMessage };
+    }
+
+    /// <summary>The most saved sessions searched for a run when the caller does not name its session.</summary>
+    internal const int MaxSessionsSearched = 500;
+
+    /// <summary>The most audit records read to find the Started and Finished records of a reloaded run.</summary>
+    internal const int MaxAuditRecordsSearched = 5000;
+
+    /// <summary>
+    /// A run that this service did not send, read from its saved session: the devices, the query or
+    /// the script, and the results saved so far. A script run whose script the site no longer holds is
+    /// refused: the site removed its run history with the script.
+    /// </summary>
+    private async Task<RunState> ReloadAsync(string operationId, string? sessionId, CancellationToken ct)
+    {
+        PivotsSessionRecord? session = null;
+        if (sessionId is { Length: > 0 }) session = _sessions.Read(sessionId);
+        else if (_sessions.List(MaxSessionsSearched).FirstOrDefault(s => s.OperationId == operationId) is { } summary) session = _sessions.Read(summary.Id);
+        if (session is null || session.OperationId != operationId || session.Kind is not (PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript) || session.Devices.Count == 0)
+            throw new PivotsServiceException("No saved session of this page holds that run, so its results cannot be read. Check Monitoring > Client Operations or Script Status in the console.");
+        if (session.Kind == PivotsChangeKind.RunScript)
+        {
+            var script = GuidRegex().IsMatch(session.ScriptGuid ?? "") ? await LoadScriptAsync(session.ScriptGuid!, ct).ConfigureAwait(false) : null;
+            if (script is null)
+                throw new PivotsServiceException("The site no longer holds the script of this run, and the site removed its run history with it. The saved session shows the results it holds.");
+        }
+        var (runId, finished) = AuditOf(session.Id);
+        var targets = new ResolvedTargets(Devices: session.Devices, CollectionId: session.CollectionId, Description: session.TargetDescription, IsBuiltInCollection: IsBuiltIn(session.CollectionId),
+            Unmatched: [], Truncated: false) { TotalMatched = session.Devices.Count };
+        var change = new PivotsChange(Kind: session.Kind, Targets: targets, QueryText: session.QueryText, ScriptGuid: session.ScriptGuid, ScriptHash: session.ScriptHash, Parameters: session.Parameters,
+            SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { DeviceCount = session.Devices.Count, ResultWindow = PivotsChange.SendOnly };
+        var run = new RunState
+        {
+            Change = change,
+            OperationId = operationId,
+            Session = session,
+            Devices = session.Devices,
+            SentUtc = session.Raw.FirstOrDefault(r => r.Phase == "Submit")?.Utc ?? session.CreatedUtc,
+            Window = TimeSpan.Zero,
+            RunId = runId,
+            Target = session.TargetDescription,
+            TextHash = session.ScriptHash,
+            Reloaded = true,
+            FinishedRecorded = finished ? 1 : 0
+        };
+        run.Raw.AddRange(session.Raw);
+        var saved = new Dictionary<int, DeviceResult>();
+        foreach (var r in session.Results) saved.TryAdd(r.ResourceId, r);
+        foreach (var d in session.Devices)
+            run.Results[d.ResourceId] = saved.TryGetValue(d.ResourceId, out var r) ? r : new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", SentMessage);
+        _log?.Info(LogArea, $"A {session.Kind} run was read from its saved session for a wait: {session.Devices.Count} devices.");
+        return run;
+    }
+
+    /// <summary>
+    /// The run ID of the Started record of a saved session and whether its Finished record exists. A
+    /// log that cannot be read counts as finished, so a wait never writes a second Finished record.
+    /// </summary>
+    private (string RunId, bool Finished) AuditOf(string sessionId)
+    {
+        try
+        {
+            var records = _audit.Read(MaxAuditRecordsSearched).Where(r => r.SessionId == sessionId).ToList();
+            var runId = records.FirstOrDefault(r => r.Phase == "Started")?.RunId is { Length: > 0 } id ? id : Guid.NewGuid().ToString("N");
+            return (runId, records.Any(r => r.Phase == "Finished"));
+        }
+        catch (PivotsServiceException)
+        {
+            _log?.Warning(LogArea, "The audit log could not be read for a reloaded run; the wait writes no Finished record.");
+            return (Guid.NewGuid().ToString("N"), true);
+        }
+    }
+
+    private async Task<PivotsOutcome> WaitAsync(RunState run, IProgress<PivotsOutcome> progress, CancellationToken ct, Func<PivotsAuditRecord, AuditWrite> audit, TimeSpan? again = null)
+    {
+        var deadline = again is { } w ? _utcNow() + w : run.SentUtc + run.Window;
         var lastError = "";
+        PivotsOutcome End(bool stopped, string error, bool timedOut = false) => Finish(run, audit, stopped, error, timedOut);
         while (true)
         {
-            if (ct.IsCancellationRequested) return Finish(run, stopped: true, lastError);
+            if (ct.IsCancellationRequested) return End(stopped: true, lastError);
             try
             {
                 var changed = await PollAsync(run, ct).ConfigureAwait(false);
@@ -331,22 +459,22 @@ public sealed partial class PivotsScriptsService
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                return Finish(run, stopped: true, lastError);
+                return End(stopped: true, lastError);
             }
             catch (Exception ex) when (ex is PivotsServiceException or AdminServiceUnreachableException)
             {
                 lastError = ex.Message;
                 _log?.Warning(LogArea, "A status read failed; the wait goes on.");
             }
-            if (run.Results.Values.All(r => r.IsFinal)) return Finish(run, stopped: false, lastError);
-            if (_utcNow() >= deadline) return Finish(run, stopped: false, lastError, timedOut: true);
+            if (run.Results.Values.All(r => r.IsFinal)) return End(stopped: false, lastError);
+            if (_utcNow() >= deadline) return End(stopped: false, lastError, timedOut: true);
             try
             {
                 await _delay(PollInterval, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                return Finish(run, stopped: true, lastError);
+                return End(stopped: true, lastError);
             }
         }
     }
@@ -478,7 +606,11 @@ public sealed partial class PivotsScriptsService
         };
     }
 
-    private PivotsOutcome Finish(RunState run, bool stopped, string lastError, bool timedOut = false)
+    /// <summary>
+    /// Ends a wait: the open devices get their end state, the session gets the results, and the first
+    /// wait that ends writes the Finished audit record of the run (Partial for a stop).
+    /// </summary>
+    private PivotsOutcome Finish(RunState run, Func<PivotsAuditRecord, AuditWrite> audit, bool stopped, string lastError, bool timedOut = false)
     {
         foreach (var (id, r) in run.Results.ToList())
         {
@@ -498,11 +630,24 @@ public sealed partial class PivotsScriptsService
         var message = stopped
             ? $"Stopped waiting: {summary}. Clients that received the request still run it; the results on this page are partial."
             : partial ? $"The wait ended: {summary}. The results are partial." : $"Done: {summary}.";
+        if (run.Reloaded) message += " " + ReloadedNote;
         var status = stopped ? "Stopped waiting" : partial ? "Partial" : failed > 0 ? "Completed with failures" : "Completed";
         run.Session = run.Session with { Status = status, Message = message, Results = list, Raw = run.Raw.ToList(), FinishedUtc = _utcNow(), Partial = partial };
         TryUpdate(run.Session);
         _log?.Info(LogArea, $"{run.Change.Kind} wait ended: {completed} completed, {failed} failed, {list.Count - completed - failed} without a result.");
-        return Snapshot(run, !partial && failed == 0, message, final: true) with { Partial = partial };
+        var succeeded = !partial && failed == 0;
+        if (Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) == 0)
+        {
+            var written = audit(new PivotsAuditRecord(default, _user(), run.Change.Kind.ToString(), "Finished", partial ? "Partial" : succeeded ? "Succeeded" : "Failed", run.RunId, run.Target,
+                run.Devices.Count, run.Change.ScriptGuid, run.TextHash, run.OperationId, message) { SessionId = run.Session.Id });
+            if (!written.Succeeded)
+            {
+                // A later wait of the run tries the Finished record again.
+                Interlocked.Exchange(ref run.FinishedRecorded, 0);
+                _log?.Warning(LogArea, "The Finished audit record of a run could not be written.");
+            }
+        }
+        return Snapshot(run, succeeded, message, final: true) with { Partial = partial };
     }
 
     private static List<DeviceResult> Ordered(RunState run) => run.Results.Values.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.ResourceId).ToList();

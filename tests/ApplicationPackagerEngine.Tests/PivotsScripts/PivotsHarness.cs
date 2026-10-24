@@ -12,8 +12,9 @@ internal sealed class PivotsHarness : IDisposable
     public AdminServiceClient Client { get; }
     public PivotsAuditLog Audit { get; }
     public PivotsSessionStore Sessions { get; }
-    public PivotsScriptsService Service { get; }
+    public PivotsScriptsService Service { get; private set; }
     public List<PivotsOutcome> Reports { get; } = [];
+    private readonly string _user;
     public int Delays { get; private set; }
     public DateTime Clock { get; set; } = new(2026, 10, 24, 8, 0, 0, DateTimeKind.Utc);
 
@@ -28,10 +29,21 @@ internal sealed class PivotsHarness : IDisposable
         Client = new AdminServiceClient(() => StubAdminService.Host, handler: Admin);
         Audit = new PivotsAuditLog(() => auditPath ?? Path.Combine(Folder, "audit.jsonl"), user: () => user);
         Sessions = new PivotsSessionStore(Path.Combine(Folder, "Sessions"));
-        Service = new PivotsScriptsService(Site, Client, Audit, Sessions,
-            delay: (t, ct) => { Delays++; Clock += t; OnDelay?.Invoke(Delays); ct.ThrowIfCancellationRequested(); return Task.CompletedTask; },
-            utcNow: () => Clock, user: () => user, connection: () => ("MCM", StubAdminService.Host));
+        _user = user;
+        Service = NewService();
     }
+
+    private PivotsScriptsService NewService() => new(Site, Client, Audit, Sessions,
+        delay: (t, ct) => { Delays++; Clock += t; OnDelay?.Invoke(Delays); ct.ThrowIfCancellationRequested(); return Task.CompletedTask; },
+        utcNow: () => Clock, user: () => _user, connection: () => ("MCM", StubAdminService.Host));
+
+    /// <summary>A new service over the same site, files and audit log, as after a restart of the app: it holds no run in memory.</summary>
+    public void Restart() => Service = NewService();
+
+    public IReadOnlyList<PivotsAuditRecord> Finished() => Audit.Read(100).Where(r => r.Phase == "Finished").ToList();
+
+    public Task<PivotsOutcome> WaitAsync(string operationId, CancellationToken ct = default, TimeSpan? window = null, string? sessionId = null) =>
+        Service.WaitForResultsAsync(operationId, new SyncProgress<PivotsOutcome>(Reports.Add), ct, window: window, sessionId: sessionId);
 
     private IReadOnlyList<(int, string, bool, bool?)> Devices() =>
         Site.List("Devices").OfType<JsonObject>().Select(d => ((int)d["ResourceID"]!, (string)d["Name"]!, (bool)d["IsClient"]!, (bool?)d["CNIsOnline"])).ToList();

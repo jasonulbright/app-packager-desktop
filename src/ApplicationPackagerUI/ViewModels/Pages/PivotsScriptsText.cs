@@ -94,7 +94,7 @@ public static class PivotsScriptsText
         var action = script ? "Run script" : "Run query";
         if (script && prepared.Script!.ParametersUnreadable) return (null, PivotsScriptsViewModel.ParametersUnreadable);
         var entries = targets.Devices.Select(d => new PivotsPlanEntry(new ChangePlanItem(d.IsClient ? action : "Skip", DeviceTarget(d),
-            d.IsClient ? $"Online state: {PivotsLabels.Online(d.IsOnline)}." : "No ConfigMgr client: the run skips the device."), d.ResourceId)).ToList();
+            d.IsClient ? $"Online state: {PivotsLabels.Online(d.IsOnline)}." : "No ConfigMgr client: the run skips the device."), d.ResourceId) { Sends = d.IsClient }).ToList();
         var notes = CheckNotes(prepared, n =>
         {
             n.AddRange(TargetLines(targets));

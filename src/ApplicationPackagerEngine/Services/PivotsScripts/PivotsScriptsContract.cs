@@ -154,8 +154,18 @@ public sealed record PivotsChange(
     /// </summary>
     public IReadOnlyList<ScriptParameter> SubmitParameters { get; init; } = [];
 
-    /// <summary>The time a run waits for results; null uses the service default.</summary>
+    /// <summary>
+    /// The time ApplyAsync waits for results; null uses the service default. <see cref="SendOnly"/>
+    /// makes ApplyAsync return after the send; the caller then reads the results with
+    /// WaitForResultsAsync. The window of the prepared plan applies: a later copy cannot change it.
+    /// </summary>
     public TimeSpan? ResultWindow { get; init; }
+
+    /// <summary>The <see cref="ResultWindow"/> of a run that ApplyAsync sends without a wait.</summary>
+    public static readonly TimeSpan SendOnly = TimeSpan.Zero;
+
+    /// <summary>True when ApplyAsync sends and returns without a wait: a window of zero or less.</summary>
+    public bool IsSendOnly => ResultWindow is { } window && window <= TimeSpan.Zero;
 }
 
 /// <summary>One device of a run.</summary>
@@ -246,14 +256,23 @@ public interface IPivotsScriptsService
     Task<PivotsChange> PrepareAsync(PivotsChange request, CancellationToken ct);
 
     /// <summary>
-    /// Runs a prepared change. A run saves its session and writes its audit record before the first
-    /// request goes out, then waits for results within the change's window; cancellation before the
-    /// send sends nothing, cancellation after the send ends the wait only.
+    /// Runs a prepared change. A run saves its session and writes its Started audit record before the
+    /// first request goes out, then waits for results within the window of the prepared plan and
+    /// writes the Finished record; a send-only plan returns after the send and WaitForResultsAsync
+    /// writes the Finished record. Cancellation before the send sends nothing, cancellation after the
+    /// send ends the wait only.
     /// </summary>
     Task<PivotsOutcome> ApplyAsync(PivotsChange change, IProgress<PivotsOutcome> progress, CancellationToken ct);
 
-    /// <summary>Waits again for the results of a run this service sent; reads only, sends nothing.</summary>
-    Task<PivotsOutcome> WaitForResultsAsync(string operationId, IProgress<PivotsOutcome> progress, CancellationToken ct);
+    /// <summary>
+    /// Waits for the results of a sent run; reads only, sends nothing. A run that this service did not
+    /// send (a saved session after a restart) is read from the session store, and the results of the
+    /// clients that finished come from the site. The first wait that ends (all results, the window or
+    /// a stop) writes the one Finished audit record of the run.
+    /// </summary>
+    /// <param name="window">The wait time; null uses the window of the run or the service default. The service bounds it.</param>
+    /// <param name="sessionId">The saved session of the run, when the caller knows it.</param>
+    Task<PivotsOutcome> WaitForResultsAsync(string operationId, IProgress<PivotsOutcome> progress, CancellationToken ct, TimeSpan? window = null, string? sessionId = null);
 
     /// <summary>Checks the session and the administration service; returns plain text.</summary>
     Task<string> TestConnectionAsync(CancellationToken ct);
@@ -332,8 +351,8 @@ public interface IPivotsReportWriter
 
 /// <summary>
 /// One line of the Pivots and Scripts audit log. A run writes a Started record before the first
-/// request goes out (a failed write blocks the run) and a Finished record after the wait; a script
-/// action writes Started before and Finished after its call.
+/// request goes out (a failed write blocks the run) and one Finished record when its first wait ends
+/// (Partial for a stop); a script action writes Started before and Finished after its call.
 /// </summary>
 /// <param name="Event">RunPivot, RunScript, SubmitScript, ApproveScript, DenyScript or RemoveScript.</param>
 /// <param name="Phase">Started or Finished.</param>

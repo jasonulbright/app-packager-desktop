@@ -136,7 +136,8 @@ public sealed class PivotsScriptsPageTests
         var sent = Assert.Single(h.Service.Applied);
         Assert.False(sent.RunConfirmed);
         Assert.False(sent.EveryDeviceAcknowledged);
-        Assert.Equal(TimeSpan.Zero, sent.ResultWindow);
+        Assert.Equal(PivotsChange.SendOnly, sent.ResultWindow);
+        Assert.True(sent.IsSendOnly);
         await vm.WaitTask;
         Assert.Equal(1, h.Service.WaitCalls);
     }
@@ -399,6 +400,7 @@ public sealed class PivotsScriptsPageTests
         await vm.RunPivotCommand.ExecuteAsync(null);
         await vm.WaitTask;
         Assert.Equal(TimeSpan.FromMinutes(15), vm.WaitWindow);
+        Assert.Equal(TimeSpan.FromMinutes(15), h.Service.WaitWindows.Single().Window);
         Assert.False(h.Service.WaitTokens.Single().IsCancellationRequested);
         var again = h.Create();
         await again.OnNavigatedToAsync();
@@ -671,6 +673,7 @@ public sealed class PivotsScriptsPageTests
         await vm.WaitTask;
         Assert.Single(h.Service.Applied);
         Assert.Equal(2, h.Service.WaitCalls);
+        Assert.Equal("session-op-1", h.Service.WaitWindows[1].SessionId);
         Assert.False(vm.IsPartial);
         Assert.All(vm.DeviceRows, r => Assert.Equal("Completed", r.State));
         Assert.Contains("\"OperationId\":\"op-1\"", vm.RawText);

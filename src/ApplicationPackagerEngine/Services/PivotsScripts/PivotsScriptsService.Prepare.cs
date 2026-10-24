@@ -58,11 +58,10 @@ public sealed partial class PivotsScriptsService
         return prepared;
     }
 
-    private TimeSpan WindowOf(PivotsChange change)
-    {
-        var w = change.ResultWindow ?? DefaultResultWindow;
-        return w < MinResultWindow ? MinResultWindow : w > MaxResultWindow ? MaxResultWindow : w;
-    }
+    /// <summary>The wait of ApplyAsync: zero for a send-only change, otherwise the window of the change within the bounds.</summary>
+    private static TimeSpan WindowOf(PivotsChange change) => change.IsSendOnly ? TimeSpan.Zero : WithinBounds(change.ResultWindow ?? DefaultResultWindow);
+
+    internal static TimeSpan WithinBounds(TimeSpan w) => w < MinResultWindow ? MinResultWindow : w > MaxResultWindow ? MaxResultWindow : w;
 
     private async Task<PivotsChange> PrepareRunAsync(PivotsChange change, List<PreflightCheck> checks, List<string> impact, CancellationToken ct)
     {
@@ -97,7 +96,10 @@ public sealed partial class PivotsScriptsService
             change = await PrepareScriptRunAsync(change, checks, impact, ct).ConfigureAwait(false);
         }
         impact.Add(NoUndo);
-        impact.Add($"The page waits up to {Minutes(window)} for results and reads the status of all devices with one request every {PollInterval.TotalSeconds.ToString("0", CultureInfo.InvariantCulture)} seconds. Stop waiting ends the wait on this page only: clients that received the request still run it.");
+        var every = PollInterval.TotalSeconds.ToString("0", CultureInfo.InvariantCulture);
+        impact.Add(change.IsSendOnly
+            ? $"After the send, the page reads the status of all devices with one request every {every} seconds, for the wait time set in Options. Stop waiting ends the wait on this page only: clients that received the request still run it."
+            : $"The page waits up to {Minutes(window)} for results and reads the status of all devices with one request every {every} seconds. Stop waiting ends the wait on this page only: clients that received the request still run it.");
         impact.Add("The session (targets, parameters, the query or the script identity and hash) is saved and the audit record is written before the request goes out. A run is refused when either cannot be written.");
         return change;
     }
