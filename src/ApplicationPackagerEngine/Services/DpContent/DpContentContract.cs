@@ -80,7 +80,7 @@ public sealed record PairRow(
 
     /// <summary>
     /// The MessageState of the last distribution status message of the pair (SMS_DistributionDPStatus);
-    /// null when the site holds none. CM01 shows 1 for success, 2 for in progress and 4 for an error.
+    /// null when the site holds none. The site writes 1 for success, 2 for in progress and 4 for an error.
     /// </summary>
     public int? MessageState { get; init; }
 
@@ -103,8 +103,8 @@ public sealed record PairRow(
 /// <summary>
 /// The exact key of a pair: the whole PackageID and the whole NAL path, compared without case and
 /// never as a substring. The site returns one NAL path in different letter case from different
-/// classes (SMS_DistributionPoint holds "DISPLAY=\\CM01.CONTOSO.COM\" where the summarizer holds
-/// "Display=\\CM01.contoso.com\" for the same pair).
+/// classes (SMS_DistributionPoint can hold "DISPLAY=\\DP01.CONTOSO.COM\" where the summarizer holds
+/// "Display=\\DP01.contoso.com\" for the same pair).
 /// </summary>
 public readonly record struct DpPairKey(string PackageId, string NalPath)
 {

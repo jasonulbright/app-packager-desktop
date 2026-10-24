@@ -323,7 +323,7 @@ public sealed partial class DpContentService
         return results;
     }
 
-    /// <summary>The result of one written pair from what the site holds now. The rules follow the state sequences CM01 shows for each kind.</summary>
+    /// <summary>The result of one written pair from what the site holds now. The rules follow the state sequence the site shows for each kind of change.</summary>
     internal static DpContentPairOutcome Classify(DpContentChangeKind kind, PairRowBefore before, DpContentSiteRead.Summary? s, DpContentSiteRead.Instance? inst, DpContentSiteRead.Message? m)
     {
         var pair = before.Pair;

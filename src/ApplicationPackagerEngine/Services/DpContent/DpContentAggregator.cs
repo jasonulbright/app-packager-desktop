@@ -12,8 +12,8 @@ internal static partial class DpContentAggregator
     private static partial Regex NalTailRegex();
 
     /// <summary>
-    /// The server name a NAL path ends with, such as CM01.contoso.com for
-    /// ["Display=\\CM01.contoso.com\"]MSWNET:["SMS_SITE=MCM"]\\CM01.contoso.com\; the whole path when it has none.
+    /// The server name a NAL path ends with, such as DP01.contoso.com for
+    /// ["Display=\\DP01.contoso.com\"]MSWNET:["SMS_SITE=PS1"]\\DP01.contoso.com\; the whole path when it has none.
     /// </summary>
     public static string ServerOf(string nal)
     {
