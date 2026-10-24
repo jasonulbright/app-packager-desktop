@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper and DP Content Manager are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper) and [DP Content Manager](#dp-content-manager). The other two entries start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these two tools. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager and Pivots and Scripts are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper), [DP Content Manager](#dp-content-manager) and [Pivots and Scripts](#pivots-and-scripts). The other entry, Site Hygiene, starts a tool of the App Packager Suite. This tool opens in its own window. App Packager Desktop does not include this tool. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -419,6 +419,55 @@ The page works in light and dark themes.
 - A load shows at most 100,000 pairs. If the site has more, all totals show as not known and the page says so.
 - The deployment counts cover the kinds of deployment that the plan names.
 - The page makes no network call except to the SMS Provider through the ConfigMgr session.
+## Pivots and Scripts
+
+The **Pivots and Scripts** page runs a CMPivot query or an approved ConfigMgr script on client devices and shows what each device returns. **A run cannot be undone.** The clients run the code. Read [Limits](#limits-1) before you use the page on production devices.
+
+![The Pivot tab with a query, a target and the results of a run](docs/images/apd14-ps-pivot.png)
+
+- **Targets:** a collection (ID or exact name), one device, a name pattern with `*`, or a list that you type or import from a TXT or CSV file. **Resolve** shows the number of devices, the names that match nothing and a warning when the target is a built-in collection. A name with a line break or a control character is not imported, and the status line names it.
+- **Pivot:** a query editor with a starter list and a library of sample queries. In the editor, Tab types a tab. Press Esc and then Tab, or Ctrl+Tab, to leave the editor. **Run query** opens a plan.
+- **Script:** pick a script that the site has approved. The page reads the parameter definitions of the script and shows them in the Parameters dialog. A value must fit the type of the parameter (text or whole number). **Run script** opens a plan.
+- **Site scripts:** the scripts on the site with their state. **Check** tests the syntax. **Submit** creates a script and its parameter definitions. **Approve**, **Deny** and **Remove** each open a plan. The page never approves a script by itself, and the site setting that blocks approval by the author is not changed.
+- **Results:** the tabs Results, Devices, Raw and Pipeline. A device that did not answer shows as No response or Timed out, never as a result. **Export CSV** and **Export JSON** write the rows that you see. **Copy as PowerShell** copies a snippet that works in Windows PowerShell 5.1 and in PowerShell 7. **Selection to Pivot** and **Selection to Script** use the selected devices as the next target.
+
+![The Script tab with the approved scripts and their parameters](docs/images/apd14-ps-script.png)
+
+![The results of a run on one device](docs/images/apd14-ps-results.png)
+
+### Plan and checks
+
+Each run shows a plan before anything is sent. The plan names the target and the number of devices. For a script it also shows the script text, the site hash and the SHA-256 of the text, and the parameter values. A script run needs two boxes: one for the script text and one for the number of devices. A target that reaches every device of the site, for example All Systems or a pattern `*`, needs a third box. The service enforces the boxes. A run without them is refused.
+
+![The plan of a script run with the parameters and the confirmation boxes](docs/images/apd14-ps-plan-script.png)
+
+- **The script is pinned:** the run goes to the planned hash. The client runs that text, or it returns no result. After the send, the page reads the script again. If the script changed during the send, the run is marked Partial and the message says so.
+- **The targets are pinned:** every run goes to the fixed list of devices that the plan shows. A device that joins a collection after the check does not receive the code. If the collection has more members than the plan counted, the run is refused.
+- **Size of a run:** a run takes at most 2,000 devices. A plan is valid for 30 minutes, and then you prepare it again.
+- **Audit first:** the page writes a Started record to the audit log and saves the run before it sends. If the log cannot be written, nothing is sent. Each run ends with one Finished record. A run that the service refuses writes a Refused record.
+- **Waiting:** the page reads the results for the wait time of **Options** (30 seconds to 60 minutes). **Stop waiting** ends the wait on the page only. **Wait again** reads the results again, also after you restart the app. If you close the app during a wait, the run continues on the clients, and the record says that the results were not read.
+
+![The Site scripts tab](docs/images/apd14-ps-sitescripts.png)
+
+### History and audit
+
+**History** lists the saved runs. A saved run holds the targets, the query or the script identity, the parameter names and the raw responses. It does not hold parameter values or script text. The audit log is a hash chain, as for the other pages. History marks each record **Verified** or **Not verified**. The application log holds no script text, no query text and no parameter value.
+
+![The History tab with saved runs and the audit records](docs/images/apd14-ps-history.png)
+
+The page works in light and dark themes.
+
+![The Script tab in the dark theme](docs/images/apd14-ps-dark.png)
+
+### Limits
+
+- A run cannot be undone. A script that you stop waiting for still runs on the clients that received it.
+- A script that ends with `exit 3` reads as a success. ConfigMgr reports exit code 0 for it. Only a script that stops with an error reads as failed. Every script plan says this.
+- The provider checks only that the script is approved at the moment of the call. If an administrator changes the text and approves it again before the call, the client still runs the planned text or returns no result. A change between the last read and the call is reported after the send and not prevented. An approval or a denial that races with an edit is reported as Partial, and the page does not undo it.
+- The page needs the right to run CMPivot on the collection, or to run scripts. The site refuses the call otherwise, and the page shows the right that is missing. The client must have CMPivot and Run Scripts enabled in its client settings. The provider certificate must be trusted, and you must connect with the full name of the provider.
+- The audit chain finds edits to single records. A process that runs under the same account can write a new chain without a break.
+- The limit of 2,000 devices is a set limit and not a measured limit. The lab had four clients.
+- The page makes no network call except to the SMS Provider.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
