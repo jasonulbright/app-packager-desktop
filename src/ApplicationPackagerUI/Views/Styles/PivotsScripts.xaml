@@ -85,8 +85,10 @@
         <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
     </Style>
 
-    <Style x:Key="MonoCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
+    <Style x:Key="MonoCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
         <Setter Property="FontFamily" Value="{StaticResource EditorFont}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
     </Style>
 
     <!-- A message wraps to at most two lines, so a narrow window still shows several rows; the tooltip and the details box hold the whole text. -->
@@ -100,6 +102,7 @@
     </Style>
 
     <Style x:Key="VerifiedCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
         <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
     </Style>

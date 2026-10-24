@@ -368,7 +368,6 @@ internal sealed class PivotsScriptsHarness
     public FakePivotsLibrary Library { get; } = new();
     public FakePivotsDialogs Dialogs { get; } = new();
     public ScriptedPlanDialogs Plans { get; } = new();
-    public IChangePlanDialogs? PlanDialogs;
     public RecordingSiteHistory History { get; } = new();
     public RecordingMaintenanceLog Log { get; } = new();
     public AppSettings Settings { get; } = new() { SiteCode = "LAB", ProviderMachine = "cm01.lab.local" };
@@ -395,7 +394,7 @@ internal sealed class PivotsScriptsHarness
 
     public PivotsScriptsWriter Writer() => new(Service, History, Log, () => "LAB");
 
-    public PivotsScriptsPageServices Services() => new(Service, Sessions, Audit, Reports, Library, Dialogs, PlanDialogs ?? Plans, Writer(), () => Settings, () => Saved,
+    public PivotsScriptsPageServices Services() => new(Service, Sessions, Audit, Reports, Library, Dialogs, Plans, Writer(), () => Settings, () => Saved,
         s =>
         {
             Interlocked.Increment(ref PreferenceSaves);

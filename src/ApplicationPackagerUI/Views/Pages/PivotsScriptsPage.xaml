@@ -46,14 +46,14 @@
             <TabItem Header="Pivot" AutomationProperties.AutomationId="tabPivot">
                 <ScrollViewer x:Name="scrollPivotTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollPivotTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPivotTab}" MinHeight="820" KeyboardNavigation.TabNavigation="Local">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPivotTab}" MinHeight="1000" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" MinHeight="320" />
                         </Grid.RowDefinitions>
-                        <pages:PivotsTargetsPanel Grid.Row="0" KeyboardNavigation.TabIndex="0" />
+                        <pages:PivotsTargetsPanel Grid.Row="0" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local" />
                         <Grid Grid.Row="1" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*" MinWidth="280" />
@@ -61,7 +61,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="txtQuery" Grid.Column="0" Style="{StaticResource Editor}" Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}" Height="170"
                                      KeyboardNavigation.TabIndex="0" AutomationProperties.Name="CMPivot query" AutomationProperties.AutomationId="txtQuery" />
-                            <DockPanel Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="1">
+                            <DockPanel Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
                                 <ui:Button DockPanel.Dock="Bottom" Content="Use query" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseQueryItemCommand}" Margin="0,6,0,0"
                                            ToolTip="Puts the selected query of the library into the editor." AutomationProperties.AutomationId="btnUseQuery" />
                                 <ListBox ItemsSource="{Binding QueryLibrary}" SelectedItem="{Binding SelectedQueryItem}" ItemTemplate="{StaticResource LibraryItem}" Height="130"
@@ -69,14 +69,14 @@
                                          AutomationProperties.Name="Query library" AutomationProperties.AutomationId="lstQueryLibrary" />
                             </DockPanel>
                         </Grid>
-                        <WrapPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2">
+                        <WrapPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
                             <ui:Button Content="Run query" Icon="{ui:SymbolIcon Play24}" Appearance="Primary" Command="{Binding RunPivotCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the targets again and shows the plan of the query run." AutomationProperties.Name="Run the CMPivot query"
                                        AutomationProperties.AutomationId="btnRunPivot" />
                             <TextBlock Text="{Binding EditorPosition}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="4,0,12,8" AutomationProperties.AutomationId="txtQueryPosition" />
                             <TextBlock Text="Ctrl+Space shows the starter list. Ctrl+Tab leaves the editor." Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" />
                         </WrapPanel>
-                        <pages:PivotsResultsPanel Grid.Row="3" KeyboardNavigation.TabIndex="3" />
+                        <pages:PivotsResultsPanel Grid.Row="3" KeyboardNavigation.TabIndex="3" KeyboardNavigation.TabNavigation="Local" />
                     </Grid>
                 </ScrollViewer>
             </TabItem>
@@ -84,7 +84,7 @@
             <TabItem Header="Script" AutomationProperties.AutomationId="tabScript">
                 <ScrollViewer x:Name="scrollScriptTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollScriptTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollScriptTab}" MinHeight="860" KeyboardNavigation.TabNavigation="Local">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollScriptTab}" MinHeight="1080" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -92,8 +92,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="2*" MinHeight="320" />
                         </Grid.RowDefinitions>
-                        <pages:PivotsTargetsPanel Grid.Row="0" KeyboardNavigation.TabIndex="0" />
-                        <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabIndex="1">
+                        <pages:PivotsTargetsPanel Grid.Row="0" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local" />
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabIndex="1" KeyboardNavigation.TabNavigation="Local">
                             <ui:Button Content="Refresh scripts" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshScriptsCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads the site scripts again." AutomationProperties.AutomationId="btnRefreshScripts" />
                             <TextBlock Text="{Binding ScriptsCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtScriptsCount" />
@@ -103,14 +103,12 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="84" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Approver" Binding="{Binding Approver}" Width="*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Language" Binding="{Binding Language}" Width="110" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="*" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Approver" Binding="{Binding Approver}" Width="*" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Parameters" Binding="{Binding Parameters}" Width="110" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="GUID" Binding="{Binding Guid}" Width="300" MinWidth="300" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <StackPanel Grid.Row="3" Margin="0,8,0,8" KeyboardNavigation.TabIndex="3">
+                        <StackPanel Grid.Row="3" Margin="0,8,0,8" KeyboardNavigation.TabIndex="3" KeyboardNavigation.TabNavigation="Local">
                             <TextBlock Text="{Binding ScriptDetail}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtScriptDetail" AutomationProperties.LiveSetting="Polite" />
                             <TextBlock Text="{Binding ParametersText}" Style="{StaticResource Note}" Margin="0,4,0,8" AutomationProperties.AutomationId="txtParametersText" />
                             <WrapPanel>
@@ -121,7 +119,7 @@
                                            AutomationProperties.Name="Run the approved script" AutomationProperties.AutomationId="btnRunScript" />
                             </WrapPanel>
                         </StackPanel>
-                        <pages:PivotsResultsPanel Grid.Row="4" KeyboardNavigation.TabIndex="4" />
+                        <pages:PivotsResultsPanel Grid.Row="4" KeyboardNavigation.TabIndex="4" KeyboardNavigation.TabNavigation="Local" />
                     </Grid>
                 </ScrollViewer>
             </TabItem>
@@ -129,14 +127,14 @@
             <TabItem Header="Site scripts" AutomationProperties.AutomationId="tabSiteScripts">
                 <ScrollViewer x:Name="scrollSiteScriptsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollSiteScriptsTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollSiteScriptsTab}" MinHeight="760" KeyboardNavigation.TabNavigation="Local">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollSiteScriptsTab}" MinHeight="860" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" MinHeight="160" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabIndex="0">
+                        <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local">
                             <ui:TextBox Text="{Binding SiteScriptText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, GUID, author or state" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="Site script filter" AutomationProperties.AutomationId="txtSiteScriptFilter" />
                             <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshScriptsCommand}" Style="{StaticResource ToolButton}"
@@ -149,13 +147,12 @@
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="State" Binding="{Binding State}" Width="170" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="84" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Approver" Binding="{Binding Approver}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Language" Binding="{Binding Language}" Width="110" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="GUID" Binding="{Binding Guid}" Width="300" MinWidth="300" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Author" Binding="{Binding Author}" Width="*" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Approver" Binding="{Binding Approver}" Width="*" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="GUID" Binding="{Binding Guid}" Width="340" MinWidth="340" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <StackPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2">
+                        <StackPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
                             <TextBlock Text="{Binding SiteScriptDetail}" Style="{StaticResource Warning}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtSiteScriptDetail" />
                             <WrapPanel>
                                 <ui:Button Content="Approve" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ApproveScriptCommand}" Style="{StaticResource ToolButton}"
@@ -193,14 +190,14 @@
                                             KeyboardNavigation.TabIndex="0" AutomationProperties.Name="Script name" AutomationProperties.AutomationId="txtDraftName" />
                                 <TextBox x:Name="txtDraft" Grid.Row="2" Grid.Column="0" Style="{StaticResource Editor}" Text="{Binding DraftText, UpdateSourceTrigger=PropertyChanged}" Height="170"
                                          KeyboardNavigation.TabIndex="1" AutomationProperties.Name="Script text" AutomationProperties.AutomationId="txtDraft" />
-                                <DockPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="2">
+                                <DockPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,0,0,0" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
                                     <ui:Button DockPanel.Dock="Bottom" Content="Use script" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding UseScriptItemCommand}" Margin="0,6,0,0"
                                                ToolTip="Puts the selected script of the library into the editor." AutomationProperties.AutomationId="btnUseScript" />
                                     <ListBox ItemsSource="{Binding ScriptLibrary}" SelectedItem="{Binding SelectedScriptItem}" ItemTemplate="{StaticResource LibraryItem}"
                                              ItemContainerStyle="{StaticResource SelectableListItem}" MouseDoubleClick="OnScriptLibraryDoubleClick"
                                              AutomationProperties.Name="Script library" AutomationProperties.AutomationId="lstScriptLibrary" />
                                 </DockPanel>
-                                <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="0,8,0,0" KeyboardNavigation.TabIndex="3">
+                                <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Margin="0,8,0,0" KeyboardNavigation.TabIndex="3" KeyboardNavigation.TabNavigation="Local">
                                     <WrapPanel>
                                         <ui:Button Content="Check" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding CheckDraftCommand}" Style="{StaticResource ToolButton}"
                                                    ToolTip="Checks the syntax of the script text. It does not run the script." AutomationProperties.Name="Check the syntax" AutomationProperties.AutomationId="btnCheckDraft" />
@@ -220,7 +217,7 @@
             <TabItem Header="History" AutomationProperties.AutomationId="tabPivotsHistory">
                 <ScrollViewer x:Name="scrollPivotsHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollPivotsHistoryTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPivotsHistoryTab}" MinHeight="560" KeyboardNavigation.TabNavigation="Local">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPivotsHistoryTab}" MinHeight="620" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" MinHeight="140" />
@@ -228,7 +225,7 @@
                             <RowDefinition Height="2*" MinHeight="160" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabIndex="0">
+                        <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Local">
                             <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter the audit records" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtPivotsHistoryFilter" />
                             <ui:Button Content="Refresh history" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
@@ -247,7 +244,7 @@
                                 <DataGridTextColumn Header="State" Binding="{Binding State}" Width="170" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <StackPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2">
+                        <StackPanel Grid.Row="2" Margin="0,8,0,8" KeyboardNavigation.TabIndex="2" KeyboardNavigation.TabNavigation="Local">
                             <TextBlock Style="{StaticResource Note}" AutomationProperties.AutomationId="txtPivotsHistoryPath">
                                 <Run Text="Audit log:" />
                                 <Run Text="{Binding HistoryPath, Mode=OneWay}" />

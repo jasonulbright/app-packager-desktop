@@ -36,7 +36,7 @@
                 <ui:Button Content="Resolve" Icon="{ui:SymbolIcon PeopleSearch24}" Appearance="Primary" Command="{Binding ResolveCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
                            ToolTip="Reads the devices of the target with one bulk read. A run goes only to resolved targets." AutomationProperties.Name="Resolve the targets"
                            AutomationProperties.AutomationId="btnResolve" />
-                <ui:Button Content="Import TXT or CSV" Icon="{ui:SymbolIcon DocumentArrowUp24}" Command="{Binding ImportTargetsCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
+                <ui:Button Content="Import TXT or CSV" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding ImportTargetsCommand}" Style="{StaticResource ToolButton}" MinWidth="130"
                            ToolTip="Reads device names from a text file, one per line, or from a CSV file." AutomationProperties.AutomationId="btnImportTargets" />
             </WrapPanel>
             <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Text="{Binding TargetHint}" Style="{StaticResource Note}" Margin="0,6,0,0"
