@@ -9,7 +9,7 @@ namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 /// The guards of the fix runner against what a scan cannot see: objects that use a collection outside the
 /// deployment summary, an Auto Apply Drivers step, a finding whose check or parameters do not match its fix,
 /// a read-back that fails, an unexpected error in the middle of a run, and the audit records of a large run.
-/// The rows of the objects are the rows CM01 returned for the SHL- objects of the qualification.
+/// The rows have the classes and columns the provider returns for these objects.
 /// </summary>
 public sealed class SiteHygieneFixGuardTests
 {
@@ -31,7 +31,7 @@ public sealed class SiteHygieneFixGuardTests
         { "Assignment", "1 deployment of an application, a software update, a baseline or a policy target the collection now." }
     };
 
-    /// <summary>On CM01 the site deleted a collection that an automatic deployment rule targets (the rule kept the deleted ID) and one with a client settings deployment.</summary>
+    /// <summary>The site deletes a collection that an automatic deployment rule targets (the rule keeps the deleted ID) and one with a client settings deployment.</summary>
     [Theory]
     [MemberData(nameof(CollectionUsers))]
     public async Task ACollectionThatAnotherObjectUsesIsNotDeleted(string user, string reason)
@@ -79,7 +79,7 @@ public sealed class SiteHygieneFixGuardTests
         Assert.Empty(failed.Site.Commands);
     }
 
-    /// <summary>On CM01 a task sequence with an Auto Apply Drivers step had no reference row, and the site deleted the driver package that held its driver.</summary>
+    /// <summary>A task sequence with an Auto Apply Drivers step has no reference row, and the site deletes the driver package that holds its driver.</summary>
     [Fact]
     public async Task ADriverPackageIsNotDeletedWhileATaskSequenceHasAnAutoApplyDriversStep()
     {
