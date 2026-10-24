@@ -80,6 +80,9 @@ internal sealed partial class StubAdminService : HttpMessageHandler
     /// <summary>The status reads a device needs before it answers; null uses <see cref="AnswerAfterPolls"/> for every device.</summary>
     public Func<int, int>? AnswerAfter { get; set; }
 
+    /// <summary>The next device result reads answer these HTTP statuses with an empty body, one per read.</summary>
+    public Queue<int> DeviceResultRefusals { get; } = new();
+
     /// <summary>The send answers with a body longer than the client reads, after the site created the operation.</summary>
     public bool SendTooLarge { get; set; }
 
@@ -172,6 +175,7 @@ internal sealed partial class StubAdminService : HttpMessageHandler
         }
         if (DeviceResult().Match(path) is { Success: true } d)
         {
+            if (DeviceResultRefusals.TryDequeue(out var refusal)) return Json(refusal, "");
             var id = int.Parse(d.Groups[1].Value);
             var op = long.Parse(d.Groups[2].Value);
             if (!_operations.TryGetValue(op, out var o) || o.Reads <= AnswerAfterPolls) return Json(404, "");

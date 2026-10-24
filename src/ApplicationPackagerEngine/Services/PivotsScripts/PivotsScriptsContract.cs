@@ -152,6 +152,12 @@ public sealed record PivotsChange(
     /// <summary>True when the plan needs <see cref="RunConfirmed"/>: every script run.</summary>
     public bool NeedsRunConfirmation => Kind == PivotsChangeKind.RunScript;
 
+    /// <summary>
+    /// The operator confirmed the plan of this change. ApplyAsync refuses every kind of change without
+    /// it; PrepareAsync clears it. The desktop sets it only from a confirmed change plan.
+    /// </summary>
+    public bool ChangeConfirmed { get; init; }
+
     /// <summary>True when the plan needs <see cref="EveryDeviceAcknowledged"/>: a run on a built-in collection or on a target that holds every client of the site.</summary>
     public bool NeedsEveryDeviceAcknowledgement => IsRun && Targets is { ReachesEveryDevice: true };
 
@@ -299,6 +305,7 @@ public sealed record ScriptCheck(bool Valid, IReadOnlyList<string> Errors, IRead
 /// The saved record of one run, written before the first request goes out and updated with the
 /// responses.
 /// </summary>
+/// <param name="Parameters">The parameter names of a script run, each with the SHA-256 of its value ("sha256:" and lower-case hex); the values are not stored.</param>
 public sealed record PivotsSessionRecord(
     string Id,
     DateTime CreatedUtc,
@@ -322,6 +329,12 @@ public sealed record PivotsSessionRecord(
     public IReadOnlyList<PivotsRawRecord> Raw { get; init; } = [];
     public DateTime? FinishedUtc { get; init; }
     public bool Partial { get; init; }
+
+    /// <summary>True once the Finished audit record of the run is written; a later wait writes none.</summary>
+    public bool FinishedRecorded { get; init; }
+
+    /// <summary>True when the site held another script text or version right after the send than the plan.</summary>
+    public bool ChangedDuringSend { get; init; }
 }
 
 /// <summary>One request or response of a run as the site returned it.</summary>
@@ -408,6 +421,9 @@ public interface IPivotsAuditLog
 
     /// <summary>The last <paramref name="max"/> records, oldest first; a line that cannot be read is skipped.</summary>
     IReadOnlyList<PivotsAuditRecord> Read(int max);
+
+    /// <summary>Every record of one saved session in the whole log, oldest first; the read is not limited to the last records.</summary>
+    IReadOnlyList<PivotsAuditRecord> ReadSession(string sessionId) => Read(int.MaxValue).Where(r => r.SessionId == sessionId).ToList();
 
     string Path { get; }
 

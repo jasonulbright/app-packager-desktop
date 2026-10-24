@@ -169,7 +169,22 @@ public sealed partial class PivotsSessionStore(string? folder = null, IAppLog? l
         return record with { Raw = kept };
     }
 
-    private static byte[] Serialize(PivotsSessionRecord record) => Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Bounded(record), Options));
+    private static byte[] Serialize(PivotsSessionRecord record) =>
+        Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Bounded(record) with { Parameters = HashedParameters(record.Parameters) }, Options));
+
+    [GeneratedRegex("^sha256:[0-9a-f]{64}$")]
+    private static partial Regex HashedValueRegex();
+
+    public const string HashPrefix = "sha256:";
+
+    /// <summary>
+    /// The parameter names with the SHA-256 of each value: a session file never holds a value, which
+    /// can be a password or a token. A value in the hashed form stays as it is.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> HashedParameters(IReadOnlyDictionary<string, string>? parameters) =>
+        (parameters ?? new Dictionary<string, string>()).ToDictionary(p => p.Key,
+            p => HashedValueRegex().IsMatch(p.Value ?? "") ? p.Value! : HashPrefix + Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(p.Value ?? ""))),
+            StringComparer.Ordinal);
 
     private string PathOf(string id)
     {

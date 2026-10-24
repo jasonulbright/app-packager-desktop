@@ -10,9 +10,9 @@ namespace ApplicationPackagerEngine.Tests.PivotsScripts;
 /// queries, CIM calls and script cmdlets over a JSON state with the shapes CM01 (5.00.9146.1000)
 /// returns. SMS_Scripts holds the text as base64 of UTF-16LE with a byte order mark (New-CMScript) and
 /// a site ScriptHash; New-CMScript stores no parameter definitions; UpdateScript of the text resets
-/// the approval to waiting; Invoke-CMScript refuses a script that is not approved ("Script Not
-/// Approved") and a value with a double quote ("Generic failure"), drops a value for a name the
-/// script does not define and a text value for an integer parameter. Time is counted in script runs:
+/// the approval to waiting; InitiateClientOperationEx (type 135) refuses a script that is not approved
+/// ("Generic failure") and logs the devices, the typed values and the ScriptHash of the operation
+/// message ("RunScript:"); option "ChangeOnSend:Guid" changes the script text as the operation starts. Time is counted in script runs:
 /// a run schedules each online client's status row some runs ahead (option "Ticks", default 1);
 /// an offline client and a resource without a client get no row. Options: "TwoKey" (1 makes the site
 /// refuse an approval decision by the author), "User" (the author New-CMScript records), "Throw:Guid"
@@ -114,13 +114,46 @@ internal sealed class StubPivotsSite : IConfigMgrSession
             }
         }
         function global:Invoke-CimMethod {
-            [CmdletBinding()] param([object]$InputObject, [string]$MethodName, [hashtable]$Arguments)
-            $global:Log.Add('Invoke-CimMethod:' + $MethodName); Test-Fail 'define'
+            [CmdletBinding()] param([object]$InputObject, [object]$CimSession, [string]$Namespace, [string]$ClassName, [string]$MethodName, [hashtable]$Arguments)
+            $global:Log.Add('Invoke-CimMethod:' + $MethodName)
+            if ($MethodName -eq 'InitiateClientOperationEx') { return (Start-ScriptOperation $ClassName $Arguments) }
+            Test-Fail 'define'
             if ($MethodName -ne 'UpdateScript') { throw 'Unknown method' }
             $r = $InputObject.__Row
-            if ([string]$Arguments.Script -ne [string]$r.Script) { $r.Script = [string]$Arguments.Script; $r.ApprovalState = 0; $r.ScriptHash = 'CHANGED' + $global:Tick }
+            if ([string]$Arguments.Script -ne [string]$r.Script) { $r.Script = [string]$Arguments.Script; $r.ApprovalState = 0; $r.ScriptHash = (Hash ([string]$Arguments.Script + $global:Tick)) }
             $r.ParamsDefinition = [string]$Arguments.ParamsDefinition
             [pscustomobject]@{ ReturnValue = 0 }
+        }
+        # SMS_ClientOperation.InitiateClientOperationEx type 135 as CM01 handles it: a script that is not
+        # approved fails with "Generic failure"; the client runs the text of the ScriptHash in the message.
+        function global:Start-ScriptOperation([string]$Class, [hashtable]$Arguments) {
+            Test-Fail 'run'
+            if ($Class -ne 'SMS_ClientOperation' -or [int]$Arguments.Type -ne 135) { throw 'Unknown operation' }
+            $xml = [xml][System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String([string]$Arguments.Param))
+            $guid = $xml.SelectSingleNode('/ScriptContent').GetAttribute('ScriptGuid')
+            $hash = $xml.SelectSingleNode('/ScriptContent/ScriptHash').InnerText
+            $version = $xml.SelectSingleNode('/ScriptContent/ScriptVersion').InnerText
+            $r = Find-Script $guid
+            if ($null -eq $r -or [int]$r.ApprovalState -ne 3) { throw 'Generic failure' }
+            $values = foreach ($p in @($xml.SelectNodes('/ScriptContent/ScriptParameters/ScriptParameter'))) {
+                $type = $p.GetAttribute('ParameterDataType'); $v = $p.GetAttribute('ParameterValue')
+                if ($type -eq 'System.Int32') { $v = [int]$v }
+                $p.GetAttribute('ParameterName') + '=' + $v + '(' + $v.GetType().Name + ')'
+            }
+            $op = $global:NextOp; $global:NextOp++
+            $ids = @($Arguments.TargetResourceIDs | ForEach-Object { [int]$_ })
+            $targets = @($global:S.Devices | Where-Object { $ids -contains [int]$_.ResourceID })
+            $global:Log.Add('RunScript:' + $guid + ':devices ' + ($ids -join ',') + ':' + (@($values | Sort-Object) -join ';') + ':hash ' + $hash + ':version ' + $version)
+            $throw = $global:Opt.ContainsKey('Throw:' + $guid)
+            $output = [string](V $state.Options ('Output:' + $guid) '{\"Label\":\"none\"}')
+            foreach ($t in @($targets)) {
+                if (-not $t.IsClient -or $t.CNIsOnline -eq $false) { continue }
+                $global:S.Pending.Add([pscustomobject]@{ At = $global:Tick + $global:Ticks; ClientOperationId = $op; ResourceId = $t.ResourceID; DeviceName = $t.Name; ScriptGuid = $r.ScriptGuid
+                    ScriptExecutionState = $(if ($throw) { 2 } else { 1 }); ScriptExitCode = $(if ($throw) { -2147467259 } else { 0 }); ScriptOutput = $(if ($throw) { '' } else { $output }); LastUpdateTime = [datetime]'2026-10-24T08:51:11' })
+            }
+            # Another administrator changes the text and approves it again while the operation starts.
+            if ($global:Opt.ContainsKey('ChangeOnSend:' + $guid)) { $r.ScriptHash = (Hash ('changed on send' + $global:Tick)); $r.Script = [Convert]::ToBase64String([byte[]](0xFF, 0xFE) + [System.Text.Encoding]::Unicode.GetBytes('changed on send')) }
+            [pscustomobject]@{ OperationID = $op; ReturnValue = 0 }
         }
         function global:Get-CMScript { [CmdletBinding()] param([string]$ScriptGuid, [switch]$Fast) $r = Find-Script $ScriptGuid; if ($null -ne $r) { $r.PSObject.Copy() } }
         function global:Remove-CMScript {
@@ -135,27 +168,11 @@ internal sealed class StubPivotsSite : IConfigMgrSession
             $me = [string](V $state.Options 'Caller' 'CONTOSO\LabAdmin')
             if ([int](V $state.Options 'TwoKey' 0) -eq 1 -and [string]$r.Author -eq $me) { throw 'The SMS Provider reported an error.' }
             $r.ApprovalState = $Decision; $r.Approver = $me; $r.Comment = $Comment
+            # Another administrator changes the text while the decision is stored.
+            if ($global:Opt.ContainsKey('ChangeOnDecision:' + $Guid)) { $r.ScriptHash = (Hash ('changed on decision' + $global:Tick)); $r.Script = [Convert]::ToBase64String([byte[]](0xFF, 0xFE) + [System.Text.Encoding]::Unicode.GetBytes('changed on decision')) }
         }
         function global:Approve-CMScript { [CmdletBinding()] param([string]$ScriptGuid, [string]$Comment) Set-Decision $ScriptGuid 3 $Comment 'Approve' }
         function global:Deny-CMScript { [CmdletBinding()] param([string]$ScriptGuid, [string]$Comment) Set-Decision $ScriptGuid 1 $Comment 'Deny' }
-        function global:Invoke-CMScript {
-            [CmdletBinding()] param([string]$ScriptGuid, [object[]]$Device, [string]$CollectionId, [hashtable]$ScriptParameter, [switch]$PassThru)
-            Test-Fail 'run'
-            $r = Find-Script $ScriptGuid
-            if ($null -eq $r -or [int]$r.ApprovalState -ne 3) { throw [System.InvalidOperationException]::new('Script Not Approved') }
-            foreach ($v in @($ScriptParameter.Values)) { if ([string]$v -match '"') { throw 'Generic failure ' } }
-            $op = $global:NextOp; $global:NextOp++
-            $targets = if ($CollectionId) { @($global:S.Members | Where-Object { [string]$_.CollectionID -eq $CollectionId } | ForEach-Object { $id = $_.ResourceID; $global:S.Devices | Where-Object { $_.ResourceID -eq $id } }) } else { @($Device) }
-            $global:Log.Add('Invoke-CMScript:' + $ScriptGuid + ':' + $(if ($CollectionId) { 'collection ' + $CollectionId } else { 'devices ' + (@($targets | ForEach-Object { $_.ResourceID }) -join ',') }) + ':' + (@($ScriptParameter.Keys | Sort-Object | ForEach-Object { $_ + '=' + $ScriptParameter[$_] + '(' + $ScriptParameter[$_].GetType().Name + ')' }) -join ';'))
-            $throw = $global:Opt.ContainsKey('Throw:' + $ScriptGuid)
-            $output = [string](V $state.Options ('Output:' + $ScriptGuid) '{\"Label\":\"none\"}')
-            foreach ($t in @($targets)) {
-                if (-not $t.IsClient -or $t.CNIsOnline -eq $false) { continue }
-                $global:S.Pending.Add([pscustomobject]@{ At = $global:Tick + $global:Ticks; ClientOperationId = $op; ResourceId = $t.ResourceID; DeviceName = $t.Name; ScriptGuid = $r.ScriptGuid
-                    ScriptExecutionState = $(if ($throw) { 2 } else { 1 }); ScriptExitCode = $(if ($throw) { -2147467259 } else { 0 }); ScriptOutput = $(if ($throw) { '' } else { $output }); LastUpdateTime = [datetime]'2026-10-24T08:51:11' })
-            }
-            if ($PassThru) { [pscustomobject]@{ OperationID = $op; ReturnValue = 0 } }
-        }
 
         Set-StrictMode -Version 2.0
         $parameters = @{}

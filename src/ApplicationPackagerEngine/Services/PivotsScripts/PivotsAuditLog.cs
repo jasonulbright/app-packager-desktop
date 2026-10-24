@@ -168,6 +168,42 @@ public sealed class PivotsAuditLog : IPivotsAuditLog
         return records;
     }
 
+    /// <summary>
+    /// Every record of one session, read line by line over the whole file: the read holds one line
+    /// at a time and parses only the lines that name the session.
+    /// </summary>
+    public IReadOnlyList<PivotsAuditRecord> ReadSession(string sessionId)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(sessionId);
+        var path = Path;
+        var records = new List<PivotsAuditRecord>();
+        if (!ChainedJsonlFile.IsFullFilePath(path) || !File.Exists(path)) return records;
+        try
+        {
+            if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
+                throw new PivotsServiceException("The Pivots and Scripts audit log file is a symbolic link or another reparse point, so it was not read.");
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+            while (reader.ReadLine() is { } line)
+            {
+                if (!line.Contains(sessionId, StringComparison.Ordinal)) continue;
+                try
+                {
+                    if (Parse(line) is { } record && record.SessionId == sessionId) records.Add(record);
+                }
+                catch (JsonException)
+                {
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log?.Warning(LogArea, $"The Pivots and Scripts audit log could not be read ({ex.GetType().Name}).");
+            throw new PivotsServiceException($"The Pivots and Scripts audit log could not be read: {path}. Check that the folder can be reached.");
+        }
+        return records;
+    }
+
     /// <summary>The verification text of a record read from the log, as <see cref="AuditVerification.Text"/> gives it for a deployment record.</summary>
     public static string VerificationText(PivotsAuditRecord record)
     {

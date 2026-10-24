@@ -27,6 +27,12 @@ public sealed partial class PivotsScriptsService
         /// <summary>True for a run read from its saved session: this service did not send it.</summary>
         public bool Reloaded { get; init; }
 
+        /// <summary>True when the site held another script hash, version or approval right after the send: the run is partial.</summary>
+        public bool ChangedDuringSend => Session.ChangedDuringSend;
+
+        /// <summary>Devices whose cut status row got no whole result on the first read; the next poll reads it once more.</summary>
+        public HashSet<int> FullRetry { get; } = [];
+
         /// <summary>1 once the Finished audit record of the run is written; a run has one.</summary>
         public int FinishedRecorded;
 
@@ -91,6 +97,8 @@ public sealed partial class PivotsScriptsService
         if (prepared.Change.Blocked) return "a check of the prepared plan failed. Prepare the plan again.";
         if (_utcNow() - prepared.PreparedUtc > MaxPlanAge)
             return $"the plan is older than {Minutes(MaxPlanAge)}. The site can have changed since. Prepare the plan again. Nothing was sent.";
+        if (!change.ChangeConfirmed)
+            return "the plan was not confirmed. Confirm the plan, then run it again. " + (change.IsRun ? "Nothing was sent." : "Nothing was changed.");
         if (change.IsRun)
         {
             if (change.Targets is null || change.DeviceCount <= 0) return "the plan has no device.";
@@ -113,7 +121,7 @@ public sealed partial class PivotsScriptsService
         _used[change.Fingerprint!] = _utcNow();
         foreach (var old in _used.Where(u => u.Value < _utcNow().AddDays(-1)).Select(u => u.Key).ToList()) _used.TryRemove(old, out _);
         // The prepared copy decides what runs; the caller's copy only adds the confirmations.
-        var planned = prepared.Change with { RunConfirmed = change.RunConfirmed, EveryDeviceAcknowledged = change.EveryDeviceAcknowledged };
+        var planned = prepared.Change with { RunConfirmed = change.RunConfirmed, EveryDeviceAcknowledged = change.EveryDeviceAcknowledged, ChangeConfirmed = change.ChangeConfirmed };
         return planned.Kind switch
         {
             PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript => await RunAsync(planned, progress, ct).ConfigureAwait(false),
@@ -180,7 +188,7 @@ public sealed partial class PivotsScriptsService
                 ScriptGuid: change.ScriptGuid,
                 ScriptName: change.Script?.Name,
                 ScriptHash: textHash,
-                Parameters: change.Parameters ?? new Dictionary<string, string>());
+                Parameters: PivotsSessionStore.HashedParameters(change.Parameters));
             try
             {
                 _sessions.Save(session);
@@ -207,7 +215,7 @@ public sealed partial class PivotsScriptsService
                 {
                     audit.Append(Finished(change, runId, targets.Description, sendTo.Count, textHash, null, session.Id, "Skipped", "Cancelled before the send."));
                     finished = true;
-                    TryUpdate(session with { Status = "Skipped", Message = "Cancelled before the send." });
+                    TryUpdate(session with { Status = "Skipped", Message = "Cancelled before the send.", FinishedRecorded = true });
                     return Refused(change, "the run was cancelled before anything was sent.");
                 }
 
@@ -227,9 +235,9 @@ public sealed partial class PivotsScriptsService
                         ? send.Message + " The request can have reached the site: check Monitoring > Client Operations or Script Status before you run it again."
                         : send.Message;
                     var results = sendTo.Select(d => new DeviceResult(d.ResourceId, d.Name, state, "", message)).Concat(skipped).ToList();
-                    audit.Append(Finished(change, runId, targets.Description, sendTo.Count, textHash, null, session.Id, send.MayHaveReached ? "Partial" : "Failed", message));
+                    var written = audit.Append(Finished(change, runId, targets.Description, sendTo.Count, textHash, null, session.Id, send.MayHaveReached ? "Partial" : "Failed", message));
                     finished = true;
-                    TryUpdate(session with { Status = send.MayHaveReached ? "Unknown" : "Failed", Message = message, Raw = raw, Results = results, FinishedUtc = _utcNow(), Partial = send.MayHaveReached });
+                    TryUpdate(session with { Status = send.MayHaveReached ? "Unknown" : "Failed", Message = message, Raw = raw, Results = results, FinishedUtc = _utcNow(), Partial = send.MayHaveReached, FinishedRecorded = written.Succeeded });
                     _log?.Warning(LogArea, $"{change.Kind} was not accepted by the site.");
                     return new PivotsOutcome(change, false, message, null, results, send.MayHaveReached, session.Id) { Sent = send.MayHaveReached };
                 }
@@ -251,13 +259,22 @@ public sealed partial class PivotsScriptsService
                 run.Raw.AddRange(raw);
                 foreach (var d in sendTo) run.Results[d.ResourceId] = new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", SentMessage);
                 foreach (var s in skipped) run.Results[s.ResourceId] = s;
-                run.Session = run.Session with { Results = run.Results.Values.ToList() };
+                run.Session = run.Session with { Results = run.Results.Values.ToList(), ChangedDuringSend = send.ChangedDuringSend, Message = send.ChangedDuringSend ? ChangedDuringSendMessage : "" };
+                if (send.ChangedDuringSend)
+                {
+                    _log?.Warning(LogArea, $"{change.Kind}: the script on the site changed during the send.");
+                    var note = audit.Append(new PivotsAuditRecord(default, _user(), change.Kind.ToString(), "Note", "Partial", runId, targets.Description, sendTo.Count, change.ScriptGuid, textHash, send.OperationId,
+                        ChangedDuringSendMessage) { SessionId = session.Id });
+                    if (!note.Succeeded) _log?.Warning(LogArea, "The audit record of a script that changed during the send could not be written.");
+                }
                 // The run is kept before the session file names its operation, so a wait never reloads a second instance of it.
                 run = RememberRun(run);
                 TryUpdate(run.Session);
                 _log?.Info(LogArea, $"{change.Kind} sent to {sendTo.Count} devices.");
                 if (change.IsSendOnly)
-                    return Snapshot(run, true, "Sent. The site accepted the run. The results are read after the send.", final: true);
+                    return run.ChangedDuringSend
+                        ? Snapshot(run, false, "Sent. " + ChangedDuringSendMessage, final: true)
+                        : Snapshot(run, true, "Sent. The site accepted the run. The results are read after the send.", final: true);
                 audit.Dispose();
                 append = _audit.Append;
                 progress.Report(Snapshot(run, false, "Sent. Waiting for results.", final: false));
@@ -305,16 +322,19 @@ public sealed partial class PivotsScriptsService
             results = Ordered(run);
         }
         else results = sendTo.Select(d => new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.NoResponse, "", message)).ToList();
+        // A null append means that the Finished record of the run is written already.
+        var recorded = true;
         if (append is not null && (run is null || Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) == 0))
         {
             var written = append(Finished(change, runId, target, sendTo.Count, textHash, operation, session.Id, "Partial", message));
+            recorded = written.Succeeded;
             if (!written.Succeeded)
             {
                 if (run is not null) Interlocked.Exchange(ref run.FinishedRecorded, 0);
                 _log?.Warning(LogArea, "The Finished audit record of a run could not be written.");
             }
         }
-        var saved = (run?.Session ?? session) with { OperationId = operation, Status = "Unknown", Message = message, Results = results, FinishedUtc = _utcNow(), Partial = true };
+        var saved = (run?.Session ?? session) with { OperationId = operation, Status = "Unknown", Message = message, Results = results, FinishedUtc = _utcNow(), Partial = true, FinishedRecorded = recorded };
         if (run is not null) run.Session = saved;
         TryUpdate(saved);
         return new PivotsOutcome(change, false, message, operation, results, true, session.Id) { Sent = true, SentUtc = run?.SentUtc };
@@ -338,7 +358,14 @@ public sealed partial class PivotsScriptsService
         }
     }
 
-    private sealed record SendResult(string? OperationId, int? Status, string Raw, string Message, bool MayHaveReached);
+    private sealed record SendResult(string? OperationId, int? Status, string Raw, string Message, bool MayHaveReached)
+    {
+        /// <summary>True when the site held another script hash, version or approval right after the send than the plan.</summary>
+        public bool ChangedDuringSend { get; init; }
+    }
+
+    internal const string ChangedDuringSendMessage =
+        "The script changed during the send: the site holds another text, version or approval of the script now than the plan. The request names the hash of the planned text, so a client runs the planned text or gives no result. Check Monitoring > Script Status.";
 
     /// <summary>
     /// One RunCMPivot request on the list route with the fixed ResourceIDs of the plan, for every
@@ -395,12 +422,18 @@ public sealed partial class PivotsScriptsService
 
     /// <summary>
     /// One script run on the fixed ResourceIDs of the plan, for every target kind. The session script
-    /// reads the script again and refuses when the site's ScriptHash or the hash of the text differs
-    /// from the plan, so a text approved again after the plan does not run.
+    /// reads the script again as its last step before the send and refuses when the site's ScriptHash,
+    /// the version or the hash of the text differs from the plan. The operation message carries the
+    /// planned ScriptHash and version, and the client runs the text of that hash. The session script
+    /// reads the script once more after the send; a difference from the plan marks the send.
     /// </summary>
     private async Task<SendResult> SendScriptAsync(PivotsChange change, IReadOnlyList<ResolvedDevice> devices)
     {
-        var p = new ConfigMgrParameters { { "Operation", "Run" }, { "ScriptGuid", change.ScriptGuid }, { "SiteHash", change.Script?.SiteHash ?? "" }, { "TextHash", change.ScriptHash ?? "" } };
+        var p = new ConfigMgrParameters
+        {
+            { "Operation", "Run" }, { "ScriptGuid", change.ScriptGuid }, { "SiteHash", change.Script?.SiteHash ?? "" }, { "TextHash", change.ScriptHash ?? "" },
+            { "ScriptVersion", (change.Script?.Version ?? 0).ToString(CultureInfo.InvariantCulture) }
+        };
         var values = change.Parameters ?? new Dictionary<string, string>();
         p.Add("ParameterNames", values.Keys.ToArray());
         p.Add("ParameterValues", values.Keys.Select(k => values[k]).ToArray());
@@ -422,9 +455,13 @@ public sealed partial class PivotsScriptsService
             return new SendResult(null, null, raw, $"The site holds {I(missing, "Found")} of the {I(missing, "Wanted")} devices of the plan now. Resolve the targets again. Nothing was sent.", false);
         var started = Kind(output, "Started").FirstOrDefault();
         var op = started.ValueKind == JsonValueKind.Object && long.TryParse(S(started, "Operation"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0 ? id.ToString(CultureInfo.InvariantCulture) : null;
+        var after = Kind(output, "After").FirstOrDefault();
+        var changed = after.ValueKind != JsonValueKind.Object || B(after, "Present") != true || I(after, "ApprovalState", -1) != 3
+            || !string.Equals(S(after, "SiteHash"), change.Script?.SiteHash, StringComparison.OrdinalIgnoreCase)
+            || S(after, "Version") != (change.Script?.Version ?? 0).ToString(CultureInfo.InvariantCulture);
         return op is null
-            ? new SendResult(null, null, raw, "The site accepted the run but returned no operation ID, so its results cannot be read.", true)
-            : new SendResult(op, null, raw, "", true);
+            ? new SendResult(null, null, raw, "The site accepted the run but returned no operation ID, so its results cannot be read.", true) { ChangedDuringSend = changed }
+            : new SendResult(op, null, raw, "", true) { ChangedDuringSend = changed };
     }
 
     /// <summary>Keeps the run for later waits and returns the kept instance: a run that another caller kept first stays, so its guards hold for every wait.</summary>
@@ -480,9 +517,6 @@ public sealed partial class PivotsScriptsService
     /// <summary>The most saved sessions searched for a run when the caller does not name its session.</summary>
     internal const int MaxSessionsSearched = 500;
 
-    /// <summary>The most audit records read to find the Started and Finished records of a reloaded run.</summary>
-    internal const int MaxAuditRecordsSearched = 5000;
-
     /// <summary>
     /// A run that this service did not send, read from its saved session: the devices, the query or
     /// the script, and the results saved so far. A script run whose script the site no longer holds is
@@ -504,7 +538,7 @@ public sealed partial class PivotsScriptsService
             if (script is null)
                 throw new PivotsServiceException("The site no longer holds the script of this run, and the site removed its run history with it. The saved session shows the results it holds.");
         }
-        var (runId, finished) = AuditOf(session.Id);
+        var (runId, finished) = AuditOf(session);
         var targets = new ResolvedTargets(Devices: session.Devices, CollectionId: session.CollectionId, Description: session.TargetDescription, IsBuiltInCollection: IsBuiltIn(session.CollectionId),
             Unmatched: [], Truncated: false) { TotalMatched = session.Devices.Count };
         var change = new PivotsChange(Kind: session.Kind, Targets: targets, QueryText: session.QueryText, ScriptGuid: session.ScriptGuid, ScriptHash: session.ScriptHash, Parameters: session.Parameters,
@@ -533,22 +567,25 @@ public sealed partial class PivotsScriptsService
     }
 
     /// <summary>
-    /// The run ID of the Started record of a saved session and whether its Finished record exists. A
-    /// log that cannot be read, and a log whose last records do not hold the Started record of the
-    /// session, count as finished: the Finished record can be in the part that was not read, so a
-    /// wait never writes a second one.
+    /// The run ID of the Started record of a saved session and whether its Finished record exists.
+    /// The session file says when the Finished record is written; otherwise the whole log is searched
+    /// for the records of the session. A log without the Started record of the session gets the
+    /// Finished record under a new run ID. A log that cannot be read counts as finished, so a wait
+    /// never writes a second Finished record.
     /// </summary>
-    private (string RunId, bool Finished) AuditOf(string sessionId)
+    private (string RunId, bool Finished) AuditOf(PivotsSessionRecord session)
     {
+        if (session.FinishedRecorded) return (Guid.NewGuid().ToString("N"), true);
         try
         {
-            var records = _audit.Read(MaxAuditRecordsSearched).Where(r => r.SessionId == sessionId).ToList();
+            var records = _audit.ReadSession(session.Id);
+            var finished = records.Any(r => r.Phase == "Finished");
             if (records.FirstOrDefault(r => r.Phase == "Started")?.RunId is not { Length: > 0 } runId)
             {
-                _log?.Warning(LogArea, "The last audit records do not hold the start of a reloaded run; the wait writes no Finished record.");
-                return (Guid.NewGuid().ToString("N"), true);
+                _log?.Warning(LogArea, "The audit log holds no start record of a reloaded run; its Finished record gets a new run ID.");
+                return (Guid.NewGuid().ToString("N"), finished);
             }
-            return (runId, records.Any(r => r.Phase == "Finished"));
+            return (runId, finished);
         }
         catch (PivotsServiceException)
         {
@@ -599,7 +636,7 @@ public sealed partial class PivotsScriptsService
                 refusals = 0;
                 _log?.Warning(LogArea, $"A status answer could not be read ({ex.GetType().Name}); the wait goes on.");
             }
-            if (run.Results.Values.All(r => r.IsFinal)) return End(stopped: false, lastError);
+            if (run.Results.Values.All(r => r.IsFinal) && run.FullRetry.Count == 0) return End(stopped: false, lastError);
             if (_utcNow() >= deadline) return End(stopped: false, lastError, timedOut: true);
             try
             {
@@ -621,15 +658,22 @@ public sealed partial class PivotsScriptsService
     /// <summary>One status read for the open devices of the run; true when a device result changed.</summary>
     private async Task<bool> PollAsync(RunState run, CancellationToken ct)
     {
-        var rows = run.Change.Kind == PivotsChangeKind.RunPivot ? await PivotStatusAsync(run, ct).ConfigureAwait(false) : await ScriptStatusAsync(run, ct).ConfigureAwait(false);
         var changed = false;
+        foreach (var id in run.FullRetry.ToList())
+        {
+            run.FullRetry.Remove(id);
+            if (!run.Results.TryGetValue(id, out var cut)) continue;
+            run.Results[id] = await FullPivotRowsAsync(run, cut, ct, last: true).ConfigureAwait(false);
+            changed = true;
+        }
+        var rows = run.Change.Kind == PivotsChangeKind.RunPivot ? await PivotStatusAsync(run, ct).ConfigureAwait(false) : await ScriptStatusAsync(run, ct).ConfigureAwait(false);
         foreach (var row in rows)
         {
             if (!run.Results.TryGetValue(row.ResourceId, out var before)) continue;
             if (before.IsFinal || (before.State == row.State && before.Output == row.Output)) continue;
             var result = row with { Name = before.Name.Length > 0 ? before.Name : row.Name };
             if (run.Change.Kind == PivotsChangeKind.RunPivot && result.State == PivotsDeviceStates.Completed && result.MoreResults && run.FullFetched.Add(result.ResourceId))
-                result = await FullPivotRowsAsync(run, result, ct).ConfigureAwait(false);
+                result = await FullPivotRowsAsync(run, result, ct, last: false).ConfigureAwait(false);
             run.Results[row.ResourceId] = result;
             if (result.IsFinal && run.FirstResultAfter is null) run.FirstResultAfter = _utcNow() - run.SentUtc;
             changed = true;
@@ -794,19 +838,32 @@ public sealed partial class PivotsScriptsService
         return (rows, more, S(value, "Status"));
     }
 
-    /// <summary>The whole result of one device whose status row carries part of it: one request.</summary>
-    private async Task<DeviceResult> FullPivotRowsAsync(RunState run, DeviceResult partial, CancellationToken ct)
+    /// <summary>
+    /// The whole result of one device whose status row carries part of it: one request, and one more
+    /// at the next poll when the first fails. A device without its whole result keeps the rows of its
+    /// status row and stays partial (<see cref="DeviceResult.MoreResults"/>).
+    /// </summary>
+    private async Task<DeviceResult> FullPivotRowsAsync(RunState run, DeviceResult partial, CancellationToken ct, bool last)
     {
+        string reason;
         try
         {
             var response = await _admin.SendAsync(HttpMethod.Get, DeviceResultPath(run, partial.ResourceId), null, ct).ConfigureAwait(false);
-            if (response.Status != 200 || DeviceResultRows(response.Body) is not { } parsed) return partial;
-            return partial with { Rows = parsed.Rows, MoreResults = parsed.More, Message = parsed.More ? "The site holds more rows than it returns for this device." : "" };
+            if (response.Status == 200 && DeviceResultRows(response.Body) is { } parsed)
+                return partial with { Rows = parsed.Rows, MoreResults = parsed.More, Message = parsed.More ? "The site holds more rows than it returns for this device. The rows are partial." : "" };
+            reason = response.Status == 200 ? "the answer held no result" : $"the site answered HTTP {response.Status.ToString(CultureInfo.InvariantCulture)}";
         }
         catch (Exception ex) when (ex is PivotsServiceException or AdminServiceUnreachableException or AdminServiceResponseTooLargeException or JsonException)
         {
-            return partial;
+            reason = ex is AdminServiceResponseTooLargeException ? "the whole result is larger than the page reads" : "the request failed";
         }
+        _log?.Warning(LogArea, $"The whole result of a device could not be read ({(last ? "second" : "first")} try).");
+        if (!last)
+        {
+            run.FullRetry.Add(partial.ResourceId);
+            return partial with { MoreResults = true, Message = $"The site holds more rows than the status answer carries. The whole result could not be read ({reason}); the page tries once more." };
+        }
+        return partial with { MoreResults = true, Message = $"The site holds more rows than the status answer carries, and the whole result could not be read ({reason}). The rows are partial: read the whole result in the console." };
     }
 
     /// <summary>
@@ -829,7 +886,7 @@ public sealed partial class PivotsScriptsService
             }
             catch (AdminServiceResponseTooLargeException)
             {
-                list.Add(device with { State = PivotsDeviceStates.Completed, Message = "The result of the device is larger than the page reads. Read it in the console." });
+                list.Add(device with { State = PivotsDeviceStates.Completed, MoreResults = true, Message = "The result of the device is larger than the page reads. The rows are partial: read the result in the console." });
                 continue;
             }
             if (response.Status == 404) continue;
@@ -891,21 +948,24 @@ public sealed partial class PivotsScriptsService
         var list = Ordered(run);
         var completed = list.Count(r => r.State == PivotsDeviceStates.Completed);
         var failed = list.Count(r => r.State == PivotsDeviceStates.Failed);
-        var partial = list.Any(r => !r.IsFinal || r.State is PivotsDeviceStates.TimedOut or PivotsDeviceStates.NoResponse);
-        var summary = $"{completed.ToString("N0", CultureInfo.InvariantCulture)} completed, {failed.ToString("N0", CultureInfo.InvariantCulture)} failed, {list.Count(r => r.State == PivotsDeviceStates.TimedOut).ToString("N0", CultureInfo.InvariantCulture)} timed out, {list.Count(r => r.State == PivotsDeviceStates.NoResponse).ToString("N0", CultureInfo.InvariantCulture)} no response, {list.Count(r => !r.IsFinal).ToString("N0", CultureInfo.InvariantCulture)} not answered yet";
+        var cut = list.Count(r => r.MoreResults);
+        var partial = run.ChangedDuringSend || list.Any(IsPartial);
+        var summary = $"{completed.ToString("N0", CultureInfo.InvariantCulture)} completed, {failed.ToString("N0", CultureInfo.InvariantCulture)} failed, {list.Count(r => r.State == PivotsDeviceStates.TimedOut).ToString("N0", CultureInfo.InvariantCulture)} timed out, {list.Count(r => r.State == PivotsDeviceStates.NoResponse).ToString("N0", CultureInfo.InvariantCulture)} no response, {list.Count(r => !r.IsFinal).ToString("N0", CultureInfo.InvariantCulture)} not answered yet"
+            + (cut > 0 ? $", {cut.ToString("N0", CultureInfo.InvariantCulture)} with part of the rows" : "");
         var message = stopped
             ? $"Stopped waiting: {summary}. Clients that received the request still run it; the results on this page are partial."
             : partial ? $"The wait ended: {summary}. The results are partial." : $"Done: {summary}.";
+        if (run.ChangedDuringSend) message += " " + ChangedDuringSendMessage;
         if (run.Reloaded) message += " " + ReloadedNote;
         var status = stopped ? "Stopped waiting" : partial ? "Partial" : failed > 0 ? "Completed with failures" : "Completed";
-        run.Session = run.Session with { Status = status, Message = message, Results = list, Raw = run.Raw.ToList(), FinishedUtc = _utcNow(), Partial = partial };
-        TryUpdate(run.Session);
-        _log?.Info(LogArea, $"{run.Change.Kind} wait ended: {completed} completed, {failed} failed, {list.Count - completed - failed} without a result.");
+        _log?.Info(LogArea, $"{run.Change.Kind} wait ended: {completed} completed, {failed} failed, {list.Count - completed - failed} without a result, {cut} with part of the rows.");
         var succeeded = !partial && failed == 0;
+        var recordedNow = false;
         if (Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) == 0)
         {
             var written = audit(new PivotsAuditRecord(default, _user(), run.Change.Kind.ToString(), "Finished", partial ? "Partial" : succeeded ? "Succeeded" : "Failed", run.RunId, run.Target,
                 run.Devices.Count, run.Change.ScriptGuid, run.TextHash, run.OperationId, message) { SessionId = run.Session.Id });
+            recordedNow = written.Succeeded;
             if (!written.Succeeded)
             {
                 // A later wait of the run tries the Finished record again.
@@ -913,15 +973,25 @@ public sealed partial class PivotsScriptsService
                 _log?.Warning(LogArea, "The Finished audit record of a run could not be written.");
             }
         }
+        run.Session = run.Session with
+        {
+            Status = status, Message = message, Results = list, Raw = run.Raw.ToList(), FinishedUtc = _utcNow(), Partial = partial,
+            // Only a written record counts: a reloaded run whose log could not be read is not marked as finished.
+            FinishedRecorded = run.Session.FinishedRecorded || recordedNow
+        };
+        TryUpdate(run.Session);
         return Snapshot(run, succeeded, message, final: true) with { Partial = partial };
     }
 
     private static List<DeviceResult> Ordered(RunState run) => run.Results.Values.OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ThenBy(r => r.ResourceId).ToList();
 
+    /// <summary>True when a result is not whole: no final result, no answer in the window, or only part of the rows.</summary>
+    private static bool IsPartial(DeviceResult r) => !r.IsFinal || r.State is PivotsDeviceStates.TimedOut or PivotsDeviceStates.NoResponse || r.MoreResults;
+
     private static PivotsOutcome Snapshot(RunState run, bool succeeded, string message, bool final)
     {
         var list = Ordered(run);
-        return new PivotsOutcome(run.Change, succeeded, message, run.OperationId, list, list.Any(r => !r.IsFinal || r.State is PivotsDeviceStates.TimedOut or PivotsDeviceStates.NoResponse), run.Session.Id)
+        return new PivotsOutcome(run.Change, succeeded, message, run.OperationId, list, run.ChangedDuringSend || list.Any(IsPartial), run.Session.Id)
         {
             Final = final,
             Sent = true,
@@ -1009,9 +1079,16 @@ public sealed partial class PivotsScriptsService
         var started = audit.Append(new PivotsAuditRecord(default, _user(), change.Kind.ToString(), "Started", "", runId, "", 0, change.ScriptGuid, change.ScriptHash, null, $"{verb} the script {now.Name}."));
         if (!started.Succeeded) return Refused(change, "the audit log could not be written, so nothing was changed. " + started.Message);
         var p = new ConfigMgrParameters { { "Operation", verb }, { "ScriptGuid", change.ScriptGuid } };
-        if (change.Kind != PivotsChangeKind.RemoveScript) p.Add("Comment", change.Comment ?? "");
+        if (change.Kind != PivotsChangeKind.RemoveScript)
+        {
+            p.Add("Comment", change.Comment ?? "");
+            // The session script compares the text with the plan again as the last step before the decision.
+            p.Add("SiteHash", change.Script?.SiteHash ?? "");
+            p.Add("TextHash", change.ScriptHash ?? "");
+        }
         string message;
         bool ok;
+        var partial = false;
         SiteScript? after = null;
         try
         {
@@ -1028,16 +1105,27 @@ public sealed partial class PivotsScriptsService
                 var want = change.Kind == PivotsChangeKind.ApproveScript ? SiteScriptStates.Approved : SiteScriptStates.Declined;
                 ok = after?.State == want;
                 message = ok ? $"The script {now.Name} is {want.ToLowerInvariant()} now." : $"The site did not change the state of the script; it reads {after?.State.ToLowerInvariant() ?? "unknown"}.";
+                // The approval call takes no hash: a text that changed after the last check gets the decision.
+                if (after is not null && (!string.Equals(after.SiteHash, change.Script?.SiteHash, StringComparison.OrdinalIgnoreCase) || !string.Equals(after.Hash, change.ScriptHash, StringComparison.OrdinalIgnoreCase)))
+                {
+                    ok = false;
+                    partial = true;
+                    var noun = change.Kind == PivotsChangeKind.ApproveScript ? "approval" : "denial";
+                    message = $"The script changed during the {noun}: the site holds another text of {now.Name} now than the plan, and it reads {after.State.ToLowerInvariant()}. Load the script, check its text and decide again.";
+                    _log?.Warning(LogArea, $"{change.Kind}: the script on the site changed during the action.");
+                }
             }
         }
         catch (PivotsServiceException ex)
         {
             ok = false;
-            message = AuthorRefusal(change, now) ?? ex.Message;
+            message = ex.Message.Contains("changed after the plan was made", StringComparison.Ordinal)
+                ? "The script text on the site changed after the plan was made. Load the script again and check the text. Nothing was changed."
+                : AuthorRefusal(change, now) ?? ex.Message;
         }
-        audit.Append(new PivotsAuditRecord(default, _user(), change.Kind.ToString(), "Finished", ok ? "Succeeded" : "Failed", runId, "", 0, change.ScriptGuid, change.ScriptHash, null, message));
-        _log?.Info(LogArea, $"{change.Kind}: {(ok ? "succeeded" : "failed")}.");
-        return new PivotsOutcome(change, ok, message, null, [], false, null) { ScriptAfter = after };
+        audit.Append(new PivotsAuditRecord(default, _user(), change.Kind.ToString(), "Finished", ok ? "Succeeded" : partial ? "Partial" : "Failed", runId, "", 0, change.ScriptGuid, change.ScriptHash, null, message));
+        _log?.Info(LogArea, $"{change.Kind}: {(ok ? "succeeded" : partial ? "partial" : "failed")}.");
+        return new PivotsOutcome(change, ok, message, null, [], partial, null) { ScriptAfter = after };
     }
 
     /// <summary>The plain message when the site refuses an approval decision by the author of the script.</summary>

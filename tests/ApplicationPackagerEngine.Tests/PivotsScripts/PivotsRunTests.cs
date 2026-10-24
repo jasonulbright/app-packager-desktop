@@ -331,7 +331,7 @@ public sealed class PivotsRunTests
         var one = await first;
         Assert.True(one.Sent);
         Assert.Contains("used already", second.Message);
-        Assert.Equal(1, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(1, h.Site.Count("RunScript:"));
     }
 
     [Fact]
@@ -364,10 +364,10 @@ public sealed class PivotsRunTests
         Assert.Contains(plan.Impact, l => l.Contains(plan.ScriptHash!, StringComparison.Ordinal) && l.Contains(StubPivotsSite.ScriptGuid, StringComparison.Ordinal));
         var refused = await h.ApplyAsync(plan);
         Assert.Contains("second confirmation for 1 device", refused.Message);
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
         Assert.True(o.Succeeded, o.Message);
-        Assert.Contains(h.Site.Log, l => l.StartsWith("Invoke-CMScript:" + StubPivotsSite.ScriptGuid + ":devices 16777221:Count=3(Int32);Label=typed(String)", StringComparison.Ordinal));
+        Assert.Contains(h.Site.Log, l => l.StartsWith("RunScript:" + StubPivotsSite.ScriptGuid + ":devices 16777221:Count=3(Int32);Label=typed(String)", StringComparison.Ordinal));
         Assert.Equal("none", o.Devices.Single().Rows.Single()["Label"]);
     }
 
@@ -381,12 +381,12 @@ public sealed class PivotsRunTests
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
         Assert.StartsWith(PivotsScriptsService.SkippedPrefix, o.Message);
         Assert.Contains("text on the site changed", o.Message);
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
         row["Script"] = StubPivotsSite.Encoded(StubPivotsSite.ScriptText);
         var again = await h.PrepareScriptAsync(RunTargetKind.Device, "CLIENT01");
         h.Site.Script(StubPivotsSite.ScriptGuid)!["ScriptHash"] = "ANOTHER";
         Assert.Contains("text on the site changed", (await h.ApplyAsync(again with { RunConfirmed = true })).Message);
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
     }
 
     [Fact]
@@ -401,7 +401,7 @@ public sealed class PivotsRunTests
         h.Site.Script(StubPivotsSite.ScriptGuid)!["ApprovalState"] = 1;
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
         Assert.Contains("declined on the site now", o.Message);
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
     }
 
     [Theory]
@@ -440,7 +440,7 @@ public sealed class PivotsRunTests
         h.Site.SetOption("Throw:" + StubPivotsSite.ScriptGuid, true);
         var plan = await h.PrepareScriptAsync(RunTargetKind.Collection, "MCM00015", window: TimeSpan.FromSeconds(30));
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
-        Assert.Contains(h.Site.Log, l => l.StartsWith("Invoke-CMScript:" + StubPivotsSite.ScriptGuid + ":devices 16777221,16777222", StringComparison.Ordinal));
+        Assert.Contains(h.Site.Log, l => l.StartsWith("RunScript:" + StubPivotsSite.ScriptGuid + ":devices 16777221,16777222", StringComparison.Ordinal));
         var failed = o.Devices.Single(d => d.Name == "CLIENT01");
         Assert.Equal(PivotsDeviceStates.Failed, failed.State);
         Assert.Equal(-2147467259, failed.ExitCode);

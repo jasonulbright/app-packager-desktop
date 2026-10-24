@@ -103,9 +103,11 @@ public sealed class PivotsScriptsWriter(IPivotsScriptsService service, ISiteOper
     /// <summary>The change to send: the confirmation flags only as the confirmed plan asked them.</summary>
     public static PivotsChange ConfirmedChange(PivotsChange change, ConfirmedChangePlan confirmed)
     {
+        ArgumentNullException.ThrowIfNull(confirmed);
         var runConfirmed = change.NeedsRunConfirmation && confirmed.Plan.IsDestructive && confirmed.Plan.ExtraConfirmation is not null;
         var everyDevice = change.NeedsEveryDeviceAcknowledgement && confirmed.Plan.SecondConfirmation is not null;
-        return change with { RunConfirmed = runConfirmed, EveryDeviceAcknowledged = everyDevice };
+        // Only the plan window issues a ConfirmedChangePlan, so its presence is the plan confirmation.
+        return change with { RunConfirmed = runConfirmed, EveryDeviceAcknowledged = everyDevice, ChangeConfirmed = true };
     }
 
     public async Task<ChangePlanResult> ApplyAsync(ConfirmedChangePlan confirmed, PivotsPlan plan, IProgress<ChangePlanItemResult> progress, CancellationToken ct)

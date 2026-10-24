@@ -80,8 +80,9 @@ internal sealed class PivotsHarness : IDisposable
         return await Service.PrepareAsync(Request(PivotsChangeKind.RunScript, targets, guid: guid, parameters: parameters) with { ResultWindow = window }, CancellationToken.None);
     }
 
-    public async Task<PivotsOutcome> ApplyAsync(PivotsChange change, CancellationToken ct = default) =>
-        await Service.ApplyAsync(change, new SyncProgress<PivotsOutcome>(Reports.Add), ct);
+    /// <summary>Applies the change as the desktop writer does after a confirmed plan; <paramref name="confirmed"/> false sends it without the plan confirmation.</summary>
+    public async Task<PivotsOutcome> ApplyAsync(PivotsChange change, CancellationToken ct = default, bool confirmed = true) =>
+        await Service.ApplyAsync(confirmed ? change with { ChangeConfirmed = true } : change, new SyncProgress<PivotsOutcome>(Reports.Add), ct);
 
     public IReadOnlyList<string> AuditLines()
     {

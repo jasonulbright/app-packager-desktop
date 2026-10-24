@@ -50,9 +50,17 @@ public sealed partial class PivotsScriptsViewModel
             $"{row.Action}, {row.Record.Phase}: {row.Result}. Devices: {row.Devices}." + (row.Target.Length > 0 ? $" Target: {row.Target}." : ""),
             (row.Record.ScriptGuid is { Length: > 0 } guid ? $"Script {guid}. " : "") + (row.Record.TextHash is { Length: > 0 } hash ? $"SHA-256 of the text: {hash}." : "")
                 + (row.Record.OperationId is { Length: > 0 } op ? $" Operation {op}." : ""),
-            row.Message
+            row.Message,
+            row.Record.Event == nameof(PivotsChangeKind.RunScript) ? ParameterValuesNotStored : ""
         }.Where(l => l.Length > 0))
         : "";
+
+    public const string ParameterValuesNotStored = "Parameter values are not stored. The saved session holds the parameter names and a SHA-256 hash of each value.";
+
+    /// <summary>The parameter names of a saved script run; its values are not stored.</summary>
+    private static string SessionParameters(PivotsSessionRecord session) =>
+        session.Kind != PivotsChangeKind.RunScript || session.Parameters.Count == 0 ? ""
+            : $" Parameters: {string.Join(", ", session.Parameters.Keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase))}. The values are not stored.";
 
     public bool HasHistoryDetails => HistoryDetails.Length > 0;
 
@@ -208,7 +216,7 @@ public sealed partial class PivotsScriptsViewModel
         }
         var created = PivotsLabels.Time(DateTime.SpecifyKind(session.CreatedUtc, DateTimeKind.Utc));
         Show(new PivotsResultSet(session.Results, session.Partial,
-            $"Saved session of {created}, read only: {PivotsLabels.Kind(session.Kind)} on {session.TargetDescription}. {StateCounts(session.Results)}" + (session.Partial ? " Partial." : ""),
+            $"Saved session of {created}, read only: {PivotsLabels.Kind(session.Kind)} on {session.TargetDescription}. {StateCounts(session.Results)}" + (session.Partial ? " Partial." : "") + SessionParameters(session),
             OnlineOf(session.Devices), RawOf(session)), final: false);
         SelectedTabIndex = session.Kind == PivotsChangeKind.RunScript ? ScriptTab : PivotTab;
         StatusMessage = "The saved session is open in the result tabs. It is read only; a new run needs Resolve.";

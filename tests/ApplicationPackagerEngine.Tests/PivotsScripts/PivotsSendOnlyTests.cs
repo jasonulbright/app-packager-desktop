@@ -174,7 +174,7 @@ public sealed class PivotsSendOnlyTests
         var d = again.Devices.Single();
         Assert.Equal(PivotsDeviceStates.Completed, d.State);
         Assert.Equal("none", d.Rows.Single()["Label"]);
-        Assert.Equal(1, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(1, h.Site.Count("RunScript:"));
         Assert.Single(h.Finished());
     }
 

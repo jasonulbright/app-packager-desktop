@@ -23,37 +23,69 @@ public static class PivotsTargetFile
 
     public static IReadOnlyList<string> FromLines(string text) => Distinct(text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries));
 
+    /// <summary>
+    /// The names of the name column of a CSV text. Quoted fields can hold the separator, doubled
+    /// quotes and line breaks. The separator is the first comma, semicolon or tab outside quotes in
+    /// the first record. A name that holds a line break, a separator of a list target or another
+    /// control character is not imported: the List target would split it into other names.
+    /// </summary>
     public static IReadOnlyList<string> FromCsv(string text)
     {
-        var rows = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(Fields).Where(r => r.Count > 0).ToList();
+        var rows = Records(text, SeparatorOf(text)).Where(r => r.Count > 1 || r[0].Trim().Length > 0).ToList();
         if (rows.Count == 0) return [];
         var header = rows[0];
-        var column = header.FindIndex(h => NameColumns.Contains(h.Trim(), StringComparer.OrdinalIgnoreCase));
+        var column = header.FindIndex(h => NameColumns.Contains(h.Trim().Trim('﻿'), StringComparer.OrdinalIgnoreCase));
         var body = column >= 0 ? rows.Skip(1) : rows;
         if (column < 0) column = 0;
-        return Distinct(body.Select(r => column < r.Count ? r[column] : ""));
+        return Distinct(body.Select(r => column < r.Count ? r[column] : "").Where(n => !n.Trim().Any(c => c is ',' or ';' || char.IsControl(c))));
     }
 
-    private static List<string> Fields(string line)
+    private static char SeparatorOf(string text)
     {
+        var quoted = false;
+        foreach (var c in text)
+        {
+            if (c == '"') quoted = !quoted;
+            else if (!quoted && c is ',' or ';' or '\t') return c;
+            else if (!quoted && c is '\r' or '\n') break;
+        }
+        return ',';
+    }
+
+    /// <summary>The records of a CSV text (RFC 4180): a line break inside quotes belongs to the field.</summary>
+    private static List<List<string>> Records(string text, char separator)
+    {
+        var records = new List<List<string>>();
         var fields = new List<string>();
         var current = new StringBuilder();
         var quoted = false;
-        for (var i = 0; i < line.Length; i++)
+        for (var i = 0; i < text.Length; i++)
         {
-            var c = line[i];
+            var c = text[i];
             if (quoted)
             {
-                if (c == '"' && i + 1 < line.Length && line[i + 1] == '"') { current.Append('"'); i++; }
+                if (c == '"' && i + 1 < text.Length && text[i + 1] == '"') { current.Append('"'); i++; }
                 else if (c == '"') quoted = false;
                 else current.Append(c);
             }
             else if (c == '"') quoted = true;
-            else if (c is ',' or ';' or '\t') { fields.Add(current.ToString()); current.Clear(); }
+            else if (c == separator) { fields.Add(current.ToString()); current.Clear(); }
+            else if (c is '\r' or '\n')
+            {
+                if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n') i++;
+                fields.Add(current.ToString());
+                current.Clear();
+                records.Add(fields);
+                fields = [];
+            }
             else current.Append(c);
         }
-        fields.Add(current.ToString());
-        return fields;
+        if (current.Length > 0 || fields.Count > 0)
+        {
+            fields.Add(current.ToString());
+            records.Add(fields);
+        }
+        return records;
     }
 
     private static IReadOnlyList<string> Distinct(IEnumerable<string> names)

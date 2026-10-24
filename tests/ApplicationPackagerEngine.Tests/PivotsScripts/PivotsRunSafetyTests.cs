@@ -45,7 +45,7 @@ public sealed class PivotsRunSafetyTests
         };
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
         Assert.True(o.Sent, o.Message);
-        var run = Assert.Single(h.Site.Log, l => l.StartsWith("Invoke-CMScript:", StringComparison.Ordinal));
+        var run = Assert.Single(h.Site.Log, l => l.StartsWith("RunScript:", StringComparison.Ordinal));
         Assert.Contains($":devices {Client01Id}:", run);
         Assert.DoesNotContain("collection", run);
         Assert.Equal([Client01Id], o.Devices.Select(d => d.ResourceId));
@@ -108,7 +108,7 @@ public sealed class PivotsRunSafetyTests
             if ((string?)values["Operation"] == "Run") site.Script(StubPivotsSite.ScriptGuid)!["ScriptHash"] = "APPROVEDAGAIN";
         };
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
         Assert.Contains("changed after the plan was made", o.Message);
         Assert.Contains("Nothing reached a client", o.Message);
         Assert.Equal("Failed", h.Audit.Read(5).Last().Result);
@@ -124,7 +124,7 @@ public sealed class PivotsRunSafetyTests
             if ((string?)values["Operation"] == "Run") site.Script(StubPivotsSite.ScriptGuid)!["Script"] = StubPivotsSite.Encoded(StubPivotsSite.ScriptText + "\nRemove-Item C:\\Data");
         };
         var o = await h.ApplyAsync(plan with { RunConfirmed = true });
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
         Assert.Contains("changed after the plan was made", o.Message);
     }
 
@@ -356,17 +356,21 @@ public sealed class PivotsRunSafetyTests
     }
 
     [Fact]
-    public async Task AReloadedRunWhoseStartIsOutsideTheReadPartOfTheLogWritesNoSecondFinishedRecord()
+    public async Task AReloadedRunWhoseStartIsOutsideTheReadPartOfTheLogWritesOneFinishedRecordUnderItsRunId()
     {
         using var h = new PivotsHarness();
         var plan = await h.PreparePivotAsync(RunTargetKind.Device, Client01, window: PivotsChange.SendOnly);
         var o = await h.ApplyAsync(plan);
         var other = "{\"Timestamp\":\"2026-10-24T09:00:00\",\"Event\":\"RunPivot\",\"Phase\":\"Started\",\"RunId\":\"x\",\"SessionId\":\"ffffffffffffffffffffffffffffffff\",\"Message\":\"\"}";
-        File.AppendAllLines(h.Audit.Path, Enumerable.Repeat(other, PivotsScriptsService.MaxAuditRecordsSearched));
+        File.AppendAllLines(h.Audit.Path, Enumerable.Repeat(other, 5000));
         h.Restart();
         var again = await h.WaitAsync(o.OperationId!, sessionId: o.SessionId);
         Assert.Equal(PivotsDeviceStates.Completed, again.Devices.Single().State);
-        Assert.DoesNotContain(h.Audit.Read(20), r => r.Phase == "Finished" && r.SessionId == o.SessionId);
+        var started = h.Audit.ReadSession(o.SessionId!).Single(r => r.Phase == "Started");
+        Assert.Equal(started.RunId, Assert.Single(h.Audit.ReadSession(o.SessionId!), r => r.Phase == "Finished").RunId);
+        h.Restart();
+        await h.WaitAsync(o.OperationId!, sessionId: o.SessionId);
+        Assert.Single(h.Audit.ReadSession(o.SessionId!), r => r.Phase == "Finished");
     }
 
     [Fact]

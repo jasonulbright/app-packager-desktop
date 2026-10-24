@@ -209,8 +209,10 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposabl
         {
             if (error.Kind == "access") throw Fail(ConfigMgrFailure.AccessDenied, AccessDeniedMessage(connection));
             var detail = SecretMask.Apply(error.Message, secrets).Trim();
+            // An error of a command with script text or values can quote that text, so its log line holds the length only.
             throw Fail(ConfigMgrFailure.ScriptFailed,
-                $"The ConfigMgr command {work.Script.Name} failed" + (detail.Length > 0 ? ": " + detail : "."));
+                $"The ConfigMgr command {work.Script.Name} failed" + (detail.Length > 0 ? ": " + detail : "."),
+                work.Parameters.HasProtectedValues ? $"The ConfigMgr command {work.Script.Name} failed with an error text of {detail.Length} characters; the command carried script text or values, so the text is not logged." : null);
         }
 
         _log?.Debug(LogArea, $"{work.Script.Name} returned {exchange.Output.Count} objects.");
@@ -385,9 +387,9 @@ public sealed partial class ConfigMgrSessionHost : IConfigMgrSession, IDisposabl
         try { await process.DisposeAsync().ConfigureAwait(false); } catch (Exception) { }
     }
 
-    private ConfigMgrSessionException Fail(ConfigMgrFailure failure, string message)
+    private ConfigMgrSessionException Fail(ConfigMgrFailure failure, string message, string? logText = null)
     {
-        _log?.Error(LogArea, message);
+        _log?.Error(LogArea, logText ?? message);
         return new ConfigMgrSessionException(failure, message);
     }
 

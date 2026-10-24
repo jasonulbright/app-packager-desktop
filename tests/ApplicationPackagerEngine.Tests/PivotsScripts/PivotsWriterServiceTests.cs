@@ -79,7 +79,7 @@ public sealed class PivotsWriterServiceTests
         var history = new RecordingSiteHistory();
         var dialog = Confirm(plan, Writer(h, history, new RecordingMaintenanceLog()).RunFor(plan));
         Assert.Equal("Sent", dialog.Outcome.Result!.Items.Single().OutcomeText);
-        Assert.Equal(1, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(1, h.Site.Count("RunScript:"));
         Assert.Equal(SiteOperationOutcome.Succeeded, history.Entries.Single().Outcome);
         var done = h.WaitAsync(plan.Outcome!.OperationId!, window: TimeSpan.FromSeconds(30)).Result;
         Assert.Equal(PivotsDeviceStates.Completed, done.Devices.Single().State);
@@ -97,12 +97,12 @@ public sealed class PivotsWriterServiceTests
         Assert.True(refused.Skipped);
         Assert.StartsWith("Skipped: a script run needs the second confirmation for 1 device. Nothing was sent.", refused.Message);
         Assert.DoesNotContain("Exception", refused.Message);
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
         Assert.Empty(h.AuditLines());
 
         var sent = await writer.ApplyAsync(Captured(plan), plan, new Progress<ChangePlanItemResult>(), CancellationToken.None);
         Assert.Equal("Sent", sent.Items.Single().OutcomeText);
-        Assert.Equal(1, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(1, h.Site.Count("RunScript:"));
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public sealed class PivotsWriterServiceTests
         Assert.True(row.Skipped);
         Assert.Contains("text on the site changed", row.Message);
         Assert.DoesNotContain("Exception", row.Message);
-        Assert.Equal(0, h.Site.Count("Invoke-CMScript:"));
+        Assert.Equal(0, h.Site.Count("RunScript:"));
         Assert.Equal(SiteOperationOutcome.Failed, history.Entries.Single().Outcome);
     }
 

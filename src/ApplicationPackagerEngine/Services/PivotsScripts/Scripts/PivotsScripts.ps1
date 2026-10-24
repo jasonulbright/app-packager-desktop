@@ -11,7 +11,8 @@ param(
     [string]$ParamsDefinition = '',
     [long]$OperationId = 0,
     [string]$SiteHash = '',
-    [string]$TextHash = ''
+    [string]$TextHash = '',
+    [string]$ScriptVersion = ''
 )
 
 # Only values checked against a fixed pattern reach WQL text: a collection ID, a script GUID, an
@@ -98,8 +99,36 @@ function ConvertFrom-Definitions {
     $reader = [System.Xml.XmlReader]::Create([System.IO.StringReader]::new($text), $settings)
     try { $xml = [System.Xml.XmlDocument]::new(); $xml.XmlResolver = $null; $xml.Load($reader) } finally { $reader.Dispose() }
     foreach ($node in @($xml.SelectNodes('/ScriptParameters/ScriptParameter'))) {
-        [pscustomobject]@{ Name = $node.GetAttribute('Name'); Type = $node.GetAttribute('Type'); Required = ($node.GetAttribute('IsRequired') -eq 'true'); Default = $node.GetAttribute('DefaultValue'); Description = $node.GetAttribute('Description'); HasDefault = $node.HasAttribute('DefaultValue') }
+        [pscustomobject]@{ Name = $node.GetAttribute('Name'); Type = $node.GetAttribute('Type'); Required = ($node.GetAttribute('IsRequired') -eq 'true'); Default = $node.GetAttribute('DefaultValue'); Description = $node.GetAttribute('Description'); HasDefault = $node.HasAttribute('DefaultValue'); Hidden = ($node.GetAttribute('IsHidden') -eq 'true') }
     }
+}
+
+function Get-UnicodeHash {
+    param([string]$Text)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::Unicode.GetBytes($Text)))).Replace('-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+}
+
+# The Run Scripts operation message (base64 of UTF-8 XML) in the form Invoke-CMScript sends: every
+# visible definition sorted by name, with the typed value or the default, and the SHA-256 of the
+# UTF-16 parameter XML. Values are XML-escaped.
+function Get-RunMessage {
+    param([string]$Guid, [string]$Version, [int]$ScriptType, [string]$Hash, [object[]]$Definitions, [hashtable]$Arguments)
+    $visible = @($Definitions | Where-Object { $null -ne $_ -and -not $_.Hidden } | Sort-Object -Property @{ Expression = { ([string]$_.Name).ToUpperInvariant() } })
+    $b = [System.Text.StringBuilder]::new('<ScriptParameters>')
+    if ($visible.Count -gt 0) {
+        $group = [guid]::NewGuid().ToString().ToUpperInvariant()
+        foreach ($d in $visible) {
+            $value = if ($Arguments.ContainsKey($d.Name)) { [System.Convert]::ToString($Arguments[$d.Name], $Invariant) } else { [string]$d.Default }
+            $e = { param($t) [System.Security.SecurityElement]::Escape([string]$t) }
+            [void]$b.Append(('<ScriptParameter ParameterGroupGuid="{0}" ParameterGroupName="PG_{0}" ParameterName="{1}" ParameterDataType="{2}" ParameterVisibility="0" ParameterType="{3}" ParameterValue="{4}"/>' -f $group, (& $e $d.Name), (& $e $d.Type), $(if ($d.Required) { '1' } else { '0' }), (& $e $value)))
+        }
+    }
+    [void]$b.Append('</ScriptParameters>')
+    $parameters = $b.ToString()
+    $xml = "<ScriptContent ScriptGuid='$Guid'><ScriptVersion>$([System.Security.SecurityElement]::Escape($Version))</ScriptVersion><ScriptType>$ScriptType</ScriptType><ScriptHash ScriptHashAlg='SHA256'>$Hash</ScriptHash>$parameters<ParameterGroupHash ParameterHashAlg='SHA256'>$(Get-UnicodeHash $parameters)</ParameterGroupHash></ScriptContent>"
+    [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($xml))
 }
 
 function Write-Script {
@@ -235,8 +264,18 @@ switch ($Operation) {
         [pscustomobject]@{ K = 'Defined'; Guid = $g; Return = [int](Get-Prop $result 'ReturnValue'); Match = ($null -ne $after -and [string](Get-Prop $after 'ParamsDefinition') -eq $encoded) }
         if ($null -ne $after) { Write-Script $after $true }
     }
-    'Approve' { Approve-CMScript -ScriptGuid (Assert-Guid $ScriptGuid) -Comment $Comment; $after = Get-FullScript $ScriptGuid; if ($null -ne $after) { Write-Script $after $false } }
-    'Deny' { Deny-CMScript -ScriptGuid (Assert-Guid $ScriptGuid) -Comment $Comment; $after = Get-FullScript $ScriptGuid; if ($null -ne $after) { Write-Script $after $false } }
+    { $_ -in 'Approve', 'Deny' } {
+        $g = Assert-Guid $ScriptGuid
+        # The approval call takes no hash: the text is read again as the last step before it, and the
+        # caller compares the hash the site holds after it with the plan.
+        $row = Get-FullScript $g
+        if ($null -eq $row) { throw 'The site holds no script with this GUID.' }
+        $text = ConvertFrom-ScriptText ([string](Get-Prop $row 'Script'))
+        if ([string](Get-Prop $row 'ScriptHash') -ne $SiteHash -or $null -eq $text -or (Get-TextHash $text) -ne $TextHash) { throw 'The script text on the site changed after the plan was made.' }
+        if ($Operation -eq 'Approve') { Approve-CMScript -ScriptGuid $g -Comment $Comment } else { Deny-CMScript -ScriptGuid $g -Comment $Comment }
+        $after = Get-FullScript $g
+        if ($null -ne $after) { Write-Script $after $true }
+    }
     'Remove' {
         $g = Assert-Guid $ScriptGuid
         $item = Get-CMScript -ScriptGuid $g -Fast
@@ -250,6 +289,8 @@ switch ($Operation) {
     }
     'Run' {
         $g = Assert-Guid $ScriptGuid
+        # The hash and the version go into the operation message as text.
+        if ($SiteHash -notmatch '^[0-9A-Fa-f]{64}$' -or $ScriptVersion -notmatch '^\d{1,9}$') { throw 'The script text on the site changed after the plan was made.' }
         $row = Get-FullScript $g
         if ($null -eq $row) { throw 'The site holds no script with this GUID.' }
         if ([int](Get-Prop $row 'ApprovalState') -ne 3) { throw 'The script is not approved.' }
@@ -281,10 +322,26 @@ switch ($Operation) {
         }
         $devices = @($devices | Where-Object { $null -ne $_ })
         if ($devices.Count -ne $ids.Count) { [pscustomobject]@{ K = 'Missing'; Found = $devices.Count; Wanted = $ids.Count }; return }
-        $started = Invoke-CMScript -ScriptGuid $g -Device $devices -ScriptParameter $arguments -PassThru
-        $op = $null
-        foreach ($item in @($started)) { foreach ($n in 'OperationID', 'ClientOperationID', 'ID') { $p = Get-Prop $item $n; if ("$p" -match '^\d+$') { $op = [long]$p; break } }; if ($null -ne $op) { break } }
-        [pscustomobject]@{ K = 'Started'; Operation = $op; Return = (Get-Prop @($started)[0] 'ReturnValue') }
+        # The site and the hash are read again as the last step before the send, in this invocation.
+        $now = Get-FullScript $g
+        if ($null -eq $now -or [int](Get-Prop $now 'ApprovalState') -ne 3) { throw 'The script is not approved.' }
+        if ([string](Get-Prop $now 'ScriptHash') -ne $SiteHash -or [string](Get-Prop $now 'ScriptVersion') -ne $ScriptVersion) { throw 'The script text on the site changed after the plan was made.' }
+        $nowText = ConvertFrom-ScriptText ([string](Get-Prop $now 'Script'))
+        if ($null -eq $nowText -or (Get-TextHash $nowText) -ne $TextHash) { throw 'The script text on the site changed after the plan was made.' }
+        # The operation message carries the planned ScriptHash: the client runs the text of that hash,
+        # also when the text of the GUID changes and is approved again after this read.
+        $message = Get-RunMessage -Guid $g -Version $ScriptVersion -ScriptType ([int](Get-Prop $row 'ScriptType')) -Hash $SiteHash -Definitions @($defined.Values) -Arguments $arguments
+        $drive = (Get-Location).Drive
+        $cim = New-CimSession -ComputerName ([string]$drive.Root) -SessionOption (New-CimSessionOption -Protocol Dcom) -ErrorAction Stop
+        try {
+            $started = Invoke-CimMethod -CimSession $cim -Namespace ('root\SMS\site_' + [string]$drive.Name) -ClassName SMS_ClientOperation -MethodName InitiateClientOperationEx -ErrorAction Stop `
+                -Arguments @{ Type = [uint32]135; TargetResourceIDs = [uint32[]]@($ids); RandomizationWindow = [uint32]0; Param = $message }
+        }
+        finally { Remove-CimSession -CimSession $cim -ErrorAction SilentlyContinue }
+        $op = Get-Prop $started 'OperationID'
+        [pscustomobject]@{ K = 'Started'; Operation = $(if ("$op" -match '^\d+$' -and [long]$op -gt 0) { [long]$op } else { $null }); Return = (Get-Prop $started 'ReturnValue') }
+        $after = Get-FullScript $g
+        [pscustomobject]@{ K = 'After'; SiteHash = [string](Get-Prop $after 'ScriptHash'); Version = [string](Get-Prop $after 'ScriptVersion'); ApprovalState = [int](Get-Prop $after 'ApprovalState'); Present = ($null -ne $after) }
     }
     'Status' { Write-Status $OperationId $ResourceIds }
 }
