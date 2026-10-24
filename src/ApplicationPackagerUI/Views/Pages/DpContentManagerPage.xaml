@@ -77,6 +77,13 @@
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
 
+            <!-- A message wraps; the row grows to the wrapped height, so the ellipsis shows only if a row height is ever capped. -->
+            <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+
             <Style x:Key="VerifiedCell" TargetType="TextBlock" BasedOn="{StaticResource TrimmedCell}">
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding VerifiedText}" />
@@ -349,16 +356,16 @@
                         <DataGrid Grid.Row="2" x:Name="dgDpHistory" Tag="history" Style="{StaticResource GridBase}" ItemsSource="{Binding HistoryRows}" SelectedItem="{Binding SelectedHistory}"
                                   FrozenColumnCount="1" AutomationProperties.AutomationId="dgDpHistory" AutomationProperties.Name="Audit records">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="156" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="120" MinWidth="116" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="100" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="110" MinWidth="104" ElementStyle="{StaticResource VerifiedCell}" />
-                                <DataGridTextColumn Header="Pairs" Binding="{Binding Pairs}" SortMemberPath="Pairs" Width="64" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Done / failed / skipped" Binding="{Binding Counts}" SortMemberPath="Counts" Width="180" MinWidth="176" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Content" Binding="{Binding Content}" SortMemberPath="Content" Width="2*" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="2*" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="152" MinWidth="148" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="108" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="88" MinWidth="84" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="104" MinWidth="100" ElementStyle="{StaticResource VerifiedCell}" />
+                                <DataGridTextColumn Header="Pairs" Binding="{Binding Pairs}" SortMemberPath="Pairs" Width="60" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Done / failed / skipped" Binding="{Binding Counts}" SortMemberPath="Counts" Width="170" MinWidth="170" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Content" Binding="{Binding Content}" SortMemberPath="Content" Width="*" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="156" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="148" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="2*" MinWidth="76" ElementStyle="{StaticResource WrappedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBox Grid.Row="3" Text="{Binding HistoryDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="96" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0"

@@ -21,6 +21,13 @@ public partial class DpContentPairsWindow
         {
             if (Height > MaxHeight) Height = MaxHeight;
         };
+        ContentRendered += (_, _) => FocusFirstControl();
+    }
+
+    /// <summary>Puts the focus on the first pair, or on the filter when the list is empty.</summary>
+    public void FocusFirstControl()
+    {
+        if (!Helpers.DataGridFocus.FocusFirstCell(gridPairs)) txtPairsFilter.Focus();
     }
 
     private void OnGridPreviewKeyDown(object sender, KeyEventArgs e)

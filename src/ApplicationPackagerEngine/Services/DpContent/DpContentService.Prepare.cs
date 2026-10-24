@@ -115,6 +115,19 @@ public sealed partial class DpContentService
     /// <summary>A content the removal leaves with no installed copy while it takes one: a content that was never installed loses nothing.</summary>
     private static bool IsLastCopy(DpContentImpact impact) => impact.DpsRemaining == 0 && impact.RemovesInstalledCopy;
 
+    /// <summary>
+    /// The text of a passed last-copy check. A content that is installed on no distribution point
+    /// now and loses no installed copy passes, and the text says so instead of naming other copies.
+    /// </summary>
+    internal static string LastCopyPassText(IReadOnlyList<DpContentImpact> impact)
+    {
+        var none = impact.Where(i => i.DpsRemaining == 0 && !i.RemovesInstalledCopy).ToList();
+        if (none.Count == 0) return "Every content stays installed on at least one other distribution point.";
+        var names = string.Join(", ", none.Take(10).Select(i => $"{i.Name} ({i.PackageId})")) + (none.Count > 10 ? ", ..." : "");
+        var text = $"The removal takes no installed copy. {Count(none.Count, "content")} {(none.Count == 1 ? "is" : "are")} installed on no distribution point now and after the removal: {names}. Clients cannot get {(none.Count == 1 ? "it" : "them")} before or after the removal.";
+        return none.Count == impact.Count ? text : text + " Every other content stays installed on at least one other distribution point.";
+    }
+
     private static DpContentPairOutcome Skip(PairRow pair, string reason, int? stateNow = null) =>
         new(pair, DpContentResults.Skipped, SkippedPrefix + reason, stateNow);
 
@@ -192,7 +205,7 @@ public sealed partial class DpContentService
         {
             var last = impact.Where(IsLastCopy).ToList();
             checks.Add(last.Count == 0
-                ? new PreflightCheck(CheckNames.LastCopy, DeploymentCheckResults.Pass, "Every content stays installed on at least one other distribution point.")
+                ? new PreflightCheck(CheckNames.LastCopy, DeploymentCheckResults.Pass, LastCopyPassText(impact))
                 : new PreflightCheck(CheckNames.LastCopy, DeploymentCheckResults.Warn,
                     $"{Count(last.Count, "content")} will have no distribution point with the content installed: {string.Join(", ", last.Take(10).Select(i => $"{i.Name} ({i.PackageId})"))}{(last.Count > 10 ? ", ..." : "")}. Clients cannot install it until it is distributed again. The removal needs the box that accepts this."));
             var used = impact.Where(i => i.DeploymentCount > 0).ToList();

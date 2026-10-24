@@ -327,7 +327,7 @@ public sealed class PageRenderTests
         ("dgContentPairs", "State", "Failed (content updating)"), ("dgContentPairs", "Last status", "12/30/2026 11:59 PM"),
         ("dgDpPairs", "State", "Failed (content updating)"), ("dgDpPairs", "Type", "Software update package"), ("dgDpPairs", "Last status", "12/30/2026 11:59 PM"),
         ("dgContent", "Type", "Software update package"),
-        ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"), ("dgDpHistory", "User", @"CONTOSO\labadmin")
+        ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"), ("dgDpHistory", "User", @"CONTOSO\labadmin"), ("dgDpHistory", "DPs", "CM01.CONTOSO.COM")
     ];
 
     [Theory]
@@ -342,6 +342,13 @@ public sealed class PageRenderTests
             {
                 ShowTab(window, viewModel, tab);
                 var grid = ById<DataGrid>(page, id);
+                if (id == "dgDpHistory")
+                {
+                    var message = grid.Columns.Single(c => Equals(c.Header, "Message"));
+                    var block = Descendants(Descendants(grid).OfType<DataGridCell>().First(c => ReferenceEquals(c.Column, message))).OfType<TextBlock>().First();
+                    Assert.Equal(TextWrapping.Wrap, block.TextWrapping);
+                    Assert.True(block.ActualHeight >= block.DesiredSize.Height - 0.5, "The message is cut in height.");
+                }
                 foreach (var (_, header, text) in LongValues.Where(v => v.Grid == id))
                 {
                     var column = grid.Columns.Single(c => Equals(c.Header, header));
@@ -505,6 +512,81 @@ public sealed class PageRenderTests
                 window.Height = window.MinHeight;
                 Settle(window);
                 AssertInside(window, ById<FrameworkElement>(window, "btnPairsContinue"), window.ActualHeight, "btnPairsContinue at the minimum size");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    private static string FocusedId()
+    {
+        var focused = Keyboard.FocusedElement as FrameworkElement;
+        return focused is null ? "none" : AutomationProperties.GetAutomationId(focused) is { Length: > 0 } id ? id : focused.GetType().Name + " in " + (Ancestor<DataGrid>(focused)?.Name ?? "-");
+    }
+
+    private static string NextFocus(Window window)
+    {
+        ((UIElement)Keyboard.FocusedElement).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+        Settle(window);
+        return FocusedId();
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ThePairWindowOpensOnTheFirstPairAndReachesContinueInThreeTabs(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var h = new DpContentPageHarness();
+            var picker = new DpContentPairsViewModel("Redistribute selected DPs", VM.PickIntro(DpContentChangeKind.Redistribute), [h.SevenZipOnDp02]);
+            var window = new DpContentPairsWindow(picker);
+            Show(window);
+            try
+            {
+                Settle(window);
+                Assert.Equal("DataGridCell in gridPairs", FocusedId());
+                Assert.Equal("btnPairsCheckShown", NextFocus(window));
+                Assert.Equal("btnPairsClear", NextFocus(window));
+                Assert.Equal("btnPairsContinue", NextFocus(window));
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ThePlanWindowOpensOnTheFirstLineAndReachesConfirmAfterItsBoxes(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var h = new DpContentPageHarness();
+            var prepared = h.Service.PrepareAsync(new DpContentChange(DpContentChangeKind.Redistribute, [h.SevenZipOnDp02], false, false, [], [], null), CancellationToken.None).Result;
+            var (plain, _) = DpContentText.BuildPlan(prepared, new DpContentIndex(h.Service.Snapshot()));
+            var window = new ChangePlanWindow(new ChangePlanViewModel(plain!.Plan, (_, _, _) => Task.FromResult(new ChangePlanResult([]))));
+            Show(window);
+            try
+            {
+                Settle(window);
+                Assert.Equal("DataGridCell in gridPlan", FocusedId());
+                Assert.Equal("btnChangePlanConfirm", NextFocus(window));
+            }
+            finally { window.Close(); }
+
+            var removal = RemovalPlan(10);
+            var dialog = new ChangePlanViewModel(removal.Plan, (_, _, _) => Task.FromResult(new ChangePlanResult([])));
+            window = new ChangePlanWindow(dialog);
+            Show(window);
+            try
+            {
+                Settle(window);
+                Assert.Equal("DataGridCell in gridPlan", FocusedId());
+                Assert.Equal("chkChangePlanDestructive", NextFocus(window));
+                Assert.Equal("chkChangePlanExtra", NextFocus(window));
+                Assert.Equal("chkChangePlanSecond", NextFocus(window));
+                dialog.DestructiveAcknowledged = dialog.ExtraAcknowledged = dialog.SecondAcknowledged = true;
+                Settle(window);
+                Assert.Equal("btnChangePlanConfirm", NextFocus(window));
             }
             finally { window.Close(); }
         });

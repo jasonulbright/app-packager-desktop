@@ -20,13 +20,20 @@
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
+            <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
             <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
-                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0">
+                        <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+                    </DataTrigger>
+                </Style.Triggers>
             </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
-    <Grid>
+    <!-- Tab order: the pair grid, Check shown and Clear, Continue and Cancel, then the filter. -->
+    <Grid KeyboardNavigation.TabNavigation="Local">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -40,17 +47,17 @@
             <TextBlock Text="{Binding Intro}" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        AutomationProperties.AutomationId="txtPairsIntro" />
             <WrapPanel Margin="0,8,0,0">
-                <ui:TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by content, PackageID, DP or state" Icon="{ui:SymbolIcon Search24}"
+                <ui:TextBox x:Name="txtPairsFilter" KeyboardNavigation.TabIndex="4" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by content, PackageID, DP or state" Icon="{ui:SymbolIcon Search24}"
                             MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="Pair filter" AutomationProperties.AutomationId="txtPairsFilter" />
-                <ui:Button Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,8" AutomationProperties.AutomationId="btnPairsCheckShown" />
-                <ui:Button Content="Clear" Command="{Binding ClearCommand}" Margin="0,0,8,8" ToolTip="Clears every pair, also the pairs the filter hides."
+                <ui:Button KeyboardNavigation.TabIndex="1" Content="Check shown" Command="{Binding CheckShownCommand}" Margin="0,0,8,8" AutomationProperties.AutomationId="btnPairsCheckShown" />
+                <ui:Button KeyboardNavigation.TabIndex="2" Content="Clear" Command="{Binding ClearCommand}" Margin="0,0,8,8" ToolTip="Clears every pair, also the pairs the filter hides."
                            AutomationProperties.Name="Clear every pair" AutomationProperties.AutomationId="btnPairsClear" />
                 <TextBlock Text="{Binding CountText}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,0,8" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            AutomationProperties.AutomationId="txtPairsCount" AutomationProperties.LiveSetting="Polite" />
             </WrapPanel>
         </StackPanel>
 
-        <DataGrid Grid.Row="2" x:Name="gridPairs" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False" CanUserAddRows="False"
+        <DataGrid Grid.Row="2" x:Name="gridPairs" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Once" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}" AutoGenerateColumns="False" CanUserAddRows="False"
                   CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8"
                   CanUserResizeColumns="True" HorizontalScrollBarVisibility="Auto" EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" RowStyle="{StaticResource SelectableRow}" CellStyle="{StaticResource TabStopCell}"
@@ -73,7 +80,7 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Left" Text="Space checks or clears the selected pair." VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

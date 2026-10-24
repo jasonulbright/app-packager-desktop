@@ -125,7 +125,8 @@ public sealed class DpContentHistoryRow(DpContentAuditRecord record)
     public DpContentAuditRecord Record { get; } = record;
     public string Time => Record.Timestamp.ToString("g", CultureInfo.CurrentCulture);
     public string Action => DpContentHistoryText.ActionLabel(Record.Action);
-    public string Result => Record.Result;
+    /// <summary>The result; a Started record of a removal has none, so the row shows its phase.</summary>
+    public string Result => Record.Result.Length > 0 ? Record.Result : Record.Phase;
     public string Pairs => DpContentLabels.Number(Record.PairCount);
     public string Counts => $"{DpContentLabels.Number(Record.Succeeded)} / {DpContentLabels.Number(Record.Failed)} / {DpContentLabels.Number(Record.Skipped)}";
     public string Content => Record.PackageIds;

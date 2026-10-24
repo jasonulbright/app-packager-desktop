@@ -115,7 +115,7 @@ public sealed partial class DpContentManagerViewModel
         var text = HistoryText.Trim();
         var rows = _records
             .Where(r => HistoryAction == AllText || string.Equals(DpContentHistoryText.ActionLabel(r.Action), HistoryAction, StringComparison.OrdinalIgnoreCase))
-            .Where(r => text.Length == 0 || Has(r.PackageIds, text) || Has(r.DpNames, text) || Has(r.User, text) || Has(r.Result, text) || Has(r.Message, text))
+            .Where(r => text.Length == 0 || Has(r.PackageIds, text) || Has(r.DpNames, text) || Has(r.User, text) || Has(r.Result, text) || Has(r.Phase, text) || Has(r.Message, text))
             .Select(r => new DpContentHistoryRow(r));
         var list = (_sorts.ContainsKey(HistoryGrid) ? Sorted(HistoryGrid, rows) : rows.OrderByDescending(r => r.Record.Timestamp)).ToList();
         HistoryRows = list;
