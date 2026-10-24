@@ -134,9 +134,11 @@ public sealed class PivotsScriptsPageTests
         Assert.Contains(plan.Notes, n => n.StartsWith("Targets: Collection Workstations (LAB00012). 6 devices.", StringComparison.Ordinal));
         Assert.Contains(PivotsScriptsText.StopWaitingNote, plan.Notes);
         var sent = Assert.Single(h.Service.Applied);
-        Assert.True(sent.RunConfirmed);
+        Assert.False(sent.RunConfirmed);
         Assert.False(sent.EveryDeviceAcknowledged);
+        Assert.Equal(TimeSpan.Zero, sent.ResultWindow);
         await vm.WaitTask;
+        Assert.Equal(1, h.Service.WaitCalls);
     }
 
     [Fact]
@@ -396,7 +398,8 @@ public sealed class PivotsScriptsPageTests
         vm.QueryText = "OS";
         await vm.RunPivotCommand.ExecuteAsync(null);
         await vm.WaitTask;
-        Assert.Equal(TimeSpan.FromMinutes(15), h.Service.WaitWindows.Single());
+        Assert.Equal(TimeSpan.FromMinutes(15), vm.WaitWindow);
+        Assert.False(h.Service.WaitTokens.Single().IsCancellationRequested);
         var again = h.Create();
         await again.OnNavigatedToAsync();
         Assert.Equal(15, again.WaitMinutes);
@@ -449,7 +452,7 @@ public sealed class PivotsScriptsPageTests
     {
         var h = new PivotsScriptsHarness();
         var vm = await h.OpenAsync();
-        h.Service.ResolveFailure = new PivotsScriptsServiceException("The account has no Read right on the collection LAB00012.");
+        h.Service.ResolveFailure = new PivotsServiceException("The account has no Read right on the collection LAB00012.");
         await ResolveAsync(vm);
         Assert.Equal("The account has no Read right on the collection LAB00012.", vm.StatusMessage);
         h.Service.ResolveFailure = new InvalidOperationException(@"Provider \\cm01 said secret");
@@ -578,7 +581,10 @@ public sealed class PivotsScriptsPageTests
         Assert.Equal("1 syntax error: Line 1: Missing closing '}'.", vm.CheckResult);
         vm.DraftText = "Get-Date";
         await vm.CheckDraftCommand.ExecuteAsync(null);
-        Assert.Equal(VM.CheckPassed, vm.CheckResult);
+        Assert.Equal(VM.CheckPassed + " The script has no parameters.", vm.CheckResult);
+        vm.DraftText = "param([string]$Name) Get-Service $Name";
+        await vm.CheckDraftCommand.ExecuteAsync(null);
+        Assert.Equal(VM.CheckPassed + " Parameters the site will store: Name (System.String, required).", vm.CheckResult);
         Assert.Empty(h.Service.Applied);
     }
 
@@ -606,12 +612,16 @@ public sealed class PivotsScriptsPageTests
         await vm.RunPivotCommand.ExecuteAsync(null);
         await vm.WaitTask;
         var change = h.Service.Applied.Single();
-        h.Sessions.Sessions.Add(new PivotsSession("session-1", new DateTime(2026, 10, 24, 8, 0, 0), PivotsChangeKind.RunScript, "Collection Workstations (LAB00012)", change.Targets,
-            null, h.DiskScript.Guid, h.DiskScript.Hash, null,
-            new PivotsOutcome(change, true, "", "op-9", [new DeviceResult(16777201, "WKS-001", PivotsDeviceStates.Failed, "", "Access is denied.")], true, "session-1")));
+        h.Sessions.Sessions.Add(new PivotsSessionRecord("session-1", new DateTime(2026, 10, 24, 8, 0, 0, DateTimeKind.Utc), @"LAB\admin", "LAB", "cm01.lab.local", PivotsChangeKind.RunScript,
+            "Collection Workstations (LAB00012)", "LAB00012", change.Targets!.Devices, null, h.DiskScript.Guid, h.DiskScript.Name, h.DiskScript.Hash, new Dictionary<string, string>())
+        {
+            OperationId = "op-9", Status = "Partial", Partial = true,
+            Results = [new DeviceResult(16777201, "WKS-001", PivotsDeviceStates.Failed, "", "Access is denied.") { ExitCode = 5 }],
+            Raw = [new PivotsRawRecord(new DateTime(2026, 10, 24, 8, 0, 1, DateTimeKind.Utc), "Script", 200, "{\"ScriptOutput\":\"denied\"}")]
+        });
         for (var i = 0; i < 3; i++)
-            h.Audit.Records.Add(new PivotsAuditRecord(new DateTime(2026, 10, 24, 8, 0, 0), @"LAB\admin", "RunPivot", i == 0 ? "Started" : "Finished", i == 0 ? "" : "Succeeded", "run-1", 6,
-                "Collection Workstations (LAB00012)", null, null, "Sent to 6 devices.") { Verified = true, HasChain = true });
+            h.Audit.Records.Add(new PivotsAuditRecord(new DateTime(2026, 10, 24, 8, 0, 0), @"LAB\admin", "RunPivot", i == 0 ? "Started" : "Finished", i == 0 ? "" : "Succeeded", "run-1",
+                "Collection Workstations (LAB00012)", 6, null, "abc", "op-1", "Sent to 6 devices.") { Verified = true, HasChain = true });
         vm.SelectedTabIndex = VM.HistoryTab;
         await vm.EnsureTabLoadedAsync();
         Assert.Equal(3, vm.HistoryRows.Count);
@@ -622,7 +632,10 @@ public sealed class PivotsScriptsPageTests
         Assert.Equal("Started", vm.SelectedHistory!.Record.Phase);
         Assert.Contains(AuditVerification.Verified, vm.HistoryDetails);
 
-        vm.SelectedSession = vm.SessionRows.Single();
+        Assert.Contains("SHA-256 of the text: abc. Operation op-1.", vm.HistoryDetails);
+
+        Assert.Equal(2, vm.SessionRows.Count);
+        vm.SelectedSession = vm.SessionRows.Single(r => r.Key == "session-1");
         await vm.RefreshHistoryCommand.ExecuteAsync(null);
         Assert.Equal("session-1", vm.SelectedSession!.Key);
         await vm.OpenSessionCommand.ExecuteAsync(null);
@@ -630,8 +643,74 @@ public sealed class PivotsScriptsPageTests
         Assert.StartsWith("Saved session of", vm.ResultHeader);
         Assert.Contains("read only", vm.ResultHeader);
         Assert.Equal("Failed", Assert.Single(vm.DeviceRows).State);
+        Assert.Equal("5", vm.DeviceRows.Single().ExitCode);
+        Assert.Contains("\"ScriptOutput\":\"denied\"", vm.RawText);
+        Assert.True(vm.IsPartial);
         Assert.Equal("Last run: Completed 6.", vm.LastRunHeadline);
         Assert.Contains("Last run: Completed 6.", vm.PageSummary);
+    }
+
+    [Fact]
+    public async Task WaitAgainReadsTheResultsOfASavedRunAndSendsNothing()
+    {
+        var h = new PivotsScriptsHarness();
+        var vm = await ResolvedAsync(h);
+        vm.QueryText = "OS";
+        h.Service.WaitGate = new TaskCompletionSource();
+        await vm.RunPivotCommand.ExecuteAsync(null);
+        await WaitUntil(() => h.Service.WaitCalls == 1);
+        vm.StopWaitingCommand.Execute(null);
+        await vm.WaitTask;
+        Assert.True(vm.IsPartial);
+        h.Service.WaitGate = null;
+        vm.SelectedTabIndex = VM.HistoryTab;
+        await vm.EnsureTabLoadedAsync();
+        vm.SelectedSession = vm.SessionRows.Single();
+        Assert.True(vm.WaitAgainCommand.CanExecute(null));
+        vm.WaitAgainCommand.Execute(null);
+        await vm.WaitTask;
+        Assert.Single(h.Service.Applied);
+        Assert.Equal(2, h.Service.WaitCalls);
+        Assert.False(vm.IsPartial);
+        Assert.All(vm.DeviceRows, r => Assert.Equal("Completed", r.State));
+        Assert.Contains("\"OperationId\":\"op-1\"", vm.RawText);
+        Assert.Equal(["Stopped waiting", "Completed"], vm.PipelineRows.Select(r => r.State));
+    }
+
+    [Fact]
+    public async Task ADeviceWithoutAClientIsSkippedInThePlanAndTheCountLeavesItOut()
+    {
+        var h = new PivotsScriptsHarness();
+        h.Service.AddDevice(16777400, "PRN-001", online: null, client: false);
+        h.Service.Collections["LAB00012"].Members.Add(16777400);
+        var vm = await ResolvedAsync(h);
+        Assert.Contains("Without a ConfigMgr client: 1. A run skips them.", vm.TargetSummary);
+        vm.QueryText = "OS";
+        await vm.RunPivotCommand.ExecuteAsync(null);
+        var plan = h.Plans.Shown.Single();
+        Assert.Equal("Run on 6 devices", plan.ActionName);
+        Assert.Equal(7, plan.Items.Count);
+        Assert.Equal(("Skip", "No ConfigMgr client: the run skips the device."), (plan.Items[6].Action, plan.Items[6].Detail));
+        Assert.Equal("Skipped", h.Plans.LastOutcome!.Result!.Items[6].OutcomeText);
+        await vm.WaitTask;
+        Assert.Equal(6, vm.DeviceRows.Count);
+    }
+
+    [Fact]
+    public async Task AScriptWhoseParameterDefinitionsCannotBeReadCannotRun()
+    {
+        var h = new PivotsScriptsHarness();
+        lock (h.Service.Scripts)
+        {
+            var i = h.Service.Scripts.FindIndex(s => s.Guid == h.DiskScript.Guid);
+            h.Service.Scripts[i] = h.Service.Scripts[i] with { ParametersUnreadable = true };
+        }
+        var vm = await ResolvedAsync(h, VM.ScriptTab);
+        vm.SelectedApproved = vm.ApprovedScripts.Single(r => r.Name == "Disk space");
+        Assert.Contains(VM.ParametersUnreadable, vm.ScriptDetail);
+        await vm.RunScriptCommand.ExecuteAsync(null);
+        Assert.Equal(VM.ParametersUnreadable, vm.StatusMessage);
+        Assert.Equal(0, h.Service.PrepareCalls);
     }
 
     [Fact]
@@ -717,7 +796,7 @@ public sealed class PivotsScriptsPageTests
         h.Service.ConnectionFailure = new System.Security.Authentication.AuthenticationException("The remote certificate is invalid: RemoteCertificateChainErrors at cm01 secret");
         await vm.TestConnectionCommand.ExecuteAsync(null);
         Assert.Equal(VM.ConnectionFailed, vm.ConnectionResult);
-        h.Service.ConnectionFailure = new PivotsScriptsServiceException("The SMS Provider certificate is not trusted. Install the issuing CA certificate on this computer.");
+        h.Service.ConnectionFailure = new PivotsServiceException("The SMS Provider certificate is not trusted. Install the issuing CA certificate on this computer.");
         await vm.TestConnectionCommand.ExecuteAsync(null);
         Assert.Equal("The SMS Provider certificate is not trusted. Install the issuing CA certificate on this computer.", vm.ConnectionResult);
         Assert.Equal("LAB", vm.SiteCodeText);

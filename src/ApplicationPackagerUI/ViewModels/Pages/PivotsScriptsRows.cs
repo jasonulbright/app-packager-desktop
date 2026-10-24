@@ -34,9 +34,9 @@ public static class PivotsLabels
 
     public static string ScriptState(string state) => state switch
     {
-        PivotsScriptStates.Waiting => "Waiting for approval",
-        PivotsScriptStates.Approved => "Approved",
-        PivotsScriptStates.Declined => "Declined",
+        SiteScriptStates.Waiting => "Waiting for approval",
+        SiteScriptStates.Approved => "Approved",
+        SiteScriptStates.Declined => "Declined",
         { Length: > 0 } other => other,
         _ => Unknown
     };
@@ -91,14 +91,18 @@ public sealed class DeviceGridRow(DeviceResult result, bool? online)
     public string State => PivotsLabels.DeviceState(Result.State);
     public string Online { get; } = PivotsLabels.Online(online);
     public string Output => PivotsLabels.FirstLine(Result.Output);
+    public string ExitCode => Result.ExitCode is { } code ? code.ToString(CultureInfo.InvariantCulture) : "";
     public string Message => Result.Message;
     public override string ToString() => $"{Device}, {State}";
 }
 
-/// <summary>One CMPivot result row; the cells follow the columns of the outcome.</summary>
-public sealed class ResultGridRow(PivotsResultRow row, int index)
+/// <summary>One result row: the device and the values in the order of the result columns.</summary>
+public sealed record ResultRowData(int ResourceId, string Device, IReadOnlyList<string> Values);
+
+/// <summary>One CMPivot result row; the cells follow the result columns.</summary>
+public sealed class ResultGridRow(ResultRowData row, int index)
 {
-    public PivotsResultRow Row { get; } = row;
+    public ResultRowData Row { get; } = row;
     public string Key { get; } = row.ResourceId.ToString(CultureInfo.InvariantCulture) + "#" + index.ToString(CultureInfo.InvariantCulture);
     public string Device => Row.Device;
     public IReadOnlyList<string> Cells => Row.Values;
@@ -118,7 +122,7 @@ public sealed class ScriptGridRow(SiteScript script)
     public string Language => Script.Language;
     public string Guid => Script.Guid;
     public string Parameters => PivotsLabels.Number(Script.Parameters.Count);
-    public bool IsApproved => string.Equals(Script.State, PivotsScriptStates.Approved, StringComparison.OrdinalIgnoreCase);
+    public bool IsApproved => string.Equals(Script.State, SiteScriptStates.Approved, StringComparison.OrdinalIgnoreCase);
     public override string ToString() => $"{Name}, {State}";
 }
 
@@ -126,12 +130,13 @@ public sealed class ScriptGridRow(SiteScript script)
 public sealed class SessionGridRow(PivotsSessionSummary session)
 {
     public PivotsSessionSummary Session { get; } = session;
-    public string Key { get; } = session.SessionId;
-    public string Started => PivotsLabels.Time(Session.Started);
+    public string Key { get; } = session.Id;
+    public string Started => PivotsLabels.Time(DateTime.SpecifyKind(Session.CreatedUtc, DateTimeKind.Utc));
     public string Action => PivotsLabels.Kind(Session.Kind);
-    public string Target => Session.Description;
+    public string Target => Session.TargetDescription;
     public string Devices => PivotsLabels.Number(Session.DeviceCount);
-    public string State => Session.State;
+    public string State => Session.Status;
+    public bool CanWaitAgain => Session.OperationId is { Length: > 0 } && Session.Kind is PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript;
     public override string ToString() => $"{Started}, {Action}, {Target}";
 }
 

@@ -156,7 +156,8 @@ public sealed partial class PivotsScriptsViewModel
             $"{PivotsLabels.Count(targets.Devices.Count, "device")}: {targets.Description}. Online: {PivotsLabels.Number(online)}."
         };
         if (targets.Truncated)
-            lines.Add(targets.MatchedCount >= 0 ? $"{PivotsScriptsText.TruncatedNote} {PivotsLabels.Count(targets.MatchedCount, "device")} match." : PivotsScriptsText.TruncatedNote);
+            lines.Add(targets.TotalMatched > targets.Devices.Count ? $"{PivotsScriptsText.TruncatedNote} {PivotsLabels.Count(targets.TotalMatched, "device")} match." : PivotsScriptsText.TruncatedNote);
+        if (targets.NonClientCount > 0) lines.Add($"Without a ConfigMgr client: {PivotsLabels.Number(targets.NonClientCount)}. A run skips them.");
         if (targets.Unmatched.Count > 0) lines.Add($"Not found ({PivotsLabels.Number(targets.Unmatched.Count)}): {PivotsScriptsText.UnmatchedText(targets.Unmatched)}");
         if (targets.IsBuiltInCollection) lines.Add(BuiltInWarning);
         return string.Join(Environment.NewLine, lines);

@@ -157,7 +157,7 @@ public sealed class PivotsScriptsWriterTests
             Assert.DoesNotMatch(@"\bApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), file))));
         var calls = pageFiles.SelectMany(f => Regex.Matches(MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), f))), @"\bServices\s*\.\s*Service\s*\.\s*(\w+)").Select(m => m.Groups[1].Value))
             .Distinct().Order().ToList();
-        Assert.Equal(["CheckSyntaxAsync", "LoadScriptsAsync", "PrepareAsync", "ResolveTargetsAsync", "TestConnectionAsync", "WaitForResultsAsync"], calls);
+        Assert.Equal(["CheckScriptAsync", "LoadScriptsAsync", "PrepareAsync", "ResolveTargetsAsync", "TestConnectionAsync", "WaitForResultsAsync"], calls);
     }
 
     [Fact]

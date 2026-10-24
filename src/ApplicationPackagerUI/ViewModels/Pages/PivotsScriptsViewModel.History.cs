@@ -46,8 +46,9 @@ public sealed partial class PivotsScriptsViewModel
         ? string.Join(Environment.NewLine, new[]
         {
             row.VerifiedText,
-            $"{row.Action}, {row.Record.Phase}: {row.Result}. Devices: {row.Devices}. Target: {row.Target}.",
-            row.Record.ScriptGuid is { Length: > 0 } guid ? $"Script {guid}, SHA-256 {row.Record.ScriptHash}." : "",
+            $"{row.Action}, {row.Record.Phase}: {row.Result}. Devices: {row.Devices}." + (row.Target.Length > 0 ? $" Target: {row.Target}." : ""),
+            (row.Record.ScriptGuid is { Length: > 0 } guid ? $"Script {guid}. " : "") + (row.Record.TextHash is { Length: > 0 } hash ? $"SHA-256 of the text: {hash}." : "")
+                + (row.Record.OperationId is { Length: > 0 } op ? $" Operation {op}." : ""),
             row.Message
         }.Where(l => l.Length > 0))
         : "";
@@ -184,7 +185,7 @@ public sealed partial class PivotsScriptsViewModel
             return;
         }
         var generation = Generation;
-        PivotsSession? session;
+        PivotsSessionRecord? session;
         try { session = await Task.Run(() => Services.Sessions.Read(row.Key)); }
         catch (Exception ex)
         {
@@ -198,16 +199,39 @@ public sealed partial class PivotsScriptsViewModel
             StatusMessage = SessionGone;
             return;
         }
-        if (session.Outcome is not { } outcome)
+        if (session.Results.Count == 0 && session.Raw.Count == 0)
         {
             StatusMessage = SessionNoResult;
             return;
         }
-        Show(outcome, $"Saved session of {PivotsLabels.Time(session.Started)}, read only: {PivotsLabels.Kind(session.Kind)} on {session.Description}. {StateCounts(outcome.Devices)}"
-            + (outcome.Partial ? " Partial." : ""), session.Targets, final: false);
+        var created = PivotsLabels.Time(DateTime.SpecifyKind(session.CreatedUtc, DateTimeKind.Utc));
+        Show(new PivotsResultSet(session.Results, session.Partial,
+            $"Saved session of {created}, read only: {PivotsLabels.Kind(session.Kind)} on {session.TargetDescription}. {StateCounts(session.Results)}" + (session.Partial ? " Partial." : ""),
+            OnlineOf(session.Devices), RawOf(session)), final: false);
         SelectedTabIndex = session.Kind == PivotsChangeKind.RunScript ? ScriptTab : PivotTab;
         StatusMessage = "The saved session is open in the result tabs. It is read only; a new run needs Resolve.";
     }
+
+    private bool CanWaitAgain() => !IsWaiting && !IsWriting && SelectedSession is { CanWaitAgain: true };
+
+    /// <summary>Reads the results of the selected saved run again for the wait time; it reads only and sends nothing.</summary>
+    [RelayCommand(CanExecute = nameof(CanWaitAgain))]
+    private void WaitAgain()
+    {
+        if (SelectedSession is not { CanWaitAgain: true } row || row.Session.OperationId is not { } operation) return;
+        if (Busy() is { } busy)
+        {
+            StatusMessage = busy;
+            return;
+        }
+        var number = ++_runNumber;
+        AddPipeline(new PipelineRow(number, row.Session.Kind, DateTime.Now, row.Session.DeviceCount, "Waiting for results", ""));
+        Show(new PivotsResultSet([], true, $"Run {number}: reading the results of the saved run of {row.Started} again. Nothing is sent.", new Dictionary<int, bool?>(), ""), final: false);
+        BeginWait(operation, number, row.Session.Kind, row.Session.DeviceCount, null, new Dictionary<int, bool?>(), row.Key);
+        SelectedTabIndex = row.Session.Kind == PivotsChangeKind.RunScript ? ScriptTab : PivotTab;
+    }
+
+    partial void OnSelectedSessionChanged(SessionGridRow? value) => WaitAgainCommand.NotifyCanExecuteChanged();
 
     public string SiteCodeText => Services.LoadSettings().SiteCode is { Length: > 0 } code ? code.Trim() : "Not set";
     public string ProviderText => Services.LoadSettings().ProviderMachine is { Length: > 0 } provider ? provider.Trim() : "Not set";
@@ -223,9 +247,9 @@ public sealed partial class PivotsScriptsViewModel
     {
         if (_applying) return;
         SaveLater();
-        _libraryGeneration[0]++;
-        _libraryGeneration[1]++;
-        _libraryTasks.Clear();
+        _libraryGeneration++;
+        _libraryTask = null;
+        IsLibraryLoaded = false;
         QueryLibrary = [];
         ScriptLibrary = [];
         if (_active) _ = EnsureTabLoadedAsync();

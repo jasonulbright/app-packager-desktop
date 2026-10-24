@@ -11,7 +11,6 @@ public sealed partial class PivotsScriptsViewModel
     public const string SelectApproved = "Select an approved script first.";
     public const string SelectSiteScript = "Select a site script first.";
     public const string NeedsParameters = "The script has a required parameter without a value. Select Parameters first.";
-    public const string CheckNotAvailable = "The syntax check is not available in this build.";
     public const string CheckFailed = "The syntax check could not run. The log has the details.";
     public const string CheckPassed = "The script text parses. The check finds syntax errors only; it does not run the script.";
     public const string DraftNeedsName = "Type a name for the new script first.";
@@ -28,7 +27,7 @@ public sealed partial class PivotsScriptsViewModel
          "foreach", "try", "catch", "[pscustomobject]", "Write-Output"];
 
     private int _scriptsGeneration;
-    private readonly int[] _libraryGeneration = new int[2];
+    private int _libraryGeneration;
     private IReadOnlyList<ScriptGridRow> _allScripts = [];
     private string? _selectedApprovedKey;
     private string? _selectedSiteScriptKey;
@@ -78,8 +77,13 @@ public sealed partial class PivotsScriptsViewModel
     public bool HasLeftover => LeftoverGuid is not null;
 
     public string ScriptDetail => SelectedApproved is { } row
-        ? $"{row.Name}, version {row.Version}, GUID {row.Guid}. SHA-256 {row.Script.Hash}. {PivotsLabels.Count(row.Script.Parameters.Count, "parameter")}."
+        ? $"{row.Name}, version {row.Version}, GUID {row.Guid}." + (HashOf(row.Script) is { Length: > 0 } hash ? $" SHA-256 {hash}." : "") + $" {PivotsLabels.Count(row.Script.Parameters.Count, "parameter")}."
+            + (row.Script.ParametersUnreadable ? " " + ParametersUnreadable : "")
         : "Select an approved script.";
+
+    public const string ParametersUnreadable = "The site parameter definitions of the script could not be read, so the script cannot run from this page.";
+
+    private static string HashOf(SiteScript script) => script.Hash.Length > 0 ? script.Hash : script.SiteHash;
 
     public string ParametersText => SelectedApproved is not { } row ? ""
         : row.Script.Parameters.Count == 0 ? "The script has no parameters."
@@ -93,7 +97,7 @@ public sealed partial class PivotsScriptsViewModel
     /// <summary>The values typed for the script, when they were typed for this GUID and this script text.</summary>
     private IReadOnlyDictionary<string, string>? ParametersFor(SiteScript script) => _parametersFor == ParameterKey(script) ? _parameters : null;
 
-    private static string ParameterKey(SiteScript script) => script.Guid.ToUpperInvariant() + "|" + script.Hash.ToUpperInvariant();
+    private static string ParameterKey(SiteScript script) => $"{script.Guid.ToUpperInvariant()}|{script.Version}|{script.SiteHash.ToUpperInvariant()}|{script.Hash.ToUpperInvariant()}";
 
     public void SetCaret(int line, int column) => EditorPosition = $"Line {line}, column {column}";
 
@@ -125,9 +129,9 @@ public sealed partial class PivotsScriptsViewModel
 
     private void ReleaseLibraries()
     {
-        _libraryGeneration[0]++;
-        _libraryGeneration[1]++;
-        _libraryTasks.Clear();
+        _libraryGeneration++;
+        _libraryTask = null;
+        IsLibraryLoaded = false;
         QueryLibrary = [];
         ScriptLibrary = [];
         SelectedQueryItem = null;
@@ -201,35 +205,41 @@ public sealed partial class PivotsScriptsViewModel
         SiteScriptCount = list.Count == _allScripts.Count ? PivotsLabels.Count(list.Count, "script") : $"{PivotsLabels.Number(list.Count)} of {PivotsLabels.Count(_allScripts.Count, "script")}";
     }
 
-    private readonly Dictionary<PivotsLibraryKind, Task> _libraryTasks = [];
+    public const string QueryKind = "Query";
+    public const string ScriptKind = "Script";
 
-    private Task EnsureLibraryAsync(PivotsLibraryKind kind)
+    private Task? _libraryTask;
+
+    private Task EnsureLibraryAsync()
     {
-        if ((kind == PivotsLibraryKind.Query ? QueryLibrary : ScriptLibrary).Count > 0) return Task.CompletedTask;
-        if (_libraryTasks.TryGetValue(kind, out var pending) && !pending.IsCompleted) return pending;
-        var task = LoadLibraryAsync(kind);
-        _libraryTasks[kind] = task;
+        if (IsLibraryLoaded) return Task.CompletedTask;
+        if (_libraryTask is { IsCompleted: false } pending) return pending;
+        var task = LoadLibraryAsync();
+        _libraryTask = task.IsCompleted ? null : task;
         return task;
     }
 
-    /// <summary>Reads the built-in samples and the files of the library folder; it needs no site.</summary>
-    public async Task LoadLibraryAsync(PivotsLibraryKind kind)
+    public bool IsLibraryLoaded { get; private set; }
+
+    /// <summary>Reads the built-in samples and the files of the library folder with one call; it needs no site.</summary>
+    public async Task LoadLibraryAsync()
     {
         var generation = Generation;
-        var mine = ++_libraryGeneration[(int)kind];
+        var mine = ++_libraryGeneration;
         var folder = string.IsNullOrWhiteSpace(LibraryFolder) ? null : LibraryFolder.Trim();
         try
         {
-            var items = await Task.Run(() => Services.Library.Load(kind, folder));
-            if (generation != Generation || mine != _libraryGeneration[(int)kind]) return;
-            if (kind == PivotsLibraryKind.Query) QueryLibrary = items;
-            else ScriptLibrary = items;
+            var items = await Task.Run(() => Services.Library.Load(folder));
+            if (generation != Generation || mine != _libraryGeneration) return;
+            QueryLibrary = items.Where(i => string.Equals(i.Kind, QueryKind, StringComparison.OrdinalIgnoreCase)).ToList();
+            ScriptLibrary = items.Where(i => string.Equals(i.Kind, ScriptKind, StringComparison.OrdinalIgnoreCase)).ToList();
+            IsLibraryLoaded = true;
         }
         catch (Exception ex)
         {
-            if (generation != Generation || mine != _libraryGeneration[(int)kind]) return;
+            if (generation != Generation || mine != _libraryGeneration) return;
             StatusMessage = PlainMessage(ex, LibraryFailed);
-            Services.Log.Warning(LogArea, $"The {kind} library could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The library could not be read ({ex.GetType().Name}).");
         }
     }
 
@@ -283,6 +293,17 @@ public sealed partial class PivotsScriptsViewModel
         return (values, null);
     }
 
+    /// <summary>The result of a syntax check: the errors and the Run Scripts problems, or the parameters the site will store.</summary>
+    public static string CheckText(ScriptCheck check)
+    {
+        var lines = new List<string>();
+        if (check.Errors.Count > 0) lines.Add($"{PivotsLabels.Count(check.Errors.Count, "syntax error")}: " + string.Join(" ", check.Errors.Take(10).Select(e => SecretMask.Apply(e))));
+        if (check.Problems.Count > 0) lines.Add($"The site cannot store the parameters: " + string.Join(" ", check.Problems.Take(10).Select(p => SecretMask.Apply(p))));
+        if (lines.Count > 0) return string.Join(" ", lines);
+        return CheckPassed + (check.Parameters.Count == 0 ? " The script has no parameters."
+            : " Parameters the site will store: " + string.Join(", ", check.Parameters.Select(p => $"{p.Name} ({p.Type}{(p.Required ? ", required" : "")})")) + ".");
+    }
+
     private bool CanCheck() => !IsWriting;
 
     [RelayCommand(CanExecute = nameof(CanCheck))]
@@ -299,13 +320,9 @@ public sealed partial class PivotsScriptsViewModel
         CheckResult = "Checking the syntax.";
         try
         {
-            var errors = await Task.Run(() => Services.Service.CheckSyntaxAsync(text, visit), visit);
+            var check = await Task.Run(() => Services.Service.CheckScriptAsync(text, visit), visit);
             if (generation != Generation) return;
-            CheckResult = errors.Count == 0 ? CheckPassed : $"{PivotsLabels.Count(errors.Count, "syntax error")}: " + string.Join(" ", errors.Take(10).Select(e => SecretMask.Apply(e)));
-        }
-        catch (NotSupportedException)
-        {
-            if (generation == Generation) CheckResult = CheckNotAvailable;
+            CheckResult = CheckText(check);
         }
         catch (OperationCanceledException)
         {

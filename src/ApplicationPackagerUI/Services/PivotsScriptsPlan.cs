@@ -98,14 +98,8 @@ public sealed class PivotsScriptsWriter(IPivotsScriptsService service, ISiteOper
     /// <summary>The change to send: the confirmation flags only as the confirmed plan asked them.</summary>
     public static PivotsChange ConfirmedChange(PivotsChange change, ConfirmedChangePlan confirmed)
     {
-        var runConfirmed = change.Kind switch
-        {
-            PivotsChangeKind.RunPivot => true,
-            PivotsChangeKind.RunScript => confirmed.Plan.IsDestructive && confirmed.Plan.ExtraConfirmation is not null,
-            _ => false
-        };
-        var everyDevice = change.Kind is PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript
-            && change.Targets is { IsBuiltInCollection: true } && confirmed.Plan.SecondConfirmation is not null;
+        var runConfirmed = change.NeedsRunConfirmation && confirmed.Plan.IsDestructive && confirmed.Plan.ExtraConfirmation is not null;
+        var everyDevice = change.NeedsEveryDeviceAcknowledgement && confirmed.Plan.SecondConfirmation is not null;
         return change with { RunConfirmed = runConfirmed, EveryDeviceAcknowledged = everyDevice };
     }
 

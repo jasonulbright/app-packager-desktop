@@ -115,9 +115,9 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
         var site = ConnectionProblem() is null;
         return SelectedTabIndex switch
         {
-            PivotTab => Task.WhenAll(EnsureLibraryAsync(PivotsLibraryKind.Query)),
+            PivotTab => EnsureLibraryAsync(),
             ScriptTab => site ? EnsureScriptsAsync() : Task.CompletedTask,
-            SiteScriptsTab => Task.WhenAll(EnsureLibraryAsync(PivotsLibraryKind.Script), site ? EnsureScriptsAsync() : Task.CompletedTask),
+            SiteScriptsTab => Task.WhenAll(EnsureLibraryAsync(), site ? EnsureScriptsAsync() : Task.CompletedTask),
             HistoryTab => EnsureHistoryAsync(),
             _ => Task.CompletedTask
         };
@@ -136,7 +136,7 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
     /// <summary>A message for the operator: the plain text of the service or the session with the setting to check, or the fallback.</summary>
     public static string PlainMessage(Exception ex, string fallback) => ex switch
     {
-        PivotsScriptsServiceException p => SecretMask.Apply(p.Message),
+        PivotsServiceException p => SecretMask.Apply(p.Message),
         ConfigMgrSessionException { Failure: ConfigMgrFailure.InvalidSiteCode or ConfigMgrFailure.DriveNotConnected or ConfigMgrFailure.ModuleNotFound } s
             => SecretMask.Apply(s.Message) + CollectionComplianceViewModel.SiteHint,
         ConfigMgrSessionException { Failure: ConfigMgrFailure.AccessDenied } s => SecretMask.Apply(s.Message) + AccessHint,

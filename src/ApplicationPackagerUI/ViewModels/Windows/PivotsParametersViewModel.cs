@@ -18,6 +18,8 @@ public sealed partial class PivotsParameterRow : ObservableObject
     public string Type => Parameter.Type;
     public string Required => Parameter.Required ? "Yes" : "No";
     public string Default => Parameter.Default ?? "";
+    public string Description => Parameter.Description;
+    public bool HasDescription => Parameter.Description.Length > 0;
 
     [ObservableProperty] private string _value;
     [ObservableProperty] private string _error = "";

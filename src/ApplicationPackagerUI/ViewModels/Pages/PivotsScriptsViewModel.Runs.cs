@@ -20,10 +20,11 @@ public sealed partial class PivotsScriptsViewModel
     public const string AlreadyDeclined = "The script is already declined.";
 
     private bool _background;
+    private PivotsChange? _cleanup;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RunPivotCommand), nameof(RunScriptCommand), nameof(SubmitDraftCommand), nameof(ApproveScriptCommand), nameof(DenyScriptCommand),
-        nameof(RemoveScriptCommand), nameof(RemoveLeftoverCommand), nameof(CheckDraftCommand))]
+        nameof(RemoveScriptCommand), nameof(RemoveLeftoverCommand), nameof(CheckDraftCommand), nameof(WaitAgainCommand))]
     private bool _isWriting;
 
     private bool CanWrite() => !IsWriting;
@@ -39,7 +40,7 @@ public sealed partial class PivotsScriptsViewModel
         string Form() => $"pivot|{TargetKey()}|{QueryText}";
         var before = Form();
         var request = new PivotsChange(Kind: PivotsChangeKind.RunPivot, Targets: targets, QueryText: query, ScriptGuid: null, ScriptHash: null, Parameters: null,
-            SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null);
+            SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { ResultWindow = TimeSpan.Zero };
         return PlanAndRunAsync(request, () => Form() == before);
     }
 
@@ -48,14 +49,16 @@ public sealed partial class PivotsScriptsViewModel
     {
         if (Busy() is { } busy) return Say(busy);
         if (SelectedApproved is not { } row) return Say(SelectApproved);
+        if (row.Script.ParametersUnreadable) return Say(ParametersUnreadable);
         if (CurrentTargets() is not { } targets) return Say(ResolveFirst);
         if (targets.Devices.Count == 0) return Say(NoTargets);
         var (values, problem) = RunParameters(row.Script);
         if (problem is not null) return Say(problem);
         string Form() => $"script|{TargetKey()}|{SelectedApproved?.Key}|{SelectedApproved?.Script.Hash}|{_parametersFor}|{ParametersText}";
         var before = Form();
-        var request = new PivotsChange(Kind: PivotsChangeKind.RunScript, Targets: targets, QueryText: null, ScriptGuid: row.Script.Guid, ScriptHash: row.Script.Hash,
-            Parameters: values, SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null);
+        var request = new PivotsChange(Kind: PivotsChangeKind.RunScript, Targets: targets, QueryText: null, ScriptGuid: row.Script.Guid,
+            ScriptHash: row.Script.Hash.Length > 0 ? row.Script.Hash : null, Parameters: values, SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false,
+            EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null) { ResultWindow = TimeSpan.Zero };
         return PlanAndRunAsync(request, () => Form() == before);
     }
 
@@ -89,7 +92,7 @@ public sealed partial class PivotsScriptsViewModel
         if (Busy() is { } busy) return Say(busy);
         if (SelectedSiteScript is not { } row) return Say(SelectSiteScript);
         if (kind == PivotsChangeKind.ApproveScript && row.IsApproved) return Say(AlreadyApproved);
-        if (kind == PivotsChangeKind.DenyScript && string.Equals(row.Script.State, PivotsScriptStates.Declined, StringComparison.OrdinalIgnoreCase)) return Say(AlreadyDeclined);
+        if (kind == PivotsChangeKind.DenyScript && string.Equals(row.Script.State, SiteScriptStates.Declined, StringComparison.OrdinalIgnoreCase)) return Say(AlreadyDeclined);
         string? comment = null;
         if (kind == PivotsChangeKind.DenyScript)
         {
@@ -97,7 +100,7 @@ public sealed partial class PivotsScriptsViewModel
             if (comment is null) return Say(NotConfirmed);
         }
         var key = row.Key;
-        var request = new PivotsChange(Kind: kind, Targets: null, QueryText: null, ScriptGuid: row.Script.Guid, ScriptHash: row.Script.Hash, Parameters: null,
+        var request = new PivotsChange(Kind: kind, Targets: null, QueryText: null, ScriptGuid: row.Script.Guid, ScriptHash: row.Script.Hash.Length > 0 ? row.Script.Hash : null, Parameters: null,
             SubmitName: null, SubmitText: null, Comment: comment, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null);
         return PlanAndRunAsync(request, () => SelectedSiteScript?.Key == key);
     }
@@ -110,8 +113,11 @@ public sealed partial class PivotsScriptsViewModel
     {
         if (Busy() is { } busy) return Say(busy);
         if (LeftoverGuid is not { } guid) return Task.CompletedTask;
-        var request = new PivotsChange(Kind: PivotsChangeKind.RemoveScript, Targets: null, QueryText: null, ScriptGuid: guid, ScriptHash: null, Parameters: null,
-            SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null);
+        // The service names the clean-up as a change of its own; only the GUID the create call returned may be removed.
+        var request = _cleanup is { Kind: PivotsChangeKind.RemoveScript } cleanup && string.Equals(cleanup.ScriptGuid, guid, StringComparison.OrdinalIgnoreCase)
+            ? cleanup with { RunConfirmed = false, EveryDeviceAcknowledged = false, Fingerprint = null }
+            : new PivotsChange(Kind: PivotsChangeKind.RemoveScript, Targets: null, QueryText: null, ScriptGuid: guid, ScriptHash: null, Parameters: null,
+                SubmitName: null, SubmitText: null, Comment: null, RunConfirmed: false, EveryDeviceAcknowledged: false, Impact: [], Checks: [], Fingerprint: null);
         return PlanAndRunAsync(request, () => LeftoverGuid == guid);
     }
 
@@ -212,18 +218,26 @@ public sealed partial class PivotsScriptsViewModel
         if (plan.Outcome is not { } outcome) return;
         if (plan.Kind is PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript)
         {
-            if (outcome.OperationId is { } id && outcome.Succeeded) StartWait(plan, outcome, id);
-            else Show(outcome, $"{PivotsLabels.Kind(plan.Kind)}: {SecretMask.Apply(outcome.Message)}", plan.Change.Targets, final: true);
+            var header = $"{PivotsLabels.Kind(plan.Kind)}: {SecretMask.Apply(outcome.Message)}";
+            if (outcome.OperationId is { } id && outcome.Sent && outcome.Devices.Any(d => !d.IsFinal)) StartWait(plan, outcome, id);
+            else await ShowAsync(outcome.Devices, outcome.Partial, header, plan.Change.Targets, outcome.SessionId, final: true);
         }
         else
         {
             if (plan.Kind == PivotsChangeKind.SubmitScript)
-                LeftoverGuid = !outcome.Succeeded && outcome.CreatedScriptGuid is { Length: > 0 } created ? created : null;
+            {
+                var created = !outcome.Succeeded && outcome.CreatedScriptGuid is { Length: > 0 } guid ? guid : null;
+                _cleanup = created is null ? null : outcome.CleanupChange;
+                LeftoverGuid = created;
+            }
             else if (plan.Kind == PivotsChangeKind.RemoveScript && outcome.Succeeded && string.Equals(plan.Change.ScriptGuid, LeftoverGuid, StringComparison.OrdinalIgnoreCase))
+            {
+                _cleanup = null;
                 LeftoverGuid = null;
+            }
             if (LeftoverGuid is { } left && plan.Kind == PivotsChangeKind.SubmitScript)
                 StatusMessage = $"The site created the script {plan.Change.SubmitName} ({left}), but a later step failed: {SecretMask.Apply(outcome.Message)} "
-                    + "The script exists on the site without its parameter definitions. Select Remove created script to remove only this script.";
+                    + "The script exists on the site and is not complete. Select Remove created script to remove only this script.";
             if (_active) await LoadScriptsAsync();
         }
         if (_active && IsHistoryLoaded) await LoadHistoryAsync();

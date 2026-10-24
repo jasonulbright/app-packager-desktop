@@ -51,7 +51,8 @@ public static class PivotsScriptsText
         yield return $"Targets: {targets.Description}. {PivotsLabels.Count(targets.Devices.Count, "device")}.";
         if (targets.IsBuiltInCollection) yield return $"The target is a built-in collection ({targets.CollectionId}). The run reaches every device of the collection.";
         if (targets.Truncated)
-            yield return targets.MatchedCount >= 0 ? $"{TruncatedNote} {PivotsLabels.Count(targets.MatchedCount, "device")} match." : TruncatedNote;
+            yield return targets.TotalMatched > targets.Devices.Count ? $"{TruncatedNote} {PivotsLabels.Count(targets.TotalMatched, "device")} match." : TruncatedNote;
+        if (targets.NonClientCount > 0) yield return $"{PivotsLabels.Count(targets.NonClientCount, "device")} without a ConfigMgr client: the run skips {(targets.NonClientCount == 1 ? "it" : "them")}.";
         if (targets.Unmatched.Count > 0)
             yield return $"Not found, left out: {UnmatchedText(targets.Unmatched)}";
     }
@@ -88,9 +89,12 @@ public static class PivotsScriptsText
         if (prepared.Targets is not { Devices.Count: > 0 } targets) return (null, NoDevices);
         var script = prepared.Kind == PivotsChangeKind.RunScript;
         if (script && (prepared.Script is not { Text: not null } || string.IsNullOrEmpty(prepared.ScriptHash))) return (null, ScriptNotRead);
-        var count = targets.Devices.Count;
+        var count = prepared.DeviceCount > 0 ? prepared.DeviceCount : targets.Devices.Count(d => d.IsClient);
+        if (count == 0) return (null, NoDevices);
         var action = script ? "Run script" : "Run query";
-        var entries = targets.Devices.Select(d => new PivotsPlanEntry(new ChangePlanItem(action, DeviceTarget(d), $"Online state: {PivotsLabels.Online(d.IsOnline)}."), d.ResourceId)).ToList();
+        if (script && prepared.Script!.ParametersUnreadable) return (null, PivotsScriptsViewModel.ParametersUnreadable);
+        var entries = targets.Devices.Select(d => new PivotsPlanEntry(new ChangePlanItem(d.IsClient ? action : "Skip", DeviceTarget(d),
+            d.IsClient ? $"Online state: {PivotsLabels.Online(d.IsOnline)}." : "No ConfigMgr client: the run skips the device."), d.ResourceId)).ToList();
         var notes = CheckNotes(prepared, n =>
         {
             n.AddRange(TargetLines(targets));
@@ -138,6 +142,9 @@ public static class PivotsScriptsText
         {
             if (script is not null) n.Add($"Script: {script.Name}. Version {script.Version}. Author {script.Author}.");
             if (prepared.ScriptHash is { Length: > 0 } hash) n.Add($"SHA-256 of the script text: {hash}.");
+            if (kind == PivotsChangeKind.SubmitScript)
+                n.Add(prepared.SubmitParameters.Count == 0 ? "Parameter definitions: none."
+                    : "Parameter definitions the site stores: " + string.Join(", ", prepared.SubmitParameters.Select(p => $"{p.Name} ({p.Type}{(p.Required ? ", required" : "")})")) + ".");
             if (kind == PivotsChangeKind.DenyScript) n.Add($"Comment: {prepared.Comment}");
         });
         notes.Add(note);

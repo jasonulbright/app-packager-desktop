@@ -232,6 +232,8 @@
                                        ToolTip="Reads the saved sessions and the audit log again." AutomationProperties.AutomationId="btnPivotsHistoryRefresh" />
                             <ui:Button Content="Open session" Icon="{ui:SymbolIcon Open24}" Command="{Binding OpenSessionCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Opens the selected saved session read only in the result tabs." AutomationProperties.AutomationId="btnOpenSession" />
+                            <ui:Button Content="Wait again" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding WaitAgainCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Reads the results of the selected saved run again for the wait time. It sends nothing to the clients." AutomationProperties.AutomationId="btnWaitAgain" />
                             <TextBlock Text="{Binding SessionCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtSessionCount" />
                         </WrapPanel>
                         <DataGrid Grid.Row="1" x:Name="dgSessions" KeyboardNavigation.TabIndex="1" Style="{StaticResource GridBase}" ItemsSource="{Binding SessionRows}" SelectedItem="{Binding SelectedSession}"

@@ -53,15 +53,16 @@ public sealed class PivotsScriptsRenderTests
         h.Service.Collections["LAB00099"] = ("Branch office workstations of the north west region building seven", ids);
         h.Service.FinalState = id => id % 7 == 0 ? PivotsDeviceStates.NoResponse : id % 5 == 0 ? PivotsDeviceStates.TimedOut : PivotsDeviceStates.Completed;
         for (var i = 0; i < 6; i++)
-            h.Service.AddScript($"Collect the inventory of the {LongText} {i}", "Get-Date", i % 2 == 0 ? PivotsScriptStates.Approved : PivotsScriptStates.Waiting,
+            h.Service.AddScript($"Collect the inventory of the {LongText} {i}", "Get-Date", i % 2 == 0 ? SiteScriptStates.Approved : SiteScriptStates.Waiting,
                 new ScriptParameter("Path", "System.String", false, null));
         for (var i = 0; i < 6; i++)
         {
             h.Audit.Records.Add(new PivotsAuditRecord(new DateTime(2026, 12, 30, 23, 59, 0), @"CONTOSO\labadmin", i % 2 == 0 ? "ApproveScript" : "RunScript", "Finished",
-                i == 1 ? "Requested" : "Succeeded", "run-" + i, 20_000, "Collection " + LongText, Guid.NewGuid().ToString().ToUpperInvariant(), new string('A', 64),
+                i == 1 ? "Partial" : "Succeeded", "run-" + i, "Collection " + LongText, 20_000, Guid.NewGuid().ToString().ToUpperInvariant(), new string('a', 64), "16777216",
                 "Sent to 20,000 devices of the collection " + LongText + ". The page waits for the results.") { Verified = i != 2, HasChain = true });
-            h.Sessions.Sessions.Add(new PivotsSession("session-" + i, new DateTime(2026, 12, 30, 23, 59, 0), i % 2 == 0 ? PivotsChangeKind.RemoveScript : PivotsChangeKind.RunPivot,
-                "Collection " + LongText, null, null, null, null, null, null));
+            h.Sessions.Sessions.Add(new PivotsSessionRecord("session-" + i, new DateTime(2026, 12, 31, 4, 59, 0, DateTimeKind.Utc), @"CONTOSO\labadmin", "LAB", "cm01.lab.local",
+                i % 2 == 0 ? PivotsChangeKind.RunScript : PivotsChangeKind.RunPivot, "Collection " + LongText, "LAB00099", [], null, null, null, null, new Dictionary<string, string>())
+            { Status = i == 1 ? "Saved before send" : "Completed", OperationId = "16777216" });
         }
         return h;
     }
@@ -179,10 +180,10 @@ public sealed class PivotsScriptsRenderTests
         ("dgApproved", "Author", @"CONTOSO\labadmin"), ("dgApproved", "Approver", @"CONTOSO\labadmin"),
         ("dgSiteScripts", "State", "Waiting for approval"), ("dgSiteScripts", "Version", "123"), ("dgSiteScripts", "Approver", @"CONTOSO\labadmin"),
         ("dgSiteScripts", "GUID", "8F2E3D4C-5B6A-4789-8ABC-DEF012345678"), ("dgSiteScripts", "Author", @"CONTOSO\labadmin"),
-        ("dgSessions", "Started", "12/30/2026 11:59 PM"), ("dgSessions", "Action", "Approve script"), ("dgSessions", "Action", "Remove script"), ("dgSessions", "Devices", "25,000"),
+        ("dgSessions", "Started", "12/30/2026 11:59 PM"), ("dgSessions", "Action", "Run CMPivot"), ("dgSessions", "Action", "Run script"), ("dgSessions", "Devices", "25,000"),
         ("dgSessions", "State", "Saved before send"),
         ("dgPivotsHistory", "Time", "12/30/2026 11:59 PM"), ("dgPivotsHistory", "Action", "Approve script"), ("dgPivotsHistory", "Action", "Submit script"),
-        ("dgPivotsHistory", "Result", "Succeeded"), ("dgPivotsHistory", "Result", "Requested"), ("dgPivotsHistory", "Verified", "! Not verified"),
+        ("dgPivotsHistory", "Result", "Succeeded"), ("dgPivotsHistory", "Result", "Partial"), ("dgPivotsHistory", "Verified", "! Not verified"),
         ("dgPivotsHistory", "Verified", "✓ Verified"), ("dgPivotsHistory", "Devices", "25,000"), ("dgPivotsHistory", "User", @"CONTOSO\labadmin")
     ];
 
@@ -512,7 +513,7 @@ public sealed class PivotsScriptsRenderTests
         WithApplication(theme, () =>
         {
             var parameters = Enumerable.Range(1, 12).Select(i => new ScriptParameter($"Parameter{i}{LongText}", i % 2 == 0 ? "System.Int32" : "System.String", i == 1, i == 3 ? "x" : null)).ToArray();
-            var script = new SiteScript("G", "Collect the inventory", "a", "b", PivotsScriptStates.Approved, 1, "PowerShell", "H", parameters, null);
+            var script = new SiteScript("G", "Collect the inventory", "a", "b", SiteScriptStates.Approved, 1, "PowerShell", "H", parameters, null);
             var dialog = new PivotsParametersViewModel(script, null);
             var window = new PivotsParametersWindow(dialog);
             Show(window);
