@@ -23,6 +23,11 @@ public sealed partial class PivotsScriptsService
         public TimeSpan? FirstResultAfter { get; set; }
     }
 
+    /// <summary>The content part of a plan token: the fingerprint of what the plan runs, without the preparation token.</summary>
+    internal static string ContentOf(string? token) => (token ?? "") is var t && t.IndexOf('.') is var dot and > 0 ? t[..dot] : "";
+
+    private const string UsedMessage = "the plan was used already: a plan runs once. Prepare the plan again.";
+
     private static PivotsOutcome Refused(PivotsChange change, string reason) =>
         new(change, false, SkippedPrefix + reason, null, [], false, null) { Sent = false };
 
@@ -55,9 +60,10 @@ public sealed partial class PivotsScriptsService
     /// <summary>The checks every action passes before anything is sent; a reason to refuse, or null.</summary>
     private string? Gate(PivotsChange change)
     {
+        if (!string.IsNullOrEmpty(change.Fingerprint) && !_prepared.ContainsKey(change.Fingerprint) && _used.ContainsKey(change.Fingerprint)) return UsedMessage;
         if (string.IsNullOrEmpty(change.Fingerprint) || !_prepared.TryGetValue(change.Fingerprint, out var prepared))
             return "the plan was not prepared by this session. Prepare the plan again.";
-        if (!string.Equals(FingerprintOf(change), change.Fingerprint, StringComparison.Ordinal) || prepared.Change.Kind != change.Kind)
+        if (!string.Equals(FingerprintOf(change), ContentOf(change.Fingerprint), StringComparison.Ordinal) || prepared.Change.Kind != change.Kind)
             return "the plan differs from the prepared plan. Prepare the plan again.";
         if (change.Blocked) return "a check of the plan failed: " + string.Join(" ", change.Checks.Where(c => c.Result is DeploymentCheckResults.Fail or DeploymentCheckResults.Unknown).Select(c => c.Message));
         if (prepared.Change.Blocked) return "a check of the prepared plan failed. Prepare the plan again.";
@@ -76,8 +82,12 @@ public sealed partial class PivotsScriptsService
     private async Task<PivotsOutcome> ApplyOneAsync(PivotsChange change, IProgress<PivotsOutcome> progress, CancellationToken ct)
     {
         if (Gate(change) is { } reason) return Refused(change, reason);
+        // A prepared plan runs once: a second Apply of the same plan (a double click) is refused.
+        if (!_prepared.TryRemove(change.Fingerprint!, out var prepared)) return Refused(change, UsedMessage);
+        _used[change.Fingerprint!] = _utcNow();
+        foreach (var old in _used.Where(u => u.Value < _utcNow().AddDays(-1)).Select(u => u.Key).ToList()) _used.TryRemove(old, out _);
         // The prepared copy decides what runs; the caller's copy only adds the confirmations.
-        var planned = _prepared[change.Fingerprint!].Change with { RunConfirmed = change.RunConfirmed, EveryDeviceAcknowledged = change.EveryDeviceAcknowledged };
+        var planned = prepared.Change with { RunConfirmed = change.RunConfirmed, EveryDeviceAcknowledged = change.EveryDeviceAcknowledged, ResultWindow = change.ResultWindow };
         return planned.Kind switch
         {
             PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript => await RunAsync(planned, progress, ct).ConfigureAwait(false),

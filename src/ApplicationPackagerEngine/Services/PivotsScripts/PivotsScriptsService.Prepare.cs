@@ -50,7 +50,8 @@ public sealed partial class PivotsScriptsService
         prepared = prepared with { Checks = checks, Impact = impact };
         if (!prepared.Blocked)
         {
-            prepared = prepared with { Fingerprint = FingerprintOf(prepared) };
+            // A fresh token per preparation: an older copy of an equal plan cannot use a later preparation.
+            prepared = prepared with { Fingerprint = FingerprintOf(prepared) + "." + Guid.NewGuid().ToString("N") };
             Remember(prepared);
         }
         _log?.Info(LogArea, $"Prepared {request.Kind}: {checks.Count(c => c.Result == DeploymentCheckResults.Fail)} failed checks, {prepared.DeviceCount} devices.");

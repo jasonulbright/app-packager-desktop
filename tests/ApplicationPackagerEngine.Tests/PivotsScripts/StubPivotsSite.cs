@@ -127,13 +127,13 @@ internal sealed class StubPivotsSite : IConfigMgrSession
             $r = Find-Script ([string]$InputObject.ScriptGuid); $global:Log.Add('Remove-CMScript:' + $InputObject.ScriptGuid)
             if ($null -ne $r) { [void]$global:S.Scripts.Remove($r); foreach ($s in @($global:S.Status | Where-Object { [string]$_.ScriptGuid -eq [string]$r.ScriptGuid })) { [void]$global:S.Status.Remove($s) } }
         }
-        function global:Set-Decision([string]$Guid, [int]$State, [string]$Comment, [string]$Verb) {
+        function global:Set-Decision([string]$Guid, [int]$Decision, [string]$Comment, [string]$Verb) {
             $global:Log.Add($Verb + ':' + $Guid)
             $r = Find-Script $Guid
             if ($null -eq $r) { throw 'No object corresponds to the specified parameters.' }
             $me = [string](V $state.Options 'Caller' 'CONTOSO\LabAdmin')
             if ([int](V $state.Options 'TwoKey' 0) -eq 1 -and [string]$r.Author -eq $me) { throw 'The SMS Provider reported an error.' }
-            $r.ApprovalState = $State; $r.Approver = $me; $r.Comment = $Comment
+            $r.ApprovalState = $Decision; $r.Approver = $me; $r.Comment = $Comment
         }
         function global:Approve-CMScript { [CmdletBinding()] param([string]$ScriptGuid, [string]$Comment) Set-Decision $ScriptGuid 3 $Comment 'Approve' }
         function global:Deny-CMScript { [CmdletBinding()] param([string]$ScriptGuid, [string]$Comment) Set-Decision $ScriptGuid 1 $Comment 'Deny' }

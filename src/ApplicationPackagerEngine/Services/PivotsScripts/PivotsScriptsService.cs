@@ -77,6 +77,9 @@ public sealed partial class PivotsScriptsService : IPivotsScriptsService
     /// <summary>The runs this service sent, by operation ID, for <see cref="WaitForResultsAsync"/>.</summary>
     private readonly ConcurrentDictionary<string, RunState> _runs = new(StringComparer.Ordinal);
 
+    /// <summary>The fingerprints of plans that ran, so a second Apply of one is named as such.</summary>
+    private readonly ConcurrentDictionary<string, DateTime> _used = new(StringComparer.Ordinal);
+
     private const int MaxPrepared = 64;
     private const int MaxRuns = 64;
 
