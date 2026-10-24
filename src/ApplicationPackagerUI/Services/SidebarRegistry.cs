@@ -19,6 +19,7 @@ public static class SidebarIds
     public const string DeploymentHelper = "deployment-helper";
     public const string DpContentManager = "dp-content-manager";
     public const string PivotsScripts = "pivots-and-scripts";
+    public const string SiteHygiene = "site-hygiene";
 }
 
 /// <summary>
@@ -92,7 +93,11 @@ public sealed class SidebarRegistry
         {
             PageType = typeof(PivotsScriptsPage)
         });
-        foreach (var tool in SuiteTools.All)
+        registry.Register(new SidebarItemDefinition(SidebarIds.SiteHygiene, SuiteTools.SiteHygiene.Title, SuiteTools.SiteHygiene.Symbol, SidebarItemKind.Page)
+        {
+            PageType = typeof(SiteHygienePage)
+        });
+        foreach (var tool in SuiteTools.All.Where(t => registry.Find(t.Id) is null))
         {
             registry.Register(new SidebarItemDefinition(tool.Id, tool.Title, tool.Symbol, SidebarItemKind.Tool)
             {

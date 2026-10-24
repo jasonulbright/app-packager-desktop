@@ -11,13 +11,13 @@ namespace ApplicationPackagerUI.Services;
 /// <summary>A tool of the AppPackager Suite: its sidebar id and title, its install folder and entry script.</summary>
 public sealed record SuiteTool(string Id, string Title, string Folder, string EntryScript, string Symbol);
 
-/// <summary>The suite tools that have a sidebar entry, in the default sidebar order.</summary>
+/// <summary>The suite tools the desktop can start, in the default sidebar order.</summary>
 public static class SuiteTools
 {
-    public static IReadOnlyList<SuiteTool> All { get; } =
-    [
-        new("site-hygiene", "Site Hygiene", "site-hygiene", "start-sitehygiene.ps1", "Broom24")
-    ];
+    /// <summary>The Site Hygiene tool; its sidebar entry is the native page, which starts the tool for the Live views.</summary>
+    public static SuiteTool SiteHygiene { get; } = new("site-hygiene", "Site Hygiene", "site-hygiene", "start-sitehygiene.ps1", "Broom24");
+
+    public static IReadOnlyList<SuiteTool> All { get; } = [SiteHygiene];
 }
 
 /// <summary>Read-only file access for the suite lookup.</summary>
