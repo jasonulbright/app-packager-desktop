@@ -90,6 +90,7 @@ public static class HygieneFixText
                 + "$s.Get()\r\n"
                 + "$keep = New-Object 'System.Collections.Generic.List[Microsoft.ConfigurationManagement.ManagementProvider.IResultObject]'\r\n"
                 + "foreach ($item in $s.GetArrayItems('ServiceWindows')) { if ($item['ServiceWindowID'].StringValue -ne " + window + ") { $keep.Add($item) } }\r\n"
+                + "if ($keep.Count -eq @($s.GetArrayItems('ServiceWindows')).Count) { throw 'No object corresponds to the specified parameters.' }\r\n"
                 + "$s.SetArrayItems('ServiceWindows', $keep)\r\n"
                 + "$s.Put()";
         }
