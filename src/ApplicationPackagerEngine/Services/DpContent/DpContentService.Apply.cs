@@ -66,7 +66,19 @@ public sealed partial class DpContentService
         if (change.Kind == DpContentChangeKind.Remove)
         {
             if (!audit.Probe.Writable) return Refused(change, "the audit log cannot be written, so nothing was removed. " + audit.Probe.Message);
-            var lastCopy = await LastCopiesAsync(change.Pairs, ct).ConfigureAwait(false);
+            List<string> lastCopy;
+            try
+            {
+                lastCopy = await LastCopiesAsync(change.Pairs, ct).ConfigureAwait(false);
+            }
+            catch (DpContentServiceException ex)
+            {
+                return Refused(change, "the current copies of the content could not be read before the removal, so nothing was removed. " + ex.Message);
+            }
+            catch (OperationCanceledException)
+            {
+                return Refused(change, "the run was cancelled before this change. Nothing was removed.");
+            }
             if (lastCopy.Count > 0 && !change.LastCopyAcknowledged)
                 return Refused(change, $"{Count(lastCopy.Count, "content")} would have no distribution point with the content installed ({string.Join(", ", lastCopy.Take(5))}). Select the box that accepts this. Nothing was removed.");
         }
@@ -128,7 +140,8 @@ public sealed partial class DpContentService
         }
 
         var attempted = results.Count(r => r.Result != DpContentResults.Skipped);
-        var succeeded = attempted > 0 && results.All(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested or DpContentResults.Skipped);
+        var leftOut = stopped.Length > 0 || ct.IsCancellationRequested || attempts.Any(a => a.Status == "skipped");
+        var succeeded = attempted > 0 && !leftOut && results.All(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested or DpContentResults.Skipped);
         var message = attempted == 0
             ? SkippedPrefix + "no pair was changed. " + Sentence(results.FirstOrDefault()?.Message.Replace(SkippedPrefix, "", StringComparison.Ordinal) ?? "")
             : $"{Verb(change.Kind)}: {Summary(results)}.";
@@ -136,8 +149,11 @@ public sealed partial class DpContentService
         DpContentChange? retry = null;
         if (change.Kind == DpContentChangeKind.Remove)
         {
-            var restore = results.Where(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested && DpContentStates.IsOk(r.Pair.State) && !r.Pair.HasErrorMessage)
-                .Select(r => r.Pair).ToList();
+            // A written removal that the read-back did not see yet can still take effect, so every
+            // written pair that did not fail is restorable.
+            var restore = attempts.Select((a, i) => (Attempt: a, Result: results[i]))
+                .Where(x => x.Attempt.Written && x.Result.Result != DpContentResults.Failed && DpContentStates.IsOk(x.Attempt.Pair.State) && !x.Attempt.Pair.HasErrorMessage)
+                .Select(x => x.Attempt.Pair).ToList();
             if (restore.Count > 0) undo = new DpContentChange(DpContentChangeKind.DistributeAgain, restore, false, false, [], [], null);
         }
         if (change.Kind == DpContentChangeKind.DistributeAgain)
@@ -243,7 +259,10 @@ public sealed partial class DpContentService
         new(default, "", kind.ToString(), phase, result, runId, chunk, pairs, message);
 
     private static string ChunkResult(IReadOnlyList<Attempt> attempts) =>
-        attempts.All(a => a.Written) ? "Requested" : attempts.Any(a => a.Written) ? "Partial" : attempts.Any(a => a.Status == "failed") ? "Failed" : "Skipped";
+        attempts.All(a => a.Status == "requested") ? DpContentResults.Requested
+        : attempts.All(a => a.Status == "unknown") ? "Unknown"
+        : attempts.Any(a => a.Written) ? "Partial"
+        : attempts.Any(a => a.Status == "failed") ? "Failed" : "Skipped";
 
     private static string OutcomeResult(IReadOnlyList<DpContentPairOutcome> results) =>
         results.All(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested) ? "Succeeded"
@@ -251,7 +270,7 @@ public sealed partial class DpContentService
         : results.Any(r => r.Result is DpContentResults.Failed or DpContentResults.Unchanged) ? "Failed" : "Skipped";
 
     private static string Summary(IReadOnlyList<Attempt> attempts) =>
-        $"{attempts.Count(a => a.Written)} requested, {attempts.Count(a => a.Status == "failed")} failed, {attempts.Count(a => !a.Written && a.Status != "failed")} skipped";
+        $"{attempts.Count(a => a.Status == "requested")} requested, {attempts.Count(a => a.Status == "unknown")} not known, {attempts.Count(a => a.Status == "failed")} failed, {attempts.Count(a => !a.Written && a.Status != "failed")} skipped";
 
     private static string Summary(IReadOnlyList<DpContentPairOutcome> results)
     {
@@ -358,6 +377,7 @@ public sealed partial class DpContentService
             {
                 if (s is null && inst is null) return R(DpContentResults.Confirmed, "The site no longer lists the pair. The distribution point deletes the files later.");
                 if (state == DpContentStates.RemovalFailed) return R(DpContentResults.Failed, "The distribution point reports Removal failed.");
+                if (inst is null) return R(DpContentResults.Requested, "The site no longer holds the content for the distribution point; its status row updates later.");
                 if (state is DpContentStates.RemovalPending or DpContentStates.RemovalRetrying || inst?.Status == 3) return R(DpContentResults.Requested, "The removal is pending.");
                 return R(DpContentResults.Unchanged, $"The site still lists the pair as {(state is { } x ? DpContentStates.Name(x) : "present")}.");
             }

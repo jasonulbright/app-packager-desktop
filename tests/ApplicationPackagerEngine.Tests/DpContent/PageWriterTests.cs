@@ -11,9 +11,13 @@ namespace ApplicationPackagerEngine.Tests.DpContent;
 /// <summary>The DP content writer: it sends only the prepared change of a confirmed plan, and the removal flags only as that plan asked them.</summary>
 public sealed class PageWriterTests
 {
-    private static (DpContentPlan Plan, DpContentPageHarness Harness) Plan(DpContentChangeKind kind, params Func<DpContentPageHarness, PairRow>[] pairs)
+    private static (DpContentPlan Plan, DpContentPageHarness Harness) Plan(DpContentChangeKind kind, params Func<DpContentPageHarness, PairRow>[] pairs) =>
+        Plan(kind, null, pairs);
+
+    private static (DpContentPlan Plan, DpContentPageHarness Harness) Plan(DpContentChangeKind kind, Action<DpContentPageHarness>? setup, params Func<DpContentPageHarness, PairRow>[] pairs)
     {
         var h = new DpContentPageHarness();
+        setup?.Invoke(h);
         h.Service.InConfirmedRun = null;
         var chosen = pairs.Select(p => p(h)).ToList();
         var prepared = h.Service.PrepareAsync(new DpContentChange(kind, chosen, false, false, [], [], null), CancellationToken.None).Result;
@@ -32,7 +36,7 @@ public sealed class PageWriterTests
     [Fact]
     public void ARemovalCarriesRemovalConfirmedAndTheLastCopyFlagOnlyAsTheConfirmedPlanAskedThem()
     {
-        var (keep, h) = Plan(DpContentChangeKind.Remove, x => x.SevenZipOnDp01);
+        var (keep, h) = Plan(DpContentChangeKind.Remove, x => x.Service.SetState(x.SevenZipOnBranch, 0), x => x.SevenZipOnDp01);
         Assert.Null(keep.Plan.SecondConfirmation);
         Confirmed(keep, h.Writer().RunFor(keep));
         var sent = h.Service.Applied.Single().Single();

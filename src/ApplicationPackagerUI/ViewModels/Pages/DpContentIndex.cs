@@ -43,7 +43,8 @@ public sealed class DpContentIndex
 
     /// <summary>
     /// The number of DPs that still hold each content of <paramref name="removed"/> after these pairs
-    /// are removed: the other pairs of the content whose state is not a removal state.
+    /// are removed: the other pairs of the content that are installed and carry no error message, as
+    /// the service counts them.
     /// </summary>
     public Dictionary<string, int> RemainingAfterRemoval(IReadOnlyList<PairRow> removed)
     {
@@ -52,7 +53,7 @@ public sealed class DpContentIndex
         foreach (var packageId in removed.Select(p => p.PackageId).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var pairs = PairsByContent.TryGetValue(packageId, out var list) ? list : [];
-            remaining[packageId] = pairs.Count(p => !keys.Contains(DpContentLabels.Key(p)) && !DpContentLabels.IsRemoval(p.State));
+            remaining[packageId] = pairs.Count(p => !keys.Contains(DpContentLabels.Key(p)) && DpContentLabels.IsOk(p.State) && !p.HasErrorMessage);
         }
         return remaining;
     }

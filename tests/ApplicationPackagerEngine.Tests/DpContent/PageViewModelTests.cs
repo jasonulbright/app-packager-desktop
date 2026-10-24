@@ -266,6 +266,7 @@ public sealed class PageViewModelTests
     public async Task ARemovalCannotRunWithoutItsSecondBox()
     {
         var h = new DpContentPageHarness();
+        h.Service.SetState(h.SevenZipOnBranch, 0);
         var vm = await ContentTab(h, h.SevenZip);
         h.Dialogs.OnPairs = p =>
         {
@@ -287,6 +288,7 @@ public sealed class PageViewModelTests
     public async Task ARemovalWithItsSecondBoxReachesTheServiceConfirmedAndOffersTheUndo()
     {
         var h = new DpContentPageHarness();
+        h.Service.SetState(h.SevenZipOnBranch, 0);
         var vm = await ContentTab(h, h.SevenZip);
         h.Dialogs.OnPairs = p =>
         {
@@ -298,7 +300,7 @@ public sealed class PageViewModelTests
         Assert.True(sent.RemovalConfirmed);
         Assert.False(sent.LastCopyAcknowledged);
         var plan = h.Plans.Shown.Single();
-        Assert.Contains("DPs that hold the content after this plan: 2.", plan.Items.Single().Detail);
+        Assert.Contains("DPs that hold the content after this plan: 1.", plan.Items.Single().Detail);
         Assert.Contains("Deployments that use the content: 2.", plan.Items.Single().Detail);
         Assert.Equal("Confirmed", vm.LastResults.Single().OutcomeText);
         Assert.True(vm.HasUndo);
@@ -310,6 +312,7 @@ public sealed class PageViewModelTests
     {
         var h = new DpContentPageHarness();
         var vm = await ContentTab(h, h.Office);
+        h.Dialogs.OnPairs = p => p.CheckShownCommand.Execute(null);
         h.Plans.AcknowledgeSecond = false;
         await vm.RemoveFromDpCommand.ExecuteAsync(null);
         var plan = h.Plans.Shown.Single();
@@ -332,6 +335,7 @@ public sealed class PageViewModelTests
     {
         var h = new DpContentPageHarness();
         var vm = await ContentTab(h, h.SevenZip);
+        h.Dialogs.OnPairs = p => p.CheckShownCommand.Execute(null);
         await vm.RemoveFromDpCommand.ExecuteAsync(null);
         Assert.Equal(["Confirmed", "Confirmed", "Confirmed"], vm.LastResults.Select(r => r.OutcomeText));
         Assert.Equal([h.SevenZipOnDp01.NalPath], vm.LastUndo!.Pairs.Select(p => p.NalPath));
@@ -469,6 +473,7 @@ public sealed class PageViewModelTests
     {
         var h = new DpContentPageHarness();
         var vm = await ContentTab(h, h.SevenZip);
+        h.Dialogs.OnPairs = p => p.CheckShownCommand.Execute(null);
         await vm.RemoveFromDpCommand.ExecuteAsync(null);
         Assert.True(vm.HasUndo);
         await vm.OnNavigatedFromAsync();
@@ -503,6 +508,7 @@ public sealed class PageViewModelTests
         h.Service.InConfirmedRun = null;
         h.Service.ApplyGate = new TaskCompletionSource();
         var vm = await ContentTab(h, h.SevenZip);
+        h.Dialogs.OnPairs = p => p.CheckShownCommand.Execute(null);
         await vm.RemoveFromDpCommand.ExecuteAsync(null);
         Assert.Equal(VM.BackgroundRunText, vm.StatusMessage);
         Assert.True(vm.IsWriting);
@@ -627,6 +633,7 @@ public sealed class PageViewModelTests
     {
         var h = new DpContentPageHarness();
         var vm = await ContentTab(h, h.SevenZip);
+        h.Dialogs.OnPairs = p => p.CheckShownCommand.Execute(null);
         await vm.RemoveFromDpCommand.ExecuteAsync(null);
         await vm.UndoLastCommand.ExecuteAsync(null);
         Assert.Contains(h.Log.Entries, e => e.Area == "DpContent" && e.Message.Contains("outcome=", StringComparison.Ordinal));

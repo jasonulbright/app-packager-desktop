@@ -101,13 +101,17 @@ public sealed partial class DpContentManagerViewModel
     [RelayCommand(CanExecute = nameof(CanAct))]
     private Task Validate() => ContentAction(DpContentChangeKind.Validate, "Validate");
 
-    /// <summary>Every pair of the selected content; the pairs selected in its status list are checked, or every pair when none is selected.</summary>
+    /// <summary>
+    /// Every pair of the selected content; the pairs selected in its status list are checked. With no
+    /// selection a validation checks every pair and a removal checks none.
+    /// </summary>
     private Task ContentAction(DpContentChangeKind kind, string title)
     {
         if (SelectedContent is not { } content) return Say(SelectContent);
         var pairs = PairsOf(content);
         if (pairs.Count == 0) return Say(NoContentPairs);
-        var selected = SelectedContentPairs.Count == 0 ? null : new HashSet<string>(SelectedContentPairs.Select(r => r.Key), StringComparer.Ordinal);
+        IReadOnlySet<string>? selected = SelectedContentPairs.Count > 0 ? new HashSet<string>(SelectedContentPairs.Select(r => r.Key), StringComparer.Ordinal)
+            : kind == DpContentChangeKind.Remove ? new HashSet<string>(StringComparer.Ordinal) : null;
         return RunActionAsync(kind, title, pairs, selected, ContentSelectionKey);
     }
 
@@ -170,7 +174,7 @@ public sealed partial class DpContentManagerViewModel
 
     public static string PickIntro(DpContentChangeKind kind) => kind switch
     {
-        DpContentChangeKind.Remove => "Clear each pair that must keep its content. Only the checked pairs are read again and planned.",
+        DpContentChangeKind.Remove => "Check each pair to remove and clear each pair that must keep its content. Only the checked pairs are read again and planned.",
         _ => "Clear each pair that must not change. Only the checked pairs are read again and planned."
     };
 
@@ -245,12 +249,16 @@ public sealed partial class DpContentManagerViewModel
         if (_active) await RefreshAfterWriteAsync();
     }
 
-    /// <summary>The Undo after a run: a removal offers the Distribute again of its Installed pairs; an Undo run keeps the pairs it did not distribute again.</summary>
+    /// <summary>
+    /// The Undo after a run: a removal that carries an Undo replaces the last one, and a run without
+    /// an Undo (another kind, or a removal that removed nothing installed) keeps it; an Undo run keeps
+    /// the pairs it did not distribute again.
+    /// </summary>
     private void KeepUndo(DpContentPlan plan, bool isUndo)
     {
         if (!isUndo)
         {
-            LastUndo = plan.UndoChange();
+            if (plan.UndoChange() is { } undo) LastUndo = undo;
             return;
         }
         var done = new HashSet<string>(plan.Outcomes.SelectMany(o => o.Pairs).Where(p => p.Result is DpContentWriter.Requested or DpContentWriter.Confirmed or DpContentWriter.Unchanged)

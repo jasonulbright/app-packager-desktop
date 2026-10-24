@@ -341,10 +341,12 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         ApplyIssueFilter();
     }
 
-    /// <summary>Reads the snapshot again after a write, after the read that runs now.</summary>
+    /// <summary>Reads the snapshot again after a write, after the read that runs now, and the audit log when the History tab holds it.</summary>
     private async Task RefreshAfterWriteAsync()
     {
         while (_loading is { IsCompleted: false } pending) await pending;
+        if (!_active) return;
+        if (IsHistoryLoaded) await LoadHistoryAsync();
         if (_active) await LoadAsync();
     }
 

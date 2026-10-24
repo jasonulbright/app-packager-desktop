@@ -123,18 +123,18 @@ internal static partial class DpContentAggregator
             if (!listed.Contains(nal))
                 dps.Add(DpRowOf(dpSite[nal].Name, nal, dpSite[nal].Site, false, t));
 
+        var truncated = totalPairs > pairs.Count;
         var rows = new List<ContentRow>(read.Contents.Count + unknown.Count);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var content in read.Contents)
         {
             if (!seen.Add(content.PackageId)) continue;
             byContent.TryGetValue(content.PackageId, out var t);
-            rows.Add(ContentRowOf(content.PackageId, content.Name, content.Type, content.SizeKb, t) with { ObjectId = content.ObjectId });
+            rows.Add(ContentRowOf(content.PackageId, content.Name, content.Type, content.SizeKb, t) with { ObjectId = content.ObjectId, CountsKnown = t is not null || !truncated });
         }
         foreach (var (id, pair) in unknown)
             rows.Add(ContentRowOf(id, pair.ContentName, pair.ContentType, 0, byContent[id]) with { ObjectId = "" });
 
-        var truncated = totalPairs > pairs.Count;
         var note = truncated
             ? $"Truncated: showing {pairs.Count.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} of {totalPairs.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} status rows. The counts cover the rows shown only."
             : null;

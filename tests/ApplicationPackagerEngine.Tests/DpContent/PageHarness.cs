@@ -253,7 +253,8 @@ internal sealed class PageFakeAuditLog : IDpContentAuditLog
     public IReadOnlyList<DpContentAuditRecord> Read(int max)
     {
         Interlocked.Increment(ref Reads);
-        lock (Records) return Records.TakeLast(max).ToList();
+        // The audit log parses each line again on every read, so each read returns new objects.
+        lock (Records) return Records.TakeLast(max).Select(r => r with { }).ToList();
     }
 }
 

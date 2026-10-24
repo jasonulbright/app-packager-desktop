@@ -50,6 +50,9 @@ public sealed record ContentRow(
 
     /// <summary>The ID of the object that owns the content: the CI_ID of an application, the PackageID otherwise.</summary>
     public string ObjectId { get; init; } = "";
+
+    /// <summary>False when a truncated load holds no status row for the content: the counts read 0 but are not known.</summary>
+    public bool CountsKnown { get; init; } = true;
 }
 
 /// <summary>
@@ -311,7 +314,7 @@ public interface IDpContentReportWriter
 /// </summary>
 /// <param name="Event">Redistribute, Remove, Validate or DistributeAgain.</param>
 /// <param name="Phase">Started or Finished.</param>
-/// <param name="Result">Started: empty. Finished: Succeeded, Partial, Failed or Skipped.</param>
+/// <param name="Result">Started: empty. Finished of a removal part: Requested, Unknown (the session failed during the write), Partial, Failed or Skipped. Other records: Succeeded, Partial, Failed or Skipped.</param>
 /// <param name="RunId">The same for every record of one ApplyAsync change.</param>
 public sealed record DpContentAuditRecord(
     DateTime Timestamp,

@@ -201,9 +201,20 @@ function Write-Content {
 # Counts per content: application deployments of the application that owns application content,
 # package and task sequence deployments of the package itself, and deployments of task sequences
 # that reference the content or use it as their boot image. Software update deployments and
-# application dependencies are not counted.
+# application dependencies are not counted. A failed query leaves every count unknown
+# (DeploymentsRead false) and the rest of the State output stands.
 function Write-Deployments {
     param([string[]]$Ids)
+    try { $counts = Get-DeploymentCounts $Ids }
+    catch { [pscustomobject]@{ Kind = 'DeploymentsRead'; Read = $false }; return }
+    foreach ($k in $counts.Keys) { [pscustomobject]@{ Kind = 'Deployments'; PackageId = $k; Count = $counts[$k] } }
+    [pscustomobject]@{ Kind = 'DeploymentsRead'; Read = $true }
+}
+
+function Get-DeploymentCounts {
+    param([string[]]$Ids)
+    # A non-terminating query error would otherwise leave a count too low without reaching the catch of Write-Deployments.
+    $ErrorActionPreference = 'Stop'
     $counts = @{}
     foreach ($id in $Ids) { if ($id -match $IdPattern) { $counts[$id.ToUpperInvariant()] = 0 } }
     $modelOf = @{}
@@ -246,8 +257,7 @@ function Write-Deployments {
             foreach ($ref in $tsOf[$ts]) { if ($counts.ContainsKey($ref) -and $ref -ne $ts) { $counts[$ref]++ } }
         }
     }
-    foreach ($k in $counts.Keys) { [pscustomobject]@{ Kind = 'Deployments'; PackageId = $k; Count = $counts[$k] } }
-    [pscustomobject]@{ Kind = 'DeploymentsRead'; Read = $true }
+    return $counts
 }
 
 # ---- Apply ----------------------------------------------------------------------------------

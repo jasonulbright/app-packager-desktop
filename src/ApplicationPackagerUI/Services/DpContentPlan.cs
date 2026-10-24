@@ -243,7 +243,11 @@ public sealed class DpContentWriter(IDpContentService service, ISiteOperationHis
         history.Record(new SiteOperationEntry(ToolName, action, target, outcome, counts));
     }
 
-    /// <summary>Turns the pair outcomes of each reported outcome into the results of their plan lines, each once.</summary>
+    /// <summary>
+    /// Turns the pair outcomes of each final outcome into the results of their plan lines. A
+    /// progress outcome (Final false) holds the first result of each pair before the read-back,
+    /// so it is shown as a step only and never becomes a result, an Undo or a history count.
+    /// </summary>
     private sealed class OutcomeReporter(DpContentPlan plan, Dictionary<ChangePlanItem, ChangePlanItemResult> results, IProgress<ChangePlanItemResult> progress)
         : IProgress<DpContentOutcome>
     {
@@ -257,13 +261,20 @@ public sealed class DpContentWriter(IDpContentService service, ISiteOperationHis
             lock (results)
             {
                 if (!_seen.Add(value)) return;
-                plan.AddOutcome(value);
-                foreach (var pair in value.Pairs)
+                if (!value.Final)
                 {
-                    if (!_byKey.TryGetValue(DpContentLabels.Key(pair.Pair), out var entry) || results.ContainsKey(entry.Item)) continue;
-                    var row = Row(entry.Item, pair.Result, pair.Message);
-                    results[entry.Item] = row;
-                    rows.Add(row);
+                    if (plan.Entries.Count > 0) rows.Add(new ChangePlanItemResult(plan.Entries[0].Item, true, value.Message) { Interim = true });
+                }
+                else
+                {
+                    plan.AddOutcome(value);
+                    foreach (var pair in value.Pairs)
+                    {
+                        if (!_byKey.TryGetValue(DpContentLabels.Key(pair.Pair), out var entry)) continue;
+                        var row = Row(entry.Item, pair.Result, pair.Message);
+                        results[entry.Item] = row;
+                        rows.Add(row);
+                    }
                 }
             }
             foreach (var row in rows) progress.Report(row);

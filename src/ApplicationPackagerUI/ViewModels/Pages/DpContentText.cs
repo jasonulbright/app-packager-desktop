@@ -52,23 +52,28 @@ public static class DpContentText
 
     /// <summary>
     /// The plan of a prepared change. Every line comes from the pairs the service returned, with the
-    /// state it read; the loaded rows add the remaining DPs, the deployment count and the pull DP
-    /// mark. Null with the reason when the change cannot run.
+    /// state it read. The remaining DPs and the deployment count come from the per-content impact of
+    /// the prepared change; the loaded rows fill in a content the impact does not name, and add the
+    /// pull DP mark. Null with the reason when the change cannot run.
     /// </summary>
     public static (DpContentPlan? Plan, string? Problem) BuildPlan(DpContentChange prepared, DpContentIndex index)
     {
         if (prepared.Pairs.Count == 0)
-            return (null, string.Join(" ", prepared.Impact.Prepend(NothingLeft)));
+            return (null, string.Join(" ", prepared.Impact.Prepend(NothingLeft).Concat(prepared.Dropped.Select(LeftOut))));
         var blocking = prepared.Checks.Where(Blocks).ToList();
         if (blocking.Count > 0)
             return (null, "The plan cannot run: " + string.Join(" ", blocking.Select(c => c.Message.Length > 0 ? c.Message : $"{c.Name}: {c.Result}.")));
 
         var kind = prepared.Kind;
         var removal = kind == DpContentChangeKind.Remove;
+        var impact = new Dictionary<string, DpContentImpact>(StringComparer.OrdinalIgnoreCase);
+        foreach (var i in prepared.ContentImpact) impact.TryAdd(i.PackageId, i);
         var remaining = removal ? index.RemainingAfterRemoval(prepared.Pairs) : [];
+        foreach (var i in impact.Values)
+            if (removal) remaining[i.PackageId] = i.DpsRemaining;
         var lastCopyContents = remaining.Where(r => r.Value == 0).Select(r => r.Key).ToList();
         var lastCopyCheck = prepared.Checks.Any(c => IsLastCopyCheck(c) && !string.Equals(c.Result, Pass, StringComparison.OrdinalIgnoreCase));
-        var needsLastCopy = removal && (lastCopyContents.Count > 0 || lastCopyCheck);
+        var needsLastCopy = removal && (lastCopyContents.Count > 0 || lastCopyCheck || prepared.NeedsLastCopyAcknowledgement);
 
         var action = ActionName(kind);
         var entries = new List<DpContentPlanEntry>(prepared.Pairs.Count);
@@ -77,16 +82,21 @@ public static class DpContentText
             var lines = new List<string> { kind == DpContentChangeKind.DistributeAgain ? $"State before the removal: {pair.StateName}." : $"State now: {pair.StateName}." };
             if (removal && remaining.TryGetValue(pair.PackageId, out var left))
                 lines.Add(left == 0 ? "No DP holds the content after this plan." : $"DPs that hold the content after this plan: {DpContentLabels.Number(left)}.");
-            if (index.ContentById.TryGetValue(pair.PackageId, out var content))
-                lines.Add(content.DeploymentCount < 0 ? "Deployments that use the content: unknown." : $"Deployments that use the content: {DpContentLabels.Number(content.DeploymentCount)}.");
-            else lines.Add("The content is not in the loaded list.");
+            var known = index.ContentById.TryGetValue(pair.PackageId, out var content);
+            var deployments = impact.TryGetValue(pair.PackageId, out var read) && read.DeploymentCount >= 0 ? read.DeploymentCount : content?.DeploymentCount ?? -1;
+            if (known || read is not null)
+                lines.Add(deployments < 0 ? "Deployments that use the content: unknown." : $"Deployments that use the content: {DpContentLabels.Number(deployments)}.");
+            if (!known) lines.Add("The content is not in the loaded list.");
             if (index.DpByNal.TryGetValue(pair.NalPath, out var dp) && dp.IsPullDp) lines.Add("The DP is a pull DP.");
             entries.Add(new DpContentPlanEntry(new ChangePlanItem(action, Target(pair), string.Join(Environment.NewLine, lines)), pair));
         }
 
+        // The notes box shows the first lines without a scroll, so the checks that need attention and the left-out pairs come first.
         var notes = new List<string>();
+        notes.AddRange(prepared.Checks.Where(c => !IsPass(c)).Select(CheckLine));
+        notes.AddRange(prepared.Dropped.Select(LeftOut));
         notes.AddRange(prepared.Impact);
-        notes.AddRange(prepared.Checks.Select(c => $"{c.Name}: {c.Result}{(c.Message.Length > 0 ? ". " + c.Message : ".")}"));
+        notes.AddRange(prepared.Checks.Where(IsPass).Select(CheckLine));
         notes.Add(kind switch
         {
             DpContentChangeKind.Remove => RemoveNote,
@@ -117,6 +127,13 @@ public static class DpContentText
         };
         return (new DpContentPlan(action, prepared, plan, entries), null);
     }
+
+    private static bool IsPass(PreflightCheck check) => string.Equals(check.Result, Pass, StringComparison.OrdinalIgnoreCase);
+
+    private static string CheckLine(PreflightCheck c) => $"{c.Name}: {c.Result}{(c.Message.Length > 0 ? ". " + c.Message : ".")}";
+
+    /// <summary>The line of a pair the service left out of the plan, with its reason.</summary>
+    public static string LeftOut(DpContentPairOutcome dropped) => $"Left out: {Target(dropped.Pair)}: {dropped.Message}";
 }
 
 /// <summary>Counts and joined names read from the pairs of an audit record.</summary>

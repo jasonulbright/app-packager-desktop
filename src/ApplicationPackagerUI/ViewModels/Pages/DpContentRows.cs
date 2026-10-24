@@ -83,18 +83,19 @@ public sealed class ContentGridRow(ContentRow content)
 {
     public ContentRow Content { get; } = content;
     public string Key { get; } = content.PackageId.ToUpperInvariant();
-    public string Status => DpContentLabels.RollupLabel(Content.DpsTargeted, Content.Failed, Content.InProgress);
+    public string Status => DpContentLabels.RollupLabel(Content.DpsTargeted, Content.Failed, Content.InProgress, Content.CountsKnown);
     public string Name => Content.Name;
     public string Type => DpContentLabels.TypeLabel(Content.ContentType);
     public string PackageId => Content.PackageId;
     public string Size => Content.SizeMb >= 1024
         ? (Content.SizeMb / 1024).ToString("N1", CultureInfo.CurrentCulture) + " GB"
         : Content.SizeMb.ToString("N1", CultureInfo.CurrentCulture) + " MB";
-    public string Dps => DpContentLabels.Number(Content.DpsTargeted);
-    public string Installed => DpContentLabels.Number(Content.Installed);
-    public string InProgress => DpContentLabels.Number(Content.InProgress);
-    public string Failed => DpContentLabels.Number(Content.Failed);
-    public string PercentOk => DpContentLabels.Percent(Content.PercentOk);
+    public string Dps => Count(Content.DpsTargeted);
+    public string Installed => Count(Content.Installed);
+    public string InProgress => Count(Content.InProgress);
+    public string Failed => Count(Content.Failed);
+    public string PercentOk => Content.CountsKnown ? DpContentLabels.Percent(Content.PercentOk) : DpContentLabels.UnknownText;
+    private string Count(int value) => Content.CountsKnown ? DpContentLabels.Number(value) : DpContentLabels.UnknownText;
     public string Deployments => Content.DeploymentCount < 0 ? DpContentLabels.UnknownText : DpContentLabels.Number(Content.DeploymentCount);
     public override string ToString() => $"{Name} ({PackageId}), {Status}";
 }

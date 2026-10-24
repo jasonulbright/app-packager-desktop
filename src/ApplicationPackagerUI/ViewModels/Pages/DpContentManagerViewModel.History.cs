@@ -73,12 +73,14 @@ public sealed partial class DpContentManagerViewModel
         IsHistoryLoading = true;
         try
         {
-            var (records, path) = await Task.Run(() => (Services.AuditLog.Read(MaxHistoryRecords), Services.AuditLog.Path), cts.Token);
+            // One record more than the list holds tells a log of exactly the cap from a longer one.
+            var (records, path) = await Task.Run(() => (Services.AuditLog.Read(MaxHistoryRecords + 1), Services.AuditLog.Path), cts.Token);
             cts.Token.ThrowIfCancellationRequested();
             if (generation != Generation || mine != _historyGeneration) return;
-            _records = records;
+            var capped = records.Count > MaxHistoryRecords;
+            _records = capped ? records.Skip(records.Count - MaxHistoryRecords).ToList() : records;
             HistoryPath = path;
-            IsHistoryCapped = records.Count >= MaxHistoryRecords;
+            IsHistoryCapped = capped;
             IsHistoryLoaded = true;
             ApplyHistoryFilter();
             Services.Log.Info(LogArea, $"Read {records.Count} audit records.");
@@ -110,9 +112,14 @@ public sealed partial class DpContentManagerViewModel
             .Select(r => new DpContentHistoryRow(r));
         var list = (_sorts.ContainsKey(HistoryGrid) ? Sorted(HistoryGrid, rows) : rows.OrderByDescending(r => r.Record.Timestamp)).ToList();
         HistoryRows = list;
-        SelectedHistory = selected is null ? null : list.FirstOrDefault(r => ReferenceEquals(r.Record, selected));
+        SelectedHistory = selected is null ? null : list.FirstOrDefault(r => SameRecord(r.Record, selected));
         HistoryCount = list.Count == _records.Count ? DpContentLabels.Count(_records.Count, "record") : $"{DpContentLabels.Number(list.Count)} of {DpContentLabels.Count(_records.Count, "record")}";
     }
+
+    /// <summary>A read of the audit log returns new record objects, so a record is matched by its run, time, event, phase and part.</summary>
+    private static bool SameRecord(DpContentAuditRecord a, DpContentAuditRecord b) =>
+        a.Timestamp == b.Timestamp && a.Chunk == b.Chunk && string.Equals(a.RunId, b.RunId, StringComparison.Ordinal)
+        && string.Equals(a.Event, b.Event, StringComparison.Ordinal) && string.Equals(a.Phase, b.Phase, StringComparison.Ordinal);
 
     private void ReleaseHistory()
     {
