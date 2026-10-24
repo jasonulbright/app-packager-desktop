@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis and Deployment Helper are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis) and [Deployment Helper](#deployment-helper). The other three entries start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these three tools. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper and DP Content Manager are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper) and [DP Content Manager](#dp-content-manager). The other two entries start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these two tools. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -355,6 +355,70 @@ The **Rings** tab deploys one object to any number of collections, from 1 up to 
 - **History:** every ring create, Promote, Undo, Close, cancelled ring and Abandon adds a record to the audit log, with the plan name, ring number, ring name and run ID. History shows these columns and a Run filter.
 
 Limits: the lock only protects sessions that share the same runs folder, and the site cannot stop another administrator from creating a deployment of the same object. Undo from History checks the audit record against the site, and it cannot stop a process of the same account that forges both. A ring that the page cannot prove to belong to a run is kept, not removed.
+## DP Content Manager
+
+The **DP Content Manager** page shows which content is on which distribution point, finds content that has a problem, and changes the content of distribution points (DPs). It reads the site through the SMS Provider. It writes only after a plan that you confirm.
+
+![The DPs tab with the detail of one distribution point](docs/images/apd13-dpcm-dps.png)
+
+- **DPs:** one row for each distribution point, with the number of content objects, how many are installed, in progress and failed, the percent that is OK, whether it is a pull DP, and the size. Select a DP to see its content.
+- **Content:** one row for each application, package, software update package, boot image, operating system image, operating system upgrade package, driver package and task sequence. An application shows its application name. Select a content object to see its status on each DP. The Deployments column counts the deployments that use the content.
+- **Status Issues:** every pair of a DP and a content object that is not installed. A pair with an error message in its status shows as Failed, whatever its state number.
+- **History:** every write that the page made. See [History and audit](#history-and-audit).
+- **Filters, sort and export:** each tab filters by text and by state, and sorts by any column. **Export CSV** and **Export HTML** write the rows that you see, with the view, the time, the row count and the filter in the file. A formula in a cell is made safe in the CSV.
+
+![The Content tab with the status of one content object on each DP](docs/images/apd13-dpcm-content.png)
+
+![The Status Issues tab with two failed pairs](docs/images/apd13-dpcm-issues.png)
+
+### Actions
+
+- **Validate** asks the site to verify the content on the selected pairs.
+- **Redistribute selected DPs** and **Redistribute selected** copy the content again to the selected pairs. **Redistribute failed** does this for all failed pairs of the view.
+- **Remove from DP** removes the content from the selected DPs. **Remove failures** removes the failed pairs. With no pair selected, no pair is ticked.
+- A list of the pairs opens first. You untick the pairs that must not change. Only the ticked pairs go to the plan.
+- **Undo last change** copies the content of the last removal back to the DPs. It restores the pairs that were installed. It does not restore task sequence pairs. The removal plan says how many pairs Undo does not restore.
+
+![The plan of a removal with the three confirmation boxes](docs/images/apd13-dpcm-plan-remove.png)
+
+### Plan and checks
+
+Each action shows a plan before it writes. The plan lists every pair, the content that has no DP left after the change, the deployments that use the content, and the pairs that the service left out because the site changed since you looked. A removal needs three boxes. The first confirms the removal. The second names the number of pairs. The third confirms that you accept the loss of the last installed copy of a content object. The service enforces the boxes. A removal without them is refused, whatever the page sends.
+
+- **Last copy:** the service reads the copies on other DPs again before each part of a removal. If another process removed the last other copy during the run, that part and the later parts are skipped.
+- **Stale pairs:** the service reads the state of each pair again before it writes. A pair that the site no longer lists is skipped, with the reason.
+- **Size of a run:** the service works in parts of 25 pairs. A run takes at most 500 pairs.
+- **Audit first:** a removal writes a Started record to the audit log before it removes anything. If the log cannot be written, the removal does not start.
+
+### Results
+
+The site processes the requests one after another and later. The page therefore shows two results.
+
+- **Requested:** the site accepted the request. The read-back did not yet show the new state.
+- **Confirmed:** the read-back showed the new state. The page reads the site every 5 seconds for 60 seconds.
+- **Unchanged:** the site accepted the request, but the state did not change. This happens, for example, when you distribute again right after a removal. The site returns OK and does nothing. Try again later.
+- **Failed** and **Skipped:** the site refused the request, or the page did not try the pair. The result text says why.
+
+![The result panel after a redistribute](docs/images/apd13-dpcm-results.png)
+
+### History and audit
+
+Every write adds records to `dp-content-audit.jsonl` in the `DpContent` folder of the data folder: Started, Finished and ReadBack, with the pairs, the user and the result. The records form a hash chain. **History** shows the records, newest first, and marks each one **Verified** or **Not verified**. A record that was edited by hand, or a record after a broken line, shows Not verified. History reads the audit log only; it makes no call to the site.
+
+![The History tab with the records of a removal](docs/images/apd13-dpcm-history.png)
+
+The page works in light and dark themes.
+
+![The Content tab in the dark theme](docs/images/apd13-dpcm-dark.png)
+
+### Limits
+
+- The site processes requests later. A Requested result is not a Confirmed result.
+- Undo of a removal copies the content again. This can take a long time for large content.
+- The audit chain finds edits to single records. A process that runs under the same account can write a new chain that has no break. The chain does not stop that.
+- A load shows at most 100,000 pairs. If the site has more, all totals show as not known and the page says so.
+- The deployment counts cover the kinds of deployment that the plan names.
+- The page makes no network call except to the SMS Provider through the ConfigMgr session.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
