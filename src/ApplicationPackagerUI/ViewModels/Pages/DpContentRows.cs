@@ -112,10 +112,10 @@ public sealed class PairGridRow(PairRow pair)
     public string DpName => Pair.DpName;
     public string ContentName => Pair.ContentName;
     public string Type => DpContentLabels.TypeLabel(Pair.ContentType);
-    public string StateName => Pair.StateName;
+    public string StateName => Pair.StateText;
     public int State => Pair.State;
     public string PackageId => Pair.PackageId;
-    public string LastStatus => Pair.SummaryDate is { } when ? when.ToString("g", CultureInfo.CurrentCulture) : DpContentLabels.UnknownText;
+    public string LastStatus => Pair.SummaryDate is { } when ? (when.Kind == DateTimeKind.Utc ? when.ToLocalTime() : when).ToString("g", CultureInfo.CurrentCulture) : DpContentLabels.UnknownText;
     public override string ToString() => $"{ContentName} ({PackageId}) on {DpName}, {StateName}";
 }
 

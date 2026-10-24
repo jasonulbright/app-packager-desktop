@@ -199,7 +199,7 @@ public sealed partial class DpContentService
         var held = DpContentAggregator.Pairs(read).Where(r => !removed.Contains(r.Key) && DpContentStates.IsOk(r.State) && !r.HasErrorMessage)
             .Select(r => r.PackageId).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return pairs.GroupBy(p => p.PackageId, StringComparer.OrdinalIgnoreCase)
-            .Where(g => !held.Contains(g.Key))
+            .Where(g => g.Any(IsInstalled) && !held.Contains(g.Key))
             .Select(g => $"{g.First().ContentName} ({g.Key.ToUpperInvariant()})")
             .ToList();
     }
@@ -289,8 +289,10 @@ public sealed partial class DpContentService
         : attempts.Any(a => a.Written) ? "Partial"
         : attempts.Any(a => a.Status == "failed") ? "Failed" : "Skipped";
 
+    /// <summary>Succeeded only when every pair is Confirmed; Requested when every pair is Confirmed or Requested and one is not confirmed yet.</summary>
     private static string OutcomeResult(IReadOnlyList<DpContentPairOutcome> results) =>
-        results.All(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested) ? "Succeeded"
+        results.All(r => r.Result is DpContentResults.Confirmed) ? "Succeeded"
+        : results.All(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested) ? DpContentResults.Requested
         : results.Any(r => r.Result is DpContentResults.Confirmed or DpContentResults.Requested) ? "Partial"
         : results.Any(r => r.Result is DpContentResults.Failed or DpContentResults.Unchanged) ? "Failed" : "Skipped";
 
@@ -386,7 +388,7 @@ public sealed partial class DpContentService
                 if (processed && state is { } st && DpContentStates.IsOk(st)) return R(DpContentResults.Confirmed, "The site copied the content to the distribution point again.");
                 if (processed && state is { } sf && DpContentStates.IsFailed(sf)) return R(DpContentResults.Failed, $"The site processed the request; the distribution point still reports {DpContentStates.Name(sf)}.");
                 if (inst is { RefreshNow: true } || inst?.Status is 1 or 2 || state is { } sp && DpContentStates.IsInProgress(sp) || processed)
-                    return R(DpContentResults.Requested, "The site accepted the request and is copying the content.");
+                    return R(DpContentResults.Requested, "The site accepted the request. The read-back window ended before the content was copied.");
                 return R(DpContentResults.Unchanged, "The site shows no sign of the request.");
             }
             case DpContentChangeKind.Validate:
@@ -395,7 +397,7 @@ public sealed partial class DpContentService
                 if (errorNow) return R(DpContentResults.Failed, $"The validation reported a problem (status message {Code(m!)}).");
                 if (newMessage && m!.MessageState == 1 && state is { } st && DpContentStates.IsOk(st)) return R(DpContentResults.Confirmed, $"The site validated the content (status message {Code(m)}).");
                 if (state is { } sf && DpContentStates.IsFailed(sf)) return R(DpContentResults.Failed, $"The distribution point reports {DpContentStates.Name(sf)}.");
-                if (inst?.Status == 4 || newMessage) return R(DpContentResults.Requested, "The site is validating the content.");
+                if (inst?.Status == 4 || newMessage) return R(DpContentResults.Requested, "The site accepted the validation. The read-back window ended before its result.");
                 return R(DpContentResults.Unchanged, "The site shows no sign of the request.");
             }
             case DpContentChangeKind.Remove:
@@ -411,7 +413,7 @@ public sealed partial class DpContentService
                 if (errorNow) return R(DpContentResults.Failed, $"The distribution point reported an error (status message {Code(m!)}).");
                 if (state is { } st && DpContentStates.IsOk(st)) return R(DpContentResults.Confirmed, "The content is installed on the distribution point again.");
                 if (state is { } sf && DpContentStates.IsFailed(sf)) return R(DpContentResults.Failed, $"The distribution point reports {DpContentStates.Name(sf)}.");
-                if (s is not null || inst is not null) return R(DpContentResults.Requested, "The site is copying the content.");
+                if (s is not null || inst is not null) return R(DpContentResults.Requested, "The site accepted the distribution. The read-back window ended before the content was installed.");
                 return R(DpContentResults.Unchanged, "The site shows no distribution for the pair. A request made while the site still removes the same content can be ignored: run it again later.");
             }
         }

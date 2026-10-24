@@ -83,8 +83,14 @@
                 <Setter Property="AutomationProperties.Name" Value="{Binding VerifiedText}" />
             </Style>
 
+            <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
             <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
-                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0">
+                        <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+                    </DataTrigger>
+                </Style.Triggers>
             </Style>
 
             <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
@@ -109,6 +115,8 @@
                 <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
                 <Setter Property="CellStyle" Value="{StaticResource TabStopCell}" />
                 <Setter Property="helpers:DataGridKeyboard.SelectsFocusedRow" Value="True" />
+                <!-- One Tab stop per grid: the arrow keys move inside it, so the next Tab reaches the control after it. -->
+                <Setter Property="KeyboardNavigation.TabNavigation" Value="Once" />
             </Style>
         </ResourceDictionary>
     </Page.Resources>
@@ -199,10 +207,10 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Content" Binding="{Binding ContentName}" SortMemberPath="ContentName" Width="3*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="PackageID" Binding="{Binding PackageId}" SortMemberPath="PackageId" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="140" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="160" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -212,7 +220,7 @@
             <TabItem Header="Content" AutomationProperties.AutomationId="tabContent">
                 <ScrollViewer x:Name="scrollContentTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollContentTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollContentTab}" MinHeight="460">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollContentTab}" MinHeight="460" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -220,14 +228,15 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="2*" MinHeight="120" />
                         </Grid.RowDefinitions>
-                        <WrapPanel Grid.Row="0" Margin="0,0,0,4">
+                        <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox Text="{Binding ContentText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name or PackageID" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="Content filter" AutomationProperties.AutomationId="txtContentFilter" />
                             <ComboBox ItemsSource="{Binding ContentTypes}" SelectedItem="{Binding ContentType}" MinWidth="190" Margin="0,0,8,8"
                                       AutomationProperties.Name="Content type" AutomationProperties.AutomationId="cboContentType" />
                             <TextBlock Text="{Binding ContentCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtContentCount" />
                         </WrapPanel>
-                        <WrapPanel Grid.Row="1" Margin="0,0,0,4">
+                        <!-- The actions come after both grids in Tab order, so they are next to the DP rows the operator picked. -->
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
                             <ui:Button Content="Redistribute failed" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RedistributeFailedCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows the DPs where the install of the selected content failed, then a plan that redistributes it to them."
                                        AutomationProperties.AutomationId="btnRedistributeFailed" />
@@ -238,12 +247,12 @@
                             <ui:Button Content="Validate" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding ValidateCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows the DPs of the selected content, then a plan that validates the content on them." AutomationProperties.AutomationId="btnValidate" />
                         </WrapPanel>
-                        <DataGrid Grid.Row="2" x:Name="dgContent" Tag="content" Style="{StaticResource GridBase}" ItemsSource="{Binding ContentRows}" SelectedItem="{Binding SelectedContent}"
+                        <DataGrid Grid.Row="2" x:Name="dgContent" KeyboardNavigation.TabIndex="1" Tag="content" Style="{StaticResource GridBase}" ItemsSource="{Binding ContentRows}" SelectedItem="{Binding SelectedContent}"
                                   AutomationProperties.AutomationId="dgContent" AutomationProperties.Name="Content">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Name" Binding="{Binding Name}" SortMemberPath="Name" Width="2*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="PackageID" Binding="{Binding PackageId}" SortMemberPath="PackageId" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Size" Width="90" MinWidth="64" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="64" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
@@ -256,14 +265,14 @@
                         </DataGrid>
                         <TextBlock Grid.Row="3" Text="{Binding ContentDetail}" Style="{StaticResource Warning}" Margin="0,12,0,8" AutomationProperties.AutomationId="txtContentDetail"
                                    AutomationProperties.LiveSetting="Polite" />
-                        <DataGrid Grid.Row="4" x:Name="dgContentPairs" Tag="contentPairs" Style="{StaticResource GridBase}" ItemsSource="{Binding ContentPairRows}" SelectionMode="Extended"
+                        <DataGrid Grid.Row="4" x:Name="dgContentPairs" KeyboardNavigation.TabIndex="2" Tag="contentPairs" Style="{StaticResource GridBase}" ItemsSource="{Binding ContentPairRows}" SelectionMode="Extended"
                                   SelectionChanged="OnContentPairsSelectionChanged" AutomationProperties.AutomationId="dgContentPairs" AutomationProperties.Name="Status of the selected content on each DP">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="DP" Binding="{Binding DpName}" SortMemberPath="DpName" Width="3*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="State number" Binding="{Binding State}" SortMemberPath="State" Width="116" MinWidth="112" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="140" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="160" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -273,37 +282,37 @@
             <TabItem Header="Status Issues" AutomationProperties.AutomationId="tabIssues">
                 <ScrollViewer x:Name="scrollIssuesTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollIssuesTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollIssuesTab}" MinHeight="320">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollIssuesTab}" MinHeight="320" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" MinHeight="160" />
                         </Grid.RowDefinitions>
-                        <WrapPanel Grid.Row="0" Margin="0,0,0,4">
+                        <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox Text="{Binding IssueText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by DP, content, PackageID or state" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Status issue filter" AutomationProperties.AutomationId="txtIssueFilter" />
                             <ComboBox ItemsSource="{Binding IssueStates}" SelectedItem="{Binding IssueState}" MinWidth="160" Margin="0,0,8,8"
                                       AutomationProperties.Name="State" AutomationProperties.AutomationId="cboIssueState" />
                             <TextBlock Text="{Binding IssueCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtIssueCount" />
                         </WrapPanel>
-                        <WrapPanel Grid.Row="1" Margin="0,0,0,4">
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
                             <ui:Button Content="Redistribute selected" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RedistributeIssuesCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that redistributes the content of the selected rows to their DPs." AutomationProperties.AutomationId="btnRedistributeIssues" />
                             <ui:Button Content="Remove failures" Icon="{ui:SymbolIcon Delete24}" Command="{Binding RemoveFailuresCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Shows a plan that removes the content of the selected failed rows from their DPs." AutomationProperties.AutomationId="btnRemoveFailures" />
                             <TextBlock Text="Select several rows with Shift or Ctrl." Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" />
                         </WrapPanel>
-                        <DataGrid Grid.Row="2" x:Name="dgIssues" Tag="issues" Style="{StaticResource GridBase}" ItemsSource="{Binding IssueRows}" SelectionMode="Extended"
+                        <DataGrid Grid.Row="2" x:Name="dgIssues" KeyboardNavigation.TabIndex="1" Tag="issues" Style="{StaticResource GridBase}" ItemsSource="{Binding IssueRows}" SelectionMode="Extended"
                                   SelectionChanged="OnIssuesSelectionChanged" AutomationProperties.AutomationId="dgIssues" AutomationProperties.Name="Status issues">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Status" Binding="{Binding Status}" SortMemberPath="Status" Width="120" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="DP" Binding="{Binding DpName}" SortMemberPath="DpName" Width="2*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Content" Binding="{Binding ContentName}" SortMemberPath="ContentName" Width="3*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="DP" Binding="{Binding DpName}" SortMemberPath="DpName" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Content" Binding="{Binding ContentName}" SortMemberPath="ContentName" Width="3*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" SortMemberPath="Type" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="State" Binding="{Binding StateName}" SortMemberPath="StateName" Width="*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="State number" Binding="{Binding State}" SortMemberPath="State" Width="116" MinWidth="112" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="PackageID" Binding="{Binding PackageId}" SortMemberPath="PackageId" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="140" MinWidth="104" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Last status" Binding="{Binding LastStatus}" SortMemberPath="LastStatus" Width="160" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -340,16 +349,16 @@
                         <DataGrid Grid.Row="2" x:Name="dgDpHistory" Tag="history" Style="{StaticResource GridBase}" ItemsSource="{Binding HistoryRows}" SelectedItem="{Binding SelectedHistory}"
                                   FrozenColumnCount="1" AutomationProperties.AutomationId="dgDpHistory" AutomationProperties.Name="Audit records">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="130" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="124" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="80" MinWidth="76" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="156" MinWidth="156" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="120" MinWidth="116" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="100" MinWidth="96" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="110" MinWidth="104" ElementStyle="{StaticResource VerifiedCell}" />
                                 <DataGridTextColumn Header="Pairs" Binding="{Binding Pairs}" SortMemberPath="Pairs" Width="64" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
                                 <DataGridTextColumn Header="Done / failed / skipped" Binding="{Binding Counts}" SortMemberPath="Counts" Width="180" MinWidth="176" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Content" Binding="{Binding Content}" SortMemberPath="Content" Width="2*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="2*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="2*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Content" Binding="{Binding Content}" SortMemberPath="Content" Width="2*" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="DPs" Binding="{Binding Dps}" SortMemberPath="Dps" Width="2*" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Message" Binding="{Binding Message}" SortMemberPath="Message" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBox Grid.Row="3" Text="{Binding HistoryDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="96" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0"

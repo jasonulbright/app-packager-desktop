@@ -322,6 +322,10 @@ public sealed partial class DpContentManagerViewModel
         if (LastReportFolder is { } folder) Services.Dialogs.OpenFolder(folder);
     }
 
+    /// <summary>The filters that are set, as "Text: x. Type: Package."; empty when none is set.</summary>
+    public static string FilterText(params (string Value, string Name)[] filters) =>
+        string.Join(" ", filters.Where(f => !string.IsNullOrWhiteSpace(f.Value)).Select(f => $"{f.Name}: {f.Value.Trim()}."));
+
     /// <summary>The rows of the active view as the filters show them; null when the view has not been read.</summary>
     public DpContentReport? ActiveReport()
     {
@@ -329,24 +333,24 @@ public sealed partial class DpContentManagerViewModel
         if (SelectedTabIndex == HistoryTab)
         {
             if (!IsHistoryLoaded) return null;
-            return new DpContentReport("DP content history", ["Time", "Action", "Result", "Pairs", "Succeeded", "Failed", "Skipped", "Content", "DPs", "User", "Verified", "Message"],
-                HistoryRows.Select(r => (IReadOnlyList<string>)[r.Record.Timestamp.ToString("u", System.Globalization.CultureInfo.InvariantCulture), r.Action, r.Result,
+            return new DpContentReport("History", ["Time", "Action", "Result", "Pairs", "Requested or confirmed", "Failed", "Skipped", "Content", "DPs", "User", "Verified", "Message"],
+                HistoryRows.Select(r => (IReadOnlyList<string>)[r.Record.Timestamp.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), r.Action, r.Result,
                     r.Record.PairCount.ToString(System.Globalization.CultureInfo.InvariantCulture), r.Record.Succeeded.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     r.Record.Failed.ToString(System.Globalization.CultureInfo.InvariantCulture), r.Record.Skipped.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     r.Content, r.Dps, r.User, r.VerifiedText, r.Message]).ToList(),
-                IsHistoryCapped, IsHistoryCapped ? HistoryCapText : null);
+                IsHistoryCapped, IsHistoryCapped ? HistoryCapText : null) { Filter = FilterText((HistoryText, "Text"), (HistoryAction == AllText ? "" : HistoryAction, "Action")) };
         }
         if (_index is null) return null;
         var note = TruncationNote;
         return SelectedTabIndex switch
         {
-            ContentTab => new DpContentReport("DP content: content", ["Status", "Name", "Type", "PackageID", "Size", "DPs", "Installed", "In progress", "Failed", "Percent OK", "Deployments"],
-                ContentRows.Select(r => (IReadOnlyList<string>)[r.Status, r.Name, r.Type, r.PackageId, r.Size, r.Dps, r.Installed, r.InProgress, r.Failed, r.PercentOk, r.Deployments]).ToList(), note is not null, note),
-            IssuesTab => new DpContentReport("DP content: status issues", ["Status", "DP", "Content", "Type", "State", "State number", "PackageID", "Last status"],
+            ContentTab => new DpContentReport("Content", ["Status", "Name", "Type", "PackageID", "Size", "DPs", "Installed", "In progress", "Failed", "Percent OK", "Deployments"],
+                ContentRows.Select(r => (IReadOnlyList<string>)[r.Status, r.Name, r.Type, r.PackageId, r.Size, r.Dps, r.Installed, r.InProgress, r.Failed, r.PercentOk, r.Deployments]).ToList(), note is not null, note) { Filter = FilterText((ContentText, "Text"), (ContentType == AllText ? "" : ContentType, "Type")) },
+            IssuesTab => new DpContentReport("Status issues", ["Status", "DP", "Content", "Type", "State", "State number", "PackageID", "Last status"],
                 IssueRows.Select(r => (IReadOnlyList<string>)[r.Status, r.DpName, r.ContentName, r.Type, r.StateName, r.State.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    r.PackageId, r.LastStatus]).ToList(), note is not null, note),
-            _ => new DpContentReport("DP content: distribution points", ["Status", "DP", "Site", "Total", "Installed", "In progress", "Failed", "Percent OK", "Pull DP", "Size (GB)"],
-                DpRows.Select(r => (IReadOnlyList<string>)[r.Status, r.DpName, r.SiteCode, r.Total, r.Installed, r.InProgress, r.Failed, r.PercentOk, r.PullDp, r.SizeGb]).ToList(), note is not null, note)
+                    r.PackageId, r.LastStatus]).ToList(), note is not null, note) { Filter = FilterText((IssueText, "Text"), (IssueState == AllText ? "" : IssueState, "State")) },
+            _ => new DpContentReport("Distribution points", ["Status", "DP", "Site", "Total", "Installed", "In progress", "Failed", "Percent OK", "Pull DP", "Size (GB)"],
+                DpRows.Select(r => (IReadOnlyList<string>)[r.Status, r.DpName, r.SiteCode, r.Total, r.Installed, r.InProgress, r.Failed, r.PercentOk, r.PullDp, r.SizeGb]).ToList(), note is not null, note) { Filter = FilterText((DpText, "Text"), (DpStatus == AllText ? "" : DpStatus, "Status")) }
         };
     }
 
@@ -371,7 +375,7 @@ public sealed partial class DpContentManagerViewModel
             Services.Log.Warning(LogArea, $"The {format} report could not be written ({ex.GetType().Name}).");
             return;
         }
-        StatusMessage = $"Saved the {format} report to {path}: {DpContentLabels.Count(report.Rows.Count, "row")}, the rows the filters show." + (report.Note is { } note ? " " + note : "");
+        StatusMessage = $"Saved the {format} report to {path}: {DpContentLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.") + (report.Note is { } note ? " " + note : "");
         Services.Log.Info(LogArea, $"Saved a {format} report with {report.Rows.Count} rows.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }

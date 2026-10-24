@@ -71,7 +71,8 @@ public static class DpContentText
         var remaining = removal ? index.RemainingAfterRemoval(prepared.Pairs) : [];
         foreach (var i in impact.Values)
             if (removal) remaining[i.PackageId] = i.DpsRemaining;
-        var lastCopyContents = remaining.Where(r => r.Value == 0).Select(r => r.Key).ToList();
+        var installedRemoved = prepared.Pairs.Where(p => DpContentLabels.IsOk(p.State) && !p.HasErrorMessage).Select(p => p.PackageId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var lastCopyContents = remaining.Where(r => r.Value == 0 && installedRemoved.Contains(r.Key)).Select(r => r.Key).ToList();
         var lastCopyCheck = prepared.Checks.Any(c => IsLastCopyCheck(c) && !string.Equals(c.Result, Pass, StringComparison.OrdinalIgnoreCase));
         var needsLastCopy = removal && (lastCopyContents.Count > 0 || lastCopyCheck || prepared.NeedsLastCopyAcknowledgement);
 
@@ -79,7 +80,7 @@ public static class DpContentText
         var entries = new List<DpContentPlanEntry>(prepared.Pairs.Count);
         foreach (var pair in prepared.Pairs)
         {
-            var lines = new List<string> { kind == DpContentChangeKind.DistributeAgain ? $"State before the removal: {pair.StateName}." : $"State now: {pair.StateName}." };
+            var lines = new List<string> { kind == DpContentChangeKind.DistributeAgain ? $"State before the removal: {pair.StateText}." : $"State now: {pair.StateText}." };
             if (removal && remaining.TryGetValue(pair.PackageId, out var left))
                 lines.Add(left == 0 ? "No DP holds the content after this plan." : $"DPs that hold the content after this plan: {DpContentLabels.Number(left)}.");
             var known = index.ContentById.TryGetValue(pair.PackageId, out var content);

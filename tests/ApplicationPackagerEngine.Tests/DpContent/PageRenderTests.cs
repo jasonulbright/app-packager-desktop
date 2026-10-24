@@ -270,17 +270,17 @@ public sealed class PageRenderTests
             ShowTab(window, viewModel, VM.ContentTab);
             viewModel.SelectedContent = null;
             Settle(window);
-            var content = TabInto(window, ById<UIElement>(page, "btnValidate"), ById<DataGrid>(page, "dgContent"));
+            var content = TabInto(window, ById<UIElement>(page, "cboContentType"), ById<DataGrid>(page, "dgContent"));
             Assert.Same(content.Item, viewModel.SelectedContent);
             Settle(window);
-            var pair = TabInto(window, ById<UIElement>(page, "btnValidate"), ById<DataGrid>(page, "dgContentPairs"));
+            var pair = TabInto(window, ById<UIElement>(page, "cboContentType"), ById<DataGrid>(page, "dgContentPairs"));
             Assert.True(pair.IsSelected);
             Assert.Equal([((PairGridRow)pair.Item).Key], viewModel.SelectedContentPairs.Select(r => r.Key));
 
             ShowTab(window, viewModel, VM.IssuesTab);
             viewModel.SetSelectedIssues([]);
             Settle(window);
-            var issue = TabInto(window, ById<UIElement>(page, "btnRemoveFailures"), ById<DataGrid>(page, "dgIssues"));
+            var issue = TabInto(window, ById<UIElement>(page, "cboIssueState"), ById<DataGrid>(page, "dgIssues"));
             Assert.True(issue.IsSelected);
             Assert.Single(viewModel.SelectedIssues);
             Assert.True(viewModel.RedistributeIssuesCommand.CanExecute(null));
@@ -292,6 +292,68 @@ public sealed class PageRenderTests
             Assert.Same(record.Item, viewModel.SelectedHistory);
             Assert.All(AllGrids.Select(g => (DataGrid)page.FindName(g.Grid)), g => Assert.True(ApplicationPackagerUI.Helpers.DataGridRightClick.GetSelectsRow(g)));
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void FromThePerDpGridsOneOrTwoTabsReachTheActions(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            ShowTab(window, viewModel, VM.ContentTab);
+            Assert.All(AllGrids.Select(g => (DataGrid)page.FindName(g.Grid)), g => Assert.Equal(KeyboardNavigationMode.Once, KeyboardNavigation.GetTabNavigation(g)));
+            TabInto(window, ById<UIElement>(page, "cboContentType"), ById<DataGrid>(page, "dgContentPairs"));
+            string Next()
+            {
+                ((UIElement)Keyboard.FocusedElement).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+                Settle(window);
+                return Keyboard.FocusedElement is FrameworkElement f ? AutomationProperties.GetAutomationId(f) is { Length: > 0 } id ? id : f.GetType().Name + " in " + (Ancestor<DataGrid>(f)?.Name ?? "-") : "";
+            }
+            Assert.Equal("btnRedistributeFailed", Next());
+            Assert.Equal("btnRedistributeSelectedDps", Next());
+
+            ShowTab(window, viewModel, VM.IssuesTab);
+            TabInto(window, ById<UIElement>(page, "cboIssueState"), ById<DataGrid>(page, "dgIssues"));
+            Assert.Equal("btnRedistributeIssues", Next());
+        });
+    }
+
+    /// <summary>The longest values the columns hold on a real site, by grid and column header.</summary>
+    private static readonly (string Grid, string Column, string Text)[] LongValues =
+    [
+        ("dgIssues", "State", "Failed (content updating)"), ("dgIssues", "Type", "Software update package"), ("dgIssues", "Last status", "12/30/2026 11:59 PM"),
+        ("dgContentPairs", "State", "Failed (content updating)"), ("dgContentPairs", "Last status", "12/30/2026 11:59 PM"),
+        ("dgDpPairs", "State", "Failed (content updating)"), ("dgDpPairs", "Type", "Software update package"), ("dgDpPairs", "Last status", "12/30/2026 11:59 PM"),
+        ("dgContent", "Type", "Software update package"),
+        ("dgDpHistory", "Time", "12/30/2026 11:59 PM"), ("dgDpHistory", "Result", "Succeeded"), ("dgDpHistory", "Result", "Requested"), ("dgDpHistory", "User", @"CONTOSO\labadmin")
+    ];
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheLongestRealValuesFitTheirColumnsAt1440PixelsWithTheSidebarCollapsed(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            foreach (var (tab, id) in AllGrids)
+            {
+                ShowTab(window, viewModel, tab);
+                var grid = ById<DataGrid>(page, id);
+                foreach (var (_, header, text) in LongValues.Where(v => v.Grid == id))
+                {
+                    var column = grid.Columns.Single(c => Equals(c.Header, header));
+                    var cell = Descendants(grid).OfType<DataGridCell>().First(c => ReferenceEquals(c.Column, column));
+                    var block = Descendants(cell).OfType<TextBlock>().First();
+                    var padding = cell.ActualWidth - block.ActualWidth;
+                    var needed = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight,
+                        new Typeface(block.FontFamily, block.FontStyle, block.FontWeight, block.FontStretch), block.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(block).PixelsPerDip).WidthIncludingTrailingWhitespace;
+                    Assert.True(needed + padding <= column.ActualWidth + 0.5, $"{id} {header}: \"{text}\" needs {needed + padding:0} px and the column has {column.ActualWidth:0} px.");
+                }
+            }
+        }, 1440 - CollapsedPaneWidth);
     }
 
     [Theory]

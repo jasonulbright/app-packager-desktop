@@ -125,6 +125,7 @@ internal sealed class DpContentSiteRead
 
     private static int Int(string text, int fallback) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : fallback;
 
+    /// <summary>The SummaryDate of the summarizer: the provider returns it in UTC with no offset (DMTF "+***").</summary>
     private static DateTime? Time(string text) =>
-        DateTime.TryParseExact(text, TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? t : null;
+        DateTime.TryParseExact(text, TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? DateTime.SpecifyKind(t, DateTimeKind.Utc) : null;
 }

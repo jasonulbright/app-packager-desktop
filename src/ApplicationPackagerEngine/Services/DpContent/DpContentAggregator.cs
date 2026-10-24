@@ -130,7 +130,12 @@ internal static partial class DpContentAggregator
         {
             if (!seen.Add(content.PackageId)) continue;
             byContent.TryGetValue(content.PackageId, out var t);
-            rows.Add(ContentRowOf(content.PackageId, content.Name, content.Type, content.SizeKb, t) with { ObjectId = content.ObjectId, CountsKnown = !truncated });
+            rows.Add(ContentRowOf(content.PackageId, content.Name, content.Type, content.SizeKb, t) with
+            {
+                ObjectId = content.ObjectId,
+                CountsKnown = !truncated,
+                DeploymentCount = read.DeploymentsRead && read.Deployments.TryGetValue(content.PackageId, out var deployments) ? deployments : -1
+            });
         }
         foreach (var (id, pair) in unknown)
             rows.Add(ContentRowOf(id, pair.ContentName, pair.ContentType, 0, byContent[id]) with { ObjectId = "", CountsKnown = !truncated });

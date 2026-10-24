@@ -155,9 +155,9 @@ internal sealed class StubDpContentSite : IConfigMgrSession
                     if ($where -match "ModelName = '") { $names = @([regex]::Matches($where, "ModelName = '([^']+)'") | ForEach-Object { $_.Groups[1].Value.ToUpperInvariant() }); $apps = @($apps | Where-Object { $names -contains ([string]$_.ModelName).ToUpperInvariant() }) }
                     return @($apps | ForEach-Object { Wmi $_ $columns $false })
                 }
-                'SMS_ApplicationAssignment' { $models = Nums $where 'AppModelID'; return @($global:S.AppAssignments | Where-Object { $models -contains [string]$_.AppModelID } | ForEach-Object { Wmi $_ $columns $false }) }
-                'SMS_Advertisement' { $ids = Ids $where 'PackageID'; return @($global:S.Adverts | Where-Object { $ids -contains ([string]$_.PackageID).ToUpperInvariant() } | ForEach-Object { Wmi $_ $columns $false }) }
-                'SMS_TaskSequencePackageReference' { $ids = Ids $where 'RefPackageID'; return @($global:S.TsRefs | Where-Object { $ids -contains ([string]$_.RefPackageID).ToUpperInvariant() } | ForEach-Object { Wmi $_ $columns $false }) }
+                'SMS_ApplicationAssignment' { $models = Nums $where 'AppModelID'; return @($global:S.AppAssignments | Where-Object { -not $where -or $models -contains [string]$_.AppModelID } | ForEach-Object { Wmi $_ $columns $false }) }
+                'SMS_Advertisement' { $ids = Ids $where 'PackageID'; return @($global:S.Adverts | Where-Object { -not $where -or $ids -contains ([string]$_.PackageID).ToUpperInvariant() } | ForEach-Object { Wmi $_ $columns $false }) }
+                { $_ -in 'SMS_TaskSequencePackageReference', 'SMS_TaskSequencePackageReference_Flat' } { $ids = Ids $where 'RefPackageID'; return @($global:S.TsRefs | Where-Object { -not $where -or $ids -contains ([string]$_.RefPackageID).ToUpperInvariant() } | ForEach-Object { Wmi $_ $columns $false }) }
                 'SMS_TaskSequencePackage' {
                     $rows = @($global:S.Packages | Where-Object { $_.Class -eq 'SMS_TaskSequencePackage' })
                     if ($where) { $ids = Ids $where 'BootImageID'; $rows = @($rows | Where-Object { $ids -contains ([string](V $_ 'BootImageID' '')).ToUpperInvariant() }) }
@@ -283,7 +283,7 @@ internal sealed class StubDpContentSite : IConfigMgrSession
                 Pkg("SMS_BootImagePackage", "MCM00006", "WinPE x64", 391286, 258),
                 new JsonObject { ["Class"] = "SMS_ContentPackage", ["PackageID"] = "MCM000A8", ["Name"] = "DPCM-Test-202610231921-3", ["PackageSize"] = 1, ["SecurityKey"] = AppModel },
                 new JsonObject { ["Class"] = "SMS_TaskSequencePackage", ["PackageID"] = "MCM00008", ["Name"] = "Build Win11", ["BootImageID"] = "MCM00006" }),
-            ["Applications"] = new JsonArray(new JsonObject { ["CI_ID"] = 16780955, ["ModelID"] = 16780950, ["ModelName"] = AppModel, ["IsLatest"] = true }),
+            ["Applications"] = new JsonArray(new JsonObject { ["CI_ID"] = 16780955, ["ModelID"] = 16780950, ["ModelName"] = AppModel, ["LocalizedDisplayName"] = "DPCM Test Application 202610231921 with a display name longer than fifty characters", ["IsLatest"] = true }),
             ["Summaries"] = new JsonArray(
                 Sum("MCM000A6", nal, 0, 0), Sum("MCM000A6", backup, 0, 0),
                 Sum("MCM000A7", nal, 7, 0),

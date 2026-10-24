@@ -75,7 +75,7 @@ public sealed partial class DpContentService
         }
 
         var impact = ContentImpactOf(request.Kind, kept, now.Values, read);
-        var lastCopy = request.Kind == DpContentChangeKind.Remove && impact.Any(i => i.DpsRemaining == 0);
+        var lastCopy = request.Kind == DpContentChangeKind.Remove && impact.Any(IsLastCopy);
         checks.AddRange(ChecksOf(request.Kind, kept, dropped, impact, dps, read));
         var lines = ImpactLines(request.Kind, kept, impact, dropped);
         string? fingerprint = null;
@@ -107,7 +107,13 @@ public sealed partial class DpContentService
     internal static bool CanDistributeAgain(string? contentType) => contentType is not (null or "" or DpContentTypes.TaskSequence or DpContentTypes.Unknown);
 
     /// <summary>A removed pair that Undo distributes again: installed before, with no error message, of a type Distribute again can copy.</summary>
-    internal static bool IsRestorable(PairRow pair) => DpContentStates.IsOk(pair.State) && !pair.HasErrorMessage && CanDistributeAgain(pair.ContentType);
+    internal static bool IsRestorable(PairRow pair) => IsInstalled(pair) && CanDistributeAgain(pair.ContentType);
+
+    /// <summary>A pair that holds a usable copy: installed, with no error message.</summary>
+    internal static bool IsInstalled(PairRow pair) => DpContentStates.IsOk(pair.State) && !pair.HasErrorMessage;
+
+    /// <summary>A content the removal leaves with no installed copy while it takes one: a content that was never installed loses nothing.</summary>
+    private static bool IsLastCopy(DpContentImpact impact) => impact.DpsRemaining == 0 && impact.RemovesInstalledCopy;
 
     private static DpContentPairOutcome Skip(PairRow pair, string reason, int? stateNow = null) =>
         new(pair, DpContentResults.Skipped, SkippedPrefix + reason, stateNow);
@@ -159,7 +165,10 @@ public sealed partial class DpContentService
                 else note = "The deployments that use the content could not be read.";
             }
             var first = group.First();
-            list.Add(new DpContentImpact(first.PackageId.ToUpperInvariant(), first.ContentName, first.ContentType, group.Count(), dpsNow, remaining, deployments, note));
+            list.Add(new DpContentImpact(first.PackageId.ToUpperInvariant(), first.ContentName, first.ContentType, group.Count(), dpsNow, remaining, deployments, note)
+            {
+                RemovesInstalledCopy = kind == DpContentChangeKind.Remove && group.Any(IsInstalled)
+            });
         }
         return list;
     }
@@ -181,7 +190,7 @@ public sealed partial class DpContentService
                 probe.Writable ? probe.Message : "The change can run, but its audit record may not be written: " + probe.Message));
         if (kind == DpContentChangeKind.Remove)
         {
-            var last = impact.Where(i => i.DpsRemaining == 0).ToList();
+            var last = impact.Where(IsLastCopy).ToList();
             checks.Add(last.Count == 0
                 ? new PreflightCheck(CheckNames.LastCopy, DeploymentCheckResults.Pass, "Every content stays installed on at least one other distribution point.")
                 : new PreflightCheck(CheckNames.LastCopy, DeploymentCheckResults.Warn,

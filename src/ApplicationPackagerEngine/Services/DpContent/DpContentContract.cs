@@ -60,7 +60,7 @@ public sealed record ContentRow(
 /// and the full <paramref name="NalPath"/> (the ServerNALPath of the row), compared exactly.
 /// </summary>
 /// <param name="State">The State of SMS_PackageStatusDistPointsSummarizer.</param>
-/// <param name="SummaryDate">The SummaryDate the site holds, as returned.</param>
+/// <param name="SummaryDate">The SummaryDate the site holds, in UTC (Kind Utc).</param>
 public sealed record PairRow(
     string PackageId,
     string ContentName,
@@ -98,6 +98,20 @@ public sealed record PairRow(
 
     /// <summary>True for Install failed, Removal failed, or another state whose last message is an error.</summary>
     public bool IsFailed => DpContentStates.IsFailed(State) || HasErrorMessage;
+
+    /// <summary>
+    /// The state as the page shows it: "Failed (content updating)" when the last message is an error
+    /// and the summarizer state is not a failed state, so the text agrees with <see cref="IsFailed"/>.
+    /// </summary>
+    public string StateText
+    {
+        get
+        {
+            if (!HasErrorMessage || DpContentStates.IsFailed(State)) return StateName;
+            var name = DpContentStates.Name(State);
+            return $"Failed ({char.ToLowerInvariant(name[0])}{name[1..]})";
+        }
+    }
 
     /// <summary>True for a state in progress whose last message is not an error.</summary>
     public bool IsInProgress => DpContentStates.IsInProgress(State) && !HasErrorMessage;
@@ -174,7 +188,11 @@ public sealed record DpContentChange(
 /// <param name="DpsRemaining">Remove: the distribution points that still hold the content after the change; DpsNow for the other kinds.</param>
 /// <param name="DeploymentCount">The deployments that use the content; -1 when not known.</param>
 /// <param name="DeploymentNote">Which deployment kinds the count covers, or why it is not known.</param>
-public sealed record DpContentImpact(string PackageId, string Name, string ContentType, int Pairs, int DpsNow, int DpsRemaining, int DeploymentCount, string DeploymentNote);
+public sealed record DpContentImpact(string PackageId, string Name, string ContentType, int Pairs, int DpsNow, int DpsRemaining, int DeploymentCount, string DeploymentNote)
+{
+    /// <summary>Remove: true when a pair of the change is installed now, so the change can take the last installed copy; the last-copy rule applies only then.</summary>
+    public bool RemovesInstalledCopy { get; init; }
+}
 
 /// <param name="Result">Requested, Confirmed, Unchanged, Failed or Skipped (see <see cref="DpContentResults"/>).</param>
 /// <param name="StateAfter">The state the last read-back found; null when the pair has no status row or was not read.</param>
@@ -294,7 +312,11 @@ public interface IDpContentService
 /// </summary>
 /// <param name="View">DPs, Content, Status Issues, Content detail or History.</param>
 /// <param name="Truncated">The rows come from a truncated load; the writer refuses it without a <paramref name="Note"/>.</param>
-public sealed record DpContentReport(string View, IReadOnlyList<string> Columns, IReadOnlyList<IReadOnlyList<string>> Rows, bool Truncated, string? Note);
+public sealed record DpContentReport(string View, IReadOnlyList<string> Columns, IReadOnlyList<IReadOnlyList<string>> Rows, bool Truncated, string? Note)
+{
+    /// <summary>The filters of the view as text, such as "Text: 7-Zip. Type: Package."; empty when no filter is set.</summary>
+    public string Filter { get; init; } = "";
+}
 
 public interface IDpContentReportWriter
 {
@@ -314,7 +336,7 @@ public interface IDpContentReportWriter
 /// </summary>
 /// <param name="Event">Redistribute, Remove, Validate or DistributeAgain.</param>
 /// <param name="Phase">Started or Finished.</param>
-/// <param name="Result">Started: empty. Finished of a removal part: Requested, Unknown (the session failed during the write), Partial, Failed or Skipped. Other records: Succeeded, Partial, Failed or Skipped.</param>
+/// <param name="Result">Started: empty. Finished of a removal part: Requested, Unknown (the session failed during the write), Partial, Failed or Skipped. Other records: Succeeded (every pair Confirmed), Requested (no pair failed, one not confirmed yet), Partial, Failed or Skipped.</param>
 /// <param name="RunId">The same for every record of one ApplyAsync change.</param>
 public sealed record DpContentAuditRecord(
     DateTime Timestamp,

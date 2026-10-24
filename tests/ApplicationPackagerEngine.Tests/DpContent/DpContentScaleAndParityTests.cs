@@ -9,7 +9,7 @@ namespace ApplicationPackagerEngine.Tests.DpContent;
 public sealed class DpContentScaleAndParityTests
 {
     [Fact]
-    public async Task ALoadOf300DpsAnd30000RowsIsOneScriptRunWithTwelveQueries()
+    public async Task ALoadOf300DpsAnd30000RowsIsOneScriptRunWithFifteenQueries()
     {
         var state = new JsonObject
         {
@@ -20,7 +20,7 @@ public sealed class DpContentScaleAndParityTests
         var snapshot = await h.Service.LoadAsync(new Progress<string>(), CancellationToken.None);
 
         Assert.Single(h.Site.Runs);
-        Assert.Equal(12, h.Site.Queries());
+        Assert.Equal(15, h.Site.Queries());
         Assert.Equal(300, snapshot.Dps.Count);
         Assert.Equal(100, snapshot.Content.Count);
         Assert.Equal(30_000, snapshot.Pairs.Count);

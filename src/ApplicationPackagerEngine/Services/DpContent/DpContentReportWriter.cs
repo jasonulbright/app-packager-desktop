@@ -9,6 +9,7 @@ namespace ApplicationPackagerEngine.Services;
 /// &lt;data root&gt;\DpContent\Reports. Every CSV cell is quoted, and a cell that a spreadsheet would read
 /// as a formula starts with an apostrophe; every HTML value and column name is encoded. A report of
 /// a truncated load is refused unless its note says so; the note is a last CSV row and an HTML header line.
+/// The first CSV line and the HTML header name the view, the time, the row count and the filter.
 /// </summary>
 public sealed class DpContentReportWriter(string? folder = null, Func<DateTimeOffset>? clock = null) : IDpContentReportWriter
 {
@@ -24,11 +25,27 @@ public sealed class DpContentReportWriter(string? folder = null, Func<DateTimeOf
 
     public string Folder => folder ?? DefaultFolder();
 
+    public const string NoFilter = "No filter: every row of the view.";
+
+    private static string Title(DpContentReport report) => "DP content: " + report.View;
+
+    private static string FilterText(DpContentReport report) => string.IsNullOrWhiteSpace(report.Filter) ? NoFilter : "Filter: " + report.Filter;
+
+    private string Generated() => _clock().ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
+
+    /// <summary>The first line of a CSV file: one cell with the view, the time, the row count and the filter; the column names follow on the second line.</summary>
+    private string CsvHeader(DpContentReport report) =>
+        $"{Title(report)}. Generated {Generated()}. Rows: {report.Rows.Count.ToString(CultureInfo.InvariantCulture)}. {FilterText(report)}";
+
     public string WriteCsv(DpContentReport report)
     {
         Check(report);
         var columns = report.Columns.Count;
         var text = new StringBuilder();
+        var header = new string[columns];
+        Array.Fill(header, "");
+        header[0] = CsvHeader(report);
+        text.Append(string.Join(",", header.Select(ReportFile.Cell))).Append("\r\n");
         text.Append(string.Join(",", report.Columns.Select(ReportFile.Cell))).Append("\r\n");
         foreach (var row in report.Rows) text.Append(string.Join(",", Cells(row, columns).Select(ReportFile.Cell))).Append("\r\n");
         if (!string.IsNullOrWhiteSpace(report.Note))
@@ -45,8 +62,8 @@ public sealed class DpContentReportWriter(string? folder = null, Func<DateTimeOf
     {
         Check(report);
         var columns = report.Columns.Count;
-        var title = "DP content: " + report.View;
-        var generated = _clock().ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
+        var title = Title(report);
+        var generated = Generated();
         var html = new StringBuilder();
         html.Append("<!DOCTYPE html>\r\n<html lang=\"en\"><head><meta charset=\"utf-8\">")
             .Append("<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'\">")
@@ -57,7 +74,8 @@ public sealed class DpContentReportWriter(string? folder = null, Func<DateTimeOf
             .Append("th{border-bottom:2px solid #333}")
             .Append("</style></head><body>\r\n<h1>").Append(Encode(title)).Append("</h1>\r\n")
             .Append("<p>Generated ").Append(Encode(generated)).Append(". Rows: ")
-            .Append(report.Rows.Count.ToString(CultureInfo.InvariantCulture)).Append(".</p>\r\n");
+            .Append(report.Rows.Count.ToString(CultureInfo.InvariantCulture)).Append(".</p>\r\n")
+            .Append("<p class=\"filter\">").Append(Encode(FilterText(report))).Append("</p>\r\n");
         if (!string.IsNullOrWhiteSpace(report.Note)) html.Append("<p class=\"note\">").Append(Encode(report.Note)).Append("</p>\r\n");
         html.Append("<table><thead><tr>");
         foreach (var column in report.Columns) html.Append("<th>").Append(Encode(column)).Append("</th>");

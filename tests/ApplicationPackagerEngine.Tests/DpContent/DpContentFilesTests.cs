@@ -41,8 +41,9 @@ public sealed class DpContentFilesTests : IDisposable
         var path = Writer().WriteCsv(Report(["CM01.CONTOSO.COM", "a \"quoted\", name", "Install failed"]));
         Assert.Equal(Path.Combine(_folder, "Reports", "dp-content-statusissues-20261023-210509.csv"), path);
         var lines = File.ReadAllLines(path);
-        Assert.Equal("\"DP\",\"Content\",\"State\"", lines[0]);
-        Assert.Equal("\"CM01.CONTOSO.COM\",\"a \"\"quoted\"\", name\",\"Install failed\"", lines[1]);
+        Assert.StartsWith("\"DP content: ", lines[0], StringComparison.Ordinal);
+        Assert.Equal("\"DP\",\"Content\",\"State\"", lines[1]);
+        Assert.Equal("\"CM01.CONTOSO.COM\",\"a \"\"quoted\"\", name\",\"Install failed\"", lines[2]);
         Assert.Equal([0xEF, 0xBB, 0xBF], File.ReadAllBytes(path)[..3]);
         var second = Writer().WriteCsv(Report(["x", "y", "z"]));
         Assert.EndsWith("-2.csv", second);

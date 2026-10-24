@@ -168,7 +168,7 @@ internal sealed class PageFakeDpContentService : IDpContentService
         if (BlockingCheck is { } blocking) checks.Add(blocking);
         if (request.Kind == DpContentChangeKind.Remove)
         {
-            var empty = kept.Select(p => p.PackageId).Distinct().Where(id => Remaining(id, kept) == 0).ToList();
+            var empty = kept.Where(p => DpContentLabels.IsOk(p.State)).Select(p => p.PackageId).Distinct().Where(id => Remaining(id, kept) == 0).ToList();
             checks.Add(new PreflightCheck(Name: "LastCopy", Result: empty.Count == 0 ? "Pass" : "Fail",
                 Message: empty.Count == 0 ? "Every content keeps a DP." : $"{empty.Count} content will have no DP left."));
             impact.Add("Deployments counted: applications, packages and task sequences.");
@@ -195,7 +195,7 @@ internal sealed class PageFakeDpContentService : IDpContentService
                 continue;
             }
             var emptied = change.Kind == DpContentChangeKind.Remove && !change.LastCopyAcknowledged
-                ? change.Pairs.Select(p => p.PackageId).Distinct().Where(id => Remaining(id, change.Pairs) == 0).ToHashSet()
+                ? change.Pairs.Where(p => DpContentLabels.IsOk(p.State)).Select(p => p.PackageId).Distinct().Where(id => Remaining(id, change.Pairs) == 0).ToHashSet()
                 : [];
             var chunks = change.Pairs.Chunk(ChunkSize).ToList();
             var undo = new List<PairRow>();

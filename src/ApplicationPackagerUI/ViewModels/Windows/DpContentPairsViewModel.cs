@@ -11,7 +11,7 @@ public sealed partial class DpContentPairChoice(PairRow pair, bool isChecked) : 
     public string ContentName => Pair.ContentName;
     public string PackageId => Pair.PackageId;
     public string DpName => Pair.DpName;
-    public string StateName => Pair.StateName;
+    public string StateName => Pair.StateText;
     public string Status => DpContentLabels.PairLabel(Pair);
     public string CheckName => $"Include {Pair.ContentName} on {Pair.DpName}";
 

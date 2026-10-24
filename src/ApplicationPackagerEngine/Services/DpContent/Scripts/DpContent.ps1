@@ -161,17 +161,29 @@ function Write-StateOf {
 
 # ---- Content objects ------------------------------------------------------------------------
 
-function Get-AppIds {
+# The latest revision of each application by upper-case ModelName: CI_ID, ModelID and display name.
+function Get-Apps {
     $map = @{}
-    foreach ($a in Invoke-Query 'SELECT CI_ID, ModelName FROM SMS_Application WHERE IsLatest = 1') {
+    foreach ($a in Invoke-Query 'SELECT CI_ID, ModelID, ModelName, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1') {
         $model = [string](Get-Prop $a 'ModelName')
-        if ($model) { $map[$model.ToUpperInvariant()] = [string](Get-Prop $a 'CI_ID') }
+        if ($model) { $map[$model.ToUpperInvariant()] = @{ Id = [string](Get-Prop $a 'CI_ID'); ModelId = [string](Get-Prop $a 'ModelID'); Name = [string](Get-Prop $a 'LocalizedDisplayName') } }
     }
     return $map
 }
 
+# The Name of SMS_ContentPackage is cut to 50 characters, so application content carries the
+# display name of its application. Content of one application with several deployment types
+# shares that name, so each such row also names its PackageID.
 function Write-Content {
-    $apps = Get-AppIds
+    # A failed application read leaves the content package names and makes the deployment counts unknown.
+    $script:AppsRead = $true
+    try { $ErrorActionPreference = 'Stop'; $apps = Get-Apps }
+    catch { $apps = @{}; $script:AppsRead = $false }
+    finally { $ErrorActionPreference = 'Continue' }
+    $script:Apps = $apps
+    $script:ContentKeys = @{}
+    $script:TsBoot = @{}
+    $rows = New-Object System.Collections.Generic.List[object]
     $classes = @(
         @{ Class = 'SMS_Package'; Type = 'Package'; Columns = 'PackageID, Name, PackageSize, PackageType'; Keep = 0 },
         @{ Class = 'SMS_SoftwareUpdatesPackage'; Type = 'SoftwareUpdatePackage'; Columns = 'PackageID, Name, PackageSize' },
@@ -180,20 +192,79 @@ function Write-Content {
         @{ Class = 'SMS_OperatingSystemInstallPackage'; Type = 'OsUpgradePackage'; Columns = 'PackageID, Name, PackageSize' },
         @{ Class = 'SMS_DriverPackage'; Type = 'DriverPackage'; Columns = 'PackageID, Name, PackageSize' },
         @{ Class = 'SMS_ContentPackage'; Type = 'Application'; Columns = 'PackageID, Name, PackageSize, SecurityKey' },
-        @{ Class = 'SMS_TaskSequencePackage'; Type = 'TaskSequence'; Columns = 'PackageID, Name' }
+        @{ Class = 'SMS_TaskSequencePackage'; Type = 'TaskSequence'; Columns = 'PackageID, Name, BootImageID' }
     )
     foreach ($c in $classes) {
         foreach ($p in Invoke-Query ('SELECT ' + $c.Columns + ' FROM ' + $c.Class)) {
             if ($c.ContainsKey('Keep') -and (Get-Int (Get-Prop $p 'PackageType') 0) -ne $c.Keep) { continue }
-            $object = [string](Get-Prop $p 'PackageID')
+            $id = ([string](Get-Prop $p 'PackageID')).ToUpperInvariant()
+            $object = $id
+            $name = [string](Get-Prop $p 'Name')
             if ($c.Type -eq 'Application') {
-                $key = [string](Get-Prop $p 'SecurityKey')
-                $object = if ($key -and $apps.ContainsKey($key.ToUpperInvariant())) { $apps[$key.ToUpperInvariant()] } else { '' }
+                $key = ([string](Get-Prop $p 'SecurityKey')).ToUpperInvariant()
+                $script:ContentKeys[$id] = $key
+                $app = if ($key -and $apps.ContainsKey($key)) { $apps[$key] } else { $null }
+                $object = if ($null -ne $app) { $app.Id } else { '' }
+                if ($null -ne $app -and $app.Name) { $name = $app.Name }
             }
-            [pscustomobject]@{ Kind = 'Content'; PackageId = ([string](Get-Prop $p 'PackageID')).ToUpperInvariant(); Name = [string](Get-Prop $p 'Name'); Type = $c.Type
-                SizeKb = [double](Get-Int (Get-Prop $p 'PackageSize') 0); ObjectId = $object }
+            if ($c.Type -eq 'TaskSequence') {
+                $boot = ([string](Get-Prop $p 'BootImageID')).ToUpperInvariant()
+                if ($boot) { $script:TsBoot[$id] = $boot }
+            }
+            $rows.Add([pscustomobject]@{ Kind = 'Content'; PackageId = $id; Name = $name; Type = $c.Type; SizeKb = [double](Get-Int (Get-Prop $p 'PackageSize') 0); ObjectId = $object })
         }
     }
+    $shared = @($rows | Where-Object { $_.Type -eq 'Application' } | Group-Object -Property Name | Where-Object { $_.Count -gt 1 })
+    foreach ($g in $shared) { foreach ($r in $g.Group) { $r.Name = $r.Name + ' (' + $r.PackageId + ')' } }
+    $rows
+}
+
+# The deployment counts of every content for a load: one query each for advertisements, task
+# sequence references and application deployments, with the maps Write-Content read. The
+# counted kinds are those of Get-DeploymentCounts.
+function Write-AllDeployments {
+    param([string[]]$Ids)
+    try {
+        $ErrorActionPreference = 'Stop'
+        if (-not $script:AppsRead) { throw 'The applications were not read.' }
+        $counts = @{}
+        foreach ($id in $Ids) { $counts[$id] = 0 }
+        $adverts = @{}
+        foreach ($a in Invoke-Query 'SELECT AdvertisementID, PackageID FROM SMS_Advertisement') {
+            $p = ([string](Get-Prop $a 'PackageID')).ToUpperInvariant()
+            if ($adverts.ContainsKey($p)) { $adverts[$p]++ } else { $adverts[$p] = 1 }
+        }
+        foreach ($p in @($adverts.Keys)) { if ($counts.ContainsKey($p)) { $counts[$p] += $adverts[$p] } }
+        $tsOf = @{}
+        foreach ($r in Invoke-Query 'SELECT PackageID, RefPackageID FROM SMS_TaskSequencePackageReference_Flat') {
+            $ts = ([string](Get-Prop $r 'PackageID')).ToUpperInvariant()
+            if (-not $tsOf.ContainsKey($ts)) { $tsOf[$ts] = New-Object System.Collections.Generic.HashSet[string] }
+            [void]$tsOf[$ts].Add(([string](Get-Prop $r 'RefPackageID')).ToUpperInvariant())
+        }
+        foreach ($ts in @($script:TsBoot.Keys)) {
+            if (-not $tsOf.ContainsKey($ts)) { $tsOf[$ts] = New-Object System.Collections.Generic.HashSet[string] }
+            [void]$tsOf[$ts].Add($script:TsBoot[$ts])
+        }
+        foreach ($ts in @($tsOf.Keys)) {
+            if (-not $adverts.ContainsKey($ts)) { continue }
+            foreach ($ref in $tsOf[$ts]) { if ($ref -ne $ts -and $counts.ContainsKey($ref)) { $counts[$ref] += $adverts[$ts] } }
+        }
+        $byModelId = @{}
+        foreach ($d in Invoke-Query 'SELECT AssignmentID, AppModelID FROM SMS_ApplicationAssignment') {
+            $m = [string](Get-Prop $d 'AppModelID')
+            if ($byModelId.ContainsKey($m)) { $byModelId[$m]++ } else { $byModelId[$m] = 1 }
+        }
+        foreach ($id in @($script:ContentKeys.Keys)) {
+            $key = $script:ContentKeys[$id]
+            if ($key -and $script:Apps.ContainsKey($key)) {
+                $m = $script:Apps[$key].ModelId
+                if ($m -and $byModelId.ContainsKey($m) -and $counts.ContainsKey($id)) { $counts[$id] += $byModelId[$m] }
+            }
+        }
+    }
+    catch { [pscustomobject]@{ Kind = 'DeploymentsRead'; Read = $false }; return }
+    foreach ($k in $counts.Keys) { [pscustomobject]@{ Kind = 'Deployments'; PackageId = $k; Count = $counts[$k] } }
+    [pscustomobject]@{ Kind = 'DeploymentsRead'; Read = $true }
 }
 
 # ---- Deployments that use the content --------------------------------------------------------
@@ -223,7 +294,7 @@ function Get-DeploymentCounts {
         $where = Get-OrList 'PackageID' $chunk
         foreach ($c in Invoke-Query "SELECT PackageID, SecurityKey FROM SMS_ContentPackage WHERE $where") {
             $key = [string](Get-Prop $c 'SecurityKey')
-            if ($key -match $ModelNamePattern) { $modelOf[$key.ToUpperInvariant()] = ([string](Get-Prop $c 'PackageID')).ToUpperInvariant() }
+            if ($key -match $ModelNamePattern) { $k = $key.ToUpperInvariant(); if (-not $modelOf.ContainsKey($k)) { $modelOf[$k] = New-Object System.Collections.Generic.List[string] }; $modelOf[$k].Add(([string](Get-Prop $c 'PackageID')).ToUpperInvariant()) }
         }
         foreach ($a in Invoke-Query "SELECT AdvertisementID, PackageID FROM SMS_Advertisement WHERE $where") { $p = ([string](Get-Prop $a 'PackageID')).ToUpperInvariant(); if ($counts.ContainsKey($p)) { $counts[$p]++ } }
         foreach ($r in Invoke-Query ("SELECT PackageID, RefPackageID FROM SMS_TaskSequencePackageReference WHERE " + (Get-OrList 'RefPackageID' $chunk))) {
@@ -245,7 +316,7 @@ function Get-DeploymentCounts {
         if ($byModel.Count -gt 0) {
             foreach ($d in Invoke-Query ('SELECT AssignmentID, AppModelID FROM SMS_ApplicationAssignment WHERE ' + (($byModel.Keys | ForEach-Object { "AppModelID = $_" }) -join ' OR '))) {
                 $model = $byModel[[string](Get-Prop $d 'AppModelID')]
-                if ($model -and $modelOf.ContainsKey($model)) { $counts[$modelOf[$model]]++ }
+                if ($model -and $modelOf.ContainsKey($model)) { foreach ($p in $modelOf[$model]) { if ($counts.ContainsKey($p)) { $counts[$p]++ } } }
             }
         }
     }
@@ -387,7 +458,9 @@ switch ($Operation) {
         $dps = @(Get-Dps)
         $dps
         Get-PullSources $dps
-        Write-Content
+        $contents = @(Write-Content)
+        $contents
+        Write-AllDeployments @($contents | ForEach-Object { $_.PackageId })
         $summary = New-Object System.Collections.Generic.List[string]
         $total = 0
         foreach ($r in Invoke-Query "SELECT $SummaryColumns FROM SMS_PackageStatusDistPointsSummarizer") {
