@@ -215,8 +215,9 @@ public sealed partial class PivotsScriptsService
         run.Raw.AddRange(raw);
         foreach (var d in devices) run.Results[d.ResourceId] = new DeviceResult(d.ResourceId, d.Name, PivotsDeviceStates.Sent, "", SentMessage);
         run.Session = run.Session with { Results = run.Results.Values.ToList() };
+        // The run is kept before the session file names its operation, so a wait never reloads a second instance of it.
+        run = RememberRun(run);
         TryUpdate(run.Session);
-        RememberRun(run);
         _log?.Info(LogArea, $"{change.Kind} sent to {devices.Count} devices.");
         if (change.IsSendOnly)
             return Snapshot(run, true, "Sent. The site accepted the run. The results are read after the send.", final: true);
@@ -323,12 +324,13 @@ public sealed partial class PivotsScriptsService
             : new SendResult(op, null, raw, "", true);
     }
 
-    private void RememberRun(RunState run)
+    /// <summary>Keeps the run for later waits and returns the kept instance: a run that another caller kept first stays, so its guards hold for every wait.</summary>
+    private RunState RememberRun(RunState run)
     {
         if (_runs.Count >= MaxRuns)
             foreach (var old in _runs.OrderBy(r => r.Value.SentUtc).Take(_runs.Count - MaxRuns + 1).Select(r => r.Key).ToList())
                 _runs.TryRemove(old, out _);
-        _runs[run.OperationId] = run;
+        return _runs.GetOrAdd(run.OperationId, run);
     }
 
     // ---- Waiting ------------------------------------------------------------------------------
@@ -342,7 +344,7 @@ public sealed partial class PivotsScriptsService
         if (!_runs.TryGetValue(operationId, out var run))
         {
             run = await ReloadAsync(operationId, sessionId, ct).ConfigureAwait(false);
-            RememberRun(run);
+            run = RememberRun(run);
         }
         if (Interlocked.CompareExchange(ref run.Waiting, 1, 0) != 0)
             throw new PivotsServiceException("The page waits for the results of this run already.");
