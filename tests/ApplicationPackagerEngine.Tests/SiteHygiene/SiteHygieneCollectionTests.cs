@@ -62,7 +62,7 @@ public sealed class SiteHygieneCollectionTests
         Assert.Equal(2, windows.Select(f => f.Key).Distinct().Count());
         var one = windows.Single(f => f.ObjectName == "SHL-MW-Expired on SHL-Col-MW");
         Assert.Equal("MCM00219|{51634A25-AF2B-400B-A492-CAF093FF542C}", one.ObjectKey);
-        Assert.Contains("Where-Object { $_.ServiceWindowID -ne '{51634A25-AF2B-400B-A492-CAF093FF542C}' }", one.FixText);
+        Assert.Contains("if ($item['ServiceWindowID'].StringValue -ne '{51634A25-AF2B-400B-A492-CAF093FF542C}')", one.FixText);
         Assert.DoesNotContain("Remove-CMMaintenanceWindow", one.FixText);
     }
 

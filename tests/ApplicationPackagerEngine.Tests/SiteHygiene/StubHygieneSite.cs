@@ -25,6 +25,7 @@ internal sealed class StubHygieneSite : IConfigMgrSession
         $state = Get-Content -LiteralPath $StatePath -Raw -Encoding UTF8 | ConvertFrom-Json
         function global:V([object]$Object, [string]$Name, [object]$Default) { if ($null -eq $Object) { return $Default }; $p = $Object.PSObject.Properties[$Name]; if ($null -eq $p -or $null -eq $p.Value) { return $Default }; return $p.Value }
         function global:L([object]$List) { $r = [System.Collections.Generic.List[object]]::new(); foreach ($x in @($List)) { if ($null -ne $x) { $r.Add($x) } }; return ,$r }
+        Add-Type -TypeDefinition 'namespace Microsoft.ConfigurationManagement.ManagementProvider { public interface IResultObject { } public sealed class StubValue { public string StringValue; } public sealed class StubItem : IResultObject { public System.Collections.Hashtable Values = new System.Collections.Hashtable(System.StringComparer.OrdinalIgnoreCase); public StubValue this[string name] { get { return new StubValue { StringValue = System.Convert.ToString(Values[name]) }; } } } }'
         $global:Log = [System.Collections.Generic.List[string]]::new()
         $global:FailLeft = [System.Collections.Generic.List[string]]::new()
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
@@ -85,9 +86,17 @@ internal sealed class StubHygieneSite : IConfigMgrSession
                     $id = [string]$_.CollectionID
                     $o = [pscustomobject]@{ CollectionID = $id; ServiceWindows = @() }
                     $o | Add-Member -MemberType ScriptMethod -Name Get -Value { $this.ServiceWindows = @(if ($global:Windows.ContainsKey($this.CollectionID)) { $global:Windows[$this.CollectionID] | ForEach-Object { Shape $_ '*' } }) }
+                    $o | Add-Member -NotePropertyName Kept -NotePropertyValue $null
+                    $o | Add-Member -MemberType ScriptMethod -Name GetArrayItems -Value {
+                        param([string]$Name)
+                        $list = New-Object 'System.Collections.Generic.List[Microsoft.ConfigurationManagement.ManagementProvider.IResultObject]'
+                        foreach ($w in @(if ($global:Windows.ContainsKey($this.CollectionID)) { $global:Windows[$this.CollectionID] })) { $item = New-Object Microsoft.ConfigurationManagement.ManagementProvider.StubItem; foreach ($pp in $w.PSObject.Properties) { $item.Values[$pp.Name] = $pp.Value }; $list.Add($item) }
+                        return ,$list
+                    }
+                    $o | Add-Member -MemberType ScriptMethod -Name SetArrayItems -Value { param([string]$Name, [object]$Items) $this.Kept = @($Items | ForEach-Object { [string]$_.Values['ServiceWindowID'] }) }
                     $o | Add-Member -MemberType ScriptMethod -Name Put -Value {
                         Test-Fail ('cmd:Put')
-                        $keep = @($this.ServiceWindows | ForEach-Object { [string]$_.ServiceWindowID })
+                        $keep = if ($null -ne $this.Kept) { @($this.Kept) } else { @($this.ServiceWindows | ForEach-Object { [string]$_.ServiceWindowID }) }
                         $before = @(if ($global:Windows.ContainsKey($this.CollectionID)) { $global:Windows[$this.CollectionID] })
                         $removed = @($before | Where-Object { $keep -notcontains [string]$_.ServiceWindowID } | ForEach-Object { [string]$_.ServiceWindowID })
                         $global:Log.Add('Cmd:SMS_CollectionSettings.ServiceWindows|' + $this.CollectionID + '|' + ($removed -join ','))

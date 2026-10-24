@@ -88,7 +88,9 @@ public static class HygieneFixText
             var window = Quote(c.Parameters[1].Value);
             return "$s = Invoke-CMWmiQuery -Query \"SELECT * FROM SMS_CollectionSettings WHERE CollectionID = " + collection + "\" | Select-Object -First 1\r\n"
                 + "$s.Get()\r\n"
-                + "$s.ServiceWindows = @($s.ServiceWindows | Where-Object { $_.ServiceWindowID -ne " + window + " })\r\n"
+                + "$keep = New-Object 'System.Collections.Generic.List[Microsoft.ConfigurationManagement.ManagementProvider.IResultObject]'\r\n"
+                + "foreach ($item in $s.GetArrayItems('ServiceWindows')) { if ($item['ServiceWindowID'].StringValue -ne " + window + ") { $keep.Add($item) } }\r\n"
+                + "$s.SetArrayItems('ServiceWindows', $keep)\r\n"
                 + "$s.Put()";
         }
         var text = new StringBuilder(c.Cmdlet);

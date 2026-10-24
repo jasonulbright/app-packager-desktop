@@ -88,7 +88,8 @@ internal static class HygieneFixRules
         if (Latest(s, model) is not { } app) return HygieneEvaluation.No("the application no longer exists.");
         var ci = CiIds(s, model);
         var deployments = AssignmentsOf(s, app).Count;
-        if (app.B("IsDeployed") || deployments > 0) return HygieneEvaluation.No($"the application has {Count(Math.Max(deployments, 1), "deployment")} now.");
+        if (deployments > 0) return HygieneEvaluation.No($"the application has {Count(deployments, "deployment")} now.");
+        if (app.B("IsDeployed")) return HygieneEvaluation.No("the site still reports the application as deployed. The site updates this flag some time after a deployment is removed; scan again later.");
         if (app.B("IsSuperseded") || app.B("IsSuperseding")) return HygieneEvaluation.No("the application is part of a supersedence relationship now.");
         var dependents = s.Table(AppDependencies).Records.Count(r => ci.Contains(r.I("ToApplicationCIID")));
         var relations = s.Table(AppRelations).Records.Count(r => ci.Contains(r.I("ToApplicationCIID")));

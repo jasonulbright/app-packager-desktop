@@ -24,7 +24,7 @@ public sealed class SiteHygieneFixTests
     /// <summary>The commands the stub ran, in order, equal the plan text of the prepared change.</summary>
     internal static void RanExactlyThePlan(SiteHygieneHarness h, HygieneChange change)
     {
-        var expected = change.FixText.Split("\r\n").Where(l => !l.StartsWith("$s.", StringComparison.Ordinal) && !l.StartsWith("$s =", StringComparison.Ordinal)).ToList();
+        var expected = change.FixText.Split("\r\n").Where(l => !l.StartsWith('$') && !l.StartsWith("foreach (", StringComparison.Ordinal)).ToList();
         var ran = h.Site.Commands.Where(c => !c.StartsWith("SMS_CollectionSettings", StringComparison.Ordinal)).ToList();
         Assert.Equal(expected, ran);
     }

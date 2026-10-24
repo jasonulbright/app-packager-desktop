@@ -397,14 +397,17 @@ function Invoke-Apply {
                 $window = [string]$t.WindowId
                 if ($id -notmatch $IdPattern -or $window -notmatch $GuidPattern) { throw 'invalid' }
                 # Remove-CMMaintenanceWindow matches every window whose name contains the given name,
-                # so the window is removed from the settings instance by its ServiceWindowID.
+                # so the window is removed from the settings instance by its ServiceWindowID. The
+                # embedded array of a result object is replaced only through SetArrayItems; assigning
+                # the property fails in the adapter.
                 $settings = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_CollectionSettings WHERE CollectionID = '$id'" -ErrorAction Stop) | Select-Object -First 1
                 if ($null -eq $settings) { throw 'No object corresponds to the specified parameters.' }
                 $settings.Get()
-                $before = @($settings.ServiceWindows)
-                $keep = @($before | Where-Object { [string](Get-Prop $_ 'ServiceWindowID') -ne $window })
-                if ($keep.Count -eq $before.Count) { throw 'No object corresponds to the specified parameters.' }
-                $settings.ServiceWindows = $keep
+                $items = @($settings.GetArrayItems('ServiceWindows'))
+                $keep = New-Object 'System.Collections.Generic.List[Microsoft.ConfigurationManagement.ManagementProvider.IResultObject]'
+                foreach ($item in $items) { if (([string]$item['ServiceWindowID'].StringValue).ToUpperInvariant() -ne $window.ToUpperInvariant()) { $keep.Add($item) } }
+                if ($keep.Count -eq $items.Count) { throw 'No object corresponds to the specified parameters.' }
+                $settings.SetArrayItems('ServiceWindows', $keep)
                 $settings.Put() | Out-Null
             }
             'SetCollectionRefreshType' {
