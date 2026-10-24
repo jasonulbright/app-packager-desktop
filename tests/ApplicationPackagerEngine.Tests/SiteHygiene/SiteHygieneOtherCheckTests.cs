@@ -21,7 +21,7 @@ public sealed class SiteHygieneOtherCheckTests
         var (findings, checks) = SiteHygieneParity.Native(Areas);
         Assert.Equal(HygieneCheckStates.Ran, checks.Single(c => c.CheckId == checkId).State);
         SiteHygieneParity.SameAsSource(findings, checkId);
-        Assert.NotEmpty(findings.Where(f => f.CheckId == checkId));
+        Assert.Contains(findings, f => f.CheckId == checkId);
     }
 
     [Theory]
@@ -33,7 +33,7 @@ public sealed class SiteHygieneOtherCheckTests
     {
         var (findings, _) = SiteHygieneParity.Native(Areas);
         SiteHygieneParity.SameAsSource(findings, checkId, s => s.ObjectName, f => f.ObjectName);
-        Assert.NotEmpty(findings.Where(f => f.CheckId == checkId));
+        Assert.Contains(findings, f => f.CheckId == checkId);
     }
 
     [Theory]

@@ -16,7 +16,7 @@ public sealed class SiteHygieneApplicationTests
         var (findings, checks) = SiteHygieneParity.Native("Applications", "Packages");
         Assert.Equal(HygieneCheckStates.Ran, checks.Single(c => c.CheckId == checkId).State);
         SiteHygieneParity.SameAsSource(findings, checkId);
-        Assert.NotEmpty(findings.Where(f => f.CheckId == checkId));
+        Assert.Contains(findings, f => f.CheckId == checkId);
     }
 
     [Fact]

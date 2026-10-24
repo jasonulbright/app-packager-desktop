@@ -12,8 +12,8 @@ param(
 # Values from the caller reach WQL text only after a pattern check (IDs, model names, GUIDs,
 # numbers). Names never reach WQL text: an object is found by its identifier and compared in
 # PowerShell. Every value leaves the session as text in a fixed column order. A time leaves as the
-# clock value the provider returns, unconverted: the source tool compares the same values with the
-# local time, and the provider marks values of both bases as local.
+# clock value the provider returns, unconverted: the provider marks values of both time bases as
+# local, so a conversion here would shift some of them.
 
 $CMPSSuppressFastNotUsedCheck = $true
 $Invariant = [System.Globalization.CultureInfo]::InvariantCulture

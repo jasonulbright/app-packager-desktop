@@ -7,7 +7,7 @@ using ApplicationPackagerEngine.Services.Logging;
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>
-/// Scans a ConfigMgr site with the 57 checks of the source catalog and runs their typed fixes through the
+/// Scans a ConfigMgr site with the 57 checks of <see cref="HygieneCatalog"/> and runs their typed fixes through the
 /// ConfigMgr session. A scan is one script run per read set, each one bulk query of the SMS Provider
 /// (three sets read one object per row, each under <see cref="MaxPerObjectReads"/>), then every check in
 /// memory in linear time. A set the site holds more rows of than <see cref="MaxRows"/>, or whose read

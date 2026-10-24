@@ -60,7 +60,7 @@ internal sealed class HygieneContext(HygieneSiteRead data, HygieneThresholds thr
 {
     public HygieneSiteRead Data { get; } = data;
     public HygieneThresholds T { get; } = thresholds;
-    /// <summary>The local time of this computer: the provider's time values are compared with it, as the source tool does.</summary>
+    /// <summary>The local time of this computer. The provider returns its time values unconverted, so they are compared with the local clock.</summary>
     public DateTime Now { get; } = now;
     public string SiteCode { get; } = siteCode;
 
@@ -93,7 +93,7 @@ internal sealed record HygieneCheckFamily(
     public Func<HygieneContext, string?>? Gate { get; init; }
 }
 
-/// <summary>The native checks, one family per group of IDs that share their reads. Every check keeps the ID, category, severity and recommendation of the source catalog.</summary>
+/// <summary>The checks, one family per group of IDs that share their reads.</summary>
 internal static partial class HygieneChecks
 {
     private static readonly Dictionary<string, HygieneCatalog.Check> CatalogById = HygieneCatalog.Checks.ToDictionary(c => c.Id, StringComparer.OrdinalIgnoreCase);
@@ -148,7 +148,7 @@ internal static partial class HygieneChecks
 
     internal static string Minute(DateTime? t) => t is { } v ? v.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "";
 
-    /// <summary>The first 15 names in ordinal order, as the source lists a sample.</summary>
+    /// <summary>The first 15 names in ordinal order.</summary>
     internal static string Sample(IEnumerable<string> names) => string.Join(", ", names.Order(StringComparer.OrdinalIgnoreCase).Take(15));
 
     internal static HashSet<string> Set(IEnumerable<string> values) => new(values.Where(v => v.Length > 0), StringComparer.OrdinalIgnoreCase);

@@ -344,7 +344,7 @@ internal static partial class HygieneChecks
 
     internal static readonly string[] RecommendedTasks = ["Delete Aged Inventory History", "Delete Aged Discovery Data", "Delete Obsolete Client Discovery Data", "Delete Aged Client Operations", "Delete Aged Log Data"];
 
-    /// <summary>The site names the backup task "Backup SMS Site Server"; the source looks for "Backup Site Server".</summary>
+    /// <summary>The site names its backup task "Backup SMS Site Server"; "Backup Site Server" is matched as well.</summary>
     internal static readonly string[] BackupTasks = ["Backup SMS Site Server", "Backup Site Server"];
 
     private static IEnumerable<HygieneFinding> MaintenanceTaskChecks(HygieneContext c)

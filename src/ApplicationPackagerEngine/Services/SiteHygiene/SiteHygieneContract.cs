@@ -1,6 +1,6 @@
 namespace ApplicationPackagerEngine.Services;
 
-/// <summary>The severity a check assigns, as the source catalog names it.</summary>
+/// <summary>The severity a check assigns.</summary>
 public enum HygieneSeverity { Info, Warning, Error }
 
 /// <summary>
@@ -124,7 +124,7 @@ public sealed record HygieneScanOptions(IReadOnlySet<string> Areas, TimeSpan Pau
     public HygieneThresholds Thresholds { get; init; } = new();
 }
 
-/// <summary>The tunables of the checks that take one; the defaults are those of the source tool.</summary>
+/// <summary>The tunables of the checks that take one.</summary>
 public sealed record HygieneThresholds
 {
     public int AppUnusedMinAgeDays { get; init; } = 30;
@@ -367,7 +367,7 @@ public interface IHygieneAuditLog
     bool OlderRecordsDropped => false;
 }
 
-/// <summary>The selectable scan areas, as the source tool names them.</summary>
+/// <summary>The selectable scan areas.</summary>
 public static class HygieneAreas
 {
     public sealed record Area(string Id, string Title);
@@ -395,7 +395,7 @@ public static class HygieneAreas
     ];
 }
 
-/// <summary>The 57 registered checks with the ID, category, severity and title of the source catalog.</summary>
+/// <summary>The 57 checks with their ID, category, severity and title.</summary>
 public static class HygieneCatalog
 {
     public sealed record Check(string Id, string Category, HygieneSeverity Severity, string Title);
