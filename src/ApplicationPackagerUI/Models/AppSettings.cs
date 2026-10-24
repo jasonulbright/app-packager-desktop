@@ -185,6 +185,10 @@ public sealed class AppSettings
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public PivotsScriptsSettings? PivotsScripts { get; set; }
 
+    /// <summary>The Site Hygiene page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SiteHygieneSettings? SiteHygiene { get; set; }
+
     /// <summary>
     /// Null in a file written before the flag existed. SettingsService stamps it true on load so
     /// an already-configured user never meets the setup window.
