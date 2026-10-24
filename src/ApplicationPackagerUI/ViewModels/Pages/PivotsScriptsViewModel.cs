@@ -116,9 +116,9 @@ public sealed partial class PivotsScriptsViewModel : ObservableObject
         return SelectedTabIndex switch
         {
             PivotTab => Task.WhenAll(EnsureLibraryAsync(PivotsLibraryKind.Query)),
-            ScriptTab => site && !IsScriptsLoaded ? LoadScriptsAsync() : Task.CompletedTask,
-            SiteScriptsTab => Task.WhenAll(EnsureLibraryAsync(PivotsLibraryKind.Script), site && !IsScriptsLoaded ? LoadScriptsAsync() : Task.CompletedTask),
-            HistoryTab => IsHistoryLoaded ? Task.CompletedTask : LoadHistoryAsync(),
+            ScriptTab => site ? EnsureScriptsAsync() : Task.CompletedTask,
+            SiteScriptsTab => Task.WhenAll(EnsureLibraryAsync(PivotsLibraryKind.Script), site ? EnsureScriptsAsync() : Task.CompletedTask),
+            HistoryTab => EnsureHistoryAsync(),
             _ => Task.CompletedTask
         };
     }

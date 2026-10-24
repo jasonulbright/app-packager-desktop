@@ -56,6 +56,18 @@ public sealed partial class PivotsScriptsViewModel
 
     partial void OnHistoryTextChanged(string value) => Debounce(HistoryKey, ApplyHistoryFilter);
 
+    private Task? _historyTask;
+
+    /// <summary>The read that runs now, or a new one when the history is not loaded.</summary>
+    private Task EnsureHistoryAsync()
+    {
+        if (IsHistoryLoaded) return Task.CompletedTask;
+        if (_historyTask is { IsCompleted: false } pending) return pending;
+        var task = LoadHistoryAsync();
+        _historyTask = task.IsCompleted ? null : task;
+        return task;
+    }
+
     private bool CanRefreshHistory() => !IsHistoryLoading;
 
     [RelayCommand(CanExecute = nameof(CanRefreshHistory))]
@@ -147,6 +159,7 @@ public sealed partial class PivotsScriptsViewModel
     private void ReleaseHistory()
     {
         _historyGeneration++;
+        _historyTask = null;
         IsHistoryLoading = false;
         IsHistoryLoaded = false;
         _records = [];
@@ -210,7 +223,9 @@ public sealed partial class PivotsScriptsViewModel
     {
         if (_applying) return;
         SaveLater();
-        _libraryGeneration++;
+        _libraryGeneration[0]++;
+        _libraryGeneration[1]++;
+        _libraryTasks.Clear();
         QueryLibrary = [];
         ScriptLibrary = [];
         if (_active) _ = EnsureTabLoadedAsync();

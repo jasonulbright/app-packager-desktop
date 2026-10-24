@@ -145,18 +145,18 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheTwoSidebarToolsNameTheSuiteFoldersAndEntryScripts()
+    public void TheOneSidebarToolNamesTheSuiteFolderAndEntryScript()
     {
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DeploymentHelper || t.Folder == "deployment-helper");
         Assert.Null(typeof(SuiteTools).GetProperty("DeploymentHelper"));
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DpContentManager || t.Folder == "dp-content-manager");
+        Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.PivotsScripts || t.Folder == "pivots-and-scripts");
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.CollectionCompliance);
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.InstallerAnalysis || t.Folder == "installer-analysis");
         Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-and-compliance-manager");
         Assert.Null(typeof(SuiteTools).GetProperty("CollectionAndCompliance"));
         Assert.Equal(
         [
-            ("pivots-and-scripts", "pivots-and-scripts", "start-pivotsandscripts.ps1"),
             ("site-hygiene", "site-hygiene", "start-sitehygiene.ps1")
         ], SuiteTools.All.Select(t => (t.Id, t.Folder, t.EntryScript)));
         Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-manager");
@@ -896,9 +896,25 @@ public sealed class SuiteToolRegistryTests
     }
 
     [Fact]
-    public void EveryOtherToolEntryIsAMovableToolWithAnAction()    {
-        var tools = SidebarRegistry.CreateDefault().Items.Skip(10).ToList();
-        Assert.Equal(2, tools.Count);
+    public void ThePivotsAndScriptsEntryIsAMovablePageWithItsSavedIdIconAndPlace()
+    {
+        var registry = SidebarRegistry.CreateDefault();
+        var item = registry.Find("pivots-and-scripts")!;
+        Assert.Equal(SidebarIds.PivotsScripts, item.Id);
+        Assert.Equal("Pivots and Scripts", item.Title);
+        Assert.Equal(SidebarItemKind.Page, item.Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), item.PageType);
+        Assert.Null(item.Activate);
+        Assert.False(item.IsPinned);
+        Assert.Equal("Code24", item.Symbol);
+        Assert.Equal(10, registry.Items.ToList().IndexOf(item));
+    }
+
+    [Fact]
+    public void EveryOtherToolEntryIsAMovableToolWithAnAction()
+    {
+        var tools = SidebarRegistry.CreateDefault().Items.Skip(11).ToList();
+        Assert.Single(tools);
         foreach (var item in tools)
         {
             Assert.Equal(SidebarItemKind.Tool, item.Kind);

@@ -28,7 +28,7 @@ public sealed partial class PivotsScriptsViewModel
          "foreach", "try", "catch", "[pscustomobject]", "Write-Output"];
 
     private int _scriptsGeneration;
-    private int _libraryGeneration;
+    private readonly int[] _libraryGeneration = new int[2];
     private IReadOnlyList<ScriptGridRow> _allScripts = [];
     private string? _selectedApprovedKey;
     private string? _selectedSiteScriptKey;
@@ -112,6 +112,7 @@ public sealed partial class PivotsScriptsViewModel
     private void ReleaseScripts()
     {
         _scriptsGeneration++;
+        _scriptsTask = null;
         IsScriptsLoading = false;
         IsScriptsLoaded = false;
         _allScripts = [];
@@ -124,11 +125,25 @@ public sealed partial class PivotsScriptsViewModel
 
     private void ReleaseLibraries()
     {
-        _libraryGeneration++;
+        _libraryGeneration[0]++;
+        _libraryGeneration[1]++;
+        _libraryTasks.Clear();
         QueryLibrary = [];
         ScriptLibrary = [];
         SelectedQueryItem = null;
         SelectedScriptItem = null;
+    }
+
+    private Task? _scriptsTask;
+
+    /// <summary>The read that runs now, or a new one when the scripts are not loaded; loaded scripts need no read.</summary>
+    private Task EnsureScriptsAsync()
+    {
+        if (IsScriptsLoaded) return Task.CompletedTask;
+        if (_scriptsTask is { IsCompleted: false } pending) return pending;
+        var task = LoadScriptsAsync();
+        _scriptsTask = task.IsCompleted ? null : task;
+        return task;
     }
 
     private bool CanRefreshScripts() => !IsScriptsLoading;
@@ -186,25 +201,33 @@ public sealed partial class PivotsScriptsViewModel
         SiteScriptCount = list.Count == _allScripts.Count ? PivotsLabels.Count(list.Count, "script") : $"{PivotsLabels.Number(list.Count)} of {PivotsLabels.Count(_allScripts.Count, "script")}";
     }
 
-    private Task EnsureLibraryAsync(PivotsLibraryKind kind) =>
-        (kind == PivotsLibraryKind.Query ? QueryLibrary : ScriptLibrary).Count > 0 ? Task.CompletedTask : LoadLibraryAsync(kind);
+    private readonly Dictionary<PivotsLibraryKind, Task> _libraryTasks = [];
+
+    private Task EnsureLibraryAsync(PivotsLibraryKind kind)
+    {
+        if ((kind == PivotsLibraryKind.Query ? QueryLibrary : ScriptLibrary).Count > 0) return Task.CompletedTask;
+        if (_libraryTasks.TryGetValue(kind, out var pending) && !pending.IsCompleted) return pending;
+        var task = LoadLibraryAsync(kind);
+        _libraryTasks[kind] = task;
+        return task;
+    }
 
     /// <summary>Reads the built-in samples and the files of the library folder; it needs no site.</summary>
     public async Task LoadLibraryAsync(PivotsLibraryKind kind)
     {
         var generation = Generation;
-        var mine = ++_libraryGeneration;
+        var mine = ++_libraryGeneration[(int)kind];
         var folder = string.IsNullOrWhiteSpace(LibraryFolder) ? null : LibraryFolder.Trim();
         try
         {
             var items = await Task.Run(() => Services.Library.Load(kind, folder));
-            if (generation != Generation || mine != _libraryGeneration) return;
+            if (generation != Generation || mine != _libraryGeneration[(int)kind]) return;
             if (kind == PivotsLibraryKind.Query) QueryLibrary = items;
             else ScriptLibrary = items;
         }
         catch (Exception ex)
         {
-            if (generation != Generation || mine != _libraryGeneration) return;
+            if (generation != Generation || mine != _libraryGeneration[(int)kind]) return;
             StatusMessage = PlainMessage(ex, LibraryFailed);
             Services.Log.Warning(LogArea, $"The {kind} library could not be read ({ex.GetType().Name}).");
         }
