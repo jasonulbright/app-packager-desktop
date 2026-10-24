@@ -207,7 +207,7 @@ internal sealed class StubDpContentSite : IConfigMgrSession
         Set-StrictMode -Off
         $state.Options | Add-Member -NotePropertyName Fail -NotePropertyValue @($global:FailLeft) -Force
         $next = [pscustomobject]@{ Options = $state.Options; Tick = $global:Tick }
-        foreach ($k in $global:S.Keys) { $next | Add-Member -NotePropertyName $k -NotePropertyValue @($global:S[$k]) }
+        if ($null -ne $gen) { $next = $state } else { foreach ($k in $global:S.Keys) { $next | Add-Member -NotePropertyName $k -NotePropertyValue @($global:S[$k]) } }
         $lines = foreach ($o in $out) { ConvertTo-Json -InputObject $o -Depth 3 -Compress }
         $document = [pscustomobject]@{ Output = @($lines); Thrown = $thrown; Log = @($global:Log); State = $next }
         [IO.File]::WriteAllText($OutPath, (ConvertTo-Json -InputObject $document -Depth 6 -Compress), (New-Object System.Text.UTF8Encoding $false))
@@ -368,7 +368,6 @@ internal sealed class StubDpContentSite : IConfigMgrSession
             using var document = JsonDocument.Parse(File.ReadAllText(outPath));
             var root = document.RootElement;
             var state = JsonNode.Parse(root.GetProperty("State").GetRawText())!.AsObject();
-            state.Remove("Generate");
             _state = state;
             Log.AddRange(Elements(root.GetProperty("Log")).Select(e => e.GetString() ?? ""));
             var lines = Elements(root.GetProperty("Output")).Select(e => e.GetString() ?? "").Where(l => l.Length > 0);

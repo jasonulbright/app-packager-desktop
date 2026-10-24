@@ -106,6 +106,9 @@ public static class PackagerServiceRegistration
             return new RingService(sp.GetRequiredService<IDeploymentService>(), sp.GetRequiredService<IDeploymentSiteReader>(), sp.GetRequiredService<IDeploymentAuditLog>(),
                 new RingPlanStore(() => paths.PlansFolder, log), new RingRunStore(() => paths.RunsFolder, log), log);
         });
+        services.AddSingleton<IDpContentAuditLog>(sp => new DpContentAuditLog(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IDpContentReportWriter>(_ => new DpContentReportWriter());
+        services.AddSingleton<IDpContentService>(sp => new DpContentService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IDpContentAuditLog>(), sp.GetRequiredService<IAppLog>()));
 
         services.AddSingleton<IAnalysisSandbox>(_ => new AnalysisSandbox());
         services.AddSingleton<IInstallerAnalysisService>(sp => new InstallerAnalysisService(sp.GetRequiredService<IAnalysisSandbox>()));
