@@ -29,10 +29,19 @@ public partial class SiteHygienePage : INavigationAware
         {
             if (dgFindings.IsVisible && _selectionPending) SelectFindings();
         };
-        SizeChanged += (_, e) => dgHygieneResults.MaxHeight = e.NewSize.Height < ShortHeight ? ShortResultsHeight : TallResultsHeight;
+        SizeChanged += (_, e) =>
+        {
+            var compact = e.NewSize.Height < ShortHeight;
+            dgHygieneResults.MaxHeight = compact ? ShortResultsHeight : TallResultsHeight;
+            txtHygieneIntro.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+            pageRoot.Margin = compact ? CompactMargin : RegularMargin;
+        };
     }
 
-    /// <summary>Below this page height the result rows take less room, so the tabs keep a usable height at 900x600.</summary>
+    private static readonly Thickness RegularMargin = new(24, 16, 24, 12);
+    private static readonly Thickness CompactMargin = new(24, 6, 24, 4);
+
+    /// <summary>Below this page height the result rows take less room and the intro line is hidden, so the tabs keep a usable height at 900x600.</summary>
     public const double ShortHeight = 700;
     public const double ShortResultsHeight = 64;
     public const double TallResultsHeight = 140;
