@@ -80,7 +80,7 @@ public static class HygieneCheckStates
     /// <summary>The check did not run: a dataset it needs failed or was cut. A check that did not run never reports "no findings".</summary>
     public const string NotRun = "NotRun";
 
-    /// <summary>No selected area covers the check.</summary>
+    /// <summary>No selected area covers the check, or an option of the scan leaves it out (APP-04 with the content source probe off).</summary>
     public const string NotSelected = "NotSelected";
 
     /// <summary>The check reads the site database; it moves to part 2.</summary>
@@ -193,6 +193,7 @@ public static class HygieneResults
     /// <summary>The write ran and the read-back shows the object as before.</summary>
     public const string Unchanged = "Unchanged";
 
+    /// <summary>The write failed, or it ran and its read-back could not be made, so the result is not known.</summary>
     public const string Failed = "Failed";
     public const string Skipped = "Skipped";
 }
@@ -251,10 +252,20 @@ public sealed record RelationApp(string ModelName, string Name, string Version, 
     public string Health => IsExpired ? "Retired" : !IsEnabled ? "Disabled" : !HasContent ? "No content" : RelationHealth.Healthy;
 }
 
-/// <summary>A suppression by check ID and object key, never by display name.</summary>
+/// <summary>A suppression by check ID and object key, never by display name, for one site or for every site.</summary>
 public sealed record Suppression(string CheckId, string ObjectKey, string Comment, DateTime CreatedUtc)
 {
     public string Key => HygieneFinding.KeyOf(CheckId, ObjectKey);
+
+    /// <summary>The site code the suppression is for; empty for every site (the suppressions of a file from an earlier version).</summary>
+    public string SiteCode { get; init; } = "";
+
+    /// <summary>The identity in the store: the site code, the check ID and the object key.</summary>
+    public string StoreKey => (SiteCode ?? "").ToUpperInvariant() + "|" + Key;
+
+    /// <summary>True when the suppression holds on the site; an empty <paramref name="siteCode"/> matches every suppression.</summary>
+    public bool AppliesTo(string siteCode) =>
+        string.IsNullOrEmpty(SiteCode) || string.IsNullOrEmpty(siteCode) || string.Equals(SiteCode, siteCode.Trim(), StringComparison.OrdinalIgnoreCase);
 }
 
 public interface ISiteHygieneService
@@ -278,20 +289,37 @@ public interface ISiteHygieneService
 
 public interface IHygieneSuppressionStore
 {
-    /// <summary>The suppressions; empty when the file is missing or cannot be read.</summary>
+    /// <summary>The suppressions of every site; empty when the file is missing or cannot be read.</summary>
     IReadOnlyList<Suppression> Load();
 
-    /// <summary>Adds or replaces the suppression of the same check ID and object key.</summary>
+    /// <summary>Adds or replaces the suppression of the same site code, check ID and object key.</summary>
     void Add(Suppression suppression);
 
+    /// <summary>
+    /// Adds or replaces each suppression with one read and one write of the file. Throws
+    /// <see cref="HygieneServiceException"/> and changes nothing when the file exists but cannot be read.
+    /// </summary>
+    void AddRange(IReadOnlyList<Suppression> suppressions);
+
+    /// <summary>Removes the suppressions of the check ID and object key on every site.</summary>
     void Remove(string checkId, string objectKey);
+
+    /// <summary>
+    /// Removes each suppression of the keys that holds on the site (its own and the every-site ones) with one
+    /// read and one write of the file. Throws <see cref="HygieneServiceException"/> and changes nothing when
+    /// the file exists but cannot be read.
+    /// </summary>
+    void RemoveRange(string siteCode, IReadOnlyList<(string CheckId, string ObjectKey)> keys);
 
     string Path { get; }
 }
 
 public interface IHygieneScanStore
 {
-    /// <summary>Writes the result as the last scan (atomic replace); throws <see cref="HygieneServiceException"/> when it cannot.</summary>
+    /// <summary>
+    /// Writes the result as the last scan (atomic replace); throws <see cref="HygieneServiceException"/> when
+    /// it cannot, and when the file would be larger than a read takes.
+    /// </summary>
     void Save(HygieneScanResult result);
 
     /// <summary>The last scan with <see cref="HygieneScanResult.Stored"/> true; null when absent or unreadable.</summary>
@@ -323,13 +351,27 @@ public interface IHygieneReportWriter
     string Folder { get; }
 }
 
+/// <summary>The phases of the Site Hygiene audit records.</summary>
+public static class HygieneAuditPhases
+{
+    /// <summary>Exactly one per run, before the first write; it lists the first planned objects.</summary>
+    public const string Started = "Started";
+
+    /// <summary>A continuation that lists more objects of the same run ID: planned objects before the first write, results before the Finished record.</summary>
+    public const string Objects = "Objects";
+
+    /// <summary>Exactly one per run that has a Started record, after the last object.</summary>
+    public const string Finished = "Finished";
+}
+
 /// <summary>
-/// One line of the Site Hygiene audit log. A fix writes a Started record before the first write (a failed
-/// write blocks the run) and a Finished record after the last object.
+/// One line of the Site Hygiene audit log. A fix writes exactly one Started record before the first write
+/// (a failed write blocks the run) and exactly one Finished record after the last object; a run with more
+/// objects than one record holds lists the rest in records of phase Objects with the same run ID.
 /// </summary>
 /// <param name="Event">The fix kind.</param>
-/// <param name="Phase">Started or Finished.</param>
-/// <param name="Result">Started: empty. Finished: Succeeded, Partial, Failed or Skipped.</param>
+/// <param name="Phase">See <see cref="HygieneAuditPhases"/>.</param>
+/// <param name="Result">Started and planned Objects: empty. Finished and result Objects: Succeeded, Partial, Failed or Skipped.</param>
 public sealed record HygieneAuditRecord(
     DateTime Timestamp,
     string User,

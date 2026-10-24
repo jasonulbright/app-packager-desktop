@@ -179,7 +179,7 @@ public sealed class SiteHygienePageRealServiceTests
         await vm.RunFixCommand.ExecuteAsync(null);
         Assert.Single(p.Dialogs.Shown);
         Assert.Empty(p.Plans.Shown);
-        Assert.Equal("The plan cannot run. Nothing was changed. The plan writes 2 objects. One run deletes at most 1. Filter the findings and run them in parts.", vm.StatusMessage);
+        Assert.Equal("The plan cannot run. Nothing was changed. The plan holds 2 findings. One run deletes at most 1 object. Filter the findings and run them in parts. The site was not read.", vm.StatusMessage);
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public sealed class SiteHygienePageRealServiceTests
         var result = vm.Result!;
         var notSelected = result.Checks.Count(c => c.State == HygieneCheckStates.NotSelected);
         Assert.True(notSelected > 0);
-        Assert.Contains($"{notSelected} checks were not in the scanned areas.", vm.SummaryLine);
+        Assert.Contains($"{notSelected} checks were not in the scanned areas or options.", vm.SummaryLine);
         Assert.Equal(result.ChecksNotRun, vm.CheckRows.Count(c => SiteHygieneLabels.IsNotRun(c.Check)));
         Assert.DoesNotContain(vm.CheckRows.Where(c => SiteHygieneLabels.WasNotSelected(c.Check)), c => vm.NotRunText.Contains(c.CheckId + " ", StringComparison.Ordinal));
         Assert.All(vm.CheckRows.Where(c => SiteHygieneLabels.WasNotSelected(c.Check)), c => Assert.Equal(("Not selected", "Not known"), (c.State, c.Findings)));

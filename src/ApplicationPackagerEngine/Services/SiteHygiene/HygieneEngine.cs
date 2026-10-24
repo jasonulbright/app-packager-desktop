@@ -17,6 +17,11 @@ internal static class HygieneEngine
                 foreach (var id in family.CheckIds) states[id] = (HygieneCheckStates.NotSelected, $"The scan did not cover the area {names}.");
                 continue;
             }
+            if (family.OptionGate?.Invoke(context) is { } off)
+            {
+                foreach (var id in family.CheckIds) states[id] = (HygieneCheckStates.NotSelected, off);
+                continue;
+            }
             var reason = MissingReason(context.Data, family.Requires) ?? family.Gate?.Invoke(context);
             if (reason is not null)
             {

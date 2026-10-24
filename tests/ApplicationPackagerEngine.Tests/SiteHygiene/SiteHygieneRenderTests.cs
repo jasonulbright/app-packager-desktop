@@ -178,6 +178,7 @@ public sealed class SiteHygieneRenderTests
         {
             yield return ("dgCategories", header, "Not known");
             yield return ("dgCategories", header, "123,456");
+            yield return ("dgCategories", header, "At least 123,456");
         }
         yield return ("dgCategories", "Checks not run", "57");
         yield return ("dgChecks", "Check", "COL-10");

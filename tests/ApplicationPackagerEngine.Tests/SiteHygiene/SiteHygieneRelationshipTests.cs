@@ -22,7 +22,7 @@ public sealed class SiteHygieneRelationshipTests
             SiteHygieneParity.SameAsSource(findings, id, s => s.ObjectName, f => f.ObjectName);
         }
         Assert.Equal(2, findings.Count(f => f.CheckId == "DEP-05"));
-        Assert.Equal(HygieneCheckStates.NotRun, checks.Single(c => c.CheckId == "APP-04").State);
+        Assert.Equal(HygieneCheckStates.NotSelected, checks.Single(c => c.CheckId == "APP-04").State);
         Assert.Contains("probe is off", checks.Single(c => c.CheckId == "APP-04").Reason);
     }
 

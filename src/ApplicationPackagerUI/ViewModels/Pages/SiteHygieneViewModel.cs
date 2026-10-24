@@ -321,14 +321,45 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
 
     private bool CanCancelScan() => IsScanning;
 
+    /// <summary>True once the running scan showed its result; a Cancel after that changes nothing.</summary>
+    private bool _scanShown;
+
     [RelayCommand(CanExecute = nameof(CanCancelScan))]
     private void CancelScan()
     {
-        if (_scanCts is not { } cts) return;
+        if (_scanCts is not { } cts || _scanShown) return;
         _scanGeneration++;
         try { cts.Cancel(); } catch (ObjectDisposedException) { }
         StatusMessage = ScanCancelling;
     }
+
+    /// <summary>The site code of the settings, upper case; empty when it is not set.</summary>
+    private string CurrentSite() => (Services.LoadSettings().SiteCode ?? "").Trim().ToUpperInvariant();
+
+    /// <summary>True when a result or suppression of <paramref name="resultSite"/> belongs to the site <paramref name="site"/>; a result without a site code belongs to none.</summary>
+    public static bool SameSite(string? resultSite, string site) =>
+        !string.IsNullOrWhiteSpace(resultSite) && string.Equals(resultSite.Trim(), site.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    public static string OtherSite(string resultSite, string site) =>
+        $"The result shown is of site {(resultSite.Length > 0 ? resultSite : "(not known)")}, and the settings name site {site}. Nothing was changed. Select Scan to read site {site}.";
+
+    /// <summary>
+    /// Why a scan result must not replace the stored last scan: a truncated read, or a check that did not
+    /// run because a read failed, was cut or the check threw. The New column of the next scan compares
+    /// with the stored scan, and a baseline without those findings would mark them all new. Null when the
+    /// result may replace it.
+    /// </summary>
+    public static string? BaselineProblem(HygieneScanResult result)
+    {
+        if (result.Truncated) return "The read was truncated, so the result was not stored as the last scan.";
+        var notRun = result.Checks.Count(c => c.State is HygieneCheckStates.NotRun or HygieneCheckStates.Failed);
+        return notRun > 0
+            ? $"{SiteHygieneLabels.Count(notRun, "check")} did not run, so the result was not stored as the last scan."
+            : null;
+    }
+
+    /// <summary>The reason the result shown was not stored as the last scan; empty when it was stored or is the stored one.</summary>
+    private string _notStored = "";
 
     /// <summary>Scans the selected areas; a call while a scan runs waits for that scan.</summary>
     public Task ScanAsync()
@@ -356,8 +387,10 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         var options = new HygieneScanOptions(Areas: areas, PauseBetweenCalls: TimeSpan.FromMilliseconds(Math.Max(0, PauseMilliseconds)), ProbeContentSources: ProbeContentSources);
         var mine = ++_scanGeneration;
         var site = SiteKey();
+        var siteCode = CurrentSite();
         using var cts = new CancellationTokenSource();
         _scanCts = cts;
+        _scanShown = false;
         IsScanning = true;
         ScanProgress = "Starting the scan.";
         StatusMessage = "";
@@ -378,17 +411,25 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
                 StatusMessage = SiteChanged;
                 return;
             }
-            var suppressions = await Task.Run(ReadSuppressions);
-            var lastKeys = await Task.Run(ReadLastKeys);
-            if (mine != _scanGeneration) return;
-            result = MarkNew(result, lastKeys);
+            if (result.SiteCode.Length == 0) result = result with { SiteCode = siteCode };
+            var suppressions = await Task.Run(() => ReadSuppressions(siteCode));
+            var last = await Task.Run(() => ReadLastScan(siteCode));
+            if (mine != _scanGeneration)
+            {
+                StatusMessage = ScanCancelled;
+                return;
+            }
+            result = MarkNew(result, last);
+            var baseline = full ? BaselineProblem(result) : "The scan covered part of the areas, so it is not stored as the last scan.";
+            _notStored = baseline is null ? "" : baseline + (last is not null ? $" The New column compares with the stored scan of {SiteHygieneLabels.Time(last.ScannedUtc)}." : "");
+            _scanShown = true;
             Show(result, stored: false, suppressions);
             var notRun = result.Checks.Count(SiteHygieneLabels.IsNotRun);
             StatusMessage = $"The scan ended: {SiteHygieneLabels.Count(result.Findings.Count, "finding")}, {SiteHygieneLabels.Count(result.Checks.Count, "check")}"
                 + (notRun > 0 ? $", {SiteHygieneLabels.Number(notRun)} did not run." : ".")
-                + (full ? "" : " The scan covered part of the areas, so it is not stored as the last scan.");
-            Services.Log.Info(LogArea, $"Scan: areas={areas.Count} findings={result.Findings.Count} checks={result.Checks.Count} notRun={notRun} truncated={result.Truncated}.");
-            if (full) await SaveScanAsync(result);
+                + (_notStored.Length > 0 ? " " + _notStored : "");
+            Services.Log.Info(LogArea, $"Scan: areas={areas.Count} findings={result.Findings.Count} checks={result.Checks.Count} notRun={notRun} truncated={result.Truncated} stored={baseline is null}.");
+            if (baseline is null) await SaveScanAsync(result);
         }
         catch (OperationCanceledException)
         {
@@ -396,7 +437,11 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            if (mine != _scanGeneration) return;
+            if (mine != _scanGeneration)
+            {
+                StatusMessage = ScanCancelled;
+                return;
+            }
             StatusMessage = PlainMessage(ex, ScanFailed);
             Services.Log.Warning(LogArea, $"The scan failed ({FailureName(ex)}).");
         }
@@ -418,34 +463,40 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
     }
 
-    /// <summary>The finding keys of the stored last scan; null when there is none or it cannot be read.</summary>
-    private IReadOnlySet<string>? ReadLastKeys()
+    /// <summary>The stored last scan of the site; null when there is none, it cannot be read, or it is of another site.</summary>
+    private HygieneScanResult? ReadLastScan(string siteCode)
     {
-        try { return Services.ScanStore.Keys(); }
+        try { return Services.ScanStore.Load() is { } last && SameSite(last.SiteCode, siteCode) ? last : null; }
         catch (Exception ex)
         {
-            Services.Log.Warning(LogArea, $"The keys of the last scan could not be read ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The last scan could not be read ({ex.GetType().Name}).");
             return null;
         }
     }
 
     /// <summary>
-    /// Sets the New flag of each finding from the keys of the last scan: new when the last scan did not
-    /// hold its key. Without a last scan no finding is new, as the page cannot tell.
+    /// Sets the New flag of each finding from the last scan of the same site: new when the check ran in
+    /// the last scan and the last scan did not hold its key. Without a last scan, or for a check that did
+    /// not run in it, no finding is new, as the page cannot tell.
     /// </summary>
-    public static HygieneScanResult MarkNew(HygieneScanResult result, IReadOnlySet<string>? lastKeys)
+    public static HygieneScanResult MarkNew(HygieneScanResult result, HygieneScanResult? last)
     {
-        var last = lastKeys?.Select(k => k.ToUpperInvariant()).ToHashSet(StringComparer.Ordinal);
-        return result with { Findings = result.Findings.Select(f => f with { IsNew = last is not null && !last.Contains(SiteHygieneLabels.Key(f)) }).ToList() };
+        var keys = last?.Findings.Select(SiteHygieneLabels.Key).ToHashSet(StringComparer.Ordinal);
+        var ran = last?.Checks.Where(SiteHygieneLabels.DidRun).Select(c => c.CheckId.ToUpperInvariant()).ToHashSet(StringComparer.Ordinal);
+        return result with
+        {
+            Findings = result.Findings.Select(f => f with { IsNew = keys is not null && ran!.Contains(f.CheckId.ToUpperInvariant()) && !keys.Contains(SiteHygieneLabels.Key(f)) }).ToList()
+        };
     }
 
-    private Dictionary<string, Suppression> ReadSuppressions()
+    /// <summary>The suppressions that hold on the site: its own and those of every site; its own wins for the same key.</summary>
+    private Dictionary<string, Suppression> ReadSuppressions(string siteCode)
     {
         var map = new Dictionary<string, Suppression>(StringComparer.Ordinal);
         try
         {
-            foreach (var s in Services.Suppressions.Load())
-                if (s is { CheckId.Length: > 0, ObjectKey.Length: > 0 }) map[SiteHygieneLabels.Key(s.CheckId, s.ObjectKey)] = s;
+            foreach (var s in Services.Suppressions.Load().Where(s => s is { CheckId.Length: > 0, ObjectKey.Length: > 0 } && s.AppliesTo(siteCode)).OrderBy(s => s.SiteCode.Length > 0))
+                map[SiteHygieneLabels.Key(s.CheckId, s.ObjectKey)] = s;
         }
         catch (Exception ex)
         {
@@ -454,15 +505,19 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         return map;
     }
 
-    /// <summary>Shows the stored last scan when no scan of this session shows yet; the read touches the disk only.</summary>
+    /// <summary>The site code of the result shown, or of the settings when no result shows.</summary>
+    private string ResultSite() => _result is { SiteCode.Length: > 0 } r ? r.SiteCode.Trim().ToUpperInvariant() : CurrentSite();
+
+    /// <summary>Shows the stored last scan of the site when no scan of this session shows yet; the read touches the disk only.</summary>
     private async Task LoadStoredAsync()
     {
         HygieneScanResult? stored;
         Dictionary<string, Suppression> suppressions;
+        var siteCode = CurrentSite();
         try
         {
             stored = await Task.Run(Services.ScanStore.Load);
-            suppressions = await Task.Run(ReadSuppressions);
+            suppressions = await Task.Run(() => ReadSuppressions(siteCode));
         }
         catch (Exception ex)
         {
@@ -471,6 +526,13 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
         // A scan of this session that ended or still runs is newer than the stored result.
         if (stored is null || _result is not null || IsScanning) return;
+        if (!SameSite(stored.SiteCode, siteCode))
+        {
+            if (siteCode.Length > 0)
+                StatusMessage = $"The stored last scan is of site {(stored.SiteCode.Length > 0 ? stored.SiteCode : "(not known)")}, not of site {siteCode}, so it is not shown. Select Scan to read site {siteCode}.";
+            return;
+        }
+        _notStored = "";
         Show(stored, stored: true, suppressions);
     }
 
@@ -523,8 +585,9 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         parts.Add($"{SiteHygieneLabels.Number(suppressed)} suppressed.");
         parts.Add($"Last scan {SiteHygieneLabels.Time(result.ScannedUtc)}{(_isStored ? " (stored result, not read from the site in this session)" : "")}.");
         if (notRun.Count > 0) parts.Add($"{SiteHygieneLabels.Count(notRun.Count, "check")} did not run.");
-        if (notSelected > 0) parts.Add($"{SiteHygieneLabels.Count(notSelected, "check")} {(notSelected == 1 ? "was" : "were")} not in the scanned areas.");
+        if (notSelected > 0) parts.Add($"{SiteHygieneLabels.Count(notSelected, "check")} {(notSelected == 1 ? "was" : "were")} not in the scanned areas or options.");
         if (_fixedKeys.Count > 0) parts.Add($"{SiteHygieneLabels.Count(_fixedKeys.Count, "finding")} fixed since the scan.");
+        if (!_isStored && _notStored.Length > 0) parts.Add(_notStored);
         if (result.Note is { Length: > 0 } note) parts.Add(SecretMask.Apply(note));
         SummaryLine = string.Join(" ", parts);
 
@@ -548,20 +611,30 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             var checks = result.Checks.Where(c => string.Equals(c.Category, name, StringComparison.OrdinalIgnoreCase)).ToList();
             var mine = shown.Where(r => string.Equals(r.Category, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (checks.Count == 0 && mine.Count == 0) continue;
-            var notRun = checks.Count(SiteHygieneLabels.IsNotRun);
             var unknown = result.Truncated || (checks.Count > 0 && checks.All(c => !SiteHygieneLabels.DidRun(c)));
-            rows.Add(Row(name, mine, unknown, notRun));
+            rows.Add(Row(name, mine, unknown, checks.Where(SiteHygieneLabels.IsNotRun).ToList()));
         }
-        var allNotRun = result.Checks.Count(SiteHygieneLabels.IsNotRun);
-        rows.Add(Row("All categories", shown, result.Truncated || (result.Checks.Count > 0 && result.Checks.All(c => !SiteHygieneLabels.DidRun(c))), allNotRun));
+        rows.Add(Row("All categories", shown, result.Truncated || (result.Checks.Count > 0 && result.Checks.All(c => !SiteHygieneLabels.DidRun(c))), result.Checks.Where(SiteHygieneLabels.IsNotRun).ToList()));
         return rows;
     }
 
-    private static SummaryCategoryRow Row(string name, List<FindingGridRow> rows, bool unknown, int notRun)
+    /// <summary>
+    /// One summary row. A cell whose severity has a check that did not run shows "At least N", or "Not
+    /// known" for zero, as the findings of that check are missing; a zero there never means none.
+    /// </summary>
+    private static SummaryCategoryRow Row(string name, List<FindingGridRow> rows, bool unknown, List<HygieneCheckStatus> notRun)
     {
-        string Cell(Func<FindingGridRow, bool> match) => unknown ? "Not known" : SiteHygieneLabels.Number(rows.Count(match));
-        return new SummaryCategoryRow(Category: name, Error: Cell(r => r.Finding.Severity == HygieneSeverity.Error), Warning: Cell(r => r.Finding.Severity == HygieneSeverity.Warning),
-            Info: Cell(r => r.Finding.Severity == HygieneSeverity.Info), Total: Cell(_ => true), NotRun: SiteHygieneLabels.Number(notRun));
+        string Cell(Func<FindingGridRow, bool> match, bool partial)
+        {
+            if (unknown) return "Not known";
+            var n = rows.Count(match);
+            return !partial ? SiteHygieneLabels.Number(n) : n == 0 ? "Not known" : "At least " + SiteHygieneLabels.Number(n);
+        }
+        bool Missing(HygieneSeverity s) => notRun.Any(c => c.Severity == s);
+        return new SummaryCategoryRow(Category: name, Error: Cell(r => r.Finding.Severity == HygieneSeverity.Error, Missing(HygieneSeverity.Error)),
+            Warning: Cell(r => r.Finding.Severity == HygieneSeverity.Warning, Missing(HygieneSeverity.Warning)),
+            Info: Cell(r => r.Finding.Severity == HygieneSeverity.Info, Missing(HygieneSeverity.Info)), Total: Cell(_ => true, notRun.Count > 0),
+            NotRun: SiteHygieneLabels.Number(notRun.Count));
     }
 
     partial void OnFindingTextChanged(string value) => Debounce(FindingsGrid, ApplyFindingFilter);

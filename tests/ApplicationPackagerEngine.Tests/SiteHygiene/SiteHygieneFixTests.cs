@@ -150,7 +150,10 @@ public sealed class SiteHygieneFixTests
     {
         using var h = new SiteHygieneHarness(InactiveClient02("2026-10-12T04:25:53"));
         var result = await h.ScanAsync("Devices");
-        var finding = Assert.Single(result.Findings, f => f.CheckId == "DEV-01");
+        Assert.DoesNotContain(result.Findings, f => f.CheckId == "DEV-01");
+        Assert.Equal(HygieneCheckStates.Ran, result.Checks.Single(c => c.CheckId == "DEV-01").State);
+        var finding = HygieneChecks.F("DEV-01", "Device", "16777222", "CLIENT02", "e", "r", HygieneFixKind.RemoveDevice,
+            HygieneChecks.Params((HygieneFixParameters.Id, "16777222"), (HygieneFixParameters.Days, "90")));
         var change = await PrepareAsync(h, HygieneFixKind.RemoveDevice, finding);
         Assert.True(change.Blocked);
         Assert.Contains("heartbeat 2026-10-12", Assert.Single(change.Dropped).Message);

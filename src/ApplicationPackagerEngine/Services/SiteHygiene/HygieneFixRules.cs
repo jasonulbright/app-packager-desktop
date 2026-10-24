@@ -46,7 +46,57 @@ internal static class HygieneFixRules
 
     private static string P(HygieneFinding f, string name) => f.FixParameters.TryGetValue(name, out var v) ? v ?? "" : "";
 
-    private static int Days(HygieneFinding f, int fallback) => int.TryParse(P(f, HygieneFixParameters.Days), NumberStyles.Integer, CultureInfo.InvariantCulture, out var d) && d > 0 ? d : fallback;
+    /// <summary>The checks whose findings each fix kind runs; a finding of another check is refused, whatever its parameters say.</summary>
+    internal static readonly IReadOnlyDictionary<HygieneFixKind, string[]> ChecksOf = new Dictionary<HygieneFixKind, string[]>
+    {
+        [HygieneFixKind.RemoveApplication] = ["APP-01"],
+        [HygieneFixKind.RemoveApplicationDeployment] = ["APP-02", "APP-03", "DPL-01"],
+        [HygieneFixKind.RemoveApplicationRevisionHistory] = ["APP-05"],
+        [HygieneFixKind.RemovePackage] = ["PKG-01"],
+        [HygieneFixKind.RemoveCollection] = ["COL-01"],
+        [HygieneFixKind.RemoveDevice] = ["DEV-01"],
+        [HygieneFixKind.RemoveBootImage] = ["TSQ-02"],
+        [HygieneFixKind.RemoveDriverPackage] = ["TSQ-02"],
+        [HygieneFixKind.RemoveAutoDeploymentRule] = ["UPD-03"],
+        [HygieneFixKind.RemoveMaintenanceWindow] = ["COL-10"],
+        [HygieneFixKind.SetCollectionRefreshType] = ["COL-05", "COL-06"],
+        [HygieneFixKind.SetApplication] = ["TSQ-03"],
+        [HygieneFixKind.SetSiteMaintenanceTask] = ["MNT-01", "MNT-02"],
+        [HygieneFixKind.RunAutoDeploymentRule] = ["UPD-03"]
+    };
+
+    /// <summary>
+    /// The refusal of a finding whose check and parameters do not match the fix kind as the scan assigns
+    /// it; null when they match. A finding can come from the stored last scan or another caller, so the
+    /// service never trusts the pair.
+    /// </summary>
+    public static string? Gate(HygieneFixKind kind, HygieneFinding f)
+    {
+        var check = (f.CheckId ?? "").Trim().ToUpperInvariant();
+        if (!ChecksOf.TryGetValue(kind, out var checks) || !checks.Contains(check, StringComparer.Ordinal))
+            return $"check {(check.Length > 0 ? check : "(none)")} has no fix of this kind on this page.";
+        var hasModel = P(f, HygieneFixParameters.ModelName).Length > 0;
+        return (kind, check) switch
+        {
+            (HygieneFixKind.RemoveApplicationDeployment, "APP-02" or "APP-03") when !hasModel => "the finding names no application.",
+            (HygieneFixKind.RemoveApplicationDeployment, "DPL-01") when hasModel || P(f, HygieneFixParameters.DeploymentIds).Split(',', StringSplitOptions.RemoveEmptyEntries).Length != 1
+                => "an expired-deployment finding names exactly one deployment.",
+            (HygieneFixKind.SetCollectionRefreshType, "COL-05") when P(f, HygieneFixParameters.RefreshType) != "Continuous" => "COL-05 sets the refresh type Continuous only.",
+            (HygieneFixKind.SetCollectionRefreshType, "COL-06") when P(f, HygieneFixParameters.RefreshType) != "Manual" => "COL-06 sets the refresh type Manual only.",
+            (HygieneFixKind.SetSiteMaintenanceTask, "MNT-01") when !HygieneChecks.RecommendedTasks.Contains(P(f, HygieneFixParameters.Id), StringComparer.OrdinalIgnoreCase)
+                => "MNT-01 enables only the recommended cleanup tasks.",
+            (HygieneFixKind.SetSiteMaintenanceTask, "MNT-02") when !HygieneChecks.BackupTasks.Contains(P(f, HygieneFixParameters.Id), StringComparer.OrdinalIgnoreCase)
+                => "MNT-02 enables only the site backup task.",
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// The day window a rule uses: the finding's value, but never less than the service threshold, so a
+    /// finding cannot move a delete or run guard closer to now.
+    /// </summary>
+    private static int Days(HygieneFinding f, int threshold) =>
+        int.TryParse(P(f, HygieneFixParameters.Days), NumberStyles.Integer, CultureInfo.InvariantCulture, out var d) && d > threshold ? d : threshold;
 
     private static Dictionary<string, string> T(params (string Name, string Value)[] values) => values.ToDictionary(v => v.Name, v => v.Value, StringComparer.Ordinal);
 
@@ -56,7 +106,8 @@ internal static class HygieneFixRules
     public static HygieneEvaluation Evaluate(HygieneFixKind kind, HygieneFinding f, HygieneSiteRead s, DateTime now, HygieneThresholds t) => kind switch
     {
         HygieneFixKind.RemoveApplication => RemoveApplication(f, s, now, t),
-        HygieneFixKind.RemoveApplicationDeployment => P(f, HygieneFixParameters.ModelName).Length > 0 ? RemoveAppDeployments(f, s) : RemoveExpiredDeployment(f, s, now),
+        _ when Gate(kind, f) is { } refusal => HygieneEvaluation.No(refusal),
+        HygieneFixKind.RemoveApplicationDeployment => string.Equals(f.CheckId, "DPL-01", StringComparison.OrdinalIgnoreCase) ? RemoveExpiredDeployment(f, s, now) : RemoveAppDeployments(f, s),
         HygieneFixKind.RemoveApplicationRevisionHistory => RemoveRevisions(f, s),
         HygieneFixKind.RemovePackage => RemovePackage(f, s),
         HygieneFixKind.RemoveBootImage or HygieneFixKind.RemoveDriverPackage => RemoveOsdObject(kind, f, s),
@@ -172,6 +223,12 @@ internal static class HygieneFixRules
         if (kind == HygieneFixKind.RemoveBootImage && HygieneChecks.DefaultBootImage.IsMatch(obj.S("Name"))) return HygieneEvaluation.No("the boot image is a default boot image of the site.");
         var refs = ReferencesTo(s, id);
         if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "task sequence reference")} to the {noun} exist now.");
+        if (kind == HygieneFixKind.RemoveDriverPackage)
+        {
+            if (!s.IsRead(AutoApplySequences)) return HygieneEvaluation.No("the steps of the task sequences could not be read, so the page does not delete a driver package.");
+            if (s.Table(AutoApplySequences).Records.Count() is > 0 and var auto)
+                return HygieneEvaluation.No($"{Count(auto, "task sequence")} {(auto == 1 ? "has" : "have")} an Auto Apply Drivers step, which can use the content of any driver package without a reference.");
+        }
         return new(true, "", [Write(f, kind == HygieneFixKind.RemoveBootImage ? "BootImage" : "DriverPackage", id, obj.S("Name"), $"{char.ToUpperInvariant(noun[0])}{noun[1..]} {id}", kind, T((HygieneFixParameters.Id, id)), T(("Id", id)))]);
     }
 
@@ -187,6 +244,13 @@ internal static class HygieneFixRules
         var refs = s.Table(CollectionDependencies).Records.Count(r => string.Equals(r.S("SourceCollectionID"), id, StringComparison.OrdinalIgnoreCase));
         if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "collection")} include, exclude or limit to the collection now.");
         if (s.Table(CollectionSettings).Records.Any(r => string.Equals(r.S("CollectionID"), id, StringComparison.OrdinalIgnoreCase))) return HygieneEvaluation.No("the collection has variables or maintenance windows now.");
+        foreach (var set in CollectionUsers)
+            if (!s.IsRead(set)) return HygieneEvaluation.No("the objects that can use the collection could not be read, so the page does not delete it.");
+        int Uses(string set, string column) => s.Table(set).Records.Count(r => string.Equals(r.S(column), id, StringComparison.OrdinalIgnoreCase));
+        if (Uses(CollectionAssignments, "TargetCollectionID") is > 0 and var assignments) return HygieneEvaluation.No($"{Count(assignments, "deployment")} of an application, a software update, a baseline or a policy target the collection now.");
+        if (Uses(CollectionRules, "CollectionID") is > 0 and var rules) return HygieneEvaluation.No($"{Count(rules, "automatic deployment rule")} {(rules == 1 ? "targets" : "target")} the collection.");
+        if (Uses(CollectionClientSettings, "CollectionID") is > 0 and var settings) return HygieneEvaluation.No($"{Count(settings, "client settings deployment")} {(settings == 1 ? "targets" : "target")} the collection.");
+        if (Uses(CollectionAdmins, "CategoryID") is > 0 and var admins) return HygieneEvaluation.No($"{Count(admins, "administrative user")} {(admins == 1 ? "has" : "have")} the collection in {(admins == 1 ? "its" : "their")} assigned collections.");
         return new(true, "", [Write(f, "Collection", id, col.S("Name"), $"Collection {id}", HygieneFixKind.RemoveCollection, T((HygieneFixParameters.Id, id)), T(("Id", id)))]);
     }
 
