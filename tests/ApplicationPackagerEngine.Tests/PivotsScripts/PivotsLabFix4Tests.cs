@@ -117,7 +117,7 @@ public sealed class PivotsLabFix4Tests
     }
 
     [Fact]
-    public async Task AScriptRunShowsAResultRowOnlyForTheDevicesThatAnswered()
+    public async Task ARunWithoutResultColumnsShowsAResultRowOnlyForTheDevicesThatAnsweredAndThePipelineCountsThem()
     {
         var h = new PivotsScriptsHarness();
         var vm = await h.OpenAsync();
@@ -130,6 +130,7 @@ public sealed class PivotsLabFix4Tests
         Assert.Equal(3, vm.ResultRows.Count);
         Assert.All(vm.ResultRows, r => Assert.Equal("Failed", r.FullCells[0]));
         Assert.StartsWith("3 result rows, ", vm.ResultCount, StringComparison.Ordinal);
+        Assert.Equal(PivotsLabels.Count(3, "result"), vm.PipelineRows.Single().Results);
     }
 
     // ---- A run that the app close ended reads the same in the session list as in the audit log --------

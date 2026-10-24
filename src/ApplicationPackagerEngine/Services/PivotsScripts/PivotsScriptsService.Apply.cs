@@ -36,8 +36,14 @@ public sealed partial class PivotsScriptsService
         /// <summary>1 once the Finished audit record of the run is written; a run has one.</summary>
         public int FinishedRecorded;
 
-        /// <summary>1 after the app close wrote the Finished record of the run; the session keeps the app-closed state.</summary>
-        public int ClosedAtExit;
+        /// <summary>True after the app close wrote the Finished record of the run; the session keeps the app-closed state. Read and written under <see cref="EndGate"/>.</summary>
+        public bool ClosedAtExit;
+
+        /// <summary>
+        /// Held by the app close for its Finished record and session write, and by the end of a wait
+        /// from its Finished record to its session write, so the session state follows the record that was written.
+        /// </summary>
+        public object EndGate { get; } = new();
 
         /// <summary>1 while a wait reads the run; a second wait at the same time is refused.</summary>
         public int Waiting;
@@ -540,25 +546,28 @@ public sealed partial class PivotsScriptsService
         var written = 0;
         foreach (var run in _runs.Values.Where(r => Volatile.Read(ref r.Waiting) == 1).ToList())
         {
-            // The wait loop and this call race for the one Finished record; the exchange gives it to one of them.
-            if (Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) != 0) continue;
-            var record = new PivotsAuditRecord(Timestamp: default, User: _user(), Event: run.Change.Kind.ToString(), Phase: "Finished", Result: "Partial", RunId: run.RunId, Target: run.Target,
-                DeviceCount: run.Devices.Count, ScriptGuid: run.Change.ScriptGuid, TextHash: run.TextHash, OperationId: run.OperationId, Message: ExitDuringWaitMessage) { SessionId = run.Session.Id };
-            AuditWrite result;
-            try { result = _audit.Append(record); }
-            catch (PivotsServiceException) { result = new AuditWrite(false, ""); }
-            if (result.Succeeded)
+            lock (run.EndGate)
             {
-                written++;
-                Interlocked.Exchange(ref run.ClosedAtExit, 1);
-                // The process can end before the wait loop writes the session, so the app-closed state is written here.
-                run.Session = run.Session with { Status = AppClosedStatus, Message = ExitDuringWaitMessage, Partial = true, FinishedRecorded = true };
-                TryUpdate(run.Session);
-            }
-            else
-            {
-                Interlocked.Exchange(ref run.FinishedRecorded, 0);
-                _log?.Warning(LogArea, "The Finished audit record of a run could not be written at exit.");
+                // The wait loop and this call race for the one Finished record; the exchange gives it to one of them.
+                if (Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) != 0) continue;
+                var record = new PivotsAuditRecord(Timestamp: default, User: _user(), Event: run.Change.Kind.ToString(), Phase: "Finished", Result: "Partial", RunId: run.RunId, Target: run.Target,
+                    DeviceCount: run.Devices.Count, ScriptGuid: run.Change.ScriptGuid, TextHash: run.TextHash, OperationId: run.OperationId, Message: ExitDuringWaitMessage) { SessionId = run.Session.Id };
+                AuditWrite result;
+                try { result = _audit.Append(record); }
+                catch (PivotsServiceException) { result = new AuditWrite(false, ""); }
+                if (result.Succeeded)
+                {
+                    written++;
+                    run.ClosedAtExit = true;
+                    // The process can end before the wait loop writes the session, so the app-closed state is written here.
+                    run.Session = run.Session with { Status = AppClosedStatus, Message = ExitDuringWaitMessage, Partial = true, FinishedRecorded = true };
+                    TryUpdate(run.Session);
+                }
+                else
+                {
+                    Interlocked.Exchange(ref run.FinishedRecorded, 0);
+                    _log?.Warning(LogArea, "The Finished audit record of a run could not be written at exit.");
+                }
             }
         }
         if (written > 0) _log?.Info(LogArea, $"The app closed during a wait: {written} Finished records written.");
@@ -1019,30 +1028,33 @@ public sealed partial class PivotsScriptsService
             : partial ? $"The wait ended: {summary}. The results are partial." : $"Done: {summary}.";
         if (run.ChangedDuringSend) message += " " + ChangedDuringSendMessage;
         if (run.Reloaded) message += " " + ReloadedNote;
-        var closed = Volatile.Read(ref run.ClosedAtExit) == 1;
-        var status = closed ? AppClosedStatus : stopped ? "Stopped waiting" : partial ? "Partial" : failed > 0 ? "Completed with failures" : "Completed";
         _log?.Info(LogArea, $"{run.Change.Kind} wait ended: {completed} completed, {failed} failed, {list.Count - completed - failed} without a result, {cut} with part of the rows.");
         var succeeded = !partial && failed == 0;
-        var recordedNow = false;
-        if (Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) == 0)
+        lock (run.EndGate)
         {
-            var written = audit(new PivotsAuditRecord(default, _user(), run.Change.Kind.ToString(), "Finished", partial ? "Partial" : succeeded ? "Succeeded" : "Failed", run.RunId, run.Target,
-                run.Devices.Count, run.Change.ScriptGuid, run.TextHash, run.OperationId, message) { SessionId = run.Session.Id });
-            recordedNow = written.Succeeded;
-            if (!written.Succeeded)
+            var recordedNow = false;
+            if (Interlocked.CompareExchange(ref run.FinishedRecorded, 1, 0) == 0)
             {
-                // A later wait of the run tries the Finished record again.
-                Interlocked.Exchange(ref run.FinishedRecorded, 0);
-                _log?.Warning(LogArea, "The Finished audit record of a run could not be written.");
+                var written = audit(new PivotsAuditRecord(default, _user(), run.Change.Kind.ToString(), "Finished", partial ? "Partial" : succeeded ? "Succeeded" : "Failed", run.RunId, run.Target,
+                    run.Devices.Count, run.Change.ScriptGuid, run.TextHash, run.OperationId, message) { SessionId = run.Session.Id });
+                recordedNow = written.Succeeded;
+                if (!written.Succeeded)
+                {
+                    // A later wait of the run tries the Finished record again.
+                    Interlocked.Exchange(ref run.FinishedRecorded, 0);
+                    _log?.Warning(LogArea, "The Finished audit record of a run could not be written.");
+                }
             }
+            var closed = run.ClosedAtExit;
+            var status = closed ? AppClosedStatus : stopped ? "Stopped waiting" : partial ? "Partial" : failed > 0 ? "Completed with failures" : "Completed";
+            run.Session = run.Session with
+            {
+                Status = status, Message = closed ? ExitDuringWaitMessage : message, Results = list, Raw = run.Raw.ToList(), FinishedUtc = _utcNow(), Partial = partial,
+                // Only a written record counts: a reloaded run whose log could not be read is not marked as finished.
+                FinishedRecorded = run.Session.FinishedRecorded || recordedNow
+            };
+            TryUpdate(run.Session);
         }
-        run.Session = run.Session with
-        {
-            Status = status, Message = closed ? ExitDuringWaitMessage : message, Results = list, Raw = run.Raw.ToList(), FinishedUtc = _utcNow(), Partial = partial,
-            // Only a written record counts: a reloaded run whose log could not be read is not marked as finished.
-            FinishedRecorded = run.Session.FinishedRecorded || recordedNow
-        };
-        TryUpdate(run.Session);
         return Snapshot(run, succeeded, message, final: true) with { Partial = partial };
     }
 

@@ -218,7 +218,10 @@ public sealed partial class PivotsScriptsViewModel
         $"Run {PivotsLabels.Number(number)} ended. {StateCounts(devices)}" + (stopped ? " " + StoppedStatus : partial ? " Partial." : "");
 
     private static int RowCount(IReadOnlyList<DeviceResult> devices) =>
-        devices.Any(d => d.Rows.Count > 0) ? devices.Sum(d => d.Rows.Count) : devices.Count(d => d.State == PivotsDeviceStates.Completed);
+        devices.Any(d => d.Rows.Count > 0) ? devices.Sum(d => d.Rows.Count) : devices.Count(Answered);
+
+    /// <summary>A device with a result: only these get a row in the Results list when the rows hold no columns.</summary>
+    private static bool Answered(DeviceResult d) => d.State is PivotsDeviceStates.Completed or PivotsDeviceStates.Failed;
 
     private static string MoreResultsNote(IReadOnlyList<DeviceResult> devices) =>
         devices.Count(d => d.MoreResults) is var more and > 0 ? $" {PivotsLabels.Count(more, "device")} {(more == 1 ? "holds" : "hold")} more result rows than the site returned." : "";
@@ -313,7 +316,7 @@ public sealed partial class PivotsScriptsViewModel
         {
             shownColumns = ["State", "Output"];
             // A device that has not answered has no result; the Devices tab shows its state.
-            foreach (var device in set.Devices.Where(d => d.State is PivotsDeviceStates.Completed or PivotsDeviceStates.Failed))
+            foreach (var device in set.Devices.Where(Answered))
                 results.Add(new ResultGridRow(new ResultRowData(device.ResourceId, device.Name, [PivotsLabels.DeviceState(device.State), device.Output]), results.Count));
         }
         // The grid builds one column per name: the old rows go first, so no cell binds to an index the old rows do not hold.
