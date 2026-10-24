@@ -56,9 +56,10 @@ public sealed class PivotsRunTests
     public async Task AnOfflineDeviceEndsAsNoResponseAndTheResultIsPartial()
     {
         using var h = new PivotsHarness();
-        var plan = await h.PreparePivotAsync(RunTargetKind.Collection, "MCM00015");
+        var plan = await h.PreparePivotAsync(RunTargetKind.Collection, "MCM00015", window: TimeSpan.FromSeconds(30));
         Assert.Contains(plan.Checks, c => c.Name == PivotsScriptsService.CheckNames.Offline && c.Result == DeploymentCheckResults.Warn);
-        var o = await h.ApplyAsync(plan with { ResultWindow = TimeSpan.FromSeconds(30) });
+        Assert.Contains(plan.Impact, l => l.Contains("waits up to 30 seconds", StringComparison.Ordinal));
+        var o = await h.ApplyAsync(plan);
         Assert.True(o.Partial);
         Assert.False(o.Succeeded);
         Assert.Equal(PivotsDeviceStates.Completed, o.Devices.Single(d => d.Name == "CLIENT01").State);
@@ -73,10 +74,10 @@ public sealed class PivotsRunTests
     public async Task AListRunSendsTheFixedClientIdsOnly()
     {
         using var h = new PivotsHarness();
-        var plan = await h.PreparePivotAsync(RunTargetKind.List, "CLIENT01, CLIENT02, x64 Unknown Computer (x64 Unknown Computer)");
+        var plan = await h.PreparePivotAsync(RunTargetKind.List, "CLIENT01, CLIENT02, x64 Unknown Computer (x64 Unknown Computer)", window: TimeSpan.FromSeconds(30));
         Assert.Equal(2, plan.DeviceCount);
         Assert.Contains(plan.Impact, l => l.Contains("without a ConfigMgr client", StringComparison.Ordinal));
-        var o = await h.ApplyAsync(plan with { ResultWindow = TimeSpan.FromSeconds(30) });
+        var o = await h.ApplyAsync(plan);
         var post = Assert.Single(h.Admin.Requests, r => r.Method == "POST");
         Assert.Equal("/AdminService/v1.0/SMS_CMPivotStatus/AdminService.RunCMPivot", post.PathAndQuery);
         Assert.Contains("\"ResourceIds\":\"16777221,16777222\"", post.Body);
@@ -103,7 +104,7 @@ public sealed class PivotsRunTests
     public async Task ABuiltInCollectionNeedsTheEveryDeviceBoxInTheService()
     {
         using var h = new PivotsHarness();
-        var plan = await h.PreparePivotAsync(RunTargetKind.Collection, "SMS00001");
+        var plan = await h.PreparePivotAsync(RunTargetKind.Collection, "SMS00001", window: TimeSpan.FromSeconds(30));
         Assert.True(plan.NeedsEveryDeviceAcknowledgement);
         Assert.Contains(plan.Checks, c => c.Name == PivotsScriptsService.CheckNames.BuiltIn);
         var refused = await h.ApplyAsync(plan);
@@ -111,7 +112,7 @@ public sealed class PivotsRunTests
         Assert.Contains("every device of the site", refused.Message);
         Assert.Equal(0, h.Admin.Sends);
         Assert.Empty(h.AuditLines());
-        var o = await h.ApplyAsync(plan with { EveryDeviceAcknowledged = true, ResultWindow = TimeSpan.FromSeconds(30) });
+        var o = await h.ApplyAsync(plan with { EveryDeviceAcknowledged = true });
         Assert.True(o.Sent);
         Assert.Equal(1, h.Admin.Sends);
     }
@@ -147,10 +148,10 @@ public sealed class PivotsRunTests
     public async Task ACollectionThatLostAMemberStillRuns()
     {
         using var h = new PivotsHarness();
-        var plan = await h.PreparePivotAsync(RunTargetKind.Collection, "MCM00015");
+        var plan = await h.PreparePivotAsync(RunTargetKind.Collection, "MCM00015", window: TimeSpan.FromSeconds(30));
         var members = h.Site.List("Members");
         members.Remove(members.OfType<JsonObject>().First(m => (string?)m["CollectionID"] == "MCM00015" && (int)m["ResourceID"]! == 16777222));
-        var o = await h.ApplyAsync(plan with { ResultWindow = TimeSpan.FromSeconds(30) });
+        var o = await h.ApplyAsync(plan);
         Assert.True(o.Sent);
     }
 
@@ -431,8 +432,8 @@ public sealed class PivotsRunTests
     {
         using var h = new PivotsHarness();
         h.Site.SetOption("Throw:" + StubPivotsSite.ScriptGuid, true);
-        var plan = await h.PrepareScriptAsync(RunTargetKind.Collection, "MCM00015");
-        var o = await h.ApplyAsync(plan with { RunConfirmed = true, ResultWindow = TimeSpan.FromSeconds(30) });
+        var plan = await h.PrepareScriptAsync(RunTargetKind.Collection, "MCM00015", window: TimeSpan.FromSeconds(30));
+        var o = await h.ApplyAsync(plan with { RunConfirmed = true });
         Assert.Contains(h.Site.Log, l => l.StartsWith("Invoke-CMScript:" + StubPivotsSite.ScriptGuid + ":collection MCM00015", StringComparison.Ordinal));
         var failed = o.Devices.Single(d => d.Name == "CLIENT01");
         Assert.Equal(PivotsDeviceStates.Failed, failed.State);

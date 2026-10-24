@@ -110,6 +110,23 @@ public static class PackagerServiceRegistration
         services.AddSingleton<IDpContentReportWriter>(_ => new DpContentReportWriter());
         services.AddSingleton<IDpContentService>(sp => new DpContentService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IDpContentAuditLog>(), sp.GetRequiredService<IAppLog>()));
 
+        services.AddSingleton<IAdminServiceClient>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            return new AdminServiceClient(() => settings.Load().ProviderMachine, sp.GetRequiredService<IAppLog>());
+        });
+        services.AddSingleton<IPivotsAuditLog>(sp => new PivotsAuditLog(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IPivotsSessionStore>(sp => new PivotsSessionStore(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IPivotsReportWriter>(_ => new PivotsReportWriter());
+        services.AddSingleton<IPivotsLibrary>(sp => new PivotsLibrary(sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IPivotsScriptsService>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            var admin = sp.GetRequiredService<IAdminServiceClient>();
+            return new PivotsScriptsService(sp.GetRequiredService<IConfigMgrSession>(), admin, sp.GetRequiredService<IPivotsAuditLog>(), sp.GetRequiredService<IPivotsSessionStore>(),
+                sp.GetRequiredService<IAppLog>(), connection: () => (SessionConnection(settings).NormalizedSiteCode, admin.Provider));
+        });
+
         services.AddSingleton<IAnalysisSandbox>(_ => new AnalysisSandbox());
         services.AddSingleton<IInstallerAnalysisService>(sp => new InstallerAnalysisService(sp.GetRequiredService<IAnalysisSandbox>()));
         services.AddSingleton<IInstallerReportWriter>(_ => new InstallerReportWriter());

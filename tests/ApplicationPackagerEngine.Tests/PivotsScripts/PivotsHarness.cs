@@ -50,16 +50,16 @@ internal sealed class PivotsHarness : IDisposable
 
     public Task<ResolvedTargets> ResolveAsync(RunTargetKind kind, string text) => Service.ResolveTargetsAsync(new RunTarget(kind, text), CancellationToken.None);
 
-    public async Task<PivotsChange> PreparePivotAsync(RunTargetKind kind, string text, string query = "OS | project Caption")
+    public async Task<PivotsChange> PreparePivotAsync(RunTargetKind kind, string text, string query = "OS | project Caption", TimeSpan? window = null)
     {
         var targets = await ResolveAsync(kind, text);
-        return await Service.PrepareAsync(Request(PivotsChangeKind.RunPivot, targets, query), CancellationToken.None);
+        return await Service.PrepareAsync(Request(PivotsChangeKind.RunPivot, targets, query) with { ResultWindow = window }, CancellationToken.None);
     }
 
-    public async Task<PivotsChange> PrepareScriptAsync(RunTargetKind kind, string text, IReadOnlyDictionary<string, string>? parameters = null, string guid = StubPivotsSite.ScriptGuid)
+    public async Task<PivotsChange> PrepareScriptAsync(RunTargetKind kind, string text, IReadOnlyDictionary<string, string>? parameters = null, string guid = StubPivotsSite.ScriptGuid, TimeSpan? window = null)
     {
         var targets = await ResolveAsync(kind, text);
-        return await Service.PrepareAsync(Request(PivotsChangeKind.RunScript, targets, guid: guid, parameters: parameters), CancellationToken.None);
+        return await Service.PrepareAsync(Request(PivotsChangeKind.RunScript, targets, guid: guid, parameters: parameters) with { ResultWindow = window }, CancellationToken.None);
     }
 
     public async Task<PivotsOutcome> ApplyAsync(PivotsChange change, CancellationToken ct = default) =>

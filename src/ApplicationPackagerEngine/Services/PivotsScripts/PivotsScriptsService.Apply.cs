@@ -87,7 +87,7 @@ public sealed partial class PivotsScriptsService
         _used[change.Fingerprint!] = _utcNow();
         foreach (var old in _used.Where(u => u.Value < _utcNow().AddDays(-1)).Select(u => u.Key).ToList()) _used.TryRemove(old, out _);
         // The prepared copy decides what runs; the caller's copy only adds the confirmations.
-        var planned = prepared.Change with { RunConfirmed = change.RunConfirmed, EveryDeviceAcknowledged = change.EveryDeviceAcknowledged, ResultWindow = change.ResultWindow };
+        var planned = prepared.Change with { RunConfirmed = change.RunConfirmed, EveryDeviceAcknowledged = change.EveryDeviceAcknowledged };
         return planned.Kind switch
         {
             PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript => await RunAsync(planned, progress, ct).ConfigureAwait(false),
@@ -255,7 +255,7 @@ public sealed partial class PivotsScriptsService
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("value", out var v) && v.ValueKind == JsonValueKind.Object) root = v;
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("OperationId", out var o) && o.TryGetInt64(out var id) && id > 0)
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("OperationId", out var o) && o.ValueKind == JsonValueKind.Number && o.TryGetInt64(out var id) && id > 0)
                 return id.ToString(CultureInfo.InvariantCulture);
         }
         catch (JsonException)
