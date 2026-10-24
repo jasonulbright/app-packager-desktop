@@ -139,19 +139,19 @@ public sealed class DpContentServiceReviewTests
     }
 
     [Fact]
-    public async Task ATruncatedLoadMarksTheCountsOfContentWithoutRowsAsNotKnown()
+    public async Task ATruncatedLoadMarksEveryRollupAsNotKnown()
     {
         using var h = new DpContentHarness();
         var full = await h.Service.LoadAsync(new Progress<string>(), CancellationToken.None);
         Assert.All(full.Content, c => Assert.True(c.CountsKnown));
+        Assert.All(full.Dps, d => Assert.True(d.CountsKnown));
 
         var service = new DpContentService(h.Site, h.Audit) { MaxPairs = 3 };
         var snapshot = await service.LoadAsync(new Progress<string>(), CancellationToken.None);
         Assert.True(snapshot.Truncated);
-        Assert.True(snapshot.Content.Single(c => c.PackageId == "MCM000A6").CountsKnown);
-        var app = snapshot.Content.Single(c => c.PackageId == "MCM000A8");
-        Assert.False(app.CountsKnown);
-        Assert.Equal(0, app.DpsTargeted);
+        Assert.All(snapshot.Content, c => Assert.False(c.CountsKnown));
+        Assert.All(snapshot.Dps, d => Assert.False(d.CountsKnown));
+        Assert.Contains("not known", snapshot.Note);
     }
 
     [Fact]

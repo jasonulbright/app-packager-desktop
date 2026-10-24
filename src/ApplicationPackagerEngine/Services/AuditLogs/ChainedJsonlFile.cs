@@ -188,12 +188,15 @@ internal static class ChainedJsonlFile
     /// order; empty when the file does not exist. Throws IOException or UnauthorizedAccessException
     /// when the file cannot be read and <see cref="InvalidDataException"/> for a reparse point.
     /// </summary>
-    public static IReadOnlyList<Line> ReadLines(string path, long maxBytes)
+    public static IReadOnlyList<Line> ReadLines(string path, long maxBytes) => ReadLines(path, maxBytes, out _);
+
+    /// <param name="cut">True when the file is longer than <paramref name="maxBytes"/>, so the lines before the window were not read.</param>
+    public static IReadOnlyList<Line> ReadLines(string path, long maxBytes, out bool cut)
     {
+        cut = false;
         if (!File.Exists(path)) return [];
         if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)) throw new InvalidDataException("The log file is a reparse point.");
         byte[] bytes;
-        var cut = false;
         long firstLine = 1;
         using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
         {

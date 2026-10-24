@@ -130,13 +130,16 @@ internal static partial class DpContentAggregator
         {
             if (!seen.Add(content.PackageId)) continue;
             byContent.TryGetValue(content.PackageId, out var t);
-            rows.Add(ContentRowOf(content.PackageId, content.Name, content.Type, content.SizeKb, t) with { ObjectId = content.ObjectId, CountsKnown = t is not null || !truncated });
+            rows.Add(ContentRowOf(content.PackageId, content.Name, content.Type, content.SizeKb, t) with { ObjectId = content.ObjectId, CountsKnown = !truncated });
         }
         foreach (var (id, pair) in unknown)
-            rows.Add(ContentRowOf(id, pair.ContentName, pair.ContentType, 0, byContent[id]) with { ObjectId = "" });
+            rows.Add(ContentRowOf(id, pair.ContentName, pair.ContentType, 0, byContent[id]) with { ObjectId = "", CountsKnown = !truncated });
+        // The status rows are not sorted by DP or by content, so after a cut any rollup can miss a row.
+        if (truncated)
+            for (var i = 0; i < dps.Count; i++) dps[i] = dps[i] with { CountsKnown = false };
 
         var note = truncated
-            ? $"Truncated: showing {pairs.Count.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} of {totalPairs.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} status rows. The counts cover the rows shown only."
+            ? $"Truncated: showing {pairs.Count.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} of {totalPairs.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} status rows. The counts and the status of each DP and each content are not known; the lists show the rows read."
             : null;
         return new DpContentSnapshot(dps, rows, pairs, truncated, note) { TotalPairs = Math.Max(totalPairs, pairs.Count), LoadedUtc = loadedUtc };
     }

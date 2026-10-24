@@ -284,6 +284,9 @@ function Get-AppId {
     return ''
 }
 
+# -ApplicationId takes the CI_ID of the latest revision; a ModelName, CI_UniqueID or GUID fails in
+# the provider's query. A task sequence has no branch: -TaskSequenceId distributes the content the
+# task sequence references, not a pair of the task sequence.
 function Start-Distribution {
     param([string]$PackageId, [string]$Type, [string]$DpName)
     $common = @{ DistributionPointName = $DpName; ErrorAction = 'Stop' }

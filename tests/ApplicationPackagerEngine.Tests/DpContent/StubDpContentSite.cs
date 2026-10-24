@@ -20,7 +20,9 @@ namespace ApplicationPackagerEngine.Tests.DpContent;
 /// "VerifyError:Id" ends in a message 2385 with MessageState 4; "RemovePending:Id" keeps State 4
 /// and Status 3 until the later tick; "RemoveFails:Id" ends in State 6; "DistributeIgnored:Id" makes
 /// the distribution return without a change, as CM01 does while it still removes the same content;
-/// "NoChange:Id" makes a refresh or a validation accepted without any later state. Each failure in
+/// "NoChange:Id" makes a refresh or a validation accepted without any later state. Start-CMContentDistribution
+/// -ApplicationId takes the CI_ID, as the real cmdlet does: a ModelName or a GUID fails with the provider's
+/// query error, and an unknown CI_ID with "No object corresponds". Each failure in
 /// "Fail" ("put:Id", "delete:Id", "verify:Id", "distribute:Id", "access:Id", "query:Class") happens
 /// once and throws text with a secret marker. "Generate" builds DPs, packages and pairs in the harness
 /// at each run and keeps none of them in the saved state, so it serves loads, not changes.
@@ -177,6 +179,8 @@ internal sealed class StubDpContentSite : IConfigMgrSession
             $id = @($PackageId, $DeploymentPackageId, $BootImageId, $OperatingSystemImageId, $OperatingSystemInstallerId, $DriverPackageId) | Where-Object { $_ } | Select-Object -First 1
             $class = if ($PackageId) { 'SMS_Package' } elseif ($DeploymentPackageId) { 'SMS_SoftwareUpdatesPackage' } elseif ($BootImageId) { 'SMS_BootImagePackage' } elseif ($OperatingSystemImageId) { 'SMS_ImagePackage' } elseif ($OperatingSystemInstallerId) { 'SMS_OperatingSystemInstallPackage' } elseif ($DriverPackageId) { 'SMS_DriverPackage' } else { 'SMS_ContentPackage' }
             if ($ApplicationId) {
+                $global:Log.Add('ApplicationId:' + $ApplicationId)
+                if ($ApplicationId -notmatch '^\d+$') { throw 'The SMS Provider reported an error.' }
                 if (-not $DisableContentDependencyDetection) { $global:Log.Add('DependenciesIncluded') }
                 $app = $global:S.Applications | Where-Object { [string]$_.CI_ID -eq $ApplicationId } | Select-Object -First 1
                 $content = $global:S.Packages | Where-Object { $_.Class -eq 'SMS_ContentPackage' -and ([string]$_.SecurityKey).ToUpperInvariant() -eq ([string](V $app 'ModelName' '')).ToUpperInvariant() } | Select-Object -First 1

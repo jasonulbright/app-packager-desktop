@@ -99,6 +99,16 @@ public sealed partial class DpContentService
         };
     }
 
+    /// <summary>
+    /// True for a content type that Distribute again can copy to one distribution point. A task
+    /// sequence is not one: Start-CMContentDistribution -TaskSequenceId distributes every content
+    /// the task sequence references and creates no row for the task sequence itself.
+    /// </summary>
+    internal static bool CanDistributeAgain(string? contentType) => contentType is not (null or "" or DpContentTypes.TaskSequence or DpContentTypes.Unknown);
+
+    /// <summary>A removed pair that Undo distributes again: installed before, with no error message, of a type Distribute again can copy.</summary>
+    internal static bool IsRestorable(PairRow pair) => DpContentStates.IsOk(pair.State) && !pair.HasErrorMessage && CanDistributeAgain(pair.ContentType);
+
     private static DpContentPairOutcome Skip(PairRow pair, string reason, int? stateNow = null) =>
         new(pair, DpContentResults.Skipped, SkippedPrefix + reason, stateNow);
 
@@ -110,7 +120,7 @@ public sealed partial class DpContentService
         {
             if (site is not null || hasInstance) return $"the content is on the distribution point now ({site?.StateName ?? "listed"}); nothing to distribute again.";
             if (dp is null) return "the distribution point is no longer in the site's list of distribution points.";
-            if (pair.ContentType is DpContentTypes.TaskSequence or DpContentTypes.Unknown or "")
+            if (!CanDistributeAgain(pair.ContentType))
                 return "the content type cannot be distributed from this page.";
             return null;
         }
@@ -225,10 +235,14 @@ public sealed partial class DpContentService
                 foreach (var i in impact)
                     lines.Add($"{i.Name} ({i.PackageId}): on {Count(i.DpsNow, "distribution point")} now, installed on {Count(i.DpsRemaining, "distribution point")} after the change; "
                         + (i.DeploymentCount < 0 ? "the deployments that use it are not known." : $"used by {Count(i.DeploymentCount, "counted deployment")}."));
-                var installed = kept.Count(p => DpContentStates.IsOk(p.State) && !p.HasErrorMessage);
+                var installed = kept.Count(IsRestorable);
+                var anyInstalled = kept.Any(p => DpContentStates.IsOk(p.State) && !p.HasErrorMessage);
                 lines.Add(installed == 0
-                    ? "No pair of the plan is installed now, so Undo restores nothing."
+                    ? anyInstalled ? "Undo restores nothing." : "No pair of the plan is installed now, so Undo restores nothing."
                     : $"Undo distributes the {Count(installed, "pair")} that {(installed == 1 ? "is" : "are")} installed now again: the content is copied again and can take a long time. Pairs that are not installed now are not restored. Run Undo after the site has finished the removal: a request made before that can be ignored by the site.");
+                var notRestored = kept.Count(p => DpContentStates.IsOk(p.State) && !p.HasErrorMessage && !CanDistributeAgain(p.ContentType));
+                if (notRestored > 0)
+                    lines.Add($"Undo does not restore {Count(notRestored, "installed pair")} of a task sequence or of unknown content: distribute that content again from the ConfigMgr console.");
                 lines.Add(DeploymentKinds);
                 break;
             case DpContentChangeKind.DistributeAgain:

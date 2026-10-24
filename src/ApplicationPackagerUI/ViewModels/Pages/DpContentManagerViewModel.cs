@@ -444,8 +444,8 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         var rows = _allIssues.Where(r => text.Length == 0 || Has(r.ContentName, text) || Has(r.DpName, text) || Has(r.PackageId, text) || Has(r.StateName, text))
             .Where(r => IssueState switch
             {
-                FailedOnly => DpContentLabels.IsFailed(r.State),
-                InProgressOnly => DpContentLabels.IsInProgress(r.State),
+                FailedOnly => r.Pair.IsFailed,
+                InProgressOnly => r.Pair.IsInProgress,
                 _ => true
             });
         var list = Sorted(IssuesGrid, rows).ToList();
@@ -479,8 +479,8 @@ public sealed partial class DpContentManagerViewModel : ObservableObject
         }
         var pairs = index.PairsOn(row.Dp);
         DpPairRows = Sorted(DpPairsGrid, pairs.Select(p => new PairGridRow(p))).ToList();
-        var failed = pairs.Count(p => DpContentLabels.IsFailed(p.State));
-        var inProgress = pairs.Count(p => DpContentLabels.IsInProgress(p.State));
+        var failed = pairs.Count(p => p.IsFailed);
+        var inProgress = pairs.Count(p => p.IsInProgress);
         DpDetail = $"{row.DpName}: {DpContentLabels.Count(pairs.Count, "content")}, total size {row.SizeGb} GB, "
             + $"{DpContentLabels.Number(failed)} failed, {DpContentLabels.Number(inProgress)} in progress."
             + (row.Dp.IsPullDp ? " The DP is a pull DP." : "");

@@ -28,6 +28,9 @@ public static class DpContentLabels
 
     public static string PairLabel(int state) => IsOk(state) ? OkLabel : IsFailed(state) ? FailedLabel : IsInProgress(state) ? InProgressLabel : UnknownLabel;
 
+    /// <summary>The label of a pair by the rule the service counts with: an error message makes any state Failed.</summary>
+    public static string PairLabel(PairRow pair) => pair.IsFailed ? FailedLabel : IsOk(pair.State) ? OkLabel : pair.IsInProgress ? InProgressLabel : UnknownLabel;
+
     public static string RollupLabel(int total, int failed, int inProgress, bool known = true) =>
         !known ? UnknownLabel : total == 0 ? NoContentLabel : failed > 0 ? FailedLabel : inProgress > 0 ? InProgressLabel : HealthyLabel;
 
@@ -105,7 +108,7 @@ public sealed class PairGridRow(PairRow pair)
 {
     public PairRow Pair { get; } = pair;
     public string Key { get; } = DpContentLabels.Key(pair);
-    public string Status => DpContentLabels.PairLabel(Pair.State);
+    public string Status => DpContentLabels.PairLabel(Pair);
     public string DpName => Pair.DpName;
     public string ContentName => Pair.ContentName;
     public string Type => DpContentLabels.TypeLabel(Pair.ContentType);

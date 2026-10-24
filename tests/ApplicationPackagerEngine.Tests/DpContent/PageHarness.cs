@@ -26,6 +26,9 @@ internal sealed class PageFakeDpContentService : IDpContentService
     public string? Note;
     public int ChunkSize = 2;
 
+    /// <summary>Unchanged makes Distribute again report that the site shows no distribution yet.</summary>
+    public string DistributeAgainResult = "Requested";
+
     public int LoadCalls;
     public int PrepareCalls;
     public TaskCompletionSource? LoadGate;
@@ -229,6 +232,7 @@ internal sealed class PageFakeDpContentService : IDpContentService
             case DpContentChangeKind.Validate:
                 return new DpContentPairOutcome(pair, "Unchanged", "The validation found the content valid.", 8);
             case DpContentChangeKind.DistributeAgain:
+                if (DistributeAgainResult == "Unchanged") return new DpContentPairOutcome(pair, "Unchanged", "The site shows no distribution for the pair.", null);
                 lock (Pairs) Pairs.Add(pair with { State = 1, StateName = StateName(1) });
                 return new DpContentPairOutcome(pair, "Requested", "The site accepted the distribution.", 1);
             default:
@@ -243,6 +247,8 @@ internal sealed class PageFakeAuditLog : IDpContentAuditLog
     public List<DpContentAuditRecord> Records { get; } = [];
     public string Path { get; set; } = @"C:\Data\DpContent\dp-content-audit.jsonl";
     public int Reads;
+    public bool Dropped;
+    public bool OlderRecordsDropped => Dropped;
     public AuditProbe Probe() => new(true, "The audit log can be written.");
     public AuditWrite Append(DpContentAuditRecord record)
     {

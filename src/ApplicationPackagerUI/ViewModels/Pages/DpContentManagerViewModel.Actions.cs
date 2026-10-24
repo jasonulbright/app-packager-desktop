@@ -82,7 +82,7 @@ public sealed partial class DpContentManagerViewModel
     private Task RedistributeFailed()
     {
         if (SelectedContent is not { } content) return Say(SelectContent);
-        var failed = PairsOf(content).Where(p => p.State == 3).ToList();
+        var failed = PairsOf(content).Where(p => p.IsFailed && !DpContentLabels.IsRemoval(p.State)).ToList();
         if (failed.Count == 0) return Say(NoFailedDp);
         return RunActionAsync(DpContentChangeKind.Redistribute, "Redistribute failed", failed, null, ContentSelectionKey);
     }
@@ -125,7 +125,7 @@ public sealed partial class DpContentManagerViewModel
     [RelayCommand(CanExecute = nameof(CanAct))]
     private Task RemoveFailures()
     {
-        var failed = SelectedIssues.Where(r => DpContentLabels.IsFailed(r.State)).Select(r => r.Pair).ToList();
+        var failed = SelectedIssues.Where(r => r.Pair.IsFailed).Select(r => r.Pair).ToList();
         if (failed.Count == 0) return Say(SelectedIssues.Count == 0 ? SelectIssues : SelectFailedIssues);
         return RunActionAsync(DpContentChangeKind.Remove, "Remove failures", failed, null, IssueSelectionKey);
     }
@@ -252,7 +252,7 @@ public sealed partial class DpContentManagerViewModel
     /// <summary>
     /// The Undo after a run: a removal that carries an Undo replaces the last one, and a run without
     /// an Undo (another kind, or a removal that removed nothing installed) keeps it; an Undo run keeps
-    /// the pairs it did not distribute again.
+    /// every pair that did not end Requested or Confirmed.
     /// </summary>
     private void KeepUndo(DpContentPlan plan, bool isUndo)
     {
@@ -261,7 +261,8 @@ public sealed partial class DpContentManagerViewModel
             if (plan.UndoChange() is { } undo) LastUndo = undo;
             return;
         }
-        var done = new HashSet<string>(plan.Outcomes.SelectMany(o => o.Pairs).Where(p => p.Result is DpContentWriter.Requested or DpContentWriter.Confirmed or DpContentWriter.Unchanged)
+        // Unchanged means the site shows no sign of the distribution, so the pair stays in the Undo.
+        var done = new HashSet<string>(plan.Outcomes.SelectMany(o => o.Pairs).Where(p => p.Result is DpContentWriter.Requested or DpContentWriter.Confirmed)
             .Select(p => DpContentLabels.Key(p.Pair)), StringComparer.Ordinal);
         var left = plan.Change.Pairs.Where(p => !done.Contains(DpContentLabels.Key(p))).ToList();
         LastUndo = left.Count == 0 ? null : plan.Change with { Pairs = left, RemovalConfirmed = false, LastCopyAcknowledged = false, Impact = [], Checks = [], Fingerprint = null };
@@ -333,7 +334,7 @@ public sealed partial class DpContentManagerViewModel
                     r.Record.PairCount.ToString(System.Globalization.CultureInfo.InvariantCulture), r.Record.Succeeded.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     r.Record.Failed.ToString(System.Globalization.CultureInfo.InvariantCulture), r.Record.Skipped.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     r.Content, r.Dps, r.User, r.VerifiedText, r.Message]).ToList(),
-                IsHistoryCapped, IsHistoryCapped ? HistoryCappedNote : null);
+                IsHistoryCapped, IsHistoryCapped ? HistoryCapText : null);
         }
         if (_index is null) return null;
         var note = TruncationNote;

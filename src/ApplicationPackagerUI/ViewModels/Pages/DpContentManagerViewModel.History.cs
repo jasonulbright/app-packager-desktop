@@ -28,11 +28,13 @@ public sealed partial class DpContentManagerViewModel
     [ObservableProperty] private string _historyCount = "";
     [ObservableProperty] private string _historyPath = "";
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HistoryCapText))]
-    private bool _isHistoryCapped;
+    public static readonly string HistoryWindowNote =
+        $"The audit log is larger than {DpContentAuditLog.MaxReadBytes / (1024 * 1024)} MiB, so the list shows only the records in its last {DpContentAuditLog.MaxReadBytes / (1024 * 1024)} MiB. Older records are in the file.";
 
-    public string HistoryCapText => IsHistoryCapped ? HistoryCappedNote : "";
+    /// <summary>True when the list does not hold every record of the audit log; <see cref="HistoryCapText"/> says why.</summary>
+    [ObservableProperty] private bool _isHistoryCapped;
+
+    [ObservableProperty] private string _historyCapText = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HistoryDetails), nameof(HasHistoryDetails))]
@@ -74,13 +76,18 @@ public sealed partial class DpContentManagerViewModel
         try
         {
             // One record more than the list holds tells a log of exactly the cap from a longer one.
-            var (records, path) = await Task.Run(() => (Services.AuditLog.Read(MaxHistoryRecords + 1), Services.AuditLog.Path), cts.Token);
+            var (records, path, dropped) = await Task.Run(() =>
+            {
+                var read = Services.AuditLog.Read(MaxHistoryRecords + 1);
+                return (read, Services.AuditLog.Path, Services.AuditLog.OlderRecordsDropped);
+            }, cts.Token);
             cts.Token.ThrowIfCancellationRequested();
             if (generation != Generation || mine != _historyGeneration) return;
             var capped = records.Count > MaxHistoryRecords;
             _records = capped ? records.Skip(records.Count - MaxHistoryRecords).ToList() : records;
             HistoryPath = path;
-            IsHistoryCapped = capped;
+            HistoryCapText = capped ? HistoryCappedNote : dropped ? HistoryWindowNote : "";
+            IsHistoryCapped = capped || dropped;
             IsHistoryLoaded = true;
             ApplyHistoryFilter();
             Services.Log.Info(LogArea, $"Read {records.Count} audit records.");
@@ -134,5 +141,6 @@ public sealed partial class DpContentManagerViewModel
         HistoryCount = "";
         HistoryPath = "";
         IsHistoryCapped = false;
+        HistoryCapText = "";
     }
 }

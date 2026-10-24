@@ -5,7 +5,7 @@ namespace ApplicationPackagerEngine.Services;
 /// <paramref name="NalPath"/> is the NALPath of the distribution point as the site holds it; a pair row
 /// of the DP carries the same text as its ServerNALPath.
 /// </summary>
-/// <param name="CountsKnown">False when the site returned no status row for the DP: the counts read 0 but are not known.</param>
+/// <param name="CountsKnown">False when the site returned no status row for the DP, or after a truncated load: the counts are not known.</param>
 /// <param name="TotalSizeGb">The sum of the source sizes of the content the DP has a status row for.</param>
 public sealed record DpRow(
     string DpName,
@@ -51,7 +51,7 @@ public sealed record ContentRow(
     /// <summary>The ID of the object that owns the content: the CI_ID of an application, the PackageID otherwise.</summary>
     public string ObjectId { get; init; } = "";
 
-    /// <summary>False when a truncated load holds no status row for the content: the counts read 0 but are not known.</summary>
+    /// <summary>False after a truncated load: a status row of the content can be among the rows not read.</summary>
     public bool CountsKnown { get; init; } = true;
 }
 
@@ -350,6 +350,9 @@ public interface IDpContentAuditLog
     IReadOnlyList<DpContentAuditRecord> Read(int max);
 
     string Path { get; }
+
+    /// <summary>True when the last <see cref="Read"/> left out older records because the log is larger than the part a read takes.</summary>
+    bool OlderRecordsDropped => false;
 }
 
 /// <summary>A plain refusal or failure of the DP content services; the message is safe to show.</summary>

@@ -18,7 +18,7 @@ public sealed class DpContentIndex
         {
             Add(PairsByContent, pair.PackageId, pair);
             Add(PairsByDp, pair.NalPath, pair);
-            if (!DpContentLabels.IsOk(pair.State)) Issues.Add(pair);
+            if (pair.IsIssue) Issues.Add(pair);
         }
     }
 

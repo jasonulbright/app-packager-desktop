@@ -50,6 +50,9 @@ public sealed class DpContentAuditLog : IDpContentAuditLog
     /// <summary>The number of lines the last <see cref="Read"/> skipped because they could not be read.</summary>
     public int SkippedLines { get; private set; }
 
+    /// <summary>True when the last <see cref="Read"/> read only the end of a log longer than <see cref="MaxReadBytes"/>.</summary>
+    public bool OlderRecordsDropped { get; private set; }
+
     public AuditProbe Probe()
     {
         using var reservation = Reserve();
@@ -143,12 +146,14 @@ public sealed class DpContentAuditLog : IDpContentAuditLog
     public IReadOnlyList<DpContentAuditRecord> Read(int max)
     {
         SkippedLines = 0;
+        OlderRecordsDropped = false;
         var path = Path;
         if (max <= 0 || !ChainedJsonlFile.IsFullFilePath(path)) return [];
         IReadOnlyList<ChainedJsonlFile.Line> lines;
         try
         {
-            lines = ChainedJsonlFile.ReadLines(path, MaxReadBytes);
+            lines = ChainedJsonlFile.ReadLines(path, MaxReadBytes, out var cut);
+            OlderRecordsDropped = cut;
         }
         catch (InvalidDataException)
         {

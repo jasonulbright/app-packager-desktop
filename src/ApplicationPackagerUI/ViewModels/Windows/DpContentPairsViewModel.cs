@@ -12,7 +12,7 @@ public sealed partial class DpContentPairChoice(PairRow pair, bool isChecked) : 
     public string PackageId => Pair.PackageId;
     public string DpName => Pair.DpName;
     public string StateName => Pair.StateName;
-    public string Status => DpContentLabels.PairLabel(Pair.State);
+    public string Status => DpContentLabels.PairLabel(Pair);
     public string CheckName => $"Include {Pair.ContentName} on {Pair.DpName}";
 
     [ObservableProperty] private bool _isChecked = isChecked;

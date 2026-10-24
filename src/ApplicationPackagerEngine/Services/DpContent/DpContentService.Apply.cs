@@ -96,6 +96,30 @@ public sealed partial class DpContentService
                 attempts.AddRange(chunk.Select(p => new Attempt(p, "skipped", why, -1, "", -1, "")));
                 continue;
             }
+            if (change.Kind == DpContentChangeKind.Remove && c > 0 && !change.LastCopyAcknowledged)
+            {
+                // Another process can remove the other copies while the run works, so each later part reads them again.
+                var gone = attempts.Where(a => a.Written).Select(a => a.Pair.Key);
+                try
+                {
+                    var last = await LastCopiesAsync(chunk, ct, gone).ConfigureAwait(false);
+                    if (last.Count > 0)
+                        stopped = $"{Count(last.Count, "content")} of this part would have no distribution point with the content installed ({string.Join(", ", last.Take(5))}), and the plan did not accept that. Nothing more was removed.";
+                }
+                catch (DpContentServiceException ex)
+                {
+                    stopped = "the current copies of the content could not be read before this part, so nothing more was removed. " + ex.Message;
+                }
+                catch (OperationCanceledException)
+                {
+                    stopped = "the run was cancelled before this part.";
+                }
+                if (stopped.Length > 0)
+                {
+                    attempts.AddRange(chunk.Select(p => new Attempt(p, "skipped", stopped, -1, "", -1, "")));
+                    continue;
+                }
+            }
             if (change.Kind == DpContentChangeKind.Remove)
             {
                 var started = audit.Append(Record(change.Kind, "Started", "", runId, c + 1, chunk.Select(p => AuditPair(p, "")).ToList(),
@@ -152,7 +176,7 @@ public sealed partial class DpContentService
             // A written removal that the read-back did not see yet can still take effect, so every
             // written pair that did not fail is restorable.
             var restore = attempts.Select((a, i) => (Attempt: a, Result: results[i]))
-                .Where(x => x.Attempt.Written && x.Result.Result != DpContentResults.Failed && DpContentStates.IsOk(x.Attempt.Pair.State) && !x.Attempt.Pair.HasErrorMessage)
+                .Where(x => x.Attempt.Written && x.Result.Result != DpContentResults.Failed && IsRestorable(x.Attempt.Pair))
                 .Select(x => x.Attempt.Pair).ToList();
             if (restore.Count > 0) undo = new DpContentChange(DpContentChangeKind.DistributeAgain, restore, false, false, [], [], null);
         }
@@ -167,10 +191,11 @@ public sealed partial class DpContentService
     }
 
     /// <summary>The contents the removal would leave with no distribution point that has them installed, read from the site now.</summary>
-    private async Task<List<string>> LastCopiesAsync(IReadOnlyList<PairRow> pairs, CancellationToken ct)
+    /// <remarks><paramref name="gone"/> names pairs already removed whose status row the site can still list as installed.</remarks>
+    private async Task<List<string>> LastCopiesAsync(IReadOnlyList<PairRow> pairs, CancellationToken ct, IEnumerable<DpPairKey>? gone = null)
     {
         var read = await ReadStateAsync(pairs.Select(p => p.PackageId), false, ct).ConfigureAwait(false);
-        var removed = pairs.Select(p => p.Key).ToHashSet();
+        var removed = pairs.Select(p => p.Key).Concat(gone ?? []).ToHashSet();
         var held = DpContentAggregator.Pairs(read).Where(r => !removed.Contains(r.Key) && DpContentStates.IsOk(r.State) && !r.HasErrorMessage)
             .Select(r => r.PackageId).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return pairs.GroupBy(p => p.PackageId, StringComparer.OrdinalIgnoreCase)
