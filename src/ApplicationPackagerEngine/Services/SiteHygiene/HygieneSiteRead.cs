@@ -48,6 +48,7 @@ internal readonly struct HygieneRow(HygieneTable table, string[] values)
 {
     public string S(string column)
     {
+        if (table is null || values is null) return "";
         var i = table.Index(column);
         return i >= 0 && i < values.Length ? values[i] ?? "" : "";
     }
