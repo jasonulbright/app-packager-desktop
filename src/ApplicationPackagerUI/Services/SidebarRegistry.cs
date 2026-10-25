@@ -1,4 +1,4 @@
-using ApplicationPackagerUI.Models;
+﻿using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Views.Pages;
 using ApplicationPackagerUI.Views.Windows;
 using Microsoft.Extensions.DependencyInjection;
@@ -93,17 +93,10 @@ public sealed class SidebarRegistry
         {
             PageType = typeof(PivotsScriptsPage)
         });
-        registry.Register(new SidebarItemDefinition(SidebarIds.SiteHygiene, SuiteTools.SiteHygiene.Title, SuiteTools.SiteHygiene.Symbol, SidebarItemKind.Page)
+        registry.Register(new SidebarItemDefinition(SidebarIds.SiteHygiene, "Site Hygiene", "Broom24", SidebarItemKind.Page)
         {
             PageType = typeof(SiteHygienePage)
         });
-        foreach (var tool in SuiteTools.All.Where(t => registry.Find(t.Id) is null))
-        {
-            registry.Register(new SidebarItemDefinition(tool.Id, tool.Title, tool.Symbol, SidebarItemKind.Tool)
-            {
-                Activate = services => services.GetRequiredService<MainWindow>().OpenSuiteTool(tool)
-            });
-        }
         return registry;
     }
 }

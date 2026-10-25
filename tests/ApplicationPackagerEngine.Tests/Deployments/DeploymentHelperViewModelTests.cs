@@ -656,7 +656,7 @@ public sealed class DeploymentHelperViewModelTests
     {
         Assert.Null(typeof(DeploymentHelperViewModel).GetProperty("StartRingToolCommand"));
         Assert.Null(typeof(DeploymentPageServices).GetProperty("StartRingTool"));
-        Assert.Null(typeof(SuiteTools).GetProperty("DeploymentHelper"));
+        Assert.Null(typeof(DeploymentHelperViewModel).Assembly.GetType("ApplicationPackagerUI.Services.SuiteTools"));
         var page = _h.Create();
         page.SelectedTabIndex = DeploymentHelperViewModel.RingsTab;
         Assert.Same(page.Rings, page.CurrentTab);

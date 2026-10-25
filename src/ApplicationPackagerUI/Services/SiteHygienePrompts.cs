@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -25,6 +25,12 @@ public interface ISiteHygieneDialogs
     void SetClipboard(string text);
 
     void OpenFolder(string folder);
+
+    /// <summary>Opens a file of the page, such as the alerts log, with the program Windows associates with it.</summary>
+    void OpenFile(string path);
+
+    /// <summary>Shows the plan of a dashboard import until the operator imports or cancels; the answer is on the view model.</summary>
+    void ConfirmImport(HygieneImportViewModel import);
 }
 
 public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
@@ -57,6 +63,41 @@ public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
     {
         try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"")); }
         catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException) { }
+    }
+
+    public void OpenFile(string path)
+    {
+        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException) { }
+    }
+
+    public void ConfirmImport(HygieneImportViewModel import) => ShowModal(new HygieneImportWindow(import));
+}
+
+/// <summary>Writes the SQL server and database that the Site Hygiene page shares with Discover, without touching any other value.</summary>
+public static class SiteHygieneSqlSettings
+{
+    private static readonly object FileLock = new();
+
+    /// <summary>False when nothing was written; an unreadable settings file is never replaced.</summary>
+    public static bool Save(SettingsService settings, string server, string database)
+    {
+        lock (FileLock)
+        {
+            try
+            {
+                var stored = settings.Load();
+                if (settings.IsFileUnreadable) return false;
+                stored.DiscoverySqlServer = server.Trim();
+                stored.DiscoverySqlDatabase = database.Trim();
+                settings.Save(stored);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                return false;
+            }
+        }
     }
 }
 
@@ -106,7 +147,6 @@ public static class SiteHygieneRegistration
         services.AddSingleton(sp =>
         {
             var settings = sp.GetRequiredService<SettingsService>();
-            var launcher = sp.GetRequiredService<SuiteToolLauncher>();
             return new SiteHygienePageServices(
                 sp.GetRequiredService<ISiteHygieneService>(),
                 sp.GetRequiredService<IHygieneSuppressionStore>(),
@@ -118,14 +158,21 @@ public static class SiteHygieneRegistration
                 settings.Load,
                 () => SiteHygienePreferences.Load(settings),
                 choices => SiteHygienePreferences.Save(settings, choices),
-                () => launcher.LaunchAsync(SuiteTools.SiteHygiene, settings.Load),
                 sp.GetRequiredService<IAppLog>())
             {
-                AuditLog = sp.GetRequiredService<IHygieneAuditLog>()
+                AuditLog = sp.GetRequiredService<IHygieneAuditLog>(),
+                Live = LiveServices(sp, settings)
             };
         });
         services.AddSingleton<SiteHygieneViewModel>();
         services.AddSingleton<SiteHygienePage>();
         return services;
     }
+
+    /// <summary>The Live services when the engine registers all of them; null leaves the Live tab without a source.</summary>
+    private static SiteHygieneLiveServices? LiveServices(IServiceProvider sp, SettingsService settings) =>
+        sp.GetService<ISiteHygieneLiveService>() is { } live && sp.GetService<IMetricsHistoryStore>() is { } history && sp.GetService<IAlertEvaluator>() is { } alerts
+        && sp.GetService<IAlertLog>() is { } alertLog && sp.GetService<ILegacyDashboardImport>() is { } import && sp.GetService<ILiveReportWriter>() is { } reports
+            ? new SiteHygieneLiveServices(live, history, alerts, alertLog, import, reports) { SaveSql = (server, database) => SiteHygieneSqlSettings.Save(settings, server, database) }
+            : null;
 }

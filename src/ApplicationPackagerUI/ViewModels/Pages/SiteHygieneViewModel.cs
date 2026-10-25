@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Services;
+﻿using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.ConfigMgrSession;
 using ApplicationPackagerEngine.Services.Logging;
 using ApplicationPackagerUI.Models;
@@ -18,7 +18,6 @@ public sealed record SiteHygienePageServices(
     Func<AppSettings> LoadSettings,
     Func<SiteHygieneSettings?> LoadPreferences,
     Func<SiteHygieneSettings, bool> SavePreferences,
-    Func<Task<SuiteToolLaunchResult>> OpenLiveViews,
     IAppLog Log)
 {
     /// <summary>The time a text filter waits after the last key before it filters the rows.</summary>
@@ -26,6 +25,9 @@ public sealed record SiteHygienePageServices(
 
     /// <summary>The audit log the History tab reads; null shows no history.</summary>
     public IHygieneAuditLog? AuditLog { get; init; }
+
+    /// <summary>The services of the Live tab; null shows the Live tab without a source.</summary>
+    public SiteHygieneLiveServices? Live { get; init; }
 }
 
 /// <summary>One scan area with its check box.</summary>
@@ -39,7 +41,7 @@ public sealed partial class HygieneAreaChoice(HygieneArea area, bool isChecked) 
 
 /// <summary>
 /// The Site Hygiene page: Scan over the selected areas, then the tabs Findings, Relationships,
-/// Summary and Options over the result. Nothing is read in the constructor, and no site call runs
+/// Summary, History and Options over the result, and the Live tab over the read-only Live views. Nothing is read in the constructor, and no site call runs
 /// before the first Scan: the first visit shows the stored last scan from disk. The result stays when
 /// the operator leaves the page; a scan that ends after a newer one started or after Cancel is discarded.
 /// </summary>
@@ -47,11 +49,15 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
 {
     public const int FindingsTab = 0;
     public const int RelationsTab = 1;
-    public const int SummaryTab = 2;
-    public const int OptionsTab = 3;
-
-    /// <summary>After Options, so a saved tab index of an earlier version opens the same tab.</summary>
+    public const int LiveTab = 2;
+    public const int SummaryTab = 3;
     public const int HistoryTab = 4;
+    public const int OptionsTab = 5;
+
+    /// <summary>The tab of a saved index: a file without a tab layout counts in the order before the Live tab, 0 Findings, 1 Relationships, 2 Summary, 3 Options, 4 History.</summary>
+    public static int TabOf(int saved, int? layout) => layout == SiteHygieneSettings.LiveTabLayout
+        ? Math.Clamp(saved, FindingsTab, OptionsTab)
+        : Math.Clamp(saved, 0, 4) switch { 2 => SummaryTab, 3 => OptionsTab, 4 => HistoryTab, var tab => tab };
     public const int InventoryTab = 0;
     public const int TreeTab = 1;
 
@@ -131,8 +137,11 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     [ObservableProperty] private IReadOnlyList<string> _categories;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsResults), nameof(ShowsResultPanel))]
+    [NotifyPropertyChangedFor(nameof(ShowsResults), nameof(ShowsResultPanel), nameof(IsLiveTab), nameof(IsNotLiveTab))]
     private int _selectedTabIndex;
+
+    public bool IsLiveTab => SelectedTabIndex == LiveTab;
+    public bool IsNotLiveTab => !IsLiveTab;
     [ObservableProperty] private int _relationsTabIndex;
 
     [ObservableProperty]
@@ -240,6 +249,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     {
         SaveLater();
         if (_active && value == HistoryTab) _ = EnsureHistoryAsync();
+        if (_active && value == LiveTab && IsTrendsPane && _trendsStale) _ = LoadTrendsAsync();
     }
     partial void OnRelationsTabIndexChanged(int value) => SaveLater();
     partial void OnPauseMillisecondsChanged(int value) => SaveLater();
@@ -263,14 +273,22 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             _storedLoad = LoadStoredAsync();
         }
         await _storedLoad;
-        if (_active) RefreshSummary();
-        if (_active && SelectedTabIndex == HistoryTab) await EnsureHistoryAsync();
+        if (!_active) return;
+        RefreshSummary();
+        ApplyLiveFilter();
+        ArmTimer();
+        ShowAutoRefresh();
+        if (SelectedTabIndex == HistoryTab) await EnsureHistoryAsync();
+        if (SelectedTabIndex == LiveTab && IsTrendsPane && _trendsStale) await LoadTrendsAsync();
+        await CheckImportOfferAsync();
     }
 
-    /// <summary>The scan and a fix keep running; the result stays for the next visit.</summary>
+    /// <summary>The scan, a fix and a refresh keep running; the auto-refresh timer stops until the next visit. The result stays for the next visit.</summary>
     public async Task OnNavigatedFromAsync()
     {
         _active = false;
+        StopTimer();
+        ShowAutoRefresh();
         FlushFilters();
         await SaveAsync();
     }
@@ -718,7 +736,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         {
             _debounce.Remove(key, out var cts);
             cts?.Cancel();
-            (key == EdgesGrid ? ApplyEdgeFilter : key == HistoryGrid ? ApplyHistoryFilter : (Action)ApplyFindingFilter)();
+            (key == EdgesGrid ? ApplyEdgeFilter : key == HistoryGrid ? ApplyHistoryFilter : key == LiveGridKey ? ApplyLiveFilter : (Action)ApplyFindingFilter)();
         }
     }
 
@@ -785,6 +803,9 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             case EdgesGrid: ApplyEdgeFilter(); break;
             case ChecksGrid: RefreshSummary(); break;
             case HistoryGrid: ApplyHistoryFilter(); break;
+            default:
+                if (grid.StartsWith(LiveGridKey + "-", StringComparison.Ordinal)) ApplyLiveFilter();
+                break;
         }
         SaveLater();
     }
@@ -806,13 +827,18 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         (CheckStatusRow r, nameof(CheckStatusRow.Findings)) => SiteHygieneLabels.DidRun(r.Check) ? r.Check.Findings : -1,
         (HygieneHistoryRow r, nameof(HygieneHistoryRow.Time)) => (r.Record.Timestamp, r.Index),
         (HygieneHistoryRow r, nameof(HygieneHistoryRow.Objects)) => r.Record.Objects.Count,
+        (LiveGridRow r, _) => r.SortKey(column),
         _ => row.GetType().GetProperty(column)?.GetValue(row) as string ?? ""
     };
 
     private async Task ApplyPreferencesAsync()
     {
         SiteHygieneSettings? saved;
-        try { saved = await Task.Run(Services.LoadPreferences); }
+        try
+        {
+            LoadSql(await Task.Run(Services.LoadSettings));
+            saved = await Task.Run(Services.LoadPreferences);
+        }
         catch (Exception ex)
         {
             saved = null;
@@ -823,7 +849,8 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             _applying = true;
             try
             {
-                SelectedTabIndex = Math.Clamp(saved.SelectedTab, FindingsTab, HistoryTab);
+                SelectedTabIndex = TabOf(saved.SelectedTab, saved.TabLayout);
+                ApplyLivePreferences(saved);
                 HistoryText = saved.HistoryText ?? "";
                 RelationsTabIndex = Math.Clamp(saved.RelationsTab, InventoryTab, TreeTab);
                 FindingText = saved.FindingText ?? "";
@@ -844,7 +871,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
                 foreach (var (grid, value) in saved.Sorts ?? [])
                 {
                     var parts = (value ?? "").Split('|');
-                    if (parts.Length == 2 && parts[0].Length > 0 && parts[0].Length <= 64 && parts[0].All(char.IsLetter))
+                    if (parts.Length == 2 && parts[0].Length > 0 && parts[0].Length <= 64 && parts[0].All(char.IsAsciiLetterOrDigit))
                         _sorts[grid] = (parts[0], !string.Equals(parts[1], "Descending", StringComparison.Ordinal));
                 }
             }
@@ -854,8 +881,16 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         _stored = Current();
     }
 
-    private SiteHygieneSettings Current() => new()
+    private SiteHygieneSettings Current()
     {
+        var settings = Choices();
+        WriteLivePreferences(settings);
+        return settings;
+    }
+
+    private SiteHygieneSettings Choices() => new()
+    {
+        TabLayout = SiteHygieneSettings.LiveTabLayout,
         SelectedTab = SelectedTabIndex,
         HistoryText = HistoryText,
         RelationsTab = RelationsTabIndex,
@@ -872,11 +907,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     };
 
     private static bool Same(SiteHygieneSettings? a, SiteHygieneSettings b) =>
-        a is not null && a.SelectedTab == b.SelectedTab && a.HistoryText == b.HistoryText && a.RelationsTab == b.RelationsTab && a.FindingText == b.FindingText && a.Category == b.Category
-        && a.Severity == b.Severity && a.ShowSuppressed == b.ShowSuppressed && a.EdgeText == b.EdgeText && a.EdgeKind == b.EdgeKind
-        && a.PauseMilliseconds == b.PauseMilliseconds && a.ProbeContentSources == b.ProbeContentSources
-        && (a.Areas ?? []).SequenceEqual(b.Areas ?? [])
-        && (a.Sorts ?? []).OrderBy(s => s.Key, StringComparer.Ordinal).SequenceEqual((b.Sorts ?? []).OrderBy(s => s.Key, StringComparer.Ordinal));
+        a is not null && string.Equals(System.Text.Json.JsonSerializer.Serialize(a), System.Text.Json.JsonSerializer.Serialize(b), StringComparison.Ordinal);
 
     private void SaveLater()
     {
@@ -891,6 +922,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         await _saveLock.WaitAsync();
         try
         {
+            await SaveSqlAsync();
             var choices = Current();
             if (Same(_stored, choices)) return true;
             bool saved;

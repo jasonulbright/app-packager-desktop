@@ -1,4 +1,4 @@
-<Page
+﻿<Page
     x:Class="ApplicationPackagerUI.Views.Pages.SiteHygienePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -191,11 +191,26 @@
                        x:Name="txtHygieneIntro" Style="{StaticResource Note}" Margin="0,4,0,0" AutomationProperties.AutomationId="txtHygieneIntro" />
         </StackPanel>
 
-        <Border Grid.Row="1" Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
-                AutomationProperties.AutomationId="pnlHygieneConnection">
-            <TextBlock Text="{Binding ConnectionMessage}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                       AutomationProperties.AutomationId="txtHygieneConnection" AutomationProperties.LiveSetting="Polite" />
-        </Border>
+        <StackPanel Grid.Row="1">
+            <Border Style="{StaticResource Caution}" Visibility="{Binding HasConnectionMessage, Converter={StaticResource BoolToVisibility}}"
+                    AutomationProperties.AutomationId="pnlHygieneConnection">
+                <TextBlock Text="{Binding ConnectionMessage}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                           AutomationProperties.AutomationId="txtHygieneConnection" AutomationProperties.LiveSetting="Polite" />
+            </Border>
+            <!-- One line on every tab while an alert is not seen; the alert list on the Live tab holds every alert. -->
+            <Border x:Name="pnlHygieneAlertBanner" Style="{StaticResource Caution}" Padding="12,4" Visibility="{Binding HasAlertBanner, Converter={StaticResource BoolToVisibility}}"
+                    AutomationProperties.AutomationId="pnlHygieneAlertBanner">
+                <DockPanel>
+                    <ui:Button DockPanel.Dock="Right" Content="Mark as seen" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding MarkAlertsSeenCommand}" Margin="8,0,0,0"
+                               ToolTip="Marks every alert as seen. The alerts stay in the list and in the alerts log." AutomationProperties.AutomationId="btnAlertBannerSeen" />
+                    <ui:Button DockPanel.Dock="Right" Content="Show alerts" Icon="{ui:SymbolIcon Alert24}" Command="{Binding ShowAlertsCommand}" Margin="8,0,0,0"
+                               ToolTip="Opens the alert list on the Live tab." AutomationProperties.AutomationId="btnAlertBannerShow" />
+                    <TextBlock x:Name="txtAlertBanner" Text="{Binding AlertBannerText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" ToolTip="{Binding AlertBannerText}" AutomationProperties.Name="{Binding AlertBannerText}"
+                               AutomationProperties.AutomationId="txtAlertBanner" AutomationProperties.LiveSetting="Assertive" />
+                </DockPanel>
+            </Border>
+        </StackPanel>
 
         <StackPanel Grid.Row="2" Margin="0,0,0,8">
             <WrapPanel>
@@ -204,9 +219,6 @@
                            AutomationProperties.AutomationId="btnHygieneScan" />
                 <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelScanCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Stops the scan after the current step. The earlier result stays." AutomationProperties.Name="Cancel the scan" AutomationProperties.AutomationId="btnHygieneCancel" />
-                <ui:Button Content="Live views" Icon="{ui:SymbolIcon Open24}" Command="{Binding OpenLiveViewsCommand}" Style="{StaticResource ToolButton}"
-                           ToolTip="Starts the Site Hygiene suite tool for the Live views: deployments, content, distribution points, client health and trends."
-                           AutomationProperties.Name="Open the Live views in the suite tool" AutomationProperties.AutomationId="btnHygieneLiveViews" />
                 <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
                            ToolTip="Saves the rows the filters of the active tab show as a CSV file." AutomationProperties.AutomationId="btnHygieneCsv" />
                 <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Document24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
@@ -221,7 +233,13 @@
                            Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}"
                            AutomationProperties.AutomationId="txtHygieneProgress" AutomationProperties.LiveSetting="Polite" />
                 <TextBlock Text="{Binding AreasText}" Style="{StaticResource Note}" Margin="0,0,0,2" DockPanel.Dock="Top" AutomationProperties.AutomationId="txtHygieneAreas" />
-                <TextBlock Text="{Binding SummaryLine}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtHygieneSummary" />
+                <Grid>
+                    <!-- The Live tab shows the summary of the last refresh in place of the scan summary. -->
+                    <TextBlock x:Name="txtHygieneSummary" Text="{Binding SummaryLine}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtHygieneSummary"
+                               Visibility="{Binding IsNotLiveTab, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock x:Name="txtHygieneLiveSummary" Text="{Binding LiveSummaryLine}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtHygieneLiveSummary"
+                               Visibility="{Binding IsLiveTab, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+                </Grid>
             </DockPanel>
         </StackPanel>
 
@@ -367,6 +385,117 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem Header="Live" AutomationProperties.AutomationId="tabHygieneLive">
+                <ScrollViewer x:Name="scrollLiveTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollLiveTab">
+                    <!-- The view sets MinHeight to the rows above the view and the view at its MinHeight; below it the tab scrolls instead of cutting the view. -->
+                    <Grid x:Name="gridLiveTab" Height="{Binding ViewportHeight, ElementName=scrollLiveTab}" KeyboardNavigation.TabNavigation="Local">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="{x:Static local:SiteHygienePage.LiveViewMinHeight}" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0" x:Name="pnlLiveActions" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
+                            <ui:Button x:Name="btnLiveRefresh" Content="Refresh all" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Primary" Command="{Binding RefreshAllCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Reads every Live view from the site and the site database. The Live views change nothing on the site."
+                                       AutomationProperties.Name="Refresh every Live view" AutomationProperties.AutomationId="btnLiveRefresh" />
+                            <ui:Button Content="Cancel refresh" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelRefreshCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Stops the refresh. The earlier result stays." AutomationProperties.AutomationId="btnLiveCancel" />
+                            <ui:Button Content="{Binding PauseText}" Icon="{ui:SymbolIcon Pause24}" Command="{Binding PauseAutoRefreshCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Pauses or resumes the auto-refresh. The interval is on the Options tab." AutomationProperties.AutomationId="btnLivePause" />
+                            <ui:Button Content="Copy summary" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyLiveSummaryCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Copies the counts of the last refresh as plain text." AutomationProperties.AutomationId="btnLiveCopySummary" />
+                            <ui:Button Content="Alerts log" Icon="{ui:SymbolIcon DocumentText24}" Command="{Binding OpenAlertsLogCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Opens the alerts log file." AutomationProperties.Name="Open the alerts log" AutomationProperties.AutomationId="btnLiveAlertsLog" />
+                            <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,8" VerticalAlignment="Center"
+                                             Visibility="{Binding IsRefreshing, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock Text="{Binding RefreshProgress}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,12,8" MaxWidth="420"
+                                       Visibility="{Binding IsRefreshing, Converter={StaticResource BoolToVisibility}}"
+                                       AutomationProperties.AutomationId="txtLiveProgress" AutomationProperties.LiveSetting="Polite" />
+                            <TextBlock Text="{Binding AutoRefreshText}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560"
+                                       AutomationProperties.AutomationId="txtAutoRefresh" AutomationProperties.LiveSetting="Polite" />
+                        </WrapPanel>
+                        <WrapPanel Grid.Row="1" x:Name="pnlLiveFilter" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
+                            <ComboBox x:Name="cboLiveView" ItemsSource="{Binding LiveViews}" SelectedItem="{Binding SelectedLiveView}" MinWidth="200" Margin="0,0,8,8"
+                                      AutomationProperties.Name="Live view" AutomationProperties.AutomationId="cboLiveView" />
+                            <ComboBox ItemsSource="{Binding LiveStatusChoices}" SelectedItem="{Binding LiveStatusFilter}" MinWidth="130" Margin="0,0,8,8"
+                                      Visibility="{Binding IsGridPane, Converter={StaticResource BoolToVisibility}}"
+                                      AutomationProperties.Name="Status" AutomationProperties.AutomationId="cboLiveStatus" />
+                            <ui:TextBox Text="{Binding LiveFilterText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter the rows by any text" Icon="{ui:SymbolIcon Search24}"
+                                        MinWidth="280" Margin="0,0,8,8" Visibility="{Binding IsGridPane, Converter={StaticResource BoolToVisibility}}"
+                                        AutomationProperties.Name="Live filter" AutomationProperties.AutomationId="txtLiveFilter" />
+                            <ComboBox ItemsSource="{Binding TrendMetrics}" SelectedItem="{Binding SelectedTrendMetric}" MinWidth="300" Margin="0,0,8,8"
+                                      Visibility="{Binding IsTrendsPane, Converter={StaticResource BoolToVisibility}}"
+                                      AutomationProperties.Name="Metric" AutomationProperties.AutomationId="cboTrendMetric" />
+                            <ComboBox ItemsSource="{Binding TrendDayChoices}" SelectedItem="{Binding TrendDays}" ItemStringFormat="Last {0} days" MinWidth="150" Margin="0,0,8,8"
+                                      Visibility="{Binding IsTrendsPane, Converter={StaticResource BoolToVisibility}}"
+                                      AutomationProperties.Name="Period" AutomationProperties.AutomationId="cboTrendDays" />
+                            <ui:Button Content="Mark as seen" Icon="{ui:SymbolIcon CheckmarkCircle24}" Command="{Binding MarkAlertsSeenCommand}" Style="{StaticResource ToolButton}"
+                                       Visibility="{Binding IsAlertsPane, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="Mark every alert as seen"
+                                       AutomationProperties.AutomationId="btnAlertsSeen" />
+                            <TextBlock Text="{Binding LiveRowCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8"
+                                       Visibility="{Binding IsNotTrendsPane, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtLiveCount" />
+                        </WrapPanel>
+                        <StackPanel Grid.Row="2" x:Name="pnlLiveMessages" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
+                            <Border Style="{StaticResource Caution}" Padding="12,4" Visibility="{Binding HasImportOffer, Converter={StaticResource BoolToVisibility}}"
+                                    AutomationProperties.AutomationId="pnlImportOffer">
+                                <DockPanel>
+                                    <ui:Button DockPanel.Dock="Right" Content="Not now" Command="{Binding DismissImportOfferCommand}" Margin="8,0,0,0"
+                                               ToolTip="Hides the offer. The import stays on the Options tab." AutomationProperties.AutomationId="btnImportNotNow" />
+                                    <ui:Button DockPanel.Dock="Right" Content="Import" Command="{Binding ImportDashboardCommand}" Margin="8,0,0,0"
+                                               ToolTip="Shows what the import copies; nothing is copied before you confirm." AutomationProperties.Name="Import from the Health Dashboard"
+                                               AutomationProperties.AutomationId="btnImportOffer" />
+                                    <TextBlock Text="{Binding ImportOffer}" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                               AutomationProperties.AutomationId="txtImportOffer" />
+                                </DockPanel>
+                            </Border>
+                            <TextBlock x:Name="txtLiveViewMessage" Text="{Binding LiveViewMessage}" Style="{StaticResource Warning}" Margin="0,0,0,6" MaxHeight="48" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding LiveViewMessage}" Visibility="{Binding ShowsLiveViewMessage, Converter={StaticResource BoolToVisibility}}"
+                                       AutomationProperties.AutomationId="txtLiveViewMessage" AutomationProperties.LiveSetting="Polite" />
+                        </StackPanel>
+                        <Grid Grid.Row="3" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
+                            <DataGrid x:Name="dgLive" Style="{StaticResource GridBase}" ItemsSource="{Binding LiveViewRows}" SelectedItem="{Binding SelectedLiveRow}"
+                                      Visibility="{Binding IsGridPane, Converter={StaticResource BoolToVisibility}}"
+                                      AutomationProperties.AutomationId="dgLive" AutomationProperties.Name="{Binding SelectedLiveView.Title}" />
+                            <Grid x:Name="pnlTrends" Visibility="{Binding IsTrendsPane, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlTrends">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="3*" MinHeight="{x:Static local:SiteHygienePage.TrendChartMinHeight}" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="2*" MinHeight="{x:Static local:SiteHygienePage.TrendTableMinHeight}" />
+                                </Grid.RowDefinitions>
+                                <Border Grid.Row="0" Style="{StaticResource Card}" Padding="8">
+                                    <helpers:TrendChart x:Name="chartTrend" Points="{Binding TrendRows}" SelectedIndex="{Binding TrendSelectedIndex}"
+                                                        AutomationProperties.Name="{Binding SelectedTrendMetric.Title}" AutomationProperties.HelpText="{Binding TrendReadout}"
+                                                        AutomationProperties.AutomationId="chartTrend" ToolTip="{Binding TrendReadout}" />
+                                </Border>
+                                <StackPanel Grid.Row="1" x:Name="pnlTrendText" Margin="0,6,0,6">
+                                    <TextBlock Text="{Binding TrendReadout}" Style="{StaticResource Warning}" AutomationProperties.AutomationId="txtTrendReadout" AutomationProperties.LiveSetting="Polite" />
+                                    <TextBlock Text="{Binding TrendNote}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtTrendNote" />
+                                </StackPanel>
+                                <DataGrid Grid.Row="2" x:Name="dgTrend" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding TrendRows}" SelectedItem="{Binding SelectedTrendRow}"
+                                          AutomationProperties.AutomationId="dgTrend" AutomationProperties.Name="The points of the chart">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="Value" Binding="{Binding ValueText}" Width="132" MinWidth="128" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="Note" Binding="{Binding Gap}" Width="*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                            <DataGrid x:Name="dgAlerts" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding AlertRows}" SelectedItem="{Binding SelectedAlert}"
+                                      Visibility="{Binding IsAlertsPane, Converter={StaticResource BoolToVisibility}}"
+                                      AutomationProperties.AutomationId="dgAlerts" AutomationProperties.Name="Alerts">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="State" Binding="{Binding State}" Width="96" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Metric" Binding="{Binding Metric}" Width="300" MinWidth="296" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
             <TabItem Header="Summary" AutomationProperties.AutomationId="tabHygieneSummary">
                 <ScrollViewer x:Name="scrollSummaryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollSummaryTab">
@@ -390,7 +519,8 @@
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock Grid.Row="2" Text="Checks" Style="{StaticResource CardTitle}" Margin="0,12,0,8" />
-                        <DataGrid Grid.Row="3" x:Name="dgChecks" Tag="checks" Style="{StaticResource GridBase}" ItemsSource="{Binding CheckRows}"
+                        <!-- Layout rounding of the two star rows can give them one pixel more than the tab; the margin keeps the bottom border of the grid inside the tab. -->
+                        <DataGrid Grid.Row="3" x:Name="dgChecks" Tag="checks" Style="{StaticResource GridBase}" ItemsSource="{Binding CheckRows}" Margin="0,0,0,1"
                                   AutomationProperties.AutomationId="dgChecks" AutomationProperties.Name="Checks">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Check" Binding="{Binding CheckId}" SortMemberPath="CheckId" Width="84" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
@@ -401,6 +531,50 @@
                                 <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" SortMemberPath="Reason" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="History" AutomationProperties.AutomationId="tabHygieneHistory">
+                <ScrollViewer x:Name="scrollHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollHygieneHistoryTab">
+                    <!-- The view sets MinHeight to the intro, the filter row, the detail box and the grid at its MinHeight; below it the tab scrolls instead of cutting the detail box. -->
+                    <Grid x:Name="gridHistoryTab" Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" KeyboardNavigation.TabNavigation="Local">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="{x:Static local:SiteHygienePage.HistoryGridMinHeight}" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" x:Name="txtHygieneHistoryIntro" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHygieneHistoryIntro"
+                                   Text="The audit log of the fixes of this page, newest first. The list reads the file on this computer only; it reads nothing from the site. A record the hash chain does not verify was changed or added outside the page." />
+                        <WrapPanel Grid.Row="1" x:Name="pnlHygieneHistoryFilter" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
+                            <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by action, result, user, site or object" Icon="{ui:SymbolIcon Search24}"
+                                        MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtHygieneHistoryFilter" />
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Reads the audit log file again." AutomationProperties.Name="Read the audit log again" AutomationProperties.AutomationId="btnHygieneHistoryRefresh" />
+                            <TextBlock Text="{Binding HistoryCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,12,8" AutomationProperties.AutomationId="txtHygieneHistoryCount" />
+                            <TextBlock Text="{Binding HistoryCapText}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560"
+                                       AutomationProperties.AutomationId="txtHygieneHistoryCap" />
+                        </WrapPanel>
+                        <DataGrid Grid.Row="2" x:Name="dgHygieneHistory" KeyboardNavigation.TabIndex="1" Tag="history" Style="{StaticResource GridBase}" ItemsSource="{Binding HistoryRows}"
+                                  SelectedItem="{Binding SelectedHistory}" AutomationProperties.AutomationId="dgHygieneHistory" AutomationProperties.Name="Audit log records">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Objects" Binding="{Binding Objects}" SortMemberPath="Objects" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Site" Binding="{Binding Site}" SortMemberPath="Site" Width="64" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Provider" Binding="{Binding Provider}" SortMemberPath="Provider" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="136" MinWidth="132" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Grid.Row="3" x:Name="pnlHygieneHistoryDetail" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2"
+                                Visibility="{Binding HasHistoryDetails, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlHygieneHistoryDetail">
+                            <TextBox Text="{Binding HistoryDetails, Mode=OneWay}" Style="{StaticResource DetailBox}" MaxLines="{x:Static pages:HygieneHistoryRow.DetailLines}"
+                                     AutomationProperties.Name="The selected audit record, read only" AutomationProperties.AutomationId="txtHygieneHistoryDetail" />
+                        </Border>
                     </Grid>
                 </ScrollViewer>
             </TabItem>
@@ -449,6 +623,71 @@
                                        Text="Probe the content source paths of the deployment types. The scan then connects to the file servers of the paths, for a limited number of paths and with a time limit. Off by default." />
                         </CheckBox>
 
+                        <TextBlock Text="Live views" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
+                        <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtLiveOptionsIntro"
+                                   Text="The Live views read the SMS Provider and the site database and change nothing. Client Health and Inactive Devices read the site database with Windows authentication. The SQL server and database are the ones Discover uses; empty values are found from the site." />
+                        <WrapPanel x:Name="pnlLiveSql">
+                            <ui:TextBox Text="{Binding LiveSqlServer, UpdateSourceTrigger=LostFocus}" PlaceholderText="SQL server, empty finds it from the site" MinWidth="300" Margin="0,0,8,8"
+                                        AutomationProperties.Name="SQL server of the site database" AutomationProperties.AutomationId="txtLiveSqlServer" />
+                            <ui:TextBox Text="{Binding LiveSqlDatabase, UpdateSourceTrigger=LostFocus}" PlaceholderText="Database, empty uses CM_ and the site code" MinWidth="300" Margin="0,0,8,8"
+                                        AutomationProperties.Name="Site database name" AutomationProperties.AutomationId="txtLiveSqlDatabase" />
+                            <ui:Button Content="Test SQL" Icon="{ui:SymbolIcon PlugConnected24}" Command="{Binding TestSqlCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Connects to the site database and runs one read." AutomationProperties.Name="Test the SQL connection" AutomationProperties.AutomationId="btnTestSql" />
+                        </WrapPanel>
+                        <TextBlock Text="{Binding SqlTestResult}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtSqlTestResult" AutomationProperties.LiveSetting="Polite" />
+                        <CheckBox IsChecked="{Binding TrustSqlCertificate}" Margin="0,0,0,8" AutomationProperties.Name="Trust the SQL server certificate" AutomationProperties.AutomationId="chkTrustSqlCertificate">
+                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                       Text="Trust the SQL server certificate without a check. Use this only for a server with a self-signed certificate. Off by default." />
+                        </CheckBox>
+                        <WrapPanel>
+                            <TextBlock Text="Auto-refresh every" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,8,8" />
+                            <ComboBox ItemsSource="{Binding RefreshIntervals}" SelectedItem="{Binding RefreshMinutes}" ItemStringFormat="{}{0} minutes" MinWidth="150" Margin="0,0,16,8"
+                                      AutomationProperties.Name="Auto-refresh interval in minutes" AutomationProperties.AutomationId="cboRefreshMinutes" />
+                            <TextBlock Text="A device is inactive after" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,8,8" />
+                            <ComboBox ItemsSource="{Binding InactiveDayChoices}" SelectedItem="{Binding InactiveDays}" ItemStringFormat="{}{0} days" MinWidth="130" Margin="0,0,8,8"
+                                      AutomationProperties.Name="Days without contact after which a device is inactive" AutomationProperties.AutomationId="cboInactiveDays" />
+                        </WrapPanel>
+                        <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" MaxWidth="900" HorizontalAlignment="Left"
+                                   Text="The auto-refresh starts after the first successful Refresh all of the session and runs only while this page shows. Each refresh reads every source once, in bulk; the status line states the query count." />
+
+                        <TextBlock Text="Alerts" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
+                        <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAlertsIntro"
+                                   Text="An alert fires when a completed refresh finds a threshold crossed, and again only after the value recovered. A view that failed neither raises nor clears an alert. Alerts show on this page and go to the alerts log, only while the app runs." />
+                        <CheckBox IsChecked="{Binding AlertsEnabled}" Margin="0,0,0,6" AutomationProperties.Name="Raise alerts" AutomationProperties.AutomationId="chkAlertsEnabled">
+                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Raise alerts" />
+                        </CheckBox>
+                        <StackPanel Margin="28,0,0,0" IsEnabled="{Binding AlertsEnabled}">
+                            <CheckBox IsChecked="{Binding AlertSiteCritical}" Margin="0,0,0,6" AutomationProperties.Name="A site component or site system is critical" AutomationProperties.AutomationId="chkAlertSiteCritical">
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A site component or site system is critical" />
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding AlertDpCritical}" Margin="0,0,0,6" AutomationProperties.Name="A distribution point is critical" AutomationProperties.AutomationId="chkAlertDpCritical">
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A distribution point is critical" />
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding AlertContentFailed}" Margin="0,0,0,6" AutomationProperties.Name="A DP-content pair failed" AutomationProperties.AutomationId="chkAlertContentFailed">
+                                <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="A DP-content pair failed" />
+                            </CheckBox>
+                            <WrapPanel>
+                                <CheckBox IsChecked="{Binding AlertCompliance}" Margin="0,0,8,8" VerticalAlignment="Center" AutomationProperties.Name="Overall deployment compliance is below the floor"
+                                          AutomationProperties.AutomationId="chkAlertCompliance">
+                                    <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Overall deployment compliance is below" />
+                                </CheckBox>
+                                <ComboBox ItemsSource="{Binding ComplianceFloors}" SelectedItem="{Binding CompliancePctFloor}" ItemStringFormat="{}{0} %" MinWidth="110" Margin="0,0,8,8"
+                                          IsEnabled="{Binding AlertCompliance}" AutomationProperties.Name="Compliance floor in percent" AutomationProperties.AutomationId="cboComplianceFloor" />
+                            </WrapPanel>
+                        </StackPanel>
+                        <WrapPanel>
+                            <ui:Button Content="Open the alerts log" Icon="{ui:SymbolIcon DocumentText24}" Command="{Binding OpenAlertsLogCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnOptionsAlertsLog" />
+                        </WrapPanel>
+
+                        <TextBlock Text="Health Dashboard import" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
+                        <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtImportIntro"
+                                   Text="Copies the metrics history and the settings of the retired Health Dashboard of the suite. The import shows what it copies and asks once. It does not change the old files, and a second import changes nothing." />
+                        <WrapPanel>
+                            <ui:Button Content="Import from the Health Dashboard" Icon="{ui:SymbolIcon ArrowImport24}" Command="{Binding ImportDashboardCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnImportDashboard" />
+                        </WrapPanel>
+
                         <TextBlock Text="Reports" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
                         <WrapPanel>
                             <TextBlock Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,8,8" AutomationProperties.AutomationId="txtReportFolder">
@@ -462,49 +701,6 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="History" AutomationProperties.AutomationId="tabHygieneHistory">
-                <ScrollViewer x:Name="scrollHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              AutomationProperties.AutomationId="scrollHygieneHistoryTab">
-                    <!-- The view sets MinHeight to the intro, the filter row, the detail box and the grid at its MinHeight; below it the tab scrolls instead of cutting the detail box. -->
-                    <Grid x:Name="gridHistoryTab" Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" KeyboardNavigation.TabNavigation="Local">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="{x:Static local:SiteHygienePage.HistoryGridMinHeight}" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" x:Name="txtHygieneHistoryIntro" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHygieneHistoryIntro"
-                                   Text="The audit log of the fixes of this page, newest first. The list reads the file on this computer only; it reads nothing from the site. A record the hash chain does not verify was changed or added outside the page." />
-                        <WrapPanel Grid.Row="1" x:Name="pnlHygieneHistoryFilter" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
-                            <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by action, result, user, site or object" Icon="{ui:SymbolIcon Search24}"
-                                        MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtHygieneHistoryFilter" />
-                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
-                                       ToolTip="Reads the audit log file again." AutomationProperties.Name="Read the audit log again" AutomationProperties.AutomationId="btnHygieneHistoryRefresh" />
-                            <TextBlock Text="{Binding HistoryCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,12,8" AutomationProperties.AutomationId="txtHygieneHistoryCount" />
-                            <TextBlock Text="{Binding HistoryCapText}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560"
-                                       AutomationProperties.AutomationId="txtHygieneHistoryCap" />
-                        </WrapPanel>
-                        <DataGrid Grid.Row="2" x:Name="dgHygieneHistory" KeyboardNavigation.TabIndex="1" Tag="history" Style="{StaticResource GridBase}" ItemsSource="{Binding HistoryRows}"
-                                  SelectedItem="{Binding SelectedHistory}" AutomationProperties.AutomationId="dgHygieneHistory" AutomationProperties.Name="Audit log records">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Objects" Binding="{Binding Objects}" SortMemberPath="Objects" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Site" Binding="{Binding Site}" SortMemberPath="Site" Width="64" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Provider" Binding="{Binding Provider}" SortMemberPath="Provider" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="136" MinWidth="132" ElementStyle="{StaticResource TrimmedCell}" />
-                            </DataGrid.Columns>
-                        </DataGrid>
-                        <Border Grid.Row="3" x:Name="pnlHygieneHistoryDetail" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2"
-                                Visibility="{Binding HasHistoryDetails, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlHygieneHistoryDetail">
-                            <TextBox Text="{Binding HistoryDetails, Mode=OneWay}" Style="{StaticResource DetailBox}" MaxLines="{x:Static pages:HygieneHistoryRow.DetailLines}"
-                                     AutomationProperties.Name="The selected audit record, read only" AutomationProperties.AutomationId="txtHygieneHistoryDetail" />
-                        </Border>
-                    </Grid>
-                </ScrollViewer>
-            </TabItem>
         </TabControl>
 
         <!-- Collapsed, the card is one line: the result summary, or the audit warning in its place, which the status line also holds with the summary.

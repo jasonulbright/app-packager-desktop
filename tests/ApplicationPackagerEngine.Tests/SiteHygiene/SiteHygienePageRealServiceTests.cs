@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests.MaintenanceWindows;
 using ApplicationPackagerUI.Models;
@@ -43,8 +43,7 @@ internal sealed class SiteHygieneRealPage : IDisposable
 
     /// <summary>The settings name the connection of the harness, which the service reads at each call, as the desktop does.</summary>
     public SiteHygieneViewModel Create() => new(new SiteHygienePageServices(Service, Suppressions, ScanStore, Reports, Dialogs, new Hook(this), Writer,
-        () => new AppSettings { SiteCode = Site.Connection.SiteCode ?? "", ProviderMachine = Site.Connection.ProviderMachine ?? "" }, () => null, _ => true,
-        () => Task.FromResult(new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Started)), Log) { FilterDelay = TimeSpan.Zero });
+        () => new AppSettings { SiteCode = Site.Connection.SiteCode ?? "", ProviderMachine = Site.Connection.ProviderMachine ?? "" }, () => null, _ => true, Log) { FilterDelay = TimeSpan.Zero });
 
     /// <summary>Opens the page and scans only the given areas of the stub site.</summary>
     public async Task<SiteHygieneViewModel> ScannedAsync(params string[] areas)

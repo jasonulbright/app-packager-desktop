@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -77,6 +77,7 @@ public sealed class SiteHygieneRenderTests
         Run(viewModel.ScanAsync());
         Run(viewModel.LoadRelationsAsync());
         Run(viewModel.LoadHistoryAsync());
+        Run(viewModel.RefreshLiveAsync());
         viewModel.SelectedHistory = viewModel.HistoryRows[0];
         viewModel.SetSelectedFindings([viewModel.FindingRows.First(r => r.Finding.FixKind == HygieneFixKind.SetCollectionRefreshType)]);
         Run(viewModel.RunFixCommand.ExecuteAsync(null));
@@ -100,7 +101,7 @@ public sealed class SiteHygieneRenderTests
         WithPage(theme, (window, page, viewModel, harness) =>
         {
             var headers = ById<TabControl>(page, "tabHygiene").Items.OfType<TabItem>().Select(t => (string)t.Header).ToList();
-            Assert.Equal(["Findings", "Relationships", "Summary", "Options", "History"], headers);
+            Assert.Equal(["Findings", "Relationships", "Live", "Summary", "History", "Options"], headers);
             Assert.All(VM.ExportTabs, t => Assert.Equal(headers[t.Index], t.Name));
             Assert.Equal(headers.Where(h => h != headers[VM.OptionsTab]), VM.ExportTabs.Select(t => t.Name));
             Run(viewModel.ScanAsync());
@@ -116,10 +117,10 @@ public sealed class SiteHygieneRenderTests
             Assert.Equal(50_000, grid.SelectedItems.Count);
             Assert.InRange(page.SelectionEvents - events, 1, 3);
             Assert.True(ById<FrameworkElement>(page, "txtHygieneSummary").IsVisible);
-            foreach (var tab in new[] { VM.RelationsTab, VM.SummaryTab, VM.OptionsTab, VM.HistoryTab })
+            foreach (var tab in new[] { VM.RelationsTab, VM.LiveTab, VM.SummaryTab, VM.OptionsTab, VM.HistoryTab })
             {
                 ShowTab(window, viewModel, tab);
-                Assert.True(ById<FrameworkElement>(page, "txtHygieneSummary").IsVisible);
+                Assert.True(ById<FrameworkElement>(page, tab == VM.LiveTab ? "txtHygieneLiveSummary" : "txtHygieneSummary").IsVisible);
             }
         }, harness: () => LongHarness(50_000));
     }
@@ -240,7 +241,7 @@ public sealed class SiteHygieneRenderTests
         Assert.True(element.IsVisible, $"{id} is not visible.");
         var bounds = element.TransformToAncestor(scroller).TransformBounds(new Rect(element.RenderSize));
         Assert.True(bounds.Left >= -0.5 && bounds.Right <= scroller.ViewportWidth + 0.5, $"{id} spans {bounds.Left:0} to {bounds.Right:0} px in a {scroller.ViewportWidth:0} px tab.");
-        Assert.True(bounds.Bottom + scroller.VerticalOffset <= scroller.ExtentHeight + 0.5, $"{id} ends below the area the tab scrolls to.");
+        Assert.True(bounds.Bottom + scroller.VerticalOffset <= scroller.ExtentHeight + 0.5, $"{id} ends below the area the tab scrolls to: bottom {bounds.Bottom:0.0}, offset {scroller.VerticalOffset:0.0}, extent {scroller.ExtentHeight:0.0}, viewport {scroller.ViewportHeight:0.0}.");
     }
 
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()
@@ -278,10 +279,14 @@ public sealed class SiteHygieneRenderTests
             Check(VM.RelationsTab, "scrollRelationsTab", "btnReadRelations", "btnCancelRelations", "txtRelationsSummary", "txtEdgeFilter", "cboEdgeKind", "dgEdges");
             Check(VM.SummaryTab, "scrollSummaryTab", "dgCategories", "dgChecks");
             Check(VM.HistoryTab, "scrollHygieneHistoryTab", "txtHygieneHistoryFilter", "btnHygieneHistoryRefresh", "txtHygieneHistoryCount", "dgHygieneHistory", "txtHygieneHistoryDetail");
-            Check(VM.OptionsTab, "scrollOptionsTab", "btnAreasAll", "btnAreasClear", "lstAreas", "cboPause", "chkProbeSources", "txtReportFolder", "btnOptionsFolder");
+            Check(VM.LiveTab, "scrollLiveTab", "btnLiveRefresh", "btnLiveCancel", "btnLivePause", "btnLiveCopySummary", "btnLiveAlertsLog", "txtAutoRefresh", "cboLiveView", "cboLiveStatus",
+                "txtLiveFilter", "txtLiveCount", "dgLive");
+            Check(VM.OptionsTab, "scrollOptionsTab", "btnAreasAll", "btnAreasClear", "lstAreas", "cboPause", "chkProbeSources", "txtLiveSqlServer", "txtLiveSqlDatabase", "btnTestSql",
+                "chkTrustSqlCertificate", "cboRefreshMinutes", "cboInactiveDays", "chkAlertsEnabled", "chkAlertSiteCritical", "chkAlertDpCritical", "chkAlertContentFailed", "chkAlertCompliance",
+                "cboComplianceFloor", "btnOptionsAlertsLog", "btnImportDashboard", "txtReportFolder", "btnOptionsFolder");
             Assert.False(ById<FrameworkElement>(page, "pnlHygieneResults").IsVisible, "The result card takes the height of the Options tab.");
             ShowTab(window, viewModel, VM.FindingsTab);
-            foreach (var id in new[] { "btnHygieneScan", "btnHygieneCancel", "btnHygieneLiveViews", "btnHygieneCsv", "btnHygieneHtml", "btnHygieneFolder", "txtHygieneSummary", "txtHygieneAreas",
+            foreach (var id in new[] { "btnHygieneScan", "btnHygieneCancel", "btnHygieneCsv", "btnHygieneHtml", "btnHygieneFolder", "txtHygieneSummary", "txtHygieneAreas",
                          "dgHygieneResults", "txtHygieneStatus" })
             {
                 var element = ById<FrameworkElement>(page, id);
@@ -892,15 +897,15 @@ public sealed class SiteHygieneRenderTests
         WithPage(theme, (window, page, viewModel, harness) =>
         {
             Fill(window, viewModel);
-            foreach (var tab in new[] { VM.FindingsTab, VM.RelationsTab, VM.SummaryTab, VM.OptionsTab, VM.HistoryTab })
+            foreach (var tab in new[] { VM.FindingsTab, VM.RelationsTab, VM.LiveTab, VM.SummaryTab, VM.HistoryTab, VM.OptionsTab })
             {
                 ShowTab(window, viewModel, tab);
                 Run(page.OnNavigatedFromAsync());
                 Run(page.OnNavigatedToAsync());
                 Settle(window);
-                var summary = ById<TextBlock>(page, "txtHygieneSummary");
+                var summary = ById<TextBlock>(page, tab == VM.LiveTab ? "txtHygieneLiveSummary" : "txtHygieneSummary");
                 Assert.True(summary.IsVisible && summary.ActualHeight > 0, $"The summary line is hidden on tab {tab}.");
-                Assert.Contains(" suppressed. Last scan ", summary.Text);
+                Assert.Contains(tab == VM.LiveTab ? "Last refresh " : " suppressed. Last scan ", summary.Text);
             }
         });
     }

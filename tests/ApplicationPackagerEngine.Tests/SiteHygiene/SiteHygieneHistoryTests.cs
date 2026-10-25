@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.ViewModels.Pages;
 using VM = ApplicationPackagerUI.ViewModels.Pages.SiteHygieneViewModel;
@@ -167,10 +167,10 @@ public sealed class SiteHygieneHistoryTests : IDisposable
     {
         var h = Harness(out var log);
         WriteRuns(log);
-        h.Saved = new ApplicationPackagerUI.Models.SiteHygieneSettings { SelectedTab = VM.OptionsTab };
+        h.Saved = new ApplicationPackagerUI.Models.SiteHygieneSettings { SelectedTab = 3 };
         var vm = await h.OpenAsync();
         Assert.Equal(VM.OptionsTab, vm.SelectedTabIndex);
-        h.Saved = new ApplicationPackagerUI.Models.SiteHygieneSettings { SelectedTab = VM.HistoryTab, HistoryText = "run2" };
+        h.Saved = new ApplicationPackagerUI.Models.SiteHygieneSettings { SelectedTab = 4, HistoryText = "run2" };
         var second = await h.OpenAsync();
         Assert.Equal(VM.HistoryTab, second.SelectedTabIndex);
         await WaitUntil(() => second.HistoryRows.Count == 2);
