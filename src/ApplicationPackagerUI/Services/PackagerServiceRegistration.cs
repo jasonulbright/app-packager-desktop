@@ -137,6 +137,22 @@ public static class PackagerServiceRegistration
             return new SiteHygieneService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IHygieneAuditLog>(), sp.GetRequiredService<IAppLog>(),
                 connection: () => SessionConnection(settings));
         });
+        services.AddSingleton<ISiteHygieneLiveService>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            return new SiteHygieneLiveService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<IAppLog>(), connection: () => SessionConnection(settings));
+        });
+        services.AddSingleton(sp => new MetricsHistoryStore(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IMetricsHistoryStore>(sp => sp.GetRequiredService<MetricsHistoryStore>());
+        services.AddSingleton<IAlertEvaluator>(_ => new AlertEvaluator());
+        services.AddSingleton<IAlertLog>(sp => new AlertLog(log: sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<ILiveReportWriter>(_ => new LiveReportWriter());
+        services.AddSingleton<ILegacyDashboardImport>(sp =>
+        {
+            var settings = sp.GetRequiredService<SettingsService>();
+            return new LegacyDashboardImport(sp.GetRequiredService<MetricsHistoryStore>(), () => SiteHygieneLivePreferences.Values(settings.Load()),
+                values => SiteHygieneLivePreferences.Fill(settings, values), log: sp.GetRequiredService<IAppLog>());
+        });
 
         services.AddSingleton<IAnalysisSandbox>(_ => new AnalysisSandbox());
         services.AddSingleton<IInstallerAnalysisService>(sp => new InstallerAnalysisService(sp.GetRequiredService<IAnalysisSandbox>()));
