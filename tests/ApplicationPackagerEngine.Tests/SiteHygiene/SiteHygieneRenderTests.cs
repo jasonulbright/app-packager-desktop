@@ -583,19 +583,12 @@ public sealed class SiteHygieneRenderTests
             Settle(window);
             var results = ById<DataGrid>(page, "dgHygieneResults");
             Assert.True(results.IsVisible, $"{where}: the result rows do not show in the open card.");
-            var rowHeight = Descendants(results).OfType<DataGridRow>().Where(r => r.IsVisible).Max(r => r.ActualHeight);
-            var viewer = Descendants(results).OfType<ScrollViewer>().First();
-            const int resultLines = SiteHygienePage.ResultLines;
-            var shownRows = Descendants(results).OfType<ScrollContentPresenter>().First().ActualHeight / rowHeight;
-            Assert.True(shownRows <= resultLines + 0.05 && shownRows >= Math.Min(objects, resultLines) - 0.05, $"{where}: the open card shows {shownRows:0.0} result rows.");
-            Assert.True(results.ActualHeight <= (resultLines + 2) * rowHeight, $"{where}: the result rows take {results.ActualHeight:0} px; a row is {rowHeight:0} px.");
-            if (objects > resultLines)
+            Assert.False(results.IsMouseOver);
+            Assert.Equal(Math.Min(objects, SiteHygienePage.ResultLines), WholeLineKit.AssertWholeRows(results, where));
+            if (objects > SiteHygienePage.ResultLines)
             {
-                var bar = Descendants(viewer).OfType<System.Windows.Controls.Primitives.ScrollBar>().Single(b => b.Orientation == System.Windows.Controls.Orientation.Vertical);
-                var thumb = Descendants(bar).OfType<System.Windows.Controls.Primitives.Thumb>().Single();
-                Assert.False(results.IsMouseOver);
-                Assert.True(bar.IsVisible && bar.Opacity > 0.99 && thumb.IsVisible && thumb.Opacity > 0.99 && thumb.ActualWidth >= 6,
-                    $"{where}: the scroll bar of the result rows is not readable without the pointer: bar {bar.ActualWidth:0} px, opacity {bar.Opacity:0.00}; thumb {thumb.ActualWidth:0} px, opacity {thumb.Opacity:0.00}.");
+                var thumb = Descendants(WholeLineKit.VerticalBar(results)!).OfType<System.Windows.Controls.Primitives.Thumb>().Single();
+                Assert.True(thumb.ActualWidth >= 6, $"{where}: the thumb of the result rows is {thumb.ActualWidth:0} px wide.");
             }
             foreach (var id in DetailParts)
             {
@@ -627,6 +620,7 @@ public sealed class SiteHygieneRenderTests
                 Settle(window);
                 AssertReachable(history, box, "txtHygieneHistoryDetail");
             }
+            WholeLineKit.AssertWholeLines(box, where + " on History");
 
             ShowTab(window, viewModel, VM.RelationsTab);
             viewModel.RelationsTabIndex = VM.InventoryTab;
@@ -714,15 +708,8 @@ public sealed class SiteHygieneRenderTests
 
             var results = ById<DataGrid>(page, "dgHygieneResults");
             Assert.True(results.IsVisible, $"{where}: the result rows do not show in the open card.");
-            var rowHeight = Descendants(results).OfType<DataGridRow>().Where(r => r.IsVisible).Max(r => r.ActualHeight);
-            var shownRows = Descendants(results).OfType<ScrollContentPresenter>().First().ActualHeight / rowHeight;
-            Assert.True(shownRows <= SiteHygienePage.ResultLines + 0.05 && shownRows >= Math.Min(rows, SiteHygienePage.ResultLines) - 0.05, $"{where}: the open card shows {shownRows:0.00} result rows.");
-            if (rows > SiteHygienePage.ResultLines)
-            {
-                var viewer = Descendants(results).OfType<ScrollViewer>().First();
-                var bar = Descendants(viewer).OfType<System.Windows.Controls.Primitives.ScrollBar>().Single(b => b.Orientation == System.Windows.Controls.Orientation.Vertical);
-                Assert.True(bar.IsVisible && bar.Opacity > 0.99, $"{where}: the result rows have no visible scroll bar.");
-            }
+            var whole = WholeLineKit.AssertWholeRows(results, where);
+            Assert.Equal(Math.Min(rows, SiteHygienePage.ResultLines), whole);
             AssertFindingsTabFits(page, viewModel, where);
         }, width, 900 - 48, () => DeploymentHarness(rows, deployments: 4));
     }
@@ -745,10 +732,24 @@ public sealed class SiteHygieneRenderTests
     /// </summary>
     [Theory]
     [MemberData(nameof(FixLineCases))]
-    public void TheFixTextBoxShowsWholeLinesAndAVisibleScrollBarWithoutAScrollOfTheTab(ApplicationTheme theme, double width, int lines, bool open)
+    public void TheFixTextBoxShowsWholeLinesAndAVisibleScrollBarWithoutAScrollOfTheTab(ApplicationTheme theme, double width, int lines, bool open) =>
+        AssertFixTextBox(theme: theme, width: width, lines: lines, open: open, font: null);
+
+    /// <summary>
+    /// A font list of which no font is installed falls back to a font whose laid-out line height differs from the line
+    /// spacing of the list: the box still shows whole lines, and the scroll bar only when lines are left.
+    /// </summary>
+    [Theory]
+    [InlineData(4)]
+    [InlineData(12)]
+    public void TheFixTextBoxShowsWholeLinesWhenTheListedFontsAreMissing(int lines) =>
+        AssertFixTextBox(theme: ApplicationTheme.Light, width: 1440 - CollapsedPaneWidth, lines: lines, open: false, font: "Absent Mono, Absent Code");
+
+    private static void AssertFixTextBox(ApplicationTheme theme, double width, int lines, bool open, string? font)
     {
         WithPage(theme, (window, page, viewModel, harness) =>
         {
+            if (font is not null) ById<System.Windows.Controls.TextBox>(page, "txtFixText").FontFamily = new System.Windows.Media.FontFamily(font);
             RunFix(window, viewModel, 3);
             SelectDeploymentFinding(window, viewModel);
             viewModel.ResultsExpanded = open;
@@ -758,16 +759,13 @@ public sealed class SiteHygieneRenderTests
             var box = ById<System.Windows.Controls.TextBox>(page, "txtFixText");
             Assert.Same(box.TryFindResource("DetailBox"), box.Style);
             var text = Descendants(box).OfType<ScrollViewer>().First();
-            var line = box.FontFamily.LineSpacing * box.FontSize;
-            Assert.True(text.ExtentHeight / line >= lines - 0.05, $"{where}: the fix text has {text.ExtentHeight / line:0.0} lines; the test needs {lines}.");
-            var shown = text.ViewportHeight / line;
-            Assert.True(Math.Abs(shown - Math.Round(shown)) < 0.05, $"{where}: the box shows {shown:0.00} lines: a line is cut.");
-            Assert.True(shown <= SiteHygienePage.FixLines + 0.05, $"{where}: the box shows {shown:0.0} lines, more than {SiteHygienePage.FixLines}.");
+            Assert.Equal(lines, box.LineCount);
+            var shown = WholeLineKit.AssertWholeLines(box, where);
+            Assert.True(shown <= SiteHygienePage.FixLines, $"{where}: the box shows {shown} lines, more than {SiteHygienePage.FixLines}.");
             var wanted = open ? Math.Min(lines, SiteHygienePage.MinFixLines) : Math.Min(lines, SiteHygienePage.FixLines);
-            Assert.True(shown >= wanted - 0.05, $"{where}: the box shows {shown:0.0} of {lines} lines and must show {wanted}.");
+            Assert.True(shown >= wanted, $"{where}: the box shows {shown} of {lines} lines and must show {wanted}.");
             // The thumb of a short box is short, so its rounded ends take a larger share of its bounds.
-            if (text.ScrollableHeight >= 1) AssertReadableScrollBar(window, box, text, $"sh-fix-text-{theme}-{width:0}-{lines}-{open}", share: 0.15);
-            else Assert.True(shown >= lines - 0.05, $"{where}: the box shows {shown:0.0} of {lines} lines without a scroll bar.");
+            if (shown < lines) AssertReadableScrollBar(window, box, text, $"sh-fix-text-{theme}-{width:0}-{lines}-{open}", share: 0.15);
             AssertFindingsTabFits(page, viewModel, where);
         }, width, 900 - 48, () => DeploymentHarness(3, lines));
     }
@@ -1177,6 +1175,52 @@ public sealed class SiteHygieneRenderTests
                 Assert.True(Math.Abs(lines - Math.Round(lines)) < 0.05, $"The notes box shows {lines:0.00} lines: a line is cut.");
                 Assert.True(grid.ActualHeight >= ChangePlanWindow.GridMinHeight - 0.5, $"The change list gets {grid.ActualHeight:0} px in a {window.ActualHeight:0} px window.");
                 foreach (var id in new[] { "chkDestructive", "btnConfirm", "btnCancel", "txtNotes", "gridPlan" })
+                    AssertInside(window, (FrameworkElement)window.FindName(id), window.ActualHeight, id);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    public static TheoryData<ApplicationTheme, int> PlanBodyCases()
+    {
+        var data = new TheoryData<ApplicationTheme, int>();
+        foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
+        foreach (var objects in new[] { 2, ChangePlanWindow.BodyLines, ChangePlanWindow.BodyLines + 1, 8, 9, 10 })
+            data.Add(theme, objects);
+        return data;
+    }
+
+    /// <summary>
+    /// The plan of a fix shows its PowerShell text in a box of whole lines: every line when the text has at most
+    /// <see cref="ChangePlanWindow.BodyLines"/> lines, without a scroll bar; else that many whole lines and a scroll bar
+    /// that shows without the pointer. The notes box above it shows whole lines too.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(PlanBodyCases))]
+    public void ThePlanWindowShowsThePowerShellTextInWholeLinesAndAScrollBarOnlyWhenLinesAreLeft(ApplicationTheme theme, int objects)
+    {
+        WithApplication(theme, () =>
+        {
+            var h = SiteHygienePageHarness.Large(0, LongText);
+            var findings = Enumerable.Range(0, objects).Select(i => SiteHygienePageHarness.Finding("COL-01", "Collections", HygieneSeverity.Warning, "Collection", $"MCM002{i:X2}",
+                $"Contoso Finance Workstations Pilot Wave {i + 1:00}", HygieneFixKind.RemoveCollection, $"Remove-CMCollection -Id MCM002{i:X2} -Force")).ToList();
+            var prepared = h.Service.PrepareAsync(new HygieneChange(HygieneFixKind.RemoveCollection, findings, false, [], [], null), CancellationToken.None).Result;
+            var (plan, problem) = SiteHygieneText.BuildPlan(prepared);
+            Assert.Null(problem);
+            var window = new ChangePlanWindow(new ChangePlanViewModel(plan!.Plan, (_, _, _) => Task.FromResult(new ChangePlanResult([]))));
+            Show(window);
+            try
+            {
+                Settle(window);
+                var where = $"plan of {objects} objects";
+                var body = (System.Windows.Controls.TextBox)window.FindName("txtBody");
+                Assert.Same(body.TryFindResource("DetailBox"), body.Style);
+                Assert.Equal(objects, body.LineCount);
+                var shown = WholeLineKit.AssertWholeLines(body, where);
+                Assert.Equal(Math.Min(objects, ChangePlanWindow.BodyLines), shown);
+                if (shown < objects) AssertReadableScrollBar(window, body, Descendants(body).OfType<ScrollViewer>().First(), $"plan-body-{theme}-{objects}", share: 0.15);
+                WholeLineKit.AssertWholeLines((System.Windows.Controls.TextBox)window.FindName("txtNotes"), where + ", notes");
+                foreach (var id in new[] { "chkDestructive", "chkExtra", "btnConfirm", "btnCancel", "txtNotes", "txtBody", "gridPlan" })
                     AssertInside(window, (FrameworkElement)window.FindName(id), window.ActualHeight, id);
             }
             finally { window.Close(); }

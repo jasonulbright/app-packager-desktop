@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.ViewModels.Windows;
 using Wpf.Ui.Controls;
 
@@ -18,8 +19,15 @@ public partial class ChangePlanWindow
         if (viewModel.HasBody) Height = Math.Min(BodyHeight, System.Windows.SystemParameters.WorkArea.Height);
         viewModel.CloseRequested += (_, _) => Close();
         ContentRendered += (_, _) => FocusFirstControl();
+        if (viewModel.HasBody)
+        {
+            txtBody.MaxHeight = WholeLines.BoxHeight(box: txtBody, lines: BodyLines);
+            // The line count of the wrapped text changes with the width of the box.
+            txtBody.SizeChanged += (_, _) => FitBody();
+            Loaded += (_, _) => FitBody();
+        }
         if (!viewModel.HasNotes) return;
-        txtNotes.MaxHeight = NotesHeight(OpenNotesLines);
+        txtNotes.MaxHeight = WholeLines.BoxHeight(box: txtNotes, lines: OpenNotesLines);
         Loaded += (_, _) => OpenWithRoomForNotes();
         SizeChanged += (_, _) => FitNotes();
         gridPlan.SizeChanged += (_, _) => FitNotes();
@@ -27,6 +35,9 @@ public partial class ChangePlanWindow
     }
 
     public const double BodyHeight = 700;
+
+    /// <summary>The most whole lines the PowerShell text box shows; more lines scroll.</summary>
+    public const int BodyLines = 6;
 
     /// <summary>The least height of the change list: the column header and about three rows.</summary>
     public const double GridMinHeight = 120;
@@ -40,32 +51,36 @@ public partial class ChangePlanWindow
     /// <summary>The window opens inside a 1366x768 work area.</summary>
     public const double MaxOpenHeight = 728;
 
-    private double NoteLineHeight => txtNotes.FontFamily.LineSpacing * txtNotes.FontSize;
-
     private System.Windows.FrameworkElement VisibleGrid => gridResult.IsVisible ? gridResult : gridPlan;
 
-    /// <summary>The height of the notes box around its text: the template adds more than the padding and border, so the first layout measures it.</summary>
-    private double _notesChrome = double.NaN;
-
-    private double NotesChrome => double.IsNaN(_notesChrome)
-        ? txtNotes.Padding.Top + txtNotes.Padding.Bottom + txtNotes.BorderThickness.Top + txtNotes.BorderThickness.Bottom
-        : _notesChrome;
-
-    /// <summary>The height of the notes box that shows this many whole lines.</summary>
-    private double NotesHeight(int lines) => lines * NoteLineHeight + NotesChrome;
+    /// <summary>Sets the PowerShell text box to at most <see cref="BodyLines"/> whole lines, so no line shows cut and the scroll bar shows only when lines are left.</summary>
+    private void FitBody()
+    {
+        if (!WholeLines.IsMeasured(txtBody))
+        {
+            WholeLines.WhenMeasured(box: txtBody, fit: FitBody);
+            return;
+        }
+        var height = WholeLines.BoxHeight(box: txtBody, lines: BodyLines);
+        if (Math.Abs(height - txtBody.MaxHeight) > 0.5) txtBody.MaxHeight = height;
+    }
 
     /// <summary>
     /// Sets the notes box to the whole lines that fit while the change list keeps <see cref="GridMinHeight"/>, up to
-    /// the lines of the notes, so no line shows cut and the scroll bar shows when lines are left.
+    /// the lines of the notes, so no line shows cut and the scroll bar shows only when lines are left.
     /// </summary>
     private void FitNotes()
     {
-        if (!txtNotes.IsVisible || txtNotes.ExtentHeight <= 0) return;
-        var line = NoteLineHeight;
-        var lines = Math.Max(MinNotesLines, (int)Math.Ceiling((txtNotes.ExtentHeight - 0.5) / line));
-        var shown = (int)Math.Round((txtNotes.ActualHeight - NotesHeight(0)) / line);
+        if (!WholeLines.IsMeasured(txtNotes))
+        {
+            WholeLines.WhenMeasured(box: txtNotes, fit: FitNotes);
+            return;
+        }
+        var line = WholeLines.LineHeight(txtNotes);
+        var lines = Math.Max(MinNotesLines, WholeLines.LineCount(txtNotes));
+        var shown = WholeLines.VisibleLines(txtNotes);
         var spare = (int)Math.Floor((VisibleGrid.ActualHeight - GridMinHeight) / line);
-        var height = NotesHeight(Math.Clamp(shown + spare, MinNotesLines, lines));
+        var height = WholeLines.BoxHeight(box: txtNotes, lines: Math.Clamp(shown + spare, MinNotesLines, lines));
         if (Math.Abs(height - txtNotes.MaxHeight) > 0.5) txtNotes.MaxHeight = height;
     }
 
@@ -76,14 +91,13 @@ public partial class ChangePlanWindow
     private void OpenWithRoomForNotes()
     {
         UpdateLayout();
-        if (txtNotes.ViewportHeight > 0) _notesChrome = txtNotes.ActualHeight - txtNotes.ViewportHeight;
         FitNotes();
         UpdateLayout();
         var hidden = txtNotes.ExtentHeight - txtNotes.ViewportHeight;
         if (hidden < 1) return;
         var area = System.Windows.SystemParameters.WorkArea;
         var limit = Math.Min(area.Height, MaxOpenHeight);
-        var line = NoteLineHeight;
+        var line = WholeLines.LineHeight(txtNotes);
         var grow = Math.Min(Math.Ceiling(hidden / line) * line, limit - ActualHeight);
         if (grow < line) return;
         var top = Top;

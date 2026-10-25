@@ -101,7 +101,7 @@
                                             </ControlTemplate>
                                         </ToggleButton.Template>
                                     </ToggleButton>
-                                    <ContentPresenter x:Name="ResultCardBody" Margin="0,4,0,0" Visibility="Collapsed" />
+                                    <ContentPresenter x:Name="ResultCardBody" Margin="0,2,0,0" Visibility="Collapsed" />
                                 </DockPanel>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -276,7 +276,7 @@
                                 <DataGridTextColumn Header="Fix" Binding="{Binding Fix}" SortMemberPath="Fix" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <Border Grid.Row="3" x:Name="pnlFindingDetail" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3"
+                        <Border Grid.Row="3" x:Name="pnlFindingDetail" Style="{StaticResource Card}" Margin="0,6,0,0" Padding="12,6" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3"
                                 AutomationProperties.AutomationId="pnlFindingDetail">
                             <StackPanel>
                                 <TextBlock Text="{Binding DetailTitle}" Style="{StaticResource Warning}" FontSize="13" AutomationProperties.AutomationId="txtFindingDetailTitle"
