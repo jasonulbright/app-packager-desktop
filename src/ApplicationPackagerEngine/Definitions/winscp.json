@@ -18,7 +18,7 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://winscp.net/eng/downloads.php",
-                           "Pattern":  "WinSCP-(\\d+\\.\\d+\\.\\d+)-Setup\\.exe"
+                           "Pattern":  "WinSCP-(\\d+\\.\\d+(?:\\.\\d+)?)-Setup\\.exe"
                        },
     "DownloadUrl":  "https://sourceforge.net/projects/winscp/files/WinSCP/{version}/WinSCP-{version}-Setup.exe/download",
     "InstallerFileName":  "WinSCP-{version}-Setup.exe",

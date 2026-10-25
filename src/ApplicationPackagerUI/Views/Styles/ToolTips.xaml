@@ -1,0 +1,10 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- The control library justifies tooltip text, which stretches the word spacing of every wrapped line.
+         The dictionary is merged after the control library, so the base style resolves when a tooltip opens. -->
+    <Style TargetType="{x:Type ToolTip}" BasedOn="{StaticResource DefaultToolTipStyle}">
+        <Setter Property="TextBlock.TextAlignment" Value="Left" />
+    </Style>
+</ResourceDictionary>

@@ -41,11 +41,13 @@ public partial class App : Application
                 services.AddSingleton<IContentDialogService, ContentDialogService>();
 
                 services.AddPackagerServices();
+                services.AddSidebar();
                 services.AddSingleton<IWorkbenchBuildLauncher, WorkbenchBuildLauncher>();
                 services.AddSingleton<PublishDialogs>();
                 services.AddSingleton<IPublishDialogs>(sp => sp.GetRequiredService<PublishDialogs>());
                 services.AddSingleton<IWsusPrompts>(sp => sp.GetRequiredService<PublishDialogs>());
                 services.AddSingleton<IDiscoveryPrompt, DiscoveryPrompt>();
+                services.AddSingleton<IChangePlanDialogs, ChangePlanDialogs>();
 
                 services.AddSingleton<MainWindow>();
                 services.AddSingleton<MainWindowViewModel>();
@@ -68,6 +70,14 @@ public partial class App : Application
                 services.AddSingleton<ISettingsReload>(sp => sp.GetRequiredService<SettingsViewModel>());
                 services.AddSingleton<AddAppPage>();
                 services.AddSingleton<AddAppViewModel>();
+                services.AddDetectionTesterPage();
+                services.AddMaintenanceWindowsPage();
+                services.AddCollectionCompliancePage();
+                services.AddInstallerAnalysisPage();
+                services.AddDeploymentHelperPage();
+                services.AddDpContentManagerPage();
+                services.AddPivotsScriptsPage();
+                services.AddSiteHygienePage();
 
                 services.AddHostedService<ApplicationHostService>();
             })
@@ -76,14 +86,14 @@ public partial class App : Application
         await _host.StartAsync();
     }
 
-    protected override async void OnExit(ExitEventArgs e)
+    /// <summary>The longest wait at exit for the hosted services to stop.</summary>
+    private static readonly TimeSpan ExitStopTimeout = TimeSpan.FromSeconds(10);
+
+    // An async OnExit returns at its first await and the process can end before the stop runs.
+    protected override void OnExit(ExitEventArgs e)
     {
         base.OnExit(e);
 
-        if (_host is not null)
-        {
-            await _host.StopAsync();
-            _host.Dispose();
-        }
+        AppShutdown.Complete(_host, ExitStopTimeout, () => Environment.Exit(e.ApplicationExitCode));
     }
 }

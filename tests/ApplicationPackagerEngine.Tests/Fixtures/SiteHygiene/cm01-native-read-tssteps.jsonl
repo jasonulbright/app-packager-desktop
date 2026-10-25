@@ -1,0 +1,9 @@
+{"Kind":"Coverage","Set":"TsSteps","Done":1,"Total":1}
+{"Kind":"Coverage","Set":"AutoApplySequences","Done":1,"Total":1}
+{"Kind":"Rows","Set":"TsSteps","Rows":[["MCM00008","MCM00004","0"],["MCM00008","MCM00006","0"],["MCM00008","MCM00007","0"],["MCM00008","MCM0001B","0"],["MCM00008","ScopeId_89DF871C-6222-4BDF-8BB7-75CBCCF9821E/Application_b802345b-cfc1-4259-95ac-3e7f2c4bdbf1","1"]]}
+{"Kind":"Set","Set":"TsSteps","Columns":["PackageID","ObjectID","Type"],"Shown":5,"Total":5,"State":"Read"}
+{"Kind":"Rows","Set":"AutoApplySequences","Rows":[["MCM00008"]]}
+{"Kind":"Set","Set":"AutoApplySequences","Columns":["PackageID"],"Shown":1,"Total":1,"State":"Read"}
+{"Kind":"Set","Set":"ClientSettingsAssignments","Columns":["ClientSettingsID","CollectionID"],"Shown":0,"Total":0,"State":"Read"}
+{"Kind":"Rows","Set":"CiAssignments","Rows":[["16777218","MCM0001F"],["16777219","MCM0001F"],["16777255","MCM0002D"],["16777220","MCM00025"],["16777221","SMSDM003"],["16777217","MCM0001F"],["16777220","MCM00025"],["16777221","SMSDM003"]]}
+{"Kind":"Set","Set":"CiAssignments","Columns":["AssignmentID","TargetCollectionID"],"Shown":8,"Total":8,"State":"Read"}

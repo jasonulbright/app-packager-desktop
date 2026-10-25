@@ -1,0 +1,449 @@
+<Page
+    x:Class="ApplicationPackagerUI.Views.Pages.DetectionTesterPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    ScrollViewer.CanContentScroll="False">
+
+    <Page.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,8,0,4" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style x:Key="Note" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style x:Key="Mono" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="MaxHeight" Value="120" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        </Style>
+
+        <DataTemplate x:Key="TabHeaderTemplate">
+            <StackPanel>
+                <TextBlock x:Name="TabHeaderText" Text="{Binding}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <Border x:Name="TabHeaderUnderline" Height="3" CornerRadius="1.5" Margin="0,4,0,0" Background="Transparent" />
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                    <Setter TargetName="TabHeaderText" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <Setter TargetName="TabHeaderText" Property="FontWeight" Value="SemiBold" />
+                    <Setter TargetName="TabHeaderUnderline" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="HeaderTemplate" Value="{StaticResource TabHeaderTemplate}" />
+        </Style>
+
+        <HierarchicalDataTemplate DataType="{x:Type pages:DetectionClauseNode}" ItemsSource="{Binding Children}">
+            <TextBlock Text="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+        </HierarchicalDataTemplate>
+    </Page.Resources>
+
+    <Grid Margin="24,16,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Detection Tester" FontSize="28" FontWeight="Bold"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock Text="Author ConfigMgr detection clauses and test them on this computer. No ConfigMgr connection is used."
+                       FontSize="12" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabDetectionTester">
+            <TabItem Header="Detection" AutomationProperties.AutomationId="tabDetection">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="3*" MinHeight="220" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="2*" MinHeight="140" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,8">
+                        <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="Clause type" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding ClauseTypes}" SelectedItem="{Binding SelectedClauseType}" MinWidth="200"
+                                      AutomationProperties.AutomationId="cboClauseType" AutomationProperties.Name="Clause type" />
+                        </StackPanel>
+                        <CheckBox Content="Negative test (a clause that is not detected passes)" IsChecked="{Binding Negative}"
+                                  VerticalAlignment="Bottom" Margin="0,0,12,4" AutomationProperties.AutomationId="chkNegative" />
+                        <ui:Button Content="Run" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Command="{Binding RunCommand}"
+                                   VerticalAlignment="Bottom" Margin="0,0,8,0" MinWidth="90" AutomationProperties.AutomationId="btnRun" />
+                        <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelCommand}"
+                                   VerticalAlignment="Bottom" Margin="0,0,8,0" AutomationProperties.AutomationId="btnCancel"
+                                   Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
+                        <ui:Button Content="Import stage-manifest.json" Icon="{ui:SymbolIcon DocumentArrowLeft24}" Command="{Binding ImportManifestCommand}"
+                                   VerticalAlignment="Bottom" AutomationProperties.AutomationId="btnImportManifest"
+                                   ToolTip="Read the detection of a staged build. Nothing runs until you press Run." />
+                    </WrapPanel>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="320" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" MinWidth="280" />
+                        </Grid.ColumnDefinitions>
+
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <StackPanel x:Name="pnlRegistry" AutomationProperties.AutomationId="pnlRegistry"
+                                            Visibility="{Binding IsRegistry, Converter={StaticResource BoolToVisibility}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Hive" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding Hives}" SelectedItem="{Binding SelectedHive}" AutomationProperties.Name="Hive"
+                                                      AutomationProperties.AutomationId="cboHive" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Registry view" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding Views}" SelectedItem="{Binding SelectedView}" AutomationProperties.Name="Registry view"
+                                                      AutomationProperties.AutomationId="cboRegistryView" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Text="Key path (below the hive)" Style="{StaticResource FieldLabel}" />
+                                    <ui:TextBox Text="{Binding KeyPath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{product code}"
+                                                AutomationProperties.Name="Key path" AutomationProperties.AutomationId="txtKeyPath" />
+                                </StackPanel>
+
+                                <StackPanel x:Name="pnlRegistryValue" AutomationProperties.AutomationId="pnlRegistryValue"
+                                            Visibility="{Binding IsRegistryKeyValue, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="Value name" Style="{StaticResource FieldLabel}" />
+                                    <ui:TextBox Text="{Binding ValueName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="DisplayVersion"
+                                                AutomationProperties.Name="Value name" AutomationProperties.AutomationId="txtValueName" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Data type" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding RegistryPropertyTypes}" SelectedItem="{Binding RegistryPropertyType}"
+                                                      AutomationProperties.Name="Data type" AutomationProperties.AutomationId="cboRegistryPropertyType" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Operator" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding RegistryOperators}" SelectedItem="{Binding RegistryOperator}"
+                                                      AutomationProperties.Name="Operator" AutomationProperties.AutomationId="cboRegistryOperator" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Text="Expected value (empty: the value exists)" Style="{StaticResource FieldLabel}" />
+                                    <ui:TextBox Text="{Binding ExpectedValue, UpdateSourceTrigger=PropertyChanged}"
+                                                AutomationProperties.Name="Expected value" AutomationProperties.AutomationId="txtExpectedValue" />
+                                </StackPanel>
+
+                                <StackPanel x:Name="pnlFile" AutomationProperties.AutomationId="pnlFile"
+                                            Visibility="{Binding IsFile, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="Folder path" Style="{StaticResource FieldLabel}" />
+                                    <ui:TextBox Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="%ProgramFiles%\Vendor\Product"
+                                                AutomationProperties.Name="Folder path" AutomationProperties.AutomationId="txtFilePath" />
+                                    <TextBlock Text="File name" Style="{StaticResource FieldLabel}" />
+                                    <ui:TextBox Text="{Binding FileName, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="product.exe"
+                                                AutomationProperties.Name="File name" AutomationProperties.AutomationId="txtFileName" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Property" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding FileProperties}" SelectedItem="{Binding FileProperty}"
+                                                      AutomationProperties.Name="Property" AutomationProperties.AutomationId="cboFileProperty" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="View" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox ItemsSource="{Binding Views}" SelectedItem="{Binding SelectedView}"
+                                                      AutomationProperties.Name="File view" AutomationProperties.AutomationId="cboFileView" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <StackPanel Visibility="{Binding IsFileVersion, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="Operator" Style="{StaticResource FieldLabel}" />
+                                        <ComboBox ItemsSource="{Binding FileOperators}" SelectedItem="{Binding FileOperator}"
+                                                  AutomationProperties.Name="File operator" AutomationProperties.AutomationId="cboFileOperator" />
+                                        <TextBlock Text="Expected version" Style="{StaticResource FieldLabel}" />
+                                        <ui:TextBox Text="{Binding FileExpectedValue, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="1.2.3.4"
+                                                    AutomationProperties.Name="Expected version" AutomationProperties.AutomationId="txtFileExpectedValue" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel x:Name="pnlScript" AutomationProperties.AutomationId="pnlScript"
+                                            Visibility="{Binding IsScript, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="{Binding EditorNote}" Style="{StaticResource Note}" Margin="0,0,0,4"
+                                               Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+                                    <TextBlock Text="The script detects the application when it writes text to the output stream."
+                                               Style="{StaticResource Note}" Margin="0,0,0,4" />
+                                    <TextBlock Text="{Binding EditorKeyHint}" Style="{StaticResource Note}" Margin="0,0,0,8"
+                                               AutomationProperties.AutomationId="txtEditorKeyHint" />
+                                    <TextBox Text="{Binding ScriptText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" AcceptsTab="True"
+                                             FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="14" MinHeight="220" TextWrapping="NoWrap"
+                                             HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                             ToolTip="{Binding EditorKeyHint}" PreviewKeyDown="OnScriptEditorPreviewKeyDown"
+                                             AutomationProperties.HelpText="{Binding EditorKeyHint}"
+                                             AutomationProperties.Name="Detection script" AutomationProperties.AutomationId="txtScript" />
+                                </StackPanel>
+
+                                <StackPanel x:Name="pnlCompound" AutomationProperties.AutomationId="pnlCompound"
+                                            Visibility="{Binding IsCompound, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="Imported compound detection. Run tests every clause." Style="{StaticResource Note}" Margin="0,0,0,8" />
+                                    <TreeView ItemsSource="{Binding ImportedTree}" MinHeight="160" AutomationProperties.AutomationId="treeCompound"
+                                              AutomationProperties.Name="Compound clauses" />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <Border Grid.Column="2" BorderThickness="1" CornerRadius="6" Padding="12"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}">
+                                        <ui:ProgressRing IsIndeterminate="True" Width="20" Height="20" Margin="0,0,8,0" />
+                                        <TextBlock Text="Running the test. A script stops after 30 seconds." VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Text="Press Run to test the clause on this computer." Style="{StaticResource Note}">
+                                        <TextBlock.Visibility>
+                                            <MultiBinding Converter="{x:Static helpers:DetectionTesterConverters.NeitherVisible}">
+                                                <Binding Path="HasResult" />
+                                                <Binding Path="IsRunning" />
+                                            </MultiBinding>
+                                        </TextBlock.Visibility>
+                                    </TextBlock>
+                                    <StackPanel Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock x:Name="txtResultHeadline" Text="{Binding ResultHeadline}" FontSize="32" FontWeight="Bold"
+                                                   AutomationProperties.AutomationId="txtResultHeadline">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ResultState}" Value="Passed">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ResultState}" Value="Failed">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ResultState}" Value="Error">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ResultState}" Value="Invalid">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ResultState}" Value="Cancelled">
+                                                            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding ResultSummary}" TextWrapping="Wrap" Margin="0,4,0,8"
+                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtResultSummary" />
+                                        <ItemsControl ItemsSource="{Binding ResultClauses}" AutomationProperties.AutomationId="lstResultClauses">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Margin="0,0,0,6">
+                                                        <TextBlock Text="{Binding Description}" TextWrapping="Wrap" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                                            <Run Text="{Binding Detected, Mode=OneWay, Converter={x:Static helpers:DetectionTesterConverters.DetectedText}}" />
+                                                            <Run Text="{Binding Detail, Mode=OneWay}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <StackPanel Visibility="{Binding ShowScriptOutput, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Output" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding ScriptStdout, Mode=OneWay}" Style="{StaticResource Mono}"
+                                                     AutomationProperties.Name="Script output" AutomationProperties.AutomationId="txtStdout" />
+                                            <TextBlock Text="Errors" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding ScriptStderr, Mode=OneWay}" Style="{StaticResource Mono}"
+                                                     AutomationProperties.Name="Script errors" AutomationProperties.AutomationId="txtStderr" />
+                                            <TextBlock Style="{StaticResource FieldLabel}">
+                                                <Run Text="Exit code:" />
+                                                <Run Text="{Binding ScriptExitCode, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <TextBlock Style="{StaticResource Note}" Margin="0,8,0,0">
+                                            <Run Text="Run context:" />
+                                            <Run Text="{Binding RunContext, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding SystemNote}" Style="{StaticResource Note}" Margin="0,4,0,0"
+                                                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                   Visibility="{Binding ShowScriptNote, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+                    <DockPanel Grid.Row="2" Margin="0,12,0,6">
+                        <WrapPanel DockPanel.Dock="Right">
+                            <ui:Button Content="Use selected" Icon="{ui:SymbolIcon ArrowUpLeft24}" Command="{Binding UseSelectedCommand}" Margin="0,0,8,0"
+                                       AutomationProperties.AutomationId="btnUseSelected" ToolTip="Fill the inputs from the selected test." />
+                            <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Margin="0,0,8,0"
+                                       AutomationProperties.AutomationId="btnExportCsv" />
+                            <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Margin="0,0,8,0"
+                                       AutomationProperties.AutomationId="btnExportHtml" />
+                            <ui:Button Content="Clear history" Icon="{ui:SymbolIcon Delete24}" Command="{Binding ClearHistoryCommand}"
+                                       AutomationProperties.AutomationId="btnClearHistory" />
+                        </WrapPanel>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="History" FontSize="16" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="{Binding HistoryStorageNote}" Style="{StaticResource Note}"
+                                       AutomationProperties.AutomationId="txtHistoryNote" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <DataGrid Grid.Row="3" ItemsSource="{Binding History}" SelectedItem="{Binding SelectedHistory}" AutoGenerateColumns="False"
+                              CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True" HeadersVisibility="Column" RowHeaderWidth="0"
+                              SelectionMode="Single" GridLinesVisibility="Horizontal" AutomationProperties.AutomationId="dgHistory">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="150" />
+                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" />
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                        <Setter Property="ToolTip" Value="{Binding Description}" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Negative" Binding="{Binding Negative}" Width="90" />
+                            <DataGridTextColumn Header="Result" Binding="{Binding Result}" Width="90" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Grid.Row="4" Text="{Binding StatusMessage}" Style="{StaticResource Note}" Margin="0,8,0,0"
+                               AutomationProperties.AutomationId="txtDetectionStatus" />
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Installed Applications" AutomationProperties.AutomationId="tabInstalledApplications">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                        <ui:Button DockPanel.Dock="Right" Content="Refresh" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding RefreshApplicationsCommand}"
+                                   Margin="8,0,0,0" AutomationProperties.AutomationId="btnRefreshApplications" />
+                        <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" Style="{StaticResource Note}"
+                                   Text="{Binding ApplicationCount}" AutomationProperties.AutomationId="txtApplicationCount" />
+                        <CheckBox DockPanel.Dock="Right" Content="Show system components" IsChecked="{Binding ShowSystemComponents}"
+                                  VerticalAlignment="Center" Margin="12,0,0,0" AutomationProperties.AutomationId="chkShowSystemComponents"
+                                  ToolTip="List the entries that Windows marks as system components (SystemComponent=1)." />
+                        <ui:TextBox Text="{Binding ApplicationFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, publisher or version"
+                                    Icon="{ui:SymbolIcon Search24}" AutomationProperties.Name="Filter" AutomationProperties.AutomationId="txtApplicationFilter" />
+                    </DockPanel>
+
+                    <Grid Grid.Row="1" x:Name="gridApplicationsLayout" SizeChanged="OnApplicationsLayoutSizeChanged">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="160" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="340" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.ColumnSpan="3" Text="{Binding ApplicationStatus}" Style="{StaticResource Note}" Margin="0,0,0,8"
+                                   AutomationProperties.AutomationId="txtApplicationStatus" />
+
+                        <DataGrid Grid.Row="1" Grid.Column="0" ItemsSource="{Binding Applications}" SelectedItem="{Binding SelectedApplication}"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" RowHeaderWidth="0" SelectionMode="Single" GridLinesVisibility="Horizontal"
+                                  HorizontalScrollBarVisibility="Auto" AutomationProperties.AutomationId="dgApplications">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="180" />
+                                <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="*" MinWidth="140" />
+                                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="110" />
+                                <DataGridTextColumn Header="Install date" Binding="{Binding InstallDate}" Width="100" />
+                                <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="100" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <Border Grid.Row="1" Grid.Column="2" x:Name="pnlApplicationSide" BorderThickness="1" CornerRadius="6" Padding="12"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                AutomationProperties.AutomationId="pnlApplicationSide">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                                    <ui:Button Content="Use for detection" Appearance="Primary" Icon="{ui:SymbolIcon Beaker24}" HorizontalAlignment="Stretch"
+                                               Command="{Binding UseForDetectionCommand}" Margin="0,0,0,8" AutomationProperties.AutomationId="btnUseForDetection"
+                                               ToolTip="Fill a registry value clause on this application's uninstall key." />
+                                    <ui:Button Content="Copy details" Icon="{ui:SymbolIcon Copy24}" HorizontalAlignment="Stretch"
+                                               Command="{Binding CopyDetailsCommand}" AutomationProperties.AutomationId="btnCopyDetails" />
+                                </StackPanel>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="Select an application to see its details." Style="{StaticResource Note}">
+                                            <TextBlock.Visibility>
+                                                <Binding Path="HasSelectedApplication" Converter="{x:Static helpers:DetectionTesterConverters.NotVisible}" />
+                                            </TextBlock.Visibility>
+                                        </TextBlock>
+                                        <Border Visibility="{Binding HasSelectedApplication, Converter={StaticResource BoolToVisibility}}">
+                                            <StackPanel DataContext="{Binding SelectedApplication}" AutomationProperties.AutomationId="pnlApplicationDetails">
+                                                <StackPanel.Resources>
+                                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                        <Setter Property="IsReadOnly" Value="True" />
+                                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                                    </Style>
+                                                </StackPanel.Resources>
+                                                <TextBlock Text="Name" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding Name, Mode=OneWay}" AutomationProperties.Name="Name" />
+                                                <TextBlock Text="Publisher" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding Publisher, Mode=OneWay}" AutomationProperties.Name="Publisher" />
+                                                <TextBlock Text="Version" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding Version, Mode=OneWay}" AutomationProperties.Name="Version" />
+                                                <TextBlock Text="Install date" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding InstallDate, Mode=OneWay}" AutomationProperties.Name="Install date" />
+                                                <TextBlock Text="Source" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding Source, Mode=OneWay}" AutomationProperties.Name="Source" />
+                                                <TextBlock Text="Registry key" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding KeyPath, Mode=OneWay}" AutomationProperties.Name="Registry key" />
+                                                <TextBlock Text="Uninstall string" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding UninstallString, Mode=OneWay}" AutomationProperties.Name="Uninstall string" />
+                                                <TextBlock Text="Quiet uninstall string" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding QuietUninstallString, Mode=OneWay}" AutomationProperties.Name="Quiet uninstall string" />
+                                                <TextBlock Text="Install location" Style="{StaticResource FieldLabel}" />
+                                                <TextBox Text="{Binding InstallLocation, Mode=OneWay}" AutomationProperties.Name="Install location" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Page>

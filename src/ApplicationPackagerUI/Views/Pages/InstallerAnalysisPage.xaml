@@ -1,0 +1,588 @@
+<Page
+    x:Class="ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
+    ScrollViewer.CanContentScroll="False"
+    AllowDrop="True" PreviewDragOver="OnPreviewDragOver" PreviewDragEnter="OnPreviewDragOver" PreviewDrop="OnPreviewDrop">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+            <Style x:Key="SectionLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="0,16,0,6" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Style>
+
+            <Style x:Key="Note" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+
+            <Style x:Key="ToolButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Setter Property="Margin" Value="0,0,8,8" />
+            </Style>
+
+            <DataTemplate x:Key="TabHeaderTemplate">
+                <StackPanel>
+                    <TextBlock x:Name="TabHeaderText" Text="{Binding}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Border x:Name="TabHeaderUnderline" Height="3" CornerRadius="1.5" Margin="0,4,0,0" Background="Transparent" />
+                </StackPanel>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                        <Setter TargetName="TabHeaderText" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Setter TargetName="TabHeaderText" Property="FontWeight" Value="SemiBold" />
+                        <Setter TargetName="TabHeaderUnderline" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
+
+            <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+                <Setter Property="HeaderTemplate" Value="{StaticResource TabHeaderTemplate}" />
+            </Style>
+
+            <Style x:Key="TrimmedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+
+            <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+            </Style>
+
+            <Style x:Key="GridBase" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+                <Setter Property="AutoGenerateColumns" Value="False" />
+                <Setter Property="CanUserAddRows" Value="False" />
+                <Setter Property="CanUserDeleteRows" Value="False" />
+                <Setter Property="IsReadOnly" Value="True" />
+                <Setter Property="HeadersVisibility" Value="Column" />
+                <Setter Property="RowHeaderWidth" Value="0" />
+                <Setter Property="GridLinesVisibility" Value="Horizontal" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="CanUserResizeColumns" Value="True" />
+                <Setter Property="SelectionMode" Value="Single" />
+                <Setter Property="EnableRowVirtualization" Value="True" />
+                <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+                <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+                <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+                <Setter Property="helpers:DataGridColumnSizing.FixStarWidthsOnResize" Value="True" />
+                <Setter Property="RowStyle" Value="{StaticResource SelectableRow}" />
+                <Setter Property="CellStyle" Value="{StaticResource TabStopCell}" />
+                <Setter Property="helpers:DataGridKeyboard.SelectsFocusedRow" Value="True" />
+                <EventSetter Event="PreviewMouseRightButtonDown" Handler="OnGridPreviewMouseRightButtonDown" />
+            </Style>
+
+            <!-- The SHA-256 result under the status line of the Payload, Inner Installers and File Browser tabs; its content is the page view model. -->
+            <DataTemplate x:Key="HashPanelTemplate">
+                <Grid Margin="0,0,0,8" Visibility="{Binding HasHash, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlHash">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" MinWidth="160" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding HashLabel}" Style="{StaticResource Note}" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="320" Margin="0,0,8,0" ToolTip="{Binding HashLabel}" />
+                    <TextBox Grid.Column="1" Text="{Binding HashResult, Mode=OneWay}" IsReadOnly="True" VerticalAlignment="Center" FontFamily="Consolas"
+                             AutomationProperties.Name="{Binding HashLabel}" AutomationProperties.AutomationId="txtHash" />
+                    <ui:Button Grid.Column="2" Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyHashCommand}" Margin="8,0,0,0"
+                               ToolTip="Copies the SHA-256 value." AutomationProperties.Name="Copy the SHA-256" AutomationProperties.AutomationId="btnCopyHash" />
+                </Grid>
+            </DataTemplate>
+
+            <!-- The Overview grids size to their rows; the Overview scroller moves them. -->
+            <Style x:Key="SectionGrid" TargetType="DataGrid" BasedOn="{StaticResource GridBase}">
+                <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+                <Setter Property="EnableRowVirtualization" Value="False" />
+                <Setter Property="VirtualizingPanel.IsVirtualizing" Value="False" />
+                <Setter Property="ScrollViewer.CanContentScroll" Value="False" />
+                <Setter Property="Margin" Value="0,0,0,4" />
+                <EventSetter Event="PreviewMouseWheel" Handler="OnSectionGridPreviewMouseWheel" />
+            </Style>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid Margin="24,16,24,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Installer Analysis" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            <TextBlock Text="Reads an installer on this computer without a ConfigMgr connection. Nothing in the installer is started. Drop one file on the page or open it."
+                       Style="{StaticResource Note}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="200" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ui:TextBox Grid.Column="0" Text="{Binding PathText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Path of an installer, then press Enter"
+                        Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="{Binding PathText}"
+                        AutomationProperties.Name="Installer path" AutomationProperties.AutomationId="txtInstallerPath">
+                <ui:TextBox.InputBindings>
+                    <KeyBinding Key="Return" Command="{Binding AnalyzeCommand}" />
+                </ui:TextBox.InputBindings>
+            </ui:TextBox>
+            <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                <ui:Button Content="Analyze" Appearance="Primary" Icon="{ui:SymbolIcon Play24}" Command="{Binding AnalyzeCommand}" Margin="0,0,8,0"
+                           ToolTip="Analyzes the file in the path box." AutomationProperties.AutomationId="btnAnalyze" />
+                <ui:Button Content="Open" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding BrowseCommand}" Margin="0,0,8,0"
+                           ToolTip="Chooses an installer and analyzes it." AutomationProperties.AutomationId="btnOpenInstaller" />
+                <ui:Button Content="Re-analyze" Icon="{ui:SymbolIcon ArrowSync24}" Command="{Binding ReanalyzeCommand}" Margin="0,0,8,0"
+                           ToolTip="Analyzes the opened installer again from the top level." AutomationProperties.AutomationId="btnReanalyze" />
+                <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelCommand}"
+                           Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="btnCancelAnalysis" />
+            </WrapPanel>
+        </Grid>
+
+        <WrapPanel Grid.Row="2">
+            <ComboBox ItemsSource="{Binding RecentFiles}" SelectedItem="{Binding SelectedRecent}" Width="300" Margin="0,0,8,8"
+                      ToolTip="The last 10 installers opened on this page." AutomationProperties.Name="Recent files" AutomationProperties.AutomationId="cboRecentFiles">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" ToolTip="{Binding}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ui:Button Content="Open recent" Icon="{ui:SymbolIcon History24}" Command="{Binding OpenRecentCommand}" Style="{StaticResource ToolButton}"
+                       AutomationProperties.AutomationId="btnOpenRecent" />
+            <ui:Button Content="Clear recent" Icon="{ui:SymbolIcon Delete24}" Command="{Binding ClearRecentCommand}" Style="{StaticResource ToolButton}"
+                       ToolTip="Removes every path from the recent files." AutomationProperties.AutomationId="btnClearRecent" />
+            <ui:Button Content="Copy summary" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopySummaryCommand}" Style="{StaticResource ToolButton}"
+                       AutomationProperties.AutomationId="btnCopySummary" />
+            <ui:Button Content="Copy JSON" Icon="{ui:SymbolIcon Code24}" Command="{Binding CopyJsonCommand}" Style="{StaticResource ToolButton}"
+                       ToolTip="Copies the ConfigMgr digest. Key material of a .intunewin package is never included." AutomationProperties.AutomationId="btnCopyJson" />
+            <ui:Button Content="Export CSV" Icon="{ui:SymbolIcon DocumentTable24}" Command="{Binding ExportCsvCommand}" Style="{StaticResource ToolButton}"
+                       AutomationProperties.AutomationId="btnExportCsv" />
+            <ui:Button Content="Export HTML" Icon="{ui:SymbolIcon Globe24}" Command="{Binding ExportHtmlCommand}" Style="{StaticResource ToolButton}"
+                       AutomationProperties.AutomationId="btnExportHtml" />
+            <ui:Button Content="Open folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenReportsFolderCommand}" Style="{StaticResource ToolButton}"
+                       ToolTip="Opens the folder of the last report." AutomationProperties.AutomationId="btnOpenReportsFolder" />
+        </WrapPanel>
+
+        <DockPanel Grid.Row="3" Margin="0,0,0,4" Visibility="{Binding HasBreadcrumb, Converter={StaticResource BoolToVisibility}}"
+                   AutomationProperties.AutomationId="pnlBreadcrumb">
+            <ui:Button DockPanel.Dock="Left" Content="Back" Icon="{ui:SymbolIcon ArrowLeft24}" Command="{Binding BackCommand}" Margin="0,0,12,8"
+                       ToolTip="Returns to the installer that holds this one." AutomationProperties.AutomationId="btnBack" />
+            <ItemsControl ItemsSource="{Binding Breadcrumb}" VerticalAlignment="Center" AutomationProperties.Name="Drill-down levels"
+                          AutomationProperties.AutomationId="lstBreadcrumb">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,4,8">
+                            <TextBlock Text="&gt;" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <ui:Button Content="{Binding Name}" IsEnabled="{Binding CanGo}" MaxWidth="260" Padding="8,4"
+                                       Command="{Binding DataContext.GoToLevelCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                       CommandParameter="{Binding}" ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DockPanel>
+
+        <TabControl Grid.Row="4" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="tabInstallerAnalysis">
+            <TabItem Header="Overview" AutomationProperties.AutomationId="tabOverview">
+                <ScrollViewer x:Name="scrollOverview" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollOverview">
+                    <StackPanel>
+                        <TextBlock Text="Open an installer, or drop one file on this page. The analysis reads the file only; nothing in it is started."
+                                   Style="{StaticResource Note}" AutomationProperties.AutomationId="txtOverviewEmpty"
+                                   Visibility="{Binding HasReport, Converter={x:Static helpers:DetectionTesterConverters.NotVisible}}" />
+                        <StackPanel Visibility="{Binding HasReport, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlOverview">
+                            <Border Padding="12,8" CornerRadius="6" BorderThickness="1" Margin="0,0,0,4"
+                                    BorderBrush="{DynamicResource SystemFillColorCautionBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                    Visibility="{Binding HasNotes, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlNotes">
+                                <ItemsControl ItemsSource="{Binding Notes}" AutomationProperties.Name="Notes" AutomationProperties.AutomationId="lstNotes">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+
+                            <TextBlock Text="Source" Style="{StaticResource SectionLabel}" Margin="0,4,0,6" />
+                            <DataGrid x:Name="dgSource" Style="{StaticResource SectionGrid}" ItemsSource="{Binding SourceRows}"
+                                      AutomationProperties.AutomationId="dgSource" AutomationProperties.Name="Source facts">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <TextBlock Text="Deployment" Style="{StaticResource SectionLabel}" />
+                            <DataGrid x:Name="dgDeployment" Style="{StaticResource SectionGrid}" ItemsSource="{Binding DeploymentRows}"
+                                      AutomationProperties.AutomationId="dgDeployment" AutomationProperties.Name="Deployment fields">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Field" Binding="{Binding Name}" Width="180" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="3*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Confidence" Binding="{Binding Confidence}" Width="110" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <TextBlock Text="Install modes" Style="{StaticResource SectionLabel}" />
+                            <DataGrid x:Name="dgModes" Style="{StaticResource SectionGrid}" ItemsSource="{Binding ModeRows}"
+                                      AutomationProperties.AutomationId="dgModes" AutomationProperties.Name="Install modes">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Default" Binding="{Binding Default}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Switch" Binding="{Binding Switch}" Width="*" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Install command" Binding="{Binding InstallCommand}" Width="1.5*" MinWidth="130" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Install folder" Binding="{Binding InstallFolder}" Width="*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Uninstall command" Binding="{Binding UninstallCommand}" Width="1.5*" MinWidth="150" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="ARP key" Binding="{Binding ArpKey}" Width="1.5*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Hive" Binding="{Binding Hive}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="View" Binding="{Binding View}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Context" Binding="{Binding Context}" Width="90" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Text="{Binding MsiSummary}" Style="{StaticResource Note}" Margin="0,8,0,0" AutomationProperties.AutomationId="txtMsiSummary" />
+
+                            <StackPanel Visibility="{Binding HasPostPatch, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlPostPatch">
+                                <TextBlock Text="Detection after patches" Style="{StaticResource SectionLabel}" />
+                                <DataGrid x:Name="dgPostPatch" Style="{StaticResource SectionGrid}" ItemsSource="{Binding PostPatchRows}"
+                                          AutomationProperties.AutomationId="dgPostPatch" AutomationProperties.Name="Detection after patches">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                        <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock Text="{Binding PostPatchExplanation}" Style="{StaticResource Note}" AutomationProperties.AutomationId="txtPostPatchExplanation" />
+                            </StackPanel>
+
+                            <TextBlock Text="Package metadata" Style="{StaticResource SectionLabel}" />
+                            <DataGrid x:Name="dgMetadata" Style="{StaticResource SectionGrid}" ItemsSource="{Binding MetadataRows}"
+                                      AutomationProperties.AutomationId="dgMetadata" AutomationProperties.Name="Package metadata">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Section" Binding="{Binding Section}" Width="160" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="MSI Properties" AutomationProperties.AutomationId="tabMsiProperties">
+                <ScrollViewer x:Name="scrollMsiTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollMsiTab">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollMsiTab}" MinHeight="340">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="250" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0">
+                            <ui:TextBox Text="{Binding MsiFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by property or value" Icon="{ui:SymbolIcon Search24}"
+                                        MinWidth="280" Margin="0,0,8,8" AutomationProperties.Name="MSI property filter" AutomationProperties.AutomationId="txtMsiFilter" />
+                            <TextBlock Text="{Binding MsiCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtMsiCount" />
+                        </WrapPanel>
+                        <DataGrid Grid.Row="1" x:Name="dgMsi" Style="{StaticResource GridBase}" ItemsSource="{Binding MsiRows}"
+                                  AutomationProperties.AutomationId="dgMsi" AutomationProperties.Name="MSI properties">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Property" Binding="{Binding Name}" Width="280" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Payload" AutomationProperties.AutomationId="tabPayload">
+                <ScrollViewer x:Name="scrollPayloadTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollPayloadTab">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollPayloadTab}" MinHeight="480">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="250" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0">
+                            <ui:TextBox Text="{Binding PayloadFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by path or type" Icon="{ui:SymbolIcon Search24}"
+                                        MinWidth="240" Margin="0,0,8,8" AutomationProperties.Name="Payload filter" AutomationProperties.AutomationId="txtPayloadFilter" />
+                            <ui:Button Content="Analyze selected" Appearance="Primary" Icon="{ui:SymbolIcon BoxSearch24}" Command="{Binding AnalyzeSelectedCommand}"
+                                       Style="{StaticResource ToolButton}" ToolTip="Extracts the selected entry to the temporary analysis folder and analyzes it."
+                                       AutomationProperties.AutomationId="btnPayloadAnalyze" />
+                            <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnPayloadExtractTemp" />
+                            <ui:Button Content="Copy name" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyNameCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnPayloadCopyName" />
+                            <ui:Button Content="Copy full path" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyPathCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnPayloadCopyPath" />
+                            <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Computes the SHA-256 of the selected entry." AutomationProperties.AutomationId="btnPayloadHash" />
+                            <ui:Button Content="Extract payload" Icon="{ui:SymbolIcon FolderArrowRight24}" Command="{Binding ExtractPayloadCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Extracts every file of the payload into a new payload folder inside the folder you choose. Nothing is started." AutomationProperties.AutomationId="btnExtractPayload" />
+                            <ui:Button Content="Open extracted folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenExtractFolderCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnPayloadOpenFolder" />
+                        </WrapPanel>
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="{Binding PayloadStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtPayloadStatus" />
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource HashPanelTemplate}" Focusable="False" />
+                        </StackPanel>
+                        <DataGrid Grid.Row="2" x:Name="dgPayload" Style="{StaticResource GridBase}" ItemsSource="{Binding PayloadRows}" SelectedItem="{Binding SelectedPayload}"
+                                  AutomationProperties.AutomationId="dgPayload" AutomationProperties.Name="Payload entries">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Separator />
+                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Separator />
+                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="3*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Inner Installers" AutomationProperties.AutomationId="tabInnerInstallers">
+                <ScrollViewer x:Name="scrollInnerTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollInnerTab">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollInnerTab}" MinHeight="440">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="250" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0">
+                            <ui:Button Content="Analyze selected" Appearance="Primary" Icon="{ui:SymbolIcon BoxSearch24}" Command="{Binding AnalyzeSelectedCommand}"
+                                       Style="{StaticResource ToolButton}" ToolTip="Extracts the selected inner installer to the temporary analysis folder and analyzes it."
+                                       AutomationProperties.AutomationId="btnInnerAnalyze" />
+                            <ui:Button Content="Extract" Icon="{ui:SymbolIcon FolderArrowRight24}" Command="{Binding ExtractInnerCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Copies the selected inner installer into a new payload folder inside the folder you choose. Nothing is started." AutomationProperties.AutomationId="btnInnerExtract" />
+                            <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnInnerExtractTemp" />
+                            <ui:Button Content="Copy name" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyNameCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnInnerCopyName" />
+                            <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnInnerHash" />
+                            <ui:Button Content="Open extracted folder" Icon="{ui:SymbolIcon FolderOpen24}" Command="{Binding OpenExtractFolderCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnInnerOpenFolder" />
+                        </WrapPanel>
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="{Binding InnerStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtInnerStatus" />
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource HashPanelTemplate}" Focusable="False" />
+                        </StackPanel>
+                        <DataGrid Grid.Row="2" x:Name="dgInner" Style="{StaticResource GridBase}" ItemsSource="{Binding InnerRows}" SelectedItem="{Binding SelectedInner}"
+                                  AutomationProperties.AutomationId="dgInner" AutomationProperties.Name="Inner installers">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Separator />
+                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Separator />
+                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="140" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="File Browser" AutomationProperties.AutomationId="tabFileBrowser">
+                <ScrollViewer x:Name="scrollFilesTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollFilesTab">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollFilesTab}" MinHeight="440">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="250" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0">
+                            <ComboBox ItemsSource="{Binding FileFolders}" SelectedItem="{Binding SelectedFolder}" Width="260" Margin="0,0,8,8"
+                                      AutomationProperties.Name="Folder" AutomationProperties.AutomationId="cboFileFolder">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" ToolTip="{Binding}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <ui:TextBox Text="{Binding FileFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by file name" Icon="{ui:SymbolIcon Search24}"
+                                        MinWidth="220" Margin="0,0,8,8" AutomationProperties.Name="File filter" AutomationProperties.AutomationId="txtFileFilter" />
+                            <ui:Button Content="Extract to temp" Icon="{ui:SymbolIcon ArrowDownload24}" Command="{Binding ExtractToTempCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnFilesExtractTemp" />
+                            <ui:Button Content="Copy name" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyNameCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnFilesCopyName" />
+                            <ui:Button Content="Copy full path" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyPathCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnFilesCopyPath" />
+                            <ui:Button Content="SHA-256" Icon="{ui:SymbolIcon Fingerprint24}" Command="{Binding HashCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnFilesHash" />
+                        </WrapPanel>
+                        <StackPanel Grid.Row="1">
+                            <TextBlock Text="{Binding FileStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtFileStatus" />
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource HashPanelTemplate}" Focusable="False" />
+                        </StackPanel>
+                        <DataGrid Grid.Row="2" x:Name="dgFiles" Style="{StaticResource GridBase}" ItemsSource="{Binding FileRows}" SelectedItem="{Binding SelectedFile}"
+                                  AutomationProperties.AutomationId="dgFiles" AutomationProperties.Name="Files">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Analyze selected" Command="{Binding AnalyzeSelectedCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Extract to temp" Command="{Binding ExtractToTempCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Separator />
+                                    <MenuItem Header="Copy name" Command="{Binding CopyNameCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy full path" Command="{Binding CopyPathCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <Separator />
+                                    <MenuItem Header="SHA-256" Command="{Binding HashCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="180" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Folder" Binding="{Binding Folder}" Width="2*" MinWidth="140" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding Size}" SortMemberPath="Entry.Size" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Registry Settings" AutomationProperties.AutomationId="tabRegistry">
+                <ScrollViewer x:Name="scrollRegistryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollRegistryTab">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollRegistryTab}" MinHeight="480">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="250" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0">
+                            <ui:TextBox Text="{Binding RegistryFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter by key, name, value, origin or condition"
+                                        Icon="{ui:SymbolIcon Search24}" MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Registry filter"
+                                        AutomationProperties.AutomationId="txtRegistryFilter" />
+                            <ui:Button Content="Copy key" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyRegistryKeyCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnRegistryCopyKey" />
+                            <ui:Button Content="Copy value" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyRegistryValueCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnRegistryCopyValue" />
+                            <ui:Button Content="Copy shown rows" Icon="{ui:SymbolIcon DocumentCopy24}" Command="{Binding CopyRegistryRowsCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Copies every row the filter shows, one tab-separated line per row." AutomationProperties.AutomationId="btnRegistryCopyRows" />
+                        </WrapPanel>
+                        <TextBlock Grid.Row="1" Text="{Binding RegistryStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtRegistryStatus" />
+                        <Border Grid.Row="2" Padding="12,6" CornerRadius="6" BorderThickness="1" Margin="0,0,0,8"
+                                BorderBrush="{DynamicResource SystemFillColorCautionBrush}" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                Visibility="{Binding HasRegistryNotes, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlRegistryNotes">
+                            <ScrollViewer MaxHeight="72" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                <ItemsControl ItemsSource="{Binding RegistryNotes}" AutomationProperties.Name="Registry notes" AutomationProperties.AutomationId="lstRegistryNotes">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                        <DataGrid Grid.Row="3" x:Name="dgRegistry" Style="{StaticResource GridBase}" ItemsSource="{Binding RegistryRows}" SelectedItem="{Binding SelectedRegistry}"
+                                  AutomationProperties.AutomationId="dgRegistry" AutomationProperties.Name="Registry writes">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy key" Command="{Binding CopyRegistryKeyCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                    <MenuItem Header="Copy value" Command="{Binding CopyRegistryValueCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Origin" Binding="{Binding Origin}" Width="130" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="100" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Hive" Binding="{Binding Hive}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="3*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="2*" MinWidth="110" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="100" MinWidth="80" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="View" Binding="{Binding View}" Width="70" MinWidth="70" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Section" Binding="{Binding Section}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Condition" Binding="{Binding Condition}" Width="*" MinWidth="90" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Strings" AutomationProperties.AutomationId="tabStrings">
+                <ScrollViewer x:Name="scrollStringsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollStringsTab">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollStringsTab}" MinHeight="420">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="250" />
+                        </Grid.RowDefinitions>
+                        <WrapPanel Grid.Row="0">
+                            <ui:TextBox Text="{Binding StringsFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" PlaceholderText="Filter the strings" Icon="{ui:SymbolIcon Search24}"
+                                        MinWidth="260" Margin="0,0,8,8" AutomationProperties.Name="String filter" AutomationProperties.AutomationId="txtStringsFilter" />
+                            <ComboBox ItemsSource="{Binding StringCategories}" SelectedItem="{Binding StringsCategory}" MinWidth="160" Margin="0,0,8,8"
+                                      AutomationProperties.Name="Category" AutomationProperties.AutomationId="cboStringsCategory" />
+                            <ui:Button Content="Copy string" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyStringCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnCopyString" />
+                            <ui:Button Content="Copy shown strings" Icon="{ui:SymbolIcon DocumentCopy24}" Command="{Binding CopyStringsCommand}" Style="{StaticResource ToolButton}"
+                                       AutomationProperties.AutomationId="btnCopyStrings" />
+                        </WrapPanel>
+                        <TextBlock Grid.Row="1" Text="{Binding StringsStatus}" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtStringsStatus" />
+                        <DataGrid Grid.Row="2" x:Name="dgStrings" Style="{StaticResource GridBase}" ItemsSource="{Binding StringRows}" SelectedItem="{Binding SelectedString}"
+                                  AutomationProperties.AutomationId="dgStrings" AutomationProperties.Name="Strings">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Copy string" Command="{Binding CopyStringCommand}" CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="110" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Encoding" Binding="{Binding Encoding}" Width="100" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Offset" Binding="{Binding Offset}" Width="110" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Text" Binding="{Binding Text}" Width="*" MinWidth="240" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <DockPanel Grid.Row="5" Margin="0,8,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}">
+                <ui:ProgressRing IsIndeterminate="{Binding IsBusy}" Width="16" Height="16" Margin="12,0,8,0" />
+                <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Note}" MaxWidth="420" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                           ToolTip="{Binding ProgressText}" AutomationProperties.AutomationId="txtProgress" AutomationProperties.LiveSetting="Polite" />
+            </StackPanel>
+            <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Note}" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.AutomationId="txtAnalysisStatus" AutomationProperties.LiveSetting="Polite" />
+        </DockPanel>
+    </Grid>
+</Page>

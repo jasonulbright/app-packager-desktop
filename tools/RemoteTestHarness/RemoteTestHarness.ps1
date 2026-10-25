@@ -89,7 +89,7 @@ function Invoke-RebootAndWait {
             $result = Invoke-Command -ComputerName $Computer -Credential $Credential -ScriptBlock { $env:COMPUTERNAME } -ErrorAction Stop
             if ($result) {
                 Write-Host "    $Computer is back online." -ForegroundColor Green
-                Start-Sleep -Seconds 10  # Let services stabilize
+                Start-Sleep -Seconds 10
                 return $true
             }
         } catch { }

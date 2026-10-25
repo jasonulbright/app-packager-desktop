@@ -78,6 +78,72 @@ public class MecmApplicationTitleRuleTests
         { "Microsoft OpenJDK 17 (exe)", "Microsoft OpenJDK 17 (MSI)", false },
         { "Microsoft OpenJDK 17 (MSI)", "Microsoft OpenJDK 17 (exe)", false },
         { "Microsoft OpenJDK 17 (EXE) (x64)", "Microsoft OpenJDK 17 (EXE) (32-bit)", false },
+        { "7-Zip", "7-Zip (x64 edition) - 26.03", true },
+        { "Foo", "Foo - 1.2.3", true },
+        { "Foo", "Foo - v2", true },
+        { "Foo", "Foo - V2 (x64)", true },
+        { "Foo", "Foo - x64", true },
+        { "Foo", "Foo - 64-bit", true },
+        { "Foo", "Foo - MSI", true },
+        { "Foo", "Foo - (en-US)", true },
+        { "Git", "Git - Extensions", false },
+        { "Foo", "Foo - Bar", false },
+        { "Foo", "Foo - Pro 2", false },
+        { "Foo", "Foo - vNext", false },
+        { "Foo", "Foo - Portable x64", false },
+        { "Foo", "Foo -", false },
+        { "M365 Apps for Enterprise", "M365 Apps for Enterprise - Latest (x64) (MEC)", true },
+        { "Foo", "Foo - Latest", true },
+        { "Foo", "Foo - LATEST (x64)", true },
+        { "Foo", "Foo - Latesting", false },
+        { "Foo", "Foo - Newest", false },
+        { "Foo", "Foo Latest", false },
+        { "Foo", "Foo - ", false },
+        { "Foo 2", "Foo 2.1 -", false },
+        { "Foo 2", "Foo 2.1 - ", false },
+        { "Foo 2", "Foo 2.1 - Bar", false },
+        { "Foo 2", "Foo 2 - Bar", false },
+        { "Foo 2", "Foo 2.1 - 2.1.5", true },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - windows server hosting", true },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Windows Server Hosting (x64)", true },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Windows Server Hosting 8.0.31", true },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Desktop Runtime", false },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Windows Server", false },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Windows Server Hostingx", false },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Windows Server Hosting Bundle", false },
+        { "Microsoft .NET 8", "Microsoft .NET 8 - Windows Server Hosting", false },
+        { "Foo", "Foo - 26.03", true },
+        { "Foo", "Foo - 1.2.3-beta", true },
+        { "Foo", "Foo - 2024.1", true },
+        { "Foo", "Foo - 1.2.3+build_7", true },
+        { "Foo", "Foo - 2FA Tool", false },
+        { "Foo", "Foo - 3D Viewer", false },
+        { "Foo", "Foo - 7zip", false },
+        { "Foo", "Foo - v", false },
+        { "Foo", "Foo - 1.", false },
+        { "Foo", "Foo - (x64)", true },
+        { "Foo", "Foo - (x64", false },
+        { "Foo", "Foo - x64)", false },
+        { "Foo", "Foo - (open", false },
+        { "Foo 2", "Foo 2.3D - Windows Server Hosting", false },
+        { "Foo 2", "Foo 2.3x - Windows Server Hosting", false },
+        { "Foo 2", "Foo 2.3-beta - Windows Server Hosting", true },
+        { "Microsoft .NET 8", "Microsoft .NET 8.0.31 - Windows Server Hosting 2FA", false },
+        { "Git", "Git 2FA", false },
+        { "Git", "Git 3D", false },
+        { "Foo", "Foo 7zip", false },
+        { "Foo", "Foo 1.2.3-beta", true },
+        { "Foo", "Foo 2.3D", false },
+        { "Foo", "Foo - 1.2.3D", false },
+        { "Foo", "Foo 1.2.beta", true },
+        { "Foo 2", "Foo 2.3.beta - Windows Server Hosting", true },
+        { "Foo", "Foo V2", true },
+        { "Microsoft Foo", "MICROSOFT FOO - 1.2", true },
+        { "Microsoft Foo", "microsoft foo (MSI)", true },
+        { "Foo (MSI)", "FOO (msi) 1.2", true },
+        { "Foo (MSI)", "Foo (EXE)", false },
+        { "Foo", "FOO - LATEST", true },
+        { "Microsoft .NET 8", "MICROSOFT .NET 8.0.31 - WINDOWS SERVER HOSTING", true },
         { "Audacity", "", false },
         { "", "Audacity", false },
     };
@@ -101,7 +167,7 @@ public class MecmApplicationTitleRuleTests
     {
         Assert.True(MecmApplicationTitleRule.IsManaged("Audacity 3.7.9", ["audacity 3.7.9", "CMTrace Open"]));
         Assert.True(MecmApplicationTitleRule.IsManaged("M365 Apps for Enterprise", ["CMTrace Open", "M365 Apps for Enterprise (x64) (MEC)"]));
-        Assert.False(MecmApplicationTitleRule.IsManaged("Git", ["Git Extensions 4.3", "GitHub Desktop"]));
+        Assert.False(MecmApplicationTitleRule.IsManaged("Git", ["Git Extensions 4.3", "GitHub Desktop", "Git - Extensions"]));
         Assert.False(MecmApplicationTitleRule.IsManaged("Microsoft OpenJDK 17 (EXE)", ["Microsoft OpenJDK 17 (MSI) (EXE)"]));
         Assert.False(MecmApplicationTitleRule.IsManaged("Audacity", []));
     }
@@ -170,8 +236,34 @@ public class MecmApplicationTitleRuleTests
         Assert.True(bad.Count == 0, string.Join(Environment.NewLine, bad.Order()));
     }
 
-    [Fact]
-    public async Task CheckConfigMgrRunsTheSameRuleInWindowsPowerShell()
+    [Theory]
+    [InlineData("")]
+    [InlineData("tr-TR")]
+    public void TheRuleIgnoresTheCurrentCulture(string culture)
+    {
+        var invariant = Cases.Select(c => MecmApplicationTitleRule.Matches((string)c[0], (string)c[1])).ToList();
+        var saved = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(culture);
+            var cultured = Cases.Select(c => MecmApplicationTitleRule.Matches((string)c[0], (string)c[1])).ToList();
+            Assert.Equal(invariant, cultured);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = saved;
+        }
+    }
+
+    /// <summary>
+    /// Under tr-TR, case-insensitive matching in PowerShell -match and -like folds I and i to
+    /// different letters, so "MSI" does not match "msi"; the PowerShell copy must still agree
+    /// with the C# rule.
+    /// </summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("tr-TR")]
+    public async Task CheckConfigMgrRunsTheSameRuleInWindowsPowerShell(string culture)
     {
         var pairs = Cases.Select(c => ((string)c[0], (string)c[1])).ToList();
         foreach (var (_, definition) in Definitions())
@@ -180,7 +272,11 @@ public class MecmApplicationTitleRuleTests
         pairs.Add(("PowerShell 7", "PowerShell 7 LTS - 7.4.6 (x64)"));
         pairs.Add(("Eclipse Temurin JDK 11", "Eclipse Temurin JDK 11 - 11.0.25 (x86)"));
 
-        var script = new StringBuilder(MecmApplicationTitleRule.PowerShellFunctions).AppendLine();
+        var script = new StringBuilder();
+        if (culture.Length > 0)
+            script.AppendLine($"[System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::new('{culture}')");
+        script.AppendLine("[Console]::Out.WriteLine('C:' + [System.Threading.Thread]::CurrentThread.CurrentCulture.Name)");
+        script.AppendLine(MecmApplicationTitleRule.PowerShellFunctions);
         script.AppendLine("$pairs = @(");
         foreach (var (cmName, title) in pairs)
             script.AppendLine($"  ,@({PowerShellLiteral.SingleQuoted(cmName)}, {PowerShellLiteral.SingleQuoted(title)})");
@@ -201,10 +297,12 @@ public class MecmApplicationTitleRuleTests
             foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", path }) start.ArgumentList.Add(a);
             using var process = Process.Start(start)!;
             var stderrTask = process.StandardError.ReadToEndAsync();
-            var lines = process.StandardOutput.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+            var output = process.StandardOutput.ReadToEnd().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
             await process.WaitForExitAsync();
             var stderr = await stderrTask;
-            Assert.True(lines.Length == pairs.Count * 2, stderr);
+            Assert.True(output.Length == pairs.Count * 2 + 1, stderr);
+            if (culture.Length > 0) Assert.Equal("C:" + culture, output[0]);
+            var lines = output[1..];
             var differ = new List<string>();
             for (var i = 0; i < pairs.Count; i++)
             {

@@ -28,6 +28,11 @@ public sealed class InstallBranch
     public string InstallContext { get; set; } = "";
     /// <summary>True when the install folder resolves before install.</summary>
     public bool Resolved { get; set; }
+    /// <summary>
+    /// True when run-time script code chooses the folder (an assignment in .onInit or a run-time
+    /// candidate in place of a placeholder): the folder and the uninstall command are predictions.
+    /// </summary>
+    public bool InstallDirPredicted { get; set; }
 
     /// <summary>The key relative to its hive, without the hive prefix.</summary>
     public string UninstallRegistryKeyRelative

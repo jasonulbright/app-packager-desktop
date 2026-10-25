@@ -71,6 +71,9 @@ public static class InnoSetupReader
 
     private static readonly uint[] CrcTable = BuildCrcTable();
 
+    /// <summary>The largest stored setup-0 block the reader loads.</summary>
+    public const long MaxStoredHeaderBytes = 64L * 1024 * 1024;
+
     private static uint[] BuildCrcTable()
     {
         var t = new uint[256];
@@ -264,7 +267,7 @@ public static class InnoSetupReader
     /// stops after maxOutput bytes; callers retry with a larger budget when
     /// the record is longer.
     /// </summary>
-    private static HeaderBlock? ExpandHeaderBlock(string path, long headerOffset, int maxOutput)
+    private static HeaderBlock? ExpandHeaderBlock(string path, long headerOffset, int maxOutput, CancellationToken ct = default)
     {
         DataVersion? version;
         string idText;
@@ -307,7 +310,8 @@ public static class InnoSetupReader
             compressed = blockHeader[4 + sizeWidth] != 0;
             if (actualCrc != expectedCrc) return Fail("Header block checksum mismatch.");
             var available = fs.Length - fs.Position;
-            var take = (int)Math.Min(storedSize, Math.Min(available, 256L * 1024 * 1024));
+            if (storedSize < 0 || storedSize > MaxStoredHeaderBytes) return Fail("The setup header block size field is larger than the 64 MB limit; the header was not decoded.", crcOk: true);
+            var take = (int)Math.Min(storedSize, available);
             raw = br.ReadBytes(take);
         }
 
@@ -329,7 +333,7 @@ public static class InnoSetupReader
         var props = payload[0];
         var dict = BitConverter.ToUInt32(payload, 1);
         if (dict < 4096) dict = 4096;
-        result.Bytes = LzmaDecoder.Decode(payload, 5, payload.Length - 5, props, dict, maxOutput, out _);
+        result.Bytes = LzmaDecoder.Decode(payload, 5, payload.Length - 5, props, dict, maxOutput, out _, ct);
         return result;
     }
 
@@ -345,6 +349,8 @@ public static class InnoSetupReader
         public string CompressMethod = "";
         public int NumLanguageEntries;
         public int NumFileEntries;
+        public readonly Dictionary<string, long> Counts = new(StringComparer.Ordinal);
+        public int FixedEnd;
         public string? ArchitecturesAllowed;
         public string? ArchitecturesInstallIn64BitMode;
 
@@ -428,6 +434,7 @@ public static class InnoSetupReader
         countNames.AddRange(["NumFileEntries", "NumFileLocationEntries", "NumIconEntries", "NumIniEntries", "NumRegistryEntries", "NumInstallDeleteEntries", "NumUninstallDeleteEntries", "NumRunEntries", "NumUninstallRunEntries"]);
         var counts = new Dictionary<string, long>();
         foreach (var name in countNames) counts[name] = I32();
+        foreach (var (name, count) in counts) h.Counts[name] = count;
         h.NumLanguageEntries = (int)counts["NumLanguageEntries"];
         h.NumFileEntries = (int)counts["NumFileEntries"];
         if (v >= Ver(7, 0, 0)) U32();
@@ -470,6 +477,7 @@ public static class InnoSetupReader
         if (v >= Ver(5, 2, 1) && v < Ver(5, 3, 10)) Skip(8);
         int disableDir = 0, disableGroup = 0;
         if (v >= Ver(5, 3, 3)) { disableDir = U8(); disableGroup = U8(); }
+        h.FixedEnd = pos;
 
         var sane = privileges <= 3 && overrides <= 3 && logMode <= 2 && dirExists <= 2 &&
                    showLang <= 2 && langDetect <= 2 && compress <= 4 && wizardStyle <= 1 &&
@@ -496,6 +504,182 @@ public static class InnoSetupReader
             h.ArchitecturesInstallIn64BitMode = ToNames(arch64Flags);
         }
         return h;
+    }
+
+    private static readonly Dictionary<long, string> RegistryRootNames = new()
+    {
+        [1] = "HKA", [0x80000000] = "HKCR", [0x80000001] = "HKCU", [0x80000002] = "HKLM",
+        [0x80000003] = "HKU", [0x80000004] = "HKPD", [0x80000005] = "HKCC", [0x80000006] = "HKDD"
+    };
+    private static readonly string[] RegistryTypeNames = ["", "REG_SZ", "REG_EXPAND_SZ", "REG_DWORD", "REG_BINARY", "REG_MULTI_SZ", "REG_QWORD"];
+    private static readonly string[] RegistryFlagNames =
+        ["createvalueifdoesntexist", "uninsdeletevalue", "uninsclearvalue", "uninsdeletekey", "uninsdeletekeyifempty",
+         "preservestringtype", "deletekey", "deletevalue", "noerror", "dontcreatekey", "32bit", "64bit"];
+    private static readonly string[] BitnessNames = ["", "32", "64", "native", "process"];
+
+    /// <summary>
+    /// Lists the compiled [Registry] entries. The entry lists follow TSetupHeader in the
+    /// setup-0 block; each is a run of records made of length-prefixed strings and a
+    /// fixed part whose size depends on the data version. Layouts are known from data
+    /// version 6.0.0; older or encrypted setups give no rows and a note. Values keep
+    /// their constants ({app}, {code:...}); HKA is HKLM for an administrative install
+    /// and HKCU for a per-user one.
+    /// </summary>
+    public static (List<RegistryWrite> Rows, string Note) ReadRegistryEntries(string path, int maxRows, CancellationToken ct = default)
+    {
+        var rows = new List<RegistryWrite>();
+        var offsets = ReadLoaderOffsets(path);
+        if (offsets is null) return (rows, "SetupLdr offset table not found.");
+        foreach (var budget in new[] { 4 << 20, 32 << 20, 160 << 20 })
+        {
+            ct.ThrowIfCancellationRequested();
+            var block = ExpandHeaderBlock(path, offsets.HeaderOffset, budget, ct);
+            if (block?.Bytes is null)
+                return (rows, block is not null && !string.IsNullOrEmpty(block.Note) ? block.Note : "Setup header block could not be decoded.");
+            try
+            {
+                var header = ParseSetupHeader(block.Bytes, block.Version!);
+                var note = ReadRegistryList(block.Bytes, block.Version!, header, rows, maxRows, InstallerSignatureScanner.ReadPeArchitecture(path), ct);
+                return (rows, note);
+            }
+            catch (EndOfStreamException)
+            {
+                rows.Clear();
+                if (block.Bytes.Length < budget) return (rows, "Setup entry lists end inside the decoded block.");
+            }
+            catch (InvalidDataException)
+            {
+                rows.Clear();
+                return (rows, "Setup entry lists did not validate; registry entries are not reported.");
+            }
+        }
+        return (rows, "Setup entry lists exceed the decode budget.");
+    }
+
+    /// <summary>
+    /// The registry view of one [Registry] entry on 64-bit Windows. From data version 7.0 the
+    /// entry carries a TSetupEntryBitness byte (install default, 32-bit, 64-bit, native,
+    /// current process); before it the 32bit and 64bit option flags. Without either, the entry
+    /// follows the install mode: 64-bit in 64-bit install mode, otherwise the 32-bit view.
+    /// "Current process" follows the setup executable's architecture.
+    /// </summary>
+    internal static string RegistryView(bool v700, int bitness, IReadOnlyCollection<string> flags, bool is64BitInstallMode, string setupArchitecture)
+    {
+        var mode = is64BitInstallMode ? "64" : "32";
+        if (!v700) return flags.Contains("64bit") ? "64" : flags.Contains("32bit") ? "32" : mode;
+        return bitness switch
+        {
+            1 => "32",
+            2 or 3 => "64",
+            4 => setupArchitecture is "x64" or "ARM64" ? "64" : "32",
+            _ => mode
+        };
+    }
+
+    /// <summary>64-bit install mode on an x64 host: an ArchitecturesInstallIn64BitMode expression naming x64 (6.3+) or the x64 flag (older).</summary>
+    internal static bool Is64BitMode(string architecturesInstallIn64BitMode) =>
+        Regex.IsMatch(architecturesInstallIn64BitMode, @"(?i)(?<!not\s+)\b(x64compatible|x64os|x64|win64)\b");
+
+    private static string ReadRegistryList(byte[] data, DataVersion version, SetupHeader header, List<RegistryWrite> rows, int maxRows, string setupArchitecture, CancellationToken ct)
+    {
+        var v = version.Value;
+        var is64BitMode = Is64BitMode(header.ArchitecturesInstallIn64BitMode ?? "");
+        if (v < Ver(6, 0, 0)) return "Registry entries are read for setup data 6.0.0 and later; this installer is " + version.Text + ".";
+        if (!header.FixedDecoded) return "Registry entries follow header fields that did not decode.";
+
+        var pos = header.FixedEnd;
+        var len = data.Length;
+        void Need(long n) { if (pos + n > len) throw new EndOfStreamException("Setup entry lists extend past the decoded block."); }
+        void Skip(int n) { Need(n); pos += n; }
+        int U8() { Need(1); return data[pos++]; }
+        int U16() { Need(2); var x = BitConverter.ToUInt16(data, pos); pos += 2; return x; }
+        long U32() { Need(4); var x = BitConverter.ToUInt32(data, pos); pos += 4; return x; }
+        var encoding = version.Unicode ? Encoding.Unicode : Encoding.Latin1;
+        string Str()
+        {
+            var n = U32();
+            if (n > 64L * 1024 * 1024) throw new InvalidDataException("Setup entry string length is implausible.");
+            Need(n);
+            var text = encoding.GetString(data, pos, (int)n);
+            pos += (int)n;
+            return text;
+        }
+        long Count(string name) => header.Counts.TryGetValue(name, out var c) ? c : 0;
+        void SkipList(long count, int strings, int fixedSize)
+        {
+            if (count < 0 || count > 10_000_000) throw new InvalidDataException("Setup entry count is implausible.");
+            for (long i = 0; i < count; i++)
+            {
+                if ((i & 0xFFF) == 0) ct.ThrowIfCancellationRequested();
+                for (var s = 0; s < strings; s++)
+                {
+                    var n = U32();
+                    if (n > 64L * 1024 * 1024) throw new InvalidDataException("Setup entry string length is implausible.");
+                    Need(n);
+                    pos += (int)n;
+                }
+                Skip(fixedSize);
+            }
+        }
+
+        // Header tail: UninstallDisplaySize, then the Options set whose byte count follows
+        // the option member count of each data version.
+        var optionBytes = v >= Ver(6, 7, 0) ? 8 : v >= Ver(6, 4, 0, 1) ? 6 : v >= Ver(6, 3, 0) ? 7 : 6;
+        Skip(8 + optionBytes);
+
+        var v650 = v >= Ver(6, 5, 0);
+        var v660 = v >= Ver(6, 6, 0);
+        var v670 = v >= Ver(6, 7, 0);
+        var v700 = v >= Ver(7, 0, 0);
+        SkipList(Count("NumLanguageEntries"), (v660 ? 4 : 6) + 4, v660 ? 19 : 21);
+        SkipList(Count("NumCustomMessageEntries"), 2, 4);
+        SkipList(Count("NumPermissionEntries"), 1, 0);
+        SkipList(Count("NumTypeEntries"), 4, 30);
+        SkipList(Count("NumComponentEntries"), 5, v670 ? 39 : 42);
+        SkipList(Count("NumTaskEntries"), 6, v670 ? 23 : 26);
+        SkipList(Count("NumDirEntries"), 7, 27);
+        if (v650) SkipList(Count("NumISSigKeyEntries"), 3, 0);
+        SkipList(Count("NumFileEntries"), v650 ? 16 : 10, v700 ? 81 : v670 ? 80 : v650 ? 77 : 43);
+        SkipList(Count("NumIconEntries"), 13, v >= Ver(6, 1, 0) ? 48 : 32);
+        SkipList(Count("NumIniEntries"), 10, 21);
+
+        var count = Count("NumRegistryEntries");
+        if (count < 0 || count > 1_000_000) throw new InvalidDataException("Registry entry count is implausible.");
+        for (long i = 0; i < count; i++)
+        {
+            if ((i & 0xFF) == 0) ct.ThrowIfCancellationRequested();
+            var subkey = Str(); var valueName = Str(); var valueData = Str();
+            var components = Str(); var tasks = Str(); var languages = Str(); var check = Str();
+            Str(); Str();
+            Skip(20);
+            var rootKey = U32();
+            Skip(2);
+            var type = U8();
+            var bitness = v700 ? U8() : 0;
+            var options = U16();
+            if (!RegistryRootNames.TryGetValue(rootKey, out var root) || type >= RegistryTypeNames.Length || bitness >= BitnessNames.Length)
+                throw new InvalidDataException("A registry entry did not validate.");
+            if (rows.Count >= maxRows) return $"Only the first {maxRows} registry entries are listed.";
+
+            var flags = Enumerable.Range(0, RegistryFlagNames.Length).Where(b => (options & (1 << b)) != 0).Select(b => RegistryFlagNames[b]).ToList();
+            var view = RegistryView(v700, bitness, flags, is64BitMode, setupArchitecture);
+            var action = flags.Contains("deletekey") ? "delete key"
+                : flags.Contains("deletevalue") ? (type != 0 ? "delete value, then write" : "delete value")
+                : type == 0 ? "create key" : "write";
+            var conditions = new List<string>();
+            if (tasks.Length > 0) conditions.Add("Tasks: " + tasks);
+            if (languages.Length > 0) conditions.Add("Languages: " + languages);
+            if (check.Length > 0) conditions.Add("Check: " + check);
+            var otherFlags = flags.Where(f => f is not "32bit" and not "64bit").ToList();
+            if (otherFlags.Count > 0) conditions.Add("Flags: " + string.Join(" ", otherFlags));
+            rows.Add(new RegistryWrite("InnoSetup", root, subkey, valueName, valueData, RegistryTypeNames[type], string.Join("; ", conditions))
+            {
+                Action = action,
+                View = view,
+                Section = components
+            });
+        }
+        return "";
     }
 
     /// <summary>
@@ -565,8 +749,9 @@ public static class InnoSetupReader
     /// The key is &lt;AppId&gt;_is1 under HKLM (WOW6432Node when the setup does
     /// not install in 64-bit mode) or under HKCU for PrivilegesRequired=lowest.
     /// </summary>
-    public static InnoSetupMetadata Read(string path)
+    public static InnoSetupMetadata Read(string path, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var meta = new InnoSetupMetadata();
         if (!File.Exists(path)) { meta.Note = "Installer not found: " + path; return meta; }
         meta.RequestedExecutionLevel = PeResources.ReadRequestedExecutionLevel(path);
@@ -579,7 +764,8 @@ public static class InnoSetupReader
         var decodeNote = "";
         foreach (var budget in new[] { 1 << 20, 8 << 20, 48 << 20 })
         {
-            block = ExpandHeaderBlock(path, offsets.HeaderOffset, budget);
+            ct.ThrowIfCancellationRequested();
+            block = ExpandHeaderBlock(path, offsets.HeaderOffset, budget, ct);
             if (block?.Bytes is null) break;
             try
             {
@@ -590,9 +776,9 @@ public static class InnoSetupReader
             {
                 if (block.Bytes.Length < budget) { decodeNote = "Setup header record ends inside the decoded block."; break; }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                decodeNote = "Setup header record could not be decoded: " + ex.Message;
+                decodeNote = "Setup header record could not be decoded.";
                 break;
             }
         }
@@ -634,9 +820,7 @@ public static class InnoSetupReader
             meta.Note = header.FixedNote;
         }
 
-        // 64-bit install mode on an x64 host: an expression naming x64 (6.3+)
-        // or the x64 flag (older). The ARP key and Program Files folder follow it.
-        meta.Is64BitInstallMode = Regex.IsMatch(meta.ArchitecturesInstallIn64BitMode, @"(?i)(?<!not\s+)\b(x64compatible|x64os|x64|win64)\b");
+        meta.Is64BitInstallMode = Is64BitMode(meta.ArchitecturesInstallIn64BitMode);
 
         var perUser = meta.PrivilegesRequired == "lowest";
         meta.InstallContext = header.FixedDecoded ? (perUser ? "PerUser" : "PerMachine") : "";
@@ -684,7 +868,7 @@ public static class InnoSetupReader
             if (dirResolved && uninstallable)
             {
                 var uninstallerWindows = ToWindowsPath(meta.UninstallerPath, meta.Is64BitInstallMode, branchPerUser, dirWindows);
-                if (!uninstallerWindows.Contains('{'))
+                if (!uninstallerWindows.Contains('{') && CommandLineText.IsQuotablePath(uninstallerWindows))
                 {
                     b.UninstallerPathWindows = uninstallerWindows;
                     b.SilentUninstallCommand = "\"" + uninstallerWindows + "\" " + SilentArgs;

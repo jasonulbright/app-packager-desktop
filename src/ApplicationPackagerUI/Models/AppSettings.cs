@@ -153,6 +153,46 @@ public sealed class AppSettings
     public bool WindowMaximized { get; set; }
     public bool PaneOpen { get; set; } = true;
 
+    /// <summary>The sidebar order and hidden entries. Null in a file written before the sidebar could change; null gives the default sidebar.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SidebarLayout? Sidebar { get; set; }
+
+    /// <summary>The Detection Tester page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DetectionTesterSettings? DetectionTester { get; set; }
+
+    /// <summary>The Maintenance Windows page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public MaintenanceWindowsSettings? MaintenanceWindows { get; set; }
+
+    /// <summary>The Collection and Compliance page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public CollectionComplianceSettings? CollectionCompliance { get; set; }
+
+    /// <summary>The Installer Analysis page choices and recent files. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public InstallerAnalysisSettings? InstallerAnalysis { get; set; }
+
+    /// <summary>The Deployment Helper page choices and audit log path. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DeploymentHelperSettings? DeploymentHelper { get; set; }
+
+    /// <summary>The DP Content Manager page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public DpContentSettings? DpContent { get; set; }
+
+    /// <summary>The Pivots and Scripts page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public PivotsScriptsSettings? PivotsScripts { get; set; }
+
+    /// <summary>The Site Hygiene page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SiteHygieneSettings? SiteHygiene { get; set; }
+
+    /// <summary>The Site Hygiene Live and Alerts options. Null in a file written before the Live views existed; null gives the defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SiteHygieneLiveSettings? SiteHygieneLive { get; set; }
+
     /// <summary>
     /// Null in a file written before the flag existed. SettingsService stamps it true on load so
     /// an already-configured user never meets the setup window.

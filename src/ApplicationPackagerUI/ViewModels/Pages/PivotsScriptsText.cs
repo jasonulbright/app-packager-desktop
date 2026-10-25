@@ -1,0 +1,205 @@
+using System.Text;
+using System.Text.Json;
+using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Services;
+
+namespace ApplicationPackagerUI.ViewModels.Pages;
+
+/// <summary>The plan text of the Pivots and Scripts page, made from the prepared change only.</summary>
+public static class PivotsScriptsText
+{
+    public const string Pass = "Pass";
+    public const string Warn = "Warn";
+    public const int MaxUnmatchedNamed = 20;
+
+    public const string NoUndo = "A script run cannot be undone. There is no Undo; the audit log is the record.";
+    public const string PivotNote = "The query runs on each client and returns data. It changes nothing on the client. It cannot be undone; the audit log is the record.";
+    public const string StopWaitingNote = "Clients that received the request run it, also after Stop waiting.";
+    public const string ScriptRunBox = "I read the script text, its hash and the parameters. A script run cannot be undone.";
+    public const string RemoveNote = "The run history of the script goes with it. A removal cannot be undone.";
+    public const string ApproveNote = "An approved script can run on clients from this page and from the console. By default the site refuses an approval by the author of the script.";
+    public const string SubmitNote = "The site stores the script as Waiting for approval. It cannot run until it is approved.";
+    public const string DenyNote = "A declined script cannot run. It can be approved later.";
+    public const string NoDevices = "The targets resolve to no device. Nothing was sent.";
+    public const string ScriptNotRead = "The script was not read again before the plan. Nothing was sent. Select Run again.";
+    public const string TruncatedNote = "Truncated: more devices match than the plan holds. Narrow the target.";
+
+    public static string Title(PivotsChangeKind kind) => kind switch
+    {
+        PivotsChangeKind.RunPivot => "Run a CMPivot query on devices",
+        PivotsChangeKind.RunScript => "Run a script on devices",
+        PivotsChangeKind.SubmitScript => "Submit a script to the site",
+        PivotsChangeKind.ApproveScript => "Approve a site script",
+        PivotsChangeKind.DenyScript => "Deny a site script",
+        PivotsChangeKind.RemoveScript => "Remove a site script",
+        _ => kind.ToString()
+    };
+
+    /// <summary>A check that stops the plan: a result other than Pass or Warn.</summary>
+    public static bool Blocks(PreflightCheck check) =>
+        !string.Equals(check.Result, Pass, StringComparison.OrdinalIgnoreCase) && !string.Equals(check.Result, Warn, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPass(PreflightCheck check) => string.Equals(check.Result, Pass, StringComparison.OrdinalIgnoreCase);
+
+    private static string CheckLine(PreflightCheck c) => $"{c.Name}: {c.Result}{(c.Message.Length > 0 ? ". " + c.Message : ".")}";
+
+    public static string DeviceTarget(ResolvedDevice device) => $"{device.Name} (ResourceID {device.ResourceId})";
+
+    /// <summary>The lines that name the targets of a run: the description, the count, the left-out names and a truncation.</summary>
+    public static IEnumerable<string> TargetLines(ResolvedTargets targets)
+    {
+        yield return $"Targets: {targets.Description}. {PivotsLabels.Count(targets.Devices.Count, "device")}.";
+        if (targets.IsBuiltInCollection) yield return $"The target is a built-in collection ({targets.CollectionId}). The run reaches every device of the collection.";
+        else if (targets.CoversEverySiteDevice)
+            yield return $"The target holds every client of the site ({PivotsLabels.Count(targets.SiteClientCount, "client")}). The run reaches every device of the site.";
+        if (targets.Truncated)
+            yield return targets.TotalMatched > targets.Devices.Count ? $"{TruncatedNote} {PivotsLabels.Count(targets.TotalMatched, "device")} match." : TruncatedNote;
+        if (targets.NonClientCount > 0) yield return $"{PivotsLabels.Count(targets.NonClientCount, "device")} without a ConfigMgr client: the run skips {(targets.NonClientCount == 1 ? "it" : "them")}.";
+        if (targets.Unmatched.Count > 0)
+            yield return $"Not found, left out: {UnmatchedText(targets.Unmatched)}";
+    }
+
+    public static string UnmatchedText(IReadOnlyList<string> names) =>
+        string.Join(", ", names.Take(MaxUnmatchedNamed)) + (names.Count > MaxUnmatchedNamed ? $", and {PivotsLabels.Number(names.Count - MaxUnmatchedNamed)} more." : ".");
+
+    public const string TextHashLabel = PivotsScriptsService.TextHashLabel;
+    public const string SiteHashLabel = PivotsScriptsService.SiteHashLabel;
+
+    /// <summary>The value of each parameter definition of the script in a run: the typed value or the default of the site.</summary>
+    public static string ParameterText(SiteScript script, IReadOnlyDictionary<string, string>? parameters, int maxValue = int.MaxValue) =>
+        PivotsScriptsService.ParametersLine(script, parameters, maxValue);
+
+    /// <summary>The characters of the script hash that the confirmation box names.</summary>
+    public const int HashPrefixLength = 16;
+
+    /// <summary>The characters of one parameter value that the confirmation box shows.</summary>
+    public const int MaxConfirmedValue = 80;
+
+    /// <summary>
+    /// The device-count box of a script run. It names the hash prefix and the parameters, because the
+    /// notes box above it can hold more lines than it shows.
+    /// </summary>
+    public static string ScriptRunConfirmation(SiteScript script, string hash, IReadOnlyDictionary<string, string>? parameters, string devices) =>
+        $"Run {script.Name} version {script.Version} on {devices}. {TextHashLabel} starts with {hash[..Math.Min(HashPrefixLength, hash.Length)]}. {ParameterText(script, parameters, MaxConfirmedValue)}";
+
+    /// <summary>The plan of a prepared change, or null with the reason when it cannot run.</summary>
+    public static (PivotsPlan? Plan, string? Problem) BuildPlan(PivotsChange prepared)
+    {
+        var blocking = prepared.Checks.Where(Blocks).ToList();
+        if (blocking.Count > 0)
+            return (null, "The plan cannot run: " + string.Join(" ", blocking.Select(c => c.Message.Length > 0 ? c.Message : $"{c.Name}: {c.Result}.")));
+        return prepared.Kind is PivotsChangeKind.RunPivot or PivotsChangeKind.RunScript ? RunPlan(prepared) : ScriptPlan(prepared);
+    }
+
+    private static List<string> CheckNotes(PivotsChange prepared, Action<List<string>> middle)
+    {
+        // The notes box shows the first lines without a scroll, so the checks that need attention come first.
+        var notes = new List<string>();
+        notes.AddRange(prepared.Checks.Where(c => !IsPass(c)).Select(CheckLine));
+        middle(notes);
+        notes.AddRange(prepared.Impact);
+        notes.AddRange(prepared.Checks.Where(IsPass).Select(CheckLine));
+        return notes;
+    }
+
+    private static (PivotsPlan?, string?) RunPlan(PivotsChange prepared)
+    {
+        if (prepared.Targets is not { Devices.Count: > 0 } targets) return (null, NoDevices);
+        var script = prepared.Kind == PivotsChangeKind.RunScript;
+        if (script && (prepared.Script is not { Text: not null } || string.IsNullOrEmpty(prepared.ScriptHash))) return (null, ScriptNotRead);
+        var count = prepared.DeviceCount > 0 ? prepared.DeviceCount : targets.Devices.Count(d => d.IsClient);
+        if (count == 0) return (null, NoDevices);
+        var action = script ? "Run script" : "Run query";
+        if (script && prepared.Script!.ParametersUnreadable) return (null, PivotsScriptsViewModel.ParametersUnreadable);
+        var entries = targets.Devices.Select(d => new PivotsPlanEntry(new ChangePlanItem(d.IsClient ? action : "Skip", DeviceTarget(d),
+            d.IsClient ? $"Online state: {PivotsLabels.Online(d.IsOnline)}." : "No ConfigMgr client: the run skips the device."), d.ResourceId) { Sends = d.IsClient }).ToList();
+        var notes = CheckNotes(prepared, n =>
+        {
+            n.AddRange(TargetLines(targets));
+            if (script)
+            {
+                var s = prepared.Script!;
+                n.Add($"Script: {s.Name}. Version {s.Version}. GUID {s.Guid}.");
+                n.Add($"{TextHashLabel}: {prepared.ScriptHash}.");
+                if (s.SiteHash.Length > 0) n.Add($"{SiteHashLabel}: {s.SiteHash}.");
+                n.Add(ParameterText(s, prepared.Parameters));
+            }
+        });
+        notes.Add(script ? NoUndo : PivotNote);
+        notes.Add(StopWaitingNote);
+        var devices = PivotsLabels.Count(count, "device");
+        var plan = new ChangePlan(Title(prepared.Kind), $"Run on {devices}", entries.Select(e => e.Item), isDestructive: script, hasUndo: false)
+        {
+            DestructiveConfirmation = script ? ScriptRunBox : null,
+            ExtraConfirmation = script ? ScriptRunConfirmation(prepared.Script!, prepared.ScriptHash!, prepared.Parameters, devices) : null,
+            SecondConfirmation = prepared.NeedsEveryDeviceAcknowledgement ? $"This runs on every device of the site: {targets.Description}." : null,
+            Notes = notes,
+            Body = script ? prepared.Script!.Text : prepared.QueryText ?? "",
+            BodyName = script ? "Script text" : "Query text",
+            LogName = PivotsLabels.Kind(prepared.Kind)
+        };
+        return (new PivotsPlan(PivotsLabels.Kind(prepared.Kind), prepared, plan, entries), null);
+    }
+
+    private static (PivotsPlan?, string?) ScriptPlan(PivotsChange prepared)
+    {
+        var kind = prepared.Kind;
+        var script = prepared.Script;
+        if (kind != PivotsChangeKind.SubmitScript && script is null) return (null, ScriptNotRead);
+        var name = kind == PivotsChangeKind.SubmitScript ? prepared.SubmitName ?? "" : script!.Name;
+        var guid = kind == PivotsChangeKind.SubmitScript ? null : script!.Guid;
+        var target = guid is null ? name : $"{name} ({guid})";
+        var (verb, detail, note) = kind switch
+        {
+            PivotsChangeKind.SubmitScript => ("Submit", "The site stores the script as Waiting for approval.", SubmitNote),
+            PivotsChangeKind.ApproveScript => ("Approve", $"State now: {PivotsLabels.ScriptState(script!.State)}.", ApproveNote),
+            PivotsChangeKind.DenyScript => ("Deny", $"State now: {PivotsLabels.ScriptState(script!.State)}.", DenyNote),
+            _ => ("Remove", $"State now: {PivotsLabels.ScriptState(script!.State)}.", RemoveNote)
+        };
+        var entries = new List<PivotsPlanEntry> { new(new ChangePlanItem(verb, target, detail), null) };
+        var notes = CheckNotes(prepared, n =>
+        {
+            if (script is not null) n.Add($"Script: {script.Name}. Version {script.Version}. Author {script.Author}.");
+            if (prepared.ScriptHash is { Length: > 0 } hash) n.Add($"{TextHashLabel}: {hash}.");
+            if (script is { SiteHash.Length: > 0 }) n.Add($"{SiteHashLabel}: {script.SiteHash}.");
+            if (kind == PivotsChangeKind.SubmitScript)
+                n.Add(prepared.SubmitParameters.Count == 0 ? "Parameter definitions: none."
+                    : "Parameter definitions the site stores: " + string.Join(", ", prepared.SubmitParameters.Select(p => $"{p.Name} ({p.Type}{(p.Required ? ", required" : "")})")) + ".");
+            if (kind == PivotsChangeKind.DenyScript) n.Add($"Comment: {prepared.Comment}");
+        });
+        notes.Add(note);
+        var remove = kind == PivotsChangeKind.RemoveScript;
+        var plan = new ChangePlan(Title(kind), $"{verb} {name}", entries.Select(e => e.Item), isDestructive: remove, hasUndo: false)
+        {
+            ExtraConfirmation = remove ? $"Remove {name}. Its run history goes with it." : null,
+            Notes = notes,
+            Body = kind == PivotsChangeKind.SubmitScript ? prepared.SubmitText ?? "" : script?.Text,
+            BodyName = "Script text",
+            LogName = PivotsLabels.Kind(kind)
+        };
+        return (new PivotsPlan(PivotsLabels.Kind(kind), prepared, plan, entries), null);
+    }
+
+    /// <summary>
+    /// A PowerShell expression that gives back the rows as objects. The rows travel as Base64 of their
+    /// JSON, so no cell text can end the string or add a command. Windows PowerShell 5.1 writes a JSON
+    /// array as one Object[]; ForEach-Object writes each row on its own, so the next command of the
+    /// pipeline gets one row at a time in 5.1 and in 7.
+    /// </summary>
+    public static string CopyAsPowerShell(IReadOnlyList<string> columns, IEnumerable<IReadOnlyList<string>> rows)
+    {
+        var list = rows.Select(r =>
+        {
+            var o = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var name = columns[i];
+                while (o.ContainsKey(name)) name += "_";
+                o[name] = i < r.Count ? r[i] : "";
+            }
+            return o;
+        }).ToList();
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(list)));
+        return $"[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded}')) | ConvertFrom-Json | ForEach-Object {{ $_ }}";
+    }
+}

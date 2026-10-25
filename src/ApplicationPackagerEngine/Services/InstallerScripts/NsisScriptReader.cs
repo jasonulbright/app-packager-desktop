@@ -32,6 +32,8 @@ public sealed class NsisMetadata
     /// <summary>Every value the script writes under the chosen ARP key, in NSIS notation.</summary>
     public Dictionary<string, string> ArpValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> InstallDirCandidates { get; set; } = [];
+    /// <summary>True when run-time script code chooses the install folder; see <see cref="InstallBranch.InstallDirPredicted"/>.</summary>
+    public bool InstallDirPredicted { get; set; }
     public string RequestedExecutionLevel { get; set; } = "";
     /// <summary>"all" or "current": the shell folder context the install folder resolves in.</summary>
     public string ShellVarContext { get; set; } = "current";
@@ -54,6 +56,12 @@ public sealed class NsisMetadata
 public static class NsisScriptReader
 {
     private const int FirstHeaderSize = 28;
+
+    /// <summary>
+    /// The largest file read whole when the leading window misses the header. A header sits
+    /// right after the stub, so a larger file is reported as not found instead of being loaded.
+    /// </summary>
+    public const long WholeFileLimitBytes = 512L * 1024 * 1024;
 
     // CSIDL pairs (current user, all users) as makensis encodes the built-in
     // shell constants; the ProgramFiles family uses a registry lookup instead.
@@ -79,6 +87,12 @@ public static class NsisScriptReader
     private static readonly Regex UserFolders = new(@"^\$(LOCALAPPDATA|APPDATA|PROFILE)", RegexOptions.Compiled);
     private static readonly Regex UserFoldersWide = new(@"^\$(LOCALAPPDATA|APPDATA|PROFILE|DOCUMENTS|DESKTOP)", RegexOptions.Compiled);
     private static readonly Regex DriveOrShare = new(@"^[A-Za-z]:\\", RegexOptions.Compiled);
+    private static readonly Regex LooksLikeFolder = new(@"^(\$[A-Za-z_]|[A-Za-z]:\\|\\\\)", RegexOptions.Compiled);
+    // Header offsets of the callback entry indexes, .onInit (108) to .onRebootFailed (144); -1 when absent.
+    private const int CallbackFirstOffset = 108;
+    private const int CallbackLastOffset = 144;
+    private const int SectionCodeOffset = 12;
+    private const int OpCall = 5;
 
     private static readonly Encoding Latin1 = Encoding.Latin1;
 
@@ -120,8 +134,14 @@ public static class NsisScriptReader
         public string Compression = "";
         public bool Solid;
         public bool Filtered;
+        public bool TooLarge;
         public string Note = "";
     }
+
+    /// <summary>The largest decompressed header block the reader accepts.</summary>
+    public const int MaxHeaderBytes = 64 * 1024 * 1024;
+
+    public const string HeaderTooLargeNote = "The NSIS header length field is larger than the 64 MB limit; the header was not decoded.";
 
     /// <summary>
     /// Decompresses the header block that follows the firstheader. Solid
@@ -131,11 +151,19 @@ public static class NsisScriptReader
     /// properties byte and a 4-byte dictionary size, optionally preceded by a
     /// 0/1 BCJ filter flag. NSIS bzip2 is a stripped stream and is not decoded.
     /// </summary>
-    private static Expanded ExpandHeader(byte[] bytes, int firstHeader)
+    private static Expanded ExpandHeader(byte[] bytes, int firstHeader, CancellationToken ct)
     {
-        var headerLength = (int)BitConverter.ToUInt32(bytes, firstHeader + 20);
-        var dataStart = firstHeader + FirstHeaderSize;
         var result = new Expanded();
+        var rawHeaderLength = BitConverter.ToUInt32(bytes, firstHeader + 20);
+        // The field sizes the decode buffer; it is checked before anything is allocated from it.
+        if (rawHeaderLength > MaxHeaderBytes)
+        {
+            result.Note = HeaderTooLargeNote;
+            result.TooLarge = true;
+            return result;
+        }
+        var headerLength = (int)rawHeaderLength;
+        var dataStart = firstHeader + FirstHeaderSize;
         if (dataStart + 8 > bytes.Length) { result.Note = "Installer data block is truncated."; return result; }
 
         bool IsLzmaAt(int p) =>
@@ -161,7 +189,7 @@ public static class NsisScriptReader
             var props = bytes[p];
             var dict = BitConverter.ToUInt32(bytes, p + 1);
             var want = headerLength + PrefixLength(solid);
-            var output = LzmaDecoder.Decode(bytes, p + 5, end - (p + 5), props, dict, want, out _);
+            var output = LzmaDecoder.Decode(bytes, p + 5, end - (p + 5), props, dict, want, out _, ct);
             if (filtered && output.Length > 0) LzmaDecoder.DecodeBcjX86(output, output.Length);
             return TakeHeader(output, solid);
         }
@@ -177,6 +205,7 @@ public static class NsisScriptReader
                 var read = 0;
                 while (read < want)
                 {
+                    ct.ThrowIfCancellationRequested();
                     var n = ds.Read(output, read, want - read);
                     if (n <= 0) break;
                     read += n;
@@ -184,7 +213,7 @@ public static class NsisScriptReader
                 if (read != want) return null;
                 return TakeHeader(output, solid);
             }
-            catch
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 return null;
             }
@@ -284,14 +313,15 @@ public static class NsisScriptReader
     /// covers it; the whole file is read only when the window misses the
     /// firstheader or truncates the compressed header.
     /// </summary>
-    public static HeaderTable ReadHeaderTable(string path)
+    public static HeaderTable ReadHeaderTable(string path, long maxWholeFileBytes = WholeFileLimitBytes, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var result = new HeaderTable();
 
         static byte[] ReadWindow(string p, long length)
         {
             using var fs = File.OpenRead(p);
-            var take = (int)Math.Min(fs.Length, length);
+            var take = (int)Math.Min(Math.Min(fs.Length, length), Array.MaxLength);
             var buffer = new byte[take];
             var read = 0;
             while (read < take)
@@ -307,12 +337,13 @@ public static class NsisScriptReader
         var bytes = ReadWindow(path, 16L * 1024 * 1024);
         var fh = FindFirstHeader(bytes, fileLength);
         Expanded? expanded = null;
-        if (fh >= 0) expanded = ExpandHeader(bytes, fh);
-        if ((fh < 0 || expanded?.Header is null) && fileLength > bytes.Length)
+        if (fh >= 0) expanded = ExpandHeader(bytes, fh, ct);
+        ct.ThrowIfCancellationRequested();
+        if ((fh < 0 || expanded is { Header: null, TooLarge: false }) && fileLength > bytes.Length && fileLength <= maxWholeFileBytes)
         {
             bytes = ReadWindow(path, fileLength);
             fh = FindFirstHeader(bytes, fileLength);
-            if (fh >= 0) expanded = ExpandHeader(bytes, fh);
+            if (fh >= 0) expanded = ExpandHeader(bytes, fh, ct);
         }
         if (fh < 0 || expanded is null) { result.Note = "NSIS firstheader not found."; return result; }
         result.FirstHeaderFound = true;
@@ -537,19 +568,104 @@ public static class NsisScriptReader
         return (RootKeyName(u & 0x9FFFFFFF), view);
     }
 
+    /// <summary>$PROGRAMFILES64\X for $PROGRAMFILES\X (also $PROGRAMFILES32 and the COMMONFILES pair); null otherwise.</summary>
+    private static string? SixtyFourBitTwin(string folder)
+    {
+        var m = Regex.Match(folder, @"^\$(PROGRAMFILES|COMMONFILES)(32)?(\\.*)?$");
+        return m.Success ? "$" + m.Groups[1].Value + "64" + m.Groups[3].Value : null;
+    }
+
+    /// <summary>
+    /// Marks the entries that run as part of .onInit: the function's own entries and those of
+    /// every function it calls, transitively. makensis writes each function as one contiguous
+    /// run of entries, so a function ends where the next function, section or callback begins.
+    /// A silent install runs .onInit but no page callback.
+    /// </summary>
+    internal static bool[] OnInitEntries(HeaderTable ctx)
+    {
+        var h = ctx.Header!;
+        var count = ctx.EntriesCount;
+        var inInit = new bool[count];
+        if (h.Length < CallbackLastOffset + 4) return inInit;
+        var onInit = BitConverter.ToInt32(h, CallbackFirstOffset);
+        if (onInit < 0 || onInit >= count) return inInit;
+
+        var starts = new SortedSet<int>();
+        for (var o = CallbackFirstOffset; o <= CallbackLastOffset; o += 4)
+        {
+            var v = BitConverter.ToInt32(h, o);
+            if (v >= 0 && v < count) starts.Add(v);
+        }
+        for (var s = 0; s < ctx.SectionsCount; s++)
+        {
+            var at = ctx.SectionsOffset + (s * ctx.SectionSize) + SectionCodeOffset;
+            if (at < 0 || at + 4 > h.Length) break;
+            var v = BitConverter.ToInt32(h, at);
+            if (v >= 0 && v < count) starts.Add(v);
+        }
+        // Page callbacks (pre, show, leave at page offsets 8, 12, 16) start functions that nothing calls.
+        var pagesOffset = BitConverter.ToInt32(h, 4);
+        var pagesCount = BitConverter.ToInt32(h, 8);
+        if (pagesCount > 0 && pagesOffset > 0 && ctx.SectionsOffset > pagesOffset)
+        {
+            var pageSize = (ctx.SectionsOffset - pagesOffset) / pagesCount;
+            for (var pg = 0; pg < pagesCount && pageSize >= 20; pg++)
+                for (var o = 8; o <= 16; o += 4)
+                {
+                    var at = pagesOffset + (pg * pageSize) + o;
+                    if (at + 4 > h.Length) break;
+                    var v = BitConverter.ToInt32(h, at);
+                    if (v >= 0 && v < count) starts.Add(v);
+                }
+        }
+        int CallTarget(int e)
+        {
+            var b = ctx.EntriesOffset + (e * 28);
+            if (BitConverter.ToInt32(h, b) != OpCall) return -1;
+            // A second parameter of 0 marks a call to a named function; 1 marks a call to a label.
+            if (BitConverter.ToInt32(h, b + 8) != 0) return -1;
+            var target = BitConverter.ToInt32(h, b + 4) - 1;
+            return target >= 0 && target < count ? target : -1;
+        }
+        for (var e = 0; e < count; e++)
+        {
+            var target = CallTarget(e);
+            if (target >= 0) starts.Add(target);
+        }
+
+        var pending = new Stack<int>();
+        var visited = new HashSet<int>();
+        pending.Push(onInit);
+        while (pending.Count > 0)
+        {
+            var start = pending.Pop();
+            if (!visited.Add(start)) continue;
+            var end = starts.GetViewBetween(start + 1, int.MaxValue).Min;
+            if (end <= start) end = count;
+            for (var e = start; e < end; e++)
+            {
+                inInit[e] = true;
+                var target = CallTarget(e);
+                if (target >= 0 && !visited.Contains(target)) pending.Push(target);
+            }
+        }
+        return inInit;
+    }
+
     /// <summary>
     /// Decompresses the header block and walks the entry list for
     /// WriteUninstaller, the ARP WriteRegStr calls and the SetShellVarContext
     /// / SetRegView flags in script order. Fields the script computes at run
     /// time stay in NSIS notation.
     /// </summary>
-    public static NsisMetadata Read(string path)
+    public static NsisMetadata Read(string path, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var meta = new NsisMetadata();
         if (!File.Exists(path)) { meta.Note = "Installer not found: " + path; return meta; }
         meta.RequestedExecutionLevel = PeResources.ReadRequestedExecutionLevel(path);
 
-        var ctx = ReadHeaderTable(path);
+        var ctx = ReadHeaderTable(path, WholeFileLimitBytes, ct);
         meta.Compression = ctx.Compression;
         meta.Solid = ctx.Solid;
         if (ctx.Header is null) { meta.Note = ctx.Note; return meta; }
@@ -572,15 +688,14 @@ public static class NsisScriptReader
         // it), so flags are read as "seen anywhere" plus "last value before the
         // ARP write" and resolved against the chosen folder afterwards.
         var allUsersSeen = false;
-        var regView64 = false;
-        var regViewPrevious = false;
-        var lastRegViewValue = -1;
-        var regView32Seen = false;
+        var regView = new NsisRegView();
         var arpCandidates = new List<(string Subkey, string Root, string ForcedView, bool SeqView64, Dictionary<string, string> Values)>();
         var uninstallerPath = "";
         var instDirAssignments = new List<string>();
         var userVars = new Dictionary<string, string>(StringComparer.Ordinal);
         var lastInstDirResolvable = false;
+        var inInit = OnInitEntries(ctx);
+        var initInstDirs = new List<string>();
 
         // $N / $RN at the start of a value is replaced with the last literal
         // assigned to that user variable during the walk.
@@ -599,7 +714,11 @@ public static class NsisScriptReader
             // assigned earlier in the walk (electron-builder builds $INSTDIR from $0).
             var indirect = Regex.Match(value, @"^(\$(?:R?\d))(\\.*)?$");
             if (indirect.Success && userVars.TryGetValue(indirect.Groups[1].Value, out var literal))
+            {
+                // The last literal of the variable in code order can come from unrelated code (a number, a flag).
+                if (!LooksLikeFolder.IsMatch(literal)) { lastInstDirResolvable = false; return; }
                 value = literal + indirect.Groups[2].Value;
+            }
             // StrCpy $INSTDIR "$INSTDIR\<suffix>" extends the assignment right before it.
             var suffixMatch = Regex.Match(value, @"^\$INSTDIR(\\.*)$");
             if (suffixMatch.Success)
@@ -622,6 +741,7 @@ public static class NsisScriptReader
 
         for (var e = 0; e < ctx.EntriesCount; e++)
         {
+            if ((e & 0xFFF) == 0) ct.ThrowIfCancellationRequested();
             var b = ctx.EntriesOffset + (e * 28);
             var op = BitConverter.ToInt32(h, b);
             if (op != 13 && op != 25 && op != 51 && op != 62) continue;
@@ -633,22 +753,8 @@ public static class NsisScriptReader
             {
                 case 13:
                 {
-                    if (p2 != 0)
-                    {
-                        // SetRegView lastused swaps the current and previous views.
-                        if (p0 == 12) (regView64, regViewPrevious) = (regViewPrevious, regView64);
-                        break;
-                    }
-                    int.TryParse(ctx.Str(p1), out var value);
-                    if (p0 == 1 && value != 0) allUsersSeen = true;
-                    if (p0 == 12)
-                    {
-                        // SetRegView 64 stores KEY_WOW64_64KEY (256), SetRegView 32 KEY_WOW64_32KEY (512), default 0.
-                        regViewPrevious = regView64;
-                        regView64 = value == 256;
-                        lastRegViewValue = value;
-                        if (value == 512) regView32Seen = true;
-                    }
+                    regView.Apply(p0, p2, () => ctx.Str(p1));
+                    if (p0 == 1 && p2 == 0 && int.TryParse(ctx.Str(p1), out var context) && context != 0) allUsersSeen = true;
                     break;
                 }
                 case 25:
@@ -661,7 +767,11 @@ public static class NsisScriptReader
                         break;
                     }
                     if (p0 != 21 || p2 != 0 || p3 != 0) break;
-                    AddCandidate(ctx.Str(p1));
+                    var instDir = ctx.Str(p1);
+                    AddCandidate(instDir);
+                    if (inInit[e] && LooksLikeFolder.IsMatch(instDir) && !Unresolvable.IsMatch(instDir) && !instDir.Contains("$INSTDIR", StringComparison.Ordinal)
+                        && !initInstDirs.Contains(instDir))
+                        initInstDirs.Add(instDir);
                     break;
                 }
                 case 62:
@@ -682,7 +792,7 @@ public static class NsisScriptReader
                     {
                         var rootInfo = ResolveRegistryRoot(p0);
                         var rootName = rootInfo.Name is "HKCU" or "HKLM" or "SHCTX" ? rootInfo.Name : "";
-                        arpCandidates.Add((subkey, rootName, rootInfo.View, regView64, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)));
+                        arpCandidates.Add((subkey, rootName, rootInfo.View, regView.Is64, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)));
                         index = arpCandidates.Count - 1;
                     }
                     var valueName = ctx.Str(p2);
@@ -716,7 +826,7 @@ public static class NsisScriptReader
             if (pick.ForcedView == "64") arpView64 = true;
             else if (pick.ForcedView == "32") arpView64 = false;
             else if (pick.SeqView64) arpView64 = true;
-            else if (lastRegViewValue == 256 && !regView32Seen) { arpView64 = true; regViewFromInit = true; }
+            else if (regView.InitSets64) { arpView64 = true; regViewFromInit = true; }
         }
         meta.ArpValues = arpValues;
         meta.InstallDirCandidates = [.. instDirAssignments];
@@ -737,6 +847,30 @@ public static class NsisScriptReader
             meta.InstallDir = pick;
             resolvedFromCandidate = true;
         }
+
+        // .onInit runs on a silent install and can replace the compiled InstallDir. Its conditions
+        // are not evaluated. The x64 build of a 32-bit stub compiles $PROGRAMFILES\X and moves it to
+        // $PROGRAMFILES64\X on x64 Windows, the only target here, so that twin replaces InstallDir;
+        // any other .onInit folder is an alternative branch and leaves InstallDir predicted.
+        var compiledInstallDir = meta.InstallDir;
+        var initApplied = false;
+        var initAlternatives = new List<string>();
+        if (!resolvedFromCandidate)
+        {
+            var twin = SixtyFourBitTwin(meta.InstallDir);
+            if (twin is not null && initInstDirs.Contains(twin, StringComparer.OrdinalIgnoreCase))
+            {
+                meta.InstallDir = twin;
+                initApplied = true;
+            }
+            else
+            {
+                initAlternatives = initInstDirs.Where(v => !string.Equals(v, meta.InstallDir, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+        }
+        // A placeholder InstallDir with one run-time assignment has no other folder to land in.
+        var installDirPredicted = (resolvedFromCandidate && instDirAssignments.Count > 1) || initApplied || initAlternatives.Count > 0;
+        meta.InstallDirPredicted = installDirPredicted;
 
         // SHCTX resolves through the shell context in force when the section
         // runs: a script that switches to all users and either elevates or
@@ -772,13 +906,14 @@ public static class NsisScriptReader
         if (arpValues.TryGetValue("Publisher", out var pub)) meta.Publisher = Literal(pub);
         if (string.IsNullOrEmpty(meta.DisplayName) && !string.IsNullOrEmpty(meta.Name) && !meta.Name.Contains('$')) meta.DisplayName = meta.Name;
 
-        InstallBranch ResolveBranch(string installDir, bool allUsersFolders, string root, string modeSwitch)
+        InstallBranch ResolveBranch(string installDir, bool allUsersFolders, string root, string modeSwitch, bool predicted)
         {
             var branch = new InstallBranch
             {
                 InstallDir = installDir,
                 UninstallerPath = uninstallerPath,
-                InstallArgs = ("/S " + modeSwitch).Trim()
+                InstallArgs = ("/S " + modeSwitch).Trim(),
+                InstallDirPredicted = predicted
             };
             var dirWindows = ToWindowsPath(installDir, "", allUsersFolders);
             branch.InstallDirWindows = dirWindows;
@@ -787,7 +922,7 @@ public static class NsisScriptReader
             if (!string.IsNullOrEmpty(uninstallerPath))
             {
                 branch.UninstallerPathWindows = ToWindowsPath(uninstallerPath, dirWindows, allUsersFolders);
-                if (dirResolved && !branch.UninstallerPathWindows.Contains('$'))
+                if (dirResolved && !branch.UninstallerPathWindows.Contains('$') && CommandLineText.IsQuotablePath(branch.UninstallerPathWindows))
                     branch.SilentUninstallCommand = "\"" + branch.UninstallerPathWindows + "\" " + branch.InstallArgs;
             }
             if (!string.IsNullOrEmpty(arpSubkey))
@@ -828,7 +963,7 @@ public static class NsisScriptReader
             return branch;
         }
 
-        var defaultBranch = ResolveBranch(meta.InstallDir, mapAllUsers, arpRoot, "");
+        var defaultBranch = ResolveBranch(meta.InstallDir, mapAllUsers, arpRoot, "", installDirPredicted);
         meta.InstallDirWindows = defaultBranch.InstallDirWindows;
         meta.UninstallerPathWindows = defaultBranch.UninstallerPathWindows;
         meta.SilentUninstallCommand = defaultBranch.SilentUninstallCommand;
@@ -838,7 +973,15 @@ public static class NsisScriptReader
         meta.RegistryView = defaultBranch.RegistryView;
         meta.InstallContext = defaultBranch.InstallContext;
         if (resolvedFromCandidate)
-            meta.Note = "Install directory is assigned at run time; using " + meta.InstallDir + " of " + string.Join(" | ", instDirAssignments) + ".";
+            meta.Note = "Install directory is assigned at run time; using " + meta.InstallDir + " of " + string.Join(" | ", instDirAssignments)
+                + (installDirPredicted ? "; the folder and the uninstall command are predicted." : ".");
+        else if (initApplied)
+            meta.Note = ".onInit sets $INSTDIR to " + meta.InstallDir + " at run time in place of InstallDir " + (compiledInstallDir.Length > 0 ? compiledInstallDir : "(none)")
+                + "; the conditions around the assignment are not evaluated, so the folder and the uninstall command are predicted"
+                + (meta.InstallDirRegKey.Length > 0 ? ". An earlier install found through InstallDirRegKey " + meta.InstallDirRegKey.TrimEnd('\\') + " keeps its own folder." : ".");
+        else if (initAlternatives.Count > 0)
+            meta.Note = ".onInit can set $INSTDIR at run time to " + string.Join(" | ", initAlternatives) + " in place of InstallDir " + meta.InstallDir
+                + "; the conditions are not evaluated, so the folder and the uninstall command are predicted.";
         else if (!defaultBranch.Resolved && !string.IsNullOrEmpty(meta.InstallDir))
             meta.Note = "Install directory is not resolvable before install: " + meta.InstallDir;
 
@@ -860,12 +1003,12 @@ public static class NsisScriptReader
         if (defaultMode == "CurrentUser" && machineDir is not null && !string.IsNullOrEmpty(meta.AllUsersSwitch))
         {
             var root = arpRootRaw == "SHCTX" ? "HKLM" : arpRoot;
-            variants["AllUsers"] = ResolveBranch(machineDir, true, root, meta.AllUsersSwitch);
+            variants["AllUsers"] = ResolveBranch(machineDir, true, root, meta.AllUsersSwitch, instDirAssignments.Contains(machineDir));
         }
         else if (defaultMode == "AllUsers" && userDir is not null && !string.IsNullOrEmpty(meta.CurrentUserSwitch))
         {
             var root = arpRootRaw == "SHCTX" ? "HKCU" : arpRoot;
-            variants["CurrentUser"] = ResolveBranch(userDir, false, root, meta.CurrentUserSwitch);
+            variants["CurrentUser"] = ResolveBranch(userDir, false, root, meta.CurrentUserSwitch, instDirAssignments.Contains(userDir));
         }
         meta.ModeVariants = variants;
         meta.InstallModes = [.. new[] { "CurrentUser", "AllUsers" }.Where(variants.ContainsKey)];

@@ -1,0 +1,155 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.ChangePlanWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:vm="clr-namespace:ApplicationPackagerUI.ViewModels.Windows"
+    Title="{Binding Title}"
+    Width="820" Height="520"
+    MinWidth="620" MinHeight="360"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/DetailBox.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
+            <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
+            <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                <Setter Property="VerticalContentAlignment" Value="Top" />
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0">
+                        <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="TopCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="VerticalAlignment" Value="Top" />
+            </Style>
+            <Style x:Key="ActionCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <!-- Tab order: the grid, the confirmation boxes, the footer buttons, then the notes. -->
+    <Grid KeyboardNavigation.TabNavigation="Local">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
+
+        <StackPanel Grid.Row="1" Margin="16,4,16,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
+            <TextBlock x:Name="txtSummary" Text="{Binding SummaryText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtChangePlanSummary" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}" />
+            <TextBlock x:Name="txtResult" Text="{Binding ResultText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtChangePlanResult" AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />
+            <!-- The view sets MaxHeight to the whole lines the window has room for; the box scrolls beyond them. -->
+            <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" Style="{StaticResource DetailBox}" Margin="0,6,0,0"
+                     AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
+                     Visibility="{Binding HasNotes, Converter={StaticResource ChangePlanVisibility}}" />
+            <!-- The view sets MaxHeight to BodyLines whole lines; the box scrolls beyond them. -->
+            <TextBox x:Name="txtBody" Text="{Binding BodyText, Mode=OneWay}" Style="{StaticResource DetailBox}" Margin="0,6,0,0"
+                     FontFamily="Cascadia Mono, Consolas, Courier New"
+                     AutomationProperties.AutomationId="txtChangePlanBody" AutomationProperties.Name="{Binding BodyName}"
+                     Visibility="{Binding HasBody, Converter={StaticResource ChangePlanVisibility}}" />
+            <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                       AutomationProperties.AutomationId="txtChangePlanForceClose" AutomationProperties.LiveSetting="Assertive"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" x:Name="gridPlan" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Once" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel" CellStyle="{StaticResource PlanGridCell}"
+                  AutomationProperties.AutomationId="gridChangePlan" AutomationProperties.Name="Changes"
+                  Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="170" MinWidth="{x:Static vm:ChangePlanViewModel.ActionColumnMinWidth}" ElementStyle="{StaticResource ActionCell}" />
+                <DataGridTextColumn Header="Object" Binding="{Binding Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="4*" MinWidth="120" ElementStyle="{StaticResource WrappedCell}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DataGrid Grid.Row="2" x:Name="gridResult" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Once" ItemsSource="{Binding ResultRows}" AutoGenerateColumns="False" IsReadOnly="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
+                  SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel" CellStyle="{StaticResource PlanGridCell}"
+                  AutomationProperties.AutomationId="gridChangePlanResult" AutomationProperties.Name="Results"
+                  Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="100" ElementStyle="{StaticResource TopCell}" />
+                <DataGridTextColumn Header="Action" Binding="{Binding Item.Action}" Width="150" MinWidth="{x:Static vm:ChangePlanViewModel.ActionColumnMinWidth}" ElementStyle="{StaticResource ActionCell}" />
+                <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="3*" MinWidth="180" ElementStyle="{StaticResource WrappedCell}" />
+                <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="4*" MinWidth="160" ElementStyle="{StaticResource WrappedCell}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- A long confirmation text scrolls here, so the footer buttons stay inside the window. -->
+        <ScrollViewer Grid.Row="3" MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                      KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
+        <StackPanel Margin="16,0,16,0">
+            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8" AutomationProperties.Name="{Binding DestructiveText}"
+                      IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanDestructive"
+                      Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding DestructiveText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
+            <CheckBox x:Name="chkExtra" Margin="0,0,0,8" IsChecked="{Binding ExtraAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanExtra" AutomationProperties.Name="{Binding ExtraConfirmationText}"
+                      Visibility="{Binding HasExtraConfirmation, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding ExtraConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
+            <CheckBox x:Name="chkSecond" Margin="0,0,0,8" IsChecked="{Binding SecondAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanSecond" AutomationProperties.Name="{Binding SecondConfirmationText}"
+                      Visibility="{Binding HasSecondConfirmation, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding SecondConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
+            <CheckBox x:Name="chkOption" Margin="0,0,0,8" IsChecked="{Binding OptionChosen}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanOption" AutomationProperties.Name="{Binding OptionalChoiceText}"
+                      Visibility="{Binding HasOptionalChoice, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding OptionalChoiceText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
+            <TextBlock x:Name="txtStep" Text="{Binding StepText}" Margin="0,0,0,8" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       AutomationProperties.AutomationId="txtChangePlanStep" AutomationProperties.LiveSetting="Polite"
+                       Visibility="{Binding IsBusy, Converter={StaticResource ChangePlanVisibility}}" />
+        </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+                KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
+            <WrapPanel HorizontalAlignment="Right">
+                <ui:Button x:Name="btnConfirm" Content="{Binding ConfirmContent}" MinWidth="130" Margin="0,0,8,0"
+                           Command="{Binding ConfirmCommand}" AutomationProperties.AutomationId="btnChangePlanConfirm"
+                           Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnUndo" Content="_Undo" MinWidth="100" Margin="0,0,8,0"
+                           Command="{Binding UndoCommand}" AutomationProperties.AutomationId="btnChangePlanUndo"
+                           Visibility="{Binding ShowUndo, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnForceClose" Content="Close _without waiting" MinWidth="130" Margin="0,0,8,0"
+                           Command="{Binding ForceCloseCommand}" AutomationProperties.AutomationId="btnChangePlanForceClose"
+                           Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
+                           Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnChangePlanCancel"
+                           Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />
+                <ui:Button x:Name="btnClose" Content="C_lose" MinWidth="100" Appearance="Primary" IsCancel="True"
+                           Command="{Binding CloseCommand}" AutomationProperties.AutomationId="btnChangePlanClose"
+                           Visibility="{Binding ShowClose, Converter={StaticResource ChangePlanVisibility}}" />
+            </WrapPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

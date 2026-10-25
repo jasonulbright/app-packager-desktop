@@ -486,6 +486,58 @@ SectionEnd
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $target)) { throw "makensis failed for $($b.Name)" }
         Copy-Item -LiteralPath $target -Destination (& $p $b.Name) -Force
     }
+
+    # .onInit, through a called function, replaces InstallDir: the x64 build shape of a 32-bit stub
+    # (32-bit folder to its 64-bit twin) and an alternative folder; a directory page callback assigns
+    # a third folder that a silent install never runs.
+    $nsi64 = Join-Path $work 'oninit.nsi'
+    @'
+Unicode true
+SetCompressor /SOLID lzma
+RequestExecutionLevel admin
+!include x64.nsh
+Name "Probe64"
+OutFile "${OUTFILE}"
+InstallDir "${COMPILED}"
+InstallDirRegKey HKLM "Software\Probe64" ""
+Page directory DirPre
+Page instfiles
+Function MoveTo64
+  ${If} $INSTDIR == "${COMPILED}"
+    StrCpy $INSTDIR "${INITDIR}"
+  ${EndIf}
+FunctionEnd
+Function .onInit
+  ${If} ${RunningX64}
+    SetRegView 64
+    Call MoveTo64
+  ${EndIf}
+FunctionEnd
+Function DirPre
+  StrCpy $INSTDIR "$PROGRAMFILES\PageOnly"
+FunctionEnd
+Section "Main"
+  SetOutPath "$INSTDIR"
+  File "payload.txt"
+  WriteUninstaller "$INSTDIR\uninstall.exe"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Probe64" "DisplayName" "Probe 64"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Probe64" "DisplayVersion" "6.4.0"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Probe64" "UninstallString" '"$INSTDIR\uninstall.exe"'
+SectionEnd
+Section "Uninstall"
+  Delete "$INSTDIR\payload.txt"
+SectionEnd
+'@ | Set-Content -LiteralPath $nsi64 -Encoding ASCII
+    $onInitBuilds = @(
+        @{ Name = 'nsis-mk-oninit-pf64.bin'; Compiled = '$PROGRAMFILES\Probe64'; InitDir = '$PROGRAMFILES64\Probe64' },
+        @{ Name = 'nsis-mk-oninit-alt.bin';  Compiled = '$PROGRAMFILES64\Probe64'; InitDir = '$DOCUMENTS\Probe64' }
+    )
+    foreach ($b in $onInitBuilds) {
+        $target = Join-Path $work ($b.Name -replace '\.bin$', '.exe')
+        $null = & $makensis /V1 "/DOUTFILE=$target" "/DCOMPILED=$($b.Compiled)" "/DINITDIR=$($b.InitDir)" $nsi64 2>&1
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $target)) { throw "makensis failed for $($b.Name)" }
+        Copy-Item -LiteralPath $target -Destination (& $p $b.Name) -Force
+    }
     Remove-Item -LiteralPath $work -Recurse -Force
 }
 else {

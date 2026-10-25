@@ -12,15 +12,19 @@ public partial class MainWindow : IDialogHostWindow
     public ContentDialogHost DialogHost => RootContentDialog;
 
     private readonly IServiceProvider _serviceProvider;
+    private readonly ISnackbarService _snackbarService;
+    private readonly SidebarPresenter _sidebar;
 
     public MainWindow(
         MainWindowViewModel viewModel,
         INavigationService navigationService,
         IServiceProvider serviceProvider,
         ISnackbarService snackbarService,
-        IContentDialogService contentDialogService)
+        IContentDialogService contentDialogService,
+        SidebarService sidebarService)
     {
         _serviceProvider = serviceProvider;
+        _snackbarService = snackbarService;
         DataContext = viewModel;
 
         InitializeComponent();
@@ -29,10 +33,11 @@ public partial class MainWindow : IDialogHostWindow
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
         contentDialogService.SetDialogHost(RootContentDialog);
         RootNavigation.SetServiceProvider(serviceProvider);
+        _sidebar = new SidebarPresenter(RootNavigation, sidebarService, item => item.Activate?.Invoke(_serviceProvider));
+        sidebarService.Changed += OnSidebarChanged;
 
-        // Note: With CanContentScroll="False" on pages, the NavigationView's
-        // DynamicScrollViewer is disabled. DataGrid and ScrollViewer controls
-        // handle their own mouse wheel scrolling natively.
+        // Pages set CanContentScroll to False, which disables the NavigationView's
+        // DynamicScrollViewer; DataGrid and ScrollViewer controls scroll on the mouse wheel themselves.
     }
 
     public Wpf.Ui.Controls.NavigationView GetNavigation() => RootNavigation;
@@ -46,24 +51,14 @@ public partial class MainWindow : IDialogHostWindow
         workbench.ShowDialog();
     }
 
-    private void WorkbenchNavItem_Click(object sender, RoutedEventArgs e)
+    private void OnSidebarChanged(object? sender, SidebarChangedEventArgs e)
     {
-        e.Handled = true;
-        OpenWorkbenchForGridSelection();
+        if (e.Saved) return;
+        _snackbarService.Show("Sidebar", "The sidebar layout could not be saved. The change lasts until the application closes.",
+            ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
     }
 
-    /// <summary>
-    /// The navigation view raises no Click for the item it already treats as current, so a
-    /// second mouse click on this entry would do nothing. The mouse opens the window here
-    /// and the item never becomes current; keyboard and automation invoke reach Click.
-    /// </summary>
-    private void WorkbenchNavItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
-        Dispatcher.BeginInvoke(OpenWorkbenchForGridSelection);
-    }
-
-    private void OpenWorkbenchForGridSelection()
+    public void OpenWorkbenchForGridSelection()
     {
         var selected = _serviceProvider.GetRequiredService<Views.Pages.PackagesPage>().SelectedPackager;
         OpenWorkbench(selected is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(selected));
@@ -102,6 +97,8 @@ public partial class MainWindow : IDialogHostWindow
         Closing += (_, _) =>
         {
             _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>().StopDiscovery();
+            _serviceProvider.GetService<ViewModels.Pages.PivotsScriptsViewModel>()?.OnAppClosing();
+            _serviceProvider.GetService<ViewModels.Pages.SiteHygieneViewModel>()?.OnAppClosing();
             var s = settingsService.Load();
             s.WindowMaximized = WindowState == WindowState.Maximized;
             if (WindowState == WindowState.Normal)
