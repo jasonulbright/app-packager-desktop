@@ -67,6 +67,12 @@ public sealed class SiteHygieneLiveFitTests
         Row("s8", LiveStatus.Ok, "OK", "SMS SRS Reporting Point", "Site system", "CM01.contoso.com", "", "")
     ];
 
+    /// <summary>The distribution point of the CM01 site: its Name column holds the server name.</summary>
+    private static readonly IReadOnlyList<LiveRow> LabDistributionPoints =
+    [
+        Row("p1", LiveStatus.Ok, "OK", "CM01.contoso.com", "MCM", "No", "No", "Windows NT Server")
+    ];
+
     /// <summary>The alert messages the evaluator writes, with the longest one.</summary>
     private static readonly IReadOnlyList<AlertEvent> LabAlerts =
     [
@@ -95,6 +101,7 @@ public sealed class SiteHygieneLiveFitTests
         var views = s.Views.ToDictionary(p => p.Key, p => p.Value);
         views[LiveView.Deployments] = views[LiveView.Deployments] with { Rows = LabDeployments };
         views[LiveView.SiteHealth] = views[LiveView.SiteHealth] with { Rows = LabSiteHealth };
+        views[LiveView.DistributionPoints] = views[LiveView.DistributionPoints] with { Rows = LabDistributionPoints };
         return s with { Views = views };
     }
 
@@ -155,7 +162,38 @@ public sealed class SiteHygieneLiveFitTests
             ? $"needs {text.Height:0} px of lines at {block.ActualWidth:0} px and has {block.ActualHeight:0} px" : null;
     }
 
+    /// <summary>Why the text block of the cell breaks a word inside it; null when every line break falls between words.</summary>
+    private static string? SplitOf(DataGridCell cell)
+    {
+        var block = Descendants(cell).OfType<TextBlock>().First();
+        if (block.Text.Length == 0) return null;
+        var widestWord = Format(block, block.Text).MinWidth;
+        return widestWord > block.ActualWidth + 0.5 ? $"needs {widestWord:0} px for its widest word and has {block.ActualWidth:0} px" : null;
+    }
+
+    private static bool IsNameColumn(DataGridColumn column) =>
+        (string)column.Header != SiteHygieneLiveLabels.StatusHeader && SiteHygieneLiveLabels.KindOf((string)column.Header) == LiveColumnKind.Name;
+
+    /// <summary>No cell of a column that holds identifiers breaks a value inside a word.</summary>
+    private static void AssertNoSplitIdentifier(DataGrid grid, LiveView view, List<string> failures, string where)
+    {
+        foreach (var cell in Cells(grid).Where(c => SiteHygieneLiveLabels.HoldsIdentifiers(view, (string)c.Column.Header)))
+            if (SplitOf(cell) is { } split) failures.Add($"{where} {cell.Column.Header} \"{Descendants(cell).OfType<TextBlock>().First().Text}\" {split}.");
+    }
+
     private static IEnumerable<DataGridCell> Cells(DataGrid grid) => Descendants(grid).OfType<DataGridCell>().Where(c => c.IsVisible);
+
+    /// <summary>Checks the cells of every row: each row scrolls into view first, so a row the grid does not show is laid out too.</summary>
+    private static void ForEveryRowCell(Window window, DataGrid grid, Action<DataGridCell, TextBlock> check)
+    {
+        foreach (var item in grid.Items.Cast<object>().ToList())
+        {
+            grid.ScrollIntoView(item);
+            Settle(window);
+            var row = (DataGridRow)grid.ItemContainerGenerator.ContainerFromItem(item);
+            foreach (var cell in Descendants(row).OfType<DataGridCell>()) check(cell, Descendants(cell).OfType<TextBlock>().First());
+        }
+    }
 
     /// <summary>
     /// Every value cell shows its whole text. A name cell of at most the typical length shows its whole text when
@@ -225,6 +263,10 @@ public sealed class SiteHygieneLiveFitTests
                 Assert.True(Scroller(grid).ScrollableWidth < 1, $"{where} the columns need {Scroller(grid).ScrollableWidth:0} px more than the {Scroller(grid).ViewportWidth:0} px grid.");
                 AssertNoCutCell(grid, failures, where);
                 AssertNoCutHeader(window, grid, failures, where);
+                AssertNoSplitIdentifier(grid, choice.View!.Value, failures, where);
+                // Without a sideways scroll a name column keeps the least width of the typical name.
+                foreach (var column in grid.Columns.Where(c => IsNameColumn(c) && !SiteHygieneLiveLabels.HoldsIdentifiers(choice.View.Value, (string)c.Header)))
+                    Assert.Equal(Math.Max(page.LiveFit!.NameLeast, page.LiveFit.HeaderNeed((string)column.Header)), column.MinWidth, 1);
             }
             Assert.Equal(LabDeployments.Count, viewModel.LastSnapshot!.Views[LiveView.Deployments].Rows.Count);
             Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
@@ -290,6 +332,81 @@ public sealed class SiteHygieneLiveFitTests
             Assert.All(Cells(alerts).Where(c => ReferenceEquals(c.Column, message)), c => Assert.Equal(TextWrapping.Wrap, Descendants(c).OfType<TextBlock>().First().TextWrapping));
             AssertNoCutCell(alerts, failures, $"alerts at {width}x600 {theme}:");
             if (alerts.Columns.Sum(c => c.MinWidth) > Scroller(alerts).ViewportWidth + 1) Assert.True(SidewaysBarShows(alerts), $"The alert columns exceed the grid at {width} and no scroll bar shows.");
+            Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+        });
+    }
+
+    /// <summary>
+    /// At 900x600 the Deployments grid scrolls sideways, so each name column is wide enough to show every real name on
+    /// at most <see cref="LiveColumnFit.NameLines"/> lines without a cut and without a word broken inside.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(SmallSizes))]
+    public void At900By600TheRealDeploymentNamesShowWholeWhenTheGridScrollsSideways(ApplicationTheme theme, double width)
+    {
+        WithPage(theme, width, 600 - TitleBar, (window, page, viewModel, harness) =>
+        {
+            ShowView(window, viewModel, v => v.View == LiveView.Deployments);
+            var grid = ById<DataGrid>(page, "dgLive");
+            var fit = page.LiveFit!;
+            var where = $"Deployments at {width}x600 {theme}:";
+            Assert.True(Scroller(grid).ScrollableWidth > 0, $"{where} the grid does not scroll sideways.");
+            var failures = new List<string>();
+            var shown = new List<string>();
+            ForEveryRowCell(window, grid, (cell, block) =>
+            {
+                if (!IsNameColumn(cell.Column)) return;
+                var text = block.Text;
+                if ((string)cell.Column.Header == "Name") shown.Add(text);
+                Assert.True(fit.WrappedWidth(text, LiveColumnFit.NameLines) + fit.CellPadding <= LiveColumnFit.NameCap, $"{where} \"{text}\" is longer than the cap of a name column.");
+                if (CutOf(cell) is { } cut) failures.Add($"{where} {cell.Column.Header} \"{text}\" {cut}.");
+                if (SplitOf(cell) is { } split) failures.Add($"{where} {cell.Column.Header} \"{text}\" {split}.");
+            });
+            Assert.Equal(LabDeployments.Select(r => r.Cells[0]).Order(StringComparer.Ordinal), shown.Order(StringComparer.Ordinal));
+            Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+
+            // A wider window that needs no sideways scroll gives the name columns the least width of the typical name again.
+            window.Width = 1440 - CollapsedPaneWidth;
+            window.Height = 900 - TitleBar;
+            Settle(window);
+            Assert.True(Scroller(grid).ScrollableWidth < 1);
+            foreach (var column in grid.Columns.Where(IsNameColumn))
+                Assert.Equal(Math.Max(fit.NameLeast, fit.HeaderNeed((string)column.Header)), column.MinWidth, 1);
+        });
+    }
+
+    /// <summary>At 900x600 and 1440x900 a column that holds server names or IDs never breaks a value inside a word.</summary>
+    [Theory]
+    [MemberData(nameof(SmallSizes))]
+    [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
+    [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
+    public void AColumnOfServerNamesAndIdsNeverBreaksAValueInsideAWord(ApplicationTheme theme, double width)
+    {
+        WithPage(theme, width, (width > 900 ? 900 : 600) - TitleBar, (window, page, viewModel, harness) =>
+        {
+            var failures = new List<string>();
+            var grid = ById<DataGrid>(page, "dgLive");
+            foreach (var choice in SiteHygieneLiveLabels.Views.Where(v => v.Pane == LivePane.Grid))
+            {
+                ShowView(window, viewModel, v => v == choice);
+                var where = $"{choice.Id} at {width} {theme}:";
+                var view = choice.View!.Value;
+                var servers = 0;
+                ForEveryRowCell(window, grid, (cell, block) =>
+                {
+                    if (!SiteHygieneLiveLabels.HoldsIdentifiers(view, (string)cell.Column.Header)) return;
+                    if (SplitOf(cell) is { } split) failures.Add($"{where} {cell.Column.Header} \"{block.Text}\" {split}.");
+                    if (block.Text.Equals("CM01.contoso.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        servers++;
+                        if (block.ActualHeight > page.LiveFit!.LineHeight + 0.5) failures.Add($"{where} {cell.Column.Header} \"{block.Text}\" shows on {block.ActualHeight:0} px of lines.");
+                    }
+                });
+                foreach (var column in grid.Columns.Where(c => SiteHygieneLiveLabels.HoldsIdentifiers(view, (string)c.Header)))
+                    Assert.True(column.MinWidth + 0.5 >= page.LiveFit!.WordNeed(viewModel.LiveViewRows.Select(r => r.Cells[grid.Columns.IndexOf(column) - 1])), $"{where} {column.Header} has a least width of {column.MinWidth:0} px.");
+                if (view == LiveView.SiteHealth) Assert.Equal(LabSiteHealth.Count, servers);
+                if (view == LiveView.DistributionPoints) Assert.Equal(LabDistributionPoints.Count, servers);
+            }
             Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
         });
     }

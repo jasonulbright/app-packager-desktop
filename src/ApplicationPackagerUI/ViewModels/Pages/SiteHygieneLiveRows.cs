@@ -90,6 +90,17 @@ public static class SiteHygieneLiveLabels
         "Client version", "Last started", "Last active", "Last DDR", "Last policy", "Last inventory"
     };
 
+    /// <summary>
+    /// A column of server names, device names or IDs: a value has no word breaks, so the column is never narrower than
+    /// its widest word. Package ID is a value column and has the width of its widest value already.
+    /// </summary>
+    public static bool HoldsIdentifiers(LiveView? view, string header) => header.Trim() switch
+    {
+        "Server" or "Device" => true,
+        "Name" => view == LiveView.DistributionPoints,
+        _ => false
+    };
+
     /// <summary>The headers <see cref="KindOf"/> sizes as values.</summary>
     public static IReadOnlyCollection<string> FixedHeaders => ValueHeaders;
 

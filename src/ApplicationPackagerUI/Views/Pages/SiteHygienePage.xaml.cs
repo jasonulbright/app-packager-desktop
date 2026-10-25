@@ -42,6 +42,10 @@ public partial class SiteHygienePage : INavigationAware
         pnlTrends.IsVisibleChanged += (_, _) => FitLiveView();
         dgTrend.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitLiveView, System.Windows.Threading.DispatcherPriority.Loaded);
         BuildLiveColumns();
+        dgLive.SizeChanged += (_, e) =>
+        {
+            if (e.WidthChanged) FitNameLeast();
+        };
         btnLiveRefresh.Click += (_, _) => _refreshKeepsFocus = btnLiveRefresh.IsKeyboardFocused;
         btnLiveRefresh.IsEnabledChanged += (_, e) =>
         {
@@ -293,8 +297,9 @@ public partial class SiteHygienePage : INavigationAware
     /// The Live grid has a status column and one column per header of the view shown. A value column is as wide as its
     /// widest value in the rows shown, and never narrower than its header with the sort icon. A name column shares the free
     /// width with the other name columns in proportion to its widest name, wraps a name to <see cref="LiveColumnFit.NameLines"/>
-    /// lines, and keeps a least width that holds a name of <see cref="LiveColumnFit.TypicalNameChars"/> characters; when the
-    /// least widths exceed the grid, the grid scrolls sideways.
+    /// lines, and keeps a least width that holds a name of <see cref="LiveColumnFit.TypicalNameChars"/> characters; a column
+    /// of identifiers also holds its widest word on one line. When the least widths exceed the grid, the grid scrolls
+    /// sideways and each name column gets the least width at which its names show whole (<see cref="FitNameLeast"/>).
     /// </summary>
     private void BuildLiveColumns()
     {
@@ -340,6 +345,8 @@ public partial class SiteHygienePage : INavigationAware
     {
         if (_liveFit is null || dgLive.Columns.Count == 0) return;
         var rows = _viewModel.LiveViewRows;
+        var view = _viewModel.SelectedLiveView.View;
+        _nameLeast.Clear();
         for (var c = 0; c < dgLive.Columns.Count; c++)
         {
             var column = dgLive.Columns[c];
@@ -348,6 +355,10 @@ public partial class SiteHygienePage : INavigationAware
             IEnumerable<string> values = index < 0 ? rows.Select(r => r.StatusCell) : rows.Select(r => index < r.Cells.Count ? r.Cells[index] : "");
             if (column.Width.IsStar)
             {
+                var header = (string)column.Header;
+                var least = Math.Max(_liveFit.NameLeast, _liveFit.HeaderNeed(header));
+                if (SiteHygieneLiveLabels.HoldsIdentifiers(view, header)) least = Math.Max(least, _liveFit.WordNeed(values));
+                _nameLeast[column] = (least, Math.Max(least, _liveFit.WholeNameNeed(values)));
                 var weight = new DataGridLength(_liveFit.NameWeight(values), DataGridLengthUnitType.Star);
                 if (!SameLength(weight, column.Width)) column.Width = weight;
                 _fittedWidths[column] = weight;
@@ -364,6 +375,39 @@ public partial class SiteHygienePage : INavigationAware
             else if (!SameLength(new DataGridLength(need), column.Width)) column.Width = new DataGridLength(need);
             _fittedWidths[column] = new DataGridLength(need);
         }
+        FitNameLeast();
+    }
+
+    /// <summary>
+    /// The least widths of the name columns the fit sizes: the least width of the typical name (and of the widest word
+    /// in a column of identifiers), and the least width at which every name shows whole, up to <see cref="LiveColumnFit.NameCap"/>.
+    /// </summary>
+    private readonly Dictionary<DataGridColumn, (double Least, double Whole)> _nameLeast = [];
+
+    /// <summary>
+    /// A grid whose least column widths exceed its width scrolls sideways; then each name column gets the width at
+    /// which its names show whole, because the scroll shows the extra width. The work is one sum over the columns.
+    /// </summary>
+    private void FitNameLeast()
+    {
+        if (_nameLeast.Count == 0) return;
+        var least = dgLive.Columns.Sum(c => _nameLeast.TryGetValue(c, out var n) ? n.Least : c.MinWidth);
+        var scrolls = LiveGridWidth() is > 0 and var width && least > width;
+        foreach (var (column, need) in _nameLeast)
+        {
+            var wanted = scrolls ? need.Whole : need.Least;
+            if (Math.Abs(column.MinWidth - wanted) > 0.5) column.MinWidth = wanted;
+        }
+    }
+
+    /// <summary>
+    /// The width the Live columns share: the grid scroll area less the row headers and a vertical scroll bar. The bar
+    /// width counts whether the bar shows or not, so a bar that a change of row heights shows or hides does not change the result.
+    /// </summary>
+    private double LiveGridWidth()
+    {
+        var area = Helpers.DataGridFocus.Find<ScrollViewer>(dgLive)?.ActualWidth ?? 0;
+        return area > 0 ? area - dgLive.CellsPanelHorizontalOffset - SystemParameters.VerticalScrollBarWidth : 0;
     }
 
     // The grid writes its desired and display widths into the column width during layout, so only the unit and the value compare.

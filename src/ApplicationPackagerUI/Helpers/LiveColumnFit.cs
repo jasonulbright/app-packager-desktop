@@ -154,6 +154,33 @@ public sealed class LiveColumnFit
         return Math.Max(NameLeast, Math.Ceiling(widest * ValueRoom + CellPadding));
     }
 
+    /// <summary>
+    /// The most width a name column takes for its whole names when the grid scrolls sideways; a name that needs more
+    /// shows on <see cref="NameLines"/> lines, trimmed, with its tooltip.
+    /// </summary>
+    public const double NameCap = 360;
+
+    /// <summary>
+    /// The width at which the widest word of <paramref name="values"/> shows on one line, with room and cell padding;
+    /// 0 for no value. A word is the text between two line break points, so a server name or an ID is one word.
+    /// </summary>
+    public double WordNeed(IEnumerable<string> values)
+    {
+        var widest = Longest(values).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max();
+        return widest > 0 ? Math.Ceiling(widest * ValueRoom + CellPadding) : 0;
+    }
+
+    /// <summary>
+    /// The width at which every one of <paramref name="values"/> shows in full on at most <see cref="NameLines"/> lines,
+    /// with no word broken inside, with room and cell padding, and at most <see cref="NameCap"/>; 0 for no value.
+    /// The work is a binary search of line widths per measured value.
+    /// </summary>
+    public double WholeNameNeed(IEnumerable<string> values)
+    {
+        var widest = Longest(values).Select(v => Math.Max(Format(v).MinWidth, WrappedWidth(v, NameLines))).DefaultIfEmpty(0).Max();
+        return widest > 0 ? Math.Min(NameCap, Math.Ceiling(widest * ValueRoom + CellPadding)) : 0;
+    }
+
     /// <summary>The one-line width of <paramref name="text"/> in the cell font.</summary>
     public double Width(string text) => Format(text).WidthIncludingTrailingWhitespace;
 
