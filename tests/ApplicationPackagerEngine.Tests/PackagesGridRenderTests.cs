@@ -66,7 +66,8 @@ public sealed class PackagesGridRenderTests
                 SetPointerOver(hovered, true);
                 Settle(window);
                 Assert.True(selected.IsSelected && !hovered.IsSelected && !normal.IsSelected);
-                Assert.True((bool)hovered.GetValue(UIElement.IsMouseOverProperty) && !(bool)normal.GetValue(UIElement.IsMouseOverProperty));
+                Assert.True((bool)hovered.GetValue(UIElement.IsMouseOverProperty) && !(bool)normal.GetValue(UIElement.IsMouseOverProperty)
+                    && !(bool)selected.GetValue(UIElement.IsMouseOverProperty));
 
                 var (s, h, n) = (Fill(window, selected), Fill(window, hovered), Fill(window, normal));
                 var where = $"{theme}: selected {s}, hovered {h}, unselected {n}";
@@ -76,8 +77,15 @@ public sealed class PackagesGridRenderTests
                 Assert.True(Contrast(s, n) >= 1.15 || Distance(s, n) >= 40, $"{where}: the selected row is not visible on an unselected row.");
                 var pill = Descendants(selected).OfType<System.Windows.Shapes.Rectangle>().Single(r => r.Name == "ActiveRectangle");
                 Assert.True(pill.IsVisible, $"{where}: the selected row shows no pill.");
-                var text = Pixels(window, Descendants(selected).OfType<System.Windows.Controls.DataGridCell>().First(c => c.Column is DataGridTextColumn), $"packages-rows-{theme}");
-                Assert.True(text.Max(p => Contrast(p, s)) >= 4.5, $"{where}: the text of the selected row has a contrast of {text.Max(p => Contrast(p, s)):0.00}.");
+                var cell = Descendants(selected).OfType<System.Windows.Controls.DataGridCell>().First(c => c.Column is DataGridTextColumn);
+                var block = Descendants(cell).OfType<System.Windows.Controls.TextBlock>().First(t => t.IsVisible && t.Text.Length > 0);
+                var glyphs = Pixels(window, block, $"packages-rows-{theme}");
+                var brush = (SolidColorBrush)block.Foreground;
+                var alpha = brush.Color.A / 255.0 * brush.Opacity;
+                byte Over(byte f, byte b) => (byte)Math.Round(alpha * f + (1 - alpha) * b);
+                var foreground = Color.FromRgb(Over(brush.Color.R, s.R), Over(brush.Color.G, s.G), Over(brush.Color.B, s.B));
+                Assert.True(Contrast(foreground, s) >= 4.5, $"{where}: the text color {foreground} of the selected row has a contrast of {Contrast(foreground, s):0.00}.");
+                Assert.Contains(glyphs, p => Contrast(p, s) >= 4.5);
                 SetPointerOver(hovered, false);
 
                 // The check box column keeps its two-way binding on a row of the shared style.
