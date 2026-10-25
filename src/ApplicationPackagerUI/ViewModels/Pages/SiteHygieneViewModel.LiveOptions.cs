@@ -19,6 +19,7 @@ public sealed partial class SiteHygieneViewModel
     public const string ImportIntro =
         "The import copies the values below from the retired Health Dashboard. It reads the old files only: it does not move, change or delete them. A setting fills only a value that was never set on this page.";
     public const string LiveSaveFailed = "The Live options could not be saved. The log has the details.";
+    public const string ImportNotSaved = "The Live options could not be saved, so the import did not start. Nothing was copied. The log has the details.";
     public const string SqlTesting = "Testing the SQL connection.";
 
     private const string KeyTrust = LiveSettingKeys.TrustSqlCertificate;
@@ -175,14 +176,15 @@ public sealed partial class SiteHygieneViewModel
     /// Saves the Live and Alerts options and the SQL server and database when one of them changed. The SQL values are
     /// the Discover settings, so Discover uses the same site database.
     /// </summary>
-    private async Task SaveLiveAsync()
+    /// <returns>False when a change could not be written; the settings file then holds older values than the page.</returns>
+    private async Task<bool> SaveLiveAsync()
     {
-        if (Services.Live is not { } live) return;
+        if (Services.Live is not { } live) return true;
         var options = LiveOptions();
         var server = (LiveSqlServer ?? "").Trim();
         var database = (LiveSqlDatabase ?? "").Trim();
         var key = LiveStoreKey(options, server, database);
-        if (key == _storedLive) return;
+        if (key == _storedLive) return true;
         bool saved;
         try { saved = await Task.Run(() => live.SaveLive(options, server, database)); }
         catch (Exception ex)
@@ -192,6 +194,7 @@ public sealed partial class SiteHygieneViewModel
         }
         if (saved) _storedLive = key;
         else StatusMessage = LiveSaveFailed;
+        return saved;
     }
 
     /// <summary>Reads the Live and Alerts options back from the settings file, as an import wrote them.</summary>
@@ -266,8 +269,13 @@ public sealed partial class SiteHygieneViewModel
         IsImporting = true;
         try
         {
-            // The plan compares with the settings file, so the values chosen on the page are written first.
+            // The plan compares with the settings file and the import reloads the page from it, so the values chosen on the page are written first.
             await SaveAsync();
+            if (!await SaveLiveAsync())
+            {
+                StatusMessage = ImportNotSaved;
+                return;
+            }
             LegacyImportPlan plan;
             try { plan = await Task.Run(live.Import.Plan); }
             catch (Exception ex)

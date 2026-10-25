@@ -614,6 +614,28 @@ public sealed class SiteHygieneLiveTests
     }
 
     [Fact]
+    public async Task AnImportDoesNotStartWhileThePageValuesCannotBeSavedSoNoReloadDropsThem()
+    {
+        var h = new SiteHygienePageHarness();
+        Live(h).Import.Next = FakeLegacyImport.Found();
+        var vm = await h.OpenAsync();
+        Live(h).LiveSaveFails = true;
+        vm.RefreshMinutes = 60;
+        var plans = Live(h).Import.Plans;
+        await vm.ImportDashboardCommand.ExecuteAsync(null);
+        Assert.Equal(VM.ImportNotSaved, vm.StatusMessage);
+        Assert.Equal(plans, Live(h).Import.Plans);
+        Assert.Empty(h.Dialogs.Imports);
+        Assert.Empty(Live(h).Import.Applied);
+        Assert.Equal(60, vm.RefreshMinutes);
+
+        Live(h).LiveSaveFails = false;
+        await vm.ImportDashboardCommand.ExecuteAsync(null);
+        Assert.Single(Live(h).Import.Applied);
+        Assert.Equal((60, (int?)60), (vm.RefreshMinutes, h.Settings.SiteHygieneLive!.RefreshMinutes));
+    }
+
+    [Fact]
     public async Task TheLiveChoicesRoundTripAndValuesNeverSetStayNull()
     {
         var h = new SiteHygienePageHarness();
