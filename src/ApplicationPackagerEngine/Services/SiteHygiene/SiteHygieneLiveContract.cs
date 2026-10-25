@@ -306,7 +306,7 @@ public static class LiveText
     public static IReadOnlyList<string> StatusTexts(LiveView view) => view switch
     {
         LiveView.Deployments => ["Errors", "Nothing targeted", "In progress", "Below 95 %", "OK"],
-        LiveView.Content => ["Failed", "In progress"],
+        LiveView.Content => ["Failed", "In progress", LiveAggregator.UnknownStateText],
         LiveView.DistributionPoints => ["OK", "Warning", "Critical", "Unknown", "No status"],
         LiveView.ClientHealth => ["Unhealthy", "Inactive", "Healthy", "Not evaluated"],
         LiveView.InactiveDevices => ["No contact on record", "Over 60 days", "Past the threshold"],

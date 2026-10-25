@@ -652,7 +652,7 @@
 
                         <TextBlock Text="Alerts" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
                         <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAlertsIntro"
-                                   Text="An alert fires when a completed refresh finds a threshold crossed, and again only after the value recovered. A view that failed neither raises nor clears an alert. The first complete read of a value after the app starts sets its starting state and raises no alert, also when the threshold is crossed already. Alerts show on this page and go to the alerts log, only while the app runs." />
+                                   Text="An alert fires when a completed refresh finds a threshold crossed, and again only after the value recovered. A view that failed neither raises nor clears an alert. The first complete read of a value after the app starts sets its starting state and raises no alert, also when the threshold is crossed already. When you turn alerts or a threshold off and on again, an alert that fired does not fire again until a complete read shows the recovery. Alerts show on this page and go to the alerts log, only while the app runs." />
                         <CheckBox IsChecked="{Binding AlertsEnabled}" Margin="0,0,0,6" AutomationProperties.Name="Raise alerts" AutomationProperties.AutomationId="chkAlertsEnabled">
                             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Raise alerts" />
                         </CheckBox>

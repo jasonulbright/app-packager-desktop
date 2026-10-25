@@ -226,6 +226,11 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
                 message = $"The read was cut at {N(first.Rows.Count)} of {N(first.Total)} rows. The counts of this view are not known.";
                 _log?.Warning(LogArea, $"The read of {view} was cut at its cap ({N(first.Rows.Count)} of {N(first.Total)}).");
             }
+            else if (view == LiveView.Content && counts[LiveMetrics.ContentIssues] is null)
+            {
+                message = LiveAggregator.ContentUnknownMessage;
+                _log?.Warning(LogArea, $"The read of {view} has a pair with a state that is not known.");
+            }
             return new LiveViewResult(view, LiveAggregator.Columns(view), rows, counts, Truncated: cut, Failed: false, message, _utcNow())
             {
                 QueryCount = queries,

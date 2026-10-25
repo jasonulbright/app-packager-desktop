@@ -174,6 +174,7 @@ public sealed class LiveImportAndReportTests : IDisposable
     [InlineData("prefs-json", "is not valid JSON")]
     [InlineData("prefs-array", "holds no settings object")]
     [InlineData("history-header", "has no Timestamp column")]
+    [InlineData("history-unknown", "The history file has no known columns")]
     [InlineData("history-garbage", "No line of the history file")]
     [InlineData("history-size", "is larger than 32 MB")]
     [InlineData("prefs-size", "is larger than 1 MB")]
@@ -188,6 +189,7 @@ public sealed class LiveImportAndReportTests : IDisposable
             case "prefs-json": Write(prefs, "{ \"SQLServer\": "); break;
             case "prefs-array": Write(prefs, "[1,2]"); break;
             case "history-header": Write(history, "a,b,c\r\n1,2,3\r\n"); break;
+            case "history-unknown": Write(history, "\"Timestamp\",\"Deployments\",\"Notes\"\r\n\"2026-10-20T08:15:00.0000000-04:00\",\"9\",\"x\"\r\n"); break;
             case "history-garbage": Write(history, MetricsHistoryStore.HeaderLine + "\r\nnot,a,row\r\nx\r\n"); break;
             case "history-size": using (var f = File.Open(history, FileMode.Append)) f.SetLength(LegacyDashboardImport.MaxHistoryBytes + 1); break;
             case "prefs-size": Write(prefs, "{\"SQLServer\":\"" + new string('a', (int)LegacyDashboardImport.MaxPrefsBytes) + "\"}"); break;
@@ -197,6 +199,8 @@ public sealed class LiveImportAndReportTests : IDisposable
         Assert.NotNull(plan.Refusal);
         Assert.Contains(text, plan.Refusal);
         Assert.Empty(plan.SettingKeys);
+        Assert.Equal(0, plan.HistoryRows);
+        Assert.False(plan.HistoryWillBeCopied);
         var result = import.Apply(plan);
         Assert.Equal(plan.Refusal, result.Message);
         Assert.Equal(0, s.Fills);
@@ -223,6 +227,21 @@ public sealed class LiveImportAndReportTests : IDisposable
         Assert.DoesNotContain("Nothing was imported", result.Message);
         Assert.False(store.Exists);
         Assert.Empty(import.Plan().SettingKeys);
+    }
+
+    [Fact]
+    public void AHistoryWithExtraUnknownColumnsBesideTheKnownOnesIsImported()
+    {
+        var history = Path.Combine(Legacy, LegacyDashboardImport.HistoryRelative);
+        Write(history, "\"Timestamp\",\"Notes\",\"DeploymentTotal\",\"SiteCritical\"\r\n\"2026-10-20T08:15:00.0000000-04:00\",\"x\",\"9\",\"1\"\r\n");
+        var (import, store, _) = Make();
+        var plan = import.Plan();
+        Assert.Null(plan.Refusal);
+        Assert.Equal(1, plan.HistoryRows);
+        Assert.True(import.Apply(plan).HistoryCopied);
+        var row = Assert.Single(store.Read(365));
+        Assert.Equal((9d, 1d), (row.Values[LiveMetrics.DeploymentTotal]!.Value, row.Values[LiveMetrics.SiteCritical]!.Value));
+        Assert.Null(row.Values[LiveMetrics.CompliancePct]);
     }
 
     private static void Junction(string link, string target)

@@ -785,6 +785,44 @@ public sealed class SiteHygieneLiveTests
         Assert.Empty(moved.Live.History.Appended);
     }
 
+    [Theory]
+    [InlineData("server")]
+    [InlineData("database")]
+    [InlineData("trust")]
+    [InlineData("inactive")]
+    [InlineData("alerts")]
+    [InlineData("floor")]
+    [InlineData("dp")]
+    public async Task ARefreshThatEndsAfterALiveSettingChangedIsDiscardedWithoutHistoryOrAlerts(string change)
+    {
+        var (h, vm) = await RefreshedAsync();
+        var earlier = vm.LastSnapshot;
+        var live = Live(h);
+        var evaluations = live.Alerts.Calls;
+        var gate = live.Service.Gate = new TaskCompletionSource();
+        live.Service.Next = _ => LiveData.Snapshot(rows: 9);
+        var run = vm.RefreshLiveAsync();
+        await WaitUntil(() => live.Service.RefreshCalls == 2);
+        switch (change)
+        {
+            case "server": vm.LiveSqlServer = "cm02.contoso.com"; break;
+            case "database": vm.LiveSqlDatabase = "CM_LAB"; break;
+            case "trust": vm.TrustSqlCertificate = !vm.TrustSqlCertificate; break;
+            case "inactive": vm.InactiveDays = vm.InactiveDays == 60 ? 90 : 60; break;
+            case "alerts": vm.AlertsEnabled = !vm.AlertsEnabled; break;
+            case "floor": vm.CompliancePctFloor = vm.CompliancePctFloor == 80 ? 90 : 80; vm.AlertCompliance = true; break;
+            default: vm.AlertDpCritical = !vm.AlertDpCritical; break;
+        }
+        gate.SetResult();
+        await run;
+        Assert.Equal(VM.LiveSiteChanged, vm.StatusMessage);
+        Assert.Contains("settings changed during the refresh", VM.LiveSiteChanged, StringComparison.Ordinal);
+        Assert.Same(earlier, vm.LastSnapshot);
+        Assert.Equal(3, vm.LiveViewRows.Count);
+        Assert.Single(live.History.Appended);
+        Assert.Equal(evaluations, live.Alerts.Calls);
+    }
+
     [Fact]
     public async Task LeavingThePageDuringARefreshLetsItEndAndArmsNoTimerUntilTheReturn()
     {

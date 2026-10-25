@@ -118,6 +118,43 @@ public sealed class LiveServiceTests
         Assert.Equal(2, view.Counts[LiveMetrics.ContentFailedPairs]);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("42")]
+    [InlineData(null)]
+    public async Task APairWithABlankOrUnrecognizedStateIsAnUnknownRowAndLeavesTheContentCountsNotKnown(string? stateValue)
+    {
+        var state = LiveFixtures.State();
+        var pairs = (JsonArray)state["Classes"]!["SMS_PackageStatusDistPointsSummarizer"]!;
+        var pair = pairs.OfType<JsonObject>().Single(p => (string?)p["PackageID"] == "MCM00005");
+        if (stateValue is null) pair.Remove("State");
+        else if (stateValue.Length == 0) pair["State"] = "";
+        else pair["State"] = int.Parse(stateValue, System.Globalization.CultureInfo.InvariantCulture);
+        var view = (await Refresh(Service(new StubHygieneSite(state)), new HashSet<LiveView> { LiveView.Content })).Views[LiveView.Content];
+
+        Assert.False(view.Failed);
+        var row = Assert.Single(view.Rows);
+        Assert.Equal(("MCM00005", LiveStatus.Unknown, "Unknown state"), (row.Key, row.Status, row.StatusText));
+        Assert.Contains("Unknown state", LiveText.StatusTexts(LiveView.Content));
+        Assert.Null(view.Counts[LiveMetrics.ContentIssues]);
+        Assert.Null(view.Counts[LiveMetrics.ContentFailedPairs]);
+        Assert.Equal(LiveAggregator.ContentUnknownMessage, view.Message);
+        Assert.Contains("not known", view.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnUnknownPairWithAnErrorMessageStillCountsAsFailedButTheCountsStayNotKnownWhenAnotherPairIsUnknown()
+    {
+        string[][] data = [["P1", "N1", "3", "0"], ["P2", "N1", "99", "0"], ["P3", "N1", "", "0"]];
+        var pairs = Table(name: "Pairs", columns: ["PackageID", "ServerNALPath", "State", "PackageType"], n: data.Length, row: i => data[i]);
+        var messages = Table(name: "Messages", columns: ["PackageID", "NalPath", "MessageState"], n: 1, row: _ => ["P3", "N1", "4"]);
+        var names = Table(name: "Names", columns: ["PackageID", "Name"], n: 0, row: _ => []);
+        var (rows, counts) = LiveAggregator.Content(pairs, messages, names, complete: true);
+        Assert.Equal([LiveStatus.Failed, LiveStatus.Unknown, LiveStatus.Failed], rows.Select(r => r.Status));
+        Assert.Null(counts[LiveMetrics.ContentIssues]);
+        Assert.Null(counts[LiveMetrics.ContentFailedPairs]);
+    }
+
     [Fact]
     public async Task TheDistributionPointViewMatchesTheServerWithoutCaseAndCountsByWorstStatus()
     {

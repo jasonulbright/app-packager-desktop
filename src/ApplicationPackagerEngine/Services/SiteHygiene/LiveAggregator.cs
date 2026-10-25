@@ -156,8 +156,12 @@ internal static class LiveAggregator
 
     private sealed class Tally
     {
-        public int Total, Installed, InProgress, Failed, PackageType = -1;
+        public int Total, Installed, InProgress, Failed, Unknown, PackageType = -1;
     }
+
+    public const string UnknownStateText = "Unknown state";
+
+    public const string ContentUnknownMessage = "A distribution point pair has a state that is not known. The counts of this view are not known.";
 
     public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Content(HygieneTable pairs, HygieneTable messages, HygieneTable names, bool complete, CancellationToken ct = default)
     {
@@ -193,16 +197,20 @@ internal static class LiveAggregator
             if (DpContentStates.PairFailed(state, message)) t.Failed++;
             else if (DpContentStates.IsOk(state)) t.Installed++;
             else if (DpContentStates.PairInProgress(state, message)) t.InProgress++;
+            else t.Unknown++;
         }
 
         var rows = new List<LiveRow>();
-        long failedPairs = 0;
+        long failedPairs = 0, unknownPairs = 0;
         foreach (var id in order)
         {
             var t = byPackage[id];
             failedPairs += t.Failed;
-            if (t.Failed == 0 && t.InProgress == 0) continue;
-            var (status, text) = t.Failed > 0 ? (LiveStatus.Failed, "Failed") : (LiveStatus.Warning, "In progress");
+            unknownPairs += t.Unknown;
+            if (t.Failed == 0 && t.InProgress == 0 && t.Unknown == 0) continue;
+            var (status, text) = t.Failed > 0 ? (LiveStatus.Failed, "Failed")
+                : t.Unknown > 0 ? (LiveStatus.Unknown, UnknownStateText)
+                : (LiveStatus.Warning, "In progress");
             var name = nameOf.TryGetValue(id, out var n) && n.Length > 0 ? n : DpContentAggregator.UnknownName(id);
             rows.Add(new LiveRow(id, status, text,
             [
@@ -210,7 +218,7 @@ internal static class LiveAggregator
                 Pct(t.Total > 0 ? Math.Round(t.Installed * 100.0 / t.Total, 1, MidpointRounding.AwayFromZero) : 0)
             ]));
         }
-        var counts = Counts(LiveView.Content, complete, c => c switch
+        var counts = Counts(LiveView.Content, complete, c => unknownPairs > 0 ? null : c switch
         {
             LiveMetrics.ContentIssues => rows.Count,
             LiveMetrics.ContentFailedPairs => failedPairs,

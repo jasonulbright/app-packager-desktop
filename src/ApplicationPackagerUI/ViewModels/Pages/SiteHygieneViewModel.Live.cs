@@ -39,7 +39,7 @@ public sealed partial class SiteHygieneViewModel
     public const string RefreshCancelled = "The refresh was cancelled. The earlier result stays.";
     public const string RefreshStillEnding = "The previous refresh is still ending. Select Refresh all again when it ends.";
     public const string RefreshFailed = "The refresh could not read the site. The earlier result stays. The log has the details.";
-    public const string LiveSiteChanged = "The site settings changed during the refresh, so its result was discarded. Select Refresh all again.";
+    public const string LiveSiteChanged = "The settings changed during the refresh, so its result was discarded. Select Refresh all again.";
     public const string LiveNotSetUp = "The Live views are not available in this build.";
     public const string LiveNotRefreshed = "No Live refresh yet. Select Refresh all to read the site.";
     public const string LiveViewNotRead = "This view was not read yet. Select Refresh all.";
@@ -300,7 +300,7 @@ public sealed partial class SiteHygieneViewModel
                 StatusMessage = RefreshCancelled;
                 return null;
             }
-            if (!string.Equals(SiteKey(), site, StringComparison.Ordinal))
+            if (!string.Equals(SiteKey(), site, StringComparison.Ordinal) || CurrentLiveSettings() != settings)
             {
                 StatusMessage = LiveSiteChanged;
                 return null;

@@ -11,8 +11,10 @@ namespace ApplicationPackagerEngine.Services;
 /// metric that is not known (its view failed, was cut, was skipped or was not refreshed) neither fires nor
 /// clears its alert. The breach state lives only in this instance: the first known value of each metric sets
 /// its starting state and fires nothing, so a breach that was there before the app started raises no alert
-/// again at each start. A rule that is off, or alerts that are off, forget the breach state; the starting
-/// state stays set, so turning a rule on during a breach fires at the next known value. Thread-safe.
+/// again at each start. While a rule or the alerts are off nothing fires and a new breach is not recorded, but
+/// a recorded breach stays until a known value shows the recovery: turning alerts on again during the same
+/// breach fires nothing, and turning them on during a breach that started while they were off fires at the
+/// next known value. The first known value sets the starting state also while alerts are off. Thread-safe.
 /// </summary>
 public sealed class AlertEvaluator : IAlertEvaluator
 {
@@ -35,7 +37,8 @@ public sealed class AlertEvaluator : IAlertEvaluator
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(settings);
         var events = new List<AlertEvent>();
-        var rules = new (string Key, bool On, double? Value, Func<double, bool> Breach, Func<double, string> Message)[]
+        // Without a floor the compliance rule has no breach test, so its recorded breach stays while the floor is off.
+        var rules = new (string Key, bool On, double? Value, Func<double, bool>? Breach, Func<double, string> Message)[]
         {
             (LiveAlertMetrics.SiteCritical, settings.SiteCritical, Known(snapshot, LiveMetrics.SiteCritical), v => v > 0,
                 v => $"Site health: {N(v)} components or site systems are critical."),
@@ -43,7 +46,8 @@ public sealed class AlertEvaluator : IAlertEvaluator
                 v => $"Distribution points: {N(v)} are critical."),
             (LiveAlertMetrics.ContentFailed, settings.ContentFailed, Known(snapshot, LiveMetrics.ContentFailedPairs), v => v > 0,
                 v => $"Content: {N(v)} DP-content pairs failed."),
-            (LiveAlertMetrics.Compliance, settings.CompliancePctFloor is not null, Known(snapshot, LiveMetrics.CompliancePct), v => v < settings.CompliancePctFloor!.Value,
+            (LiveAlertMetrics.Compliance, settings.CompliancePctFloor is not null, Known(snapshot, LiveMetrics.CompliancePct),
+                settings.CompliancePctFloor is { } floor ? (Func<double, bool>)(v => v < floor) : null,
                 v => $"Deployments: overall compliance {N(v)} % is below the {N(settings.CompliancePctFloor!.Value)} % floor.")
         };
         lock (_gate)
@@ -52,13 +56,14 @@ public sealed class AlertEvaluator : IAlertEvaluator
             {
                 if (!settings.Enabled || !rule.On)
                 {
-                    _breached.Remove(rule.Key);
-                    if (rule.Value is not null) _started.Add(rule.Key);
+                    if (rule.Value is not { } seen) continue;
+                    _started.Add(rule.Key);
+                    if (rule.Breach is { } off && !off(seen)) _breached.Remove(rule.Key);
                     continue;
                 }
                 if (rule.Value is not { } value) continue;
                 var first = _started.Add(rule.Key);
-                var now = rule.Breach(value);
+                var now = rule.Breach!(value);
                 var was = _breached.TryGetValue(rule.Key, out var w) && w;
                 if (now && !was && !first) events.Add(new AlertEvent(snapshot.EndedUtc, rule.Key, rule.Message(value)));
                 _breached[rule.Key] = now;

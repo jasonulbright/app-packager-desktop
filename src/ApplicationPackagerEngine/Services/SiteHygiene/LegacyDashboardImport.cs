@@ -198,6 +198,10 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             var cutoff = _utcNow().AddDays(-MetricsHistoryStore.KeepDays);
             return (rows.Where(r => r.TimestampUtc >= cutoff).ToList(), skipped);
         }
+        catch (InvalidDataException ex) when (ex.Message == MetricsHistoryStore.NoKnownColumns)
+        {
+            throw new RefusedException($"The history file has no known columns: {path}. Nothing was imported.");
+        }
         catch (InvalidDataException)
         {
             throw new RefusedException($"The history file {path} has no Timestamp column. Nothing was imported.");

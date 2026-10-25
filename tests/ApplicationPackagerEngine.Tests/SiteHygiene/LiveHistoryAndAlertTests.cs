@@ -219,7 +219,30 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
         Assert.Empty(down.Gaps);
 
         var alternating = Enumerable.Range(0, 1000).Select(i => Row(Now.AddMinutes(i), deployments: i % 2 == 0 ? i : null)).ToList();
-        Assert.True(MetricsHistoryStore.Build(LiveMetrics.DeploymentTotal, alternating, 0, 100).Points.Count <= 100);
+        var sparse = MetricsHistoryStore.Build(LiveMetrics.DeploymentTotal, alternating, 0, 100);
+        Assert.True(sparse.Points.Count <= 100);
+        Assert.NotEmpty(sparse.Gaps);
+    }
+
+    [Fact]
+    public void ADownsampledBucketWithAnEmptyCellBetweenKnownValuesBreaksTheLineInsteadOfAveragingAcrossIt()
+    {
+        // Two split buckets would pass the cap of 100 points with buckets of 10 rows, so the buckets hold 20 rows:
+        // row 15 is empty inside the first bucket and row 30 inside the second.
+        var rows = Enumerable.Range(0, 1000).Select(i => Row(Now.AddMinutes(i), deployments: i is 15 or 30 ? null : i)).ToList();
+        var series = MetricsHistoryStore.Build(LiveMetrics.DeploymentTotal, rows, 0, 100);
+        Assert.True(series.Downsampled);
+        Assert.Equal([7, 17.5, 24.5, 35, 49.5], series.Points.Take(5).Select(p => p.V));
+        Assert.Equal([1, 3], series.Gaps);
+        Assert.Equal(998, series.SourcePoints);
+        Assert.Equal(52, series.Points.Count);
+
+        // An empty cell at the start of a bucket breaks the line from the bucket before it.
+        var edge = Enumerable.Range(0, 1000).Select(i => Row(Now.AddMinutes(i), deployments: i == 10 ? null : i)).ToList();
+        var split = MetricsHistoryStore.Build(LiveMetrics.DeploymentTotal, edge, 0, 100);
+        Assert.Equal([4.5, 15], split.Points.Take(2).Select(p => p.V));
+        Assert.Equal([1], split.Gaps);
+        Assert.Equal(100, split.Points.Count);
     }
 
     // ---- Alerts --------------------------------------------------------------------------------
@@ -285,7 +308,7 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
     }
 
     [Fact]
-    public void AlertsTurnedOffForgetTheBreachSoABreachThatComesBackWhileTheyAreOffFiresWhenTheyAreOnAgain()
+    public void AlertsTurnedOffKeepTheBreachUntilARecoveryIsSeenSoABreachThatComesBackWhileTheyAreOffFiresWhenTheyAreOnAgain()
     {
         var alerts = new AlertEvaluator();
         var on = AlertSettings.Default;
@@ -293,8 +316,9 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
         Assert.Empty(alerts.Evaluate(Site(0), on));
         Assert.Single(alerts.Evaluate(Site(1), on));
         Assert.Empty(alerts.Evaluate(Site(1), off));
-        Assert.Empty(alerts.Breached);
+        Assert.Equal([LiveAlertMetrics.SiteCritical], alerts.Breached);
         Assert.Empty(alerts.Evaluate(Site(0), off));
+        Assert.Empty(alerts.Breached);
         Assert.Empty(alerts.Evaluate(Site(3), off));
         var again = Assert.Single(alerts.Evaluate(Site(3), on));
         Assert.Equal(LiveAlertMetrics.SiteCritical, again.Metric);
@@ -350,16 +374,44 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
     }
 
     [Fact]
-    public void DisabledAlertsFireNothingAndARuleTurnedOffForgetsItsBreach()
+    public void DisabledAlertsFireNothingAndARuleTurnedOffKeepsItsBreachWhileTheValueIsUnknownOrStillBreached()
     {
         var alerts = new AlertEvaluator();
         Assert.Empty(alerts.Evaluate(Site(1), AlertSettings.Default with { Enabled = false }));
         Assert.Single(alerts.Evaluate(Site(1), AlertSettings.Default));
         Assert.Empty(alerts.Evaluate(Site(1), AlertSettings.Default with { SiteCritical = false }));
+        Assert.Equal([LiveAlertMetrics.SiteCritical], alerts.Breached);
+        Assert.Empty(alerts.Evaluate(Site(1), AlertSettings.Default));
+        Assert.Empty(alerts.Evaluate(Site(null, failed: true), AlertSettings.Default with { SiteCritical = false }));
+        Assert.Equal([LiveAlertMetrics.SiteCritical], alerts.Breached);
+        Assert.Empty(alerts.Evaluate(Site(0), AlertSettings.Default with { SiteCritical = false }));
         Assert.Empty(alerts.Breached);
         Assert.Single(alerts.Evaluate(Site(1), AlertSettings.Default));
-        Assert.Empty(alerts.Evaluate(Site(null, failed: true), AlertSettings.Default with { SiteCritical = false }));
-        Assert.Empty(alerts.Breached);
+    }
+
+    [Fact]
+    public void ALatchedBreachSurvivesAlertsTurnedOffWhileItsViewFailsAndDoesNotFireAgainWhenTheyAreOnAgain()
+    {
+        var alerts = new AlertEvaluator();
+        var on = AlertSettings.Default;
+        var off = on with { Enabled = false };
+        Assert.Empty(alerts.Evaluate(Site(0), on));
+        Assert.Single(alerts.Evaluate(Site(2), on));
+        Assert.Empty(alerts.Evaluate(Site(null, failed: true), off));
+        Assert.Empty(alerts.Evaluate(Snapshot(Now), off));
+        Assert.Equal([LiveAlertMetrics.SiteCritical], alerts.Breached);
+        Assert.Empty(alerts.Evaluate(Site(2), on));
+        Assert.Empty(alerts.Evaluate(Site(0), on));
+        Assert.Single(alerts.Evaluate(Site(1), on));
+
+        // The compliance rule turned off by an empty floor has no threshold to see a recovery with, so its breach stays.
+        var floor = new AlertEvaluator();
+        var deployments = (double pct) => Snapshot(Now, View(LiveView.Deployments, counts: [(LiveMetrics.DeploymentTotal, 9), (LiveMetrics.DeploymentFailed, 0), (LiveMetrics.CompliancePct, pct)]));
+        Assert.Empty(floor.Evaluate(deployments(100), on));
+        Assert.Single(floor.Evaluate(deployments(50), on));
+        Assert.Empty(floor.Evaluate(deployments(100), on with { CompliancePctFloor = null }));
+        Assert.Equal([LiveAlertMetrics.Compliance], floor.Breached);
+        Assert.Empty(floor.Evaluate(deployments(50), on));
     }
 
     // ---- Metrics history: damaged and foreign files ----------------------------------------------
@@ -388,6 +440,22 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
         var before = File.ReadAllBytes(File1);
         Store().Append(Row(Now, deployments: 5));
         Assert.Equal(before, File.ReadAllBytes(File1));
+    }
+
+    [Fact]
+    public void AHeaderWithATimestampButNoKnownMetricColumnIsRefusedByTheReaderAndExtraColumnsBesideKnownOnesRead()
+    {
+        File.WriteAllText(File1, "Timestamp,Deployments,Notes\r\n2026-10-25T13:00:00Z,9,x\r\n2026-10-25T13:15:00Z,9,y\r\n");
+        var ex = Assert.Throws<InvalidDataException>(() => MetricsHistoryStore.ReadFile(File1, MetricsHistoryStore.MaxReadBytes));
+        Assert.Equal(MetricsHistoryStore.NoKnownColumns, ex.Message);
+        Assert.Null(MetricsHistoryStore.HeaderMap("Timestamp,Deployments,Notes"));
+        Assert.Equal((0, 0), (Store().ReadCounted(30).Rows.Count, Store().ReadCounted(30).Skipped));
+        Assert.Empty(Store().Series(LiveMetrics.DeploymentTotal, 30, 100).Points);
+
+        File.WriteAllText(File1, "Timestamp,Notes,DeploymentTotal\r\n2026-10-25T13:00:00Z,x,9\r\n");
+        var row = Assert.Single(Store().Read(30));
+        Assert.Equal(9, row.Values[LiveMetrics.DeploymentTotal]);
+        Assert.Null(row.Values[LiveMetrics.SiteOK]);
     }
 
     [Fact]

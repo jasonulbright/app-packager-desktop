@@ -75,6 +75,9 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
 
     public static string HeaderLine => string.Join(",", LiveMetrics.FileColumns);
 
+    public const string NoTimestampColumn = "The file has no Timestamp column.";
+    public const string NoKnownColumns = "The file has no known metric column.";
+
     internal static string Format(MetricRow row)
     {
         var sb = new StringBuilder();
@@ -275,13 +278,21 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         return cells;
     }
 
-    /// <summary>The index of each column in a header line; null when the line has no Timestamp column.</summary>
-    internal static Dictionary<string, int>? HeaderMap(string header)
+    /// <summary>
+    /// The index of each column in a header line; null when the line has no Timestamp column or no known metric
+    /// column. A header of unrelated columns would otherwise read as rows whose every metric is empty.
+    /// </summary>
+    internal static Dictionary<string, int>? HeaderMap(string header) => HeaderProblem(header, out var map) is null ? map : null;
+
+    /// <summary>Null for a header this store reads, else <see cref="NoTimestampColumn"/> or <see cref="NoKnownColumns"/>.</summary>
+    internal static string? HeaderProblem(string header, out Dictionary<string, int> map)
     {
         var cells = Cells(header.TrimStart('﻿'));
-        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < cells.Count; i++) map.TryAdd(cells[i].Trim(), i);
-        return map.ContainsKey(LiveMetrics.Timestamp) ? map : null;
+        if (!map.ContainsKey(LiveMetrics.Timestamp)) return NoTimestampColumn;
+        var known = map;
+        return LiveMetrics.Columns.Any(known.ContainsKey) ? null : NoKnownColumns;
     }
 
     internal static bool TryTime(string text, out DateTime utc)
@@ -330,7 +341,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         var header = reader.ReadLine();
         if (header is null) return ([], 0, false);
-        var map = HeaderMap(header) ?? throw new InvalidDataException("The file has no Timestamp column.");
+        if (HeaderProblem(header, out var map) is { } problem) throw new InvalidDataException(problem);
         var cut = false;
         if (stream.Length > maxBytes)
         {
@@ -382,34 +393,55 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
     }
 
     /// <summary>
-    /// The points of one column, oldest first; an empty cell breaks the line. Above <paramref name="maxPoints"/>
-    /// rows the rows are cut into buckets of equal size in file order: a bucket with values is drawn as the mean
-    /// time and the mean value of its values, and a bucket with only empty cells breaks the line. An empty cell
-    /// inside a bucket that also has values does not break the line.
+    /// The points of one column, oldest first; every empty cell breaks the line. Above <paramref name="maxPoints"/>
+    /// rows the rows are cut into buckets of equal size in file order. A bucket is drawn as the mean time and the
+    /// mean value of its values; a bucket with an empty cell between values is drawn as two points, the run of
+    /// values before its first empty cell and the run after its last empty cell, with the break between them, so
+    /// no mean spans an empty cell. When the split buckets pass <paramref name="maxPoints"/>, the buckets are
+    /// twice as large, so the drawn points never pass the cap.
     /// </summary>
     internal static MetricSeries Build(string column, IReadOnlyList<MetricRow> rows, int skipped, int maxPoints)
     {
         maxPoints = Math.Max(2, maxPoints);
-        var bucket = rows.Count <= maxPoints ? 1 : (rows.Count + maxPoints - 1) / maxPoints;
+        if (rows.Count <= maxPoints) return Bucketed(column, rows, skipped, bucket: 1);
+        var series = Bucketed(column, rows, skipped, bucket: (rows.Count + maxPoints - 1) / maxPoints);
+        return series.Points.Count <= maxPoints ? series : Bucketed(column, rows, skipped, bucket: (rows.Count + maxPoints / 2 - 1) / (maxPoints / 2));
+    }
+
+    private static MetricSeries Bucketed(string column, IReadOnlyList<MetricRow> rows, int skipped, int bucket)
+    {
         var points = new List<(DateTime T, double V)>();
         var gaps = new List<int>();
         var total = 0;
         var broken = false;
         for (var i = 0; i < rows.Count; i += bucket)
         {
+            var runs = new List<(double SumT, double SumV, int N, bool Break)>();
             double sumT = 0, sumV = 0;
             var n = 0;
+            var runBreak = false;
             for (var j = i; j < Math.Min(i + bucket, rows.Count); j++)
             {
-                if (!rows[j].Values.TryGetValue(column, out var v) || v is not { } d) continue;
+                if (!rows[j].Values.TryGetValue(column, out var v) || v is not { } d)
+                {
+                    if (n > 0) { runs.Add((sumT, sumV, n, runBreak)); sumT = sumV = 0; n = 0; }
+                    broken = points.Count > 0 || runs.Count > 0;
+                    continue;
+                }
+                if (n == 0) { runBreak = broken; broken = false; }
                 sumT += rows[j].TimestampUtc.Ticks;
                 sumV += d;
                 n++;
+                total++;
             }
-            total += n;
-            if (n == 0) { broken = points.Count > 0; continue; }
-            if (broken) { gaps.Add(points.Count); broken = false; }
-            points.Add((new DateTime((long)(sumT / n), DateTimeKind.Utc), sumV / n));
+            if (n > 0) runs.Add((sumT, sumV, n, runBreak));
+            if (runs.Count == 0) continue;
+            var drawn = runs.Count == 1 ? runs : [runs[0], runs[^1]];
+            foreach (var run in drawn)
+            {
+                if (run.Break) gaps.Add(points.Count);
+                points.Add((new DateTime((long)(run.SumT / run.N), DateTimeKind.Utc), run.SumV / run.N));
+            }
         }
         return new MetricSeries(column, points, skipped, bucket > 1) { Gaps = gaps, SourcePoints = total };
     }
