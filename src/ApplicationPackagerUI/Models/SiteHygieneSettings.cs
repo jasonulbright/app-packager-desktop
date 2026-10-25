@@ -3,8 +3,10 @@ namespace ApplicationPackagerUI.Models;
 /// <summary>The last tabs, the filters, the scan scope, the scan options and the sorts of the Site Hygiene page. No value is a secret or object text.</summary>
 public sealed class SiteHygieneSettings
 {
-    /// <summary>0 Findings, 1 Relationships, 2 Summary, 3 Options.</summary>
+    /// <summary>0 Findings, 1 Relationships, 2 Summary, 3 Options, 4 History.</summary>
     public int SelectedTab { get; set; }
+
+    public string? HistoryText { get; set; } = "";
 
     /// <summary>0 Inventory, 1 Tree.</summary>
     public int RelationsTab { get; set; }

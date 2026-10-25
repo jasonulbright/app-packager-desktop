@@ -13,10 +13,18 @@ public static class DataGridFocus
     public static bool FocusFirstCell(DataGrid grid)
     {
         ArgumentNullException.ThrowIfNull(grid);
-        if (!grid.IsVisible || grid.Items.Count == 0 || grid.Columns.Count == 0) return false;
+        return grid.Items.Count > 0 && FocusItemCell(grid, grid.Items[0]);
+    }
+
+    /// <summary>True when the first cell of the row of <paramref name="item"/> took the focus; false for a hidden grid or an item it does not hold.</summary>
+    public static bool FocusItemCell(DataGrid grid, object item)
+    {
+        ArgumentNullException.ThrowIfNull(grid);
+        if (!grid.IsVisible || grid.Columns.Count == 0 || !grid.Items.Contains(item)) return false;
         grid.UpdateLayout();
-        grid.ScrollIntoView(grid.Items[0]);
-        if (grid.ItemContainerGenerator.ContainerFromIndex(0) is not DataGridRow row) return false;
+        grid.ScrollIntoView(item);
+        grid.UpdateLayout();
+        if (grid.ItemContainerGenerator.ContainerFromItem(item) is not DataGridRow row) return false;
         var presenter = Find<DataGridCellsPresenter>(row);
         if (presenter?.ItemContainerGenerator.ContainerFromIndex(0) is not DataGridCell cell) return false;
         return cell.Focus();

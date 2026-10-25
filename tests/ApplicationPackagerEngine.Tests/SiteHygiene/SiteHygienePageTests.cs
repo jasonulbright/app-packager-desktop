@@ -74,7 +74,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal(SiteHygieneLabels.Areas.Count, options.Areas.Count);
         Assert.False(options.ProbeContentSources);
         Assert.Equal(TimeSpan.Zero, options.PauseBetweenCalls);
-        Assert.StartsWith("1 error, 6 warnings, 1 info. 0 suppressed. Last scan ", vm.SummaryLine);
+        Assert.StartsWith("1 error, at least 6 warnings, at least 1 info. 0 suppressed. Last scan ", vm.SummaryLine);
         Assert.Contains("2 checks did not run.", vm.SummaryLine);
         Assert.DoesNotContain("stored result", vm.SummaryLine);
         Assert.Contains("APP-04 (not run: The content source probe is off.)", vm.NotRunText);
@@ -83,7 +83,7 @@ public sealed class SiteHygienePageTests
         Assert.Equal("Needs the site database", vm.CheckRows.Single(c => c.CheckId == "DEV-03").State);
         Assert.Equal("2", vm.CheckRows.Single(c => c.CheckId == "APP-01").Findings);
         var all = vm.CategoryRows[^1];
-        Assert.Equal(("All categories", "1", "6", "At least 1", "At least 8", "2"), (all.Category, all.Error, all.Warning, all.Info, all.Total, all.NotRun));
+        Assert.Equal(("All categories", "1", "At least 6", "At least 1", "At least 8", "2"), (all.Category, all.Error, all.Warning, all.Info, all.Total, all.NotRun));
         Assert.Equal("Error", SiteHygieneLabels.SeverityName(vm.FindingRows[0].Finding.Severity));
         Assert.Empty(h.ScanStore.Saved);
         Assert.Contains("1 check did not run, so the result was not stored as the last scan.", vm.StatusMessage);
@@ -223,7 +223,7 @@ public sealed class SiteHygienePageTests
         Assert.Contains(h.Suppressions.Items, s => s is { CheckId: "BND-01", ObjectKey: "16777217" });
         Assert.Equal(6, vm.FindingRows.Count);
         Assert.Contains("2 suppressed.", vm.SummaryLine);
-        Assert.StartsWith("1 error, 4 warnings", vm.SummaryLine);
+        Assert.StartsWith("1 error, at least 4 warnings", vm.SummaryLine);
         Assert.Equal("6 findings, 2 suppressed and hidden", vm.FindingCount);
         Assert.Equal("Suppressed 2 findings. Show suppressed lists them.", vm.StatusMessage);
 
@@ -562,7 +562,7 @@ public sealed class SiteHygienePageTests
             vm.SelectedTabIndex = tab;
             await vm.OnNavigatedFromAsync();
             await vm.OnNavigatedToAsync();
-            Assert.StartsWith("1 error, 6 warnings", vm.SummaryLine);
+            Assert.StartsWith("1 error, at least 6 warnings", vm.SummaryLine);
         }
         Assert.Equal(1, h.Service.ScanCalls);
     }
@@ -735,7 +735,7 @@ public sealed class SiteHygienePageTests
             Saved = new SiteHygieneSettings { SelectedTab = 9, Category = "Nope", Severity = null, PauseMilliseconds = 7, Areas = ["OldArea"], Sorts = new() { ["findings"] = "Bad Column!|Up" }, FindingText = null }
         };
         var vm3 = await odd.OpenAsync();
-        Assert.Equal((VM.OptionsTab, VM.AllText, VM.AllText, 0, ""), (vm3.SelectedTabIndex, vm3.CategoryFilter, vm3.SeverityFilter, vm3.PauseMilliseconds, vm3.FindingText));
+        Assert.Equal((VM.HistoryTab, VM.AllText, VM.AllText, 0, ""), (vm3.SelectedTabIndex, vm3.CategoryFilter, vm3.SeverityFilter, vm3.PauseMilliseconds, vm3.FindingText));
         Assert.All(vm3.AreaChoices, a => Assert.True(a.IsChecked));
         Assert.Null(vm3.SortOf(VM.FindingsGrid));
     }

@@ -34,6 +34,9 @@ public sealed partial class SiteHygieneViewModel
 
     private bool _background;
 
+    /// <summary>A finding list or a plan window closed: the view puts the keyboard focus back on the findings grid, on the selected row.</summary>
+    public event EventHandler? FindingsFocusRequested;
+
     public ObservableCollection<ChangePlanItemResult> LastResults { get; } = [];
 
     [ObservableProperty] private string _resultSummary = "";
@@ -67,15 +70,18 @@ public sealed partial class SiteHygieneViewModel
     /// <summary>Run fix is available while no fix runs and the selection holds a finding this page can fix.</summary>
     private bool CanRunFix() => !IsWriting && RunFixHint.Length == 0;
 
-    /// <summary>Why Run fix is not available for the selection; empty when it is, or when nothing is selected.</summary>
+    /// <summary>Why Run fix is not available: no result, no selection, or a selection the page cannot fix; empty when Run fix is available.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasRunFixHint))]
     [NotifyCanExecuteChangedFor(nameof(RunFixCommand))]
-    private string _runFixHint = "";
+    private string _runFixHint = NotScanned;
 
     public bool HasRunFixHint => RunFixHint.Length > 0;
 
-    partial void OnSelectedFindingsChanged(IReadOnlyList<FindingGridRow> value) => RunFixHint = FixHint(value) ?? "";
+    partial void OnSelectedFindingsChanged(IReadOnlyList<FindingGridRow> value) => ShowRunFixHint();
+
+    private void ShowRunFixHint() =>
+        RunFixHint = _result is null ? NotScanned : SelectedFindings.Count == 0 ? SelectFindings : FixHint(SelectedFindings) ?? "";
 
     /// <summary>The reason a selection cannot go to a plan; null when it can.</summary>
     public static string? FixHint(IReadOnlyList<FindingGridRow> selected)
@@ -86,8 +92,8 @@ public sealed partial class SiteHygieneViewModel
         var runnable = open.Where(r => SiteHygieneLabels.IsFixable(r.Finding)).Select(r => r.Finding.FixKind).Distinct().ToList();
         if (runnable.Count > 1) return MixedKinds(runnable);
         if (runnable.Count == 1) return null;
-        var kinds = open.Select(r => r.Finding.FixKind).Distinct().ToList();
-        return kinds.Count == 1 ? SiteHygieneLabels.ReportOnlyReason(kinds[0]) : ReportOnly;
+        var reasons = open.Select(r => SiteHygieneLabels.ReportOnlyReason(r.Finding)).Distinct(StringComparer.Ordinal).ToList();
+        return reasons.Count == 1 ? reasons[0] : ReportOnly;
     }
 
     private string SelectionKey() => string.Join(",", SelectedFindings.Select(r => r.Key).Order(StringComparer.Ordinal));
@@ -136,6 +142,7 @@ public sealed partial class SiteHygieneViewModel
         {
             var picker = new HygieneFindingsPickerViewModel(SiteHygieneLabels.FixLabel(kind), PickIntro(kind), picked);
             Services.Dialogs.ShowFindings(picker);
+            FindingsFocusRequested?.Invoke(this, EventArgs.Empty);
             if (picker.Result is not { Count: > 0 } chosen)
             {
                 StatusMessage = NotConfirmed;
@@ -203,6 +210,7 @@ public sealed partial class SiteHygieneViewModel
             }
             StatusMessage = "";
             var outcome = Services.Plans.Show(plan.Plan, Services.Writer.RunFor(plan));
+            FindingsFocusRequested?.Invoke(this, EventArgs.Empty);
             if (outcome.Result?.Stop == ChangePlanStop.Detached)
             {
                 detached = true;
@@ -231,8 +239,10 @@ public sealed partial class SiteHygieneViewModel
         {
             var done = MarkFixed(plan);
             ShowAuditState(plan);
-            StatusMessage = $"The fix that continued in the background has ended: {SiteHygieneLabels.Count(done, "finding")} fixed." + (HasAuditWarning ? " " + AuditWarning : "");            _background = false;
+            StatusMessage = $"The fix that continued in the background has ended: {SiteHygieneLabels.Count(done, "finding")} fixed." + (HasAuditWarning ? " " + AuditWarning : "");
+            _background = false;
             IsWriting = false;
+            HistoryChanged();
         }
     }
 
@@ -260,6 +270,7 @@ public sealed partial class SiteHygieneViewModel
         OnPropertyChanged(nameof(HasResults));
         MarkFixed(plan);
         ShowAuditState(plan);
+        HistoryChanged();
         ResultSummary = $"{plan.Plan.Title}: {result.Summary}";
         StatusMessage = ResultSummary + (leftOut > 0 ? $" {SiteHygieneLabels.Count(leftOut, "selected finding")} had no fix or {(leftOut == 1 ? "was" : "were")} suppressed and {(leftOut == 1 ? "was" : "were")} not in the plan." : "");
     }
@@ -406,6 +417,12 @@ public sealed partial class SiteHygieneViewModel
         {
             case OptionsTab:
                 return (null, ExportOptions);
+            case HistoryTab:
+                if (!IsHistoryLoaded) return (null, HistoryNotRead);
+                return (new HygieneReport(View: "History", Columns: ["Time", "Action", "Phase", "Result", "Objects", "Site", "Provider", "User", "Verified", "Run", "Message"],
+                    Rows: HistoryRows.Select(r => (IReadOnlyList<string>)[r.Record.Timestamp.ToString("yyyy-MM-dd HH:mm:ss", culture), r.Action, r.Record.Phase, r.Result, r.Objects, r.Site, r.Provider,
+                        r.User, r.VerifiedText, r.Record.RunId, SecretMask.Apply(r.Record.Message)]).ToList(), Truncated: false, Note: HistoryCapText.Length > 0 ? HistoryCapText : null)
+                { Filter = FilterText((HistoryText, "Text")) }, null);
             case RelationsTab:
                 if (_relations is not { } relations) return (null, ExportNoRelations);
                 return (new HygieneReport("Relationships", ["Kind", "From key", "From", "To key", "To", "Health"],
@@ -421,7 +438,7 @@ public sealed partial class SiteHygieneViewModel
                 if (_result is not { } scan) return (null, ExportNotScanned);
                 return (new HygieneReport("Findings", ["Severity", "Check", "Category", "Object type", "Object key", "Object", "Evidence", "Recommended action", "New", "Fix", "Suppressed"],
                     FindingRows.Select(r => (IReadOnlyList<string>)[SiteHygieneLabels.SeverityName(r.Finding.Severity), r.CheckId, r.Category, r.Finding.ObjectType, r.Finding.ObjectKey,
-                        r.Finding.ObjectName, r.Finding.Evidence, r.Finding.Recommendation, r.Finding.IsNew ? "Yes" : "No", SiteHygieneLabels.FixColumn(r.Finding.FixKind), r.IsSuppressed ? "Yes" : "No"]).ToList(),
+                        r.Finding.ObjectName, r.Finding.Evidence, r.Finding.Recommendation, r.Finding.IsNew ? "Yes" : "No", SiteHygieneLabels.FixColumn(r.Finding), r.IsSuppressed ? "Yes" : "No"]).ToList(),
                     scan.Truncated, ScanNote())
                 {
                     Filter = FilterText((FindingText, "Text"), (CategoryFilter == AllText ? "" : CategoryFilter, "Category"), (SeverityFilter == AllText ? "" : SeverityFilter, "Severity"),
@@ -456,7 +473,8 @@ public sealed partial class SiteHygieneViewModel
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}: {SiteHygieneLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.")
-            + (report.Note is { } note ? " " + note : "");
+            + (report.Note is { } note ? " " + note : "")
+            + (format == "CSV" ? $" The notes are in {Path.GetFileName(HygieneReportWriter.AboutPath(path))}." : "");
         Services.Log.Info(LogArea, $"Saved a {format} report with {report.Rows.Count} rows.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }

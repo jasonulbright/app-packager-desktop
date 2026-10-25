@@ -23,6 +23,9 @@ public sealed record SiteHygienePageServices(
 {
     /// <summary>The time a text filter waits after the last key before it filters the rows.</summary>
     public TimeSpan FilterDelay { get; init; } = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>The audit log the History tab reads; null shows no history.</summary>
+    public IHygieneAuditLog? AuditLog { get; init; }
 }
 
 /// <summary>One scan area with its check box.</summary>
@@ -46,6 +49,9 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     public const int RelationsTab = 1;
     public const int SummaryTab = 2;
     public const int OptionsTab = 3;
+
+    /// <summary>After Options, so a saved tab index of an earlier version opens the same tab.</summary>
+    public const int HistoryTab = 4;
     public const int InventoryTab = 0;
     public const int TreeTab = 1;
 
@@ -194,7 +200,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     public string DetailRecommendation => DetailFinding is { } d ? $"Recommended action: {d.Finding.Recommendation}" : "";
 
     public string DetailFixText => DetailFinding is { } d
-        ? d.Finding.FixText is { Length: > 0 } text ? text : SiteHygieneLabels.ReportOnlyReason(d.Finding.FixKind) is { Length: > 0 } reason ? reason : "The service gave no PowerShell text for this fix."
+        ? d.Finding.FixText is { Length: > 0 } text ? text : SiteHygieneLabels.ReportOnlyReason(d.Finding) is { Length: > 0 } reason ? reason : "The service gave no PowerShell text for this fix."
         : "";
 
     public bool HasDetailFixText => DetailFinding?.Finding.FixText is { Length: > 0 };
@@ -207,7 +213,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             if (DetailFinding is not { } d) return "";
             var parts = new List<string>();
             if (!SiteHygieneLabels.IsFixable(d.Finding) && d.Finding.FixText is { Length: > 0 })
-                parts.Add(SiteHygieneLabels.ReportOnlyReason(d.Finding.FixKind) + " Run fix is not available; the PowerShell text can be copied.");
+                parts.Add(SiteHygieneLabels.ReportOnlyReason(d.Finding) + " Run fix is not available; the PowerShell text can be copied.");
             if (d.Finding.Guidance is { Length: > 0 } guidance) parts.Add("Guidance: " + guidance);
             return string.Join(" ", parts);
         }
@@ -228,7 +234,11 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     [ObservableProperty] private IReadOnlyList<CheckStatusRow> _checkRows = [];
     [ObservableProperty] private IReadOnlyList<SummaryCategoryRow> _categoryRows = [];
 
-    partial void OnSelectedTabIndexChanged(int value) => SaveLater();
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        SaveLater();
+        if (_active && value == HistoryTab) _ = EnsureHistoryAsync();
+    }
     partial void OnRelationsTabIndexChanged(int value) => SaveLater();
     partial void OnPauseMillisecondsChanged(int value) => SaveLater();
     partial void OnProbeContentSourcesChanged(bool value) => SaveLater();
@@ -252,6 +262,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         }
         await _storedLoad;
         if (_active) RefreshSummary();
+        if (_active && SelectedTabIndex == HistoryTab) await EnsureHistoryAsync();
     }
 
     /// <summary>The scan and a fix keep running; the result stays for the next visit.</summary>
@@ -571,6 +582,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         OnPropertyChanged(nameof(IsStoredResult));
         OnPropertyChanged(nameof(Result));
         ApplyFindingFilter();
+        ShowRunFixHint();
         RefreshSummary();
     }
 
@@ -600,7 +612,12 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         var parts = new List<string>();
         if (result.Truncated) parts.Add("The read was truncated, so the counts are not known.");
         else if (noneRan) parts.Add("No check ran, so the counts are not known.");
-        else parts.Add(string.Join(", ", SiteHygieneLabels.Severities.Select(s => SiteHygieneLabels.SeverityCount(s, shown.Count(r => r.Finding.Severity == s)))) + ".");
+        else
+        {
+            var missing = result.Checks.Where(c => !SiteHygieneLabels.DidRun(c)).ToList();
+            parts.Add(string.Join(", ", SiteHygieneLabels.Severities.Select(s =>
+                SiteHygieneLabels.SeverityCount(s, shown.Count(r => r.Finding.Severity == s), partial: missing.Any(c => SiteHygieneLabels.CanFind(c, s))))) + ".");
+        }
         parts.Add($"{SiteHygieneLabels.Number(suppressed)} suppressed.");
         parts.Add($"Last scan {SiteHygieneLabels.Time(result.ScannedUtc)}{(_isStored ? " (stored result, not read from the site in this session)" : "")}.");
         if (notRun.Count > 0) parts.Add($"{SiteHygieneLabels.Count(notRun.Count, "check")} did not run.");
@@ -631,29 +648,31 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             var mine = shown.Where(r => string.Equals(r.Category, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (checks.Count == 0 && mine.Count == 0) continue;
             var unknown = result.Truncated || (checks.Count > 0 && checks.All(c => !SiteHygieneLabels.DidRun(c)));
-            rows.Add(Row(name, mine, unknown, checks.Where(SiteHygieneLabels.IsNotRun).ToList()));
+            rows.Add(Row(name, mine, unknown, checks.Where(c => !SiteHygieneLabels.DidRun(c)).ToList()));
         }
-        rows.Add(Row("All categories", shown, result.Truncated || (result.Checks.Count > 0 && result.Checks.All(c => !SiteHygieneLabels.DidRun(c))), result.Checks.Where(SiteHygieneLabels.IsNotRun).ToList()));
+        rows.Add(Row("All categories", shown, result.Truncated || (result.Checks.Count > 0 && result.Checks.All(c => !SiteHygieneLabels.DidRun(c))),
+            result.Checks.Where(c => !SiteHygieneLabels.DidRun(c)).ToList()));
         return rows;
     }
 
     /// <summary>
-    /// One summary row. A cell whose severity has a check that did not run shows "At least N", or "Not
-    /// known" for zero, as the findings of that check are missing; a zero there never means none.
+    /// One summary row. A cell with a check of its category and severity that did not run, for any reason
+    /// including "not selected", shows "At least N", or "Not known" for zero, as the findings of that check
+    /// are missing; a zero there never means none.
     /// </summary>
-    private static SummaryCategoryRow Row(string name, List<FindingGridRow> rows, bool unknown, List<HygieneCheckStatus> notRun)
+    private static SummaryCategoryRow Row(string name, List<FindingGridRow> rows, bool unknown, List<HygieneCheckStatus> missing)
     {
         string Cell(Func<FindingGridRow, bool> match, bool partial)
         {
-            if (unknown) return "Not known";
+            if (unknown) return SiteHygieneLabels.NotKnown;
             var n = rows.Count(match);
-            return !partial ? SiteHygieneLabels.Number(n) : n == 0 ? "Not known" : "At least " + SiteHygieneLabels.Number(n);
+            return !partial ? SiteHygieneLabels.Number(n) : n == 0 ? SiteHygieneLabels.NotKnown : "At least " + SiteHygieneLabels.Number(n);
         }
-        bool Missing(HygieneSeverity s) => notRun.Any(c => c.Severity == s);
+        bool Missing(HygieneSeverity s) => missing.Any(c => SiteHygieneLabels.CanFind(c, s));
         return new SummaryCategoryRow(Category: name, Error: Cell(r => r.Finding.Severity == HygieneSeverity.Error, Missing(HygieneSeverity.Error)),
             Warning: Cell(r => r.Finding.Severity == HygieneSeverity.Warning, Missing(HygieneSeverity.Warning)),
-            Info: Cell(r => r.Finding.Severity == HygieneSeverity.Info, Missing(HygieneSeverity.Info)), Total: Cell(_ => true, notRun.Count > 0),
-            NotRun: SiteHygieneLabels.Number(notRun.Count));
+            Info: Cell(r => r.Finding.Severity == HygieneSeverity.Info, Missing(HygieneSeverity.Info)), Total: Cell(_ => true, missing.Count > 0),
+            NotRun: SiteHygieneLabels.Number(missing.Count(SiteHygieneLabels.IsNotRun)));
     }
 
     partial void OnFindingTextChanged(string value) => Debounce(FindingsGrid, ApplyFindingFilter);
@@ -696,7 +715,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         {
             _debounce.Remove(key, out var cts);
             cts?.Cancel();
-            (key == EdgesGrid ? (Action)ApplyEdgeFilter : ApplyFindingFilter)();
+            (key == EdgesGrid ? ApplyEdgeFilter : key == HistoryGrid ? ApplyHistoryFilter : (Action)ApplyFindingFilter)();
         }
     }
 
@@ -762,6 +781,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             case FindingsGrid: ApplyFindingFilter(); break;
             case EdgesGrid: ApplyEdgeFilter(); break;
             case ChecksGrid: RefreshSummary(); break;
+            case HistoryGrid: ApplyHistoryFilter(); break;
         }
         SaveLater();
     }
@@ -781,6 +801,8 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         (FindingGridRow r, nameof(FindingGridRow.Severity)) => (int)r.Finding.Severity,
         (FindingGridRow r, nameof(FindingGridRow.New)) => r.Finding.IsNew,
         (CheckStatusRow r, nameof(CheckStatusRow.Findings)) => SiteHygieneLabels.DidRun(r.Check) ? r.Check.Findings : -1,
+        (HygieneHistoryRow r, nameof(HygieneHistoryRow.Time)) => (r.Record.Timestamp, r.Index),
+        (HygieneHistoryRow r, nameof(HygieneHistoryRow.Objects)) => r.Record.Objects.Count,
         _ => row.GetType().GetProperty(column)?.GetValue(row) as string ?? ""
     };
 
@@ -798,7 +820,8 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             _applying = true;
             try
             {
-                SelectedTabIndex = Math.Clamp(saved.SelectedTab, FindingsTab, OptionsTab);
+                SelectedTabIndex = Math.Clamp(saved.SelectedTab, FindingsTab, HistoryTab);
+                HistoryText = saved.HistoryText ?? "";
                 RelationsTabIndex = Math.Clamp(saved.RelationsTab, InventoryTab, TreeTab);
                 FindingText = saved.FindingText ?? "";
                 CategoryFilter = Categories.Contains(saved.Category ?? "") ? saved.Category! : AllText;
@@ -831,6 +854,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     private SiteHygieneSettings Current() => new()
     {
         SelectedTab = SelectedTabIndex,
+        HistoryText = HistoryText,
         RelationsTab = RelationsTabIndex,
         FindingText = FindingText,
         Category = CategoryFilter,
@@ -845,7 +869,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     };
 
     private static bool Same(SiteHygieneSettings? a, SiteHygieneSettings b) =>
-        a is not null && a.SelectedTab == b.SelectedTab && a.RelationsTab == b.RelationsTab && a.FindingText == b.FindingText && a.Category == b.Category
+        a is not null && a.SelectedTab == b.SelectedTab && a.HistoryText == b.HistoryText && a.RelationsTab == b.RelationsTab && a.FindingText == b.FindingText && a.Category == b.Category
         && a.Severity == b.Severity && a.ShowSuppressed == b.ShowSuppressed && a.EdgeText == b.EdgeText && a.EdgeKind == b.EdgeKind
         && a.PauseMilliseconds == b.PauseMilliseconds && a.ProbeContentSources == b.ProbeContentSources
         && (a.Areas ?? []).SequenceEqual(b.Areas ?? [])

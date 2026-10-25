@@ -20,6 +20,7 @@ public partial class SiteHygienePage : INavigationAware
         InitializeComponent();
         foreach (var grid in SortedGrids()) grid.Sorting += OnGridSorting;
         viewModel.PropertyChanged += OnViewModelChanged;
+        viewModel.FindingsFocusRequested += (_, _) => Dispatcher.BeginInvoke(FocusFindings, System.Windows.Threading.DispatcherPriority.Input);
         Loaded += (_, _) =>
         {
             ShowSorts();
@@ -69,7 +70,7 @@ public partial class SiteHygienePage : INavigationAware
 
     public Task OnNavigatedFromAsync() => _viewModel.OnNavigatedFromAsync();
 
-    private IEnumerable<DataGrid> SortedGrids() => [dgFindings, dgEdges, dgChecks];
+    private IEnumerable<DataGrid> SortedGrids() => [dgFindings, dgEdges, dgChecks, dgHygieneHistory];
 
     // The page sorts the rows itself, so a sort stays after a filter change and a new result replace the rows.
     private void OnGridSorting(object sender, DataGridSortingEventArgs e)
@@ -97,7 +98,7 @@ public partial class SiteHygienePage : INavigationAware
             case nameof(SiteHygieneViewModel.SelectedFindings):
                 SelectFindings();
                 break;
-            case nameof(SiteHygieneViewModel.FindingRows) or nameof(SiteHygieneViewModel.EdgeRows) or nameof(SiteHygieneViewModel.CheckRows):
+            case nameof(SiteHygieneViewModel.FindingRows) or nameof(SiteHygieneViewModel.EdgeRows) or nameof(SiteHygieneViewModel.CheckRows) or nameof(SiteHygieneViewModel.HistoryRows):
                 ShowSorts();
                 break;
             case nameof(SiteHygieneViewModel.HasAuditWarning):
@@ -135,6 +136,17 @@ public partial class SiteHygienePage : INavigationAware
             }
         }
         finally { _syncing = false; }
+    }
+
+    /// <summary>
+    /// The keyboard focus goes to the selected row of the findings grid, or to its first row when no row of
+    /// the selection is left; a closed modal window otherwise leaves it on the tab scroll area.
+    /// </summary>
+    private void FocusFindings()
+    {
+        if (!dgFindings.IsVisible) return;
+        var row = _viewModel.SelectedFindings.LastOrDefault(r => dgFindings.Items.Contains(r));
+        if (row is null || !Helpers.DataGridFocus.FocusItemCell(dgFindings, row)) Helpers.DataGridFocus.FocusFirstCell(dgFindings);
     }
 
     private void OnFindingsSelectionChanged(object sender, SelectionChangedEventArgs e)

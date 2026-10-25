@@ -1,5 +1,6 @@
 using System.Globalization;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerEngine.Services.Logging;
 
 namespace ApplicationPackagerUI.ViewModels.Pages;
 
@@ -42,13 +43,29 @@ public static class SiteHygieneLabels
         _ => "Info"
     };
 
-    /// <summary>A count of findings of one severity for the summary line, for example "2 errors" or "1 info".</summary>
-    public static string SeverityCount(HygieneSeverity severity, int count) => severity switch
+    public const string NotKnown = "Not known";
+
+    /// <summary>
+    /// A count of findings of one severity for the summary line, for example "2 errors" or "1 info". With
+    /// <paramref name="partial"/> a check that can find this severity did not run: "at least 2 errors", or
+    /// "errors not known" for zero.
+    /// </summary>
+    public static string SeverityCount(HygieneSeverity severity, int count, bool partial = false)
     {
-        HygieneSeverity.Error => Count(count, "error"),
-        HygieneSeverity.Warning => Count(count, "warning"),
-        _ => $"{Number(count)} info"
-    };
+        var text = severity switch
+        {
+            HygieneSeverity.Error => Count(count, "error"),
+            HygieneSeverity.Warning => Count(count, "warning"),
+            _ => $"{Number(count)} info"
+        };
+        if (!partial) return text;
+        if (count > 0) return "at least " + text;
+        return severity switch { HygieneSeverity.Error => "errors", HygieneSeverity.Warning => "warnings", _ => "info" } + " not known";
+    }
+
+    /// <summary>True when a finding of the check can have the severity.</summary>
+    public static bool CanFind(HygieneCheckStatus check, HygieneSeverity severity) =>
+        check.Severity == severity || HygieneCatalog.SeveritiesOf(check.CheckId).Contains(severity);
 
     /// <summary>The glyph and the word: the word carries the meaning, the glyph helps the eye.</summary>
     public static string SeverityText(HygieneSeverity severity) => severity switch
@@ -63,10 +80,18 @@ public static class SiteHygieneLabels
     /// <summary>True when the service runs the fix kind; every other kind, None included, is report-only.</summary>
     public static bool CanRun(HygieneFixKind kind) => SiteHygieneService.SupportedKinds.Contains(kind);
 
-    public static bool IsFixable(HygieneFinding finding) => CanRun(finding.FixKind);
+    /// <summary>True when the service runs the fix of the finding: a kind it runs and no refusal the scan read.</summary>
+    public static bool IsFixable(HygieneFinding finding) => CanRun(finding.FixKind) && finding.FixRefusal.Length == 0;
 
     /// <summary>The Fix column: the fix of a kind the service runs, otherwise "Report only"; the detail pane names the kind and the reason.</summary>
     public static string FixColumn(HygieneFixKind kind) => CanRun(kind) ? FixLabel(kind) : FixLabel(HygieneFixKind.None);
+
+    /// <summary>The Fix column of a finding: "Report only" also when the scan read a reason the service refuses the fix.</summary>
+    public static string FixColumn(HygieneFinding finding) => IsFixable(finding) ? FixLabel(finding.FixKind) : FixLabel(HygieneFixKind.None);
+
+    /// <summary>Why the page does not fix the finding: the refusal the scan read, or the reason of its kind; empty for a finding with a fix.</summary>
+    public static string ReportOnlyReason(HygieneFinding finding) =>
+        finding.FixRefusal is { Length: > 0 } refusal ? refusal + " Use the recommended action in the ConfigMgr console." : ReportOnlyReason(finding.FixKind);
 
     /// <summary>Why a finding has no fix on this page; empty for a finding with a fix.</summary>
     public static string ReportOnlyReason(HygieneFixKind kind) =>
@@ -148,7 +173,7 @@ public sealed class FindingGridRow(HygieneFinding finding, bool isSuppressed)
     public string Evidence => FirstLine(Finding.Evidence);
     public string Recommendation => FirstLine(Finding.Recommendation);
     public string New => Finding.IsNew ? "New" : "";
-    public string Fix => SiteHygieneLabels.FixColumn(Finding.FixKind);
+    public string Fix => SiteHygieneLabels.FixColumn(Finding);
     public string Suppressed => IsSuppressed ? "Yes" : "";
 
     public static string FirstLine(string? text)
@@ -177,6 +202,61 @@ public sealed class CheckStatusRow(HygieneCheckStatus check)
 
 /// <summary>One category of the Summary tab: the findings by severity, and the checks that did not run.</summary>
 public sealed record SummaryCategoryRow(string Category, string Error, string Warning, string Info, string Total, string NotRun);
+
+/// <summary>One record of the Site Hygiene audit log in the History grid.</summary>
+public sealed class HygieneHistoryRow(HygieneAuditRecord record)
+{
+    /// <summary>The most object lines the detail pane lists; a record holds at most <see cref="HygieneAuditLog.MaxObjectsPerRecord"/>.</summary>
+    public const int MaxDetailObjects = 100;
+
+    public HygieneAuditRecord Record { get; } = record;
+
+    /// <summary>The position of the record in the audit log, oldest first; it orders records of the same second.</summary>
+    public int Index { get; init; }
+
+    public string Time => Record.Timestamp == default ? "" : Record.Timestamp.ToString("g", CultureInfo.CurrentCulture);
+
+    public string Action => Enum.TryParse<HygieneFixKind>(Record.Event, ignoreCase: false, out var kind) && Enum.IsDefined(kind) ? SiteHygieneLabels.FixLabel(kind) : Record.Event;
+
+    /// <summary>The result; a Started record and a record of planned objects have none, so the row shows its phase.</summary>
+    public string Result => Record.Result.Length > 0 ? Record.Result : Record.Phase;
+
+    /// <summary>The number of objects the record lists and the count of each result, for example "3: 2 done, 1 skipped".</summary>
+    public string Objects
+    {
+        get
+        {
+            var count = SiteHygieneLabels.Number(Record.Objects.Count);
+            var results = Record.Objects.Where(o => o.Result.Length > 0).GroupBy(o => o.Result, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase).Select(g => $"{SiteHygieneLabels.Number(g.Count())} {g.Key.ToLowerInvariant()}").ToList();
+            return results.Count == 0 ? $"{count} planned" : $"{count}: {string.Join(", ", results)}";
+        }
+    }
+
+    public string Site => Record.Site;
+    public string Provider => Record.Provider.Length > 0 ? Record.Provider : Record.Site.Length > 0 ? "this computer" : "";
+    public string User => Record.User;
+    public string Verified => Record.Verified switch { true => "✓ Verified", false => "! Not verified", null => "" };
+    public string VerifiedText => HygieneAuditLog.VerificationText(Record);
+
+    public string Details
+    {
+        get
+        {
+            var lines = new List<string>();
+            if (VerifiedText.Length > 0) lines.Add(VerifiedText);
+            lines.Add($"{Action}, {Record.Phase}{(Record.Result.Length > 0 ? ": " + Record.Result : "")}. Run {Record.RunId}." + (Record.Site.Length > 0 ? $" Site {HygieneSite.Text(Record.Site, Record.Provider)}." : "")
+                + (Record.User.Length > 0 ? $" User {Record.User}." : ""));
+            if (Record.Message.Length > 0) lines.Add(SecretMask.Apply(Record.Message));
+            foreach (var o in Record.Objects.Take(MaxDetailObjects))
+                lines.Add($"{o.CheckId} {o.ObjectType} {o.ObjectName} ({o.ObjectKey}){(o.Result.Length > 0 ? ": " + o.Result : ": planned")}");
+            if (Record.Objects.Count > MaxDetailObjects) lines.Add($"And {SiteHygieneLabels.Count(Record.Objects.Count - MaxDetailObjects, "more object")}.");
+            return string.Join(Environment.NewLine, lines);
+        }
+    }
+
+    public override string ToString() => $"{Time}, {Action}, {Result}";
+}
 
 public sealed class RelationEdgeRow(RelationEdge edge)
 {

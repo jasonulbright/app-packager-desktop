@@ -36,12 +36,14 @@ public sealed class SiteHygieneRenderTests
 
     private static readonly (int Tab, string Grid)[] AllGrids =
     [
-        (VM.FindingsTab, "dgFindings"), (VM.RelationsTab, "dgEdges"), (VM.SummaryTab, "dgCategories"), (VM.SummaryTab, "dgChecks"), (VM.FindingsTab, "dgHygieneResults")
+        (VM.FindingsTab, "dgFindings"), (VM.RelationsTab, "dgEdges"), (VM.SummaryTab, "dgCategories"), (VM.SummaryTab, "dgChecks"), (VM.FindingsTab, "dgHygieneResults"),
+        (VM.HistoryTab, "dgHygieneHistory")
     ];
 
     private static SiteHygienePageHarness LongHarness(int findings = 60)
     {
         var h = SiteHygienePageHarness.Large(findings, LongText);
+        h.AuditLog = FakeHygieneAudit.Long(40, LongText);
         for (var i = 0; i < 30; i++)
             h.Service.Edges.Add(new RelationEdge($"1678{i:0000}", $"{LongText} {i}", $"1679{i:0000}", $"{LongText} {i} older", i % 2 == 0 ? "Supersedes" : "DependsOn", i % 3 == 0 ? "Retired" : "Healthy"));
         return h;
@@ -72,6 +74,8 @@ public sealed class SiteHygieneRenderTests
     {
         Run(viewModel.ScanAsync());
         Run(viewModel.LoadRelationsAsync());
+        Run(viewModel.LoadHistoryAsync());
+        viewModel.SelectedHistory = viewModel.HistoryRows[0];
         viewModel.SetSelectedFindings([viewModel.FindingRows.First(r => r.Finding.FixKind == HygieneFixKind.SetCollectionRefreshType)]);
         Run(viewModel.RunFixCommand.ExecuteAsync(null));
         viewModel.SetSelectedFindings([viewModel.FindingRows[1]]);
@@ -91,7 +95,7 @@ public sealed class SiteHygieneRenderTests
     {
         WithPage(theme, (window, page, viewModel, harness) =>
         {
-            Assert.Equal(["Findings", "Relationships", "Summary", "Options"], ById<TabControl>(page, "tabHygiene").Items.OfType<TabItem>().Select(t => (string)t.Header));
+            Assert.Equal(["Findings", "Relationships", "Summary", "Options", "History"], ById<TabControl>(page, "tabHygiene").Items.OfType<TabItem>().Select(t => (string)t.Header));
             Run(viewModel.ScanAsync());
             Settle(window);
             var grid = ById<DataGrid>(page, "dgFindings");
@@ -105,7 +109,7 @@ public sealed class SiteHygieneRenderTests
             Assert.Equal(50_000, grid.SelectedItems.Count);
             Assert.InRange(page.SelectionEvents - events, 1, 3);
             Assert.True(ById<FrameworkElement>(page, "txtHygieneSummary").IsVisible);
-            foreach (var tab in new[] { VM.RelationsTab, VM.SummaryTab, VM.OptionsTab })
+            foreach (var tab in new[] { VM.RelationsTab, VM.SummaryTab, VM.OptionsTab, VM.HistoryTab })
             {
                 ShowTab(window, viewModel, tab);
                 Assert.True(ById<FrameworkElement>(page, "txtHygieneSummary").IsVisible);
@@ -184,6 +188,12 @@ public sealed class SiteHygieneRenderTests
         yield return ("dgChecks", "Check", "COL-10");
         foreach (var state in new[] { "Ran", "NotRun", "NotSelected", "NeedsSiteDatabase", "Failed" }) yield return ("dgChecks", "State", SiteHygieneLabels.StateText(state));
         yield return ("dgChecks", "Findings", "Not known");
+        yield return ("dgHygieneHistory", "Time", new DateTime(2026, 12, 28, 23, 59, 59).ToString("g", System.Globalization.CultureInfo.CurrentCulture));
+        foreach (var kind in Enum.GetValues<HygieneFixKind>()) yield return ("dgHygieneHistory", "Action", SiteHygieneLabels.FixLabel(kind));
+        foreach (var result in new[] { "Succeeded", "Partial", "Failed", "Skipped", "Started", "Objects", "Finished" }) yield return ("dgHygieneHistory", "Result", result);
+        yield return ("dgHygieneHistory", "Site", "MCM");
+        yield return ("dgHygieneHistory", "Verified", "✓ Verified");
+        yield return ("dgHygieneHistory", "Verified", "! Not verified");
         yield return ("dgChecks", "Findings", "123,456");
     }
 
@@ -260,6 +270,7 @@ public sealed class SiteHygieneRenderTests
                 "btnHygieneSuppress", "btnHygieneUnsuppress", "dgFindings", "txtFindingDetailTitle", "txtFindingDetailEvidence", "txtFixText", "btnCopyFixText", "txtNotRun");
             Check(VM.RelationsTab, "scrollRelationsTab", "btnReadRelations", "btnCancelRelations", "txtRelationsSummary", "txtEdgeFilter", "cboEdgeKind", "dgEdges");
             Check(VM.SummaryTab, "scrollSummaryTab", "dgCategories", "dgChecks");
+            Check(VM.HistoryTab, "scrollHygieneHistoryTab", "txtHygieneHistoryFilter", "btnHygieneHistoryRefresh", "txtHygieneHistoryCount", "dgHygieneHistory", "txtHygieneHistoryDetail");
             Check(VM.OptionsTab, "scrollOptionsTab", "btnAreasAll", "btnAreasClear", "lstAreas", "cboPause", "chkProbeSources", "txtReportFolder", "btnOptionsFolder");
             foreach (var id in new[] { "btnHygieneScan", "btnHygieneCancel", "btnHygieneLiveViews", "btnHygieneCsv", "btnHygieneHtml", "btnHygieneFolder", "txtHygieneSummary", "txtHygieneAreas",
                          "dgHygieneResults", "txtHygieneStatus" })
@@ -426,7 +437,7 @@ public sealed class SiteHygieneRenderTests
         WithPage(theme, (window, page, viewModel, harness) =>
         {
             Fill(window, viewModel);
-            foreach (var tab in new[] { VM.FindingsTab, VM.RelationsTab, VM.SummaryTab, VM.OptionsTab })
+            foreach (var tab in new[] { VM.FindingsTab, VM.RelationsTab, VM.SummaryTab, VM.OptionsTab, VM.HistoryTab })
             {
                 ShowTab(window, viewModel, tab);
                 Run(page.OnNavigatedFromAsync());
@@ -570,6 +581,99 @@ public sealed class SiteHygieneRenderTests
                 Assert.True(AssertCheckBoxTextFits(window, window, "plan window at its minimum width") >= 2);
             }
             finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ThePlanNotesAndThePowerShellTextAreLeftAlignedNotJustified(ApplicationTheme theme)
+    {
+        WithApplication(theme, () =>
+        {
+            var plan = DeletePlan(3);
+            var window = new ChangePlanWindow(new ChangePlanViewModel(plan.Plan, (_, _, _) => Task.FromResult(new ChangePlanResult([]))));
+            Show(window);
+            try
+            {
+                Settle(window);
+                foreach (var id in new[] { "txtNotes", "txtBody" })
+                    Assert.Equal(TextAlignment.Left, ((System.Windows.Controls.TextBox)window.FindName(id)).TextAlignment);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Fact]
+    public void AToolTipThatShowsWhenThePlanWindowOpensIsClosedFirst()
+    {
+        WithApplication(ApplicationTheme.Light, () =>
+        {
+            var target = new TextBlock { Text = "Cell" };
+            var tip = new System.Windows.Controls.ToolTip { Content = LongText };
+            target.ToolTip = tip;
+            var window = new Window { Width = 400, Height = 300, Content = target };
+            Show(window);
+            try
+            {
+                Settle(window);
+                tip.PlacementTarget = target;
+                tip.IsOpen = true;
+                Settle(window);
+                Assert.True(tip.IsOpen);
+                bool? openWhilePlanShows = null;
+                window.Dispatcher.BeginInvoke(() =>
+                {
+                    openWhilePlanShows = tip.IsOpen;
+                    foreach (var plan in System.Windows.Application.Current.Windows.OfType<ChangePlanWindow>().ToList()) plan.Close();
+                }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                new ChangePlanDialogs(new ApplicationPackagerEngine.Tests.MaintenanceWindows.RecordingMaintenanceLog()).Show(DeletePlan(1).Plan, (_, _, _) => Task.FromResult(new ChangePlanResult([])));
+                Assert.False(openWhilePlanShows);
+
+                tip.IsOpen = true;
+                Settle(window);
+                Assert.Equal(1, ApplicationPackagerUI.Helpers.OpenToolTips.Close());
+                Assert.False(tip.IsOpen);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheFocusGoesBackToTheSelectedFindingWhenThePlanWindowCloses(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Run(viewModel.ScanAsync());
+            Settle(window);
+            var row = viewModel.FindingRows.First(r => r.Finding.FixKind == HygieneFixKind.SetCollectionRefreshType);
+            viewModel.SetSelectedFindings([row]);
+            harness.Plans.Confirm = false;
+            Settle(window);
+            Assert.True(Keyboard.Focus(ById<UIElement>(page, "btnHygieneRunFix")) is not null);
+            Run(viewModel.RunFixCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Single(harness.Plans.Shown);
+            var focused = Assert.IsAssignableFrom<DependencyObject>(Keyboard.FocusedElement);
+            Assert.Same(ById<DataGrid>(page, "dgFindings"), Ancestor<DataGrid>(focused));
+            Assert.Same(row, Ancestor<DataGridRow>(focused)!.Item);
+            Assert.Equal([row.Key], viewModel.SelectedFindings.Select(r => r.Key));
+        });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void RunFixIsDisabledWithItsReasonOnTheFirstVisit(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Assert.False(ById<UIElement>(page, "btnHygieneRunFix").IsEnabled);
+            var hint = ById<TextBlock>(page, "txtRunFixHint");
+            Assert.True(hint.IsVisible);
+            Assert.Equal(VM.NotScanned, hint.Text);
         });
     }
 

@@ -7,9 +7,9 @@ namespace ApplicationPackagerEngine.Services;
 /// <summary>
 /// Writes one view of the Site Hygiene page to a new CSV or HTML file in &lt;data root&gt;\SiteHygiene\Reports.
 /// Every CSV cell is quoted, and a cell that a spreadsheet would read as a formula starts with an apostrophe;
-/// every HTML value is encoded. The header of both names the view, the scan time, the row count, the filter,
-/// the truncation note and each check that did not run. A report of a truncated scan is refused unless its
-/// note says so.
+/// every HTML value is encoded. The header names the view, the scan time, the row count, the filter, the
+/// truncation note and each check that did not run: at the top of the HTML file, and in a text file beside
+/// the CSV file. A report of a truncated scan is refused unless its note says so.
 /// </summary>
 public sealed class HygieneReportWriter(string? folder = null, Func<DateTimeOffset>? clock = null) : IHygieneReportWriter
 {
@@ -40,22 +40,39 @@ public sealed class HygieneReportWriter(string? folder = null, Func<DateTimeOffs
         }
     }
 
+    /// <summary>The text file beside a CSV report that holds its header lines.</summary>
+    public static string AboutPath(string csvPath) => Path.ChangeExtension(csvPath, ".about.txt");
+
+    /// <summary>
+    /// The CSV holds the column names and the rows only, so Import-Csv and a spreadsheet read it as a table.
+    /// The header lines go to <see cref="AboutPath"/>; when that file cannot be written, the CSV is deleted
+    /// and the write fails.
+    /// </summary>
     public string WriteCsv(HygieneReport report)
     {
         Check(report);
         var columns = report.Columns.Count;
+        var generated = Generated();
         var text = new StringBuilder();
         string Row(IEnumerable<string> cells) => string.Join(",", cells.Select(ReportFile.Cell));
-        foreach (var line in HeaderLines(report, Generated()))
-        {
-            var cells = new string[columns];
-            Array.Fill(cells, "");
-            cells[0] = line;
-            text.Append(Row(cells)).Append("\r\n");
-        }
         text.Append(Row(report.Columns)).Append("\r\n");
         foreach (var row in report.Rows) text.Append(Row(Cells(row, columns))).Append("\r\n");
-        return Write(report, "csv", text.ToString());
+        var path = Write(report, "csv", text.ToString());
+        var about = new StringBuilder();
+        foreach (var line in HeaderLines(report, generated)) about.Append(line).Append("\r\n");
+        about.Append("Data file: ").Append(Path.GetFileName(path)).Append("\r\n");
+        try
+        {
+            using var stream = new FileStream(AboutPath(path), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            writer.Write(about.ToString());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            throw new HygieneServiceException("The report could not be written. Check that the reports folder can be written.");
+        }
+        return path;
     }
 
     public string WriteHtml(HygieneReport report)

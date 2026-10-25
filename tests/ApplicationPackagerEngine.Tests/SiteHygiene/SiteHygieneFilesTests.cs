@@ -104,8 +104,52 @@ public sealed class SiteHygieneFilesTests : IDisposable
         Assert.Contains("\"'\n=cmd|' /C calc'!A0\"", text);
         Assert.Contains("\"'+1\"", text);
         Assert.Contains("\"Plain, \"\"quoted\"\"\"", text);
-        Assert.Contains("Did not run: PKG-01", text);
+        Assert.Contains("Did not run: PKG-01", File.ReadAllText(HygieneReportWriter.AboutPath(path)));
         Assert.StartsWith(Path.Combine(_root, "r", "site-hygiene-findings-"), path);
+    }
+
+    [Fact]
+    public void TheCsvStartsWithTheColumnNamesAndTheFileBesideItHoldsTheNotes()
+    {
+        var writer = new HygieneReportWriter(Path.Combine(_root, "r"), () => new DateTimeOffset(2026, 10, 24, 20, 19, 29, TimeSpan.Zero));
+        var path = writer.WriteCsv(Report(["Warning", "APP-01", "SHL-App-Unused", "No deployments"]) with { ScannedUtc = new DateTime(2026, 10, 24, 20, 0, 0, DateTimeKind.Utc), Note = "Suppressed: 1 hidden." });
+        var lines = File.ReadAllLines(path);
+        Assert.Equal(["\"Severity\",\"Check\",\"Object\",\"Evidence\"", "\"Warning\",\"APP-01\",\"SHL-App-Unused\",\"No deployments\""], lines);
+        Assert.Equal([0xEF, 0xBB, 0xBF], File.ReadAllBytes(path)[..3]);
+        var aboutPath = HygieneReportWriter.AboutPath(path);
+        Assert.Equal(Path.ChangeExtension(path, ".about.txt"), aboutPath);
+        var about = File.ReadAllText(aboutPath);
+        Assert.Contains("Site Hygiene: Findings. Generated 2026-10-24 20:19:29 +00:00. Rows: 1.", about);
+        Assert.Contains("Filter: Text: <b>x</b>", about);
+        Assert.Contains("Note: Suppressed: 1 hidden.", about);
+        Assert.Contains("Did not run: PKG-01: The check did not run: the read of programs failed.", about);
+        Assert.Contains("Data file: " + Path.GetFileName(path), about);
+    }
+
+    [Fact]
+    public void ImportCsvReadsTheExportAsATableWithTheColumnNamesAsTheHeader()
+    {
+        var writer = new HygieneReportWriter(Path.Combine(_root, "r"));
+        var path = writer.WriteCsv(Report(["Warning", "APP-01", "SHL-App-Unused", "No deployments"], ["Info", "COL-01", "=1", "Plain, \"quoted\""]) with { Note = "Suppressed: 1 hidden." });
+        var script = $"$rows = @(Import-Csv -LiteralPath '{path.Replace("'", "''", StringComparison.Ordinal)}'); \"$($rows.Count)|$($rows[0].Check)|$($rows[1].Object)|$($rows[1].Evidence)|$(($rows[0].PSObject.Properties.Name) -join ',')\"";
+        var start = new System.Diagnostics.ProcessStartInfo("powershell.exe") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+        foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-Command", script }) start.ArgumentList.Add(a);
+        using var process = System.Diagnostics.Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEnd().Trim();
+        process.WaitForExit();
+        Assert.Equal("2|APP-01|'=1|Plain, \"quoted\"|Severity,Check,Object,Evidence", output);
+    }
+
+    [Fact]
+    public void AnAboutFileThatCannotBeWrittenRemovesTheCsvAndFailsTheExport()
+    {
+        var folder = Path.Combine(_root, "r2");
+        var writer = new HygieneReportWriter(folder, () => new DateTimeOffset(2026, 10, 24, 20, 19, 29, TimeSpan.Zero));
+        Directory.CreateDirectory(folder);
+        // A folder of the name of the about file makes its write fail.
+        Directory.CreateDirectory(Path.Combine(folder, "site-hygiene-findings-20261024-201929.about.txt"));
+        Assert.Throws<HygieneServiceException>(() => writer.WriteCsv(Report(["Warning", "APP-01", "x", "y"])));
+        Assert.Empty(Directory.GetFiles(folder, "*.csv"));
     }
 
     [Fact]
@@ -118,7 +162,7 @@ public sealed class SiteHygieneFilesTests : IDisposable
         Assert.Contains("Filter: Text: &lt;b&gt;x&lt;/b&gt;", html);
         Assert.Contains("Did not run: PKG-01", html);
         Assert.Throws<HygieneServiceException>(() => writer.WriteCsv(Report() with { Truncated = true }));
-        Assert.Contains("Note: Reads cut", File.ReadAllText(writer.WriteCsv(Report() with { Truncated = true, Note = "Reads cut at their cap: devices." })));
+        Assert.Contains("Note: Reads cut", File.ReadAllText(HygieneReportWriter.AboutPath(writer.WriteCsv(Report() with { Truncated = true, Note = "Reads cut at their cap: devices." }))));
     }
 
     [Fact]

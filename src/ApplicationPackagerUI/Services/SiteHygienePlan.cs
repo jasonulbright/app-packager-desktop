@@ -146,13 +146,7 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
             reporter.Report(outcome.Final ? outcome : outcome with { Final = true });
             var rows = Complete(plan, results, progress);
             var cancelled = ct.IsCancellationRequested && rows.Any(r => r.Skipped || r.Message == NoResultText);
-            var failed = rows.Count(IsFailure);
-            var unchanged = rows.Count(r => r.OutcomeText == Unchanged);
-            var changed = rows.Count(r => r.Succeeded && !r.Skipped && r.OutcomeText == Done);
-            stop = cancelled ? SiteOperationOutcome.Cancelled
-                : failed == 0 && unchanged == 0 && rows.All(r => !r.Skipped) ? SiteOperationOutcome.Succeeded
-                : changed > 0 ? SiteOperationOutcome.PartlySucceeded
-                : SiteOperationOutcome.Failed;
+            stop = Outcome(rows, cancelled);
             return new ChangePlanResult(rows, cancelled ? ChangePlanStop.Cancelled : ChangePlanStop.Completed)
             {
                 UndoAvailable = false,
@@ -169,6 +163,22 @@ public sealed class SiteHygieneWriter(ISiteHygieneService service, ISiteOperatio
         {
             Record(plan.Action, stop, results);
         }
+    }
+
+    /// <summary>
+    /// The outcome the site history records: Skipped when every line was skipped, as nothing was changed and
+    /// nothing failed; Failed only when a write failed or its result is not known and no object changed.
+    /// </summary>
+    public static SiteOperationOutcome Outcome(IReadOnlyList<ChangePlanItemResult> rows, bool cancelled)
+    {
+        var failed = rows.Count(IsFailure);
+        var unchanged = rows.Count(r => r.OutcomeText == Unchanged);
+        var changed = rows.Count(r => r.Succeeded && !r.Skipped && r.OutcomeText == Done);
+        return cancelled ? SiteOperationOutcome.Cancelled
+            : failed == 0 && unchanged == 0 && rows.All(r => !r.Skipped) ? SiteOperationOutcome.Succeeded
+            : changed > 0 ? SiteOperationOutcome.PartlySucceeded
+            : failed == 0 && unchanged == 0 && rows.Count > 0 && rows.All(r => r.Skipped) ? SiteOperationOutcome.Skipped
+            : SiteOperationOutcome.Failed;
     }
 
     /// <summary>A line whose write failed or whose result is not known; Unchanged and Skipped lines are counted apart.</summary>

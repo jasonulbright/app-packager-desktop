@@ -182,7 +182,7 @@ public sealed class SiteHygienePageGuardTests
             if (h.Service.Checks[i].CheckId == "APP-04") h.Service.Checks[i] = h.Service.Checks[i] with { Severity = HygieneSeverity.Warning };
         var vm = await h.ScannedAsync();
         var apps = vm.CategoryRows.Single(r => r.Category == "Applications");
-        Assert.Equal(("1", "At least 2", "0", "At least 3", "1"), (apps.Error, apps.Warning, apps.Info, apps.Total, apps.NotRun));
+        Assert.Equal(("1", "At least 2", "Not known", "At least 3", "1"), (apps.Error, apps.Warning, apps.Info, apps.Total, apps.NotRun));
         var devices = vm.CategoryRows.Single(r => r.Category == "Devices");
         Assert.Equal(("1", "Not known", "At least 1"), (devices.Warning, devices.Info, devices.Total));
         var site = vm.CategoryRows.Single(r => r.Category == "Site");

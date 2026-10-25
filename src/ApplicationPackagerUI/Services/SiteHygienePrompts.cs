@@ -34,6 +34,7 @@ public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
         var owner = DiscoveryPrompt.UsableOwner(Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow);
         if (owner is not null) window.Owner = owner;
         else window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        Helpers.OpenToolTips.Close();
         window.ShowDialog();
     }
 
@@ -118,7 +119,10 @@ public static class SiteHygieneRegistration
                 () => SiteHygienePreferences.Load(settings),
                 choices => SiteHygienePreferences.Save(settings, choices),
                 () => launcher.LaunchAsync(SuiteTools.SiteHygiene, settings.Load),
-                sp.GetRequiredService<IAppLog>());
+                sp.GetRequiredService<IAppLog>())
+            {
+                AuditLog = sp.GetRequiredService<IHygieneAuditLog>()
+            };
         });
         services.AddSingleton<SiteHygieneViewModel>();
         services.AddSingleton<SiteHygienePage>();

@@ -243,7 +243,7 @@
                                     <ui:Button DockPanel.Dock="Right" Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyFixTextCommand}" Margin="8,0,0,0" VerticalAlignment="Top"
                                                ToolTip="Copies the PowerShell text of the fix. The page runs the typed fix, not this text." AutomationProperties.Name="Copy the PowerShell text of the fix"
                                                AutomationProperties.AutomationId="btnCopyFixText" />
-                                    <TextBox Text="{Binding DetailFixText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="58" VerticalScrollBarVisibility="Auto"
+                                    <TextBox Text="{Binding DetailFixText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" TextAlignment="Left" MaxHeight="58" VerticalScrollBarVisibility="Auto"
                                              FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="12"
                                              AutomationProperties.Name="PowerShell text of the fix, read only" AutomationProperties.AutomationId="txtFixText" />
                                 </DockPanel>
@@ -409,6 +409,49 @@
                                        AutomationProperties.Name="Open the report folder" AutomationProperties.AutomationId="btnOptionsFolder" />
                         </WrapPanel>
                     </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="History" AutomationProperties.AutomationId="tabHygieneHistory">
+                <ScrollViewer x:Name="scrollHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.AutomationId="scrollHygieneHistoryTab">
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" MinHeight="380" KeyboardNavigation.TabNavigation="Local">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="160" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHygieneHistoryIntro"
+                                   Text="The audit log of the fixes of this page, newest first. The list reads the file on this computer only; it reads nothing from the site. A record the hash chain does not verify was changed or added outside the page." />
+                        <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
+                            <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by action, result, user, site or object" Icon="{ui:SymbolIcon Search24}"
+                                        MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtHygieneHistoryFilter" />
+                            <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
+                                       ToolTip="Reads the audit log file again." AutomationProperties.Name="Read the audit log again" AutomationProperties.AutomationId="btnHygieneHistoryRefresh" />
+                            <TextBlock Text="{Binding HistoryCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,12,8" AutomationProperties.AutomationId="txtHygieneHistoryCount" />
+                            <TextBlock Text="{Binding HistoryCapText}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" MaxWidth="560"
+                                       AutomationProperties.AutomationId="txtHygieneHistoryCap" />
+                        </WrapPanel>
+                        <DataGrid Grid.Row="2" x:Name="dgHygieneHistory" KeyboardNavigation.TabIndex="1" Tag="history" Style="{StaticResource GridBase}" ItemsSource="{Binding HistoryRows}"
+                                  SelectedItem="{Binding SelectedHistory}" AutomationProperties.AutomationId="dgHygieneHistory" AutomationProperties.Name="Audit log records">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Time" Binding="{Binding Time}" SortMemberPath="Time" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Action" Binding="{Binding Action}" SortMemberPath="Action" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Result" Binding="{Binding Result}" SortMemberPath="Result" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Objects" Binding="{Binding Objects}" SortMemberPath="Objects" Width="2*" MinWidth="120" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Site" Binding="{Binding Site}" SortMemberPath="Site" Width="64" MinWidth="60" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Provider" Binding="{Binding Provider}" SortMemberPath="Provider" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="User" Binding="{Binding User}" SortMemberPath="User" Width="*" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                                <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="136" MinWidth="132" ElementStyle="{StaticResource TrimmedCell}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2"
+                                Visibility="{Binding HasHistoryDetails, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlHygieneHistoryDetail">
+                            <TextBox Text="{Binding HistoryDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" TextAlignment="Left" MaxHeight="96" VerticalScrollBarVisibility="Auto"
+                                     AutomationProperties.Name="The selected audit record, read only" AutomationProperties.AutomationId="txtHygieneHistoryDetail" />
+                        </Border>
+                    </Grid>
                 </ScrollViewer>
             </TabItem>
         </TabControl>

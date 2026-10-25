@@ -261,6 +261,45 @@ internal sealed class FakeHygieneReports : IHygieneReportWriter
     }
 }
 
+/// <summary>An audit log of records in memory for the History tab; it writes nothing.</summary>
+internal sealed class FakeHygieneAudit(IReadOnlyList<HygieneAuditRecord> records) : IHygieneAuditLog
+{
+    public int Reads;
+    public AuditProbe Probe() => new(true, "The audit log can be written.");
+    public AuditWrite Append(HygieneAuditRecord r) => new(false, "The fake audit log writes nothing.");
+
+    public IReadOnlyList<HygieneAuditRecord> Read(int max)
+    {
+        Interlocked.Increment(ref Reads);
+        return records.TakeLast(max).ToList();
+    }
+
+    public string Path => @"C:\Data\SiteHygiene\site-hygiene-audit.jsonl";
+
+    /// <summary>Records of every fix kind and result, with long object names, the last one of a broken chain.</summary>
+    public static FakeHygieneAudit Long(int count, string longText)
+    {
+        var kinds = Enum.GetValues<HygieneFixKind>().Where(HygieneFixKinds.IsDelete).Concat([HygieneFixKind.SetCollectionRefreshType, HygieneFixKind.SetSiteMaintenanceTask]).ToList();
+        var results = new[] { "", "Succeeded", "Partial", "Failed", "Skipped" };
+        var list = new List<HygieneAuditRecord>();
+        for (var i = 0; i < count; i++)
+        {
+            var result = results[i % results.Length];
+            var objects = Enumerable.Range(0, 3).Select(n => new HygieneAuditObject("APP-01", "Application", $"ScopeId_{i}/Application_{n}", $"{longText} {i}.{n}", result.Length == 0 ? "" : "Done")).ToList();
+            list.Add(new HygieneAuditRecord(new DateTime(2026, 12, 28, 23, 59, 59).AddMinutes(-i), @"CONTOSO\labadmin-with-a-long-name", kinds[i % kinds.Count].ToString(),
+                result.Length == 0 ? HygieneAuditPhases.Started : HygieneAuditPhases.Finished, result, $"run{i}", objects, $"{longText} message {i}.")
+            {
+                Site = "MCM",
+                Provider = "cm01.contoso.com",
+                Verified = i < count - 1,
+                HasChain = true,
+                ChainBrokenAt = i < count - 1 ? null : count
+            });
+        }
+        return new FakeHygieneAudit(list);
+    }
+}
+
 internal sealed class FakeHygieneDialogs : ISiteHygieneDialogs
 {
     /// <summary>What the operator does in the finding list; null continues with the findings as checked.</summary>
@@ -308,6 +347,9 @@ internal sealed class SiteHygienePageHarness
     public int LiveViewCalls;
     public SuiteToolLaunchResult LiveViewResult = new(SuiteToolLaunchOutcome.Started);
     public TimeSpan FilterDelay = TimeSpan.Zero;
+
+    /// <summary>The audit log the History tab reads; null shows no history.</summary>
+    public IHygieneAuditLog? AuditLog;
 
     public HygieneFinding UnusedApp { get; }
     public HygieneFinding UnusedApp2 { get; }
@@ -391,7 +433,7 @@ internal sealed class SiteHygienePageHarness
         {
             Interlocked.Increment(ref LiveViewCalls);
             return Task.FromResult(LiveViewResult);
-        }, Log) { FilterDelay = FilterDelay };
+        }, Log) { FilterDelay = FilterDelay, AuditLog = AuditLog };
 
     public SiteHygieneViewModel Create() => new(Services());
 

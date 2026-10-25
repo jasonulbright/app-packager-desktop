@@ -139,7 +139,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Equal("Skipped: a delete needs the second confirmation. Nothing was deleted.", row.Message);
         Assert.Empty(p.Site.Site.Commands);
         Assert.Empty(p.Site.Audit.Read(10));
-        Assert.Equal(SiteOperationOutcome.Failed, p.History.Entries.Single().Outcome);
+        Assert.Equal(SiteOperationOutcome.Skipped, p.History.Entries.Single().Outcome);
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.True(again.Skipped);
         Assert.Equal("Skipped: the plan was not prepared by this session, or it already ran. Prepare the plan again.", again.Message);
         Assert.Single(p.Site.Site.Commands);
-        Assert.Equal([SiteOperationOutcome.Succeeded, SiteOperationOutcome.Failed], p.History.Entries.Select(e => e.Outcome));
+        Assert.Equal([SiteOperationOutcome.Succeeded, SiteOperationOutcome.Skipped], p.History.Entries.Select(e => e.Outcome));
     }
 
     [Fact]
@@ -302,7 +302,8 @@ public sealed class SiteHygienePageRealServiceTests
 
         await vm.ExportCsvCommand.ExecuteAsync(null);
         var file = Assert.Single(Directory.GetFiles(p.Reports.Folder, "*.csv"));
-        Assert.Contains("Findings", File.ReadAllText(file), StringComparison.Ordinal);
+        Assert.StartsWith("\"Severity\",\"Check\",", File.ReadAllText(file), StringComparison.Ordinal);
+        Assert.Contains("Site Hygiene: Findings.", File.ReadAllText(HygieneReportWriter.AboutPath(file)), StringComparison.Ordinal);
     }
 
     [Fact]

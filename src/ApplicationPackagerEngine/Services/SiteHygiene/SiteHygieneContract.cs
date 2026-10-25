@@ -589,6 +589,19 @@ public static class HygieneCatalog
         new("DRV-01", "Drivers", I, "Driver in no driver package or boot image"),
         new("SEC-01", "Security", W, "Administrative user with a deleted directory account")
     ];
+
+    /// <summary>
+    /// Every severity a finding of the check can have: the catalog severity, and the other severities the
+    /// checks that judge the case give (APP-04 an unknown path, DEV-01 with the cleanup tasks on, UPD-03 by
+    /// the state of the rule). A count of findings whose check did not run is not known in each of them.
+    /// </summary>
+    public static IReadOnlyList<HygieneSeverity> SeveritiesOf(string checkId) => (checkId ?? "").ToUpperInvariant() switch
+    {
+        "APP-04" => [W, I],
+        "DEV-01" => [W, I],
+        "UPD-03" => [E, W, I],
+        var id => Checks.FirstOrDefault(c => c.Id == id) is { } c ? [c.Severity] : [E, W, I]
+    };
 }
 
 /// <summary>A plain refusal or failure of the Site Hygiene services; the message is safe to show.</summary>

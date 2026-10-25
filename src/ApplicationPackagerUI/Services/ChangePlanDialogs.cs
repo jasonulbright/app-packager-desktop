@@ -24,6 +24,7 @@ public sealed class ChangePlanDialogs(IAppLog log) : IChangePlanDialogs
         var window = new ChangePlanWindow(viewModel);
         if (owner is not null) window.Owner = owner;
         else window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        Helpers.OpenToolTips.Close();
         window.ShowDialog();
         return viewModel.Outcome;
     }
