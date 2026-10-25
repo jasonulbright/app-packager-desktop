@@ -13,8 +13,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
+                    <!-- The text box gives its Padding to the content host, and the scroll viewer template of the library applies it inside the scroll bar area.
+                         A Margin of the Padding here applies it a second time. -->
                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
-                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" Focusable="False"
+                        <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
                                       VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" />
                     </Border>
                 </ControlTemplate>

@@ -101,7 +101,7 @@
                                             </ControlTemplate>
                                         </ToggleButton.Template>
                                     </ToggleButton>
-                                    <ContentPresenter x:Name="ResultCardBody" Margin="0,4,0,4" Visibility="Collapsed" />
+                                    <ContentPresenter x:Name="ResultCardBody" Margin="0,4,0,0" Visibility="Collapsed" />
                                 </DockPanel>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -238,7 +238,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <WrapPanel Grid.Row="0" x:Name="pnlFindingFilter" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
+                        <WrapPanel Grid.Row="0" x:Name="pnlFindingFilter" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox x:Name="txtFindingFilter" Text="{Binding FindingText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object, evidence or action" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Finding filter" AutomationProperties.AutomationId="txtFindingFilter" />
                             <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding CategoryFilter}" MinWidth="190" Margin="0,0,8,8"
@@ -250,7 +250,7 @@
                             <TextBlock Text="{Binding FindingCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtFindingCount" />
                         </WrapPanel>
                         <!-- The actions come after the grid in Tab order, so they are next to the findings the operator picked. -->
-                        <WrapPanel Grid.Row="1" x:Name="pnlFindingActions" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
+                        <WrapPanel Grid.Row="1" x:Name="pnlFindingActions" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
                             <ui:Button x:Name="btnHygieneRunFix" Content="Run fix" Icon="{ui:SymbolIcon Wrench24}" Command="{Binding RunFixCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Checks the selected findings again on the site, then shows the plan of their fix." AutomationProperties.AutomationId="btnHygieneRunFix" />
                             <ui:Button Content="Suppress" Icon="{ui:SymbolIcon EyeOff24}" Command="{Binding SuppressCommand}" Style="{StaticResource ToolButton}"
@@ -293,13 +293,13 @@
                                     <ui:Button DockPanel.Dock="Right" Content="Copy" Icon="{ui:SymbolIcon Copy24}" Command="{Binding CopyFixTextCommand}" Margin="8,0,0,0" VerticalAlignment="Top"
                                                ToolTip="Copies the PowerShell text of the fix. The page runs the typed fix, not this text." AutomationProperties.Name="Copy the PowerShell text of the fix"
                                                AutomationProperties.AutomationId="btnCopyFixText" />
-                                    <TextBox Text="{Binding DetailFixText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" TextAlignment="Left" MaxHeight="58" VerticalScrollBarVisibility="Auto"
-                                             FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="12"
+                                    <!-- The view sets MaxHeight to the whole lines that fit without a scroll of the tab, from MinFixLines to FixLines. -->
+                                    <TextBox x:Name="txtFixText" Text="{Binding DetailFixText, Mode=OneWay}" Style="{StaticResource DetailBox}" FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="12"
                                              AutomationProperties.Name="PowerShell text of the fix, read only" AutomationProperties.AutomationId="txtFixText" />
                                 </DockPanel>
                             </StackPanel>
                         </Border>
-                        <TextBlock Grid.Row="4" x:Name="txtNotRun" Text="{Binding NotRunText}" Style="{StaticResource Warning}" Margin="0,8,0,0" MaxHeight="48" TextTrimming="CharacterEllipsis"
+                        <TextBlock Grid.Row="4" x:Name="txtNotRun" Text="{Binding NotRunText}" Style="{StaticResource Warning}" Margin="0,4,0,0" MaxHeight="48" TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding NotRunText}" Visibility="{Binding HasNotRun, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtNotRun" />
                     </Grid>
                 </ScrollViewer>

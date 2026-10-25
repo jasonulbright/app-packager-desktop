@@ -578,14 +578,14 @@ public sealed class SiteHygieneRenderTests
                 if (part is TextBlock block) AssertWholeText(block, where);
             }
 
-            // The card opens to at most three result rows, two on a short page; more rows scroll with a scroll bar that shows without the pointer.
+            // The card opens to at most ResultLines result rows; more rows scroll with a scroll bar that shows without the pointer.
             viewModel.ResultsExpanded = true;
             Settle(window);
             var results = ById<DataGrid>(page, "dgHygieneResults");
             Assert.True(results.IsVisible, $"{where}: the result rows do not show in the open card.");
             var rowHeight = Descendants(results).OfType<DataGridRow>().Where(r => r.IsVisible).Max(r => r.ActualHeight);
             var viewer = Descendants(results).OfType<ScrollViewer>().First();
-            var resultLines = height < SiteHygienePage.ShortHeight ? SiteHygienePage.CompactResultLines : SiteHygienePage.ResultLines;
+            const int resultLines = SiteHygienePage.ResultLines;
             var shownRows = Descendants(results).OfType<ScrollContentPresenter>().First().ActualHeight / rowHeight;
             Assert.True(shownRows <= resultLines + 0.05 && shownRows >= Math.Min(objects, resultLines) - 0.05, $"{where}: the open card shows {shownRows:0.0} result rows.");
             Assert.True(results.ActualHeight <= (resultLines + 2) * rowHeight, $"{where}: the result rows take {results.ActualHeight:0} px; a row is {rowHeight:0} px.");
@@ -645,6 +645,131 @@ public sealed class SiteHygieneRenderTests
                 AssertReachable(relations, edges, "dgEdges");
             }
         }, width, height, () => FixRunHarness(objects, auditIncomplete));
+    }
+
+    private const string DeploymentFindingKey = "16777499";
+
+    /// <summary>The fix text of an APP-02 finding: one Remove-CMApplicationDeployment line per deployment.</summary>
+    private static string DeploymentLines(int deployments) =>
+        string.Join("\r\n", Enumerable.Range(0, deployments).Select(n => $"Remove-CMApplicationDeployment -Id {16_777_500 + n} -Force"));
+
+    /// <summary>The fix run site with an APP-02 finding of <paramref name="deployments"/> deployments, which the tests select.</summary>
+    private static SiteHygienePageHarness DeploymentHarness(int objects, int deployments)
+    {
+        var h = FixRunHarness(objects, auditIncomplete: false);
+        h.Service.Findings.Add(SiteHygienePageHarness.Finding("APP-02", "Applications", HygieneSeverity.Error, "Deployment", DeploymentFindingKey, "Contoso Printer Drivers to All Desktops",
+            HygieneFixKind.RemoveApplicationDeployment, DeploymentLines(deployments), evidence: $"The application is retired and still has {deployments} deployments."));
+        return h;
+    }
+
+    private static void SelectDeploymentFinding(Window window, VM viewModel)
+    {
+        viewModel.SetSelectedFindings([viewModel.FindingRows.Single(r => r.Finding.ObjectKey == DeploymentFindingKey)]);
+        Settle(window);
+    }
+
+    /// <summary>The Findings tab does not scroll, the grid keeps its least height and every part of the detail shows in full.</summary>
+    private static void AssertFindingsTabFits(Page page, VM viewModel, string where)
+    {
+        var findings = ById<ScrollViewer>(page, "scrollFindingsTab");
+        string Part(string id) => page.FindName(id) is FrameworkElement { IsVisible: true } e ? $"{id} {e.ActualHeight + e.Margin.Top + e.Margin.Bottom:0}" : $"{id} hidden";
+        var parts = string.Join(", ", new[] { "pnlFindingFilter", "pnlFindingActions", "pnlFindingDetail", "txtFixText", "txtNotRun", "dgFindings", "pnlHygieneResults" }.Select(Part));
+        Assert.True(findings.ScrollableHeight < 1, $"{where}: the Findings tab scrolls by {findings.ScrollableHeight:0} px in a {findings.ViewportHeight:0} px view: {parts} px.");
+        Assert.True(findings.ScrollableWidth < 1, $"{where}: the Findings tab scrolls sideways by {findings.ScrollableWidth:0} px.");
+        var grid = ById<DataGrid>(page, "dgFindings");
+        Assert.True(grid.ActualHeight >= SiteHygienePage.FindingsGridMinHeight - 0.5, $"{where}: the findings grid gets {grid.ActualHeight:0} px.");
+        foreach (var id in DetailParts.Concat(viewModel.HasDetailFixNote ? ["txtFindingDetailFixNote"] : []))
+        {
+            var part = ById<FrameworkElement>(page, id);
+            AssertShown(findings, part, where);
+            if (part is TextBlock block) AssertWholeText(block, where);
+        }
+    }
+
+    public static TheoryData<ApplicationTheme, double, int> OpenCardCases()
+    {
+        var data = new TheoryData<ApplicationTheme, double, int>();
+        foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
+        foreach (var width in new[] { 1440 - CollapsedPaneWidth, 1440 - NavigationPaneWidth })
+        foreach (var rows in new[] { 2, 3, 10 })
+            data.Add(theme, width, rows);
+        return data;
+    }
+
+    /// <summary>
+    /// At 1440x900, with the sidebar collapsed and open, the open result card of 2, 3 and 10 result rows leaves the Findings
+    /// tab without a scroll: the grid keeps its least height and the detail of the selected APP-02 finding shows in full.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(OpenCardCases))]
+    public void WithTheResultCardOpenTheFindingsTabDoesNotScrollAt1440By900(ApplicationTheme theme, double width, int rows)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            RunFix(window, viewModel, rows);
+            SelectDeploymentFinding(window, viewModel);
+            viewModel.ResultsExpanded = true;
+            Settle(window);
+            var where = $"{rows} result rows, open card, at {width}x{900 - 48}";
+
+            var results = ById<DataGrid>(page, "dgHygieneResults");
+            Assert.True(results.IsVisible, $"{where}: the result rows do not show in the open card.");
+            var rowHeight = Descendants(results).OfType<DataGridRow>().Where(r => r.IsVisible).Max(r => r.ActualHeight);
+            var shownRows = Descendants(results).OfType<ScrollContentPresenter>().First().ActualHeight / rowHeight;
+            Assert.True(shownRows <= SiteHygienePage.ResultLines + 0.05 && shownRows >= Math.Min(rows, SiteHygienePage.ResultLines) - 0.05, $"{where}: the open card shows {shownRows:0.00} result rows.");
+            if (rows > SiteHygienePage.ResultLines)
+            {
+                var viewer = Descendants(results).OfType<ScrollViewer>().First();
+                var bar = Descendants(viewer).OfType<System.Windows.Controls.Primitives.ScrollBar>().Single(b => b.Orientation == System.Windows.Controls.Orientation.Vertical);
+                Assert.True(bar.IsVisible && bar.Opacity > 0.99, $"{where}: the result rows have no visible scroll bar.");
+            }
+            AssertFindingsTabFits(page, viewModel, where);
+        }, width, 900 - 48, () => DeploymentHarness(rows, deployments: 4));
+    }
+
+    public static TheoryData<ApplicationTheme, double, int, bool> FixLineCases()
+    {
+        var data = new TheoryData<ApplicationTheme, double, int, bool>();
+        foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
+        foreach (var width in new[] { 1440 - CollapsedPaneWidth, 1440 - NavigationPaneWidth })
+        foreach (var lines in new[] { 4, 12 })
+        foreach (var open in new[] { false, true })
+            data.Add(theme, width, lines, open);
+        return data;
+    }
+
+    /// <summary>
+    /// At 1440x900 the fix text box shows whole lines: every line up to <see cref="SiteHygienePage.FixLines"/> with the
+    /// result card collapsed, at least <see cref="SiteHygienePage.MinFixLines"/> with the card open, and a scroll bar that
+    /// shows without the pointer when lines are left. The box and the detail never make the Findings tab scroll.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(FixLineCases))]
+    public void TheFixTextBoxShowsWholeLinesAndAVisibleScrollBarWithoutAScrollOfTheTab(ApplicationTheme theme, double width, int lines, bool open)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            RunFix(window, viewModel, 3);
+            SelectDeploymentFinding(window, viewModel);
+            viewModel.ResultsExpanded = open;
+            Settle(window);
+            var where = $"{lines} fix lines, card {(open ? "open" : "collapsed")}, at {width}x{900 - 48}";
+
+            var box = ById<System.Windows.Controls.TextBox>(page, "txtFixText");
+            Assert.Same(box.TryFindResource("DetailBox"), box.Style);
+            var text = Descendants(box).OfType<ScrollViewer>().First();
+            var line = box.FontFamily.LineSpacing * box.FontSize;
+            Assert.True(text.ExtentHeight / line >= lines - 0.05, $"{where}: the fix text has {text.ExtentHeight / line:0.0} lines; the test needs {lines}.");
+            var shown = text.ViewportHeight / line;
+            Assert.True(Math.Abs(shown - Math.Round(shown)) < 0.05, $"{where}: the box shows {shown:0.00} lines: a line is cut.");
+            Assert.True(shown <= SiteHygienePage.FixLines + 0.05, $"{where}: the box shows {shown:0.0} lines, more than {SiteHygienePage.FixLines}.");
+            var wanted = open ? Math.Min(lines, SiteHygienePage.MinFixLines) : Math.Min(lines, SiteHygienePage.FixLines);
+            Assert.True(shown >= wanted - 0.05, $"{where}: the box shows {shown:0.0} of {lines} lines and must show {wanted}.");
+            // The thumb of a short box is short, so its rounded ends take a larger share of its bounds.
+            if (text.ScrollableHeight >= 1) AssertReadableScrollBar(window, box, text, $"sh-fix-text-{theme}-{width:0}-{lines}-{open}", share: 0.15);
+            else Assert.True(shown >= lines - 0.05, $"{where}: the box shows {shown:0.0} of {lines} lines without a scroll bar.");
+            AssertFindingsTabFits(page, viewModel, where);
+        }, width, 900 - 48, () => DeploymentHarness(3, lines));
     }
 
     private static UIElement Focused() => Assert.IsAssignableFrom<UIElement>(Keyboard.FocusedElement);
@@ -945,7 +1070,7 @@ public sealed class SiteHygieneRenderTests
     ];
 
     /// <summary>The scroll bar of a text box shows without the pointer over it, and its thumb stands out from the box background.</summary>
-    private static void AssertReadableScrollBar(Window window, System.Windows.Controls.TextBox box, ScrollViewer text, string where)
+    private static void AssertReadableScrollBar(Window window, System.Windows.Controls.TextBox box, ScrollViewer text, string where, double share = 0.2)
     {
         var bar = Descendants(text).OfType<System.Windows.Controls.Primitives.ScrollBar>().Single(b => b.Orientation == System.Windows.Controls.Orientation.Vertical);
         var thumb = Descendants(bar).OfType<System.Windows.Controls.Primitives.Thumb>().Single();
@@ -955,7 +1080,7 @@ public sealed class SiteHygieneRenderTests
         var back = MostCommon(Pixels(window, box, where));
         var thumbPixels = Pixels(window, thumb);
         var marked = thumbPixels.Count(p => Contrast(p, back) >= 3) / (double)thumbPixels.Count;
-        Assert.True(marked >= 0.2, $"{where}: the thumb is not readable on the box background {back}: {marked:P0} of its pixels have a contrast of 3 or more.");
+        Assert.True(marked >= share, $"{where}: the thumb is not readable on the box background {back}: {marked:P0} of its pixels have a contrast of 3 or more.");
     }
 
     [Theory]

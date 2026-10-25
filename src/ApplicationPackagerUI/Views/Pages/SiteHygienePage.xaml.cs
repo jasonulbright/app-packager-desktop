@@ -36,7 +36,42 @@ public partial class SiteHygienePage : INavigationAware
         FitTab(tab: gridHistoryTab, gridMinHeight: HistoryGridMinHeight, parts: [txtHygieneHistoryIntro, pnlHygieneHistoryFilter, pnlHygieneHistoryDetail]);
         dgHygieneResults.SizeChanged += (_, _) => FitResults();
         dgHygieneResults.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitResults, System.Windows.Threading.DispatcherPriority.Loaded);
+        txtFixText.MaxHeight = FixTextHeight(FixLines);
+        // The routed event also comes from the fix text box, whose extent changes with its text.
+        scrollFindingsTab.ScrollChanged += (_, e) =>
+        {
+            if (e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0) FitFixText();
+        };
+        dgFindings.SizeChanged += (_, _) => FitFixText();
         ApplyLayout(compact: false);
+    }
+
+    private double FixLineHeight => txtFixText.FontFamily.LineSpacing * txtFixText.FontSize;
+
+    /// <summary>The height of the fix text box around its text: the template adds more than the padding and border, so the first layout measures it.</summary>
+    private double _fixChrome = double.NaN;
+
+    private double FixChrome => double.IsNaN(_fixChrome)
+        ? txtFixText.Padding.Top + txtFixText.Padding.Bottom + txtFixText.BorderThickness.Top + txtFixText.BorderThickness.Bottom
+        : _fixChrome;
+
+    private double FixTextHeight(int lines) => lines * FixLineHeight + FixChrome;
+
+    /// <summary>
+    /// Sets the fix text box to the whole lines that fit while the findings grid keeps <see cref="FindingsGridMinHeight"/>
+    /// and the tab does not scroll, from <see cref="MinFixLines"/> to <see cref="FixLines"/> and up to the lines of the
+    /// text, so no line shows cut and the scroll bar shows when lines are left.
+    /// </summary>
+    private void FitFixText()
+    {
+        if (!txtFixText.IsVisible || txtFixText.ExtentHeight <= 0) return;
+        if (double.IsNaN(_fixChrome) && txtFixText.ViewportHeight > 0) _fixChrome = txtFixText.ActualHeight - txtFixText.ViewportHeight;
+        var line = FixLineHeight;
+        var lines = Math.Clamp((int)Math.Ceiling((txtFixText.ExtentHeight - 0.5) / line), MinFixLines, FixLines);
+        var shown = (int)Math.Round((txtFixText.ActualHeight - FixTextHeight(0)) / line);
+        var spare = (int)Math.Floor((dgFindings.ActualHeight - FindingsGridMinHeight - scrollFindingsTab.ScrollableHeight) / line);
+        var height = FixTextHeight(Math.Clamp(shown + spare, MinFixLines, lines));
+        if (Math.Abs(height - txtFixText.MaxHeight) > 0.5) txtFixText.MaxHeight = height;
     }
 
     /// <summary>
@@ -61,15 +96,14 @@ public partial class SiteHygienePage : INavigationAware
         }
     }
 
-    /// <summary>The result rows show at most <see cref="ResultLines"/> rows below the column header, <see cref="CompactResultLines"/> on a short page; more rows scroll.</summary>
+    /// <summary>The result rows show at most <see cref="ResultLines"/> rows below the column header; more rows scroll.</summary>
     private void FitResults()
     {
-        var lines = _compact ? CompactResultLines : ResultLines;
         if (!dgHygieneResults.IsVisible || dgHygieneResults.ItemContainerGenerator.ContainerFromIndex(0) is not DataGridRow { ActualHeight: > 0 } row) return;
         if (Helpers.DataGridFocus.Find<ScrollContentPresenter>(dgHygieneResults) is not { ActualHeight: > 0 } rows) return;
         // The column header, the borders and a sideways scroll bar take the height of the grid outside its rows.
         var chrome = dgHygieneResults.ActualHeight - rows.ActualHeight;
-        var height = Math.Ceiling(chrome + lines * row.ActualHeight);
+        var height = Math.Ceiling(chrome + ResultLines * row.ActualHeight);
         if (Math.Abs(dgHygieneResults.MaxHeight - height) > 0.5) dgHygieneResults.MaxHeight = height;
     }
 
@@ -82,11 +116,14 @@ public partial class SiteHygienePage : INavigationAware
     /// <summary>The least height of the relationship list; the tab scrolls before the list gets less.</summary>
     public const double RelationsGridMinHeight = 300;
 
-    /// <summary>The most result rows the open result card shows; more rows scroll.</summary>
-    public const int ResultLines = 3;
+    /// <summary>The most result rows the open result card shows, so the Findings tab keeps its least height at 1440x900; more rows scroll.</summary>
+    public const int ResultLines = 2;
 
-    /// <summary>The result rows the open result card shows below <see cref="ShortHeight"/>, so the tabs keep a usable height.</summary>
-    public const int CompactResultLines = 2;
+    /// <summary>The most lines the fix text box shows; more lines scroll.</summary>
+    public const int FixLines = 8;
+
+    /// <summary>The fewest lines the fix text box shows when the tab is short.</summary>
+    public const int MinFixLines = 3;
 
     private bool _compact;
 

@@ -10,28 +10,33 @@
     Drop="Page_Drop">
 
     <Page.Resources>
-        <helpers:StatusToBrushConverter x:Key="StatusToBrushConverter" />
-        <Style x:Key="TrimCell" TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
-            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
-        </Style>
-        <!-- The text takes the cell's own foreground, so the count stays readable on a selected row. -->
-        <Style x:Key="CveCellButton" TargetType="Button">
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="Transparent" Padding="4,0">
-                            <TextBlock Text="{Binding CveCount}" TextDecorations="Underline" TextTrimming="CharacterEllipsis"
-                                       Foreground="{TemplateBinding Foreground}" />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <helpers:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+            <Style x:Key="TrimCell" TargetType="TextBlock" BasedOn="{StaticResource DefaultDataGridTextElementStyle}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+            <!-- The text takes the cell's own foreground, so the count stays readable on a selected row. -->
+            <Style x:Key="CveCellButton" TargetType="Button">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=DataGridCell}}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="Transparent" Padding="4,0">
+                                <TextBlock Text="{Binding CveCount}" TextDecorations="Underline" TextTrimming="CharacterEllipsis"
+                                           Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
     </Page.Resources>
 
     <Grid Margin="16,12,16,12" Background="Transparent" AllowDrop="True">
@@ -154,6 +159,7 @@
                   GridLinesVisibility="Horizontal"
                   HeadersVisibility="Column"
                   FrozenColumnCount="1"
+                  RowStyle="{StaticResource SelectableRow}"
                   MouseDoubleClick="PackagerGrid_MouseDoubleClick"
                   ContextMenuOpening="PackagerGrid_ContextMenuOpening">
 
