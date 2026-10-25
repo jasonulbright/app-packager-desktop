@@ -41,11 +41,11 @@ public sealed class AlertEvaluator : IAlertEvaluator
         var rules = new (string Key, bool On, double? Value, Func<double, bool>? Breach, Func<double, string> Message)[]
         {
             (LiveAlertMetrics.SiteCritical, settings.SiteCritical, Known(snapshot, LiveMetrics.SiteCritical), v => v > 0,
-                v => $"Site health: {N(v)} components or site systems are critical."),
+                v => $"Site health: {LiveText.Count(v, "component or site system", "components or site systems")} {LiveText.Verb(v, "is", "are")} critical."),
             (LiveAlertMetrics.DpCritical, settings.DpCritical, Known(snapshot, LiveMetrics.DPOffline), v => v > 0,
-                v => $"Distribution points: {N(v)} are critical."),
+                v => $"Distribution points: {N(v)} {LiveText.Verb(v, "is", "are")} critical."),
             (LiveAlertMetrics.ContentFailed, settings.ContentFailed, Known(snapshot, LiveMetrics.ContentFailedPairs), v => v > 0,
-                v => $"Content: {N(v)} DP-content pairs failed."),
+                v => $"Content: {LiveText.Count(v, "DP-content pair")} failed."),
             (LiveAlertMetrics.Compliance, settings.CompliancePctFloor is not null, Known(snapshot, LiveMetrics.CompliancePct),
                 settings.CompliancePctFloor is { } floor ? (Func<double, bool>)(v => v < floor) : null,
                 v => $"Deployments: overall compliance {N(v)} % is below the {N(settings.CompliancePctFloor!.Value)} % floor.")

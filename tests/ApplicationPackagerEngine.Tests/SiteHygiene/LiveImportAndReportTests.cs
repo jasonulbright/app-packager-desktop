@@ -92,7 +92,7 @@ public sealed class LiveImportAndReportTests : IDisposable
         Assert.Equal(plan.SettingKeys, result.SettingKeys);
         Assert.True(result.HistoryCopied);
         Assert.Equal(2, result.HistoryRows);
-        Assert.Equal("Filled 4 settings: SqlServer, RefreshMinutes, AlertsEnabled, CompliancePctFloor. Copied 2 history rows.", result.Message);
+        Assert.Equal("Filled 4 settings: SQL server, Refresh interval, Alerts, Compliance floor. Copied 2 history rows.", result.Message);
         Assert.Equal(new LiveSettingValues(SqlServer: "CM01.contoso.com", TrustSqlCertificate: null, RefreshMinutes: 30, InactiveDays: 14, AlertsEnabled: false, CompliancePctFloor: 90), s.Values);
         var rows = store.Read(365);
         Assert.Equal(2, rows.Count);

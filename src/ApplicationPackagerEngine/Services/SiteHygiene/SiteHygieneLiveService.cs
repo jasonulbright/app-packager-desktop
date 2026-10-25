@@ -106,8 +106,8 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         var snapshot = new LiveSnapshot(results, started, _utcNow());
         var failed = results.Values.Count(r => r.Failed);
         var cut = results.Values.Count(r => r.Truncated);
-        _log?.Info(LogArea, $"Live refresh: {N(results.Count)} views, {N(snapshot.QueryCount)} queries, {N(failed)} failed, {N(cut)} cut.");
-        progress.Report($"Refresh finished: {N(results.Count - failed)} of {N(results.Count)} views read.");
+        _log?.Info(LogArea, $"Live refresh: {LiveText.Count(results.Count, "view")}, {LiveText.Count(snapshot.QueryCount, "query", "queries")}, {N(failed)} failed, {N(cut)} cut.");
+        progress.Report($"Refresh finished: {N(results.Count - failed)} of {LiveText.Count(results.Count, "view")} read.");
         return snapshot;
     }
 
@@ -223,7 +223,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             if (cut)
             {
                 var first = tables.First(t => t.State == HygieneSetStates.Cut);
-                message = $"The read was cut at {N(first.Rows.Count)} of {N(first.Total)} rows. The counts of this view are not known.";
+                message = $"The read was cut at {N(first.Rows.Count)} of {LiveText.Count(first.Total, "row")}. The counts of this view are not known.";
                 _log?.Warning(LogArea, $"The read of {view} was cut at its cap ({N(first.Rows.Count)} of {N(first.Total)}).");
             }
             else if (view == LiveView.Content && counts[LiveMetrics.ContentIssues] is null)
@@ -412,7 +412,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             var cut = data.Count > MaxSqlRows;
             if (cut) data = data.Take(MaxSqlRows).ToList();
             var (rows, counts) = view == LiveView.ClientHealth ? LiveAggregator.Clients(data, !cut, ct) : LiveAggregator.Inactive(data, !cut, ct);
-            var message = cut ? $"The read was cut at {N(MaxSqlRows)} rows. The counts of this view are not known." : null;
+            var message = cut ? $"The read was cut at {LiveText.Count(MaxSqlRows, "row")}. The counts of this view are not known." : null;
             results.Add((view, new LiveViewResult(view, LiveAggregator.Columns(view), rows, counts, Truncated: cut, Failed: false, message, _utcNow())
             {
                 QueryCount = 1,
@@ -459,7 +459,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             return DiscoveryService.SqlMessage(error, target, SqlCommandTimeoutSeconds).Replace("the inventory views", "the client health views", StringComparison.Ordinal);
         }
         if (!parsed.Ended || parsed.TestCount is null) return $"The site database query on {target.Server} did not finish.";
-        return $"Connected to {target.Database} on {target.Server}. The client health view holds {N(parsed.TestCount.Value)} rows.";
+        return $"Connected to {target.Database} on {target.Server}. The client health view holds {LiveText.Count(parsed.TestCount.Value, "row")}.";
     }
 
     private static string N(int n) => n.ToString("N0", CultureInfo.InvariantCulture);

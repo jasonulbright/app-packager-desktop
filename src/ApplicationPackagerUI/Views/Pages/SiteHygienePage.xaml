@@ -137,6 +137,12 @@
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
 
+            <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+
             <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
             <Style x:Key="TabStopCell" TargetType="DataGridCell" BasedOn="{StaticResource FocusableCell}">
                 <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
@@ -465,7 +471,7 @@
                                     <RowDefinition x:Name="rowTrendTable" Height="2*" MinHeight="{x:Static local:SiteHygienePage.TrendTableMinHeight}" />
                                 </Grid.RowDefinitions>
                                 <Border Grid.Row="0" Style="{StaticResource Card}" Padding="8">
-                                    <helpers:TrendChart x:Name="chartTrend" Points="{Binding TrendRows}" SelectedIndex="{Binding TrendSelectedIndex}"
+                                    <helpers:TrendChart x:Name="chartTrend" Points="{Binding TrendRows}" SelectedIndex="{Binding TrendSelectedIndex}" Readout="{Binding TrendReadout}"
                                                         AutomationProperties.Name="{Binding SelectedTrendMetric.Title}" AutomationProperties.HelpText="{Binding TrendReadout}"
                                                         AutomationProperties.AutomationId="chartTrend" ToolTip="{Binding TrendReadout}" />
                                 </Border>
@@ -489,7 +495,7 @@
                                     <DataGridTextColumn Header="State" Binding="{Binding State}" Width="96" MinWidth="92" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Time" Binding="{Binding Time}" Width="176" MinWidth="172" ElementStyle="{StaticResource TrimmedCell}" />
                                     <DataGridTextColumn Header="Metric" Binding="{Binding Metric}" Width="300" MinWidth="296" ElementStyle="{StaticResource TrimmedCell}" />
-                                    <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
+                                    <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="*" MinWidth="200" ElementStyle="{StaticResource WrappedCell}" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
@@ -687,6 +693,9 @@
                             <ui:Button Content="Import from the Health Dashboard" Icon="{ui:SymbolIcon ArrowImport24}" Command="{Binding ImportDashboardCommand}" Style="{StaticResource ToolButton}"
                                        AutomationProperties.AutomationId="btnImportDashboard" />
                         </WrapPanel>
+                        <TextBlock Text="{Binding ImportNote}" Style="{StaticResource Note}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Visibility="{Binding HasImportNote, Converter={StaticResource BoolToVisibility}}"
+                                   AutomationProperties.AutomationId="txtImportNote" AutomationProperties.LiveSetting="Polite" />
 
                         <TextBlock Text="Reports" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
                         <WrapPanel>

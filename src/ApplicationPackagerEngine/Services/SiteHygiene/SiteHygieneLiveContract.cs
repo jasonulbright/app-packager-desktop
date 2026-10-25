@@ -139,6 +139,18 @@ public static class LiveSettingKeys
     public const string InactiveDays = "InactiveDays";
     public const string AlertsEnabled = "AlertsEnabled";
     public const string CompliancePctFloor = "CompliancePctFloor";
+
+    /// <summary>The name of a setting key as the Options tab shows it.</summary>
+    public static string Label(string key) => key switch
+    {
+        SqlServer => "SQL server",
+        TrustSqlCertificate => "Trust the SQL server certificate",
+        RefreshMinutes => "Refresh interval",
+        InactiveDays => "Inactivity threshold",
+        AlertsEnabled => "Alerts",
+        CompliancePctFloor => "Compliance floor",
+        _ => key
+    };
 }
 
 /// <summary>One Live grid as an export: the rows shown, in column order, with the status label as the first column.</summary>
@@ -326,6 +338,13 @@ public static class LiveText
     public static string Count(double? value) =>
         value is { } v ? v.ToString(v == Math.Floor(v) ? "N0" : "N1", CultureInfo.InvariantCulture) : "not known";
 
+    /// <summary>A count with the noun that agrees with it: "1 deployment", "2 deployments", "not known deployments" for null.</summary>
+    public static string Count(double? value, string singular, string? plural = null) =>
+        $"{Count(value)} {(value == 1 ? singular : plural ?? singular + "s")}";
+
+    /// <summary>The word that agrees with the count: <paramref name="singular"/> for 1, <paramref name="plural"/> otherwise.</summary>
+    public static string Verb(double? value, string singular, string plural) => value == 1 ? singular : plural;
+
     /// <summary>One line per view in a fixed order; a view that failed, was cut or was skipped says so.</summary>
     public static string Summary(LiveSnapshot snapshot, DateTime localTime)
     {
@@ -341,11 +360,11 @@ public static class LiveText
             var c = r.Counts;
             var line = view switch
             {
-                LiveView.Deployments => $"{Count(c[LiveMetrics.DeploymentTotal])} deployments, {Count(c[LiveMetrics.DeploymentFailed])} with errors, compliance {Count(c[LiveMetrics.CompliancePct])} %",
-                LiveView.Content => $"{Count(c[LiveMetrics.ContentIssues])} content items with issues, {Count(c[LiveMetrics.ContentFailedPairs])} failed DP-content pairs",
-                LiveView.DistributionPoints => $"{Count(c[LiveMetrics.DPTotal])} distribution points, {Count(c[LiveMetrics.DPOffline])} critical, {Count(c[LiveMetrics.DPDegraded])} warning",
+                LiveView.Deployments => $"{Count(c[LiveMetrics.DeploymentTotal], "deployment")}, {Count(c[LiveMetrics.DeploymentFailed])} with errors, compliance {Count(c[LiveMetrics.CompliancePct])} %",
+                LiveView.Content => $"{Count(c[LiveMetrics.ContentIssues], "content item")} with issues, {Count(c[LiveMetrics.ContentFailedPairs], "failed DP-content pair")}",
+                LiveView.DistributionPoints => $"{Count(c[LiveMetrics.DPTotal], "distribution point")}, {Count(c[LiveMetrics.DPOffline])} critical, {Count(c[LiveMetrics.DPDegraded])} warning",
                 LiveView.ClientHealth => $"{Count(c[LiveMetrics.ClientHealthy])} healthy, {Count(c[LiveMetrics.ClientUnhealthy])} unhealthy, {Count(c[LiveMetrics.ClientInactive])} inactive",
-                LiveView.InactiveDevices => $"{Count(c[LiveMetrics.InactiveDevices])} devices past the inactivity threshold",
+                LiveView.InactiveDevices => $"{Count(c[LiveMetrics.InactiveDevices], "device")} past the inactivity threshold",
                 LiveView.SiteHealth => $"{Count(c[LiveMetrics.SiteOK])} OK, {Count(c[LiveMetrics.SiteWarning])} warning, {Count(c[LiveMetrics.SiteCritical])} critical",
                 _ => ""
             };

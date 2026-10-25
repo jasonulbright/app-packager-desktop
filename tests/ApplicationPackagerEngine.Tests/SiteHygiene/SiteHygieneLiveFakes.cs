@@ -244,8 +244,9 @@ internal sealed class FakeLegacyImport : ILegacyDashboardImport
         var (values, keys) = LegacyDashboardImport.Fill(plan.Values, Read?.Invoke() ?? LiveSettingValues.Empty);
         keys = keys.Where(plan.SettingKeys.Contains).ToList();
         if (keys.Count > 0 && Fill?.Invoke(values) == false) keys = [];
+        var filled = keys.Count == 0 ? "" : $"Filled {keys.Count} {(keys.Count == 1 ? "setting" : "settings")}: {string.Join(", ", keys.Select(LiveSettingKeys.Label))}. ";
         var result = new LegacyImportResult(keys, plan.HistoryWillBeCopied ? plan.HistoryRows : 0, plan.HistoryWillBeCopied,
-            plan.HistoryWillBeCopied ? $"Copied {plan.HistoryRows} history rows." : "Copied no history rows.");
+            filled + (plan.HistoryWillBeCopied ? $"Copied {plan.HistoryRows} history {(plan.HistoryRows == 1 ? "row" : "rows")}." : "Copied no history rows."));
         Next = Next with { HistoryWillBeCopied = false, HistoryRows = 0 };
         return result;
     }

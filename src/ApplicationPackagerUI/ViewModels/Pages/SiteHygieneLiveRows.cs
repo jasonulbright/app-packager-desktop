@@ -23,16 +23,11 @@ public sealed record TrendMetricChoice(string Column, string Title)
     public override string ToString() => Title;
 }
 
-/// <summary>How a Live column is sized: a name takes the free width, the other kinds have a width that holds their longest value.</summary>
+/// <summary>How a Live column is sized: a name shares the free width and wraps, a value has the width of its widest value on one line.</summary>
 public enum LiveColumnKind
 {
     Name,
-    Text,
-    MediumText,
-    LongText,
-    Count,
-    Time,
-    Short
+    Value
 }
 
 /// <summary>The words, glyphs and column sizes of the Live tab.</summary>
@@ -85,58 +80,18 @@ public static class SiteHygieneLiveLabels
     };
 
     /// <summary>The kind of a column by its header; a header that is not listed is a name.</summary>
-    public static LiveColumnKind KindOf(string header) => Kinds.TryGetValue(header.Trim(), out var kind) ? kind : LiveColumnKind.Name;
+    public static LiveColumnKind KindOf(string header) => ValueHeaders.Contains(header.Trim()) ? LiveColumnKind.Value : LiveColumnKind.Name;
 
-    /// <summary>The column headers of the Live service (LiveAggregator) that hold values of a known length; Name, Collection, Device, Server and Operating system are names.</summary>
-    private static readonly Dictionary<string, LiveColumnKind> Kinds = new(StringComparer.OrdinalIgnoreCase)
+    /// <summary>The column headers of the Live service (LiveAggregator) that hold values of a bounded length; Name, Collection, Device, Server and Operating system are names.</summary>
+    private static readonly HashSet<string> ValueHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Type"] = LiveColumnKind.MediumText,
-        ["Content type"] = LiveColumnKind.LongText,
-        ["Kind"] = LiveColumnKind.LongText,
-        ["Purpose"] = LiveColumnKind.Short,
-        ["Site"] = LiveColumnKind.Short,
-        ["Pull DP"] = LiveColumnKind.Short,
-        ["PXE"] = LiveColumnKind.Short,
-        ["Targeted"] = LiveColumnKind.Count,
-        ["Success"] = LiveColumnKind.Count,
-        ["Errors"] = LiveColumnKind.Count,
-        ["In progress"] = LiveColumnKind.Count,
-        ["Compliance (%)"] = LiveColumnKind.Count,
-        ["Distribution points"] = LiveColumnKind.Count,
-        ["Installed"] = LiveColumnKind.Count,
-        ["Failed"] = LiveColumnKind.Count,
-        ["Installed (%)"] = LiveColumnKind.Count,
-        ["Days since contact"] = LiveColumnKind.Count,
-        ["Package ID"] = LiveColumnKind.Text,
-        ["Item"] = LiveColumnKind.Text,
-        ["State"] = LiveColumnKind.Text,
-        ["Health"] = LiveColumnKind.Text,
-        ["Active"] = LiveColumnKind.Short,
-        ["Client version"] = LiveColumnKind.Text,
-        ["Last started"] = LiveColumnKind.LongText,
-        ["Last active"] = LiveColumnKind.Time,
-        ["Last DDR"] = LiveColumnKind.Time,
-        ["Last policy"] = LiveColumnKind.Time,
-        ["Last inventory"] = LiveColumnKind.Time
+        "Type", "Content type", "Kind", "Purpose", "Site", "Pull DP", "PXE", "Targeted", "Success", "Errors", "In progress", "Compliance (%)",
+        "Distribution points", "Installed", "Failed", "Installed (%)", "Days since contact", "Package ID", "Item", "State", "Health", "Active",
+        "Client version", "Last started", "Last active", "Last DDR", "Last policy", "Last inventory"
     };
 
-    /// <summary>The headers <see cref="KindOf"/> sizes as a fixed kind.</summary>
-    public static IReadOnlyCollection<string> FixedHeaders => Kinds.Keys;
-
-    /// <summary>The width of a column of a fixed kind, which is also its least width, so a narrow window never cuts its longest value; a name has a star width and only a least width.</summary>
-    public static (double Width, double MinWidth) Width(LiveColumnKind kind) => kind switch
-    {
-        LiveColumnKind.Count => (80, 80),
-        LiveColumnKind.Short => (84, 84),
-        LiveColumnKind.Text => (124, 124),
-        LiveColumnKind.MediumText => (160, 160),
-        LiveColumnKind.LongText => (192, 192),
-        LiveColumnKind.Time => (136, 136),
-        _ => (0, 100)
-    };
-
-    /// <summary>The width of the status column: it holds the glyph and the longest status label.</summary>
-    public const double StatusWidth = 132;
+    /// <summary>The headers <see cref="KindOf"/> sizes as values.</summary>
+    public static IReadOnlyCollection<string> FixedHeaders => ValueHeaders;
 
     public static string Time(DateTime utc) => SiteHygieneLabels.Time(utc);
 

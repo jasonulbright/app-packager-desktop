@@ -64,6 +64,13 @@ public sealed partial class SiteHygieneViewModel
 
     public bool HasImportOffer => ImportOffer.Length > 0;
 
+    /// <summary>Why a Health Dashboard folder that the first visit found cannot be imported; empty when the folder can be imported or none was found.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasImportNote))]
+    private string _importNote = "";
+
+    public bool HasImportNote => ImportNote.Length > 0;
+
     [ObservableProperty] private bool _importOfferDismissed;
 
     [ObservableProperty]
@@ -292,7 +299,11 @@ public sealed partial class SiteHygieneViewModel
         finally { IsTestingSql = false; }
     }
 
-    /// <summary>On the first visit with no metrics history, offers an import when the old dashboard holds something to copy; it copies nothing by itself.</summary>
+    /// <summary>
+    /// On the first visit with no metrics history, offers an import when the old dashboard holds something to copy; it
+    /// copies nothing by itself. A folder that was found but cannot be imported gets no offer; the import row of the
+    /// Options tab says why.
+    /// </summary>
     private async Task CheckImportOfferAsync()
     {
         if (_importChecked || ImportOfferDismissed || Services.Live is not { } live) return;
@@ -308,7 +319,13 @@ public sealed partial class SiteHygieneViewModel
             Services.Log.Warning(LogArea, $"The Health Dashboard folder could not be checked ({ex.GetType().Name}).");
             return;
         }
-        if (plan.Refusal is not null || plan.IsEmpty || ImportOfferDismissed) return;
+        if (ImportOfferDismissed) return;
+        if (plan.Refusal is { } refusal)
+        {
+            if (plan.SourceFolder.Length > 0) ImportNote = SecretMask.Apply(refusal);
+            return;
+        }
+        if (plan.IsEmpty) return;
         _importOffered = plan;
         ImportOffer = $"A retired Health Dashboard folder was found: {plan.SourceFolder}. Select Import to see what it copies and confirm it, or Not now.";
     }
@@ -327,6 +344,7 @@ public sealed partial class SiteHygieneViewModel
     {
         if (Services.Live is not { } live) return;
         IsImporting = true;
+        ImportNote = "";
         try
         {
             // The plan compares with the settings file and the import reloads the page from it, so the values chosen on the page are written first.
@@ -376,26 +394,13 @@ public sealed partial class SiteHygieneViewModel
             ImportOffer = "";
             ImportOfferDismissed = true;
             await SaveAsync();
-            var filled = result.SettingKeys.Select(SettingName).ToList();
-            StatusMessage = SecretMask.Apply(result.Message) + (filled.Count > 0 ? $" Settings filled: {string.Join(", ", filled)}." : "");
-            Services.Log.Info(LogArea, $"Health Dashboard import: history rows={result.HistoryRows} settings={filled.Count}.");
+            StatusMessage = SecretMask.Apply(result.Message);
+            Services.Log.Info(LogArea, $"Health Dashboard import: history rows={result.HistoryRows} settings={result.SettingKeys.Count}.");
             _trendsStale = true;
             if (IsTrendsPane && _active) _ = LoadTrendsAsync();
         }
         finally { IsImporting = false; }
     }
-
-    /// <summary>The label of a setting key of an import plan.</summary>
-    private static string SettingName(string key) => key switch
-    {
-        LiveSettingKeys.SqlServer => "SQL server",
-        LiveSettingKeys.TrustSqlCertificate => "Trust the SQL server certificate",
-        LiveSettingKeys.RefreshMinutes => "Refresh interval",
-        LiveSettingKeys.InactiveDays => "Inactivity threshold",
-        LiveSettingKeys.AlertsEnabled => "Alerts",
-        LiveSettingKeys.CompliancePctFloor => "Compliance floor",
-        _ => key
-    };
 
     /// <summary>The settings the plan fills, each with the value the page shows after the import; the plan holds only values that are empty in the settings file.</summary>
     private static List<(string Name, string Value)> Fills(LegacyImportPlan plan)
@@ -414,7 +419,7 @@ public sealed partial class SiteHygieneViewModel
                 LiveSettingKeys.CompliancePctFloor => values.CompliancePctFloor is { } floor ? Nearest(FloorChoices, Math.Clamp(floor, 0, 100)).ToString(CultureInfo.CurrentCulture) + " %" : null,
                 _ => null
             };
-            if (value is not null) fills.Add((SettingName(key), value));
+            if (value is not null) fills.Add((LiveSettingKeys.Label(key), value));
         }
         return fills;
     }
@@ -423,12 +428,24 @@ public sealed partial class SiteHygieneViewModel
     {
         var text = new StringBuilder();
         text.AppendLine($"Folder: {plan.SourceFolder}");
-        text.AppendLine(plan.HistoryWillBeCopied
-            ? $"Metrics history: {SiteHygieneLabels.Count(plan.HistoryRows, "row")}{(plan.HistoryFile.Length > 0 ? " from " + plan.HistoryFile : "")}."
-            : "Metrics history: not copied.");
+        var files = new List<string>();
+        if (plan.HistoryWillBeCopied && plan.HistoryFile.Length > 0) files.Add(InFolder(plan.SourceFolder, plan.HistoryFile));
+        if (fills.Count > 0 && plan.SettingsFile.Length > 0) files.Add(InFolder(plan.SourceFolder, plan.SettingsFile));
+        if (files.Count > 0) text.AppendLine($"{(files.Count == 1 ? "File" : "Files")}: {string.Join(", ", files)}");
+        text.AppendLine(plan.HistoryWillBeCopied ? $"Metrics history: {SiteHygieneLabels.Count(plan.HistoryRows, "row")}." : "Metrics history: not copied.");
         if (plan.SkippedLines > 0) text.AppendLine($"The history file has {SiteHygieneLabels.Count(plan.SkippedLines, "line")} that cannot be read. The import skips them.");
         if (fills.Count == 0) text.AppendLine("Settings: none. Every setting of the old dashboard has a value on this page already.");
-        foreach (var (name, value) in fills) text.AppendLine($"Setting {name}: {value}{(plan.SettingsFile.Length > 0 ? " from " + plan.SettingsFile : "")}.");
+        foreach (var (name, value) in fills) text.AppendLine($"Setting {name}: {value}.");
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>The path of <paramref name="file"/> below <paramref name="folder"/>; the full path when the file is not in the folder.</summary>
+    private static string InFolder(string folder, string file)
+    {
+        var relative = System.IO.Path.GetRelativePath(folder, file);
+        return relative.StartsWith("..", StringComparison.Ordinal) || System.IO.Path.IsPathRooted(relative) ? file : relative;
+    }
+
+    /// <summary>The import plan as the import window shows it, for a test of its lines.</summary>
+    public static string PlanTextOf(LegacyImportPlan plan) => PlanText(plan, Fills(plan));
 }

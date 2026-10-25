@@ -317,12 +317,12 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             }
         }
         var parts = new List<string>();
-        if (keys.Count > 0) parts.Add($"Filled {keys.Count.ToString(CultureInfo.InvariantCulture)} settings: {string.Join(", ", keys)}.");
-        if (copied) parts.Add($"Copied {rows.ToString("N0", CultureInfo.InvariantCulture)} history rows.");
+        if (keys.Count > 0) parts.Add($"Filled {LiveText.Count(keys.Count, "setting")}: {string.Join(", ", keys.Select(LiveSettingKeys.Label))}.");
+        if (copied) parts.Add($"Copied {LiveText.Count(rows, "history row")}.");
         if (notSaved) parts.Add(SettingsNotSaved);
         if (historyProblem is not null) parts.Add(historyProblem);
         if (parts.Count == 0) parts.Add("Nothing changed. The settings already have values and a history exists.");
-        _log?.Info(SiteHygieneService.LogArea, $"Dashboard import: {keys.Count.ToString(CultureInfo.InvariantCulture)} settings, {rows.ToString(CultureInfo.InvariantCulture)} history rows.");
+        _log?.Info(SiteHygieneService.LogArea, $"Dashboard import: {LiveText.Count(keys.Count, "setting")}, {LiveText.Count(rows, "history row")}.");
         return new LegacyImportResult(keys, rows, copied, string.Join(" ", parts));
     }
 

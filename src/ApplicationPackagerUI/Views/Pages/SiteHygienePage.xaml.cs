@@ -42,6 +42,11 @@ public partial class SiteHygienePage : INavigationAware
         pnlTrends.IsVisibleChanged += (_, _) => FitLiveView();
         dgTrend.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitLiveView, System.Windows.Threading.DispatcherPriority.Loaded);
         BuildLiveColumns();
+        btnLiveRefresh.Click += (_, _) => _refreshKeepsFocus = btnLiveRefresh.IsKeyboardFocused;
+        btnLiveRefresh.IsEnabledChanged += (_, e) =>
+        {
+            if (e.NewValue is true && _refreshKeepsFocus) Dispatcher.BeginInvoke(RestoreRefreshFocus, System.Windows.Threading.DispatcherPriority.Input);
+        };
         dgHygieneResults.SizeChanged += (_, _) => FitResults();
         dgHygieneResults.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitResults, System.Windows.Threading.DispatcherPriority.Loaded);
         txtFixText.MaxHeight = WholeLines.BoxHeight(box: txtFixText, lines: FixLines);
@@ -226,10 +231,28 @@ public partial class SiteHygienePage : INavigationAware
                 FitLiveView();
                 break;
             case nameof(SiteHygieneViewModel.LiveViewRows):
+                FitLiveColumns();
                 ShowSorts();
                 if (_liveGridPlace is not null) Dispatcher.BeginInvoke(RestoreLiveGridPlace, System.Windows.Threading.DispatcherPriority.ContextIdle);
                 break;
         }
+    }
+
+    /// <summary>Refresh all had the keyboard focus when it was pressed; the button is disabled while the refresh runs, which moves the focus away.</summary>
+    private bool _refreshKeepsFocus;
+
+    /// <summary>
+    /// The focus goes back to Refresh all after the refresh it started, unless the operator moved the focus to another
+    /// control in the meantime. A focus that the disabled button lost sits on the tab scroll area, on a disabled control,
+    /// on the window, or nowhere.
+    /// </summary>
+    private void RestoreRefreshFocus()
+    {
+        if (!_refreshKeepsFocus || !btnLiveRefresh.IsEnabled) return;
+        _refreshKeepsFocus = false;
+        if (!btnLiveRefresh.IsVisible) return;
+        var moved = System.Windows.Input.Keyboard.FocusedElement is UIElement { IsEnabled: true } element && !ReferenceEquals(element, scrollLiveTab) && element is not Window;
+        if (!moved) btnLiveRefresh.Focus();
     }
 
     /// <summary>The scroll position of the Live grid and whether it held the keyboard focus, taken just before its rows are replaced.</summary>
@@ -267,63 +290,87 @@ public partial class SiteHygienePage : INavigationAware
     public double LiveGridOffset => Helpers.DataGridFocus.Find<ScrollViewer>(dgLive)?.VerticalOffset ?? 0;
 
     /// <summary>
-    /// The Live grid has a status column and one column per header of the view shown. A name column takes the free width;
-    /// every other column has the width of its longest value, so no value is cut at 1440 pixels.
+    /// The Live grid has a status column and one column per header of the view shown. A value column is as wide as its
+    /// widest value in the rows shown, and never narrower than its header with the sort icon. A name column shares the free
+    /// width with the other name columns in proportion to its widest name, wraps a name to <see cref="LiveColumnFit.NameLines"/>
+    /// lines, and keeps a least width that holds a name of <see cref="LiveColumnFit.TypicalNameChars"/> characters; when the
+    /// least widths exceed the grid, the grid scrolls sideways.
     /// </summary>
     private void BuildLiveColumns()
     {
         var key = _viewModel.SelectedLiveView.View is { } view ? SiteHygieneViewModel.LiveSortKey(view) : null;
         var headers = _viewModel.LiveColumns;
-        if (Equals(dgLive.Tag, key) && dgLive.Columns.Count == headers.Count + 1 && dgLive.Columns.Skip(1).Select(c => (string)c.Header).SequenceEqual(headers, StringComparer.Ordinal)) return;
+        if (Equals(dgLive.Tag, key) && dgLive.Columns.Count == headers.Count + 1 && dgLive.Columns.Skip(1).Select(c => (string)c.Header).SequenceEqual(headers, StringComparer.Ordinal))
+        {
+            FitLiveColumns();
+            return;
+        }
         dgLive.Tag = key;
         dgLive.Columns.Clear();
-        var cell = (Style)FindResource("TrimmedCell");
-        var status = Math.Max(SiteHygieneLiveLabels.StatusWidth, StatusColumnWidth(_viewModel.SelectedLiveView.View));
+        _liveFit ??= new LiveColumnFit(grid: dgLive, valueStyle: (Style)FindResource("TrimmedCell"));
+        _fittedWidths.Clear();
         dgLive.Columns.Add(new DataGridTextColumn
         {
-            Header = SiteHygieneLiveLabels.StatusHeader, Binding = new System.Windows.Data.Binding(nameof(LiveGridRow.StatusCell)), SortMemberPath = SiteHygieneLiveLabels.StatusColumn,
-            Width = status, MinWidth = status, ElementStyle = cell
+            Header = SiteHygieneLiveLabels.StatusHeader, HeaderTemplate = _liveFit.HeaderTemplate, Binding = new System.Windows.Data.Binding(nameof(LiveGridRow.StatusCell)), SortMemberPath = SiteHygieneLiveLabels.StatusColumn,
+            ElementStyle = _liveFit.ValueStyle, MinWidth = _liveFit.HeaderNeed(SiteHygieneLiveLabels.StatusHeader),
+            Width = new DataGridLength(_liveFit.HeaderNeed(SiteHygieneLiveLabels.StatusHeader))
         });
         for (var i = 0; i < headers.Count; i++)
         {
-            var kind = SiteHygieneLiveLabels.KindOf(headers[i]);
-            var (width, min) = SiteHygieneLiveLabels.Width(kind);
-            var header = HeaderWidth(headers[i]);
-            min = Math.Max(min, header);
-            width = Math.Max(width, header);
+            var name = SiteHygieneLiveLabels.KindOf(headers[i]) == LiveColumnKind.Name;
             dgLive.Columns.Add(new DataGridTextColumn
             {
-                Header = headers[i], Binding = new System.Windows.Data.Binding($"{nameof(LiveGridRow.Cells)}[{i}]") { Mode = System.Windows.Data.BindingMode.OneWay },
-                SortMemberPath = LiveGridRow.CellMember(i), ElementStyle = cell, MinWidth = min,
-                Width = kind == LiveColumnKind.Name ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(width)
+                Header = headers[i], HeaderTemplate = _liveFit.HeaderTemplate, Binding = new System.Windows.Data.Binding($"{nameof(LiveGridRow.Cells)}[{i}]") { Mode = System.Windows.Data.BindingMode.OneWay },
+                SortMemberPath = LiveGridRow.CellMember(i), ElementStyle = name ? _liveFit.NameStyle : _liveFit.ValueStyle,
+                MinWidth = name ? Math.Max(_liveFit.NameLeast, _liveFit.HeaderNeed(headers[i])) : _liveFit.HeaderNeed(headers[i]),
+                Width = name ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(_liveFit.HeaderNeed(headers[i]))
             });
         }
+        FitLiveColumns();
         ShowSorts();
     }
 
-    /// <summary>The room of the sort glyph and the header padding around the header text.</summary>
-    private const double HeaderRoom = 32;
+    private LiveColumnFit? _liveFit;
 
-    /// <summary>The width of the widest status cell the view can show (each glyph with each status text of the view), with a 10 % margin.</summary>
-    private double StatusColumnWidth(LiveView? view)
+    /// <summary>The width the fit last gave each column; a column whose width differs was resized by the user and keeps it.</summary>
+    private readonly Dictionary<DataGridColumn, DataGridLength> _fittedWidths = [];
+
+    /// <summary>Sizes the Live columns to the rows shown: the work is one pass over the rows and one measure per distinct long value.</summary>
+    private void FitLiveColumns()
     {
-        if (view is not { } v) return 0;
-        var typeface = new System.Windows.Media.Typeface(dgLive.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
-        var dip = System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        var widest = LiveText.StatusTexts(v).SelectMany(t => Enum.GetValues<LiveStatus>().Select(s => SiteHygieneLiveLabels.StatusCell(s, t)))
-            .Max(text => new System.Windows.Media.FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, dgLive.FontSize,
-                System.Windows.Media.Brushes.Black, dip).WidthIncludingTrailingWhitespace);
-        return Math.Ceiling(widest * 1.1 + HeaderRoom);
+        if (_liveFit is null || dgLive.Columns.Count == 0) return;
+        var rows = _viewModel.LiveViewRows;
+        for (var c = 0; c < dgLive.Columns.Count; c++)
+        {
+            var column = dgLive.Columns[c];
+            if (_fittedWidths.TryGetValue(column, out var fitted) && !SameLength(fitted, column.Width)) continue;
+            var index = c - 1;
+            IEnumerable<string> values = index < 0 ? rows.Select(r => r.StatusCell) : rows.Select(r => index < r.Cells.Count ? r.Cells[index] : "");
+            if (column.Width.IsStar)
+            {
+                var weight = new DataGridLength(_liveFit.NameWeight(values), DataGridLengthUnitType.Star);
+                if (!SameLength(weight, column.Width)) column.Width = weight;
+                _fittedWidths[column] = weight;
+                continue;
+            }
+            // The grid takes width from a fixed column down to its least width before it scrolls, so the least width is the value width.
+            var need = Math.Max(_liveFit.HeaderNeed((string)column.Header), _liveFit.ValueNeed(values));
+            if (Math.Abs(column.MinWidth - need) > 0.5)
+            {
+                column.MinWidth = Math.Min(column.MinWidth, need);
+                column.Width = new DataGridLength(need);
+                column.MinWidth = need;
+            }
+            else if (!SameLength(new DataGridLength(need), column.Width)) column.Width = new DataGridLength(need);
+            _fittedWidths[column] = new DataGridLength(need);
+        }
     }
 
-    /// <summary>The width the column header needs: its text in the semibold header font, the sort glyph and the padding.</summary>
-    private double HeaderWidth(string header)
-    {
-        var text = new System.Windows.Media.FormattedText(header, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new System.Windows.Media.Typeface(dgLive.FontFamily, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), dgLive.FontSize, System.Windows.Media.Brushes.Black,
-            System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip);
-        return Math.Ceiling(text.WidthIncludingTrailingWhitespace + HeaderRoom);
-    }
+    // The grid writes its desired and display widths into the column width during layout, so only the unit and the value compare.
+    private static bool SameLength(DataGridLength a, DataGridLength b) => a.UnitType == b.UnitType && Math.Abs(a.Value - b.Value) < 0.5;
+
+    /// <summary>The fit of the Live columns, for a test of the least widths.</summary>
+    public LiveColumnFit? LiveFit => _liveFit;
 
     /// <summary>
     /// Mirrors the selection the view model keeps by key into the grid in linear work: a selection of

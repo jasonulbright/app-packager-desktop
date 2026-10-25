@@ -203,7 +203,7 @@ public sealed class SiteHygieneLivePageRealServiceTests
         await vm.RefreshLiveAsync();
         var alert = Assert.Single(vm.AlertRows);
         Assert.Equal(LiveAlertMetrics.SiteCritical, alert.Alert.Metric);
-        Assert.Equal("Site health: 1 components or site systems are critical.", alert.Message);
+        Assert.Equal("Site health: 1 component or site system is critical.", alert.Message);
         Assert.True(vm.HasAlertBanner);
         Assert.Single(File.ReadAllLines(p.AlertLog.Path));
         Assert.Contains("\tSiteCritical\t", File.ReadAllText(p.AlertLog.Path));
@@ -259,7 +259,7 @@ public sealed class SiteHygieneLivePageRealServiceTests
         vm.AlertsEnabled = !vm.AlertsEnabled;
         await vm.ImportDashboardCommand.ExecuteAsync(null);
         var plan = p.Harness.Dialogs.Imports.Single().Plan;
-        Assert.Contains("Metrics history: 2 rows from ", plan);
+        Assert.Contains("Metrics history: 2 rows.", plan);
         Assert.Contains("The history file has 1 line that cannot be read. The import skips them.", plan);
         Assert.Contains("Setting SQL server: CM01.contoso.com", plan);
         Assert.Contains("Setting Refresh interval: 30 minutes", plan);

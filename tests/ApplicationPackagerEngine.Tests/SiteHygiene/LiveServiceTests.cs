@@ -600,7 +600,7 @@ public sealed class LiveServiceTests
         Assert.Equal("Site Hygiene Live summary, 2026-10-25 10:29:06", lines[0]);
         Assert.Equal("Deployments: 9 deployments, 0 with errors, compliance 58.3 %.", lines[1]);
         Assert.Equal("Content: the read failed. The read of Content failed. The log has the kind of failure.", lines[2]);
-        Assert.Equal("Distribution Points: 1 distribution points, 0 critical, 0 warning.", lines[3]);
+        Assert.Equal("Distribution Points: 1 distribution point, 0 critical, 0 warning.", lines[3]);
         Assert.StartsWith("Client Health: not read. " + LiveText.SqlNotSetUp, lines[4]);
         Assert.StartsWith("Inactive Devices: not read.", lines[5]);
         Assert.Equal("Site Health: 16 OK, 0 warning, 0 critical.", lines[6]);

@@ -587,7 +587,7 @@ public sealed partial class SiteHygieneViewModel
         }
         var wait = AutoRefreshWait(RefreshMinutes, _refreshFailures);
         AutoRefreshText = _refreshFailures >= BackoffAfter
-            ? $"The refresh failed {Number(_refreshFailures)} times in a row, so auto-refresh waits {Minutes(wait)} before the next refresh."
+            ? $"The refresh failed {SiteHygieneLabels.Count(_refreshFailures, "time")} in a row, so auto-refresh waits {Minutes(wait)} before the next refresh."
             : $"Auto-refresh every {Minutes(wait)}.";
     }
 
@@ -615,7 +615,7 @@ public sealed partial class SiteHygieneViewModel
         if (IsAlertsPane)
             return AlertRows.Count == 0 ? (null, "The alert list is empty.")
                 : (new LiveReport("Alerts", ["Time", "Metric", "Message", "State"], AlertRows.Select(r => (IReadOnlyList<string>)[r.Time, r.Metric, r.Message, r.Seen ? "Seen" : "New"]).ToList(),
-                    false, AlertRows.Count >= MaxAlertRows ? $"The list keeps the newest {MaxAlertRows} alerts. Older alerts are in the alerts log." : null), null);
+                    false, AlertRows.Count >= MaxAlertRows ? $"The list keeps the newest {SiteHygieneLabels.Count(MaxAlertRows, "alert")}. Older alerts are in the alerts log." : null), null);
         if (SelectedLiveView.View is not { } view || !_liveResults.TryGetValue(view, out var result)) return (null, LiveNotRefreshed);
         var note = ViewMessage(result);
         return (new LiveReport(LiveText.Title(view), [SiteHygieneLiveLabels.StatusHeader, .. result.Columns],
@@ -655,7 +655,7 @@ public sealed partial class SiteHygieneViewModel
         StatusMessage = $"Saved the {format} report to {path}: {SiteHygieneLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.")
             + (report.Note is { } note ? " " + note : "")
             + NotesNote(format, path);
-        Services.Log.Info(LogArea, $"Saved a Live {format} report with {report.Rows.Count} rows.");
+        Services.Log.Info(LogArea, $"Saved a Live {format} report with {SiteHygieneLabels.Count(report.Rows.Count, "row")}.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }
 

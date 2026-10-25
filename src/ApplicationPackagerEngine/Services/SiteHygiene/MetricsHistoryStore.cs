@@ -203,7 +203,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         {
             File.WriteAllText(temp, kept.ToString(), new UTF8Encoding(false));
             File.Move(temp, path, overwrite: true);
-            _log?.Info(SiteHygieneService.LogArea, $"The metrics history was pruned to {KeepDays} days; {dropped.ToString(CultureInfo.InvariantCulture)} lines were removed.");
+            _log?.Info(SiteHygieneService.LogArea, $"The metrics history was pruned to {LiveText.Count(KeepDays, "day")}; {LiveText.Count(dropped, "line")} {LiveText.Verb(dropped, "was", "were")} removed.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -374,7 +374,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         {
             if (!File.Exists(path) || IsLinked(path)) return ([], 0);
             var (rows, skipped, _) = ReadFile(path, MaxReadBytes);
-            if (skipped > 0) _log?.Warning(SiteHygieneService.LogArea, $"The metrics history has {skipped.ToString(CultureInfo.InvariantCulture)} lines that could not be read; they were skipped.");
+            if (skipped > 0) _log?.Warning(SiteHygieneService.LogArea, $"The metrics history has {LiveText.Count(skipped, "line")} that could not be read; {LiveText.Verb(skipped, "it was", "they were")} skipped.");
             var cutoff = _utcNow().AddDays(-Math.Max(0, days));
             return (rows.Where(r => r.TimestampUtc >= cutoff).ToList(), skipped);
         }

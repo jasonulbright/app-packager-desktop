@@ -591,7 +591,7 @@ public sealed class SiteHygieneLiveTests
         h.Dialogs.ConfirmImport = true;
         await vm.ImportDashboardCommand.ExecuteAsync(null);
         var plan = h.Dialogs.Imports[^1].Plan;
-        Assert.Contains("Metrics history: 42 rows from ", plan);
+        Assert.Contains("Metrics history: 42 rows.", plan);
         Assert.Contains("Setting SQL server: CM01.contoso.com", plan);
         Assert.Contains("Setting Alerts: Off", plan);
         Assert.DoesNotContain("Inactivity threshold", plan);
@@ -599,7 +599,7 @@ public sealed class SiteHygieneLiveTests
         Assert.Single(Live(h).Import.Applied);
         Assert.Equal(("CM01.contoso.com", true, 60, 45, false, 85, true), (vm.LiveSqlServer, vm.TrustSqlCertificate, vm.RefreshMinutes, vm.InactiveDays, vm.AlertsEnabled, vm.CompliancePctFloor, vm.AlertCompliance));
         Assert.Contains("Copied 42 history rows.", vm.StatusMessage);
-        Assert.Contains("Settings filled: SQL server, Trust the SQL server certificate, Alerts, Compliance floor.", vm.StatusMessage);
+        Assert.Equal("Filled 4 settings: SQL server, Trust the SQL server certificate, Alerts, Compliance floor. Copied 42 history rows.", vm.StatusMessage);
         Assert.False(vm.HasImportOffer);
         var stored = h.Settings.SiteHygieneLive!;
         Assert.Equal(("CM01.contoso.com", 60, 45, true, false, 85), (h.Settings.DiscoverySqlServer, stored.RefreshMinutes, stored.InactiveDays, stored.TrustSqlCertificate, stored.AlertsEnabled, stored.CompliancePctFloor));

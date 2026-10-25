@@ -100,10 +100,10 @@ public sealed class SiteHygieneLiveRenderTests
         }, harness: () => Harness(100_000));
     }
 
-    /// <summary>The longest real value of each column of each view, by column header.</summary>
-    private static IEnumerable<(string Header, string Text)> LongValues(LiveView view)
+    /// <summary>The status cells of the rows shown and the longest real value of each other column of the view, by column header.</summary>
+    private static IEnumerable<(string Header, string Text)> LongValues(LiveView view, IEnumerable<LiveGridRow> rows)
     {
-        foreach (var text in LiveText.StatusTexts(view).SelectMany(t => Enum.GetValues<LiveStatus>().Select(s => SiteHygieneLiveLabels.StatusCell(s, t))))
+        foreach (var text in rows.Select(r => r.StatusCell).Distinct())
             yield return (SiteHygieneLiveLabels.StatusHeader, text);
         foreach (var header in LiveData.Columns[view])
         {
@@ -143,7 +143,7 @@ public sealed class SiteHygieneLiveRenderTests
                 ShowView(window, viewModel, choice);
                 AssertResizableReadableColumns(grid);
                 AssertNoSidewaysScroll(grid, $"dgLive {choice.Id} at {width}");
-                AssertValuesFit(grid, LongValues(choice.View!.Value), failures, choice.Id);
+                AssertValuesFit(grid, LongValues(choice.View!.Value, viewModel.LiveViewRows), failures, choice.Id);
             }
 
             ShowView(window, viewModel, Pane(LivePane.Alerts));

@@ -1,5 +1,8 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
+using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -223,4 +226,49 @@ public sealed class TrendChart : Canvas
         SelectedIndex = next;
         e.Handled = true;
     }
+
+    public static readonly DependencyProperty ReadoutProperty = DependencyProperty.Register(nameof(Readout), typeof(string), typeof(TrendChart),
+        new FrameworkPropertyMetadata("", (d, e) => ((TrendChart)d).OnReadoutChanged((string?)e.OldValue ?? "", (string?)e.NewValue ?? "")));
+
+    /// <summary>The text of the selected point; UI Automation reads it as the value of the chart.</summary>
+    public string Readout
+    {
+        get => (string)GetValue(ReadoutProperty);
+        set => SetValue(ReadoutProperty, value);
+    }
+
+    private void OnReadoutChanged(string old, string now)
+    {
+        if (UIElementAutomationPeer.FromElement(this) is { } peer)
+            peer.RaisePropertyChangedEvent(ValuePatternIdentifiers.ValueProperty, old, now);
+    }
+
+    protected override AutomationPeer OnCreateAutomationPeer() => new TrendChartAutomationPeer(this);
+}
+
+/// <summary>
+/// The chart as one focusable UI Automation element: its name is the metric, its value is the readout of the selected
+/// point. The tick labels and shapes are not separate elements; the table below the chart holds every point.
+/// </summary>
+public sealed class TrendChartAutomationPeer(TrendChart owner) : FrameworkElementAutomationPeer(owner), IValueProvider
+{
+    protected override string GetClassNameCore() => nameof(TrendChart);
+
+    protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Custom;
+
+    protected override string GetLocalizedControlTypeCore() => "chart";
+
+    protected override bool IsContentElementCore() => true;
+
+    protected override bool IsControlElementCore() => true;
+
+    protected override List<AutomationPeer>? GetChildrenCore() => null;
+
+    public override object? GetPattern(PatternInterface patternInterface) => patternInterface == PatternInterface.Value ? this : base.GetPattern(patternInterface);
+
+    public bool IsReadOnly => true;
+
+    public string Value => ((TrendChart)Owner).Readout;
+
+    public void SetValue(string value) => throw new InvalidOperationException("The chart value is read-only.");
 }
