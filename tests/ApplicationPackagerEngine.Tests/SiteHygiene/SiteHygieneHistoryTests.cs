@@ -173,6 +173,7 @@ public sealed class SiteHygieneHistoryTests : IDisposable
         h.Saved = new ApplicationPackagerUI.Models.SiteHygieneSettings { SelectedTab = VM.HistoryTab, HistoryText = "run2" };
         var second = await h.OpenAsync();
         Assert.Equal(VM.HistoryTab, second.SelectedTabIndex);
+        await WaitUntil(() => second.HistoryRows.Count == 2);
         Assert.Equal(2, second.HistoryRows.Count);
     }
 
