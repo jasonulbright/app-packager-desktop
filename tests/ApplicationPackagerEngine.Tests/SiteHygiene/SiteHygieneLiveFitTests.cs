@@ -411,6 +411,20 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
+    [Fact]
+    public void TheWidestWordCountsWhenItsValueIsShorterThanTheLongestValuesMeasured()
+    {
+        WithPage(ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - TitleBar, (window, page, viewModel, harness) =>
+        {
+            var fit = page.LiveFit!;
+            const string server = "SITESERVERDISTRIBUTION01.contoso.com";
+            var values = Enumerable.Range(0, 100).Select(i => $"a b c d e f g h i j k l m n o p q r s t u v w x y z {i}").Append(server).ToList();
+            var word = Math.Ceiling(fit.Width(server) * LiveColumnFit.ValueRoom + fit.CellPadding);
+            Assert.True(fit.WordNeed(values) + 0.5 >= word, $"WordNeed is {fit.WordNeed(values):0} px; the server name needs {word:0} px.");
+            Assert.True(fit.WholeNameNeed(values) + 0.5 >= Math.Min(LiveColumnFit.NameCap, word));
+        });
+    }
+
     [Theory]
     [InlineData(ApplicationTheme.Light)]
     [InlineData(ApplicationTheme.Dark)]

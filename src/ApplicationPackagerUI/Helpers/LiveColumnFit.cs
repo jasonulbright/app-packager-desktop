@@ -166,18 +166,22 @@ public sealed class LiveColumnFit
     /// </summary>
     public double WordNeed(IEnumerable<string> values)
     {
-        var widest = Longest(values).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max();
+        // A short value can hold a wider word than a long one, so every distinct value is measured: one measure per value.
+        var widest = Distinct(values).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max();
         return widest > 0 ? Math.Ceiling(widest * ValueRoom + CellPadding) : 0;
     }
 
     /// <summary>
     /// The width at which every one of <paramref name="values"/> shows in full on at most <see cref="NameLines"/> lines,
     /// with no word broken inside, with room and cell padding, and at most <see cref="NameCap"/>; 0 for no value.
-    /// The work is a binary search of line widths per measured value.
+    /// The line width comes from a binary search per value of the <see cref="MeasuredValues"/> longest values; the widest
+    /// word comes from every distinct value.
     /// </summary>
     public double WholeNameNeed(IEnumerable<string> values)
     {
-        var widest = Longest(values).Select(v => Math.Max(Format(v).MinWidth, WrappedWidth(v, NameLines))).DefaultIfEmpty(0).Max();
+        var list = values as IReadOnlyCollection<string> ?? values.ToList();
+        var lines = Longest(list).Select(v => WrappedWidth(v, NameLines)).DefaultIfEmpty(0).Max();
+        var widest = Math.Max(lines, Distinct(list).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max());
         return widest > 0 ? Math.Min(NameCap, Math.Ceiling(widest * ValueRoom + CellPadding)) : 0;
     }
 
@@ -208,11 +212,14 @@ public sealed class LiveColumnFit
         new(text, CultureInfo.CurrentCulture, _grid.FlowDirection, face, size, Brushes.Black, _dip);
 
     /// <summary>The distinct values of the greatest lengths, at most <see cref="MeasuredValues"/>; the work is one pass over the values.</summary>
-    private static IEnumerable<string> Longest(IEnumerable<string> values)
+    private static IEnumerable<string> Longest(IEnumerable<string> values) => Distinct(values).OrderByDescending(v => v.Length).Take(MeasuredValues);
+
+    /// <summary>The distinct values that are not empty; the work is one pass over the values.</summary>
+    private static HashSet<string> Distinct(IEnumerable<string> values)
     {
         var distinct = new HashSet<string>(StringComparer.Ordinal);
         foreach (var value in values)
             if (!string.IsNullOrEmpty(value)) distinct.Add(value);
-        return distinct.OrderByDescending(v => v.Length).Take(MeasuredValues);
+        return distinct;
     }
 }
