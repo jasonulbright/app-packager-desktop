@@ -156,6 +156,20 @@ public sealed class LiveImportAndReportTests : IDisposable
         Assert.Single(store.Read(365));
     }
 
+    [Fact]
+    public void AHistoryWrittenBetweenThePlanAndTheApplyIsKept()
+    {
+        Write(Path.Combine(Legacy, LegacyDashboardImport.HistoryRelative), SuiteHistory("2026-10-20T08:15:00.0000000-04:00", "2026-10-21T08:15:00.0000000-04:00"));
+        var (import, store, _) = Make();
+        var plan = import.Plan();
+        Assert.True(plan.HistoryWillBeCopied);
+        store.Append(new MetricRow(Now, LiveMetrics.Columns.ToDictionary(c => c, _ => (double?)1, StringComparer.Ordinal)));
+        var result = import.Apply(plan);
+        Assert.False(result.HistoryCopied);
+        Assert.Equal(0, result.HistoryRows);
+        Assert.Equal(Now, Assert.Single(store.Read(365)).TimestampUtc);
+    }
+
     [Theory]
     [InlineData("prefs-json", "is not valid JSON")]
     [InlineData("prefs-array", "holds no settings object")]

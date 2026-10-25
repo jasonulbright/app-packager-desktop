@@ -160,6 +160,29 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
     }
 
     [Fact]
+    public void AnAppendWithinADayOfThePruneDoesNotRewriteTheFileEvenWhenItsFirstLineIsOld()
+    {
+        var store = Store();
+        store.Append(Row(Now));
+        var old = MetricsHistoryStore.Format(Row(Now.AddDays(-300)));
+        File.WriteAllText(File1, MetricsHistoryStore.HeaderLine + "\r\n" + old + "\r\n");
+        store.Append(Row(Now.AddMinutes(15)));
+        var lines = File.ReadAllLines(File1);
+        Assert.Equal(3, lines.Length);
+        Assert.Equal(old, lines[1]);
+    }
+
+    [Fact]
+    public void AnImportIntoAnExistingHistoryWritesNothing()
+    {
+        var store = Store();
+        store.Append(Row(Now));
+        var before = File.ReadAllBytes(File1);
+        Assert.False(store.ImportIfEmpty([Row(Now.AddDays(-2)), Row(Now.AddDays(-1))]));
+        Assert.Equal(before, File.ReadAllBytes(File1));
+    }
+
+    [Fact]
     public void AReadOfAFileOverTheCapTakesTheNewestRowsOnly()
     {
         var sb = new StringBuilder(MetricsHistoryStore.HeaderLine + "\r\n");
@@ -235,6 +258,25 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
         var fresh = new AlertEvaluator();
         Assert.Empty(fresh.Evaluate(Site(null, failed: true), on));
         Assert.Single(fresh.Evaluate(Site(1), on));
+    }
+
+    /// <summary>A view that is not complete counts as not known even when its result carries counts.</summary>
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    public void CountsOfAViewThatIsNotCompleteReachNeitherTheHistoryNorTheAlerts(bool failed, bool truncated, bool skipped)
+    {
+        var counts = new LiveCounts(new Dictionary<string, double?> { [LiveMetrics.SiteOK] = 10, [LiveMetrics.SiteWarning] = 0, [LiveMetrics.SiteCritical] = 3 });
+        var view = new LiveViewResult(LiveView.SiteHealth, [], [], counts, truncated, failed, null, Now) { Skipped = skipped };
+        var snapshot = Snapshot(Now, view);
+        Assert.All(LiveMetrics.Of(LiveView.SiteHealth), c => Assert.Null(snapshot.ToMetricRow().Values[c]));
+
+        var alerts = new AlertEvaluator();
+        Assert.Empty(alerts.Evaluate(snapshot, AlertSettings.Default));
+        Assert.Single(alerts.Evaluate(Site(1), AlertSettings.Default));
+        Assert.Empty(alerts.Evaluate(Snapshot(Now, view with { Counts = new LiveCounts(new Dictionary<string, double?> { [LiveMetrics.SiteCritical] = 0 }) }), AlertSettings.Default));
+        Assert.Equal([LiveAlertMetrics.SiteCritical], alerts.Breached);
     }
 
     [Fact]
