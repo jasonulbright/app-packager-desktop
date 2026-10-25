@@ -31,6 +31,26 @@ public partial class SiteHygienePage : INavigationAware
             if (dgFindings.IsVisible && _selectionPending) SelectFindings();
         };
         SizeChanged += (_, e) => ApplyLayout(e.NewSize.Height < ShortHeight);
+        foreach (var part in new FrameworkElement[] { txtHygieneHistoryIntro, pnlHygieneHistoryFilter, pnlHygieneHistoryDetail })
+        {
+            part.SizeChanged += (_, _) => FitHistoryTab();
+            part.IsVisibleChanged += (_, _) => FitHistoryTab();
+        }
+    }
+
+    /// <summary>The least height of the History grid; the tab scrolls before the grid gets less.</summary>
+    public const double HistoryGridMinHeight = 160;
+
+    /// <summary>
+    /// The History tab fills the visible height of its scroll area. Its least height is the height of the rows above
+    /// and below the grid plus the least grid height, so the detail box shows in full and the tab scrolls only when the
+    /// visible height is smaller.
+    /// </summary>
+    private void FitHistoryTab()
+    {
+        static double Height(FrameworkElement part) => part.Visibility == Visibility.Visible ? part.ActualHeight + part.Margin.Top + part.Margin.Bottom : 0;
+        var least = Height(txtHygieneHistoryIntro) + Height(pnlHygieneHistoryFilter) + Height(pnlHygieneHistoryDetail) + HistoryGridMinHeight;
+        if (Math.Abs(gridHistoryTab.MinHeight - least) > 0.5) gridHistoryTab.MinHeight = least;
     }
 
     private bool _compact;
@@ -44,7 +64,7 @@ public partial class SiteHygienePage : INavigationAware
         txtHygieneAuditWarning.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap;
         pnlHygieneAuditWarning.Padding = compact ? CompactWarningPadding : RegularWarningPadding;
         pnlHygieneAuditWarning.Margin = compact ? CompactWarningMargin : RegularWarningMargin;
-        txtHygieneResultSummary.Visibility = compact && _viewModel.HasAuditWarning ? Visibility.Collapsed : Visibility.Visible;
+        txtHygieneResultSummary.Visibility = !_viewModel.ShowsResults || (compact && _viewModel.HasAuditWarning) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private static readonly Thickness RegularMargin = new(24, 16, 24, 12);
@@ -101,7 +121,7 @@ public partial class SiteHygienePage : INavigationAware
             case nameof(SiteHygieneViewModel.FindingRows) or nameof(SiteHygieneViewModel.EdgeRows) or nameof(SiteHygieneViewModel.CheckRows) or nameof(SiteHygieneViewModel.HistoryRows):
                 ShowSorts();
                 break;
-            case nameof(SiteHygieneViewModel.HasAuditWarning):
+            case nameof(SiteHygieneViewModel.HasAuditWarning) or nameof(SiteHygieneViewModel.ShowsResults):
                 ApplyLayout(_compact);
                 break;
         }

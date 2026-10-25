@@ -130,7 +130,9 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
 
     [ObservableProperty] private IReadOnlyList<string> _categories;
 
-    [ObservableProperty] private int _selectedTabIndex;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsResults), nameof(ShowsResultPanel))]
+    private int _selectedTabIndex;
     [ObservableProperty] private int _relationsTabIndex;
 
     [ObservableProperty]

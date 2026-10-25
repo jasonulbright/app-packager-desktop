@@ -18,9 +18,77 @@ public partial class ChangePlanWindow
         if (viewModel.HasBody) Height = Math.Min(BodyHeight, System.Windows.SystemParameters.WorkArea.Height);
         viewModel.CloseRequested += (_, _) => Close();
         ContentRendered += (_, _) => FocusFirstControl();
+        if (!viewModel.HasNotes) return;
+        txtNotes.MaxHeight = NotesHeight(NotesLines);
+        Loaded += (_, _) => OpenWithRoomForNotes();
+        SizeChanged += (_, _) => FitNotes();
+        gridPlan.SizeChanged += (_, _) => FitNotes();
+        gridResult.SizeChanged += (_, _) => FitNotes();
     }
 
     public const double BodyHeight = 700;
+
+    /// <summary>The least height of the change list: the column header and about three rows.</summary>
+    public const double GridMinHeight = 120;
+
+    /// <summary>The most note lines the notes box shows; more lines scroll.</summary>
+    public const int NotesLines = 12;
+
+    /// <summary>The fewest note lines the notes box shows when the window is short.</summary>
+    public const int MinNotesLines = 2;
+
+    /// <summary>The window opens inside a 1366x768 work area.</summary>
+    public const double MaxOpenHeight = 728;
+
+    private double NoteLineHeight => txtNotes.FontFamily.LineSpacing * txtNotes.FontSize;
+
+    private System.Windows.FrameworkElement VisibleGrid => gridResult.IsVisible ? gridResult : gridPlan;
+
+    /// <summary>The height of the notes box around its text: the template adds more than the padding and border, so the first layout measures it.</summary>
+    private double _notesChrome = double.NaN;
+
+    private double NotesChrome => double.IsNaN(_notesChrome)
+        ? txtNotes.Padding.Top + txtNotes.Padding.Bottom + txtNotes.BorderThickness.Top + txtNotes.BorderThickness.Bottom
+        : _notesChrome;
+
+    /// <summary>The height of the notes box that shows this many whole lines.</summary>
+    private double NotesHeight(int lines) => lines * NoteLineHeight + NotesChrome;
+
+    /// <summary>
+    /// Sets the notes box to the whole lines that fit while the change list keeps <see cref="GridMinHeight"/>, so no
+    /// line shows cut and the scroll bar shows when lines are left.
+    /// </summary>
+    private void FitNotes()
+    {
+        if (!txtNotes.IsVisible) return;
+        var line = NoteLineHeight;
+        var shown = (int)Math.Round((txtNotes.ActualHeight - NotesHeight(0)) / line);
+        var spare = (int)Math.Floor((VisibleGrid.ActualHeight - GridMinHeight) / line);
+        var height = NotesHeight(Math.Clamp(shown + spare, MinNotesLines, NotesLines));
+        if (Math.Abs(height - txtNotes.MaxHeight) > 0.5) txtNotes.MaxHeight = height;
+    }
+
+    /// <summary>
+    /// When the notes need more lines than the opened window has room for, the window grows by those lines, up to the
+    /// work area and <see cref="MaxOpenHeight"/>, and stays centered on its first position.
+    /// </summary>
+    private void OpenWithRoomForNotes()
+    {
+        UpdateLayout();
+        if (txtNotes.ViewportHeight > 0) _notesChrome = txtNotes.ActualHeight - txtNotes.ViewportHeight;
+        FitNotes();
+        UpdateLayout();
+        var hidden = txtNotes.ExtentHeight - txtNotes.ViewportHeight;
+        if (hidden < 1) return;
+        var area = System.Windows.SystemParameters.WorkArea;
+        var limit = Math.Min(area.Height, MaxOpenHeight);
+        var line = NoteLineHeight;
+        var grow = Math.Min(Math.Ceiling(hidden / line) * line, limit - ActualHeight);
+        if (grow < line) return;
+        var top = Top;
+        Height = ActualHeight + grow;
+        if (!double.IsNaN(top)) Top = Math.Max(area.Top, Math.Min(top - grow / 2, area.Bottom - Height));
+    }
 
     /// <summary>Puts the focus on the first plan line, or on the first confirmation box or button when the plan has no line.</summary>
     public void FocusFirstControl()

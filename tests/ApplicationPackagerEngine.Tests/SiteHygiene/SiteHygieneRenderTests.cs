@@ -277,6 +277,8 @@ public sealed class SiteHygieneRenderTests
             Check(VM.SummaryTab, "scrollSummaryTab", "dgCategories", "dgChecks");
             Check(VM.HistoryTab, "scrollHygieneHistoryTab", "txtHygieneHistoryFilter", "btnHygieneHistoryRefresh", "txtHygieneHistoryCount", "dgHygieneHistory", "txtHygieneHistoryDetail");
             Check(VM.OptionsTab, "scrollOptionsTab", "btnAreasAll", "btnAreasClear", "lstAreas", "cboPause", "chkProbeSources", "txtReportFolder", "btnOptionsFolder");
+            Assert.False(ById<FrameworkElement>(page, "pnlHygieneResults").IsVisible, "The result card takes the height of the Options tab.");
+            ShowTab(window, viewModel, VM.FindingsTab);
             foreach (var id in new[] { "btnHygieneScan", "btnHygieneCancel", "btnHygieneLiveViews", "btnHygieneCsv", "btnHygieneHtml", "btnHygieneFolder", "txtHygieneSummary", "txtHygieneAreas",
                          "dgHygieneResults", "txtHygieneStatus" })
             {
@@ -312,6 +314,11 @@ public sealed class SiteHygieneRenderTests
             Assert.Equal(viewModel.AuditWarning, AutomationProperties.GetName(text));
             if (height >= SiteHygienePage.ShortHeight) Assert.Equal(TextWrapping.Wrap, text.TextWrapping);
             Assert.True(ById<TabControl>(page, "tabHygiene").ActualHeight >= 180, $"The tabs get {ById<TabControl>(page, "tabHygiene").ActualHeight:0} px at {width}x{height}.");
+
+            // On the other tabs the warning stays and the result rows leave the height to the tab.
+            ShowTab(window, viewModel, VM.HistoryTab);
+            Assert.True(ById<FrameworkElement>(page, "txtHygieneAuditWarning").IsVisible, $"The audit warning is hidden on the History tab at {width}x{height}.");
+            Assert.False(ById<FrameworkElement>(page, "dgHygieneResults").IsVisible, $"The result rows take the height of the History tab at {width}x{height}.");
         }, width, height, () =>
         {
             var h = LongHarness();
@@ -383,6 +390,57 @@ public sealed class SiteHygieneRenderTests
         }, width, height, () => new SiteHygienePageHarness
         {
             AuditLog = new FakeHygieneAudit([RunRecord(HygieneAuditLog.MaxObjectsPerRecord, 2), RunRecord(HygieneHistoryRow.DetailObjects, 1), RunRecord(2, 0)])
+        });
+    }
+
+    /// <summary>
+    /// After a fix run in the session the result card is on the page. At 1440x900 the History tab must not scroll and the
+    /// detail box shows every line up to its limit inside the tab. At 900x600 the tab scrolls; the detail box keeps its full
+    /// height of lines and the tab scrolls to it.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(HistoryDetailCases))]
+    public void AfterAFixRunTheHistoryDetailShowsEveryLineUpToItsLimitWithoutAScrollOfTheTab(ApplicationTheme theme, double width, double height, int objects)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Fill(window, viewModel);
+            Assert.True(viewModel.HasResults);
+            ShowTab(window, viewModel, VM.HistoryTab);
+            viewModel.SelectedHistory = viewModel.HistoryRows.Single(r => r.Record.Objects.Count == objects);
+            Settle(window);
+
+            var tab = ById<ScrollViewer>(page, "scrollHygieneHistoryTab");
+            var box = ById<System.Windows.Controls.TextBox>(page, "txtHygieneHistoryDetail");
+            var text = Descendants(box).OfType<ScrollViewer>().First();
+            var lineHeight = box.FontFamily.LineSpacing * box.FontSize;
+            var wanted = Math.Min(text.ExtentHeight, HygieneHistoryRow.DetailLines * lineHeight);
+            Assert.True(text.ViewportHeight >= wanted - 1,
+                $"The detail box of {objects} objects is {text.ViewportHeight:0} px high and needs {wanted:0} px ({wanted / lineHeight:0.0} lines) at {width}x{height}.");
+            var grid = ById<DataGrid>(page, "dgHygieneHistory");
+            Assert.True(grid.ActualHeight >= 159.5, $"The History grid gets {grid.ActualHeight:0} px at {width}x{height}.");
+
+            if (height >= 900 - 48)
+            {
+                Assert.True(tab.ScrollableHeight < 1, $"The History tab scrolls by {tab.ScrollableHeight:0} px at {width}x{height} after a fix run.");
+                var bounds = box.TransformToAncestor(tab).TransformBounds(new Rect(box.RenderSize));
+                Assert.True(bounds.Top >= -0.5 && bounds.Bottom <= tab.ViewportHeight + 0.5,
+                    $"The detail box spans {bounds.Top:0} to {bounds.Bottom:0} px in a {tab.ViewportHeight:0} px tab at {width}x{height}.");
+                return;
+            }
+
+            // 900x600: the tab scrolls, and the scroll shows the whole detail box.
+            Assert.True(tab.ScrollableHeight >= 1, $"The History tab does not scroll at {width}x{height}; the test does not show the scroll.");
+            box.BringIntoView();
+            Settle(window);
+            var shown = box.TransformToAncestor(tab).TransformBounds(new Rect(box.RenderSize));
+            Assert.True(shown.Top >= -0.5 && shown.Bottom <= tab.ViewportHeight + 0.5,
+                $"After the scroll the detail box spans {shown.Top:0} to {shown.Bottom:0} px in a {tab.ViewportHeight:0} px tab at {width}x{height}.");
+        }, width, height, () =>
+        {
+            var h = SiteHygienePageHarness.Large(60, LongText);
+            h.AuditLog = new FakeHygieneAudit([RunRecord(HygieneAuditLog.MaxObjectsPerRecord, 2), RunRecord(HygieneHistoryRow.DetailObjects, 1), RunRecord(2, 0)]);
+            return h;
         });
     }
 
@@ -670,6 +728,80 @@ public sealed class SiteHygieneRenderTests
                 Settle(window);
                 foreach (var id in new[] { "txtNotes", "txtBody" })
                     Assert.Equal(TextAlignment.Left, ((System.Windows.Controls.TextBox)window.FindName(id)).TextAlignment);
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    private static readonly string[] ElevenNotes =
+    [
+        "Before each delete the page reads the collection again.", "It skips a collection with a deployment.", "It skips a collection with a collection rule.",
+        "It skips a collection with a client setting.", "It skips a collection an automatic deployment rule uses.", "It skips a collection an administrative user uses.",
+        "The site keeps no copy of a deleted collection.", "A delete cannot be undone.", "The audit log records each object.", "The page reads each object back after the delete.",
+        "The run stops at the first failure of the provider."
+    ];
+
+    /// <summary>The scroll bar of a text box shows without the pointer over it, and its thumb stands out from the box background.</summary>
+    private static void AssertReadableScrollBar(Window window, System.Windows.Controls.TextBox box, ScrollViewer text, string where)
+    {
+        var bar = Descendants(text).OfType<System.Windows.Controls.Primitives.ScrollBar>().Single(b => b.Orientation == System.Windows.Controls.Orientation.Vertical);
+        var thumb = Descendants(bar).OfType<System.Windows.Controls.Primitives.Thumb>().Single();
+        Assert.False(box.IsMouseOver);
+        Assert.True(bar.IsVisible && bar.Opacity > 0.99 && thumb.IsVisible && thumb.Opacity > 0.99 && thumb.ActualWidth >= 6,
+            $"{where}: the scroll bar is not readable without the pointer: bar {bar.ActualWidth:0} px, opacity {bar.Opacity:0.00}; thumb {thumb.ActualWidth:0} px, opacity {thumb.Opacity:0.00}.");
+        var back = MostCommon(Pixels(window, box, where));
+        var thumbPixels = Pixels(window, thumb);
+        var marked = thumbPixels.Count(p => Contrast(p, back) >= 3) / (double)thumbPixels.Count;
+        Assert.True(marked >= 0.2, $"{where}: the thumb is not readable on the box background {back}: {marked:P0} of its pixels have a contrast of 3 or more.");
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light, false)]
+    [InlineData(ApplicationTheme.Dark, false)]
+    [InlineData(ApplicationTheme.Light, true)]
+    [InlineData(ApplicationTheme.Dark, true)]
+    public void ThePlanWindowShowsElevenNoteLinesInWholeLinesAndAReadableScrollBarWhenItIsShort(ApplicationTheme theme, bool body)
+    {
+        WithApplication(theme, () =>
+        {
+            var items = Enumerable.Range(0, 2).Select(i => new ChangePlanItem("Delete collection", $"Contoso Finance Workstations Pilot Wave {i + 1:00} (MCM002{50 + i:X2})", "Done")).ToList();
+            var plan = new ChangePlan("Delete 2 collections", "Delete 2 collections", items, isDestructive: true)
+            {
+                Notes = ElevenNotes,
+                Body = body ? "Remove-CMCollection -Id MCM00250 -Force" + Environment.NewLine + "Remove-CMCollection -Id MCM00251 -Force" : null
+            };
+            var window = new ChangePlanWindow(new ChangePlanViewModel(plan, (_, _, _) => Task.FromResult(new ChangePlanResult([]))));
+            Show(window);
+            try
+            {
+                Settle(window);
+                var box = (System.Windows.Controls.TextBox)window.FindName("txtNotes");
+                var text = Descendants(box).OfType<ScrollViewer>().First();
+                var line = box.FontFamily.LineSpacing * box.FontSize;
+                Assert.True(window.ActualHeight <= Math.Min(728, SystemParameters.WorkArea.Height) + 0.5, $"The plan window is {window.ActualHeight:0} px high.");
+                Assert.True(text.ScrollableHeight < 1, $"The notes box shows {text.ViewportHeight / line:0.0} of {text.ExtentHeight / line:0.0} lines in a {window.ActualHeight:0} px window.");
+                foreach (var id in new[] { "chkDestructive", "btnConfirm", "btnCancel", "txtNotes", "gridPlan" })
+                    AssertInside(window, (FrameworkElement)window.FindName(id), window.ActualHeight, id);
+
+                // Four lines shorter than the change list at its least height: the notes box gives up whole lines and the scroll bar shows.
+                var grid = (FrameworkElement)window.FindName("gridPlan");
+                window.Height = window.ActualHeight - (grid.ActualHeight - ChangePlanWindow.GridMinHeight) - 4 * line;
+                Settle(window);
+                var lines = text.ViewportHeight / line;
+                Assert.True(Math.Abs(lines - Math.Round(lines)) < 0.05, $"The notes box of a {window.ActualHeight:0} px window shows {lines:0.00} lines: a line is cut.");
+                Assert.True(text.ScrollableHeight >= 1, $"The notes box of a {window.ActualHeight:0} px window shows every line; the test does not show the scroll bar.");
+                AssertReadableScrollBar(window, box, text, $"plan-notes-{theme}-{body}");
+                Assert.True(grid.ActualHeight >= ChangePlanWindow.GridMinHeight - 0.5, $"The change list gets {grid.ActualHeight:0} px in a {window.ActualHeight:0} px window.");
+                foreach (var id in new[] { "chkDestructive", "btnConfirm", "btnCancel", "txtNotes" })
+                    AssertInside(window, (FrameworkElement)window.FindName(id), window.ActualHeight, id + " in the shorter window");
+
+                // The minimum height: the notes box keeps whole lines and the footer stays inside the window.
+                window.Height = window.MinHeight;
+                Settle(window);
+                lines = text.ViewportHeight / line;
+                Assert.True(lines >= ChangePlanWindow.MinNotesLines - 0.05 && Math.Abs(lines - Math.Round(lines)) < 0.05, $"The notes box at the minimum height shows {lines:0.00} lines.");
+                foreach (var id in new[] { "chkDestructive", "btnConfirm", "btnCancel", "txtNotes" })
+                    AssertInside(window, (FrameworkElement)window.FindName(id), window.ActualHeight, id + " at the minimum height");
             }
             finally { window.Close(); }
         });

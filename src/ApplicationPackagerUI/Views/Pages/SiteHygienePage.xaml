@@ -5,12 +5,14 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:helpers="clr-namespace:ApplicationPackagerUI.Helpers"
     xmlns:pages="clr-namespace:ApplicationPackagerUI.ViewModels.Pages"
+    xmlns:local="clr-namespace:ApplicationPackagerUI.Views.Pages"
     ScrollViewer.CanContentScroll="False">
 
     <Page.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/SelectableRows.xaml" />
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/DetailBox.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -42,26 +44,6 @@
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="Margin" Value="0,2,0,0" />
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
-            </Style>
-
-            <!-- The text box template of the control library holds no scroll bar: text below the box edge has no sign. This template shows a scroll bar whenever the text is taller than the box. -->
-            <Style x:Key="DetailBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                <Setter Property="IsReadOnly" Value="True" />
-                <Setter Property="TextWrapping" Value="Wrap" />
-                <Setter Property="TextAlignment" Value="Left" />
-                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-                <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
-                <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="TextBox">
-                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
-                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" Focusable="False"
-                                              VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" />
-                            </Border>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
             </Style>
 
             <Style x:Key="ToolButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
@@ -435,17 +417,17 @@
             <TabItem Header="History" AutomationProperties.AutomationId="tabHygieneHistory">
                 <ScrollViewer x:Name="scrollHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollHygieneHistoryTab">
-                    <!-- MinHeight holds the intro in three lines, the filter row, the grid at its MinHeight and the detail box at its full height; below it the tab scrolls instead of cutting the detail box. -->
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" MinHeight="560" KeyboardNavigation.TabNavigation="Local">
+                    <!-- The view sets MinHeight to the intro, the filter row, the detail box and the grid at its MinHeight; below it the tab scrolls instead of cutting the detail box. -->
+                    <Grid x:Name="gridHistoryTab" Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="160" />
+                            <RowDefinition Height="*" MinHeight="{x:Static local:SiteHygienePage.HistoryGridMinHeight}" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHygieneHistoryIntro"
+                        <TextBlock Grid.Row="0" x:Name="txtHygieneHistoryIntro" Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtHygieneHistoryIntro"
                                    Text="The audit log of the fixes of this page, newest first. The list reads the file on this computer only; it reads nothing from the site. A record the hash chain does not verify was changed or added outside the page." />
-                        <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
+                        <WrapPanel Grid.Row="1" x:Name="pnlHygieneHistoryFilter" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by action, result, user, site or object" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="History filter" AutomationProperties.AutomationId="txtHygieneHistoryFilter" />
                             <ui:Button Content="Refresh" Icon="{ui:SymbolIcon ArrowClockwise24}" Command="{Binding RefreshHistoryCommand}" Style="{StaticResource ToolButton}"
@@ -467,7 +449,7 @@
                                 <DataGridTextColumn Header="Verified" Binding="{Binding Verified}" SortMemberPath="Verified" Width="136" MinWidth="132" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2"
+                        <Border Grid.Row="3" x:Name="pnlHygieneHistoryDetail" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2"
                                 Visibility="{Binding HasHistoryDetails, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlHygieneHistoryDetail">
                             <TextBox Text="{Binding HistoryDetails, Mode=OneWay}" Style="{StaticResource DetailBox}" MaxLines="{x:Static pages:HygieneHistoryRow.DetailLines}"
                                      AutomationProperties.Name="The selected audit record, read only" AutomationProperties.AutomationId="txtHygieneHistoryDetail" />
@@ -477,7 +459,7 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="4" x:Name="pnlHygieneResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}"
+        <Border Grid.Row="4" x:Name="pnlHygieneResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding ShowsResultPanel, Converter={StaticResource BoolToVisibility}}"
                 AutomationProperties.AutomationId="pnlHygieneResults">
             <Grid>
                 <Grid.RowDefinitions>
@@ -494,7 +476,7 @@
                                AutomationProperties.AutomationId="txtHygieneAuditWarning" AutomationProperties.LiveSetting="Assertive" />
                 </Border>
                 <DataGrid Grid.Row="2" x:Name="dgHygieneResults" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding LastResults}" MaxHeight="140"
-                          AutomationProperties.AutomationId="dgHygieneResults" AutomationProperties.Name="Results of the last fix">
+                          Visibility="{Binding ShowsResults, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="dgHygieneResults" AutomationProperties.Name="Results of the last fix">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
                         <DataGridTextColumn Header="Fix" Binding="{Binding Item.Action}" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />

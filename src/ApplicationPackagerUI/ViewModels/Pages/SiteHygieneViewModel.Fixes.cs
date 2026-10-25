@@ -55,9 +55,15 @@ public sealed partial class SiteHygieneViewModel
 
     public bool HasResults => LastResults.Count > 0;
 
+    /// <summary>The result rows show on the Findings tab only: on the other tabs they would take the height of the tab.</summary>
+    public bool ShowsResults => HasResults && SelectedTabIndex == FindingsTab;
+
+    /// <summary>The result card shows with the result rows, and on every tab while the audit log of the last fix is not complete.</summary>
+    public bool ShowsResultPanel => ShowsResults || (HasResults && HasAuditWarning);
+
     /// <summary>The warning of a fix whose audit log has no Finished record; empty when the audit log is complete.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasAuditWarning))]
+    [NotifyPropertyChangedFor(nameof(HasAuditWarning), nameof(ShowsResultPanel))]
     private string _auditWarning = "";
 
     public bool HasAuditWarning => AuditWarning.Length > 0;
@@ -276,6 +282,8 @@ public sealed partial class SiteHygieneViewModel
         LastResults.Clear();
         foreach (var row in result.Items) LastResults.Add(row);
         OnPropertyChanged(nameof(HasResults));
+        OnPropertyChanged(nameof(ShowsResults));
+        OnPropertyChanged(nameof(ShowsResultPanel));
         MarkFixed(plan);
         ShowAuditState(plan);
         HistoryChanged();

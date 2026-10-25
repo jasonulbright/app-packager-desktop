@@ -12,27 +12,32 @@
     WindowBackdropType="Mica">
 
     <ui:FluentWindow.Resources>
-        <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
-        <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
-        <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
-            <Setter Property="VerticalContentAlignment" Value="Top" />
-            <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0">
-                    <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="TopCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
-            <Setter Property="VerticalAlignment" Value="Top" />
-        </Style>
-        <Style x:Key="ActionCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-        <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/DetailBox.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
+            <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
+            <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                <Setter Property="VerticalContentAlignment" Value="Top" />
+                <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0">
+                        <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+            <Style x:Key="TopCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
+                <Setter Property="VerticalAlignment" Value="Top" />
+            </Style>
+            <Style x:Key="ActionCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="WrappedCell" TargetType="TextBlock" BasedOn="{StaticResource TopCell}">
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+            </Style>
+        </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
     <!-- Tab order: the grid, the confirmation boxes, the footer buttons, then the notes. -->
@@ -55,8 +60,9 @@
                        AutomationProperties.AutomationId="txtChangePlanResult" AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />
-            <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" TextAlignment="Left" MaxHeight="120" Margin="0,6,0,0"
-                     VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
+            <!-- The view sets MaxHeight to the whole lines the window has room for; the box scrolls beyond them. -->
+            <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" Style="{StaticResource DetailBox}" Margin="0,6,0,0"
+                     AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
                      Visibility="{Binding HasNotes, Converter={StaticResource ChangePlanVisibility}}" />
             <TextBox x:Name="txtBody" Text="{Binding BodyText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" TextAlignment="Left" MaxHeight="120" Margin="0,6,0,0"
                      FontFamily="Cascadia Mono, Consolas, Courier New" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
