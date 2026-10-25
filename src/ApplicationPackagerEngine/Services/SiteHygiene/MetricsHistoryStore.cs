@@ -176,6 +176,44 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         }
     }
 
+    /// <summary>
+    /// Writes <paramref name="rows"/> as the whole history when no history exists: a temporary file, then one
+    /// move that fails when a history file appeared meanwhile. False when a history exists or the write failed;
+    /// then nothing changed.
+    /// </summary>
+    internal bool ImportIfEmpty(IReadOnlyList<MetricRow> rows)
+    {
+        var path = Path;
+        lock (_gate)
+        {
+            var temp = path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
+            try
+            {
+                if (IsLinked(path) || Exists) return false;
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+                using var held = LiveFileLock.Acquire(path, LockWait);
+                if (held is null || Exists) return false;
+                var text = new StringBuilder();
+                text.Append(HeaderLine).Append("\r\n");
+                foreach (var row in rows.OrderBy(r => r.TimestampUtc)) text.Append(Format(row)).Append("\r\n");
+                File.WriteAllText(temp, text.ToString(), new UTF8Encoding(false));
+                // Under the lock no append can add a line; only an empty file is removed before the move.
+                if (File.Exists(path) && new FileInfo(path).Length == 0) File.Delete(path);
+                File.Move(temp, path, overwrite: false);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _log?.Warning(SiteHygieneService.LogArea, $"The imported metrics history could not be written ({ex.GetType().Name}).");
+                return false;
+            }
+            finally
+            {
+                try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
+        }
+    }
+
     // ---- Reading -------------------------------------------------------------------------------
 
     /// <summary>The cells of one CSV line; quoted cells may hold commas and doubled quotes.</summary>
