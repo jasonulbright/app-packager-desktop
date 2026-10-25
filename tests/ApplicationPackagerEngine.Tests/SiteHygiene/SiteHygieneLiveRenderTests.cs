@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -441,6 +441,143 @@ public sealed class SiteHygieneLiveRenderTests
             viewModel.MarkAlertsSeenCommand.Execute(null);
             Settle(window);
             Assert.False(ById<FrameworkElement>(page, "pnlHygieneAlertBanner").IsVisible);
+        });
+    }
+
+    public static TheoryData<ApplicationTheme, double, double> TrendSizes() => new()
+    {
+        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
+    };
+
+    /// <summary>
+    /// A wrapped readout and a long note (three gaps, a downsampled series, skipped lines) sit between the chart and the
+    /// table: the chart keeps its least height, the table shows its header and three whole measured rows, and the tab
+    /// scrolls to the bottom of the table instead of cutting it.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(TrendSizes))]
+    public void TheTrendsTableKeepsThreeWholeRowsBelowAWrappedReadoutAndNote(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            ShowView(window, viewModel, Pane(LivePane.Trends));
+            viewModel.TrendSelectedIndex = 31;
+            Settle(window);
+            var where = $"at {width}x{height} {theme}";
+            Assert.Contains("The value before this point is not known.", viewModel.TrendReadout);
+            Assert.Contains("3 gaps", viewModel.TrendNote);
+            var scroller = ById<ScrollViewer>(page, "scrollLiveTab");
+            var table = ById<DataGrid>(page, "dgTrend");
+            var (rows, view) = WholeLineKit.RowBounds(table);
+            var whole = WholeLineKit.WholeLines(rows, view, table);
+            Assert.True(whole >= SiteHygienePage.TrendTableRows, $"The Trends table shows {whole} whole rows {where}.");
+            var chart = ById<FrameworkElement>(page, "chartTrend");
+            var card = (FrameworkElement)VisualTreeHelper.GetParent(chart);
+            while (card is not Border) card = (FrameworkElement)VisualTreeHelper.GetParent(card);
+            Assert.True(card.ActualHeight >= SiteHygienePage.TrendChartMinHeight - 0.5, $"The chart card gets {card.ActualHeight:0} px {where}.");
+            foreach (var id in new[] { "txtTrendReadout", "txtTrendNote", "dgTrend" }) AssertReachable(window, scroller, ById<FrameworkElement>(page, id), $"{id} {where}");
+            var note = ById<TextBlock>(page, "txtTrendNote");
+            var bottom = table.TransformToAncestor(scroller).TransformBounds(new Rect(table.RenderSize)).Bottom + scroller.VerticalOffset;
+            Assert.True(bottom <= scroller.ExtentHeight + 0.5, $"The table ends at {bottom:0} px below the {scroller.ExtentHeight:0} px the tab scrolls to {where}.");
+            Assert.True(note.ActualHeight > 0);
+        }, width, height, harness: () =>
+        {
+            var h = Harness();
+            h.Live!.History.SeriesOf = (column, days, max) => FakeMetricsHistory.Points(column, 60, gaps: [10, 20, 31], downsampled: true, skipped: 4);
+            return h;
+        });
+    }
+
+    /// <summary>The Alerts intro on the Options tab says that the first read of a session raises no alert, and shows every wrapped line in full.</summary>
+    [Theory]
+    [MemberData(nameof(TrendSizes))]
+    public void TheAlertsIntroShowsTheStartingStateRuleInFullAtEverySize(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            viewModel.SelectedTabIndex = VM.OptionsTab;
+            Settle(window);
+            var intro = ById<TextBlock>(page, "txtAlertsIntro");
+            Assert.Contains("sets its starting state and raises no alert", intro.Text);
+            Assert.Equal(TextWrapping.Wrap, intro.TextWrapping);
+            intro.BringIntoView();
+            Settle(window);
+            var where = $"at {width}x{height} {theme}";
+            Assert.True(intro.IsVisible, $"The Alerts intro is hidden {where}.");
+            var scroller = Ancestor<ScrollViewer>(intro)!;
+            var bounds = intro.TransformToAncestor(scroller).TransformBounds(new Rect(intro.RenderSize));
+            Assert.True(bounds.Left >= -0.5 && bounds.Right <= scroller.ViewportWidth + 0.5, $"The Alerts intro spans {bounds.Left:0} to {bounds.Right:0} px {where}.");
+            Assert.True(bounds.Bottom + scroller.VerticalOffset <= scroller.ExtentHeight + 0.5, $"The Alerts intro ends below the area the tab scrolls to {where}.");
+            var lines = new FormattedText(intro.Text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                new Typeface(intro.FontFamily, intro.FontStyle, intro.FontWeight, intro.FontStretch), intro.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(intro).PixelsPerDip)
+            { MaxTextWidth = intro.ActualWidth };
+            Assert.True(intro.ActualHeight + 0.5 >= lines.Height, $"The Alerts intro gets {intro.ActualHeight:0} px for {lines.Height:0} px of lines {where}.");
+        }, width, height);
+    }
+
+    /// <summary>An auto-refresh that brings other rows keeps the scroll position, the selected row and the keyboard focus of the grid.</summary>
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void ARefreshWithOtherRowsKeepsTheGridScrollPositionSelectionAndFocus(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            ShowView(window, viewModel, SiteHygieneLiveLabels.Views[0]);
+            var grid = ById<DataGrid>(page, "dgLive");
+            var row = viewModel.LiveViewRows[150];
+            viewModel.SelectedLiveRow = row;
+            Settle(window);
+            Assert.True(DataGridFocus.FocusItemCell(grid, row));
+            Settle(window);
+            var offset = page.LiveGridOffset;
+            Assert.True(offset > 10, $"The grid did not scroll ({offset}).");
+            var before = viewModel.LiveViewRows;
+
+            harness.Live!.Service.Next = _ => LiveData.Snapshot(rows: 200, name: "Changed");
+            Run(viewModel.RefreshLiveAsync());
+            Settle(window);
+            Assert.NotSame(before, viewModel.LiveViewRows);
+            Assert.Equal(offset, page.LiveGridOffset, 0.5);
+            Assert.Equal(row.Key, Assert.IsType<LiveGridRow>(grid.SelectedItem).Key);
+            Assert.True(grid.IsKeyboardFocusWithin, $"The grid lost the keyboard focus to {Keyboard.FocusedElement?.GetType().Name} {(Keyboard.FocusedElement as FrameworkElement)?.Name}.");
+        }, harness: () => Harness(200));
+    }
+
+    /// <summary>The cells of a row that record the thread that reads them.</summary>
+    private sealed class ThreadCells(IReadOnlyList<string> cells, System.Collections.Concurrent.ConcurrentBag<int> threads) : IReadOnlyList<string>
+    {
+        public string this[int index] { get { threads.Add(Environment.CurrentManagedThreadId); return cells[index]; } }
+        public int Count { get { threads.Add(Environment.CurrentManagedThreadId); return cells.Count; } }
+        public IEnumerator<string> GetEnumerator() { threads.Add(Environment.CurrentManagedThreadId); return cells.GetEnumerator(); }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    [Fact]
+    public void TheGridRowsOfARefreshAreBuiltOffTheUiThread()
+    {
+        var threads = new System.Collections.Concurrent.ConcurrentBag<int>();
+        WithPage(ApplicationTheme.Light, (window, page, viewModel, harness) =>
+        {
+            Assert.NotEmpty(threads);
+            Assert.DoesNotContain(Environment.CurrentManagedThreadId, threads);
+            Assert.Equal(500, viewModel.LiveViewRows.Count);
+        }, harness: () =>
+        {
+            var h = Harness();
+            h.Live!.Service.Next = _ =>
+            {
+                var s = LiveData.Snapshot(rows: 500);
+                return s with { Views = s.Views.ToDictionary(v => v.Key, v => v.Value with { Rows = v.Value.Rows.Select(r => r with { Cells = new ThreadCells(r.Cells, threads) }).ToList() }) };
+            };
+            return h;
         });
     }
 

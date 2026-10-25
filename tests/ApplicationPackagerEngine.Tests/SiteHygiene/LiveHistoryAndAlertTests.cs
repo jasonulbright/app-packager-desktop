@@ -397,6 +397,10 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
         var store = Store();
         store.Append(Row(Now, deployments: 5));
         Assert.Equal(5, Assert.Single(store.Read(30)).Values[LiveMetrics.DeploymentTotal]);
+
+        File.WriteAllText(File1, MetricsHistoryStore.HeaderLine);
+        store.Append(Row(Now, deployments: 6));
+        Assert.Equal(6, Assert.Single(store.Read(30)).Values[LiveMetrics.DeploymentTotal]);
     }
 
     [Fact]

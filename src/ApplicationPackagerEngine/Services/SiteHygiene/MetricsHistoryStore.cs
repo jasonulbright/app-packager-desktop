@@ -161,7 +161,9 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         }
         var text = Encoding.UTF8.GetString(buffer, 0, read).TrimStart('﻿');
         var end = text.IndexOfAny(['\r', '\n']);
-        return end >= 0 && string.Equals(text[..end], HeaderLine, StringComparison.Ordinal);
+        // A file cut right after the header has no line end; the append then adds the line end first.
+        if (end < 0) return read == stream.Length && string.Equals(text, HeaderLine, StringComparison.Ordinal);
+        return string.Equals(text[..end], HeaderLine, StringComparison.Ordinal);
     }
 
     /// <summary>Called under the lock. Reads only the first data line unless the prune is due and needed.</summary>

@@ -227,7 +227,7 @@ public partial class SiteHygienePage : INavigationAware
                 break;
             case nameof(SiteHygieneViewModel.LiveViewRows):
                 ShowSorts();
-                if (_liveGridPlace is not null) Dispatcher.BeginInvoke(RestoreLiveGridPlace, System.Windows.Threading.DispatcherPriority.Loaded);
+                if (_liveGridPlace is not null) Dispatcher.BeginInvoke(RestoreLiveGridPlace, System.Windows.Threading.DispatcherPriority.ContextIdle);
                 break;
         }
     }
@@ -258,7 +258,8 @@ public partial class SiteHygienePage : INavigationAware
         }
         var selected = _viewModel.SelectedLiveRow;
         if (selected is not null && dgLive.Items.Contains(selected)) dgLive.ScrollIntoView(selected);
-        if (!place.HadFocus || dgLive.IsKeyboardFocusWithin) return;
+        // The focused cell can belong to a row container the new rows recycle, so the focus goes to the selected row again.
+        if (!place.HadFocus) return;
         if (selected is null || !Helpers.DataGridFocus.FocusItemCell(dgLive, selected)) dgLive.Focus();
     }
 
