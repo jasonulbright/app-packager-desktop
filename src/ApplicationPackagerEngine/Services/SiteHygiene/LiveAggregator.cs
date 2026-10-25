@@ -10,17 +10,17 @@ namespace ApplicationPackagerEngine.Services;
 internal static class LiveAggregator
 {
     public static readonly IReadOnlyList<string> DeploymentColumns =
-        ["Name", "Type", "Collection", "Purpose", "Targeted", "Success", "Errors", "In progress", "Unknown", "Compliance (%)", "Deployment ID", "Summarized"];
+        ["Name", "Type", "Collection", "Purpose", "Targeted", "Success", "Errors", "In progress", "Compliance (%)"];
 
     public static readonly IReadOnlyList<string> ContentColumns =
-        ["Name", "Type", "Package ID", "Distribution points", "Installed", "In progress", "Failed", "Installed (%)"];
+        ["Name", "Content type", "Package ID", "Distribution points", "Installed", "In progress", "Failed", "Installed (%)"];
 
-    public static readonly IReadOnlyList<string> DpColumns = ["Name", "Site", "Status", "Pull DP", "PXE", "Kind"];
+    public static readonly IReadOnlyList<string> DpColumns = ["Name", "Site", "Pull DP", "PXE", "Kind"];
 
-    public static readonly IReadOnlyList<string> SiteColumns = ["Name", "Item", "Server", "Status", "State", "Last started"];
+    public static readonly IReadOnlyList<string> SiteColumns = ["Name", "Item", "Server", "State", "Last started"];
 
     public static readonly IReadOnlyList<string> ClientColumns =
-        ["Device", "Health", "Active", "Client state", "Last active", "Last online", "Last DDR", "Last policy request", "Last hardware inventory", "Last health evaluation", "Client version", "Operating system"];
+        ["Device", "Health", "Active", "Last active", "Last DDR", "Last policy", "Last inventory", "Client version"];
 
     public static readonly IReadOnlyList<string> InactiveColumns = ["Device", "Last active", "Last DDR", "Days since contact", "Operating system", "Client version"];
 
@@ -103,7 +103,6 @@ internal static class LiveAggregator
             var success = r.I("NumberSuccess");
             var errors = r.I("NumberErrors");
             var progress = r.I("NumberInProgress");
-            var unknown = r.I("NumberUnknown");
             targetedSum += targeted;
             successSum += success;
             if (errors > 0) withErrors++;
@@ -118,7 +117,7 @@ internal static class LiveAggregator
             rows.Add(new LiveRow(keys.Next(id), status, text,
             [
                 name, FeatureType(r.I("FeatureType", -1)), r.S("CollectionName") is { Length: > 0 } c ? c : r.S("CollectionID"), Purpose(r.I("DeploymentIntent", -1)),
-                N(targeted), N(success), N(errors), N(progress), N(unknown), pct is { } p ? Pct(p) : "", id, r.S("SummarizationTime").Replace('T', ' ')
+                N(targeted), N(success), N(errors), N(progress), pct is { } p ? Pct(p) : ""
             ]));
         }
         double? overall = targetedSum > 0 ? Math.Round(successSum * 100.0 / targetedSum, 1, MidpointRounding.AwayFromZero) : null;
@@ -250,7 +249,7 @@ internal static class LiveAggregator
             else if (st == LiveStatus.Warning) warning++;
             else if (st == LiveStatus.Unknown) unknown++;
             var key = d.S("NALPath") is { Length: > 0 } nal ? nal.ToUpperInvariant() : server.ToUpperInvariant();
-            rows.Add(new LiveRow(keys.Next(key), st, text, [server, d.S("SiteCode"), text, YesNo(d.S("IsPullDP")), YesNo(d.S("IsPXE")), d.S("ResourceType")]));
+            rows.Add(new LiveRow(keys.Next(key), st, text, [server, d.S("SiteCode"), YesNo(d.S("IsPullDP")), YesNo(d.S("IsPXE")), d.S("ResourceType")]));
         }
         var counts = Counts(LiveView.DistributionPoints, complete, c => c switch
         {
@@ -284,7 +283,7 @@ internal static class LiveAggregator
             var name = c.S("ComponentName");
             var machine = c.S("MachineName");
             rows.Add(new LiveRow(keys.Next("C|" + name + "|" + machine), st, text,
-                [name, "Component", machine, text, ComponentState(c.I("State", -1)), c.S("LastStarted").Replace('T', ' ')]));
+                [name, "Component", machine, ComponentState(c.I("State", -1)), c.S("LastStarted").Replace('T', ' ')]));
         }
         foreach (var s in systems.Records)
         {
@@ -292,7 +291,7 @@ internal static class LiveAggregator
             Count(st);
             var server = DpContentAggregator.ServerOf(s.S("SiteSystem")).Trim();
             var role = s.S("Role");
-            rows.Add(new LiveRow(keys.Next("S|" + role + "|" + server.ToUpperInvariant()), st, text, [role, "Site system", server, text, "", ""]));
+            rows.Add(new LiveRow(keys.Next("S|" + role + "|" + server.ToUpperInvariant()), st, text, [role, "Site system", server, "", ""]));
         }
         var counts = Counts(LiveView.SiteHealth, complete, c => unknown > 0 ? null : c switch
         {
@@ -347,7 +346,7 @@ internal static class LiveAggregator
                 : (LiveStatus.Unknown, "Not evaluated");
             rows.Add(new LiveRow(keys.Next(C(0)), st, text,
             [
-                C(1), Health(health), Active(active), C(4), LocalTime(C(5)), LocalTime(C(6)), LocalTime(C(7)), LocalTime(C(8)), LocalTime(C(9)), LocalTime(C(10)), C(11), C(12)
+                C(1), Health(health), Active(active), LocalTime(C(5)), LocalTime(C(7)), LocalTime(C(8)), LocalTime(C(9)), C(11)
             ]));
         }
         var counts = Counts(LiveView.ClientHealth, complete, c => c switch

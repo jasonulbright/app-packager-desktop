@@ -836,7 +836,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         SiteHygieneSettings? saved;
         try
         {
-            LoadSql(await Task.Run(Services.LoadSettings));
+            LoadStoredLive(await Task.Run(Services.LoadSettings));
             saved = await Task.Run(Services.LoadPreferences);
         }
         catch (Exception ex)
@@ -922,7 +922,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         await _saveLock.WaitAsync();
         try
         {
-            await SaveSqlAsync();
+            await SaveLiveAsync();
             var choices = Current();
             if (Same(_stored, choices)) return true;
             bool saved;

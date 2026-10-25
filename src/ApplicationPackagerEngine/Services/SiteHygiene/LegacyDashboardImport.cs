@@ -27,14 +27,16 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
     private readonly Func<IReadOnlyList<string>> _suiteFolders;
     private readonly MetricsHistoryStore _history;
     private readonly Func<LiveSettingValues> _read;
-    private readonly Action<LiveSettingValues> _fill;
+    private readonly Func<LiveSettingValues, bool> _fill;
     private readonly IAppLog? _log;
     private readonly Func<DateTime> _utcNow;
 
+    public const string SettingsNotSaved = "The settings file could not be written, so no setting was filled.";
+
     /// <param name="suiteFolders">The suite Site Hygiene folders to look in, in order; null uses <see cref="SuiteFolders"/>.</param>
     /// <param name="read">The stored Live settings now.</param>
-    /// <param name="fill">Stores each non-null value of its argument; the import passes only values that were null.</param>
-    public LegacyDashboardImport(MetricsHistoryStore history, Func<LiveSettingValues> read, Action<LiveSettingValues> fill,
+    /// <param name="fill">Stores each non-null value of its argument; the import passes only values that were null. False when nothing was written.</param>
+    public LegacyDashboardImport(MetricsHistoryStore history, Func<LiveSettingValues> read, Func<LiveSettingValues, bool> fill,
         Func<IReadOnlyList<string>>? suiteFolders = null, IAppLog? log = null, Func<DateTime>? utcNow = null)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
@@ -242,7 +244,12 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         {
             var (values, keys) = Fill(plan.Values, _read());
             keys = keys.Where(plan.SettingKeys.Contains).ToList();
-            if (keys.Count > 0) _fill(Only(values, keys));
+            var notSaved = keys.Count > 0 && !_fill(Only(values, keys));
+            if (notSaved)
+            {
+                _log?.Warning(SiteHygieneService.LogArea, "The dashboard import could not write the settings file.");
+                keys = [];
+            }
             var copied = false;
             var rows = 0;
             if (plan.HistoryWillBeCopied && plan.HistoryFile.Length > 0 && !_history.Exists)
@@ -257,6 +264,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             var parts = new List<string>();
             if (keys.Count > 0) parts.Add($"Filled {keys.Count.ToString(CultureInfo.InvariantCulture)} settings: {string.Join(", ", keys)}.");
             if (copied) parts.Add($"Copied {rows.ToString("N0", CultureInfo.InvariantCulture)} history rows.");
+            if (notSaved) parts.Add(SettingsNotSaved);
             if (parts.Count == 0) parts.Add("Nothing changed. The settings already have values and a history exists.");
             _log?.Info(SiteHygieneService.LogArea, $"Dashboard import: {keys.Count.ToString(CultureInfo.InvariantCulture)} settings, {rows.ToString(CultureInfo.InvariantCulture)} history rows.");
             return new LegacyImportResult(keys, rows, copied, string.Join(" ", parts));

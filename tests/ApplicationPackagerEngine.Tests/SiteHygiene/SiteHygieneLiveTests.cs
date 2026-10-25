@@ -292,7 +292,7 @@ public sealed class SiteHygieneLiveTests
         await WaitUntil(() => clock.Pending == 1 && clock.Waits.Count == 2);
         Assert.Equal(TimeSpan.FromMinutes(60), clock.Waits[^1]);
         Assert.True(await vm.SaveAsync());
-        Assert.Equal(60, h.Saved!.RefreshMinutes);
+        Assert.Equal(60, h.Settings.SiteHygieneLive!.RefreshMinutes);
     }
 
     [Fact]
@@ -331,6 +331,26 @@ public sealed class SiteHygieneLiveTests
         Assert.Null(vm.SelectedLiveRow);
         vm.SelectedLiveView = ViewChoice(LiveView.Deployments);
         Assert.Equal("DEPLOYMENTS-7", vm.SelectedLiveRow?.Key);
+    }
+
+    [Fact]
+    public void EveryColumnHeaderOfTheServiceHasAWidthKindAndOnlyNameColumnsTakeTheFreeWidth()
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal) { "Name", "Collection", "Device", "Server", "Operating system" };
+        var headers = Enum.GetValues<LiveView>().SelectMany(LiveAggregator.Columns).ToHashSet(StringComparer.Ordinal);
+        Assert.DoesNotContain(SiteHygieneLiveLabels.StatusHeader, headers);
+        foreach (var header in headers)
+        {
+            var kind = SiteHygieneLiveLabels.KindOf(header);
+            if (names.Contains(header)) Assert.True(kind == LiveColumnKind.Name, $"{header} is {kind}.");
+            else
+            {
+                Assert.True(kind != LiveColumnKind.Name, $"{header} has no width kind, so it takes the free width.");
+                Assert.True(LiveData.LongValues.ContainsKey(header), $"{header} has no longest real value for the fit tests.");
+            }
+        }
+        Assert.Empty(SiteHygieneLiveLabels.FixedHeaders.Where(h => !headers.Contains(h)));
+        Assert.Empty(LiveData.LongValues.Keys.Where(h => !headers.Contains(h)));
     }
 
     [Fact]
@@ -553,10 +573,8 @@ public sealed class SiteHygieneLiveTests
     [Fact]
     public async Task TheImportShowsItsPlanFillsOnlyValuesThatWereNeverSetAndASecondRunChangesNothing()
     {
-        var h = new SiteHygienePageHarness
-        {
-            Saved = new SiteHygieneSettings { TabLayout = SiteHygieneSettings.LiveTabLayout, InactiveDays = 45 }
-        };
+        var h = new SiteHygienePageHarness();
+        h.Settings.SiteHygieneLive = new SiteHygieneLiveSettings { InactiveDays = 45 };
         Live(h).Import.Next = FakeLegacyImport.Found();
         var vm = await h.OpenAsync();
         Assert.True(vm.HasImportOffer);
@@ -567,27 +585,32 @@ public sealed class SiteHygieneLiveTests
         Assert.Empty(Live(h).Import.Applied);
         Assert.Equal("", vm.LiveSqlServer);
 
+        // A value chosen on the page before the import is written first, so the plan keeps it.
+        vm.RefreshMinutes = 60;
         h.Dialogs.ConfirmImport = true;
         await vm.ImportDashboardCommand.ExecuteAsync(null);
         var plan = h.Dialogs.Imports[^1].Plan;
         Assert.Contains("Metrics history: 42 rows from ", plan);
         Assert.Contains("Setting SQL server: CM01.contoso.com", plan);
-        Assert.Contains("Setting Refresh interval: 30 minutes", plan);
+        Assert.Contains("Setting Alerts: Off", plan);
         Assert.DoesNotContain("Inactivity threshold", plan);
-        Assert.Contains("1 setting of the old dashboard is not copied, as this page has a value already.", plan);
+        Assert.DoesNotContain("Refresh interval", plan);
         Assert.Single(Live(h).Import.Applied);
-        Assert.Equal(("CM01.contoso.com", true, 30, 45, false, 85, true), (vm.LiveSqlServer, vm.TrustSqlCertificate, vm.RefreshMinutes, vm.InactiveDays, vm.AlertsEnabled, vm.CompliancePctFloor, vm.AlertCompliance));
+        Assert.Equal(("CM01.contoso.com", true, 60, 45, false, 85, true), (vm.LiveSqlServer, vm.TrustSqlCertificate, vm.RefreshMinutes, vm.InactiveDays, vm.AlertsEnabled, vm.CompliancePctFloor, vm.AlertCompliance));
         Assert.Contains("Copied 42 history rows.", vm.StatusMessage);
-        Assert.Contains("Settings filled: SQL server, Trust the SQL server certificate, Refresh interval, Alerts, Compliance floor.", vm.StatusMessage);
+        Assert.Contains("Settings filled: SQL server, Trust the SQL server certificate, Alerts, Compliance floor.", vm.StatusMessage);
         Assert.False(vm.HasImportOffer);
-        Assert.Equal(("CM01.contoso.com", ""), Live(h).SqlSaves[^1]);
-        Assert.Equal((30, 45, true, false, 85), (h.Saved!.RefreshMinutes, h.Saved.InactiveDays, h.Saved.TrustSqlCertificate, h.Saved.Alerts!.Enabled, h.Saved.Alerts.CompliancePctFloor));
+        var stored = h.Settings.SiteHygieneLive!;
+        Assert.Equal(("CM01.contoso.com", 60, 45, true, false, 85), (h.Settings.DiscoverySqlServer, stored.RefreshMinutes, stored.InactiveDays, stored.TrustSqlCertificate, stored.AlertsEnabled, stored.CompliancePctFloor));
+        Assert.True(h.Saved!.ImportOfferDismissed);
 
+        var saves = Live(h).LiveSaves.Count;
         var dialogs = h.Dialogs.Imports.Count;
         await vm.ImportDashboardCommand.ExecuteAsync(null);
         Assert.Equal(VM.ImportNothing, vm.StatusMessage);
         Assert.Equal(dialogs, h.Dialogs.Imports.Count);
         Assert.Single(Live(h).Import.Applied);
+        Assert.Equal(saves, Live(h).LiveSaves.Count);
     }
 
     [Fact]
@@ -608,16 +631,34 @@ public sealed class SiteHygieneLiveTests
         Assert.True(await vm.SaveAsync());
         var saved = h.Saved!;
         Assert.Equal((SiteHygieneSettings.LiveTabLayout, VM.LiveTab, "SiteHealth", "Warning", "SMS_", 180), (saved.TabLayout, saved.SelectedTab, saved.LiveView, saved.LiveStatus, saved.LiveText, saved.TrendDays));
-        Assert.Equal((90, (int?)null, (bool?)null), (saved.InactiveDays, saved.RefreshMinutes, saved.TrustSqlCertificate));
-        Assert.Equal(((bool?)false, (bool?)null), (saved.Alerts!.DpCritical, saved.Alerts.Enabled));
-        Assert.Equal(("sql01.contoso.com", "CM_MCM"), Live(h).SqlSaves[^1]);
+        var (live, server, database) = Live(h).LiveSaves[^1];
+        Assert.Equal(("sql01.contoso.com", "CM_MCM"), (server, database));
+        Assert.Equal((90, (int?)null, (bool?)null), (live.InactiveDays, live.RefreshMinutes, live.TrustSqlCertificate));
+        Assert.Equal(((bool?)false, (bool?)null), (live.AlertDpCritical, live.AlertsEnabled));
+        Assert.Same(live, h.Settings.SiteHygieneLive);
 
-        var again = new SiteHygienePageHarness { Saved = saved, Settings = new AppSettings { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com", DiscoverySqlServer = "sql01.contoso.com", DiscoverySqlDatabase = "CM_MCM" } };
+        var again = new SiteHygienePageHarness
+        {
+            Saved = saved,
+            Settings = new AppSettings { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com", DiscoverySqlServer = "sql01.contoso.com", DiscoverySqlDatabase = "CM_MCM", SiteHygieneLive = live }
+        };
         var vm2 = await again.OpenAsync();
         Assert.Equal((VM.LiveTab, LiveView.SiteHealth, "Warning", "SMS_", 90, false, 180), (vm2.SelectedTabIndex, vm2.SelectedLiveView.View, vm2.LiveStatusFilter, vm2.LiveFilterText, vm2.InactiveDays, vm2.AlertDpCritical, vm2.TrendDays));
         Assert.Equal(("sql01.contoso.com", "CM_MCM"), (vm2.LiveSqlServer, vm2.LiveSqlDatabase));
         Assert.True(await vm2.SaveAsync());
-        Assert.Empty(again.Live!.SqlSaves);
+        Assert.Empty(again.Live!.LiveSaves);
+    }
+
+    [Fact]
+    public async Task ASettingsFileWithoutLiveOptionsOpensWithTheDefaultsAndWritesNothing()
+    {
+        var h = new SiteHygienePageHarness { Saved = new SiteHygieneSettings { SelectedTab = 2 } };
+        Assert.Null(h.Settings.SiteHygieneLive);
+        var vm = await h.OpenAsync();
+        Assert.Equal(LiveSettings.Default, vm.CurrentLiveSettings());
+        Assert.True(await vm.SaveAsync());
+        Assert.Empty(Live(h).LiveSaves);
+        Assert.Null(h.Settings.SiteHygieneLive);
     }
 
     [Theory]
@@ -642,10 +683,8 @@ public sealed class SiteHygieneLiveTests
     [Fact]
     public async Task AStoredValueOutOfRangeIsClampedToTheNearestChoice()
     {
-        var h = new SiteHygienePageHarness
-        {
-            Saved = new SiteHygieneSettings { RefreshMinutes = 1, InactiveDays = 5000, Alerts = new SiteHygieneAlertChoices { CompliancePctFloor = 101 }, LiveView = "Nope", LiveStatus = "Bad", TrendDays = 3 }
-        };
+        var h = new SiteHygienePageHarness { Saved = new SiteHygieneSettings { LiveView = "Nope", LiveStatus = "Bad", TrendDays = 3 } };
+        h.Settings.SiteHygieneLive = new SiteHygieneLiveSettings { RefreshMinutes = 1, InactiveDays = 5000, CompliancePctFloor = 101 };
         var vm = await h.OpenAsync();
         Assert.Equal((5, 365, 99, SiteHygieneLiveLabels.Views[0], SiteHygieneLiveLabels.AllText, VM.DefaultTrendDays), (vm.RefreshMinutes, vm.InactiveDays, vm.CompliancePctFloor, vm.SelectedLiveView, vm.LiveStatusFilter, vm.TrendDays));
     }
@@ -661,7 +700,8 @@ public sealed class SiteHygieneLiveTests
         Assert.Equal(Live(h).Service.TestResult, vm.SqlTestResult);
         var settings = Live(h).Service.Settings[^1];
         Assert.Equal(("cm01.contoso.com", "", true), (settings.SqlServer, settings.SqlDatabase, settings.TrustSqlCertificate));
-        Assert.Equal(("cm01.contoso.com", ""), Live(h).SqlSaves[^1]);
+        var (live, server, database) = Live(h).LiveSaves[^1];
+        Assert.Equal(("cm01.contoso.com", "", (bool?)true), (server, database, live.TrustSqlCertificate));
         Assert.Equal(0, Live(h).Service.RefreshCalls);
     }
 
@@ -670,16 +710,16 @@ public sealed class SiteHygieneLiveTests
     {
         var h = new SiteHygienePageHarness();
         var vm = await h.OpenAsync();
-        Live(h).SqlSaveFails = true;
+        Live(h).LiveSaveFails = true;
         vm.LiveSqlDatabase = "CM_MCM";
         await vm.SaveAsync();
-        Assert.Equal(VM.SqlSaveFailed, vm.StatusMessage);
-        Live(h).SqlSaveFails = false;
-        var saves = Live(h).SqlSaves.Count;
+        Assert.Equal(VM.LiveSaveFailed, vm.StatusMessage);
+        Live(h).LiveSaveFails = false;
+        var saves = Live(h).LiveSaves.Count;
         await vm.SaveAsync();
-        Assert.Equal(saves + 1, Live(h).SqlSaves.Count);
+        Assert.Equal(saves + 1, Live(h).LiveSaves.Count);
         await vm.SaveAsync();
-        Assert.Equal(saves + 1, Live(h).SqlSaves.Count);
+        Assert.Equal(saves + 1, Live(h).LiveSaves.Count);
     }
 
     [Fact]

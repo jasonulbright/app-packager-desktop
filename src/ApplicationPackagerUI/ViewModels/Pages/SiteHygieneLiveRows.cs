@@ -28,6 +28,7 @@ public enum LiveColumnKind
 {
     Name,
     Text,
+    MediumText,
     LongText,
     Count,
     Time,
@@ -86,52 +87,51 @@ public static class SiteHygieneLiveLabels
     /// <summary>The kind of a column by its header; a header that is not listed is a name.</summary>
     public static LiveColumnKind KindOf(string header) => Kinds.TryGetValue(header.Trim(), out var kind) ? kind : LiveColumnKind.Name;
 
+    /// <summary>The column headers of the Live service (LiveAggregator) that hold values of a known length; Name, Collection, Device, Server and Operating system are names.</summary>
     private static readonly Dictionary<string, LiveColumnKind> Kinds = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Type"] = LiveColumnKind.LongText,
+        ["Type"] = LiveColumnKind.MediumText,
+        ["Content type"] = LiveColumnKind.LongText,
+        ["Kind"] = LiveColumnKind.LongText,
         ["Purpose"] = LiveColumnKind.Short,
-        ["Package ID"] = LiveColumnKind.Text,
-        ["Deployment ID"] = LiveColumnKind.Text,
+        ["Site"] = LiveColumnKind.Short,
+        ["Pull DP"] = LiveColumnKind.Short,
+        ["PXE"] = LiveColumnKind.Short,
         ["Targeted"] = LiveColumnKind.Count,
         ["Success"] = LiveColumnKind.Count,
         ["Errors"] = LiveColumnKind.Count,
         ["In progress"] = LiveColumnKind.Count,
-        ["Unknown"] = LiveColumnKind.Count,
-        ["Compliance"] = LiveColumnKind.Count,
-        ["DPs"] = LiveColumnKind.Count,
+        ["Compliance (%)"] = LiveColumnKind.Count,
+        ["Distribution points"] = LiveColumnKind.Count,
         ["Installed"] = LiveColumnKind.Count,
         ["Failed"] = LiveColumnKind.Count,
-        ["Complete"] = LiveColumnKind.Count,
-        ["Content"] = LiveColumnKind.Count,
-        ["Failed content"] = LiveColumnKind.Count,
+        ["Installed (%)"] = LiveColumnKind.Count,
         ["Days since contact"] = LiveColumnKind.Count,
-        ["Site"] = LiveColumnKind.Short,
-        ["Site code"] = LiveColumnKind.Short,
-        ["Pull DP"] = LiveColumnKind.Short,
-        ["Health"] = LiveColumnKind.Text,
-        ["Activity"] = LiveColumnKind.Text,
-        ["State"] = LiveColumnKind.Text,
-        ["Availability"] = LiveColumnKind.Text,
-        ["Kind"] = LiveColumnKind.Text,
+        ["Package ID"] = LiveColumnKind.Text,
         ["Item"] = LiveColumnKind.Text,
+        ["State"] = LiveColumnKind.Text,
+        ["Health"] = LiveColumnKind.Text,
+        ["Active"] = LiveColumnKind.Short,
         ["Client version"] = LiveColumnKind.Text,
-        ["Client state"] = LiveColumnKind.Text,
+        ["Last started"] = LiveColumnKind.LongText,
         ["Last active"] = LiveColumnKind.Time,
         ["Last DDR"] = LiveColumnKind.Time,
-        ["Last policy request"] = LiveColumnKind.Time,
-        ["Last hardware inventory"] = LiveColumnKind.Time,
-        ["Last health evaluation"] = LiveColumnKind.Time,
-        ["Last started"] = LiveColumnKind.Time
+        ["Last policy"] = LiveColumnKind.Time,
+        ["Last inventory"] = LiveColumnKind.Time
     };
+
+    /// <summary>The headers <see cref="KindOf"/> sizes as a fixed kind.</summary>
+    public static IReadOnlyCollection<string> FixedHeaders => Kinds.Keys;
 
     /// <summary>The width of a column of a fixed kind, which is also its least width, so a narrow window never cuts its longest value; a name has a star width and only a least width.</summary>
     public static (double Width, double MinWidth) Width(LiveColumnKind kind) => kind switch
     {
-        LiveColumnKind.Count => (96, 96),
-        LiveColumnKind.Short => (80, 80),
+        LiveColumnKind.Count => (80, 80),
+        LiveColumnKind.Short => (84, 84),
         LiveColumnKind.Text => (124, 124),
-        LiveColumnKind.LongText => (196, 196),
-        LiveColumnKind.Time => (168, 168),
+        LiveColumnKind.MediumText => (160, 160),
+        LiveColumnKind.LongText => (192, 192),
+        LiveColumnKind.Time => (136, 136),
         _ => (0, 100)
     };
 

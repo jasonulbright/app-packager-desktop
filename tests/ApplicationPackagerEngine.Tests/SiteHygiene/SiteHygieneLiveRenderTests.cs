@@ -103,13 +103,12 @@ public sealed class SiteHygieneLiveRenderTests
     /// <summary>The longest real value of each column of each view, by column header.</summary>
     private static IEnumerable<(string Header, string Text)> LongValues(LiveView view)
     {
-        foreach (var text in LiveData.StatusTexts.SelectMany(t => Enum.GetValues<LiveStatus>().Select(s => SiteHygieneLiveLabels.StatusCell(s, t))))
+        foreach (var text in LiveText.StatusTexts(view).SelectMany(t => Enum.GetValues<LiveStatus>().Select(s => SiteHygieneLiveLabels.StatusCell(s, t))))
             yield return (SiteHygieneLiveLabels.StatusHeader, text);
         foreach (var header in LiveData.Columns[view])
         {
-            var kind = SiteHygieneLiveLabels.KindOf(header);
-            if (kind == LiveColumnKind.Name) continue;
-            foreach (var text in LiveData.LongValues[kind]) yield return (header, text);
+            if (!LiveData.LongValues.TryGetValue(header, out var values)) continue;
+            foreach (var text in values) yield return (header, text);
         }
     }
 
@@ -152,16 +151,96 @@ public sealed class SiteHygieneLiveRenderTests
             AssertResizableReadableColumns(alerts);
             AssertNoSidewaysScroll(alerts, $"dgAlerts at {width}");
             AssertValuesFit(alerts, LiveAlertMetrics.All.Select(m => ("Metric", SiteHygieneLiveLabels.AlertMetric(m)))
-                .Concat([("State", "▲ New"), ("State", "Seen"), ("Time", LiveData.LongValues[LiveColumnKind.Time][0])]), failures, "alerts");
+                .Concat([("State", "▲ New"), ("State", "Seen"), ("Time", LiveData.LongTime)]), failures, "alerts");
 
             ShowView(window, viewModel, Pane(LivePane.Trends));
             var table = ById<DataGrid>(page, "dgTrend");
             AssertResizableReadableColumns(table);
             AssertNoSidewaysScroll(table, $"dgTrend at {width}");
-            AssertValuesFit(table, [("Time", LiveData.LongValues[LiveColumnKind.Time][0]), ("Value", "1,234,567.5"), ("Value", SiteHygieneLiveLabels.NotKnown), ("Note", TrendTableRow.GapText)],
+            AssertValuesFit(table, [("Time", LiveData.LongTime), ("Value", "1,234,567.5"), ("Value", SiteHygieneLiveLabels.NotKnown), ("Note", TrendTableRow.GapText)],
                 failures, "trends");
             Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
         }, width);
+    }
+
+    /// <summary>The CM01 rows with one row of each status the service writes, and the client rows of the SQL script.</summary>
+    private static System.Text.Json.Nodes.JsonObject RealState()
+    {
+        var state = LiveFixtures.State();
+        var classes = state["Classes"]!;
+        var deployments = (System.Text.Json.Nodes.JsonArray)classes["SMS_DeploymentSummary"]!;
+        deployments[0]!["NumberErrors"] = 1;
+        deployments[1]!["NumberTargeted"] = 0;
+        deployments[1]!["NumberSuccess"] = 0;
+        deployments[2]!["FeatureType"] = 11;
+        deployments[3]!["FeatureType"] = 12;
+        var pairs = (System.Text.Json.Nodes.JsonArray)classes["SMS_PackageStatusDistPointsSummarizer"]!;
+        pairs[0]!["State"] = 3;
+        pairs[1]!["State"] = 2;
+        pairs[2]!["State"] = 2;
+        pairs[3]!["State"] = 2;
+        pairs[3]!["PackageType"] = 3;
+        ((System.Text.Json.Nodes.JsonArray)classes["SMS_DistributionPointInfo"]!).Add(new System.Text.Json.Nodes.JsonObject
+        {
+            ["NALPath"] = LiveFixtures.SiteSystemOf("DP02.contoso.com"), ["ServerName"] = "DP02.CONTOSO.COM", ["SiteCode"] = "MCM", ["IsPullDP"] = true, ["IsPXE"] = true, ["ResourceType"] = "Windows NT Workstation"
+        });
+        var components = (System.Text.Json.Nodes.JsonArray)classes["SMS_ComponentSummarizer"]!;
+        components[0]!["Status"] = 2;
+        components[2]!["Status"] = 1;
+        components[2]!["State"] = 5;
+        return state;
+    }
+
+    private const string RealClients = """
+        @(
+            ,@([int]16777219, 'CM01', [int]1, [int]1, 'Active/Pass', [datetime]'2026-10-25T14:07:34', [datetime]'2026-10-22T10:18:44', [datetime]'2026-10-19T08:20:53', [datetime]'2026-10-25T14:07:34', [datetime]'2026-10-19T09:27:10', [datetime]'2026-10-23T17:27:05', '5.00.9146.1009', 'Microsoft Windows NT Advanced Server 10.0')
+            ,@([int]16777222, 'CLIENT02', [System.DBNull]::Value, [int]0, 'Inactive/Pass', [datetime]'2026-10-13T12:55:25', [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, '5.00.9141.1011', 'Microsoft Windows NT Workstation 10.0')
+            ,@([int]16777223, 'CLIENT03', [int]2, [System.DBNull]::Value, 'Active/Fail', [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, '5.00.9146.1009', 'Microsoft Windows NT Workstation 10.0')
+        )
+        """;
+
+    private const string RealInactive = """
+        @(
+            ,@([int]16777230, 'OLD', [datetime]'2026-06-01T00:00:00', [datetime]'2026-06-01T00:00:00', [int]146, 'Microsoft Windows NT Workstation 10.0', '5.00.9141.1011')
+            ,@([int]16777231, 'NEVER', [System.DBNull]::Value, [System.DBNull]::Value, [System.DBNull]::Value, 'Microsoft Windows NT Workstation 10.0', '5.00.9141.1011')
+            ,@([int]16777222, 'CLIENT02', [datetime]'2026-10-13T12:55:25', [datetime]'2026-10-12T08:25:53', [int]15, 'Microsoft Windows NT Workstation 10.0', '5.00.9141.1011')
+        )
+        """;
+
+    /// <summary>
+    /// The real Live service over the stub site and the real SQL script: every cell the service writes, in every column
+    /// that is not a name column, fits its column with room, and no grid scrolls sideways.
+    /// </summary>
+    [Theory]
+    [InlineData(ApplicationTheme.Light, 1440 - CollapsedPaneWidth)]
+    [InlineData(ApplicationTheme.Dark, 1440 - NavigationPaneWidth)]
+    public void EveryCellTheRealServiceWritesFitsItsColumn(ApplicationTheme theme, double width)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            var failures = new List<string>();
+            var grid = ById<DataGrid>(page, "dgLive");
+            foreach (var choice in GridViews)
+            {
+                ShowView(window, viewModel, choice);
+                var result = viewModel.LastSnapshot!.Views[choice.View!.Value];
+                Assert.True(result.Complete, $"{choice.Id}: {result.Message}");
+                Assert.NotEmpty(viewModel.LiveViewRows);
+                Assert.All(result.Rows, r => Assert.Contains(r.StatusText, LiveText.StatusTexts(choice.View.Value)));
+                Assert.Equal(["Status", .. LiveAggregator.Columns(choice.View.Value)], grid.Columns.Select(c => (string)c.Header));
+                AssertNoSidewaysScroll(grid, $"dgLive {choice.Id} at {width}");
+                var values = viewModel.LiveViewRows.SelectMany(r => r.Cells.Select((text, i) => (Header: result.Columns[i], Text: text)).Prepend((Header: SiteHygieneLiveLabels.StatusHeader, Text: r.StatusCell)))
+                    .Where(v => v.Header == SiteHygieneLiveLabels.StatusHeader || SiteHygieneLiveLabels.KindOf(v.Header) != LiveColumnKind.Name).ToList();
+                AssertValuesFit(grid, values, failures, choice.Id);
+            }
+            Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+        }, width, harness: () =>
+        {
+            var h = new SiteHygienePageHarness { Settings = new ApplicationPackagerUI.Models.AppSettings { SiteCode = "MCM", ProviderMachine = "CM01", DiscoverySqlServer = "CM01.contoso.com", DiscoverySqlDatabase = "CM_MCM" } };
+            var sql = new FakeSqlHost { ClientsSet = RealClients, InactiveSet = RealInactive };
+            h.LiveService = new SiteHygieneLiveService(new StubHygieneSite(RealState()), sql.Runner, connection: () => new ApplicationPackagerEngine.Services.ConfigMgrSession.ConfigMgrConnection("MCM", "CM01"));
+            return h;
+        });
     }
 
     public static TheoryData<ApplicationTheme, double, double> Sizes() => new()

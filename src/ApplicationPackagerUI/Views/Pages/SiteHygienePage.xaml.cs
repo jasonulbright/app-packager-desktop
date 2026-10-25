@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Helpers;
 using ApplicationPackagerUI.ViewModels.Pages;
 using Wpf.Ui.Abstractions.Controls;
@@ -204,10 +205,11 @@ public partial class SiteHygienePage : INavigationAware
         dgLive.Tag = key;
         dgLive.Columns.Clear();
         var cell = (Style)FindResource("TrimmedCell");
+        var status = Math.Max(SiteHygieneLiveLabels.StatusWidth, StatusColumnWidth(_viewModel.SelectedLiveView.View));
         dgLive.Columns.Add(new DataGridTextColumn
         {
             Header = SiteHygieneLiveLabels.StatusHeader, Binding = new System.Windows.Data.Binding(nameof(LiveGridRow.StatusCell)), SortMemberPath = SiteHygieneLiveLabels.StatusColumn,
-            Width = SiteHygieneLiveLabels.StatusWidth, MinWidth = SiteHygieneLiveLabels.StatusWidth, ElementStyle = cell
+            Width = status, MinWidth = status, ElementStyle = cell
         });
         for (var i = 0; i < headers.Count; i++)
         {
@@ -228,6 +230,18 @@ public partial class SiteHygienePage : INavigationAware
 
     /// <summary>The room of the sort glyph and the header padding around the header text.</summary>
     private const double HeaderRoom = 32;
+
+    /// <summary>The width of the widest status cell the view can show (each glyph with each status text of the view), with a 10 % margin.</summary>
+    private double StatusColumnWidth(LiveView? view)
+    {
+        if (view is not { } v) return 0;
+        var typeface = new System.Windows.Media.Typeface(dgLive.FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        var dip = System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var widest = LiveText.StatusTexts(v).SelectMany(t => Enum.GetValues<LiveStatus>().Select(s => SiteHygieneLiveLabels.StatusCell(s, t)))
+            .Max(text => new System.Windows.Media.FormattedText(text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, dgLive.FontSize,
+                System.Windows.Media.Brushes.Black, dip).WidthIncludingTrailingWhitespace);
+        return Math.Ceiling(widest * 1.1 + HeaderRoom);
+    }
 
     /// <summary>The width the column header needs: its text in the semibold header font, the sort glyph and the padding.</summary>
     private double HeaderWidth(string header)

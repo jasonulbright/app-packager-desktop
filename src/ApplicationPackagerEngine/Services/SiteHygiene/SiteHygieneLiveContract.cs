@@ -301,6 +301,18 @@ public static class LiveText
         _ => view.ToString()
     };
 
+    /// <summary>Every status text a row of <paramref name="view"/> can carry, so a grid can size its status column before the rows arrive.</summary>
+    public static IReadOnlyList<string> StatusTexts(LiveView view) => view switch
+    {
+        LiveView.Deployments => ["Errors", "Nothing targeted", "In progress", "Below 95 %", "OK"],
+        LiveView.Content => ["Failed", "In progress"],
+        LiveView.DistributionPoints => ["OK", "Warning", "Critical", "Unknown", "No status"],
+        LiveView.ClientHealth => ["Unhealthy", "Inactive", "Healthy", "Not evaluated"],
+        LiveView.InactiveDevices => ["No contact on record", "Over 60 days", "Past the threshold"],
+        LiveView.SiteHealth => ["OK", "Warning", "Critical", "Unknown"],
+        _ => []
+    };
+
     public static string StatusLabel(LiveStatus status) => status switch
     {
         LiveStatus.Ok => "OK",

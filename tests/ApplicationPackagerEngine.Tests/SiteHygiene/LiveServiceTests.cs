@@ -50,7 +50,7 @@ public sealed class LiveServiceTests
 
         var app = view.Rows.Single(r => r.Key == "{EBD95D0B-A855-4AC6-9B7E-02211FA6C0E5}");
         Assert.Equal((LiveStatus.Warning, "Below 95 %"), (app.Status, app.StatusText));
-        Assert.Equal(["CMCO-CANARY-App", "Application", "Collection MCM0001F", "Available", "1", "0", "0", "0", "0", "0.0"], app.Cells.Take(10));
+        Assert.Equal(["CMCO-CANARY-App", "Application", "Collection MCM0001F", "Available", "1", "0", "0", "0", "0.0"], app.Cells);
         var swu = view.Rows.Single(r => r.Cells[0] == "CMCO-CANARY-SWU-Group");
         Assert.Equal((LiveStatus.Warning, "In progress"), (swu.Status, swu.StatusText));
         var ok = view.Rows.Single(r => r.Key == "MCM2000E");
@@ -73,7 +73,7 @@ public sealed class LiveServiceTests
         Assert.All(view.Rows.Skip(1), r => Assert.Equal((LiveStatus.Unknown, "Nothing targeted"), (r.Status, r.StatusText)));
         Assert.Null(view.Counts[LiveMetrics.CompliancePct]);
         Assert.Equal(1, view.Counts[LiveMetrics.DeploymentFailed]);
-        Assert.Equal("", view.Rows[1].Cells[9]);
+        Assert.Equal("", view.Rows[1].Cells[8]);
     }
 
     [Fact]
@@ -127,7 +127,8 @@ public sealed class LiveServiceTests
         var view = (await Refresh(Service(new StubHygieneSite(state)), new HashSet<LiveView> { LiveView.DistributionPoints })).Views[LiveView.DistributionPoints];
         var dp = Assert.Single(view.Rows);
         Assert.Equal((LiveStatus.Warning, "Warning"), (dp.Status, dp.StatusText));
-        Assert.Equal(["CM01.CONTOSO.COM", "MCM", "Warning", "No", "No", "Windows NT Server"], dp.Cells);
+        Assert.Equal(["CM01.CONTOSO.COM", "MCM", "No", "No", "Windows NT Server"], dp.Cells);
+        Assert.Equal(LiveAggregator.DpColumns.Count, dp.Cells.Count);
         Assert.Equal(LiveFixtures.Nal.ToUpperInvariant(), dp.Key);
         Assert.Equal((1d, 0d, 1d), (view.Counts[LiveMetrics.DPTotal]!.Value, view.Counts[LiveMetrics.DPOffline]!.Value, view.Counts[LiveMetrics.DPDegraded]!.Value));
         Assert.Equal(2, view.QueryCount);
@@ -140,7 +141,7 @@ public sealed class LiveServiceTests
         ((JsonArray)state["Classes"]!["SMS_DistributionPointInfo"]!).Add(new JsonObject { ["NALPath"] = LiveFixtures.SiteSystemOf("DP02.contoso.com"), ["ServerName"] = "DP02.CONTOSO.COM", ["SiteCode"] = "MCM", ["IsPullDP"] = true, ["IsPXE"] = false, ["ResourceType"] = "Windows NT Server" });
         var view = (await Refresh(Service(new StubHygieneSite(state)), new HashSet<LiveView> { LiveView.DistributionPoints })).Views[LiveView.DistributionPoints];
         var dp2 = view.Rows.Single(r => r.Cells[0] == "DP02.CONTOSO.COM");
-        Assert.Equal((LiveStatus.Unknown, "No status", "Yes"), (dp2.Status, dp2.StatusText, dp2.Cells[3]));
+        Assert.Equal((LiveStatus.Unknown, "No status", "Yes"), (dp2.Status, dp2.StatusText, dp2.Cells[2]));
         Assert.Equal(2, view.Counts[LiveMetrics.DPTotal]);
         Assert.Null(view.Counts[LiveMetrics.DPOffline]);
         Assert.Null(view.Counts[LiveMetrics.DPDegraded]);
@@ -156,9 +157,9 @@ public sealed class LiveServiceTests
         Assert.Equal(6 + 10, view.Rows.Count);
         Assert.Equal(view.Rows.Count, view.Rows.Select(r => r.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         var exec = view.Rows.Single(r => r.Cells[0] == "SMS_EXECUTIVE");
-        Assert.Equal((LiveStatus.Failed, "Critical", "Component", "Started", "2026-10-25 10:25:00"), (exec.Status, exec.StatusText, exec.Cells[1], exec.Cells[4], exec.Cells[5]));
-        Assert.Equal("Stopped", view.Rows.Single(r => r.Cells[0] == "CONFIGURATION_MANAGER_UPDATE").Cells[4]);
-        Assert.Equal(2, view.Rows.Count(r => r.Cells[0] == "SMS SQL Server"));
+        Assert.Equal((LiveStatus.Failed, "Critical", "Component", "Started", "2026-10-25 10:25:00"), (exec.Status, exec.StatusText, exec.Cells[1], exec.Cells[3], exec.Cells[4]));
+        Assert.Equal("Stopped", view.Rows.Single(r => r.Cells[0] == "CONFIGURATION_MANAGER_UPDATE").Cells[3]);
+        Assert.All(view.Rows, r => Assert.Equal(LiveAggregator.SiteColumns.Count, r.Cells.Count));        Assert.Equal(2, view.Rows.Count(r => r.Cells[0] == "SMS SQL Server"));
         Assert.Equal((15d, 0d, 1d), (view.Counts[LiveMetrics.SiteOK]!.Value, view.Counts[LiveMetrics.SiteWarning]!.Value, view.Counts[LiveMetrics.SiteCritical]!.Value));
     }
 
@@ -299,7 +300,7 @@ public sealed class LiveServiceTests
         Assert.True(clients.Complete, clients.Message);
         Assert.Equal(3, clients.Rows.Count);
         Assert.Equal((LiveStatus.Ok, "Healthy", "CM01"), (clients.Rows[0].Status, clients.Rows[0].StatusText, clients.Rows[0].Cells[0]));
-        Assert.Equal(new DateTime(2026, 10, 25, 14, 7, 34, DateTimeKind.Utc).ToLocalTime().ToString("yyyy-MM-dd HH:mm"), clients.Rows[0].Cells[4]);
+        Assert.Equal(new DateTime(2026, 10, 25, 14, 7, 34, DateTimeKind.Utc).ToLocalTime().ToString("yyyy-MM-dd HH:mm"), clients.Rows[0].Cells[3]);
         var hostile = clients.Rows[1];
         Assert.Equal("=HYPERLINK(\"x\") \"q\" \\ \ncafé", hostile.Cells[0]);
         Assert.Equal((LiveStatus.Warning, "Inactive", "Not evaluated", "Inactive"), (hostile.Status, hostile.StatusText, hostile.Cells[1], hostile.Cells[2]));

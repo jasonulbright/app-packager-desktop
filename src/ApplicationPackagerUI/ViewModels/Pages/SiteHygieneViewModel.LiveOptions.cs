@@ -18,7 +18,7 @@ public sealed partial class SiteHygieneViewModel
     public const string ImportFailed = "The import did not end. The old files were not changed. The log has the details.";
     public const string ImportIntro =
         "The import copies the values below from the retired Health Dashboard. It reads the old files only: it does not move, change or delete them. A setting fills only a value that was never set on this page.";
-    public const string SqlSaveFailed = "The SQL server and database could not be saved. The log has the details.";
+    public const string LiveSaveFailed = "The Live options could not be saved. The log has the details.";
     public const string SqlTesting = "Testing the SQL connection.";
 
     private const string KeyTrust = LiveSettingKeys.TrustSqlCertificate;
@@ -33,7 +33,8 @@ public sealed partial class SiteHygieneViewModel
 
     /// <summary>The Live values the operator or an import set; a value not in the set is stored as null.</summary>
     private readonly HashSet<string> _liveSet = new(StringComparer.Ordinal);
-    private (string Server, string Database) _storedSql = ("", "");
+    /// <summary>The Live options and SQL values as the settings file holds them; a save runs only when they differ.</summary>
+    private string _storedLive = LiveStoreKey(new SiteHygieneLiveSettings(), "", "");
     private bool _importChecked;
     private LegacyImportPlan? _importOffered;
 
@@ -99,85 +100,111 @@ public sealed partial class SiteHygieneViewModel
         SaveLater();
     }
 
-    /// <summary>The shared SQL values of the settings file, read on the first visit.</summary>
-    private void LoadSql(AppSettings settings)
+    /// <summary>
+    /// Shows the Live and Alerts options of the settings file: the shared SQL values and <see cref="AppSettings.SiteHygieneLive"/>.
+    /// Runs on the first visit and after an import filled values; it does not save.
+    /// </summary>
+    private void LoadStoredLive(AppSettings settings)
     {
         _applying = true;
         try
         {
             LiveSqlServer = (settings.DiscoverySqlServer ?? "").Trim();
             LiveSqlDatabase = (settings.DiscoverySqlDatabase ?? "").Trim();
+            ApplyLiveOptions(settings.SiteHygieneLive);
         }
         finally { _applying = false; }
-        _storedSql = (LiveSqlServer, LiveSqlDatabase);
+        _storedLive = LiveStoreKey(settings.SiteHygieneLive ?? new SiteHygieneLiveSettings(), LiveSqlServer, LiveSqlDatabase);
     }
 
     /// <summary>Takes the stored value or the default; a stored value is clamped to its range and marked as set.</summary>
-    private void ApplyLiveOptions(SiteHygieneSettings saved)
+    private void ApplyLiveOptions(SiteHygieneLiveSettings? live)
     {
         _liveSet.Clear();
         void Mark(bool set, string key)
         {
             if (set) _liveSet.Add(key);
         }
-        TrustSqlCertificate = saved.TrustSqlCertificate ?? false;
-        Mark(saved.TrustSqlCertificate is not null, KeyTrust);
-        RefreshMinutes = Nearest(RefreshChoices, LiveSettings.ClampRefresh(saved.RefreshMinutes ?? LiveSettings.DefaultRefreshMinutes));
-        Mark(saved.RefreshMinutes is not null, KeyRefresh);
-        InactiveDays = Nearest(InactiveChoices, LiveSettings.ClampInactive(saved.InactiveDays ?? LiveSettings.DefaultInactiveDays));
-        Mark(saved.InactiveDays is not null, KeyInactive);
-        var alerts = saved.Alerts;
         var defaults = AlertSettings.Default;
-        AlertsEnabled = alerts?.Enabled ?? defaults.Enabled;
-        Mark(alerts?.Enabled is not null, KeyAlerts);
-        AlertSiteCritical = alerts?.SiteCritical ?? defaults.SiteCritical;
-        Mark(alerts?.SiteCritical is not null, KeySiteCritical);
-        AlertDpCritical = alerts?.DpCritical ?? defaults.DpCritical;
-        Mark(alerts?.DpCritical is not null, KeyDpCritical);
-        AlertContentFailed = alerts?.ContentFailed ?? defaults.ContentFailed;
-        Mark(alerts?.ContentFailed is not null, KeyContentFailed);
-        AlertCompliance = alerts?.Compliance ?? defaults.CompliancePctFloor is not null;
-        Mark(alerts?.Compliance is not null, KeyCompliance);
-        CompliancePctFloor = Nearest(FloorChoices, Math.Clamp(alerts?.CompliancePctFloor ?? AlertSettings.DefaultCompliancePctFloor, 0, 100));
-        Mark(alerts?.CompliancePctFloor is not null, KeyFloor);
+        TrustSqlCertificate = live?.TrustSqlCertificate ?? LiveSettings.Default.TrustSqlCertificate;
+        Mark(live?.TrustSqlCertificate is not null, KeyTrust);
+        RefreshMinutes = Nearest(RefreshChoices, LiveSettings.ClampRefresh(live?.RefreshMinutes ?? LiveSettings.DefaultRefreshMinutes));
+        Mark(live?.RefreshMinutes is not null, KeyRefresh);
+        InactiveDays = Nearest(InactiveChoices, LiveSettings.ClampInactive(live?.InactiveDays ?? LiveSettings.DefaultInactiveDays));
+        Mark(live?.InactiveDays is not null, KeyInactive);
+        AlertsEnabled = live?.AlertsEnabled ?? defaults.Enabled;
+        Mark(live?.AlertsEnabled is not null, KeyAlerts);
+        AlertSiteCritical = live?.AlertSiteCritical ?? defaults.SiteCritical;
+        Mark(live?.AlertSiteCritical is not null, KeySiteCritical);
+        AlertDpCritical = live?.AlertDpCritical ?? defaults.DpCritical;
+        Mark(live?.AlertDpCritical is not null, KeyDpCritical);
+        AlertContentFailed = live?.AlertContentFailed ?? defaults.ContentFailed;
+        Mark(live?.AlertContentFailed is not null, KeyContentFailed);
+        AlertCompliance = live?.AlertCompliance ?? defaults.CompliancePctFloor is not null;
+        Mark(live?.AlertCompliance is not null, KeyCompliance);
+        CompliancePctFloor = Nearest(FloorChoices, Math.Clamp(live?.CompliancePctFloor ?? AlertSettings.DefaultCompliancePctFloor, 0, 100));
+        Mark(live?.CompliancePctFloor is not null, KeyFloor);
     }
 
     /// <summary>The choice nearest to a stored value, the larger one on a tie, so an imported value shows in its list.</summary>
     public static int Nearest(IReadOnlyList<int> choices, int value) =>
         choices.OrderBy(c => Math.Abs(c - value)).ThenByDescending(c => c).First();
 
-    private void WriteLiveOptions(SiteHygieneSettings settings)
+    /// <summary>The Live and Alerts options as the settings file stores them: a value the operator never set is null.</summary>
+    public SiteHygieneLiveSettings LiveOptions()
     {
         T? If<T>(string key, T value) where T : struct => _liveSet.Contains(key) ? value : null;
-        settings.TrustSqlCertificate = If(KeyTrust, TrustSqlCertificate);
-        settings.RefreshMinutes = If(KeyRefresh, RefreshMinutes);
-        settings.InactiveDays = If(KeyInactive, InactiveDays);
-        var alerts = new SiteHygieneAlertChoices
+        return new SiteHygieneLiveSettings
         {
-            Enabled = If(KeyAlerts, AlertsEnabled),
-            SiteCritical = If(KeySiteCritical, AlertSiteCritical),
-            DpCritical = If(KeyDpCritical, AlertDpCritical),
-            ContentFailed = If(KeyContentFailed, AlertContentFailed),
-            Compliance = If(KeyCompliance, AlertCompliance),
+            TrustSqlCertificate = If(KeyTrust, TrustSqlCertificate),
+            RefreshMinutes = If(KeyRefresh, RefreshMinutes),
+            InactiveDays = If(KeyInactive, InactiveDays),
+            AlertsEnabled = If(KeyAlerts, AlertsEnabled),
+            AlertSiteCritical = If(KeySiteCritical, AlertSiteCritical),
+            AlertDpCritical = If(KeyDpCritical, AlertDpCritical),
+            AlertContentFailed = If(KeyContentFailed, AlertContentFailed),
+            AlertCompliance = If(KeyCompliance, AlertCompliance),
             CompliancePctFloor = If(KeyFloor, CompliancePctFloor)
         };
-        settings.Alerts = alerts is { Enabled: null, SiteCritical: null, DpCritical: null, ContentFailed: null, Compliance: null, CompliancePctFloor: null } ? null : alerts;
     }
 
-    /// <summary>Saves the SQL server and database when they changed; they are the Discover settings, so Discover uses the same site database.</summary>
-    private async Task SaveSqlAsync()
+    private static string LiveStoreKey(SiteHygieneLiveSettings live, string server, string database) =>
+        System.Text.Json.JsonSerializer.Serialize(live) + "\n" + server + "\n" + database;
+
+    /// <summary>
+    /// Saves the Live and Alerts options and the SQL server and database when one of them changed. The SQL values are
+    /// the Discover settings, so Discover uses the same site database.
+    /// </summary>
+    private async Task SaveLiveAsync()
     {
-        var sql = ((LiveSqlServer ?? "").Trim(), (LiveSqlDatabase ?? "").Trim());
-        if (sql == _storedSql || Services.Live is not { } live) return;
+        if (Services.Live is not { } live) return;
+        var options = LiveOptions();
+        var server = (LiveSqlServer ?? "").Trim();
+        var database = (LiveSqlDatabase ?? "").Trim();
+        var key = LiveStoreKey(options, server, database);
+        if (key == _storedLive) return;
         bool saved;
-        try { saved = await Task.Run(() => live.SaveSql(sql.Item1, sql.Item2)); }
+        try { saved = await Task.Run(() => live.SaveLive(options, server, database)); }
         catch (Exception ex)
         {
             saved = false;
-            Services.Log.Warning(LogArea, $"The SQL settings could not be saved ({ex.GetType().Name}).");
+            Services.Log.Warning(LogArea, $"The Live options could not be saved ({ex.GetType().Name}).");
         }
-        if (saved) _storedSql = sql;
-        else StatusMessage = SqlSaveFailed;
+        if (saved) _storedLive = key;
+        else StatusMessage = LiveSaveFailed;
+    }
+
+    /// <summary>Reads the Live and Alerts options back from the settings file, as an import wrote them.</summary>
+    private async Task ReloadLiveAsync()
+    {
+        AppSettings settings;
+        try { settings = await Task.Run(Services.LoadSettings); }
+        catch (Exception ex)
+        {
+            Services.Log.Warning(LogArea, $"The Live options could not be read after the import ({ex.GetType().Name}).");
+            return;
+        }
+        LoadStoredLive(settings);
     }
 
     private bool CanTestSql() => HasLive && !IsTestingSql;
@@ -190,7 +217,7 @@ public sealed partial class SiteHygieneViewModel
         SqlTestResult = SqlTesting;
         try
         {
-            await SaveSqlAsync();
+            await SaveLiveAsync();
             var settings = CurrentLiveSettings();
             SqlTestResult = SecretMask.Apply(await Task.Run(() => live.Live.TestSqlAsync(settings, CancellationToken.None)));
         }
@@ -239,6 +266,8 @@ public sealed partial class SiteHygieneViewModel
         IsImporting = true;
         try
         {
+            // The plan compares with the settings file, so the values chosen on the page are written first.
+            await SaveAsync();
             LegacyImportPlan plan;
             try { plan = await Task.Run(live.Import.Plan); }
             catch (Exception ex)
@@ -274,67 +303,55 @@ public sealed partial class SiteHygieneViewModel
                 StatusMessage = ImportFailed;
                 return;
             }
-            Fill(fills);
+            // The import is the only writer of the imported values; the page shows what it stored.
+            await ReloadLiveAsync();
             ImportOffer = "";
             ImportOfferDismissed = true;
             await SaveAsync();
-            StatusMessage = SecretMask.Apply(result.Message) + (fills.Count > 0 ? $" Settings filled: {string.Join(", ", fills.Select(f => f.Name))}." : "");
-            Services.Log.Info(LogArea, $"Health Dashboard import: history rows={result.HistoryRows} settings={fills.Count}.");
+            var filled = result.SettingKeys.Select(SettingName).ToList();
+            StatusMessage = SecretMask.Apply(result.Message) + (filled.Count > 0 ? $" Settings filled: {string.Join(", ", filled)}." : "");
+            Services.Log.Info(LogArea, $"Health Dashboard import: history rows={result.HistoryRows} settings={filled.Count}.");
             _trendsStale = true;
             if (IsTrendsPane && _active) _ = LoadTrendsAsync();
         }
         finally { IsImporting = false; }
     }
 
-    /// <summary>One setting an import fills: its key, its label and the value as text.</summary>
-    private sealed record ImportFill(string Key, string Name, string Value, Action Apply);
+    /// <summary>The label of a setting key of an import plan.</summary>
+    private static string SettingName(string key) => key switch
+    {
+        LiveSettingKeys.SqlServer => "SQL server",
+        LiveSettingKeys.TrustSqlCertificate => "Trust the SQL server certificate",
+        LiveSettingKeys.RefreshMinutes => "Refresh interval",
+        LiveSettingKeys.InactiveDays => "Inactivity threshold",
+        LiveSettingKeys.AlertsEnabled => "Alerts",
+        LiveSettingKeys.CompliancePctFloor => "Compliance floor",
+        _ => key
+    };
 
-    /// <summary>The settings of the plan whose value on this page was never set; every other setting stays.</summary>
-    private List<ImportFill> Fills(LegacyImportPlan plan)
+    /// <summary>The settings the plan fills, each with the value the page shows after the import; the plan holds only values that are empty in the settings file.</summary>
+    private static List<(string Name, string Value)> Fills(LegacyImportPlan plan)
     {
         var values = plan.Values;
-        var fills = new List<ImportFill>();
-        var culture = CultureInfo.CurrentCulture;
+        var fills = new List<(string Name, string Value)>();
         foreach (var key in plan.SettingKeys)
         {
-            switch (key)
+            string? value = key switch
             {
-                case LiveSettingKeys.SqlServer when values.SqlServer is { Length: > 0 } server && (LiveSqlServer ?? "").Trim().Length == 0:
-                    fills.Add(new ImportFill(key, "SQL server", server, () => LiveSqlServer = server.Trim()));
-                    break;
-                case LiveSettingKeys.TrustSqlCertificate when values.TrustSqlCertificate is { } trust && !_liveSet.Contains(KeyTrust):
-                    fills.Add(new ImportFill(key, "Trust the SQL server certificate", trust ? "Yes" : "No", () => TrustSqlCertificate = trust));
-                    break;
-                case LiveSettingKeys.RefreshMinutes when values.RefreshMinutes is { } minutes && !_liveSet.Contains(KeyRefresh):
-                    var refresh = Nearest(RefreshChoices, LiveSettings.ClampRefresh(minutes));
-                    fills.Add(new ImportFill(key, "Refresh interval", SiteHygieneLabels.Count(refresh, "minute"), () => RefreshMinutes = refresh));
-                    break;
-                case LiveSettingKeys.InactiveDays when values.InactiveDays is { } days && !_liveSet.Contains(KeyInactive):
-                    var inactive = Nearest(InactiveChoices, LiveSettings.ClampInactive(days));
-                    fills.Add(new ImportFill(key, "Inactivity threshold", SiteHygieneLabels.Count(inactive, "day"), () => InactiveDays = inactive));
-                    break;
-                case LiveSettingKeys.AlertsEnabled when values.AlertsEnabled is { } enabled && !_liveSet.Contains(KeyAlerts):
-                    fills.Add(new ImportFill(key, "Alerts", enabled ? "On" : "Off", () => AlertsEnabled = enabled));
-                    break;
-                case LiveSettingKeys.CompliancePctFloor when values.CompliancePctFloor is { } floor && !_liveSet.Contains(KeyFloor) && !_liveSet.Contains(KeyCompliance):
-                    var nearest = Nearest(FloorChoices, Math.Clamp(floor, 0, 100));
-                    fills.Add(new ImportFill(key, "Compliance floor", nearest.ToString(culture) + " %", () =>
-                    {
-                        CompliancePctFloor = nearest;
-                        AlertCompliance = true;
-                    }));
-                    break;
-            }
+                LiveSettingKeys.SqlServer => values.SqlServer is { Length: > 0 } server ? server.Trim() : null,
+                LiveSettingKeys.TrustSqlCertificate => values.TrustSqlCertificate is { } trust ? (trust ? "Yes" : "No") : null,
+                LiveSettingKeys.RefreshMinutes => values.RefreshMinutes is { } minutes ? SiteHygieneLabels.Count(Nearest(RefreshChoices, LiveSettings.ClampRefresh(minutes)), "minute") : null,
+                LiveSettingKeys.InactiveDays => values.InactiveDays is { } days ? SiteHygieneLabels.Count(Nearest(InactiveChoices, LiveSettings.ClampInactive(days)), "day") : null,
+                LiveSettingKeys.AlertsEnabled => values.AlertsEnabled is { } enabled ? (enabled ? "On" : "Off") : null,
+                LiveSettingKeys.CompliancePctFloor => values.CompliancePctFloor is { } floor ? Nearest(FloorChoices, Math.Clamp(floor, 0, 100)).ToString(CultureInfo.CurrentCulture) + " %" : null,
+                _ => null
+            };
+            if (value is not null) fills.Add((SettingName(key), value));
         }
         return fills;
     }
 
-    private static void Fill(IEnumerable<ImportFill> fills)
-    {
-        foreach (var fill in fills) fill.Apply();
-    }
-
-    private string PlanText(LegacyImportPlan plan, IReadOnlyList<ImportFill> fills)
+    private static string PlanText(LegacyImportPlan plan, IReadOnlyList<(string Name, string Value)> fills)
     {
         var text = new StringBuilder();
         text.AppendLine($"Folder: {plan.SourceFolder}");
@@ -343,9 +360,7 @@ public sealed partial class SiteHygieneViewModel
             : "Metrics history: not copied.");
         if (plan.SkippedLines > 0) text.AppendLine($"The history file has {SiteHygieneLabels.Count(plan.SkippedLines, "line")} that cannot be read. The import skips them.");
         if (fills.Count == 0) text.AppendLine("Settings: none. Every setting of the old dashboard has a value on this page already.");
-        foreach (var fill in fills) text.AppendLine($"Setting {fill.Name}: {fill.Value}{(plan.SettingsFile.Length > 0 ? " from " + plan.SettingsFile : "")}.");
-        var kept = plan.SettingKeys.Count - fills.Count;
-        if (kept > 0) text.AppendLine($"{SiteHygieneLabels.Count(kept, "setting")} of the old dashboard {(kept == 1 ? "is" : "are")} not copied, as this page has a value already.");
+        foreach (var (name, value) in fills) text.AppendLine($"Setting {name}: {value}{(plan.SettingsFile.Length > 0 ? " from " + plan.SettingsFile : "")}.");
         return text.ToString().TrimEnd();
     }
 }

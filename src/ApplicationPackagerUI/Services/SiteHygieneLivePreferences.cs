@@ -58,14 +58,7 @@ public static class SiteHygieneLivePreferences
             {
                 var stored = service.Load();
                 if (service.IsFileUnreadable) return false;
-                var live = stored.SiteHygieneLive ?? new SiteHygieneLiveSettings();
-                if (values.SqlServer is { } server && string.IsNullOrWhiteSpace(stored.DiscoverySqlServer)) stored.DiscoverySqlServer = server.Trim();
-                live.TrustSqlCertificate ??= values.TrustSqlCertificate;
-                live.RefreshMinutes ??= values.RefreshMinutes;
-                live.InactiveDays ??= values.InactiveDays;
-                live.AlertsEnabled ??= values.AlertsEnabled;
-                live.CompliancePctFloor ??= values.CompliancePctFloor;
-                stored.SiteHygieneLive = live;
+                FillValues(stored, values);
                 service.Save(stored);
                 return true;
             }
@@ -74,6 +67,21 @@ public static class SiteHygieneLivePreferences
                 return false;
             }
         }
+    }
+
+    /// <summary>Sets each non-null value of <paramref name="values"/> whose value in <paramref name="stored"/> is still empty.</summary>
+    public static void FillValues(AppSettings stored, LiveSettingValues values)
+    {
+        ArgumentNullException.ThrowIfNull(stored);
+        ArgumentNullException.ThrowIfNull(values);
+        var live = stored.SiteHygieneLive ?? new SiteHygieneLiveSettings();
+        if (values.SqlServer is { } server && string.IsNullOrWhiteSpace(stored.DiscoverySqlServer)) stored.DiscoverySqlServer = server.Trim();
+        live.TrustSqlCertificate ??= values.TrustSqlCertificate;
+        live.RefreshMinutes ??= values.RefreshMinutes;
+        live.InactiveDays ??= values.InactiveDays;
+        live.AlertsEnabled ??= values.AlertsEnabled;
+        live.CompliancePctFloor ??= values.CompliancePctFloor;
+        stored.SiteHygieneLive = live;
     }
 
     /// <summary>Stores the Live and Alerts options of the page. False when nothing was written; an unreadable settings file is never replaced.</summary>

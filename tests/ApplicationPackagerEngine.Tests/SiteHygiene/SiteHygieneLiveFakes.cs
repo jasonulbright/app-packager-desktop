@@ -1,42 +1,57 @@
 using System.Globalization;
 using ApplicationPackagerEngine.Services;
+using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.ViewModels.Pages;
 
 namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 
-/// <summary>The columns and rows of each Live view as the page tests use them, with the longest real values of each column kind.</summary>
+/// <summary>The columns and rows of each Live view as the page tests use them: the real column headers of the service, and the longest real values of each column.</summary>
 internal static class LiveData
 {
-    public static readonly IReadOnlyDictionary<LiveView, IReadOnlyList<string>> Columns = new Dictionary<LiveView, IReadOnlyList<string>>
-    {
-        [LiveView.Deployments] = ["Deployment", "Type", "Collection", "Purpose", "Targeted", "Success", "Errors", "In progress", "Compliance"],
-        [LiveView.Content] = ["Package ID", "Name", "Type", "DPs", "Installed", "In progress", "Failed", "Complete"],
-        [LiveView.DistributionPoints] = ["Distribution point", "Site", "Pull DP", "Content", "Failed content"],
-        [LiveView.ClientHealth] = ["Device", "Activity", "Last active", "Last policy request", "Client version", "Operating system"],
-        [LiveView.InactiveDevices] = ["Device", "Last active", "Last DDR", "Days since contact", "Operating system", "Client version"],
-        [LiveView.SiteHealth] = ["Kind", "Name", "Server", "Site", "State", "Availability"]
-    };
+    public static readonly IReadOnlyDictionary<LiveView, IReadOnlyList<string>> Columns = Enum.GetValues<LiveView>().ToDictionary(v => v, LiveAggregator.Columns);
 
-    /// <summary>The longest values each column kind holds on a real site.</summary>
-    public static readonly IReadOnlyDictionary<LiveColumnKind, IReadOnlyList<string>> LongValues = new Dictionary<LiveColumnKind, IReadOnlyList<string>>
+    /// <summary>The longest values the service writes in each column that is not a name column.</summary>
+    public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> LongValues = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
     {
-        [LiveColumnKind.Count] = ["123,456", "1,234,567", "100.0 %", "99.9 %"],
-        [LiveColumnKind.Short] = ["MCM", "Yes", "No", "Available", "Required", "Simulate"],
-        [LiveColumnKind.Text] = ["Re-installing", "De-installing", "Site system", "Component", "Inactive", "5.00.9132.1000", "Unhealthy", "Unknown (99)"],
-        [LiveColumnKind.LongText] = ["Configuration Policy", "Content Distribution", "Software Update", "Software update package", "Driver package", "Task Sequence", "Mobile Program"],
-        [LiveColumnKind.Time] = [new DateTime(2026, 12, 28, 23, 59, 59).ToString("g", CultureInfo.CurrentCulture)]
+        ["Type"] = ["Configuration policy", "Content distribution", "Software update", "Mobile program", "Task sequence", "Other (12)"],
+        ["Content type"] = ["Software update package", "OS upgrade package", "Driver package", "Type 257"],
+        ["Purpose"] = ["Available", "Required", "Simulate", "Unknown"],
+        ["Targeted"] = ["1000000", "100000"],
+        ["Success"] = ["1000000"],
+        ["Errors"] = ["1000000"],
+        ["In progress"] = ["1000000"],
+        ["Compliance (%)"] = ["100.0", "99.9"],
+        ["Package ID"] = ["MCM00005", "MCM0001C"],
+        ["Distribution points"] = ["10000"],
+        ["Installed"] = ["10000"],
+        ["Failed"] = ["10000"],
+        ["Installed (%)"] = ["100.0"],
+        ["Site"] = ["MCM"],
+        ["Pull DP"] = ["Yes", "No"],
+        ["PXE"] = ["Yes", "No"],
+        ["Kind"] = ["Windows NT Server", "Windows NT Workstation"],
+        ["Item"] = ["Component", "Site system"],
+        ["State"] = ["Re-installing", "De-installing", "Installing", "Unknown (99)"],
+        ["Last started"] = ["2026-12-28 23:59:59"],
+        ["Health"] = ["Not evaluated", "Unhealthy", "Healthy"],
+        ["Active"] = ["Inactive", "Unknown", "Active"],
+        ["Last active"] = ["2026-12-28 23:59"],
+        ["Last DDR"] = ["2026-12-28 23:59"],
+        ["Last policy"] = ["2026-12-28 23:59"],
+        ["Last inventory"] = ["2026-12-28 23:59"],
+        ["Client version"] = ["5.00.9146.1009", "5.00.9141.1011"],
+        ["Days since contact"] = ["3650", "146"]
     };
-
-    public static readonly IReadOnlyList<string> StatusTexts = ["OK", "Warning", "Critical", "Unknown", "Healthy", "Unhealthy", "Inactive", "Failed", "In progress", "Error", "Offline"];
 
     public const string LongName = "Contoso Line of Business Application for the Finance Department in the North West Region, Building Seven";
+
+    /// <summary>The longest time the page writes in the current culture (alert list, Trends table).</summary>
+    public static string LongTime => new DateTime(2026, 12, 28, 23, 59, 59).ToString("g", CultureInfo.CurrentCulture);
 
     public static string Cell(LiveView view, int column, int row, string? name = null)
     {
         var header = Columns[view][column];
-        var kind = SiteHygieneLiveLabels.KindOf(header);
-        if (kind == LiveColumnKind.Name) return $"{name ?? "Contoso Item"} {row}";
-        var values = LongValues[kind];
+        if (!LongValues.TryGetValue(header, out var values)) return $"{name ?? "Contoso Item"} {row}";
         return values[row % values.Count];
     }
 
@@ -47,7 +62,7 @@ internal static class LiveData
     {
         var columns = Columns[view];
         var list = failed || skipped ? [] : Enumerable.Range(0, rows).Select(i => new LiveRow(Key: $"{view}-{i}", Status: Status(i),
-            StatusText: StatusTexts[i % StatusTexts.Count], Cells: Enumerable.Range(0, columns.Count).Select(c => Cell(view, c, i, name)).ToList())).ToList();
+            StatusText: LiveText.StatusTexts(view)[i % LiveText.StatusTexts(view).Count], Cells: Enumerable.Range(0, columns.Count).Select(c => Cell(view, c, i, name)).ToList())).ToList();
         var counts = failed || skipped || truncated ? LiveCounts.Unknown(view) : new LiveCounts(LiveMetrics.Of(view).ToDictionary(c => c, c => (double?)CountOf(c, list), StringComparer.Ordinal));
         return new LiveViewResult(View: view, Columns: columns, Rows: list, Counts: counts, Truncated: truncated, Failed: failed, Message: message, ReadUtc: readUtc ?? new DateTime(2026, 10, 25, 9, 0, 0, DateTimeKind.Utc))
         {
@@ -197,22 +212,34 @@ internal sealed class FakeAlertLog : IAlertLog
     public string Path => @"C:\Data\SiteHygiene\alerts.log";
 }
 
+/// <summary>An import with the fill rule of the real one: the plan lists only the values that are empty in the stored settings, and Apply fills only those.</summary>
 internal sealed class FakeLegacyImport : ILegacyDashboardImport
 {
     public LegacyImportPlan Next = new(SourceFolder: "", SettingKeys: [], HistoryRows: 0, HistoryWillBeCopied: false, Refusal: "No retired Health Dashboard folder was found.");
     public int Plans;
     public List<LegacyImportPlan> Applied { get; } = [];
 
+    /// <summary>The stored values now; null treats every value as empty.</summary>
+    public Func<LiveSettingValues>? Read;
+
+    /// <summary>Stores the values Apply fills.</summary>
+    public Func<LiveSettingValues, bool>? Fill;
+
     public LegacyImportPlan Plan()
     {
         Interlocked.Increment(ref Plans);
-        return Next;
+        if (Next.Refusal is not null) return Next;
+        var (values, keys) = LegacyDashboardImport.Fill(Next.Values, Read?.Invoke() ?? LiveSettingValues.Empty);
+        return Next with { SettingKeys = keys.Where(Next.SettingKeys.Contains).ToList(), Values = values };
     }
 
     public LegacyImportResult Apply(LegacyImportPlan plan)
     {
         lock (Applied) Applied.Add(plan);
-        var result = new LegacyImportResult(plan.SettingKeys, plan.HistoryWillBeCopied ? plan.HistoryRows : 0, plan.HistoryWillBeCopied,
+        var (values, keys) = LegacyDashboardImport.Fill(plan.Values, Read?.Invoke() ?? LiveSettingValues.Empty);
+        keys = keys.Where(plan.SettingKeys.Contains).ToList();
+        if (keys.Count > 0 && Fill?.Invoke(values) == false) keys = [];
+        var result = new LegacyImportResult(keys, plan.HistoryWillBeCopied ? plan.HistoryRows : 0, plan.HistoryWillBeCopied,
             plan.HistoryWillBeCopied ? $"Copied {plan.HistoryRows} history rows." : "Copied no history rows.");
         Next = Next with { HistoryWillBeCopied = false, HistoryRows = 0 };
         return result;
@@ -302,17 +329,23 @@ internal sealed class SiteHygieneLiveFakes
     public FakeLegacyImport Import { get; } = new();
     public FakeLiveReports Reports { get; } = new();
     public FakeLiveClock Clock { get; } = new();
-    public List<(string Server, string Database)> SqlSaves { get; } = [];
-    public bool SqlSaveFails;
+    /// <summary>Every save of the Live options: the stored options and the shared SQL values.</summary>
+    public List<(SiteHygieneLiveSettings Live, string Server, string Database)> LiveSaves { get; } = [];
+    public bool LiveSaveFails;
+
+    /// <summary>Writes a save into the settings the page reads, as the settings file does.</summary>
+    public Action<SiteHygieneLiveSettings, string, string>? Stored;
     public HashSet<string> Files { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public SiteHygieneLiveServices Services() => new(Service, History, Alerts, AlertLog, Import, Reports)
     {
         Delay = Clock.Delay,
-        SaveSql = (server, database) =>
+        SaveLive = (live, server, database) =>
         {
-            lock (SqlSaves) SqlSaves.Add((server, database));
-            return !SqlSaveFails;
+            lock (LiveSaves) LiveSaves.Add((live, server, database));
+            if (LiveSaveFails) return false;
+            Stored?.Invoke(live, server, database);
+            return true;
         },
         FileExists = Files.Contains
     };

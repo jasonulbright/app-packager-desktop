@@ -17,8 +17,11 @@ public sealed record SiteHygieneLiveServices(
     /// <summary>The wait of the auto-refresh timer; a test replaces it to control the time.</summary>
     public Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = Task.Delay;
 
-    /// <summary>Saves the SQL server and database that the page shares with Discover; false when nothing was written.</summary>
-    public Func<string, string, bool> SaveSql { get; init; } = (_, _) => false;
+    /// <summary>
+    /// Saves the Live and Alerts options (<see cref="AppSettings.SiteHygieneLive"/>) with the SQL server and database that
+    /// the page shares with Discover; false when nothing was written.
+    /// </summary>
+    public Func<SiteHygieneLiveSettings, string, string, bool> SaveLive { get; init; } = (_, _, _) => false;
 
     public Func<string, bool> FileExists { get; init; } = File.Exists;
 }
@@ -600,7 +603,6 @@ public sealed partial class SiteHygieneViewModel
         TrendDays = TrendPeriods.Contains(saved.TrendDays ?? 0) ? saved.TrendDays!.Value : DefaultTrendDays;
         SelectedTrendMetric = SiteHygieneLiveLabels.Metrics.FirstOrDefault(m => m.Column == saved.TrendMetric) ?? SiteHygieneLiveLabels.Metrics[DefaultTrendMetric];
         ImportOfferDismissed = saved.ImportOfferDismissed;
-        ApplyLiveOptions(saved);
     }
 
     private void WriteLivePreferences(SiteHygieneSettings settings)
@@ -611,6 +613,5 @@ public sealed partial class SiteHygieneViewModel
         settings.TrendDays = TrendDays;
         settings.TrendMetric = SelectedTrendMetric.Column;
         settings.ImportOfferDismissed = ImportOfferDismissed;
-        WriteLiveOptions(settings);
     }
 }

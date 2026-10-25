@@ -74,33 +74,6 @@ public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
     public void ConfirmImport(HygieneImportViewModel import) => ShowModal(new HygieneImportWindow(import));
 }
 
-/// <summary>Writes the SQL server and database that the Site Hygiene page shares with Discover, without touching any other value.</summary>
-public static class SiteHygieneSqlSettings
-{
-    private static readonly object FileLock = new();
-
-    /// <summary>False when nothing was written; an unreadable settings file is never replaced.</summary>
-    public static bool Save(SettingsService settings, string server, string database)
-    {
-        lock (FileLock)
-        {
-            try
-            {
-                var stored = settings.Load();
-                if (settings.IsFileUnreadable) return false;
-                stored.DiscoverySqlServer = server.Trim();
-                stored.DiscoverySqlDatabase = database.Trim();
-                settings.Save(stored);
-                return true;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-            {
-                return false;
-            }
-        }
-    }
-}
-
 /// <summary>Reads and writes the page choices in settings.json without touching any other value.</summary>
 public static class SiteHygienePreferences
 {
@@ -173,6 +146,6 @@ public static class SiteHygieneRegistration
     private static SiteHygieneLiveServices? LiveServices(IServiceProvider sp, SettingsService settings) =>
         sp.GetService<ISiteHygieneLiveService>() is { } live && sp.GetService<IMetricsHistoryStore>() is { } history && sp.GetService<IAlertEvaluator>() is { } alerts
         && sp.GetService<IAlertLog>() is { } alertLog && sp.GetService<ILegacyDashboardImport>() is { } import && sp.GetService<ILiveReportWriter>() is { } reports
-            ? new SiteHygieneLiveServices(live, history, alerts, alertLog, import, reports) { SaveSql = (server, database) => SiteHygieneSqlSettings.Save(settings, server, database) }
+            ? new SiteHygieneLiveServices(live, history, alerts, alertLog, import, reports) { SaveLive = (options, server, database) => SiteHygieneLivePreferences.Save(settings, options, server, database) }
             : null;
 }

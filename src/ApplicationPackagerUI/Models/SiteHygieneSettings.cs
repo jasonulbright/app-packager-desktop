@@ -44,18 +44,6 @@ public sealed class SiteHygieneSettings
 
     public string? LiveText { get; set; }
 
-    /// <summary>The auto-refresh interval in minutes; null was never set and uses the default.</summary>
-    public int? RefreshMinutes { get; set; }
-
-    /// <summary>The days without contact after which a device is inactive; null was never set and uses the default.</summary>
-    public int? InactiveDays { get; set; }
-
-    /// <summary>Null was never set; the SQL connection then validates the server certificate.</summary>
-    public bool? TrustSqlCertificate { get; set; }
-
-    /// <summary>The alert thresholds; null was never set and uses the defaults.</summary>
-    public SiteHygieneAlertChoices? Alerts { get; set; }
-
     /// <summary>The days the Trends chart shows; null shows 30.</summary>
     public int? TrendDays { get; set; }
 
@@ -63,18 +51,4 @@ public sealed class SiteHygieneSettings
 
     /// <summary>True once the operator answered the dashboard import offer; the offer then shows no more.</summary>
     public bool ImportOfferDismissed { get; set; }
-}
-
-/// <summary>The alert thresholds of the Site Hygiene page; a null value was never set and uses the default.</summary>
-public sealed class SiteHygieneAlertChoices
-{
-    public bool? Enabled { get; set; }
-    public bool? SiteCritical { get; set; }
-    public bool? DpCritical { get; set; }
-    public bool? ContentFailed { get; set; }
-
-    /// <summary>False turns the compliance alert off; the floor then stays for the next time it is on.</summary>
-    public bool? Compliance { get; set; }
-
-    public int? CompliancePctFloor { get; set; }
 }

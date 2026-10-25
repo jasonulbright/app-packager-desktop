@@ -45,14 +45,17 @@ public sealed class LiveImportAndReportTests : IDisposable
     {
         public LiveSettingValues Values { get; set; } = LiveSettingValues.Empty;
         public int Fills { get; private set; }
+        public bool Fails { get; set; }
 
-        public void Fill(LiveSettingValues v)
+        public bool Fill(LiveSettingValues v)
         {
+            if (Fails) return false;
             Fills++;
             Values = new LiveSettingValues(
                 SqlServer: Values.SqlServer ?? v.SqlServer, TrustSqlCertificate: Values.TrustSqlCertificate ?? v.TrustSqlCertificate,
                 RefreshMinutes: Values.RefreshMinutes ?? v.RefreshMinutes, InactiveDays: Values.InactiveDays ?? v.InactiveDays,
                 AlertsEnabled: Values.AlertsEnabled ?? v.AlertsEnabled, CompliancePctFloor: Values.CompliancePctFloor ?? v.CompliancePctFloor);
+            return true;
         }
     }
 
@@ -104,6 +107,21 @@ public sealed class LiveImportAndReportTests : IDisposable
         Assert.Equal(1, s.Fills);
         Assert.Equal(2, store.Read(365).Count);
         Assert.Equal(before, Hashes());
+    }
+
+    [Fact]
+    public void ASettingsFileThatCannotBeWrittenFillsNoSettingAndTheResultSaysSo()
+    {
+        Write(Path.Combine(Legacy, LegacyDashboardImport.DashboardPrefsFile), DashboardPrefs);
+        var (import, _, s) = Make(new Settings { Fails = true });
+        var plan = import.Plan();
+        Assert.Equal(5, plan.SettingKeys.Count);
+        var result = import.Apply(plan);
+        Assert.Empty(result.SettingKeys);
+        Assert.Equal(LegacyDashboardImport.SettingsNotSaved, result.Message);
+        Assert.Equal(LiveSettingValues.Empty, s.Values);
+        s.Fails = false;
+        Assert.Equal(5, import.Apply(import.Plan()).SettingKeys.Count);
     }
 
     [Fact]

@@ -363,6 +363,12 @@ internal sealed class SiteHygienePageHarness
     /// <summary>The Live services; null builds the page without them, as a build without the engine services.</summary>
     public SiteHygieneLiveFakes? Live = new();
 
+    /// <summary>A Live service in place of the fake one, such as the real service over the stub site.</summary>
+    public ISiteHygieneLiveService? LiveService;
+
+    /// <summary>Live services in place of the fakes, such as the real service, stores and writer.</summary>
+    public SiteHygieneLiveServices? RealLive;
+
     /// <summary>The audit log the History tab reads; null shows no history.</summary>
     public IHygieneAuditLog? AuditLog;
 
@@ -437,13 +443,37 @@ internal sealed class SiteHygienePageHarness
 
     public SiteHygieneWriter Writer() => new(Service, History, Log, () => "MCM");
 
-    public SiteHygienePageServices Services() => new(Service, Suppressions, ScanStore, Reports, Dialogs, PlanDialogs ?? Plans, Writer(), () => Settings, () => Saved,
+    /// <summary>Connects the Live fakes to <see cref="Settings"/>: a save of the Live options and an import fill write there, as both write the settings file.</summary>
+    private void WireLiveSettings()
+    {
+        if (Live is not { } live) return;
+        live.Stored ??= (options, server, database) =>
+        {
+            Settings.SiteHygieneLive = options;
+            Settings.DiscoverySqlServer = server;
+            Settings.DiscoverySqlDatabase = database;
+        };
+        live.Import.Read ??= () => SiteHygieneLivePreferences.Values(Settings);
+        live.Import.Fill ??= values =>
+        {
+            SiteHygieneLivePreferences.FillValues(Settings, values);
+            return true;
+        };
+    }
+
+    public SiteHygienePageServices Services()
+    {
+        WireLiveSettings();
+        return CreateServices();
+    }
+
+    private SiteHygienePageServices CreateServices() => new(Service, Suppressions, ScanStore, Reports, Dialogs, PlanDialogs ?? Plans, Writer(), () => Settings, () => Saved,
         s =>
         {
             Interlocked.Increment(ref PreferenceSaves);
             Saved = s;
             return true;
-        }, Log) { FilterDelay = FilterDelay, AuditLog = AuditLog, Live = Live?.Services() };
+        }, Log) { FilterDelay = FilterDelay, AuditLog = AuditLog, Live = RealLive ?? (Live?.Services() is { } live && LiveService is { } real ? live with { Live = real } : Live?.Services()) };
 
     public SiteHygieneViewModel Create() => new(Services());
 
