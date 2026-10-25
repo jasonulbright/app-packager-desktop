@@ -394,7 +394,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="{x:Static local:SiteHygienePage.LiveViewMinHeight}" />
+                            <RowDefinition x:Name="rowLiveView" Height="*" MinHeight="{x:Static local:SiteHygienePage.LiveViewMinHeight}" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" x:Name="pnlLiveActions" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:Button x:Name="btnLiveRefresh" Content="Refresh all" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Primary" Command="{Binding RefreshAllCommand}" Style="{StaticResource ToolButton}"
@@ -462,7 +462,7 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="3*" MinHeight="{x:Static local:SiteHygienePage.TrendChartMinHeight}" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="2*" MinHeight="{x:Static local:SiteHygienePage.TrendTableMinHeight}" />
+                                    <RowDefinition x:Name="rowTrendTable" Height="2*" MinHeight="{x:Static local:SiteHygienePage.TrendTableMinHeight}" />
                                 </Grid.RowDefinitions>
                                 <Border Grid.Row="0" Style="{StaticResource Card}" Padding="8">
                                     <helpers:TrendChart x:Name="chartTrend" Points="{Binding TrendRows}" SelectedIndex="{Binding TrendSelectedIndex}"
@@ -652,7 +652,7 @@
 
                         <TextBlock Text="Alerts" Style="{StaticResource CardTitle}" Margin="0,16,0,8" />
                         <TextBlock Style="{StaticResource Note}" Margin="0,0,0,8" AutomationProperties.AutomationId="txtAlertsIntro"
-                                   Text="An alert fires when a completed refresh finds a threshold crossed, and again only after the value recovered. A view that failed neither raises nor clears an alert. Alerts show on this page and go to the alerts log, only while the app runs." />
+                                   Text="An alert fires when a completed refresh finds a threshold crossed, and again only after the value recovered. A view that failed neither raises nor clears an alert. The first complete read of a value after the app starts sets its starting state and raises no alert, also when the threshold is crossed already. Alerts show on this page and go to the alerts log, only while the app runs." />
                         <CheckBox IsChecked="{Binding AlertsEnabled}" Margin="0,0,0,6" AutomationProperties.Name="Raise alerts" AutomationProperties.AutomationId="chkAlertsEnabled">
                             <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Raise alerts" />
                         </CheckBox>

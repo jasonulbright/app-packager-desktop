@@ -204,6 +204,66 @@ public sealed class LiveImportAndReportTests : IDisposable
     }
 
     [Fact]
+    public void AHistoryCopyThatFailsAfterTheSettingsWereFilledKeepsTheFilledKeysAndSaysTheHistoryWasNotCopied()
+    {
+        var history = Path.Combine(Legacy, LegacyDashboardImport.HistoryRelative);
+        Write(Path.Combine(Legacy, LegacyDashboardImport.DashboardPrefsFile), DashboardPrefs);
+        Write(history, SuiteHistory("2026-10-20T08:15:00.0000000-04:00"));
+        var (import, store, s) = Make();
+        var plan = import.Plan();
+        Assert.True(plan.HistoryWillBeCopied);
+        Write(history, "a,b,c\r\n1,2,3\r\n");
+
+        var result = import.Apply(plan);
+        Assert.Equal(plan.SettingKeys, result.SettingKeys);
+        Assert.Equal(1, s.Fills);
+        Assert.False(result.HistoryCopied);
+        Assert.StartsWith("Filled 5 settings: ", result.Message);
+        Assert.EndsWith("has no Timestamp column. The history was not copied.", result.Message);
+        Assert.DoesNotContain("Nothing was imported", result.Message);
+        Assert.False(store.Exists);
+        Assert.Empty(import.Plan().SettingKeys);
+    }
+
+    private static void Junction(string link, string target)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo("cmd.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+        foreach (var a in new[] { "/c", "mklink", "/J", link, target }) psi.ArgumentList.Add(a);
+        using var p = System.Diagnostics.Process.Start(psi)!;
+        p.StandardOutput.ReadToEnd();
+        p.WaitForExit();
+        Assert.True(Directory.Exists(link) && new DirectoryInfo(link).Attributes.HasFlag(FileAttributes.ReparsePoint), "The junction was not made.");
+    }
+
+    [Theory]
+    [InlineData("legacy")]
+    [InlineData("history")]
+    public void AFolderOnThePathOfAnImportedFileThatIsAJunctionIsRefused(string where)
+    {
+        var elsewhere = Path.Combine(_dir, "elsewhere");
+        var link = where == "legacy" ? Path.Combine(Suite, "legacy") : Path.Combine(Legacy, "History");
+        if (where == "legacy") Write(Path.Combine(elsewhere, "mecm-health-dashboard", LegacyDashboardImport.DashboardPrefsFile), DashboardPrefs);
+        else
+        {
+            Write(Path.Combine(elsewhere, "metrics-history.csv"), SuiteHistory("2026-10-20T08:15:00.0000000-04:00"));
+            Directory.CreateDirectory(Legacy);
+        }
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        Junction(link, elsewhere);
+        try
+        {
+            Assert.True(File.Exists(Path.Combine(Legacy, where == "legacy" ? LegacyDashboardImport.DashboardPrefsFile : LegacyDashboardImport.HistoryRelative)));
+            var (import, store, s) = Make();
+            var plan = import.Plan();
+            Assert.NotNull(plan.Refusal);
+            Assert.Contains("is a link. Nothing was imported.", plan.Refusal);
+            Assert.Equal(0, s.Fills);
+            Assert.False(store.Exists);
+        }
+        finally { Directory.Delete(link); }
+    }
+
+    [Fact]
     public void NoSuiteFolderGivesAnEmptyPlan()
     {
         var (import, _, _) = Make();

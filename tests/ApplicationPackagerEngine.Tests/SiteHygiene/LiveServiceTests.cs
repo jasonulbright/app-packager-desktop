@@ -259,6 +259,56 @@ public sealed class LiveServiceTests
         Assert.Equal(1, session.Calls);
     }
 
+    [Theory]
+    [InlineData(100_000, 8)]
+    [InlineData(3, 3)]
+    public async Task TheProviderRowsStreamIntoTheCapSoARowPastTheCapIsNeverHeld(int cap, int readBeforeLast)
+    {
+        var state = LiveFixtures.State();
+        state["Options"]!["Stream"] = "SMS_DeploymentSummary";
+        var site = new StubHygieneSite(state);
+        var service = new SiteHygieneLiveService(site, new FakeSqlHost().Runner, connection: () => new ConfigMgrConnection("MCM", "CM01")) { MaxDeployments = cap };
+        var view = (await Refresh(service, new HashSet<LiveView> { LiveView.Deployments })).Views[LiveView.Deployments];
+        var emits = site.Log.Where(l => l.StartsWith("Emit:", StringComparison.Ordinal)).Select(l => int.Parse(l[5..])).ToList();
+        Assert.Equal(9, emits.Count);
+        Assert.Equal(readBeforeLast, emits[^1]);
+        Assert.Equal(Math.Min(cap, 9), view.Rows.Count);
+        Assert.Equal(9, view.SourceRows);
+    }
+
+    [Fact]
+    public void AnAggregationStopsOnACancelledToken()
+    {
+        var table = new HygieneTable("Deployments", ["DeploymentID", "NumberTargeted"]) { State = "Read", Total = 5000 };
+        for (var i = 0; i < 5000; i++) table.Rows.Add([i.ToString(), "1"]);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Assert.Throws<OperationCanceledException>(() => LiveAggregator.Deployments(table, true, cts.Token));
+        Assert.Equal(5000, LiveAggregator.Deployments(table, true).Rows.Count);
+    }
+
+    [Fact]
+    public async Task ASearchForTheSiteDatabaseThatDoesNotEndFailsTheSqlViewsAfterItsTimeLimit()
+    {
+        var sql = new FakeSqlHost { SiteHangs = true };
+        var service = new SiteHygieneLiveService(new ThrowingSession(ConfigMgrFailure.Timeout), sql.Runner, connection: () => new ConfigMgrConnection("MCM", "CM01"))
+        {
+            TargetTimeout = TimeSpan.FromMilliseconds(200)
+        };
+        var snapshot = await service.RefreshAsync(LiveSettings.Default, SqlViews, new Progress(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30));
+        foreach (var v in SqlViews)
+        {
+            Assert.True(snapshot.Views[v].Failed);
+            Assert.Equal(SiteHygieneLiveService.TargetTimeoutMessage, snapshot.Views[v].Message);
+        }
+        Assert.Equal(SiteHygieneLiveService.TargetTimeoutMessage, await service.TestSqlAsync(LiveSettings.Default, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30)));
+        Assert.Empty(sql.Outputs);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        var slow = new SiteHygieneLiveService(new ThrowingSession(ConfigMgrFailure.Timeout), sql.Runner, connection: () => new ConfigMgrConnection("MCM", "CM01"));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => slow.RefreshAsync(LiveSettings.Default, SqlViews, new Progress(), cts.Token).WaitAsync(TimeSpan.FromSeconds(30)));
+    }
+
     // ---- SQL views -------------------------------------------------------------------------------
 
     private const string ClientRows = """
@@ -450,6 +500,10 @@ public sealed class LiveServiceTests
         Assert.Contains("@Days", queries[0]);
         Assert.Contains("GETUTCDATE()", queries[0]);
         Assert.DoesNotContain("GETDATE()", queries[0]);
+        // DATEDIFF(day, ...) counts midnights: the threshold compares the raw time, and the age counts whole elapsed days.
+        Assert.Contains("COALESCE(ch.LastDDR, ch.LastActiveTime) < DATEADD(day, -@Days, GETUTCDATE())", queries[0]);
+        Assert.DoesNotContain("DATEDIFF(day", queries[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DATEDIFF(minute, COALESCE(ch.LastDDR, ch.LastActiveTime), GETUTCDATE()) / 1440 AS DaysSinceContact", queries[0]);
     }
 
     // ---- Scale -----------------------------------------------------------------------------------

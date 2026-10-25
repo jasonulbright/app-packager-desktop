@@ -77,31 +77,58 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         return folders;
     }
 
-    /// <summary>The source folders in search order, each with its settings file name.</summary>
-    internal IEnumerable<(string Folder, string PrefsName)> Candidates()
+    /// <summary>
+    /// The source folders in search order, each with its settings file name and the folder up to which every
+    /// folder on the path of a file must not be a link: the suite folder for the suite and legacy folders, the
+    /// sibling folder for the sibling.
+    /// </summary>
+    internal IEnumerable<(string Folder, string PrefsName, string Root)> Candidates()
     {
         foreach (var suite in _suiteFolders())
         {
-            yield return (suite, SuitePrefsFile);
-            yield return (Path.Combine(suite, LegacyFolder), DashboardPrefsFile);
+            yield return (suite, SuitePrefsFile, suite);
+            yield return (Path.Combine(suite, LegacyFolder), DashboardPrefsFile, suite);
             var parent = Path.GetDirectoryName(suite.TrimEnd('\\', '/'));
-            if (!string.IsNullOrEmpty(parent)) yield return (Path.Combine(parent, SiblingFolder), DashboardPrefsFile);
+            if (!string.IsNullOrEmpty(parent))
+            {
+                var sibling = Path.Combine(parent, SiblingFolder);
+                yield return (sibling, DashboardPrefsFile, sibling);
+            }
         }
     }
 
     private sealed class RefusedException(string message) : Exception(message);
 
-    private static void CheckFile(string path, long cap, string what)
+    /// <summary>
+    /// Refuses a file that is a link, lies in a folder that is a link between the file and <paramref name="root"/>
+    /// (the root included), or is larger than <paramref name="cap"/>. A junction anywhere on that path leads the read
+    /// to files outside the suite folder.
+    /// </summary>
+    internal static void CheckFile(string path, long cap, string what, string? root = null)
     {
         var info = new FileInfo(path);
         if (info.Attributes.HasFlag(FileAttributes.ReparsePoint)) throw new RefusedException($"The {what} {path} is a link. Nothing was imported.");
+        if (root is not null)
+        {
+            var top = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            var folder = info.Directory;
+            while (folder is not null)
+            {
+                var full = Path.TrimEndingDirectorySeparator(folder.FullName);
+                if (!full.StartsWith(top, StringComparison.OrdinalIgnoreCase)) break;
+                if (folder.Exists && folder.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                    throw new RefusedException($"The folder {full} of the {what} is a link. Nothing was imported.");
+                if (full.Length == top.Length) break;
+                folder = folder.Parent;
+            }
+        }
         if (info.Length > cap) throw new RefusedException($"The {what} {path} is larger than {(cap / (1024 * 1024)).ToString(CultureInfo.InvariantCulture)} MB. Nothing was imported.");
     }
 
     /// <summary>The settings a suite or dashboard settings file holds; a value that is missing, null or of another type is not imported.</summary>
-    internal static LiveSettingValues ReadPrefs(string path)
+    internal static LiveSettingValues ReadPrefs(string path, string? linkRoot = null)
     {
-        CheckFile(path, MaxPrefsBytes, "settings file");
+        CheckFile(path, MaxPrefsBytes, "settings file", linkRoot);
         JsonDocument doc;
         try
         {
@@ -162,9 +189,9 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         return (values, keys);
     }
 
-    private (List<MetricRow> Rows, int Skipped) ReadHistory(string path)
+    private (List<MetricRow> Rows, int Skipped) ReadHistory(string path, string root)
     {
-        CheckFile(path, MaxHistoryBytes, "history file");
+        CheckFile(path, MaxHistoryBytes, "history file", root);
         try
         {
             var (rows, skipped, _) = MetricsHistoryStore.ReadFile(path, MaxHistoryBytes);
@@ -181,7 +208,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
     public LegacyImportPlan Plan()
     {
         LegacyImportPlan? empty = null;
-        foreach (var (folder, prefsName) in Candidates())
+        foreach (var (folder, prefsName, root) in Candidates())
         {
             string prefs, history;
             try
@@ -198,13 +225,13 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             {
                 var keys = new List<string>();
                 var values = LiveSettingValues.Empty;
-                if (File.Exists(prefs)) (values, keys) = Fill(ReadPrefs(prefs), _read());
+                if (File.Exists(prefs)) (values, keys) = Fill(ReadPrefs(prefs, root), _read());
                 var rows = 0;
                 var skipped = 0;
                 var copy = false;
                 if (File.Exists(history))
                 {
-                    var read = ReadHistory(history);
+                    var read = ReadHistory(history, root);
                     skipped = read.Skipped;
                     rows = read.Rows.Count;
                     if (rows == 0 && skipped > 0) throw new RefusedException($"No line of the history file {history} could be read. Nothing was imported.");
@@ -240,44 +267,67 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         ArgumentNullException.ThrowIfNull(plan);
         if (plan.Refusal is not null) return new LegacyImportResult([], 0, false, plan.Refusal);
         if (plan.IsEmpty) return new LegacyImportResult([], 0, false, "Nothing to import. The settings have values and a history exists.");
+        List<string> keys;
+        bool notSaved;
         try
         {
-            var (values, keys) = Fill(plan.Values, _read());
-            keys = keys.Where(plan.SettingKeys.Contains).ToList();
-            var notSaved = keys.Count > 0 && !_fill(Only(values, keys));
+            var (values, found) = Fill(plan.Values, _read());
+            keys = found.Where(plan.SettingKeys.Contains).ToList();
+            notSaved = keys.Count > 0 && !_fill(Only(values, keys));
             if (notSaved)
             {
                 _log?.Warning(SiteHygieneService.LogArea, "The dashboard import could not write the settings file.");
                 keys = [];
             }
-            var copied = false;
-            var rows = 0;
-            if (plan.HistoryWillBeCopied && plan.HistoryFile.Length > 0 && !_history.Exists)
-            {
-                var read = ReadHistory(plan.HistoryFile);
-                if (read.Rows.Count > 0 && _history.ImportIfEmpty(read.Rows))
-                {
-                    copied = true;
-                    rows = read.Rows.Count;
-                }
-            }
-            var parts = new List<string>();
-            if (keys.Count > 0) parts.Add($"Filled {keys.Count.ToString(CultureInfo.InvariantCulture)} settings: {string.Join(", ", keys)}.");
-            if (copied) parts.Add($"Copied {rows.ToString("N0", CultureInfo.InvariantCulture)} history rows.");
-            if (notSaved) parts.Add(SettingsNotSaved);
-            if (parts.Count == 0) parts.Add("Nothing changed. The settings already have values and a history exists.");
-            _log?.Info(SiteHygieneService.LogArea, $"Dashboard import: {keys.Count.ToString(CultureInfo.InvariantCulture)} settings, {rows.ToString(CultureInfo.InvariantCulture)} history rows.");
-            return new LegacyImportResult(keys, rows, copied, string.Join(" ", parts));
-        }
-        catch (RefusedException ex)
-        {
-            return new LegacyImportResult([], 0, false, ex.Message);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log?.Warning(SiteHygieneService.LogArea, $"The dashboard import failed ({ex.GetType().Name}).");
             return new LegacyImportResult([], 0, false, $"The files in {plan.SourceFolder} could not be read. Nothing was imported.");
         }
+
+        // The settings are stored from here on, so a failed history copy keeps them in the result.
+        var copied = false;
+        var rows = 0;
+        string? historyProblem = null;
+        if (plan.HistoryWillBeCopied && plan.HistoryFile.Length > 0 && !_history.Exists)
+        {
+            try
+            {
+                var read = ReadHistory(plan.HistoryFile, RootOf(plan.SourceFolder));
+                if (read.Rows.Count > 0 && _history.ImportIfEmpty(read.Rows))
+                {
+                    copied = true;
+                    rows = read.Rows.Count;
+                }
+                else historyProblem = "The history was not copied: a history exists now, or it could not be written.";
+            }
+            catch (RefusedException ex)
+            {
+                historyProblem = ex.Message.Replace(" Nothing was imported.", " The history was not copied.", StringComparison.Ordinal);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _log?.Warning(SiteHygieneService.LogArea, $"The dashboard history could not be copied ({ex.GetType().Name}).");
+                historyProblem = $"The history file {plan.HistoryFile} could not be read. The history was not copied.";
+            }
+        }
+        var parts = new List<string>();
+        if (keys.Count > 0) parts.Add($"Filled {keys.Count.ToString(CultureInfo.InvariantCulture)} settings: {string.Join(", ", keys)}.");
+        if (copied) parts.Add($"Copied {rows.ToString("N0", CultureInfo.InvariantCulture)} history rows.");
+        if (notSaved) parts.Add(SettingsNotSaved);
+        if (historyProblem is not null) parts.Add(historyProblem);
+        if (parts.Count == 0) parts.Add("Nothing changed. The settings already have values and a history exists.");
+        _log?.Info(SiteHygieneService.LogArea, $"Dashboard import: {keys.Count.ToString(CultureInfo.InvariantCulture)} settings, {rows.ToString(CultureInfo.InvariantCulture)} history rows.");
+        return new LegacyImportResult(keys, rows, copied, string.Join(" ", parts));
+    }
+
+    /// <summary>The link-check root of a source folder of a plan; the folder itself when no candidate names it.</summary>
+    private string RootOf(string folder)
+    {
+        foreach (var (candidate, _, root) in Candidates())
+            if (string.Equals(Path.TrimEndingDirectorySeparator(candidate), Path.TrimEndingDirectorySeparator(folder), StringComparison.OrdinalIgnoreCase)) return root;
+        return folder;
     }
 
     private static LiveSettingValues Only(LiveSettingValues v, List<string> keys) => new(

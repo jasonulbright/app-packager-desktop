@@ -195,6 +195,11 @@ public sealed class LiveGridRow
         return "";
     }
 
+    /// <summary>True when <paramref name="other"/> shows the same key, status and cells.</summary>
+    public bool SameAs(LiveGridRow other) =>
+        string.Equals(Key, other.Key, StringComparison.Ordinal) && string.Equals(StatusCell, other.StatusCell, StringComparison.Ordinal)
+        && Cells.SequenceEqual(other.Cells, StringComparer.Ordinal);
+
     public bool Matches(string text) =>
         StatusCell.Contains(text, StringComparison.OrdinalIgnoreCase) || Cells.Any(c => c.Contains(text, StringComparison.OrdinalIgnoreCase));
 

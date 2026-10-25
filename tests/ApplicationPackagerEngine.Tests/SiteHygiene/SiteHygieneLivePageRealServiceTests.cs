@@ -43,8 +43,8 @@ internal sealed class LiveRealPage : IDisposable
             SaveLive = (live, server, database) =>
             {
                 Harness.Settings.SiteHygieneLive = live;
-                Harness.Settings.DiscoverySqlServer = server;
-                Harness.Settings.DiscoverySqlDatabase = database;
+                if (server is not null) Harness.Settings.DiscoverySqlServer = server;
+                if (database is not null) Harness.Settings.DiscoverySqlDatabase = database;
                 return true;
             }
         };
@@ -113,9 +113,10 @@ public sealed class SiteHygieneLivePageRealServiceTests
         Assert.Equal(("0", "0", "1", "2", "0", "1"), (line[LiveMetrics.ContentIssues], line[LiveMetrics.ContentFailedPairs], line[LiveMetrics.DPTotal], line[LiveMetrics.ClientHealthy],
             line[LiveMetrics.ClientUnhealthy], line[LiveMetrics.ClientInactive]));
         Assert.Equal("0", line[LiveMetrics.InactiveDevices]);
-        var compliance = Assert.Single(vm.AlertRows);
-        Assert.Equal((LiveAlertMetrics.Compliance, "Deployments: overall compliance 58.3 % is below the 80 % floor."), (compliance.Alert.Metric, compliance.Message));
-        Assert.Single(File.ReadAllLines(p.AlertLog.Path));
+        // The first refresh of the session sets the starting state: the compliance below the floor raises no alert.
+        Assert.Empty(vm.AlertRows);
+        Assert.Equal([LiveAlertMetrics.Compliance], p.Alerts.Breached);
+        Assert.False(File.Exists(p.AlertLog.Path));
 
         vm.CopyLiveSummaryCommand.Execute(null);
         var summary = p.Harness.Dialogs.Clipboard[^1];
@@ -193,10 +194,12 @@ public sealed class SiteHygieneLivePageRealServiceTests
         // The stub site replaces its state after each run, so every change goes through its current state.
         JsonObject Executive() => p.Site.Class("SMS_ComponentSummarizer").OfType<JsonObject>()
             .First(c => (string?)c["ComponentName"] == "SMS_EXECUTIVE" && (string?)c["TallyInterval"] == "0001128000100008");
-        Executive()["Status"] = 2;
         var vm = await p.OpenAsync();
         vm.AlertCompliance = false;
+        await vm.RefreshLiveAsync();
+        Assert.Empty(vm.AlertRows);
 
+        Executive()["Status"] = 2;
         await vm.RefreshLiveAsync();
         var alert = Assert.Single(vm.AlertRows);
         Assert.Equal(LiveAlertMetrics.SiteCritical, alert.Alert.Metric);
@@ -224,8 +227,8 @@ public sealed class SiteHygieneLivePageRealServiceTests
         await vm.RefreshLiveAsync();
         Assert.Equal(2, vm.AlertRows.Count);
         Assert.Equal(2, File.ReadAllLines(p.AlertLog.Path).Length);
-        Assert.Equal(5, p.HistoryLines().Count);
-        Assert.Equal(["1", "1", "", "0", "1"], p.HistoryLines().Select(l => l[LiveMetrics.SiteCritical]));
+        Assert.Equal(6, p.HistoryLines().Count);
+        Assert.Equal(["0", "1", "1", "", "0", "1"], p.HistoryLines().Select(l => l[LiveMetrics.SiteCritical]));
     }
 
     private const string DashboardPrefs = "{\r\n  \"SQLServer\": \"CM01.contoso.com\",\r\n  \"AutoRefreshMinutes\": 30,\r\n  \"InactiveThresholdDays\": 21,\r\n  \"AlertsEnabled\": false,\r\n  \"AlertCompliancePct\": 90\r\n}";

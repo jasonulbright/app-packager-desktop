@@ -19,9 +19,9 @@ public sealed record SiteHygieneLiveServices(
 
     /// <summary>
     /// Saves the Live and Alerts options (<see cref="AppSettings.SiteHygieneLive"/>) with the SQL server and database that
-    /// the page shares with Discover; false when nothing was written.
+    /// the page shares with Discover; a null SQL value keeps the stored value. False when nothing was written.
     /// </summary>
-    public Func<SiteHygieneLiveSettings, string, string, bool> SaveLive { get; init; } = (_, _, _) => false;
+    public Func<SiteHygieneLiveSettings, string?, string?, bool> SaveLive { get; init; } = (_, _, _) => false;
 
     public Func<string, bool> FileExists { get; init; } = File.Exists;
 }
@@ -37,6 +37,7 @@ public sealed partial class SiteHygieneViewModel
     public const string RefreshRunning = "A refresh is running. Wait until it ends, or select Cancel refresh.";
     public const string RefreshCancelling = "Cancelling the refresh.";
     public const string RefreshCancelled = "The refresh was cancelled. The earlier result stays.";
+    public const string RefreshStillEnding = "The previous refresh is still ending. Select Refresh all again when it ends.";
     public const string RefreshFailed = "The refresh could not read the site. The earlier result stays. The log has the details.";
     public const string LiveSiteChanged = "The site settings changed during the refresh, so its result was discarded. Select Refresh all again.";
     public const string LiveNotSetUp = "The Live views are not available in this build.";
@@ -108,6 +109,12 @@ public sealed partial class SiteHygieneViewModel
     [ObservableProperty] private IReadOnlyList<string> _liveColumns = [];
 
     [ObservableProperty] private IReadOnlyList<LiveGridRow> _liveViewRows = [];
+
+    /// <summary>Raised just before <see cref="LiveViewRows"/> gets another list, so the view can keep the scroll position and the focus of the grid.</summary>
+    public event EventHandler? LiveRowsReplacing;
+
+    /// <summary>The view whose rows <see cref="LiveViewRows"/> holds; a switch to another view keeps no scroll position.</summary>
+    private LiveView? _rowsView;
     [ObservableProperty] private LiveGridRow? _selectedLiveRow;
     [ObservableProperty] private string _liveRowCount = "";
 
@@ -221,12 +228,43 @@ public sealed partial class SiteHygieneViewModel
         return task;
     }
 
-    /// <summary>The outcome of one refresh for the timer: true when every view that ran was read, false on a failure, null when cancelled or refused.</summary>
+    /// <summary>
+    /// The service read that Cancel or leaving the app stopped waiting for while it still ran; no refresh starts until it
+    /// ends, so two reads never share the ConfigMgr session.
+    /// </summary>
+    private Task? _abandoned;
+
+    /// <summary>True while a cancelled read still runs in the background.</summary>
+    public bool IsPreviousRefreshEnding => _abandoned is { IsCompleted: false };
+
+    /// <summary>
+    /// One refresh, manual or timed. A read is a failure for the backoff of the timer: a refresh that read some view
+    /// sets the count to zero, a failed one adds one; a cancelled or refused refresh does not change it.
+    /// </summary>
     private async Task<bool?> RunRefreshAsync()
+    {
+        var outcome = await RefreshOnceAsync();
+        if (outcome == true) _refreshFailures = 0;
+        else if (outcome == false) _refreshFailures++;
+        if (outcome is not null)
+        {
+            OnPropertyChanged(nameof(RefreshFailures));
+            ShowAutoRefresh();
+        }
+        return outcome;
+    }
+
+    /// <summary>The outcome of one refresh: true when a view that ran was read, false on a failure, null when cancelled or refused.</summary>
+    private async Task<bool?> RefreshOnceAsync()
     {
         if (Services.Live is not { } live)
         {
             StatusMessage = LiveNotSetUp;
+            return null;
+        }
+        if (IsPreviousRefreshEnding)
+        {
+            StatusMessage = RefreshStillEnding;
             return null;
         }
         if (ConnectionProblem() is { } problem)
@@ -247,10 +285,16 @@ public sealed partial class SiteHygieneViewModel
         {
             if (mine == _refreshGeneration && IsRefreshing) RefreshProgress = SecretMask.Apply(text);
         });
+        // The grid rows of every view are built in the same background task, so a large result does not hold the UI thread.
+        var work = Task.Run(async () =>
+        {
+            var read = await live.Live.RefreshAsync(settings, AllLiveViews, progress, cts.Token).ConfigureAwait(false);
+            return (Snapshot: read, Rows: GridRows(read));
+        }, cts.Token);
         try
         {
-            // The wait ends on Cancel even when the service checks its token only between sources; the late result is then discarded.
-            var snapshot = await Task.Run(() => live.Live.RefreshAsync(settings, AllLiveViews, progress, cts.Token), cts.Token).WaitAsync(cts.Token);
+            // The wait ends on Cancel even when the service is inside a read; the late result is then discarded.
+            var (snapshot, rows) = await work.WaitAsync(cts.Token);
             if (cts.IsCancellationRequested || mine != _refreshGeneration)
             {
                 StatusMessage = RefreshCancelled;
@@ -263,7 +307,7 @@ public sealed partial class SiteHygieneViewModel
             }
             // From here the result is shown and recorded, so Cancel no longer applies to this refresh.
             _refreshShown = true;
-            ShowSnapshot(snapshot);
+            ShowSnapshot(snapshot, rows);
             var (events, note) = await Task.Run(() => Record(live, snapshot, settings.Alerts));
             AddAlerts(events);
             var failed = snapshot.Views.Values.Where(v => v.Failed).ToList();
@@ -296,11 +340,20 @@ public sealed partial class SiteHygieneViewModel
         }
         finally
         {
+            if (!work.IsCompleted)
+            {
+                _abandoned = work;
+                _ = work.ContinueWith(t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            }
             if (ReferenceEquals(_refreshCts, cts)) _refreshCts = null;
             IsRefreshing = false;
             RefreshProgress = "";
         }
     }
+
+    /// <summary>The grid rows of each view of <paramref name="snapshot"/>; runs off the UI thread.</summary>
+    private static Dictionary<LiveView, IReadOnlyList<LiveGridRow>> GridRows(LiveSnapshot snapshot) =>
+        snapshot.Views.ToDictionary(v => v.Key, v => (IReadOnlyList<LiveGridRow>)v.Value.Rows.Select(r => new LiveGridRow(r, v.Value.Columns.Count)).ToList());
 
     private static string Number(int value) => SiteHygieneLabels.Number(value);
 
@@ -325,7 +378,10 @@ public sealed partial class SiteHygieneViewModel
         var logged = true;
         foreach (var alert in events)
         {
-            try { live.AlertLog.Append(alert); }
+            try
+            {
+                if (!live.AlertLog.Append(alert)) logged = false;
+            }
             catch (Exception ex)
             {
                 logged = false;
@@ -335,12 +391,12 @@ public sealed partial class SiteHygieneViewModel
         return (events, logged ? note : note + AlertLogFailed);
     }
 
-    private void ShowSnapshot(LiveSnapshot snapshot)
+    private void ShowSnapshot(LiveSnapshot snapshot, IReadOnlyDictionary<LiveView, IReadOnlyList<LiveGridRow>> rows)
     {
         foreach (var (view, result) in snapshot.Views)
         {
             _liveResults[view] = result;
-            _liveAll[view] = result.Rows.Select(r => new LiveGridRow(r, result.Columns.Count)).ToList();
+            _liveAll[view] = rows[view];
         }
         _lastSnapshot = snapshot;
         var ran = snapshot.Views.Values.Count(v => !v.Skipped);
@@ -391,6 +447,7 @@ public sealed partial class SiteHygieneViewModel
                 SelectedLiveRow = null;
             }
             finally { _restoring = false; }
+            _rowsView = null;
             LiveRowCount = "";
             LiveViewMessage = HasLive ? LiveViewNotRead : LiveNotSetUp;
             return;
@@ -402,14 +459,23 @@ public sealed partial class SiteHygieneViewModel
         var rows = all.Where(r => status == SiteHygieneLiveLabels.AllText || SiteHygieneLiveLabels.StatusWord(r.Status) == status)
             .Where(r => text.Length == 0 || r.Matches(text));
         var list = (_sorts.ContainsKey(key) ? Sorted(key, rows) : rows).ToList();
+        // A list with the same rows in the same order keeps the shown list, so the grid keeps its scroll position, selection and focus.
+        var current = LiveViewRows;
+        var same = current.Count == list.Count && !current.Where((r, i) => !r.SameAs(list[i])).Any();
+        var shown = same ? current : list;
         _restoring = true;
         try
         {
-            LiveViewRows = list;
-            SelectedLiveRow = _liveSelected.TryGetValue(view, out var selected) ? list.FirstOrDefault(r => r.Key == selected) : null;
+            if (!same)
+            {
+                if (_rowsView == view) LiveRowsReplacing?.Invoke(this, EventArgs.Empty);
+                LiveViewRows = list;
+            }
+            _rowsView = view;
+            SelectedLiveRow = _liveSelected.TryGetValue(view, out var selected) ? shown.FirstOrDefault(r => r.Key == selected) : null;
         }
         finally { _restoring = false; }
-        LiveRowCount = list.Count == all.Count ? SiteHygieneLabels.Count(all.Count, "row") : $"{Number(list.Count)} of {SiteHygieneLabels.Count(all.Count, "row")}";
+        LiveRowCount = shown.Count == all.Count ? SiteHygieneLabels.Count(all.Count, "row") : $"{Number(shown.Count)} of {SiteHygieneLabels.Count(all.Count, "row")}";
         LiveViewMessage = ViewMessage(result);
     }
 
@@ -488,10 +554,7 @@ public sealed partial class SiteHygieneViewModel
                 }
                 var task = RunRefreshAsync();
                 _refreshing = task.IsCompleted ? null : task;
-                var outcome = await task;
-                if (outcome == true) _refreshFailures = 0;
-                else if (outcome == false) _refreshFailures++;
-                ShowAutoRefresh();
+                await task;
             }
         }
         finally
@@ -590,7 +653,8 @@ public sealed partial class SiteHygieneViewModel
             return;
         }
         StatusMessage = $"Saved the {format} report to {path}: {SiteHygieneLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.")
-            + (report.Note is { } note ? " " + note : "");
+            + (report.Note is { } note ? " " + note : "")
+            + NotesNote(format, path);
         Services.Log.Info(LogArea, $"Saved a Live {format} report with {report.Rows.Count} rows.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }

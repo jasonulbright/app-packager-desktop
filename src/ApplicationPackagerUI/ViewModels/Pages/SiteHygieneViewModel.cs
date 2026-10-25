@@ -267,6 +267,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
             _preferencesLoad = ApplyPreferencesAsync();
         }
         await _preferencesLoad;
+        await ReloadSqlAsync();
         if (!_storedRequested)
         {
             _storedRequested = true;

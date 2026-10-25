@@ -203,10 +203,15 @@ internal sealed class FakeAlertLog : IAlertLog
     public List<AlertEvent> Appended { get; } = [];
     public bool Fails;
 
-    public void Append(AlertEvent e)
+    /// <summary>Append returns false, as the real log does when its file cannot be written.</summary>
+    public bool NotWritten;
+
+    public bool Append(AlertEvent e)
     {
         if (Fails) throw new IOException("The disk is full.");
+        if (NotWritten) return false;
         lock (Appended) Appended.Add(e);
+        return true;
     }
 
     public string Path => @"C:\Data\SiteHygiene\alerts.log";
@@ -330,11 +335,11 @@ internal sealed class SiteHygieneLiveFakes
     public FakeLiveReports Reports { get; } = new();
     public FakeLiveClock Clock { get; } = new();
     /// <summary>Every save of the Live options: the stored options and the shared SQL values.</summary>
-    public List<(SiteHygieneLiveSettings Live, string Server, string Database)> LiveSaves { get; } = [];
+    public List<(SiteHygieneLiveSettings Live, string? Server, string? Database)> LiveSaves { get; } = [];
     public bool LiveSaveFails;
 
     /// <summary>Writes a save into the settings the page reads, as the settings file does.</summary>
-    public Action<SiteHygieneLiveSettings, string, string>? Stored;
+    public Action<SiteHygieneLiveSettings, string?, string?>? Stored;
     public HashSet<string> Files { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public SiteHygieneLiveServices Services() => new(Service, History, Alerts, AlertLog, Import, Reports)

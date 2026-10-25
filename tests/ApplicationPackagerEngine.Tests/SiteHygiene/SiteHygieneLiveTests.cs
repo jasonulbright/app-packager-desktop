@@ -325,7 +325,8 @@ public sealed class SiteHygieneLiveTests
         Assert.Equal("DEPLOYMENTS-7", vm.SelectedLiveRow?.Key);
         await vm.RefreshLiveAsync();
         Assert.Equal("DEPLOYMENTS-7", vm.SelectedLiveRow?.Key);
-        Assert.NotSame(picked, vm.SelectedLiveRow);
+        // The same rows in the same order keep the shown list, so the grid keeps its place.
+        Assert.Same(picked, vm.SelectedLiveRow);
 
         vm.SelectedLiveView = ViewChoice(LiveView.Content);
         Assert.Null(vm.SelectedLiveRow);
@@ -722,8 +723,10 @@ public sealed class SiteHygieneLiveTests
         Assert.Equal(Live(h).Service.TestResult, vm.SqlTestResult);
         var settings = Live(h).Service.Settings[^1];
         Assert.Equal(("cm01.contoso.com", "", true), (settings.SqlServer, settings.SqlDatabase, settings.TrustSqlCertificate));
-        var (live, server, database) = Live(h).LiveSaves[^1];
-        Assert.Equal(("cm01.contoso.com", "", (bool?)true), (server, database, live.TrustSqlCertificate));
+        // Each save writes only the SQL value the operator changed since the save before.
+        Assert.Contains(Live(h).LiveSaves, s => s.Server == "cm01.contoso.com");
+        Assert.DoesNotContain(Live(h).LiveSaves, s => s.Database is not null);
+        Assert.Equal(("cm01.contoso.com", "", (bool?)true), (h.Settings.DiscoverySqlServer, h.Settings.DiscoverySqlDatabase ?? "", h.Settings.SiteHygieneLive!.TrustSqlCertificate));
         Assert.Equal(0, Live(h).Service.RefreshCalls);
     }
 
@@ -798,5 +801,168 @@ public sealed class SiteHygieneLiveTests
         Assert.Equal(VM.AutoRefreshStopped, vm.AutoRefreshText);
         await vm.OnNavigatedToAsync();
         await WaitUntil(() => vm.IsAutoRefreshArmed && Live(h).Clock.Pending == 1);
+    }
+
+    // ---- Shared SQL settings ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task ASqlServerChangedOutsideThePageIsNeitherOverwrittenByAnOptionSaveNorReadStale()
+    {
+        var h = new SiteHygienePageHarness { Settings = new AppSettings { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com", DiscoverySqlServer = "old.contoso.com", DiscoverySqlDatabase = "CM_OLD" } };
+        var vm = await h.OpenAsync();
+        Assert.Equal(("old.contoso.com", "CM_OLD"), (vm.LiveSqlServer, vm.LiveSqlDatabase));
+
+        // Discover or the Settings page writes the shared values while the page shows.
+        h.Settings.DiscoverySqlServer = "new.contoso.com";
+        vm.AlertDpCritical = false;
+        Assert.True(await vm.SaveAsync());
+        var (live, server, database) = Live(h).LiveSaves[^1];
+        Assert.Equal(((string?)null, (string?)null, (bool?)false), (server, database, live.AlertDpCritical));
+        Assert.Equal("new.contoso.com", h.Settings.DiscoverySqlServer);
+
+        // The next visit shows the stored value and a refresh reads with it.
+        await vm.OnNavigatedFromAsync();
+        await vm.OnNavigatedToAsync();
+        Assert.Equal(("new.contoso.com", "CM_OLD"), (vm.LiveSqlServer, vm.LiveSqlDatabase));
+        await vm.RefreshLiveAsync();
+        Assert.Equal("new.contoso.com", Live(h).Service.Settings[^1].SqlServer);
+
+        // A value the operator types on the page is written alone.
+        vm.LiveSqlDatabase = "CM_MCM";
+        Assert.True(await vm.SaveAsync());
+        Assert.Contains(Live(h).LiveSaves, s => s.Server is null && s.Database == "CM_MCM");
+        Assert.Equal(("new.contoso.com", "CM_MCM"), (h.Settings.DiscoverySqlServer, h.Settings.DiscoverySqlDatabase));
+    }
+
+    [Fact]
+    public async Task ASettingsFileThatCannotBeReadAtTheFirstVisitIsNeverReplacedByTheDefaultsOfThePage()
+    {
+        var h = new SiteHygienePageHarness
+        {
+            Settings = new AppSettings { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com", DiscoverySqlServer = "sql01.contoso.com", SiteHygieneLive = new SiteHygieneLiveSettings { InactiveDays = 45 } }
+        };
+        // The first read is the connection check; the second and third are the reads of the stored Live options at the first visit.
+        h.FailingLoads.UnionWith([2, 3]);
+        var vm = await h.OpenAsync();
+        Assert.Equal("", vm.LiveSqlServer);
+        vm.AlertDpCritical = false;
+        await vm.SaveAsync();
+        Assert.Empty(Live(h).LiveSaves);
+        Assert.Equal(VM.LiveSaveFailed, vm.StatusMessage);
+        Assert.Equal(("sql01.contoso.com", (int?)45), (h.Settings.DiscoverySqlServer, h.Settings.SiteHygieneLive!.InactiveDays));
+
+        // Without an edit, the next visit reads the stored options.
+        var fresh = new SiteHygienePageHarness { Settings = h.Settings };
+        fresh.FailingLoads.UnionWith([2, 3]);
+        var vm2 = await fresh.OpenAsync();
+        await vm2.OnNavigatedFromAsync();
+        await vm2.OnNavigatedToAsync();
+        Assert.Equal(("sql01.contoso.com", 45), (vm2.LiveSqlServer, vm2.InactiveDays));
+        vm2.AlertDpCritical = false;
+        Assert.True(await vm2.SaveAsync());
+        Assert.Equal(((int?)45, (bool?)false, "sql01.contoso.com"), (fresh.Settings.SiteHygieneLive!.InactiveDays, fresh.Settings.SiteHygieneLive.AlertDpCritical, fresh.Settings.DiscoverySqlServer));
+    }
+
+    // ---- Refresh state ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task AManualRefreshSetsTheFailureCountForTheBackoffAsATimedOneDoes()
+    {
+        var (h, vm) = await RefreshedAsync();
+        var clock = Live(h).Clock;
+        var service = Live(h).Service;
+        service.Failure = new InvalidOperationException("the provider did not answer");
+        for (var failures = 1; failures <= 2; failures++)
+        {
+            await WaitUntil(() => clock.Pending == 1);
+            Assert.True(clock.Tick());
+            await WaitUntil(() => vm.RefreshFailures == failures, $"failure {failures}");
+        }
+        await vm.RefreshLiveAsync();
+        Assert.Equal(3, vm.RefreshFailures);
+        Assert.StartsWith("The refresh failed 3 times in a row", vm.AutoRefreshText);
+
+        service.Failure = null;
+        await vm.RefreshLiveAsync();
+        Assert.Equal(0, vm.RefreshFailures);
+        Assert.Equal("Auto-refresh every 15 minutes.", vm.AutoRefreshText);
+        await WaitUntil(() => clock.Pending == 1);
+        Assert.True(clock.Tick());
+        await WaitUntil(() => clock.Waits.Count >= 4 && clock.Pending == 1);
+        Assert.Equal(15, (int)clock.Waits[^1].TotalMinutes);
+    }
+
+    [Fact]
+    public async Task NoRefreshStartsWhileACancelledReadStillRunsSoTwoReadsNeverShareTheSession()
+    {
+        var (h, vm) = await RefreshedAsync();
+        var service = Live(h).Service;
+        var gate = service.Gate = new TaskCompletionSource();
+        service.IgnoreCancel = true;
+        var run = vm.RefreshLiveAsync();
+        await WaitUntil(() => service.RefreshCalls == 2);
+        vm.CancelRefreshCommand.Execute(null);
+        await run;
+        Assert.Equal(VM.RefreshCancelled, vm.StatusMessage);
+        Assert.False(vm.IsRefreshing);
+        Assert.True(vm.IsPreviousRefreshEnding);
+
+        await vm.RefreshLiveAsync();
+        Assert.Equal(VM.RefreshStillEnding, vm.StatusMessage);
+        Assert.Equal(2, service.RefreshCalls);
+        Assert.True(vm.RefreshAllCommand.CanExecute(null));
+
+        gate.SetResult();
+        await WaitUntil(() => !vm.IsPreviousRefreshEnding);
+        service.Gate = null;
+        await vm.RefreshLiveAsync();
+        Assert.Equal(3, service.RefreshCalls);
+        Assert.StartsWith("The refresh ended: ", vm.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ARefreshWithTheSameRowsKeepsTheShownListAndOneWithOtherRowsSaysSoBeforeItReplacesIt()
+    {
+        var call = 0;
+        var (h, vm) = await RefreshedAsync(h => h.Live!.Service.Next = n => LiveData.Snapshot(rows: 12, name: (call = n) >= 3 ? "Changed" : null));
+        var shown = vm.LiveViewRows;
+        var replacing = 0;
+        vm.LiveRowsReplacing += (_, _) => replacing++;
+        vm.SelectedLiveRow = shown[7];
+        await vm.RefreshLiveAsync();
+        Assert.Same(shown, vm.LiveViewRows);
+        Assert.Same(shown[7], vm.SelectedLiveRow);
+        Assert.Equal(0, replacing);
+
+        await vm.RefreshLiveAsync();
+        Assert.Equal(3, call);
+        Assert.NotSame(shown, vm.LiveViewRows);
+        Assert.Equal(1, replacing);
+        Assert.Equal(shown[7].Key, vm.SelectedLiveRow?.Key);
+        Assert.StartsWith("Changed", vm.SelectedLiveRow!.Cells[0]);
+
+        // A switch to another view keeps no place of the grid.
+        vm.SelectedLiveView = ViewChoice(LiveView.Content);
+        Assert.Equal(1, replacing);
+    }
+
+    [Fact]
+    public async Task AnAlertsLogThatReportsALineNotWrittenSaysSo()
+    {
+        var (h, vm) = await RefreshedAsync(h => h.Live!.AlertLog.NotWritten = true);
+        Assert.NotEmpty(vm.AlertRows);
+        Assert.EndsWith(VM.AlertLogFailed, vm.StatusMessage);
+    }
+
+    [Fact]
+    public async Task ACsvExportOfALiveViewNamesItsNotesFile()
+    {
+        var (h, vm) = await RefreshedAsync();
+        vm.SelectedTabIndex = VM.LiveTab;
+        await vm.ExportCsvCommand.ExecuteAsync(null);
+        var path = @"C:\Data\SiteHygiene\Reports\site-hygiene-live-1.csv";
+        Assert.EndsWith($" The notes are in {Path.GetFileName(HygieneReportWriter.AboutPath(path))}.", vm.StatusMessage);
+        await vm.ExportHtmlCommand.ExecuteAsync(null);
+        Assert.DoesNotContain("The notes are in", vm.StatusMessage);
     }
 }

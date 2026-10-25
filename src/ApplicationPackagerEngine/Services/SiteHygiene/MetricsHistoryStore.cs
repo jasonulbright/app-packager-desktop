@@ -73,9 +73,6 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         }
     }
 
-    /// <summary>The lines the last read skipped because they could not be read.</summary>
-    public int LastSkippedLines { get; private set; }
-
     public static string HeaderLine => string.Join(",", LiveMetrics.FileColumns);
 
     internal static string Format(MetricRow row)
@@ -117,10 +114,23 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
                     _log?.Warning(SiteHygieneService.LogArea, "The metrics history file is locked by another program; the refresh was not recorded.");
                     return;
                 }
-                using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read))
+                using (var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read))
                 {
-                    var text = (stream.Length == 0 ? HeaderLine + "\r\n" : "") + Format(row) + "\r\n";
-                    var bytes = Encoding.UTF8.GetBytes(text);
+                    var prefix = "";
+                    if (stream.Length == 0) prefix = HeaderLine + "\r\n";
+                    else
+                    {
+                        if (!HasOwnHeader(stream))
+                        {
+                            _log?.Warning(SiteHygieneService.LogArea, "The metrics history file has other columns than this version writes; the refresh was not recorded.");
+                            return;
+                        }
+                        // A line cut by a full disk or a killed process has no line end; the new line must not join it.
+                        stream.Seek(-1, SeekOrigin.End);
+                        if (stream.ReadByte() != '\n') prefix = "\r\n";
+                    }
+                    stream.Seek(0, SeekOrigin.End);
+                    var bytes = Encoding.UTF8.GetBytes(prefix + Format(row) + "\r\n");
                     stream.Write(bytes, 0, bytes.Length);
                     stream.Flush(flushToDisk: true);
                 }
@@ -131,6 +141,27 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
                 _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be written ({ex.GetType().Name}); the refresh was not recorded.");
             }
         }
+    }
+
+    /// <summary>
+    /// True when the first line of <paramref name="stream"/> is <see cref="HeaderLine"/>, with or without a byte
+    /// order mark. A file with other columns or another column order would get rows its header does not describe.
+    /// </summary>
+    private static bool HasOwnHeader(FileStream stream)
+    {
+        stream.Seek(0, SeekOrigin.Begin);
+        var limit = Encoding.UTF8.GetByteCount(HeaderLine) + 8;
+        var buffer = new byte[Math.Min(limit, stream.Length)];
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = stream.Read(buffer, read, buffer.Length - read);
+            if (n == 0) break;
+            read += n;
+        }
+        var text = Encoding.UTF8.GetString(buffer, 0, read).TrimStart('﻿');
+        var end = text.IndexOfAny(['\r', '\n']);
+        return end >= 0 && string.Equals(text[..end], HeaderLine, StringComparison.Ordinal);
     }
 
     /// <summary>Called under the lock. Reads only the first data line unless the prune is due and needed.</summary>
@@ -320,31 +351,32 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         return (rows, skipped, cut);
     }
 
-    public IReadOnlyList<MetricRow> Read(int days)
+    public IReadOnlyList<MetricRow> Read(int days) => ReadCounted(days).Rows;
+
+    /// <summary>The rows of the last <paramref name="days"/> days and the lines of this read that could not be read.</summary>
+    public (IReadOnlyList<MetricRow> Rows, int Skipped) ReadCounted(int days)
     {
         var path = Path;
         try
         {
-            if (!File.Exists(path) || IsLinked(path)) { LastSkippedLines = 0; return []; }
+            if (!File.Exists(path) || IsLinked(path)) return ([], 0);
             var (rows, skipped, _) = ReadFile(path, MaxReadBytes);
-            LastSkippedLines = skipped;
             if (skipped > 0) _log?.Warning(SiteHygieneService.LogArea, $"The metrics history has {skipped.ToString(CultureInfo.InvariantCulture)} lines that could not be read; they were skipped.");
             var cutoff = _utcNow().AddDays(-Math.Max(0, days));
-            return rows.Where(r => r.TimestampUtc >= cutoff).ToList();
+            return (rows.Where(r => r.TimestampUtc >= cutoff).ToList(), skipped);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be read ({ex.GetType().Name}).");
-            LastSkippedLines = 0;
-            return [];
+            return ([], 0);
         }
     }
 
     public MetricSeries Series(string column, int days, int maxPoints)
     {
         _ = LiveMetrics.ViewOf(column);
-        var rows = Read(days);
-        return Build(column, rows, LastSkippedLines, maxPoints);
+        var (rows, skipped) = ReadCounted(days);
+        return Build(column, rows, skipped, maxPoints);
     }
 
     /// <summary>

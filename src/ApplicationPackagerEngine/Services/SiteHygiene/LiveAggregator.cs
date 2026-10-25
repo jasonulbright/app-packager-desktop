@@ -91,14 +91,22 @@ internal static class LiveAggregator
         _ => "Unknown"
     };
 
-    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Deployments(HygieneTable table, bool complete)
+    /// <summary>Throws on a cancelled token once per 1,024 rows, so a cancelled refresh stops inside a large set.</summary>
+    private static void Poll(ref int count, CancellationToken ct)
+    {
+        if ((count++ & 1023) == 0) ct.ThrowIfCancellationRequested();
+    }
+
+    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Deployments(HygieneTable table, bool complete, CancellationToken ct = default)
     {
         var rows = new List<LiveRow>(table.Rows.Count);
         var keys = new Keys();
         long targetedSum = 0, successSum = 0;
         var withErrors = 0;
+        var polled = 0;
         foreach (var r in table.Records)
         {
+            Poll(ref polled, ct);
             var targeted = r.I("NumberTargeted");
             var success = r.I("NumberSuccess");
             var errors = r.I("NumberErrors");
@@ -151,18 +159,27 @@ internal static class LiveAggregator
         public int Total, Installed, InProgress, Failed, PackageType = -1;
     }
 
-    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Content(HygieneTable pairs, HygieneTable messages, HygieneTable names, bool complete)
+    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Content(HygieneTable pairs, HygieneTable messages, HygieneTable names, bool complete, CancellationToken ct = default)
     {
         var lastMessage = new Dictionary<string, int>(StringComparer.Ordinal);
+        var polled = 0;
         foreach (var m in messages.Records)
+        {
+            Poll(ref polled, ct);
             if (NullableInt(m.S("MessageState")) is { } ms) lastMessage[DpContentAggregator.Key(m.S("PackageID"), m.S("NalPath"))] = ms;
+        }
         var nameOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var n in names.Records) nameOf.TryAdd(n.S("PackageID"), n.S("Name"));
+        foreach (var n in names.Records)
+        {
+            Poll(ref polled, ct);
+            nameOf.TryAdd(n.S("PackageID"), n.S("Name"));
+        }
 
         var byPackage = new Dictionary<string, Tally>(StringComparer.OrdinalIgnoreCase);
         var order = new List<string>();
         foreach (var p in pairs.Records)
         {
+            Poll(ref polled, ct);
             var id = p.S("PackageID").ToUpperInvariant();
             if (id.Length == 0) continue;
             if (!byPackage.TryGetValue(id, out var t))
@@ -225,12 +242,14 @@ internal static class LiveAggregator
 
     private static string YesNo(string value) => string.Equals(value, "True", StringComparison.OrdinalIgnoreCase) || value == "1" ? "Yes" : "No";
 
-    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) DistributionPoints(HygieneTable dps, HygieneTable status, bool complete)
+    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) DistributionPoints(HygieneTable dps, HygieneTable status, bool complete, CancellationToken ct = default)
     {
         // The summarizer has one row per storage object of a server; the worst status counts.
         var worst = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var polled = 0;
         foreach (var s in status.Records)
         {
+            Poll(ref polled, ct);
             var server = DpContentAggregator.ServerOf(s.S("SiteSystem")).Trim();
             var value = s.I("Status", -1);
             if (server.Length == 0 || value < 0) continue;
@@ -241,6 +260,7 @@ internal static class LiveAggregator
         int critical = 0, warning = 0, unknown = 0;
         foreach (var d in dps.Records)
         {
+            Poll(ref polled, ct);
             var server = d.S("ServerName").Trim();
             if (server.Length == 0) server = DpContentAggregator.ServerOf(d.S("NALPath"));
             var value = worst.TryGetValue(server, out var w) ? w : -1;
@@ -261,7 +281,7 @@ internal static class LiveAggregator
         return (rows, counts);
     }
 
-    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) SiteHealth(HygieneTable components, HygieneTable systems, bool complete)
+    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) SiteHealth(HygieneTable components, HygieneTable systems, bool complete, CancellationToken ct = default)
     {
         var rows = new List<LiveRow>(components.Rows.Count + systems.Rows.Count);
         var keys = new Keys();
@@ -276,8 +296,10 @@ internal static class LiveAggregator
                 default: unknown++; break;
             }
         }
+        var polled = 0;
         foreach (var c in components.Records)
         {
+            Poll(ref polled, ct);
             var (st, text) = SiteStatus(c.I("Status", -1));
             Count(st);
             var name = c.S("ComponentName");
@@ -287,6 +309,7 @@ internal static class LiveAggregator
         }
         foreach (var s in systems.Records)
         {
+            Poll(ref polled, ct);
             var (st, text) = SiteStatus(s.I("Status", -1));
             Count(st);
             var server = DpContentAggregator.ServerOf(s.S("SiteSystem")).Trim();
@@ -327,13 +350,15 @@ internal static class LiveAggregator
     };
 
     /// <summary>Client health rows: ResourceID, Name0, LastEvaluationHealthy, ClientActiveStatus, ClientStateDescription, then six times, version, OS.</summary>
-    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Clients(IReadOnlyList<string[]> data, bool complete)
+    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Clients(IReadOnlyList<string[]> data, bool complete, CancellationToken ct = default)
     {
         var rows = new List<LiveRow>(data.Count);
         var keys = new Keys();
         int healthy = 0, unhealthy = 0, inactive = 0;
+        var polled = 0;
         foreach (var v in data)
         {
+            Poll(ref polled, ct);
             string C(int i) => i < v.Length ? v[i] ?? "" : "";
             var health = NullableInt(C(2));
             var active = NullableInt(C(3));
@@ -360,12 +385,14 @@ internal static class LiveAggregator
     }
 
     /// <summary>Inactive device rows: ResourceID, Name0, LastActiveTime, LastDDR, DaysSinceContact, OS, version.</summary>
-    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Inactive(IReadOnlyList<string[]> data, bool complete)
+    public static (IReadOnlyList<LiveRow> Rows, LiveCounts Counts) Inactive(IReadOnlyList<string[]> data, bool complete, CancellationToken ct = default)
     {
         var rows = new List<LiveRow>(data.Count);
         var keys = new Keys();
+        var polled = 0;
         foreach (var v in data)
         {
+            Poll(ref polled, ct);
             string C(int i) => i < v.Length ? v[i] ?? "" : "";
             var days = NullableInt(C(4));
             var (st, text) = days is null ? (LiveStatus.Failed, "No contact on record")

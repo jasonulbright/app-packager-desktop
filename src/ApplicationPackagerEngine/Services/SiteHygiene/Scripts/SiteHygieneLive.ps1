@@ -15,11 +15,6 @@ $Invariant = [System.Globalization.CultureInfo]::InvariantCulture
 $BlockSize = 1000
 $script:Queries = 0
 
-function Invoke-Query {
-    param([string]$Query)
-    $script:Queries++
-    @(Invoke-CMWmiQuery -Option Fast -Query $Query -ErrorAction Stop) | Where-Object { $null -ne $_ }
-}
 
 function Get-Prop {
     param([object]$Object, [string]$Property)
@@ -49,18 +44,23 @@ function Write-Set {
     [pscustomobject]@{ Kind = 'Set'; Set = $Name; Columns = $Columns; Shown = @($Rows).Count; Total = $Total; State = $(if ($Total -gt @($Rows).Count) { 'Cut' } else { 'Read' }) }
 }
 
-# One bulk query; rows past the cap are counted, not kept.
+# One bulk query. The rows stream through the pipeline: a row past the cap is counted and dropped at
+# once, so the session holds at most the cap of converted rows. The provider still enumerates every
+# row of the class, so the cap limits the memory and the output, not the provider read.
 function Read-Set {
     param([string]$Name, [string]$Class, [string[]]$Columns, [string]$Where = '')
     $query = 'SELECT ' + ($Columns -join ', ') + ' FROM ' + $Class
     if ($Where) { $query += ' WHERE ' + $Where }
+    $script:Queries++
     $rows = New-Object System.Collections.Generic.List[object]
-    $total = 0
-    foreach ($o in Invoke-Query $query) {
-        $total++
-        if ($rows.Count -lt $MaxRows) { $rows.Add([string[]]@(foreach ($c in $Columns) { ConvertTo-Text (Get-Prop $o $c) })) }
+    $counter = @{ Total = 0 }
+    Invoke-CMWmiQuery -Option Fast -Query $query -ErrorAction Stop | ForEach-Object {
+        if ($null -ne $_) {
+            $counter.Total++
+            if ($rows.Count -lt $MaxRows) { $o = $_; $rows.Add([string[]]@(foreach ($c in $Columns) { ConvertTo-Text (Get-Prop $o $c) })) }
+        }
     }
-    Write-Set $Name $Columns $rows.ToArray() $total
+    Write-Set $Name $Columns $rows.ToArray() $counter.Total
 }
 
 function Get-FailureKind {

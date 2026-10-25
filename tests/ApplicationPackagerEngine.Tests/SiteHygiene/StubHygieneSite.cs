@@ -110,6 +110,21 @@ internal sealed class StubHygieneSite : IConfigMgrSession
                 })
             }
             if ($columns -eq '*') { return @($hits | ForEach-Object { $o = Shape $_ '*'; $o | Add-Member -MemberType ScriptMethod -Name Get -Value { }; $o }) }
+            if ([string](V $state.Options 'Stream' '') -eq $class) {
+                # Writes each row to the pipeline and logs how many rows the caller read before it; a caller that collects the output first logs 0 for every row.
+                $first = ($columns -split ',\s*')[0]
+                $global:Seen = 0
+                foreach ($h in $hits) {
+                    $o = Shape $h $columns
+                    $value = $o.$first
+                    $o.PSObject.Properties.Remove($first)
+                    $o | Add-Member -NotePropertyName ProbeValue -NotePropertyValue $value
+                    $o | Add-Member -MemberType ScriptProperty -Name $first -Value { $global:Seen++; $this.ProbeValue }
+                    $global:Log.Add('Emit:' + $global:Seen)
+                    $o
+                }
+                return
+            }
             return @($hits | ForEach-Object { Shape $_ $columns })
         }
         function global:Q([string]$Value) { if ($Value -eq '$true' -or $Value -match '^\d{1,10}$') { return $Value }; return "'" + $Value.Replace("'", "''") + "'" }

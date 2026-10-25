@@ -32,6 +32,11 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
     /// <summary>The time one provider read may take in the session.</summary>
     public static readonly TimeSpan ReadTimeout = TimeSpan.FromMinutes(10);
 
+    /// <summary>The time the search for the site database on the SMS Provider may take.</summary>
+    public static readonly TimeSpan DefaultTargetTimeout = TimeSpan.FromSeconds(120);
+
+    internal const string TargetTimeoutMessage = "The SMS Provider did not answer the search for the site database in time. Refresh again, or enter the SQL Server in Options.";
+
     /// <summary>The provider views in the order a refresh reads them, then the SQL views.</summary>
     public static readonly IReadOnlyList<LiveView> Order =
         [LiveView.Deployments, LiveView.Content, LiveView.DistributionPoints, LiveView.SiteHealth, LiveView.ClientHealth, LiveView.InactiveDevices];
@@ -65,6 +70,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
     public int MaxDps { get; init; } = DefaultMaxDps;
     public int MaxSiteRows { get; init; } = DefaultMaxSiteRows;
     public int MaxSqlRows { get; init; } = DefaultMaxSqlRows;
+    public TimeSpan TargetTimeout { get; init; } = DefaultTargetTimeout;
 
     private ConfigMgrConnection? Connection()
     {
@@ -168,6 +174,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
                 : ComplianceService.SessionProblem(ex.Failure).Replace(ComplianceService.AccessHint, SiteHygieneService.AccessHint, StringComparison.Ordinal));
         }
 
+        ct.ThrowIfCancellationRequested();
         try
         {
             var items = output.Output;
@@ -204,12 +211,13 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             var tables = sets.Select(s => read.Tables[s]).ToList();
             var cut = tables.Any(t => t.State == HygieneSetStates.Cut);
             var complete = !cut;
+            ct.ThrowIfCancellationRequested();
             var (rows, counts) = view switch
             {
-                LiveView.Deployments => LiveAggregator.Deployments(tables[0], complete),
-                LiveView.Content => LiveAggregator.Content(tables[0], tables[1], tables[2], complete),
-                LiveView.DistributionPoints => LiveAggregator.DistributionPoints(tables[0], tables[1], complete),
-                _ => LiveAggregator.SiteHealth(tables[0], tables[1], complete)
+                LiveView.Deployments => LiveAggregator.Deployments(tables[0], complete, ct),
+                LiveView.Content => LiveAggregator.Content(tables[0], tables[1], tables[2], complete, ct),
+                LiveView.DistributionPoints => LiveAggregator.DistributionPoints(tables[0], tables[1], complete, ct),
+                _ => LiveAggregator.SiteHealth(tables[0], tables[1], complete, ct)
             };
             string? message = null;
             if (cut)
@@ -248,13 +256,20 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         var discovery = new DiscoveryService(_run, TimeProvider.System);
         var request = new DiscoveryRequest(site, provider, settings.SqlServer ?? "", settings.SqlDatabase ?? "", [], [], [], SqlCommandTimeoutSeconds);
         DiscoveryDatabaseTarget target;
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        limit.CancelAfter(TargetTimeout);
         try
         {
-            target = await discovery.ResolveTargetAsync(request, ct).ConfigureAwait(false);
+            target = await discovery.ResolveTargetAsync(request, limit.Token).ConfigureAwait(false);
         }
         catch (DiscoveryException ex)
         {
             throw new SqlNotSetUpException(ex.Message);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            _log?.Warning(LogArea, "The search for the site database did not end in time.");
+            throw new TimeoutException();
         }
         lock (_gate) _target = (key, target);
         return target;
@@ -348,6 +363,10 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             _log?.Info(LogArea, "The SQL views were not read: no SQL Server is set up or found.");
             return All(v => new LiveViewResult(v, LiveAggregator.Columns(v), [], LiveCounts.Unknown(v), Truncated: false, Failed: false, LiveText.SqlNotSetUp + " " + ex.Message, _utcNow()) { Skipped = true });
         }
+        catch (TimeoutException)
+        {
+            return All(v => Failed(v, TargetTimeoutMessage));
+        }
 
         string stdout;
         try
@@ -365,7 +384,9 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             return All(v => Failed(v, "Windows PowerShell could not start. The SQL views need Windows PowerShell 5.1 (powershell.exe)."));
         }
 
+        ct.ThrowIfCancellationRequested();
         var parsed = ParseSql(stdout);
+        ct.ThrowIfCancellationRequested();
         if (parsed.Error is { } error)
         {
             ForgetTarget();
@@ -385,7 +406,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             var data = parsed.Rows[view == LiveView.ClientHealth ? "C" : "I"];
             var cut = data.Count > MaxSqlRows;
             if (cut) data = data.Take(MaxSqlRows).ToList();
-            var (rows, counts) = view == LiveView.ClientHealth ? LiveAggregator.Clients(data, !cut) : LiveAggregator.Inactive(data, !cut);
+            var (rows, counts) = view == LiveView.ClientHealth ? LiveAggregator.Clients(data, !cut, ct) : LiveAggregator.Inactive(data, !cut, ct);
             var message = cut ? $"The read was cut at {N(MaxSqlRows)} rows. The counts of this view are not known." : null;
             results.Add((view, new LiveViewResult(view, LiveAggregator.Columns(view), rows, counts, Truncated: cut, Failed: false, message, _utcNow())
             {
@@ -407,6 +428,10 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         catch (SqlNotSetUpException ex)
         {
             return LiveText.SqlNotSetUp + " " + ex.Message;
+        }
+        catch (TimeoutException)
+        {
+            return TargetTimeoutMessage;
         }
         string stdout;
         try

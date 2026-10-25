@@ -3,7 +3,10 @@ $ErrorActionPreference = 'Stop'
 
 # Read only: one connection with read-only intent and one command of SELECT statements whose text
 # is a constant. The caller's values travel only as typed parameters (@Cap, @Days). The view times
-# are UTC, so the age compares with GETUTCDATE(). Nothing is written until both result sets are
+# are UTC, so the age compares with GETUTCDATE(). The threshold compares the raw time with
+# DATEADD(day, -@Days, ...): DATEDIFF(day, ...) counts midnights, so a contact 30.9 days ago
+# counts 30 and escapes a 30-day threshold. The age column counts whole elapsed days from the
+# minutes for the same reason. Nothing is written until both result sets are
 # read, so a failure mid-read leaves no partial rows. The raw SQL message text never leaves the
 # process.
 
@@ -19,13 +22,13 @@ WHERE sys.Client0 = 1 AND ISNULL(sys.Obsolete0, 0) = 0 AND ISNULL(sys.Decommissi
 ORDER BY sys.ResourceID;
 
 SELECT TOP (@Cap + 1) sys.ResourceID, sys.Name0, ch.LastActiveTime, ch.LastDDR,
-       DATEDIFF(day, COALESCE(ch.LastDDR, ch.LastActiveTime), GETUTCDATE()) AS DaysSinceContact,
+       DATEDIFF(minute, COALESCE(ch.LastDDR, ch.LastActiveTime), GETUTCDATE()) / 1440 AS DaysSinceContact,
        sys.Operating_System_Name_and0, sys.Client_Version0
 FROM dbo.v_CH_ClientSummary AS ch
 JOIN dbo.v_R_System AS sys ON sys.ResourceID = ch.ResourceID
 WHERE sys.Client0 = 1 AND ISNULL(sys.Obsolete0, 0) = 0 AND ISNULL(sys.Decommissioned0, 0) = 0
   AND (COALESCE(ch.LastDDR, ch.LastActiveTime) IS NULL
-       OR DATEDIFF(day, COALESCE(ch.LastDDR, ch.LastActiveTime), GETUTCDATE()) > @Days)
+       OR COALESCE(ch.LastDDR, ch.LastActiveTime) < DATEADD(day, -@Days, GETUTCDATE()))
 ORDER BY DaysSinceContact DESC, sys.ResourceID;
 '@
 

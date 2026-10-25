@@ -35,7 +35,7 @@ public sealed partial class SiteHygieneViewModel
     /// <summary>The Live values the operator or an import set; a value not in the set is stored as null.</summary>
     private readonly HashSet<string> _liveSet = new(StringComparer.Ordinal);
     /// <summary>The Live options and SQL values as the settings file holds them; a save runs only when they differ.</summary>
-    private string _storedLive = LiveStoreKey(new SiteHygieneLiveSettings(), "", "");
+    private string _storedLive = LiveStoreKey(new SiteHygieneLiveSettings());
     private bool _importChecked;
     private LegacyImportPlan? _importOffered;
 
@@ -115,7 +115,55 @@ public sealed partial class SiteHygieneViewModel
             ApplyLiveOptions(settings.SiteHygieneLive);
         }
         finally { _applying = false; }
-        _storedLive = LiveStoreKey(settings.SiteHygieneLive ?? new SiteHygieneLiveSettings(), LiveSqlServer, LiveSqlDatabase);
+        _loadedSql = (LiveSqlServer, LiveSqlDatabase);
+        _storedLive = LiveStoreKey(settings.SiteHygieneLive ?? new SiteHygieneLiveSettings());
+        _liveLoaded = true;
+    }
+
+    /// <summary>False until the stored Live options were read; a save before that would replace them with the defaults.</summary>
+    private bool _liveLoaded;
+
+    /// <summary>
+    /// The SQL server and database as the settings file held them at the last load or save. Discover and the Settings
+    /// page write the same values, so the page writes them back only when the operator changed them here.
+    /// </summary>
+    private (string Server, string Database) _loadedSql = ("", "");
+
+    /// <summary>True when the operator changed the SQL server or database on this page since the last load or save.</summary>
+    private bool SqlEdited => !string.Equals((LiveSqlServer ?? "").Trim(), _loadedSql.Server, StringComparison.Ordinal)
+        || !string.Equals((LiveSqlDatabase ?? "").Trim(), _loadedSql.Database, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Reads the SQL server and database from the settings file again when the page has no SQL edit of its own, so a
+    /// value changed on the Settings page or by Discover shows here and a refresh reads with it.
+    /// </summary>
+    private async Task ReloadSqlAsync()
+    {
+        if (Services.Live is null || SqlEdited) return;
+        AppSettings settings;
+        try { settings = await Task.Run(Services.LoadSettings); }
+        catch (Exception ex)
+        {
+            Services.Log.Warning(LogArea, $"The SQL settings could not be read ({ex.GetType().Name}).");
+            return;
+        }
+        if (SqlEdited) return;
+        if (!_liveLoaded)
+        {
+            if (LiveOptions() is var options && LiveStoreKey(options) == _storedLive) LoadStoredLive(settings);
+            return;
+        }
+        var server = (settings.DiscoverySqlServer ?? "").Trim();
+        var database = (settings.DiscoverySqlDatabase ?? "").Trim();
+        if (string.Equals(server, _loadedSql.Server, StringComparison.Ordinal) && string.Equals(database, _loadedSql.Database, StringComparison.Ordinal)) return;
+        _applying = true;
+        try
+        {
+            LiveSqlServer = server;
+            LiveSqlDatabase = database;
+        }
+        finally { _applying = false; }
+        _loadedSql = (server, database);
     }
 
     /// <summary>Takes the stored value or the default; a stored value is clamped to its range and marked as set.</summary>
@@ -169,12 +217,12 @@ public sealed partial class SiteHygieneViewModel
         };
     }
 
-    private static string LiveStoreKey(SiteHygieneLiveSettings live, string server, string database) =>
-        System.Text.Json.JsonSerializer.Serialize(live) + "\n" + server + "\n" + database;
+    private static string LiveStoreKey(SiteHygieneLiveSettings live) => System.Text.Json.JsonSerializer.Serialize(live);
 
     /// <summary>
-    /// Saves the Live and Alerts options and the SQL server and database when one of them changed. The SQL values are
-    /// the Discover settings, so Discover uses the same site database.
+    /// Saves the Live and Alerts options when they changed, and the SQL server or database only when the operator changed
+    /// it on this page. The SQL values are the Discover settings, so Discover uses the same site database, and a value
+    /// that Discover or the Settings page wrote after the page loaded stays.
     /// </summary>
     /// <returns>False when a change could not be written; the settings file then holds older values than the page.</returns>
     private async Task<bool> SaveLiveAsync()
@@ -183,16 +231,28 @@ public sealed partial class SiteHygieneViewModel
         var options = LiveOptions();
         var server = (LiveSqlServer ?? "").Trim();
         var database = (LiveSqlDatabase ?? "").Trim();
-        var key = LiveStoreKey(options, server, database);
-        if (key == _storedLive) return true;
+        var key = LiveStoreKey(options);
+        string? newServer = string.Equals(server, _loadedSql.Server, StringComparison.Ordinal) ? null : server;
+        string? newDatabase = string.Equals(database, _loadedSql.Database, StringComparison.Ordinal) ? null : database;
+        if (key == _storedLive && newServer is null && newDatabase is null) return true;
+        if (!_liveLoaded)
+        {
+            StatusMessage = LiveSaveFailed;
+            Services.Log.Warning(LogArea, "The Live options were not saved: the stored options were not read.");
+            return false;
+        }
         bool saved;
-        try { saved = await Task.Run(() => live.SaveLive(options, server, database)); }
+        try { saved = await Task.Run(() => live.SaveLive(options, newServer, newDatabase)); }
         catch (Exception ex)
         {
             saved = false;
             Services.Log.Warning(LogArea, $"The Live options could not be saved ({ex.GetType().Name}).");
         }
-        if (saved) _storedLive = key;
+        if (saved)
+        {
+            _storedLive = key;
+            _loadedSql = (newServer ?? _loadedSql.Server, newDatabase ?? _loadedSql.Database);
+        }
         else StatusMessage = LiveSaveFailed;
         return saved;
     }

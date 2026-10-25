@@ -113,6 +113,9 @@ internal sealed class FakeSqlHost
 
     public int SiteLookups { get; private set; }
 
+    /// <summary>The site definition read never answers; it ends only on its token.</summary>
+    public bool SiteHangs { get; set; }
+
     public DiscoveryService.ScriptRunner Runner => RunAsync;
 
     private const string Prelude = """
@@ -161,6 +164,7 @@ internal sealed class FakeSqlHost
         if (!script.Contains("$LiveRun = $true", StringComparison.Ordinal))
         {
             SiteLookups++;
+            if (SiteHangs) await Task.Delay(Timeout.Infinite, ct);
             return (0, SiteLine + "\r\n{\"t\":\"end\"}\r\n", "");
         }
         var folder = Path.Combine(Path.GetTempPath(), "apkg-shsql-" + Guid.NewGuid().ToString("N"));

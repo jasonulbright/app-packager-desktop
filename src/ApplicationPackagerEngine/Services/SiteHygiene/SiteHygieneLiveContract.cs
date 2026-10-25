@@ -189,7 +189,8 @@ public interface IAlertEvaluator
 
 public interface IAlertLog
 {
-    void Append(AlertEvent e);
+    /// <summary>Writes one line. False when the line was not written; the failure is in the app log.</summary>
+    bool Append(AlertEvent e);
 
     string Path { get; }
 }

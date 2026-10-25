@@ -450,8 +450,8 @@ internal sealed class SiteHygienePageHarness
         live.Stored ??= (options, server, database) =>
         {
             Settings.SiteHygieneLive = options;
-            Settings.DiscoverySqlServer = server;
-            Settings.DiscoverySqlDatabase = database;
+            if (server is not null) Settings.DiscoverySqlServer = server;
+            if (database is not null) Settings.DiscoverySqlDatabase = database;
         };
         live.Import.Read ??= () => SiteHygieneLivePreferences.Values(Settings);
         live.Import.Fill ??= values =>
@@ -467,7 +467,18 @@ internal sealed class SiteHygienePageHarness
         return CreateServices();
     }
 
-    private SiteHygienePageServices CreateServices() => new(Service, Suppressions, ScanStore, Reports, Dialogs, PlanDialogs ?? Plans, Writer(), () => Settings, () => Saved,
+    /// <summary>The numbers (from 1) of the settings reads that throw, as a settings file that cannot be read at that moment.</summary>
+    public HashSet<int> FailingLoads { get; } = [];
+    private int _loads;
+
+    private AppSettings LoadSettings()
+    {
+        var n = Interlocked.Increment(ref _loads);
+        if (FailingLoads.Contains(n)) throw new IOException("The settings file is in use.");
+        return Settings;
+    }
+
+    private SiteHygienePageServices CreateServices() => new(Service, Suppressions, ScanStore, Reports, Dialogs, PlanDialogs ?? Plans, Writer(), LoadSettings, () => Saved,
         s =>
         {
             Interlocked.Increment(ref PreferenceSaves);

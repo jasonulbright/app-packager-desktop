@@ -482,8 +482,12 @@ public sealed partial class SiteHygieneViewModel
         }
         StatusMessage = $"Saved the {format} report to {path}: {SiteHygieneLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.")
             + (report.Note is { } note ? " " + note : "")
-            + (format == "CSV" ? $" The notes are in {Path.GetFileName(HygieneReportWriter.AboutPath(path))}." : "");
+            + NotesNote(format, path);
         Services.Log.Info(LogArea, $"Saved a {format} report with {report.Rows.Count} rows.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }
+
+    /// <summary>The sentence of a saved report that names the notes file; a CSV report keeps its notes in a separate file.</summary>
+    private static string NotesNote(string format, string path) =>
+        format == "CSV" ? $" The notes are in {Path.GetFileName(HygieneReportWriter.AboutPath(path))}." : "";
 }

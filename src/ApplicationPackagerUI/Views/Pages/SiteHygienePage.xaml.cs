@@ -23,6 +23,7 @@ public partial class SiteHygienePage : INavigationAware
         foreach (var grid in SortedGrids()) grid.Sorting += OnGridSorting;
         viewModel.PropertyChanged += OnViewModelChanged;
         viewModel.FindingsFocusRequested += (_, _) => Dispatcher.BeginInvoke(FocusFindings, System.Windows.Threading.DispatcherPriority.Input);
+        viewModel.LiveRowsReplacing += (_, _) => KeepLiveGridPlace();
         Loaded += (_, _) =>
         {
             ShowSorts();
@@ -36,7 +37,10 @@ public partial class SiteHygienePage : INavigationAware
         FitTab(tab: gridFindingsTab, gridMinHeight: FindingsGridMinHeight, parts: [pnlFindingFilter, pnlFindingActions, pnlFindingDetail, txtNotRun]);
         FitTab(tab: gridRelationsTab, gridMinHeight: RelationsGridMinHeight, parts: [pnlRelationsActions]);
         FitTab(tab: gridHistoryTab, gridMinHeight: HistoryGridMinHeight, parts: [txtHygieneHistoryIntro, pnlHygieneHistoryFilter, pnlHygieneHistoryDetail]);
-        FitTab(tab: gridLiveTab, gridMinHeight: LiveViewMinHeight, parts: [pnlLiveActions, pnlLiveFilter, pnlLiveMessages]);
+        _fitLiveTab = FitTab(tab: gridLiveTab, gridMinHeight: () => rowLiveView.MinHeight, parts: [pnlLiveActions, pnlLiveFilter, pnlLiveMessages]);
+        pnlTrendText.SizeChanged += (_, _) => FitLiveView();
+        pnlTrends.IsVisibleChanged += (_, _) => FitLiveView();
+        dgTrend.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitLiveView, System.Windows.Threading.DispatcherPriority.Loaded);
         BuildLiveColumns();
         dgHygieneResults.SizeChanged += (_, _) => FitResults();
         dgHygieneResults.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitResults, System.Windows.Threading.DispatcherPriority.Loaded);
@@ -75,13 +79,15 @@ public partial class SiteHygienePage : INavigationAware
     /// the grid plus the least grid height, so every part shows in full and the tab scrolls only when the visible height
     /// is smaller.
     /// </summary>
-    private static void FitTab(Grid tab, double gridMinHeight, FrameworkElement[] parts)
-    {
-        static double Height(FrameworkElement part) => part.Visibility == Visibility.Visible ? part.ActualHeight + part.Margin.Top + part.Margin.Bottom : 0;
+    private static Action FitTab(Grid tab, double gridMinHeight, FrameworkElement[] parts) => FitTab(tab, () => gridMinHeight, parts);
 
+    /// <inheritdoc cref="FitTab(Grid, double, FrameworkElement[])"/>
+    /// <returns>The fit, for a caller whose least view height changes with other events.</returns>
+    private static Action FitTab(Grid tab, Func<double> gridMinHeight, FrameworkElement[] parts)
+    {
         void Fit()
         {
-            var least = parts.Sum(Height) + gridMinHeight;
+            var least = parts.Sum(OuterHeight) + gridMinHeight();
             if (Math.Abs(tab.MinHeight - least) > 0.5) tab.MinHeight = least;
         }
 
@@ -90,6 +96,37 @@ public partial class SiteHygienePage : INavigationAware
             part.SizeChanged += (_, _) => Fit();
             part.IsVisibleChanged += (_, _) => Fit();
         }
+        return Fit;
+    }
+
+    private static double OuterHeight(FrameworkElement part) => part.Visibility == Visibility.Visible ? part.ActualHeight + part.Margin.Top + part.Margin.Bottom : 0;
+
+    /// <summary>
+    /// The least height of the Live view. The grid and the alert list keep <see cref="LiveViewMinHeight"/>. Trends need the
+    /// chart at <see cref="TrendChartMinHeight"/>, the measured readout and note lines between them (they wrap to more lines
+    /// in a narrow window), and the table at its measured column header and <see cref="TrendTableRows"/> rows.
+    /// </summary>
+    private double LiveViewLeast()
+    {
+        if (!_viewModel.IsTrendsPane) return LiveViewMinHeight;
+        var table = TrendTableLeast();
+        if (Math.Abs(rowTrendTable.MinHeight - table) > 0.5) rowTrendTable.MinHeight = table;
+        return Math.Max(LiveViewMinHeight, TrendChartMinHeight + OuterHeight(pnlTrendText) + table);
+    }
+
+    /// <summary>The table height for its header and <see cref="TrendTableRows"/> whole rows; <see cref="TrendTableMinHeight"/> before a row is laid out.</summary>
+    private double TrendTableLeast() => WholeLines.GridHeight(grid: dgTrend, rows: TrendTableRows) is { } measured ? Math.Max(measured, TrendTableMinHeight) : TrendTableMinHeight;
+
+    /// <summary>The rows the Trends table shows at its least height.</summary>
+    public const int TrendTableRows = 3;
+
+    private Action _fitLiveTab = () => { };
+
+    private void FitLiveView()
+    {
+        var least = LiveViewLeast();
+        if (Math.Abs(rowLiveView.MinHeight - least) > 0.5) rowLiveView.MinHeight = least;
+        _fitLiveTab();
     }
 
     /// <summary>The result rows show at most <see cref="ResultLines"/> whole rows below the column header; more rows scroll.</summary>
@@ -186,12 +223,47 @@ public partial class SiteHygienePage : INavigationAware
                 break;
             case nameof(SiteHygieneViewModel.LiveColumns) or nameof(SiteHygieneViewModel.SelectedLiveView):
                 BuildLiveColumns();
+                FitLiveView();
                 break;
             case nameof(SiteHygieneViewModel.LiveViewRows):
                 ShowSorts();
+                if (_liveGridPlace is not null) Dispatcher.BeginInvoke(RestoreLiveGridPlace, System.Windows.Threading.DispatcherPriority.Loaded);
                 break;
         }
     }
+
+    /// <summary>The scroll position of the Live grid and whether it held the keyboard focus, taken just before its rows are replaced.</summary>
+    private (double Offset, bool HadFocus)? _liveGridPlace;
+
+    private void KeepLiveGridPlace()
+    {
+        if (!dgLive.IsVisible) return;
+        _liveGridPlace = (Helpers.DataGridFocus.Find<ScrollViewer>(dgLive)?.VerticalOffset ?? 0, dgLive.IsKeyboardFocusWithin);
+    }
+
+    /// <summary>
+    /// After an auto-refresh or a filter replaced the rows: the grid scrolls back to where it was, the selected row
+    /// scrolls into view when it is off screen, and the focus goes back to the selected row (or the grid) when the grid had it.
+    /// </summary>
+    private void RestoreLiveGridPlace()
+    {
+        if (_liveGridPlace is not { } place) return;
+        _liveGridPlace = null;
+        if (!dgLive.IsVisible) return;
+        dgLive.UpdateLayout();
+        if (Helpers.DataGridFocus.Find<ScrollViewer>(dgLive) is { } scroll)
+        {
+            scroll.ScrollToVerticalOffset(Math.Min(place.Offset, scroll.ScrollableHeight));
+            dgLive.UpdateLayout();
+        }
+        var selected = _viewModel.SelectedLiveRow;
+        if (selected is not null && dgLive.Items.Contains(selected)) dgLive.ScrollIntoView(selected);
+        if (!place.HadFocus || dgLive.IsKeyboardFocusWithin) return;
+        if (selected is null || !Helpers.DataGridFocus.FocusItemCell(dgLive, selected)) dgLive.Focus();
+    }
+
+    /// <summary>The Live grid scroll position, for a test of the place a refresh keeps.</summary>
+    public double LiveGridOffset => Helpers.DataGridFocus.Find<ScrollViewer>(dgLive)?.VerticalOffset ?? 0;
 
     /// <summary>
     /// The Live grid has a status column and one column per header of the view shown. A name column takes the free width;
