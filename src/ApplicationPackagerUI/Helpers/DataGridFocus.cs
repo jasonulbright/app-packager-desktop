@@ -30,7 +30,8 @@ public static class DataGridFocus
         return cell.Focus();
     }
 
-    private static T? Find<T>(DependencyObject root) where T : DependencyObject
+    /// <summary>The first visual descendant of the type, depth first; null when the template holds none.</summary>
+    public static T? Find<T>(DependencyObject root) where T : DependencyObject
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {

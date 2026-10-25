@@ -19,7 +19,7 @@ public partial class ChangePlanWindow
         viewModel.CloseRequested += (_, _) => Close();
         ContentRendered += (_, _) => FocusFirstControl();
         if (!viewModel.HasNotes) return;
-        txtNotes.MaxHeight = NotesHeight(NotesLines);
+        txtNotes.MaxHeight = NotesHeight(OpenNotesLines);
         Loaded += (_, _) => OpenWithRoomForNotes();
         SizeChanged += (_, _) => FitNotes();
         gridPlan.SizeChanged += (_, _) => FitNotes();
@@ -31,8 +31,8 @@ public partial class ChangePlanWindow
     /// <summary>The least height of the change list: the column header and about three rows.</summary>
     public const double GridMinHeight = 120;
 
-    /// <summary>The most note lines the notes box shows; more lines scroll.</summary>
-    public const int NotesLines = 12;
+    /// <summary>The note lines of the notes box before the first layout; the layout then sets the lines the window has room for.</summary>
+    public const int OpenNotesLines = 12;
 
     /// <summary>The fewest note lines the notes box shows when the window is short.</summary>
     public const int MinNotesLines = 2;
@@ -55,16 +55,17 @@ public partial class ChangePlanWindow
     private double NotesHeight(int lines) => lines * NoteLineHeight + NotesChrome;
 
     /// <summary>
-    /// Sets the notes box to the whole lines that fit while the change list keeps <see cref="GridMinHeight"/>, so no
-    /// line shows cut and the scroll bar shows when lines are left.
+    /// Sets the notes box to the whole lines that fit while the change list keeps <see cref="GridMinHeight"/>, up to
+    /// the lines of the notes, so no line shows cut and the scroll bar shows when lines are left.
     /// </summary>
     private void FitNotes()
     {
-        if (!txtNotes.IsVisible) return;
+        if (!txtNotes.IsVisible || txtNotes.ExtentHeight <= 0) return;
         var line = NoteLineHeight;
+        var lines = Math.Max(MinNotesLines, (int)Math.Ceiling((txtNotes.ExtentHeight - 0.5) / line));
         var shown = (int)Math.Round((txtNotes.ActualHeight - NotesHeight(0)) / line);
         var spare = (int)Math.Floor((VisibleGrid.ActualHeight - GridMinHeight) / line);
-        var height = NotesHeight(Math.Clamp(shown + spare, MinNotesLines, NotesLines));
+        var height = NotesHeight(Math.Clamp(shown + spare, MinNotesLines, lines));
         if (Math.Abs(height - txtNotes.MaxHeight) > 0.5) txtNotes.MaxHeight = height;
     }
 

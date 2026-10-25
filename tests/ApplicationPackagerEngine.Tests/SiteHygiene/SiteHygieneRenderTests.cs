@@ -71,7 +71,7 @@ public sealed class SiteHygieneRenderTests
         });
     }
 
-    /// <summary>Scans, reads the relationships and runs one change fix, so every grid and the result panel have rows.</summary>
+    /// <summary>Scans, reads the relationships, runs one change fix and opens the result card, so every grid and the result card have rows.</summary>
     private static void Fill(Window window, VM viewModel)
     {
         Run(viewModel.ScanAsync());
@@ -80,6 +80,8 @@ public sealed class SiteHygieneRenderTests
         viewModel.SelectedHistory = viewModel.HistoryRows[0];
         viewModel.SetSelectedFindings([viewModel.FindingRows.First(r => r.Finding.FixKind == HygieneFixKind.SetCollectionRefreshType)]);
         Run(viewModel.RunFixCommand.ExecuteAsync(null));
+        Assert.False(viewModel.ResultsExpanded);
+        viewModel.ResultsExpanded = true;
         viewModel.SetSelectedFindings([viewModel.FindingRows[1]]);
         Settle(window);
     }
@@ -288,8 +290,11 @@ public sealed class SiteHygieneRenderTests
                 Assert.True(bounds.Right <= window.ActualWidth + 0.5 && bounds.Bottom <= window.ActualHeight + 0.5,
                     $"{id} ends at {bounds.Right:0},{bounds.Bottom:0} px in a {window.ActualWidth:0}x{window.ActualHeight:0} px window.");
             }
+            // The run leaves the card collapsed to one line: the tabs keep a usable height at every size.
+            viewModel.ResultsExpanded = false;
+            Settle(window);
             var tabs = ById<TabControl>(page, "tabHygiene");
-            Assert.True(tabs.ActualHeight >= 180, $"The tabs get {tabs.ActualHeight:0} px at {width}x{height}.");
+            Assert.True(tabs.ActualHeight >= 180, $"The tabs get {tabs.ActualHeight:0} px at {width}x{height}; the result card takes {ById<FrameworkElement>(page, "pnlHygieneResults").ActualHeight:0} px.");
         }, width, height);
     }
 
@@ -312,13 +317,20 @@ public sealed class SiteHygieneRenderTests
             var text = ById<TextBlock>(page, "txtHygieneAuditWarning");
             Assert.Equal(viewModel.AuditWarning, text.ToolTip);
             Assert.Equal(viewModel.AuditWarning, AutomationProperties.GetName(text));
-            if (height >= SiteHygienePage.ShortHeight) Assert.Equal(TextWrapping.Wrap, text.TextWrapping);
-            Assert.True(ById<TabControl>(page, "tabHygiene").ActualHeight >= 180, $"The tabs get {ById<TabControl>(page, "tabHygiene").ActualHeight:0} px at {width}x{height}.");
+            Assert.Equal(TextWrapping.NoWrap, text.TextWrapping);
+            Assert.False(ById<FrameworkElement>(page, "txtHygieneResultSummary").IsVisible, $"The result summary and the audit warning both take a line at {width}x{height}.");
 
             // On the other tabs the warning stays and the result rows leave the height to the tab.
             ShowTab(window, viewModel, VM.HistoryTab);
             Assert.True(ById<FrameworkElement>(page, "txtHygieneAuditWarning").IsVisible, $"The audit warning is hidden on the History tab at {width}x{height}.");
-            Assert.False(ById<FrameworkElement>(page, "dgHygieneResults").IsVisible, $"The result rows take the height of the History tab at {width}x{height}.");
+            Assert.False(((FrameworkElement)page.FindName("dgHygieneResults")).IsVisible, $"The result rows take the height of the History tab at {width}x{height}.");
+
+            // Collapsed, the card keeps the warning line and the tabs keep a usable height.
+            ShowTab(window, viewModel, VM.FindingsTab);
+            viewModel.ResultsExpanded = false;
+            Settle(window);
+            Assert.True(ById<FrameworkElement>(page, "txtHygieneAuditWarning").IsVisible, $"The audit warning is hidden in the collapsed card at {width}x{height}.");
+            Assert.True(ById<TabControl>(page, "tabHygiene").ActualHeight >= 180, $"The tabs get {ById<TabControl>(page, "tabHygiene").ActualHeight:0} px at {width}x{height}.");
         }, width, height, () =>
         {
             var h = LongHarness();
@@ -442,6 +454,197 @@ public sealed class SiteHygieneRenderTests
             h.AuditLog = new FakeHygieneAudit([RunRecord(HygieneAuditLog.MaxObjectsPerRecord, 2), RunRecord(HygieneHistoryRow.DetailObjects, 1), RunRecord(2, 0)]);
             return h;
         });
+    }
+
+    /// <summary>The most height the collapsed result card takes below the tabs, its margin included.</summary>
+    private const double CollapsedCardHeight = 64;
+
+    public static TheoryData<ApplicationTheme, double, double, int, bool> FixRunCases()
+    {
+        var data = new TheoryData<ApplicationTheme, double, double, int, bool>();
+        foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
+        foreach (var (width, height) in new[] { (1440 - CollapsedPaneWidth, 900 - 48), (1440 - NavigationPaneWidth, 900 - 48), (900 - NavigationPaneWidth, 600 - 48) })
+        foreach (var objects in new[] { 2, 10, 100 })
+            data.Add(theme, width, height, objects, objects == 10);
+        return data;
+    }
+
+    /// <summary>
+    /// A site of 60 long findings, the audit records of three runs, the relationships, and <paramref name="objects"/> collection
+    /// refresh findings that one fix run changes.
+    /// </summary>
+    private static SiteHygienePageHarness FixRunHarness(int objects, bool auditIncomplete)
+    {
+        var h = LongHarness();
+        h.AuditLog = new FakeHygieneAudit([RunRecord(HygieneAuditLog.MaxObjectsPerRecord, 2), RunRecord(HygieneHistoryRow.DetailObjects, 1), RunRecord(2, 0)]);
+        h.Service.AuditIncomplete = auditIncomplete;
+        for (var i = 0; i < objects; i++)
+            h.Service.Findings.Add(SiteHygienePageHarness.Finding("COL-05", "Collections", HygieneSeverity.Warning, "Collection", $"MCM003{i:X2}", $"Contoso Finance Workstations Pilot Wave {i + 1:000}",
+                HygieneFixKind.SetCollectionRefreshType, $"Set-CMCollection -CollectionId MCM003{i:X2} -RefreshType Continuous", evidence: "Incremental and a full evaluation every 2 hours."));
+        return h;
+    }
+
+    /// <summary>Scans, reads the relationships and the history, then runs one fix of every collection refresh finding.</summary>
+    private static void RunFix(Window window, VM viewModel, int objects)
+    {
+        Run(viewModel.ScanAsync());
+        Run(viewModel.LoadRelationsAsync());
+        Run(viewModel.LoadHistoryAsync());
+        viewModel.SetSelectedFindings(viewModel.FindingRows.Where(r => r.Finding.FixKind == HygieneFixKind.SetCollectionRefreshType && r.Key.Contains("MCM003", StringComparison.Ordinal)));
+        Assert.Equal(objects, viewModel.SelectedFindings.Count);
+        Run(viewModel.RunFixCommand.ExecuteAsync(null));
+        Settle(window);
+        Assert.Equal(objects, viewModel.LastResults.Count);
+    }
+
+    /// <summary>The element shows in full inside the visible area of the tab.</summary>
+    private static void AssertShown(ScrollViewer tab, FrameworkElement element, string where)
+    {
+        Assert.True(element.IsVisible, $"{where}: {AutomationProperties.GetAutomationId(element)} is not visible.");
+        var bounds = element.TransformToAncestor(tab).TransformBounds(new Rect(element.RenderSize));
+        Assert.True(bounds.Top >= -0.5 && bounds.Bottom <= tab.ViewportHeight + 0.5,
+            $"{where}: {AutomationProperties.GetAutomationId(element)} spans {bounds.Top:0} to {bounds.Bottom:0} px in a {tab.ViewportHeight:0} px tab.");
+    }
+
+    /// <summary>The text block shows its whole text: the wrapped text is not taller than the block and no ellipsis cuts it.</summary>
+    private static void AssertWholeText(TextBlock block, string where)
+    {
+        var need = new FormattedText(block.Text, System.Globalization.CultureInfo.CurrentCulture, block.FlowDirection,
+            new Typeface(block.FontFamily, block.FontStyle, block.FontWeight, block.FontStretch), block.FontSize, System.Windows.Media.Brushes.Black, VisualTreeHelper.GetDpi(block).PixelsPerDip)
+        { MaxTextWidth = Math.Max(1, block.ActualWidth) };
+        if (block.LineStackingStrategy == LineStackingStrategy.BlockLineHeight && block.LineHeight > 0) need.LineHeight = block.LineHeight;
+        Assert.True(need.Height <= block.ActualHeight + 0.5, $"{where}: {AutomationProperties.GetAutomationId(block)} needs {need.Height:0} px and shows {block.ActualHeight:0} px.");
+    }
+
+    /// <summary>An unselected row without the pointer shows the row or the alternating row background of its grid.</summary>
+    private static void AssertRowBackgrounds(DataGrid grid, string where)
+    {
+        var rows = Descendants(grid).OfType<DataGridRow>().Where(r => r.IsVisible && !r.IsSelected && !r.IsMouseOver).ToList();
+        Assert.NotEmpty(rows);
+        foreach (var row in rows)
+        {
+            var border = Assert.IsAssignableFrom<System.Windows.Controls.Border>(row.Template.FindName("DGR_Border", row));
+            var wanted = ItemsControl.GetAlternationIndex(row) == 1 && grid.AlternatingRowBackground is not null ? grid.AlternatingRowBackground : grid.RowBackground;
+            Assert.True(Equals(wanted, border.Background), $"{where}: row {row.GetIndex()} shows {border.Background} in place of {wanted}.");
+        }
+    }
+
+    private static readonly string[] DetailParts = ["txtFindingDetailTitle", "txtFindingDetailObject", "txtFindingDetailEvidence", "txtFindingDetailRecommendation", "txtFixText", "btnCopyFixText"];
+
+    /// <summary>
+    /// After a fix run of 2, 10 and 100 objects the result card is collapsed to one line. At 1440x900, with the sidebar
+    /// collapsed and open, the Findings, History and Relationships tabs do not scroll and the detail of the selected finding
+    /// shows in full. At 900x600 the tab scrolls, and the scroll shows every part of the detail in full.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(FixRunCases))]
+    public void AfterAFixRunTheTabsKeepTheirHeightAndTheSelectedFindingShowsInFull(ApplicationTheme theme, double width, double height, int objects, bool auditIncomplete)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            RunFix(window, viewModel, objects);
+            var where = $"{objects} objects at {width}x{height}";
+            AssertRowBackgrounds(ById<DataGrid>(page, "dgFindings"), where);
+            var tall = height >= 900 - 48;
+
+            viewModel.SetSelectedFindings([viewModel.FindingRows.First(r => r.Finding.FixKind != HygieneFixKind.None && r.ObjectName.StartsWith(LongText, StringComparison.Ordinal))]);
+            Settle(window);
+            Assert.False(viewModel.ResultsExpanded, $"{where}: the result card is expanded after the run.");
+            var card = ById<FrameworkElement>(page, "pnlHygieneResults");
+            Assert.True(card.IsVisible, $"{where}: the result card is not on the Findings tab.");
+            Assert.True(card.ActualHeight + card.Margin.Top + card.Margin.Bottom <= CollapsedCardHeight + 0.5,
+                $"{where}: the collapsed result card takes {card.ActualHeight + card.Margin.Top + card.Margin.Bottom:0} px.");
+            Assert.False(((FrameworkElement)page.FindName("dgHygieneResults")).IsVisible, $"{where}: the result rows show in the collapsed card.");
+            var line = ById<TextBlock>(page, auditIncomplete ? "txtHygieneAuditWarning" : "txtHygieneResultSummary");
+            Assert.True(line.IsVisible, $"{where}: the one-line summary is hidden.");
+            Assert.Equal(TextWrapping.NoWrap, line.TextWrapping);
+            Assert.Equal(line.Text, line.ToolTip);
+            var lineBounds = line.TransformToAncestor(window).TransformBounds(new Rect(line.RenderSize));
+            Assert.True(lineBounds.Right <= window.ActualWidth + 0.5, $"{where}: the one-line summary ends at {lineBounds.Right:0} px in a {window.ActualWidth:0} px window.");
+
+            var findings = ById<ScrollViewer>(page, "scrollFindingsTab");
+            Assert.True(findings.ScrollableWidth < 1, $"{where}: the Findings tab scrolls sideways by {findings.ScrollableWidth:0} px.");
+            Assert.True(ById<DataGrid>(page, "dgFindings").ActualHeight >= SiteHygienePage.FindingsGridMinHeight - 0.5, $"{where}: the findings grid gets {ById<DataGrid>(page, "dgFindings").ActualHeight:0} px.");
+            if (tall) Assert.True(findings.ScrollableHeight < 1, $"{where}: the Findings tab scrolls by {findings.ScrollableHeight:0} px in a {findings.ViewportHeight:0} px view.");
+            foreach (var id in DetailParts.Concat(viewModel.HasDetailFixNote ? ["txtFindingDetailFixNote"] : []))
+            {
+                var part = ById<FrameworkElement>(page, id);
+                if (!tall)
+                {
+                    part.BringIntoView();
+                    Settle(window);
+                }
+                AssertShown(findings, part, where);
+                if (part is TextBlock block) AssertWholeText(block, where);
+            }
+
+            // The card opens to at most three result rows, two on a short page; more rows scroll with a scroll bar that shows without the pointer.
+            viewModel.ResultsExpanded = true;
+            Settle(window);
+            var results = ById<DataGrid>(page, "dgHygieneResults");
+            Assert.True(results.IsVisible, $"{where}: the result rows do not show in the open card.");
+            var rowHeight = Descendants(results).OfType<DataGridRow>().Where(r => r.IsVisible).Max(r => r.ActualHeight);
+            var viewer = Descendants(results).OfType<ScrollViewer>().First();
+            var resultLines = height < SiteHygienePage.ShortHeight ? SiteHygienePage.CompactResultLines : SiteHygienePage.ResultLines;
+            var shownRows = Descendants(results).OfType<ScrollContentPresenter>().First().ActualHeight / rowHeight;
+            Assert.True(shownRows <= resultLines + 0.05 && shownRows >= Math.Min(objects, resultLines) - 0.05, $"{where}: the open card shows {shownRows:0.0} result rows.");
+            Assert.True(results.ActualHeight <= (resultLines + 2) * rowHeight, $"{where}: the result rows take {results.ActualHeight:0} px; a row is {rowHeight:0} px.");
+            if (objects > resultLines)
+            {
+                var bar = Descendants(viewer).OfType<System.Windows.Controls.Primitives.ScrollBar>().Single(b => b.Orientation == System.Windows.Controls.Orientation.Vertical);
+                var thumb = Descendants(bar).OfType<System.Windows.Controls.Primitives.Thumb>().Single();
+                Assert.False(results.IsMouseOver);
+                Assert.True(bar.IsVisible && bar.Opacity > 0.99 && thumb.IsVisible && thumb.Opacity > 0.99 && thumb.ActualWidth >= 6,
+                    $"{where}: the scroll bar of the result rows is not readable without the pointer: bar {bar.ActualWidth:0} px, opacity {bar.Opacity:0.00}; thumb {thumb.ActualWidth:0} px, opacity {thumb.Opacity:0.00}.");
+            }
+            foreach (var id in DetailParts)
+            {
+                var part = ById<FrameworkElement>(page, id);
+                part.BringIntoView();
+                Settle(window);
+                AssertShown(findings, part, where + " with the open card");
+            }
+            viewModel.ResultsExpanded = false;
+            Settle(window);
+
+            ShowTab(window, viewModel, VM.HistoryTab);
+            Assert.Equal(auditIncomplete, ById<FrameworkElement>(page, "pnlHygieneResults").IsVisible);
+            viewModel.SelectedHistory = viewModel.HistoryRows.Single(r => r.Record.Objects.Count == HygieneHistoryRow.DetailObjects);
+            Settle(window);
+            var history = ById<ScrollViewer>(page, "scrollHygieneHistoryTab");
+            var box = ById<System.Windows.Controls.TextBox>(page, "txtHygieneHistoryDetail");
+            var text = Descendants(box).OfType<ScrollViewer>().First();
+            Assert.True(text.ScrollableHeight < 1, $"{where}: the History detail box is cut by {text.ScrollableHeight:0} px.");
+            if (tall)
+            {
+                Assert.True(history.ScrollableHeight < 1, $"{where}: the History tab scrolls by {history.ScrollableHeight:0} px.");
+                AssertShown(history, box, where + " on History");
+            }
+            else
+            {
+                // 900x600: the tab scrolls to the whole detail box, which keeps its lines.
+                box.BringIntoView();
+                Settle(window);
+                AssertReachable(history, box, "txtHygieneHistoryDetail");
+            }
+
+            ShowTab(window, viewModel, VM.RelationsTab);
+            viewModel.RelationsTabIndex = VM.InventoryTab;
+            Settle(window);
+            var relations = ById<ScrollViewer>(page, "scrollRelationsTab");
+            Assert.True(relations.ScrollableWidth < 1, $"{where}: the Relationships tab scrolls sideways by {relations.ScrollableWidth:0} px.");
+            if (tall) Assert.True(relations.ScrollableHeight < 1, $"{where}: the Relationships tab scrolls by {relations.ScrollableHeight:0} px.");
+            var inner = ById<TabControl>(page, "tabRelations");
+            Assert.True(inner.ActualHeight >= SiteHygienePage.RelationsGridMinHeight - 0.5, $"{where}: the relationship tabs get {inner.ActualHeight:0} px.");
+            var edges = ById<DataGrid>(page, "dgEdges");
+            if (tall) AssertShown(relations, edges, where + " on Relationships");
+            else
+            {
+                edges.BringIntoView();
+                Settle(window);
+                AssertReachable(relations, edges, "dgEdges");
+            }
+        }, width, height, () => FixRunHarness(objects, auditIncomplete));
     }
 
     private static UIElement Focused() => Assert.IsAssignableFrom<UIElement>(Keyboard.FocusedElement);
@@ -802,6 +1005,54 @@ public sealed class SiteHygieneRenderTests
                 Assert.True(lines >= ChangePlanWindow.MinNotesLines - 0.05 && Math.Abs(lines - Math.Round(lines)) < 0.05, $"The notes box at the minimum height shows {lines:0.00} lines.");
                 foreach (var id in new[] { "chkDestructive", "btnConfirm", "btnCancel", "txtNotes" })
                     AssertInside(window, (FrameworkElement)window.FindName(id), window.ActualHeight, id + " at the minimum height");
+            }
+            finally { window.Close(); }
+        });
+    }
+
+    private static readonly string[] FourteenNotes =
+    [
+        .. ElevenNotes, "The page writes one Started and one Finished record for the run.", "A skipped collection stays on the site as it is.",
+        "The findings list shows the fixed findings as gone after the run."
+    ];
+
+    /// <summary>
+    /// A plan of 14 note lines and 2 changes: the change list has room above its least height, so the notes box takes that
+    /// room and shows every line in the opened window, in whole lines.
+    /// </summary>
+    [Theory]
+    [InlineData(ApplicationTheme.Light, false)]
+    [InlineData(ApplicationTheme.Dark, false)]
+    [InlineData(ApplicationTheme.Light, true)]
+    [InlineData(ApplicationTheme.Dark, true)]
+    public void ThePlanNotesBoxUsesTheFreeHeightOfAShortChangeListForFourteenLines(ApplicationTheme theme, bool body)
+    {
+        WithApplication(theme, () =>
+        {
+            var items = Enumerable.Range(0, 2).Select(i => new ChangePlanItem("Delete collection", $"Contoso Finance Workstations Pilot Wave {i + 1:00} (MCM002{50 + i:X2})", "Done")).ToList();
+            var plan = new ChangePlan("Delete 2 collections", "Delete 2 collections", items, isDestructive: true)
+            {
+                Notes = FourteenNotes,
+                Body = body ? "Remove-CMCollection -Id MCM00250 -Force" + Environment.NewLine + "Remove-CMCollection -Id MCM00251 -Force" : null
+            };
+            var window = new ChangePlanWindow(new ChangePlanViewModel(plan, (_, _, _) => Task.FromResult(new ChangePlanResult([]))));
+            Show(window);
+            try
+            {
+                Settle(window);
+                var box = (System.Windows.Controls.TextBox)window.FindName("txtNotes");
+                var text = Descendants(box).OfType<ScrollViewer>().First();
+                var line = box.FontFamily.LineSpacing * box.FontSize;
+                var grid = (FrameworkElement)window.FindName("gridPlan");
+                Assert.True(window.ActualHeight <= Math.Min(ChangePlanWindow.MaxOpenHeight, SystemParameters.WorkArea.Height) + 0.5, $"The plan window is {window.ActualHeight:0} px high.");
+                Assert.True(text.ExtentHeight / line >= FourteenNotes.Length - 0.05, $"The notes have {text.ExtentHeight / line:0.0} lines; the test needs {FourteenNotes.Length}.");
+                Assert.True(text.ScrollableHeight < 1,
+                    $"The notes box shows {text.ViewportHeight / line:0.0} of {text.ExtentHeight / line:0.0} lines in a {window.ActualHeight:0} px window; the change list has {grid.ActualHeight:0} px.");
+                var lines = text.ViewportHeight / line;
+                Assert.True(Math.Abs(lines - Math.Round(lines)) < 0.05, $"The notes box shows {lines:0.00} lines: a line is cut.");
+                Assert.True(grid.ActualHeight >= ChangePlanWindow.GridMinHeight - 0.5, $"The change list gets {grid.ActualHeight:0} px in a {window.ActualHeight:0} px window.");
+                foreach (var id in new[] { "chkDestructive", "btnConfirm", "btnCancel", "txtNotes", "gridPlan" })
+                    AssertInside(window, (FrameworkElement)window.FindName(id), window.ActualHeight, id);
             }
             finally { window.Close(); }
         });

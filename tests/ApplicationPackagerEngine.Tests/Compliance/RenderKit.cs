@@ -66,7 +66,7 @@ internal static class RenderKit
                 application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ToolTipStyles, UriKind.Absolute) });
                 SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
                 test();
-                Assert.Empty(errors.Lines);
+                Assert.True(errors.Lines.Count == 0, "Binding errors: " + string.Join(Environment.NewLine, errors.Lines));
             }
             finally
             {

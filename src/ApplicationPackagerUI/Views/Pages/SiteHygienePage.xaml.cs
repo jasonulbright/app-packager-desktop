@@ -31,57 +31,79 @@ public partial class SiteHygienePage : INavigationAware
             if (dgFindings.IsVisible && _selectionPending) SelectFindings();
         };
         SizeChanged += (_, e) => ApplyLayout(e.NewSize.Height < ShortHeight);
-        foreach (var part in new FrameworkElement[] { txtHygieneHistoryIntro, pnlHygieneHistoryFilter, pnlHygieneHistoryDetail })
+        FitTab(tab: gridFindingsTab, gridMinHeight: FindingsGridMinHeight, parts: [pnlFindingFilter, pnlFindingActions, pnlFindingDetail, txtNotRun]);
+        FitTab(tab: gridRelationsTab, gridMinHeight: RelationsGridMinHeight, parts: [pnlRelationsActions]);
+        FitTab(tab: gridHistoryTab, gridMinHeight: HistoryGridMinHeight, parts: [txtHygieneHistoryIntro, pnlHygieneHistoryFilter, pnlHygieneHistoryDetail]);
+        dgHygieneResults.SizeChanged += (_, _) => FitResults();
+        dgHygieneResults.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitResults, System.Windows.Threading.DispatcherPriority.Loaded);
+        ApplyLayout(compact: false);
+    }
+
+    /// <summary>
+    /// The tab fills the visible height of its scroll area. Its least height is the height of the parts above and below
+    /// the grid plus the least grid height, so every part shows in full and the tab scrolls only when the visible height
+    /// is smaller.
+    /// </summary>
+    private static void FitTab(Grid tab, double gridMinHeight, FrameworkElement[] parts)
+    {
+        static double Height(FrameworkElement part) => part.Visibility == Visibility.Visible ? part.ActualHeight + part.Margin.Top + part.Margin.Bottom : 0;
+
+        void Fit()
         {
-            part.SizeChanged += (_, _) => FitHistoryTab();
-            part.IsVisibleChanged += (_, _) => FitHistoryTab();
+            var least = parts.Sum(Height) + gridMinHeight;
+            if (Math.Abs(tab.MinHeight - least) > 0.5) tab.MinHeight = least;
         }
+
+        foreach (var part in parts)
+        {
+            part.SizeChanged += (_, _) => Fit();
+            part.IsVisibleChanged += (_, _) => Fit();
+        }
+    }
+
+    /// <summary>The result rows show at most <see cref="ResultLines"/> rows below the column header, <see cref="CompactResultLines"/> on a short page; more rows scroll.</summary>
+    private void FitResults()
+    {
+        var lines = _compact ? CompactResultLines : ResultLines;
+        if (!dgHygieneResults.IsVisible || dgHygieneResults.ItemContainerGenerator.ContainerFromIndex(0) is not DataGridRow { ActualHeight: > 0 } row) return;
+        if (Helpers.DataGridFocus.Find<ScrollContentPresenter>(dgHygieneResults) is not { ActualHeight: > 0 } rows) return;
+        // The column header, the borders and a sideways scroll bar take the height of the grid outside its rows.
+        var chrome = dgHygieneResults.ActualHeight - rows.ActualHeight;
+        var height = Math.Ceiling(chrome + lines * row.ActualHeight);
+        if (Math.Abs(dgHygieneResults.MaxHeight - height) > 0.5) dgHygieneResults.MaxHeight = height;
     }
 
     /// <summary>The least height of the History grid; the tab scrolls before the grid gets less.</summary>
     public const double HistoryGridMinHeight = 160;
 
-    /// <summary>
-    /// The History tab fills the visible height of its scroll area. Its least height is the height of the rows above
-    /// and below the grid plus the least grid height, so the detail box shows in full and the tab scrolls only when the
-    /// visible height is smaller.
-    /// </summary>
-    private void FitHistoryTab()
-    {
-        static double Height(FrameworkElement part) => part.Visibility == Visibility.Visible ? part.ActualHeight + part.Margin.Top + part.Margin.Bottom : 0;
-        var least = Height(txtHygieneHistoryIntro) + Height(pnlHygieneHistoryFilter) + Height(pnlHygieneHistoryDetail) + HistoryGridMinHeight;
-        if (Math.Abs(gridHistoryTab.MinHeight - least) > 0.5) gridHistoryTab.MinHeight = least;
-    }
+    /// <summary>The least height of the findings grid; the tab scrolls before the grid gets less.</summary>
+    public const double FindingsGridMinHeight = 160;
+
+    /// <summary>The least height of the relationship list; the tab scrolls before the list gets less.</summary>
+    public const double RelationsGridMinHeight = 300;
+
+    /// <summary>The most result rows the open result card shows; more rows scroll.</summary>
+    public const int ResultLines = 3;
+
+    /// <summary>The result rows the open result card shows below <see cref="ShortHeight"/>, so the tabs keep a usable height.</summary>
+    public const int CompactResultLines = 2;
 
     private bool _compact;
 
     private void ApplyLayout(bool compact)
     {
         _compact = compact;
-        dgHygieneResults.MaxHeight = compact ? ShortResultsHeight : TallResultsHeight;
         txtHygieneIntro.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
         pageRoot.Margin = compact ? CompactMargin : RegularMargin;
-        txtHygieneAuditWarning.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap;
-        pnlHygieneAuditWarning.Padding = compact ? CompactWarningPadding : RegularWarningPadding;
-        pnlHygieneAuditWarning.Margin = compact ? CompactWarningMargin : RegularWarningMargin;
-        txtHygieneResultSummary.Visibility = !_viewModel.ShowsResults || (compact && _viewModel.HasAuditWarning) ? Visibility.Collapsed : Visibility.Visible;
+        txtHygieneResultSummary.Visibility = _viewModel.HasAuditWarning ? Visibility.Collapsed : Visibility.Visible;
+        FitResults();
     }
 
     private static readonly Thickness RegularMargin = new(24, 16, 24, 12);
     private static readonly Thickness CompactMargin = new(24, 6, 24, 4);
-    private static readonly Thickness RegularWarningPadding = new(12, 8, 12, 8);
-    private static readonly Thickness CompactWarningPadding = new(8, 0, 8, 0);
-    private static readonly Thickness RegularWarningMargin = new(0, 0, 0, 6);
-    private static readonly Thickness CompactWarningMargin = new(0, 0, 0, 2);
 
-    /// <summary>
-    /// Below this page height the result rows take less room and the intro line is hidden, so the tabs keep a
-    /// usable height at 900x600. The audit warning then keeps one line in place of the result summary, which
-    /// the status line also holds; its tooltip and automation name hold the full text.
-    /// </summary>
+    /// <summary>Below this page height the intro line is hidden, so the tabs keep a usable height at 900x600.</summary>
     public const double ShortHeight = 700;
-    public const double ShortResultsHeight = 64;
-    public const double TallResultsHeight = 140;
 
     /// <summary>The selection changes a mirror made in the findings grid; a test counts the work of a mirror with it.</summary>
     public int SelectionEvents { get; private set; }

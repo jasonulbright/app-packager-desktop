@@ -13,8 +13,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DataGridRow">
+                    <!-- The row coerces its Background to the RowBackground or AlternatingRowBackground of its grid. A binding that looks up the grid
+                         fails on a recycled row, which has no grid above it. -->
                     <Border x:Name="DGR_Border" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{TemplateBinding BorderBrush}"
-                            CornerRadius="{DynamicResource ControlCornerRadius}" SnapsToDevicePixels="True">
+                            Background="{TemplateBinding Background}" CornerRadius="{DynamicResource ControlCornerRadius}" SnapsToDevicePixels="True">
                         <SelectiveScrollingGrid>
                             <SelectiveScrollingGrid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -35,12 +37,6 @@
                         </SelectiveScrollingGrid>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="ItemsControl.AlternationIndex" Value="0">
-                            <Setter TargetName="DGR_Border" Property="Background" Value="{Binding RowBackground, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
-                        </Trigger>
-                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
-                            <Setter TargetName="DGR_Border" Property="Background" Value="{Binding AlternatingRowBackground, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
-                        </Trigger>
                         <MultiTrigger>
                             <MultiTrigger.Conditions>
                                 <Condition Property="IsEnabled" Value="True" />

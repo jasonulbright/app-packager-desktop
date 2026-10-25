@@ -49,6 +49,9 @@ public sealed partial class SiteHygieneViewModel
 
     [ObservableProperty] private string _resultSummary = "";
 
+    /// <summary>The result card shows its rows; a finished run collapses it to the one-line summary, so the tab keeps its height.</summary>
+    [ObservableProperty] private bool _resultsExpanded;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RunFixCommand), nameof(SuppressCommand), nameof(UnsuppressCommand))]
     private bool _isWriting;
@@ -281,6 +284,7 @@ public sealed partial class SiteHygieneViewModel
         }
         LastResults.Clear();
         foreach (var row in result.Items) LastResults.Add(row);
+        ResultsExpanded = false;
         OnPropertyChanged(nameof(HasResults));
         OnPropertyChanged(nameof(ShowsResults));
         OnPropertyChanged(nameof(ShowsResultPanel));

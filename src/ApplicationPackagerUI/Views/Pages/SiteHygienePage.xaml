@@ -67,6 +67,53 @@
                 <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
             </Style>
 
+            <!-- The library template animates the open and close, so the card height depends on time; this template opens and closes at once
+                 and keeps the closed card to one header line. -->
+            <Style x:Key="ResultCard" TargetType="Expander">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Expander">
+                            <Border BorderThickness="1" CornerRadius="6" Padding="12,4" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                <DockPanel>
+                                    <ToggleButton x:Name="ResultCardToggle" DockPanel.Dock="Top" MinHeight="32" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                  Content="{TemplateBinding Header}" ToolTip="Shows or hides the result rows of the last fix."
+                                                  AutomationProperties.Name="{TemplateBinding AutomationProperties.Name}" AutomationProperties.AutomationId="btnHygieneResultsToggle">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="Transparent" Padding="0,2">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ContentPresenter VerticalAlignment="Center" />
+                                                        <ui:SymbolIcon x:Name="Chevron" Grid.Column="1" Symbol="ChevronDown24" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                    </Grid>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsChecked" Value="True">
+                                                        <Setter TargetName="Chevron" Property="Symbol" Value="ChevronUp24" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <ContentPresenter x:Name="ResultCardBody" Margin="0,4,0,4" Visibility="Collapsed" />
+                                </DockPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsExpanded" Value="True">
+                                    <Setter TargetName="ResultCardBody" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <DataTemplate x:Key="TabHeaderTemplate">
                 <StackPanel>
                     <TextBlock x:Name="TabHeaderText" Text="{Binding}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -182,15 +229,16 @@
             <TabItem Header="Findings" AutomationProperties.AutomationId="tabHygieneFindings">
                 <ScrollViewer x:Name="scrollFindingsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollFindingsTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollFindingsTab}" MinHeight="600" KeyboardNavigation.TabNavigation="Local">
+                    <!-- The view sets MinHeight to the rows above and below the grid and the grid at its MinHeight; below it the tab scrolls instead of cutting the detail. -->
+                    <Grid x:Name="gridFindingsTab" Height="{Binding ViewportHeight, ElementName=scrollFindingsTab}" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="160" />
+                            <RowDefinition Height="*" MinHeight="{x:Static local:SiteHygienePage.FindingsGridMinHeight}" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
+                        <WrapPanel Grid.Row="0" x:Name="pnlFindingFilter" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
                             <ui:TextBox x:Name="txtFindingFilter" Text="{Binding FindingText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object, evidence or action" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Finding filter" AutomationProperties.AutomationId="txtFindingFilter" />
                             <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding CategoryFilter}" MinWidth="190" Margin="0,0,8,8"
@@ -202,7 +250,7 @@
                             <TextBlock Text="{Binding FindingCount}" Style="{StaticResource Note}" VerticalAlignment="Center" Margin="0,0,0,8" AutomationProperties.AutomationId="txtFindingCount" />
                         </WrapPanel>
                         <!-- The actions come after the grid in Tab order, so they are next to the findings the operator picked. -->
-                        <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
+                        <WrapPanel Grid.Row="1" x:Name="pnlFindingActions" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
                             <ui:Button x:Name="btnHygieneRunFix" Content="Run fix" Icon="{ui:SymbolIcon Wrench24}" Command="{Binding RunFixCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Checks the selected findings again on the site, then shows the plan of their fix." AutomationProperties.AutomationId="btnHygieneRunFix" />
                             <ui:Button Content="Suppress" Icon="{ui:SymbolIcon EyeOff24}" Command="{Binding SuppressCommand}" Style="{StaticResource ToolButton}"
@@ -228,7 +276,7 @@
                                 <DataGridTextColumn Header="Fix" Binding="{Binding Fix}" SortMemberPath="Fix" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3"
+                        <Border Grid.Row="3" x:Name="pnlFindingDetail" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3"
                                 AutomationProperties.AutomationId="pnlFindingDetail">
                             <StackPanel>
                                 <TextBlock Text="{Binding DetailTitle}" Style="{StaticResource Warning}" FontSize="13" AutomationProperties.AutomationId="txtFindingDetailTitle"
@@ -251,7 +299,7 @@
                                 </DockPanel>
                             </StackPanel>
                         </Border>
-                        <TextBlock Grid.Row="4" Text="{Binding NotRunText}" Style="{StaticResource Warning}" Margin="0,8,0,0" MaxHeight="48" TextTrimming="CharacterEllipsis"
+                        <TextBlock Grid.Row="4" x:Name="txtNotRun" Text="{Binding NotRunText}" Style="{StaticResource Warning}" Margin="0,8,0,0" MaxHeight="48" TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding NotRunText}" Visibility="{Binding HasNotRun, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="txtNotRun" />
                     </Grid>
                 </ScrollViewer>
@@ -260,12 +308,12 @@
             <TabItem Header="Relationships" AutomationProperties.AutomationId="tabHygieneRelations">
                 <ScrollViewer x:Name="scrollRelationsTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollRelationsTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollRelationsTab}" MinHeight="380">
+                    <Grid x:Name="gridRelationsTab" Height="{Binding ViewportHeight, ElementName=scrollRelationsTab}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" MinHeight="300" />
+                            <RowDefinition Height="*" MinHeight="{x:Static local:SiteHygienePage.RelationsGridMinHeight}" />
                         </Grid.RowDefinitions>
-                        <WrapPanel Grid.Row="0" Margin="0,0,0,4">
+                        <WrapPanel Grid.Row="0" x:Name="pnlRelationsActions" Margin="0,0,0,4">
                             <ui:Button Content="Read relationships" Icon="{ui:SymbolIcon BranchFork24}" Command="{Binding LoadRelationsCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Reads every supersedence and dependency relationship of the applications." AutomationProperties.AutomationId="btnReadRelations" />
                             <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Command="{Binding CancelRelationsCommand}" Style="{StaticResource ToolButton}"
@@ -459,33 +507,34 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="4" x:Name="pnlHygieneResults" Margin="0,12,0,0" Style="{StaticResource Card}" Visibility="{Binding ShowsResultPanel, Converter={StaticResource BoolToVisibility}}"
-                AutomationProperties.AutomationId="pnlHygieneResults">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" x:Name="txtHygieneResultSummary" Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"
-                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtHygieneResultSummary" />
-                <Border Grid.Row="1" x:Name="pnlHygieneAuditWarning" Style="{StaticResource Caution}" Margin="0,0,0,6" Visibility="{Binding HasAuditWarning, Converter={StaticResource BoolToVisibility}}"
-                        AutomationProperties.AutomationId="pnlHygieneAuditWarning">
-                    <TextBlock x:Name="txtHygieneAuditWarning" Text="{Binding AuditWarning}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextFillColorPrimaryBrush}" ToolTip="{Binding AuditWarning}" AutomationProperties.Name="{Binding AuditWarning}"
-                               AutomationProperties.AutomationId="txtHygieneAuditWarning" AutomationProperties.LiveSetting="Assertive" />
-                </Border>
-                <DataGrid Grid.Row="2" x:Name="dgHygieneResults" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding LastResults}" MaxHeight="140"
-                          Visibility="{Binding ShowsResults, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="dgHygieneResults" AutomationProperties.Name="Results of the last fix">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
-                        <DataGridTextColumn Header="Fix" Binding="{Binding Item.Action}" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
-                        <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
-                        <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </Border>
+        <!-- Collapsed, the card is one line: the result summary, or the audit warning in its place, which the status line also holds with the summary.
+             Open, it shows at most ResultLines result rows; more rows scroll. -->
+        <Expander Grid.Row="4" x:Name="pnlHygieneResults" Margin="0,8,0,0" Style="{StaticResource ResultCard}" IsExpanded="{Binding ResultsExpanded}"
+                  Visibility="{Binding ShowsResultPanel, Converter={StaticResource BoolToVisibility}}"
+                  AutomationProperties.Name="Results of the last fix" AutomationProperties.AutomationId="pnlHygieneResults">
+            <Expander.Header>
+                <Grid>
+                    <TextBlock x:Name="txtHygieneResultSummary" Text="{Binding ResultSummary}" FontWeight="SemiBold" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                               ToolTip="{Binding ResultSummary}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" AutomationProperties.AutomationId="txtHygieneResultSummary" />
+                    <Border x:Name="pnlHygieneAuditWarning" Style="{StaticResource Caution}" Margin="0" Padding="8,2" Visibility="{Binding HasAuditWarning, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.AutomationId="pnlHygieneAuditWarning">
+                        <TextBlock x:Name="txtHygieneAuditWarning" Text="{Binding AuditWarning}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}" ToolTip="{Binding AuditWarning}" AutomationProperties.Name="{Binding AuditWarning}"
+                                   AutomationProperties.AutomationId="txtHygieneAuditWarning" AutomationProperties.LiveSetting="Assertive" />
+                    </Border>
+                </Grid>
+            </Expander.Header>
+            <DataGrid x:Name="dgHygieneResults" Style="{StaticResource GridBase}" CanUserSortColumns="False" ItemsSource="{Binding LastResults}" MaxHeight="140"
+                      VerticalScrollBarVisibility="Auto" Visibility="{Binding ShowsResults, Converter={StaticResource BoolToVisibility}}"
+                      AutomationProperties.AutomationId="dgHygieneResults" AutomationProperties.Name="Results of the last fix">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Result" Binding="{Binding OutcomeText}" Width="104" MinWidth="100" ElementStyle="{StaticResource TrimmedCell}" />
+                    <DataGridTextColumn Header="Fix" Binding="{Binding Item.Action}" Width="216" MinWidth="212" ElementStyle="{StaticResource TrimmedCell}" />
+                    <DataGridTextColumn Header="Object" Binding="{Binding Item.Target}" Width="3*" MinWidth="200" ElementStyle="{StaticResource TrimmedCell}" />
+                    <DataGridTextColumn Header="Message" Binding="{Binding Message}" Width="2*" MinWidth="160" ElementStyle="{StaticResource TrimmedCell}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Expander>
 
         <TextBlock Grid.Row="5" Text="{Binding StatusMessage}" Style="{StaticResource Note}" Margin="0,8,0,0"
                    AutomationProperties.AutomationId="txtHygieneStatus" AutomationProperties.LiveSetting="Polite" />
