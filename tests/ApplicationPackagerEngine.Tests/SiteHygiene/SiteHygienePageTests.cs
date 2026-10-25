@@ -598,6 +598,7 @@ public sealed class SiteHygienePageTests
         vm.SelectedTabIndex = VM.OptionsTab;
         await vm.ExportCsvCommand.ExecuteAsync(null);
         Assert.Equal(VM.ExportOptions, vm.StatusMessage);
+        Assert.Equal("The Options tab has no rows. Select the Findings, Relationships, Summary or History tab to export.", vm.StatusMessage);
 
         vm.SelectedTabIndex = VM.FindingsTab;
         vm.FindingText = "no such finding";
@@ -612,6 +613,24 @@ public sealed class SiteHygienePageTests
         Assert.Equal(@"C:\Data\SiteHygiene\Reports", vm.LastReportFolder);
         vm.OpenReportsFolderCommand.Execute(null);
         Assert.Equal([@"C:\Data\SiteHygiene\Reports"], h.Dialogs.OpenedFolders);
+    }
+
+    [Fact]
+    public async Task TheOptionsTabMessageNamesEachTabThatExportsAndOnlyThose()
+    {
+        var h = new SiteHygienePageHarness();
+        var vm = await h.ScannedAsync();
+        foreach (var tab in new[] { VM.FindingsTab, VM.RelationsTab, VM.SummaryTab, VM.OptionsTab, VM.HistoryTab })
+        {
+            vm.SelectedTabIndex = tab;
+            var (_, problem) = vm.ActiveReport();
+            Assert.Equal(tab == VM.OptionsTab, problem == VM.ExportOptions);
+            Assert.Equal(tab != VM.OptionsTab, VM.ExportTabs.Any(t => t.Index == tab));
+        }
+        Assert.All(VM.ExportTabs, t => Assert.Contains($" {t.Name}", VM.ExportOptions, StringComparison.Ordinal));
+        Assert.Equal("", VM.OrList([]));
+        Assert.Equal("Findings", VM.OrList(["Findings"]));
+        Assert.Equal("Findings or History", VM.OrList(["Findings", "History"]));
     }
 
     [Fact]

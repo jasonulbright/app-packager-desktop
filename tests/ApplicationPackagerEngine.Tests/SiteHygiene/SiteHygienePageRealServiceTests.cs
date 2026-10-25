@@ -143,6 +143,22 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.Single(notes, n => n.Contains(before, StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(HygieneFixKind.RemovePackage, "PKG-01", EmptyPackage)]
+    [InlineData(HygieneFixKind.RemoveCollection, "COL-01", "MCM00215")]
+    public async Task ADeletePlanStatesTheCheckBeforeEachDeleteOnce(HygieneFixKind kind, string checkId, string key)
+    {
+        using var p = new SiteHygieneRealPage();
+        var plan = await PlanAsync(p, kind, Finding(f => f.CheckId == checkId && f.ObjectKey == key));
+        var before = Assert.Single(plan.Plan.Notes, n => n.Contains("Before each delete", StringComparison.Ordinal));
+        Assert.Contains("the finding no longer holds", before, StringComparison.Ordinal);
+        if (kind == HygieneFixKind.RemoveCollection)
+        {
+            foreach (var use in new[] { "a deployment", "a collection rule or setting", "an automatic deployment rule", "a client settings deployment", "an administrative user" })
+                Assert.Contains(use, before, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task APlanWithoutTheSecondBoxReachesTheRealServiceUnconfirmedAndEveryObjectIsSkippedWithAPlainMessage()
     {

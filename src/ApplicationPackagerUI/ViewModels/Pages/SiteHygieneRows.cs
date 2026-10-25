@@ -209,6 +209,15 @@ public sealed class HygieneHistoryRow(HygieneAuditRecord record)
     /// <summary>The most object lines the detail pane lists; a record holds at most <see cref="HygieneAuditLog.MaxObjectsPerRecord"/>.</summary>
     public const int MaxDetailObjects = 100;
 
+    /// <summary>The object lines the detail box shows without a scroll bar; a record with more lines scrolls.</summary>
+    public const int DetailObjects = 8;
+
+    /// <summary>The lines above the object lines: the verification, the action and run (two lines in a 900 px window), and the run message.</summary>
+    public const int DetailHeaderLines = 4;
+
+    /// <summary>The height of the detail box in text lines.</summary>
+    public const int DetailLines = DetailHeaderLines + DetailObjects;
+
     public HygieneAuditRecord Record { get; } = record;
 
     /// <summary>The position of the record in the audit log, oldest first; it orders records of the same second.</summary>

@@ -24,7 +24,15 @@ public sealed partial class SiteHygieneViewModel
     public const string SuppressFailed = "The suppressions could not be saved. The log has the details.";
     public const string ExportNotScanned = "Nothing was scanned yet, so nothing can be exported. Select Scan first.";
     public const string ExportNoRelations = "The relationships were not read. Select Read relationships, then export.";
-    public const string ExportOptions = "The Options tab has no rows. Select the Findings, Relationships or Summary tab to export.";
+    /// <summary>Each tab that Export CSV and Export HTML write, by index and header, in tab order.</summary>
+    public static readonly IReadOnlyList<(int Index, string Name)> ExportTabs =
+        [(FindingsTab, "Findings"), (RelationsTab, "Relationships"), (SummaryTab, "Summary"), (HistoryTab, "History")];
+
+    public static readonly string ExportOptions = $"The Options tab has no rows. Select the {OrList(ExportTabs.Select(t => t.Name).ToList())} tab to export.";
+
+    /// <summary>"A", "A or B", "A, B or C".</summary>
+    public static string OrList(IReadOnlyList<string> names) =>
+        names.Count <= 1 ? string.Concat(names) : string.Join(", ", names.Take(names.Count - 1)) + " or " + names[^1];
     public const string NothingToExport = "The list has no rows to export.";
 
     public static string MixedKinds(IEnumerable<HygieneFixKind> kinds) =>

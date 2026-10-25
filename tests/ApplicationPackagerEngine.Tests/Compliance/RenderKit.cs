@@ -146,7 +146,7 @@ internal static class RenderKit
         return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
     }
 
-    private static double Contrast(Color a, Color b)
+    public static double Contrast(Color a, Color b)
     {
         var (x, y) = (Luminance(a), Luminance(b));
         return (Math.Max(x, y) + 0.05) / (Math.Min(x, y) + 0.05);
@@ -186,7 +186,7 @@ internal static class RenderKit
         return pixels;
     }
 
-    private static Color MostCommon(List<Color> pixels) => pixels.GroupBy(c => c).OrderByDescending(g => g.Count()).First().Key;
+    public static Color MostCommon(List<Color> pixels) => pixels.GroupBy(c => c).OrderByDescending(g => g.Count()).First().Key;
 
     private static double TextContrast(List<Color> pixels)
     {

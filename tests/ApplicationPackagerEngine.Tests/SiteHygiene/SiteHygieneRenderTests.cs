@@ -97,7 +97,10 @@ public sealed class SiteHygieneRenderTests
     {
         WithPage(theme, (window, page, viewModel, harness) =>
         {
-            Assert.Equal(["Findings", "Relationships", "Summary", "Options", "History"], ById<TabControl>(page, "tabHygiene").Items.OfType<TabItem>().Select(t => (string)t.Header));
+            var headers = ById<TabControl>(page, "tabHygiene").Items.OfType<TabItem>().Select(t => (string)t.Header).ToList();
+            Assert.Equal(["Findings", "Relationships", "Summary", "Options", "History"], headers);
+            Assert.All(VM.ExportTabs, t => Assert.Equal(headers[t.Index], t.Name));
+            Assert.Equal(headers.Where(h => h != headers[VM.OptionsTab]), VM.ExportTabs.Select(t => t.Name));
             Run(viewModel.ScanAsync());
             Settle(window);
             var grid = ById<DataGrid>(page, "dgFindings");
@@ -314,6 +317,72 @@ public sealed class SiteHygieneRenderTests
             var h = LongHarness();
             h.Service.AuditIncomplete = true;
             return h;
+        });
+    }
+
+    /// <summary>A Finished record as a fix run of the page writes it: a run ID of 32 hex digits and one line per collection.</summary>
+    private static HygieneAuditRecord RunRecord(int objects, int index) =>
+        new(new DateTime(2026, 10, 25, 1, 15, 59).AddMinutes(-index), @"CONTOSO\labadmin", nameof(HygieneFixKind.RemoveCollection), HygieneAuditPhases.Finished, "Succeeded",
+            $"{index:x2}5f0c3a9be14d2c8f7a6e1d0b3c4a59", Enumerable.Range(0, objects).Select(n => new HygieneAuditObject("COL-01", "Collection", $"MCM002{50 + n:X2}",
+                $"Contoso Finance Workstations Pilot Wave {n + 1:00}", "Done")).ToList(), $"{objects} objects: {objects} done, 0 failed, 0 skipped.")
+        {
+            Site = "MCM",
+            Provider = "cm01.contoso.com",
+            Verified = true,
+            HasChain = true
+        };
+
+    public static TheoryData<ApplicationTheme, double, double, int> HistoryDetailCases()
+    {
+        var data = new TheoryData<ApplicationTheme, double, double, int>();
+        foreach (var theme in new[] { ApplicationTheme.Light, ApplicationTheme.Dark })
+        foreach (var (width, height) in new[] { (1440 - CollapsedPaneWidth, 900 - 48), (1440 - NavigationPaneWidth, 900 - 48), (900 - CollapsedPaneWidth, 600 - 48), (900 - NavigationPaneWidth, 600 - 48) })
+        foreach (var objects in new[] { 2, HygieneHistoryRow.DetailObjects, HygieneAuditLog.MaxObjectsPerRecord })
+            data.Add(theme, width, height, objects);
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(HistoryDetailCases))]
+    public void TheHistoryDetailShowsEveryObjectLineUpToItsLimitAndAVisibleScrollBarBeyondIt(ApplicationTheme theme, double width, double height, int objects)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Run(viewModel.LoadHistoryAsync());
+            ShowTab(window, viewModel, VM.HistoryTab);
+            viewModel.SelectedHistory = viewModel.HistoryRows.Single(r => r.Record.Objects.Count == objects);
+            Settle(window);
+
+            var box = ById<System.Windows.Controls.TextBox>(page, "txtHygieneHistoryDetail");
+            var panel = ById<FrameworkElement>(page, "pnlHygieneHistoryDetail");
+            var tab = ById<ScrollViewer>(page, "scrollHygieneHistoryTab");
+            panel.BringIntoView();
+            Settle(window);
+            AssertReachable(tab, panel, "pnlHygieneHistoryDetail");
+            Assert.True(tab.ScrollableWidth < 1, $"The History tab scrolls sideways by {tab.ScrollableWidth:0} px at {width}x{height}.");
+            var grid = ById<DataGrid>(page, "dgHygieneHistory");
+            Assert.True(grid.ActualHeight >= 159.5, $"The History grid gets {grid.ActualHeight:0} px at {width}x{height}.");
+
+            var text = Descendants(box).OfType<ScrollViewer>().First();
+            var cut = text.ScrollableHeight >= 1;
+            if (objects <= HygieneHistoryRow.DetailObjects)
+                Assert.False(cut, $"The detail of {objects} objects is cut by {text.ScrollableHeight:0} px at {width}x{height}: the box is {text.ViewportHeight:0} px high.");
+            if (objects > HygieneHistoryRow.DetailObjects) Assert.True(cut, $"The detail of {objects} objects shows without a scroll bar at {width}x{height}.");
+            if (!cut) return;
+            var bar = Descendants(text).OfType<System.Windows.Controls.Primitives.ScrollBar>().Single(b => b.Orientation == System.Windows.Controls.Orientation.Vertical);
+            var thumb = Descendants(bar).OfType<System.Windows.Controls.Primitives.Thumb>().Single();
+            Assert.False(box.IsMouseOver);
+            Assert.True(bar.IsVisible && bar.Opacity > 0.99 && thumb.IsVisible && thumb.Opacity > 0.99 && thumb.ActualWidth >= 6,
+                $"The scroll bar of the detail is not readable without the pointer at {width}x{height}: bar {bar.GetType().Name} {bar.ActualWidth:0} px, opacity {bar.Opacity:0.00}; thumb {thumb.ActualWidth:0} px, opacity {thumb.Opacity:0.00}.");
+            var bounds = bar.TransformToAncestor(box).TransformBounds(new Rect(bar.RenderSize));
+            Assert.True(bounds.Left >= -0.5 && bounds.Right <= box.ActualWidth + 0.5, $"The scroll bar spans {bounds.Left:0} to {bounds.Right:0} px in a {box.ActualWidth:0} px box.");
+            var back = MostCommon(Pixels(window, box, $"sh-history-detail-{theme}-{width:0}x{height:0}-{objects}"));
+            var thumbPixels = Pixels(window, thumb);
+            var marked = thumbPixels.Count(p => Contrast(p, back) >= 3) / (double)thumbPixels.Count;
+            Assert.True(marked >= 0.2, $"The scroll bar thumb is not readable on the box background {back} at {width}x{height}: {marked:P0} of its pixels have a contrast of 3 or more.");
+        }, width, height, () => new SiteHygienePageHarness
+        {
+            AuditLog = new FakeHygieneAudit([RunRecord(HygieneAuditLog.MaxObjectsPerRecord, 2), RunRecord(HygieneHistoryRow.DetailObjects, 1), RunRecord(2, 0)])
         });
     }
 

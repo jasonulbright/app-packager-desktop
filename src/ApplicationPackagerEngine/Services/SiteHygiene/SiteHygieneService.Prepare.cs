@@ -180,7 +180,9 @@ public sealed partial class SiteHygieneService
         if (HygieneFixKinds.IsDelete(kind))
         {
             lines.Add($"Delete {what}: {Verb(kind)}. A delete cannot be undone. There is no Undo.");
-            lines.Add("Before each delete the page reads the object again and skips it when the finding no longer holds or something references it now.");
+            lines.Add(kind == HygieneFixKind.RemoveCollection
+                ? "Before each delete the page reads the collection again and skips it when the finding no longer holds or when one of these uses the collection now: a deployment, a collection rule or setting, an automatic deployment rule, a client settings deployment or an administrative user."
+                : "Before each delete the page reads the object again and skips it when the finding no longer holds or something references it now.");
             if (kind is HygieneFixKind.RemoveApplication or HygieneFixKind.RemovePackage or HygieneFixKind.RemoveCollection or HygieneFixKind.RemoveBootImage or HygieneFixKind.RemoveDriverPackage or HygieneFixKind.RemoveAutoDeploymentRule)
                 lines.Add("The delete command reads the references again in the same call, immediately before the delete, and does not delete an object that is in use.");
         }
@@ -195,8 +197,6 @@ public sealed partial class SiteHygieneService
             lines.Add("Boot media, prestaged media and PXE images that were made from the boot image are not recorded on the site. Check that no media in use needs the boot image before you delete it.");
         if (kind == HygieneFixKind.RemoveDriverPackage)
             lines.Add("An Auto Apply Drivers step finds drivers in the driver catalog and gets their content from any driver package, without a task sequence reference. The page refuses the delete while a task sequence has an Auto Apply Drivers step.");
-        if (kind == HygieneFixKind.RemoveCollection)
-            lines.Add("Before each delete the page reads the deployments, collection rules and settings, automatic deployment rules, client settings deployments and administrative users that use the collection, and skips the collection when one of them exists.");
         if (kind == HygieneFixKind.RemoveMaintenanceWindow) lines.Add("The window is removed by its ID from the collection settings. Remove-CMMaintenanceWindow is not used: it removes every window whose name contains the name.");
         lines.Add("The run writes one object at a time and reads each one back. Cancel stops between objects: the object in work is finished, and the rest are skipped.");
         if (dropped.Count > 0) lines.Add($"{Count(dropped.Count, "finding")} {(dropped.Count == 1 ? "is" : "are")} left out.");

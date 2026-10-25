@@ -44,6 +44,26 @@
                 <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
             </Style>
 
+            <!-- The text box template of the control library holds no scroll bar: text below the box edge has no sign. This template shows a scroll bar whenever the text is taller than the box. -->
+            <Style x:Key="DetailBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="IsReadOnly" Value="True" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="TextAlignment" Value="Left" />
+                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+                <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" Focusable="False"
+                                              VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="ToolButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                 <Setter Property="Margin" Value="0,0,8,8" />
             </Style>
@@ -415,7 +435,8 @@
             <TabItem Header="History" AutomationProperties.AutomationId="tabHygieneHistory">
                 <ScrollViewer x:Name="scrollHistoryTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollHygieneHistoryTab">
-                    <Grid Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" MinHeight="380" KeyboardNavigation.TabNavigation="Local">
+                    <!-- MinHeight holds the intro in three lines, the filter row, the grid at its MinHeight and the detail box at its full height; below it the tab scrolls instead of cutting the detail box. -->
+                    <Grid Height="{Binding ViewportHeight, ElementName=scrollHistoryTab}" MinHeight="560" KeyboardNavigation.TabNavigation="Local">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -448,7 +469,7 @@
                         </DataGrid>
                         <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,8,0,0" Padding="12,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2"
                                 Visibility="{Binding HasHistoryDetails, Converter={StaticResource BoolToVisibility}}" AutomationProperties.AutomationId="pnlHygieneHistoryDetail">
-                            <TextBox Text="{Binding HistoryDetails, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" TextAlignment="Left" MaxHeight="96" VerticalScrollBarVisibility="Auto"
+                            <TextBox Text="{Binding HistoryDetails, Mode=OneWay}" Style="{StaticResource DetailBox}" MaxLines="{x:Static pages:HygieneHistoryRow.DetailLines}"
                                      AutomationProperties.Name="The selected audit record, read only" AutomationProperties.AutomationId="txtHygieneHistoryDetail" />
                         </Border>
                     </Grid>

@@ -71,7 +71,7 @@ public sealed class SiteHygieneFixGuardTests
         Assert.False(change.Blocked, string.Join(" ", change.Checks.Select(c => c.Message)));
         foreach (var cls in new[] { "SMS_CIAssignmentBaseClass", "SMS_AutoDeployment", "SMS_ClientSettingsAssignment", "SMS_Admin" })
             Assert.True(h.Site.Queries(cls) > 0, cls);
-        Assert.Contains(change.Impact, l => l.Contains("automatic deployment rules, client settings deployments and administrative users", StringComparison.Ordinal));
+        Assert.Contains(change.Impact, l => l.Contains("an automatic deployment rule, a client settings deployment or an administrative user", StringComparison.Ordinal));
 
         using var failed = new SiteHygieneHarness();
         failed.Site.Fail("query:SMS_Admin");
