@@ -22,6 +22,9 @@ internal static class RenderKit
 {
     public const double ReadableColumnWidth = 60;
 
+    /// <summary>The tooltip style App.xaml merges after the control library.</summary>
+    public const string ToolTipStyles = "pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/ToolTips.xaml";
+
     private sealed class BindingErrors : TraceListener
     {
         public List<string> Lines { get; } = [];
@@ -60,6 +63,7 @@ internal static class RenderKit
             {
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
+                application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ToolTipStyles, UriKind.Absolute) });
                 SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
                 test();
                 Assert.Empty(errors.Lines);

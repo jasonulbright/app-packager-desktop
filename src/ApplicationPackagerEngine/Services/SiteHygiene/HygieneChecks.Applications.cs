@@ -86,7 +86,7 @@ internal static partial class HygieneChecks
             if (model.Length == 0 || !old.TryGetValue(model, out var revisions) || revisions.Count == 0) continue;
             var text = string.Join(", ", revisions.Select(r => N(r)));
             yield return F("APP-05", "Application", model, app.S("LocalizedDisplayName"),
-                $"The application holds {N(revisions.Count)} old revision(s): {text}. Clients use the current revision only. The site keeps the definition of each old revision.",
+                $"The application holds {Count(revisions.Count, "old revision")}: {text}. Clients use the current revision only. The site keeps the definition of each old revision.",
                 "Delete the old revisions. Keep one only if you plan to restore it.",
                 HygieneFixKind.RemoveApplicationRevisionHistory,
                 Params((HygieneFixParameters.Id, app.S("CI_ID")), (HygieneFixParameters.ModelName, model), (HygieneFixParameters.Revisions, string.Join(",", revisions.Select(r => N(r))))));

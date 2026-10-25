@@ -658,7 +658,8 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
     /// <summary>
     /// One summary row. A cell with a check of its category and severity that did not run, for any reason
     /// including "not selected", shows "At least N", or "Not known" for zero, as the findings of that check
-    /// are missing; a zero there never means none.
+    /// are missing; a zero there never means none. The column of checks that did not run counts the same
+    /// checks, so a check that was not selected counts there too.
     /// </summary>
     private static SummaryCategoryRow Row(string name, List<FindingGridRow> rows, bool unknown, List<HygieneCheckStatus> missing)
     {
@@ -672,7 +673,7 @@ public sealed partial class SiteHygieneViewModel : ObservableObject
         return new SummaryCategoryRow(Category: name, Error: Cell(r => r.Finding.Severity == HygieneSeverity.Error, Missing(HygieneSeverity.Error)),
             Warning: Cell(r => r.Finding.Severity == HygieneSeverity.Warning, Missing(HygieneSeverity.Warning)),
             Info: Cell(r => r.Finding.Severity == HygieneSeverity.Info, Missing(HygieneSeverity.Info)), Total: Cell(_ => true, missing.Count > 0),
-            NotRun: SiteHygieneLabels.Number(missing.Count(SiteHygieneLabels.IsNotRun)));
+            NotRun: SiteHygieneLabels.Number(missing.Count));
     }
 
     partial void OnFindingTextChanged(string value) => Debounce(FindingsGrid, ApplyFindingFilter);

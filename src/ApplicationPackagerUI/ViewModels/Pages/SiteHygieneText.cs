@@ -14,12 +14,6 @@ public static class SiteHygieneText
     public const string NothingLeft =
         "No finding of the plan still holds: the objects changed since the scan. Nothing was changed. Scan again to see the current state.";
 
-    public const string DeleteNote =
-        "The objects are deleted one at a time, and each delete is read back. Before each delete the service checks again that the finding still holds and that nothing references the object; an object that changed is skipped.";
-
-    public const string ChangeNote =
-        "The settings are changed one object at a time, and each new value is read back. Before each change the service checks again that the finding still holds; an object that changed is skipped.";
-
     public const string BodyNote = "The PowerShell text shows what the page does. The page runs the typed fix, not this text.";
 
     public static string DeleteConfirmation(int count) =>
@@ -88,7 +82,6 @@ public static class SiteHygieneText
         notes.AddRange(prepared.Checks.Where(c => !IsPass(c)).Select(CheckLine));
         notes.AddRange(prepared.Impact);
         notes.AddRange(DroppedLines(prepared));
-        notes.Add(delete ? DeleteNote : ChangeNote);
         notes.AddRange(prepared.Checks.Where(IsPass).Select(CheckLine));
 
         string? body = null;

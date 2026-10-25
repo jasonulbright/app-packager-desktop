@@ -481,7 +481,8 @@ public sealed class SiteHygienePageTests
         Assert.Equal(2, plan.Plan.Items.Count);
         Assert.All(plan.Plan.Items, i => Assert.Equal(SiteHygieneLabels.FixLabel(kind), i.Action));
         Assert.Equal("Do-Thing -Id 16777800" + Environment.NewLine + "Do-Thing -Id 16777801", plan.Plan.Body);
-        Assert.Contains(delete ? SiteHygieneText.DeleteNote : SiteHygieneText.ChangeNote, plan.Plan.Notes);
+        // The service states the one-at-a-time rule in the impact lines; the page adds no second copy.
+        Assert.DoesNotContain(plan.Plan.Notes, n => n.Contains("one at a time", StringComparison.OrdinalIgnoreCase));
         Assert.NotEqual(kind.ToString(), SiteHygieneLabels.FixLabel(kind));
     }
 
@@ -902,7 +903,7 @@ public sealed class SiteHygienePageTests
         Assert.DoesNotContain("UPD-01", vm.NotRunText);
         Assert.Equal(("Not selected", "Not known"), (vm.CheckRows.Single(c => c.CheckId == "UPD-01").State, vm.CheckRows.Single(c => c.CheckId == "UPD-01").Findings));
         var updates = vm.CategoryRows.Single(r => r.Category == "Updates");
-        Assert.Equal(("Not known", "0"), (updates.Total, updates.NotRun));
+        Assert.Equal(("Not known", "2"), (updates.Total, updates.NotRun));
 
         await vm.ExportCsvCommand.ExecuteAsync(null);
         var report = h.Reports.Written[^1].Report;

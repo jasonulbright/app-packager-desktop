@@ -171,6 +171,12 @@ internal static partial class HygieneChecks
 
     internal static string N(long n) => n.ToString(CultureInfo.InvariantCulture);
 
+    /// <summary>The number and the noun that agrees with it: "1 client", "2 clients".</summary>
+    internal static string Count(long n, string singular, string? plural = null) => $"{N(n)} {(n == 1 ? singular : plural ?? singular + "s")}";
+
+    /// <summary>The verb that agrees with the number: "1 client runs", "2 clients run".</summary>
+    internal static string Verb(long n, string singular, string plural) => n == 1 ? singular : plural;
+
     internal static string Day(DateTime? t) => t is { } v ? v.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : "";
 
     internal static string Minute(DateTime? t) => t is { } v ? v.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : "";

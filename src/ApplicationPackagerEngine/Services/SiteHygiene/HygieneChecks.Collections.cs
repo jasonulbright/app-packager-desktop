@@ -95,7 +95,7 @@ internal static partial class HygieneChecks
         var incremental = c.Rows(Collections).Where(r => r.I("RefreshType") is 4 or 6).Select(r => r.S("Name")).ToList();
         if (incremental.Count <= ceiling) yield break;
         yield return F("COL-03", "Site", "Site", "Incremental evaluation load",
-            $"{N(incremental.Count)} collections use incremental evaluation; above the recommended ceiling of {N(ceiling)}, evaluation latency degrades site-wide. First 15 by name: {Sample(incremental)}",
+            $"{Count(incremental.Count, "collection")} {Verb(incremental.Count, "uses", "use")} incremental evaluation; above the recommended ceiling of {N(ceiling)}, evaluation latency degrades site-wide. First 15 by name: {Sample(incremental)}",
             "Switch rarely-changing collections to scheduled-only refresh until the count sits under the ceiling.",
             guidance: "Per collection: Set-CMCollection -CollectionId <CollectionID> -RefreshType Periodic");
     }
@@ -113,7 +113,7 @@ internal static partial class HygieneChecks
                 var id = row.S("CollectionID");
                 if (!slow.TryGetValue(id, out var entry)) { entry = (row.S("CollectionName"), 0, []); order.Add(id); }
                 var changes = row.L("MemberChanges");
-                var changeText = changes == 0 ? "no membership change" : $"{N(changes)} membership change(s)";
+                var changeText = changes == 0 ? "no membership change" : Count(changes, "membership change");
                 entry.Parts.Add($"last {kind} evaluation ran {(ms / 1000.0).ToString("N1", CultureInfo.InvariantCulture)}s with {changeText}");
                 slow[id] = (entry.Name, Math.Max(entry.Worst, ms), entry.Parts);
             }
@@ -149,7 +149,7 @@ internal static partial class HygieneChecks
                 direct = d.I("DirectRules"); query = d.I("QueryRules");
                 if (d.T("StartTime") is { } start) startHour = start.Hour;
             }
-            var freq = minute > 0 ? $"every {N(minute)} minute(s)" : hour > 0 ? $"every {N(hour)} hour(s)" : day > 0 ? $"every {N(day)} day(s)" : "on an unrecognized schedule";
+            var freq = minute > 0 ? $"every {Count(minute, "minute")}" : hour > 0 ? $"every {Count(hour, "hour")}" : day > 0 ? $"every {Count(day, "day")}" : "on an unrecognized schedule";
             if (refresh == 6 && (minute > 0 || hour > 0))
                 yield return F("COL-05", "Collection", id, col.S("Name"),
                     $"Incremental updates are enabled AND a full evaluation runs {freq}. A full update on an incremental collection is only a backup evaluation; running it sub-daily duplicates work the incremental cycle already does, and each full evaluation also evaluates every dependent collection.",
@@ -161,7 +161,7 @@ internal static partial class HygieneChecks
                 var limitIncremental = byId.TryGetValue(limitId, out var limiting) && limiting.I("RefreshType") is 4 or 6;
                 if (!limitIncremental)
                     yield return F("COL-06", "Collection", id, col.S("Name"),
-                        $"Membership is {N(direct)} direct rule(s) only and the limiting collection '{NameOf(limitId)}' is not incrementally updated. Direct membership never changes on its own, so the scheduled evaluation re-computes an identical result every cycle.",
+                        $"Membership is {Count(direct, "direct rule")} only and the limiting collection '{NameOf(limitId)}' is not incrementally updated. Direct membership never changes on its own, so the scheduled evaluation re-computes an identical result every cycle.",
                         "Disable the update schedule; direct-rule collections update when the rule changes.",
                         HygieneFixKind.SetCollectionRefreshType, Params((HygieneFixParameters.Id, id), (HygieneFixParameters.RefreshType, "Manual")));
             }
@@ -172,8 +172,8 @@ internal static partial class HygieneChecks
         {
             var hh = group.Key.ToString("00", CultureInfo.InvariantCulture);
             var names = string.Join(", ", group.Take(5).Select(s => $"'{s.Name}'"));
-            yield return F("COL-09", "Schedule", hh, $"{N(group.Count())} full updates starting at {hh}:00",
-                $"{N(group.Count())} collections schedule their full evaluation in the same start hour ({hh}:00), including {names}. Clustered full updates create an evaluation hot spot; spreading them out and preferring off-peak hours reduces contention.",
+            yield return F("COL-09", "Schedule", hh, $"{Count(group.Count(), "full update")} starting at {hh}:00",
+                $"{Count(group.Count(), "collection")} {Verb(group.Count(), "schedules its", "schedule their")} full evaluation in the same start hour ({hh}:00), including {names}. Clustered full updates create an evaluation hot spot; spreading them out and preferring off-peak hours reduces contention.",
                 "Stagger the full-update start times across off-peak hours.",
                 guidance: "Per collection: Set-CMCollection -CollectionId <ID> -RefreshSchedule (New-CMSchedule -Start <off-peak time> -RecurInterval Days -RecurCount 1)");
         }
@@ -194,7 +194,7 @@ internal static partial class HygieneChecks
             var d = depth.TryGetValue(id, out var v) ? v : 0;
             if (d <= max) continue;
             yield return F("COL-07", "Collection", id, col.S("Name"),
-                $"Include/exclude references chain {N(d)} levels deep (threshold {N(max)}). Every referenced collection is evaluated to build this membership, and a change anywhere in the chain re-evaluates the whole branch.",
+                $"Include/exclude references chain {Count(d, "level")} deep (threshold {N(max)}). Every referenced collection is evaluated to build this membership, and a change anywhere in the chain re-evaluates the whole branch.",
                 "Flatten the chain: replace nested include/exclude rules with a WQL query rule using a ResourceId subselect against the target collection.",
                 guidance: $"Replace include/exclude rules on '{col.S("Name")}' with a query rule, for example: select * from SMS_R_System where SMS_R_System.ResourceId in (select ResourceID from SMS_CM_RES_COLL_<CollectionID>)");
         }
@@ -367,13 +367,13 @@ internal static partial class HygieneChecks
                 var pct = Math.Round(d.I("NumberErrors") * 100.0 / targeted, 1);
                 if (pct >= pctThreshold)
                     yield return F("DPL-02", "Deployment", key, name,
-                        $"Required deployment passed its deadline {Minute(deadline)} (over {N(grace)} days ago) with {N(d.I("NumberErrors"))} of {N(targeted)} targeted clients in error ({pct.ToString("0.#", CultureInfo.InvariantCulture)}%).",
+                        $"Required deployment passed its deadline {Minute(deadline)} (over {Count(grace, "day")} ago) with {N(d.I("NumberErrors"))} of {Count(targeted, "targeted client")} in error ({pct.ToString("0.#", CultureInfo.InvariantCulture)}%).",
                         "Investigate the client errors; a deployment stuck past deadline at this failure rate needs a fix or retirement, not more time.",
                         guidance: $"Triage first: the deployment status of '{d.S("SoftwareName")}' on collection '{d.S("CollectionName")}' in the console or with Get-CMDeployment.");
             }
             if (intent == 2 && d.T("CreationTime") is { } created && created <= createdCutoff && targeted > 0 && d.I("NumberSuccess") + d.I("NumberInProgress") == 0)
                 yield return F("DPL-03", "Deployment", key, name,
-                    $"Available deployment created {Minute(created)} (over {N(minAge)} days ago) targets {N(targeted)} clients with zero installs and nothing in progress.",
+                    $"Available deployment created {Minute(created)} (over {Count(minAge, "day")} ago) targets {Count(targeted, "client")} with zero installs and nothing in progress.",
                     "Nobody is opting in; remove the deployment or rethink how it is offered.",
                     guidance: $"Review: the deployment of '{d.S("SoftwareName")}' to '{d.S("CollectionName")}'.");
             if (intent == 1)

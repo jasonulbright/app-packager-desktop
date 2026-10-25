@@ -45,9 +45,12 @@ public sealed class SiteHygienePageCountTests
         var collections = vm.CategoryRows.Single(r => r.Category == "Collections");
         // COL-10 (Info) was not selected; COL-01 (Info) and COL-05 (Warning) ran and found one each; COL-08 (Error) ran and found none.
         Assert.Equal(("0", "1", "At least 1", "At least 2"), (collections.Error, collections.Warning, collections.Info, collections.Total));
-        Assert.Equal("0", collections.NotRun);
+        // COL-10 was not selected, so the column of checks that did not run counts it, as the Info cell does.
+        Assert.Equal("1", collections.NotRun);
         var devices = vm.CategoryRows.Single(r => r.Category == "Devices");
         Assert.Equal(("Not known", "Not known", "Not known", "Not known"), (devices.Error, devices.Warning, devices.Info, devices.Total));
+        Assert.Equal(SiteHygieneLabels.Number(HygieneCatalog.Checks.Count(c => c.Category == "Devices")), devices.NotRun);
+        Assert.Equal(SiteHygieneLabels.Number(h.Service.Checks.Count(c => c.State != HygieneCheckStates.Ran)), all.NotRun);
         Assert.StartsWith("at least 1 error, at least 3 warnings, at least 1 info. ", vm.SummaryLine);
     }
 

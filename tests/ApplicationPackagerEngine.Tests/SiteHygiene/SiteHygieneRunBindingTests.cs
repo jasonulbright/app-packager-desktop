@@ -306,6 +306,8 @@ public sealed class SiteHygieneRunBindingTests
         Assert.Equal("Partial", finished.Result);
         Assert.Equal(change.Targets.Select((t, i) => i == 0 ? HygieneResults.Done : HygieneResults.Skipped), finished.Objects.Select(o => o.Result));
         Assert.Equal(change.Targets.Select(t => t.ObjectKey), finished.Objects.Select(o => o.ObjectKey));
+        // The message counts objects, not findings: one finding is Partial, but its objects are Done and Skipped.
+        Assert.Equal($"{change.Targets.Count} objects: 1 done, 0 failed, {change.Targets.Count - 1} skipped.", finished.Message);
     }
 
     [Fact]
@@ -326,6 +328,8 @@ public sealed class SiteHygieneRunBindingTests
         var finished = h.Audit.Read(10).Last();
         Assert.Equal("Partial", finished.Result);
         Assert.Equal([("Deployment", HygieneResults.Done), ("Deployment", HygieneResults.Failed)], finished.Objects.Select(o => (o.ObjectType, o.Result)));
+        Assert.Equal("2 objects: 1 done, 1 failed.", finished.Message);
+        Assert.Contains("2 objects: 1 done, 1 failed.", new ApplicationPackagerUI.ViewModels.Pages.HygieneHistoryRow(finished).Details);
     }
 
     // ---- 5: a Finished record that cannot be written ------------------------------------------

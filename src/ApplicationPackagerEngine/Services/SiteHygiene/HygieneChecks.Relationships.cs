@@ -20,7 +20,7 @@ internal static partial class HygieneChecks
             Gate = c => c.ProbeResults is null
                 ? null
                 : c.ProbeResults.Values.Any(v => v == HygieneProbe.NotProbed)
-                    ? $"The check did not run: the site holds {N(c.ProbeResults.Count)} content source paths and one scan probes at most {N(SiteHygieneService.MaxProbePaths)}."
+                    ? $"The check did not run: the site holds {Count(c.ProbeResults.Count, "content source path")} and one scan probes at most {N(SiteHygieneService.MaxProbePaths)}."
                     : null
         });
     }

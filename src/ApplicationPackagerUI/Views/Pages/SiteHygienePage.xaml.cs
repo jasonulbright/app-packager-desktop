@@ -140,13 +140,17 @@ public partial class SiteHygienePage : INavigationAware
 
     /// <summary>
     /// The keyboard focus goes to the selected row of the findings grid, or to its first row when no row of
-    /// the selection is left; a closed modal window otherwise leaves it on the tab scroll area.
+    /// the selection is left. With no row left it goes to Run fix, or to the findings filter when Run fix is
+    /// disabled; a closed modal window otherwise leaves it on the tab scroll area.
     /// </summary>
     private void FocusFindings()
     {
         if (!dgFindings.IsVisible) return;
         var row = _viewModel.SelectedFindings.LastOrDefault(r => dgFindings.Items.Contains(r));
-        if (row is null || !Helpers.DataGridFocus.FocusItemCell(dgFindings, row)) Helpers.DataGridFocus.FocusFirstCell(dgFindings);
+        if (row is not null && Helpers.DataGridFocus.FocusItemCell(dgFindings, row)) return;
+        if (dgFindings.Items.Count > 0 && Helpers.DataGridFocus.FocusFirstCell(dgFindings)) return;
+        if (btnHygieneRunFix.IsEnabled && btnHygieneRunFix.Focus()) return;
+        txtFindingFilter.Focus();
     }
 
     private void OnFindingsSelectionChanged(object sender, SelectionChangedEventArgs e)

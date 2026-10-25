@@ -42,12 +42,12 @@ internal static partial class HygieneChecks
             var id = r.S("PackageID");
             if (r.I("NumberErrors") > 0)
                 yield return F("CNT-01", ContentType(r), id, name,
-                    $"Distribution failed on {N(r.I("NumberErrors"))} of {N(r.I("Targeted"))} targeted distribution point(s) ({N(r.I("NumberSuccess"))} succeeded, {N(r.I("NumberInProgress"))} in progress). Clients in the boundaries those distribution points serve fall back to another source or fail with content not found.",
+                    $"Distribution failed on {N(r.I("NumberErrors"))} of {Count(r.I("Targeted"), "targeted distribution point")} ({N(r.I("NumberSuccess"))} succeeded, {N(r.I("NumberInProgress"))} in progress). Clients in the boundaries those distribution points serve fall back to another source or fail with content not found.",
                     "Review the failed distribution points under Monitoring > Distribution Status > Content Status, fix the cause, then redistribute.",
                     guidance: $"Console: Monitoring > Distribution Status > Content Status > '{name}' ({id}) > View Status > Error > Redistribute");
             else if (r.I("NumberInProgress") > 0 && r.T("LastUpdateDate") is { } updated && updated < cutoff)
                 yield return F("CNT-02", ContentType(r), id, name,
-                    $"Distribution is still in progress on {N(r.I("NumberInProgress"))} of {N(r.I("Targeted"))} targeted distribution point(s), and the content was last updated {Day(updated)}, more than {N(stuckDays)} day(s) ago. A transfer that old is usually stalled, not slow.",
+                    $"Distribution is still in progress on {N(r.I("NumberInProgress"))} of {Count(r.I("Targeted"), "targeted distribution point")}, and the content was last updated {Day(updated)}, more than {Count(stuckDays, "day")} ago. A transfer that old is usually stalled, not slow.",
                     "Check the in-progress distribution points for a stalled transfer or an offline server; cancel and redistribute if nothing is moving.",
                     guidance: $"Console: Monitoring > Distribution Status > Content Status > '{name}' ({id}) > View Status > In Progress");
         }
@@ -63,7 +63,7 @@ internal static partial class HygieneChecks
             yield return F("CNT-03", ContentType(r), r.S("PackageID"), r.S("SoftwareName"),
                 "This content has an active deployment and source files, but it is targeted to no distribution point. Every client that tries to install it fails to locate content.",
                 "Distribute the content to the distribution point groups that serve the deployment's collection.",
-                guidance: $"Console: Software Library > '{r.S("SoftwareName")}' > Distribute Content - choose the distribution point group(s) for the targeted clients");
+                guidance: $"Console: Software Library > '{r.S("SoftwareName")}' > Distribute Content - choose one or more distribution point groups for the targeted clients");
         }
     }
 
@@ -90,7 +90,7 @@ internal static partial class HygieneChecks
             var id = d.S("ResourceID");
             if (heartbeats.TryGetValue(id, out var heartbeat) && heartbeat >= cutoff) continue;
             yield return F("DEV-01", "Device", id, d.S("Name"),
-                $"The client was last active {Day(last)}, more than {N(days)} days ago; {note}.",
+                $"The client was last active {Day(last)}, more than {Count(days, "day")} ago; {note}.",
                 "Verify the machines are really gone, then let cleanup tasks purge them or delete the records.",
                 HygieneFixKind.RemoveDevice, Params((HygieneFixParameters.Id, id), (HygieneFixParameters.Days, N(days))), severity: severity);
         }
@@ -106,7 +106,7 @@ internal static partial class HygieneChecks
             var first = group.First().S("Name");
             var ids = string.Join(", ", group.Select(d => d.L("ResourceID")).Order().Select(N));
             yield return F("DEV-02", "Device", ids, first,
-                $"{N(group.Count())} device records share the name '{first}' (ResourceIDs {ids}); deployments and reports split across them.",
+                $"{Count(group.Count(), "device record")} share the name '{first}' (ResourceIDs {ids}); deployments and reports split across them.",
                 "Keep the active record and delete the stale duplicates.",
                 guidance: $"Review each: Get-CMDevice -Name '{PowerShellLiteral.EscapeSingleQuoted(first)}' | Select-Object ResourceID, LastActiveTime, ClientVersion");
         }
@@ -116,7 +116,7 @@ internal static partial class HygieneChecks
             var names = group.Select(d => d.S("Name")).Distinct().ToList();
             if (names.Count < 2) continue;
             yield return F("DEV-02", "Device", group.Key, string.Join(" / ", names),
-                $"{N(group.Count())} device records with different names share SMBIOS GUID {group.Key}: {string.Join(", ", names)}. Usually a renamed or re-imaged machine leaving a stale record.",
+                $"{Count(group.Count(), "device record")} with different names share SMBIOS GUID {group.Key}: {string.Join(", ", names)}. Usually a renamed or re-imaged machine leaving a stale record.",
                 "Delete the record for the name the machine no longer uses.",
                 guidance: "Review the LastActiveTime of each record before deleting.");
         }
@@ -130,7 +130,7 @@ internal static partial class HygieneChecks
         var newestText = parsed.Where(p => p.Version == newest).Select(p => p.Row.S("ClientVersion").Trim()).Order(StringComparer.Ordinal).First();
         var sample = string.Join(", ", behind.OrderBy(p => p.Row.S("Name"), StringComparer.OrdinalIgnoreCase).Take(15).Select(p => $"{p.Row.S("Name")} ({p.Row.S("ClientVersion")})"));
         yield return F("DEV-03", "Site", "Site", "Client version drift",
-            $"{N(behind.Count)} of {N(clients.Count)} clients run a client version below the newest seen ({newestText}). First 15: {sample}",
+            $"{N(behind.Count)} of {Count(clients.Count, "client")} {Verb(behind.Count, "runs", "run")} a client version below the newest seen ({newestText}). First 15: {sample}",
             "Check automatic client upgrade settings; long-tail old clients usually mean the upgrade never reaches them.",
             guidance: "Console: Administration > Site Configuration > Sites > Hierarchy Settings > Client Upgrade");
     }
@@ -205,7 +205,7 @@ internal static partial class HygieneChecks
             var missing = (refs.TryGetValue(ts.S("PackageID"), out var l) ? l : []).Where(r => !known.Contains(r)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if (missing.Count == 0) continue;
             yield return F("TSQ-01", "TaskSequence", ts.S("PackageID"), ts.S("Name"),
-                $"Task sequence references {N(missing.Count)} content id(s) that no longer exist: {string.Join(", ", missing)}. Runs fail at those steps.",
+                $"Task sequence references {Count(missing.Count, "content ID")} that no longer {Verb(missing.Count, "exists", "exist")}: {string.Join(", ", missing)}. Runs fail at those steps.",
                 "Open the task sequence editor and fix or remove the steps referencing deleted content.",
                 guidance: $"Console: edit task sequence '{ts.S("Name")}' and repair the broken references");
         }
@@ -301,13 +301,13 @@ internal static partial class HygieneChecks
                 var pct = Math.Round(g.I("NumberOfExpiredUpdates") * 100.0 / total, 1);
                 if (pct >= pctThreshold)
                     yield return F("UPD-01", "UpdateGroup", g.S("CI_ID"), g.S("LocalizedDisplayName"),
-                        $"{N(g.I("NumberOfExpiredUpdates"))} of {N(total)} updates in the group are expired ({pct.ToString("0.#", CultureInfo.InvariantCulture)}%); compliance numbers computed from it are misleading.{(g.B("ContainsSupersededUpdates") ? " The group also contains superseded updates." : "")}",
+                        $"{N(g.I("NumberOfExpiredUpdates"))} of {Count(total, "update")} in the group {Verb(g.I("NumberOfExpiredUpdates"), "is", "are")} expired ({pct.ToString("0.#", CultureInfo.InvariantCulture)}%); compliance numbers computed from it are misleading.{(g.B("ContainsSupersededUpdates") ? " The group also contains superseded updates." : "")}",
                         "Clean the expired/superseded updates out of the group or rebuild it from a current search.",
                         guidance: $"Console: Software Library > Software Update Groups > '{g.S("LocalizedDisplayName")}' - remove expired/superseded members");
             }
             if (total > max)
                 yield return F("UPD-04", "UpdateGroup", g.S("CI_ID"), g.S("LocalizedDisplayName"),
-                    $"The group holds {N(total)} updates; a software update deployment supports at most {N(max)}. A deployment of this group fails or cannot be created.",
+                    $"The group holds {Count(total, "update")}; a software update deployment supports at most {N(max)}. A deployment of this group fails or cannot be created.",
                     "Split the group, for example by year or product, and remove expired and superseded members.",
                     guidance: $"Console: Software Library > Software Update Groups > '{g.S("LocalizedDisplayName")}' - split the membership");
         }
@@ -334,7 +334,7 @@ internal static partial class HygieneChecks
                     HygieneFixKind.RemoveAutoDeploymentRule, Params((HygieneFixParameters.Id, id)), severity: HygieneSeverity.Info);
             else if (a.T("LastRunTime") is { } last && last < cutoff)
                 yield return F("UPD-03", "ADR", id, name,
-                    $"Automatic deployment rule is enabled but last ran {Minute(last)} (over {N(staleDays)} days ago); its schedule may be broken.",
+                    $"Automatic deployment rule is enabled but last ran {Minute(last)} (over {Count(staleDays, "day")} ago); its schedule may be broken.",
                     "Check the ADR schedule and the last evaluation in ruleengine.log.",
                     HygieneFixKind.RunAutoDeploymentRule, Params((HygieneFixParameters.Id, id), (HygieneFixParameters.Days, N(staleDays))), severity: HygieneSeverity.Warning);
         }
@@ -358,7 +358,7 @@ internal static partial class HygieneChecks
         {
             var name = names.TryGetValue(pkg, out var n) ? n : pkg;
             yield return F("UPD-05", "UpdatePackage", pkg, name,
-                $"{N(count)} of {N(totals[pkg])} content item(s) in the package belong to expired updates. The files stay in the package source and on every distribution point that holds the package.",
+                $"{N(count)} of {Count(totals[pkg], "content item")} in the package {Verb(count, "belongs", "belong")} to expired updates. The files stay in the package source and on every distribution point that holds the package.",
                 "Remove the expired updates from the package, or let the site remove them: expired updates leave packages only when no deployment references them.",
                 guidance: $"Console: Software Library > Deployment Packages > '{name}' > Show Members - remove expired updates, then refresh distribution points");
         }
@@ -395,12 +395,12 @@ internal static partial class HygieneChecks
             var name = dp.S("Name").TrimStart('\\');
             yield return F("DPT-01", "DistributionPoint", nal, name,
                 "The distribution point is a site system of no boundary group. Clients select content sources through boundary groups, so no client selects this server except through the default site boundary group fallback.",
-                "Add the distribution point to the boundary group(s) for the locations it serves, or remove the role if the server is retired.",
+                "Add the distribution point to one or more boundary groups for the locations it serves, or remove the role if the server is retired.",
                 guidance: $"Set-CMBoundaryGroup -Name '<boundary group>' -AddSiteSystemServerName '{PowerShellLiteral.EscapeSingleQuoted(name)}'");
         }
         foreach (var g in c.Rows(DistributionPointGroups).Where(g => g.I("MembersCount", -1) == 0))
             yield return F("DPT-02", "DistributionPointGroup", g.S("GroupID"), g.S("Name"),
-                $"The distribution point group has no members and {N(g.I("AssignedContentCount"))} content item(s) assigned. Content distributed to it reaches no server.",
+                $"The distribution point group has no members and {Count(g.I("AssignedContentCount"), "content item")} assigned. Content distributed to it reaches no server.",
                 "Add the intended distribution points, or delete the group.",
                 guidance: $"Review: Get-CMDistributionPointGroup -Name '{PowerShellLiteral.EscapeSingleQuoted(g.S("Name"))}'");
     }

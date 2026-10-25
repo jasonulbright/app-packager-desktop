@@ -175,7 +175,7 @@ public sealed class SiteHygieneOtherCheckTests
         var (findings, _) = SiteHygieneParity.Native(read, "Updates", "UpdateContent", "Drivers", "Security", "DistributionPoints");
         Assert.Contains("50%", Assert.Single(findings, f => f.CheckId == "UPD-01").Evidence);
         Assert.Equal("2", Assert.Single(findings, f => f.CheckId == "UPD-04").ObjectKey);
-        Assert.Contains("1 of 2 content item(s)", Assert.Single(findings, f => f.CheckId == "UPD-05").Evidence);
+        Assert.Contains("1 of 2 content items in the package belongs to expired updates.", Assert.Single(findings, f => f.CheckId == "UPD-05").Evidence);
         Assert.Equal("90", Assert.Single(findings, f => f.CheckId == "DRV-01").ObjectKey);
         Assert.Contains("Full Administrator, Read-only Analyst", Assert.Single(findings, f => f.CheckId == "SEC-01").Evidence);
         Assert.Equal("DP1", Assert.Single(findings, f => f.CheckId == "DPT-01").ObjectName);

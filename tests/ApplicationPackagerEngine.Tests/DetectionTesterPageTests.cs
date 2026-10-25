@@ -64,6 +64,7 @@ public sealed class DetectionTesterPageTests
             {
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
+                application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ApplicationPackagerEngine.Tests.Compliance.RenderKit.ToolTipStyles, UriKind.Absolute) });
                 var harness = new DetectionTesterHarness();
                 harness.Applications.Applications.Add(new InstalledApplication("7-Zip", "Igor Pavlov", "24.09", "20261001", "HKLM 64-bit",
                     @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\7-Zip", "u.exe", "u.exe /S", @"C:\Program Files\7-Zip"));

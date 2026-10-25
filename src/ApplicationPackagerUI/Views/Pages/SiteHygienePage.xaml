@@ -189,7 +189,7 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <WrapPanel Grid.Row="0" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="0">
-                            <ui:TextBox Text="{Binding FindingText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object, evidence or action" Icon="{ui:SymbolIcon Search24}"
+                            <ui:TextBox x:Name="txtFindingFilter" Text="{Binding FindingText, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by check, object, evidence or action" Icon="{ui:SymbolIcon Search24}"
                                         MinWidth="300" Margin="0,0,8,8" AutomationProperties.Name="Finding filter" AutomationProperties.AutomationId="txtFindingFilter" />
                             <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding CategoryFilter}" MinWidth="190" Margin="0,0,8,8"
                                       AutomationProperties.Name="Category" AutomationProperties.AutomationId="cboFindingCategory" />
@@ -201,7 +201,7 @@
                         </WrapPanel>
                         <!-- The actions come after the grid in Tab order, so they are next to the findings the operator picked. -->
                         <WrapPanel Grid.Row="1" Margin="0,0,0,4" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
-                            <ui:Button Content="Run fix" Icon="{ui:SymbolIcon Wrench24}" Command="{Binding RunFixCommand}" Style="{StaticResource ToolButton}"
+                            <ui:Button x:Name="btnHygieneRunFix" Content="Run fix" Icon="{ui:SymbolIcon Wrench24}" Command="{Binding RunFixCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Checks the selected findings again on the site, then shows the plan of their fix." AutomationProperties.AutomationId="btnHygieneRunFix" />
                             <ui:Button Content="Suppress" Icon="{ui:SymbolIcon EyeOff24}" Command="{Binding SuppressCommand}" Style="{StaticResource ToolButton}"
                                        ToolTip="Hides the selected findings with a comment. A suppression is kept by check and object." AutomationProperties.AutomationId="btnHygieneSuppress" />
@@ -297,7 +297,7 @@
                             </TabItem>
                             <TabItem Header="Tree" AutomationProperties.AutomationId="tabRelationsTree">
                                 <TreeView x:Name="treeRelations" Margin="0,8,0,0" ItemsSource="{Binding TreeRoots}" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                                          ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.AutomationId="treeRelations" AutomationProperties.Name="Relationship chains">
+                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.AutomationId="treeRelations" AutomationProperties.Name="Relationship chains">
                                     <TreeView.ItemContainerStyle>
                                         <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                                             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
@@ -307,7 +307,7 @@
                                     </TreeView.ItemContainerStyle>
                                     <TreeView.ItemTemplate>
                                         <HierarchicalDataTemplate DataType="{x:Type pages:RelationTreeNode}" ItemsSource="{Binding Children}">
-                                            <TextBlock Text="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                            <TextBlock Text="{Binding Text}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" />
                                         </HierarchicalDataTemplate>
                                     </TreeView.ItemTemplate>
                                 </TreeView>

@@ -140,7 +140,8 @@ public sealed partial class SiteHygieneService
         var partial = results.Count(r => r.Result == HygieneResults.Partial);
         var attempted = results.Count(r => r.Result != HygieneResults.Skipped);
         var resultText = done == results.Count ? "Succeeded" : done + partial > 0 ? "Partial" : attempted > 0 ? "Failed" : "Skipped";
-        var finished = WriteFinished(audit, prepared, change.Kind, runId, resultText, results.SelectMany(AuditObjects).ToList(), Summary(results) + ".");
+        var auditObjects = results.SelectMany(AuditObjects).ToList();
+        var finished = WriteFinished(audit, prepared, change.Kind, runId, resultText, auditObjects, ObjectSummary(auditObjects) + ".");
         state.Finished = true;
         _log?.Info(LogArea, $"{change.Kind}: {Summary(results)}.");
         var message = attempted == 0
@@ -201,6 +202,16 @@ public sealed partial class SiteHygieneService
             .Where(p => p.Count > 0 || p.Name is HygieneResults.Done or HygieneResults.Failed)
             .Select(p => $"{N(p.Count)} {p.Name.ToLowerInvariant()}");
         return string.Join(", ", parts);
+    }
+
+    /// <summary>The count of the objects of a run and of each object result, for example "4 objects: 3 done, 0 failed, 1 skipped".</summary>
+    internal static string ObjectSummary(IReadOnlyList<HygieneAuditObject> objects)
+    {
+        var parts = new[] { HygieneResults.Done, HygieneResults.Unchanged, HygieneResults.Failed, HygieneResults.Skipped }
+            .Select(r => (Name: r, Count: objects.Count(o => string.Equals(o.Result, r, StringComparison.OrdinalIgnoreCase))))
+            .Where(p => p.Count > 0 || p.Name is HygieneResults.Done or HygieneResults.Failed)
+            .Select(p => $"{N(p.Count)} {p.Name.ToLowerInvariant()}");
+        return $"{Count(objects.Count, "object")}: {string.Join(", ", parts)}";
     }
 
     private static HygieneAuditObject AuditObject(HygieneFinding f, HygieneTarget? t, string result) =>

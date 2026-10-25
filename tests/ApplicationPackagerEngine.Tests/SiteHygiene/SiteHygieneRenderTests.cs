@@ -34,6 +34,8 @@ public sealed class SiteHygieneRenderTests
     /// <summary>A value must fit its column with this much room: a lab window cut a value the test measured as just fitting.</summary>
     private const double Room = 1.1;
 
+    private const string ToolTipStylesSource = "/ApplicationPackagerUI;component/Views/Styles/ToolTips.xaml";
+
     private static readonly (int Tab, string Grid)[] AllGrids =
     [
         (VM.FindingsTab, "dgFindings"), (VM.RelationsTab, "dgEdges"), (VM.SummaryTab, "dgCategories"), (VM.SummaryTab, "dgChecks"), (VM.FindingsTab, "dgHygieneResults"),
@@ -661,6 +663,115 @@ public sealed class SiteHygieneRenderTests
             Assert.Same(row, Ancestor<DataGridRow>(focused)!.Item);
             Assert.Equal([row.Key], viewModel.SelectedFindings.Select(r => r.Key));
         });
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheFocusGoesToTheFindingFilterWhenAFixRemovesTheLastRowOfTheView(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Run(viewModel.ScanAsync());
+            viewModel.FindingText = harness.EmptyCollection.ObjectName;
+            viewModel.FlushFilters();
+            Settle(window);
+            var row = Assert.Single(viewModel.FindingRows);
+            viewModel.SetSelectedFindings([row]);
+            Settle(window);
+            Assert.True(Keyboard.Focus(ById<UIElement>(page, "btnHygieneRunFix")) is not null);
+            Run(viewModel.RunFixCommand.ExecuteAsync(null));
+            Settle(window);
+            Assert.Single(harness.Plans.Shown);
+            Assert.Empty(viewModel.FindingRows);
+            Assert.False(viewModel.RunFixCommand.CanExecute(null));
+            Assert.Equal("txtFindingFilter", FocusedId());
+        }, harness: () => new SiteHygienePageHarness());
+    }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void TheToolTipOfATrimmedCellIsLeftAlignedNotJustified(ApplicationTheme theme)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Run(viewModel.ScanAsync());
+            Settle(window);
+            var cell = Descendants(ById<DataGrid>(page, "dgFindings")).OfType<TextBlock>()
+                .First(t => t.TextTrimming == TextTrimming.CharacterEllipsis && t.ToolTip is string { Length: > 0 } && Ancestor<DataGridCell>(t) is not null);
+            var tip = new System.Windows.Controls.ToolTip { Content = cell.ToolTip, PlacementTarget = cell };
+            tip.IsOpen = true;
+            Settle(window);
+            try
+            {
+                var texts = Descendants(tip).OfType<TextBlock>().Where(t => t.Text.Length > 0).ToList();
+                Assert.NotEmpty(texts);
+                Assert.All(texts, t => Assert.Equal(TextAlignment.Left, t.TextAlignment));
+            }
+            finally { tip.IsOpen = false; }
+        });
+    }
+
+    [Fact]
+    public void TheApplicationMergesTheToolTipStyleAfterTheControlLibrary()
+    {
+        var folder = new DirectoryInfo(AppContext.BaseDirectory);
+        while (folder is not null && !Directory.Exists(Path.Combine(folder.FullName, "src", "ApplicationPackagerUI"))) folder = folder.Parent;
+        var app = File.ReadAllText(Path.Combine(folder!.FullName, "src", "ApplicationPackagerUI", "App.xaml"));
+        var controls = app.IndexOf("<ui:ControlsDictionary", StringComparison.Ordinal);
+        var tips = app.IndexOf(ToolTipStylesSource, StringComparison.Ordinal);
+        Assert.True(controls >= 0 && tips > controls, "App.xaml does not merge the tooltip style after the control dictionary.");
+    }
+
+    public static TheoryData<ApplicationTheme, double, double> TreeSizes() => new()
+    {
+        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - 48 },
+        { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - 48 },
+        { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - 48 },
+        { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - 48 }
+    };
+
+    [Theory]
+    [MemberData(nameof(TreeSizes))]
+    public void TheTreeKeepsLongTextInsideTheWindowAndTrimsItWithATooltip(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, (window, page, viewModel, harness) =>
+        {
+            Run(viewModel.LoadRelationsAsync());
+            ShowTab(window, viewModel, VM.RelationsTab);
+            viewModel.RelationsTabIndex = VM.TreeTab;
+            Settle(window);
+            foreach (var root in viewModel.TreeRoots.Take(3))
+            {
+                root.IsExpanded = true;
+                foreach (var chain in root.Children.Take(3)) chain.IsExpanded = true;
+            }
+            Settle(window);
+            var tree = ById<System.Windows.Controls.TreeView>(page, "treeRelations");
+            var treeBounds = tree.TransformToAncestor(window).TransformBounds(new Rect(tree.RenderSize));
+            Assert.True(treeBounds.Right <= window.ActualWidth + 0.5, $"The tree ends at {treeBounds.Right:0} px in a {window.ActualWidth:0} px window.");
+            var texts = Descendants(tree).OfType<TextBlock>().Where(t => t.IsVisible && t.DataContext is RelationTreeNode node && t.Text == node.Text).ToList();
+            Assert.True(texts.Count >= 3, $"The tree shows {texts.Count} items.");
+            var outside = texts.Select(t => (t.Text, Right: t.TransformToAncestor(window).TransformBounds(new Rect(t.RenderSize)).Right)).Where(t => t.Right > treeBounds.Right + 0.5)
+                .Select(t => $"\"{t.Text}\" ends at {t.Right:0} px").ToList();
+            Assert.True(outside.Count == 0, $"The tree ends at {treeBounds.Right:0} px at {width}x{height}: " + string.Join("; ", outside));
+            var trimmed = 0;
+            foreach (var text in texts)
+            {
+                Assert.Equal(TextTrimming.CharacterEllipsis, text.TextTrimming);
+                Assert.Equal(text.Text, text.ToolTip);
+                var needed = new FormattedText(text.Text, System.Globalization.CultureInfo.CurrentCulture, System.Windows.FlowDirection.LeftToRight,
+                    new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch), text.FontSize, System.Windows.Media.Brushes.Black,
+                    VisualTreeHelper.GetDpi(text).PixelsPerDip).WidthIncludingTrailingWhitespace;
+                if (needed > text.ActualWidth + 0.5) trimmed++;
+            }
+            if (width < 1000) Assert.True(trimmed > 0, "No item text is trimmed at 900 px, so the test does not show the trim.");
+        }, width, height);
     }
 
     [Theory]

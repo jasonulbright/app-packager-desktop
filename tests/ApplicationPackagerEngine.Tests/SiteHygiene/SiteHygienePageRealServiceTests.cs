@@ -128,6 +128,21 @@ public sealed class SiteHygienePageRealServiceTests
         Assert.DoesNotContain(p.Log.Entries, e => e.Message.Contains("SHL-", StringComparison.Ordinal) || e.Message.Contains(EmptyPackage, StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(HygieneFixKind.RemovePackage)]
+    [InlineData(HygieneFixKind.SetCollectionRefreshType)]
+    public async Task ThePlanNotesStateTheOneAtATimeAndReadBackRuleOnce(HygieneFixKind kind)
+    {
+        using var p = new SiteHygieneRealPage();
+        var finding = kind == HygieneFixKind.RemovePackage ? Package(EmptyPackage) : Finding(f => f.FixKind == kind);
+        var plan = await PlanAsync(p, kind, finding);
+        var notes = plan.Plan.Notes;
+        Assert.Single(notes, n => n.Contains("one at a time", StringComparison.OrdinalIgnoreCase) || n.Contains("one object at a time", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(notes, n => n.Contains("read back", StringComparison.OrdinalIgnoreCase) || n.Contains("reads each one back", StringComparison.OrdinalIgnoreCase));
+        var before = SiteHygieneLabels.IsDelete(kind) ? "Before each delete the page reads the object again" : "Before each change the page reads the object again";
+        Assert.Single(notes, n => n.Contains(before, StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task APlanWithoutTheSecondBoxReachesTheRealServiceUnconfirmedAndEveryObjectIsSkippedWithAPlainMessage()
     {
