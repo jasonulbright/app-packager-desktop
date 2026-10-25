@@ -11,7 +11,8 @@ namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 /// and the full schedule, Get-CMApplication with the AutoInstall setting in SDMPackageXML, the collection
 /// settings instance with Get(), ServiceWindows and Put(), and the write cmdlets of the typed fixes. Each
 /// write logs "Cmd:" plus the command as the plan text writes it and changes the state the way CM01 did
-/// in the qualification: Remove-CMApplication refuses an application with a deployment or a dependent,
+/// in the qualification: Remove-CMApplication refuses an application with a deployment, a dependent, a
+/// NumberOfDependentTS above zero or a task sequence whose References name it,
 /// Remove-CMCollection refuses a collection another one includes, Remove-CMApplicationRevisionHistory
 /// refuses the latest revision, Set-CMApplication makes a new revision. Times in the state are UTC text.
 /// Options: "Fail" holds "query:Class" or "cmd:Cmdlet" entries that fail once with text holding a secret
@@ -144,7 +145,8 @@ internal sealed class StubHygieneSite : IConfigMgrSession
             $deployed = @(Rows 'SMS_ApplicationAssignment' | Where-Object { [string](V $_ 'AppModelID' '') -eq [string](V $app 'ModelID' '') }).Count
             $cis = @(Rows 'SMS_Application' | Where-Object { $_.ModelName -eq $app.ModelName } | ForEach-Object { [int]$_.CI_ID })
             $dependents = @(Rows 'SMS_AppDependenceRelation' | Where-Object { $cis -contains [int]$_.ToApplicationCIID }).Count
-            if ($deployed -gt 0 -or $dependents -gt 0) { throw "Configuration Manager cannot delete this application because other applications or task sequences reference it or it is configured as a deployment. Number of dependent applications: $dependents Number of active deployments: $deployed" }
+            $sequences = [int](V $app 'NumberOfDependentTS' 0) + @(Rows 'SMS_TaskSequencePackage' | Where-Object { @(V $_ 'References' @()) | Where-Object { [string](V $_ 'Package' '') -eq [string]$app.ModelName } }).Count
+            if ($deployed -gt 0 -or $dependents -gt 0 -or $sequences -gt 0) { throw "Configuration Manager cannot delete this application because other applications or task sequences reference it or it is configured as a deployment. Number of dependent applications: $dependents Number of active deployments: $deployed Number of dependent task sequences: $sequences" }
             Remove-Rows 'SMS_Application' { $_.ModelName -eq $app.ModelName }
         }
         function global:Remove-CMApplicationDeployment { [CmdletBinding()] param([string]$DeploymentId, [switch]$Force)

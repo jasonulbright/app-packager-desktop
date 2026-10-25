@@ -63,7 +63,7 @@ public sealed partial class SiteHygieneService
     private async Task<HygieneSiteRead> ReadStateAsync(HygieneFixKind kind, IEnumerable<HygieneFinding> findings, ConfigMgrConnection? connection, CancellationToken ct)
     {
         var keys = findings.SelectMany(f => HygieneFixRules.StateKeys(kind, f)).Where(k => k.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        var read = await RunAsync(new ConfigMgrParameters { { "Operation", "State" }, { "Kind", kind.ToString() }, { "Keys", keys } }, connection, ct).ConfigureAwait(false);
+        var read = await RunAsync(new ConfigMgrParameters { { "Operation", "State" }, { "Kind", kind.ToString() }, { "Keys", keys }, { "MaxObjects", MaxObjects } }, connection, ct).ConfigureAwait(false);
         if (read.StateRead != true) throw new HygieneServiceException("ConfigMgr did not return the current state of the objects. Try again; the log has the kind of failure.");
         return read;
     }

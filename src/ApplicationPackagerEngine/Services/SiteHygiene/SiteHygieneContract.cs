@@ -68,6 +68,14 @@ public sealed record HygieneFinding(
     /// <summary>Console guidance of a report-only finding, as plain text; empty when none.</summary>
     public string Guidance { get; init; } = "";
 
+    /// <summary>
+    /// Why the page does not fix this finding although its check has a fix kind: the delete rule of the
+    /// service refuses the object, for the reason the scan read (an automatic deployment rule targets the
+    /// collection, a task sequence has an Auto Apply Drivers step). The finding is report-only then; empty
+    /// for every other finding.
+    /// </summary>
+    public string FixRefusal { get; init; } = "";
+
     /// <summary>True when the finding has a typed fix the service can run.</summary>
     public bool HasFix => FixKind != HygieneFixKind.None;
 }

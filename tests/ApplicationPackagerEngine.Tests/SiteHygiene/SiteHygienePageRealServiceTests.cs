@@ -152,7 +152,7 @@ public sealed class SiteHygienePageRealServiceTests
         await vm.RunFixCommand.ExecuteAsync(null);
         var result = Assert.Single(vm.LastResults);
         Assert.Equal("Skipped", result.OutcomeText);
-        Assert.Equal("Skipped: the finding no longer holds: 1 task sequence reference to the package exist now.", result.Message);
+        Assert.Equal("Skipped: the finding no longer holds: 1 task sequence uses the package now.", result.Message);
         Assert.Contains(vm.FindingRows, r => r.Finding.ObjectKey == EmptyPackage);
         Assert.Empty(p.Site.Site.Commands);
     }
@@ -167,7 +167,7 @@ public sealed class SiteHygienePageRealServiceTests
         await vm.RunFixCommand.ExecuteAsync(null);
         Assert.Empty(p.Plans.Shown);
         Assert.StartsWith("The plan cannot run. Nothing was changed. No finding of the plan holds now.", vm.StatusMessage);
-        Assert.Contains($"Left out: Package SHL-Pkg-Empty ({EmptyPackage}). Skipped: the finding no longer holds: 1 task sequence reference to the package exist now.", vm.StatusMessage);
+        Assert.Contains($"Left out: Package SHL-Pkg-Empty ({EmptyPackage}). Skipped: the finding no longer holds: 1 task sequence uses the package now.", vm.StatusMessage);
         AssertPlain(vm.StatusMessage);
     }
 

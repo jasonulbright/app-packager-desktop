@@ -286,7 +286,7 @@ public sealed partial class SiteHygieneService
         HygieneSiteRead applied;
         try
         {
-            var parameters = new ConfigMgrParameters { { "Operation", "Apply" }, { "Kind", kind.ToString() } };
+            var parameters = new ConfigMgrParameters { { "Operation", "Apply" }, { "Kind", kind.ToString() }, { "MaxObjects", MaxObjects } };
             parameters.AddSecret("Target", JsonSerializer.Serialize(w.Target));
             applied = Parse(await _session.InvokeAsync(Script, Bound(parameters, prepared.Connection), CancellationToken.None).ConfigureAwait(false));
         }

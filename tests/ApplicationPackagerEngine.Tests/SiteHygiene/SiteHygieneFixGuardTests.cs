@@ -28,7 +28,7 @@ public sealed class SiteHygieneFixGuardTests
         { "Adr", "1 automatic deployment rule targets the collection." },
         { "ClientSettings", "1 client settings deployment targets the collection." },
         { "Admin", "1 administrative user has the collection in its assigned collections." },
-        { "Assignment", "1 deployment of an application, a software update, a baseline or a policy target the collection now." }
+        { "Assignment", "1 deployment of an application, a software update, a baseline or a policy targets the collection now." }
     };
 
     /// <summary>The site deletes a collection that an automatic deployment rule targets (the rule keeps the deleted ID) and one with a client settings deployment.</summary>
@@ -87,10 +87,10 @@ public sealed class SiteHygieneFixGuardTests
         var sequence = Class(state, "SMS_TaskSequencePackage").OfType<JsonObject>().Single(t => (string?)t["PackageID"] == "MCM00008");
         sequence["Sequence"] = "<sequence version=\"3.10\"><step type=\"SMS_TaskSequence_AutoApplyAction\" name=\"Auto Apply Drivers\" /></sequence>";
         using var h = new SiteHygieneHarness(state);
-        var finding = Finding(f => f.CheckId == "TSQ-02" && f.FixKind == HygieneFixKind.RemoveDriverPackage);
+        var finding = DriverPackage;
         var change = await PrepareAsync(h, HygieneFixKind.RemoveDriverPackage, finding);
         Assert.True(change.Blocked);
-        Assert.Equal("Skipped: the finding no longer holds: 1 task sequence has an Auto Apply Drivers step, which can use the content of any driver package without a reference.",
+        Assert.Equal("Skipped: the finding no longer holds: 1 task sequence has an Auto Apply Drivers step, which can use the content of any driver package without a reference, so the page does not delete a driver package.",
             Assert.Single(change.Dropped).Message);
 
         using var plain = new SiteHygieneHarness();

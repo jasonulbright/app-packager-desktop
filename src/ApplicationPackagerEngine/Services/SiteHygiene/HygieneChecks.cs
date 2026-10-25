@@ -59,11 +59,24 @@ internal static class HygieneSets
 
     public static readonly IReadOnlyList<string> CollectionUsers = [CollectionAssignments, CollectionRules, CollectionClientSettings, CollectionAdmins];
 
-    /// <summary>State set of a driver package delete: the task sequences with an Auto Apply Drivers step.</summary>
+    /// <summary>
+    /// The References property of each task sequence: PackageID, ObjectID (a PackageID or the ModelName of an
+    /// application) and Type (0 package, 1 application). It lists an application without content, which
+    /// <see cref="TsReferences"/> leaves out.
+    /// </summary>
+    public const string TsSteps = "TsSteps";
+
+    /// <summary>The task sequences with an Auto Apply Drivers step; the read of <see cref="TsSteps"/> writes it too.</summary>
     public const string AutoApplySequences = "AutoApplySequences";
 
+    /// <summary>The collections each client settings deployment targets.</summary>
+    public const string ClientSettingsAssignments = "ClientSettingsAssignments";
+
+    /// <summary>The target collection of each deployment of an application, a software update, a baseline or a policy.</summary>
+    public const string CiAssignments = "CiAssignments";
+
     /// <summary>The sets that cost one provider read per object; their caps are <see cref="SiteHygieneService.MaxPerObjectReads"/>.</summary>
-    public static readonly IReadOnlySet<string> PerObject = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { CollectionDetails, MaintenanceWindows, TsAppDefinitions };
+    public static readonly IReadOnlySet<string> PerObject = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { CollectionDetails, MaintenanceWindows, TsAppDefinitions, TsSteps, AutoApplySequences };
 }
 
 /// <summary>What a check family reads and judges: the fresh data of one scan.</summary>

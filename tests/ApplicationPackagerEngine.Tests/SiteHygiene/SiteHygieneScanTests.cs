@@ -43,8 +43,8 @@ public sealed class SiteHygieneScanTests
         var result = await h.ScanAsync();
         var sets = HygieneChecks.RequiredSets(SiteHygieneService.ResolveAreas(new HashSet<string>()));
         Assert.Equal(sets.Count, h.Site.Runs.Count);
-        // Per-object sets: one list query plus one read per object (7 collections with a full schedule, 4 collections with settings, 1 application a task sequence installs).
-        Assert.Equal(sets.Count + 7 + 4 + 1, result.QueryCount);
+        // Per-object sets: one list query plus one read per object (7 collections with a full schedule, 4 collections with settings, 1 application a task sequence installs, 1 task sequence).
+        Assert.Equal(sets.Count + 7 + 4 + 1 + 1, result.QueryCount);
         Assert.Equal(7, h.Site.Log.Count(l => l.StartsWith("Get-CMCollection:", StringComparison.Ordinal)));
         Assert.Equal(1, h.Site.Log.Count(l => l.StartsWith("Get-CMApplication:", StringComparison.Ordinal)));
     }

@@ -181,7 +181,10 @@ public sealed class SiteHygieneRunBindingTests
         { "COL-01 MCM00215", "deployment" },
         { "COL-01 MCM00215", "include" },
         { "APP-01", "task-sequence" },
+        { "APP-01", "task-sequence-step" },
+        { "APP-01", "dependent-count" },
         { "PKG-01 MCM0010E", "task-sequence" },
+        { "PKG-01 MCM0010E", "task-sequence-step" },
         { "TSQ-02 MCM00110", "boot-image" },
         { "TSQ-02 driver", "task-sequence" },
         { "UPD-03", "enabled" }
@@ -193,7 +196,7 @@ public sealed class SiteHygieneRunBindingTests
         "APP-01" => (Finding(f => f.CheckId == "APP-01" && f.ObjectName == "CMTrace Open"), HygieneFixKind.RemoveApplication),
         "PKG-01 MCM0010E" => (EmptyPackage, HygieneFixKind.RemovePackage),
         "TSQ-02 MCM00110" => (Finding(f => f.CheckId == "TSQ-02" && f.ObjectKey == "MCM00110"), HygieneFixKind.RemoveBootImage),
-        "TSQ-02 driver" => (Finding(f => f.CheckId == "TSQ-02" && f.FixKind == HygieneFixKind.RemoveDriverPackage && f.ObjectName == "SHL-DriverPkg-Unused"), HygieneFixKind.RemoveDriverPackage),
+        "TSQ-02 driver" => (SiteHygieneFixTests.DriverPackage, HygieneFixKind.RemoveDriverPackage),
         _ => (Finding(f => f.CheckId == "UPD-03" && f.FixKind == HygieneFixKind.RemoveAutoDeploymentRule), HygieneFixKind.RemoveAutoDeploymentRule)
     };
 
@@ -207,6 +210,14 @@ public sealed class SiteHygieneRunBindingTests
             case "deployment": site.Class("SMS_CIAssignmentBaseClass").Add(new JsonObject { ["AssignmentID"] = 16777999, ["TargetCollectionID"] = id }); break;
             case "include": site.Class("SMS_CollectionDependencies").Add(new JsonObject { ["DependentCollectionID"] = "MCM00016", ["SourceCollectionID"] = id, ["RelationshipType"] = 2 }); break;
             case "task-sequence": site.Class("SMS_TaskSequencePackageReference_All").Add(new JsonObject { ["PackageID"] = "MCM00008", ["ObjectID"] = f.FixKind == HygieneFixKind.RemoveApplication ? f.ObjectKey : id }); break;
+            // An Install Application step of an application without content: no reference row, only the References of the task sequence.
+            case "task-sequence-step":
+                var ts = site.Class("SMS_TaskSequencePackage").OfType<JsonObject>().Single(t => (string?)t["PackageID"] == "MCM00008");
+                ((JsonArray)ts["References"]!).Add(new JsonObject { ["Package"] = f.FixKind == HygieneFixKind.RemoveApplication ? f.ObjectKey : id, ["Type"] = f.FixKind == HygieneFixKind.RemoveApplication ? 1 : 0 });
+                break;
+            case "dependent-count":
+                foreach (var a in site.Class("SMS_Application").OfType<JsonObject>().Where(a => (string?)a["ModelName"] == f.ObjectKey)) a["NumberOfDependentTS"] = 1;
+                break;
             case "boot-image": site.Class("SMS_TaskSequencePackage").Add(new JsonObject { ["PackageID"] = "MCM00099", ["Name"] = "SHL-TS-New", ["BootImageID"] = id, ["ProgramFlags"] = 0 }); break;
             case "enabled": foreach (var r in site.Class("SMS_AutoDeployment").OfType<JsonObject>().Where(r => r["AutoDeploymentID"]!.ToString() == id)) r["AutoDeploymentEnabled"] = "True"; break;
         }

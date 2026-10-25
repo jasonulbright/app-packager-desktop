@@ -205,7 +205,7 @@ public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) :
     public string Path => path ?? System.IO.Path.Combine(HygieneFolders.Root(), FileName);
 
     private sealed record StoredFinding(string CheckId, string Category, HygieneSeverity Severity, string ObjectType, string ObjectKey, string ObjectName,
-        string Evidence, string Recommendation, HygieneFixKind FixKind, Dictionary<string, string>? FixParameters, string? FixText, string? Guidance);
+        string Evidence, string Recommendation, HygieneFixKind FixKind, Dictionary<string, string>? FixParameters, string? FixText, string? Guidance, string? FixRefusal = null);
 
     private sealed record StoredCheck(string CheckId, string Name, string Category, string State, int Findings, string? Reason, HygieneSeverity Severity);
 
@@ -218,7 +218,7 @@ public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) :
         ArgumentNullException.ThrowIfNull(result);
         var doc = new Document(1, DateTime.SpecifyKind(result.ScannedUtc, DateTimeKind.Utc), result.SiteCode, result.Areas.ToList(), result.Truncated, result.Note, result.QueryCount,
             result.Findings.Select(f => (StoredFinding?)new StoredFinding(f.CheckId, f.Category, f.Severity, f.ObjectType, f.ObjectKey, f.ObjectName, f.Evidence, f.Recommendation,
-                f.FixKind, f.FixParameters.ToDictionary(p => p.Key, p => p.Value), f.FixText, f.Guidance)).ToList(),
+                f.FixKind, f.FixParameters.ToDictionary(p => p.Key, p => p.Value), f.FixText, f.Guidance, f.FixRefusal)).ToList(),
             result.Checks.Select(c => (StoredCheck?)new StoredCheck(c.CheckId, c.Name, c.Category, c.State, c.Findings, c.Reason, c.Severity)).ToList(),
             result.Provider is null ? null : HygieneSite.Provider(result.Provider));
         HygieneJsonFile.Write(Path, doc, path is null, "last scan", MaxBytes);
@@ -230,7 +230,7 @@ public sealed class HygieneScanStore(string? path = null, IAppLog? log = null) :
         if (doc is null || doc.Findings is null || doc.Checks is null) return null;
         var findings = doc.Findings.Where(f => f is not null && !string.IsNullOrEmpty(f.CheckId) && f.ObjectKey is not null)
             .Select(f => new HygieneFinding(f!.CheckId, f.Category ?? "", f.Severity, f.ObjectType ?? "", f.ObjectKey, f.ObjectName ?? "", f.Evidence ?? "", f.Recommendation ?? "",
-                f.FixKind, f.FixParameters ?? new Dictionary<string, string>(), f.FixText, IsNew: false, IsSuppressed: false) { Guidance = f.Guidance ?? "" }).ToList();
+                f.FixKind, f.FixParameters ?? new Dictionary<string, string>(), f.FixText, IsNew: false, IsSuppressed: false) { Guidance = f.Guidance ?? "", FixRefusal = f.FixRefusal ?? "" }).ToList();
         var checks = doc.Checks.Where(c => c is not null && !string.IsNullOrEmpty(c.CheckId))
             .Select(c => new HygieneCheckStatus(c!.CheckId, c.Name ?? "", c.Category ?? "", c.State ?? HygieneCheckStates.NotRun, c.Findings, c.Reason) { Severity = c.Severity }).ToList();
         return new HygieneScanResult(findings, checks, DateTime.SpecifyKind(doc.ScannedUtc, DateTimeKind.Utc), doc.Truncated, doc.Note)

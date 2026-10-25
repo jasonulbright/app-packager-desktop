@@ -13,9 +13,10 @@ internal static partial class HygieneChecks
         list.Add(new(["DEV-01"], ["Devices"], [Devices, DeviceAgents, MaintenanceTasks], DeviceInactive));
         list.Add(new(["DEV-02", "DEV-03"], ["Devices"], [Devices], DeviceRecords));
         list.Add(new(["BND-01", "BND-02", "BND-03"], ["Boundaries"], [Boundaries, BoundaryGroups], BoundaryChecks));
-        list.Add(new(["TSQ-01", "TSQ-02"], ["TaskSequences"], [TaskSequences, TsReferences, Packages, BootImages, DriverPackages, UpdatePackages, OsImages, OsUpgradePackages, Applications], TaskSequenceReferences));
-        list.Add(new(["TSQ-03"], ["TaskSequences"], [TaskSequences, TsReferences, Applications, TsAppDefinitions], TaskSequenceInstallSetting));
-        list.Add(new(["TSQ-04"], ["TaskSequences"], [TaskSequences, TsReferences, Applications, ContentStatus], TaskSequenceContent));
+        list.Add(new(["TSQ-01", "TSQ-02"], ["TaskSequences"], [TaskSequences, TsReferences, TsSteps, Packages, BootImages, DriverPackages, UpdatePackages, OsImages, OsUpgradePackages, Applications], TaskSequenceReferences));
+        // TsSteps comes before TsAppDefinitions: the scan names the applications of the steps to the definition read.
+        list.Add(new(["TSQ-03"], ["TaskSequences"], [TaskSequences, TsReferences, TsSteps, Applications, TsAppDefinitions], TaskSequenceInstallSetting));
+        list.Add(new(["TSQ-04"], ["TaskSequences"], [TaskSequences, TsReferences, TsSteps, Applications, ContentStatus], TaskSequenceContent));
         list.Add(new(["UPD-01", "UPD-04"], ["Updates"], [UpdateGroups], UpdateGroupChecks));
         list.Add(new(["UPD-03"], ["Updates"], [AutoDeploymentRules], AdrChecks));
         list.Add(new(["UPD-05"], ["UpdateContent"], [ExpiredUpdates, UpdateContentMap, UpdatePackageContent, UpdatePackages], UpdatePackageExpiredContent));
@@ -125,9 +126,11 @@ internal static partial class HygieneChecks
         if (newest is null) yield break;
         var behind = parsed.Where(p => p.Version is not null && p.Version < newest).ToList();
         if (behind.Count == 0) yield break;
+        // Version drops the leading zeros of "5.00"; the text the site holds is printed instead.
+        var newestText = parsed.Where(p => p.Version == newest).Select(p => p.Row.S("ClientVersion").Trim()).Order(StringComparer.Ordinal).First();
         var sample = string.Join(", ", behind.OrderBy(p => p.Row.S("Name"), StringComparer.OrdinalIgnoreCase).Take(15).Select(p => $"{p.Row.S("Name")} ({p.Row.S("ClientVersion")})"));
         yield return F("DEV-03", "Site", "Site", "Client version drift",
-            $"{N(behind.Count)} of {N(clients.Count)} clients run a client version below the newest seen ({newest}). First 15: {sample}",
+            $"{N(behind.Count)} of {N(clients.Count)} clients run a client version below the newest seen ({newestText}). First 15: {sample}",
             "Check automatic client upgrade settings; long-tail old clients usually mean the upgrade never reaches them.",
             guidance: "Console: Administration > Site Configuration > Sites > Hierarchy Settings > Client Upgrade");
     }
@@ -179,10 +182,10 @@ internal static partial class HygieneChecks
 
     internal static readonly Regex DefaultBootImage = new(@"^Boot image \((x64|x86|arm64)\)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    /// <summary>The references of each task sequence: its reference rows and its boot image.</summary>
+    /// <summary>The references of each task sequence: its reference rows, the References of its steps and its boot image.</summary>
     internal static Dictionary<string, List<string>> TsRefsBySequence(HygieneContext c)
     {
-        var map = c.Rows(TsReferences).GroupBy(r => r.S("PackageID"), StringComparer.OrdinalIgnoreCase)
+        var map = c.Rows(TsReferences).Concat(c.Rows(TsSteps)).GroupBy(r => r.S("PackageID"), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Select(r => r.S("ObjectID")).Where(s => s.Length > 0).ToList(), StringComparer.OrdinalIgnoreCase);
         foreach (var ts in c.Rows(TaskSequences))
         {
@@ -215,14 +218,28 @@ internal static partial class HygieneChecks
                 "Delete it if the task sequences that used it are gone; its content still occupies DPs.",
                 HygieneFixKind.RemoveBootImage, Params((HygieneFixParameters.Id, bi.S("PackageID"))));
         }
+        var refusal = DriverPackageUse(c.Data) is { } use ? char.ToUpperInvariant(use[0]) + use[1..] + "." : null;
         foreach (var dp in c.Rows(DriverPackages))
         {
             if (referenced.Contains(dp.S("PackageID"))) continue;
-            yield return F("TSQ-02", "DriverPackage", dp.S("PackageID"), dp.S("Name"),
+            var finding = F("TSQ-02", "DriverPackage", dp.S("PackageID"), dp.S("Name"),
                 "Driver package is referenced by no task sequence.",
                 "Delete it if the hardware model is retired; driver packages are among the largest content on DPs.",
-                HygieneFixKind.RemoveDriverPackage, Params((HygieneFixParameters.Id, dp.S("PackageID"))));
+                refusal is null ? HygieneFixKind.RemoveDriverPackage : HygieneFixKind.None, refusal is null ? Params((HygieneFixParameters.Id, dp.S("PackageID"))) : null);
+            yield return refusal is null ? finding : finding with { FixRefusal = refusal };
         }
+    }
+
+    /// <summary>
+    /// Why the fix rule refuses every driver package delete on this site, without a closing period; null when
+    /// the delete can run. An Auto Apply Drivers step uses the content of any driver package without a reference.
+    /// </summary>
+    internal static string? DriverPackageUse(HygieneSiteRead data)
+    {
+        if (!data.IsRead(AutoApplySequences)) return "the steps of the task sequences could not be read, so the page does not delete a driver package";
+        var auto = data.Table(AutoApplySequences).Rows.Count;
+        return auto == 0 ? null
+            : $"{SiteHygieneService.Count(auto, "task sequence")} {(auto == 1 ? "has" : "have")} an Auto Apply Drivers step, which can use the content of any driver package without a reference, so the page does not delete a driver package";
     }
 
     /// <summary>The task sequence names that install each application, by ModelName.</summary>
@@ -231,7 +248,7 @@ internal static partial class HygieneChecks
         var apps = Set(c.Rows(Applications).Select(a => a.S("ModelName")));
         var names = c.Rows(TaskSequences).GroupBy(t => t.S("PackageID"), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().S("Name"), StringComparer.OrdinalIgnoreCase);
         var map = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var r in c.Rows(TsReferences))
+        foreach (var r in c.Rows(TsReferences).Concat(c.Rows(TsSteps)))
         {
             var model = r.S("ObjectID");
             if (!apps.Contains(model) || !names.TryGetValue(r.S("PackageID"), out var ts)) continue;

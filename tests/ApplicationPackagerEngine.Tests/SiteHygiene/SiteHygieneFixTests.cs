@@ -15,6 +15,14 @@ public sealed class SiteHygieneFixTests
         return findings.First(pick);
     }
 
+    /// <summary>
+    /// The TSQ-02 finding of SHL-DriverPkg-Unused with its delete, as a site without an Auto Apply Drivers step
+    /// gives it. On CM01 MCM00008 has the step, so the scan of the fixture reports the package for report only.
+    /// </summary>
+    internal static HygieneFinding DriverPackage =>
+        HygieneChecks.F("TSQ-02", "DriverPackage", "MCM00111", "SHL-DriverPkg-Unused", "Driver package is referenced by no task sequence.", "r",
+            HygieneFixKind.RemoveDriverPackage, HygieneChecks.Params((HygieneFixParameters.Id, "MCM00111")));
+
     internal static Task<HygieneChange> PrepareAsync(SiteHygieneHarness h, HygieneFixKind kind, params HygieneFinding[] findings) =>
         h.Service.PrepareAsync(new HygieneChange(kind, findings, false, [], [], null), CancellationToken.None);
 
@@ -47,7 +55,8 @@ public sealed class SiteHygieneFixTests
     public async Task EachFixKindRunsItsPlanAndReadsBackTheResult(string checkId, HygieneFixKind kind, string name)
     {
         using var h = new SiteHygieneHarness();
-        var finding = Finding(f => f.CheckId == checkId && f.FixKind == kind && f.ObjectName == name);
+        var finding = kind == HygieneFixKind.RemoveDriverPackage ? DriverPackage : Finding(f => f.CheckId == checkId && f.FixKind == kind && f.ObjectName == name);
+        Assert.Equal(name, finding.ObjectName);
         var change = await PrepareAsync(h, kind, finding);
         Assert.False(change.Blocked, string.Join(" ", change.Checks.Select(c => c.Message)));
         Assert.Single(change.Findings);

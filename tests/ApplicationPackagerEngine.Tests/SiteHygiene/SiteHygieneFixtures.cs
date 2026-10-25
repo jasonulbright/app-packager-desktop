@@ -8,7 +8,10 @@ namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 /// <summary>
 /// The data CM01 returned on 2026-10-24 at 14:56 (Eastern) with the SHL- clutter in place: the output of
 /// the native script (one JSON object per line, as the session host writes them) and the findings the
-/// source module produced on the same site one minute later.
+/// source module produced on the same site one minute later. The sets TsSteps, AutoApplySequences,
+/// ClientSettingsAssignments and CiAssignments were read from the same site later the same day
+/// (cm01-native-read-tssteps.jsonl); the task sequence, the client settings deployments and the
+/// deployments they read had not changed since the first capture.
 /// </summary>
 internal static class SiteHygieneFixtures
 {
@@ -21,7 +24,8 @@ internal static class SiteHygieneFixtures
     private static string Folder => Path.Combine(AppContext.BaseDirectory, "Fixtures", "SiteHygiene");
 
     public static IReadOnlyList<JsonElement> NativeOutput() =>
-        File.ReadAllLines(Path.Combine(Folder, "cm01-native-read.jsonl")).Where(l => l.Trim().Length > 0).Select(l => JsonDocument.Parse(l).RootElement.Clone()).ToList();
+        new[] { "cm01-native-read.jsonl", "cm01-native-read-tssteps.jsonl" }.SelectMany(f => File.ReadAllLines(Path.Combine(Folder, f)))
+            .Where(l => l.Trim().Length > 0).Select(l => JsonDocument.Parse(l).RootElement.Clone()).ToList();
 
     public static HygieneSiteRead NativeRead() => HygieneSiteRead.Parse(NativeOutput());
 
@@ -80,10 +84,16 @@ internal static class SiteHygieneFixtures
         ["ExpiredUpdates"] = ("SMS_SoftwareUpdate", [("IsExpired", true)]),
         ["UpdateContentMap"] = ("SMS_CIToContent", [("ContentDownloaded", true)]),
         ["UpdatePackageContent"] = ("SMS_PackageToContent", [("PackageType", 5)]),
-        ["AppDeployments"] = ("SMS_ApplicationAssignment", [])
+        ["AppDeployments"] = ("SMS_ApplicationAssignment", []),
+        ["ClientSettingsAssignments"] = ("SMS_ClientSettingsAssignment", []),
+        ["CiAssignments"] = ("SMS_CIAssignmentBaseClass", [])
     };
 
-    /// <summary>A stub site that serves the CM01 rows through the real script: each set's rows become rows of the class the set reads.</summary>
+    /// <summary>
+    /// A stub site that serves the CM01 rows through the real script: each set's rows become rows of the class
+    /// the set reads, and the TsSteps rows become the References of their task sequence. The task sequences
+    /// of the stub hold no Auto Apply Drivers step; a test that needs one adds it to the Sequence.
+    /// </summary>
     public static JsonObject StubState()
     {
         var read = NativeRead();
@@ -105,6 +115,11 @@ internal static class SiteHygieneFixtures
                 foreach (var (column, value) in extra) o[column] = value.DeepClone();
                 Rows(cls).Add(o);
             }
+        }
+        foreach (var g in read.Table("TsSteps").Records.GroupBy(r => r.S("PackageID")))
+        {
+            var sequence = Rows("SMS_TaskSequencePackage").OfType<JsonObject>().Single(t => (string?)t["PackageID"] == g.Key);
+            sequence["References"] = new JsonArray(g.Select(r => (JsonNode)new JsonObject { ["Package"] = r.S("ObjectID"), ["Type"] = r.I("Type") }).ToArray());
         }
         var details = new JsonObject();
         foreach (var r in read.Table("CollectionDetails").Records)

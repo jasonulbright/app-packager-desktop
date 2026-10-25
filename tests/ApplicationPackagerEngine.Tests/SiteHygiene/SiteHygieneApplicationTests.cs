@@ -76,10 +76,11 @@ public sealed class SiteHygieneApplicationTests
         Assert.False(result.Truncated);
         Assert.Null(result.Note);
         Assert.Equal("MCM", result.SiteCode);
-        Assert.Equal(8, h.Site.Runs.Count);
-        Assert.Equal(8, result.QueryCount);
+        Assert.Equal(9, h.Site.Runs.Count);
+        // One query per set, and one read of the References of the one task sequence.
+        Assert.Equal(10, result.QueryCount);
         Assert.Equal(57, result.Checks.Count);
-        Assert.Contains(h.Progress, p => p.StartsWith("Reading applications (1 of 8)", StringComparison.Ordinal));
+        Assert.Contains(h.Progress, p => p.StartsWith("Reading applications (1 of 9)", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -132,7 +133,7 @@ public sealed class SiteHygieneApplicationTests
     {
         using var h = new SiteHygieneHarness();
         await h.Service.ScanAsync(new HygieneScanOptions(new HashSet<string> { "Packages" }, TimeSpan.FromMilliseconds(250), false), new Progress<string>(), CancellationToken.None);
-        Assert.Equal(3, h.Delays.Count);
+        Assert.Equal(4, h.Delays.Count);
         Assert.All(h.Delays, d => Assert.Equal(TimeSpan.FromMilliseconds(250), d));
         Assert.All(h.Site.Runs, r => Assert.Equal(250, Convert.ToInt32(r["PacingMs"])));
     }

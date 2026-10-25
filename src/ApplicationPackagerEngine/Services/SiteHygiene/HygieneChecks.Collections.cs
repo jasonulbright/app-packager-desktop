@@ -7,7 +7,7 @@ internal static partial class HygieneChecks
 {
     private static void AddCollections(List<HygieneCheckFamily> list)
     {
-        list.Add(new(["COL-01"], ["Collections"], [Collections, Deployments, CollectionSettings, CollectionDependencies], CollectionEmptyUnused));
+        list.Add(new(["COL-01"], ["Collections"], [Collections, Deployments, CollectionSettings, CollectionDependencies, AutoDeploymentRules, ClientSettingsAssignments, CiAssignments], CollectionEmptyUnused));
         list.Add(new(["COL-02"], ["Collections"], [Collections, Deployments], DeploymentEmptyCollection));
         list.Add(new(["COL-03"], ["Collections"], [Collections], IncrementalCeiling));
         list.Add(new(["COL-04"], ["Collections"], [CollectionEvalFull, CollectionEvalIncremental], EvaluationRunTime));
@@ -38,16 +38,41 @@ internal static partial class HygieneChecks
         var targets = Set(c.Rows(Deployments).Select(r => r.S("CollectionID")));
         var referenced = Set(CollectionEdges(c).Select(e => e.To).Concat(c.Rows(Collections).Select(r => r.S("LimitToCollectionID"))));
         var withSettings = Set(c.Rows(CollectionSettings).Select(r => r.S("CollectionID")));
+        var users = CollectionUsersOf(c);
         foreach (var col in c.Rows(Collections))
         {
             var id = col.S("CollectionID");
             if (IsBuiltIn(id) || col.I("MemberCount", -1) != 0) continue;
             if (targets.Contains(id) || referenced.Contains(id) || withSettings.Contains(id)) continue;
-            yield return F("COL-01", "Collection", id, col.S("Name"),
+            var finding = F("COL-01", "Collection", id, col.S("Name"),
                 "Empty collection with no deployments, no include/exclude references from other collections, not used as a limiting collection, and no collection variables.",
                 "Delete unless it is a staging container someone still fills by hand.",
-                HygieneFixKind.RemoveCollection, Params((HygieneFixParameters.Id, id)));
+                users.TryGetValue(id, out var use) ? HygieneFixKind.None : HygieneFixKind.RemoveCollection, use is null ? Params((HygieneFixParameters.Id, id)) : null);
+            yield return use is null ? finding : finding with
+            {
+                Evidence = finding.Evidence + " " + use + ".",
+                FixRefusal = use + ", so the page does not delete the collection. Remove that use first."
+            };
         }
+    }
+
+    /// <summary>
+    /// The first use of each collection the delete rule of the page refuses and the deployment summary does
+    /// not show: an automatic deployment rule, a client settings deployment, or a deployment of an
+    /// application, a software update, a baseline or a policy.
+    /// </summary>
+    private static Dictionary<string, string> CollectionUsersOf(HygieneContext c)
+    {
+        var uses = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        void Add(IEnumerable<string> ids, string noun, string plural)
+        {
+            foreach (var g in ids.Where(i => i.Length > 0).GroupBy(i => i, StringComparer.OrdinalIgnoreCase))
+                uses.TryAdd(g.Key, g.Count() == 1 ? $"1 {noun} targets the collection" : $"{N(g.Count())} {plural} target the collection");
+        }
+        Add(c.Rows(AutoDeploymentRules).Select(r => r.S("CollectionID")), "automatic deployment rule", "automatic deployment rules");
+        Add(c.Rows(ClientSettingsAssignments).Select(r => r.S("CollectionID")), "client settings deployment", "client settings deployments");
+        Add(c.Rows(CiAssignments).Select(r => r.S("TargetCollectionID")), "deployment of an application, a software update, a baseline or a policy", "deployments of applications, software updates, baselines or policies");
+        return uses;
     }
 
     private static IEnumerable<HygieneFinding> DeploymentEmptyCollection(HygieneContext c)

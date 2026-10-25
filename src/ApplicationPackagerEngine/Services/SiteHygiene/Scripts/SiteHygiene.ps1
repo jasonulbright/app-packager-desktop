@@ -198,10 +198,71 @@ function Get-AutoInstall {
     return ($null -ne $node -and ([string]$node.InnerText).Trim() -eq 'true')
 }
 
+# The References property of a task sequence lists every package and application its steps use. The
+# reference classes (SMS_TaskSequencePackageReference_All, SMS_TaskSequenceAppReferencesInfo) leave out
+# an application without content. References and Sequence are lazy properties: one read per task
+# sequence.
+function Get-SequenceIds {
+    @(Invoke-Query 'SELECT PackageID FROM SMS_TaskSequencePackage' | ForEach-Object { [string](Get-Prop $_ 'PackageID') } | Where-Object { $_ -match $IdPattern } | Sort-Object -Unique)
+}
+
+function Get-TsStep {
+    param([string]$Id)
+    Wait-Pace
+    $script:Queries++
+    $ts = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID = '$Id'" -ErrorAction Stop) | Select-Object -First 1
+    if ($null -eq $ts) { return $null }
+    $ts.Get()
+    $refs = @(foreach ($r in @(Get-Prop $ts 'References')) { if ($null -ne $r -and [string](Get-Prop $r 'Package')) { , [string[]]@($Id, [string](Get-Prop $r 'Package'), (ConvertTo-Text (Get-Prop $r 'Type'))) } })
+    [pscustomobject]@{ References = $refs; AutoApply = ([string](Get-Prop $ts 'Sequence') -match 'SMS_TaskSequence_AutoApplyAction') }
+}
+
+$TsStepColumns = 'PackageID', 'ObjectID', 'Type'
+
+# A scan read stops at MaxObjects task sequences and marks both sets cut; a -Complete read throws
+# instead, so a delete guard never decides on part of the task sequences.
+function Read-TsSteps {
+    param([switch]$Complete)
+    $sequences = @(Get-SequenceIds)
+    if ($Complete -and $sequences.Count -gt $MaxObjects) { throw 'The site has more task sequences than one read takes.' }
+    $refs = New-Object System.Collections.Generic.List[object]
+    $auto = New-Object System.Collections.Generic.List[object]
+    $done = 0
+    foreach ($id in $sequences) {
+        if ($done -ge $MaxObjects) { break }
+        $done++
+        $step = Get-TsStep $id
+        if ($null -eq $step) { continue }
+        foreach ($r in $step.References) { $refs.Add($r) }
+        if ($step.AutoApply) { $auto.Add([string[]]@($id)) }
+    }
+    if (-not $Complete) {
+        [pscustomobject]@{ Kind = 'Coverage'; Set = 'TsSteps'; Done = $done; Total = $sequences.Count }
+        [pscustomobject]@{ Kind = 'Coverage'; Set = 'AutoApplySequences'; Done = $done; Total = $sequences.Count }
+    }
+    Write-Set 'TsSteps' $TsStepColumns $refs.ToArray() $refs.Count
+    Write-Set 'AutoApplySequences' @('PackageID') $auto.ToArray() $auto.Count
+}
+
+# True when a step of any task sequence uses the object. Above MaxObjects task sequences it throws, so
+# the delete is refused.
+function Test-TsStepReference {
+    param([string]$ObjectId)
+    $sequences = @(Get-SequenceIds)
+    if ($sequences.Count -gt $MaxObjects) { throw 'The site has more task sequences than one read takes.' }
+    foreach ($id in $sequences) {
+        $step = Get-TsStep $id
+        if ($null -ne $step -and @($step.References | Where-Object { $_[1] -eq $ObjectId }).Count -gt 0) { return $true }
+    }
+    return $false
+}
+
 # The task sequence install setting exists only in the application definition: one read per
-# application that a task sequence references.
+# application that a task sequence references. The caller names the applications the References of the
+# task sequences hold in Keys; the reference rows add the rest.
 function Read-TsAppDefinitions {
-    $models = @(Invoke-Query 'SELECT PackageID, ObjectID FROM SMS_TaskSequencePackageReference_All' | ForEach-Object { [string](Get-Prop $_ 'ObjectID') } | Where-Object { $_ -match $ModelPattern -and $_ -like '*/Application_*' } | Sort-Object -Unique)
+    $listed = @(Invoke-Query 'SELECT PackageID, ObjectID FROM SMS_TaskSequencePackageReference_All' | ForEach-Object { [string](Get-Prop $_ 'ObjectID') })
+    $models = @(@($listed) + @($Keys) | Where-Object { $_ -match $ModelPattern -and $_ -like '*/Application_*' } | Sort-Object -Unique)
     $rows = New-Object System.Collections.Generic.List[object]
     $done = 0
     foreach ($m in $models) {
@@ -218,7 +279,7 @@ function Read-TsAppDefinitions {
 # ---- Set table ------------------------------------------------------------------------------
 
 $Simple = [ordered]@{
-    Applications = @('SMS_Application', @('CI_ID', 'ModelID', 'ModelName', 'LocalizedDisplayName', 'IsDeployed', 'IsExpired', 'IsSuperseded', 'IsSuperseding', 'IsEnabled', 'HasContent', 'Manufacturer', 'SoftwareVersion', 'DateCreated', 'NumberOfDeploymentTypes', 'CIVersion'), 'IsLatest = 1')
+    Applications = @('SMS_Application', @('CI_ID', 'ModelID', 'ModelName', 'LocalizedDisplayName', 'IsDeployed', 'IsExpired', 'IsSuperseded', 'IsSuperseding', 'IsEnabled', 'HasContent', 'Manufacturer', 'SoftwareVersion', 'DateCreated', 'NumberOfDeploymentTypes', 'CIVersion', 'NumberOfDependentTS'), 'IsLatest = 1')
     AppRevisions = @('SMS_Application', @('CI_ID', 'ModelName', 'CIVersion'), 'IsLatest = 0')
     Packages = @('SMS_Package', @('PackageID', 'Name', 'PackageType'), '')
     Programs = @('SMS_Program', @('PackageID', 'ProgramName', 'ProgramFlags'), '')
@@ -234,7 +295,9 @@ $Simple = [ordered]@{
     DriverPackages = @('SMS_DriverPackage', @('PackageID', 'Name'), '')
     UpdatePackages = @('SMS_SoftwareUpdatesPackage', @('PackageID', 'Name'), '')
     UpdateGroups = @('SMS_AuthorizationList', @('CI_ID', 'LocalizedDisplayName', 'NumberOfUpdates', 'NumberOfExpiredUpdates', 'ContainsSupersededUpdates'), '')
-    AutoDeploymentRules = @('SMS_AutoDeployment', @('AutoDeploymentID', 'Name', 'AutoDeploymentEnabled', 'LastRunTime', 'LastErrorCode'), '')
+    AutoDeploymentRules = @('SMS_AutoDeployment', @('AutoDeploymentID', 'Name', 'AutoDeploymentEnabled', 'LastRunTime', 'LastErrorCode', 'CollectionID'), '')
+    ClientSettingsAssignments = @('SMS_ClientSettingsAssignment', @('ClientSettingsID', 'CollectionID'), '')
+    CiAssignments = @('SMS_CIAssignmentBaseClass', @('AssignmentID', 'TargetCollectionID'), '')
     MaintenanceTasks = @('SMS_SCI_SQLTask', @('ItemName', 'SiteCode', 'Enabled'), '')
     CollectionSettings = @('SMS_CollectionSettings', @('CollectionID'), '')
     AppDependencies = @('SMS_AppDependenceRelation', @('FromApplicationCIID', 'FromDeploymentTypeCIID', 'ToApplicationCIID', 'ToDeploymentTypeCIID', 'TypeFlag'), '')
@@ -271,6 +334,7 @@ function Invoke-Read {
                 'CollectionDetails' { Read-CollectionDetails }
                 'MaintenanceWindows' { Read-MaintenanceWindows }
                 'TsAppDefinitions' { Read-TsAppDefinitions }
+                'TsSteps' { Read-TsSteps }
                 default {
                     if (-not $Simple.Contains($name)) { [pscustomobject]@{ Kind = 'Set'; Set = $name; State = 'Unknown' }; continue }
                     $d = $Simple[$name]
@@ -311,24 +375,14 @@ function Read-CollectionUsers {
     Write-Set 'CollectionAdmins' @('AdminID', 'CategoryID') $rows $rows.Count
 }
 
-# An Auto Apply Drivers step leaves no reference row: the steps are in the Sequence XML, a lazy
-# property, so one read per task sequence.
+# An Auto Apply Drivers step leaves no reference row: the steps are in the Sequence XML.
 function Get-AutoApplySequenceIds {
-    $sequences = @(Invoke-Query 'SELECT PackageID FROM SMS_TaskSequencePackage' | ForEach-Object { [string](Get-Prop $_ 'PackageID') } | Where-Object { $_ -match $IdPattern } | Sort-Object -Unique)
+    $sequences = @(Get-SequenceIds)
     if ($sequences.Count -gt $MaxObjects) { throw 'The site has more task sequences than one read takes.' }
     foreach ($id in $sequences) {
-        Wait-Pace
-        $script:Queries++
-        $ts = @(Invoke-CMWmiQuery -Query "SELECT * FROM SMS_TaskSequencePackage WHERE PackageID = '$id'" -ErrorAction Stop) | Select-Object -First 1
-        if ($null -eq $ts) { continue }
-        $ts.Get()
-        if ([string](Get-Prop $ts 'Sequence') -match 'SMS_TaskSequence_AutoApplyAction') { $id }
+        $step = Get-TsStep $id
+        if ($null -ne $step -and $step.AutoApply) { $id }
     }
-}
-
-function Read-AutoApplySequences {
-    $rows = @(foreach ($id in Get-AutoApplySequenceIds) { , [string[]]@($id) })
-    Write-Set 'AutoApplySequences' @('PackageID') $rows $rows.Count
 }
 
 # The collection IDs administrative users hold in their assigned collections, among the given ones.
@@ -370,6 +424,7 @@ function Invoke-State {
                     if ($modelIds.Count -gt 0) { Write-Facts 'AppDeployments' 'SMS_ApplicationAssignment' $Simple.AppDeployments[1] (Get-OrList 'AppModelID' $modelIds -Number) }
                     else { Write-Set 'AppDeployments' $Simple.AppDeployments[1] @() 0 }
                     Write-Facts 'TsReferences' 'SMS_TaskSequencePackageReference_All' $Simple.TsReferences[1] (Get-OrList 'ObjectID' $models)
+                    if ($Kind -in 'RemoveApplication', 'SetApplication') { Read-TsSteps -Complete }
                     if ($ci.Count -gt 0) {
                         Write-Facts 'AppDependencies' 'SMS_AppDependenceRelation' $Simple.AppDependencies[1] ((Get-OrList 'ToApplicationCIID' $ci -Number) + ' OR ' + (Get-OrList 'FromApplicationCIID' $ci -Number))
                         Write-Facts 'AppRelations' 'SMS_AppRelation_Flat' $Simple.AppRelations[1] ('Level = 1 AND (' + (Get-OrList 'ToApplicationCIID' $ci -Number) + ' OR ' + (Get-OrList 'FromApplicationCIID' $ci -Number) + ')')
@@ -394,7 +449,7 @@ function Invoke-State {
                     }
                     Write-Facts 'TsReferences' 'SMS_TaskSequencePackageReference_All' $Simple.TsReferences[1] (Get-OrList 'ObjectID' $ids)
                     Write-Facts 'TaskSequences' 'SMS_TaskSequencePackage' $Simple.TaskSequences[1] (Get-OrList 'BootImageID' $ids)
-                    if ($Kind -eq 'RemoveDriverPackage') { Read-AutoApplySequences }
+                    Read-TsSteps -Complete
                 }
             }
             { $_ -in 'RemoveCollection', 'SetCollectionRefreshType' } {
@@ -474,12 +529,13 @@ function Get-InUse {
             if (@(Get-AdminCollectionIds @($Id.ToUpperInvariant())).Count -gt 0) { return 'admins' }
         }
         'RemoveApplication' {
-            $app = @(Invoke-Query "SELECT CI_ID, ModelID, ModelName, IsSuperseded, IsSuperseding FROM SMS_Application WHERE CI_ID = $Id") | Select-Object -First 1
+            $app = @(Invoke-Query "SELECT CI_ID, ModelID, ModelName, IsSuperseded, IsSuperseding, NumberOfDependentTS FROM SMS_Application WHERE CI_ID = $Id") | Select-Object -First 1
             if ($null -eq $app) { return '' }
             $model = [string](Get-Prop $app 'ModelName')
             $modelId = [string](Get-Prop $app 'ModelID')
             if ($model -notmatch $ModelPattern -or $modelId -notmatch $NumberPattern) { throw 'invalid' }
             if ((Get-Prop $app 'IsSuperseded') -eq $true -or (Get-Prop $app 'IsSuperseding') -eq $true) { return 'supersedence' }
+            if ([int](Get-Prop $app 'NumberOfDependentTS') -gt 0) { return 'task-sequences' }
             if (Test-Any 'SMS_ApplicationAssignment' 'AssignmentID' "AppModelID = $modelId") { return 'deployments' }
             $ci = @(Invoke-Query "SELECT CI_ID FROM SMS_Application WHERE ModelName = '$model'" | ForEach-Object { [string](Get-Prop $_ 'CI_ID') } | Where-Object { $_ -match $NumberPattern } | Sort-Object -Unique)
             if ($ci.Count -gt 0) {
@@ -487,11 +543,13 @@ function Get-InUse {
                 if (Test-Any 'SMS_AppRelation_Flat' 'FromApplicationCIID' ('Level = 1 AND (' + (Get-OrList 'ToApplicationCIID' $ci -Number) + ')')) { return 'dependents' }
             }
             if (Test-Any 'SMS_TaskSequencePackageReference_All' 'PackageID' "ObjectID = '$model'") { return 'task-sequences' }
+            if (Test-TsStepReference $model) { return 'task-sequences' }
         }
         { $_ -in 'RemovePackage', 'RemoveBootImage', 'RemoveDriverPackage' } {
             if ($Kind -eq 'RemovePackage' -and (Test-Any 'SMS_DeploymentSummary' 'DeploymentID' "PackageID = '$Id'")) { return 'deployments' }
             if (Test-Any 'SMS_TaskSequencePackageReference_All' 'PackageID' "ObjectID = '$Id'") { return 'task-sequences' }
             if (Test-Any 'SMS_TaskSequencePackage' 'PackageID' "BootImageID = '$Id'") { return 'task-sequences' }
+            if (Test-TsStepReference $Id) { return 'task-sequences' }
             if ($Kind -eq 'RemoveDriverPackage' -and @(Get-AutoApplySequenceIds).Count -gt 0) { return 'auto-apply-drivers' }
         }
         'RemoveAutoDeploymentRule' {

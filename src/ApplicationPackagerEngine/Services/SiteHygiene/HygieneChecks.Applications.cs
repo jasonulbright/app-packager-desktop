@@ -7,10 +7,10 @@ internal static partial class HygieneChecks
 {
     private static void AddApplications(List<HygieneCheckFamily> list)
     {
-        list.Add(new(["APP-01"], ["Applications"], [Applications, AppRevisions, TsReferences, AppDependencies], AppNoReferences));
+        list.Add(new(["APP-01"], ["Applications"], [Applications, AppRevisions, TsReferences, TsSteps, AppDependencies], AppNoReferences));
         list.Add(new(["APP-02", "APP-03"], ["Applications"], [Applications, AppDeployments], AppStillDeployed));
         list.Add(new(["APP-05"], ["Applications"], [Applications, AppRevisions], AppOldRevisions));
-        list.Add(new(["PKG-01"], ["Packages"], [Packages, Programs, Deployments, TsReferences], PackageUnused));
+        list.Add(new(["PKG-01"], ["Packages"], [Packages, Programs, Deployments, TsReferences, TsSteps], PackageUnused));
     }
 
     /// <summary>The ModelName of every application CI_ID, latest and older revisions.</summary>
@@ -22,7 +22,8 @@ internal static partial class HygieneChecks
         return map;
     }
 
-    internal static HashSet<string> TsReferenced(HygieneContext c) => Set(c.Rows(TsReferences).Select(r => r.S("ObjectID")));
+    /// <summary>The PackageIDs and ModelNames the steps of every task sequence use: the reference rows and the References of each sequence.</summary>
+    internal static HashSet<string> TsReferenced(HygieneContext c) => Set(c.Rows(TsReferences).Concat(c.Rows(TsSteps)).Select(r => r.S("ObjectID")));
 
     private static IEnumerable<HygieneFinding> AppNoReferences(HygieneContext c)
     {
@@ -34,6 +35,8 @@ internal static partial class HygieneChecks
         foreach (var app in c.Rows(Applications))
         {
             if (app.B("IsDeployed") || app.B("IsSuperseding") || app.B("IsSuperseded")) continue;
+            // The site keeps NumberOfDependentTS for some minutes after a task sequence stops using the application and refuses the delete until then.
+            if (app.I("NumberOfDependentTS") > 0) continue;
             var model = app.S("ModelName");
             if (depTargets.Contains(model) || tsRefs.Contains(model)) continue;
             var created = app.T("DateCreated");

@@ -133,6 +133,7 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
             progress.Report($"Reading {Label(set)} ({N(i + 1)} of {N(sets.Count)}).");
             if (!SameConnection(connection, Connection())) throw ScanConnectionChanged();
             var parameters = Bound(new ConfigMgrParameters { { "Operation", "Read" }, { "Sets", new[] { set } }, { "MaxRows", MaxRows }, { "PacingMs", pacing }, { "MaxObjects", MaxObjects } }, connection);
+            if (string.Equals(set, HygieneSets.TsAppDefinitions, StringComparison.OrdinalIgnoreCase)) parameters["Keys"] = StepApplications(data);
             try
             {
                 var part = Parse(await _session.InvokeAsync(Script, parameters, ct, ReadTimeout).ConfigureAwait(false));
@@ -184,6 +185,11 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         return result;
     }
 
+    /// <summary>The ModelNames the References of the task sequences hold, for the definition read of TSQ-03.</summary>
+    internal static string[] StepApplications(HygieneSiteRead data) =>
+        data.Table(HygieneSets.TsSteps).Records.Where(r => r.S("Type") == "1").Select(r => r.S("ObjectID")).Where(m => m.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
+
     private HygieneServiceException ScanConnectionChanged()
     {
         _log?.Warning(LogArea, "The scan stopped: the site or SMS Provider of the settings changed during the scan.");
@@ -196,6 +202,9 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         HygieneSets.AppRevisions => "old application revisions",
         HygieneSets.TsReferences => "task sequence references",
         HygieneSets.TsAppDefinitions => "task sequence application definitions",
+        HygieneSets.TsSteps => "task sequence steps",
+        HygieneSets.AutoApplySequences => "Auto Apply Drivers steps",
+        HygieneSets.CiAssignments => "deployments by target collection",
         HygieneSets.DeviceAgents => "device discovery times",
         HygieneSets.CollectionDetails => "collection schedule details",
         HygieneSets.AppDependencies => "application dependencies",

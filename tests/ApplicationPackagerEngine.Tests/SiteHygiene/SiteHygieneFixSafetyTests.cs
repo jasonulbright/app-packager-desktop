@@ -93,7 +93,7 @@ public sealed class SiteHygieneFixSafetyTests
         var change = await PrepareAsync(h, HygieneFixKind.RemoveCollection, EmptyCollection);
         h.Site.Class("SMS_CollectionDependencies").Add(new JsonObject { ["DependentCollectionID"] = "MCM00016", ["SourceCollectionID"] = "MCM00215", ["RelationshipType"] = "2" });
         var outcome = await ApplyAsync(h, change);
-        Assert.Equal("Skipped: the finding no longer holds: 1 collection include, exclude or limit to the collection now.", Assert.Single(outcome.Objects).Message);
+        Assert.Equal("Skipped: the finding no longer holds: 1 collection includes, excludes or limits to the collection now.", Assert.Single(outcome.Objects).Message);
         Assert.Empty(h.Site.Commands);
     }
 
@@ -105,7 +105,7 @@ public sealed class SiteHygieneFixSafetyTests
         var change = await PrepareAsync(h, HygieneFixKind.RemovePackage, EmptyPackage);
         Assert.True(change.Blocked);
         Assert.Null(change.Fingerprint);
-        Assert.Equal("Skipped: the finding no longer holds: 1 task sequence reference to the package exist now.", Assert.Single(change.Dropped).Message);
+        Assert.Equal("Skipped: the finding no longer holds: 1 task sequence uses the package now.", Assert.Single(change.Dropped).Message);
     }
 
     [Fact]

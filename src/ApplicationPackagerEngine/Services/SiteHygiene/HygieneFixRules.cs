@@ -145,8 +145,11 @@ internal static class HygieneFixRules
         var dependents = s.Table(AppDependencies).Records.Count(r => ci.Contains(r.I("ToApplicationCIID")));
         var relations = s.Table(AppRelations).Records.Count(r => ci.Contains(r.I("ToApplicationCIID")));
         if (dependents + relations > 0) return HygieneEvaluation.No("another application depends on or supersedes this application now.");
-        var sequences = s.Table(TsReferences).Records.Count(r => string.Equals(r.S("ObjectID"), model, StringComparison.OrdinalIgnoreCase));
-        if (sequences > 0) return HygieneEvaluation.No($"{Count(sequences, "task sequence reference")} to the application exist now.");
+        if (!s.IsRead(TsSteps)) return HygieneEvaluation.No("the steps of the task sequences could not be read, so the page does not delete the application.");
+        var sequences = TaskSequencesUsing(s, model);
+        if (sequences > 0) return HygieneEvaluation.No($"{Count(sequences, "task sequence")} {Verb(sequences, "uses", "use")} the application now.");
+        if (app.I("NumberOfDependentTS") is > 0 and var counted)
+            return HygieneEvaluation.No($"the site counts {Count(counted, "task sequence")} that {Verb(counted, "uses", "use")} the application. The site updates this count some time after a task sequence stops using it; scan again later.");
         var minAge = Days(f, t.AppUnusedMinAgeDays);
         if (app.T("DateCreated") is { } created && created > now.AddDays(-minAge)) return HygieneEvaluation.No($"the application is younger than {minAge.ToString(CultureInfo.InvariantCulture)} days.");
         var id = app.S("CI_ID");
@@ -195,9 +198,15 @@ internal static class HygieneFixRules
             HygieneFixKind.RemoveApplicationRevisionHistory, T((HygieneFixParameters.Id, id), (HygieneFixParameters.Revisions, r.S("CIVersion"))), T(("Id", id), ("Revision", r.S("CIVersion"))))).ToList());
     }
 
+    /// <summary>The task sequences whose reference rows or step References name the object.</summary>
+    private static int TaskSequencesUsing(HygieneSiteRead s, string id) =>
+        s.Table(TsReferences).Records.Concat(s.Table(TsSteps).Records).Where(r => string.Equals(r.S("ObjectID"), id, StringComparison.OrdinalIgnoreCase))
+            .Select(r => r.S("PackageID")).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+
     private static int ReferencesTo(HygieneSiteRead s, string id) =>
-        s.Table(TsReferences).Records.Count(r => string.Equals(r.S("ObjectID"), id, StringComparison.OrdinalIgnoreCase))
-        + s.Table(TaskSequences).Records.Count(r => string.Equals(r.S("BootImageID"), id, StringComparison.OrdinalIgnoreCase));
+        TaskSequencesUsing(s, id) + s.Table(TaskSequences).Records.Count(r => string.Equals(r.S("BootImageID"), id, StringComparison.OrdinalIgnoreCase));
+
+    private static string Verb(int n, string one, string more) => n == 1 ? one : more;
 
     private static HygieneEvaluation RemovePackage(HygieneFinding f, HygieneSiteRead s)
     {
@@ -209,8 +218,9 @@ internal static class HygieneFixRules
         if (programs > 0) return HygieneEvaluation.No($"the package has {Count(programs, "program")} now.");
         var deployments = s.Table(Deployments).Records.Count(r => string.Equals(r.S("PackageID"), id, StringComparison.OrdinalIgnoreCase));
         if (deployments > 0) return HygieneEvaluation.No($"the package has {Count(deployments, "deployment")} now.");
+        if (!s.IsRead(TsSteps)) return HygieneEvaluation.No("the steps of the task sequences could not be read, so the page does not delete the package.");
         var refs = ReferencesTo(s, id);
-        if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "task sequence reference")} to the package exist now.");
+        if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "task sequence")} {Verb(refs, "uses", "use")} the package now.");
         return new(true, "", [Write(f, "Package", id, pkg.S("Name"), $"Package {id}", HygieneFixKind.RemovePackage, T((HygieneFixParameters.Id, id)), T(("Id", id)))]);
     }
 
@@ -221,14 +231,10 @@ internal static class HygieneFixRules
         var row = s.Table("Objects").Records.Where(r => string.Equals(r.S("PackageID"), id, StringComparison.OrdinalIgnoreCase)).Select(r => (HygieneRow?)r).FirstOrDefault();
         if (row is not { } obj) return HygieneEvaluation.No($"the {noun} no longer exists.");
         if (kind == HygieneFixKind.RemoveBootImage && HygieneChecks.DefaultBootImage.IsMatch(obj.S("Name"))) return HygieneEvaluation.No("the boot image is a default boot image of the site.");
+        if (!s.IsRead(TsSteps)) return HygieneEvaluation.No($"the steps of the task sequences could not be read, so the page does not delete the {noun}.");
         var refs = ReferencesTo(s, id);
-        if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "task sequence reference")} to the {noun} exist now.");
-        if (kind == HygieneFixKind.RemoveDriverPackage)
-        {
-            if (!s.IsRead(AutoApplySequences)) return HygieneEvaluation.No("the steps of the task sequences could not be read, so the page does not delete a driver package.");
-            if (s.Table(AutoApplySequences).Records.Count() is > 0 and var auto)
-                return HygieneEvaluation.No($"{Count(auto, "task sequence")} {(auto == 1 ? "has" : "have")} an Auto Apply Drivers step, which can use the content of any driver package without a reference.");
-        }
+        if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "task sequence")} {Verb(refs, "uses", "use")} the {noun} now.");
+        if (kind == HygieneFixKind.RemoveDriverPackage && HygieneChecks.DriverPackageUse(s) is { } use) return HygieneEvaluation.No(use + ".");
         return new(true, "", [Write(f, kind == HygieneFixKind.RemoveBootImage ? "BootImage" : "DriverPackage", id, obj.S("Name"), $"{char.ToUpperInvariant(noun[0])}{noun[1..]} {id}", kind, T((HygieneFixParameters.Id, id)), T(("Id", id)))]);
     }
 
@@ -240,14 +246,15 @@ internal static class HygieneFixRules
         if (row is not { } col) return HygieneEvaluation.No("the collection no longer exists.");
         if (col.I("MemberCount", -1) != 0) return HygieneEvaluation.No($"the collection has {Count(Math.Max(0, col.I("MemberCount")), "member")} now.");
         var deployments = s.Table(Deployments).Records.Count(r => string.Equals(r.S("CollectionID"), id, StringComparison.OrdinalIgnoreCase));
-        if (deployments > 0) return HygieneEvaluation.No($"{Count(deployments, "deployment")} target the collection now.");
+        if (deployments > 0) return HygieneEvaluation.No($"{Count(deployments, "deployment")} {Verb(deployments, "targets", "target")} the collection now.");
         var refs = s.Table(CollectionDependencies).Records.Count(r => string.Equals(r.S("SourceCollectionID"), id, StringComparison.OrdinalIgnoreCase));
-        if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "collection")} include, exclude or limit to the collection now.");
+        if (refs > 0) return HygieneEvaluation.No($"{Count(refs, "collection")} {Verb(refs, "includes, excludes or limits", "include, exclude or limit")} to the collection now.");
         if (s.Table(CollectionSettings).Records.Any(r => string.Equals(r.S("CollectionID"), id, StringComparison.OrdinalIgnoreCase))) return HygieneEvaluation.No("the collection has variables or maintenance windows now.");
         foreach (var set in CollectionUsers)
             if (!s.IsRead(set)) return HygieneEvaluation.No("the objects that can use the collection could not be read, so the page does not delete it.");
         int Uses(string set, string column) => s.Table(set).Records.Count(r => string.Equals(r.S(column), id, StringComparison.OrdinalIgnoreCase));
-        if (Uses(CollectionAssignments, "TargetCollectionID") is > 0 and var assignments) return HygieneEvaluation.No($"{Count(assignments, "deployment")} of an application, a software update, a baseline or a policy target the collection now.");
+        if (Uses(CollectionAssignments, "TargetCollectionID") is > 0 and var assignments)
+            return HygieneEvaluation.No($"{Count(assignments, "deployment")} of an application, a software update, a baseline or a policy {Verb(assignments, "targets", "target")} the collection now.");
         if (Uses(CollectionRules, "CollectionID") is > 0 and var rules) return HygieneEvaluation.No($"{Count(rules, "automatic deployment rule")} {(rules == 1 ? "targets" : "target")} the collection.");
         if (Uses(CollectionClientSettings, "CollectionID") is > 0 and var settings) return HygieneEvaluation.No($"{Count(settings, "client settings deployment")} {(settings == 1 ? "targets" : "target")} the collection.");
         if (Uses(CollectionAdmins, "CategoryID") is > 0 and var admins) return HygieneEvaluation.No($"{Count(admins, "administrative user")} {(admins == 1 ? "has" : "have")} the collection in {(admins == 1 ? "its" : "their")} assigned collections.");
@@ -356,7 +363,7 @@ internal static class HygieneFixRules
         var def = s.Table(TsAppDefinitions).Records.Where(r => string.Equals(r.S("ModelName"), model, StringComparison.OrdinalIgnoreCase)).Select(r => (HygieneRow?)r).FirstOrDefault();
         if (def is not { } d) return HygieneEvaluation.No("the application definition could not be read.");
         if (d.B("AutoInstall")) return HygieneEvaluation.No("the application has the task sequence install setting now.");
-        if (!s.Table(TsReferences).Records.Any(r => string.Equals(r.S("ObjectID"), model, StringComparison.OrdinalIgnoreCase))) return HygieneEvaluation.No("no task sequence installs the application now.");
+        if (TaskSequencesUsing(s, model) == 0) return HygieneEvaluation.No("no task sequence installs the application now.");
         return new(true, "", [Write(f, "Application", model, app.S("LocalizedDisplayName"), $"CI_ID {app.S("CI_ID")}, revision {app.S("CIVersion")}: the change makes a new revision", HygieneFixKind.SetApplication,
             T((HygieneFixParameters.ModelName, model)), T(("Id", model)))]);
     }
