@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using ApplicationPackagerUI.Helpers;
@@ -35,6 +35,8 @@ public partial class SiteHygienePage : INavigationAware
         FitTab(tab: gridFindingsTab, gridMinHeight: FindingsGridMinHeight, parts: [pnlFindingFilter, pnlFindingActions, pnlFindingDetail, txtNotRun]);
         FitTab(tab: gridRelationsTab, gridMinHeight: RelationsGridMinHeight, parts: [pnlRelationsActions]);
         FitTab(tab: gridHistoryTab, gridMinHeight: HistoryGridMinHeight, parts: [txtHygieneHistoryIntro, pnlHygieneHistoryFilter, pnlHygieneHistoryDetail]);
+        FitTab(tab: gridLiveTab, gridMinHeight: LiveViewMinHeight, parts: [pnlLiveActions, pnlLiveFilter, pnlLiveMessages]);
+        BuildLiveColumns();
         dgHygieneResults.SizeChanged += (_, _) => FitResults();
         dgHygieneResults.LoadingRow += (_, _) => Dispatcher.BeginInvoke(FitResults, System.Windows.Threading.DispatcherPriority.Loaded);
         txtFixText.MaxHeight = WholeLines.BoxHeight(box: txtFixText, lines: FixLines);
@@ -96,6 +98,15 @@ public partial class SiteHygienePage : INavigationAware
         if (Math.Abs(dgHygieneResults.MaxHeight - height) > 0.5) dgHygieneResults.MaxHeight = height;
     }
 
+    /// <summary>The least height of the Live view: the grid, the chart with its table, or the alert list; the tab scrolls before the view gets less.</summary>
+    public const double LiveViewMinHeight = TrendChartMinHeight + TrendTableMinHeight + 64;
+
+    /// <summary>The least height of the Trends chart.</summary>
+    public const double TrendChartMinHeight = 140;
+
+    /// <summary>The least height of the Trends table: the column header and three rows.</summary>
+    public const double TrendTableMinHeight = 128;
+
     /// <summary>The least height of the History grid; the tab scrolls before the grid gets less.</summary>
     public const double HistoryGridMinHeight = 160;
 
@@ -138,7 +149,7 @@ public partial class SiteHygienePage : INavigationAware
 
     public Task OnNavigatedFromAsync() => _viewModel.OnNavigatedFromAsync();
 
-    private IEnumerable<DataGrid> SortedGrids() => [dgFindings, dgEdges, dgChecks, dgHygieneHistory];
+    private IEnumerable<DataGrid> SortedGrids() => [dgFindings, dgEdges, dgChecks, dgHygieneHistory, dgLive];
 
     // The page sorts the rows itself, so a sort stays after a filter change and a new result replace the rows.
     private void OnGridSorting(object sender, DataGridSortingEventArgs e)
@@ -172,7 +183,59 @@ public partial class SiteHygienePage : INavigationAware
             case nameof(SiteHygieneViewModel.HasAuditWarning) or nameof(SiteHygieneViewModel.ShowsResults):
                 ApplyLayout(_compact);
                 break;
+            case nameof(SiteHygieneViewModel.LiveColumns) or nameof(SiteHygieneViewModel.SelectedLiveView):
+                BuildLiveColumns();
+                break;
+            case nameof(SiteHygieneViewModel.LiveViewRows):
+                ShowSorts();
+                break;
         }
+    }
+
+    /// <summary>
+    /// The Live grid has a status column and one column per header of the view shown. A name column takes the free width;
+    /// every other column has the width of its longest value, so no value is cut at 1440 pixels.
+    /// </summary>
+    private void BuildLiveColumns()
+    {
+        var key = _viewModel.SelectedLiveView.View is { } view ? SiteHygieneViewModel.LiveSortKey(view) : null;
+        var headers = _viewModel.LiveColumns;
+        if (Equals(dgLive.Tag, key) && dgLive.Columns.Count == headers.Count + 1 && dgLive.Columns.Skip(1).Select(c => (string)c.Header).SequenceEqual(headers, StringComparer.Ordinal)) return;
+        dgLive.Tag = key;
+        dgLive.Columns.Clear();
+        var cell = (Style)FindResource("TrimmedCell");
+        dgLive.Columns.Add(new DataGridTextColumn
+        {
+            Header = SiteHygieneLiveLabels.StatusHeader, Binding = new System.Windows.Data.Binding(nameof(LiveGridRow.StatusCell)), SortMemberPath = SiteHygieneLiveLabels.StatusColumn,
+            Width = SiteHygieneLiveLabels.StatusWidth, MinWidth = SiteHygieneLiveLabels.StatusWidth, ElementStyle = cell
+        });
+        for (var i = 0; i < headers.Count; i++)
+        {
+            var kind = SiteHygieneLiveLabels.KindOf(headers[i]);
+            var (width, min) = SiteHygieneLiveLabels.Width(kind);
+            var header = HeaderWidth(headers[i]);
+            min = Math.Max(min, header);
+            width = Math.Max(width, header);
+            dgLive.Columns.Add(new DataGridTextColumn
+            {
+                Header = headers[i], Binding = new System.Windows.Data.Binding($"{nameof(LiveGridRow.Cells)}[{i}]") { Mode = System.Windows.Data.BindingMode.OneWay },
+                SortMemberPath = LiveGridRow.CellMember(i), ElementStyle = cell, MinWidth = min,
+                Width = kind == LiveColumnKind.Name ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(width)
+            });
+        }
+        ShowSorts();
+    }
+
+    /// <summary>The room of the sort glyph and the header padding around the header text.</summary>
+    private const double HeaderRoom = 32;
+
+    /// <summary>The width the column header needs: its text in the semibold header font, the sort glyph and the padding.</summary>
+    private double HeaderWidth(string header)
+    {
+        var text = new System.Windows.Media.FormattedText(header, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            new System.Windows.Media.Typeface(dgLive.FontFamily, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), dgLive.FontSize, System.Windows.Media.Brushes.Black,
+            System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        return Math.Ceiling(text.WidthIncludingTrailingWhitespace + HeaderRoom);
     }
 
     /// <summary>

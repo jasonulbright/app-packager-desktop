@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Services;
+﻿using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests.MaintenanceWindows;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
@@ -307,6 +307,11 @@ internal sealed class FakeHygieneDialogs : ISiteHygieneDialogs
     public List<HygieneFindingsPickerViewModel> Shown { get; } = [];
     public bool CancelPicker;
     public string? Comment = "Kept for the audit in November.";
+    public List<string> OpenedFiles { get; } = [];
+    public List<HygieneImportViewModel> Imports { get; } = [];
+
+    /// <summary>True confirms the import plan; false cancels it.</summary>
+    public bool ConfirmImport = true;
     public List<(string Title, string Prompt)> Asked { get; } = [];
     public List<string> Clipboard { get; } = [];
     public List<string> OpenedFolders { get; } = [];
@@ -328,6 +333,15 @@ internal sealed class FakeHygieneDialogs : ISiteHygieneDialogs
     public void SetClipboard(string text) => Clipboard.Add(text);
 
     public void OpenFolder(string folder) => OpenedFolders.Add(folder);
+
+    public void OpenFile(string path) => OpenedFiles.Add(path);
+
+    void ISiteHygieneDialogs.ConfirmImport(HygieneImportViewModel import)
+    {
+        Imports.Add(import);
+        if (ConfirmImport) import.ImportCommand.Execute(null);
+        else import.CancelCommand.Execute(null);
+    }
 }
 
 internal sealed class SiteHygienePageHarness
@@ -344,9 +358,10 @@ internal sealed class SiteHygienePageHarness
     public AppSettings Settings { get; set; } = new() { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com" };
     public SiteHygieneSettings? Saved { get; set; }
     public int PreferenceSaves;
-    public int LiveViewCalls;
-    public SuiteToolLaunchResult LiveViewResult = new(SuiteToolLaunchOutcome.Started);
     public TimeSpan FilterDelay = TimeSpan.Zero;
+
+    /// <summary>The Live services; null builds the page without them, as a build without the engine services.</summary>
+    public SiteHygieneLiveFakes? Live = new();
 
     /// <summary>The audit log the History tab reads; null shows no history.</summary>
     public IHygieneAuditLog? AuditLog;
@@ -428,12 +443,7 @@ internal sealed class SiteHygienePageHarness
             Interlocked.Increment(ref PreferenceSaves);
             Saved = s;
             return true;
-        },
-        () =>
-        {
-            Interlocked.Increment(ref LiveViewCalls);
-            return Task.FromResult(LiveViewResult);
-        }, Log) { FilterDelay = FilterDelay, AuditLog = AuditLog };
+        }, Log) { FilterDelay = FilterDelay, AuditLog = AuditLog, Live = Live?.Services() };
 
     public SiteHygieneViewModel Create() => new(Services());
 
