@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager and Pivots and Scripts are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper), [DP Content Manager](#dp-content-manager) and [Pivots and Scripts](#pivots-and-scripts). The other entry, Site Hygiene, starts a tool of the App Packager Suite. This tool opens in its own window. App Packager Desktop does not include this tool. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. All eight are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper), [DP Content Manager](#dp-content-manager), [Pivots and Scripts](#pivots-and-scripts) and [Site Hygiene](#site-hygiene). The **Live views** button of the Site Hygiene page starts the Live views of the App Packager Suite tool Site Hygiene in its own window. It starts the tool from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -468,6 +468,58 @@ The page works in light and dark themes.
 - The audit chain finds edits to single records. A process that runs under the same account can write a new chain without a break.
 - The limit of 2,000 devices is a set limit and not a measured limit. The lab had four clients.
 - The page makes no network call except to the SMS Provider.
+## Site Hygiene
+
+The **Site Hygiene** page scans a ConfigMgr site for clutter and drift, shows each finding with its evidence, and can fix a finding. **A fix deletes or changes objects on the site. Most deletes cannot be undone.** Read [Limits](#limits-2) before you fix anything on a production site. This is part 1 of the page. The Live views (deployments, content, distribution points, client health, inactive devices, site health, trends and alerts) stay in the suite tool, and the **Live views** button starts it.
+
+![The Findings tab with the findings of a scan and the fix text of the selected finding](docs/images/apd15-sh-findings.png)
+
+- **Scan:** the scan reads the site through the SMS Provider. It runs 57 checks in areas that you choose in **Options**, and you can cancel the scan. The scan changes nothing. A check that did not run, because the read failed, was cut or was not selected, never reports "no findings": the Summary names it and its reason.
+- **Findings:** each finding has a check ID, a category, a severity (Error, Warning or Info), the object, the evidence and a recommendation. You can filter by text, category and severity. The **New** column marks the findings that the last stored scan of the same site and provider did not have. The first visit shows that stored scan, marked as stored, without a call to the site.
+- **Suppress:** **Suppress** hides a finding with your comment. **Unsuppress** shows it again. A suppression holds the check ID, the object key, the site and the provider. **Show suppressed** lists the hidden findings.
+- **Relationships:** **Read relationships** reads every supersedence and dependency between applications. **Inventory** lists the edges with their health. **Tree** shows the chains, marks cycles, and works from the keyboard.
+- **Summary:** the counts by category and severity, and the status of every check. A count shows "At least N", or "Not known" for zero, when a check of that category and severity did not run.
+- **History:** every fix that the page made, from its own audit log. See [History and audit](#history-and-audit-2).
+- **Export CSV** and **Export HTML** write the rows that you see. The file names the filter, the suppressed findings that are hidden, and the checks that did not run. The CSV has the column row first, and the notes go to a separate `.about.txt` file, so `Import-Csv` reads it.
+
+![The Summary tab with the counts by category and severity](docs/images/apd15-sh-summary.png)
+
+![The Relationships tab with the supersedence and dependency edges](docs/images/apd15-sh-relationships.png)
+
+### Fixes
+
+A fix is a typed operation with exact object identifiers. The page never runs script text. The plan shows the equivalent PowerShell as read-only text that you can copy, and a test proves that this text is what the service runs.
+
+- **Fix kinds:** the page can remove applications, application deployments, application revision history, packages, boot images, driver packages, collections, devices, auto deployment rules and maintenance windows. It can also run an auto deployment rule and change the refresh type of a collection, an application and a site maintenance task. A finding whose fix the page cannot prove safe shows **Report only** in the Fix column, with the reason. You then fix it yourself in the console. Run fix is disabled for it.
+- **Plan:** **Run fix** opens a list of the objects, where you can untick objects. The plan shows the PowerShell text, the impact lines and the checks of the prepared change. A delete needs a second box that names the number of objects and says that the delete cannot be undone. The service enforces the box.
+- **The finding must still hold:** the service reads the object again on fresh data when it prepares the plan, and again immediately before each write. If the finding no longer holds, for example an application that got a deployment since the scan, the object is skipped with the reason.
+- **References are checked in the same command as the delete:** before a delete, the same site command reads what uses the object. A collection is refused when a deployment, an auto deployment rule, a client settings deployment, a collection rule or an administrative scope uses it. An application is refused when a task sequence uses it. A driver package is refused while a task sequence has an Auto Apply Drivers step. A device with a client heartbeat inside the inactivity window is never deleted.
+- **Size of a run:** a run takes at most 100 deletes or 200 changes. A plan is valid for 15 minutes and can be used once. It is tied to the site and the provider: if the connection changes before you confirm, the run is refused.
+- **Audit first:** the page writes a Started record before the first change. If the log cannot be written, nothing is changed. Each run ends with one Finished record. If that record cannot be written, the result says so and names the log.
+- **Results:** each object gets its own result: Done, Unchanged, Failed or Skipped. Done means that the read-back showed the change. If the write ran but the read-back failed, the result is Failed and says so. **Cancel** finishes the object in progress and skips the rest.
+
+![The plan of a fix with the PowerShell text, the notes and the confirmation boxes](docs/images/apd15-sh-plan-fix.png)
+
+### History and audit
+
+**History** lists the runs with the time, the action, the result, the object counts, the site, the provider and the user. A run is marked **Verified** or **Not verified** from the hash chain of the audit log. The detail shows the result of each object. History reads the local file and makes no call to the site.
+
+![The History tab with the records of two fix runs](docs/images/apd15-sh-history.png)
+
+The page works in light and dark themes.
+
+![The Findings tab in the dark theme after a fix run](docs/images/apd15-sh-dark.png)
+
+### Limits
+
+- A delete cannot be undone. Restore from a backup of the site if you removed the wrong object.
+- A scan is a snapshot. The fix reads the object again, but the site can change between that read and the write. ConfigMgr has no conditional write.
+- The site updates some flags late. An application still reads as deployed, and still counts a dependent task sequence, for some minutes after the last deployment or the task sequence is removed. The page then skips or refuses the delete and says why.
+- The site does not list the task sequence steps of a boot image that is used only for media or PXE. A boot image plan says so.
+- The task sequences read is capped. When it is cut, the checks that need it do not run.
+- The content source probe (check APP-04) is off by default, because it reaches file servers. With it off, APP-04 is not selected.
+- The audit chain finds edits to single records. A process that runs under the same account can write a new chain without a break.
+- The page makes no network call except to the SMS Provider, and to the file servers when you switch the content source probe on.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
