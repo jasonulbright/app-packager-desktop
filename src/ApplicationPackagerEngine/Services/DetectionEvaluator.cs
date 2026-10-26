@@ -298,7 +298,10 @@ public static partial class DetectionEvaluator
             .Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         if (parts.Count > 0)
         {
-            var first = parts[0].TrimEnd(':');
+            var first = parts[0];
+            if (first.StartsWith("Registry::", StringComparison.OrdinalIgnoreCase))
+                first = first["Registry::".Length..];
+            first = first.TrimEnd(':');
             var named = HivePrefixes.Where(p => p.Prefix.Equals(first, StringComparison.OrdinalIgnoreCase)).ToList();
             if (named.Count > 0)
             {
