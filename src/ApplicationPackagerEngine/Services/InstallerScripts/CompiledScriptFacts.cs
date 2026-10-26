@@ -35,7 +35,7 @@ public sealed class CompiledScriptFacts
     /// without a reader or when the header could not be read, so callers
     /// fall back to engine conventions.
     /// </summary>
-    public static CompiledScriptFacts? TryRead(string engine, string path)
+    public static CompiledScriptFacts? TryRead(string engine, string path, CancellationToken ct = default)
     {
         try
         {
@@ -43,7 +43,7 @@ public sealed class CompiledScriptFacts
             {
                 case "NSIS":
                 {
-                    var m = NsisScriptReader.Read(path);
+                    var m = NsisScriptReader.Read(path, ct);
                     if (!m.HeaderAvailable) return null;
                     return new CompiledScriptFacts
                     {
@@ -60,7 +60,7 @@ public sealed class CompiledScriptFacts
                 }
                 case "InnoSetup":
                 {
-                    var m = InnoSetupReader.Read(path);
+                    var m = InnoSetupReader.Read(path, ct);
                     if (!m.HeaderAvailable) return null;
                     return new CompiledScriptFacts
                     {
@@ -79,7 +79,7 @@ public sealed class CompiledScriptFacts
                     return null;
             }
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A reader failure leaves the drop on the convention path rather than failing the analysis.
             return null;

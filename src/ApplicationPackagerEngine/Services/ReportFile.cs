@@ -8,10 +8,14 @@ internal static class ReportFile
 {
     public const int MaxNames = 1000;
 
-    /// <summary>A quoted CSV cell; a value a spreadsheet would read as a formula starts with an apostrophe.</summary>
+    /// <summary>
+    /// A quoted CSV cell. A value a spreadsheet would read as a formula starts with an apostrophe:
+    /// a leading = + - @, tab, carriage return or line feed, or spaces followed by one of = + - @.
+    /// </summary>
     public static string Cell(string value)
     {
-        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
+        var first = value.TrimStart(' ');
+        if ((value.Length > 0 && value[0] is '\t' or '\r' or '\n') || (first.Length > 0 && first[0] is '=' or '+' or '-' or '@'))
             value = "'" + value;
         return "\"" + value.Replace("\"", "\"\"") + "\"";
     }

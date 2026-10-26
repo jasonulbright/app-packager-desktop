@@ -38,6 +38,61 @@ public class NsisScriptReaderTests
     }
 
     [Fact]
+    public void OnInitAssignment_ReplacesTheCompiledInstallDir_AndMarksTheFolderPredicted()
+    {
+        var m = Read("nsis-mk-oninit-pf64.bin");
+
+        Assert.True(m.HeaderAvailable);
+        Assert.Equal(@"$PROGRAMFILES64\Probe64", m.InstallDir);
+        Assert.Equal(@"%ProgramW6432%\Probe64", m.InstallDirWindows);
+        Assert.Equal(@"""%ProgramW6432%\Probe64\uninstall.exe"" /S", m.SilentUninstallCommand);
+        Assert.Equal(@"HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Probe64", m.UninstallRegistryKey);
+        Assert.Equal("64", m.RegistryView);
+        Assert.True(m.InstallDirPredicted);
+        Assert.True(m.ModeVariants[m.InstallMode].InstallDirPredicted);
+        Assert.Contains(@".onInit sets $INSTDIR to $PROGRAMFILES64\Probe64", m.Note);
+        Assert.Contains(@"$PROGRAMFILES\Probe64", m.Note);
+        Assert.Contains(@"InstallDirRegKey HKLM\Software\Probe64", m.Note);
+    }
+
+    [Fact]
+    public void OnInitAlternativeFolder_KeepsTheCompiledInstallDir_AndMarksItPredicted()
+    {
+        var m = Read("nsis-mk-oninit-alt.bin");
+
+        Assert.Equal(@"$PROGRAMFILES64\Probe64", m.InstallDir);
+        Assert.Equal(@"""%ProgramW6432%\Probe64\uninstall.exe"" /S", m.SilentUninstallCommand);
+        Assert.True(m.InstallDirPredicted);
+        Assert.Contains(@".onInit can set $INSTDIR at run time to $DOCUMENTS\Probe64", m.Note);
+        Assert.DoesNotContain("PageOnly", m.Note);
+    }
+
+    [Fact]
+    public void CompiledInstallDirWithoutOnInitAssignment_IsNotPredicted()
+    {
+        var m = Read("nsis-a-pf64-hklm-view64.bin");
+
+        Assert.False(m.InstallDirPredicted);
+        Assert.False(m.ModeVariants[m.InstallMode].InstallDirPredicted);
+    }
+
+    [Fact]
+    public void NotepadPlusPlusX64_InstallsUnderTheSixtyFourBitProgramFiles()
+    {
+        const string path = @"C:\temp\ap\NotepadPlusPlus\8.9.8.1\npp.8.9.8.1.Installer.x64.exe";
+        if (!File.Exists(path)) return;
+
+        var m = NsisScriptReader.Read(path);
+
+        Assert.Equal(@"$PROGRAMFILES64\Notepad++", m.InstallDir);
+        Assert.Equal(@"""%ProgramW6432%\Notepad++\uninstall.exe"" /S", m.SilentUninstallCommand);
+        Assert.Equal(@"HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Notepad++", m.UninstallRegistryKey);
+        Assert.Equal("8.9.8.1", m.DisplayVersion);
+        Assert.True(m.InstallDirPredicted);
+        Assert.All(m.InstallDirCandidates, c => Assert.StartsWith("$", c));
+    }
+
+    [Fact]
     public void AnsiHeader_TwoByteEscapeArguments()
     {
         var m = Read("nsis-a-pf64-hklm-view64.bin");

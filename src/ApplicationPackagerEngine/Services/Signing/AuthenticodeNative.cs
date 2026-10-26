@@ -114,7 +114,7 @@ internal static class AuthenticodeNative
     /// the trust result and, when the provider built one, the signer and the
     /// timestamper certificates.
     /// </summary>
-    public static (uint Error, X509Certificate2? Signer, X509Certificate2? Timestamper) VerifyFile(string path)
+    public static (uint Error, X509Certificate2? Signer, X509Certificate2? Timestamper) VerifyFile(string path, bool cacheOnly = false)
     {
         var pPath = Marshal.StringToHGlobalUni(path);
         var pFileInfo = Marshal.AllocHGlobal(Marshal.SizeOf<WINTRUST_FILE_INFO>());
@@ -135,7 +135,9 @@ internal static class AuthenticodeNative
                 fdwRevocationChecks = 0,  // WTD_REVOKE_NONE
                 dwUnionChoice = 1,        // WTD_CHOICE_FILE
                 pFile = pFileInfo,
-                dwStateAction = 1         // WTD_STATEACTION_VERIFY
+                dwStateAction = 1,        // WTD_STATEACTION_VERIFY
+                // WTD_CACHE_ONLY_URL_RETRIEVAL: chain building uses only cached certificates, never a network fetch.
+                dwProvFlags = cacheOnly ? 0x1000u : 0u
             };
             var action = WintrustActionGenericVerifyV2;
             var error = unchecked((uint)WinVerifyTrust(IntPtr.Zero, ref action, ref data));

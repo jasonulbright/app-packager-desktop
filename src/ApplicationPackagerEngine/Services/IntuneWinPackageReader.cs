@@ -86,6 +86,7 @@ public sealed class IntuneWinPackageReader
     {
         try
         {
+            ZipCentralDirectory.Check(path, InstallerSignatureScanner.MaxLayoutEntries, "read");
             return ZipFile.OpenRead(path);
         }
         catch (InvalidDataException ex)
