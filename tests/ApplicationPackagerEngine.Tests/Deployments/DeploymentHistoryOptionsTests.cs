@@ -30,6 +30,11 @@ public sealed class DeploymentHistoryOptionsTests
 
         history.EventFilter = "Create";
         Assert.Equal(2, history.Rows.Count);
+        var selected = history.Rows[0];
+        history.SelectedRow = selected;
+        history.TextFilter = "7-Zip";
+        Assert.Same(selected, history.SelectedRow);
+        history.TextFilter = "";
         history.TypeFilter = "Package";
         Assert.Equal(["Office Tools 1.0"], history.Rows.Select(r => r.Object));
         Assert.Equal("1 of 4 records", history.RowCount);
