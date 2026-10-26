@@ -167,8 +167,7 @@ public sealed partial class DeploymentService : IDeploymentService
         var applications = rows.Select(r => new SiteApplication(r.Name ?? "", r.Id ?? "", r.ModelName ?? "", r.Id is { Length: > 0 } id ? [id] : [])).ToList();
         try
         {
-            _signing.Link(applications);
-            return applications.Select(_signing.IsPackaged).ToArray();
+            return _signing.ArePackaged(applications).ToArray();
         }
         catch (DeploymentServiceException)
         {
