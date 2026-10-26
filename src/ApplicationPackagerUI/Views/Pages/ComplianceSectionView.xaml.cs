@@ -70,7 +70,7 @@ public partial class ComplianceSectionView : UserControl
     private void ApplyDeployments()
     {
         if (_viewModel is null) return;
-        var row = ((Grid)dgDeployments.Parent).RowDefinitions[4];
+        var row = ((Grid)gridLiveDeployments.Parent).RowDefinitions[3];
         if (_viewModel.Live.ShowDeployments)
         {
             row.MinHeight = 140;
