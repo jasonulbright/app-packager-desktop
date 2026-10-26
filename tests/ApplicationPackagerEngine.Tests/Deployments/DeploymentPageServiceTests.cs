@@ -93,7 +93,8 @@ internal sealed class ServicePageHarness : IDisposable
     public DeploymentPageServices Services() => new(
         Deployments: Service, Collections: Engine.Collections, AuditLog: Engine.Audit, Templates: Templates, Reports: new FakeDeploymentReports(),
         Dialogs: new FakeDeploymentDialogs(), Plans: Plans, Writer: Writer, LoadSettings: () => Settings, LoadPreferences: () => Settings.DeploymentHelper,
-        SavePreferences: s => { Settings.DeploymentHelper = s; return true; }, StartRingTool: () => Task.FromResult<string?>(null), Log: Log, Clock: Clock);
+        SavePreferences: s => { Settings.DeploymentHelper = s; return true; }, Rings: new UnavailableRingService(),
+        RingWriter: new RingWriter(new UnavailableRingService(), History, Log, () => "LAB", _ => Task.FromResult(true)), Log: Log, Clock: Clock);
 
     public async Task<DeploymentHelperViewModel> OpenAsync()
     {
@@ -515,7 +516,7 @@ public sealed class DeploymentPageServiceTests
         Assert.False(row.PartialChange);
         Assert.StartsWith("The result of the create", row.Message);
         Assert.False(page.Shared.HasUndo);
-        Assert.Empty(h.Plans.LastViewModel!.Outcome.Result!.Items.Where(i => i.PartialChange));
+        Assert.DoesNotContain(h.Plans.LastViewModel!.Outcome.Result!.Items, i => i.PartialChange);
     }
 
     private static async Task<DeploymentPlan> PlanOfAsync(ServicePageHarness h, params DeploymentChange[] requests)

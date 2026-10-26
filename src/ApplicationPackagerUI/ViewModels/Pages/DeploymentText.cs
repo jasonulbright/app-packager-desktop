@@ -126,6 +126,7 @@ public static class DeploymentText
         DpGroup => "Distribution point group",
         DeploymentUnchanged => "Deployment unchanged",
         CreatedHere => "Created by this product",
+        RingPlanRules.CheckName => "Plan rules",
         _ => name
     };
 

@@ -44,7 +44,7 @@ public sealed partial class DeploymentService
         try
         {
             if (!IsObjectId(obj.Type, obj.Id)) throw new DeploymentServiceException($"The ID of the {Noun(obj.Type).ToLowerInvariant()} is not valid.");
-            state = await ReadStateAsync(obj, PackageIdRegex().IsMatch(collectionId) ? collectionId : "", options.Purpose, ct).ConfigureAwait(false);
+            state = await ReadStateAsync(obj, PackageIdRegex().IsMatch(collectionId) ? collectionId : "", options.Purpose, ct, request.Ring?.QueryScope).ConfigureAwait(false);
         }
         catch (DeploymentServiceException ex)
         {
@@ -580,6 +580,15 @@ public static class AuditEvents
     public const string Create = "Create";
     public const string Distribute = "Distribute";
     public const string Undo = "Undo";
+
+    /// <summary>Ring records: a run was closed.</summary>
+    public const string Close = "Close";
+
+    /// <summary>Ring records: a Held ring was cancelled by Close run or Undo run; nothing changed in ConfigMgr.</summary>
+    public const string CancelRing = "CancelRing";
+
+    /// <summary>Ring records: a Creating ring was returned to Held by the operator; a deployment of it may exist.</summary>
+    public const string Abandon = "Abandon";
 }
 
 /// <summary>The Result values of the audit records this product writes; the suite tool writes Success or 'Failed: text'.</summary>

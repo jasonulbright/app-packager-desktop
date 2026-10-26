@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Logging;
@@ -231,9 +232,10 @@ public sealed class DeploymentWriter(IDeploymentService service, ISiteOperationH
             var collection = collectionId.Length > 0 ? $"{collectionName} ({collectionId})".Trim() : collectionName;
             return $"{obj} from {collection}";
         }
+        const string Stays = "Software that clients already installed stays installed.";
         var names = removals.Select(Name).ToList();
-        var subject = names.Count == 1 ? "the deployment " + names[0] : "the deployments " + string.Join("; ", names);
-        return $"Remove {subject}? Software that clients already installed stays installed.";
+        if (names.Count == 1) return $"Remove the deployment {names[0]}? {Stays}";
+        return string.Join(Environment.NewLine, names.Prepend($"Remove these {names.Count.ToString(CultureInfo.CurrentCulture)} deployments? {Stays}"));
     }
 
     public async Task<ChangePlanResult> ApplyAsync(ConfirmedChangePlan confirmed, DeploymentPlan plan, IProgress<ChangePlanItemResult> progress, CancellationToken ct)

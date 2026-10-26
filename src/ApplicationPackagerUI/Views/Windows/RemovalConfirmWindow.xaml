@@ -15,14 +15,17 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Remove deployment" ShowMinimize="False" ShowMaximize="False" />
+        <ui:TitleBar Grid.Row="0" x:Name="titleBar" Title="Remove deployment" ShowMinimize="False" ShowMaximize="False" />
 
-        <TextBlock Grid.Row="1" x:Name="txtQuestion" Margin="16,4,16,16" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                   AutomationProperties.AutomationId="txtRemovalQuestion" />
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                      AutomationProperties.AutomationId="scrollRemovalQuestion">
+            <TextBlock x:Name="txtQuestion" Margin="16,4,16,16" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                       AutomationProperties.AutomationId="txtRemovalQuestion" />
+        </ScrollViewer>
 
         <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
             <WrapPanel HorizontalAlignment="Right">

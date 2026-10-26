@@ -19,7 +19,8 @@ public sealed record DeploymentPageServices(
     Func<AppSettings> LoadSettings,
     Func<DeploymentHelperSettings?> LoadPreferences,
     Func<DeploymentHelperSettings, bool> SavePreferences,
-    Func<Task<string?>> StartRingTool,
+    IRingService Rings,
+    RingWriter RingWriter,
     IAppLog Log,
     TimeProvider Clock);
 
@@ -281,6 +282,21 @@ public sealed partial class DeploymentShared(DeploymentPageServices services) : 
         LastPlan = outcome.UndoResult is null
             ? plan.UndoChanges().Count > 0 ? plan : null
             : plan.Remaining(plan.UndoOutcomes);
+    }
+
+    /// <summary>
+    /// Shows the result of a confirmed plan that another writer ran, such as a ring run. It replaces
+    /// the last plan: Undo last change removes only what a deployment plan of this page created.
+    /// </summary>
+    public void ShowExternalResult(string title, ChangePlanResult result)
+    {
+        LastResults.Clear();
+        foreach (var row in result.Items) LastResults.Add(row);
+        UnclearDeploymentIds = "";
+        LastPlan = null;
+        NotifyResults();
+        ResultSummary = $"{title}: {result.Summary}";
+        StatusMessage = ResultSummary;
     }
 
     /// <summary>Reads the data of every tab that has data again; each tab waits for its own running load first.</summary>

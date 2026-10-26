@@ -34,12 +34,21 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     protected override string ReadFailed => ReadFailedText;
 
     public ObservableCollection<DeploymentHistoryRow> Rows { get; } = [];
-    public IReadOnlyList<string> Events { get; } = [AllText, "Create", "Distribute", "Undo"];
+    public IReadOnlyList<string> Events { get; } =
+        [AllText, AuditEvents.Create, "Distribute", "Undo", .. new[] { AuditEvents.Close, AuditEvents.CancelRing, AuditEvents.Abandon }.Select(DeploymentHistoryRow.EventLabel)];
     public IReadOnlyList<string> Types { get; } = [AllText, .. Enum.GetValues<DeploymentObjectType>().Select(t => t.ToString())];
 
     [ObservableProperty] private string _textFilter = "";
     [ObservableProperty] private string _eventFilter = AllText;
     [ObservableProperty] private string _typeFilter = AllText;
+    [ObservableProperty] private string _runFilter = AllText;
+
+    /// <summary>All, then the run IDs of the ring records read.</summary>
+    public ObservableCollection<string> Runs { get; } = [AllText];
+
+    /// <summary>True when a record read carries a run ID: the ring columns are shown.</summary>
+    [ObservableProperty] private bool _hasRingRecords;
+
     [ObservableProperty] private string _rowCount = "";
     [ObservableProperty] private string _logPath = "";
 
@@ -68,6 +77,17 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
     partial void OnTextFilterChanged(string value) => ApplyFilter();
     partial void OnEventFilterChanged(string value) => ApplyFilter();
     partial void OnTypeFilterChanged(string value) => ApplyFilter();
+    partial void OnRunFilterChanged(string value) => ApplyFilter();
+
+    private void ShowRuns()
+    {
+        var runs = _records.Select(r => RingAuditFields.Get(r, RingAuditFields.RunId)).Where(id => id.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        var keep = RunFilter;
+        Replace(Runs, [AllText, .. runs]);
+        RunFilter = Runs.Contains(keep) ? keep : AllText;
+        HasRingRecords = runs.Count > 0;
+    }
 
     protected override Task<Action> ReadAsync(CancellationToken ct)
     {
@@ -78,6 +98,7 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
             _records = records;
             LogPath = path;
             IsCapped = records.Count >= MaxRecords;
+            ShowRuns();
             ApplyFilter();
             Services.Log.Info(DeploymentShared.LogArea, $"Read {records.Count} audit records.");
         });
@@ -94,6 +115,9 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         TextFilter = "";
         EventFilter = AllText;
         TypeFilter = AllText;
+        RunFilter = AllText;
+        Replace(Runs, [AllText]);
+        HasRingRecords = false;
         LastReportFolder = null;
     }
 
@@ -104,11 +128,13 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
         var selected = SelectedRow?.Record;
         var text = TextFilter.Trim();
         var wanted = _records
-            .Where(r => EventFilter == AllText || string.Equals(r.Event, EventFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(r => EventFilter == AllText || string.Equals(DeploymentHistoryRow.EventLabel(r.Event), EventFilter, StringComparison.OrdinalIgnoreCase))
             .Where(r => TypeFilter == AllText || SameType(r.DeploymentType, TypeFilter))
+            .Where(r => RunFilter is null or AllText || string.Equals(RingAuditFields.Get(r, RingAuditFields.RunId), RunFilter, StringComparison.OrdinalIgnoreCase))
             .Where(r => text.Length == 0 || Contains(r.ApplicationName, text) || Contains(r.CollectionName, text) || Contains(r.CollectionID, text)
                 || Contains(r.DeploymentID, text) || Contains(r.DeploymentUniqueID, text) || Contains(r.User, text) || Contains(r.Result, text) || Contains(r.ObjectId, text)
-                || Contains(r.UnclearDeploymentIds, text))
+                || Contains(r.UnclearDeploymentIds, text) || Contains(RingAuditFields.Get(r, RingAuditFields.PlanName), text)
+                || Contains(RingAuditFields.Get(r, RingAuditFields.RingName), text) || Contains(RingAuditFields.Get(r, RingAuditFields.RunId), text))
             .OrderByDescending(r => r.Timestamp).ToList();
         var wantedSet = new HashSet<DeploymentAuditRecord>(wanted, ReferenceEqualityComparer.Instance);
         var keep = new Dictionary<DeploymentAuditRecord, DeploymentHistoryRow>(ReferenceEqualityComparer.Instance);

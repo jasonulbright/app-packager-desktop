@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Objects', 'Programs', 'DpGroups', 'Deployments', 'State', 'Deployment', 'Proof', 'Create', 'Distribute', 'Remove')][string]$Operation,
+    [ValidateSet('Objects', 'Programs', 'DpGroups', 'Deployments', 'State', 'Deployment', 'Proof', 'Create', 'Distribute', 'Remove', 'Live')][string]$Operation,
     [ValidateSet('', 'Application', 'Package', 'TaskSequence', 'SoftwareUpdateGroup')][string]$Type = '',
     [ValidatePattern('^([0-9]{1,10}|[A-Za-z0-9]{8})?$')][string]$ObjectId = '',
     [ValidatePattern('^[0-9]{0,10}$')][string]$ModelId = '',
@@ -25,10 +25,12 @@ param(
     [bool]$AllowMicrosoftUpdate = $false,
     [ValidateSet('', 'Clients', 'ClientsMediaAndPxe', 'MediaAndPxe', 'MediaAndPxeHidden')][string]$Availability = '',
     [bool]$RequireContent = $true,
+    [bool]$SkipNameCount = $false,
     [string[]]$GroupIds = @(),
     [ValidatePattern('^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})?$')][string]$RunStart = '',
     [ValidateRange(1, 5000)][int]$MaxRows = 1000,
-    [ValidateRange(1, 15)][int]$ProofReads = 15
+    [ValidateRange(1, 15)][int]$ProofReads = 15,
+    [string[]]$DeploymentIds = @()
 )
 
 # Only the validated IDs above, the IDs read back from the provider and the patterns checked
@@ -805,8 +807,9 @@ function Get-State {
     if ($null -ne $object) {
         $object
         # The signing rule of a Required application deployment matches the application by name,
-        # so the number of latest applications with that name is part of the state.
-        if ($Type -eq 'Application' -and $Purpose -eq 'Required') {
+        # so the number of latest applications with that name is part of the state. The scan reads every
+        # application of the site; a ring run's Prepare that read it for an earlier ring passes SkipNameCount.
+        if ($Type -eq 'Application' -and $Purpose -eq 'Required' -and -not $SkipNameCount) {
             try {
                 $same = @(Invoke-Query 'SELECT CI_ID, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1' | Where-Object { [string](Get-Prop $_ 'LocalizedDisplayName') -eq [string]$object.Name })
                 [pscustomobject]@{ Kind = 'NameCount'; Count = $same.Count }
@@ -837,7 +840,59 @@ function Get-State {
     Write-Result 'done'
 }
 
+# ---- Live counts -----------------------------------------------------------------------------
+
+# Whether each deployment object exists by its ID, and its summary row. The object query decides
+# a deletion; SMS_DeploymentSummary rows come from site summarization and can lag a new
+# deployment, so a missing row is "not summarized", never "gone". Each read reports whether it
+# ran, so a failed query is never taken as "not found". Two provider queries per 50 IDs keep each
+# WQL text short.
+function Get-Live {
+    $pattern = if ($Type -in 'Application', 'SoftwareUpdateGroup') { '^\{[0-9A-Fa-f-]{36}\}$' } else { '^[A-Za-z0-9]{8}$' }
+    $ids = @($DeploymentIds | Where-Object { [string]$_ -match $pattern } | ForEach-Object { ([string]$_).ToUpperInvariant() } | Sort-Object -Unique)
+    if ($ids.Count -eq 0 -or -not $Type) { Write-Result 'done'; return }
+    $assignment = $Type -in 'Application', 'SoftwareUpdateGroup'
+    $key = if ($assignment) { 'AssignmentUniqueID' } else { 'AdvertisementID' }
+    $class = switch ($Type) { 'Application' { 'SMS_ApplicationAssignment' } 'SoftwareUpdateGroup' { 'SMS_UpdateGroupAssignment' } default { 'SMS_Advertisement' } }
+    $select = if ($assignment) { 'AssignmentUniqueID, AssignmentID' } else { 'AdvertisementID' }
+    try {
+        $found = @(for ($i = 0; $i -lt $ids.Count; $i += 50) {
+            $chunk = $ids[$i..([Math]::Min($i + 49, $ids.Count - 1))]
+            Invoke-Query ("SELECT {0} FROM {1} WHERE {2}" -f $select, $class, (($chunk | ForEach-Object { "$key = '$_'" }) -join ' OR '))
+        })
+    } catch {
+        [pscustomobject]@{ Kind = 'LiveRead'; Read = $false }
+        Write-Result 'done' $_.Exception.Message
+        return
+    }
+    [pscustomobject]@{ Kind = 'LiveRead'; Read = $true }
+    $numbers = @()
+    foreach ($f in $found) {
+        $number = if ($assignment) { [string](Get-Prop $f 'AssignmentID') } else { '' }
+        if ($number -match '^[0-9]{1,10}$' -and $number -ne '0') { $numbers += $number }
+        [pscustomobject]@{ Kind = 'Exists'; DeploymentId = [string](Get-Prop $f $key); AssignmentId = $number }
+    }
+    $terms = @($ids | ForEach-Object { "DeploymentID = '$_'" }) + @($numbers | ForEach-Object { "AssignmentID = $_" })
+    try {
+        $rows = @(for ($i = 0; $i -lt $terms.Count; $i += 50) {
+            $chunk = $terms[$i..([Math]::Min($i + 49, $terms.Count - 1))]
+            Invoke-Query ('SELECT DeploymentID, AssignmentID, NumberTargeted, NumberSuccess, NumberErrors, NumberInProgress, NumberUnknown, NumberOther, SummarizationTime FROM SMS_DeploymentSummary WHERE ' + ($chunk -join ' OR '))
+        })
+        foreach ($s in $rows) {
+            [pscustomobject]@{ Kind = 'Summary'; DeploymentId = [string](Get-Prop $s 'DeploymentID'); AssignmentId = [string](Get-Prop $s 'AssignmentID')
+                Targeted = [int](Get-Prop $s 'NumberTargeted'); Success = [int](Get-Prop $s 'NumberSuccess'); Errors = [int](Get-Prop $s 'NumberErrors')
+                InProgress = [int](Get-Prop $s 'NumberInProgress'); Unknown = [int](Get-Prop $s 'NumberUnknown'); Other = [int](Get-Prop $s 'NumberOther')
+                Summarized = (Get-TimeText (Get-Prop $s 'SummarizationTime')) }
+        }
+        [pscustomobject]@{ Kind = 'SummaryRead'; Read = $true }
+    } catch {
+        [pscustomobject]@{ Kind = 'SummaryRead'; Read = $false; Detail = $_.Exception.Message }
+    }
+    Write-Result 'done'
+}
+
 switch ($Operation) {
+    'Live' { Get-Live }
     'Objects' { Get-Objects }
     'Programs' {
         if ($ObjectId -match '^[A-Za-z0-9]{8}$') {

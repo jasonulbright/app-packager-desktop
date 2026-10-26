@@ -78,7 +78,9 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Grid.Row="3" Margin="16,0,16,0">
+        <!-- A long confirmation text scrolls here, so the footer buttons stay inside the window. -->
+        <ScrollViewer Grid.Row="3" MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <StackPanel Margin="16,0,16,0">
             <CheckBox x:Name="chkDestructive" Margin="0,0,0,8"
                       Content="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
                       IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
@@ -98,6 +100,7 @@
                        AutomationProperties.AutomationId="txtChangePlanStep" AutomationProperties.LiveSetting="Polite"
                        Visibility="{Binding IsBusy, Converter={StaticResource ChangePlanVisibility}}" />
         </StackPanel>
+        </ScrollViewer>
 
         <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
             <WrapPanel HorizontalAlignment="Right">

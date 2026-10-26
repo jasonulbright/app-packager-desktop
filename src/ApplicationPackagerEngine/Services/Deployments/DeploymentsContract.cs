@@ -155,6 +155,16 @@ public sealed record DeploymentChange(
     /// from it, never from <see cref="Existing"/>.
     /// </summary>
     public DeploymentRecord? Site { get; init; }
+
+    /// <summary>The ring run the change belongs to; its audit records carry the ring fields. Null for a single deployment.</summary>
+    public DeploymentRingContext? Ring { get; init; }
+}
+
+/// <summary>The ring fields of an audit record: the plan, the ring and the run.</summary>
+public sealed record DeploymentRingContext(string PlanName, int RingIndex, string RingName, string RunId)
+{
+    /// <summary>The rings of one Prepare share a scope: the site-wide count of applications with the object's name is read once per scope. Each create reads it again. Empty for none.</summary>
+    public string QueryScope { get; init; } = "";
 }
 
 /// <param name="Message">Plain text without raw exception text; starts with "Skipped" when the change was not attempted.</param>
@@ -170,6 +180,13 @@ public sealed record DeploymentOutcome(DeploymentChange Change, bool Succeeded, 
 
     /// <summary>Create whose result is not known: the IDs of the new deployments that appeared, as the audit record holds them; empty otherwise.</summary>
     public IReadOnlyList<string> UnclearDeploymentIds { get; init; } = [];
+
+    /// <summary>
+    /// True when the change made nothing in ConfigMgr for certain: it was refused or skipped, or
+    /// ConfigMgr reported that it made nothing (a failed content distribution of a combined create
+    /// included). False when something was made or the result is not known.
+    /// </summary>
+    public bool NotCreated { get; init; }
 }
 
 public static class DeploymentCheckResults
@@ -249,7 +266,7 @@ public sealed record DeploymentAuditRecord(
     string DeploymentID,
     string Result)
 {
-    /// <summary>Create, Distribute or Undo.</summary>
+    /// <summary>Create, Distribute or Undo; ring records also Close, CancelRing and Abandon.</summary>
     public string Event { get; init; } = "Create";
     public string ObjectId { get; init; } = "";
     public DateTime? AvailableDateTime { get; init; }
@@ -295,7 +312,30 @@ public sealed record DeploymentAuditRecord(
     /// <summary>The file line number of the first Chain that does not match, when the line is at or after it.</summary>
     public long? ChainBrokenAt { get; init; }
 
-    /// <summary>Further properties of the line, such as the ring fields of the suite tool, in file order.</summary>
+    /// <summary>Ring records: the plan of the run, kept in <see cref="Extra"/> as the suite tool names it; empty for a single deployment.</summary>
+    public string PlanName => ExtraText("PlanName");
+
+    /// <summary>Ring records: the ring, 1 for the first; null for a single deployment.</summary>
+    public int? RingIndex => int.TryParse(ExtraText("RingIndex"), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var index) ? index : null;
+
+    public string RingName => ExtraText("RingName");
+
+    /// <summary>Ring records: the RunId of the run file; empty for a single deployment.</summary>
+    public string RunId => ExtraText("RunId");
+
+    private string ExtraText(string name) => Extra.FirstOrDefault(p => string.Equals(p.Key, name, StringComparison.OrdinalIgnoreCase)).Value ?? "";
+
+    private static readonly HashSet<string> RingKeys = new(StringComparer.OrdinalIgnoreCase) { "PlanName", "RingIndex", "RingName", "RunId" };
+
+    /// <summary>The record with the ring fields of <paramref name="ring"/> in <see cref="Extra"/>; unchanged for null.</summary>
+    public DeploymentAuditRecord WithRing(DeploymentRingContext? ring) => ring is null ? this : this with
+    {
+        Extra = Extra.Where(p => !RingKeys.Contains(p.Key))
+            .Concat([new("PlanName", ring.PlanName), new("RingIndex", ring.RingIndex.ToString(System.Globalization.CultureInfo.InvariantCulture)), new("RingName", ring.RingName), new("RunId", ring.RunId)])
+            .ToList()
+    };
+
+    /// <summary>Further properties of the line, such as the ring fields, in file order.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Extra { get; init; } = [];
 }
 

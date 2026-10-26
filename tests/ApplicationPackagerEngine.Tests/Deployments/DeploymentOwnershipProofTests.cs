@@ -254,6 +254,21 @@ public sealed class DeploymentOwnershipProofTests
     }
 
     [Fact]
+    public async Task ADeploymentWithDifferentPlannedValuesDoesNotReadItsCreationProof()
+    {
+        using var h = new DeploymentHarness();
+        var original = Options(DeploymentObjectType.Package);
+        Assert.True((await h.PrepareAndApplyAsync(Create(Package, original))).Succeeded);
+
+        var changedPlan = original with { AvailableTime = original.AvailableTime.AddDays(1) };
+        var candidates = await h.Service.CandidatesAsync(Package, Collection.CollectionId, changedPlan, CancellationToken.None);
+
+        Assert.Single(candidates);
+        Assert.Contains("AvailableTime", candidates[0].Differences);
+        Assert.DoesNotContain(h.Site.Runs, run => (string?)run.Parameters["Operation"] == "Proof");
+    }
+
+    [Fact]
     public async Task TheInSessionUndoNeedsNoAuditRecord()
     {
         using var h = new DeploymentHarness();
