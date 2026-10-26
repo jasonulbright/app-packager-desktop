@@ -278,6 +278,15 @@ public sealed class WriteMaintenanceWindowScriptTests
     }
 
     [Fact]
+    public void APartialWritePreservesWhetherTheFailureWasAccessDenied()
+    {
+        var run = Invoke([], CreateWithDescription(), options: new { NewThrows = true });
+
+        Assert.Equal("partial", run.Status);
+        Assert.True(run.Result.GetProperty("AccessDenied").GetBoolean());
+    }
+
+    [Fact]
     public void TheGuardComparesTheDescriptionWhenItIsGiven()
     {
         var target = W("Patch", "{A}", "Mine");
