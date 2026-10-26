@@ -1176,18 +1176,30 @@ public sealed partial class PivotsScriptsService
             }
             else
             {
-                after = Kind(output, "S").Select(s => ToScript(s)).FirstOrDefault(s => s is not null);
-                var want = change.Kind == PivotsChangeKind.ApproveScript ? SiteScriptStates.Approved : SiteScriptStates.Declined;
-                ok = after?.State == want;
-                message = ok ? $"The script {now.Name} is {want.ToLowerInvariant()} now." : $"The site did not change the state of the script; it reads {after?.State.ToLowerInvariant() ?? "unknown"}.";
-                // The approval call takes no hash: a text that changed after the last check gets the decision.
-                if (after is not null && (!string.Equals(after.SiteHash, change.Script?.SiteHash, StringComparison.OrdinalIgnoreCase) || !string.Equals(after.Hash, change.ScriptHash, StringComparison.OrdinalIgnoreCase)))
+                var readback = Kind(output, "After").FirstOrDefault();
+                if (readback.ValueKind == JsonValueKind.Object && B(readback, "Present") != true)
                 {
                     ok = false;
                     partial = true;
                     var noun = change.Kind == PivotsChangeKind.ApproveScript ? "approval" : "denial";
-                    message = $"The script changed during the {noun}: the site holds another text of {now.Name} now than the plan, and it reads {after.State.ToLowerInvariant()}. Load the script, check its text and decide again.";
-                    _log?.Warning(LogArea, $"{change.Kind}: the script on the site changed during the action.");
+                    message = $"The site returned no script after the {noun} call. The decision may have been applied; refresh the script state before repeating the action.";
+                    _log?.Warning(LogArea, $"{change.Kind}: the script could not be read after the action.");
+                }
+                else
+                {
+                    after = Kind(output, "S").Select(s => ToScript(s)).FirstOrDefault(s => s is not null);
+                    var want = change.Kind == PivotsChangeKind.ApproveScript ? SiteScriptStates.Approved : SiteScriptStates.Declined;
+                    ok = after?.State == want;
+                    message = ok ? $"The script {now.Name} is {want.ToLowerInvariant()} now." : $"The site did not change the state of the script; it reads {after?.State.ToLowerInvariant() ?? "unknown"}.";
+                    // The approval call takes no hash: a text that changed after the last check gets the decision.
+                    if (after is not null && (!string.Equals(after.SiteHash, change.Script?.SiteHash, StringComparison.OrdinalIgnoreCase) || !string.Equals(after.Hash, change.ScriptHash, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ok = false;
+                        partial = true;
+                        var noun = change.Kind == PivotsChangeKind.ApproveScript ? "approval" : "denial";
+                        message = $"The script changed during the {noun}: the site holds another text of {now.Name} now than the plan, and it reads {after.State.ToLowerInvariant()}. Load the script, check its text and decide again.";
+                        _log?.Warning(LogArea, $"{change.Kind}: the script on the site changed during the action.");
+                    }
                 }
             }
         }
