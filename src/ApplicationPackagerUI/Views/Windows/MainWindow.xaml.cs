@@ -12,15 +12,19 @@ public partial class MainWindow : IDialogHostWindow
     public ContentDialogHost DialogHost => RootContentDialog;
 
     private readonly IServiceProvider _serviceProvider;
+    private readonly ISnackbarService _snackbarService;
+    private readonly SidebarPresenter _sidebar;
 
     public MainWindow(
         MainWindowViewModel viewModel,
         INavigationService navigationService,
         IServiceProvider serviceProvider,
         ISnackbarService snackbarService,
-        IContentDialogService contentDialogService)
+        IContentDialogService contentDialogService,
+        SidebarService sidebarService)
     {
         _serviceProvider = serviceProvider;
+        _snackbarService = snackbarService;
         DataContext = viewModel;
 
         InitializeComponent();
@@ -29,10 +33,11 @@ public partial class MainWindow : IDialogHostWindow
         snackbarService.SetSnackbarPresenter(SnackbarPresenter);
         contentDialogService.SetDialogHost(RootContentDialog);
         RootNavigation.SetServiceProvider(serviceProvider);
+        _sidebar = new SidebarPresenter(RootNavigation, sidebarService, item => item.Activate?.Invoke(_serviceProvider));
+        sidebarService.Changed += OnSidebarChanged;
 
-        // Note: With CanContentScroll="False" on pages, the NavigationView's
-        // DynamicScrollViewer is disabled. DataGrid and ScrollViewer controls
-        // handle their own mouse wheel scrolling natively.
+        // Pages set CanContentScroll to False, which disables the NavigationView's
+        // DynamicScrollViewer; DataGrid and ScrollViewer controls scroll on the mouse wheel themselves.
     }
 
     public Wpf.Ui.Controls.NavigationView GetNavigation() => RootNavigation;
@@ -46,24 +51,32 @@ public partial class MainWindow : IDialogHostWindow
         workbench.ShowDialog();
     }
 
-    private void WorkbenchNavItem_Click(object sender, RoutedEventArgs e)
+    private void OnSidebarChanged(object? sender, SidebarChangedEventArgs e)
     {
-        e.Handled = true;
-        OpenWorkbenchForGridSelection();
+        if (e.Saved) return;
+        _snackbarService.Show("Sidebar", "The sidebar layout could not be saved. The change lasts until the application closes.",
+            ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
     }
 
-    /// <summary>
-    /// The navigation view raises no Click for the item it already treats as current, so a
-    /// second mouse click on this entry would do nothing. The mouse opens the window here
-    /// and the item never becomes current; keyboard and automation invoke reach Click.
-    /// </summary>
-    private void WorkbenchNavItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    /// <summary>Starts a suite tool with the saved site code and provider, or brings its running window to the front.</summary>
+    public async void OpenSuiteTool(SuiteTool tool)
     {
-        e.Handled = true;
-        Dispatcher.BeginInvoke(OpenWorkbenchForGridSelection);
+        var settings = _serviceProvider.GetRequiredService<SettingsService>().Load();
+        var result = await _serviceProvider.GetRequiredService<SuiteToolLauncher>().LaunchAsync(tool, settings);
+        switch (result.Outcome)
+        {
+            case SuiteToolLaunchOutcome.Failed:
+                _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} could not start.",
+                    ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(10));
+                break;
+            case SuiteToolLaunchOutcome.StillStarting:
+                _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} is still starting.",
+                    ControlAppearance.Info, new SymbolIcon(SymbolRegular.Info24), TimeSpan.FromSeconds(6));
+                break;
+        }
     }
 
-    private void OpenWorkbenchForGridSelection()
+    public void OpenWorkbenchForGridSelection()
     {
         var selected = _serviceProvider.GetRequiredService<Views.Pages.PackagesPage>().SelectedPackager;
         OpenWorkbench(selected is null ? null : WorkbenchApplicationCatalog.ApplicationIdFor(selected));

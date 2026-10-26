@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -53,20 +52,7 @@ public sealed class PackagesGridHeaderWidthTests
         return columns;
     }
 
-    private static void RunSta(Action action)
-    {
-        ExceptionDispatchInfo? failure = null;
-        var thread = new Thread(() =>
-        {
-            try { action(); }
-            catch (Exception ex) { failure = ExceptionDispatchInfo.Capture(ex); }
-            finally { System.Windows.Threading.Dispatcher.CurrentDispatcher.InvokeShutdown(); }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
-        failure?.Throw();
-    }
+    private static void RunSta(Action action) => StaTestHelper.Run(action);
 
     private static DataGrid NewGrid()
     {

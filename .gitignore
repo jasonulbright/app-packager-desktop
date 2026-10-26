@@ -1,0 +1,43 @@
+# Build output
+bin/
+obj/
+publish/
+tempap/
+tools/TestHarness/publish/
+TestResults/
+
+# IDE and tooling
+.vs/
+.vscode/
+.idea/
+.claude/
+*.user
+*.suo
+*.DotSettings.user
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Icon pack content, downloaded at run time and distributed as its own release
+src/ApplicationPackagerEngine/Definitions/Icons/
+
+# Internal planning and working documents
+ROADMAP.md
+roadmap.md
+punchlist.md
+*-audit.md
+*-notes.md
+handoff.md
+CLAUDE.md
+AGENTS.md
+*.local.*
+# A directory such as `shots.local/` has no dot after "local", so *.local.* misses it.
+*.local/
+local-wip/

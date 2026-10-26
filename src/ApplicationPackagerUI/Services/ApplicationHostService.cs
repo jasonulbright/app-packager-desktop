@@ -32,14 +32,17 @@ public class ApplicationHostService(IServiceProvider serviceProvider) : IHostedS
         // The resource dictionary starts Dark; the stored theme applies before the first window renders.
         ThemeApplier.Apply(serviceProvider.GetRequiredService<SettingsService>().Load().Theme);
 
-        var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
-        mainWindow.Show();
-
-        var nav = mainWindow.GetNavigation();
-        nav.Navigate(typeof(PackagesPage));
+        ShowMainWindow(serviceProvider.GetRequiredService<MainWindow>());
 
         MigrateLegacyPreferences();
         return Task.CompletedTask;
+    }
+
+    /// <summary>Shows the main window on Packages, the start page, whatever the saved sidebar order.</summary>
+    public static void ShowMainWindow(MainWindow mainWindow)
+    {
+        mainWindow.Show();
+        mainWindow.GetNavigation().Navigate(typeof(PackagesPage));
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
