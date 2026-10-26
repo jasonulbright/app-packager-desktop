@@ -50,7 +50,8 @@ public sealed class ComplianceWriterTests
         var writer = harness.Writer();
         var dialog = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
         var run = dialog.ConfirmCommand.ExecuteAsync(null);
-        while (dialog.StepText.Length == 0) await Task.Delay(5);
+        for (var i = 0; i < 1000 && dialog.StepText.Length == 0; i++) await Task.Delay(10);
+        Assert.True(dialog.StepText.Length > 0, "The deploy never reported its first step.");
         dialog.RequestCancel();
         await run;
         var row = Assert.Single(dialog.ResultRows);

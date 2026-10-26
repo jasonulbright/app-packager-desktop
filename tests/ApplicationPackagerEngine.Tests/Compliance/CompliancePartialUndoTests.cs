@@ -52,7 +52,8 @@ public sealed class CompliancePartialUndoTests
         var vm = new ChangePlanViewModel(plan.Plan, writer.RunFor(plan), writer.UndoFor(plan));
 
         var confirm = vm.ConfirmCommand.ExecuteAsync(null);
-        while (vm.StepText.Length == 0) await Task.Delay(1);
+        for (var i = 0; i < 1000 && vm.StepText.Length == 0; i++) await Task.Delay(10);
+        Assert.True(vm.StepText.Length > 0, "The deploy never reported its first step.");
         vm.RequestCancel();
         await confirm;
         Assert.Equal(1, vm.Outcome.Result!.PartialCount);
