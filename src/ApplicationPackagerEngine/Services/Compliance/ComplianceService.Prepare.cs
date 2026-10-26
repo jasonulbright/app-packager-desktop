@@ -131,6 +131,11 @@ public sealed partial class ComplianceService
             ?? throw new ComplianceServiceException("Select a catalog entry.");
         if (request.Values?.ContainsKey(CreateDependencyKey) == true)
             throw new ComplianceServiceException(CreateDependencyMessage);
+        if (!entry.RemediationSupported
+            && request.Values is { } requestedValues
+            && requestedValues.TryGetValue("DetectOnly", out var requestedDetectOnly)
+            && !CatalogArguments.IsOn(requestedDetectOnly))
+            throw new ComplianceServiceException($"{entry.DisplayName} supports detection only. Remediation is not supported for this compliance rule.");
         var connection = _connection();
         var values = new Dictionary<string, string>(request.Values ?? new Dictionary<string, string>(), StringComparer.Ordinal);
         var site = connection.NormalizedSiteCode;
@@ -145,7 +150,9 @@ public sealed partial class ComplianceService
         }
         var (arguments, errors) = CatalogArguments.Build(entry, values);
         if (errors.Count > 0) throw new ComplianceServiceException(string.Join(" ", errors));
-        var detectOnly = entry.Parameters.Any(p => p.Name == "DetectOnly") && CatalogArguments.IsOn(CatalogArguments.Effective(entry.Parameters.First(p => p.Name == "DetectOnly"), values));
+        var detectOnly = !entry.RemediationSupported
+            || (entry.Parameters.Any(p => p.Name == "DetectOnly")
+                && CatalogArguments.IsOn(CatalogArguments.Effective(entry.Parameters.First(p => p.Name == "DetectOnly"), values)));
         var skip = entry.Parameters.FirstOrDefault(p => p.Name == "SkipDeploy") is { } s && CatalogArguments.IsOn(CatalogArguments.Effective(s, values));
         var collections = skip
             ? []

@@ -7,6 +7,7 @@
   "Status": "Draft",
   "Description": "Requires LSA Protection through RunAsPPL = 1 (with a UEFI lock) or 2 (without a UEFI lock). REBOOT REQUIRED to engage; validate LSA plugin signing first.",
   "Severity": "Critical",
+  "RemediationSupported": false,
   "Cves": [],
   "TenablePlugins": [],
   "KbReferences": [
@@ -59,13 +60,6 @@
         "Required": false,
         "Default": null,
         "Description": "If specified, deploys the baseline to this collection daily."
-      },
-      {
-        "Name": "DetectOnly",
-        "Type": "Switch",
-        "Required": false,
-        "Default": false,
-        "Description": "Create / deploy without remediation."
       }
     ]
   },
