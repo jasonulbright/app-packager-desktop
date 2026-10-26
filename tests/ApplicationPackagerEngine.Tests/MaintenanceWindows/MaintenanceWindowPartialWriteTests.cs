@@ -138,6 +138,22 @@ public sealed class MaintenanceWindowPartialWriteTests
         Assert.Equal(WeeklyToken, _site.Windows.Single().Schedules);
     }
 
+    [Fact]
+    public async Task AnAccessDeniedPartialWithNoStoredChangeKeepsThePermissionHint()
+    {
+        var window = _site.Add("MCM00015", "Patch", WeeklyToken);
+        var prepared = await Prepare(ChangeKind.Update, "Patch", await Window("Patch"), New("Patch"));
+        _site.Answer = call => Equals(call.Parameters["Operation"], "Update") ? ("partial", "Access is denied.") : null;
+        _site.AnswerAccessDenied = true;
+
+        var outcome = await Apply(prepared);
+
+        Assert.False(outcome.Succeeded);
+        Assert.Null(outcome.UndoChange);
+        Assert.Contains(MaintenanceWindowService.AccessHint, outcome.Message);
+        Assert.Equal(WeeklyToken, window.Schedules);
+    }
+
     [Theory]
     [InlineData(ChangeKind.Update)]
     [InlineData(ChangeKind.Rename)]
