@@ -55,7 +55,7 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
         string? Description,
         bool DescriptionWritable);
 
-    internal sealed record WriteResult(string? Kind, string? Status, string? Detail, Row? Window);
+    internal sealed record WriteResult(string? Kind, string? Status, string? Detail, Row? Window, bool AccessDenied = false);
 
     public static bool IsBuiltIn(string? collectionId) =>
         collectionId is not null && collectionId.StartsWith("SMS", StringComparison.OrdinalIgnoreCase);
@@ -589,35 +589,43 @@ public sealed class MaintenanceWindowService : IMaintenanceWindowService
     private async Task<MaintenanceOutcome> ReconcileAsync(MaintenanceChange change, WriteRun run, string name, string collection)
     {
         if (!run.Uncertain || run.Failure is null) return run.Failure!;
-        if (await ReadBackAsync(change).ConfigureAwait(false) is not { } windows) return run.Failure;
+        if (await ReadBackAsync(change).ConfigureAwait(false) is not { } windows) return ReconciledFailure(change, run, name, collection);
         var before = change.Before;
         switch (change.Kind)
         {
             case ChangeKind.Create:
             case ChangeKind.ApplyTemplate:
                 return ByName(windows, name) is { } created
-                    ? Partial(change, $"ConfigMgr created window {created.WindowName} on {collection} and then reported an error. The window exists now.", RemoveUndo(change, created))
-                    : run.Failure;
+                    ? Partial(change, AddAccessHint(run, $"ConfigMgr created window {created.WindowName} on {collection} and then reported an error. The window exists now."), RemoveUndo(change, created))
+                    : ReconciledFailure(change, run, name, collection);
             case ChangeKind.Update when before is not null:
                 return ById(windows, before.ServiceWindowId) is { } updated && !SameState(updated, before)
-                    ? Partial(change, $"ConfigMgr changed window {updated.WindowName} on {collection} and then reported an error. Refresh the list to see the stored values.",
+                    ? Partial(change, AddAccessHint(run, $"ConfigMgr changed window {updated.WindowName} on {collection} and then reported an error. Refresh the list to see the stored values."),
                         new MaintenanceChange(ChangeKind.Update, change.CollectionId, change.CollectionName, updated.WindowName, null, updated, before))
-                    : run.Failure;
+                    : ReconciledFailure(change, run, name, collection);
             case ChangeKind.SetEnabled when before is not null:
                 return ById(windows, before.ServiceWindowId) is { } toggled && toggled.Enabled != before.Enabled
-                    ? Partial(change, $"ConfigMgr {(toggled.Enabled ? "enabled" : "disabled")} window {toggled.WindowName} on {collection} and then reported an error.",
+                    ? Partial(change, AddAccessHint(run, $"ConfigMgr {(toggled.Enabled ? "enabled" : "disabled")} window {toggled.WindowName} on {collection} and then reported an error."),
                         new MaintenanceChange(ChangeKind.SetEnabled, change.CollectionId, change.CollectionName, toggled.WindowName, null, toggled,
                             toggled with { Enabled = before.Enabled }))
-                    : run.Failure;
+                    : ReconciledFailure(change, run, name, collection);
             case ChangeKind.Remove when before is not null:
                 return ById(windows, before.ServiceWindowId) is null
-                    ? Partial(change, $"ConfigMgr removed window {before.WindowName} from {collection} and then reported an error. Undo creates it again as a new window with a new ID.",
+                    ? Partial(change, AddAccessHint(run, $"ConfigMgr removed window {before.WindowName} from {collection} and then reported an error. Undo creates it again as a new window with a new ID."),
                         new MaintenanceChange(ChangeKind.Create, change.CollectionId, change.CollectionName, before.WindowName, null, null, before))
-                    : run.Failure;
+                    : ReconciledFailure(change, run, name, collection);
             default:
-                return run.Failure;
+                return ReconciledFailure(change, run, name, collection);
         }
     }
+
+    private MaintenanceOutcome ReconciledFailure(MaintenanceChange change, WriteRun run, string name, string collection) =>
+        run.Result?.AccessDenied == true
+            ? Fail(change, $"ConfigMgr denied the change to window {name} on {collection}. {AccessHint}")
+            : run.Failure!;
+
+    private static string AddAccessHint(WriteRun run, string message) =>
+        run.Result?.AccessDenied == true ? $"{message} {AccessHint}" : message;
 
     private MaintenanceOutcome Partial(MaintenanceChange change, string message, MaintenanceChange undo)
     {
