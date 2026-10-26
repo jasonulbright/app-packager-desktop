@@ -41,6 +41,7 @@ public sealed partial class ComplianceService : IComplianceService
     private readonly Func<DateTime> _utcNow;
     private readonly Func<string> _tempSuffix;
     private readonly Func<CatalogEntry, byte[]?> _builderBytes;
+    private readonly SemaphoreSlim _catalogOperationGate = new(1, 1);
 
     public ComplianceService(
         IConfigMgrSession session,
