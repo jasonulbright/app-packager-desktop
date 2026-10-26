@@ -75,6 +75,7 @@ public partial class App : Application
                 services.AddCollectionCompliancePage();
                 services.AddInstallerAnalysisPage();
                 services.AddDeploymentHelperPage();
+                services.AddDpContentManagerPage();
 
                 services.AddHostedService<ApplicationHostService>();
             })

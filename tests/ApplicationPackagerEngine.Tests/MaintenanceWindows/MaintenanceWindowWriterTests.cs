@@ -117,6 +117,10 @@ public sealed class MaintenanceWindowWriterTests
             Path.Combine("ApplicationPackagerEngine", "Services", "Deployments", "Rings", "RingsContract.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "Deployments", "Rings", "RingService.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "RingRunPlan.cs"),
+            // The DP content contract declares its write, the service implements it, and the page writer is its only caller.
+            Path.Combine("ApplicationPackagerEngine", "Services", "DpContent", "DpContentContract.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "DpContent", "DpContentService.Apply.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "DpContentPlan.cs"),
             Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
         ];
         var found = FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant));
