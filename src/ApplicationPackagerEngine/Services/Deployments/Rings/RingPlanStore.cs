@@ -57,6 +57,8 @@ public sealed partial class RingPlanStore
 
     public string? Message { get; private set; }
 
+    public bool FolderReadFailed { get; private set; }
+
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9 _.()\-]{0,63}$")]
     private static partial Regex NameRegex();
 
@@ -91,6 +93,7 @@ public sealed partial class RingPlanStore
         lock (_gate)
         {
             Message = null;
+            FolderReadFailed = false;
             string folder;
             string[] files;
             try
@@ -101,11 +104,13 @@ public sealed partial class RingPlanStore
             }
             catch (DeploymentServiceException ex)
             {
+                FolderReadFailed = true;
                 Message = ex.Message;
                 return [];
             }
             catch (Exception ex) when (IsStorageFailure(ex))
             {
+                FolderReadFailed = true;
                 _log?.Warning(LogArea, $"The ring plans folder could not be read ({ex.GetType().Name}).");
                 Message = "The ring plans folder could not be read. The log has the details.";
                 return [];

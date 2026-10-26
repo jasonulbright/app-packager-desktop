@@ -76,7 +76,7 @@
                     <ui:Button Content="Clear" MinWidth="80" Margin="0,0,8,0" Command="{Binding ClearChecksCommand}" Visibility="{Binding MultiSelect, Converter={StaticResource PickerVisibility}}"
                                AutomationProperties.Name="Clear every check" AutomationProperties.AutomationId="btnPickerClear" />
                     <ui:Button Content="{Binding PickText}" Appearance="Primary" MinWidth="100" Margin="0,0,8,0" Command="{Binding PickCommand}" IsDefault="True"
-                               AutomationProperties.Name="Pick the selected collection" AutomationProperties.AutomationId="btnPickerPick" />
+                               AutomationProperties.Name="{Binding PickText}" AutomationProperties.AutomationId="btnPickerPick" />
                     <ui:Button Content="Cancel" MinWidth="100" IsCancel="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnPickerCancel" />
                 </WrapPanel>
                 <TextBlock Text="{Binding Message}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"
