@@ -30,26 +30,72 @@ public sealed class SharedDownloadCacheLockTests : IDisposable
         Assert.Contains("stayed locked", ex.Message);
     }
 
+    /// <summary>
+    /// A clock that moves forward by a fixed step at every read and runs a step of the
+    /// simulated download before it answers, so the waiter's elapsed time and the holder's
+    /// progress advance together, independent of thread scheduling.
+    /// </summary>
+    private sealed class SteppingClock(TimeSpan step, Action onRead) : TimeProvider
+    {
+        private long _now;
+        public int Reads;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp()
+        {
+            Reads++;
+            onRead();
+            var now = _now;
+            _now += step.Ticks;
+            return now;
+        }
+    }
+
     [Fact]
     public async Task AHolderWhoseDownloadKeepsGrowingIsWaitedForPastTheBound()
     {
         var cached = Path.Combine(_root, "0123456789abcdef-large.exe");
         var holder = new FileStream(cached + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var part = $"{cached}.{Guid.NewGuid():N}.part";
-        var downloading = Task.Run(async () =>
+        var bound = TimeSpan.FromSeconds(1);
+        var appends = 0;
+        var clock = new SteppingClock(TimeSpan.FromMilliseconds(600), () =>
         {
-            for (var i = 0; i < 25; i++)
+            if (appends < 10)
             {
-                await File.AppendAllTextAsync(part, new string('x', 1024));
-                await Task.Delay(100);
+                File.AppendAllText(part, new string('x', 1024));
+                appends++;
             }
-            File.Move(part, cached);
-            holder.Dispose();
+            else if (File.Exists(part))
+            {
+                File.Move(part, cached);
+                holder.Dispose();
+            }
         });
 
-        await using (await SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None, TimeSpan.FromMilliseconds(1500)))
-            Assert.True(File.Exists(cached));
-        await downloading;
+        try
+        {
+            await using (await SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None, bound, clock))
+                Assert.True(File.Exists(cached));
+        }
+        finally { holder.Dispose(); }
+
+        Assert.True(TimeSpan.FromMilliseconds(600) * (clock.Reads - 1) > bound * 5, $"reads {clock.Reads}");
+    }
+
+    [Fact]
+    public async Task AHolderWithNoProgressFailsOnceTheClockPassesTheBound()
+    {
+        var cached = Path.Combine(_root, "0123456789abcdef-quiet.exe");
+        using var holder = new FileStream(cached + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        File.WriteAllText($"{cached}.{Guid.NewGuid():N}.part", "partial");
+        var clock = new SteppingClock(TimeSpan.FromMilliseconds(600), () => { });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            SharedDownloadCache.AcquireEntryLockAsync(cached, CancellationToken.None, TimeSpan.FromSeconds(1), clock));
+
+        Assert.Equal(3, clock.Reads);
     }
 
     [Fact]
