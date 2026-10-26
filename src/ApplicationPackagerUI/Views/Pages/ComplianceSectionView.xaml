@@ -187,13 +187,12 @@
             <TabItem Header="Live CI/CB" AutomationProperties.AutomationId="tabLive" DataContext="{Binding Live}">
                 <ScrollViewer x:Name="scrollLiveTab" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               AutomationProperties.AutomationId="scrollLiveTab">
-                <Grid Height="{Binding ViewportHeight, ElementName=scrollLiveTab}" MinHeight="540">
+                <Grid Height="{Binding ViewportHeight, ElementName=scrollLiveTab}" MinHeight="544">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" MinHeight="140" />
                         <RowDefinition Height="16" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" MinHeight="140" />
                     </Grid.RowDefinitions>
                     <WrapPanel Grid.Row="0" Margin="0,0,0,4">
                         <ui:TextBox Text="{Binding TextFilter, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Filter by name, ID or catalog ID" Icon="{ui:SymbolIcon Search24}"
@@ -269,7 +268,7 @@
                                            AutomationProperties.AutomationId="btnDeleteDeployments" />
                             </WrapPanel>
                         </DockPanel>
-                        <DataGrid Grid.Row="1" x:Name="dgDeployments" Style="{StaticResource GridBase}" ItemsSource="{Binding Deployments}" SelectionMode="Extended"
+                        <DataGrid Grid.Row="1" x:Name="dgDeployments" Style="{StaticResource GridBase}" ItemsSource="{Binding Deployments}" SelectionMode="Extended" MinHeight="120"
                                   SelectionChanged="OnDeploymentsSelectionChanged"
                                   AutomationProperties.AutomationId="dgDeployments" AutomationProperties.Name="Deployments">
                             <DataGrid.Columns>
