@@ -32,7 +32,6 @@ The catalog has 319 application definitions. A definition is one JSON file. You 
 - For WSUS: the WSUS console or the RSAT WSUS tools on this computer, at the version of the server, and an account in the WSUS Administrators group.
 - For Intune: an app registration with a client secret. App Packager Desktop downloads the Microsoft Win32 Content Prep Tool when it is necessary.
 - 7-Zip, for applications whose installer is an archive.
-- For the suite tool entries in the sidebar: the App Packager Suite, installed for the current user.
 
 The release is self-contained. A separate .NET runtime is not necessary.
 
@@ -56,7 +55,7 @@ In **Settings**, ConfigMgr can request content distribution and then create an A
 
 The sidebar on the left lists the pages and tools. **Packages** is the main page. The application always starts on it.
 
-![The sidebar with the Packages page, the Application Workbench and the eight suite tools](docs/images/sidebar.png)
+![The sidebar with the Packages page, the Application Workbench and eight native pages](docs/images/sidebar.png)
 
 You control the sidebar:
 
@@ -69,13 +68,6 @@ You control the sidebar:
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
 The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. All eight are native pages in App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper), [DP Content Manager](#dp-content-manager), [Pivots and Scripts](#pivots-and-scripts) and [Site Hygiene](#site-hygiene). The sidebar starts no suite tool.
-
-- App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
-- To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
-- If the suite or a tool is not installed, a message names what is missing and where App Packager Desktop looked.
-- A second click on a tool that is open brings its window to the front.
-- App Packager Desktop passes the ConfigMgr site code and provider to the tool in the environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER`. It passes the site code you saved. When you did not save one, it passes only a site code that the environment already holds from the suite launcher. It passes the provider only when it is set. A tool uses these values only when its own settings are empty.
-- If a tool stops right after it starts with a non-zero exit code, a message names the tool and its exit code.
 
 ## Detection Tester
 
