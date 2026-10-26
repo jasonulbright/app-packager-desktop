@@ -136,7 +136,10 @@ public sealed partial class DeploymentHistoryViewModel(DeploymentShared shared) 
                 || Contains(r.UnclearDeploymentIds, text) || Contains(RingAuditFields.Get(r, RingAuditFields.PlanName), text)
                 || Contains(RingAuditFields.Get(r, RingAuditFields.RingName), text) || Contains(RingAuditFields.Get(r, RingAuditFields.RunId), text))
             .OrderByDescending(r => r.Timestamp).ToList();
-        var keep = Rows.Where(r => wanted.Contains(r.Record)).ToDictionary(r => r.Record);
+        var wantedSet = new HashSet<DeploymentAuditRecord>(wanted, ReferenceEqualityComparer.Instance);
+        var keep = new Dictionary<DeploymentAuditRecord, DeploymentHistoryRow>(ReferenceEqualityComparer.Instance);
+        foreach (var row in Rows)
+            if (wantedSet.Contains(row.Record)) keep[row.Record] = row;
         Replace(Rows, wanted.Select(r => keep.TryGetValue(r, out var row) ? row : new DeploymentHistoryRow(r)).ToList());
         SelectedRow = Rows.FirstOrDefault(r => ReferenceEquals(r.Record, selected));
         RowCount = Rows.Count == _records.Count ? DeploymentText.Count(_records.Count, "record") : $"{Rows.Count} of {DeploymentText.Count(_records.Count, "record")}";
