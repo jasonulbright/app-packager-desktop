@@ -121,6 +121,8 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         ArgumentNullException.ThrowIfNull(progress);
         var areas = ResolveAreas(options.Areas);
         var sets = HygieneChecks.RequiredSets(areas);
+        if (options.ProbeContentSources && areas.Contains("AppRelationships"))
+            sets = sets.Append(HygieneSets.DistributionPoints).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var data = new HygieneSiteRead();
         var pause = options.PauseBetweenCalls < TimeSpan.Zero ? TimeSpan.Zero : options.PauseBetweenCalls;
         var pacing = (int)Math.Min(60_000, pause.TotalMilliseconds);
@@ -158,7 +160,7 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         if (options.ProbeContentSources && areas.Contains("AppRelationships") && data.IsRead(HygieneSets.DeploymentTypes) && data.IsRead(HygieneSets.AppContent))
         {
             progress.Report("Probing the content source paths.");
-            probes = await ProbeAsync(data, ct).ConfigureAwait(false);
+            probes = await ProbeAsync(data, connection, ct).ConfigureAwait(false);
         }
 
         progress.Report("Running the checks.");
@@ -215,13 +217,23 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         _ => string.Concat(set.Select((ch, i) => i > 0 && char.IsUpper(ch) ? " " + char.ToLowerInvariant(ch) : (i == 0 ? char.ToLowerInvariant(ch).ToString() : ch.ToString())))
     };
 
-    private async Task<IReadOnlyDictionary<string, string>> ProbeAsync(HygieneSiteRead data, CancellationToken ct)
+    private async Task<IReadOnlyDictionary<string, string>> ProbeAsync(HygieneSiteRead data, ConfigMgrConnection? connection, CancellationToken ct)
     {
         var paths = HygieneChecks.ContentLocations(data).Select(l => l.Path).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var results = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var allowedHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddProbeHost(allowedHosts, connection?.NormalizedProvider);
+        if (data.IsRead(HygieneSets.DistributionPoints))
+            foreach (var point in data.Table(HygieneSets.DistributionPoints).Records)
+                AddProbeHost(allowedHosts, point.S("Name"));
         foreach (var path in paths.Take(MaxProbePaths))
         {
             ct.ThrowIfCancellationRequested();
+            if (!IsSafeProbePath(path, allowedHosts))
+            {
+                results[path] = HygieneProbe.NotProbed;
+                continue;
+            }
             string state;
             try
             {
@@ -235,6 +247,60 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         }
         foreach (var path in paths.Skip(MaxProbePaths)) results[path] = HygieneProbe.NotProbed;
         return results;
+    }
+
+    internal static bool IsSafeProbePath(string path, IReadOnlySet<string> allowedHosts)
+    {
+        if (path.StartsWith(@"\\", StringComparison.Ordinal) || path.StartsWith("//", StringComparison.Ordinal))
+        {
+            var uncPath = path.Replace('/', '\\');
+            var remainder = uncPath[2..];
+            if (remainder.Length == 0 || remainder[0] is '?' or '.') return false;
+            var separator = remainder.IndexOf('\\');
+            if (separator <= 0 || separator == remainder.Length - 1) return false;
+            var host = NormalizeProbeHost(remainder[..separator]);
+            return allowedHosts.Contains(host)
+                || (!host.Contains('.', StringComparison.Ordinal) && allowedHosts.Any(allowed =>
+                    string.Equals(allowed.Split('.')[0], host, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return IsSafeLocalProbePath(path);
+    }
+
+    private static void AddProbeHost(HashSet<string> hosts, string? value)
+    {
+        var host = NormalizeProbeHost(value ?? "");
+        if (host.Length > 0 && !host.Contains('\\') && !host.Contains('/') && !host.Any(char.IsWhiteSpace)) hosts.Add(host);
+    }
+
+    private static string NormalizeProbeHost(string host) => HygieneSite.Provider(host).TrimEnd('.');
+
+    private static bool IsSafeLocalProbePath(string path)
+    {
+        if (!OperatingSystem.IsWindows() || !Path.IsPathFullyQualified(path)) return false;
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            var root = Path.GetPathRoot(fullPath);
+            if (root is not { Length: >= 3 } || root[1] != ':') return false;
+            var driveType = new DriveInfo(root).DriveType;
+            if (driveType is DriveType.Network or DriveType.Unknown) return false;
+            var current = root;
+            foreach (var segment in fullPath[root.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, segment);
+                FileAttributes attributes;
+                try { attributes = File.GetAttributes(current); }
+                catch (FileNotFoundException) { break; }
+                catch (DirectoryNotFoundException) { break; }
+                if (attributes.HasFlag(FileAttributes.ReparsePoint)) return false;
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or System.Security.SecurityException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Ok when the folder exists, Missing when it does not, Unknown when the probe did not finish in time.</summary>

@@ -1,4 +1,5 @@
 using ApplicationPackagerEngine.Services;
+using System.Text.Json.Nodes;
 
 namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 
@@ -41,6 +42,65 @@ public sealed class SiteHygieneRelationshipTests
         SiteHygieneParity.SameAsSource(result.Findings, "APP-04", s => s.ObjectName, f => f.ObjectName);
         Assert.Equal(probed.Count, probed.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal(TimeSpan.FromSeconds(3), SiteHygieneService.ProbeTimeout);
+    }
+
+    [Fact]
+    public async Task ContentProbesUseTheProviderAndKnownDistributionPointHostsOnly()
+    {
+        using var h = new SiteHygieneHarness();
+        var classes = h.Site.State["Classes"]!.AsObject();
+        classes["SMS_DistributionPointInfo"]!.AsArray().Add(new JsonObject
+        {
+            ["NALPath"] = "NAL-2",
+            ["Name"] = "DP01.contoso.com"
+        });
+        AddContentSource(classes, "Content_TrustedDp", @"\\DP01.contoso.com\Content$\Apps\");
+        AddContentSource(classes, "Content_UnknownHost", @"\\external.example\Content$\Apps\");
+        AddContentSource(classes, "Content_ForwardSlashHost", "//external-two.example/Content$/Apps/");
+        var probed = new List<string>();
+        var service = new SiteHygieneService(h.Site, h.Audit, utcNow: () => h.Clock, connection: () => h.Connection, probe: (path, timeout, ct) =>
+        {
+            probed.Add(path);
+            return Task.FromResult(HygieneProbe.Ok);
+        });
+
+        var result = await service.ScanAsync(new HygieneScanOptions(new HashSet<string> { "AppRelationships" }, TimeSpan.Zero, true), new Progress<string>(), CancellationToken.None);
+
+        Assert.Contains(@"\\DP01.contoso.com\Content$\Apps\", probed);
+        Assert.DoesNotContain(@"\\external.example\Content$\Apps\", probed);
+        Assert.DoesNotContain("//external-two.example/Content$/Apps/", probed);
+        var check = Assert.Single(result.Checks, c => c.CheckId == "APP-04");
+        Assert.Equal(HygieneCheckStates.NotRun, check.State);
+        Assert.Contains("could not be probed safely", check.Reason);
+    }
+
+    [Theory]
+    [InlineData(@"\\CM01.contoso.com\Content$\Apps\", true)]
+    [InlineData(@"\\CM01\Content$\Apps\", true)]
+    [InlineData(@"\\DP01.contoso.com\Content$\Apps\", true)]
+    [InlineData(@"\\CM01.attacker.example\Content$\Apps\", false)]
+    [InlineData(@"\\?\UNC\CM01.contoso.com\Content$\Apps\", false)]
+    [InlineData(@"\\.\PIPE\spoolss", false)]
+    [InlineData("//attacker.example/Content$/Apps/", false)]
+    public void ProbePathsMustBeLocalOrUseAnAllowlistedUncHost(string path, bool safe)
+    {
+        var allowedHosts = new HashSet<string>(["CM01.contoso.com", "DP01.contoso.com"], StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal(safe, SiteHygieneService.IsSafeProbePath(path, allowedHosts));
+    }
+
+    private static void AddContentSource(JsonObject classes, string contentId, string path)
+    {
+        classes["SMS_Content"]!.AsArray().Add(new JsonObject { ["ContentUniqueID"] = contentId, ["ContentSource"] = path });
+        classes["SMS_DeploymentType"]!.AsArray().Add(new JsonObject
+        {
+            ["CI_ID"] = "999999",
+            ["ModelName"] = "ScopeId_Test/DeploymentType_" + contentId,
+            ["AppModelName"] = "ScopeId_Test/Application_Test",
+            ["LocalizedDisplayName"] = contentId,
+            ["ContentId"] = contentId,
+            ["IsLatest"] = true
+        });
     }
 
     [Fact]

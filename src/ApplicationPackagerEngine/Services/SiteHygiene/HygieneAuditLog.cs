@@ -198,7 +198,7 @@ public sealed class HygieneAuditLog : IHygieneAuditLog
                     records.Add(record with { Verified = line.Verified, HasChain = line.HasChain, AfterChainStart = line.AfterChainStart, ChainBrokenAt = line.BrokenAt });
                 else SkippedLines++;
             }
-            catch (JsonException)
+            catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException)
             {
                 SkippedLines++;
             }
