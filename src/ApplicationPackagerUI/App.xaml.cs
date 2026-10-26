@@ -73,6 +73,7 @@ public partial class App : Application
                 services.AddDetectionTesterPage();
                 services.AddMaintenanceWindowsPage();
                 services.AddCollectionCompliancePage();
+                services.AddInstallerAnalysisPage();
 
                 services.AddHostedService<ApplicationHostService>();
             })
@@ -81,14 +82,14 @@ public partial class App : Application
         await _host.StartAsync();
     }
 
-    protected override async void OnExit(ExitEventArgs e)
+    /// <summary>The longest wait at exit for the hosted services to stop.</summary>
+    private static readonly TimeSpan ExitStopTimeout = TimeSpan.FromSeconds(10);
+
+    // An async OnExit returns at its first await and the process can end before the stop runs.
+    protected override void OnExit(ExitEventArgs e)
     {
         base.OnExit(e);
 
-        if (_host is not null)
-        {
-            await _host.StopAsync();
-            _host.Dispose();
-        }
+        AppShutdown.Complete(_host, ExitStopTimeout, () => Environment.Exit(e.ApplicationExitCode));
     }
 }

@@ -58,6 +58,8 @@ public sealed class MsixPackageReader
         if (head[0] != 0x50 || head[1] != 0x4B)
             throw new InvalidOperationException(
                 $"Downloaded file is not an MSIX container (no zip header) - the vendor endpoint likely returned an HTML page: {Path.GetFileName(path)}");
+
+        ZipCentralDirectory.Check(path, InstallerSignatureScanner.MaxLayoutEntries, "read");
     }
 
     /// <summary>Reads Name/Version/Publisher/architecture from the package manifest.</summary>

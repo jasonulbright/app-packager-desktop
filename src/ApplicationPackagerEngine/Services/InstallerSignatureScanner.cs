@@ -238,11 +238,16 @@ public static class InstallerSignatureScanner
         return -1;
     }
 
+    /// <summary>The most entries a zip may have for its layout to be read; a larger zip is identified by its signature.</summary>
+    public const int MaxLayoutEntries = 100_000;
+
     private static bool TryReadEntryNames(string path, out string[] entries)
     {
         try
         {
-            using var archive = ZipFile.OpenRead(path);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+            ZipCentralDirectory.Check(stream, MaxLayoutEntries, "read");
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
             entries = archive.Entries.Select(e => e.FullName).ToArray();
             return true;
         }
