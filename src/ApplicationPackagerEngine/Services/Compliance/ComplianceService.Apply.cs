@@ -9,7 +9,27 @@ public sealed partial class ComplianceService
     private const string NotPreparedMessage = "The change has no captured state, so it was not applied. Refresh the list and try again.";
     private const string RemediationNotConfirmedMessage = "Remediation changes client settings and needs its own confirmation, so nothing was changed.";
 
-    private Task<ComplianceOutcome> ApplyOneAsync(ComplianceChange change, IProgress<ComplianceOutcome> progress, CancellationToken ct) => change.Kind switch
+    private async Task<ComplianceOutcome> ApplyOneAsync(ComplianceChange change, IProgress<ComplianceOutcome> progress, CancellationToken ct)
+    {
+        if (change.Kind is ComplianceChangeKind.CatalogDeploy or ComplianceChangeKind.RemoveCatalogObjects)
+        {
+            await _catalogOperationGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (ct.IsCancellationRequested)
+                    return new ComplianceOutcome(change, false, SkippedPrefix + "the run was cancelled before this change.", null, []);
+                return await ApplyCatalogOperationAsync(change, progress, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                _catalogOperationGate.Release();
+            }
+        }
+
+        return await ApplyCatalogOperationAsync(change, progress, ct).ConfigureAwait(false);
+    }
+
+    private Task<ComplianceOutcome> ApplyCatalogOperationAsync(ComplianceChange change, IProgress<ComplianceOutcome> progress, CancellationToken ct) => change.Kind switch
     {
         ComplianceChangeKind.CatalogDeploy => ApplyCatalogAsync(change, progress, ct),
         ComplianceChangeKind.SetRemediation => ApplySetRemediationAsync(change),
