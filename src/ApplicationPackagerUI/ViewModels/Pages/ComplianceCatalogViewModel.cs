@@ -175,7 +175,8 @@ public sealed partial class ComplianceCatalogViewModel(ComplianceShared shared) 
         Details.Add(new PropertyRow("ID and version", $"{entry.Id} {entry.Version}"));
         Details.Add(new PropertyRow("Severity and status", $"{entry.Severity}, {entry.Status}"));
         Details.Add(new PropertyRow("Operating systems", ComplianceText.Os(entry)));
-        Details.Add(new PropertyRow("Restart needed after remediation", entry.RebootRequired ? "Yes" : "No"));
+        Details.Add(new PropertyRow("Remediation", entry.RemediationSupported ? "Supported" : "Not supported; detection only"));
+        Details.Add(new PropertyRow("Restart needed for settings to take effect", entry.RebootRequired ? "Yes" : "No"));
         Details.Add(new PropertyRow("Registry values", ComplianceText.Lines(entry.RegistrySurface.Select(ComplianceText.Registry))));
         Details.Add(new PropertyRow("Creates configuration items", ComplianceText.Lines(entry.ProducesConfigurationItems)));
         Details.Add(new PropertyRow("Creates baselines", ComplianceText.Lines(entry.ProducesBaselines)));

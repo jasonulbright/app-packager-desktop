@@ -104,7 +104,8 @@ public sealed class CollectionScriptParityTests
     public async Task ValidationMatchesBothModulesForEverySelectQuery()
     {
         var compared = 0;
-        foreach (var module in new[] { FixedModule, OlderModule }.Where(File.Exists))
+        var modules = new[] { FixedModule, OlderModule }.Where(File.Exists).ToArray();
+        foreach (var module in modules)
         {
             foreach (var expression in ComparedExpressions)
             {
@@ -115,8 +116,8 @@ public sealed class CollectionScriptParityTests
                 compared++;
             }
         }
-        if (compared == 0) RecordedValidation();
-        else Assert.Equal(8, compared);
+        if (modules.Length == 0) RecordedValidation();
+        else Assert.Equal(modules.Length * ComparedExpressions.Length, compared);
     }
 
     /// <summary>The modules' Test-WqlQuery on the stub site, recorded: valid with 2 matches, or invalid with 0.</summary>
@@ -194,7 +195,8 @@ public sealed class CollectionScriptParityTests
     public async Task TheRuleUpdateKeepsEveryRuleWhereTheModulesDropOne()
     {
         var compared = 0;
-        foreach (var (name, path) in new[] { ("older", OlderModule), ("fixed", FixedModule) })
+        var modules = new[] { ("older", OlderModule), ("fixed", FixedModule) }.Where(module => File.Exists(module.Item2)).ToArray();
+        foreach (var (name, path) in modules)
         {
             if (!File.Exists(path)) continue;
             foreach (var fail in new[] { Array.Empty<string>(), ["add:WS"], ["add:WS", "add:WS"] })
@@ -215,7 +217,7 @@ public sealed class CollectionScriptParityTests
                 compared++;
             }
         }
-        if (compared == 0)
+        if (modules.Length == 0)
         {
             foreach (var (_, fail, minimum, _) in RecordedModuleUpdates)
                 Assert.True(minimum < 2);
@@ -224,6 +226,6 @@ public sealed class CollectionScriptParityTests
             Assert.True(MinimumCount(site.Counts) >= 2);
             compared = RecordedModuleUpdates.Length;
         }
-        Assert.True(compared >= 4, $"Only {compared} updates were compared.");
+        else Assert.Equal(RecordedModuleUpdates.Count(r => modules.Any(module => module.Item1 == r.Module)), compared);
     }
 }
