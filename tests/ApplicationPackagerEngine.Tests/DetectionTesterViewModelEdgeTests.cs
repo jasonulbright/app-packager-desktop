@@ -431,6 +431,31 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal("RegistryKey", _h.Saved!.ClauseType);
     }
 
+    [Fact]
+    public async Task ConcurrentChoiceChangesSaveTheLatestSnapshot()
+    {
+        var viewModel = await _h.OpenAsync();
+        _h.SaveGate = new ManualResetEventSlim(false);
+        _h.SaveStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            viewModel.ShowSystemComponents = true;
+            await _h.SaveStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            viewModel.ShowSystemComponents = false;
+            _h.SaveGate.Set();
+            await WaitUntil(() => _h.SaveCount == 2 && _h.SaveCompletedCount == 2);
+
+            await viewModel.RunCommand.ExecuteAsync(null);
+
+            Assert.Equal(2, _h.SaveCount);
+            Assert.False(_h.Saved!.ShowSystemComponents);
+        }
+        finally
+        {
+            _h.SaveGate.Set();
+        }
+    }
+
     // Show system components
 
     [Fact]
