@@ -111,9 +111,10 @@ public sealed class SiteHygieneFixSafetyTests
     [Fact]
     public async Task ADeleteOverTheCapIsRefusedAtPrepare()
     {
-        using var h = new SiteHygieneHarness(configure: s => new SiteHygieneService(new StubHygieneSite(SiteHygieneFixtures.StubState()), new HygieneAuditLog(), utcNow: () => SiteHygieneFixtures.CaptureUtc) { MaxDeletes = 3 });
+        using var h = new SiteHygieneHarness();
+        var service = new SiteHygieneService(h.Site, h.Audit, utcNow: () => SiteHygieneFixtures.CaptureUtc) { MaxDeletes = 3 };
         var unused = Finding(f => f.CheckId == "APP-05" && f.ObjectName == "SHL-App-Unused");
-        var change = await h.Service.PrepareAsync(new HygieneChange(HygieneFixKind.RemoveApplicationRevisionHistory, [unused], false, [], [], null), CancellationToken.None);
+        var change = await service.PrepareAsync(new HygieneChange(HygieneFixKind.RemoveApplicationRevisionHistory, [unused], false, [], [], null), CancellationToken.None);
         Assert.True(change.Blocked);
         Assert.Null(change.Fingerprint);
         var cap = change.Checks.Single(c => c.Name == SiteHygieneService.CheckNames.Cap);
