@@ -284,7 +284,8 @@ public sealed partial class InstallerAnalysisService
         if (engine is "NativeMSI" or "MSP")
         {
             using var db = MsiDatabase.Open(path, patch: engine == "MSP");
-            var (streams, _) = MsiTables.Streams(db, limits.MaxEntries, ct);
+            var (streams, truncated) = MsiTables.Streams(db, limits.MaxEntries, ct);
+            if (truncated) skipped.Add($"MSI streams exceeded the {limits.MaxEntries:N0} entry limit; later streams were not extracted.");
             foreach (var (name, size) in streams)
             {
                 if (wanted is not null && !wanted.Contains(name)) continue;

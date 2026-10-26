@@ -31,7 +31,7 @@ public sealed class ScannerAndGuardTests : IDisposable
         var results = InstallerStringScanner.Scan(path, 6, 100, long.MaxValue, CancellationToken.None, out var tracked);
 
         Assert.Equal(50, results.Count);
-        Assert.True(tracked <= 100, "tracked " + tracked);
+        Assert.Equal(results.Count, tracked);
     }
 
     [Fact]
@@ -87,6 +87,26 @@ public sealed class ScannerAndGuardTests : IDisposable
         Assert.NotEmpty(rows);
         Assert.All(rows, r => Assert.Equal("", r.View));
         Assert.Equal("", note);
+    }
+
+    [Fact]
+    public void OnInitSectionScanReturnsWhenTheSectionSizeIsZero()
+    {
+        var header = new byte[256];
+        BitConverter.GetBytes(0).CopyTo(header, 108);
+        var table = new NsisScriptReader.HeaderTable
+        {
+            Header = header,
+            EntriesOffset = 160,
+            EntriesCount = 1,
+            SectionsOffset = 148,
+            SectionsCount = int.MaxValue,
+            SectionSize = 0
+        };
+
+        var onInit = NsisScriptReader.OnInitEntries(table);
+
+        Assert.Equal([true], onInit);
     }
 
     [Theory]

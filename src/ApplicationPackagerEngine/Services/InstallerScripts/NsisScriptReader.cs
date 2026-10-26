@@ -596,11 +596,11 @@ public static class NsisScriptReader
             var v = BitConverter.ToInt32(h, o);
             if (v >= 0 && v < count) starts.Add(v);
         }
-        for (var s = 0; s < ctx.SectionsCount; s++)
+        for (var s = 0; ctx.SectionSize >= 24 && s < ctx.SectionsCount && s < 100_000; s++)
         {
-            var at = ctx.SectionsOffset + (s * ctx.SectionSize) + SectionCodeOffset;
+            var at = ctx.SectionsOffset + ((long)s * ctx.SectionSize) + SectionCodeOffset;
             if (at < 0 || at + 4 > h.Length) break;
-            var v = BitConverter.ToInt32(h, at);
+            var v = BitConverter.ToInt32(h, (int)at);
             if (v >= 0 && v < count) starts.Add(v);
         }
         // Page callbacks (pre, show, leave at page offsets 8, 12, 16) start functions that nothing calls.

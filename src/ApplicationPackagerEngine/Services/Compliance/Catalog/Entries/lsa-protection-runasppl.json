@@ -5,7 +5,7 @@
   "Subcategory": "Hardening",
   "Mechanism": "NativeRegistry",
   "Status": "Draft",
-  "Description": "Enables LSA Protection (RunAsPPL = 1) so LSASS runs as a Protected Process Light, blocking most credential-dumping tooling. High-value, low-cost, almost always missed. REBOOT REQUIRED to engage; validate LSA plugin signing first.",
+  "Description": "Requires LSA Protection through RunAsPPL = 1 (with a UEFI lock) or 2 (without a UEFI lock). REBOOT REQUIRED to engage; validate LSA plugin signing first.",
   "Severity": "Critical",
   "Cves": [],
   "TenablePlugins": [],
