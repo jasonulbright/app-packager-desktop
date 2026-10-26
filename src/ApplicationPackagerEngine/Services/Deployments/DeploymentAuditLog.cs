@@ -43,8 +43,6 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
     /// <summary>Only the end of a larger log is read for the history.</summary>
     public const long MaxReadBytes = 16L * 1024 * 1024;
 
-    private const int MaxRecordBytes = 64 * 1024;
-
     /// <summary>The fields the suite tool writes, in its order; the other fields follow.</summary>
     private static readonly string[] SuiteOrder =
     [
@@ -100,57 +98,9 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         return new Reservation(this, stream, new AuditProbe(stream is not null, stream is not null ? $"The audit log can be written: {path}" : message));
     }
 
-    private (FileStream? Stream, string Message) Open(string path)
-    {
-        if (!IsFullFilePath(path))
-            return (null, $"The audit log path must be a full path to a file, such as C:\\Logs\\{FileName} or \\\\server\\share\\{FileName}.");
-        var folder = System.IO.Path.GetDirectoryName(path)!;
-        try
-        {
-            if (DataFolderLinks.HasLink(folder, DataFolderLinks.ContainerOf(folder, IsDefault)))
-                return (null, $"The audit log folder is a junction or symbolic link, so the log was not written: {folder}");
-            Directory.CreateDirectory(folder);
-            if (File.Exists(path) && File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
-                return (null, $"The audit log file is a symbolic link or another reparse point, so it was not written: {path}");
-            return (new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read), "");
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return (null, $"The audit log cannot be written: the file or folder is read-only or access is denied: {path}");
-        }
-        catch (Exception ex) when (ex is DirectoryNotFoundException or DriveNotFoundException)
-        {
-            return (null, $"The audit log folder cannot be reached: {folder}");
-        }
-        catch (IOException ex) when (IsSharing(ex))
-        {
-            return (null, $"The audit log cannot be written now: another session of this product is making a change and holds it, or another program has it open: {path}. Try again when that session finishes, or close that program.");
-        }
-        catch (IOException)
-        {
-            return (null, $"The audit log cannot be written: {path}. Check that the folder can be reached and has free space.");
-        }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.Security.SecurityException)
-        {
-            return (null, $"The audit log path cannot be used: {path}");
-        }
-    }
+    private (FileStream? Stream, string Message) Open(string path) => ChainedJsonlFile.Open(path, IsDefault, "The audit log", FileName);
 
-    private static bool IsSharing(IOException ex) => (ex.HResult & 0xFFFF) is 32 or 33;
-
-    private static bool IsFullFilePath(string path)
-    {
-        try
-        {
-            if (!System.IO.Path.IsPathFullyQualified(path)) return false;
-            var name = System.IO.Path.GetFileName(path);
-            return name.Length > 0 && System.IO.Path.GetDirectoryName(path) is { Length: > 0 };
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-    }
+    private static bool IsFullFilePath(string path) => ChainedJsonlFile.IsFullFilePath(path);
 
     private AuditWrite Write(FileStream stream, DeploymentAuditRecord record)
     {
@@ -164,96 +114,22 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
             _log?.Warning(LogArea, $"An audit record could not be written ({ex.GetType().Name}).");
             return new AuditWrite(false, "The audit record could not be built. Nothing was written.");
         }
-        if (Encoding.UTF8.GetByteCount(body) + ChainSuffixLength + 2 > MaxRecordBytes) return new AuditWrite(false, "The audit record is too large. Nothing was written.");
         lock (_gate)
-        {
-            try
-            {
-                var previous = PreviousLineHash(stream);
-                var line = Encoding.UTF8.GetBytes(Chained(body, previous) + "\r\n");
-                var length = stream.Seek(0, SeekOrigin.End);
-                if (length > 0)
-                {
-                    stream.Seek(-1, SeekOrigin.End);
-                    var last = stream.ReadByte();
-                    stream.Seek(0, SeekOrigin.End);
-                    if (last != '\n') stream.Write("\r\n"u8);
-                }
-                stream.Write(line);
-                stream.Flush(flushToDisk: true);
-                return new AuditWrite(true, "The audit record was written.");
-            }
-            catch (Exception ex) when (ex is not OutOfMemoryException)
-            {
-                _log?.Warning(LogArea, $"An audit record could not be written ({ex.GetType().Name}).");
-                return new AuditWrite(false, $"The audit record could not be written to {Path}. Check that the folder can be reached and has free space.");
-            }
-        }
+            return ChainedJsonlFile.Append(stream, body, Path, _log, LogArea);
     }
 
     // ---- Chain --------------------------------------------------------------------------------
 
     private const string ChainName = "Chain";
-    private const string ChainPrefix = ",\"" + ChainName + "\":\"";
-
-    /// <summary>The length of ,"Chain":"&lt;64 hex&gt;"} at the end of a chained line.</summary>
-    private const int ChainSuffixLength = 76;
 
     /// <summary>The hash the first line of the log follows.</summary>
-    internal static readonly string ChainStart = new('0', 64);
-
-    /// <summary>The most bytes read back from the end of the log to find the line an append follows.</summary>
-    private const int MaxTailBytes = 1024 * 1024;
-
-    private static string Sha256(string text) => Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(text)));
-
-    /// <summary>The line without white space at its ends and without a byte order mark.</summary>
-    private static string Normalized(string line) => line.Trim().Trim('﻿').Trim();
-
-    /// <summary>The JSON object of a chained line without its Chain property, and the Chain value; null when the line carries no Chain.</summary>
-    private static (string Body, string Chain)? SplitChain(string line)
-    {
-        if (line.Length <= ChainSuffixLength || !line.EndsWith("\"}", StringComparison.Ordinal)) return null;
-        var start = line.Length - ChainSuffixLength;
-        if (string.CompareOrdinal(line, start, ChainPrefix, 0, ChainPrefix.Length) != 0) return null;
-        var chain = line.Substring(start + ChainPrefix.Length, 64);
-        if (!chain.All(c => char.IsAsciiDigit(c) || c is >= 'a' and <= 'f')) return null;
-        return (line[..start] + "}", chain);
-    }
+    internal static string ChainStart => ChainedJsonlFile.ChainStart;
 
     /// <summary>The hash the next line follows: the Chain value of a chained line, the SHA-256 of any other line.</summary>
-    internal static string LineHash(string line)
-    {
-        var normalized = Normalized(line);
-        return SplitChain(normalized) is { } split ? split.Chain : Sha256(normalized);
-    }
-
-    private static string ChainOf(string body, string previousHash) => Sha256(previousHash + "\n" + body);
-
-    private static string Chained(string body, string previousHash) => body[..^1] + ChainPrefix + ChainOf(body, previousHash) + "\"}";
+    internal static string LineHash(string line) => ChainedJsonlFile.LineHash(line);
 
     /// <summary>True when the line carries a Chain that matches its own text and the hash of the line before it.</summary>
-    internal static bool ChainMatches(string line, string previousHash) =>
-        SplitChain(Normalized(line)) is { } split && string.Equals(ChainOf(split.Body, previousHash), split.Chain, StringComparison.Ordinal);
-
-    /// <summary>
-    /// The hash of the last line of the log, read from the held stream. A last line longer than the
-    /// read window yields a hash no read reproduces, so the record that follows reads as unverified.
-    /// </summary>
-    private static string PreviousLineHash(FileStream stream)
-    {
-        var length = stream.Seek(0, SeekOrigin.End);
-        if (length == 0) return ChainStart;
-        var count = (int)Math.Min(length, MaxTailBytes);
-        var buffer = new byte[count];
-        stream.Seek(length - count, SeekOrigin.Begin);
-        stream.ReadExactly(buffer);
-        var text = Encoding.UTF8.GetString(buffer).TrimEnd();
-        if (Normalized(text).Length == 0) return count == length ? ChainStart : Sha256(text);
-        var lastBreak = text.LastIndexOf('\n');
-        if (lastBreak < 0 && count < length) return Sha256("unreadable\n" + text);
-        return LineHash(text[(lastBreak + 1)..]);
-    }
+    internal static bool ChainMatches(string line, string previousHash) => ChainedJsonlFile.ChainMatches(line, previousHash);
 
     private const string TimeFormat = "yyyy-MM-dd'T'HH:mm:ss";
 
@@ -344,35 +220,20 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         SkippedLines = 0;
         var path = Path;
         if (max <= 0 || !IsFullFilePath(path)) return [];
-        byte[] bytes;
-        var cut = false;
-        long firstLine = 1;
+        IReadOnlyList<ChainedJsonlFile.Line> lines;
         try
         {
-            if (!File.Exists(path)) return [];
-            if (File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint))
-                throw new DeploymentServiceException("The audit log file is a symbolic link or another reparse point, so it was not read.", DeploymentFailureKind.Storage);
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            var start = Math.Max(0, stream.Length - MaxReadBytes);
-            var before = start > 0 ? LineBreaksBefore(stream, start) : 0;
-            stream.Seek(start, SeekOrigin.Begin);
-            bytes = new byte[stream.Length - start];
-            stream.ReadExactly(bytes);
-            if (start > 0)
-            {
-                cut = true;
-                var firstBreak = Array.IndexOf(bytes, (byte)'\n');
-                bytes = firstBreak < 0 ? [] : bytes[(firstBreak + 1)..];
-                firstLine = before + 2;
-            }
+            lines = ChainedJsonlFile.ReadLines(path, MaxReadBytes);
+        }
+        catch (InvalidDataException)
+        {
+            throw new DeploymentServiceException("The audit log file is a symbolic link or another reparse point, so it was not read.", DeploymentFailureKind.Storage);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log?.Warning(LogArea, $"The audit log could not be read ({ex.GetType().Name}).");
             throw new DeploymentServiceException($"The audit log could not be read: {path}. Check that the folder can be reached.", DeploymentFailureKind.Storage);
         }
-
-        var lines = ChainStates(Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF').Split('\n'), firstLine, cut);
         var records = new List<DeploymentAuditRecord>();
         for (var i = lines.Count - 1; i >= 0 && records.Count < max; i--)
         {
@@ -391,65 +252,6 @@ public sealed class DeploymentAuditLog : IDeploymentAuditLog
         records.Reverse();
         if (SkippedLines > 0) _log?.Warning(LogArea, $"Skipped {SkippedLines} audit log lines that could not be read.");
         return records;
-    }
-
-    private sealed record LineState(string Text, bool Verified, bool HasChain, bool AfterChainStart, long? BrokenAt);
-
-    /// <summary>
-    /// The chain state of every line that is not empty, in file order. <paramref name="firstLine"/>
-    /// is the file line number of the first entry. The line before the first line of a cut window
-    /// is not read, so that line is not verified and its stored Chain is the hash the next line follows.
-    /// </summary>
-    private static List<LineState> ChainStates(string[] physical, long firstLine, bool cut)
-    {
-        var states = new List<LineState>(physical.Length);
-        var previous = cut ? null : ChainStart;
-        var anchored = false;
-        long? broken = null;
-        for (var k = 0; k < physical.Length; k++)
-        {
-            var text = Normalized(physical[k]);
-            if (text.Length == 0) continue;
-            var number = firstLine + k;
-            var afterAnchor = anchored;
-            var verified = false;
-            string hash;
-            if (SplitChain(text) is { } split)
-            {
-                if (previous is null) hash = split.Chain;
-                else
-                {
-                    hash = ChainOf(split.Body, previous);
-                    if (string.Equals(hash, split.Chain, StringComparison.Ordinal)) verified = broken is null;
-                    else broken ??= number;
-                }
-                anchored = true;
-                states.Add(new LineState(text, verified, true, afterAnchor, broken));
-            }
-            else
-            {
-                hash = Sha256(text);
-                states.Add(new LineState(text, false, false, afterAnchor, broken));
-            }
-            previous = hash;
-        }
-        return states;
-    }
-
-    /// <summary>The number of line feeds in the first <paramref name="end"/> bytes of the stream.</summary>
-    private static long LineBreaksBefore(FileStream stream, long end)
-    {
-        stream.Seek(0, SeekOrigin.Begin);
-        var buffer = new byte[64 * 1024];
-        long count = 0, read = 0;
-        while (read < end)
-        {
-            var n = stream.Read(buffer, 0, (int)Math.Min(buffer.Length, end - read));
-            if (n <= 0) break;
-            count += buffer.AsSpan(0, n).Count((byte)'\n');
-            read += n;
-        }
-        return count;
     }
 
     private sealed class Reservation(DeploymentAuditLog owner, FileStream? stream, AuditProbe probe) : IDeploymentAuditReservation

@@ -16,7 +16,6 @@ public static class SuiteTools
 {
     public static IReadOnlyList<SuiteTool> All { get; } =
     [
-        new("dp-content-manager", "DP Content Manager", "dp-content-manager", "start-dpcontentmgr.ps1", "Server24"),
         new("pivots-and-scripts", "Pivots and Scripts", "pivots-and-scripts", "start-pivotsandscripts.ps1", "Code24"),
         new("site-hygiene", "Site Hygiene", "site-hygiene", "start-sitehygiene.ps1", "Broom24")
     ];

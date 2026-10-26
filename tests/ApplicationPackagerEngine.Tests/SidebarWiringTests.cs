@@ -45,7 +45,7 @@ public sealed class SidebarWiringTests : IDisposable
                      typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage),
-                     typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage) })
+                     typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage) })
             services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });
     }
 
@@ -240,7 +240,8 @@ public sealed class SidebarWiringTests : IDisposable
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), items[2].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage), items[3].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), items[4].TargetPageType);
-            Assert.All(items.Skip(5), i => Assert.Null(i.TargetPageType));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), items[5].TargetPageType);
+            Assert.All(items.Skip(6), i => Assert.Null(i.TargetPageType));
             Assert.Equal(8, items.Select(i => ((Wpf.Ui.Controls.SymbolIcon)i.Icon!).Symbol).Distinct().Count());
 
             var dp = items.Single(i => (string)i.Content == "DP Content Manager");
@@ -406,8 +407,49 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
-    public void ASavedLayoutWithTheMaintenanceWindowsEntryMovedAndHiddenKeepsItsPlaceAsAPage()
+    public void TheDpContentManagerEntryOpensItsPageAndStartsNoTool()
     {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            var starter = new FakeToolProcessStarter();
+            using var provider = MainWindowServices(s =>
+            {
+                AddPlainPages(s);
+                s.AddSingleton<IToolProcessStarter>(starter);
+            });
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var item = navigation.MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "DP Content Manager");
+
+            typeof(Wpf.Ui.Controls.NavigationViewItem).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(item, null);
+
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), ShownPage(navigation));
+            Assert.True(item.IsActive);
+            Assert.Empty(starter.Started);
+        });
+    }
+
+    [Fact]
+    public void ASavedLayoutWithTheDpContentManagerEntryMovedAndHiddenKeepsItsPlaceAsAPage()
+    {
+        WriteSettings("""
+            { "FirstRunCompleted": true,
+              "Sidebar": { "Order": ["packages", "dp-content-manager", "applications"], "Hidden": ["dp-content-manager"] } }
+            """);
+        using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
+        var service = provider.GetRequiredService<SidebarService>();
+        Assert.Equal([SidebarIds.Packages, SidebarIds.DpContentManager, SidebarIds.Applications], SidebarFixtures.Ids(service.All).Take(3));
+        Assert.True(service.IsHidden(SidebarIds.DpContentManager));
+        Assert.True(service.Show(SidebarIds.DpContentManager));
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[1].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), service.Items[1].PageType);
+    }
+
+    [Fact]
+    public void ASavedLayoutWithTheMaintenanceWindowsEntryMovedAndHiddenKeepsItsPlaceAsAPage()    {
         WriteSettings("""
             { "FirstRunCompleted": true,
               "Sidebar": { "Order": ["packages", "maintenance-windows", "applications"], "Hidden": ["maintenance-windows"] } }

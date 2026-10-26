@@ -282,7 +282,7 @@ public sealed class DeploymentRingsScaleTests
             naming.Order(StringComparer.OrdinalIgnoreCase).ToList());
         Assert.Matches(@"\bservice\s*\.\s*ApplyAsync\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), P("RingRunPlan.cs")))));
         // Every write call of the desktop is in one of the page writers; each writer serves only its own service.
-        Assert.Equal([P("CollectionsPlan.cs"), P("CompliancePlan.cs"), P("DeploymentPlan.cs"), P("MaintenanceWindowsPlan.cs"), P("RingRunPlan.cs")],
+        Assert.Equal([P("CollectionsPlan.cs"), P("CompliancePlan.cs"), P("DeploymentPlan.cs"), P("DpContentPlan.cs"), P("MaintenanceWindowsPlan.cs"), P("RingRunPlan.cs")],
             UiFilesWith(new Regex(@"\.\s*ApplyAsync\b", RegexOptions.CultureInvariant)).ToList());
         foreach (var writer in new[] { "CollectionsPlan.cs", "CompliancePlan.cs", "DeploymentPlan.cs", "MaintenanceWindowsPlan.cs" })
             Assert.DoesNotMatch(@"\bIRingService\b|\bRingChange\b", MaintenanceWindowWriterTests.Code(File.ReadAllText(Path.Combine(SourceRoot(), P(writer)))));

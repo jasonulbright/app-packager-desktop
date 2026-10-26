@@ -88,6 +88,10 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public string ExtraConfirmationText => _plan.ExtraConfirmation ?? "";
     public bool HasOptionalChoice => _plan.OptionalChoice is not null;
     public string OptionalChoiceText => _plan.OptionalChoice ?? "";
+    public bool HasSecondConfirmation => _plan.SecondConfirmation is not null;
+    public string SecondConfirmationText => _plan.SecondConfirmation ?? "";
+    public bool HasNotes => _plan.Notes.Count > 0;
+    public string NotesText => string.Join(Environment.NewLine, _plan.Notes);
     public ObservableCollection<ChangePlanItem> Items { get; }
     public ObservableCollection<ChangePlanItemResult> ResultRows { get; } = [];
 
@@ -107,6 +111,10 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
     private bool _extraAcknowledged;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
+    private bool _secondAcknowledged;
 
     /// <summary>The optional choice of the plan; it changes how the plan runs, not whether Confirm is available.</summary>
     [ObservableProperty] private bool _optionChosen;
@@ -134,13 +142,14 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public bool ShowClose => Stage is ChangePlanStage.Done or ChangePlanStage.Undone;
     public bool ShowUndo => _plan.HasUndo && Outcome.Result?.UndoAvailable != false && (Stage is ChangePlanStage.Done or ChangePlanStage.Undoing or ChangePlanStage.Undone);
 
-    private bool CanConfirm() => Stage == ChangePlanStage.Review && (!IsDestructive || DestructiveAcknowledged) && (!HasExtraConfirmation || ExtraAcknowledged);
+    private bool CanConfirm() => Stage == ChangePlanStage.Review && (!IsDestructive || DestructiveAcknowledged) && (!HasExtraConfirmation || ExtraAcknowledged)
+        && (!HasSecondConfirmation || SecondAcknowledged);
 
     [RelayCommand(CanExecute = nameof(CanConfirm))]
     private async Task ConfirmAsync()
     {
         if (!CanConfirm()) return;
-        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged, OptionChosen);
+        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged, OptionChosen, SecondAcknowledged);
         Stage = ChangePlanStage.Running;
         ResultText = "Running...";
         var result = await RunAsync(_run, "");

@@ -13,8 +13,15 @@
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="ChangePlanVisibility" />
+        <!-- The cells of a row form a Local Tab group, so only the first cell is a Tab stop: Tab enters the grid once and the next Tab leaves it. -->
         <Style x:Key="PlanGridCell" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
             <Setter Property="VerticalContentAlignment" Value="Top" />
+            <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Column.DisplayIndex, RelativeSource={RelativeSource Self}}" Value="0">
+                    <Setter Property="KeyboardNavigation.IsTabStop" Value="True" />
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="TopCell" TargetType="TextBlock" BasedOn="{x:Static DataGridTextColumn.DefaultElementStyle}">
             <Setter Property="VerticalAlignment" Value="Top" />
@@ -28,7 +35,8 @@
         </Style>
     </ui:FluentWindow.Resources>
 
-    <Grid>
+    <!-- Tab order: the grid, the confirmation boxes, the footer buttons, then the notes. -->
+    <Grid KeyboardNavigation.TabNavigation="Local">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -39,7 +47,7 @@
 
         <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
 
-        <StackPanel Grid.Row="1" Margin="16,4,16,8">
+        <StackPanel Grid.Row="1" Margin="16,4,16,8" KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="3">
             <TextBlock x:Name="txtSummary" Text="{Binding SummaryText}" FontSize="14" FontWeight="SemiBold" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtChangePlanSummary" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowPlan, Converter={StaticResource ChangePlanVisibility}}" />
@@ -47,13 +55,16 @@
                        AutomationProperties.AutomationId="txtChangePlanResult" AutomationProperties.LiveSetting="Polite"
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Visibility="{Binding ShowResult, Converter={StaticResource ChangePlanVisibility}}" />
+            <TextBox x:Name="txtNotes" Text="{Binding NotesText, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" MaxHeight="120" Margin="0,6,0,0"
+                     VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="txtChangePlanNotes" AutomationProperties.Name="Checks and impact"
+                     Visibility="{Binding HasNotes, Converter={StaticResource ChangePlanVisibility}}" />
             <TextBlock x:Name="txtForceClose" Text="{x:Static vm:ChangePlanViewModel.ForceCloseText}" Margin="0,6,0,0" TextWrapping="Wrap"
                        AutomationProperties.AutomationId="txtChangePlanForceClose" AutomationProperties.LiveSetting="Assertive"
                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
                        Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
         </StackPanel>
 
-        <DataGrid Grid.Row="2" x:Name="gridPlan" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
+        <DataGrid Grid.Row="2" x:Name="gridPlan" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Once" ItemsSource="{Binding Items}" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
                   SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel" CellStyle="{StaticResource PlanGridCell}"
                   AutomationProperties.AutomationId="gridChangePlan" AutomationProperties.Name="Changes"
@@ -65,7 +76,7 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <DataGrid Grid.Row="2" x:Name="gridResult" ItemsSource="{Binding ResultRows}" AutoGenerateColumns="False" IsReadOnly="True"
+        <DataGrid Grid.Row="2" x:Name="gridResult" KeyboardNavigation.TabIndex="0" KeyboardNavigation.TabNavigation="Once" ItemsSource="{Binding ResultRows}" AutoGenerateColumns="False" IsReadOnly="True"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" RowHeaderWidth="0"
                   SelectionMode="Single" GridLinesVisibility="Horizontal" Margin="16,0,16,8" VirtualizingPanel.ScrollUnit="Pixel" CellStyle="{StaticResource PlanGridCell}"
                   AutomationProperties.AutomationId="gridChangePlanResult" AutomationProperties.Name="Results"
@@ -79,17 +90,24 @@
         </DataGrid>
 
         <!-- A long confirmation text scrolls here, so the footer buttons stay inside the window. -->
-        <ScrollViewer Grid.Row="3" MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+        <ScrollViewer Grid.Row="3" MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                      KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
         <StackPanel Margin="16,0,16,0">
-            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8"
-                      Content="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
+            <CheckBox x:Name="chkDestructive" Margin="0,0,0,8" AutomationProperties.Name="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}"
                       IsChecked="{Binding DestructiveAcknowledged}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanDestructive"
-                      Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}" />
+                      Visibility="{Binding IsDestructive, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{x:Static vm:ChangePlanViewModel.DestructiveCheckText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
             <CheckBox x:Name="chkExtra" Margin="0,0,0,8" IsChecked="{Binding ExtraAcknowledged}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanExtra" AutomationProperties.Name="{Binding ExtraConfirmationText}"
                       Visibility="{Binding HasExtraConfirmation, Converter={StaticResource ChangePlanVisibility}}">
                 <TextBlock Text="{Binding ExtraConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </CheckBox>
+            <CheckBox x:Name="chkSecond" Margin="0,0,0,8" IsChecked="{Binding SecondAcknowledged}" IsEnabled="{Binding ShowPlan}"
+                      AutomationProperties.AutomationId="chkChangePlanSecond" AutomationProperties.Name="{Binding SecondConfirmationText}"
+                      Visibility="{Binding HasSecondConfirmation, Converter={StaticResource ChangePlanVisibility}}">
+                <TextBlock Text="{Binding SecondConfirmationText}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
             </CheckBox>
             <CheckBox x:Name="chkOption" Margin="0,0,0,8" IsChecked="{Binding OptionChosen}" IsEnabled="{Binding ShowPlan}"
                       AutomationProperties.AutomationId="chkChangePlanOption" AutomationProperties.Name="{Binding OptionalChoiceText}"
@@ -102,7 +120,8 @@
         </StackPanel>
         </ScrollViewer>
 
-        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10">
+        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+                KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="2">
             <WrapPanel HorizontalAlignment="Right">
                 <ui:Button x:Name="btnConfirm" Content="{Binding ConfirmContent}" MinWidth="130" Margin="0,0,8,0"
                            Command="{Binding ConfirmCommand}" AutomationProperties.AutomationId="btnChangePlanConfirm"

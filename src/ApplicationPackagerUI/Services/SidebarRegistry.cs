@@ -17,6 +17,7 @@ public static class SidebarIds
     public const string CollectionCompliance = "collection-and-compliance";
     public const string InstallerAnalysis = "installer-analysis";
     public const string DeploymentHelper = "deployment-helper";
+    public const string DpContentManager = "dp-content-manager";
 }
 
 /// <summary>
@@ -81,6 +82,10 @@ public sealed class SidebarRegistry
         registry.Register(new SidebarItemDefinition(SidebarIds.DeploymentHelper, "Deployment Helper", "Rocket24", SidebarItemKind.Page)
         {
             PageType = typeof(DeploymentHelperPage)
+        });
+        registry.Register(new SidebarItemDefinition(SidebarIds.DpContentManager, "DP Content Manager", "Server24", SidebarItemKind.Page)
+        {
+            PageType = typeof(DpContentManagerPage)
         });
         foreach (var tool in SuiteTools.All)
         {

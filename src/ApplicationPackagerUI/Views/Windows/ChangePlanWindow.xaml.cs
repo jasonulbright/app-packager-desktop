@@ -15,6 +15,15 @@ public partial class ChangePlanWindow
         InitializeComponent();
         btnConfirm.Appearance = viewModel.IsDestructive ? ControlAppearance.Danger : ControlAppearance.Primary;
         viewModel.CloseRequested += (_, _) => Close();
+        ContentRendered += (_, _) => FocusFirstControl();
+    }
+
+    /// <summary>Puts the focus on the first plan line, or on the first confirmation box or button when the plan has no line.</summary>
+    public void FocusFirstControl()
+    {
+        if (Helpers.DataGridFocus.FocusFirstCell(gridPlan)) return;
+        foreach (var control in new System.Windows.Controls.Control[] { chkDestructive, chkExtra, chkSecond, chkOption, btnConfirm, btnCancel })
+            if (control.IsVisible && control.IsEnabled && control.Focus()) return;
     }
 
     // Closing the window while a run is in progress would hide its result; the close turns

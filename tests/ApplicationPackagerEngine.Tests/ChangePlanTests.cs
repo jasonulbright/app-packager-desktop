@@ -58,7 +58,7 @@ public sealed class ChangePlanTests
             m => m.ReturnType == key);
 
         var issue = typeof(ConfirmedChangePlan).GetMethod("Issue", BindingFlags.NonPublic | BindingFlags.Static)!;
-        var failure = Assert.Throws<TargetInvocationException>(() => issue.Invoke(null, [null, Plan(), false, false, false]));
+        var failure = Assert.Throws<TargetInvocationException>(() => issue.Invoke(null, [null, Plan(), false, false, false, false]));
         Assert.IsType<ArgumentNullException>(failure.InnerException);
     }
 

@@ -47,10 +47,22 @@ public sealed class ChangePlan
     /// </summary>
     public string? OptionalChoice { get; init; }
 
+    /// <summary>
+    /// The text of a third check box the operator checks before Confirm, for a second effect that
+    /// the second check box does not name; null for none.
+    /// </summary>
+    public string? SecondConfirmation { get; init; }
+
+    /// <summary>Plain lines about the whole plan, shown above the list of changes; empty for none.</summary>
+    public IReadOnlyList<string> Notes { get; init; } = [];
+
     /// <summary>The fixed action name the log uses instead of the title, which can hold object names; null logs a generic name.</summary>
     public string? LogName { get; init; }
 
-    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo) { ExtraConfirmation = ExtraConfirmation, OptionalChoice = OptionalChoice, LogName = LogName };
+    internal ChangePlan Copy() => new(Title, ActionName, Items, IsDestructive, HasUndo)
+    {
+        ExtraConfirmation = ExtraConfirmation, OptionalChoice = OptionalChoice, SecondConfirmation = SecondConfirmation, Notes = Notes.ToArray(), LogName = LogName
+    };
 }
 
 /// <summary>
@@ -71,7 +83,8 @@ public sealed class ConfirmedChangePlan
     /// <summary>True when the plan has an optional choice and the operator selected it.</summary>
     public bool OptionChosen { get; }
 
-    internal static ConfirmedChangePlan Issue(ChangePlanViewModel.IssueKey key, ChangePlan plan, bool destructiveAcknowledged, bool extraAcknowledged = false, bool optionChosen = false)
+    internal static ConfirmedChangePlan Issue(ChangePlanViewModel.IssueKey key, ChangePlan plan, bool destructiveAcknowledged, bool extraAcknowledged = false, bool optionChosen = false,
+        bool secondAcknowledged = false)
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(plan);
@@ -79,6 +92,8 @@ public sealed class ConfirmedChangePlan
             throw new InvalidOperationException("A destructive plan needs the extra confirmation.");
         if (plan.ExtraConfirmation is not null && !extraAcknowledged)
             throw new InvalidOperationException("The plan needs its second confirmation.");
+        if (plan.SecondConfirmation is not null && !secondAcknowledged)
+            throw new InvalidOperationException("The plan needs its third confirmation.");
         return new ConfirmedChangePlan(plan.Copy(), optionChosen && plan.OptionalChoice is not null);
     }
 }
@@ -101,7 +116,10 @@ public sealed record ChangePlanItemResult(ChangePlanItem Item, bool Succeeded, s
     /// <summary>A step of a change that still runs: shown while the run works, never a result of its own.</summary>
     public bool Interim { get; init; }
 
-    public string OutcomeText => Skipped ? "Skipped" : Succeeded ? "Changed" : "Failed";
+    /// <summary>The Result text in the words of the operation, for example "Requested"; null uses Changed, Failed or Skipped.</summary>
+    public string? ResultLabel { get; init; }
+
+    public string OutcomeText => ResultLabel ?? (Skipped ? "Skipped" : Succeeded ? "Changed" : "Failed");
 
     public static ChangePlanItemResult Skip(ChangePlanItem item, string message) => new(item, false, message) { Skipped = true };
 
