@@ -35,6 +35,9 @@
     <EmbeddedResource Include="Services\MaintenanceWindows\Templates\*.json" LogicalName="ApplicationPackagerEngine.Services.MaintenanceWindows.Templates.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\Deployments\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Deployments.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\DpContent\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.DpContent.Scripts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\PivotsScripts\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.PivotsScripts.Scripts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\PivotsScripts\Library\Queries\*.cmpivot" LogicalName="ApplicationPackagerEngine.Services.PivotsScripts.Library.Queries.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\PivotsScripts\Library\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.PivotsScripts.Library.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\Compliance\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Compliance.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\Compliance\Catalog\Entries\*.json" LogicalName="ApplicationPackagerEngine.Services.Compliance.Catalog.Entries.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\Compliance\Catalog\Builders\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Compliance.Catalog.Builders.%(Filename)%(Extension)" />

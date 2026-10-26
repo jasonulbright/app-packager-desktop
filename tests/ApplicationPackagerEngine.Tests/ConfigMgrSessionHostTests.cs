@@ -534,6 +534,57 @@ public sealed class ConfigMgrSessionHostTests
     }
 
     [Fact]
+    public async Task TheLogHoldsOnlyTheLengthAndAHashOfScriptTextQueriesAndParameterValues()
+    {
+        var log = new RecordingLog();
+        var (host, factory) = NewHost(log: log);
+        await using var _ = host;
+        const string source = "$cred = 'Pa55-InScript-Text'; Invoke-Thing -Credential $cred";
+        var parameters = new ConfigMgrParameters
+        {
+            ["Operation"] = "Check",
+            ["ScriptText"] = source,
+            ["QueryText"] = "Registry('HKLM:\\SOFTWARE\\Secret-Query-Key')",
+            ["ParameterValues"] = new[] { "Value-Secret-1" },
+            ["Comment"] = "Comment-Secret-2"
+        };
+        parameters.AddSensitive("Label", "Flagged-Secret-3");
+
+        await host.InvokeAsync(Script, parameters);
+
+        var text = string.Join("\n", log.Entries.Select(e => e.Message));
+        foreach (var hidden in new[] { "Pa55-InScript-Text", "Invoke-Thing", "Secret-Query-Key", "Value-Secret-1", "Comment-Secret-2", "Flagged-Secret-3" })
+            Assert.DoesNotContain(hidden, text);
+        Assert.Contains("Operation=Check", text);
+        Assert.Contains($"ScriptText=<{source.Length} characters, SHA-256 ", text);
+        Assert.Contains("ParameterValues=[1 values]", text);
+        Assert.True(parameters.IsSensitive("scripttext"));
+        Assert.False(parameters.IsSensitive("Operation"));
+        Assert.Equal(source, RunRequests(factory.Started[0])[0].GetProperty("parameters").GetProperty("ScriptText").GetString());
+    }
+
+    [Fact]
+    public async Task AScriptErrorOfACommandWithScriptTextIsNotCopiedToTheLog()
+    {
+        var log = new RecordingLog();
+        var (host, factory) = NewHost(log: log);
+        await using var _ = host;
+        factory.Handler = (p, r) =>
+        {
+            if (r.GetProperty("op").GetString() == "run") { p.Reply(r, "\"t\":\"error\",\"kind\":\"script\",\"m\":\"At line:1 char:9 + $cred = 'Pa55-InScript-Text'\""); return; }
+            FakeFactory.Default(p, r);
+        };
+        var parameters = new ConfigMgrParameters { ["ScriptText"] = "$cred = 'Pa55-InScript-Text'" };
+
+        var failure = await Assert.ThrowsAsync<ConfigMgrSessionException>(() => host.InvokeAsync(Script, parameters));
+
+        Assert.Equal(ConfigMgrFailure.ScriptFailed, failure.Failure);
+        var text = string.Join("\n", log.Entries.Select(e => e.Message));
+        Assert.DoesNotContain("Pa55-InScript-Text", text);
+        Assert.Contains(log.Entries, e => e.Level == AppLogLevel.Error && e.Message.Contains("Test failed", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task TheLogNamesTheCommandAndMasksSecretParameterValues()
     {
         var log = new RecordingLog();

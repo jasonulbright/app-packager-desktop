@@ -110,15 +110,38 @@ public sealed partial class ConfigMgrParameters : IEnumerable<KeyValuePair<strin
 
     public bool IsSecret(string name) => _secret.Contains(name);
 
+    private readonly HashSet<string> _sensitive = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Parameter names whose values are script source, queries or values for a script: a log line
+    /// holds only their length and a hash prefix.
+    /// </summary>
+    public static readonly IReadOnlySet<string> SensitiveNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "ScriptText", "Script", "QueryText", "Query", "InputQuery", "Parameters", "ParameterValues", "ParamsDefinition", "Comment"
+    };
+
+    /// <summary>Adds a value that a log line shows only as its length and a hash prefix.</summary>
+    public void AddSensitive(string name, object? value)
+    {
+        this[name] = value;
+        _sensitive.Add(name);
+    }
+
+    public bool IsSensitive(string name) => _sensitive.Contains(name) || SensitiveNames.Contains(name);
+
+    /// <summary>True when a value of this command is secret or sensitive: its error text does not go to the log.</summary>
+    public bool HasProtectedValues => _values.Keys.Any(k => _secret.Contains(k) || IsSensitive(k));
+
     public int Count => _values.Count;
 
     /// <summary>The non-empty secret values, for masking text that comes back from the child.</summary>
     public IEnumerable<string> SecretValues =>
         _values.Where(p => _secret.Contains(p.Key) && p.Value is string { Length: > 0 }).Select(p => (string)p.Value!);
 
-    /// <summary>Name=value pairs for a log line, with secret values masked.</summary>
+    /// <summary>Name=value pairs for a log line, with secret values masked and sensitive values as length and hash.</summary>
     public string ToLogText() => string.Join(", ", _values.Select(p =>
-        p.Key + "=" + (_secret.Contains(p.Key) ? Logging.SecretMask.Mask : Describe(p.Value))));
+        p.Key + "=" + (_secret.Contains(p.Key) ? Logging.SecretMask.Mask : IsSensitive(p.Key) ? Summary(p.Value) : Describe(p.Value))));
 
     private const int LogStringLimit = 200;
 
@@ -129,6 +152,14 @@ public sealed partial class ConfigMgrParameters : IEnumerable<KeyValuePair<strin
         string s => s,
         IEnumerable e => "[" + e.Cast<object?>().Count() + " values]",
         _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? ""
+    };
+
+    private static string Summary(object? value) => value switch
+    {
+        null => "null",
+        string s => $"<{s.Length} characters, SHA-256 {Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(s)))[..12]}>",
+        IEnumerable e => "[" + e.Cast<object?>().Count() + " values]",
+        _ => "<value>"
     };
 
     private static string Checked(string name)

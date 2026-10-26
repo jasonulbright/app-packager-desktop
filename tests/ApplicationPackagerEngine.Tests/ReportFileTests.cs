@@ -12,6 +12,22 @@ public sealed class ReportFileTests : IDisposable
         try { Directory.Delete(_folder, recursive: true); } catch (IOException) { }
     }
 
+    [Theory]
+    [InlineData(" \n=cmd|' /C calc'!A0")]
+    [InlineData("  \t+1")]
+    [InlineData(" \r\n@SUM(A1)")]
+    [InlineData("\n-2")]
+    [InlineData("   =1")]
+    [InlineData(" \tplain text after a tab")]
+    public void ACellWithLeadingWhiteSpaceThatAFormulaCanFollowStartsWithAnApostrophe(string value) =>
+        Assert.StartsWith("\"'", ReportFile.Cell(value));
+
+    [Theory]
+    [InlineData("plain")]
+    [InlineData("  two spaces")]
+    [InlineData("a = b")]
+    public void APlainCellIsOnlyQuoted(string value) => Assert.Equal("\"" + value + "\"", ReportFile.Cell(value));
+
     [Fact]
     public void ATakenNameGetsTheNextNumber()
     {
