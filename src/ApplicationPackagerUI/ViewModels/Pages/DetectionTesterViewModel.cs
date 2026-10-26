@@ -582,15 +582,19 @@ public partial class DetectionTesterViewModel : ObservableObject
                 SelectedView = view;
                 break;
             case Script:
-                if (!string.IsNullOrWhiteSpace(detection.ScriptLanguage)
-                    && !detection.ScriptLanguage.Trim().Equals("PowerShell", StringComparison.OrdinalIgnoreCase))
+                if (UnsupportedScriptLanguage(detection) is { } scriptLanguage)
                 {
-                    StatusMessage = $"The script language {detection.ScriptLanguage.Trim()} is not supported.";
+                    StatusMessage = $"The script language {scriptLanguage} is not supported.";
                     return false;
                 }
                 ScriptText = detection.ScriptText ?? "";
                 break;
             case Compound:
+                if (UnsupportedScriptLanguage(detection) is { } compoundScriptLanguage)
+                {
+                    StatusMessage = $"The script language {compoundScriptLanguage} is not supported.";
+                    return false;
+                }
                 if (!ClauseTypes.Contains(Compound)) ClauseTypes.Add(Compound);
                 ImportedDetection = detection;
                 ImportedTree.Clear();
@@ -602,6 +606,20 @@ public partial class DetectionTesterViewModel : ObservableObject
         }
         SelectedClauseType = detection.Type;
         return true;
+    }
+
+    private static string? UnsupportedScriptLanguage(StageDetection detection)
+    {
+        if (detection.Type == Script
+            && !string.IsNullOrWhiteSpace(detection.ScriptLanguage)
+            && !detection.ScriptLanguage.Trim().Equals("PowerShell", StringComparison.OrdinalIgnoreCase))
+            return detection.ScriptLanguage.Trim();
+
+        foreach (var clause in detection.Clauses ?? [])
+            if (clause is not null && UnsupportedScriptLanguage(clause) is { } language)
+                return language;
+
+        return null;
     }
 
     /// <summary>The offered entry that matches the value; an unknown value takes the fallback and adds a note for the status line.</summary>

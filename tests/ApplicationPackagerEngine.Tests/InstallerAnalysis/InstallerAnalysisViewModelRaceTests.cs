@@ -253,22 +253,32 @@ public sealed class InstallerAnalysisViewModelRaceTests : IDisposable
         viewModel.SelectedTabIndex = InstallerAnalysisViewModel.StringsTab;
         await Wait.UntilAsync(() => _h.Service.PayloadCalls == 1 && _h.Service.RegistryCalls == 1 && _h.Service.StringsCalls == 1, "the three loads");
 
-        _h.Service.Hold("registry", second);
-        _h.Service.Hold("strings", second);
+        var secondStrings = _h.Service.Hold("strings", second);
         await viewModel.OpenAsync(second);
+        await Wait.UntilAsync(() => _h.Service.StringsCalls == 2, "the second strings read");
         viewModel.SelectedTabIndex = InstallerAnalysisViewModel.PayloadTab;
         await Wait.UntilAsync(() => viewModel.PayloadRows.Count == 1, "the second payload");
         payload.SetResult();
         registry.SetResult();
         strings.SetResult();
-        await Wait.UntilAsync(() => _h.Service.Calls.Count(c => c.StartsWith("payload:")) == 2, "the calls");
-        await Task.Delay(50);
+        await Wait.UntilAsync(() =>
+        {
+            var messages = _h.Log.Tail().Select(entry => entry.Message).ToList();
+            return messages.Count(message => message.StartsWith("Listed the payload:", StringComparison.Ordinal)) == 2
+                && messages.Any(message => message.StartsWith("Read the registry settings:", StringComparison.Ordinal))
+                && messages.Any(message => message.StartsWith("Read the strings:", StringComparison.Ordinal));
+        }, "the late installer results");
 
         Assert.Equal("second-only.dll", Assert.Single(viewModel.PayloadRows).Name);
         Assert.Empty(viewModel.RegistryRows);
         Assert.Empty(viewModel.StringRows);
         Assert.Equal("Analyzed second.exe.", viewModel.StatusMessage);
         Assert.Equal("second.exe", viewModel.Report!.FileName);
+
+        _h.Service.Strings = [];
+        secondStrings.SetResult();
+        await Wait.UntilAsync(() => !viewModel.IsBusy, "the second strings read");
+        Assert.Empty(viewModel.StringRows);
     }
 
     [Fact]

@@ -99,4 +99,36 @@ public sealed class ComplianceLayoutTests
             AssertCellFitsAtMinimum(window, counts, "Error", "unknown");
         });
     }
+
+    [Theory]
+    [InlineData(ApplicationTheme.Light)]
+    [InlineData(ApplicationTheme.Dark)]
+    public void DeploymentPaneResizeKeepsItsToolbarAndRestoresItsGridHeight(ApplicationTheme theme)
+    {
+        WithSection(theme, (window, page, viewModel, harness) =>
+        {
+            ShowTab(window, viewModel, ComplianceViewModel.LiveTab);
+
+            var splitter = ById<System.Windows.Controls.GridSplitter>(page, "splitLiveDeployments");
+            var deployments = ById<DataGrid>(page, "dgDeployments");
+            var toolbar = ById<FrameworkElement>(page, "btnEnableRemediation");
+            var container = (System.Windows.Controls.Grid)deployments.Parent;
+            Assert.Same(toolbar.Parent, ById<FrameworkElement>(page, "btnDisableRemediation").Parent);
+            Assert.Equal(3, System.Windows.Controls.Grid.GetRow(container));
+            Assert.Equal(2, System.Windows.Controls.Grid.GetRow(splitter));
+            Assert.True(toolbar.IsVisible);
+            Assert.True(deployments.IsVisible);
+
+            var deploymentRow = ((System.Windows.Controls.Grid)container.Parent).RowDefinitions[System.Windows.Controls.Grid.GetRow(container)];
+            deploymentRow.Height = new GridLength(320);
+            viewModel.Live.ShowDeployments = false;
+            Settle(window);
+            viewModel.Live.ShowDeployments = true;
+            Settle(window);
+
+            Assert.Equal(320, deploymentRow.Height.Value);
+            Assert.True(toolbar.IsVisible);
+            Assert.True(deployments.ActualHeight >= 120);
+        });
+    }
 }
