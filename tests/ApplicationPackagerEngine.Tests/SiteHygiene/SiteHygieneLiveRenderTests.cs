@@ -42,7 +42,7 @@ public sealed class SiteHygieneLiveRenderTests
     }
 
     private static void WithPage(ApplicationTheme theme, Action<Window, SiteHygienePage, VM, SiteHygienePageHarness> test,
-        double width = 1440 - NavigationPaneWidth, double height = 900 - 48, Func<SiteHygienePageHarness>? harness = null)
+        double width = 1440 - NavigationPaneWidth, double height = 900 - 48, Func<SiteHygienePageHarness>? harness = null, TimeSpan? refreshWait = null)
     {
         WithApplication(theme, () =>
         {
@@ -54,7 +54,7 @@ public sealed class SiteHygieneLiveRenderTests
             try
             {
                 Run(page.OnNavigatedToAsync());
-                Run(viewModel.RefreshLiveAsync());
+                Run(viewModel.RefreshLiveAsync(), refreshWait);
                 viewModel.SelectedTabIndex = VM.LiveTab;
                 Settle(window);
                 test(window, page, viewModel, h);
@@ -97,7 +97,7 @@ public sealed class SiteHygieneLiveRenderTests
                 Assert.True(ById<FrameworkElement>(page, "txtHygieneLiveSummary").IsVisible);
                 AssertReadableRowsAndVisibleSelection(window, grid, $"dgLive-{choice.Id}-{theme}");
             }
-        }, harness: () => Harness(100_000));
+        }, harness: () => Harness(100_000), refreshWait: TimeSpan.FromMinutes(2));
     }
 
     /// <summary>The status cells of the rows shown and the longest real value of each other column of the view, by column header.</summary>

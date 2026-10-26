@@ -96,7 +96,7 @@ internal static class RenderKit
         StaTestHelper.Flush();
     }
 
-    public static void Run(Task task) => StaTestHelper.PumpUntil(() => task.IsCompleted);
+    public static void Run(Task task, TimeSpan? timeout = null) => StaTestHelper.PumpUntil(() => task.IsCompleted, timeout);
 
     private static double TextWidth(TextBlock style, string text) =>
         new FormattedText(text, System.Globalization.CultureInfo.InvariantCulture, System.Windows.FlowDirection.LeftToRight,
