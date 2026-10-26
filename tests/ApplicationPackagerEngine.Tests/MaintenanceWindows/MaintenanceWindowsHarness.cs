@@ -318,6 +318,7 @@ internal sealed class ScriptedPlanDialogs : IChangePlanDialogs
     public List<ChangePlan> Shown { get; } = [];
     public bool Confirm = true;
     public bool AcknowledgeDestructive = true;
+    public bool AcknowledgeExtra = true;
     public bool RunUndo;
     public ChangePlanOutcome? LastOutcome;
     public ChangePlanViewModel? LastViewModel;
@@ -338,6 +339,7 @@ internal sealed class ScriptedPlanDialogs : IChangePlanDialogs
         var viewModel = new ChangePlanViewModel(plan, Wrap(run), undo is null ? null : Wrap(undo));
         LastViewModel = viewModel;
         viewModel.DestructiveAcknowledged = AcknowledgeDestructive;
+        viewModel.ExtraAcknowledged = AcknowledgeExtra;
         Wait(viewModel.ConfirmCommand.ExecuteAsync(null));
         if (RunUndo && viewModel.UndoCommand.CanExecute(null)) Wait(viewModel.UndoCommand.ExecuteAsync(null));
         LastOutcome = viewModel.Outcome;

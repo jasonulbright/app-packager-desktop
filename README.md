@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester and Maintenance Windows are part of App Packager Desktop; see [Detection Tester](#detection-tester) and [Maintenance Windows](#maintenance-windows). The other six start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these six tools. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows and Collection and Compliance are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows) and [Collection and Compliance](#collection-and-compliance). The other five start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these five tools. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -140,6 +140,101 @@ The page follows the light and the dark theme. You can create a window with the 
 
 Your templates and the exported reports are in the `MaintenanceWindows` folder of the data folder (see [Data and network](#data-and-network)). The page saves the selected tab and the filters for the current Windows user. A folder or a template file that is a junction or a symbolic link is refused. Each completed run adds one line to the operation history. The line holds counts and no window names.
 
+## Collection and Compliance
+
+The **Collection and Compliance** page shows and changes the device collections of the ConfigMgr site, their membership rules, query templates and saved site queries. It connects to the SMS Provider through the ConfigMgr session of the application and makes no other network request. Every change shows a plan first. Nothing changes until you read the plan, select the confirmation box and select the action button. The page has two sections, chosen with the switch at the top right: **Collections** and **Compliance**. The sections below describe Collections first and Compliance after it.
+
+![The Collections tab with the folder column and the detail panel](docs/images/apd8-cc-collections.png)
+
+The **Collections** tab:
+
+- **List:** one row for each device collection, with members, limiting collection, refresh type, type (built-in or custom), rules and folder. The filters are the text filter, the folder, **Empty**, **With direct members** and **With query rules**. A folder that has sub-folders shows as `Folder (and sub-folders)` and covers everything below it. **Details** shows or hides the detail panel. Its tabs are Properties, Direct Members (paged), Query Rules, Include Rules and Exclude Rules.
+- **Open by ID:** loads one collection without loading the list. **Refresh** loads the whole list. **Connect Site** tests the connection and loads no inventory. After Open by ID, changes that need the whole list ask you to select Refresh first.
+- **New, Copy, Edit:** the dialog sets the name, the comment, the refresh type, the refresh interval and the limiting collection. The interval is 1 to 59 minutes, 1 to 23 hours or 1 to 31 days. A new collection with no interval refreshes every 7 days. An existing collection keeps its schedule when you leave the interval empty. The page reads the stored schedule back after the write and reports a failure when ConfigMgr stored another schedule.
+
+![The Edit dialog with the refresh interval and the limiting collection](docs/images/apd8-cc-editor.png)
+
+- **Evaluate:** starts a membership update. It cannot be undone.
+- **Remove:** a built-in collection cannot be removed. A collection that limits another collection, or that another collection includes or excludes, cannot be removed. The plan shows the member count, the deployments, the maintenance windows and the references, read from the site when the plan opens. ConfigMgr removes the deployments and the maintenance windows with the collection. If a count or a property changes after the plan opened, the collection is not removed. **Undo** creates the collection again with its properties and rules. The new collection has a new ID. Deployments and maintenance windows are not restored.
+
+![The plan dialog for removing a collection with its impact](docs/images/apd8-cc-remove-plan.png)
+
+- **Undo:** reverses the last run. A run that stops part way keeps the Undo data of the changes it made. A write that may have changed ConfigMgr but whose result is unknown gives no Undo, and the message says to check ConfigMgr.
+- **Stale plans:** the page checks the collection again when it writes. ConfigMgr has no conditional write, so a change made in the short time between this check and the write can still be lost.
+- **Export CSV, Export HTML:** write a report of the shown collections. A CSV cell that starts with `=`, `+`, `-` or `@` is written as text. The HTML report encodes all text.
+
+The **WQL Editor** tab changes the query rules of one collection.
+
+![The WQL Editor tab with a query rule and the preview](docs/images/apd8-cc-wql.png)
+
+- **Validate, Preview:** the page accepts one `select` statement. It refuses a comment, a semicolon and a second statement before the query reaches the provider. Preview shows the match count and the first rows in the order of the select list. Cancel stops it. A preview stops reading after 10,000 rows and says "or more".
+- **Add Rule, Update Rule, Remove Rule:** each shows a plan with the query. Update adds the new rule first, checks it, and then removes the old rule. The collection never has fewer rules than before. When a step fails, the old rule stays and the message names the rules that exist.
+- **Rule names:** ConfigMgr stores `*`, `?`, `[` and `]` in a rule name. The page accepts them and matches names exactly.
+
+The **Templates** tab lists 245 query templates, with a category filter.
+
+![The Templates tab with a parameterized template and the final query](docs/images/apd8-cc-templates.png)
+
+A parameterized template shows an input for each value and the final query before you use it. A value inside quotes is escaped with a backslash. A value outside quotes must be a whole number. A value for a `like` comparison cannot contain `%`, `_` or `[`. **Copy to WQL Editor** loads the final query. **Apply to Collections** adds it as a query rule to the collections you select. The plan marks a collection that already has a rule with that name, and skips it. Undo removes the rules that the run added.
+
+The **Site Queries** tab lists the saved queries of the site: **Refresh**, **Load to Editor**, **Save as New**, **Update Saved** and **Delete**. Each write shows a plan. Undo of a delete creates the query again with a new ID.
+
+![The Site Queries tab with the query text](docs/images/apd8-cc-queries.png)
+
+The page follows the light and the dark theme.
+
+![The Collections tab in the dark theme](docs/images/apd8-cc-dark.png)
+
+The exported reports are in the `Collections` folder of the data folder (see [Data and network](#data-and-network)). The page saves the selected tab and the filters for the current Windows user. A folder that is a junction or a symbolic link is refused. Each completed run adds one line to the operation history. The line holds counts and no names or queries.
+
+### Compliance
+
+The **Compliance** section manages configuration items and baselines of the site. It has four tabs: Catalog, Live CI/CB, Editor and Auditing. It needs a console role with Compliance Settings Manager rights. Every change shows a plan first, as in the Collections section.
+
+![The Catalog tab with 16 entries and the details of one entry](docs/images/apd9-comp-catalog.png)
+
+The **Catalog** tab lists the 16 catalog entries that ship with the application. Each entry creates configuration items and baselines for one hardening, compliance or configuration setting. The filters are the text filter, the CVE or plugin ID, and the lists for subcategory, severity, status and operating system. The details show the description, the ID and version, the operating systems, the restart flag, the registry values and the objects that the entry creates.
+
+![The Deploy dialog for the entry SMB Signing Required](docs/images/apd9-comp-deploy.png)
+
+- **Deploy:** the dialog shows one input for each parameter of the entry. The site code and the site server come from your settings. **DetectOnly** is on by default: clients report compliance and change nothing. A collection name cannot contain `*`, `?`, `[` or `]`, because ConfigMgr reads them as wildcards.
+- **Plan:** the plan names the configuration items and the baselines that the entry creates, the collections, their member counts and the mode. A deploy is refused while a configuration item or a baseline with the same name exists, because a second run would make duplicates. A missing collection stops the plan with a message.
+- **Remediation:** a deploy with remediation changes registry values on every device of the collection. The plan lists the registry paths and the number of devices, and the action button stays off until you select the second confirmation box. Enable Remediation, Redeploy, Reassign, the Undo of such changes and a setting that remediates need the same box.
+- **Run:** the entry runs from a private copy in a new folder of the data folder. The application checks the file against its recorded SHA-256 hash right before the run and removes the folder after the run. The run has a time limit, and **Cancel** ends the builder and every process that it started. The plan dialog shows each step while the builder runs. After the builder, the application adds the drift tag `[ccm:<ID>@<version>]` to the baseline description one time.
+- **Undo:** Undo removes the deployments, the baselines and the configuration items that the run created, and only these. An object that existed before the run is never removed. An object that something else uses, for example a deployment that another administrator made during the run, stays, and the message names it. After a Cancel, a baseline can appear a few seconds late. The result then says so, and Undo can be used again later.
+
+![The plan dialog for a deploy with remediation and its confirmation box](docs/images/apd9-comp-plan.png)
+
+The **Live CI/CB** tab lists the configuration items, the baselines and the deployments of the selected baseline. The counts of the baselines show compliant, non-compliant and error devices. The page reads these lists in a fixed number of queries and makes no query for each row.
+
+![The Live CI/CB tab with the deployments of a baseline](docs/images/apd9-comp-live.png)
+
+- **Enable remediation, Disable remediation:** change the mode of the selected deployments. The page reads the stored mode back after the write.
+- **Redeploy:** creates the deployment again. It removes the old deployment only after the new one passes the read back. If the new deployment differs or the write fails, both deployments stay and the message says so.
+- **Reassign:** creates the deployment on another collection first, and removes the old one after the read back.
+- **Delete:** removes the selected deployments. The plan shows their compliance counts. Undo creates them again with a new ID. This also works for a deployment on a built-in collection.
+
+The **Editor** tab shows the settings of one configuration item. **Add**, **Edit** and **Remove** change a registry value setting or a script setting.
+
+![The Edit setting dialog for a registry setting](docs/images/apd9-comp-editor.png)
+
+- **Plan:** the plan shows the old and the new values. ConfigMgr gives the configuration item a new revision with each change, and clients evaluate the new revision. A change of the data type, the rule or the value adds the new setting first and removes the old setting after it. If a step fails, both settings stay and the message names them.
+- **Rules of ConfigMgr:** a DateTime setting with remediation is not stored, so the dialog refuses it. A Boolean value works for script settings only. A StringArray value works for registry settings only. ConfigMgr allows two settings with the same name, and a removal by name removes all of them, so the page uses the setting ID.
+- **Undo:** Undo sets the old values back. A recreated setting has a new ID.
+
+The **Auditing** tab has two lists. **Drift** compares the version in the drift tag of each baseline with the catalog version: Current, Behind or Untagged. A tag that cannot be read shows as Unknown.
+
+![The Drift list with the states Current, Behind and Untagged](docs/images/apd9-comp-drift.png)
+
+**Compliance** shows the compliant, non-compliant, error and unknown counts of each deployment and its last evaluation. A count that ConfigMgr did not report shows `unknown`, not 0. A deployment that no client has reported on shows `never` and Stale. **Export CSV** and **Export HTML** write all rows of both lists, without the filters. **Open folder** opens the reports folder.
+
+![The Compliance list with counts, last evaluation and freshness](docs/images/apd9-comp-compliance.png)
+
+The page follows the light and the dark theme.
+
+![The Live CI/CB tab in the dark theme](docs/images/apd9-comp-dark.png)
+
+The files of a catalog run are in the `Collections` folder of the data folder (see [Data and network](#data-and-network)). Each completed run adds one line to the operation history. The line holds counts and no names or script text.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.

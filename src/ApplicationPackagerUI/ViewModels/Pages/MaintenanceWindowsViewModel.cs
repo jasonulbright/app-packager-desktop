@@ -482,12 +482,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
     private void Rebuild()
     {
         if (_collections is null || _windows is null) return;
-        var folders = _collections.Select(c => c.FolderPath).Where(f => !string.IsNullOrEmpty(f))
-            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
-        var folder = FolderFilter;
-        while (Folders.Count > 1) Folders.RemoveAt(1);
-        foreach (var f in folders) Folders.Add(new Choice<string>(f, f));
-        if (folder.Length > 0 && !folders.Contains(folder, StringComparer.OrdinalIgnoreCase)) Folders.Add(new Choice<string>(folder, folder));
+        CollectionFolderFilter.Fill(Folders, _collections.Select(c => c.FolderPath), FolderFilter);
         ApplyWindowFilter();
         ApplyCoverageFilter();
     }
@@ -522,7 +517,7 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
             if (TypeFilter.Length > 0 && !string.Equals(row.Window?.WindowType, TypeFilter, StringComparison.OrdinalIgnoreCase)) continue;
             if (EnabledFilter == Enabled && !(row.Window?.Enabled ?? false)) continue;
             if (EnabledFilter == Disabled && (row.Window?.Enabled ?? true)) continue;
-            if (FolderFilter.Length > 0 && !string.Equals(row.FolderPath, FolderFilter, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!CollectionFolderFilter.Matches(FolderFilter, row.FolderPath)) continue;
             if (text.Length > 0 && !row.CollectionName.Contains(text, StringComparison.OrdinalIgnoreCase)
                 && !row.WindowName.Contains(text, StringComparison.OrdinalIgnoreCase)
                 && !row.ScheduleText.Contains(text, StringComparison.OrdinalIgnoreCase)
@@ -567,11 +562,12 @@ public sealed partial class MaintenanceWindowsViewModel : ObservableObject
         foreach (var row in all)
         {
             if (CoverageWithoutWindowOnly && row.HasWindow) continue;
-            if (FolderFilter.Length > 0 && !string.Equals(row.FolderPath, FolderFilter, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!CollectionFolderFilter.Matches(FolderFilter, row.FolderPath)) continue;
             Coverage.Add(row);
         }
-        var without = all.Count(r => !r.HasWindow);
-        CoverageCount = $"{Count(all.Count, "collection")}, {without} without a window";
+        var inFolder = all.Where(r => CollectionFolderFilter.Matches(FolderFilter, r.FolderPath)).ToList();
+        var without = inFolder.Count(r => !r.HasWindow);
+        CoverageCount = $"{Count(inFolder.Count, "collection")}, {without} without a window";
     }
 
     private static string Count(int n, string noun) => n == 1 ? $"1 {noun}" : $"{n} {noun}s";
