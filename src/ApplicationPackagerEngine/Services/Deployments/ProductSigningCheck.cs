@@ -28,6 +28,13 @@ public interface IDeploymentSigningCheck
     /// <summary>True when this product packaged the application. Throws <see cref="DeploymentServiceException"/> when that cannot be told.</summary>
     bool IsPackaged(SiteApplication application) => PackagedApplications().Contains(application.Name);
 
+    /// <summary>Whether this product packaged each application, in input order.</summary>
+    IReadOnlyList<bool> ArePackaged(IReadOnlyList<SiteApplication> applications)
+    {
+        Link(applications);
+        return applications.Select(IsPackaged).ToArray();
+    }
+
     /// <summary>
     /// <see cref="RequiredDeploymentRefusal(string)"/> for the application the site holds: also a
     /// refusal when the product cannot tell whether it packaged the application.
@@ -138,6 +145,18 @@ public sealed class ProductSigningCheck(
     {
         var (environment, rows) = Publications();
         if (environment is null) return;
+        Link(rows, environment, applications);
+    }
+
+    public IReadOnlyList<bool> ArePackaged(IReadOnlyList<SiteApplication> applications)
+    {
+        var (environment, rows) = Publications();
+        if (environment is not null) Link(rows, environment, applications);
+        return applications.Select(application => Matches(rows, application).Count > 0).ToArray();
+    }
+
+    private void Link(IReadOnlyList<InventoryDestinationState> rows, InventoryEnvironmentIdentity environment, IReadOnlyList<SiteApplication> applications)
+    {
         foreach (var row in rows.Where(r => string.IsNullOrWhiteSpace(r.ConfigMgrModelName)))
         {
             var candidates = !string.IsNullOrWhiteSpace(row.ConfigMgrCiId)
