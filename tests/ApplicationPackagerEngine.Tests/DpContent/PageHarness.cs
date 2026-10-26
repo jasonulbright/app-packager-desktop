@@ -29,6 +29,9 @@ internal sealed class PageFakeDpContentService : IDpContentService
     /// <summary>Unchanged makes Distribute again report that the site shows no distribution yet.</summary>
     public string DistributeAgainResult = "Requested";
 
+    /// <summary>Pairs matching this predicate are omitted when preparing an Undo because the site still lists them.</summary>
+    public Func<PairRow, bool>? DropDistributeAgain;
+
     public int LoadCalls;
     public int PrepareCalls;
     public TaskCompletionSource? LoadGate;
@@ -160,7 +163,9 @@ internal sealed class PageFakeDpContentService : IDpContentService
         var impact = new List<string>();
         foreach (var pair in request.Pairs)
         {
-            if (request.Kind == DpContentChangeKind.DistributeAgain) kept.Add(pair);
+            if (request.Kind == DpContentChangeKind.DistributeAgain && DropDistributeAgain?.Invoke(pair) is true)
+                impact.Add($"Skipped: {pair.ContentName} ({pair.PackageId}) on {pair.DpName} is still listed on the site.");
+            else if (request.Kind == DpContentChangeKind.DistributeAgain) kept.Add(pair);
             else if (Current(pair) is { } now) kept.Add(now);
             else impact.Add($"Skipped: {pair.ContentName} ({pair.PackageId}) on {pair.DpName} has no status row any more.");
         }
