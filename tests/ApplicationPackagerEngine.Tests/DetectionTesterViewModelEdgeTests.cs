@@ -147,6 +147,37 @@ public sealed class DetectionTesterViewModelEdgeTests
     }
 
     [Fact]
+    public void LoadDetectionRejectsAnUnsupportedScriptNestedInACompoundTree()
+    {
+        var viewModel = _h.Create();
+        viewModel.SelectedClauseType = DetectionTesterViewModel.RegistryKeyValue;
+        viewModel.KeyPath = @"SOFTWARE\Kept";
+        var detection = new StageDetection
+        {
+            Type = DetectionTesterViewModel.Compound,
+            Connector = "Or",
+            Clauses =
+            [
+                new StageDetection { Type = "RegistryKey", RegistryKeyRelative = "A" },
+                new StageDetection
+                {
+                    Type = DetectionTesterViewModel.Compound,
+                    Connector = "And",
+                    Clauses = [new StageDetection { Type = DetectionTesterViewModel.Script, ScriptLanguage = "VBScript", ScriptText = "WScript.Echo 'unsupported'" }]
+                }
+            ]
+        };
+
+        Assert.False(viewModel.LoadDetection(detection));
+
+        Assert.Equal(DetectionTesterViewModel.RegistryKeyValue, viewModel.SelectedClauseType);
+        Assert.Equal(@"SOFTWARE\Kept", viewModel.KeyPath);
+        Assert.DoesNotContain(DetectionTesterViewModel.Compound, viewModel.ClauseTypes);
+        Assert.Empty(viewModel.ImportedTree);
+        Assert.Contains("VBScript", viewModel.StatusMessage);
+    }
+
+    [Fact]
     public async Task UseSelectedOnAnUnsupportedRowKeepsTheUnsupportedMessage()
     {
         _h.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now, new StageDetection { Type = "Wmi" }, negative: true));
