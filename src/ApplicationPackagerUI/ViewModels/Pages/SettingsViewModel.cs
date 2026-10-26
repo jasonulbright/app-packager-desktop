@@ -43,6 +43,8 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
     /// <summary>The Discover unmanaged software fields; written to the store only by Save Settings.</summary>
     public DiscoverySettingsEditor Discovery { get; } = new();
 
+    /// <summary>The Sidebar section; it applies each change at once and is not part of Save Settings.</summary>
+    public SidebarSettingsEditor Sidebar { get; }
 
     [ObservableProperty] private string _m365Channel = "MonthlyEnterprise";
 
@@ -148,9 +150,10 @@ public partial class SettingsViewModel : ObservableObject, ISettingsReload
 
     public SettingsViewModel(SettingsService settingsService, PackagerPreferencesService prefsSync, ISnackbarService snackbarService,
         PackagesViewModel packagesViewModel, PackagerDiscoveryService discoveryService,
-        ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient wsusClient, IWsusPrompts wsusPrompts)
+        ApplicationPackagerEngine.Services.Wsus.IWsusAdminClient wsusClient, IWsusPrompts wsusPrompts, SidebarService sidebarService)
     {
         _settingsService = settingsService;
+        Sidebar = new SidebarSettingsEditor(sidebarService);
         _prefsSync = prefsSync;
         _snackbarService = snackbarService;
         _packagesViewModel = packagesViewModel;

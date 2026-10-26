@@ -10,7 +10,7 @@
 
 App Packager Desktop packages third-party Windows applications and publishes them to ConfigMgr, Intune and WSUS. It is a Windows desktop application. It is free and MIT licensed.
 
-![The Packages page](docs/images/packages.png)
+![The Packages page with the version, ConfigMgr, status and CVE columns filled for checked applications](docs/images/packages.png)
 
 ## What it does
 
@@ -32,6 +32,7 @@ The catalog has 319 application definitions. A definition is one JSON file. You 
 - For WSUS: the WSUS console or the RSAT WSUS tools on this computer, at the version of the server, and an account in the WSUS Administrators group.
 - For Intune: an app registration with a client secret. App Packager Desktop downloads the Microsoft Win32 Content Prep Tool when it is necessary.
 - 7-Zip, for applications whose installer is an archive.
+- For the suite tool entries in the sidebar: the App Packager Suite, installed for the current user.
 
 The release is self-contained. A separate .NET runtime is not necessary.
 
@@ -51,6 +52,31 @@ The release is self-contained. A separate .NET runtime is not necessary.
 
 In **Settings**, ConfigMgr can request content distribution and then create an Available deployment to a test collection. Select **Use a user collection** to target users; leaving it cleared targets devices. Collection type is independent of the application's install context. If you enable collection creation, the new collection starts empty; add pilot members in ConfigMgr. See [deployment behavior](docs/deployment-behavior.md) for outcomes and validation limits.
 
+## Sidebar
+
+The sidebar on the left lists the pages and tools. **Packages** is the main page. The application always starts on it.
+
+![The sidebar with the Packages page, the Application Workbench and the eight suite tools](docs/images/sidebar.png)
+
+You control the sidebar:
+
+- **Reorder:** drag an entry to a new place in the list. Press Alt+Up or Alt+Down on a selected entry to move it with the keyboard. Press Escape during a drag to cancel it.
+- **Hide:** right-click an entry and select **Hide**. The entry leaves the sidebar. Its settings and data stay.
+- **Show again:** right-click the empty area of the sidebar, or any entry, and select **Show tool**. Then select a hidden entry. It returns to the place it had.
+- **Reset:** right-click and select **Reset sidebar** to restore the default order and show every entry.
+- **Settings:** the Sidebar section of the **Settings** page lists every entry with a check box and Up and Down buttons. It makes the same changes without the mouse.
+
+Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
+
+The eight entries after the Application Workbench start tools of the App Packager Suite: Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Each tool opens in its own window. App Packager Desktop does not include these tools. It starts them from the suite installation of the current user and never changes the suite files.
+
+- App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
+- To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
+- If the suite or a tool is not installed, a message names what is missing and where App Packager Desktop looked.
+- A second click on a tool that is open brings its window to the front.
+- App Packager Desktop passes the ConfigMgr site code and provider to the tool in the environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER`. It passes the site code you saved. When you did not save one, it passes only a site code that the environment already holds from the suite launcher. It passes the provider only when it is set. A tool uses these values only when its own settings are empty.
+- If a tool stops right after it starts with a non-zero exit code, a message names the tool and its exit code.
+
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
@@ -69,7 +95,7 @@ The Workbench is the editor for one application. A definition supplies the defau
 
 ## Bring your own installer
 
-Drop an installer on the Packages page. App Packager Desktop analyses it and shows the installer type, the silent arguments and a detection rule. **Save as Application** keeps it as an application with numbered installer revisions.
+Drop an installer on the Packages page. App Packager Desktop analyzes it and shows the installer type, the silent arguments and a detection rule. **Save as Application** keeps it as an application with numbered installer revisions.
 
 ## Script signing
 
@@ -92,6 +118,8 @@ The plan shows `WSUS: not supported` for an application whose definition declare
 **Discover unmanaged software** finds hidden applications that your clients run and that ConfigMgr does not manage. It reads the Add/Remove Programs inventory in the site database. A hidden application is offered when at least one client reports it and the site has no ConfigMgr application for it.
 
 The prompt reads "Discovered N apps. Enable console view?". The checklist shows each application and the number of clients that report it.
+
+![The Discover unmanaged software prompt with the application, vendor and client count of each discovered application](docs/images/discover.png)
 
 - **Enable selected** and **Enable all** show the applications in the Packages grid.
 - **Not now** closes the prompt and changes nothing.
@@ -122,6 +150,8 @@ Requirements and limits:
 - **Settings** holds the NVD API key and the switch **Look up CVEs after Check ConfigMgr**. A key is optional. Without a key, NVD permits 5 requests in 30 seconds; with a key, 50.
 
 The data comes from NVD. When NVD does not answer, the lookup uses Shodan CVEDB and marks the result. EPSS scores come from FIRST. A lookup that fails shows an error; it does not show a count of 0.
+
+![The Packages grid scrolled to the CVEs, Max CVSS, KEV, In latest and Newest CVE columns](docs/images/packages-cve.png)
 
 ## Command-line build
 
@@ -227,7 +257,7 @@ The CVE lookup, the CVE reports, the command-line CVE report run, the ConfigMgr 
 
 ## Relationship to app-packager
 
-App Packager Desktop is the C# counterpart of [app-packager](https://github.com/jasonulbright/app-packager), the PowerShell packager. A feature is released in app-packager first and is then ported to App Packager Desktop. The two products are MIT licensed.
+App Packager Desktop is the C# counterpart of [app-packager](https://github.com/jasonulbright/app-packager), the PowerShell packager. The two products are MIT licensed.
 
 ## Build from source
 
@@ -247,7 +277,7 @@ tools\build-release.ps1
 | `src\ApplicationPackagerEngine` | Scrapers, staging, the ConfigMgr, Intune and WSUS targets, Workbench, signing, One Click, and the definitions |
 | `tests\ApplicationPackagerEngine.Tests` | The tests |
 
-The Release workflow makes a release. Run it manually from `main`. It runs the tests, publishes and signs the executables, compiles and signs the installer, creates the tag `v<version>` and publishes the GitHub release. Before you run it, set `<Version>` in the UI project and add a section for that version to `CHANGELOG.md`. A version has the form `YYYY.MDD.N`: the year, then the month and day as one number without a leading zero (October 3 is `1003`), then the release number, which is the number of the last release plus one. `tools\test-release-version.ps1` checks the version.
+The Release workflow makes a release. Run it manually from `main`. It runs the tests, publishes and signs the executables, compiles and signs the installer, creates the tag `v<version>` and publishes the GitHub release. Before you run it, set `<Version>` in the UI project and add a section for that version to `CHANGELOG.md`. A version has the form `YYYY.MDD.N`: the year, then the month and day as one number without a leading zero (October 3 is `1003`), then the release number, which is the number of the last release plus one. `tools\test-release-version.ps1` checks the version. [RELEASING.md](RELEASING.md) gives the full procedure.
 
 ## License
 

@@ -1,33 +1,40 @@
 # Deployment behavior
 
-Updated October 9, 2026. These notes describe the source tree, including unreleased changes.
-
 ## ConfigMgr test deployments
 
-In Settings, enable automatic distribution, select a distribution point group, and enable deployment to a test collection. Enter the exact collection name. **Use a user collection** selects user collections; the default selects device collections. This choice does not change the application's installation behavior or detection hive.
+In **Settings**, enable automatic distribution, select a distribution point group, and enable deployment to a test collection. Enter the exact collection name. **Use a user collection** selects user collections. When it is cleared, App Packager Desktop uses device collections. This choice does not change the install context of the application or the hive of its detection rule.
 
-APD resolves that name within the selected collection type, with wildcard matching disabled, and uses the resolved collection ID for the deployment. Duplicate names and lookup errors stop the test-deployment step. With creation disabled, a missing collection is reported as skipped. With creation enabled, APD creates an empty collection limited to All Users (`SMS00002`) or All Systems (`SMS00001`), as appropriate. The operator adds membership in ConfigMgr; APD does not add users or devices.
+App Packager Desktop finds the collection by its literal name in the selected collection type. Wildcard matching is off. The deployment uses the ID of the collection that it finds.
 
-The deployment is Available, effective immediately. A successful distribution request means that ConfigMgr accepted content targeting; APD does not wait for distribution-point transfer completion or confirm client installation. Optional distribution and test-deployment messages belong to their own steps and do not establish endpoint success. One Click plans and reports include the selected collection type.
+- A duplicate name or a lookup error stops the test-deployment step.
+- When collection creation is off, a missing collection is reported as skipped.
+- When collection creation is on, App Packager Desktop creates an empty collection. A user collection is limited to All Users (`SMS00002`). A device collection is limited to All Systems (`SMS00001`).
+- App Packager Desktop does not add users or devices to a collection. Add the members in ConfigMgr.
+
+The deployment is Available and effective immediately. A successful distribution request means that ConfigMgr accepted the content. App Packager Desktop does not wait for the transfer to the distribution points and does not confirm the installation on clients. The distribution step and the test-deployment step report their own messages. These messages do not prove success on an endpoint. One Click plans and reports show the selected collection type.
 
 Microsoft references: [resolve a collection by type and literal name](https://learn.microsoft.com/en-us/powershell/module/configurationmanager/get-cmcollection?view=sccm-ps), [create a user collection](https://learn.microsoft.com/en-us/powershell/module/configurationmanager/new-cmusercollection?view=sccm-ps), [create an application deployment](https://learn.microsoft.com/en-us/powershell/module/configurationmanager/new-cmapplicationdeployment?view=sccm-ps).
 
 ## Intune replacement publication
 
-APD matches an application/profile identity tag first. Its fallback can adopt one untagged Win32 app with the exact display name, after reading all result pages; ambiguity refuses the publication.
+App Packager Desktop first looks for the Win32 app that carries the current identity tag of the application and profile. When no app carries the current tag, it checks the application's former identity tags. It adopts exactly one former-tag match and refuses publication when multiple former-tag matches exist. When neither the current nor a former tag matches, it adopts one untagged Win32 app with the exact display name. It refuses publication when multiple untagged apps have that exact display name.
 
-For an existing app, APD uploads the encrypted payload and waits for successful content commit before sending a single app update containing the replacement metadata and `committedContentVersion`. An upload failure, commit failure or cancellation before that update leaves the existing app's metadata and active content version untouched. Creating a new app still requires an app object before content can be uploaded; a failed first publication can leave that unpublished object or an unused content version for inspection. A connection failure during the final update leaves the server outcome uncertain and requires checking Intune.
+For an existing app, App Packager Desktop uploads the encrypted content and waits until the content commit succeeds. Then it sends one app update with the new metadata and `committedContentVersion`.
 
-Storage-error messages include the endpoint path and HTTP status, excluding SAS query credentials and response bodies that might echo them. APD does not create Intune assignments.
+- An upload failure, a commit failure or a cancel before that update does not change the metadata or the active content version of the existing app.
+- A new app needs an app object before the content upload. A failed first publication can leave that unpublished app object, or an unused content version, in Intune.
+- A connection failure during the final update leaves the result on the server unknown. Check the app in Intune.
+
+A storage error message shows the endpoint path and the HTTP status. It does not show the SAS query credentials or the response body. App Packager Desktop does not create Intune assignments.
 
 Microsoft references: [Graph paging](https://learn.microsoft.com/en-us/graph/paging), [update a Win32 app](https://learn.microsoft.com/en-us/graph/api/intune-apps-win32lobapp-update?view=graph-rest-1.0), [content-file state](https://learn.microsoft.com/en-us/graph/api/resources/intune-apps-mobileappcontentfile?view=graph-rest-1.0).
 
 ## WSUS results after publication
 
-Once WSUS has accepted a package, a subsequent visibility lookup failure is reported as a warning on that successful publication. Approval and decline results remain separate. In a batch action, each update retains its result even when another update cannot be looked up; later updates are still attempted.
+When WSUS has accepted a package and the lookup that follows fails, the publication is successful with a warning. Approval results and decline results are reported separately. In a batch action, each update keeps its own result when the lookup of another update fails. App Packager Desktop continues with the remaining updates.
 
-The CLI returns exit code 1 when a successful WSUS publication has warnings. Inspect its structured WSUS result and package ID before retrying. Publishing an update does not prove approval or client installation. Client trust and policy prerequisites still apply; see [Microsoft's certificate guidance](https://learn.microsoft.com/en-us/intune/configmgr/sum/tools/updates-publisher-security).
+`AppPackagerBuild.exe` returns exit code 1 when a successful WSUS publication has a warning. Read the WSUS result and the package ID in its output before you try again. A published update is not proof of approval or of installation on a client. The client must trust the signing certificate of the update, and the WSUS client policy must allow locally published updates. See [Microsoft's certificate guidance](https://learn.microsoft.com/en-us/intune/configmgr/sum/tools/updates-publisher-security).
 
-## Validation
+## Test coverage
 
-The October 9 changes were tested on Windows with .NET 10: the full Release suite passed 3,451 tests. Coverage includes simulated Graph requests and generated PowerShell running under Windows PowerShell 5.1 with stand-in ConfigMgr and WSUS operations. These tests do not replace live server, client, or desktop UI acceptance. Earlier lab validation remains documented separately; this review did not deploy software or modify live management systems.
+Automated tests cover simulated Graph requests, and generated PowerShell that runs under Windows PowerShell 5.1 against stand-in ConfigMgr and WSUS operations. These tests do not replace acceptance tests on live servers and clients.

@@ -162,7 +162,7 @@ public sealed class HistoryEntry
     public string Status { get; init; } = "";
     public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.Now;
     public long? DurationMs { get; init; }
-    /// <summary>JSON representation of the detection rule applied (for audit trail)</summary>
+    /// <summary>The applied detection rule as JSON.</summary>
     public string? DetectionRule { get; init; }
     public string? InstallerFramework { get; init; }
     public string? ErrorMessage { get; init; }

@@ -153,6 +153,10 @@ public sealed class AppSettings
     public bool WindowMaximized { get; set; }
     public bool PaneOpen { get; set; } = true;
 
+    /// <summary>The sidebar order and hidden entries. Null in a file written before the sidebar could change; null gives the default sidebar.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SidebarLayout? Sidebar { get; set; }
+
     /// <summary>
     /// Null in a file written before the flag existed. SettingsService stamps it true on load so
     /// an already-configured user never meets the setup window.

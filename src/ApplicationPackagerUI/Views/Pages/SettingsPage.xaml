@@ -63,6 +63,36 @@
 
             <Border Style="{StaticResource SectionDivider}" />
 
+            <TextBlock Text="Sidebar" Style="{StaticResource SectionHeader}" />
+            <TextBlock Text="Select the entries that the sidebar shows and set their order. Each change applies at once; Save Settings is not necessary. Packages is the start page and stays first."
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8" TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding Sidebar.Rows}" Focusable="False" Margin="0,0,0,8"
+                          AutomationProperties.AutomationId="lstSidebar">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="0,0,0,4" MaxWidth="420" HorizontalAlignment="Left">
+                            <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowDown24}"
+                                       Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanMoveDown}"
+                                       Margin="4,0,0,0" ToolTip="Move down"
+                                       AutomationProperties.Name="{Binding Title, StringFormat=Move {0} down}" />
+                            <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowUp24}"
+                                       Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanMoveUp}"
+                                       Margin="4,0,0,0" ToolTip="Move up"
+                                       AutomationProperties.Name="{Binding Title, StringFormat=Move {0} up}" />
+                            <CheckBox Content="{Binding Title}" IsChecked="{Binding Shown}" IsEnabled="{Binding CanHide}"
+                                      VerticalAlignment="Center"
+                                      AutomationProperties.Name="{Binding Title, StringFormat=Show {0}}" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <ui:Button Content="Reset sidebar" Icon="{ui:SymbolIcon ArrowReset24}"
+                       Command="{Binding Sidebar.ResetCommand}"
+                       AutomationProperties.AutomationId="btnResetSidebar"
+                       ToolTip="Restores the default order and shows every entry." />
+
+            <Border Style="{StaticResource SectionDivider}" />
+
             <TextBlock Text="Organization" Style="{StaticResource SectionHeader}" />
 
             <TextBlock Text="Company Name" Style="{StaticResource FieldLabel}" />

@@ -33,27 +33,6 @@
             IsBackButtonVisible="Collapsed"
             OpenPaneLength="220">
 
-            <ui:NavigationView.MenuItems>
-                <ui:NavigationViewItem
-                    Content="Packages"
-                    Icon="{ui:SymbolIcon Box24}"
-                    TargetPageType="{x:Type pages:PackagesPage}" />
-                <ui:NavigationViewItem
-                    Content="Applications"
-                    Icon="{ui:SymbolIcon Apps24}"
-                    TargetPageType="{x:Type pages:ApplicationsPage}" />
-                <ui:NavigationViewItem
-                    Content="Add App"
-                    Icon="{ui:SymbolIcon Add24}"
-                    TargetPageType="{x:Type pages:AddAppPage}" />
-                <ui:NavigationViewItem
-                    x:Name="WorkbenchNavItem"
-                    Content="Application Workbench"
-                    Icon="{ui:SymbolIcon Wrench24}"
-                    Click="WorkbenchNavItem_Click"
-                    PreviewMouseLeftButtonDown="WorkbenchNavItem_PreviewMouseLeftButtonDown" />
-            </ui:NavigationView.MenuItems>
-
             <ui:NavigationView.FooterMenuItems>
                 <ui:NavigationViewItem
                     Content="Settings"

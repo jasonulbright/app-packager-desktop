@@ -18,7 +18,7 @@
     "VersionScraper":  {
                            "Type":  "HttpRegex",
                            "Url":  "https://www.xenserver.com/downloads",
-                           "Pattern":  "vm-tools-windows/(\\d+\\.\\d+\\.\\d+)/",
+                           "Pattern":  "vm-tools-windows/(\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?)/",
                            "DownloadUrlQuery":  "(https://downloads\\.xenserver\\.com/vm-tools-windows/[^\"]+\\.msi)"
                        },
     "DownloadUrl":  "",
