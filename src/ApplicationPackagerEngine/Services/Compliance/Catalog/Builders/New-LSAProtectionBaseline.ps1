@@ -6,7 +6,7 @@
     Single native registry-value compliance setting:
 
         HKLM\SYSTEM\CurrentControlSet\Control\Lsa
-            RunAsPPL = 1 (DWORD)
+            RunAsPPL = 1 or 2 (DWORD)
 
     No embedded scripts. Configuration Manager handles discovery, comparison, and remediation natively.
 
@@ -81,14 +81,14 @@ try {
         @{ Name = 'RunAsPPL'
            KeyName = 'SYSTEM\CurrentControlSet\Control\Lsa'
            ValueName = 'RunAsPPL'
-           Expected = '1'
-           Description = 'LSA Protection. 1 = LSASS runs as a Protected Process Light. Effective after reboot.' }
+           Expected = @('1', '2')
+           Description = 'LSA Protection. 1 enables protection with a UEFI lock; 2 enables protection without a UEFI lock. Effective after reboot.' }
     )
 
     Write-Host "Creating Configuration Item: $CIName"
     $ci = New-CMConfigurationItem `
         -Name $CIName `
-        -Description "Enables LSA Protection (RunAsPPL = 1) so LSASS runs as a Protected Process Light, blocking credential-dumping tools. Effective after reboot. Validate LSA plugin signing before broad enforcement." `
+        -Description "Requires LSA Protection (RunAsPPL = 1 or 2) so LSASS runs as a Protected Process Light. Effective after reboot. Validate LSA plugin signing before broad enforcement." `
         -CreationType WindowsOS
 
     foreach ($s in $settings) {
@@ -97,7 +97,7 @@ try {
             InputObject = $ci; Name = $s.Name; Description = $s.Description; Hive = 'LocalMachine'
             KeyName = $s.KeyName; ValueName = $s.ValueName; DataType = 'Integer'; Is64Bit = $true
             ValueRule = $true; RuleName = "$($s.ValueName) equals $($s.Expected)"
-            ExpressionOperator = 'IsEquals'; ExpectedValue = $s.Expected
+            ExpressionOperator = 'OneOf'; ExpectedValue = $s.Expected
             NoncomplianceSeverity = $Severity; ReportNoncompliance = $true; RemediateDword = $true
         }
         if (-not $DetectOnly) { $p.Remediate = $true }
@@ -133,7 +133,7 @@ try {
     Write-Host "Severity: $Severity"
     Write-Host "Reboot:   REQUIRED to engage protection"
     Write-Host "Mode:     $(if ($DetectOnly) { 'Detect only' } else { 'Detect + remediate' })"
-    $settings | ForEach-Object { Write-Host ("Setting:  HKLM\{0}\{1} = {2}" -f $_.KeyName, $_.ValueName, $_.Expected) }
+    $settings | ForEach-Object { Write-Host ("Setting:  HKLM\{0}\{1} is one of {2}" -f $_.KeyName, $_.ValueName, ($_.Expected -join ', ')) }
 }
 finally {
     Set-Location $OriginalLocation
