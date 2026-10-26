@@ -273,8 +273,11 @@ switch ($Operation) {
         $text = ConvertFrom-ScriptText ([string](Get-Prop $row 'Script'))
         if ([string](Get-Prop $row 'ScriptHash') -ne $SiteHash -or $null -eq $text -or (Get-TextHash $text) -ne $TextHash) { throw 'The script text on the site changed after the plan was made.' }
         if ($Operation -eq 'Approve') { Approve-CMScript -ScriptGuid $g -Comment $Comment } else { Deny-CMScript -ScriptGuid $g -Comment $Comment }
-        $after = Get-FullScript $g
+        $after = $null
+        $readFailed = $false
+        try { $after = Get-FullScript $g } catch { $readFailed = $true }
         if ($null -ne $after) { Write-Script $after $true }
+        [pscustomobject]@{ K = 'After'; Present = ($null -ne $after); ReadFailed = $readFailed }
     }
     'Remove' {
         $g = Assert-Guid $ScriptGuid
@@ -340,8 +343,10 @@ switch ($Operation) {
         finally { Remove-CimSession -CimSession $cim -ErrorAction SilentlyContinue }
         $op = Get-Prop $started 'OperationID'
         [pscustomobject]@{ K = 'Started'; Operation = $(if ("$op" -match '^\d+$' -and [long]$op -gt 0) { [long]$op } else { $null }); Return = (Get-Prop $started 'ReturnValue') }
-        $after = Get-FullScript $g
-        [pscustomobject]@{ K = 'After'; SiteHash = [string](Get-Prop $after 'ScriptHash'); Version = [string](Get-Prop $after 'ScriptVersion'); ApprovalState = [int](Get-Prop $after 'ApprovalState'); Present = ($null -ne $after) }
+        $after = $null
+        $readFailed = $false
+        try { $after = Get-FullScript $g } catch { $readFailed = $true }
+        [pscustomobject]@{ K = 'After'; SiteHash = [string](Get-Prop $after 'ScriptHash'); Version = [string](Get-Prop $after 'ScriptVersion'); ApprovalState = [int](Get-Prop $after 'ApprovalState'); Present = ($null -ne $after); ReadFailed = $readFailed }
     }
     'Status' { Write-Status $OperationId $ResourceIds }
 }

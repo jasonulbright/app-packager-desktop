@@ -96,6 +96,24 @@ public sealed class PivotsRunSafetyTests
         Assert.True(session.Partial);
     }
 
+    [Fact]
+    public async Task AReadFailureAfterTheClientOperationKeepsItsOperationIdAndMarksTheRunPartial()
+    {
+        using var h = new PivotsHarness();
+        var plan = await h.PrepareScriptAsync(RunTargetKind.Device, Client01);
+        h.Site.SetOption("FailAfterActionRead", true);
+
+        var outcome = await h.ApplyAsync(plan with { RunConfirmed = true });
+
+        Assert.True(outcome.Sent);
+        Assert.True(outcome.Partial);
+        Assert.NotNull(outcome.OperationId);
+        Assert.Contains("RunScript:", string.Join("\n", h.Site.Log));
+        var finished = Assert.Single(h.Audit.Read(10), record => record.Phase == "Finished");
+        Assert.Equal(outcome.OperationId, finished.OperationId);
+        Assert.Contains(PivotsScriptsService.ChangedDuringSendMessage, outcome.Message);
+    }
+
     // ---- The session script refuses text that changed after the plan ------------------------------
 
     [Fact]
