@@ -21,13 +21,25 @@ jobs:
   check:
     name: build and test (windows)
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
+
+      - name: Set the display resolution for WPF tests
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Add-Type -AssemblyName PresentationFramework
+          $width = [System.Windows.SystemParameters]::PrimaryScreenWidth
+          $height = [System.Windows.SystemParameters]::PrimaryScreenHeight
+          if ($width -lt 1440 -or $height -lt 900) {
+            throw "The display is ${width}x${height} DIP; WPF render tests require at least 1440x900."
+          }
+          Write-Host "WPF test display: ${width}x${height} DIP"
 
       - name: Build
         shell: pwsh
