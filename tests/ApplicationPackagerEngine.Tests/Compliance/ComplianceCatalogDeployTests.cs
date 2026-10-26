@@ -25,7 +25,7 @@ public sealed class ComplianceCatalogDeployTests
             Runs++;
             if (Refuse) throw new CatalogBuilderRefusedException(CatalogBuilderRunner.HashMessage);
             Arguments = arguments;
-            var detectOnly = arguments.Contains("-DetectOnly");
+            var detectOnly = !entry.RemediationSupported || arguments.Contains("-DetectOnly");
             var skip = arguments.Contains("-SkipDeploy");
             var collections = entry.CollectionParameters.Select(p => arguments.ToList().IndexOf("-" + p)).Where(i => i >= 0).Select(i => arguments[i + 1]).ToList();
             var next = (long)site.State["Next"]!;
@@ -166,6 +166,30 @@ public sealed class ComplianceCatalogDeployTests
         var (done, _) = await Apply(service, plan with { RemediationConfirmed = true });
         Assert.True(done.Succeeded, done.Message);
         Assert.DoesNotContain("-DetectOnly", builder.Arguments!);
+    }
+
+    [Fact]
+    public async Task LsaProtectionDeploysDetectionOnlyAndRefusesARequestToRemediate()
+    {
+        var site = Site();
+        var builder = new SiteBuilder(site);
+        var service = ComplianceDeploymentTests.Service(site, builder);
+        var plan = await service.PrepareAsync(Deploy("lsa-protection-runasppl", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None);
+
+        Assert.Contains(plan.Impact, line => line.Contains("detect only", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(plan.Impact, line => line.Contains("REMEDIATE", StringComparison.OrdinalIgnoreCase));
+
+        var (outcome, _) = await Apply(service, plan);
+
+        Assert.True(outcome.Succeeded, outcome.Message);
+        Assert.DoesNotContain("-DetectOnly", builder.Arguments!);
+        Assert.Contains("-CollectionName", builder.Arguments!);
+
+        var error = await Assert.ThrowsAsync<ComplianceServiceException>(() => service.PrepareAsync(
+            Deploy("lsa-protection-runasppl", new() { ["CollectionName"] = "CCM Test 1", ["DetectOnly"] = "False" }), CancellationToken.None));
+
+        Assert.Contains("supports detection only", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, builder.Runs);
     }
 
     [Fact]
