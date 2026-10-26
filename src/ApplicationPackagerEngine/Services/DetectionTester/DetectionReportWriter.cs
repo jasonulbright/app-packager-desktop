@@ -67,12 +67,7 @@ public sealed class DetectionReportWriter(string? folder = null, Func<DateTimeOf
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 
-    private static string Cell(string value)
-    {
-        if (value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
-            value = "'" + value;
-        return "\"" + value.Replace("\"", "\"\"") + "\"";
-    }
+    private static string Cell(string value) => ReportFile.Cell(value);
 
     private string Write(string extension, string content)
     {
@@ -80,23 +75,6 @@ public sealed class DetectionReportWriter(string? folder = null, Func<DateTimeOf
         var container = DetectionTesterFolders.ContainerOf(target, folder is null);
         if (DetectionTesterFolders.HasLink(target, container))
             throw new DetectionFolderRefusedException(DetectionFolderRefusedException.ReportsMessage);
-        Directory.CreateDirectory(target);
-        var stamp = _clock().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-        var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
-        for (var n = 1; ; n++)
-        {
-            var name = n == 1 ? $"detection-history-{stamp}.{extension}" : $"detection-history-{stamp}-{n}.{extension}";
-            var path = Path.Combine(target, name);
-            try
-            {
-                using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
-                using var writer = new StreamWriter(stream, encoding);
-                writer.Write(content);
-                return path;
-            }
-            catch (IOException) when (File.Exists(path) && n < 1000)
-            {
-            }
-        }
+        return ReportFile.WriteNew(target, "detection-history", extension, content, _clock());
     }
 }

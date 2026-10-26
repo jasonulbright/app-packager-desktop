@@ -29,6 +29,8 @@
     <EmbeddedResource Include="Services\ConfigMgrSession\Scripts\ConfigMgrSessionHost.ps1" LogicalName="ApplicationPackagerEngine.Services.ConfigMgrSession.Scripts.ConfigMgrSessionHost.ps1" />
     <EmbeddedResource Include="Services\ConfigMgrSession\Scripts\GetSites.ps1" LogicalName="ApplicationPackagerEngine.Services.ConfigMgrSession.Scripts.GetSites.ps1" />
     <EmbeddedResource Include="Services\ConfigMgrSession\Scripts\GetCollections.ps1" LogicalName="ApplicationPackagerEngine.Services.ConfigMgrSession.Scripts.GetCollections.ps1" />
+    <EmbeddedResource Include="Services\MaintenanceWindows\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.MaintenanceWindows.Scripts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\MaintenanceWindows\Templates\*.json" LogicalName="ApplicationPackagerEngine.Services.MaintenanceWindows.Templates.%(Filename)%(Extension)" />
   </ItemGroup>
 
 

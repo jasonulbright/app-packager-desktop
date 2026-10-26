@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester is part of App Packager Desktop; see [Detection Tester](#detection-tester). The other seven start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these seven tools. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester and Maintenance Windows are part of App Packager Desktop; see [Detection Tester](#detection-tester) and [Maintenance Windows](#maintenance-windows). The other six start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these six tools. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -98,6 +98,47 @@ The **Detection** tab:
 The **Installed Applications** tab lists the applications from the three uninstall registry locations (HKLM 64-bit, HKLM 32-bit and HKCU). It has a filter, a detail panel and **Copy details**. **Show system components** adds the entries that Windows marks as system components. **Use for detection** fills a clause for the selected application.
 
 The history and the reports are in the `DetectionTester` folder of the data folder (see [Data and network](#data-and-network)). A history file that cannot be read stays in place until the next save. A folder that is a junction or a symbolic link is refused.
+
+## Maintenance Windows
+
+The **Maintenance Windows** page shows, creates, edits and removes the maintenance windows of the ConfigMgr device collections. It connects to the SMS Provider through the ConfigMgr session of the application. It makes no other network request. Every change shows a plan first. Nothing changes until you read the plan, select the confirmation box and select the action button.
+
+![The Windows tab with eight windows, a selected window and its properties](docs/images/apd7-mw-list.png)
+
+The **Windows** tab:
+
+- **List:** one row for each window. The filters are the text filter, the window type, the state (enabled or disabled) and the collection folder. **Only collections with windows** hides the collections that have none. The detail panel shows the properties of the selected window and its next five occurrences. The panel shows the description of a window only when a person wrote it.
+- **Schedule kinds:** one time, daily, weekly, monthly by date, monthly by weekday and Patch Tuesday with an offset. Window types are all deployments, software updates and task sequences. The page reads each schedule from the stored ConfigMgr schedule and shows the same schedule text as ConfigMgr.
+- **New Window, Edit:** the editor shows the schedule text and the next five occurrences while you type. Edit keeps the ID, the enabled state and the description of the window. The editor shows the description and does not change it.
+
+![The Edit dialog with a description, a monthly schedule and the next five occurrences](docs/images/apd7-mw-editor.png)
+
+- **Rename:** the page creates the window with the new name first. It removes the old window only after the new window exists. If the create fails, the old window stays unchanged.
+- **Toggle Enabled:** enables or disables the selected windows.
+- **Remove, Undo:** Remove deletes the exact windows that you selected, not other windows with the same name. **Undo** reverses the last run. Undo of a removal creates the window again with the same values and a new ID. A run that stops part way keeps the Undo data of the changes it made.
+- **Not stored by ConfigMgr:** ConfigMgr stores no end date for a window. A window with an end date is refused. A window with a schedule that the page cannot represent is read-only: you can enable or disable it, and you cannot edit, rename or remove it. A window with a description is refused when the ConfigMgr module cannot write a description. The message names the reason.
+- **Stale plans:** the page checks the window again when it writes. A window that another person changed after the plan was shown is skipped, and the result says so. ConfigMgr has no conditional write, so a change made in the short time between this check and the write can still be lost.
+- **Export CSV, Export HTML:** write a report of the shown windows. A CSV cell that starts with `=`, `+`, `-` or `@` is written as text. The HTML report encodes all text.
+
+![The plan dialog for a removal](docs/images/apd7-mw-plan.png)
+
+The **Coverage** tab lists every device collection with its member count and its number of windows. A green mark means the collection has a window. An orange mark means it has none. **Only collections without a window** shows the gaps. Select collections and **Apply template** to give them a window.
+
+![The Coverage tab with the collections that have and do not have a window](docs/images/apd7-mw-coverage.png)
+
+The **Templates** tab lists five shipped templates and your own templates. **New Template**, **Edit** and **Delete** change your own templates only. A shipped template cannot be changed or deleted. **Apply** opens the Apply template dialog.
+
+![The Templates tab with the five shipped templates](docs/images/apd7-mw-templates.png)
+
+In the Apply template dialog, choose the template and the collections. You choose what happens when a collection already has a window with the template name: skip it, or create the window with a new name, for example `Name (2)`. The plan lists every collection and marks each skipped collection. **Cancel** during a run stops the run. The changes already made stay, and **Undo** reverses them.
+
+![The Apply template dialog with two collections selected](docs/images/apd7-mw-apply-template.png)
+
+The page follows the light and the dark theme. You can create a window with the keyboard only.
+
+![The Windows tab in the dark theme](docs/images/apd7-mw-dark.png)
+
+Your templates and the exported reports are in the `MaintenanceWindows` folder of the data folder (see [Data and network](#data-and-network)). The page saves the selected tab and the filters for the current Windows user. A folder or a template file that is a junction or a symbolic link is refused. Each completed run adds one line to the operation history. The line holds counts and no window names.
 
 ## Application Workbench
 

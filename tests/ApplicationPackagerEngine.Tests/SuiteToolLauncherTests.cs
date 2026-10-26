@@ -144,11 +144,10 @@ public sealed class SuiteToolLauncherTests
     private void InstallTool(SuiteTool tool, string root = Install) => _files.Add(Path.Combine(root, tool.Folder, tool.EntryScript));
 
     [Fact]
-    public void TheSevenToolsNameTheSuiteFoldersAndEntryScripts()
+    public void TheSixToolsNameTheSuiteFoldersAndEntryScripts()
     {
         Assert.Equal(
         [
-            ("maintenance-windows", "maintenance-window-manager", "start-maintenancewindowmgr.ps1"),
             ("collection-and-compliance", "collection-and-compliance-manager", "start-ccm.ps1"),
             ("installer-analysis", "installer-analysis", "start-installeranalysis.ps1"),
             ("deployment-helper", "deployment-helper", "start-deploymenthelper.ps1"),
@@ -158,6 +157,8 @@ public sealed class SuiteToolLauncherTests
         ], SuiteTools.All.Select(t => (t.Id, t.Folder, t.EntryScript)));
         Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "collection-manager");
         Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.DetectionTester);
+        Assert.DoesNotContain(SuiteTools.All, t => t.Id == SidebarIds.MaintenanceWindows);
+        Assert.DoesNotContain(SuiteTools.All, t => t.Folder == "maintenance-window-manager");
     }
 
     [Fact]
@@ -799,10 +800,25 @@ public sealed class SuiteToolRegistryTests
     }
 
     [Fact]
+    public void TheMaintenanceWindowsEntryIsAMovablePageWithItsSavedIdAndIcon()
+    {
+        var registry = SidebarRegistry.CreateDefault();
+        var item = registry.Find("maintenance-windows")!;
+        Assert.Equal(SidebarIds.MaintenanceWindows, item.Id);
+        Assert.Equal("Maintenance Windows", item.Title);
+        Assert.Equal(SidebarItemKind.Page, item.Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), item.PageType);
+        Assert.Null(item.Activate);
+        Assert.False(item.IsPinned);
+        Assert.Equal("CalendarClock24", item.Symbol);
+        Assert.Equal(5, registry.Items.ToList().IndexOf(item));
+    }
+
+    [Fact]
     public void EveryOtherToolEntryIsAMovableToolWithAnAction()
     {
-        var tools = SidebarRegistry.CreateDefault().Items.Skip(5).ToList();
-        Assert.Equal(7, tools.Count);
+        var tools = SidebarRegistry.CreateDefault().Items.Skip(6).ToList();
+        Assert.Equal(6, tools.Count);
         foreach (var item in tools)
         {
             Assert.Equal(SidebarItemKind.Tool, item.Kind);
