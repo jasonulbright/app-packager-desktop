@@ -396,6 +396,22 @@ public sealed class ComplianceCatalogDeployTests
         }
     }
 
+    /// <summary>Cancels the first run before the provider commits objects, then makes a later deploy normally.</summary>
+    private sealed class CancelFirstThenBuild(StubComplianceSite site) : ICatalogBuilderRunner
+    {
+        private readonly SiteBuilder _builder = new(site);
+        private int _runs;
+
+        public Task<CatalogBuilderRun> RunAsync(CatalogEntry entry, byte[] builder, IReadOnlyList<string> arguments, Action<string> line, TimeSpan timeout, CancellationToken ct)
+        {
+            if (Interlocked.Increment(ref _runs) > 1)
+                return _builder.RunAsync(entry, builder, arguments, line, timeout, ct);
+            line("Creating Configuration Item: " + entry.ProducesConfigurationItems[0]);
+            line("Creating Configuration Baseline: " + entry.ProducesBaselines[0]);
+            return Task.FromResult(new CatalogBuilderRun(null, false, true, []));
+        }
+    }
+
     private static JsonNode LateBaseline(string? createdBy = null)
     {
         var node = JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(CiBaseline("16790500", "Hardening LLMNR Disable", "Builder text.", "16790000")))!;
@@ -458,6 +474,30 @@ public sealed class ComplianceCatalogDeployTests
         Assert.True(undone.Succeeded, undone.Message);
         Assert.Null(site.Baseline("16790500"));
         Assert.Null(site.Item("16790000"));
+    }
+
+    [Fact]
+    public async Task ACancelledRunCannotReclaimObjectsCreatedByALaterDeployOfTheSameEntry()
+    {
+        var site = Site();
+        var service = ComplianceDeploymentTests.Service(site, new CancelFirstThenBuild(site));
+        var cancelled = await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None);
+
+        var (firstOutcome, _) = await Apply(service, cancelled);
+
+        Assert.True(ComplianceService.IsReclaim(firstOutcome.UndoChange!));
+        Assert.Empty(firstOutcome.UndoChange!.CreatedIds);
+
+        var laterPlan = await service.PrepareAsync(Deploy("llmnr-disable", new() { ["CollectionName"] = "CCM Test 1" }), CancellationToken.None);
+        var (laterOutcome, _) = await Apply(service, laterPlan);
+        Assert.True(laterOutcome.Succeeded, laterOutcome.Message);
+
+        var error = await Assert.ThrowsAsync<ComplianceServiceException>(() =>
+            service.PrepareAsync(firstOutcome.UndoChange!, CancellationToken.None));
+
+        Assert.Equal(ComplianceService.NothingReclaimedMessage, error.Message);
+        Assert.NotNull(site.Baselines.SingleOrDefault(b => (string)b!["Name"]! == "Hardening LLMNR Disable"));
+        Assert.NotNull(site.Items.SingleOrDefault(i => (string)i!["Name"]! == "Hardening: LLMNR Disable"));
     }
 
     [Fact]
