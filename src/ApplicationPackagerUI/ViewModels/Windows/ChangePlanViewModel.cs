@@ -90,6 +90,10 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public string OptionalChoiceText => _plan.OptionalChoice ?? "";
     public bool HasSecondConfirmation => _plan.SecondConfirmation is not null;
     public string SecondConfirmationText => _plan.SecondConfirmation ?? "";
+    public string DestructiveText => _plan.DestructiveConfirmation ?? DestructiveCheckText;
+    public bool HasBody => _plan.Body is not null;
+    public string BodyText => _plan.Body ?? "";
+    public string BodyName => _plan.BodyName ?? "Text";
     public bool HasNotes => _plan.Notes.Count > 0;
     public string NotesText => string.Join(Environment.NewLine, _plan.Notes);
     public ObservableCollection<ChangePlanItem> Items { get; }
