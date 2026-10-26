@@ -15,6 +15,15 @@ public sealed class CatalogBuilderRunnerTests : IDisposable
         try
         {
             if (Directory.Exists(Folder) && File.GetAttributes(Folder).HasFlag(FileAttributes.ReparsePoint)) Directory.Delete(Folder);
+            if (Directory.Exists(Folder))
+            {
+                foreach (var path in Directory.EnumerateFileSystemEntries(Folder))
+                {
+                    if (!File.GetAttributes(path).HasFlag(FileAttributes.ReparsePoint)) continue;
+                    if (Directory.Exists(path)) Directory.Delete(path);
+                    else File.Delete(path);
+                }
+            }
             if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
         }
         catch (IOException) { }

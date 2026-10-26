@@ -6,6 +6,10 @@ namespace ApplicationPackagerEngine.Services;
 
 public sealed partial class ComplianceService
 {
+    private readonly object _catalogRunStartsLock = new();
+    private readonly Dictionary<string, List<(long Sequence, DateTime Started)>> _catalogRunStarts = new(StringComparer.Ordinal);
+    private long _catalogRunSequence;
+
     private async Task<ComplianceOutcome> ApplyCatalogAsync(ComplianceChange change, IProgress<ComplianceOutcome> progress, CancellationToken ct)
     {
         CatalogPlan plan;
@@ -58,6 +62,7 @@ public sealed partial class ComplianceService
         }
         Step($"Checked the site: no object with these names exists; {Count(plan.Collections.Count, "target collection")} found.");
 
+        var runSequence = RecordCatalogRunStart(entry.Id, runStart);
         Step($"Started the builder of {entry.DisplayName}.");
         var started = _utcNow();
         var announced = new List<(string Kind, string Name)>();
@@ -113,7 +118,8 @@ public sealed partial class ComplianceService
                 [ReclaimStartKey] = runStart.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture),
                 [ReclaimUntilKey] = (runStart.ToUniversalTime() + (_utcNow() - started).Duration() + ReclaimLimit).ToString("o", CultureInfo.InvariantCulture),
                 [ReclaimUserKey] = before.Info!.User ?? "",
-                [ReclaimDeploysKey] = plan.Deploys ? "True" : "False"
+                [ReclaimDeploysKey] = plan.Deploys ? "True" : "False",
+                [ReclaimRunSequenceKey] = runSequence.ToString(CultureInfo.InvariantCulture)
             };
         var undo = created.Count == 0 && missing.Count == 0
             ? null
@@ -263,9 +269,10 @@ public sealed partial class ComplianceService
     internal const string ReclaimUntilKey = "ReclaimUntil";
     internal const string ReclaimUserKey = "ReclaimUser";
     internal const string ReclaimDeploysKey = "ReclaimDeploys";
+    internal const string ReclaimRunSequenceKey = "ReclaimRunSequence";
 
     internal const string ReclaimText =
-        "Undo looks for these names again when it runs and also removes an object that this account made after the run start, up to 10 minutes after the run ended.";
+        "Undo looks for these names again when it runs and also removes an object that this account made after the run start, up to 10 minutes after the run ended or until another deploy of the same entry starts.";
 
     internal const string NothingReclaimedMessage = "ConfigMgr holds no object from the cancelled run now. Check ConfigMgr, and try Undo again when an object appears.";
 
@@ -274,7 +281,8 @@ public sealed partial class ComplianceService
     /// <summary>
     /// The objects a RemoveCatalogObjects change removes: <see cref="ComplianceChange.CreatedIds"/>, and
     /// for the Undo of a cancelled run also the objects with the entry's names that <see cref="Claim"/>
-    /// gives to that run now, with its start, account and targets and the <see cref="ReclaimUntilKey"/> limit.
+    /// gives to that run now, with its start, account and targets and the <see cref="ReclaimUntilKey"/> limit,
+    /// shortened to the next deploy of the same entry.
     /// </summary>
     private async Task<IReadOnlyList<string>> ReclaimAsync(ComplianceChange change, CancellationToken ct)
     {
@@ -285,9 +293,12 @@ public sealed partial class ComplianceService
             || !values.TryGetValue(ReclaimUntilKey, out var untilText)
             || !DateTime.TryParse(untilText, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var until)
             || !values.TryGetValue(ReclaimUserKey, out var user) || string.IsNullOrWhiteSpace(user)
+            || !long.TryParse(values.GetValueOrDefault(ReclaimRunSequenceKey), NumberStyles.None, CultureInfo.InvariantCulture, out var runSequence)
             || (change.CatalogId is { } id ? _catalog.Find(id) : null) is not { } entry)
             throw new ComplianceServiceException(NotPreparedMessage);
         var now = await SnapshotAsync(entry, [], ct).ConfigureAwait(false);
+        if (NextCatalogRunStart(entry.Id, runSequence) is { } nextStart && nextStart <= until.ToUniversalTime())
+            until = nextStart.AddTicks(-1);
         var claim = Claim(entry, values.GetValueOrDefault(ReclaimDeploysKey) == "True", change.TargetCollectionIds ?? [],
             new SnapshotInfo("SnapshotInfo", null, user, [], [], []), start, now, until);
         return created
@@ -295,6 +306,29 @@ public sealed partial class ComplianceService
             .Concat(claim.Baselines.Select(b => "Baseline:" + b.Id))
             .Concat(claim.Items.Select(i => "ConfigurationItem:" + i.Id))
             .Distinct(StringComparer.Ordinal).ToList();
+    }
+
+    private long RecordCatalogRunStart(string catalogId, DateTime started)
+    {
+        lock (_catalogRunStartsLock)
+        {
+            var sequence = ++_catalogRunSequence;
+            if (!_catalogRunStarts.TryGetValue(catalogId, out var starts))
+                _catalogRunStarts[catalogId] = starts = [];
+            starts.RemoveAll(run => run.Started < started.ToUniversalTime() - ReclaimLimit);
+            starts.Add((sequence, started.ToUniversalTime()));
+            return sequence;
+        }
+    }
+
+    private DateTime? NextCatalogRunStart(string catalogId, long sequence)
+    {
+        lock (_catalogRunStartsLock)
+        {
+            return _catalogRunStarts.TryGetValue(catalogId, out var starts)
+                ? starts.Where(run => run.Sequence > sequence).OrderBy(run => run.Sequence).Select(run => (DateTime?)run.Started).FirstOrDefault()
+                : null;
+        }
     }
 
     /// <summary>The wait between two reads of <see cref="ReconcileAsync"/>; tests replace it.</summary>
