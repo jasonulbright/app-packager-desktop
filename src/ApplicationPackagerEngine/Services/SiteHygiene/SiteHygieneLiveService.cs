@@ -416,7 +416,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             results.Add((view, new LiveViewResult(view, LiveAggregator.Columns(view), rows, counts, Truncated: cut, Failed: false, message, _utcNow())
             {
                 QueryCount = 1,
-                SourceRows = cut ? MaxSqlRows + 1 : data.Count
+                SourceRows = cut ? 0 : data.Count
             }));
         }
         return results;
@@ -450,6 +450,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            _log?.Warning(LogArea, $"Test SQL could not run ({ex.GetType().Name}).");
             return "Windows PowerShell could not start. The SQL views need Windows PowerShell 5.1 (powershell.exe).";
         }
         var parsed = ParseSql(stdout);

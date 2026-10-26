@@ -178,6 +178,6 @@ public sealed partial class SiteHygieneViewModel
             StatusMessage = NoAlertLog;
             return;
         }
-        Services.Dialogs.OpenFile(path);
+        if (!Services.Dialogs.OpenFile(path)) StatusMessage = AlertLogOpenFailed;
     }
 }

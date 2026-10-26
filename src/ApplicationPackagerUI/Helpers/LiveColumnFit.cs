@@ -32,6 +32,11 @@ public sealed class LiveColumnFit
     /// width per character, so a shorter value of these is not wider than the values measured.
     /// </summary>
     private const int MeasuredValues = 64;
+    private static readonly IComparer<string> WidestWordOrder = Comparer<string>.Create((left, right) =>
+    {
+        var length = right.Length.CompareTo(left.Length);
+        return length != 0 ? length : StringComparer.Ordinal.Compare(left, right);
+    });
 
     private readonly DataGrid _grid;
     private readonly Typeface _cellFace;
@@ -161,13 +166,12 @@ public sealed class LiveColumnFit
     public const double NameCap = 360;
 
     /// <summary>
-    /// The width at which the widest word of <paramref name="values"/> shows on one line, with room and cell padding;
-    /// 0 for no value. A word is the text between two line break points, so a server name or an ID is one word.
+    /// The width at which the widest of the 64 longest distinct words shows on one line, with room and cell padding;
+    /// 0 for no value. A server name or an ID is one word.
     /// </summary>
     public double WordNeed(IEnumerable<string> values)
     {
-        // A short value can hold a wider word than a long one, so every distinct value is measured: one measure per value.
-        var widest = Distinct(values).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max();
+        var widest = WidestWords(values).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max();
         return widest > 0 ? Math.Ceiling(widest * ValueRoom + CellPadding) : 0;
     }
 
@@ -175,13 +179,13 @@ public sealed class LiveColumnFit
     /// The width at which every one of <paramref name="values"/> shows in full on at most <see cref="NameLines"/> lines,
     /// with no word broken inside, with room and cell padding, and at most <see cref="NameCap"/>; 0 for no value.
     /// The line width comes from a binary search per value of the <see cref="MeasuredValues"/> longest values; the widest
-    /// word comes from every distinct value.
+    /// word comes from the 64 longest distinct words.
     /// </summary>
     public double WholeNameNeed(IEnumerable<string> values)
     {
         var list = values as IReadOnlyCollection<string> ?? values.ToList();
         var lines = Longest(list).Select(v => WrappedWidth(v, NameLines)).DefaultIfEmpty(0).Max();
-        var widest = Math.Max(lines, Distinct(list).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max());
+        var widest = Math.Max(lines, WidestWords(list).Select(v => Format(v).MinWidth).DefaultIfEmpty(0).Max());
         return widest > 0 ? Math.Min(NameCap, Math.Ceiling(widest * ValueRoom + CellPadding)) : 0;
     }
 
@@ -221,5 +225,21 @@ public sealed class LiveColumnFit
         foreach (var value in values)
             if (!string.IsNullOrEmpty(value)) distinct.Add(value);
         return distinct;
+    }
+
+    /// <summary>The longest distinct words, with storage and text measurement capped at 64.</summary>
+    private static IEnumerable<string> WidestWords(IEnumerable<string> values)
+    {
+        var words = new SortedSet<string>(WidestWordOrder);
+        foreach (var value in values)
+        {
+            if (string.IsNullOrEmpty(value)) continue;
+            foreach (var word in value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!words.Add(word)) continue;
+                if (words.Count > MeasuredValues) words.Remove(words.Max!);
+            }
+        }
+        return words;
     }
 }

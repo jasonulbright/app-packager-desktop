@@ -7,9 +7,7 @@ using ApplicationPackagerEngine.Services.ConfigMgrSession;
 namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 
 /// <summary>
-/// The Live sources as CM01 returned them on 2026-10-25 (SH2-QUALIFICATION: SMS_DeploymentSummary 9 rows,
-/// the distribution summarizer 9 pairs all installed, SMS_DistributionDPStatus 9 messages, the root
-/// summarizer names, one DP, 10 site system rows, component rows), as provider classes of the stub site.
+/// Representative Live source rows for deployments, content, distribution points, site systems and components.
 /// </summary>
 internal static class LiveFixtures
 {
@@ -64,7 +62,7 @@ internal static class LiveFixtures
     private static readonly string[] Components =
         ["CONFIGURATION_MANAGER_UPDATE", "SMS_AD_FOREST_DISCOVERY_MANAGER", "SMS_AD_SYSTEM_DISCOVERY_AGENT", "SMS_DISTRIBUTION_MANAGER", "SMS_EXECUTIVE", "SMS_SITE_COMPONENT_MANAGER"];
 
-    /// <summary>The 36 component names of the CM01 site Site Health view at 900x600 (2026-10-25 lab read).</summary>
+    /// <summary>Component names used by the Site Health view.</summary>
     public static readonly string[] LabComponents =
     [
         "CONFIGURATION_MANAGER_UPDATE", "SMS_AD_FOREST_DISCOVERY_MANAGER", "SMS_AD_SYSTEM_DISCOVERY_AGENT", "SMS_AD_USER_DISCOVERY_AGENT", "SMS_AZUREAD_DISCOVERY_AGENT",

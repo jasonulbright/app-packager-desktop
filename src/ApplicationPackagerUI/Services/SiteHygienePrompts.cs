@@ -13,6 +13,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ApplicationPackagerUI.Services;
 
+internal static class SiteHygieneSettingsFileLock
+{
+    internal static readonly object Gate = new();
+}
+
 /// <summary>The dialogs, the clipboard and the folder calls of the Site Hygiene page, so its view model runs without a window.</summary>
 public interface ISiteHygieneDialogs
 {
@@ -27,7 +32,7 @@ public interface ISiteHygieneDialogs
     void OpenFolder(string folder);
 
     /// <summary>Opens a file of the page, such as the alerts log, with the program Windows associates with it.</summary>
-    void OpenFile(string path);
+    bool OpenFile(string path);
 
     /// <summary>Shows the plan of a dashboard import until the operator imports or cancels; the answer is on the view model.</summary>
     void ConfirmImport(HygieneImportViewModel import);
@@ -35,6 +40,10 @@ public interface ISiteHygieneDialogs
 
 public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
 {
+    private readonly IAppLog? _log;
+
+    public SiteHygieneDialogs(IAppLog? log = null) => _log = log;
+
     private static void ShowModal(Window window)
     {
         var owner = DiscoveryPrompt.UsableOwner(Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow);
@@ -65,10 +74,18 @@ public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
         catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException) { }
     }
 
-    public void OpenFile(string path)
+    public bool OpenFile(string path)
     {
-        try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
-        catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException) { }
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            _log?.Warning(SiteHygieneService.LogArea, $"The alerts log could not be opened ({ex.GetType().Name}).");
+            return false;
+        }
     }
 
     public void ConfirmImport(HygieneImportViewModel import) => ShowModal(new HygieneImportWindow(import));
@@ -77,14 +94,12 @@ public sealed class SiteHygieneDialogs : ISiteHygieneDialogs
 /// <summary>Reads and writes the page choices in settings.json without touching any other value.</summary>
 public static class SiteHygienePreferences
 {
-    private static readonly object FileLock = new();
-
     public static SiteHygieneSettings? Load(SettingsService settings) => settings.Load().SiteHygiene;
 
     /// <summary>False when nothing was written; an unreadable settings file is never replaced.</summary>
     public static bool Save(SettingsService settings, SiteHygieneSettings choices)
     {
-        lock (FileLock)
+        lock (SiteHygieneSettingsFileLock.Gate)
         {
             try
             {

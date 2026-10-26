@@ -169,7 +169,7 @@ internal sealed class FakeMetricsHistory : IMetricsHistoryStore
         };
 }
 
-/// <summary>An evaluator with the breach rule of the brief: an alert fires on the crossing into breach and again only after a recovery; a metric that is not known changes nothing.</summary>
+/// <summary>An evaluator that alerts on entry into breach and again only after recovery; an unknown metric changes nothing.</summary>
 internal sealed class FakeAlertEvaluator : IAlertEvaluator
 {
     private readonly HashSet<string> _breached = new(StringComparer.Ordinal);

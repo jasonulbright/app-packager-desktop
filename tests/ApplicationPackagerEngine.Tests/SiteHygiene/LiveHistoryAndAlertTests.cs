@@ -40,7 +40,7 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
             _ => (double?)0
         }, StringComparer.Ordinal));
 
-    private static string RunPowerShell(string script)
+    private static async Task<string> RunPowerShell(string script)
     {
         var path = Path.Combine(Path.GetTempPath(), "apkg-shps-" + Guid.NewGuid().ToString("N") + ".ps1");
         File.WriteAllText(path, script, new UTF8Encoding(true));
@@ -49,11 +49,12 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
             var psi = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
             foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", path }) psi.ArgumentList.Add(a);
             using var p = Process.Start(psi)!;
-            var err = p.StandardError.ReadToEndAsync();
-            var output = p.StandardOutput.ReadToEnd();
-            p.WaitForExit();
-            Assert.True(err.Result.Trim().Length == 0, err.Result);
-            return output;
+            var error = p.StandardError.ReadToEndAsync();
+            var output = p.StandardOutput.ReadToEndAsync();
+            await Task.WhenAll(error, output, p.WaitForExitAsync());
+            var errorText = await error;
+            Assert.True(errorText.Trim().Length == 0, errorText);
+            return await output;
         }
         finally { File.Delete(path); }
     }
@@ -61,7 +62,7 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
     // ---- Metrics history -------------------------------------------------------------------------
 
     [Fact]
-    public void AnAppendWritesTheSourceHeaderOnceAndOneLineThatImportCsvReadsWithEmptyCellsForUnknownCounts()
+    public async Task AnAppendWritesTheSourceHeaderOnceAndOneLineThatImportCsvReadsWithEmptyCellsForUnknownCounts()
     {
         var store = Store();
         Assert.False(store.Exists);
@@ -77,7 +78,7 @@ public sealed class LiveHistoryAndAlertTests : IDisposable
         Assert.Equal("Timestamp,DeploymentTotal,DeploymentFailed,CompliancePct,ContentIssues,ContentFailedPairs,DPTotal,DPOffline,DPDegraded,ClientHealthy,ClientUnhealthy,ClientInactive,InactiveDevices,SiteOK,SiteWarning,SiteCritical", lines[0]);
         Assert.Equal("2026-10-25T14:29:06.0000000Z,9,0,58.3,,,,,,,,,,84,0,0", lines[1]);
 
-        var output = RunPowerShell("$r = @(Import-Csv -LiteralPath '" + File1 + "'); $r.Count; $r[0].DeploymentTotal; '[' + $r[0].ContentIssues + ']'; $r[1].SiteOK; ($r[0].PSObject.Properties | ForEach-Object Name) -join ','");
+        var output = await RunPowerShell("$r = @(Import-Csv -LiteralPath '" + File1 + "'); $r.Count; $r[0].DeploymentTotal; '[' + $r[0].ContentIssues + ']'; $r[1].SiteOK; ($r[0].PSObject.Properties | ForEach-Object Name) -join ','");
         var o = output.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(["2", "9", "[]", "84", string.Join(",", LiveMetrics.FileColumns)], o);
 

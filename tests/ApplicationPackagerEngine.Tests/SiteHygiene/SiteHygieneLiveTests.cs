@@ -1,3 +1,4 @@
+using System.Globalization;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.ViewModels.Pages;
@@ -448,6 +449,27 @@ public sealed class SiteHygieneLiveTests
         Live(h).Files.Add(Live(h).AlertLog.Path);
         vm.OpenAlertsLogCommand.Execute(null);
         Assert.Equal([Live(h).AlertLog.Path], h.Dialogs.OpenedFiles);
+        h.Dialogs.OpenFileSucceeds = false;
+        vm.OpenAlertsLogCommand.Execute(null);
+        Assert.Equal(VM.AlertLogOpenFailed, vm.StatusMessage);
+    }
+
+    [Fact]
+    public void NumericCellsSortWithTheInvariantCulture()
+    {
+        var previous = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            var fraction = new LiveGridRow(new LiveRow("fraction", LiveStatus.Ok, "", ["58.3"]), 1);
+            var whole = new LiveGridRow(new LiveRow("whole", LiveStatus.Ok, "", ["300"]), 1);
+
+            Assert.True(fraction.SortKey("C0").CompareTo(whole.SortKey("C0")) < 0);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previous;
+        }
     }
 
     [Fact]

@@ -10,8 +10,6 @@ namespace ApplicationPackagerUI.Services;
 /// </summary>
 public static class SiteHygieneLivePreferences
 {
-    private static readonly object FileLock = new();
-
     public static LiveSettings ToLiveSettings(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -52,7 +50,7 @@ public static class SiteHygieneLivePreferences
     {
         ArgumentNullException.ThrowIfNull(service);
         ArgumentNullException.ThrowIfNull(values);
-        lock (FileLock)
+        lock (SiteHygieneSettingsFileLock.Gate)
         {
             try
             {
@@ -89,7 +87,7 @@ public static class SiteHygieneLivePreferences
     {
         ArgumentNullException.ThrowIfNull(service);
         ArgumentNullException.ThrowIfNull(live);
-        lock (FileLock)
+        lock (SiteHygieneSettingsFileLock.Gate)
         {
             try
             {

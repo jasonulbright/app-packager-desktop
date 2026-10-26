@@ -67,7 +67,18 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. All eight are native pages in App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper), [DP Content Manager](#dp-content-manager), [Pivots and Scripts](#pivots-and-scripts) and [Site Hygiene](#site-hygiene). The sidebar starts no suite tool.
+The eight entries after the Application Workbench are native pages in App Packager Desktop:
+
+- [Detection Tester](#detection-tester)
+- [Maintenance Windows](#maintenance-windows)
+- [Collection and Compliance](#collection-and-compliance)
+- [Installer Analysis](#installer-analysis)
+- [Deployment Helper](#deployment-helper)
+- [DP Content Manager](#dp-content-manager)
+- [Pivots and Scripts](#pivots-and-scripts)
+- [Site Hygiene](#site-hygiene)
+
+The sidebar starts no suite tool.
 
 ## Detection Tester
 

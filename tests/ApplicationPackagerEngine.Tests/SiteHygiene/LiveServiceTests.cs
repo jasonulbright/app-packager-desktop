@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.ConfigMgrSession;
+using ApplicationPackagerEngine.Services.Logging;
 
 namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 
@@ -30,6 +31,22 @@ public sealed class LiveServiceTests
 
     private static Task<LiveSnapshot> Refresh(SiteHygieneLiveService service, IReadOnlySet<LiveView>? views = null, LiveSettings? settings = null, CancellationToken ct = default) =>
         service.RefreshAsync(settings ?? Overrides, views ?? ProviderViews, new Progress(), ct);
+
+    private sealed class RecordingLog : IAppLog
+    {
+        public List<AppLogEntry> Entries { get; } = [];
+        public string? SessionFile => null;
+        public AppLogLevel MinimumLevel { get; set; } = AppLogLevel.Debug;
+        public event EventHandler<AppLogEntry>? Written;
+        public void RegisterSecret(string value) { }
+        public void Write(AppLogLevel level, string area, string message)
+        {
+            var entry = new AppLogEntry(DateTimeOffset.UtcNow, level, area, message);
+            Entries.Add(entry);
+            Written?.Invoke(this, entry);
+        }
+        public IReadOnlyList<AppLogEntry> Tail() => Entries.ToList();
+    }
 
     // ---- Provider views with the CM01 rows --------------------------------------------------------
 
@@ -480,6 +497,7 @@ public sealed class LiveServiceTests
         foreach (var v in SqlViews)
         {
             Assert.True(snapshot.Views[v].Truncated);
+            Assert.Equal(0, snapshot.Views[v].SourceRows);
             Assert.Equal(2, snapshot.Views[v].Rows.Count);
             Assert.All(snapshot.Views[v].Counts.Values.Values, x => Assert.Null(x));
         }
@@ -494,6 +512,25 @@ public sealed class LiveServiceTests
         Assert.Contains("#probe scalar SELECT COUNT(*) FROM dbo.v_CH_ClientSummary;", sql.Outputs.Single());
         var none = new SiteHygieneLiveService(new ThrowingSession(ConfigMgrFailure.Timeout), new FakeSqlHost().Runner);
         Assert.StartsWith(LiveText.SqlNotSetUp, await none.TestSqlAsync(LiveSettings.Default, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task TestSqlLogsWhenItsPowerShellRunnerFails()
+    {
+        var sql = new FakeSqlHost();
+        var log = new RecordingLog();
+        async Task<(int, string, string)> Run(string script, CancellationToken ct)
+        {
+            if (!script.Contains("$LiveRun = $true", StringComparison.Ordinal)) return await sql.Runner(script, ct);
+            throw new IOException("Runner detail");
+        }
+        var service = new SiteHygieneLiveService(new ThrowingSession(ConfigMgrFailure.Timeout), Run, log,
+            () => new ConfigMgrConnection("MCM", "CM01"));
+
+        var message = await service.TestSqlAsync(Overrides, CancellationToken.None);
+
+        Assert.StartsWith("Windows PowerShell could not start.", message);
+        Assert.Contains(log.Entries, e => e.Level == AppLogLevel.Warning && e.Message.Contains("Test SQL could not run (IOException)", StringComparison.Ordinal));
     }
 
     [Fact]

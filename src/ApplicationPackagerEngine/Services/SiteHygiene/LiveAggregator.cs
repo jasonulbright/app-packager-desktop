@@ -41,11 +41,11 @@ internal static class LiveAggregator
         _ => []
     };
 
-    private static string N(long n) => n.ToString(CultureInfo.InvariantCulture);
+    private static string Number(long n) => n.ToString(CultureInfo.InvariantCulture);
 
-    private static string Pct(double v) => v.ToString("0.0", CultureInfo.InvariantCulture);
+    private static string Percent(double v) => v.ToString("0.0", CultureInfo.InvariantCulture);
 
-    private static int I(string text, int fallback = 0) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : fallback;
+    private static int IntegerOr(string text, int fallback = 0) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : fallback;
 
     private static int? NullableInt(string text) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
 
@@ -58,7 +58,7 @@ internal static class LiveAggregator
         {
             var n = _seen.TryGetValue(key, out var c) ? c + 1 : 1;
             _seen[key] = n;
-            return n == 1 ? key : key + "#" + N(n);
+            return n == 1 ? key : key + "#" + Number(n);
         }
     }
 
@@ -80,7 +80,7 @@ internal static class LiveAggregator
         9 => "DP group",
         10 => "DP health",
         11 => "Configuration policy",
-        _ => "Other (" + N(value) + ")"
+        _ => "Other (" + Number(value) + ")"
     };
 
     public static string Purpose(int value) => value switch
@@ -118,14 +118,14 @@ internal static class LiveAggregator
             var (status, text) = errors > 0 ? (LiveStatus.Failed, "Errors")
                 : targeted == 0 ? (LiveStatus.Unknown, "Nothing targeted")
                 : progress > 0 ? (LiveStatus.Warning, "In progress")
-                : pct < DeploymentOkPercent ? (LiveStatus.Warning, "Below " + N((long)DeploymentOkPercent) + " %")
+                : pct < DeploymentOkPercent ? (LiveStatus.Warning, "Below " + Number((long)DeploymentOkPercent) + " %")
                 : (LiveStatus.Ok, "OK");
             var id = r.S("DeploymentID");
             var name = r.S("SoftwareName") is { Length: > 0 } s ? s : r.S("ApplicationName") is { Length: > 0 } a ? a : id;
             rows.Add(new LiveRow(keys.Next(id), status, text,
             [
                 name, FeatureType(r.I("FeatureType", -1)), r.S("CollectionName") is { Length: > 0 } c ? c : r.S("CollectionID"), Purpose(r.I("DeploymentIntent", -1)),
-                N(targeted), N(success), N(errors), N(progress), pct is { } p ? Pct(p) : ""
+                Number(targeted), Number(success), Number(errors), Number(progress), pct is { } p ? Percent(p) : ""
             ]));
         }
         double? overall = targetedSum > 0 ? Math.Round(successSum * 100.0 / targetedSum, 1, MidpointRounding.AwayFromZero) : null;
@@ -151,7 +151,7 @@ internal static class LiveAggregator
         DpContentTypes.OsUpgradePackage => "OS upgrade package",
         DpContentTypes.DriverPackage => "Driver package",
         DpContentTypes.TaskSequence => "Task sequence",
-        _ => "Type " + N(packageType)
+        _ => "Type " + Number(packageType)
     };
 
     private sealed class Tally
@@ -214,8 +214,8 @@ internal static class LiveAggregator
             var name = nameOf.TryGetValue(id, out var n) && n.Length > 0 ? n : DpContentAggregator.UnknownName(id);
             rows.Add(new LiveRow(id, status, text,
             [
-                name, ContentType(t.PackageType), id, N(t.Total), N(t.Installed), N(t.InProgress), N(t.Failed),
-                Pct(t.Total > 0 ? Math.Round(t.Installed * 100.0 / t.Total, 1, MidpointRounding.AwayFromZero) : 0)
+                name, ContentType(t.PackageType), id, Number(t.Total), Number(t.Installed), Number(t.InProgress), Number(t.Failed),
+                Percent(t.Total > 0 ? Math.Round(t.Installed * 100.0 / t.Total, 1, MidpointRounding.AwayFromZero) : 0)
             ]));
         }
         var counts = Counts(LiveView.Content, complete, c => unknownPairs > 0 ? null : c switch
@@ -245,7 +245,7 @@ internal static class LiveAggregator
         3 => "Installing",
         4 => "Re-installing",
         5 => "De-installing",
-        _ => "Unknown (" + N(value) + ")"
+        _ => "Unknown (" + Number(value) + ")"
     };
 
     private static string YesNo(string value) => string.Equals(value, "True", StringComparison.OrdinalIgnoreCase) || value == "1" ? "Yes" : "No";
@@ -404,9 +404,9 @@ internal static class LiveAggregator
             string C(int i) => i < v.Length ? v[i] ?? "" : "";
             var days = NullableInt(C(4));
             var (st, text) = days is null ? (LiveStatus.Failed, "No contact on record")
-                : days > InactiveFailedDays ? (LiveStatus.Failed, "Over " + N(InactiveFailedDays) + " days")
+                : days > InactiveFailedDays ? (LiveStatus.Failed, "Over " + Number(InactiveFailedDays) + " days")
                 : (LiveStatus.Warning, "Past the threshold");
-            rows.Add(new LiveRow(keys.Next(C(0)), st, text, [C(1), LocalTime(C(2)), LocalTime(C(3)), days is { } d ? N(d) : "", C(5), C(6)]));
+            rows.Add(new LiveRow(keys.Next(C(0)), st, text, [C(1), LocalTime(C(2)), LocalTime(C(3)), days is { } d ? Number(d) : "", C(5), C(6)]));
         }
         var counts = Counts(LiveView.InactiveDevices, complete, c => c == LiveMetrics.InactiveDevices ? rows.Count : null);
         return (rows, counts);

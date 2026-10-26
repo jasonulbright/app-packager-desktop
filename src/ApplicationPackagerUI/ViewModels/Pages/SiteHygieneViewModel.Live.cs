@@ -49,6 +49,7 @@ public sealed partial class SiteHygieneViewModel
     public const string HistoryWriteFailed = " The metrics history line could not be written. The log has the details.";
     public const string AlertLogFailed = " An alert could not be written to the alerts log. The log has the details.";
     public const string NoAlertLog = "No alert was logged yet.";
+    public const string AlertLogOpenFailed = "The alerts log could not be opened. The log has the details.";
 
     /// <summary>The most alerts the list keeps; older alerts stay in the alerts log.</summary>
     public const int MaxAlertRows = 500;

@@ -207,7 +207,7 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            DeleteTemporaryFile(temp);
             _log?.Warning(SiteHygieneService.LogArea, $"The metrics history could not be pruned ({ex.GetType().Name}).");
         }
     }
@@ -245,8 +245,17 @@ public sealed class MetricsHistoryStore : IMetricsHistoryStore
             }
             finally
             {
-                try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                DeleteTemporaryFile(temp);
             }
+        }
+    }
+
+    private void DeleteTemporaryFile(string path)
+    {
+        try { File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _log?.Warning(SiteHygieneService.LogArea, $"A temporary metrics history file could not be deleted ({ex.GetType().Name}).");
         }
     }
 

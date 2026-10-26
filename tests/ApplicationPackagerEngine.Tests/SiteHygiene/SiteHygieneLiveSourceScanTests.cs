@@ -15,7 +15,7 @@ public sealed class SiteHygieneLiveSourceScanTests
         new(@"\b(Set|Remove|New)-(WmiInstance|WmiObject|CimInstance)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
         new(@"\bInvoke-(WmiMethod|CimMethod)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
         new(@"\.(Put|Delete|InvokeMethod)\s*\(", RegexOptions.Compiled),
-        new(@"\b(INSERT|UPDATE|DELETE|MERGE|EXEC|EXECUTE|DROP|ALTER|CREATE|TRUNCATE|GRANT)\s+[A-Za-z\[#@]", RegexOptions.Compiled)
+        new(@"\bINSERT\s+INTO\s+(?:\[[^\]]+\]|[\w#@]+)|\bUPDATE\s+(?:\[[^\]]+\]|[\w#@]+)(?:\s*\.\s*(?:\[[^\]]+\]|[\w#@]+))*\s+SET\b|\bDELETE\s+FROM\s+(?:\[[^\]]+\]|[\w#@]+)|\bMERGE\s+INTO\s+(?:\[[^\]]+\]|[\w#@]+)|\bEXEC(?:UTE)?\s+(?:\[[^\]]+\]|[\w#@.]+)|\b(?:DROP|ALTER|CREATE)\s+(?:TABLE|VIEW|PROCEDURE|FUNCTION|SCHEMA|DATABASE)\b|\bTRUNCATE\s+TABLE\b|\bGRANT\s+\w+", RegexOptions.IgnoreCase | RegexOptions.Compiled)
     ];
 
     private static readonly Regex ScriptFileWrite = new(@"\b(Set-Content|Add-Content|Out-File|New-Item|Remove-Item|Move-Item|Copy-Item|Rename-Item|Export-Csv)\b",
@@ -41,6 +41,13 @@ public sealed class SiteHygieneLiveSourceScanTests
         ? Regex.Replace(Regex.Replace(text, @"<#.*?#>", "", RegexOptions.Singleline), @"(?m)#.*$", "")
         : Regex.Replace(Regex.Replace(text, @"/\*.*?\*/", "", RegexOptions.Singleline), @"(?m)//.*$", "");
 
+    private static bool IsReadCmdlet(Match match) =>
+        match.Groups["verb"].Value.Equals("Get", StringComparison.OrdinalIgnoreCase)
+        || (match.Groups["verb"].Value.Equals("Invoke", StringComparison.OrdinalIgnoreCase)
+            && match.Groups["noun"].Value is "WmiQuery" or "Query");
+
+    private static bool HasWrite(string text) => CmCmdlet.Matches(text).Any(m => !IsReadCmdlet(m)) || Writes.Any(p => p.IsMatch(text));
+
     [Fact]
     public void TheLiveScriptsAndTheLiveServiceHoldNoWriteToTheSite()
     {
@@ -53,11 +60,7 @@ public sealed class SiteHygieneLiveSourceScanTests
             var text = WithoutComments(File.ReadAllText(file), extension);
             var name = Path.GetFileName(file);
             foreach (Match m in CmCmdlet.Matches(text))
-            {
-                var verb = m.Groups["verb"].Value;
-                if (verb == "Get" || (verb == "Invoke" && m.Groups["noun"].Value is "WmiQuery" or "Query")) continue;
-                failures.Add($"{name}: {m.Value}");
-            }
+                if (!IsReadCmdlet(m)) failures.Add($"{name}: {m.Value}");
             foreach (var pattern in Writes)
                 foreach (Match m in pattern.Matches(text)) failures.Add($"{name}: {m.Value}");
             if (extension is ".ps1" or ".psm1")
@@ -73,24 +76,25 @@ public sealed class SiteHygieneLiveSourceScanTests
     [InlineData("Invoke-CimMethod -Name Refresh")]
     [InlineData("\"UPDATE v_R_System SET Name0 = 'x'\"")]
     [InlineData("\"DELETE FROM dbo.Foo\"")]
+    [InlineData("insert into dbo.Foo (Name) values ('x')")]
+    [InlineData("update dbo.Foo set Name = 'x'")]
+    [InlineData("DeLeTe FrOm dbo.Foo")]
     public void TheScanFindsAWriteOfEachKind(string line)
     {
         var text = WithoutComments(line, ".ps1");
-        var found = CmCmdlet.Matches(text).Any(m => m.Groups["verb"].Value != "Get") || Writes.Any(p => p.IsMatch(text));
-        Assert.True(found, line);
+        Assert.True(HasWrite(text), line);
     }
 
     [Theory]
     [InlineData("Get-CMDeployment -ErrorAction Stop")]
     [InlineData("Invoke-CMWmiQuery -Query 'SELECT PackageID, State FROM SMS_PackageStatusDistPointsSummarizer' -Option Fast")]
+    [InlineData("Invoke-CMQuery -Query 'SELECT Name FROM SMS_Site'")]
     [InlineData("\"SELECT sys.Name0 FROM v_R_System sys WHERE sys.Client0 = 1\"")]
     [InlineData("'Software Update', 'Content Distribution'")]
     public void TheScanPassesAReadOfEachKind(string line)
     {
         var text = WithoutComments(line, ".ps1");
-        var found = CmCmdlet.Matches(text).Any(m => !(m.Groups["verb"].Value == "Get" || (m.Groups["verb"].Value == "Invoke" && m.Groups["noun"].Value == "WmiQuery")))
-                    || Writes.Any(p => p.IsMatch(text));
-        Assert.False(found, line);
+        Assert.False(HasWrite(text), line);
     }
 
     [Fact]

@@ -334,7 +334,12 @@ internal sealed class FakeHygieneDialogs : ISiteHygieneDialogs
 
     public void OpenFolder(string folder) => OpenedFolders.Add(folder);
 
-    public void OpenFile(string path) => OpenedFiles.Add(path);
+    public bool OpenFile(string path)
+    {
+        OpenedFiles.Add(path);
+        return OpenFileSucceeds;
+    }
+    public bool OpenFileSucceeds { get; set; } = true;
 
     void ISiteHygieneDialogs.ConfirmImport(HygieneImportViewModel import)
     {

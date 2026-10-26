@@ -146,7 +146,7 @@ public sealed class LiveGridRow
         for (var i = 0; i < cells.Length; i++)
         {
             var text = cells[i].Trim().TrimEnd('%').Trim();
-            if (text.Length > 0 && double.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var n)) _numbers[i] = n;
+            if (text.Length > 0 && double.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var n)) _numbers[i] = n;
         }
     }
 

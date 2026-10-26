@@ -42,7 +42,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _read = read ?? throw new ArgumentNullException(nameof(read));
         _fill = fill ?? throw new ArgumentNullException(nameof(fill));
-        _suiteFolders = suiteFolders ?? SuiteFolders;
+        _suiteFolders = suiteFolders ?? (() => SuiteFolders(_log));
         _log = log;
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
     }
@@ -50,7 +50,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
     private const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite";
 
     /// <summary>The site-hygiene folder of the per-user suite install: the registered install folder, then %LOCALAPPDATA%\AppPackagerSuite.</summary>
-    public static IReadOnlyList<string> SuiteFolders()
+    public static IReadOnlyList<string> SuiteFolders(IAppLog? log = null)
     {
         var roots = new List<string>();
         try
@@ -60,6 +60,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
         }
         catch (Exception ex) when (ex is System.Security.SecurityException or IOException or UnauthorizedAccessException)
         {
+            log?.Warning(SiteHygieneService.LogArea, $"The suite install folder could not be read from the registry ({ex.GetType().Name}).");
         }
         roots.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AppPackagerSuite"));
         var folders = new List<string>();
@@ -72,6 +73,7 @@ public sealed class LegacyDashboardImport : ILegacyDashboardImport
             }
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
             {
+                log?.Warning(SiteHygieneService.LogArea, $"A suite install folder could not be resolved ({ex.GetType().Name}).");
             }
         }
         return folders;
