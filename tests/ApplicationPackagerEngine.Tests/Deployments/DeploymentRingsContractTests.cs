@@ -205,6 +205,23 @@ public sealed class DeploymentRingsContractTests
         return (rings, new RingPlanStore(() => folder), folder);
     }
 
+    [Fact]
+    public async Task APlanFolderReadFailureKeepsTheDisplayedPlans()
+    {
+        var rings = await RingsAsync();
+        var selected = rings.Plans.First();
+        rings.SelectedPlan = selected;
+        _h.Rings.PlanReadFailed = true;
+        _h.Rings.PlanMessage = "The ring plans folder could not be read. The log has the details.";
+        _h.Rings.Plans.Clear();
+
+        await rings.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Contains(selected, rings.Plans);
+        Assert.Same(selected, rings.SelectedPlan);
+        Assert.Contains("could not be read", rings.PlanListNote, StringComparison.OrdinalIgnoreCase);
+    }
+
     private RingPlanEditorViewModel Edit(DeploymentRingsViewModel rings)
     {
         RingPlanEditorViewModel? editor = null;

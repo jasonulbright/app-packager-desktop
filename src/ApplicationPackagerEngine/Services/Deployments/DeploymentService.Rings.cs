@@ -95,13 +95,21 @@ public sealed partial class DeploymentService : IDeploymentSiteReader
         var result = new List<DeploymentCandidate>();
         foreach (var row in rows.Where(r => IsDeploymentId(obj.Type, r.DeploymentId)))
         {
-            var proofParameters = ObjectParameters("Proof", obj);
-            proofParameters["DeploymentId"] = row.DeploymentId;
-            // The status message 30006 that proves a package or task sequence deployment's creator can
-            // reach the site many seconds after the create (seen on CM01), so the read waits for it.
-            proofParameters["ProofReads"] = 15;
-            var proof = Rows<ProofRow>(await ReadAsync(proofParameters, ct).ConfigureAwait(false), "Proof").FirstOrDefault();
-            result.Add(new DeploymentCandidate(ToRecord(obj.Type, row) with { ObjectName = obj.Name }, ParseUtc(proof?.Created), proof?.CreatedBy ?? "", StoredDifferences(obj.Type, row, seconds)));
+            var differences = StoredDifferences(obj.Type, row, seconds);
+            DateTime? createdUtc = null;
+            var createdBy = "";
+            if (differences.Count == 0)
+            {
+                var proofParameters = ObjectParameters("Proof", obj);
+                proofParameters["DeploymentId"] = row.DeploymentId;
+                // The status message 30006 that proves a package or task sequence deployment's creator can
+                // reach the site many seconds after the create, so the read waits for it.
+                proofParameters["ProofReads"] = 15;
+                var proof = Rows<ProofRow>(await ReadAsync(proofParameters, ct).ConfigureAwait(false), "Proof").FirstOrDefault();
+                createdUtc = ParseUtc(proof?.Created);
+                createdBy = proof?.CreatedBy ?? "";
+            }
+            result.Add(new DeploymentCandidate(ToRecord(obj.Type, row) with { ObjectName = obj.Name }, createdUtc, createdBy, differences));
         }
         _log?.Info(LogArea, $"Read {result.Count} deployments of one {obj.Type} to one collection with their creation proof.");
         return result;
