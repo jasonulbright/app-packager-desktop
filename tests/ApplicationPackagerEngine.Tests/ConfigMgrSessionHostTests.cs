@@ -613,6 +613,15 @@ public sealed class ConfigMgrSessionHostTests
     }
 
     [Fact]
+    public void ParameterLogTextTruncatesLongStringValuesAndReportsTheirLength()
+    {
+        var value = new string('x', 250);
+        var text = new ConfigMgrParameters { ["Name"] = value }.ToLogText();
+
+        Assert.Equal("Name=" + new string('x', 200) + "... (250 chars)", text);
+    }
+
+    [Fact]
     public async Task WarningsAreMaskedLikeErrorText()
     {
         var (host, factory) = NewHost();
