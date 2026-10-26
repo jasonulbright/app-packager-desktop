@@ -145,7 +145,7 @@
                            Visibility="{Binding ShowForceClose, Converter={StaticResource ChangePlanVisibility}}" />
                 <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" Margin="0,0,8,0" IsCancel="True"
                            Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnChangePlanCancel"
-                           Visibility="{Binding ShowConfirm, Converter={StaticResource ChangePlanVisibility}}" />
+                           Visibility="{Binding ShowCancel, Converter={StaticResource ChangePlanVisibility}}" />
                 <ui:Button x:Name="btnClose" Content="C_lose" MinWidth="100" Appearance="Primary" IsCancel="True"
                            Command="{Binding CloseCommand}" AutomationProperties.AutomationId="btnChangePlanClose"
                            Visibility="{Binding ShowClose, Converter={StaticResource ChangePlanVisibility}}" />

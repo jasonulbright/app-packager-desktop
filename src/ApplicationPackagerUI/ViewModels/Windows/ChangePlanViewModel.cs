@@ -127,7 +127,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     [ObservableProperty] private string _stepText = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsBusy), nameof(CanClose), nameof(ShowPlan), nameof(ShowResult), nameof(ShowConfirm), nameof(ShowUndo), nameof(ShowClose))]
+    [NotifyPropertyChangedFor(nameof(IsBusy), nameof(CanClose), nameof(ShowPlan), nameof(ShowResult), nameof(ShowConfirm), nameof(ShowCancel), nameof(ShowUndo), nameof(ShowClose))]
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand), nameof(UndoCommand), nameof(CloseCommand))]
     private ChangePlanStage _stage = ChangePlanStage.Review;
 
@@ -142,6 +142,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public bool ShowPlan => Stage == ChangePlanStage.Review;
     public bool ShowResult => Stage != ChangePlanStage.Review;
     public bool ShowConfirm => Stage is ChangePlanStage.Review or ChangePlanStage.Running;
+    public bool ShowCancel => Stage is ChangePlanStage.Review or ChangePlanStage.Running or ChangePlanStage.Undoing;
     public bool ShowClose => Stage is ChangePlanStage.Done or ChangePlanStage.Undone;
     public bool ShowUndo => _plan.HasUndo && Outcome.Result?.UndoAvailable != false && (Stage is ChangePlanStage.Done or ChangePlanStage.Undoing or ChangePlanStage.Undone);
 

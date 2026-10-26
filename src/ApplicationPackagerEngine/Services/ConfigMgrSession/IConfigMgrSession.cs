@@ -143,9 +143,12 @@ public sealed partial class ConfigMgrParameters : IEnumerable<KeyValuePair<strin
     public string ToLogText() => string.Join(", ", _values.Select(p =>
         p.Key + "=" + (_secret.Contains(p.Key) ? Logging.SecretMask.Mask : IsSensitive(p.Key) ? Summary(p.Value) : Describe(p.Value))));
 
+    private const int LogStringLimit = 200;
+
     private static string Describe(object? value) => value switch
     {
         null => "null",
+        string s when s.Length > LogStringLimit => s[..LogStringLimit] + $"... ({s.Length} chars)",
         string s => s,
         IEnumerable e => "[" + e.Cast<object?>().Count() + " values]",
         _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? ""

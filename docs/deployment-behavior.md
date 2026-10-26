@@ -17,7 +17,7 @@ Microsoft references: [resolve a collection by type and literal name](https://le
 
 ## Intune replacement publication
 
-App Packager Desktop first looks for the Win32 app that carries the identity tag of the application and profile. When no app carries the tag, it reads all result pages and adopts one untagged Win32 app with the exact display name. When more than one app matches, it refuses the publication.
+App Packager Desktop first looks for the Win32 app that carries the current identity tag of the application and profile. When no app carries the current tag, it checks the application's former identity tags. It adopts exactly one former-tag match and refuses publication when multiple former-tag matches exist. When neither the current nor a former tag matches, it adopts one untagged Win32 app with the exact display name. It refuses publication when multiple untagged apps have that exact display name.
 
 For an existing app, App Packager Desktop uploads the encrypted content and waits until the content commit succeeds. Then it sends one app update with the new metadata and `committedContentVersion`.
 
