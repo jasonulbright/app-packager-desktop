@@ -137,7 +137,8 @@ internal sealed class HygieneSiteRead
                         Failure = S(e, "Failure")
                     };
                     if (pending.Remove(set, out var rows)) table.Rows.AddRange(rows);
-                    if (e.TryGetProperty("Shown", out var shown) && (!shown.TryGetInt32(out var count) || table.Rows.Count != count))
+                    if (e.TryGetProperty("Shown", out var shown)
+                        && (shown.ValueKind != JsonValueKind.Number || !shown.TryGetInt32(out var count) || table.Rows.Count != count))
                     {
                         table.State = HygieneSetStates.Failed;
                         table.Failure = "row-count";
