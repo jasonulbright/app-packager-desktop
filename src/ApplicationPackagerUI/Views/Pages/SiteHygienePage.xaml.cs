@@ -46,6 +46,9 @@ public partial class SiteHygienePage : INavigationAware
         {
             if (e.WidthChanged) FitNameLeast();
         };
+        dgLive.LayoutUpdated += (_, _) => FitEmptyLiveExtent();
+        // A measure that scrolls the rows area by pixels realizes every row, so new rows restore the row scroll before the next layout.
+        ((System.Collections.Specialized.INotifyCollectionChanged)dgLive.Items).CollectionChanged += (_, _) => FitEmptyLiveExtent();
         btnLiveRefresh.Click += (_, _) => _refreshKeepsFocus = btnLiveRefresh.IsKeyboardFocused;
         btnLiveRefresh.IsEnabledChanged += (_, e) =>
         {
@@ -409,6 +412,38 @@ public partial class SiteHygienePage : INavigationAware
         var area = Helpers.DataGridFocus.Find<ScrollViewer>(dgLive)?.ActualWidth ?? 0;
         return area > 0 ? area - dgLive.CellsPanelHorizontalOffset - SystemParameters.VerticalScrollBarWidth : 0;
     }
+
+    /// <summary>
+    /// A grid with no rows scrolls sideways as far as its columns reach. The rows panel sets the scroll width from its
+    /// rows, so a grid with no rows has no scroll width and clips the headers at its right edge. With no rows the grid
+    /// scrolls the rows area by pixels, and the rows area is at least as wide as the columns. The work is one sum over the columns.
+    /// </summary>
+    private void FitEmptyLiveExtent()
+    {
+        var empty = dgLive.Items.Count == 0;
+        if (!empty && !_emptyExtent) return;
+        if (Helpers.DataGridFocus.Find<ScrollViewer>(dgLive) is not { Content: ItemsPresenter rows } scroll) return;
+        if (!empty)
+        {
+            _emptyExtent = false;
+            scroll.ClearValue(ScrollViewer.CanContentScrollProperty);
+            rows.ClearValue(MinWidthProperty);
+            // The scroll viewer gives the rows panel its scroll directions only in its own measure; a panel without them realizes every row.
+            scroll.InvalidateMeasure();
+            return;
+        }
+        if (!_emptyExtent)
+        {
+            _emptyExtent = true;
+            scroll.CanContentScroll = false;
+            scroll.InvalidateMeasure();
+        }
+        // Layout rounding can put the sum of columns that fill the grid a fraction of a pixel past it.
+        var width = Math.Floor(dgLive.CellsPanelHorizontalOffset + dgLive.Columns.Where(c => c.Visibility == Visibility.Visible).Sum(c => c.ActualWidth));
+        if (Math.Abs(rows.MinWidth - width) > 0.5) rows.MinWidth = width;
+    }
+
+    private bool _emptyExtent;
 
     // The grid writes its desired and display widths into the column width during layout, so only the unit and the value compare.
     private static bool SameLength(DataGridLength a, DataGridLength b) => a.UnitType == b.UnitType && Math.Abs(a.Value - b.Value) < 0.5;

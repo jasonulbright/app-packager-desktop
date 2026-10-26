@@ -487,6 +487,157 @@ public sealed class SiteHygieneLiveFitTests
         });
     }
 
+    /// <summary>
+    /// The stub site state and the SQL result sets with <paramref name="rows"/> rows in each Live view: each provider
+    /// class holds copies of its first CM01 row with a distinct key, and every DP-content pair failed.
+    /// </summary>
+    private static (System.Text.Json.Nodes.JsonObject State, string Clients, string Inactive) RowState(int rows)
+    {
+        var state = LiveFixtures.State(components: ["SMS_DISTRIBUTION_MANAGER"]);
+        var classes = state["Classes"]!.AsObject();
+        System.Text.Json.Nodes.JsonArray Copies(string name, Action<System.Text.Json.Nodes.JsonObject, int> key)
+        {
+            var first = classes[name]!.AsArray()[0]!;
+            var copies = new System.Text.Json.Nodes.JsonArray();
+            for (var i = 0; i < rows; i++)
+            {
+                var copy = first.DeepClone().AsObject();
+                key(copy, i);
+                copies.Add(copy);
+            }
+            return copies;
+        }
+        string Package(int i) => $"MCM{i + 0x100:X5}";
+        classes["SMS_DeploymentSummary"] = Copies("SMS_DeploymentSummary", (o, i) => o["DeploymentID"] = $"MCM3{i:D4}");
+        classes["SMS_PackageStatusDistPointsSummarizer"] = Copies("SMS_PackageStatusDistPointsSummarizer", (o, i) =>
+        {
+            o["PackageID"] = Package(i);
+            o["State"] = DpContentStates.InstallFailed;
+        });
+        classes["SMS_DistributionDPStatus"] = Copies("SMS_DistributionDPStatus", (o, i) => o["PackageID"] = Package(i));
+        classes["SMS_PackageStatusRootSummarizer"] = Copies("SMS_PackageStatusRootSummarizer", (o, i) =>
+        {
+            o["PackageID"] = Package(i);
+            o["Name"] = $"Content {i}";
+        });
+        classes["SMS_DistributionPointInfo"] = Copies("SMS_DistributionPointInfo", (o, i) =>
+        {
+            o["NALPath"] = LiveFixtures.SiteSystemOf($"DP{i:D3}.contoso.com");
+            o["ServerName"] = $"DP{i:D3}.CONTOSO.COM";
+        });
+        classes["SMS_SiteSystemSummarizer"] = new System.Text.Json.Nodes.JsonArray();
+        var component = classes["SMS_ComponentSummarizer"]!.AsArray()[0]!;
+        var components = new System.Text.Json.Nodes.JsonArray();
+        for (var i = 0; i < rows; i++)
+        {
+            var copy = component.DeepClone().AsObject();
+            copy["ComponentName"] = $"SMS_COMPONENT_{i:D3}";
+            components.Add(copy);
+        }
+        classes["SMS_ComponentSummarizer"] = components;
+        var clients = Enumerable.Range(0, rows).Select(i =>
+            $",@([int]{16777300 + i}, 'CLIENT{i:D3}', [int]1, [int]1, 'Active/Pass', [datetime]'2026-10-25T14:07:34', [datetime]'2026-10-22T10:18:44', [datetime]'2026-10-19T08:20:53', [datetime]'2026-10-25T14:07:34', [datetime]'2026-10-19T09:27:10', [datetime]'2026-10-23T17:27:05', '5.00.9146.1009', 'Microsoft Windows NT Workstation 10.0')");
+        var inactive = Enumerable.Range(0, rows).Select(i =>
+            $",@([int]{16777600 + i}, 'OLD{i:D3}', [datetime]'2026-06-01T00:00:00', [datetime]'2026-06-01T00:00:00', [int]146, 'Microsoft Windows NT Workstation 10.0', '5.00.9141.1011')");
+        return (state, "@(\r\n" + string.Join("\r\n", clients) + "\r\n)", "@(\r\n" + string.Join("\r\n", inactive) + "\r\n)");
+    }
+
+    public static TheoryData<ApplicationTheme, double, double, int> RowCountSizes()
+    {
+        var data = new TheoryData<ApplicationTheme, double, double, int>();
+        foreach (var (theme, width, height) in AllSizes().Select(d => ((ApplicationTheme)d[0], (double)d[1], (double)d[2])))
+            data.Add(theme, width, height, 0);
+        foreach (var rows in new[] { 1, 2, 200 })
+        {
+            data.Add(ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - TitleBar, rows);
+            data.Add(ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - TitleBar, rows);
+            data.Add(ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - TitleBar, rows);
+            data.Add(ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - TitleBar, rows);
+        }
+        return data;
+    }
+
+    /// <summary>
+    /// The real Live service over the stub site with 0, 1, 2 and 200 rows in each view: when the least widths of the
+    /// columns exceed the grid less its vertical scroll bar, the grid shows a sideways scroll bar and scrolls to the
+    /// right edge of the last header; otherwise every header ends inside the grid and the grid does not scroll sideways.
+    /// No header lies under the vertical scroll bar.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(RowCountSizes))]
+    public void EveryLiveViewFitsOrScrollsSidewaysToItsLastHeaderAtEveryRowCount(ApplicationTheme theme, double width, double height, int rows)
+    {
+        WithPage(theme, width, height, (window, page, viewModel, harness) =>
+        {
+            var failures = new List<string>();
+            var grid = ById<DataGrid>(page, "dgLive");
+            foreach (var choice in SiteHygieneLiveLabels.Views.Where(v => v.Pane == LivePane.Grid))
+            {
+                ShowView(window, viewModel, v => v == choice);
+                var where = $"{choice.Id} with {rows} rows at {width}x{height} {theme}:";
+                var result = viewModel.LastSnapshot!.Views[choice.View!.Value];
+                Assert.True(result.Complete, $"{where} {result.Message}");
+                Assert.Equal(rows, viewModel.LiveViewRows.Count);
+                AssertResizableReadableColumns(grid);
+                var scroller = Scroller(grid);
+                var least = grid.Columns.Sum(c => c.MinWidth);
+                var headers = Descendants(grid).OfType<DataGridColumnHeader>().Where(h => h.Column is not null).ToList();
+                var last = headers.MaxBy(h => h.Column.DisplayIndex)!;
+                var first = headers.MinBy(h => h.Column.DisplayIndex)!;
+                Rect Bounds(FrameworkElement e) => e.TransformToAncestor(scroller).TransformBounds(new Rect(e.RenderSize));
+                if (least > scroller.ViewportWidth + 1)
+                {
+                    if (!(scroller.ScrollableWidth > 0 && SidewaysBarShows(grid)))
+                        failures.Add($"{where} the columns need {least:0} px in a {scroller.ViewportWidth:0} px grid and the grid does not scroll sideways.");
+                }
+                else if (scroller.ScrollableWidth > Math.Max(0, least - scroller.ViewportWidth) + 0.5)
+                    failures.Add($"{where} the columns need {least:0} px in a {scroller.ViewportWidth:0} px grid and the grid scrolls sideways by {scroller.ScrollableWidth:0} px.");
+                scroller.ScrollToRightEnd();
+                Settle(window);
+                if (Bounds(last).Right > scroller.ViewportWidth + 0.5)
+                    failures.Add($"{where} the last header {last.Column.Header} ends at {Bounds(last).Right:0} px in a {scroller.ViewportWidth:0} px grid, scrolled to the right end.");
+                scroller.ScrollToLeftEnd();
+                Settle(window);
+                if (Bounds(first).Left < -0.5) failures.Add($"{where} the first header starts at {Bounds(first).Left:0} px, scrolled to the left end.");
+            }
+            Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+        }, harness: () =>
+        {
+            var (state, clients, inactive) = RowState(rows);
+            var h = new SiteHygienePageHarness { Settings = new ApplicationPackagerUI.Models.AppSettings { SiteCode = "MCM", ProviderMachine = "CM01", DiscoverySqlServer = "CM01.contoso.com", DiscoverySqlDatabase = "CM_MCM" } };
+            var sql = new FakeSqlHost { ClientsSet = clients, InactiveSet = inactive };
+            h.LiveService = new SiteHygieneLiveService(new StubHygieneSite(state), sql.Runner,
+                connection: () => new ApplicationPackagerEngine.Services.ConfigMgrSession.ConfigMgrConnection("MCM", "CM01"));
+            return h;
+        });
+    }
+
+    /// <summary>A grid that a filter empties scrolls sideways to its last header, and the rows that come back are virtualized again.</summary>
+    [Fact]
+    public void AnEmptiedGridScrollsSidewaysAndVirtualizesTheRowsThatComeBack()
+    {
+        WithPage(ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - TitleBar, (window, page, viewModel, harness) =>
+        {
+            ShowView(window, viewModel, v => v.View == LiveView.Deployments);
+            var grid = ById<DataGrid>(page, "dgLive");
+            var scroller = Scroller(grid);
+            viewModel.LiveFilterText = "no row holds this text";
+            Settle(window);
+            Assert.Empty(viewModel.LiveViewRows);
+            Assert.True(scroller.ScrollableWidth > 0 && SidewaysBarShows(grid), $"The empty grid does not scroll sideways in a {scroller.ViewportWidth:0} px grid.");
+            viewModel.LiveFilterText = "";
+            Settle(window);
+            Assert.Equal(100_000, grid.Items.Count);
+            Assert.True(scroller.CanContentScroll);
+            Assert.InRange(Descendants(grid).OfType<DataGridRow>().Count(), 1, 100);
+        }, harness: () =>
+        {
+            var h = new SiteHygienePageHarness();
+            h.Live!.Service.Next = _ => LiveData.Snapshot(rows: 100_000);
+            return h;
+        });
+    }
+
     [Fact]
     public void TheWidestWordCountsWhenItsValueIsShorterThanTheLongestValuesMeasured()
     {
