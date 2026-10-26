@@ -32,9 +32,21 @@ public sealed partial class DpContentService
                 }
             }
             outcomes.Add(outcome);
-            progress.Report(outcome);
+            ReportProgress(progress, outcome);
         }
         return outcomes;
+    }
+
+    private void ReportProgress(IProgress<DpContentOutcome> progress, DpContentOutcome outcome)
+    {
+        try
+        {
+            progress.Report(outcome);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _log?.Warning(LogArea, $"A progress report failed ({ex.GetType().Name}).");
+        }
     }
 
     private static string Sentence(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
@@ -140,7 +152,7 @@ public sealed partial class DpContentService
                     done.Attempts.Select(a => AuditPair(a.Pair, FirstResult(a))).ToList(), $"Part {c + 1} of {chunks.Count}: {Summary(done.Attempts)}."));
                 if (!finished.Succeeded) _log?.Warning(LogArea, "A removal audit record after a part could not be written.");
             }
-            progress.Report(new DpContentOutcome(change, false, $"Running: part {c + 1} of {chunks.Count} done.", attempts.Select(Interim).ToList(), null) { Final = false });
+            ReportProgress(progress, new DpContentOutcome(change, false, $"Running: part {c + 1} of {chunks.Count} done.", attempts.Select(Interim).ToList(), null) { Final = false });
             _log?.Info(LogArea, $"{change.Kind} part {c + 1} of {chunks.Count}: {done.Attempts.Count(a => a.Written)} requested, {done.Attempts.Count(a => a.Status == "failed")} failed, {done.Attempts.Count(a => a.Status is "stale" or "missing")} skipped.");
         }
 

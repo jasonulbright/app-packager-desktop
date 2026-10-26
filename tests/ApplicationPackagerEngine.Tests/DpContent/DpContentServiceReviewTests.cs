@@ -44,6 +44,22 @@ public sealed class DpContentServiceReviewTests
     }
 
     [Fact]
+    public async Task AThrowingProgressHandlerDoesNotLoseTheRemovalOutcomeOrUndo()
+    {
+        using var h = new DpContentHarness(window: TimeSpan.FromSeconds(5));
+        var change = await h.PrepareAsync(DpContentChangeKind.Remove, Pair("MCM000A6", Cm01, 0));
+
+        var outcomes = await h.Service.ApplyAsync([change with { RemovalConfirmed = true, LastCopyAcknowledged = true }],
+            new ThrowingProgress<DpContentOutcome>(), CancellationToken.None);
+
+        var outcome = Assert.Single(outcomes);
+        Assert.Equal(DpContentResults.Confirmed, Assert.Single(outcome.Pairs).Result);
+        Assert.NotNull(outcome.UndoChange);
+        Assert.Contains(h.Site.Log, line => line.StartsWith("Delete:MCM000A6", StringComparison.Ordinal));
+        Assert.Contains(h.AuditLines(), line => JsonNode.Parse(line)?["Phase"]?.GetValue<string>() == "ReadBack");
+    }
+
+    [Fact]
     public async Task ARemovalWhoseReadBackIsCancelledAfterOneReadKeepsItsUndoAndDidNotSucceed()
     {
         using var h = new DpContentHarness();
@@ -170,5 +186,10 @@ public sealed class DpContentServiceReviewTests
         Assert.Equal(DeploymentCheckResults.Warn, check.Result);
         Assert.Contains(change.Impact, l => l.Contains("the deployments that use it are not known.", StringComparison.Ordinal));
         Assert.Equal(0, impact.DpsRemaining);
+    }
+
+    private sealed class ThrowingProgress<T> : IProgress<T>
+    {
+        public void Report(T value) => throw new InvalidOperationException("The observer failed.");
     }
 }
