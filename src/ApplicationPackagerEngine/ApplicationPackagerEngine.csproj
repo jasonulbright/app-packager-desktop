@@ -36,6 +36,7 @@
     <EmbeddedResource Include="Services\Deployments\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Deployments.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\DpContent\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.DpContent.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\PivotsScripts\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.PivotsScripts.Scripts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Services\SiteHygiene\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.SiteHygiene.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\PivotsScripts\Library\Queries\*.cmpivot" LogicalName="ApplicationPackagerEngine.Services.PivotsScripts.Library.Queries.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\PivotsScripts\Library\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.PivotsScripts.Library.Scripts.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Services\Compliance\Scripts\*.ps1" LogicalName="ApplicationPackagerEngine.Services.Compliance.Scripts.%(Filename)%(Extension)" />

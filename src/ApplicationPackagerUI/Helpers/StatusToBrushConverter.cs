@@ -6,11 +6,19 @@ namespace ApplicationPackagerUI.Helpers;
 
 public class StatusToBrushConverter : IValueConverter
 {
-    private static readonly SolidColorBrush Green  = new(Color.FromRgb(0x2D, 0x7D, 0x46));
-    private static readonly SolidColorBrush Blue   = new(Color.FromRgb(0x5B, 0x9B, 0xD5));
-    private static readonly SolidColorBrush Amber  = new(Color.FromRgb(0xE8, 0xA3, 0x17));
-    private static readonly SolidColorBrush Red    = new(Color.FromRgb(0xC0, 0x39, 0x2B));
-    private static readonly SolidColorBrush Gray   = new(Color.FromRgb(0x99, 0x99, 0x99));
+    private static readonly SolidColorBrush Green  = Frozen(Color.FromRgb(0x2D, 0x7D, 0x46));
+    private static readonly SolidColorBrush Blue   = Frozen(Color.FromRgb(0x5B, 0x9B, 0xD5));
+    private static readonly SolidColorBrush Amber  = Frozen(Color.FromRgb(0xE8, 0xA3, 0x17));
+    private static readonly SolidColorBrush Red    = Frozen(Color.FromRgb(0xC0, 0x39, 0x2B));
+    private static readonly SolidColorBrush Gray   = Frozen(Color.FromRgb(0x99, 0x99, 0x99));
+
+    /// <summary>A shared brush that is not frozen belongs to the thread that made it; an element on another UI thread then throws when it renders.</summary>
+    private static SolidColorBrush Frozen(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
+    }
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {

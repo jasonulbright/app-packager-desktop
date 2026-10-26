@@ -22,6 +22,9 @@ internal static class RenderKit
 {
     public const double ReadableColumnWidth = 60;
 
+    /// <summary>The tooltip style App.xaml merges after the control library.</summary>
+    public const string ToolTipStyles = "pack://application:,,,/ApplicationPackagerUI;component/Views/Styles/ToolTips.xaml";
+
     private sealed class BindingErrors : TraceListener
     {
         public List<string> Lines { get; } = [];
@@ -60,9 +63,10 @@ internal static class RenderKit
             {
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
+                application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ToolTipStyles, UriKind.Absolute) });
                 SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
                 test();
-                Assert.Empty(errors.Lines);
+                Assert.True(errors.Lines.Count == 0, "Binding errors: " + string.Join(Environment.NewLine, errors.Lines));
             }
             finally
             {
@@ -142,7 +146,7 @@ internal static class RenderKit
         return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
     }
 
-    private static double Contrast(Color a, Color b)
+    public static double Contrast(Color a, Color b)
     {
         var (x, y) = (Luminance(a), Luminance(b));
         return (Math.Max(x, y) + 0.05) / (Math.Min(x, y) + 0.05);
@@ -182,7 +186,7 @@ internal static class RenderKit
         return pixels;
     }
 
-    private static Color MostCommon(List<Color> pixels) => pixels.GroupBy(c => c).OrderByDescending(g => g.Count()).First().Key;
+    public static Color MostCommon(List<Color> pixels) => pixels.GroupBy(c => c).OrderByDescending(g => g.Count()).First().Key;
 
     private static double TextContrast(List<Color> pixels)
     {

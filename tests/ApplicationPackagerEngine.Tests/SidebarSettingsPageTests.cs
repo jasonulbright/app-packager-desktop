@@ -60,6 +60,7 @@ public sealed class SidebarSettingsPageTests
             {
                 application.Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = theme });
                 application.Resources.MergedDictionaries.Add(new ControlsDictionary());
+                application.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri(ApplicationPackagerEngine.Tests.Compliance.RenderKit.ToolTipStyles, UriKind.Absolute) });
                 var service = new SidebarService(SidebarFixtures.Registry(), new InMemorySidebarStore(layout));
                 var editor = new SidebarSettingsEditor(service);
                 var page = CompiledPage(new { Sidebar = editor });

@@ -77,6 +77,7 @@ public partial class App : Application
                 services.AddDeploymentHelperPage();
                 services.AddDpContentManagerPage();
                 services.AddPivotsScriptsPage();
+                services.AddSiteHygienePage();
 
                 services.AddHostedService<ApplicationHostService>();
             })

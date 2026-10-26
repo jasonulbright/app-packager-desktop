@@ -125,6 +125,10 @@ public sealed class MaintenanceWindowWriterTests
             Path.Combine("ApplicationPackagerEngine", "Services", "PivotsScripts", "PivotsScriptsContract.cs"),
             Path.Combine("ApplicationPackagerUI", "Services", "PivotsScriptsPlan.cs"),
             Path.Combine("ApplicationPackagerEngine", "Services", "PivotsScripts", "PivotsScriptsService.Apply.cs"),
+            // The Site Hygiene contract declares its write, the service implements it, and the page writer is its only caller.
+            Path.Combine("ApplicationPackagerEngine", "Services", "SiteHygiene", "SiteHygieneContract.cs"),
+            Path.Combine("ApplicationPackagerEngine", "Services", "SiteHygiene", "SiteHygieneService.Apply.cs"),
+            Path.Combine("ApplicationPackagerUI", "Services", "SiteHygienePlan.cs"),
             Path.Combine("ApplicationPackagerUI", "ViewModels", "Windows", "WsusUpdatesViewModel.cs")
         ];
         var found = FilesWith(new Regex(@"\bApplyAsync\b", RegexOptions.CultureInvariant));
