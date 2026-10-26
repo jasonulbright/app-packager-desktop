@@ -58,6 +58,17 @@ public sealed class ProductSigningCheckTests : IDisposable
     }
 
     [Fact]
+    public void AListChecksEveryApplicationAgainstTheSamePublicationRows()
+    {
+        Publish("Tool", SigningStatus.NotRequested, ciId: "16780662");
+        var renamed = new SiteApplication("Tool (renamed)", "16780665", Model, ["16780662", "16780665"]);
+        var other = new SiteApplication("Other", "16790000", "ScopeId_X/Application_other", ["16790000"]);
+
+        Assert.Equal([true, false], Check().ArePackaged([renamed, other]));
+        Assert.Equal(Model, Row("Tool").ConfigMgrModelName);
+    }
+
+    [Fact]
     public void AListLinksARecordByItsUniqueNameAndARenameAfterThatIsStillCaught()
     {
         Publish("Tool", SigningStatus.NotRequested);
