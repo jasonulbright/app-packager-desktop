@@ -7,10 +7,14 @@ namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 /// <summary>The whole scan: every area through the real script and the stub site, compared with the source scan of CM01, and the work it does at scale.</summary>
 public sealed class SiteHygieneScanTests
 {
-    [Fact]
-    public void AReadSetWithFewerRowsThanShownIsFailed()
+    [Theory]
+    [InlineData("2")]
+    [InlineData("\"2\"")]
+    [InlineData("null")]
+    [InlineData("2147483648")]
+    public void AReadSetWithInvalidShownCountIsFailed(string shownJson)
     {
-        using var document = JsonDocument.Parse("""[{"Kind":"Rows","Set":"Applications","Rows":[["100"]]},{"Kind":"Set","Set":"Applications","Columns":["CI_ID"],"Shown":2,"Total":2,"State":"Read"}]""");
+        using var document = JsonDocument.Parse($$"""[{"Kind":"Rows","Set":"Applications","Rows":[["100"]]},{"Kind":"Set","Set":"Applications","Columns":["CI_ID"],"Shown":{{shownJson}},"Total":2,"State":"Read"}]""");
         var read = HygieneSiteRead.Parse(document.RootElement.EnumerateArray().ToArray());
 
         var table = read.Table("Applications");
