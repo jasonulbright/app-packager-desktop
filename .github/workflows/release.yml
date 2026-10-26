@@ -38,7 +38,7 @@ jobs:
   release:
     name: Test, sign, publish (Windows)
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - name: Refuse to run off main
         if: github.ref != 'refs/heads/main'
@@ -95,6 +95,27 @@ jobs:
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: 10.0.x
+
+      - name: Set the display resolution for WPF tests
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Add-Type -AssemblyName PresentationFramework
+          $width = [System.Windows.SystemParameters]::PrimaryScreenWidth
+          $height = [System.Windows.SystemParameters]::PrimaryScreenHeight
+          if ($width -lt 1440 -or $height -lt 900) {
+            throw "The display is ${width}x${height} DIP; WPF render tests require at least 1440x900."
+          }
+          $display = Get-CimInstance -ClassName Win32_VideoController |
+            Where-Object { $_.CurrentHorizontalResolution -gt 0 -and $_.CurrentVerticalResolution -gt 0 } |
+            Select-Object -First 1
+          if ($null -eq $display) { throw 'The display pixel resolution could not be read.' }
+          $pixelWidth = $display.CurrentHorizontalResolution
+          $pixelHeight = $display.CurrentVerticalResolution
+          if ($pixelWidth -lt 1920 -or $pixelHeight -lt 1080) {
+            throw "The display is ${pixelWidth}x${pixelHeight} pixels; WPF render tests require at least 1920x1080."
+          }
+          Write-Host "WPF test display: ${width}x${height} DIP, ${pixelWidth}x${pixelHeight} pixels"
 
       - name: Engine tests
         shell: pwsh
