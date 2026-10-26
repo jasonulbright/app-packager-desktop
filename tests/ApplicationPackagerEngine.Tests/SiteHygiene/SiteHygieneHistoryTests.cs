@@ -88,6 +88,19 @@ public sealed class SiteHygieneHistoryTests : IDisposable
     }
 
     [Fact]
+    public void ALineWithDuplicateJsonPropertiesIsSkippedWithoutStoppingHistoryRead()
+    {
+        var log = Audit();
+        WriteRuns(log);
+        File.AppendAllText(LogPath, "{\"Event\":\"first\",\"Event\":\"second\",\"Objects\":[]}\r\n");
+
+        var records = log.Read(10);
+
+        Assert.Equal(4, records.Count);
+        Assert.Equal(1, log.SkippedLines);
+    }
+
+    [Fact]
     public async Task TheFilterFindsARecordByObjectNameAndKeepsTheSelection()
     {
         var h = Harness(out var log);
