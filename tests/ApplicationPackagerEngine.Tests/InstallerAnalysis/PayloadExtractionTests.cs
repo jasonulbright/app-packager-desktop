@@ -60,6 +60,23 @@ public sealed class PayloadExtractionTests : IDisposable
     }
 
     [Fact]
+    public async Task MsiPayloadExtractionReportsStreamsBeyondTheEntryLimit()
+    {
+        var streamFile = _temp.PathOf("stream.bin");
+        File.WriteAllText(streamFile, "payload");
+        var msi = _temp.PathOf("limited-streams.msi");
+        using (var builder = new TestMsiBuilder(msi))
+            builder.Property("ProductCode", "{DDDDDDDD-1111-2222-3333-444444444444}")
+                .Stream("first.bin", streamFile).Stream("second.bin", streamFile).Template("x64;1033");
+        var limits = Limits with { MaxEntries = 1 };
+
+        var result = await _noSevenZip.ExtractPayloadAsync(msi, null, Target(), limits, CancellationToken.None);
+
+        Assert.Single(Directory.EnumerateFiles(result.Folder));
+        Assert.Contains(result.Skipped, item => item.Contains("MSI streams exceeded the 1 entry limit", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task ASevenZipSfxAnalyzedWithout7ZipSaysThePostPatchTargetWasNotRead()
     {
         var path = _temp.PathOf("sfx.exe");
