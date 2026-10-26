@@ -3,7 +3,10 @@ using ApplicationPackagerUI.ViewModels.Windows;
 namespace ApplicationPackagerUI.Services;
 
 /// <summary>One change a plan makes: the action, the object it changes and an optional detail.</summary>
-public sealed record ChangePlanItem(string Action, string Target, string? Detail);
+public sealed record ChangePlanItem(string Action, string Target, string? Detail)
+{
+    public override string ToString() => $"{Action} {Target}";
+}
 
 /// <summary>
 /// What a write operation will change, shown to the operator before anything runs.
@@ -65,7 +68,17 @@ public delegate Task<ChangePlanResult> ChangePlanRun(ConfirmedChangePlan plan, I
 
 public sealed record ChangePlanItemResult(ChangePlanItem Item, bool Succeeded, string Message)
 {
-    public string OutcomeText => Succeeded ? "Changed" : "Failed";
+    /// <summary>The run left the item unchanged on purpose; a skipped item counts neither as changed nor as failed.</summary>
+    public bool Skipped { get; init; }
+
+    /// <summary>The item failed after part of its change was made; it counts as failed and as changed.</summary>
+    public bool PartialChange { get; init; }
+
+    public string OutcomeText => Skipped ? "Skipped" : Succeeded ? "Changed" : "Failed";
+
+    public static ChangePlanItemResult Skip(ChangePlanItem item, string message) => new(item, false, message) { Skipped = true };
+
+    public override string ToString() => $"{OutcomeText}, {Item}, {Message}";
 }
 
 /// <summary>How a run ended.</summary>
@@ -79,9 +92,20 @@ public enum ChangePlanStop
 
 public sealed record ChangePlanResult(IReadOnlyList<ChangePlanItemResult> Items, ChangePlanStop Stop = ChangePlanStop.Completed)
 {
-    public int SucceededCount => Items.Count(i => i.Succeeded);
-    public int FailedCount => Items.Count(i => !i.Succeeded);
-    public string Summary => $"{SucceededCount} changed, {FailedCount} failed.";
+    public int SucceededCount => Items.Count(i => i.Succeeded && !i.Skipped);
+    public int FailedCount => Items.Count(i => !i.Succeeded && !i.Skipped);
+    public int SkippedCount => Items.Count(i => i.Skipped);
+    public int PartialCount => Items.Count(i => i.PartialChange && !i.Succeeded && !i.Skipped);
+
+    public string Summary => (SkippedCount == 0
+        ? $"{SucceededCount} changed, {FailedCount} failed."
+        : $"{SucceededCount} changed, {FailedCount} failed, {SkippedCount} skipped.")
+        + PartialCount switch
+        {
+            0 => "",
+            1 => " 1 failed change was made in part; Undo can reverse it.",
+            var n => $" {n} failed changes were made in part; Undo can reverse them."
+        };
 }
 
 /// <summary>What happened in the change plan window.</summary>

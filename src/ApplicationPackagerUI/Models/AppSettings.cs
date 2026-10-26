@@ -161,6 +161,10 @@ public sealed class AppSettings
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public DetectionTesterSettings? DetectionTester { get; set; }
 
+    /// <summary>The Maintenance Windows page choices. Null in a file written before the page existed; null gives the page defaults.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public MaintenanceWindowsSettings? MaintenanceWindows { get; set; }
+
     /// <summary>
     /// Null in a file written before the flag existed. SettingsService stamps it true on load so
     /// an already-configured user never meets the setup window.
