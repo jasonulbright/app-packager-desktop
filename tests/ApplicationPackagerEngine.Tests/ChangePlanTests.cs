@@ -453,6 +453,31 @@ public sealed class ChangePlanTests
     }
 
     [Fact]
+    public async Task CancelRemainsVisibleAndCancelsAnUndoRun()
+    {
+        var undoStarted = new TaskCompletionSource();
+        var vm = new ChangePlanViewModel(Plan(undo: true), Succeed, async (_, _, ct) =>
+        {
+            undoStarted.SetResult();
+            await Task.Delay(Timeout.Infinite, ct);
+            throw new InvalidOperationException("unreachable");
+        });
+
+        await vm.ConfirmCommand.ExecuteAsync(null);
+        Assert.False(vm.ShowCancel);
+        var undo = vm.UndoCommand.ExecuteAsync(null);
+        await undoStarted.Task;
+        Assert.Equal(ChangePlanStage.Undoing, vm.Stage);
+        Assert.True(vm.ShowCancel);
+
+        vm.CancelCommand.Execute(null);
+        await undo;
+
+        Assert.Equal(ChangePlanStop.Cancelled, vm.Outcome.UndoResult!.Stop);
+        Assert.False(vm.ShowCancel);
+    }
+
+    [Fact]
     public void UndoMustMatchThePlan()
     {
         Assert.Throws<ArgumentException>(() => new ChangePlanViewModel(Plan(undo: true), Succeed));
