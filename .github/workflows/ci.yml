@@ -39,7 +39,16 @@ jobs:
           if ($width -lt 1440 -or $height -lt 900) {
             throw "The display is ${width}x${height} DIP; WPF render tests require at least 1440x900."
           }
-          Write-Host "WPF test display: ${width}x${height} DIP"
+          $display = Get-CimInstance -ClassName Win32_VideoController |
+            Where-Object { $_.CurrentHorizontalResolution -gt 0 -and $_.CurrentVerticalResolution -gt 0 } |
+            Select-Object -First 1
+          if ($null -eq $display) { throw 'The display pixel resolution could not be read.' }
+          $pixelWidth = $display.CurrentHorizontalResolution
+          $pixelHeight = $display.CurrentVerticalResolution
+          if ($pixelWidth -lt 1920 -or $pixelHeight -lt 1080) {
+            throw "The display is ${pixelWidth}x${pixelHeight} pixels; WPF render tests require at least 1920x1080."
+          }
+          Write-Host "WPF test display: ${width}x${height} DIP, ${pixelWidth}x${pixelHeight} pixels"
 
       - name: Build
         shell: pwsh
