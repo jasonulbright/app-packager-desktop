@@ -104,6 +104,23 @@ public sealed class PivotsScriptActionTests
     }
 
     [Fact]
+    public async Task AReadFailureAfterApprovalSaysTheDecisionMayHaveBeenApplied()
+    {
+        using var h = new PivotsHarness();
+        h.Site.Script(StubPivotsSite.ScriptGuid)!["ApprovalState"] = 0;
+        h.Site.SetOption("FailAfterActionRead", true);
+        var plan = await Prepare(h, PivotsChangeKind.ApproveScript, comment: "reviewed");
+
+        var outcome = await h.ApplyAsync(plan);
+
+        Assert.False(outcome.Succeeded);
+        Assert.True(outcome.Partial);
+        Assert.Contains("decision may have been applied", outcome.Message);
+        Assert.Equal(3, (int)h.Site.Script(StubPivotsSite.ScriptGuid)!["ApprovalState"]!);
+        Assert.Equal("Partial", h.Audit.Read(5).Last().Result);
+    }
+
+    [Fact]
     public async Task AnActionOnAScriptWhoseTextChangedIsRefused()
     {
         using var h = new PivotsHarness();

@@ -14,7 +14,8 @@ namespace ApplicationPackagerEngine.Tests.PivotsScripts;
 /// ("Generic failure") and logs the devices, the typed values and the ScriptHash of the operation
 /// message ("RunScript:"); option "ChangeOnSend:Guid" changes the script text as the operation starts. Time is counted in script runs:
 /// a run schedules each online client's status row some runs ahead (option "Ticks", default 1);
-/// an offline client and a resource without a client get no row. Options: "TwoKey" (1 makes the site
+/// an offline client and a resource without a client get no row. Option "FailAfterActionRead" makes
+/// the script read after an approval decision or client operation fail. Options: "TwoKey" (1 makes the site
 /// refuse an approval decision by the author), "User" (the author New-CMScript records), "Throw:Guid"
 /// (the script stops with an error: state 2, exit code -2147467259), "Output:Guid" (the script output),
 /// "Fail" ("define", "create", "query:Class", "run") fails the call once with a secret marker.
@@ -30,6 +31,7 @@ internal sealed class StubPivotsSite : IConfigMgrSession
         function global:V([object]$Object, [string]$Name, [object]$Default) { if ($null -eq $Object) { return $Default }; $p = $Object.PSObject.Properties[$Name]; if ($null -eq $p -or $null -eq $p.Value) { return $Default }; return $p.Value }
         function global:L([object]$List) { $r = [System.Collections.Generic.List[object]]::new(); foreach ($x in @($List)) { if ($null -ne $x) { $r.Add($x) } }; return ,$r }
         $global:Log = [System.Collections.Generic.List[string]]::new()
+        $global:AfterAction = $false
         $global:Opt = @{}
         foreach ($p in $state.Options.PSObject.Properties) { $global:Opt[$p.Name] = $p.Value }
         $global:FailLeft = [System.Collections.Generic.List[string]]::new()
@@ -61,6 +63,7 @@ internal sealed class StubPivotsSite : IConfigMgrSession
             $class = $Matches[2]; $where = $Matches[3]
             $global:Log.Add('Query:' + $class + $(if ($where) { ':' + $where } else { '' }))
             Test-Fail ('query:' + $class)
+            if ($class -eq 'SMS_Scripts' -and $global:AfterAction -and $global:Opt.ContainsKey('FailAfterActionRead')) { throw 'The SMS Provider could not read the script after the action.' }
             switch ($class) {
                 'SMS_CombinedDeviceResources' {
                     $rows = @($global:S.Devices)
@@ -116,7 +119,7 @@ internal sealed class StubPivotsSite : IConfigMgrSession
         function global:Invoke-CimMethod {
             [CmdletBinding()] param([object]$InputObject, [object]$CimSession, [string]$Namespace, [string]$ClassName, [string]$MethodName, [hashtable]$Arguments)
             $global:Log.Add('Invoke-CimMethod:' + $MethodName)
-            if ($MethodName -eq 'InitiateClientOperationEx') { return (Start-ScriptOperation $ClassName $Arguments) }
+            if ($MethodName -eq 'InitiateClientOperationEx') { $result = Start-ScriptOperation $ClassName $Arguments; $global:AfterAction = $true; return $result }
             Test-Fail 'define'
             if ($MethodName -ne 'UpdateScript') { throw 'Unknown method' }
             $r = $InputObject.__Row
@@ -168,6 +171,7 @@ internal sealed class StubPivotsSite : IConfigMgrSession
             $me = [string](V $state.Options 'Caller' 'CONTOSO\LabAdmin')
             if ([int](V $state.Options 'TwoKey' 0) -eq 1 -and [string]$r.Author -eq $me) { throw 'The SMS Provider reported an error.' }
             $r.ApprovalState = $Decision; $r.Approver = $me; $r.Comment = $Comment
+            $global:AfterAction = $true
             # Another administrator changes the text while the decision is stored.
             if ($global:Opt.ContainsKey('ChangeOnDecision:' + $Guid)) { $r.ScriptHash = (Hash ('changed on decision' + $global:Tick)); $r.Script = [Convert]::ToBase64String([byte[]](0xFF, 0xFE) + [System.Text.Encoding]::Unicode.GetBytes('changed on decision')) }
         }
