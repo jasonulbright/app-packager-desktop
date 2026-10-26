@@ -17,7 +17,7 @@ public sealed record DetectionTesterPageServices(
     IInstalledApplicationsService InstalledApplications,
     IDetectionTesterPrompts Prompts,
     Func<DetectionTesterSettings?> LoadPreferences,
-    Action<DetectionTesterSettings> SavePreferences,
+    Func<DetectionTesterSettings, bool> SavePreferences,
     IAppLog Log,
     Func<string, StageManifest> ReadManifest);
 
@@ -395,7 +395,8 @@ public partial class DetectionTesterViewModel : ObservableObject
         if (SameChoices(_storedChoices, choices)) return;
         try
         {
-            await Task.Run(() => _services.SavePreferences(choices));
+            var saved = await Task.Run(() => _services.SavePreferences(choices));
+            if (!saved) throw new IOException("The page choices were not written.");
             _storedChoices = choices;
         }
         catch (Exception ex)
@@ -569,6 +570,12 @@ public partial class DetectionTesterViewModel : ObservableObject
                 SelectedView = view;
                 break;
             case Script:
+                if (!string.IsNullOrWhiteSpace(detection.ScriptLanguage)
+                    && !detection.ScriptLanguage.Trim().Equals("PowerShell", StringComparison.OrdinalIgnoreCase))
+                {
+                    StatusMessage = $"The script language {detection.ScriptLanguage.Trim()} is not supported.";
+                    return false;
+                }
                 ScriptText = detection.ScriptText ?? "";
                 break;
             case Compound:

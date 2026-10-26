@@ -166,6 +166,7 @@ internal sealed class DetectionTesterHarness
     public int SaveCount { get; private set; }
     public int? SaveThreadId { get; private set; }
     public Exception? SaveFailure { get; set; }
+    public bool SaveResult { get; set; } = true;
     public int ManifestReads { get; private set; }
     public Func<string, StageManifest> ReadManifest { get; set; } = path => new ManifestService().Read(path);
 
@@ -184,6 +185,7 @@ internal sealed class DetectionTesterHarness
             SaveThreadId = Environment.CurrentManagedThreadId;
             if (SaveFailure is not null) throw SaveFailure;
             Saved = settings;
+            return SaveResult;
         },
         Log,
         path => { ManifestReads++; return ReadManifest(path); }));
@@ -908,7 +910,7 @@ public sealed class DetectionTesterViewModelTests
     public async Task AnInstalledApplicationsFailureIsReportedAndLogged()
     {
         var viewModel = new DetectionTesterViewModel(new DetectionTesterPageServices(
-            _h.Tests, _h.History, _h.Reports, new ThrowingApplications(), _h.Prompts, () => null, _ => { }, _h.Log, _ => new StageManifest()));
+            _h.Tests, _h.History, _h.Reports, new ThrowingApplications(), _h.Prompts, () => null, _ => true, _h.Log, _ => new StageManifest()));
         await viewModel.RefreshApplicationsCommand.ExecuteAsync(null);
         Assert.Empty(viewModel.Applications);
         Assert.Equal("The installed applications could not be read.", viewModel.ApplicationStatus);
