@@ -160,10 +160,15 @@ internal sealed class DetectionTesterHarness
     public DetectionTesterSettings? Saved { get; set; }
     public int PreferenceReads { get; private set; }
     public int? PreferenceThreadId { get; private set; }
+    private int _saveCount;
 
     /// <summary>When set, the saved-choices read blocks until the test releases it.</summary>
     public ManualResetEventSlim? PreferenceGate { get; set; }
-    public int SaveCount { get; private set; }
+    public ManualResetEventSlim? SaveGate { get; set; }
+    public TaskCompletionSource? SaveStarted { get; set; }
+    public int SaveCount => Volatile.Read(ref _saveCount);
+    private int _saveCompletedCount;
+    public int SaveCompletedCount => Volatile.Read(ref _saveCompletedCount);
     public int? SaveThreadId { get; private set; }
     public Exception? SaveFailure { get; set; }
     public bool SaveResult { get; set; } = true;
@@ -181,10 +186,16 @@ internal sealed class DetectionTesterHarness
         },
         settings =>
         {
-            SaveCount++;
+            var saveNumber = Interlocked.Increment(ref _saveCount);
             SaveThreadId = Environment.CurrentManagedThreadId;
+            if (saveNumber == 1)
+            {
+                SaveStarted?.TrySetResult();
+                SaveGate?.Wait(TimeSpan.FromSeconds(10));
+            }
             if (SaveFailure is not null) throw SaveFailure;
             Saved = settings;
+            Interlocked.Increment(ref _saveCompletedCount);
             return SaveResult;
         },
         Log,
