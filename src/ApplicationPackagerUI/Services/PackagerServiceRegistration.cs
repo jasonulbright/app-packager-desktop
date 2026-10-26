@@ -94,8 +94,18 @@ public static class PackagerServiceRegistration
             var settings = sp.GetRequiredService<SettingsService>();
             return new ProductSigningCheck(sp.GetRequiredService<ApplicationInventoryService>(), () => SessionConnection(settings), () => settings.Load().ScriptSigning, sp.GetRequiredService<IAppLog>());
         });
-        services.AddSingleton<IDeploymentService>(sp => new DeploymentService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<ICollectionService>(),
+        services.AddSingleton(sp => new DeploymentService(sp.GetRequiredService<IConfigMgrSession>(), sp.GetRequiredService<ICollectionService>(),
             sp.GetRequiredService<IDeploymentAuditLog>(), sp.GetRequiredService<IDeploymentSigningCheck>(), sp.GetRequiredService<IAppLog>()));
+        services.AddSingleton<IDeploymentService>(sp => sp.GetRequiredService<DeploymentService>());
+        services.AddSingleton<IDeploymentSiteReader>(sp => sp.GetRequiredService<DeploymentService>());
+        services.TryAddSingleton<IRingFolderPathProvider>(_ => new DefaultRingFolderPaths());
+        services.AddSingleton<IRingService>(sp =>
+        {
+            var paths = sp.GetRequiredService<IRingFolderPathProvider>();
+            var log = sp.GetRequiredService<IAppLog>();
+            return new RingService(sp.GetRequiredService<IDeploymentService>(), sp.GetRequiredService<IDeploymentSiteReader>(), sp.GetRequiredService<IDeploymentAuditLog>(),
+                new RingPlanStore(() => paths.PlansFolder, log), new RingRunStore(() => paths.RunsFolder, log), log);
+        });
 
         services.AddSingleton<IAnalysisSandbox>(_ => new AnalysisSandbox());
         services.AddSingleton<IInstallerAnalysisService>(sp => new InstallerAnalysisService(sp.GetRequiredService<IAnalysisSandbox>()));

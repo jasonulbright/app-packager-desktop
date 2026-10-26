@@ -29,7 +29,9 @@ namespace ApplicationPackagerEngine.Tests.Deployments;
 /// real time of each create instead of "CreatedUtc". "Revisions" holds earlier application revisions,
 /// each with its own CI_ID, CIVersion and DateLastModified and the DateCreated of the model, which every
 /// revision shares; an application deployment holds the CI_ID of the latest revision of its model in
-/// AssignedCIs and keeps its CreationTime and LastModificationTime when a revision is added, as on CM01.
+/// AssignedCIs and keeps its CreationTime and LastModificationTime when a revision is added, as on CM01. A create also adds the
+/// SMS_DeploymentSummary row CM01 shows at once: NumberTargeted is the member count of the collection, the other counts are 0;
+/// option "NoSummary" leaves it out. The summary row stays when a deployment is removed.
 /// </summary>
 internal sealed class StubDeploymentSite : IConfigMgrSession
 {
@@ -46,7 +48,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         foreach ($f in @(V $state.Options 'Fail' @())) { if ($f) { $global:FailLeft.Add([string]$f) } }
         function global:Test-Fail([string]$Key) { if ($global:FailLeft.Remove($Key)) { throw "The SMS Provider reported an error: SECRET-DETAIL-1234 ($Key)." } }
         $global:S = @{}
-        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments','StatusMessages','Revisions') { $global:S[$k] = L (V $state $k @()) }
+        foreach ($k in 'Applications','Packages','TaskSequences','Groups','Collections','DpGroups','DpGroupContent','DpStatus','AppAssignments','Adverts','UgAssignments','StatusMessages','Revisions','Summaries') { $global:S[$k] = L (V $state $k @()) }
         $global:NextAssignment = [long](V $state 'NextAssignment' 16777400)
         $global:NextAdvert = [int](V $state 'NextAdvert' 32)
         $global:NewKeys = [System.Collections.Generic.List[string]]::new()
@@ -72,7 +74,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         function global:Tx([object]$Value) { if ($Value -isnot [datetime]) { return '' }; $Value.ToString($global:Fmt, [Globalization.CultureInfo]::InvariantCulture) }
         function global:Copy-Row([object]$O) {
             $c = $O.PSObject.Copy()
-            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime','LastModificationTime','Time','DateLastModified','DateCreated') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
+            foreach ($n in 'StartTime','EnforcementDeadline','PresentTime','CreationTime','LastModificationTime','Time','DateLastModified','DateCreated','SummarizationTime') { if ($null -ne $c.PSObject.Properties[$n] -and $c.$n -is [string]) { $c.$n = Dt $c.$n } }
             if ($null -ne $c.PSObject.Properties['AssignedSchedule']) { $c.AssignedSchedule = @(@($c.AssignedSchedule) | Where-Object { $null -ne $_ } | ForEach-Object { [pscustomobject]@{ StartTime = (Dt ([string]$_.StartTime)); IsGMT = [bool]$_.IsGMT } }) }
             if ($null -ne $c.PSObject.Properties['AppModelID']) { $latest = $global:S.Applications | Where-Object { [string]$_.ModelID -eq [string]$c.AppModelID } | Select-Object -First 1; if ($null -ne $latest) { $c.AssignedCIs = @([long]$latest.CI_ID) } }
             return $c
@@ -82,8 +84,13 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
         function global:Invoke-CMWmiQuery {
             [CmdletBinding()] param([string]$Query, [string]$Option)
             $global:Log.Add('Query')
+            if ($Query -match '^SELECT CI_ID, LocalizedDisplayName FROM SMS_Application WHERE IsLatest = 1$') { $global:Log.Add('NameScan') }
             if ($Query -match 'FROM (\w+)') { Test-Fail ('query:' + $Matches[1]) }
             switch -Regex ($Query) {
+                "FROM SMS_ApplicationAssignment WHERE AssignmentUniqueID = '[^']+' OR " { $ids = Ids $Query 'AssignmentUniqueID'; return @($global:S.AppAssignments | Where-Object { $ids -contains $_.AssignmentUniqueID -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_UpdateGroupAssignment WHERE AssignmentUniqueID = '[^']+' OR " { $ids = Ids $Query 'AssignmentUniqueID'; return @($global:S.UgAssignments | Where-Object { $ids -contains $_.AssignmentUniqueID -and -not (Hidden $_ 'AssignmentUniqueID') } | ForEach-Object { Copy-Row $_ }) }
+                "FROM SMS_Advertisement WHERE AdvertisementID = '[^']+' OR " { $ids = Ids $Query 'AdvertisementID'; return @($global:S.Adverts | Where-Object { $ids -contains $_.AdvertisementID -and -not (Hidden $_ 'AdvertisementID') } | ForEach-Object { Copy-Row $_ }) }
+                'FROM SMS_DeploymentSummary WHERE (.+)$' { $w = $Matches[1]; $ids = Ids $w 'DeploymentID'; $nums = @([regex]::Matches($w, 'AssignmentID = (\d+)') | ForEach-Object { $_.Groups[1].Value }); return @($global:S.Summaries | Where-Object { $ids -contains [string]$_.DeploymentID -or $nums -contains [string]$_.AssignmentID } | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE IsLatest = 1$' { return @($global:S.Applications | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE CI_ID = (\d+)$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.CI_ID -eq $id } | ForEach-Object { Copy-Row $_ }) }
                 'FROM SMS_Application WHERE ModelID = (\d+) AND IsLatest = 1$' { $id = $Matches[1]; return @($global:S.Applications | Where-Object { [string]$_.ModelID -eq $id } | ForEach-Object { Copy-Row $_ }) }
@@ -159,9 +166,16 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                     TargetCollectionID = $CollectionId; OfferTypeID = $(if ($required) { 0 } else { 2 }); StartTime = (Tx $AvailableDateTime); EnforcementDeadline = $(if ($required) { $deadline } else { $null }); UseGMTTimes = ($TimeBaseOn -eq 'Utc')
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $OverrideServiceWindow); RebootOutsideOfServiceWindows = ($required -and $RebootOutsideServiceWindow)
                     DPLocality = (0x50 -bor $(if ($required -and $UseMeteredNetwork) { 0x80000 } else { 0 })); SuppressReboot = 0; CreationTime = (Tx (Stamp)); LastModificationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
+                Add-Summary $uid $global:NextAssignment $CollectionId 1
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
             Made-Since 'AppAssignments' 'AssignmentUniqueID' $n0 'Application'
+        }
+        function global:Add-Summary([string]$Key, [long]$Assignment, [string]$Collection, [int]$Feature) {
+            if ($global:Opt.ContainsKey('NoSummary')) { return }
+            $members = [int](V ($global:S.Collections | Where-Object { $_.CollectionID -eq $Collection } | Select-Object -First 1) 'MemberCount' 0)
+            $global:S.Summaries.Add([pscustomobject]@{ DeploymentID = $Key; AssignmentID = $Assignment; FeatureType = $Feature; CollectionID = $Collection; NumberTargeted = $members; NumberSuccess = 0
+                NumberErrors = 0; NumberInProgress = 0; NumberUnknown = 0; NumberOther = 0; SummarizationTime = (Tx (Stamp)) })
         }
         function global:New-Advert([string]$PackageId, [string]$ProgramName, [string]$CollectionId, [bool]$Required, [datetime]$Available, [bool]$UtcAvailable, [bool]$UtcExpire, [object[]]$Schedule, [long]$Advert, [long]$Remote) {
             $id = 'MCM2' + ('{0:X4}' -f $global:NextAdvert); $global:NextAdvert++
@@ -169,6 +183,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                 PresentTime = (Tx $Available); PresentTimeIsGMT = $UtcAvailable; ExpirationTimeEnabled = $UtcExpire; AssignedScheduleEnabled = $Required; AssignedSchedule = @($(if ($Required) { $Schedule } else { @() }))
                 AdvertFlags = $Advert; RemoteClientFlags = $Remote })
             if (-not $global:Opt.ContainsKey('NoStatus')) { $global:S.StatusMessages.Add([pscustomobject]@{ RecordID = $global:NextRecord; MessageID = 30006; Time = (Tx (Stamp).ToUniversalTime()); AdvertisementID = $id; User = $global:CreatedBy }); $global:NextRecord++ }
+            Add-Summary $id 0 $CollectionId $(if ($ProgramName -eq '*') { 7 } else { 2 })
             $global:NewKeys.Add($id)
         }
         function global:Rerun-Bit([string]$Rerun, [bool]$Required) { if (-not $Required) { return 0x800 }; switch ($Rerun) { 'NeverRerunDeployedProgram' { 0x1000 } 'RerunIfFailedPreviousAttempt' { 0x2000 } 'RerunIfSucceededOnPreviousAttempt' { 0x4000 } default { 0x800 } } }
@@ -213,6 +228,7 @@ internal sealed class StubDeploymentSite : IConfigMgrSession
                     UserUIExperience = $n.UI; NotifyUser = $n.Notify; OverrideServiceWindows = ($required -and $SoftwareInstallation); RebootOutsideOfServiceWindows = ($required -and $AllowRestart)
                     SuppressReboot = $(if ($required) { $(if ($RestartServer) { 2 } else { 0 }) -bor $(if ($RestartWorkstation) { 1 } else { 0 }) } else { 0 }); RequirePostRebootFullScan = $RequirePostRebootFullScan
                     DPLocality = $locality; CreationTime = (Tx (Stamp)); LastModifiedBy = $global:CreatedBy })
+                Add-Summary $uid $global:NextAssignment $CollectionId 5
                 $global:NewKeys.Add($uid); $global:NextAssignment++
             }
             Made-Since 'UgAssignments' 'AssignmentUniqueID' $n0 'SoftwareUpdateGroup'

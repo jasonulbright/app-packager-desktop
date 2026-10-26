@@ -57,7 +57,16 @@ public sealed class DeploymentHistoryRow(DeploymentAuditRecord record)
 {
     public DeploymentAuditRecord Record { get; } = record;
     public string Time => DeploymentText.Time(Record.Timestamp);
-    public string Event => Record.Event;
+    public string Event => EventLabel(Record.Event);
+
+    /// <summary>The plain label of an audit event: Close run, Cancel ring and Abandon ring for the ring events; any other event as the log names it.</summary>
+    public static string EventLabel(string recorded) => recorded switch
+    {
+        var e when string.Equals(e, AuditEvents.Close, StringComparison.OrdinalIgnoreCase) => "Close run",
+        var e when string.Equals(e, AuditEvents.CancelRing, StringComparison.OrdinalIgnoreCase) => "Cancel ring",
+        var e when string.Equals(e, AuditEvents.Abandon, StringComparison.OrdinalIgnoreCase) => "Abandon ring",
+        var e => e
+    };
     public string Type => Record.DeploymentType;
     public string Object => $"{Record.ApplicationName} {Record.ApplicationVersion}".Trim();
     public string Collection => Record.CollectionID.Length > 0 ? $"{Record.CollectionName} ({Record.CollectionID})" : Record.CollectionName;
@@ -84,6 +93,12 @@ public sealed class DeploymentHistoryRow(DeploymentAuditRecord record)
     };
 
     public string User => Record.User;
+
+    /// <summary>The ring fields; empty for a record of a single deployment.</summary>
+    public string PlanName => RingAuditFields.Get(Record, RingAuditFields.PlanName);
+    public string RingIndex => RingAuditFields.Get(Record, RingAuditFields.RingIndex);
+    public string RingName => RingAuditFields.Get(Record, RingAuditFields.RingName);
+    public string RunId => RingAuditFields.Get(Record, RingAuditFields.RunId);
 
     /// <summary>Whether the record's chain is intact, as the reports name it; empty for a record that was not read from a log.</summary>
     public string VerifiedText => AuditVerification.Text(Record);

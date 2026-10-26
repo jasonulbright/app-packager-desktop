@@ -170,7 +170,7 @@ public sealed class DeploymentPageReviewTests
     [Fact]
     public async Task AnAuditPathThatCannotBeSavedSaysSoAndTheNextSaveTriesAgain()
     {
-        _h.Saved = new DeploymentHelperSettings { AuditLogPath = @"E:\old.jsonl", SelectedTab = DeploymentHelperViewModel.OptionsTab };
+        _h.Saved = new DeploymentHelperSettings { AuditLogPath = @"E:\old.jsonl", SelectedTab = DeploymentHelperViewModel.StoredTab(DeploymentHelperViewModel.OptionsTab) };
         var page = await _h.OpenAsync(DeploymentHelperViewModel.OptionsTab);
         var probes = _h.Audit.Probes;
         _h.SaveSucceeds = false;

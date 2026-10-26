@@ -228,14 +228,17 @@ internal sealed class SevenZipTool(string exePath)
         }
 
         var stderr = DrainAsync(process.StandardError);
-        var reader = Task.Run(async () =>
+        // The pipes are read on threads of their own: when the thread pool is busy, a reader that
+        // waits for a pool thread lets the pipe fill, the child stops writing, and the run ends at
+        // the time limit instead of at the output limit.
+        var reader = Task.Factory.StartNew(() =>
         {
             var buffer = new char[16 * 1024];
             var line = new StringBuilder();
             var overlong = false;
             long total = 0;
             int read;
-            while ((read = await process.StandardOutput.ReadAsync(buffer.AsMemory(), CancellationToken.None).ConfigureAwait(false)) > 0)
+            while ((read = process.StandardOutput.Read(buffer, 0, buffer.Length)) > 0)
             {
                 if (stopped || onLine is null) continue;
                 total += read;
@@ -264,16 +267,15 @@ internal sealed class SevenZipTool(string exePath)
                 if (overlong) lineTooLong = true;
                 else if (line.Length > 0) onLine(line.ToString());
             }
-        }, CancellationToken.None);
-        var watcher = watchFolder is null ? Task.CompletedTask : Task.Run(async () =>
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        var watcher = watchFolder is null ? Task.CompletedTask : Task.Factory.StartNew(() =>
         {
             while (!process.HasExited && !stopped)
             {
-                try { await Task.Delay(WatchIntervalMilliseconds, bounded.Token).ConfigureAwait(false); }
-                catch (OperationCanceledException) { return; }
+                if (bounded.Token.WaitHandle.WaitOne(WatchIntervalMilliseconds)) return;
                 if (FolderBytes(watchFolder) > maxBytes) Stop();
             }
-        }, CancellationToken.None);
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
         try
         {
@@ -292,11 +294,11 @@ internal sealed class SevenZipTool(string exePath)
     }
 
     /// <summary>Reads a stream to its end without keeping it, so a child that writes much to it never blocks.</summary>
-    private static Task DrainAsync(StreamReader reader) => Task.Run(async () =>
+    private static Task DrainAsync(StreamReader reader) => Task.Factory.StartNew(() =>
     {
         var buffer = new char[4096];
-        while (await reader.ReadAsync(buffer.AsMemory(), CancellationToken.None).ConfigureAwait(false) > 0) { }
-    });
+        while (reader.Read(buffer, 0, buffer.Length) > 0) { }
+    }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
     private static async Task Observe(params Task[] tasks)
     {

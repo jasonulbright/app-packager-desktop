@@ -8,12 +8,12 @@ using ApplicationPackagerUI.ViewModels.Windows;
 
 namespace ApplicationPackagerEngine.Tests.Deployments;
 
-/// <summary>A clock fixed at one instant, in a UTC local zone so local and UTC times agree.</summary>
-internal sealed class FixedClock(DateTimeOffset now) : TimeProvider
+/// <summary>A clock fixed at one instant, by default in a UTC local zone so local and UTC times agree.</summary>
+internal sealed class FixedClock(DateTimeOffset now, TimeZoneInfo? zone = null) : TimeProvider
 {
     public DateTimeOffset Now { get; set; } = now;
     public override DateTimeOffset GetUtcNow() => Now;
-    public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    public override TimeZoneInfo LocalTimeZone => zone ?? TimeZoneInfo.Utc;
 }
 
 /// <summary>
@@ -324,6 +324,51 @@ internal sealed class FakeDeploymentDialogs : IDeploymentHelperDialogs
     public List<string> OpenedFolders { get; } = [];
     public int Prompts;
     public int Editors;
+    public int RingEditors;
+    public Action<RingPlanEditorViewModel>? RingEditor;
+
+    /// <summary>The collection ID the picker returns; null closes it without a pick.</summary>
+    public string? PickedCollection;
+    public List<string> PickerTitles { get; } = [];
+    public bool ConfirmDeletePlan = true;
+    public int PlanDeletePrompts;
+
+    public void ShowRingPlanEditor(RingPlanEditorViewModel editor)
+    {
+        RingEditors++;
+        RingEditor?.Invoke(editor);
+    }
+
+    public CollectionRow? PickCollection(string title, IReadOnlyList<CollectionRow> collections, string? currentId)
+    {
+        PickerTitles.Add(title);
+        return PickedCollection is null ? null : collections.SingleOrDefault(c => c.CollectionId == PickedCollection);
+    }
+
+    /// <summary>The collection IDs the multi-select picker returns, in this order.</summary>
+    public List<string> PickedCollections { get; } = [];
+
+    public IReadOnlyList<CollectionRow> PickCollections(string title, IReadOnlyList<CollectionRow> collections)
+    {
+        PickerTitles.Add(title);
+        return PickedCollections.Select(id => collections.Single(c => c.CollectionId == id)).ToList();
+    }
+
+    /// <summary>The answer to the discard question of the plan editor.</summary>
+    public bool ConfirmDiscard = true;
+    public int DiscardPrompts;
+
+    public bool ConfirmDiscardRingPlanChanges()
+    {
+        DiscardPrompts++;
+        return ConfirmDiscard;
+    }
+
+    public Task<bool> ConfirmDeleteRingPlanAsync(string name)
+    {
+        PlanDeletePrompts++;
+        return Task.FromResult(ConfirmDeletePlan);
+    }
 
     public void ShowTextPrompt(TextPromptViewModel prompt)
     {
@@ -361,7 +406,7 @@ internal sealed class DeploymentPageHarness
     public ScriptedPlanDialogs Plans { get; } = new();
     public RecordingSiteHistory History { get; } = new();
     public RecordingMaintenanceLog Log { get; } = new();
-    public FixedClock Clock { get; } = new(Now);
+    public FixedClock Clock { get; }
     public AppSettings Settings { get; } = new() { SiteCode = "LAB", ProviderMachine = "cm01.lab.local" };
     public DeploymentHelperSettings? Saved { get; set; }
     public Action<DeploymentHelperSettings>? BeforeSave;
@@ -370,8 +415,10 @@ internal sealed class DeploymentPageHarness
 
     /// <summary>False makes every save of the page choices report that nothing was written.</summary>
     public bool SaveSucceeds = true;
-    public int RingStarts;
-    public string? RingProblem;
+
+    public FakeRingService Rings { get; } = new();
+    public RingPlan PilotRings { get; }
+    public RingPlan SeedRings { get; }
 
     public DeployableObject SevenZip { get; }
     public DeployableObject Notepad { get; }
@@ -379,8 +426,10 @@ internal sealed class DeploymentPageHarness
     public DeployableObject Win11 { get; }
     public DeployableObject Updates { get; }
 
-    public DeploymentPageHarness()
+    /// <param name="zone">The local time zone of the clock; null for UTC.</param>
+    public DeploymentPageHarness(TimeZoneInfo? zone = null)
     {
+        Clock = new FixedClock(Now, zone);
         SevenZip = Service.Add(DeploymentObjectType.Application, "16777300", "7-Zip", "26.04", packaged: true);
         Notepad = Service.Add(DeploymentObjectType.Application, "16777301", "Notepad++", "8.9.8", distributed: false);
         Office = Service.Add(DeploymentObjectType.Package, "LAB00020", "Office Tools", "16.0");
@@ -405,9 +454,27 @@ internal sealed class DeploymentPageHarness
             PostRebootScan: false, DeadlineOffsetHours: 24, IsSeeded: false));
 
         Service.InConfirmedRun = () => Plans.InRun;
+
+        Rings.MemberCounts["LAB00010"] = 3;
+        Rings.MemberCounts["LAB00011"] = 4;
+        Rings.MemberCounts["LAB00012"] = 40;
+        SeedRings = new RingPlan(Name: "Workstation-Rings", Description: "Pilot, early and broad workstations.", HoldLaterRings: false, TimeBasedOn: "LocalTime",
+            Rings: [FakeRingService.Ring("Pilot", "", ""), FakeRingService.Ring("Broad", "", "", "Required", 7, 9)], IsSeed: true);
+        PilotRings = new RingPlan(Name: "Pilot-Rings", Description: "Three rings over one week.", HoldLaterRings: false, TimeBasedOn: "LocalTime",
+            Rings:
+            [
+                FakeRingService.Ring("Pilot", "LAB00010", "Pilot Workstations", threshold: 90),
+                FakeRingService.Ring("Early", "LAB00011", "Server Group A", "Required", 1, 3),
+                FakeRingService.Ring("Broad", "LAB00012", "Broad Workstations", "Required", 7, 9)
+            ], IsSeed: false);
+        Rings.Plans.Add(SeedRings);
+        Rings.Plans.Add(PilotRings);
+        Rings.InConfirmedRun = () => Plans.InRun;
     }
 
     public DeploymentWriter Writer() => new(Service, History, Log, () => "LAB", Dialogs.ConfirmRemoveDeploymentAsync);
+
+    public RingWriter RingWriter() => new(Rings, History, Log, () => "LAB", Dialogs.ConfirmRemoveDeploymentAsync);
 
     public DeploymentPageServices Services() => new(Service, Collections, Audit, Templates, Reports, Dialogs, Plans, Writer(), () => Settings,
         () =>
@@ -423,12 +490,7 @@ internal sealed class DeploymentPageHarness
             Saved = s;
             return true;
         },
-        () =>
-        {
-            RingStarts++;
-            return Task.FromResult(RingProblem);
-        },
-        Log, Clock);
+        Rings, RingWriter(), Log, Clock);
 
     public DeploymentHelperViewModel Create() => new(Services());
 
