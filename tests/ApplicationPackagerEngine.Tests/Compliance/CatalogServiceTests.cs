@@ -43,15 +43,18 @@ public sealed class CatalogServiceTests
     }
 
     [Fact]
-    public void LsaProtectionAcceptsBothEnabledValuesWithoutRewritingTheUefiChoice()
+    public void LsaProtectionIsDetectionOnlyAndAcceptsBothValuesWithoutRewritingTheUefiChoice()
     {
         var catalog = new CatalogService();
         var entry = catalog.Find("lsa-protection-runasppl")!;
         var builder = Encoding.UTF8.GetString(catalog.ReadBuilder(entry)!);
 
+        Assert.False(entry.RemediationSupported);
         Assert.Contains("Expected = @('1', '2')", builder);
         Assert.Contains("ExpressionOperator = 'OneOf'; ExpectedValue = $s.Expected", builder);
-        Assert.Contains("RemediateDword = $true", builder);
+        Assert.Contains("-EnableEnforcement $false", builder);
+        Assert.DoesNotContain("RemediateDword", builder);
+        Assert.DoesNotContain("Remediate =", builder);
     }
 
     [Fact]
@@ -63,6 +66,7 @@ public sealed class CatalogServiceTests
         Assert.Equal(2, entry.ProducesConfigurationItems.Count);
         Assert.Equal(2, entry.ProducesBaselines.Count);
         Assert.Equal(2, entry.Dependencies.Count);
+        Assert.True(entry.RemediationSupported);
         Assert.All(entry.Dependencies, d => Assert.Null(d.CreatedBy));
         Assert.True(entry.RebootRequired);
         Assert.Equal("False", entry.Parameters.Single(p => p.Name == "DetectOnly").Default);
@@ -125,6 +129,7 @@ public sealed class CatalogServiceTests
         { "\"Id\": \"llmnr-disable\"", "\"Id\": \"LLMNR_Disable\"", "Id must be kebab-case" },
         { "\"Version\": \"1.0.0\"", "\"Version\": \"1.0\"", "Version must be semver" },
         { "\"RebootRequired\": false", "\"RebootRequired\": \"no\"", "RebootRequired must be a boolean" },
+        { "\"RebootRequired\": false,", "\"RebootRequired\": false,\n  \"RemediationSupported\": \"no\",", "RemediationSupported must be a boolean" },
         { "\"TenablePlugins\": []", "\"TenablePlugins\": [\"x\"]", "TenablePlugins must contain only integers" },
         { "\"Type\": \"Switch\"", "\"Type\": \"Bool\"", "Type must be one of: String, Switch, Int, StringArray" },
         { "\"DependsOn\": []", "\"DependsOn\": [ { \"Type\": \"Collection\", \"Name\": \"x\" } ]", "DependsOn[0].CreatedBy key is required" },
