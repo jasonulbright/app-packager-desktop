@@ -25,6 +25,25 @@ public sealed class PageRound2Tests
     }
 
     [Fact]
+    public async Task AnUndoPairDroppedDuringPrepareStaysAvailableAfterOtherPairsAreDistributed()
+    {
+        var h = new DpContentPageHarness();
+        h.Service.SetState(h.SevenZipOnDp02, DpContentStates.Installed);
+        h.Service.SetState(h.SevenZipOnBranch, DpContentStates.Installed);
+        var vm = await h.OpenAsync(VM.ContentTab);
+        vm.SelectedContent = vm.ContentRows.Single(r => r.PackageId == h.SevenZip.PackageId);
+        h.Dialogs.OnPairs = p => p.CheckShownCommand.Execute(null);
+        await vm.RemoveFromDpCommand.ExecuteAsync(null);
+        Assert.Equal(3, vm.LastUndo!.Pairs.Count);
+
+        h.Service.DropDistributeAgain = pair => pair.NalPath == h.SevenZipOnBranch.NalPath;
+        await vm.UndoLastCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, h.Service.Applied[1].Single().Pairs.Count);
+        Assert.Equal([h.SevenZipOnBranch.NalPath], vm.LastUndo!.Pairs.Select(p => p.NalPath));
+    }
+
+    [Fact]
     public async Task APairWithAnErrorMessageCountsAsFailedInStatusIssuesAndRemoveFailures()
     {
         var h = new DpContentPageHarness();
