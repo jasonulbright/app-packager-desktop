@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.Logging;
@@ -26,7 +26,7 @@ public sealed partial class SiteHygieneViewModel
     public const string ExportNoRelations = "The relationships were not read. Select Read relationships, then export.";
     /// <summary>Each tab that Export CSV and Export HTML write, by index and header, in tab order.</summary>
     public static readonly IReadOnlyList<(int Index, string Name)> ExportTabs =
-        [(FindingsTab, "Findings"), (RelationsTab, "Relationships"), (SummaryTab, "Summary"), (HistoryTab, "History")];
+        [(FindingsTab, "Findings"), (RelationsTab, "Relationships"), (LiveTab, "Live"), (SummaryTab, "Summary"), (HistoryTab, "History")];
 
     public static readonly string ExportOptions = $"The Options tab has no rows. Select the {OrList(ExportTabs.Select(t => t.Name).ToList())} tab to export.";
 
@@ -372,25 +372,6 @@ public sealed partial class SiteHygieneViewModel
     }
 
     [RelayCommand]
-    private async Task OpenLiveViews()
-    {
-        SuiteToolLaunchResult result;
-        try { result = await Services.OpenLiveViews(); }
-        catch (Exception ex)
-        {
-            Services.Log.Warning(LogArea, $"The Live views could not start ({ex.GetType().Name}).");
-            StatusMessage = "The Live views could not start. The log has the details.";
-            return;
-        }
-        StatusMessage = result.Outcome switch
-        {
-            SuiteToolLaunchOutcome.Started => "The Live views open in the Site Hygiene suite tool.",
-            SuiteToolLaunchOutcome.BroughtToFront => "The Site Hygiene suite tool is open.",
-            _ => result.Message ?? "The Live views could not start."
-        };
-    }
-
-    [RelayCommand]
     private Task ExportCsv() => ExportAsync("CSV", Services.Reports.WriteCsv);
 
     [RelayCommand]
@@ -437,6 +418,8 @@ public sealed partial class SiteHygieneViewModel
         {
             case OptionsTab:
                 return (null, ExportOptions);
+            case LiveTab:
+                return (null, "The Live tab exports through its own report writer.");
             case HistoryTab:
                 if (!IsHistoryLoaded) return (null, HistoryNotRead);
                 return (new HygieneReport(View: "History", Columns: ["Time", "Action", "Phase", "Result", "Objects", "Site", "Provider", "User", "Verified", "Run", "Message"],
@@ -473,6 +456,11 @@ public sealed partial class SiteHygieneViewModel
     /// <summary>Writes the rows the filters show; refuses when the view was not read, and names truncation and the checks that did not run in the file header.</summary>
     private async Task ExportAsync(string format, Func<HygieneReport, string> write)
     {
+        if (SelectedTabIndex == LiveTab)
+        {
+            await ExportLiveAsync(format);
+            return;
+        }
         var (report, problem) = ActiveReport();
         if (report is null)
         {
@@ -494,8 +482,12 @@ public sealed partial class SiteHygieneViewModel
         }
         StatusMessage = $"Saved the {format} report to {path}: {SiteHygieneLabels.Count(report.Rows.Count, "row")}." + (report.Filter.Length > 0 ? " Filter: " + report.Filter : " No filter.")
             + (report.Note is { } note ? " " + note : "")
-            + (format == "CSV" ? $" The notes are in {Path.GetFileName(HygieneReportWriter.AboutPath(path))}." : "");
+            + NotesNote(format, path);
         Services.Log.Info(LogArea, $"Saved a {format} report with {report.Rows.Count} rows.");
         LastReportFolder = Path.GetDirectoryName(path) is { Length: > 0 } folder ? folder : null;
     }
+
+    /// <summary>The sentence of a saved report that names the notes file; a CSV report keeps its notes in a separate file.</summary>
+    private static string NotesNote(string format, string path) =>
+        format == "CSV" ? $" The notes are in {Path.GetFileName(HygieneReportWriter.AboutPath(path))}." : "";
 }

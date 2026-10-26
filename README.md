@@ -32,7 +32,6 @@ The catalog has 319 application definitions. A definition is one JSON file. You 
 - For WSUS: the WSUS console or the RSAT WSUS tools on this computer, at the version of the server, and an account in the WSUS Administrators group.
 - For Intune: an app registration with a client secret. App Packager Desktop downloads the Microsoft Win32 Content Prep Tool when it is necessary.
 - 7-Zip, for applications whose installer is an archive.
-- For the suite tool entries in the sidebar: the App Packager Suite, installed for the current user.
 
 The release is self-contained. A separate .NET runtime is not necessary.
 
@@ -56,7 +55,7 @@ In **Settings**, ConfigMgr can request content distribution and then create an A
 
 The sidebar on the left lists the pages and tools. **Packages** is the main page. The application always starts on it.
 
-![The sidebar with the Packages page, the Application Workbench and the eight suite tools](docs/images/sidebar.png)
+![The sidebar with the Packages page, the Application Workbench and eight native pages](docs/images/sidebar.png)
 
 You control the sidebar:
 
@@ -68,14 +67,18 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. All eight are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis), [Deployment Helper](#deployment-helper), [DP Content Manager](#dp-content-manager), [Pivots and Scripts](#pivots-and-scripts) and [Site Hygiene](#site-hygiene). The **Live views** button of the Site Hygiene page starts the Live views of the App Packager Suite tool Site Hygiene in its own window. It starts the tool from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are native pages in App Packager Desktop:
 
-- App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
-- To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
-- If the suite or a tool is not installed, a message names what is missing and where App Packager Desktop looked.
-- A second click on a tool that is open brings its window to the front.
-- App Packager Desktop passes the ConfigMgr site code and provider to the tool in the environment variables `SUITE_CM_SITECODE` and `SUITE_CM_PROVIDER`. It passes the site code you saved. When you did not save one, it passes only a site code that the environment already holds from the suite launcher. It passes the provider only when it is set. A tool uses these values only when its own settings are empty.
-- If a tool stops right after it starts with a non-zero exit code, a message names the tool and its exit code.
+- [Detection Tester](#detection-tester)
+- [Maintenance Windows](#maintenance-windows)
+- [Collection and Compliance](#collection-and-compliance)
+- [Installer Analysis](#installer-analysis)
+- [Deployment Helper](#deployment-helper)
+- [DP Content Manager](#dp-content-manager)
+- [Pivots and Scripts](#pivots-and-scripts)
+- [Site Hygiene](#site-hygiene)
+
+The sidebar starts no suite tool.
 
 ## Detection Tester
 
@@ -470,7 +473,7 @@ The page works in light and dark themes.
 - The page makes no network call except to the SMS Provider.
 ## Site Hygiene
 
-The **Site Hygiene** page scans a ConfigMgr site for clutter and drift, shows each finding with its evidence, and can fix a finding. **A fix deletes or changes objects on the site. Most deletes cannot be undone.** Read [Limits](#limits-2) before you fix anything on a production site. This is part 1 of the page. The Live views (deployments, content, distribution points, client health, inactive devices, site health, trends and alerts) stay in the suite tool, and the **Live views** button starts it.
+The **Site Hygiene** page scans a ConfigMgr site for clutter and drift, shows each finding with its evidence, and can fix a finding. It also provides live site views, trends, alerts, metrics history and dashboard import. **A fix deletes or changes objects on the site. Most deletes cannot be undone.** Read [Limits](#limits-2) before you fix anything on a production site.
 
 ![The Findings tab with the findings of a scan and the fix text of the selected finding](docs/images/apd15-sh-findings.png)
 
@@ -510,6 +513,48 @@ The page works in light and dark themes.
 
 ![The Findings tab in the dark theme after a fix run](docs/images/apd15-sh-dark.png)
 
+### Live views
+
+The six Live views read current site data. Deployments, Content, Distribution Points and Site Health read through the SMS Provider. Client Health and Inactive Devices read the site database with Windows authentication and read-only access. Both database views use the shared **Discovery SQL Server** and **Discovery SQL Database** settings. When no SQL server is found, Options says **SQL is not set up**.
+
+One refresh makes eight SMS Provider queries in four session calls and two SQL statements. The refresh timer starts after the first successful refresh. It supports intervals from 5 minutes to 24 hours, can be paused, stops when you leave the page, never overlaps refreshes, and backs off after repeated failures. Failed or cut reads show **Not known**, never zero.
+
+![Deployments Live view](docs/images/apd16-sh2-deployments.png)
+
+![Content Live view](docs/images/apd16-sh2-content.png)
+
+![Distribution Points Live view](docs/images/apd16-sh2-dps.png)
+
+![Client Health Live view](docs/images/apd16-sh2-clients.png)
+
+![Site Health Live view](docs/images/apd16-sh2-sitehealth.png)
+
+![Site Hygiene Options](docs/images/apd16-sh2-options.png)
+
+![Live views in the dark theme](docs/images/apd16-sh2-dark.png)
+
+### Trends
+
+WPF shapes draw the chart, with a table of the same points below it. Missing points stay visible as gaps. The chart downsamples data above its point cap.
+
+![Site Hygiene Trends](docs/images/apd16-sh2-trends.png)
+
+### Alerts
+
+Alerts cover critical site components or systems, critical distribution points, failed distribution point and content pairs, and deployments below a compliance floor. The first evaluation in a session sets a baseline and does not alert. An alert fires when a complete reading crosses into breach. It can fire again after a complete read shows recovery and a later reading crosses into breach. Alerts appear in the in-app list and banner and in `SiteHygiene\alerts.log`. Windows toast notifications are not used.
+
+![Site Hygiene alerts](docs/images/apd16-sh2-alerts.png)
+
+### Metrics history
+
+The app stores a CSV at `SiteHygiene\metrics-history.csv` in the data folder. Each completed refresh adds one row. The file retains 180 days. A failed view writes empty cells. You can read the file with `Import-Csv`.
+
+### Dashboard import
+
+Import can read a retired Health Dashboard folder or the suite's own history and preferences. It shows a plan and requires one confirmation. It fills only empty settings and never moves or deletes the old files. A second import changes nothing. The importer refuses corrupt files and files without known columns.
+
+![Site Hygiene dashboard import](docs/images/apd16-sh2-import.png)
+
 ### Limits
 
 - A delete cannot be undone. Restore from a backup of the site if you removed the wrong object.
@@ -519,7 +564,11 @@ The page works in light and dark themes.
 - The task sequences read is capped. When it is cut, the checks that need it do not run.
 - The content source probe (check APP-04) is off by default, because it reaches file servers. With it off, APP-04 is not selected.
 - The audit chain finds edits to single records. A process that runs under the same account can write a new chain without a break.
-- The page makes no network call except to the SMS Provider, and to the file servers when you switch the content source probe on.
+- The Live views read the SMS Provider and, for two views, the site database. The content source probe also reaches file servers when it is switched on.
+- The lab had one distribution point and four clients. Scale is covered by stub tests only.
+- Alerts fire only while the app runs. Polling stops when you leave the page.
+- The database views need read rights on the site database.
+- The Content view was empty in the lab and was tested with fixtures.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.

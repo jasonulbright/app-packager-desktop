@@ -271,6 +271,35 @@ public sealed class SiteHygieneRegistrationTests : IDisposable
     }
 
     [Fact]
+    public void TheApplicationContainerGivesThePageTheSixRealLiveServicesAndTheSaveWritesTheLiveOptions()
+    {
+        using var provider = Provider();
+        var services = provider.GetRequiredService<SiteHygienePageServices>();
+        var live = Assert.IsType<SiteHygieneLiveServices>(services.Live);
+        Assert.IsType<SiteHygieneLiveService>(live.Live);
+        Assert.Same(provider.GetRequiredService<MetricsHistoryStore>(), live.History);
+        Assert.IsType<AlertEvaluator>(live.Alerts);
+        Assert.IsType<AlertLog>(live.AlertLog);
+        Assert.IsType<LegacyDashboardImport>(live.Import);
+        Assert.IsType<LiveReportWriter>(live.Reports);
+        Assert.Same(provider.GetRequiredService<IAlertEvaluator>(), live.Alerts);
+        var viewModel = provider.GetRequiredService<SiteHygieneViewModel>();
+        Assert.True(viewModel.HasLive);
+        Assert.True(viewModel.RefreshAllCommand.CanExecute(null));
+        Assert.False(File.Exists(SettingsService.SettingsPath));
+
+        var settings = provider.GetRequiredService<SettingsService>();
+        var stored = settings.Load();
+        stored.SiteHygiene = new SiteHygieneSettings { SelectedTab = 4 };
+        settings.Save(stored);
+        Assert.True(live.SaveLive(new SiteHygieneLiveSettings { RefreshMinutes = 30, AlertDpCritical = false }, "CM01.contoso.com", "CM_MCM"));
+        var after = new SettingsService().Load();
+        Assert.Equal((30, (bool?)false, (int?)null), (after.SiteHygieneLive!.RefreshMinutes, after.SiteHygieneLive.AlertDpCritical, after.SiteHygieneLive.InactiveDays));
+        Assert.Equal(("CM01.contoso.com", "CM_MCM", 4), (after.DiscoverySqlServer, after.DiscoverySqlDatabase, after.SiteHygiene!.SelectedTab));
+        Assert.Equal(30, SiteHygieneLivePreferences.ToLiveSettings(after).RefreshMinutes);
+    }
+
+    [Fact]
     public void ThePageGetsTheRealServiceStoresAndReportWriterInTheDataFolder()
     {
         using var provider = Provider();

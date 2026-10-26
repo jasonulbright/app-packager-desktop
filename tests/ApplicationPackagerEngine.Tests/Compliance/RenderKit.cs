@@ -96,7 +96,7 @@ internal static class RenderKit
         StaTestHelper.Flush();
     }
 
-    public static void Run(Task task) => StaTestHelper.PumpUntil(() => task.IsCompleted);
+    public static void Run(Task task, TimeSpan? timeout = null) => StaTestHelper.PumpUntil(() => task.IsCompleted, timeout);
 
     private static double TextWidth(TextBlock style, string text) =>
         new FormattedText(text, System.Globalization.CultureInfo.InvariantCulture, System.Windows.FlowDirection.LeftToRight,
@@ -119,7 +119,9 @@ internal static class RenderKit
             Assert.True(column.MinWidth >= ReadableColumnWidth, $"{name} has a minimum of {column.MinWidth} px.");
             var header = Header(grid, name);
             var label = Descendants(header).OfType<TextBlock>().First(t => t.Text == name);
-            var needed = TextWidth(label, name) + header.Padding.Left + header.Padding.Right;
+            // A header that wraps needs its widest word on one line; its other words go to the next line.
+            var labelWidth = label.TextWrapping == TextWrapping.NoWrap ? TextWidth(label, name) : name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Max(w => TextWidth(label, w));
+            var needed = labelWidth + header.Padding.Left + header.Padding.Right;
             Assert.True(column.MinWidth >= needed, $"{name} has a minimum of {column.MinWidth} px; its header needs {needed:0} px.");
             if (column is DataGridTextColumn text)
             {

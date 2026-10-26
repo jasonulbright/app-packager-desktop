@@ -1,0 +1,46 @@
+<ui:FluentWindow
+    x:Class="ApplicationPackagerUI.Views.Windows.HygieneImportWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="{Binding Title}"
+    Width="640" SizeToContent="Height"
+    MinWidth="460"
+    WindowStartupLocation="CenterOwner"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/ApplicationPackagerUI;component/Views/Styles/DetailBox.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid KeyboardNavigation.TabNavigation="Local">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="{Binding Title}" ShowMinimize="False" />
+
+        <TextBlock Grid.Row="1" Margin="16,4,16,8" Text="{Binding Intro}" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                   AutomationProperties.AutomationId="txtImportIntro" />
+
+        <TextBox Grid.Row="2" x:Name="txtImportPlan" Margin="16,0,16,8" Text="{Binding Plan, Mode=OneWay}" Style="{StaticResource DetailBox}" KeyboardNavigation.TabIndex="0"
+                 AutomationProperties.Name="What the import copies, read only" AutomationProperties.AutomationId="txtImportPlan" />
+
+        <Border Grid.Row="3" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" Padding="16,10"
+                KeyboardNavigation.TabNavigation="Local" KeyboardNavigation.TabIndex="1">
+            <WrapPanel HorizontalAlignment="Right">
+                <ui:Button x:Name="btnImport" Content="Import" MinWidth="100" Margin="0,0,8,0" Appearance="Primary" Command="{Binding ImportCommand}"
+                           AutomationProperties.AutomationId="btnImportConfirm" />
+                <ui:Button x:Name="btnCancel" Content="_Cancel" MinWidth="100" IsCancel="True" IsDefault="True" Command="{Binding CancelCommand}" AutomationProperties.AutomationId="btnImportCancel" />
+            </WrapPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
