@@ -125,14 +125,17 @@ public sealed class InstallerAnalysisSessionTests : IDisposable
     {
         var clock = Stopwatch.StartNew();
         CancellationToken seen = default;
+        using var started = new ManualResetEventSlim();
         var finished = HostShutdown.StopAndWait(ct =>
         {
             seen = ct;
+            started.Set();
             return Task.Delay(Timeout.Infinite, CancellationToken.None);
         }, TimeSpan.FromMilliseconds(200));
         Assert.False(finished);
-        Assert.True(seen.IsCancellationRequested);
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(5), $"The stop took {clock.Elapsed}.");
+        Assert.True(started.Wait(TimeSpan.FromSeconds(30)), "The stop did not start.");
+        Assert.True(seen.IsCancellationRequested);
         Assert.False(HostShutdown.StopAndWait(_ => throw new InvalidOperationException(), TimeSpan.FromSeconds(1)));
     }
 }

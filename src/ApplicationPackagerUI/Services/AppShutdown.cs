@@ -10,12 +10,15 @@ namespace ApplicationPackagerUI.Services;
 /// </summary>
 public static class AppShutdown
 {
-    public static void Complete(IHost? host, TimeSpan stopTimeout, Action exit)
+    public static void Complete(IHost? host, TimeSpan stopTimeout, Action exit) =>
+        Complete(host, stopTimeout, exit, static (running, limit) => running.Wait(limit));
+
+    public static void Complete(IHost? host, TimeSpan stopTimeout, Action exit, Func<Task, TimeSpan, bool> waitForStop)
     {
         try
         {
             if (host is null) return;
-            HostShutdown.StopAndWait(host.StopAsync, stopTimeout);
+            HostShutdown.StopAndWait(host.StopAsync, stopTimeout, waitForStop);
             host.Dispose();
         }
         finally

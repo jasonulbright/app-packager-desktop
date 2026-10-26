@@ -216,6 +216,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
             item.Step = $"publishing {p.Application} to {destination}";
             p.Status = $"Publishing to {destination}...";
             string cell, id = "", detail = "";
+            string? ciId = null, modelName = null;
             var ok = false;
             var present = false;
             var destinationOutcome = InventoryOutcome.Failed;
@@ -247,6 +248,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                             destinationOutcome = InventoryOutcome.Succeeded;
                             ok = true;
                             cell = "published " + id;
+                            (ciId, modelName) = (result.ConfigMgrCiId, result.ConfigMgrModelName);
                         }
                         IntuneNotes?.Invoke(p, result);
                         break;
@@ -297,7 +299,7 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
                 throw;
             }
 
-            RecordDestination(p, identity, settings, destination, latest, id, destinationOutcome, detail, snapshot.BuildId, operationId);
+            RecordDestination(p, identity, settings, destination, latest, id, destinationOutcome, detail, snapshot.BuildId, operationId, ciId, modelName);
             item.SetResult(destination, cell, id, detail);
             if (ok)
             {
@@ -430,11 +432,11 @@ public sealed class OneClickRowRunner(IOneClickExecution execution, ISettingsRea
 
     private void RecordDestination(PackagerInfo row, InventoryApplicationIdentity identity, AppSettings settings,
         string destination, string version, string? objectId, InventoryOutcome outcome, string? detail,
-        string buildId, string operationId)
+        string buildId, string operationId, string? configMgrCiId = null, string? configMgrModelName = null)
     {
         var environment = ApplicationInventoryProjection.Environments(settings)
             .First(item => string.Equals(item.Destination, destination, StringComparison.OrdinalIgnoreCase)).Environment;
         inventory.RecordDestinationOutcome(new InventoryDestinationOutcome(row.Uid, identity, environment, "Publish",
-            version, outcome, objectId, DateTimeOffset.UtcNow, buildId, operationId, detail));
+            version, outcome, objectId, DateTimeOffset.UtcNow, buildId, operationId, detail, configMgrCiId, configMgrModelName));
     }
 }

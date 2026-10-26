@@ -76,7 +76,8 @@ public sealed class CollectionWriterTests : IDisposable
     [Fact]
     public void NoTypeOfTheDesktopButTheWriterAndThePageHoldsTheCollectionService()
     {
-        var allowed = new[] { typeof(CollectionWriter), typeof(CollectionComplianceViewModel), typeof(CollectionCompliancePageServices), typeof(CompliancePageServices) };
+        var allowed = new[] { typeof(CollectionWriter), typeof(CollectionComplianceViewModel), typeof(CollectionCompliancePageServices), typeof(CompliancePageServices),
+            typeof(DeploymentPageServices) };
         var all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
         var holders = typeof(CollectionWriter).Assembly.GetTypes()
             .Where(t => !t.Name.StartsWith("Unavailable", StringComparison.Ordinal))
@@ -150,16 +151,19 @@ public sealed class CollectionWriterTests : IDisposable
     {
         var code = UiCode();
         var writers = code.Where(f => System.Text.RegularExpressions.Regex.IsMatch(f.Value, @"\bservice\s*\.\s*ApplyAsync\b")).Select(f => f.Key).ToList();
-        Assert.Equal([Path.Combine("Services", "CollectionsPlan.cs")], writers.Where(f => !f.Contains("Maintenance", StringComparison.Ordinal) && f != Path.Combine("Services", "CompliancePlan.cs")));
+        Assert.Equal([Path.Combine("Services", "CollectionsPlan.cs")], writers.Where(f => !f.Contains("Maintenance", StringComparison.Ordinal) && f != Path.Combine("Services", "CompliancePlan.cs")
+            && f != Path.Combine("Services", "DeploymentPlan.cs")));
 
         Assert.Equal(
         [
             Path.Combine("Services", "CollectionCompliancePrompts.cs"),
             Path.Combine("Services", "CollectionsPlan.cs"),
             Path.Combine("Services", "CompliancePrompts.cs"),
+            Path.Combine("Services", "DeploymentHelperPrompts.cs"),
             Path.Combine("Services", "PackagerServiceRegistration.cs"),
             Path.Combine("ViewModels", "Pages", "CollectionComplianceViewModel.cs"),
-            Path.Combine("ViewModels", "Pages", "ComplianceShared.cs")
+            Path.Combine("ViewModels", "Pages", "ComplianceShared.cs"),
+            Path.Combine("ViewModels", "Pages", "DeploymentShared.cs")
         ], code.Where(f => System.Text.RegularExpressions.Regex.IsMatch(f.Value, @"\bICollectionService\b")).Select(f => f.Key).Order(StringComparer.OrdinalIgnoreCase));
 
         string[] reads = ["ListCollectionsAsync", "GetCollectionAsync", "GetDetailAsync", "ValidateWqlAsync", "PreviewWqlAsync", "ListSavedQueriesAsync", "PrepareAsync"];

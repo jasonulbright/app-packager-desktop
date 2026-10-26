@@ -25,8 +25,15 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public const string CancelledReason = "No result: the run was cancelled before this change reported.";
     public const string FailedReason = "No result: the run failed before this change reported.";
     public const string DetachedReason = "No result: the window was closed while the run was still working.";
+    public const string UndoDeclinedText = "Undo was not confirmed. Nothing was changed. Undo is still available.";
 
     public static readonly TimeSpan DefaultForceCloseDelay = TimeSpan.FromSeconds(10);
+
+    /// <summary>The longest Action text of the plans of every page; the Action column wraps it into whole words.</summary>
+    public const string LongestAction = "Distribute and create Required deployment";
+
+    /// <summary>The width of the Action column at which the longest word of every plan action fits on one line.</summary>
+    public const double ActionColumnMinWidth = 120;
 
     /// <summary>
     /// The capability <see cref="ConfirmedChangePlan.Issue"/> requires. The constructor is
@@ -79,6 +86,8 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     public bool IsDestructive => _plan.IsDestructive;
     public bool HasExtraConfirmation => _plan.ExtraConfirmation is not null;
     public string ExtraConfirmationText => _plan.ExtraConfirmation ?? "";
+    public bool HasOptionalChoice => _plan.OptionalChoice is not null;
+    public string OptionalChoiceText => _plan.OptionalChoice ?? "";
     public ObservableCollection<ChangePlanItem> Items { get; }
     public ObservableCollection<ChangePlanItemResult> ResultRows { get; } = [];
 
@@ -98,6 +107,9 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
     private bool _extraAcknowledged;
+
+    /// <summary>The optional choice of the plan; it changes how the plan runs, not whether Confirm is available.</summary>
+    [ObservableProperty] private bool _optionChosen;
 
     /// <summary>The last step a running change reported; empty when no run works.</summary>
     [ObservableProperty] private string _stepText = "";
@@ -128,7 +140,7 @@ public sealed partial class ChangePlanViewModel : ObservableObject
     private async Task ConfirmAsync()
     {
         if (!CanConfirm()) return;
-        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged);
+        _confirmed = ConfirmedChangePlan.Issue(s_issueKey!, _plan, DestructiveAcknowledged, ExtraAcknowledged, OptionChosen);
         Stage = ChangePlanStage.Running;
         ResultText = "Running...";
         var result = await RunAsync(_run, "");
@@ -148,6 +160,14 @@ public sealed partial class ChangePlanViewModel : ObservableObject
         ResultText = "Undoing...";
         var result = await RunAsync(_undo!, "Undo: ");
         if (IsDetached) return;
+        if (result.Declined && Outcome.Result is { } done)
+        {
+            ResultRows.Clear();
+            foreach (var row in done.Items) ResultRows.Add(row with { Message = SecretMask.Apply(row.Message) });
+            ResultText = $"{done.Summary} {UndoDeclinedText}";
+            Stage = ChangePlanStage.Done;
+            return;
+        }
         Outcome = Outcome with { UndoResult = result };
         Stage = ChangePlanStage.Undone;
     }

@@ -35,9 +35,39 @@ public class AppShutdownTests
     public void TheProcessEndsWhenTheStopNeverFinishes()
     {
         var steps = new List<string>();
-        AppShutdown.Complete(new FakeHost(steps, _ => Task.Delay(Timeout.Infinite, CancellationToken.None)),
-            TimeSpan.FromMilliseconds(100), () => steps.Add("exit"));
+        var timeout = TimeSpan.FromMilliseconds(100);
+        var never = new TaskCompletionSource();
+        using var stopStarted = new ManualResetEventSlim();
+        Task? waitedFor = null;
+        TimeSpan? waitLimit = null;
+        AppShutdown.Complete(new FakeHost(steps, _ =>
+            {
+                stopStarted.Set();
+                return never.Task;
+            }),
+            timeout, () => steps.Add("exit"),
+            (running, limit) =>
+            {
+                Assert.True(stopStarted.Wait(TimeSpan.FromSeconds(30)), "The stop did not start.");
+                waitedFor = running;
+                waitLimit = limit;
+                return running.Wait(TimeSpan.Zero);
+            });
         Assert.Equal(["stop", "dispose", "exit"], steps);
+        Assert.Equal(timeout, waitLimit);
+        Assert.False(waitedFor!.IsCompleted);
+    }
+
+    [Fact]
+    public void TheStopRunsOffTheThreadPool()
+    {
+        bool? onPool = null;
+        Assert.True(HostShutdown.StopAndWait(_ =>
+        {
+            onPool = Thread.CurrentThread.IsThreadPoolThread;
+            return Task.CompletedTask;
+        }, TimeSpan.FromSeconds(30)));
+        Assert.False(onPool);
     }
 
     [Fact]

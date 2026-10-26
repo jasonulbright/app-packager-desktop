@@ -68,7 +68,7 @@ You control the sidebar:
 
 Packages cannot be hidden or moved, and no entry can be dropped above it. **Settings** stays at the bottom. The order and the hidden entries are saved for the current Windows user.
 
-The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance and Installer Analysis are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance) and [Installer Analysis](#installer-analysis). The other four start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these four tools. It starts them from the suite installation of the current user and never changes the suite files.
+The eight entries after the Application Workbench are Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis, Deployment Helper, DP Content Manager, Pivots and Scripts and Site Hygiene. Detection Tester, Maintenance Windows, Collection and Compliance, Installer Analysis and Deployment Helper are part of App Packager Desktop; see [Detection Tester](#detection-tester), [Maintenance Windows](#maintenance-windows), [Collection and Compliance](#collection-and-compliance), [Installer Analysis](#installer-analysis) and [Deployment Helper](#deployment-helper). The other three entries start tools of the App Packager Suite. Each of these tools opens in its own window. App Packager Desktop does not include these three tools. It starts them from the suite installation of the current user and never changes the suite files.
 
 - App Packager Desktop finds the suite in this order: the `InstallLocation` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\AppPackagerSuite`, then `%LOCALAPPDATA%\AppPackagerSuite`.
 - To find a tool, App Packager Desktop first uses `ToolsRoot` from the `suite.settings.json` file of the suite, when that value is set. It then uses the tool folders of the suite installation.
@@ -282,6 +282,50 @@ The page uses 7-Zip, when it is installed, to list and extract archives. The pag
 Extracted files go to a private folder under the data folder, one folder for each analysis level. The page removes these folders when you go back a level, when you leave the page, when the application closes, and at the next start. The page refuses entry names that leave the folder (`..\`, absolute paths, device names, alternate data streams) and any link in the target path. A limit stops an archive with too many entries, too much data or an extreme compression ratio before the page writes it. **Recent files** keeps the last 10 paths for the current Windows user; **Clear recent** removes them. A path is never read until you open it. The page keeps no other analysis data on disk.
 
 ![The Overview tab in the dark theme](docs/images/apd10-ia-dark.png)
+## Deployment Helper
+
+The **Deployment Helper** page creates one deployment of an application, a package, a task sequence or a software update group to a device collection. A Required deployment is enforced on every device of its collection, and the clients then try to install the software, so every step is checked and every change shows a plan first. Nothing changes until you read the plan, select the confirmation box and select the action button. The page connects to the SMS Provider through the ConfigMgr session of the application and makes no other network request. Deployment of one object to a series of rings is not part of this page yet. The **Ring deployment** button starts the suite tool Deployment Helper for that.
+
+![The Deploy tab after Validate, with the checks and the result of an Undo](docs/images/apd11-dh-deploy.png)
+
+The **Deploy** tab:
+
+- **Object and collection:** select the type (Applications, Packages, Task Sequences or Software Update Groups), then the object, and for a package the program. Select a device collection. A collection whose ID starts with `SMS` (a built-in collection) cannot be chosen. User collections are not offered. Names are matched exactly: a `*` or `[` in a name is a plain character.
+- **Purpose and times:** Available or Required, the available time, the deadline and the time basis (local time or UTC). The deadline must be later than the available time. A deadline in the past is blocked. An Available time in the past needs an extra confirmation. `Available` with `Hide in Software Center and all notifications` is blocked, because the deployment would do nothing visible.
+- **Options:** each type shows its own options. For an Available deployment, ConfigMgr ignores the rerun, maintenance window, metered connection and restart settings, and the page marks those inputs. The slow network option `RunProgramFromDistributionPoint` is refused, because ConfigMgr rejects it.
+- **Distribution points:** the list shows the status of each DP group. **Distribute content** shows a plan and cannot be undone: the content stays on the distribution points.
+- **Templates:** **Apply template** fills the purpose, notification, time basis, options and deadline offset. A template holds no object or collection. Four templates ship with the page: Workstation Pilot, Workstation Production, Server Pilot and Server Production. **Save as template** keeps your own.
+- **Validate:** the page runs these checks: the object exists, the content is distributed, the collection is a device collection, the collection is not built in, no deployment of this object to this collection exists, the schedule and options are valid, the audit log can be written, and the script-signing rule. A check with Fail or Unknown blocks the deployment. ConfigMgr refuses a second application deployment to the same collection. It allows a second package, task sequence or update group deployment, so the page checks for these itself.
+- **Deploy:** the plan lists the object, the collection with its member count now, the purpose, the times, the options and the result of every check.
+
+![The plan for a Required deployment with its second confirmation](docs/images/apd11-dh-plan-required.png)
+
+- **Required deployments:** the plan names the number of devices and the deadline, and the action button stays off until you select the extra box. The service refuses a Required deployment without this confirmation, whatever the page sends.
+- **Script signing:** for an application that this product packaged, a Required deployment follows the signing policy of the product. The page finds the application by its CI ID, and by its name when no CI ID is stored. An older packaged application that was renamed in the console before the page first listed it can pass as an application that the product did not package.
+- **Distribute and create:** with checked DP groups and **Distribute first**, one plan distributes the content and creates the deployment. The distribution is requested first. The deployment is created when the content check passes. A box on the plan lets you create the deployment at once while the content still distributes.
+
+![A plan that distributes the content and creates the deployment](docs/images/apd11-dh-distribute-create.png)
+
+- **Stale plans:** the service keeps the state that it read when the plan opened: the object revision, the content references and the member count. If the object or its content changed, or the member count of a Required collection grew, the page skips the deployment and asks you to validate again. A decrease of the member count is allowed.
+- **Stored values:** the page reads the deployment back after the create and compares it with the plan. A difference fails the result and names the values. The page sends the UTC flag with the available time only: a UTC package or task sequence deployment then has no expiry.
+- **Undo:** Undo removes the deployment that this run created, found by its deployment ID. It asks one more question first. Software that clients already installed stays installed. A change that was not attempted starts with "Skipped" in the result.
+
+The **History** tab lists the audit log with filters for the object type and the event. **Export CSV** and **Export HTML** write the rows to the `Deployments` folder of the data folder (see [Data and network](#data-and-network)). A CSV cell that starts with `=`, `+`, `-`, `@`, a tab, a carriage return or a line feed is written as text, and the HTML report encodes all text. The page shows the newest 2000 records and says so when the log holds more. **Remove deployment** opens the plan for the selected record.
+
+![The History tab with the audit log](docs/images/apd11-dh-history.png)
+
+- **Audit log:** every create, distribution and removal adds one record to an append-only file (`deployment-audit.jsonl`). A deployment is created only when the file can be written. The page never rewrites or shortens the file. Each record ends with a hash that covers its fields and the previous record. The **Verified** column shows whether a record passes this chain.
+- **Undo from History:** it works only for a verified record. The page also checks the record against the site: the creator account, the creation time within 5 minutes, the stored values and, for an application, the object revision. If a check fails, the page refuses and says why. A record that was edited by hand, or that comes after an edited record, shows "Not verified" and cannot be undone from History. Remove such a deployment in the console. Undo from History checks the audit record against the site. It cannot stop a process of the same account that forges both.
+- **Creation proof:** applications and update groups carry the creation time and the account. Packages and task sequences have neither, so the page reads status message 30006 of the site. If the site no longer holds that message, Undo from History is refused.
+- **Two deployments at once:** a lock file next to the audit log stops two sessions of this product from creating the same deployment at the same time. The site cannot stop another administrator. If a second deployment of the same object appears during the create, the result is Partial with an Undo for the one made here. If the page cannot tell which deployment it made, the result names both IDs with their creators and times and offers no Undo.
+
+![The History tab in the dark theme](docs/images/apd11-dh-dark.png)
+
+The **Options** tab sets the audit log path and shows whether the log can be written. A share path is allowed. It also lists the templates, with **New**, **Edit** and **Delete** for your own.
+
+![The Options tab with the audit log and the templates](docs/images/apd11-dh-options.png)
+
+The page saves the selected tab, type and template for the current Windows user. Each completed run adds one line to the operation history, with counts only.
 ## Application Workbench
 
 The Workbench is the editor for one application. A definition supplies the defaults. A profile holds your changes. Each field shows the inherited value and shows if the profile overrides it. **Reset** returns a field to the inherited value.
