@@ -128,6 +128,25 @@ public sealed class DetectionTesterViewModelEdgeTests
     }
 
     [Fact]
+    public void LoadDetectionRejectsAnUnsupportedScriptLanguageWithoutChangingTheInputs()
+    {
+        var viewModel = _h.Create();
+        viewModel.SelectedClauseType = DetectionTesterViewModel.Script;
+        viewModel.ScriptText = "kept";
+
+        Assert.False(viewModel.LoadDetection(new StageDetection
+        {
+            Type = DetectionTesterViewModel.Script,
+            ScriptLanguage = "VBScript",
+            ScriptText = "WScript.Echo 'not PowerShell'"
+        }));
+
+        Assert.Equal(DetectionTesterViewModel.Script, viewModel.SelectedClauseType);
+        Assert.Equal("kept", viewModel.ScriptText);
+        Assert.Contains("VBScript", viewModel.StatusMessage);
+    }
+
+    [Fact]
     public async Task UseSelectedOnAnUnsupportedRowKeepsTheUnsupportedMessage()
     {
         _h.History.Entries.Add(DetectionTesterHarness.Entry(DateTimeOffset.Now, new StageDetection { Type = "Wmi" }, negative: true));
@@ -390,6 +409,24 @@ public sealed class DetectionTesterViewModelEdgeTests
         Assert.Equal(DetectionTesterResultState.Passed, viewModel.ResultState);
         _h.SaveFailure = null;
         await viewModel.RunCommand.ExecuteAsync(null);
+        Assert.Equal(2, _h.SaveCount);
+        Assert.Equal("RegistryKey", _h.Saved!.ClauseType);
+    }
+
+    [Fact]
+    public async Task AFalsePreferenceSaveDoesNotStopTheRunAndIsTriedAgain()
+    {
+        _h.SaveResult = false;
+        var viewModel = await _h.OpenAsync();
+        viewModel.SelectedClauseType = "RegistryKey";
+        viewModel.KeyPath = "SOFTWARE";
+        await viewModel.RunCommand.ExecuteAsync(null);
+        Assert.Equal(DetectionTesterResultState.Passed, viewModel.ResultState);
+        Assert.Equal(1, _h.SaveCount);
+
+        _h.SaveResult = true;
+        await viewModel.RunCommand.ExecuteAsync(null);
+
         Assert.Equal(2, _h.SaveCount);
         Assert.Equal("RegistryKey", _h.Saved!.ClauseType);
     }
