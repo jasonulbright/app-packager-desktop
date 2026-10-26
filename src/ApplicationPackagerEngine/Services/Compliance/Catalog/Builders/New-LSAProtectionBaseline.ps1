@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Creates a Configuration Manager CI + Baseline that enables LSA Protection (RunAsPPL).
+    Creates a Configuration Manager CI and baseline that detects LSA Protection (RunAsPPL).
 
 .DESCRIPTION
     Single native registry-value compliance setting:
@@ -8,15 +8,10 @@
         HKLM\SYSTEM\CurrentControlSet\Control\Lsa
             RunAsPPL = 1 or 2 (DWORD)
 
-    No embedded scripts. Configuration Manager handles discovery, comparison, and remediation natively.
+    The registry rule accepts both supported enabled values. Configuration Manager cannot
+    remediate a OneOf registry rule, so this baseline runs in detection-only mode.
 
-    RunAsPPL runs LSASS as a Protected Process Light, blocking non-PPL processes
-    (including most credential-dumping tooling) from opening a handle to LSASS memory.
-    It is one of the highest-value, lowest-cost anti-credential-theft controls and is
-    almost always missed -- it ships disabled and there is no nag to turn it on.
-
-    REBOOT REQUIRED: protection engages on the next boot. Configuration Manager will remediate the value
-    but the host is not actually protected until it restarts. Validate driver/plugin
+    REBOOT REQUIRED: protection engages on the next boot. Validate driver/plugin
     compatibility (some smartcard / AV LSA plugins must be PPL-signed) before broad
     enforcement.
 
@@ -27,14 +22,10 @@
     Configuration Manager site server FQDN.
 
 .PARAMETER CollectionName
-    If specified, deploys the baseline to this collection daily with remediation enabled.
-
-.PARAMETER DetectOnly
-    Create / deploy without remediation (audit mode). Recommended for an initial pass
-    to find hosts missing the value before flipping on enforcement.
+    If specified, deploys the detection-only baseline to this collection daily.
 
 .EXAMPLE
-    .\New-LSAProtectionBaseline.ps1 -SiteCode MCM -SiteServer CM01.contoso.local -DetectOnly
+    .\New-LSAProtectionBaseline.ps1 -SiteCode MCM -SiteServer CM01.contoso.local
 #>
 [CmdletBinding()]
 param(
@@ -44,9 +35,7 @@ param(
     [Parameter(Mandatory)]
     [string]$SiteServer,
 
-    [string]$CollectionName,
-
-    [switch]$DetectOnly
+    [string]$CollectionName
 )
 
 $ErrorActionPreference = 'Stop'
@@ -98,9 +87,8 @@ try {
             KeyName = $s.KeyName; ValueName = $s.ValueName; DataType = 'Integer'; Is64Bit = $true
             ValueRule = $true; RuleName = "$($s.ValueName) equals $($s.Expected)"
             ExpressionOperator = 'OneOf'; ExpectedValue = $s.Expected
-            NoncomplianceSeverity = $Severity; ReportNoncompliance = $true; RemediateDword = $true
+            NoncomplianceSeverity = $Severity; ReportNoncompliance = $true
         }
-        if (-not $DetectOnly) { $p.Remediate = $true }
         Add-CMComplianceSettingRegistryKeyValue @p
     }
     Write-Host "  CI created." -ForegroundColor Green
@@ -117,10 +105,9 @@ try {
         $schedule = New-CMSchedule -RecurInterval Days -RecurCount 1
         New-CMBaselineDeployment `
             -Name $CBName -CollectionName $CollectionName `
-            -EnableEnforcement (-not $DetectOnly) -OverrideServiceWindow $false `
+            -EnableEnforcement $false -OverrideServiceWindow $false `
             -GenerateAlert $false -MonitoredByScom $false -Schedule $schedule
-        $mode = if ($DetectOnly) { "DETECT ONLY" } else { "DETECT + REMEDIATE" }
-        Write-Host "  Deployed daily, mode: $mode" -ForegroundColor Green
+        Write-Host "  Deployed daily, mode: DETECT ONLY" -ForegroundColor Green
     }
     else {
         Write-Host "  Baseline created but NOT deployed. Re-run with -CollectionName." -ForegroundColor Yellow
@@ -132,7 +119,7 @@ try {
     Write-Host "Baseline: $CBName"
     Write-Host "Severity: $Severity"
     Write-Host "Reboot:   REQUIRED to engage protection"
-    Write-Host "Mode:     $(if ($DetectOnly) { 'Detect only' } else { 'Detect + remediate' })"
+    Write-Host "Mode:     Detect only"
     $settings | ForEach-Object { Write-Host ("Setting:  HKLM\{0}\{1} is one of {2}" -f $_.KeyName, $_.ValueName, ($_.Expected -join ', ')) }
 }
 finally {

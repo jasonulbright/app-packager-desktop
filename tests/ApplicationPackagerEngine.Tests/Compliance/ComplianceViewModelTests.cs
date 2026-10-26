@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests.MaintenanceWindows;
 using ApplicationPackagerUI.Models;
@@ -9,6 +10,13 @@ namespace ApplicationPackagerEngine.Tests.Compliance;
 
 public sealed class ComplianceViewModelTests
 {
+    private static async Task WaitForAsync(Func<bool> condition, string description)
+    {
+        var timer = Stopwatch.StartNew();
+        while (!condition() && timer.Elapsed < TimeSpan.FromSeconds(10)) await Task.Delay(5);
+        Assert.True(condition(), $"Timed out waiting for {description}.");
+    }
+
     private static void Deploy(CatalogDeployViewModel form) => FakeComplianceDialogs.Run(form.DeployCommand.ExecuteAsync(null));
 
     private static async Task<ComplianceViewModel> LiveAsync(ComplianceHarness harness)
@@ -96,12 +104,25 @@ public sealed class ComplianceViewModelTests
         var catalog = (await harness.OpenAsync()).Catalog;
         catalog.SelectedRow = catalog.Rows.Single(r => r.Entry.Id == "specexec-mitigations");
         var details = catalog.Details.ToDictionary(d => d.Name, d => d.Value);
-        Assert.Equal("Yes", details["Restart needed after remediation"]);
+        Assert.Equal("Supported", details["Remediation"]);
+        Assert.Equal("Yes", details["Restart needed for settings to take effect"]);
         Assert.Contains(@"HKLM\SOFTWARE\Policies\Example (Value1)", details["Registry values"]);
         Assert.Contains("CPU Speculative Execution Mitigations baseline 2", details["Creates baselines"]);
         Assert.Contains("Collection Devices: HT Disabled", details["Needs"]);
         Assert.Equal("CVE-2017-5715", details["CVEs"]);
         Assert.Equal("Windows 10, Windows 11; Server 2022", details["Operating systems"]);
+    }
+
+    [Fact]
+    public async Task TheLsaCatalogDetailsExplainThatRemediationIsUnsupported()
+    {
+        var (_, viewModel) = await CatalogOn("lsa-protection-runasppl", harness =>
+            harness.Catalog.Entries.Add(new CatalogService().Find("lsa-protection-runasppl")!));
+        var details = viewModel.Catalog.Details.ToDictionary(detail => detail.Name, detail => detail.Value);
+
+        Assert.Equal("Not supported; detection only", details["Remediation"]);
+        Assert.Equal("Yes", details["Restart needed for settings to take effect"]);
+        Assert.DoesNotContain("DetectOnly", details["Parameters"]);
     }
 
     private static async Task<(ComplianceHarness Harness, ComplianceViewModel ViewModel)> CatalogOn(string id, Action<ComplianceHarness>? arrange = null)
@@ -599,7 +620,7 @@ public sealed class ComplianceViewModelTests
         viewModel.Editor.SelectedItem = viewModel.Editor.Items.Single(i => i.CiId == "CI-SMB");
         var late = viewModel.Editor.SettingsLoad;
         // The read starts on a pool thread; the gate is released for the next read only after this read holds it.
-        while (Volatile.Read(ref harness.Service.SettingCalls) == 0) await Task.Delay(1);
+        await WaitForAsync(() => Volatile.Read(ref harness.Service.SettingCalls) != 0, "the setting read to start");
         harness.Service.SettingsGate = null;
         viewModel.Editor.SelectedItem = viewModel.Editor.Items.Single(i => i.CiId == "CI-TLS");
         await viewModel.Editor.SettingsLoad;

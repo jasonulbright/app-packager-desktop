@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using ApplicationPackagerEngine.Services;
@@ -11,6 +12,13 @@ namespace ApplicationPackagerEngine.Tests.Collections;
 /// <summary>Parameter insertion, stale state, races and partial undo of the Collection and Compliance page.</summary>
 public sealed class CollectionComplianceViewModelEdgeTests
 {
+    private static async Task WaitForAsync(Func<bool> condition, string description)
+    {
+        var timer = Stopwatch.StartNew();
+        while (!condition() && timer.Elapsed < TimeSpan.FromSeconds(10)) await Task.Delay(5);
+        Assert.True(condition(), $"Timed out waiting for {description}.");
+    }
+
     private static async Task<CollectionComplianceViewModel> SelectAsync(CollectionComplianceViewModel viewModel, string id)
     {
         viewModel.SelectedRow = viewModel.Rows.Single(r => r.CollectionId == id);
@@ -528,7 +536,7 @@ public sealed class CollectionComplianceViewModelEdgeTests
         harness.Service.ListGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var viewModel = harness.Create();
         var visit = viewModel.OnNavigatedToAsync();
-        while (Volatile.Read(ref harness.Service.ListCalls) == 0) await Task.Delay(5);
+        await WaitForAsync(() => Volatile.Read(ref harness.Service.ListCalls) != 0, "the collection load to start");
         viewModel.OpenByIdText = "LAB00011";
         await viewModel.OpenByIdCommand.ExecuteAsync(null);
         harness.Service.ListGate.SetResult();

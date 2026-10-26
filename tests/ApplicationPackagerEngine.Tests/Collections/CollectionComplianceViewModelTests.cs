@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Services.ConfigMgrSession;
 using ApplicationPackagerEngine.Tests.MaintenanceWindows;
@@ -11,6 +12,13 @@ namespace ApplicationPackagerEngine.Tests.Collections;
 /// <summary>The Collection and Compliance page logic over fake services, without a window.</summary>
 public sealed class CollectionComplianceViewModelTests
 {
+    private static async Task WaitForAsync(Func<bool> condition, string description)
+    {
+        var timer = Stopwatch.StartNew();
+        while (!condition() && timer.Elapsed < TimeSpan.FromSeconds(10)) await Task.Delay(5);
+        Assert.True(condition(), $"Timed out waiting for {description}.");
+    }
+
     private static async Task<CollectionComplianceViewModel> SelectAsync(CollectionComplianceViewModel viewModel, string id)
     {
         viewModel.SelectedRow = viewModel.Rows.Single(r => r.CollectionId == id);
@@ -162,7 +170,7 @@ public sealed class CollectionComplianceViewModelTests
         harness.Service.ListGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var viewModel = harness.Create();
         var visit = viewModel.OnNavigatedToAsync();
-        while (Volatile.Read(ref harness.Service.ListCalls) == 0) await Task.Delay(5);
+        await WaitForAsync(() => Volatile.Read(ref harness.Service.ListCalls) != 0, "the collection load to start");
         await viewModel.OnNavigatedFromAsync();
         harness.Service.ListGate.SetResult();
         await visit;
@@ -621,7 +629,7 @@ public sealed class CollectionComplianceViewModelTests
 
         harness.Service.PreviewGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var preview = viewModel.PreviewWqlCommand.ExecuteAsync(null);
-        while (!viewModel.IsPreviewing) await Task.Delay(5);
+        await WaitForAsync(() => viewModel.IsPreviewing, "the WQL preview to start");
         Assert.True(viewModel.CancelPreviewCommand.CanExecute(null));
         viewModel.CancelPreviewCommand.Execute(null);
         await preview;

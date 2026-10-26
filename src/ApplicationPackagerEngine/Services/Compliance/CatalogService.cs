@@ -127,7 +127,8 @@ public sealed partial class CatalogService : ICatalogService
                 Text(d, "Type"), Text(d, "Name"), d.GetProperty("CreatedBy").ValueKind == JsonValueKind.String ? d.GetProperty("CreatedBy").GetString() : null)).ToList(),
             Strings(root.GetProperty("Produces").GetProperty("ConfigurationItems")),
             Strings(root.GetProperty("Produces").GetProperty("ConfigurationBaselines")),
-            builderResource, sha256);
+            builderResource, sha256,
+            !root.TryGetProperty("RemediationSupported", out var remediationSupported) || remediationSupported.GetBoolean());
     }
 
     private static string Text(JsonElement e, string name) => e.GetProperty(name).GetString() ?? "";
@@ -188,6 +189,8 @@ public static partial class CatalogValidation
             errors.Add($"Version must be semver (e.g. 1.0.0): '{version.GetString()}'");
         if (m.TryGetProperty("RebootRequired", out var reboot) && reboot.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
             errors.Add("RebootRequired must be a boolean");
+        if (m.TryGetProperty("RemediationSupported", out var remediation) && remediation.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            errors.Add("RemediationSupported must be a boolean");
 
         if (m.TryGetProperty("OsScope", out var os))
         {
