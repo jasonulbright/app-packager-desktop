@@ -179,6 +179,18 @@ public sealed class SiteHygieneLiveTests
     }
 
     [Fact]
+    public void ATruncatedViewUsesItsServiceMessageWithoutRepeatingTheCutSentence()
+    {
+        const string serviceMessage = "The read was cut at 5 of 10 rows. The counts of this view are not known.";
+        var result = LiveData.Result(LiveView.Deployments, 5, truncated: true, message: serviceMessage);
+
+        var shown = VM.ViewMessage(result);
+
+        Assert.Equal(serviceMessage, shown);
+        Assert.Equal(1, shown.Split("The read was cut", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
     public async Task SqlNotSetUpShowsItsPlainMessageAndTheOtherViewsWork()
     {
         var (h, vm) = await RefreshedAsync(h => h.Live!.Service.Next = _ =>

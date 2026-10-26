@@ -487,8 +487,9 @@ public sealed partial class SiteHygieneViewModel
         if (result.Skipped) return message.Length > 0 ? message : "This view was not read.";
         if (result.Failed) return "The read of this view failed. " + (message.Length > 0 ? message : "The log has the details.");
         if (result.Truncated)
-            return $"The read was cut at {SiteHygieneLabels.Count(result.Rows.Count, "row")}"
-                + (result.SourceRows > result.Rows.Count ? $" of {Number(result.SourceRows)}" : "") + ", so the counts of this view are not known." + (message.Length > 0 ? " " + message : "");
+            return message.Length > 0 ? message
+                : $"The read was cut at {SiteHygieneLabels.Count(result.Rows.Count, "row")}"
+                    + (result.SourceRows > result.Rows.Count ? $" of {Number(result.SourceRows)}" : "") + ", so the counts of this view are not known.";
         return message;
     }
 

@@ -177,7 +177,7 @@ public sealed class SiteHygieneLivePageRealServiceTests
 
         vm.SelectedLiveView = View(LiveView.Deployments);
         Assert.Equal(3, vm.LiveViewRows.Count);
-        Assert.StartsWith("The read was cut at 3 rows of 9, so the counts of this view are not known.", vm.LiveViewMessage);
+        Assert.Equal("The read was cut at 3 of 9 rows. The counts of this view are not known.", vm.LiveViewMessage);
         Assert.Contains("Deployments cut at 3 rows", vm.LiveSummaryLine);
         var line = Assert.Single(p.HistoryLines());
         Assert.All(DeploymentCells, c => Assert.Equal("", line[c]));

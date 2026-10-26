@@ -32,6 +32,14 @@ public sealed class LiveServiceTests
     private static Task<LiveSnapshot> Refresh(SiteHygieneLiveService service, IReadOnlySet<LiveView>? views = null, LiveSettings? settings = null, CancellationToken ct = default) =>
         service.RefreshAsync(settings ?? Overrides, views ?? ProviderViews, new Progress(), ct);
 
+    private static DiscoveryService.ScriptRunner WithUnreadableSqlLine(FakeSqlHost sql) => async (script, ct) =>
+    {
+        var result = await sql.Runner(script, ct);
+        return script.Contains("$LiveRun = $true", StringComparison.Ordinal)
+            ? (result.Item1, "{\"t\":\"r\",\"s\":\"C\",\"v\":[\r\n" + result.Item2, result.Item3)
+            : result;
+    };
+
     private sealed class RecordingLog : IAppLog
     {
         public List<AppLogEntry> Entries { get; } = [];
@@ -472,6 +480,38 @@ public sealed class LiveServiceTests
             Assert.DoesNotContain("SECRET", snapshot.Views[v].Message);
         }
         Assert.DoesNotContain("SECRET", sql.Outputs.Single().Replace("#probe", "", StringComparison.Ordinal).Split('\n').Where(l => l.StartsWith("{", StringComparison.Ordinal)).Aggregate("", string.Concat));
+    }
+
+    [Fact]
+    public async Task AMalformedSqlLineFailsBothSqlViewsAndLogsItsCount()
+    {
+        var log = new RecordingLog();
+        var service = new SiteHygieneLiveService(new ThrowingSession(ConfigMgrFailure.Timeout), WithUnreadableSqlLine(new FakeSqlHost()), log,
+            connection: () => new ConfigMgrConnection("MCM", "CM01"));
+
+        var snapshot = await Refresh(service, SqlViews);
+
+        foreach (var view in SqlViews)
+        {
+            var result = snapshot.Views[view];
+            Assert.True(result.Failed);
+            Assert.False(result.Complete);
+            Assert.All(result.Counts.Values.Values, value => Assert.Null(value));
+        }
+        Assert.Contains(log.Entries, entry => entry.Level == AppLogLevel.Warning && entry.Message.Contains("Unreadable SQL output line count: 1", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task TestSqlDoesNotReportConnectionWhenAnOutputLineIsUnreadable()
+    {
+        var log = new RecordingLog();
+        var service = new SiteHygieneLiveService(new ThrowingSession(ConfigMgrFailure.Timeout), WithUnreadableSqlLine(new FakeSqlHost()), log,
+            connection: () => new ConfigMgrConnection("MCM", "CM01"));
+
+        var message = await service.TestSqlAsync(Overrides, CancellationToken.None);
+
+        Assert.False(message.StartsWith("Connected to ", StringComparison.Ordinal));
+        Assert.Contains(log.Entries, entry => entry.Level == AppLogLevel.Warning && entry.Message.Contains("Unreadable SQL output line count: 1", StringComparison.Ordinal));
     }
 
     [Theory]

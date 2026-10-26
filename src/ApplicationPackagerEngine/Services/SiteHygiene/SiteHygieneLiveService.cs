@@ -92,22 +92,22 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         foreach (var view in wanted.Where(v => v is not (LiveView.ClientHealth or LiveView.InactiveDevices)))
         {
             ct.ThrowIfCancellationRequested();
-            progress.Report($"Reading {LiveText.Title(view)} ({N(++step)} of {N(wanted.Count)}).");
+            progress.Report($"Reading {LiveText.Title(view)} ({Number(++step)} of {Number(wanted.Count)}).");
             results[view] = await ReadProviderViewAsync(view, connection, ct).ConfigureAwait(false);
         }
         var sqlViews = wanted.Where(v => v is LiveView.ClientHealth or LiveView.InactiveDevices).ToList();
         if (sqlViews.Count > 0)
         {
             ct.ThrowIfCancellationRequested();
-            progress.Report($"Reading {string.Join(" and ", sqlViews.Select(LiveText.Title))} from the site database ({N(step + 1)} of {N(wanted.Count)}).");
+            progress.Report($"Reading {string.Join(" and ", sqlViews.Select(LiveText.Title))} from the site database ({Number(step + 1)} of {Number(wanted.Count)}).");
             foreach (var (view, result) in await ReadSqlViewsAsync(settings, connection, sqlViews, ct).ConfigureAwait(false)) results[view] = result;
         }
         ct.ThrowIfCancellationRequested();
         var snapshot = new LiveSnapshot(results, started, _utcNow());
         var failed = results.Values.Count(r => r.Failed);
         var cut = results.Values.Count(r => r.Truncated);
-        _log?.Info(LogArea, $"Live refresh: {LiveText.Count(results.Count, "view")}, {LiveText.Count(snapshot.QueryCount, "query", "queries")}, {N(failed)} failed, {N(cut)} cut.");
-        progress.Report($"Refresh finished: {N(results.Count - failed)} of {LiveText.Count(results.Count, "view")} read.");
+        _log?.Info(LogArea, $"Live refresh: {LiveText.Count(results.Count, "view")}, {LiveText.Count(snapshot.QueryCount, "query", "queries")}, {Number(failed)} failed, {Number(cut)} cut.");
+        progress.Report($"Refresh finished: {Number(results.Count - failed)} of {LiveText.Count(results.Count, "view")} read.");
         return snapshot;
     }
 
@@ -223,8 +223,8 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             if (cut)
             {
                 var first = tables.First(t => t.State == HygieneSetStates.Cut);
-                message = $"The read was cut at {N(first.Rows.Count)} of {LiveText.Count(first.Total, "row")}. The counts of this view are not known.";
-                _log?.Warning(LogArea, $"The read of {view} was cut at its cap ({N(first.Rows.Count)} of {N(first.Total)}).");
+                message = $"The read was cut at {Number(first.Rows.Count)} of {LiveText.Count(first.Total, "row")}. The counts of this view are not known.";
+                _log?.Warning(LogArea, $"The read of {view} was cut at its cap ({Number(first.Rows.Count)} of {Number(first.Total)}).");
             }
             else if (view == LiveView.Content && counts[LiveMetrics.ContentIssues] is null)
             {
@@ -301,8 +301,8 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         return sb.ToString();
     }
 
-    /// <summary>The parsed SQL output: rows by set, the error line, and whether the run reached its end line.</summary>
-    internal sealed record SqlOutput(Dictionary<string, List<string[]>> Rows, JsonElement? Error, bool Ended, int? TestCount);
+    /// <summary>The parsed SQL output: rows by set, the error line, the end marker, and unreadable line count.</summary>
+    internal sealed record SqlOutput(Dictionary<string, List<string[]>> Rows, JsonElement? Error, bool Ended, int? TestCount, int UnreadableLines);
 
     internal static SqlOutput ParseSql(string stdout)
     {
@@ -310,13 +310,14 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         JsonElement? error = null;
         var ended = false;
         int? test = null;
+        var unreadableLines = 0;
         foreach (var raw in (stdout ?? "").Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
             var text = raw.Trim();
             if (!text.StartsWith("{\"t\":", StringComparison.Ordinal)) continue;
             JsonElement e;
             try { e = JsonDocument.Parse(text).RootElement.Clone(); }
-            catch (JsonException) { continue; }
+            catch (JsonException) { unreadableLines++; continue; }
             var t = e.TryGetProperty("t", out var tv) && tv.ValueKind == JsonValueKind.String ? tv.GetString() : "";
             switch (t)
             {
@@ -337,7 +338,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             }
             if (ended) break;
         }
-        return new SqlOutput(rows, error, ended, test);
+        return new SqlOutput(rows, error, ended, test, unreadableLines);
     }
 
     private async Task<string> RunSqlAsync(string script, CancellationToken ct)
@@ -392,6 +393,7 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
         ct.ThrowIfCancellationRequested();
         var parsed = ParseSql(stdout);
         ct.ThrowIfCancellationRequested();
+        LogUnreadableSqlOutput(parsed);
         if (parsed.Error is { } error)
         {
             ForgetTarget();
@@ -399,6 +401,8 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             _log?.Warning(LogArea, "The SQL views failed: " + message);
             return All(v => Failed(v, message, 1));
         }
+        if (parsed.UnreadableLines > 0)
+            return All(v => Failed(v, "The site database query returned unreadable output.", 1));
         if (!parsed.Ended)
         {
             ForgetTarget();
@@ -454,14 +458,22 @@ public sealed class SiteHygieneLiveService : ISiteHygieneLiveService
             return "Windows PowerShell could not start. The SQL views need Windows PowerShell 5.1 (powershell.exe).";
         }
         var parsed = ParseSql(stdout);
+        LogUnreadableSqlOutput(parsed);
         if (parsed.Error is { } error)
         {
             ForgetTarget();
             return DiscoveryService.SqlMessage(error, target, SqlCommandTimeoutSeconds).Replace("the inventory views", "the client health views", StringComparison.Ordinal);
         }
+        if (parsed.UnreadableLines > 0) return "The SQL connection test returned unreadable output.";
         if (!parsed.Ended || parsed.TestCount is null) return $"The site database query on {target.Server} did not finish.";
         return $"Connected to {target.Database} on {target.Server}. The client health view holds {LiveText.Count(parsed.TestCount.Value, "row")}.";
     }
 
-    private static string N(int n) => n.ToString("N0", CultureInfo.InvariantCulture);
+    private void LogUnreadableSqlOutput(SqlOutput parsed)
+    {
+        if (parsed.UnreadableLines > 0)
+            _log?.Warning(LogArea, $"Unreadable SQL output line count: {parsed.UnreadableLines}. The output is not treated as complete.");
+    }
+
+    private static string Number(int n) => n.ToString("N0", CultureInfo.InvariantCulture);
 }
