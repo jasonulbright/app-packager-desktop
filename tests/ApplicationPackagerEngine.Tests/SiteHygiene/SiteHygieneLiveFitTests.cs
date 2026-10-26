@@ -365,13 +365,18 @@ public sealed class SiteHygieneLiveFitTests
             Assert.Equal(LabDeployments.Select(r => r.Cells[0]).Order(StringComparer.Ordinal), shown.Order(StringComparer.Ordinal));
             Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
 
-            // A wider window that needs no sideways scroll gives the name columns the least width of the typical name again.
+            // A wider window that needs no sideways scroll gives the name columns the least width of the typical name, or of the widest word of an identifier column, again.
             window.Width = 1440 - CollapsedPaneWidth;
             window.Height = 900 - TitleBar;
             Settle(window);
             Assert.True(Scroller(grid).ScrollableWidth < 1);
             foreach (var column in grid.Columns.Where(IsNameColumn))
-                Assert.Equal(Math.Max(fit.NameLeast, fit.HeaderNeed((string)column.Header)), column.MinWidth, 1);
+            {
+                var least = Math.Max(fit.NameLeast, fit.HeaderNeed((string)column.Header));
+                if (SiteHygieneLiveLabels.HoldsIdentifiers(LiveView.Deployments, (string)column.Header))
+                    least = Math.Max(least, fit.WordNeed(viewModel.LiveViewRows.Select(r => r.Cells[grid.Columns.IndexOf(column) - 1])));
+                Assert.Equal(least, column.MinWidth, 1);
+            }
         });
     }
 
@@ -408,6 +413,77 @@ public sealed class SiteHygieneLiveFitTests
                 if (view == LiveView.DistributionPoints) Assert.Equal(LabDistributionPoints.Count, servers);
             }
             Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+        });
+    }
+
+    /// <summary>A component name of more than 40 characters with no line break point, longer than every name of the CM01 site.</summary>
+    private const string LongComponentName = "SMS_AD_SECURITY_GROUP_DISCOVERY_AGENT_REPLICATION";
+
+    /// <summary>A word of a value that is an identifier: it holds an underscore, a backslash, or a dot between two characters.</summary>
+    private static readonly System.Text.RegularExpressions.Regex IdentifierWord = new(@"[_\\]|\w\.\w", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    public static TheoryData<ApplicationTheme, double, double> AllSizes() => new()
+    {
+        { ApplicationTheme.Light, 900 - NavigationPaneWidth, 600 - TitleBar },
+        { ApplicationTheme.Dark, 900 - NavigationPaneWidth, 600 - TitleBar },
+        { ApplicationTheme.Light, 900 - CollapsedPaneWidth, 600 - TitleBar },
+        { ApplicationTheme.Dark, 900 - CollapsedPaneWidth, 600 - TitleBar },
+        { ApplicationTheme.Light, 1440 - NavigationPaneWidth, 900 - TitleBar },
+        { ApplicationTheme.Dark, 1440 - NavigationPaneWidth, 900 - TitleBar },
+        { ApplicationTheme.Light, 1440 - CollapsedPaneWidth, 900 - TitleBar },
+        { ApplicationTheme.Dark, 1440 - CollapsedPaneWidth, 900 - TitleBar }
+    };
+
+    /// <summary>
+    /// The real Live service over the stub site with the CM01 values of every view: the 36 component names, a component
+    /// name of more than 40 characters, CM01.contoso.com, the MCM00xxx content IDs and names, the CMCO-CANARY deployments,
+    /// and the client and inactive device rows of the SQL script. A column with an identifier value is an identifier
+    /// column or a value column; no identifier value breaks inside a word; no header is cut; and a grid whose least
+    /// column widths exceed its width scrolls sideways.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(AllSizes))]
+    public void NoRealIdentifierOfAnyViewBreaksInsideAWordAndNoHeaderIsCut(ApplicationTheme theme, double width, double height)
+    {
+        WithPage(theme, width, height, (window, page, viewModel, harness) =>
+        {
+            var failures = new List<string>();
+            var grid = ById<DataGrid>(page, "dgLive");
+            foreach (var choice in SiteHygieneLiveLabels.Views.Where(v => v.Pane == LivePane.Grid))
+            {
+                ShowView(window, viewModel, v => v == choice);
+                var view = choice.View!.Value;
+                var where = $"{choice.Id} at {width}x{height} {theme}:";
+                var result = viewModel.LastSnapshot!.Views[view];
+                Assert.True(result.Complete, $"{where} {result.Message}");
+                Assert.NotEmpty(viewModel.LiveViewRows);
+                for (var i = 0; i < result.Columns.Count; i++)
+                {
+                    var header = result.Columns[i];
+                    var identifier = viewModel.LiveViewRows.Select(r => r.Cells[i]).FirstOrDefault(t => t.Split(' ').Any(IdentifierWord.IsMatch));
+                    if (identifier is not null && SiteHygieneLiveLabels.KindOf(header) == LiveColumnKind.Name && !SiteHygieneLiveLabels.HoldsIdentifiers(view, header))
+                        failures.Add($"{where} {header} holds the identifier \"{identifier}\" and is not an identifier column.");
+                }
+                ForEveryRowCell(window, grid, (cell, block) =>
+                {
+                    if (block.Text.Split(' ').Any(IdentifierWord.IsMatch) && SplitOf(cell) is { } split) failures.Add($"{where} {cell.Column.Header} \"{block.Text}\" {split}.");
+                });
+                AssertNoCutHeader(window, grid, failures, where);
+                var least = grid.Columns.Sum(c => c.MinWidth);
+                var scroller = Scroller(grid);
+                if (least > scroller.ViewportWidth + 1 && !(scroller.ScrollableWidth > 0 && SidewaysBarShows(grid)))
+                    failures.Add($"{where} the columns need {least:0} px in a {scroller.ViewportWidth:0} px grid and the grid does not scroll sideways.");
+            }
+            var names = viewModel.LastSnapshot!.Views[LiveView.SiteHealth].Rows.Select(r => r.Cells[0]).ToHashSet(StringComparer.Ordinal);
+            Assert.All(LiveFixtures.LabComponents.Append(LongComponentName), c => Assert.Contains(c, names));
+            Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+        }, harness: () =>
+        {
+            var h = new SiteHygienePageHarness { Settings = new ApplicationPackagerUI.Models.AppSettings { SiteCode = "MCM", ProviderMachine = "CM01", DiscoverySqlServer = "CM01.contoso.com", DiscoverySqlDatabase = "CM_MCM" } };
+            var sql = new FakeSqlHost { ClientsSet = LiveRealPage.ClientRows, InactiveSet = LiveFixtures.LabInactiveRows };
+            h.LiveService = new SiteHygieneLiveService(new StubHygieneSite(LiveFixtures.LabState(LongComponentName)), sql.Runner,
+                connection: () => new ApplicationPackagerEngine.Services.ConfigMgrSession.ConfigMgrConnection("MCM", "CM01"));
+            return h;
         });
     }
 

@@ -64,8 +64,40 @@ internal static class LiveFixtures
     private static readonly string[] Components =
         ["CONFIGURATION_MANAGER_UPDATE", "SMS_AD_FOREST_DISCOVERY_MANAGER", "SMS_AD_SYSTEM_DISCOVERY_AGENT", "SMS_DISTRIBUTION_MANAGER", "SMS_EXECUTIVE", "SMS_SITE_COMPONENT_MANAGER"];
 
-    public static JsonObject State()
+    /// <summary>The 36 component names of the CM01 site Site Health view at 900x600 (2026-10-25 lab read).</summary>
+    public static readonly string[] LabComponents =
+    [
+        "CONFIGURATION_MANAGER_UPDATE", "SMS_AD_FOREST_DISCOVERY_MANAGER", "SMS_AD_SYSTEM_DISCOVERY_AGENT", "SMS_AD_USER_DISCOVERY_AGENT", "SMS_AZUREAD_DISCOVERY_AGENT",
+        "SMS_BUSINESS_APP_PROCESS_MANAGER", "SMS_CLIENT_CONFIG_MANAGER", "SMS_CLOUD_SERVICES_MANAGER", "SMS_COLLECTION_EVALUATOR", "SMS_COMPONENT_STATUS_SUMMARIZER",
+        "SMS_DATABASE_NOTIFICATION_MONITOR", "SMS_DISCOVERY_DATA_MANAGER", "SMS_DISTRIBUTION_MANAGER", "SMS_EN_ADSERVICE_MONITOR", "SMS_ENDPOINT_PROTECTION_MANAGER",
+        "SMS_FALLBACK_STATUS_POINT", "SMS_INVENTORY_DATA_LOADER", "SMS_ISVUPDATES_SYNCAGENT", "SMS_MESSAGE_PROCESSING_ENGINE", "SMS_MP_CONTROL_MANAGER",
+        "SMS_MP_FILE_DISPATCH_MANAGER", "SMS_NOTIFICATION_MANAGER", "SMS_OBJECT_REPLICATION_MANAGER", "SMS_OFFER_STATUS_SUMMARIZER", "SMS_OFFLINE_SERVICING_MANAGER",
+        "SMS_OUTGOING_CONTENT_MANAGER", "SMS_PACKAGE_TRANSFER_MANAGER", "SMS_REPLICATION_CONFIGURATION_MONITOR", "SMS_SITE_COMPONENT_MANAGER", "SMS_SITE_CONTROL_MANAGER",
+        "SMS_SITE_SYSTEM_STATUS_SUMMARIZER", "SMS_SOFTWARE_INVENTORY_PROCESSOR", "SMS_SOFTWARE_METERING_PROCESSOR", "SMS_WINNT_SERVER_DISCOVERY_AGENT", "SMS_WSUS_CONFIGURATION_MANAGER",
+        "SMS_WSUS_CONTROL_MANAGER"
+    ];
+
+    /// <summary>
+    /// <see cref="State"/> with the <see cref="LabComponents"/> and the given extra component names, and every DP-content
+    /// pair failed, so the Content view shows the real content names and IDs.
+    /// </summary>
+    public static JsonObject LabState(params string[] extraComponents)
     {
+        var state = State(components: [.. LabComponents, .. extraComponents]);
+        foreach (var pair in state["Classes"]!["SMS_PackageStatusDistPointsSummarizer"]!.AsArray().OfType<JsonObject>()) pair["State"] = DpContentStates.InstallFailed;
+        return state;
+    }
+
+    /// <summary>The inactive device row of CM01 as the SQL script writes it: ResourceID, Name0, last active, last DDR, days since contact, OS, version.</summary>
+    public const string LabInactiveRows = """
+        @(
+            ,@([int]16777222, 'CLIENT02', [datetime]'2026-10-13T12:55:25', [datetime]'2026-10-12T08:25:53', [int]12, 'Microsoft Windows NT Workstation 10.0', '5.00.9141.1011')
+        )
+        """;
+
+    public static JsonObject State(IReadOnlyList<string>? components = null)
+    {
+        components ??= Components;
         var classes = new JsonObject
         {
             ["SMS_DeploymentSummary"] = Deployments(),
@@ -74,7 +106,7 @@ internal static class LiveFixtures
             ["SMS_PackageStatusRootSummarizer"] = new JsonArray(Names.Select(n => (JsonNode)Row(("PackageID", n.Id), ("Name", n.Name))).ToArray()),
             ["SMS_DistributionPointInfo"] = new JsonArray(Row(("NALPath", Nal), ("ServerName", "CM01.CONTOSO.COM"), ("SiteCode", "MCM"), ("IsPullDP", false), ("IsPXE", false), ("ResourceType", "Windows NT Server"))),
             ["SMS_SiteSystemSummarizer"] = new JsonArray(SiteSystems.Select(s => (JsonNode)Row(("SiteSystem", SiteSystemOf(s.Server)), ("SiteCode", "MCM"), ("Role", s.Role), ("Status", 0), ("AvailabilityState", 0), ("ObjectType", s.ObjectType))).ToArray()),
-            ["SMS_ComponentSummarizer"] = new JsonArray(Components.SelectMany(c => new[] { "0001128000100008", "0001128000080008" }.Select(t =>
+            ["SMS_ComponentSummarizer"] = new JsonArray(components.SelectMany(c => new[] { "0001128000100008", "0001128000080008" }.Select(t =>
                 (JsonNode)Row(("ComponentName", c), ("MachineName", "CM01.CONTOSO.COM"), ("SiteCode", "MCM"), ("Status", 0), ("State", c == "CONFIGURATION_MANAGER_UPDATE" ? 0 : 1),
                     ("LastStarted", "2026-10-25T10:25:00"), ("TallyInterval", t)))).ToArray())
         };

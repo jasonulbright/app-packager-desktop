@@ -91,15 +91,22 @@ public static class SiteHygieneLiveLabels
     };
 
     /// <summary>
-    /// A column of server names, device names or IDs: a value has no word breaks, so the column is never narrower than
-    /// its widest word. Package ID is a value column and has the width of its widest value already.
+    /// A name column whose values are identifiers: component names, server and device names, deployment, collection and
+    /// content names with underscores, versions or IDs, and operating system versions. Such a value has no line break point
+    /// inside a word, so the column is never narrower than its widest word, and the grid scrolls sideways instead.
+    /// Package ID and Client version are value columns and have the width of their widest value already.
     /// </summary>
-    public static bool HoldsIdentifiers(LiveView? view, string header) => header.Trim() switch
-    {
-        "Server" or "Device" => true,
-        "Name" => view == LiveView.DistributionPoints,
-        _ => false
-    };
+    public static bool HoldsIdentifiers(LiveView? view, string header) => view is { } v && IdentifierColumns.Contains((v, header.Trim()));
+
+    private static readonly HashSet<(LiveView View, string Header)> IdentifierColumns =
+    [
+        (LiveView.Deployments, "Name"), (LiveView.Deployments, "Collection"),
+        (LiveView.Content, "Name"),
+        (LiveView.DistributionPoints, "Name"),
+        (LiveView.SiteHealth, "Name"), (LiveView.SiteHealth, "Server"),
+        (LiveView.ClientHealth, "Device"),
+        (LiveView.InactiveDevices, "Device"), (LiveView.InactiveDevices, "Operating system")
+    ];
 
     /// <summary>The headers <see cref="KindOf"/> sizes as values.</summary>
     public static IReadOnlyCollection<string> FixedHeaders => ValueHeaders;
