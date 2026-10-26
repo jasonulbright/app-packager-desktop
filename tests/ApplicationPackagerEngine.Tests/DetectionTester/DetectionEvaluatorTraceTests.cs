@@ -521,6 +521,21 @@ public sealed class DetectionEvaluatorTraceTests
         Assert.Equal(0, registry.OpenCount);
     }
 
+    [Theory]
+    [InlineData(@"Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Contoso\Widget", "LocalMachine", DetectionEvaluation.Detected)]
+    [InlineData(@"registry::hkey_local_machine\SOFTWARE\Contoso\Widget", "LocalMachine", DetectionEvaluation.Detected)]
+    [InlineData(@"Registry::HKEY_CURRENT_USER\SOFTWARE\Contoso\Widget", "LocalMachine", DetectionEvaluation.Error)]
+    public void ARegistryProviderPrefixIsStrippedBeforeTheHiveIsChecked(string path, string hive, DetectionEvaluation want)
+    {
+        var registry = new FakeRegistryProvider().AddKey(RegistryHive.LocalMachine, RegistryView.Registry64, Key);
+        var detection = new StageDetection { Type = "RegistryKey", RegistryKeyRelative = path, Hive = hive };
+
+        var trace = DetectionEvaluator.Trace(detection, Context(registry));
+
+        Assert.Equal(want, trace.Verdict);
+        Assert.Equal(want == DetectionEvaluation.Error ? 0 : 1, registry.OpenCount);
+    }
+
     [Fact]
     public void AKeyPathThatIsOnlyAHiveIsAnError() =>
         Assert.Equal(DetectionEvaluation.Error, DetectionEvaluator.Trace(
