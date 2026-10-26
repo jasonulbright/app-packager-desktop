@@ -71,6 +71,7 @@ public partial class DetectionTesterViewModel : ObservableObject
 
     private readonly DetectionTesterPageServices _services;
     private readonly List<string> _fallbackNotes = [];
+    private readonly SemaphoreSlim _preferencesSaveLock = new(1, 1);
     private CancellationTokenSource? _run;
     private bool _historyLoaded;
     private bool _applyingPreferences;
@@ -393,10 +394,11 @@ public partial class DetectionTesterViewModel : ObservableObject
     {
         // A save before the stored choices are known would replace them with the defaults.
         await _preferencesLoad;
-        var choices = CurrentChoices();
-        if (SameChoices(_storedChoices, choices)) return;
+        await _preferencesSaveLock.WaitAsync();
         try
         {
+            var choices = CurrentChoices();
+            if (SameChoices(_storedChoices, choices)) return;
             var saved = await Task.Run(() => _services.SavePreferences(choices));
             if (!saved) throw new IOException("The page choices were not written.");
             _storedChoices = choices;
@@ -404,6 +406,10 @@ public partial class DetectionTesterViewModel : ObservableObject
         catch (Exception ex)
         {
             _services.Log.Warning(LogArea, $"The page choices could not be saved ({ex.GetType().Name}).");
+        }
+        finally
+        {
+            _preferencesSaveLock.Release();
         }
     }
 
