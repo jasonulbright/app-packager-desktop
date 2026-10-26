@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Services;
+﻿using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests.MaintenanceWindows;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
@@ -307,6 +307,11 @@ internal sealed class FakeHygieneDialogs : ISiteHygieneDialogs
     public List<HygieneFindingsPickerViewModel> Shown { get; } = [];
     public bool CancelPicker;
     public string? Comment = "Kept for the audit in November.";
+    public List<string> OpenedFiles { get; } = [];
+    public List<HygieneImportViewModel> Imports { get; } = [];
+
+    /// <summary>True confirms the import plan; false cancels it.</summary>
+    public bool ConfirmImport = true;
     public List<(string Title, string Prompt)> Asked { get; } = [];
     public List<string> Clipboard { get; } = [];
     public List<string> OpenedFolders { get; } = [];
@@ -328,6 +333,20 @@ internal sealed class FakeHygieneDialogs : ISiteHygieneDialogs
     public void SetClipboard(string text) => Clipboard.Add(text);
 
     public void OpenFolder(string folder) => OpenedFolders.Add(folder);
+
+    public bool OpenFile(string path)
+    {
+        OpenedFiles.Add(path);
+        return OpenFileSucceeds;
+    }
+    public bool OpenFileSucceeds { get; set; } = true;
+
+    void ISiteHygieneDialogs.ConfirmImport(HygieneImportViewModel import)
+    {
+        Imports.Add(import);
+        if (ConfirmImport) import.ImportCommand.Execute(null);
+        else import.CancelCommand.Execute(null);
+    }
 }
 
 internal sealed class SiteHygienePageHarness
@@ -344,9 +363,16 @@ internal sealed class SiteHygienePageHarness
     public AppSettings Settings { get; set; } = new() { SiteCode = "MCM", ProviderMachine = "cm01.contoso.com" };
     public SiteHygieneSettings? Saved { get; set; }
     public int PreferenceSaves;
-    public int LiveViewCalls;
-    public SuiteToolLaunchResult LiveViewResult = new(SuiteToolLaunchOutcome.Started);
     public TimeSpan FilterDelay = TimeSpan.Zero;
+
+    /// <summary>The Live services; null builds the page without them, as a build without the engine services.</summary>
+    public SiteHygieneLiveFakes? Live = new();
+
+    /// <summary>A Live service in place of the fake one, such as the real service over the stub site.</summary>
+    public ISiteHygieneLiveService? LiveService;
+
+    /// <summary>Live services in place of the fakes, such as the real service, stores and writer.</summary>
+    public SiteHygieneLiveServices? RealLive;
 
     /// <summary>The audit log the History tab reads; null shows no history.</summary>
     public IHygieneAuditLog? AuditLog;
@@ -422,18 +448,48 @@ internal sealed class SiteHygienePageHarness
 
     public SiteHygieneWriter Writer() => new(Service, History, Log, () => "MCM");
 
-    public SiteHygienePageServices Services() => new(Service, Suppressions, ScanStore, Reports, Dialogs, PlanDialogs ?? Plans, Writer(), () => Settings, () => Saved,
+    /// <summary>Connects the Live fakes to <see cref="Settings"/>: a save of the Live options and an import fill write there, as both write the settings file.</summary>
+    private void WireLiveSettings()
+    {
+        if (Live is not { } live) return;
+        live.Stored ??= (options, server, database) =>
+        {
+            Settings.SiteHygieneLive = options;
+            if (server is not null) Settings.DiscoverySqlServer = server;
+            if (database is not null) Settings.DiscoverySqlDatabase = database;
+        };
+        live.Import.Read ??= () => SiteHygieneLivePreferences.Values(Settings);
+        live.Import.Fill ??= values =>
+        {
+            SiteHygieneLivePreferences.FillValues(Settings, values);
+            return true;
+        };
+    }
+
+    public SiteHygienePageServices Services()
+    {
+        WireLiveSettings();
+        return CreateServices();
+    }
+
+    /// <summary>The numbers (from 1) of the settings reads that throw, as a settings file that cannot be read at that moment.</summary>
+    public HashSet<int> FailingLoads { get; } = [];
+    private int _loads;
+
+    private AppSettings LoadSettings()
+    {
+        var n = Interlocked.Increment(ref _loads);
+        if (FailingLoads.Contains(n)) throw new IOException("The settings file is in use.");
+        return Settings;
+    }
+
+    private SiteHygienePageServices CreateServices() => new(Service, Suppressions, ScanStore, Reports, Dialogs, PlanDialogs ?? Plans, Writer(), LoadSettings, () => Saved,
         s =>
         {
             Interlocked.Increment(ref PreferenceSaves);
             Saved = s;
             return true;
-        },
-        () =>
-        {
-            Interlocked.Increment(ref LiveViewCalls);
-            return Task.FromResult(LiveViewResult);
-        }, Log) { FilterDelay = FilterDelay, AuditLog = AuditLog };
+        }, Log) { FilterDelay = FilterDelay, AuditLog = AuditLog, Live = RealLive ?? (Live?.Services() is { } live && LiveService is { } real ? live with { Live = real } : Live?.Services()) };
 
     public SiteHygieneViewModel Create() => new(Services());
 

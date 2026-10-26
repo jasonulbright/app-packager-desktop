@@ -25,13 +25,13 @@ internal static class StaTestHelper
     public static void Flush() =>
         Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-    /// <summary>Runs dispatcher operations until the condition holds; throws after ten seconds.</summary>
-    public static void PumpUntil(Func<bool> condition)
+    /// <summary>Runs dispatcher operations until the condition holds; throws after the timeout (ten seconds by default).</summary>
+    public static void PumpUntil(Func<bool> condition, TimeSpan? timeout = null)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(10));
         while (!condition())
         {
-            if (DateTime.UtcNow > deadline) throw new TimeoutException("The condition did not hold within ten seconds.");
+            if (DateTime.UtcNow > deadline) throw new TimeoutException($"The condition did not hold within {(timeout ?? TimeSpan.FromSeconds(10)).TotalSeconds:0} seconds.");
             var frame = new DispatcherFrame();
             Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, () => frame.Continue = false);
             Dispatcher.PushFrame(frame);

@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Services;
+﻿using ApplicationPackagerEngine.Services;
 using ApplicationPackagerEngine.Tests.MaintenanceWindows;
 using ApplicationPackagerUI.Models;
 using ApplicationPackagerUI.Services;
@@ -598,7 +598,7 @@ public sealed class SiteHygienePageTests
         vm.SelectedTabIndex = VM.OptionsTab;
         await vm.ExportCsvCommand.ExecuteAsync(null);
         Assert.Equal(VM.ExportOptions, vm.StatusMessage);
-        Assert.Equal("The Options tab has no rows. Select the Findings, Relationships, Summary or History tab to export.", vm.StatusMessage);
+        Assert.Equal("The Options tab has no rows. Select the Findings, Relationships, Live, Summary or History tab to export.", vm.StatusMessage);
 
         vm.SelectedTabIndex = VM.FindingsTab;
         vm.FindingText = "no such finding";
@@ -739,7 +739,7 @@ public sealed class SiteHygienePageTests
         vm.Sort(VM.FindingsGrid, nameof(FindingGridRow.Severity));
         Assert.True(await vm.SaveAsync());
         var saved = h.Saved!;
-        Assert.Equal((2, 1, "Devices", "Warning", "CLIENT", true, 500, true), (saved.SelectedTab, saved.RelationsTab, saved.Category, saved.Severity, saved.FindingText, saved.ShowSuppressed, saved.PauseMilliseconds, saved.ProbeContentSources));
+        Assert.Equal((VM.SummaryTab, 1, "Devices", "Warning", "CLIENT", true, 500, true), (saved.SelectedTab, saved.RelationsTab, saved.Category, saved.Severity, saved.FindingText, saved.ShowSuppressed, saved.PauseMilliseconds, saved.ProbeContentSources));
         Assert.Equal(17, saved.Areas!.Count);
         Assert.DoesNotContain("Devices", saved.Areas);
         Assert.Equal("Severity|Ascending", saved.Sorts![VM.FindingsGrid]);
@@ -758,20 +758,6 @@ public sealed class SiteHygienePageTests
         Assert.Equal((VM.HistoryTab, VM.AllText, VM.AllText, 0, ""), (vm3.SelectedTabIndex, vm3.CategoryFilter, vm3.SeverityFilter, vm3.PauseMilliseconds, vm3.FindingText));
         Assert.All(vm3.AreaChoices, a => Assert.True(a.IsChecked));
         Assert.Null(vm3.SortOf(VM.FindingsGrid));
-    }
-
-    [Fact]
-    public async Task LiveViewsStartsTheSuiteToolAndAFailureShowsItsPlainMessage()
-    {
-        var h = new SiteHygienePageHarness();
-        var vm = await h.OpenAsync();
-        await vm.OpenLiveViewsCommand.ExecuteAsync(null);
-        Assert.Equal(1, h.LiveViewCalls);
-        Assert.Equal("The Live views open in the Site Hygiene suite tool.", vm.StatusMessage);
-        h.LiveViewResult = new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, "Site Hygiene needs AppPackager Suite, which is not installed.");
-        await vm.OpenLiveViewsCommand.ExecuteAsync(null);
-        Assert.Equal("Site Hygiene needs AppPackager Suite, which is not installed.", vm.StatusMessage);
-        Assert.Equal(0, h.Service.ScanCalls);
     }
 
     [Fact]

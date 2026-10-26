@@ -30,7 +30,7 @@ public sealed class HygieneReportWriter(string? folder = null, Func<DateTimeOffs
     private static IEnumerable<string> HeaderLines(HygieneReport report, string generated)
     {
         yield return $"{Title(report)}. Generated {generated}. Rows: {report.Rows.Count.ToString(CultureInfo.InvariantCulture)}.";
-        if (report.ScannedUtc is { } scanned) yield return "Scanned " + scanned.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + ".";
+        if (report.ScannedUtc is { } scanned) yield return report.TimeLabel + " " + scanned.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) + ".";
         yield return string.IsNullOrWhiteSpace(report.Filter) ? NoFilter : "Filter: " + report.Filter;
         if (!string.IsNullOrWhiteSpace(report.Note)) yield return "Note: " + report.Note;
         if (report.ChecksNotRun.Count > 0)

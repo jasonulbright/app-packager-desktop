@@ -1,4 +1,4 @@
-using ApplicationPackagerEngine.Services;
+﻿using ApplicationPackagerEngine.Services;
 using ApplicationPackagerUI.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -264,17 +264,12 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
-    public void TheDetectionTesterEntryOpensItsPageAndStartsNoTool()
+    public void TheDetectionTesterEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -285,22 +280,16 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
     [Fact]
-    public void TheMaintenanceWindowsEntryOpensItsPageAndStartsNoTool()
+    public void TheMaintenanceWindowsEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -311,22 +300,16 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
     [Fact]
-    public void TheCollectionAndComplianceEntryOpensItsPageAndStartsNoTool()
+    public void TheCollectionAndComplianceEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -337,22 +320,16 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
     [Fact]
-    public void TheInstallerAnalysisEntryOpensItsPageAndStartsNoTool()
+    public void TheInstallerAnalysisEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -363,22 +340,16 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
     [Fact]
-    public void TheDeploymentHelperEntryOpensItsPageAndStartsNoTool()
+    public void TheDeploymentHelperEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -389,7 +360,6 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
@@ -410,17 +380,12 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
-    public void TheDpContentManagerEntryOpensItsPageAndStartsNoTool()
+    public void TheDpContentManagerEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -431,7 +396,6 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
@@ -452,17 +416,12 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
-    public void ThePivotsAndScriptsEntryOpensItsPageAndStartsNoTool()
+    public void ThePivotsAndScriptsEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -473,7 +432,6 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
@@ -509,17 +467,12 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
-    public void TheSiteHygieneEntryOpensItsPageAndStartsNoTool()
+    public void TheSiteHygieneEntryOpensItsPage()
     {
         StaTestHelper.Run(() =>
         {
             WriteSettings("{ \"FirstRunCompleted\": true }");
-            var starter = new FakeToolProcessStarter();
-            using var provider = MainWindowServices(s =>
-            {
-                AddPlainPages(s);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = MainWindowServices(AddPlainPages);
             var window = OffScreenMainWindow(provider);
             ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
             var navigation = window.GetNavigation();
@@ -530,7 +483,6 @@ public sealed class SidebarWiringTests : IDisposable
 
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), ShownPage(navigation));
             Assert.True(item.IsActive);
-            Assert.Empty(starter.Started);
         });
     }
 
@@ -549,99 +501,5 @@ public sealed class SidebarWiringTests : IDisposable
         Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[1].Kind);
         Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), service.Items[1].PageType);
         Assert.DoesNotContain(service.All, i => i.Kind == ApplicationPackagerUI.Models.SidebarItemKind.Tool);
-    }
-
-    private static ServiceProvider LiveViewServices(FakeSuiteFileSystem files, FakeSuiteEnvironment environment, FakeToolProcessStarter starter)
-    {
-        var services = new ServiceCollection().AddPackagerServices().AddSidebar();
-        services.AddSingleton<Wpf.Ui.IContentDialogService, Wpf.Ui.ContentDialogService>();
-        services.AddSingleton<IChangePlanDialogs, ChangePlanDialogs>();
-        services.AddSiteHygienePage();
-        services.AddSingleton<ISuiteFileSystem>(files);
-        services.AddSingleton<ISuiteEnvironment>(environment);
-        services.AddSingleton<IToolProcessStarter>(starter);
-        return services.BuildServiceProvider();
-    }
-
-    [Fact]
-    public void TheLiveViewsButtonRunsTheSuiteLauncherWithTheDesktopSiteValuesAndAClickWhileItRunsBringsItToTheFront()
-    {
-        StaTestHelper.Run(() =>
-        {
-            var files = new FakeSuiteFileSystem();
-            var environment = new FakeSuiteEnvironment();
-            var starter = new FakeToolProcessStarter();
-            var root = Path.Combine(environment.LocalApplicationData, "AppPackagerSuite");
-            files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
-                .Add(environment.WindowsPowerShellPath)
-                .Add(Path.Combine(root, "site-hygiene", "start-sitehygiene.ps1"));
-            using var provider = LiveViewServices(files, environment, starter);
-            var settings = provider.GetRequiredService<SettingsService>();
-            var saved = settings.Load();
-            saved.SiteCode = "LAB";
-            saved.ProviderMachine = "cm01.lab.local";
-            settings.SaveOperatorEdit(saved);
-
-            SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
-            var viewModel = provider.GetRequiredService<ApplicationPackagerUI.ViewModels.Pages.SiteHygieneViewModel>();
-            var first = viewModel.OpenLiveViewsCommand.ExecuteAsync(null);
-            StaTestHelper.PumpUntil(() => first.IsCompleted && starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
-            var second = viewModel.OpenLiveViewsCommand.ExecuteAsync(null);
-            StaTestHelper.PumpUntil(() => second.IsCompleted);
-
-            var info = Assert.Single(starter.Started);
-            Assert.Equal(Path.Combine(root, "site-hygiene"), info.WorkingDirectory);
-            Assert.Equal("LAB", info.Environment[SettingsService.LauncherSiteCodeVariable]);
-            Assert.Equal("cm01.lab.local", info.Environment[SettingsService.LauncherProviderVariable]);
-            Assert.Equal(1, starter.Processes[0].FrontRequests);
-        });
-    }
-
-    [Fact]
-    public void TheLiveViewsButtonOnAFreshInstallPassesNoSiteCode()
-    {
-        StaTestHelper.Run(() =>
-        {
-            var saved = (Site: Environment.GetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable),
-                Provider: Environment.GetEnvironmentVariable(SettingsService.LauncherProviderVariable));
-            Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, null);
-            Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, null);
-            try
-            {
-                var files = new FakeSuiteFileSystem();
-                var environment = new FakeSuiteEnvironment();
-                var starter = new FakeToolProcessStarter();
-                var root = Path.Combine(environment.LocalApplicationData, "AppPackagerSuite");
-                files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
-                    .Add(environment.WindowsPowerShellPath)
-                    .Add(Path.Combine(root, "site-hygiene", "start-sitehygiene.ps1"));
-                using var provider = LiveViewServices(files, environment, starter);
-                Assert.False(File.Exists(SettingsService.SettingsPath));
-
-                SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
-                var viewModel = provider.GetRequiredService<ApplicationPackagerUI.ViewModels.Pages.SiteHygieneViewModel>();
-                var run = viewModel.OpenLiveViewsCommand.ExecuteAsync(null);
-                StaTestHelper.PumpUntil(() => run.IsCompleted && starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
-
-                var info = Assert.Single(starter.Started);
-                Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
-                Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
-            }
-            finally
-            {
-                Environment.SetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable, saved.Site);
-                Environment.SetEnvironmentVariable(SettingsService.LauncherProviderVariable, saved.Provider);
-            }
-        });
-    }
-
-    [Fact]
-    public void TheSuiteLauncherIsRegisteredOverTheRealSeams()
-    {
-        using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
-        Assert.Same(provider.GetRequiredService<SuiteToolLauncher>(), provider.GetRequiredService<SuiteToolLauncher>());
-        Assert.IsType<SuiteFileSystem>(provider.GetRequiredService<ISuiteFileSystem>());
-        Assert.IsType<SuiteEnvironment>(provider.GetRequiredService<ISuiteEnvironment>());
-        Assert.IsType<ToolProcessStarter>(provider.GetRequiredService<IToolProcessStarter>());
     }
 }

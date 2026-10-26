@@ -422,6 +422,9 @@ public sealed record HygieneReport(string View, IReadOnlyList<string> Columns, I
     public IReadOnlyList<string> ChecksNotRun { get; init; } = [];
 
     public DateTime? ScannedUtc { get; init; }
+
+    /// <summary>The word before <see cref="ScannedUtc"/> in the header line.</summary>
+    public string TimeLabel { get; init; } = "Scanned";
 }
 
 public interface IHygieneReportWriter

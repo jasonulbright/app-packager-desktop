@@ -94,10 +94,10 @@ public sealed record PairRow(
     /// True when the last status message of the pair is an error. The summarizer keeps State 7 (content
     /// updating) while the site retries a distribution that fails, so the message is what shows the failure.
     /// </summary>
-    public bool HasErrorMessage => MessageState is 3 or 4;
+    public bool HasErrorMessage => DpContentStates.IsErrorMessage(MessageState);
 
     /// <summary>True for Install failed, Removal failed, or another state whose last message is an error.</summary>
-    public bool IsFailed => DpContentStates.IsFailed(State) || HasErrorMessage;
+    public bool IsFailed => DpContentStates.PairFailed(State, MessageState);
 
     /// <summary>
     /// The state as the page shows it: "Failed (content updating)" when the last message is an error
@@ -114,7 +114,7 @@ public sealed record PairRow(
     }
 
     /// <summary>True for a state in progress whose last message is not an error.</summary>
-    public bool IsInProgress => DpContentStates.IsInProgress(State) && !HasErrorMessage;
+    public bool IsInProgress => DpContentStates.PairInProgress(State, MessageState);
 }
 
 /// <summary>
@@ -275,6 +275,18 @@ public static class DpContentStates
     public static bool IsFailed(int state) => state is InstallFailed or RemovalFailed;
     public static bool IsInProgress(int state) => state is InstallPending or InstallRetrying or RemovalPending or RemovalRetrying or ContentUpdating;
     public static bool IsIssue(int state) => !IsOk(state);
+
+    /// <summary>True when the last distribution status message of a pair is an error (MessageState 3 or 4).</summary>
+    public static bool IsErrorMessage(int? messageState) => messageState is 3 or 4;
+
+    /// <summary>
+    /// The failed rule of a pair: a failed summarizer state, or a last status message that is an error. The
+    /// summarizer keeps State 7 (content updating) while the site retries a distribution that fails.
+    /// </summary>
+    public static bool PairFailed(int state, int? messageState) => IsFailed(state) || IsErrorMessage(messageState);
+
+    /// <summary>A state in progress whose last status message is not an error.</summary>
+    public static bool PairInProgress(int state, int? messageState) => IsInProgress(state) && !IsErrorMessage(messageState);
 }
 
 /// <summary>The status of a rollup: Empty with no rows, Failed with a failed row, InProgress with a row in progress, Healthy otherwise.</summary>

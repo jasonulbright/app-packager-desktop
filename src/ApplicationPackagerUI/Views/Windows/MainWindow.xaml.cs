@@ -58,24 +58,6 @@ public partial class MainWindow : IDialogHostWindow
             ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(6));
     }
 
-    /// <summary>Starts a suite tool with the saved site code and provider, or brings its running window to the front.</summary>
-    public async void OpenSuiteTool(SuiteTool tool)
-    {
-        var settings = _serviceProvider.GetRequiredService<SettingsService>();
-        var result = await _serviceProvider.GetRequiredService<SuiteToolLauncher>().LaunchAsync(tool, settings.Load);
-        switch (result.Outcome)
-        {
-            case SuiteToolLaunchOutcome.Failed:
-                _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} could not start.",
-                    ControlAppearance.Caution, new SymbolIcon(SymbolRegular.Warning24), TimeSpan.FromSeconds(10));
-                break;
-            case SuiteToolLaunchOutcome.StillStarting:
-                _snackbarService.Show(tool.Title, result.Message ?? $"{tool.Title} is still starting.",
-                    ControlAppearance.Info, new SymbolIcon(SymbolRegular.Info24), TimeSpan.FromSeconds(6));
-                break;
-        }
-    }
-
     public void OpenWorkbenchForGridSelection()
     {
         var selected = _serviceProvider.GetRequiredService<Views.Pages.PackagesPage>().SelectedPackager;
@@ -116,6 +98,7 @@ public partial class MainWindow : IDialogHostWindow
         {
             _serviceProvider.GetRequiredService<ViewModels.Pages.PackagesViewModel>().StopDiscovery();
             _serviceProvider.GetService<ViewModels.Pages.PivotsScriptsViewModel>()?.OnAppClosing();
+            _serviceProvider.GetService<ViewModels.Pages.SiteHygieneViewModel>()?.OnAppClosing();
             var s = settingsService.Load();
             s.WindowMaximized = WindowState == WindowState.Maximized;
             if (WindowState == WindowState.Normal)
