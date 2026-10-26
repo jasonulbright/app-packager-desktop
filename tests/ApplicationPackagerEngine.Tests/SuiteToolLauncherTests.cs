@@ -911,18 +911,28 @@ public sealed class SuiteToolRegistryTests
     }
 
     [Fact]
-    public void EveryOtherToolEntryIsAMovableToolWithAnAction()
+    public void TheSiteHygieneEntryIsAMovablePageWithTheSavedIdIconAndPlaceOfTheTool()
     {
-        var tools = SidebarRegistry.CreateDefault().Items.Skip(11).ToList();
-        Assert.Single(tools);
-        foreach (var item in tools)
-        {
-            Assert.Equal(SidebarItemKind.Tool, item.Kind);
-            Assert.False(item.IsPinned);
-            Assert.NotNull(item.Activate);
-            Assert.Null(item.PageType);
-        }
-        Assert.Equal(SuiteTools.All.Select(t => t.Id), tools.Select(t => t.Id));
+        var registry = SidebarRegistry.CreateDefault();
+        var item = registry.Find("site-hygiene")!;
+        Assert.Equal(SidebarIds.SiteHygiene, item.Id);
+        Assert.Equal("Site Hygiene", item.Title);
+        Assert.Equal(SidebarItemKind.Page, item.Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), item.PageType);
+        Assert.Null(item.Activate);
+        Assert.False(item.IsPinned);
+        Assert.Equal("Broom24", item.Symbol);
+        Assert.Equal(11, registry.Items.ToList().IndexOf(item));
+    }
+
+    [Fact]
+    public void NoSidebarEntryIsAToolAndTheLauncherKeepsTheSiteHygieneToolForTheLiveViews()
+    {
+        var registry = SidebarRegistry.CreateDefault();
+        Assert.DoesNotContain(registry.Items, i => i.Kind == SidebarItemKind.Tool);
+        Assert.Equal(12, registry.Items.Count);
+        Assert.Same(SuiteTools.SiteHygiene, Assert.Single(SuiteTools.All));
+        Assert.Equal(("site-hygiene", "start-sitehygiene.ps1"), (SuiteTools.SiteHygiene.Folder, SuiteTools.SiteHygiene.EntryScript));
     }
 
     [Fact]

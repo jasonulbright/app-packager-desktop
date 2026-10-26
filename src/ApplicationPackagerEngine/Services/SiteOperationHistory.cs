@@ -12,7 +12,10 @@ public enum SiteOperationOutcome
     Succeeded,
     PartlySucceeded,
     Failed,
-    Cancelled
+    Cancelled,
+
+    /// <summary>Nothing was changed and nothing failed: every object was skipped, for example because its finding no longer held.</summary>
+    Skipped
 }
 
 /// <summary>

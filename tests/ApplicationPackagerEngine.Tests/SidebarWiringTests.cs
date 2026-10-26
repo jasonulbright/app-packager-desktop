@@ -46,7 +46,7 @@ public sealed class SidebarWiringTests : IDisposable
                      typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), typeof(ApplicationPackagerUI.Views.Pages.MaintenanceWindowsPage),
                      typeof(ApplicationPackagerUI.Views.Pages.CollectionCompliancePage), typeof(ApplicationPackagerUI.Views.Pages.InstallerAnalysisPage),
                      typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage),
-                     typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage) })
+                     typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage) })
             services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });
     }
 
@@ -243,7 +243,8 @@ public sealed class SidebarWiringTests : IDisposable
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DeploymentHelperPage), items[4].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DpContentManagerPage), items[5].TargetPageType);
             Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.PivotsScriptsPage), items[6].TargetPageType);
-            Assert.All(items.Skip(7), i => Assert.Null(i.TargetPageType));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), items[7].TargetPageType);
+            Assert.Equal(8, items.Count);
             Assert.Equal(8, items.Select(i => ((Wpf.Ui.Controls.SymbolIcon)i.Icon!).Symbol).Distinct().Count());
 
             var dp = items.Single(i => (string)i.Content == "DP Content Manager");
@@ -508,7 +509,62 @@ public sealed class SidebarWiringTests : IDisposable
     }
 
     [Fact]
-    public void AToolEntryClickRunsTheSuiteLauncherWithTheDesktopSiteValues()
+    public void TheSiteHygieneEntryOpensItsPageAndStartsNoTool()
+    {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            var starter = new FakeToolProcessStarter();
+            using var provider = MainWindowServices(s =>
+            {
+                AddPlainPages(s);
+                s.AddSingleton<IToolProcessStarter>(starter);
+            });
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var item = navigation.MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
+
+            typeof(Wpf.Ui.Controls.NavigationViewItem).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(item, null);
+
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), ShownPage(navigation));
+            Assert.True(item.IsActive);
+            Assert.Empty(starter.Started);
+        });
+    }
+
+    [Fact]
+    public void ASavedLayoutWithTheSiteHygieneEntryMovedAndHiddenKeepsItsPlaceAsAPage()
+    {
+        WriteSettings("""
+            { "FirstRunCompleted": true,
+              "Sidebar": { "Order": ["packages", "site-hygiene", "applications"], "Hidden": ["site-hygiene"] } }
+            """);
+        using var provider = new ServiceCollection().AddPackagerServices().AddSidebar().BuildServiceProvider();
+        var service = provider.GetRequiredService<SidebarService>();
+        Assert.Equal([SidebarIds.Packages, SidebarIds.SiteHygiene, SidebarIds.Applications], SidebarFixtures.Ids(service.All).Take(3));
+        Assert.True(service.IsHidden(SidebarIds.SiteHygiene));
+        Assert.True(service.Show(SidebarIds.SiteHygiene));
+        Assert.Equal(ApplicationPackagerUI.Models.SidebarItemKind.Page, service.Items[1].Kind);
+        Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.SiteHygienePage), service.Items[1].PageType);
+        Assert.DoesNotContain(service.All, i => i.Kind == ApplicationPackagerUI.Models.SidebarItemKind.Tool);
+    }
+
+    private static ServiceProvider LiveViewServices(FakeSuiteFileSystem files, FakeSuiteEnvironment environment, FakeToolProcessStarter starter)
+    {
+        var services = new ServiceCollection().AddPackagerServices().AddSidebar();
+        services.AddSingleton<Wpf.Ui.IContentDialogService, Wpf.Ui.ContentDialogService>();
+        services.AddSingleton<IChangePlanDialogs, ChangePlanDialogs>();
+        services.AddSiteHygienePage();
+        services.AddSingleton<ISuiteFileSystem>(files);
+        services.AddSingleton<ISuiteEnvironment>(environment);
+        services.AddSingleton<IToolProcessStarter>(starter);
+        return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public void TheLiveViewsButtonRunsTheSuiteLauncherWithTheDesktopSiteValuesAndAClickWhileItRunsBringsItToTheFront()
     {
         StaTestHelper.Run(() =>
         {
@@ -519,12 +575,7 @@ public sealed class SidebarWiringTests : IDisposable
             files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
                 .Add(environment.WindowsPowerShellPath)
                 .Add(Path.Combine(root, "site-hygiene", "start-sitehygiene.ps1"));
-            using var provider = MainWindowServices(s =>
-            {
-                s.AddSingleton<ISuiteFileSystem>(files);
-                s.AddSingleton<ISuiteEnvironment>(environment);
-                s.AddSingleton<IToolProcessStarter>(starter);
-            });
+            using var provider = LiveViewServices(files, environment, starter);
             var settings = provider.GetRequiredService<SettingsService>();
             var saved = settings.Load();
             saved.SiteCode = "LAB";
@@ -532,23 +583,22 @@ public sealed class SidebarWiringTests : IDisposable
             settings.SaveOperatorEdit(saved);
 
             SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
-            var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
-            var item = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
-            item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
-            StaTestHelper.PumpUntil(() => starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
-            item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
+            var viewModel = provider.GetRequiredService<ApplicationPackagerUI.ViewModels.Pages.SiteHygieneViewModel>();
+            var first = viewModel.OpenLiveViewsCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => first.IsCompleted && starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
+            var second = viewModel.OpenLiveViewsCommand.ExecuteAsync(null);
+            StaTestHelper.PumpUntil(() => second.IsCompleted);
 
             var info = Assert.Single(starter.Started);
             Assert.Equal(Path.Combine(root, "site-hygiene"), info.WorkingDirectory);
             Assert.Equal("LAB", info.Environment[SettingsService.LauncherSiteCodeVariable]);
             Assert.Equal("cm01.lab.local", info.Environment[SettingsService.LauncherProviderVariable]);
             Assert.Equal(1, starter.Processes[0].FrontRequests);
-            window.Close();
         });
     }
 
     [Fact]
-    public void AToolEntryClickOnAFreshInstallPassesNoSiteCode()
+    public void TheLiveViewsButtonOnAFreshInstallPassesNoSiteCode()
     {
         StaTestHelper.Run(() =>
         {
@@ -565,24 +615,17 @@ public sealed class SidebarWiringTests : IDisposable
                 files.Add(Path.Combine(root, "app-packager-suite", "start-suite.ps1"))
                     .Add(environment.WindowsPowerShellPath)
                     .Add(Path.Combine(root, "site-hygiene", "start-sitehygiene.ps1"));
-                using var provider = MainWindowServices(s =>
-                {
-                    s.AddSingleton<ISuiteFileSystem>(files);
-                    s.AddSingleton<ISuiteEnvironment>(environment);
-                    s.AddSingleton<IToolProcessStarter>(starter);
-                });
+                using var provider = LiveViewServices(files, environment, starter);
                 Assert.False(File.Exists(SettingsService.SettingsPath));
 
                 SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
-                var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
-                var item = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
-                item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
-                StaTestHelper.PumpUntil(() => starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
+                var viewModel = provider.GetRequiredService<ApplicationPackagerUI.ViewModels.Pages.SiteHygieneViewModel>();
+                var run = viewModel.OpenLiveViewsCommand.ExecuteAsync(null);
+                StaTestHelper.PumpUntil(() => run.IsCompleted && starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
 
                 var info = Assert.Single(starter.Started);
                 Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
                 Assert.False(info.Environment.ContainsKey(SettingsService.LauncherProviderVariable));
-                window.Close();
             }
             finally
             {
