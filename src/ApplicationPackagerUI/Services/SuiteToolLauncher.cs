@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using ApplicationPackagerEngine.Services.Logging;
 using Microsoft.Win32;
 
 namespace ApplicationPackagerUI.Services;
@@ -15,7 +16,6 @@ public static class SuiteTools
 {
     public static IReadOnlyList<SuiteTool> All { get; } =
     [
-        new("detection-tester", "Detection Tester", "detection-tester", "start-detectiontester.ps1", "Beaker24"),
         new("maintenance-windows", "Maintenance Windows", "maintenance-window-manager", "start-maintenancewindowmgr.ps1", "CalendarClock24"),
         new("collection-and-compliance", "Collection and Compliance", "collection-and-compliance-manager", "start-ccm.ps1", "ShieldCheckmark24"),
         new("installer-analysis", "Installer Analysis", "installer-analysis", "start-installeranalysis.ps1", "BoxSearch24"),
@@ -138,13 +138,18 @@ public sealed class SuiteToolLauncher
     private readonly ISuiteFileSystem _files;
     private readonly ISuiteEnvironment _environment;
     private readonly IToolProcessStarter _starter;
+    private const string LogArea = "Suite tools";
+
     private readonly Dictionary<string, IToolProcess> _running = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _pending = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
 
     private readonly SuiteToolLaunchTiming _timing;
+    private readonly IAppLog _log;
 
-    public SuiteToolLauncher(ISuiteFileSystem files, ISuiteEnvironment environment, IToolProcessStarter starter, SuiteToolLaunchTiming? timing = null)
+    public SuiteToolLauncher(ISuiteFileSystem files, ISuiteEnvironment environment, IToolProcessStarter starter, IAppLog log, SuiteToolLaunchTiming? timing = null)
     {
+        _log = log;
         _files = files;
         _environment = environment;
         _starter = starter;
@@ -214,52 +219,94 @@ public sealed class SuiteToolLauncher
     /// is the default, not a site, so the tool gets the one the suite launcher gave the
     /// desktop, or none.
     /// </summary>
-    public Task<SuiteToolLaunchResult> LaunchAsync(SuiteTool tool, Models.AppSettings settings)
-    {
-        var siteCode = settings.SiteCodeSaved == true
-            ? settings.SiteCode
-            : Environment.GetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable);
-        return LaunchAsync(tool, siteCode, settings.ProviderMachine);
-    }
+    public Task<SuiteToolLaunchResult> LaunchAsync(SuiteTool tool, Models.AppSettings settings) => LaunchAsync(tool, () => settings);
+
+    /// <summary>
+    /// As <see cref="LaunchAsync(SuiteTool, Models.AppSettings)"/>, with the settings read on a
+    /// worker thread together with the path lookup.
+    /// </summary>
+    public Task<SuiteToolLaunchResult> LaunchAsync(SuiteTool tool, Func<Models.AppSettings> loadSettings) =>
+        LaunchCoreAsync(tool, () =>
+        {
+            var settings = loadSettings();
+            var siteCode = settings.SiteCodeSaved == true
+                ? settings.SiteCode
+                : Environment.GetEnvironmentVariable(SettingsService.LauncherSiteCodeVariable);
+            return (siteCode, settings.ProviderMachine);
+        });
 
     /// <summary>
     /// Starts the tool, or brings its running window to the front. A new process is watched
     /// for <see cref="SuiteToolLaunchTiming.StartWatch"/>: a non-zero exit in that time is a
     /// failure. A running tool with no window yet is retried before it counts as still starting.
     /// </summary>
-    public async Task<SuiteToolLaunchResult> LaunchAsync(SuiteTool tool, string? siteCode, string? provider)
+    public Task<SuiteToolLaunchResult> LaunchAsync(SuiteTool tool, string? siteCode, string? provider) =>
+        LaunchCoreAsync(tool, () => (siteCode, provider));
+
+    /// <summary>
+    /// The path lookup probes files that can sit on an unreachable share, so it runs on a
+    /// worker thread. The pending marker is set before the first await and cleared only after
+    /// the started process is recorded, so a second launch in between starts nothing.
+    /// </summary>
+    private async Task<SuiteToolLaunchResult> LaunchCoreAsync(SuiteTool tool, Func<(string? SiteCode, string? Provider)> siteValues)
     {
         IToolProcess? running;
-        lock (_gate) running = Running(tool);
-        if (running is not null) return await BringToFrontAsync(tool, running).ConfigureAwait(true);
-
-        IToolProcess started;
         lock (_gate)
         {
-            var resolution = Resolve(tool);
-            if (resolution.Location is not { } location)
-                return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, resolution.Message);
-
-            var powerShell = _environment.WindowsPowerShellPath;
-            if (!_files.FileExists(powerShell))
-                return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} needs Windows PowerShell 5.1, which was not found at {powerShell}.");
-
-            try
-            {
-                started = _starter.Start(BuildStartInfo(location, siteCode, provider));
-                _running[tool.Id] = started;
-            }
-            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
-            {
-                return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} could not start: {ex.Message}");
-            }
+            running = Running(tool);
+            if (running is null && !_pending.Add(tool.Id)) return StillStarting(tool);
         }
+        if (running is not null) return await BringToFrontAsync(tool, running).ConfigureAwait(true);
+
+        (IToolProcess? Process, SuiteToolLaunchResult? Failure) start;
+        try
+        {
+            start = await Task.Run(() => Start(tool, siteValues)).ConfigureAwait(true);
+        }
+        finally
+        {
+            lock (_gate) _pending.Remove(tool.Id);
+        }
+        if (start.Process is not { } started) return start.Failure!;
 
         var exitCode = await started.WaitForExitAsync(_timing.StartWatch).ConfigureAwait(true);
-        if (exitCode is null or 0) return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Started);
-        lock (_gate) _ = Running(tool);
-        return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} stopped right after it started (exit code {exitCode}).");
+        if (exitCode is null) return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Started);
+        lock (_gate)
+        {
+            if (_running.TryGetValue(tool.Id, out var tracked) && ReferenceEquals(tracked, started)) _running.Remove(tool.Id);
+        }
+        (started as IDisposable)?.Dispose();
+        return exitCode == 0
+            ? new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Started)
+            : new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} stopped right after it started (exit code {exitCode}).");
     }
+
+    private (IToolProcess? Process, SuiteToolLaunchResult? Failure) Start(SuiteTool tool, Func<(string? SiteCode, string? Provider)> siteValues)
+    {
+        var (siteCode, provider) = siteValues();
+        var resolution = Resolve(tool);
+        if (resolution.Location is not { } location)
+            return (null, new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, resolution.Message));
+
+        var powerShell = _environment.WindowsPowerShellPath;
+        if (!_files.FileExists(powerShell))
+            return (null, new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} needs Windows PowerShell 5.1, which was not found at {powerShell}."));
+
+        try
+        {
+            var started = _starter.Start(BuildStartInfo(location, siteCode, provider));
+            lock (_gate) _running[tool.Id] = started;
+            return (started, null);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            _log.Error(LogArea, $"{tool.Title} could not be started: {SecretMask.Apply(ex.ToString())}");
+            return (null, new SuiteToolLaunchResult(SuiteToolLaunchOutcome.Failed, $"{tool.Title} could not be started. The log has the details."));
+        }
+    }
+
+    private static SuiteToolLaunchResult StillStarting(SuiteTool tool) =>
+        new(SuiteToolLaunchOutcome.StillStarting, $"{tool.Title} is still starting. Its window is not open yet.");
 
     private async Task<SuiteToolLaunchResult> BringToFrontAsync(SuiteTool tool, IToolProcess process)
     {
@@ -269,7 +316,7 @@ public sealed class SuiteToolLauncher
             if (attempt >= _timing.FrontAttempts) break;
             await _timing.Delay(_timing.FrontRetryInterval).ConfigureAwait(true);
         }
-        return new SuiteToolLaunchResult(SuiteToolLaunchOutcome.StillStarting, $"{tool.Title} is still starting. Its window is not open yet.");
+        return StillStarting(tool);
     }
 
     /// <summary>The process id of the tool started from here while it runs; null once it exits.</summary>

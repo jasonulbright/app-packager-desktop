@@ -101,11 +101,13 @@ public static class SharedDownloadCache
     /// a holder with no progress for <paramref name="stallWait"/> fails the stage. Each
     /// failure names the entry.
     /// </summary>
-    internal static async Task<FileStream> AcquireEntryLockAsync(string cached, CancellationToken ct, TimeSpan? stallWait = null)
+    internal static async Task<FileStream> AcquireEntryLockAsync(string cached, CancellationToken ct, TimeSpan? stallWait = null,
+        TimeProvider? clock = null)
     {
         var lockPath = cached + ".lock";
         var limit = stallWait ?? EntryLockStallWait;
-        var sinceProgress = System.Diagnostics.Stopwatch.StartNew();
+        clock ??= TimeProvider.System;
+        var progressSince = clock.GetTimestamp();
         var progress = ProgressMark(cached);
         var denied = 0;
         while (true)
@@ -121,9 +123,9 @@ public static class SharedDownloadCache
                 if (mark != progress)
                 {
                     progress = mark;
-                    sinceProgress.Restart();
+                    progressSince = clock.GetTimestamp();
                 }
-                else if (sinceProgress.Elapsed >= limit)
+                else if (clock.GetElapsedTime(progressSince) >= limit)
                     throw new InvalidOperationException(
                         $"The shared download cache entry {cached} stayed locked by another stage with no download progress for {Describe(limit)}; this stage stopped waiting.", ex);
                 await Task.Delay(100, ct);

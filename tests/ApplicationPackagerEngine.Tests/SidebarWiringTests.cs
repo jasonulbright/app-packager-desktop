@@ -42,7 +42,8 @@ public sealed class SidebarWiringTests : IDisposable
     private static void AddPlainPages(IServiceCollection services)
     {
         foreach (var type in new[] { typeof(ApplicationPackagerUI.Views.Pages.PackagesPage), typeof(ApplicationPackagerUI.Views.Pages.ApplicationsPage),
-                     typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage) })
+                     typeof(ApplicationPackagerUI.Views.Pages.AddAppPage), typeof(ApplicationPackagerUI.Views.Pages.SettingsPage),
+                     typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage) })
             services.AddSingleton(type, _ => new System.Windows.Controls.Page { Tag = type });
     }
 
@@ -232,7 +233,8 @@ public sealed class SidebarWiringTests : IDisposable
             Assert.Equal(ToolTitles, Titles(window).Skip(4));
 
             var items = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Skip(4).ToList();
-            Assert.All(items, i => Assert.Null(i.TargetPageType));
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), items[0].TargetPageType);
+            Assert.All(items.Skip(1), i => Assert.Null(i.TargetPageType));
             Assert.Equal(8, items.Select(i => ((Wpf.Ui.Controls.SymbolIcon)i.Icon!).Symbol).Distinct().Count());
 
             var dp = items.Single(i => (string)i.Content == "DP Content Manager");
@@ -248,6 +250,32 @@ public sealed class SidebarWiringTests : IDisposable
             entry.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.MenuItem.ClickEvent, entry));
             Assert.Equal(["Packages", "Applications", "Add App", "Application Workbench", .. ToolTitles], Titles(window));
             window.Close();
+        });
+    }
+
+    [Fact]
+    public void TheDetectionTesterEntryOpensItsPageAndStartsNoTool()
+    {
+        StaTestHelper.Run(() =>
+        {
+            WriteSettings("{ \"FirstRunCompleted\": true }");
+            var starter = new FakeToolProcessStarter();
+            using var provider = MainWindowServices(s =>
+            {
+                AddPlainPages(s);
+                s.AddSingleton<IToolProcessStarter>(starter);
+            });
+            var window = OffScreenMainWindow(provider);
+            ApplicationPackagerUI.Services.ApplicationHostService.ShowMainWindow(window);
+            var navigation = window.GetNavigation();
+            var item = navigation.MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Detection Tester");
+
+            typeof(Wpf.Ui.Controls.NavigationViewItem).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(item, null);
+
+            Assert.Equal(typeof(ApplicationPackagerUI.Views.Pages.DetectionTesterPage), ShownPage(navigation));
+            Assert.True(item.IsActive);
+            Assert.Empty(starter.Started);
         });
     }
 
@@ -275,9 +303,11 @@ public sealed class SidebarWiringTests : IDisposable
             saved.ProviderMachine = "cm01.lab.local";
             settings.SaveOperatorEdit(saved);
 
+            SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
             var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
             var item = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
             item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
+            StaTestHelper.PumpUntil(() => starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
             item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
 
             var info = Assert.Single(starter.Started);
@@ -315,9 +345,11 @@ public sealed class SidebarWiringTests : IDisposable
                 });
                 Assert.False(File.Exists(SettingsService.SettingsPath));
 
+                SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext());
                 var window = provider.GetRequiredService<ApplicationPackagerUI.Views.Windows.MainWindow>();
                 var item = window.GetNavigation().MenuItems.Cast<Wpf.Ui.Controls.NavigationViewItem>().Single(i => (string)i.Content == "Site Hygiene");
                 item.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, item));
+                StaTestHelper.PumpUntil(() => starter.Processes.Count == 1 && starter.Processes[0].ExitWaits.Count == 1);
 
                 var info = Assert.Single(starter.Started);
                 Assert.False(info.Environment.ContainsKey(SettingsService.LauncherSiteCodeVariable));
