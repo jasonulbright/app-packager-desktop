@@ -19,6 +19,7 @@ internal sealed class FakeRingService : IRingService
 
     public List<RingPlan> Plans { get; } = [];
     public string? PlanMessage { get; set; }
+    public bool PlanReadFailed { get; set; }
     public List<RingRun> Runs { get; } = [];
     public Dictionary<string, int> Versions { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, List<RingLiveCounts>> Counts { get; } = new(StringComparer.OrdinalIgnoreCase);

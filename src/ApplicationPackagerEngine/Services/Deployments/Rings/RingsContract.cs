@@ -209,6 +209,9 @@ public interface IRingService
 
     string? PlanMessage { get; }
 
+    /// <summary>True when the plans folder could not be listed; individual unreadable plan files do not set this.</summary>
+    bool PlanReadFailed => false;
+
     /// <summary>Validates and writes the plan; refuses a seed name and, without <paramref name="replace"/>, a name that is taken.</summary>
     RingPlan? SavePlan(RingPlan plan, bool replace);
 
