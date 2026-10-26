@@ -47,6 +47,8 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
     /// <summary>Called after a write script made its change; a returned exception is thrown although the change stays made.</summary>
     public Func<Call, Exception?>? AfterWrite { get; set; }
 
+    public bool AnswerAccessDenied { get; set; }
+
     /// <summary>Changes the token ConfigMgr stores, as a clamp would.</summary>
     public Func<string, string>? Store { get; set; }
 
@@ -120,8 +122,8 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
         Kind = "Window", w.CollectionId, w.Name, ServiceWindowId = w.Id, w.Type, w.Enabled, w.Schedules, w.Description
     };
 
-    private static object Result(string status, Window? window = null, string detail = "") =>
-        new { Kind = "Result", Status = status, Detail = detail, Window = window is null ? null : Row(window) };
+    private static object Result(string status, Window? window = null, string detail = "", bool accessDenied = false) =>
+        new { Kind = "Result", Status = status, Detail = detail, Window = window is null ? null : Row(window), AccessDenied = accessDenied };
 
     private static bool SameName(Window w, string name) => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase);
 
@@ -151,7 +153,7 @@ internal sealed class FakeMaintenanceSession : IConfigMgrSession
             return Result("description-unsupported", current);
         if (operation == "Check") return Result("ok", current);
 
-        if (Answer?.Invoke(call) is { } answer) return Result(answer.Status, null, answer.Detail);
+        if (Answer?.Invoke(call) is { } answer) return Result(answer.Status, null, answer.Detail, accessDenied: AnswerAccessDenied);
 
         var description = S(p.GetValueOrDefault("Description"));
         switch (operation)
