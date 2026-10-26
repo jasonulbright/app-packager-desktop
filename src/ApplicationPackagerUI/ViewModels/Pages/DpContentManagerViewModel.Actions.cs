@@ -216,11 +216,11 @@ public sealed partial class DpContentManagerViewModel
             if (outcome.Result?.Stop == ChangePlanStop.Detached)
             {
                 detached = true;
-                _ = WaitForBackgroundRunAsync(plan, isUndo);
+                _ = WaitForBackgroundRunAsync(plan, isUndo, isUndo ? request : null);
                 if (generation == Generation) StatusMessage = BackgroundRunText;
                 return;
             }
-            ran = ShowOutcome(plan, outcome, isUndo);
+            ran = ShowOutcome(plan, outcome, isUndo, isUndo ? request : null);
         }
         finally
         {
@@ -230,7 +230,7 @@ public sealed partial class DpContentManagerViewModel
     }
 
     /// <summary>Keeps every write blocked until the run that a closed plan window left working ends; its Undo stays and the lists are read again.</summary>
-    private async Task WaitForBackgroundRunAsync(DpContentPlan plan, bool isUndo)
+    private async Task WaitForBackgroundRunAsync(DpContentPlan plan, bool isUndo, DpContentChange? undoRequest)
     {
         _background = true;
         try { await Services.Writer.Running; }
@@ -240,7 +240,7 @@ public sealed partial class DpContentManagerViewModel
         }
         finally
         {
-            KeepUndo(plan, isUndo);
+            KeepUndo(plan, isUndo, undoRequest);
             if (_active) StatusMessage = BackgroundRunEndedText;
             else if (LastUndo is { } undo && !HasResults) ResultSummary = UndoText(undo);
             _background = false;
@@ -254,7 +254,7 @@ public sealed partial class DpContentManagerViewModel
     /// an Undo (another kind, or a removal that removed nothing installed) keeps it; an Undo run keeps
     /// every pair that did not end Requested or Confirmed.
     /// </summary>
-    private void KeepUndo(DpContentPlan plan, bool isUndo)
+    private void KeepUndo(DpContentPlan plan, bool isUndo, DpContentChange? undoRequest = null)
     {
         if (!isUndo)
         {
@@ -264,11 +264,12 @@ public sealed partial class DpContentManagerViewModel
         // Unchanged means the site shows no sign of the distribution, so the pair stays in the Undo.
         var done = new HashSet<string>(plan.Outcomes.SelectMany(o => o.Pairs).Where(p => p.Result is DpContentWriter.Requested or DpContentWriter.Confirmed)
             .Select(p => DpContentLabels.Key(p.Pair)), StringComparer.Ordinal);
-        var left = plan.Change.Pairs.Where(p => !done.Contains(DpContentLabels.Key(p))).ToList();
-        LastUndo = left.Count == 0 ? null : plan.Change with { Pairs = left, RemovalConfirmed = false, LastCopyAcknowledged = false, Impact = [], Checks = [], Fingerprint = null };
+        var source = undoRequest ?? plan.Change;
+        var left = source.Pairs.Where(p => !done.Contains(DpContentLabels.Key(p))).ToList();
+        LastUndo = left.Count == 0 ? null : source with { Pairs = left, RemovalConfirmed = false, LastCopyAcknowledged = false, Impact = [], Checks = [], Fingerprint = null };
     }
 
-    private bool ShowOutcome(DpContentPlan plan, ChangePlanOutcome outcome, bool isUndo)
+    private bool ShowOutcome(DpContentPlan plan, ChangePlanOutcome outcome, bool isUndo, DpContentChange? undoRequest)
     {
         if (!outcome.Confirmed || outcome.Result is not { } result)
         {
@@ -278,7 +279,7 @@ public sealed partial class DpContentManagerViewModel
         LastResults.Clear();
         foreach (var row in result.Items) LastResults.Add(row);
         NotifyResults();
-        KeepUndo(plan, isUndo);
+        KeepUndo(plan, isUndo, undoRequest);
         ResultSummary = $"{plan.Plan.Title}: {result.Summary}";
         StatusMessage = ResultSummary;
         return true;
