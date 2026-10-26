@@ -128,6 +128,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     {
         var plans = Services.Rings.ListPlans();
         var planNote = Services.Rings.PlanMessage;
+        var planReadFailed = Services.Rings.PlanReadFailed;
         var showClosed = ShowClosedRuns;
         var runsRead = BeginTabRunsRead();
         var runs = await ReadRunsAsync(showClosed, ct);
@@ -137,7 +138,7 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         IReadOnlyList<CollectionRow> collections = site ? await Services.Collections.ListCollectionsAsync(ct) : [];
         return () =>
         {
-            ShowPlans(plans, planNote);
+            ShowPlans(plans, planNote, planReadFailed);
             _collections = collections;
             OnPropertyChanged(nameof(CollectionList));
             if (runsRead == Volatile.Read(ref _runsGeneration) && showClosed == ShowClosedRuns) ShowRuns(runs, showClosed);
@@ -231,8 +232,13 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
         ObjectCount = Objects.Count == _objects.Count ? DeploymentText.Count(_objects.Count, "object") : $"{Objects.Count} of {DeploymentText.Count(_objects.Count, "object")}";
     }
 
-    private void ShowPlans(IReadOnlyList<RingPlan> plans, string? note)
+    private void ShowPlans(IReadOnlyList<RingPlan> plans, string? note, bool folderReadFailed = false)
     {
+        if (folderReadFailed)
+        {
+            PlanListNote = note is null ? "The ring plans folder could not be read." : SecretMask.Apply(note);
+            return;
+        }
         _plans = plans;
         var selected = SelectedPlan?.Name ?? _planName;
         _refreshedPlan = SelectedPlan?.Plan;
@@ -257,8 +263,8 @@ public sealed partial class DeploymentRingsViewModel : DeploymentTabViewModel
     private async Task ReloadPlansAsync()
     {
         var generation = Shared.Generation;
-        var (plans, note) = await Task.Run(() => (Services.Rings.ListPlans(), Services.Rings.PlanMessage));
-        if (generation == Shared.Generation) ShowPlans(plans, note);
+        var (plans, note, readFailed) = await Task.Run(() => (Services.Rings.ListPlans(), Services.Rings.PlanMessage, Services.Rings.PlanReadFailed));
+        if (generation == Shared.Generation) ShowPlans(plans, note, readFailed);
     }
 
     protected override void ReleaseData()

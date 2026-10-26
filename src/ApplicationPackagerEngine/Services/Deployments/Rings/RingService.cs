@@ -92,6 +92,8 @@ public sealed class RingService : IRingService
 
     public string? PlanMessage => _plans.Message;
 
+    public bool PlanReadFailed => _plans.FolderReadFailed;
+
     public RingPlan? SavePlan(RingPlan plan, bool replace) => _plans.Save(plan, replace);
 
     public RingPlan? SavePlan(RingPlan plan, bool replace, string? expectedFileStamp) => _plans.Save(plan, replace, expectedFileStamp);
