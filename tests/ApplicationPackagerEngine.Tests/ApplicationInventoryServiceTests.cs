@@ -43,6 +43,63 @@ public sealed class ApplicationInventoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void AnOlderDatabaseGetsTheConfigMgrIdentityColumnsAndKeepsItsRecords()
+    {
+        var path = Path.Combine(_folder, "older.db");
+        using (var connection = new SQLiteConnection($"Data Source={path};Version=3;Pooling=False;"))
+        {
+            connection.Open();
+            using var create = connection.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE destination_inventory (packager_uid TEXT NOT NULL, destination TEXT NOT NULL, environment_key TEXT NOT NULL, action TEXT NOT NULL,
+                    application_id TEXT, profile_id TEXT, last_attempt_version TEXT, last_attempt_outcome TEXT NOT NULL, last_attempt_object_id TEXT, last_attempt_at TEXT,
+                    last_success_version TEXT, last_success_object_id TEXT, last_success_at TEXT, last_success_build_id TEXT, last_attempt_detail TEXT,
+                    PRIMARY KEY(packager_uid, destination, environment_key, action));
+                INSERT INTO destination_inventory VALUES('app', 'ConfigMgr', 'MCM|CM01', 'Publish', NULL, NULL, '1.0', 'Succeeded', 'Tool', '2026-10-01T00:00:00.0000000+00:00',
+                    '1.0', 'Tool', '2026-10-01T00:00:00.0000000+00:00', 'b1', NULL);
+                """;
+            create.ExecuteNonQuery();
+        }
+
+        var inventory = new ApplicationInventoryService(path);
+        _ = new ApplicationInventoryService(path);
+
+        var env = new InventoryEnvironmentIdentity("ConfigMgr", "MCM|CM01");
+        var row = Assert.IsType<InventoryDestinationState>(inventory.GetDestinationState("app", env, "Publish"));
+        Assert.Equal("Tool", row.LastSuccessObjectId);
+        Assert.Null(row.ConfigMgrCiId);
+        Assert.Null(row.ConfigMgrModelName);
+        Assert.True(inventory.LinkConfigMgrApplication("app", env, "Publish", "Tool", "16780662", "ScopeId_X/Application_Y"));
+        Assert.False(inventory.LinkConfigMgrApplication("app", env, "Publish", "Tool", "16780665", "ScopeId_X/Application_Z"));
+        Assert.Equal(("16780662", "ScopeId_X/Application_Y"), (inventory.GetDestinationState("app", env, "Publish")!.ConfigMgrCiId, inventory.GetDestinationState("app", env, "Publish")!.ConfigMgrModelName));
+    }
+
+    [Fact]
+    public void APublishRecordsTheCiIdAndARepublishUnderAnotherNameDropsTheOldLink()
+    {
+        var env = new InventoryEnvironmentIdentity("ConfigMgr", "MCM|CM01");
+        var at = DateTimeOffset.Parse("2026-10-04T10:00:00Z");
+        _inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("app", null, env, "Publish", "1.0", InventoryOutcome.Succeeded, "Tool", at, ConfigMgrCiId: "16780662"));
+        _inventory.LinkConfigMgrApplication("app", env, "Publish", "Tool", "16780662", "M1");
+
+        _inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("app", null, env, "Publish", "1.0", InventoryOutcome.Failed, "Tool", at.AddMinutes(1), ConfigMgrCiId: "999"));
+        Assert.Equal(("16780662", "M1"), Pair());
+        _inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("app", null, env, "Publish", "1.1", InventoryOutcome.Succeeded, "Tool", at.AddMinutes(2)));
+        Assert.Equal(("16780662", "M1"), Pair());
+        _inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("app", null, env, "Publish", "1.2", InventoryOutcome.Succeeded, "Tool", at.AddMinutes(3), ConfigMgrCiId: "16780700"));
+        Assert.Equal(("16780700", (string?)null), Pair());
+        _inventory.LinkConfigMgrApplication("app", env, "Publish", "Tool", "16780700", "M1");
+        _inventory.RecordDestinationOutcome(new InventoryDestinationOutcome("app", null, env, "Publish", "2.0", InventoryOutcome.Succeeded, "Tool 2", at.AddMinutes(4)));
+        Assert.Equal(((string?)null, (string?)null), Pair());
+
+        (string?, string?) Pair()
+        {
+            var row = _inventory.GetDestinationState("app", env, "Publish")!;
+            return (row.ConfigMgrCiId, row.ConfigMgrModelName);
+        }
+    }
+
+    [Fact]
     public void LateCompletionsDoNotReplaceNewerFacts()
     {
         var older = DateTimeOffset.Parse("2026-10-04T10:00:00Z");

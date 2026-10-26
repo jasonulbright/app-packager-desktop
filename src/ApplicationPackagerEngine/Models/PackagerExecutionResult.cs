@@ -20,6 +20,10 @@ public sealed class PackagerExecutionResult
     public Inventory.InventoryOutcome? ConfigMgrOutcome { get; init; }
     public string? ConfigMgrObjectId { get; init; }
     public string? ConfigMgrDetail { get; init; }
+
+    /// <summary>The CI_ID and ModelName of the application the ConfigMgr publish read back; null when not known.</summary>
+    public string? ConfigMgrCiId { get; init; }
+    public string? ConfigMgrModelName { get; init; }
     public Inventory.InventoryOutcome? IntuneOutcome { get; init; }
     public string? IntuneObjectId { get; init; }
     public string? IntuneDetail { get; init; }

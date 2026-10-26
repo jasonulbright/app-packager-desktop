@@ -48,9 +48,15 @@ public sealed class PowerShellSessionProcess : IConfigMgrSessionProcess
         _stderrPump = PumpStandardErrorAsync();
     }
 
+    internal const string ScriptPrefix = "ap-cmsession-";
+
+    /// <summary>A host script older than this is left from a process that ended without cleanup; a starting session deletes it.</summary>
+    internal static readonly TimeSpan StaleScriptAge = TimeSpan.FromHours(1);
+
     public static PowerShellSessionProcess Start()
     {
-        var scriptPath = Path.Combine(Path.GetTempPath(), $"ap-cmsession-{Guid.NewGuid():N}.ps1");
+        SweepStaleScripts(Path.GetTempPath(), DateTime.UtcNow);
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"{ScriptPrefix}{Guid.NewGuid():N}.ps1");
         File.WriteAllText(scriptPath, ConfigMgrScripts.Read(ConfigMgrScripts.Host), Utf8);
         var process = new Process { StartInfo = BuildStartInfo(scriptPath) };
         try
@@ -97,6 +103,8 @@ public sealed class PowerShellSessionProcess : IConfigMgrSessionProcess
 
     public int ProcessId => _process.Id;
 
+    internal string ScriptPath => _scriptPath;
+
     public string StandardErrorTail
     {
         get { lock (_stderr) return _stderr.ToString(); }
@@ -108,7 +116,45 @@ public sealed class PowerShellSessionProcess : IConfigMgrSessionProcess
         await _process.StandardInput.FlushAsync().ConfigureAwait(false);
     }
 
-    public Task<string?> ReadLineAsync() => _process.StandardOutput.ReadLineAsync();
+    /// <summary>
+    /// The next output line. The first line shows that powershell.exe has read and runs the host
+    /// script, so the script file is deleted then: an application that ends without disposing
+    /// the session leaves no script in the temporary folder.
+    /// </summary>
+    public async Task<string?> ReadLineAsync()
+    {
+        var line = await _process.StandardOutput.ReadLineAsync().ConfigureAwait(false);
+        if (line is not null && Interlocked.Exchange(ref _scriptDeleted, 1) == 0) DeleteScript(_scriptPath);
+        return line;
+    }
+
+    private int _scriptDeleted;
+
+    private static void DeleteScript(string path)
+    {
+        try { File.Delete(path); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>Deletes host scripts in <paramref name="folder"/> older than <see cref="StaleScriptAge"/>; returns how many.</summary>
+    internal static int SweepStaleScripts(string folder, DateTime utcNow)
+    {
+        var deleted = 0;
+        try
+        {
+            foreach (var file in new DirectoryInfo(folder).EnumerateFiles(ScriptPrefix + "*.ps1"))
+            {
+                if (utcNow - file.LastWriteTimeUtc < StaleScriptAge || file.Attributes.HasFlag(FileAttributes.ReparsePoint)) continue;
+                try
+                {
+                    file.Delete();
+                    deleted++;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+        return deleted;
+    }
 
     public void Kill() => BoundedProcessRunner.Terminate(_process);
 
@@ -118,7 +164,7 @@ public sealed class PowerShellSessionProcess : IConfigMgrSessionProcess
         try { await _stderrPump.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false); }
         catch (Exception) { }
         _process.Dispose();
-        try { File.Delete(_scriptPath); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        DeleteScript(_scriptPath);
     }
 
     private async Task PumpStandardErrorAsync()

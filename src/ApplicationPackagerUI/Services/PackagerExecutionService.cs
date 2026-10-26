@@ -466,6 +466,14 @@ public class PackagerExecutionService(
         }
     }
 
+    /// <summary>
+    /// Records the destination outcomes of a package result as a package run does; a ConfigMgr
+    /// publish links the record to the CI_ID and ModelName the run read back.
+    /// </summary>
+    public void RecordPackageOutcomes(IPackagerExecutionRequest row, RunSnapshot? snapshot, string target,
+        PackagerExecutionResult result, Action<string>? onOutputLine = null) =>
+        PersistPackageOutcomes(row, snapshot, DeploymentTargets.Normalize(target), result, Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow, onOutputLine);
+
     private void PersistPackageOutcomes(IPackagerExecutionRequest row, RunSnapshot? snapshot, string target,
         PackagerExecutionResult result, string operationId, DateTimeOffset at, Action<string>? onOutputLine)
     {
@@ -482,7 +490,7 @@ public class PackagerExecutionService(
                 : result.ExitCode == 0 ? InventoryOutcome.Succeeded : InventoryOutcome.Failed);
             RecordDestination(row, identity, settings, "ConfigMgr", version, status,
                 result.ConfigMgrObjectId ?? (result.Conflict is null ? ObjectId(result.StdOut, "Packaged: ") : result.Conflict.ApplicationName),
-                buildId, operationId, at, result.ConfigMgrDetail ?? result.StdErr, onOutputLine);
+                buildId, operationId, at, result.ConfigMgrDetail ?? result.StdErr, onOutputLine, result.ConfigMgrCiId, result.ConfigMgrModelName);
         }
 
         if (DeploymentTargets.PublishesToIntune(target))
@@ -530,7 +538,7 @@ public class PackagerExecutionService(
 
     private void RecordDestination(IPackagerExecutionRequest row, InventoryApplicationIdentity? identity, AppSettings settings,
         string destination, string version, InventoryOutcome outcome, string? objectId, string? buildId,
-        string operationId, DateTimeOffset at, string? detail, Action<string>? onOutputLine)
+        string operationId, DateTimeOffset at, string? detail, Action<string>? onOutputLine, string? configMgrCiId = null, string? configMgrModelName = null)
     {
         if (inventory is null) return;
         try
@@ -538,7 +546,7 @@ public class PackagerExecutionService(
             var environment = ApplicationInventoryProjection.Environments(settings)
                 .First(item => string.Equals(item.Destination, destination, StringComparison.OrdinalIgnoreCase)).Environment;
             inventory.RecordDestinationOutcome(new InventoryDestinationOutcome(row.Uid, identity, environment, "Publish",
-                version, outcome, objectId, at, buildId, operationId, detail));
+                version, outcome, objectId, at, buildId, operationId, detail, configMgrCiId, configMgrModelName));
         }
         catch (Exception ex)
         {
@@ -589,6 +597,8 @@ public class PackagerExecutionService(
         if (outcomes.All(value => value == InventoryOutcome.Skipped)) return InventoryOutcome.Skipped;
         return InventoryOutcome.Failed;
     }
+
+    private static string? NonBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
@@ -750,6 +760,7 @@ public class PackagerExecutionService(
             var mecmAlreadyExists = false;
             var stdOut = "";
             var stdErr = "";
+            ApplicationPackagerEngine.Services.PackagingResult? mecmResult = null;
 
             // Operator selections resolve before any target runs: a variant split rewrites
             // the manifest into gated deployment types, a plain selection stays flat rules
@@ -804,6 +815,7 @@ public class PackagerExecutionService(
                     contentScope: ProfileContentScope.ForManifest(manifest),
                     contentOptions: ContentOptions(settings, Report));
 
+                mecmResult = result;
                 mecmSucceeded = result.Success;
                 mecmAlreadyExists = result.AlreadyExists;
                 stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
@@ -848,6 +860,8 @@ public class PackagerExecutionService(
                     : mecmSucceeded ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
                 ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
                 ConfigMgrDetail = stdErr,
+                ConfigMgrCiId = NonBlank(mecmResult?.CiId),
+                ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
                 IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
                 IntuneObjectId = IntuneAppId(notes.PublishNote),
                 IntuneDetail = FirstNonBlank(notes.FailureNote, outcome.StdErr),
@@ -1174,6 +1188,7 @@ public class PackagerExecutionService(
         var mecmAlreadyExists = false;
         var stdOut = "";
         var stdErr = "";
+        PackagingResult? mecmResult = null;
 
         var afterMecm = "";
         if (!DeploymentTargets.SkipsMecm(target))
@@ -1192,6 +1207,7 @@ public class PackagerExecutionService(
                 contentScope: ProfileContentScope.ForManifest(manifest),
                 contentOptions: ContentOptions(settings, Report));
 
+            mecmResult = result;
             mecmSucceeded = result.Success;
             mecmAlreadyExists = result.AlreadyExists;
             stdOut = result.Success ? $"Packaged: {result.ApplicationName}" : "";
@@ -1229,6 +1245,8 @@ public class PackagerExecutionService(
                 : mecmSucceeded ? InventoryOutcome.Succeeded : InventoryOutcome.Failed,
             ConfigMgrObjectId = stdOut.StartsWith("Packaged: ", StringComparison.OrdinalIgnoreCase) ? stdOut[10..].Trim() : null,
             ConfigMgrDetail = stdErr,
+            ConfigMgrCiId = NonBlank(mecmResult?.CiId),
+            ConfigMgrModelName = NonBlank(mecmResult?.ModelName),
             IntuneOutcome = !intuneRequested ? null : IntuneOutcome(notes),
             IntuneObjectId = IntuneAppId(notes.PublishNote),
             IntuneDetail = FirstNonBlank(notes.FailureNote, outcome.StdErr),

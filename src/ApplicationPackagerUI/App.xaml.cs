@@ -74,6 +74,7 @@ public partial class App : Application
                 services.AddMaintenanceWindowsPage();
                 services.AddCollectionCompliancePage();
                 services.AddInstallerAnalysisPage();
+                services.AddDeploymentHelperPage();
 
                 services.AddHostedService<ApplicationHostService>();
             })

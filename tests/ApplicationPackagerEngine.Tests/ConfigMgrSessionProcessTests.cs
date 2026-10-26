@@ -154,6 +154,49 @@ public sealed class ConfigMgrSessionProcessTests
     }
 
     [Fact]
+    public async Task TheHostScriptFileIsGoneOnceTheSessionAnswersAndTheSessionGoesOn()
+    {
+        await using var process = PowerShellSessionProcess.Start();
+        Assert.StartsWith(PowerShellSessionProcess.ScriptPrefix, Path.GetFileName(process.ScriptPath));
+
+        Assert.Equal("one", (await Exchange(process, "s1", Request("s1", "'one'"))).Single().GetProperty("v").GetString());
+
+        Assert.False(File.Exists(process.ScriptPath));
+        Assert.Equal("two", (await Exchange(process, "s2", Request("s2", "'two'"))).Single().GetProperty("v").GetString());
+    }
+
+    [Fact]
+    public void AStartingSessionDeletesHostScriptsLeftByEndedProcessesOnly()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "apkg-cmsweep-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var now = new DateTime(2026, 10, 20, 12, 0, 0, DateTimeKind.Utc);
+            string File(string name, TimeSpan age)
+            {
+                var path = Path.Combine(folder, name);
+                System.IO.File.WriteAllText(path, "x");
+                System.IO.File.SetLastWriteTimeUtc(path, now - age);
+                return path;
+            }
+            var stale = File("ap-cmsession-old.ps1", TimeSpan.FromHours(3));
+            var running = File("ap-cmsession-new.ps1", TimeSpan.FromMinutes(5));
+            var other = File("other-old.ps1", TimeSpan.FromHours(3));
+
+            Assert.Equal(1, PowerShellSessionProcess.SweepStaleScripts(folder, now));
+
+            Assert.False(System.IO.File.Exists(stale));
+            Assert.True(System.IO.File.Exists(running));
+            Assert.True(System.IO.File.Exists(other));
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task KillEndsALongCommandAndTheOutputEnds()
     {
         var process = PowerShellSessionProcess.Start();
