@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using ApplicationPackagerEngine.Services;
 
@@ -6,6 +7,18 @@ namespace ApplicationPackagerEngine.Tests.SiteHygiene;
 /// <summary>The whole scan: every area through the real script and the stub site, compared with the source scan of CM01, and the work it does at scale.</summary>
 public sealed class SiteHygieneScanTests
 {
+    [Fact]
+    public void AReadSetWithFewerRowsThanShownIsFailed()
+    {
+        using var document = JsonDocument.Parse("""[{"Kind":"Rows","Set":"Applications","Rows":[["100"]]},{"Kind":"Set","Set":"Applications","Columns":["CI_ID"],"Shown":2,"Total":2,"State":"Read"}]""");
+        var read = HygieneSiteRead.Parse(document.RootElement.EnumerateArray().ToArray());
+
+        var table = read.Table("Applications");
+        Assert.Equal(HygieneSetStates.Failed, table.State);
+        Assert.Equal("row-count", table.Failure);
+        Assert.Single(table.Rows);
+    }
+
     /// <summary>
     /// The differences from the source scan of CM01, each with its reason: MNT-02 finds the disabled
     /// "Backup SMS Site Server" that the source misses (S-69); APP-04 does not run with the probe off (the

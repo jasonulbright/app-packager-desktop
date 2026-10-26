@@ -169,7 +169,7 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
             ProbeResults = probes,
             ProbeTimeoutSeconds = (int)ProbeTimeout.TotalSeconds
         };
-        var (findings, checks) = HygieneEngine.Run(context, areas, options.ProbeContentSources);
+        var (findings, checks) = HygieneEngine.Run(context, areas, options.ProbeContentSources, _log);
         var cut = data.Tables.Values.Where(t => t.State == HygieneSetStates.Cut).ToList();
         var failed = data.Tables.Values.Where(t => t.State == HygieneSetStates.Failed).ToList();
         var notes = new List<string>();
@@ -324,7 +324,7 @@ public sealed partial class SiteHygieneService : ISiteHygieneService
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
         {
-            _log?.Warning(LogArea, $"ConfigMgr returned Site Hygiene data that could not be read ({ex.GetType().Name}).");
+            _log?.Warning(LogArea, $"ConfigMgr returned Site Hygiene data that could not be read ({ex.GetType().Name}): {ex.Message}");
             throw new HygieneServiceException("ConfigMgr returned data that could not be read. The log has the details.");
         }
     }

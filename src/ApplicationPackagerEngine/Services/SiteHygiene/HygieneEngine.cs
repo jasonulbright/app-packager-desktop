@@ -1,3 +1,5 @@
+using ApplicationPackagerEngine.Services.Logging;
+
 namespace ApplicationPackagerEngine.Services;
 
 /// <summary>Runs the check families over read data and gives each of the 57 check IDs a status.</summary>
@@ -5,7 +7,7 @@ internal static class HygieneEngine
 {
     private static readonly Dictionary<HygieneSeverity, int> Rank = new() { [HygieneSeverity.Error] = 0, [HygieneSeverity.Warning] = 1, [HygieneSeverity.Info] = 2 };
 
-    public static (IReadOnlyList<HygieneFinding> Findings, IReadOnlyList<HygieneCheckStatus> Checks) Run(HygieneContext context, IReadOnlySet<string> areas, bool probeOn)
+    public static (IReadOnlyList<HygieneFinding> Findings, IReadOnlyList<HygieneCheckStatus> Checks) Run(HygieneContext context, IReadOnlySet<string> areas, bool probeOn, IAppLog? log = null)
     {
         var findings = new List<HygieneFinding>();
         var states = new Dictionary<string, (string State, string? Reason)>(StringComparer.OrdinalIgnoreCase);
@@ -36,6 +38,7 @@ internal static class HygieneEngine
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
+                log?.Warning(SiteHygieneService.LogArea, $"The check family {string.Join(", ", family.CheckIds)} failed ({ex.GetType().Name}): {ex.Message}");
                 foreach (var id in family.CheckIds) states[id] = (HygieneCheckStates.Failed, $"The check stopped with an error ({ex.GetType().Name}). Its findings are missing; the failure is a defect worth reporting.");
             }
         }
